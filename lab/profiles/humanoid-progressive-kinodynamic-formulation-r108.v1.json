@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-progressive-kinodynamic-formulation.v1",
+  "status": "FrozenResearchOnly",
+  "claim": "ProgressiveKinodynamicFormulationOnly",
+  "source": {
+    "r107": {
+      "report_sha256": "5a3c26ca731ac2734637a3d9953d84eca15c6553fb97c9da2ed9a12c2f7781fa",
+      "report_file_sha256": "4095dfa6517847c5babfb9fb958e015908fc8c560f4e7c7083f840918b4f9a45",
+      "profile_sha256": "00b826d3aa11f1d1b4df66f99856ba5ed8dd3a08256a662dbfdb8a531c0e4539"
+    },
+    "v9_profile_sha256": "bccf5eb12c8de2e1c0fa20df74c55f30cc9e964e7d5cbfcbf596bb6d672815ab",
+    "descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014"
+  },
+  "scope": {
+    "initial_clip_id": "cmu16-walk-nominal-b",
+    "initial_source_case_ordinal": 7967,
+    "initial_domain": "one complete clip before any all-17 or corpus expansion",
+    "body_count": 24,
+    "joint_count": 23,
+    "actuator_count": 23,
+    "motor_hz": 60,
+    "physics_hz": 240,
+    "stage_execution_in_r108": false
+  },
+  "research_basis": [
+    {
+      "source": "KDMR v2",
+      "url": "https://arxiv.org/html/2603.09956v2",
+      "bounded_claim": "dynamically feasible retargeting jointly varies configuration, velocity, acceleration, actuator torque and scheduled contact force"
+    },
+    {
+      "source": "SPARK",
+      "url": "https://arxiv.org/html/2603.11480",
+      "bounded_claim": "a progressive KTO then inverse-dynamics then full-kinodynamic ladder can warm-start rather than cold-start the coupled solve"
+    },
+    {
+      "source": "MIT trajectory optimization notes",
+      "url": "https://underactuated.mit.edu/trajopt.html",
+      "bounded_claim": "state and input values at time knots can be joint decision variables with dynamics enforced at collocation points"
+    },
+    {
+      "source": "MIT multibody dynamics notes",
+      "url": "https://underactuated.mit.edu/multibody.html",
+      "bounded_claim": "contact force can remain an optimization variable in constrained multibody dynamics"
+    }
+  ],
+  "frozen_invariants": {
+    "controller": "fixed zero-residual PD with zero desired velocity and descriptor gains/caps",
+    "controller_or_gain_changes": "FORBIDDEN",
+    "fresh_scene_authority": "ADR-070",
+    "partial_reset": "REPORT_ONLY",
+    "contact_schedule_changes": "FORBIDDEN",
+    "contact_point_deletion": "FORBIDDEN",
+    "limit_changes": "FORBIDDEN",
+    "grace_or_settling": "FORBIDDEN",
+    "cadence_changes": "FORBIDDEN",
+    "integer_emission": "ties-to-even; exact emitted arrays are the offline gate",
+    "learned_optimization": "FORBIDDEN_UNTIL_TRAIN_4_ADVANCE",
+    "visual_review": "REPORT_ONLY_PENDING"
+  },
+  "objective_priority": [
+    "lexicographic required-safety feasibility with unchanged public limits",
+    "exact contact, collider, ROM and emitted root/joint velocity closure",
+    "rigid-body dynamics, scheduled contact-wrench and fixed-PD effort feasibility",
+    "tracking fidelity to the admitted source motion and passing V7 controls",
+    "smoothness and numerical regularization with no acceptance authority"
+  ],
+  "stage_contracts": {
+    "stage_0_model_identity": {
+      "next_run_id": "R109",
+      "purpose": "bind every offline dynamics quantity and convention to descriptor, native PhysX and derived-USD lineage before implementing equations",
+      "required_inventory": [
+        "24 body masses, centers of mass, full/principal inertias and principal frames",
+        "23 joint parent/child frames, axes, coordinate signs and limits",
+        "23 fixed-PD gains, effort clips, effort slew, target delta, work and power caps",
+        "all colliders, collision exclusions, material/friction and gravity",
+        "60 Hz target hold, 240 Hz state integration and four substeps per motor tick",
+        "root generalized-coordinate convention and contact-wrench frame/order"
+      ],
+      "solver_runs": 0,
+      "output": "hash-bound report only; no generated dynamics model or candidate artifact"
+    },
+    "stage_1_quantization_aware_kto": {
+      "decision_variables": "floating-base q/v/a plus all 23 joint q/v/a at 60 Hz",
+      "initialization": "V9 complete clip; V7 is a tracking/safety prior, never an independently admissible splice",
+      "constraints": [
+        "frozen contact modes with active-point position and velocity closure",
+        "all exact collider boxes, soft ROM and public root/joint velocity limits",
+        "fixed 60 Hz timing and exact hybrid velocity stencil",
+        "ties-to-even emitted integer audit inside every accepted-iterate decision"
+      ],
+      "output": "ephemeral warm start only; no corpus or controller target artifact",
+      "pass_gate": "exact emitted complete clip PASS with nonzero tracking progress; native control regression remains unclaimed until a later fresh-scene discriminator",
+      "failure_gate": "STOP_AND_RESEARCH; no margin, rounding repair or coefficient sweep"
+    },
+    "stage_2_fixed_pd_inverse_dynamics": {
+      "decision_variables": "240 Hz generalized acceleration, 23 actuator efforts and scheduled contact wrenches",
+      "inputs": "stage-1 q/v/a warm start plus hash-bound body/joint/actuator/material/gravity model",
+      "constraints": [
+        "floating-base rigid-body equations and active-contact acceleration closure",
+        "friction/wrench cones and inactive-contact zero wrench",
+        "descriptor effort, effort-rate, target-delta, velocity, power and positive-work limits",
+        "requested versus clipped/applied fixed-PD effort identity at every substep"
+      ],
+      "output": "residual and feasibility report plus ephemeral torque/wrench warm start",
+      "acceptance_authority": false,
+      "failure_disposition": "continue only into the predeclared full kinodynamic coupling; do not relax the model"
+    },
+    "stage_3_full_kinodynamics": {
+      "decision_variables": "240 Hz floating-base state, fixed-PD effort state and scheduled contact wrenches with 60 Hz reference targets",
+      "constraints": [
+        "discrete rigid-body/contact dynamics at every physics substep",
+        "exact four-substep target hold, zero desired velocity, effort clipping and slew",
+        "frozen contact schedule, collision exclusions and all public safety limits",
+        "ties-to-even 60 Hz reference emission and exact offline complete/slice identity"
+      ],
+      "output": "in-memory exact candidate metrics only until a later formulation separately authorizes an artifact",
+      "pass_gate": "exact offline zero plus separately formulated bounded fresh-scene discriminator",
+      "failure_gate": "STOP_AND_RESEARCH; no all-17, corpus admission or training"
+    }
+  },
+  "stage_transitions": {
+    "r108_complete": "PERMIT_R109_DYNAMICS_MODEL_IDENTITY_PREFLIGHT_ONLY",
+    "model_identity_fail": "STOP_INVALID_MODEL_LINEAGE",
+    "model_identity_pass": "PERMIT_SEPARATE_BOUNDED_KTO_EXECUTION_FORMULATION_ONLY",
+    "kto_exact_fail": "STOP_AND_RESEARCH",
+    "kto_exact_pass": "PERMIT_SEPARATE_INVERSE_DYNAMICS_EXECUTION_FORMULATION_ONLY",
+    "inverse_dynamics_complete": "PERMIT_SEPARATE_FULL_KINODYNAMIC_EXECUTION_FORMULATION_ONLY",
+    "kinodynamic_exact_fail": "STOP_AND_RESEARCH",
+    "kinodynamic_exact_pass": "PERMIT_SEPARATE_BOUNDED_FRESH_DISCRIMINATOR_FORMULATION_ONLY"
+  },
+  "decision": {
+    "complete": "PERMIT_R109_DYNAMICS_MODEL_IDENTITY_PREFLIGHT_ONLY"
+  }
+}
