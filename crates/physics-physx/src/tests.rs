@@ -1,5 +1,93 @@
 use super::*;
 
+fn canonical_material(id: &str, dynamic_friction_q16: u32) -> PhysicsMaterialDescriptorV2 {
+    PhysicsMaterialDescriptorV2 {
+        schema_version: next_contracts::physics::PHYSICS_MATERIAL_DESCRIPTOR_V2_SCHEMA_VERSION,
+        base: next_contracts::physics::PhysicsMaterialDescriptorV1 {
+            material_id: next_contracts::ids::SchemaId::new(id).expect("material ID"),
+            descriptor_revision: 1,
+            static_friction_q16: 52_429,
+            dynamic_friction_q16,
+            restitution_q16: 0,
+            canonical_material_tags: Vec::new(),
+        },
+        rolling_friction_q16: 0,
+        spinning_friction_q16: 0,
+        surface_velocity_micrometres_per_second: [0; 3],
+    }
+}
+
+fn canonical_combine() -> PhysicsMaterialCombineProfileV1 {
+    PhysicsMaterialCombineProfileV1 {
+        schema_version: next_contracts::physics::PHYSICS_MATERIAL_COMBINE_PROFILE_V1_SCHEMA_VERSION,
+        profile_id: next_contracts::ids::SchemaId::new(
+            "nextengine.physics-material-combine.humanoid-motor.v1",
+        )
+        .expect("combine ID"),
+        profile_revision: 1,
+        static_friction: PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven,
+        dynamic_friction: PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven,
+        restitution: PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven,
+        rolling_friction: PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven,
+        spinning_friction: PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven,
+        surface_velocity: PhysicsSurfaceVelocityCombineRuleV1::CanonicalParticipantOrder,
+    }
+}
+
+#[test]
+fn shared_material_profile_is_q16_derived_and_fail_closed() {
+    let body = canonical_material("physics-material.humanoid-body.v1", 45_875);
+    let ground = canonical_material("physics-material.humanoid-ground.v1", 45_875);
+    let sole = canonical_material("physics-material.humanoid-sole.v1", 45_875);
+    let materials = BTreeMap::from([
+        (body.base.material_id.clone(), body),
+        (ground.base.material_id.clone(), ground),
+        (sole.base.material_id.clone(), sole),
+    ]);
+    let profile =
+        PhysXSharedMaterialProfileV1::from_material_catalog(&materials, &canonical_combine())
+            .expect("equal zero-extended profile");
+    assert_eq!(profile.material_ids.len(), 3);
+    assert_eq!(profile.static_friction_q16, 52_429);
+    assert_eq!(profile.dynamic_friction_q16, 45_875);
+    assert_eq!(
+        profile.ffi().coefficient_encoding,
+        MATERIAL_COEFFICIENT_ENCODING_Q16
+    );
+
+    let mut unequal = materials.clone();
+    unequal
+        .get_mut(
+            &next_contracts::ids::SchemaId::new("physics-material.humanoid-sole.v1")
+                .expect("sole ID"),
+        )
+        .expect("sole")
+        .base
+        .dynamic_friction_q16 = 45_874;
+    assert_eq!(
+        PhysXSharedMaterialProfileV1::from_material_catalog(&unequal, &canonical_combine()),
+        Err(PhysXAdapterError::UnsupportedProfile)
+    );
+
+    let mut extended = materials.clone();
+    extended
+        .values_mut()
+        .next()
+        .expect("material")
+        .rolling_friction_q16 = 1;
+    assert_eq!(
+        PhysXSharedMaterialProfileV1::from_material_catalog(&extended, &canonical_combine()),
+        Err(PhysXAdapterError::UnsupportedProfile)
+    );
+
+    let mut unsupported_combine = canonical_combine();
+    unsupported_combine.restitution = PhysicsMaterialCombineRuleV1::Maximum;
+    assert_eq!(
+        PhysXSharedMaterialProfileV1::from_material_catalog(&materials, &unsupported_combine),
+        Err(PhysXAdapterError::UnsupportedProfile)
+    );
+}
+
 #[cfg(any(feature = "physx-sdk", feature = "mock-abi"))]
 fn two_link_catalog() -> PhysXArticulationCatalog {
     let zero = 0.0_f32.to_bits();

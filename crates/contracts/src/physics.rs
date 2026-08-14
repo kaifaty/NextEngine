@@ -4,6 +4,7 @@ mod codec;
 mod contact;
 mod descriptors;
 mod error;
+mod material;
 mod primitives;
 mod profiles;
 mod query;
@@ -22,6 +23,11 @@ pub use descriptors::{
     PhysicsBodyDescriptorV1, PhysicsMaterialDescriptorV1, PhysicsShapeDescriptorV1,
 };
 pub use error::PhysicsContractError;
+pub use material::{
+    PHYSICS_MATERIAL_COMBINE_PROFILE_V1_SCHEMA_VERSION,
+    PHYSICS_MATERIAL_DESCRIPTOR_V2_SCHEMA_VERSION, PhysicsMaterialCombineProfileV1,
+    PhysicsMaterialCombineRuleV1, PhysicsMaterialDescriptorV2, PhysicsSurfaceVelocityCombineRuleV1,
+};
 pub use primitives::{
     PhysicsBodyIdV1, PhysicsContactReportingV1, PhysicsGeometryV1, PhysicsMotionKindV1,
     PhysicsParticipationV1, PhysicsPoseV1, PhysicsShapeIdV1,

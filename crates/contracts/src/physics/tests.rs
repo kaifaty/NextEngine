@@ -130,3 +130,63 @@ fn legacy_physics_snapshot_v1_is_rejected_from_header_only() {
         Err(PhysicsContractError::UnsupportedVersion(1))
     );
 }
+
+#[test]
+fn complete_material_and_combine_contracts_round_trip_and_hash_every_field() {
+    let material = PhysicsMaterialDescriptorV2 {
+        schema_version: PHYSICS_MATERIAL_DESCRIPTOR_V2_SCHEMA_VERSION,
+        base: PhysicsMaterialDescriptorV1 {
+            material_id: SchemaId::new("physics-material.humanoid-body.v1").expect("material ID"),
+            descriptor_revision: 1,
+            static_friction_q16: 52_429,
+            dynamic_friction_q16: 45_875,
+            restitution_q16: 0,
+            canonical_material_tags: Vec::new(),
+        },
+        rolling_friction_q16: 0,
+        spinning_friction_q16: 0,
+        surface_velocity_micrometres_per_second: [0; 3],
+    };
+    material.validate().expect("complete material");
+    let bytes = material.canonical_bytes().expect("material bytes");
+    assert_eq!(
+        PhysicsMaterialDescriptorV2::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+            .expect("material round trip"),
+        material
+    );
+    let mut changed = material.clone();
+    changed.spinning_friction_q16 = 1;
+    assert_ne!(
+        material.descriptor_hash().expect("material hash"),
+        changed.descriptor_hash().expect("changed material hash")
+    );
+
+    let combine = PhysicsMaterialCombineProfileV1 {
+        schema_version: PHYSICS_MATERIAL_COMBINE_PROFILE_V1_SCHEMA_VERSION,
+        profile_id: SchemaId::new("nextengine.physics-material-combine.humanoid-motor.v1")
+            .expect("combine ID"),
+        profile_revision: 1,
+        static_friction: PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven,
+        dynamic_friction: PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven,
+        restitution: PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven,
+        rolling_friction: PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven,
+        spinning_friction: PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven,
+        surface_velocity: PhysicsSurfaceVelocityCombineRuleV1::CanonicalParticipantOrder,
+    };
+    combine.validate().expect("combine profile");
+    let bytes = combine.canonical_bytes().expect("combine bytes");
+    assert_eq!(
+        PhysicsMaterialCombineProfileV1::from_canonical_bytes(
+            &bytes,
+            CanonicalDecodeLimits::default()
+        )
+        .expect("combine round trip"),
+        combine
+    );
+    let mut changed = combine.clone();
+    changed.dynamic_friction = PhysicsMaterialCombineRuleV1::Minimum;
+    assert_ne!(
+        combine.profile_hash().expect("combine hash"),
+        changed.profile_hash().expect("changed combine hash")
+    );
+}

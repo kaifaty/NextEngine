@@ -8,8 +8,9 @@ use next_contracts::input::TickRateProfileV1;
 use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PHYSICS_CONTACT_NORMAL_X_FIELD_ID,
     PHYSICS_CONTACT_NORMAL_Y_FIELD_ID, PHYSICS_CONTACT_NORMAL_Z_FIELD_ID,
-    PHYSICS_SWEEP_DISTANCE_FIELD_ID, PhysicsQuantizationProfileV1, PhysicsShapeIdV1,
-    PhysicsWorldCheckpointV1,
+    PHYSICS_SWEEP_DISTANCE_FIELD_ID, PhysicsMaterialCombineProfileV1, PhysicsMaterialCombineRuleV1,
+    PhysicsMaterialDescriptorV2, PhysicsQuantizationProfileV1, PhysicsShapeIdV1,
+    PhysicsSurfaceVelocityCombineRuleV1, PhysicsWorldCheckpointV1,
 };
 use next_physics_api::{
     GroundedCapsuleQuery, GroundedCapsuleStaticBox, GroundedCapsuleSweepRequest,
@@ -20,8 +21,10 @@ use next_physics_api::{
 use next_physics_physx_ffi::{
     ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
     ArticulationLinkInputV2, ArticulationShapeInputV2, CapsuleAxisSweepInput, ContactOutput,
-    ContactOutputV2, JointState, LinkState, NativeWorld, PhysXFfiError, SceneProfileInput,
-    StaticBoxInput,
+    ContactOutputV2, JointState, LinkState, MATERIAL_COEFFICIENT_ENCODING_F32_BITS,
+    MATERIAL_COEFFICIENT_ENCODING_Q16, MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN,
+    MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER, MaterialProfileInput, NativeWorld,
+    PhysXFfiError, SceneProfileInput, StaticBoxInput,
 };
 
 pub type PhysXPhysicsWorld = GroundedCapsuleWorld<PhysXGroundedCapsuleQuery>;
@@ -82,6 +85,100 @@ pub struct PhysXArticulationCatalogV2 {
     pub shapes: Vec<ArticulationShapeInputV2>,
     pub joints: Vec<ArticulationJointInput>,
     pub collision_exclusions: Vec<ArticulationCollisionExclusionV2>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PhysXSharedMaterialProfileV1 {
+    pub material_ids: Vec<next_contracts::ids::SchemaId>,
+    pub static_friction_q16: u32,
+    pub dynamic_friction_q16: u32,
+    pub restitution_q16: u32,
+}
+
+impl PhysXSharedMaterialProfileV1 {
+    pub fn from_material_catalog(
+        materials: &BTreeMap<next_contracts::ids::SchemaId, PhysicsMaterialDescriptorV2>,
+        combine: &PhysicsMaterialCombineProfileV1,
+    ) -> Result<Self, PhysXAdapterError> {
+        combine
+            .validate()
+            .map_err(|_| PhysXAdapterError::UnsupportedProfile)?;
+        if materials.is_empty()
+            || [
+                combine.static_friction,
+                combine.dynamic_friction,
+                combine.restitution,
+                combine.rolling_friction,
+                combine.spinning_friction,
+            ]
+            .into_iter()
+            .any(|rule| rule != PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven)
+            || combine.surface_velocity
+                != PhysicsSurfaceVelocityCombineRuleV1::CanonicalParticipantOrder
+        {
+            return Err(PhysXAdapterError::UnsupportedProfile);
+        }
+        let mut descriptors = materials.iter();
+        let (first_id, first) = descriptors
+            .next()
+            .ok_or(PhysXAdapterError::UnsupportedProfile)?;
+        if first_id != &first.base.material_id {
+            return Err(PhysXAdapterError::ProfileMismatch);
+        }
+        first
+            .validate()
+            .map_err(|_| PhysXAdapterError::UnsupportedProfile)?;
+        if first.rolling_friction_q16 != 0
+            || first.spinning_friction_q16 != 0
+            || first.surface_velocity_micrometres_per_second != [0; 3]
+        {
+            return Err(PhysXAdapterError::UnsupportedProfile);
+        }
+        for (id, descriptor) in descriptors {
+            descriptor
+                .validate()
+                .map_err(|_| PhysXAdapterError::UnsupportedProfile)?;
+            if id != &descriptor.base.material_id {
+                return Err(PhysXAdapterError::ProfileMismatch);
+            }
+            if descriptor.base.static_friction_q16 != first.base.static_friction_q16
+                || descriptor.base.dynamic_friction_q16 != first.base.dynamic_friction_q16
+                || descriptor.base.restitution_q16 != first.base.restitution_q16
+                || descriptor.rolling_friction_q16 != first.rolling_friction_q16
+                || descriptor.spinning_friction_q16 != first.spinning_friction_q16
+                || descriptor.surface_velocity_micrometres_per_second
+                    != first.surface_velocity_micrometres_per_second
+            {
+                return Err(PhysXAdapterError::UnsupportedProfile);
+            }
+        }
+        Ok(Self {
+            material_ids: materials.keys().cloned().collect(),
+            static_friction_q16: first.base.static_friction_q16,
+            dynamic_friction_q16: first.base.dynamic_friction_q16,
+            restitution_q16: first.base.restitution_q16,
+        })
+    }
+
+    fn ffi(&self) -> MaterialProfileInput {
+        MaterialProfileInput {
+            coefficient_encoding: MATERIAL_COEFFICIENT_ENCODING_Q16,
+            static_friction: self.static_friction_q16,
+            dynamic_friction: self.dynamic_friction_q16,
+            restitution: self.restitution_q16,
+            rolling_friction: 0,
+            spinning_friction: 0,
+            surface_velocity_micrometres_per_second: [0; 3],
+            coefficient_combine_rules: [MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN; 5],
+            surface_velocity_combine_rule: MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PhysXArticulationCatalogV3 {
+    pub base: PhysXArticulationCatalogV2,
+    pub shared_material: PhysXSharedMaterialProfileV1,
 }
 
 impl PhysXArticulationCatalogV2 {
@@ -243,6 +340,7 @@ impl PhysXArticulationWorld {
     ) -> Result<Self, PhysXAdapterError> {
         catalog.validate(profile)?;
         let mut native = NativeWorld::create()?;
+        native.configure_material(legacy_stage0_material_input())?;
         native.configure_scene(profile.ffi())?;
         native.reserve_static_boxes(
             u32::try_from(catalog.static_boxes.len())
@@ -334,6 +432,7 @@ impl PhysXArticulationWorldV2 {
     ) -> Result<Self, PhysXAdapterError> {
         catalog.validate(profile)?;
         let mut native = NativeWorld::create()?;
+        native.configure_material(legacy_stage0_material_input())?;
         native.configure_scene(profile.ffi())?;
         native.reserve_static_boxes(
             u32::try_from(catalog.static_boxes.len())
@@ -423,6 +522,99 @@ impl PhysXArticulationWorldV2 {
         self.native
             .import_articulation_state(root, &checkpoint.joints)?;
         self.capture()
+    }
+}
+
+pub struct PhysXArticulationWorldV3 {
+    base: PhysXArticulationWorldV2,
+}
+
+impl PhysXArticulationWorldV3 {
+    pub fn create(
+        profile: PhysXSceneProfile,
+        catalog: &PhysXArticulationCatalogV3,
+    ) -> Result<Self, PhysXAdapterError> {
+        catalog.base.validate(profile)?;
+        let mut native = NativeWorld::create()?;
+        native.configure_material(catalog.shared_material.ffi())?;
+        native.configure_scene(profile.ffi())?;
+        native.reserve_static_boxes(
+            u32::try_from(catalog.base.static_boxes.len())
+                .map_err(|_| PhysXAdapterError::CapacityExceeded)?,
+        )?;
+        for descriptor in &catalog.base.static_boxes {
+            native.add_static_box(*descriptor)?;
+        }
+        native.add_articulation_v2(
+            &catalog.base.links,
+            &catalog.base.shapes,
+            &catalog.base.joints,
+            &catalog.base.collision_exclusions,
+            profile.position_iterations,
+            profile.velocity_iterations,
+        )?;
+        let (links, joints) = native.export_articulation_state()?;
+        Ok(Self {
+            base: PhysXArticulationWorldV2 {
+                native,
+                root_token: catalog.base.links[0].user_token,
+                last_raw_snapshot: PhysXRawArticulationSnapshot { links, joints },
+            },
+        })
+    }
+
+    pub fn create_with_initial_state(
+        profile: PhysXSceneProfile,
+        catalog: &PhysXArticulationCatalogV3,
+        initial_state: &PhysXRawArticulationSnapshot,
+    ) -> Result<(Self, CanonicalPhysXSnapshotV2), PhysXAdapterError> {
+        let Some(root) = initial_state.links.first().copied() else {
+            return Err(PhysXAdapterError::InvalidOutput);
+        };
+        if root.user_token != catalog.base.links[0].user_token
+            || initial_state.joints.len() != catalog.base.joints.len()
+        {
+            return Err(PhysXAdapterError::ProfileMismatch);
+        }
+        let mut world = Self::create(profile, catalog)?;
+        world
+            .base
+            .native
+            .import_articulation_state(root, &initial_state.joints)?;
+        let snapshot = world.capture()?;
+        Ok((world, snapshot))
+    }
+
+    pub fn apply_efforts_and_step(
+        &mut self,
+        efforts_micronewton_metres: &[i64],
+    ) -> Result<CanonicalPhysXSnapshotV2, PhysXAdapterError> {
+        self.base.apply_efforts_and_step(efforts_micronewton_metres)
+    }
+
+    pub fn capture(&mut self) -> Result<CanonicalPhysXSnapshotV2, PhysXAdapterError> {
+        self.base.capture()
+    }
+
+    #[must_use]
+    pub fn raw_checkpoint(&self) -> PhysXRawArticulationSnapshot {
+        self.base.raw_checkpoint()
+    }
+
+    pub fn restore(
+        &mut self,
+        checkpoint: &PhysXRawArticulationSnapshot,
+    ) -> Result<CanonicalPhysXSnapshotV2, PhysXAdapterError> {
+        self.base.restore(checkpoint)
+    }
+}
+
+impl Debug for PhysXArticulationWorldV3 {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("PhysXArticulationWorldV3")
+            .field("base", &self.base)
+            .finish()
     }
 }
 
@@ -834,6 +1026,20 @@ fn scaled_f32_bits(value: i64, scale: f64) -> Result<u32, PhysXAdapterError> {
         Ok(value.to_bits())
     } else {
         Err(PhysXAdapterError::NumericOverflow)
+    }
+}
+
+fn legacy_stage0_material_input() -> MaterialProfileInput {
+    MaterialProfileInput {
+        coefficient_encoding: MATERIAL_COEFFICIENT_ENCODING_F32_BITS,
+        static_friction: 0.8_f32.to_bits(),
+        dynamic_friction: 0.7_f32.to_bits(),
+        restitution: 0.0_f32.to_bits(),
+        rolling_friction: 0,
+        spinning_friction: 0,
+        surface_velocity_micrometres_per_second: [0; 3],
+        coefficient_combine_rules: [MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN; 5],
+        surface_velocity_combine_rule: MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER,
     }
 }
 

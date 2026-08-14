@@ -3,6 +3,7 @@
 mod biomechanics;
 mod compiler;
 mod compiler_v2;
+mod compiler_v3;
 mod contact_classifier;
 #[cfg(test)]
 mod contact_classifier_tests;
@@ -40,6 +41,13 @@ pub use biomechanics::{
 };
 pub use compiler::{CompiledBodySchemaV1, CompiledPhysicsDescriptorsV1, MotorCompileError};
 pub use compiler_v2::{CompiledBodySchemaV2, CompiledPhysicsDescriptorsV2};
+pub use compiler_v3::{
+    BIOMECHANICS_BODY_MATERIAL_ID, BIOMECHANICS_DYNAMIC_FRICTION_Q16,
+    BIOMECHANICS_GROUND_MATERIAL_ID, BIOMECHANICS_MATERIAL_COMBINE_PROFILE_ID,
+    BIOMECHANICS_SOLE_MATERIAL_ID, BIOMECHANICS_STATIC_FRICTION_Q16, CompiledBodySchemaV3,
+    CompiledPhysicsDescriptorsV3, biomechanics_material_catalog_v2,
+    biomechanics_material_combine_profile_v1,
+};
 pub use contact_classifier::{
     ACTIVE_CONTACT_IMPULSE_MICRONEWTON_SECONDS, BiomechanicsContactClassV1,
     BiomechanicsContactClassifier, BiomechanicsContactFrameV1, BiomechanicsSkillContactProfileV1,
@@ -57,7 +65,9 @@ pub use humanoid::{
     reference_humanoid_body_schema_v1,
 };
 pub use mirror::{stage0_isaac_mirror_descriptor_json_v2, stage0_isaac_mirror_golden_json_v2};
-pub use mirror_v2::biomechanics_isaac_mirror_descriptor_json_v1;
+pub use mirror_v2::{
+    biomechanics_isaac_mirror_descriptor_json_v1, biomechanics_isaac_mirror_descriptor_json_v2,
+};
 pub use observation::{
     MotorObservationBuilder, MotorObservationError, MotorVelocityFrameV1,
     rotate_world_to_root_local_q1_30,

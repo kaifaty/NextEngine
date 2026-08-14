@@ -13,7 +13,7 @@ use std::rc::Rc;
 #[cfg(all(feature = "physx-sdk", feature = "mock-abi"))]
 compile_error!("features `physx-sdk` and `mock-abi` are mutually exclusive");
 
-pub const NEXTENGINE_PHYSX_ABI_VERSION: u32 = 3;
+pub const NEXTENGINE_PHYSX_ABI_VERSION: u32 = 4;
 pub const EXPECTED_PHYSX_VERSION: PhysXVersion = PhysXVersion {
     abi: NEXTENGINE_PHYSX_ABI_VERSION,
     major: 5,
@@ -58,6 +58,25 @@ pub struct SceneProfileInput {
     pub max_contacts: u32,
     pub max_actors: u32,
     pub max_joints: u32,
+}
+
+pub const MATERIAL_COEFFICIENT_ENCODING_F32_BITS: u32 = 1;
+pub const MATERIAL_COEFFICIENT_ENCODING_Q16: u32 = 2;
+pub const MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN: u32 = 3;
+pub const MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER: u32 = 1;
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MaterialProfileInput {
+    pub coefficient_encoding: u32,
+    pub static_friction: u32,
+    pub dynamic_friction: u32,
+    pub restitution: u32,
+    pub rolling_friction: u32,
+    pub spinning_friction: u32,
+    pub surface_velocity_micrometres_per_second: [i64; 3],
+    pub coefficient_combine_rules: [u32; 5],
+    pub surface_velocity_combine_rule: u32,
 }
 
 #[repr(C)]
@@ -220,6 +239,7 @@ pub struct NativeWorld {
     link_count: u32,
     joint_count: u32,
     max_contacts: u32,
+    material_configured: bool,
     scene_configured: bool,
     _single_threaded: PhantomData<Rc<()>>,
 }
@@ -239,13 +259,25 @@ impl NativeWorld {
             link_count: 0,
             joint_count: 0,
             max_contacts: 0,
+            material_configured: false,
             scene_configured: false,
             _single_threaded: PhantomData,
         })
     }
 
+    pub fn configure_material(&mut self, input: MaterialProfileInput) -> Result<(), PhysXFfiError> {
+        if self.material_configured || self.scene_configured {
+            return Err(PhysXFfiError::InvalidArgument);
+        }
+        // SAFETY: the handle and fixed-layout input are valid for this
+        // synchronous call; the bridge copies every field.
+        status_result(unsafe { raw::world_configure_material(self.handle.as_ptr(), &input) })?;
+        self.material_configured = true;
+        Ok(())
+    }
+
     pub fn configure_scene(&mut self, input: SceneProfileInput) -> Result<(), PhysXFfiError> {
-        if self.scene_configured {
+        if !self.material_configured || self.scene_configured {
             return Err(PhysXFfiError::InvalidArgument);
         }
         // SAFETY: the handle and the fixed-layout input are valid for this call;
@@ -648,8 +680,8 @@ mod raw {
     use super::{
         ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
         ArticulationLinkInputV2, ArticulationShapeInputV2, ContactOutput, ContactOutputV2,
-        JointState, LinkState, PhysXVersion, RawSweepOutput, RigidBodyInput, SceneProfileInput,
-        c_void,
+        JointState, LinkState, MaterialProfileInput, PhysXVersion, RawSweepOutput, RigidBodyInput,
+        SceneProfileInput, c_void,
     };
 
     unsafe extern "C" {
@@ -659,6 +691,11 @@ mod raw {
         pub fn world_create(output: *mut *mut c_void) -> i32;
         #[link_name = "ne_physx_world_destroy"]
         pub fn world_destroy(world: *mut c_void);
+        #[link_name = "ne_physx_world_configure_material"]
+        pub fn world_configure_material(
+            world: *mut c_void,
+            input: *const MaterialProfileInput,
+        ) -> i32;
         #[link_name = "ne_physx_world_configure_scene"]
         pub fn world_configure_scene(world: *mut c_void, input: *const SceneProfileInput) -> i32;
         #[link_name = "ne_physx_world_reserve"]
@@ -754,8 +791,8 @@ mod raw {
     use super::{
         ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
         ArticulationLinkInputV2, ArticulationShapeInputV2, ContactOutput, ContactOutputV2,
-        JointState, LinkState, PhysXVersion, RawSweepOutput, RigidBodyInput, STATUS_UNAVAILABLE,
-        SceneProfileInput, c_void,
+        JointState, LinkState, MaterialProfileInput, PhysXVersion, RawSweepOutput, RigidBodyInput,
+        STATUS_UNAVAILABLE, SceneProfileInput, c_void,
     };
 
     pub unsafe fn version() -> PhysXVersion {
@@ -772,6 +809,13 @@ mod raw {
     }
 
     pub unsafe fn world_destroy(_world: *mut c_void) {}
+
+    pub unsafe fn world_configure_material(
+        _world: *mut c_void,
+        _input: *const MaterialProfileInput,
+    ) -> i32 {
+        STATUS_UNAVAILABLE
+    }
 
     pub unsafe fn world_configure_scene(
         _world: *mut c_void,

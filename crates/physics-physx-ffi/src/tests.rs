@@ -5,6 +5,7 @@ fn sdk_and_abi_version_must_match_exactly() {
     assert_eq!(std::mem::size_of::<PhysXVersion>(), 16);
     assert_eq!(std::mem::size_of::<RawSweepOutput>(), 32);
     assert_eq!(std::mem::size_of::<SceneProfileInput>(), 36);
+    assert_eq!(std::mem::size_of::<MaterialProfileInput>(), 72);
     assert_eq!(std::mem::size_of::<RigidBodyInput>(), 64);
     assert_eq!(std::mem::size_of::<ArticulationLinkInput>(), 80);
     assert_eq!(std::mem::size_of::<ArticulationJointInput>(), 76);
@@ -82,11 +83,66 @@ fn mock_abi_reports_capacity_and_native_validation_failures() {
 }
 
 #[test]
+#[cfg(feature = "mock-abi")]
+fn material_must_be_explicit_zero_extended_and_configured_once() {
+    let mut world = NativeWorld::create().expect("mock world");
+    let scene = SceneProfileInput {
+        gravity_bits: [0.0_f32.to_bits(), (-9.81_f32).to_bits(), 0.0_f32.to_bits()],
+        timestep_bits: (1.0_f32 / 240.0).to_bits(),
+        position_iterations: 8,
+        velocity_iterations: 2,
+        max_contacts: 128,
+        max_actors: 8,
+        max_joints: 4,
+    };
+    assert_eq!(
+        world.configure_scene(scene),
+        Err(PhysXFfiError::InvalidArgument)
+    );
+    let mut material = MaterialProfileInput {
+        coefficient_encoding: MATERIAL_COEFFICIENT_ENCODING_Q16,
+        static_friction: 52_429,
+        dynamic_friction: 45_875,
+        restitution: 0,
+        rolling_friction: 0,
+        spinning_friction: 0,
+        surface_velocity_micrometres_per_second: [0; 3],
+        coefficient_combine_rules: [MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN; 5],
+        surface_velocity_combine_rule: MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER,
+    };
+    material.rolling_friction = 1;
+    assert_eq!(
+        world.configure_material(material),
+        Err(PhysXFfiError::InvalidArgument)
+    );
+    material.rolling_friction = 0;
+    world.configure_material(material).expect("material");
+    assert_eq!(
+        world.configure_material(material),
+        Err(PhysXFfiError::InvalidArgument)
+    );
+    world.configure_scene(scene).expect("scene after material");
+}
+
+#[test]
 #[cfg(any(feature = "physx-sdk", feature = "mock-abi"))]
 fn scene_articulation_effort_step_and_state_round_trip() {
     let zero = 0.0_f32.to_bits();
     let one = 1.0_f32.to_bits();
     let mut world = NativeWorld::create().expect("world");
+    world
+        .configure_material(MaterialProfileInput {
+            coefficient_encoding: MATERIAL_COEFFICIENT_ENCODING_F32_BITS,
+            static_friction: 0.8_f32.to_bits(),
+            dynamic_friction: 0.7_f32.to_bits(),
+            restitution: 0.0_f32.to_bits(),
+            rolling_friction: 0,
+            spinning_friction: 0,
+            surface_velocity_micrometres_per_second: [0; 3],
+            coefficient_combine_rules: [MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN; 5],
+            surface_velocity_combine_rule: MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER,
+        })
+        .expect("material");
     world
         .configure_scene(SceneProfileInput {
             gravity_bits: [zero, (-9.81_f32).to_bits(), zero],

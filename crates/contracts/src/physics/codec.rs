@@ -145,6 +145,13 @@ pub(super) fn read_u16(
     Ok(u16::from_le_bytes(exact(field(segment, id)?)?))
 }
 
+pub(super) fn read_u32(
+    segment: &DecodedCanonicalSegment,
+    id: u32,
+) -> Result<u32, PhysicsContractError> {
+    Ok(u32::from_le_bytes(exact(field(segment, id)?)?))
+}
+
 pub(super) fn read_u64(
     segment: &DecodedCanonicalSegment,
     id: u32,

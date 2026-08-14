@@ -2,7 +2,10 @@ use next_contracts::ids::PersistentId;
 use next_contracts::physics::PhysicsGeometryV1;
 use serde_json::{Value, json};
 
-use crate::{CompiledBodySchemaV2, MotorCompileError, biomechanics_humanoid_body_schema_v2};
+use crate::{
+    CompiledBodySchemaV2, CompiledBodySchemaV3, MotorCompileError,
+    biomechanics_humanoid_body_schema_v2,
+};
 
 pub fn biomechanics_isaac_mirror_descriptor_json_v1() -> Result<String, MotorCompileError> {
     let schema = biomechanics_humanoid_body_schema_v2();
@@ -160,6 +163,84 @@ pub fn biomechanics_isaac_mirror_descriptor_json_v1() -> Result<String, MotorCom
     Ok(output)
 }
 
+pub fn biomechanics_isaac_mirror_descriptor_json_v2() -> Result<String, MotorCompileError> {
+    let schema = biomechanics_humanoid_body_schema_v2();
+    let compiled = CompiledBodySchemaV3::compile(&schema, PersistentId::from_bytes([0; 16]))?;
+    let mut descriptor: Value =
+        serde_json::from_str(&biomechanics_isaac_mirror_descriptor_json_v1()?)
+            .expect("engine-generated biomechanics mirror V1 is valid JSON");
+    descriptor["schema_version"] = json!(2);
+    descriptor["translator_id"] = json!("nextengine.isaac.biomechanics-mirror.v2");
+    descriptor["compiled_descriptor_schema_version"] = json!(3);
+    descriptor["compiled_descriptor_hash"] = json!(compiled.compiled_descriptor_hash.to_hex());
+    descriptor["material_lineage_hash"] = json!(compiled.material_lineage_hash.to_hex());
+    descriptor["ground_material_id"] =
+        json!(compiled.physics_descriptors.ground_material_id.as_str());
+    descriptor["materials"] = Value::Array(
+        compiled
+            .physics_descriptors
+            .materials
+            .values()
+            .map(|material| {
+                json!({
+                    "schema_version": material.schema_version,
+                    "material_id": material.base.material_id.as_str(),
+                    "descriptor_revision": material.base.descriptor_revision,
+                    "static_friction_q16": material.base.static_friction_q16,
+                    "dynamic_friction_q16": material.base.dynamic_friction_q16,
+                    "restitution_q16": material.base.restitution_q16,
+                    "rolling_friction_q16": material.rolling_friction_q16,
+                    "spinning_friction_q16": material.spinning_friction_q16,
+                    "surface_velocity_micrometres_per_second": material.surface_velocity_micrometres_per_second,
+                    "canonical_material_tags": material.base.canonical_material_tags.iter().map(|tag| tag.as_str()).collect::<Vec<_>>(),
+                })
+            })
+            .collect(),
+    );
+    let combine = &compiled.physics_descriptors.material_combine_profile;
+    descriptor["material_combine_profile"] = json!({
+        "schema_version": combine.schema_version,
+        "profile_id": combine.profile_id.as_str(),
+        "profile_revision": combine.profile_revision,
+        "static_friction": combine_rule_name(combine.static_friction),
+        "dynamic_friction": combine_rule_name(combine.dynamic_friction),
+        "restitution": combine_rule_name(combine.restitution),
+        "rolling_friction": combine_rule_name(combine.rolling_friction),
+        "spinning_friction": combine_rule_name(combine.spinning_friction),
+        "surface_velocity": "CanonicalParticipantOrder",
+    });
+    descriptor["collider_material_assignment_counts"] = Value::Array(
+        compiled
+            .physics_descriptors
+            .collider_material_assignment_counts
+            .iter()
+            .map(|(material_id, count)| {
+                json!({
+                    "material_id": material_id.as_str(),
+                    "collider_count": count,
+                })
+            })
+            .collect(),
+    );
+    let mut output = serde_json::to_string_pretty(&descriptor)
+        .expect("serde_json::Value serialization cannot fail");
+    output.push('\n');
+    Ok(output)
+}
+
+fn combine_rule_name(rule: next_contracts::physics::PhysicsMaterialCombineRuleV1) -> &'static str {
+    match rule {
+        next_contracts::physics::PhysicsMaterialCombineRuleV1::Minimum => "Minimum",
+        next_contracts::physics::PhysicsMaterialCombineRuleV1::Maximum => "Maximum",
+        next_contracts::physics::PhysicsMaterialCombineRuleV1::ArithmeticMeanTiesToEven => {
+            "ArithmeticMeanTiesToEven"
+        }
+        next_contracts::physics::PhysicsMaterialCombineRuleV1::ProductTiesToEvenClamped => {
+            "ProductTiesToEvenClamped"
+        }
+    }
+}
+
 fn geometry_json(geometry: &PhysicsGeometryV1) -> Value {
     match geometry {
         PhysicsGeometryV1::Box {
@@ -212,5 +293,42 @@ mod tests {
         let expected =
             include_str!("../../../lab/tests/fixtures/biomechanics_motor_mirror_v1.json");
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn biomechanics_material_mirror_v2_closes_exact_assignments_and_lineage() {
+        let text = biomechanics_isaac_mirror_descriptor_json_v2().expect("V2 mirror descriptor");
+        assert_eq!(
+            next_contracts::ids::content_hash_from_bytes(next_contracts::canonical::sha256(
+                text.as_bytes()
+            ))
+            .to_hex(),
+            "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3"
+        );
+        let value: Value = serde_json::from_str(&text).expect("valid JSON");
+        assert_eq!(value["schema_version"], 2);
+        assert_eq!(value["compiled_descriptor_schema_version"], 3);
+        assert_eq!(value["materials"].as_array().map(Vec::len), Some(3));
+        assert_eq!(
+            value["ground_material_id"],
+            "physics-material.humanoid-ground.v1"
+        );
+        assert_eq!(
+            value["material_combine_profile"]["static_friction"],
+            "ArithmeticMeanTiesToEven"
+        );
+        assert_eq!(
+            value["collider_material_assignment_counts"],
+            json!([
+                {
+                    "material_id": "physics-material.humanoid-body.v1",
+                    "collider_count": 17,
+                },
+                {
+                    "material_id": "physics-material.humanoid-sole.v1",
+                    "collider_count": 2,
+                },
+            ])
+        );
     }
 }

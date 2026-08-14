@@ -10,13 +10,17 @@
 
 namespace {
 
-constexpr std::uint32_t kAbiVersion = 3;
+constexpr std::uint32_t kAbiVersion = 4;
 constexpr std::int32_t kOk = 0;
 constexpr std::int32_t kInvalidArgument = 1;
 constexpr std::int32_t kOutOfMemory = 2;
 constexpr std::int32_t kCapacityExceeded = 3;
 constexpr std::int32_t kInternalFailure = 4;
 constexpr std::uint32_t kNoParent = 0xffffffffU;
+constexpr std::uint32_t kMaterialEncodingF32Bits = 1U;
+constexpr std::uint32_t kMaterialEncodingQ16 = 2U;
+constexpr std::uint32_t kArithmeticMeanTiesToEven = 3U;
+constexpr std::uint32_t kCanonicalParticipantOrder = 1U;
 
 float from_bits(std::uint32_t bits) {
     float value = 0.0F;
@@ -93,6 +97,18 @@ struct NePhysXSceneProfile {
     std::uint32_t max_contacts;
     std::uint32_t max_actors;
     std::uint32_t max_joints;
+};
+
+struct NePhysXMaterialProfile {
+    std::uint32_t coefficient_encoding;
+    std::uint32_t static_friction;
+    std::uint32_t dynamic_friction;
+    std::uint32_t restitution;
+    std::uint32_t rolling_friction;
+    std::uint32_t spinning_friction;
+    std::int64_t surface_velocity_micrometres_per_second[3];
+    std::uint32_t coefficient_combine_rules[5];
+    std::uint32_t surface_velocity_combine_rule;
 };
 
 struct NePhysXRigidBodyInput {
@@ -201,6 +217,7 @@ static_assert(std::is_standard_layout_v<NePhysXSweepOutput>);
 static_assert(offsetof(NePhysXSweepOutput, user_token) == 24);
 static_assert(sizeof(NePhysXSweepOutput) == 32);
 static_assert(sizeof(NePhysXSceneProfile) == 36);
+static_assert(sizeof(NePhysXMaterialProfile) == 72);
 static_assert(sizeof(NePhysXRigidBodyInput) == 64);
 static_assert(sizeof(NePhysXArticulationLinkInput) == 80);
 static_assert(sizeof(NePhysXArticulationJointInput) == 76);
@@ -401,6 +418,9 @@ bool valid_transform(const physx::PxTransform& transform) {
 }
 
 bool attach_shape(World& world, physx::PxRigidActor& actor, std::uint32_t kind, const std::uint32_t* dimensions) {
+    if (world.material == nullptr) {
+        return false;
+    }
     physx::PxShape* shape = nullptr;
     if (kind == 1) {
         const physx::PxVec3 half_extents(
@@ -429,6 +449,8 @@ bool attach_shape(World& world, physx::PxRigidActor& actor, std::uint32_t kind, 
     if (shape == nullptr) {
         return false;
     }
+    shape->setTorsionalPatchRadius(0.0F);
+    shape->setMinTorsionalPatchRadius(0.0F);
     const bool attached = actor.attachShape(*shape);
     shape->release();
     return attached;
@@ -438,6 +460,9 @@ bool attach_shape_v2(
     World& world,
     physx::PxRigidActor& actor,
     const NePhysXArticulationShapeInputV2& input) {
+    if (world.material == nullptr) {
+        return false;
+    }
     physx::PxShape* shape = nullptr;
     if (input.shape_kind == 1) {
         const physx::PxVec3 half_extents(
@@ -471,6 +496,8 @@ bool attach_shape_v2(
     if (shape == nullptr) {
         return false;
     }
+    shape->setTorsionalPatchRadius(0.0F);
+    shape->setMinTorsionalPatchRadius(0.0F);
     const physx::PxTransform local_pose = read_transform(input.position_bits, input.rotation_bits);
     if (!valid_transform(local_pose) || input.collision_layer >= 64U) {
         shape->release();
@@ -586,11 +613,6 @@ std::int32_t ne_physx_world_create(void** output) noexcept {
         delete world;
         return kInternalFailure;
     }
-    world->material = world->physics->createMaterial(0.8F, 0.7F, 0.0F);
-    if (world->material == nullptr) {
-        destroy_world(world);
-        return kInternalFailure;
-    }
     *output = world;
     return kOk;
 }
@@ -599,11 +621,63 @@ void ne_physx_world_destroy(void* opaque_world) noexcept {
     destroy_world(static_cast<World*>(opaque_world));
 }
 
+std::int32_t ne_physx_world_configure_material(
+    void* opaque_world,
+    const NePhysXMaterialProfile* input) noexcept {
+    auto* world = static_cast<World*>(opaque_world);
+    if (world == nullptr || input == nullptr || world->material != nullptr
+        || world->scene != nullptr) {
+        return kInvalidArgument;
+    }
+    for (std::uint32_t index = 0; index < 5U; ++index) {
+        if (input->coefficient_combine_rules[index] != kArithmeticMeanTiesToEven) {
+            return kInvalidArgument;
+        }
+    }
+    if (input->surface_velocity_combine_rule != kCanonicalParticipantOrder
+        || input->rolling_friction != 0U || input->spinning_friction != 0U
+        || input->surface_velocity_micrometres_per_second[0] != 0
+        || input->surface_velocity_micrometres_per_second[1] != 0
+        || input->surface_velocity_micrometres_per_second[2] != 0) {
+        return kInvalidArgument;
+    }
+    float static_friction = 0.0F;
+    float dynamic_friction = 0.0F;
+    float restitution = 0.0F;
+    if (input->coefficient_encoding == kMaterialEncodingF32Bits) {
+        static_friction = from_bits(input->static_friction);
+        dynamic_friction = from_bits(input->dynamic_friction);
+        restitution = from_bits(input->restitution);
+    } else if (input->coefficient_encoding == kMaterialEncodingQ16) {
+        constexpr float kQ16Scale = 65536.0F;
+        static_friction = static_cast<float>(input->static_friction) / kQ16Scale;
+        dynamic_friction = static_cast<float>(input->dynamic_friction) / kQ16Scale;
+        restitution = static_cast<float>(input->restitution) / kQ16Scale;
+    } else {
+        return kInvalidArgument;
+    }
+    if (!finite_non_negative(static_friction) || !finite_non_negative(dynamic_friction)
+        || dynamic_friction > static_friction || !finite_non_negative(restitution)
+        || restitution > 1.0F) {
+        return kInvalidArgument;
+    }
+    physx::PxMaterial* material =
+        world->physics->createMaterial(static_friction, dynamic_friction, restitution);
+    if (material == nullptr) {
+        return kInternalFailure;
+    }
+    material->setFrictionCombineMode(physx::PxCombineMode::eAVERAGE);
+    material->setRestitutionCombineMode(physx::PxCombineMode::eAVERAGE);
+    world->material = material;
+    return kOk;
+}
+
 std::int32_t ne_physx_world_configure_scene(
     void* opaque_world,
     const NePhysXSceneProfile* input) noexcept {
     auto* world = static_cast<World*>(opaque_world);
-    if (world == nullptr || input == nullptr || world->scene != nullptr
+    if (world == nullptr || input == nullptr || world->material == nullptr
+        || world->scene != nullptr
         || input->position_iterations == 0 || input->velocity_iterations == 0
         || input->max_actors == 0 || input->max_joints == 0) {
         return kInvalidArgument;

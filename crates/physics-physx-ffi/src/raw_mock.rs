@@ -1,8 +1,11 @@
 use super::{
     ArticulationCollisionExclusionV2, ArticulationJointInput, ArticulationLinkInput,
     ArticulationLinkInputV2, ArticulationShapeInputV2, ContactOutput, ContactOutputV2,
-    EXPECTED_PHYSX_VERSION, JointState, LinkState, PhysXVersion, RawSweepOutput, RigidBodyInput,
-    STATUS_CAPACITY_EXCEEDED, STATUS_INVALID_ARGUMENT, STATUS_OK, SceneProfileInput, c_void,
+    EXPECTED_PHYSX_VERSION, JointState, LinkState, MATERIAL_COEFFICIENT_ENCODING_F32_BITS,
+    MATERIAL_COEFFICIENT_ENCODING_Q16, MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN,
+    MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER, MaterialProfileInput, PhysXVersion,
+    RawSweepOutput, RigidBodyInput, STATUS_CAPACITY_EXCEEDED, STATUS_INVALID_ARGUMENT, STATUS_OK,
+    SceneProfileInput, c_void,
 };
 
 struct MockBox {
@@ -15,6 +18,7 @@ struct MockWorld {
     capacity: usize,
     boxes: Vec<MockBox>,
     actor_capacity: usize,
+    material_configured: bool,
     configured: bool,
     timestep: f32,
     links: Vec<LinkState>,
@@ -34,6 +38,7 @@ pub unsafe fn world_create(output: *mut *mut c_void) -> i32 {
         capacity: 0,
         boxes: Vec::new(),
         actor_capacity: 0,
+        material_configured: false,
         configured: false,
         timestep: 0.0,
         links: Vec::new(),
@@ -43,6 +48,50 @@ pub unsafe fn world_create(output: *mut *mut c_void) -> i32 {
     // SAFETY: `output` was checked non-null and points to caller-owned
     // writable storage. Ownership of the Box moves to the opaque handle.
     unsafe { output.write(Box::into_raw(world).cast()) };
+    STATUS_OK
+}
+
+pub unsafe fn world_configure_material(
+    world: *mut c_void,
+    input: *const MaterialProfileInput,
+) -> i32 {
+    // SAFETY: private raw API is called only with a live MockWorld handle.
+    let Some(world) = (unsafe { world.cast::<MockWorld>().as_mut() }) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    // SAFETY: wrapper passes a valid fixed-layout input pointer.
+    let Some(input) = (unsafe { input.as_ref() }) else {
+        return STATUS_INVALID_ARGUMENT;
+    };
+    let coefficients = match input.coefficient_encoding {
+        MATERIAL_COEFFICIENT_ENCODING_F32_BITS => [
+            f32::from_bits(input.static_friction),
+            f32::from_bits(input.dynamic_friction),
+            f32::from_bits(input.restitution),
+        ],
+        MATERIAL_COEFFICIENT_ENCODING_Q16 => [
+            input.static_friction as f32 / 65_536.0,
+            input.dynamic_friction as f32 / 65_536.0,
+            input.restitution as f32 / 65_536.0,
+        ],
+        _ => return STATUS_INVALID_ARGUMENT,
+    };
+    if world.material_configured
+        || world.configured
+        || coefficients.iter().any(|value| !value.is_finite())
+        || coefficients.iter().any(|value| *value < 0.0)
+        || coefficients[1] > coefficients[0]
+        || coefficients[2] > 1.0
+        || input.rolling_friction != 0
+        || input.spinning_friction != 0
+        || input.surface_velocity_micrometres_per_second != [0; 3]
+        || input.coefficient_combine_rules != [MATERIAL_COMBINE_ARITHMETIC_MEAN_TIES_TO_EVEN; 5]
+        || input.surface_velocity_combine_rule
+            != MATERIAL_SURFACE_VELOCITY_CANONICAL_PARTICIPANT_ORDER
+    {
+        return STATUS_INVALID_ARGUMENT;
+    }
+    world.material_configured = true;
     STATUS_OK
 }
 
@@ -64,7 +113,8 @@ pub unsafe fn world_configure_scene(world: *mut c_void, input: *const SceneProfi
         return STATUS_INVALID_ARGUMENT;
     };
     let timestep = f32::from_bits(input.timestep_bits);
-    if world.configured
+    if !world.material_configured
+        || world.configured
         || !timestep.is_finite()
         || timestep <= 0.0
         || input.max_actors == 0

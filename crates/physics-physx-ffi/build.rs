@@ -104,7 +104,7 @@ fn verify_manifest(sdk: &Path, target: &str) {
         "\"physx_version\": \"5.9.0\"".to_owned(),
         format!("\"target_triple\": \"{target}\""),
         "\"build_profile\": \"nextengine-physx-5.9.0-static-cpu-release-v1\"".to_owned(),
-        "\"bridge_abi\": 3".to_owned(),
+        "\"bridge_abi\": 4".to_owned(),
     ] {
         if !body.contains(&expected) {
             panic!("PhysX SDK manifest mismatch: {expected}");
