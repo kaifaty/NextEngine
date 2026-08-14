@@ -1,9 +1,17 @@
 {
   "schema_version": 1,
   "formulation_id": "nextengine.humanoid-canonical-material-point-force-repair.v1",
+  "formulation_revision": 2,
   "status": "FrozenResearchOnly",
   "claim": "CanonicalMaterialAndPointForceRepairFormulationOnly",
   "source": {
+    "superseded_r110_v1": {
+      "report_sha256": "6a8aa992d517265f9e27fcdd5daad36d97a6bed34f91fc96bddd8ee143dde185",
+      "report_file_sha256": "25bdbd57bde4329bbba41d33090b7dde650663aed7cafe48818c3df234c57653",
+      "profile_sha256": "04e216ab4226033708bbf9f4e3a123f76a716747ff6f419a893e241d6020b3d2",
+      "repository_commit": "3ba69287d4517053409bace0577c8b51c6a14dac",
+      "disposition": "SUPERSEDED_INCOMPLETE_SPEC_26_MATERIAL_FIELD_CLOSURE"
+    },
     "r109": {
       "report_sha256": "2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784",
       "report_file_sha256": "97f149b12f5f4a6694da04298df774f33fd4854e93b54f3096d8882f2c1efc85",
@@ -31,7 +39,9 @@
       "bridge_abi": 3,
       "profile_hash": "9c792f938b8a24f715cc05c62991c4ad741b785f52ab7aeb2069ca4a32149ed0",
       "manifest_file_sha256": "e3f774e1fa6aface0060f56a534d26056b2fd7d064d16a75e80d133b00ceed42",
-      "px_material_header_sha256": "803a88f43e1979163cc0809537d346fa679ca5ab3b583efdbcd3a7576b2fa9de"
+      "px_material_header_sha256": "803a88f43e1979163cc0809537d346fa679ca5ab3b583efdbcd3a7576b2fa9de",
+      "px_shape_header_sha256": "0b1084a0e80f84850d7c2697f32eb7647810744c18c1282b1388d37e7b14a660",
+      "px_contact_modify_header_sha256": "d86239214812cb22511b9eec681628eb2eb3f5b158675d285eb0104d7092c135"
     },
     "v9_contact_lineage": {
       "prototype_profile_sha256": "bccf5eb12c8de2e1c0fa20df74c55f30cc9e964e7d5cbfcbf596bb6d672815ab",
@@ -42,6 +52,7 @@
   },
   "scope": {
     "run_id": "R110",
+    "formulation_revision": 2,
     "initial_clip_id": "cmu16-walk-nominal-b",
     "initial_source_case_ordinal": 7967,
     "body_count": 24,
@@ -65,6 +76,11 @@
       "source": "Pinned PhysX 5.9.0 PxMaterial.h",
       "url": "local pinned SDK header identified above",
       "bounded_claim": "PhysX supports average, minimum, multiply and maximum combine modes; the default is average and the higher mode wins"
+    },
+    {
+      "source": "Pinned PhysX 5.9.0 PxShape.h and PxContactModifyCallback.h",
+      "url": "local pinned SDK headers identified above",
+      "bounded_claim": "zero torsional patch radii disable torsional friction and nonzero target surface velocity requires an order-normalized contact modification path"
     },
     {
       "source": "NVIDIA ovphysx rigid-body materials",
@@ -92,7 +108,7 @@
     "visual_review": "REPORT_ONLY_PENDING"
   },
   "canonical_material_repair": {
-    "contract": "PhysicsMaterialDescriptorV1 plus one explicit arithmetic-mean-ties-to-even combine profile",
+    "contract": "new PhysicsMaterialDescriptorV2 successor plus one explicit PhysicsMaterialCombineProfileV1; the incomplete implemented V1 is not mutated in place",
     "coefficient_encoding": "unsigned Q16 exact integers",
     "material_descriptors": [
       {
@@ -101,6 +117,13 @@
         "static_friction_q16": 52429,
         "dynamic_friction_q16": 45875,
         "restitution_q16": 0,
+        "rolling_friction_q16": 0,
+        "spinning_friction_q16": 0,
+        "surface_velocity_micrometres_per_second": [
+          0,
+          0,
+          0
+        ],
         "canonical_material_tags": []
       },
       {
@@ -109,6 +132,13 @@
         "static_friction_q16": 52429,
         "dynamic_friction_q16": 45875,
         "restitution_q16": 0,
+        "rolling_friction_q16": 0,
+        "spinning_friction_q16": 0,
+        "surface_velocity_micrometres_per_second": [
+          0,
+          0,
+          0
+        ],
         "canonical_material_tags": []
       },
       {
@@ -117,6 +147,13 @@
         "static_friction_q16": 52429,
         "dynamic_friction_q16": 45875,
         "restitution_q16": 0,
+        "rolling_friction_q16": 0,
+        "spinning_friction_q16": 0,
+        "surface_velocity_micrometres_per_second": [
+          0,
+          0,
+          0
+        ],
         "canonical_material_tags": []
       }
     ],
@@ -124,7 +161,10 @@
       "profile_id": "nextengine.physics-material-combine.humanoid-motor.v1",
       "static_friction": "ArithmeticMeanTiesToEven",
       "dynamic_friction": "ArithmeticMeanTiesToEven",
-      "restitution": "ArithmeticMeanTiesToEven"
+      "restitution": "ArithmeticMeanTiesToEven",
+      "rolling_friction": "ArithmeticMeanTiesToEven",
+      "spinning_friction": "ArithmeticMeanTiesToEven",
+      "surface_velocity": "CanonicalParticipantOrder"
     },
     "source_float_mapping": {
       "rounding": "nearest integer, ties to even after multiplication by 65536",
@@ -150,12 +190,15 @@
       "canonical_ground_material_id": "physics-material.humanoid-ground.v1"
     },
     "backend_correspondence": {
-      "native": "derive one cached PxMaterial from the exact Q16 values only after proving all currently referenced descriptors are coefficient-identical; remove hard-coded literals",
-      "derived_usd": "author one UsdPhysics material prim per semantic material ID, explicit coefficients/combine modes and physics-purpose bindings on every collider and ground",
-      "isaac": "spawn ground and articulation from the derived USD lineage with no RigidBodyMaterialCfg or GroundPlaneCfg coefficient default",
+      "native": "derive one cached PxMaterial from the exact Q16 values only after proving all currently referenced descriptors are coefficient-identical; explicitly keep torsional patch radii and target surface velocity at zero; remove hard-coded literals",
+      "derived_usd": "author one UsdPhysics material prim per semantic material ID, explicit supported coefficients/combine modes, exact Next Engine metadata for zero rolling/spinning/surface velocity and physics-purpose bindings on every collider and ground",
+      "isaac": "spawn ground and articulation from the derived USD lineage with no RigidBodyMaterialCfg or GroundPlaneCfg coefficient default; validate the exact zero-only extended fields before scene construction",
       "future_unequal_materials": "fail closed until a successor bridge ABI carries per-shape material selection; silent collapse is forbidden"
     },
     "lineage_policy": {
+      "material_descriptor_schema": "PhysicsMaterialDescriptorV2 successor required because changing the incomplete implemented V1 canonical record in place is forbidden",
+      "material_combine_schema": "PhysicsMaterialCombineProfileV1 required and hash-bound by the compiled descriptor successor",
+      "nonzero_rolling_spinning_surface_velocity": "FAIL_CLOSED_UNSUPPORTED_FOR_THIS_GENERATION",
       "body_schema_hash": "MAY_REMAIN_UNCHANGED",
       "compiled_descriptor_hash": "MUST_CHANGE",
       "derived_usd_hash": "MUST_CHANGE",
@@ -232,7 +275,7 @@
   "implementation_sequence": [
     {
       "run_id": "R111",
-      "scope": "contracts/compiler/mirror lineage plus native shared-material input and fail-closed equality validation",
+      "scope": "architecture/schema-version closure, PhysicsMaterialDescriptorV2/combine contracts, compiler/mirror lineage plus native shared-material input and fail-closed equality/zero-extension validation",
       "execution": "implementation and static/golden tests only; no PhysX scene execution"
     },
     {
@@ -251,6 +294,7 @@
     "required_static_controls": [
       "body/sole collider material assignment counts remain 17/2",
       "all three material descriptors and the combine profile affect the compiled descriptor hash",
+      "rolling friction, spinning friction and surface velocity are exact zeros and any nonzero value fails before adapter construction",
       "hard-coded native 0.8/0.7/0 literals and Isaac 0.5/0.5 defaults are not reachable for this lineage",
       "controller, limits, safety, contact schedule, reset and cadence hashes remain unchanged"
     ]

@@ -73,6 +73,8 @@ def build_canonical_material_point_force_formulation(
     v9_complete_clip_path: Path,
     physx_sdk_manifest_path: Path,
     px_material_header_path: Path,
+    px_shape_header_path: Path,
+    px_contact_modify_header_path: Path,
     tracked_sources: Mapping[str, Path],
     tool_path: Path,
     repository: Mapping[str, Any],
@@ -91,6 +93,8 @@ def build_canonical_material_point_force_formulation(
             v9_complete_clip_path,
             physx_sdk_manifest_path,
             px_material_header_path,
+            px_shape_header_path,
+            px_contact_modify_header_path,
             tool_path,
         )
     )
@@ -104,6 +108,8 @@ def build_canonical_material_point_force_formulation(
         v9_complete_clip_path,
         physx_sdk_manifest_path,
         px_material_header_path,
+        px_shape_header_path,
+        px_contact_modify_header_path,
         tool_path,
     ) = direct_paths
     tracked_sources = {name: path.resolve() for name, path in tracked_sources.items()}
@@ -129,7 +135,9 @@ def build_canonical_material_point_force_formulation(
     physx_lineage = audit_physx_lineage(
         profile=profile,
         manifest_path=physx_sdk_manifest_path,
-        header_path=px_material_header_path,
+        material_header_path=px_material_header_path,
+        shape_header_path=px_shape_header_path,
+        contact_modify_header_path=px_contact_modify_header_path,
     )
     v9_lineage = audit_v9_contact_lineage(
         profile=profile,
@@ -147,6 +155,8 @@ def build_canonical_material_point_force_formulation(
         "claim": profile["claim"],
         "gate_decision": profile["decision"]["complete"],
         "formulation_id": FORMULATION_ID,
+        "formulation_revision": profile["formulation_revision"],
+        "superseded_evidence": profile["source"]["superseded_r110_v1"],
         "scope": profile["scope"],
         "research_basis": profile["research_basis"],
         "frozen_invariants": profile["frozen_invariants"],
@@ -189,6 +199,8 @@ def build_canonical_material_point_force_formulation(
             "v9_complete_clip_sha256": sha256(v9_complete_clip_path),
             "physx_sdk_manifest_file_sha256": sha256(physx_sdk_manifest_path),
             "px_material_header_sha256": sha256(px_material_header_path),
+            "px_shape_header_sha256": sha256(px_shape_header_path),
+            "px_contact_modify_header_sha256": sha256(px_contact_modify_header_path),
             "tracked_source_sha256": source_identity,
             "tool_sha256": sha256(tool_path),
             "formulation_module_sha256": sha256(Path(__file__).resolve()),
@@ -300,6 +312,8 @@ def audit_material_repair(
                 "static_friction_q16",
                 "dynamic_friction_q16",
                 "restitution_q16",
+                "rolling_friction_q16",
+                "spinning_friction_q16",
             )
         )
         if (
@@ -307,6 +321,8 @@ def audit_material_repair(
             or coefficients[1] > coefficients[0]
             or coefficients[2] > 65_536
             or any(value < 0 for value in coefficients)
+            or coefficients[3:] != (0, 0)
+            or row.get("surface_velocity_micrometres_per_second") != [0, 0, 0]
             or row.get("canonical_material_tags") != []
         ):
             raise ValueError("R110 material descriptor is invalid")
@@ -350,9 +366,17 @@ def audit_material_repair(
     expected_rule = "ArithmeticMeanTiesToEven"
     if any(
         combine.get(key) != expected_rule
-        for key in ("static_friction", "dynamic_friction", "restitution")
+        for key in (
+            "static_friction",
+            "dynamic_friction",
+            "restitution",
+            "rolling_friction",
+            "spinning_friction",
+        )
     ):
         raise ValueError("R110 combine profile differs")
+    if combine.get("surface_velocity") != "CanonicalParticipantOrder":
+        raise ValueError("R110 surface-velocity profile differs")
     table_root = hashlib.sha256(
         canonical_json(
             {
@@ -376,12 +400,17 @@ def audit_physx_lineage(
     *,
     profile: Mapping[str, Any],
     manifest_path: Path,
-    header_path: Path,
+    material_header_path: Path,
+    shape_header_path: Path,
+    contact_modify_header_path: Path,
 ) -> dict[str, Any]:
     expected = profile["source"]["physx_sdk"]
     if (
         sha256(manifest_path) != expected["manifest_file_sha256"]
-        or sha256(header_path) != expected["px_material_header_sha256"]
+        or sha256(material_header_path) != expected["px_material_header_sha256"]
+        or sha256(shape_header_path) != expected["px_shape_header_sha256"]
+        or sha256(contact_modify_header_path)
+        != expected["px_contact_modify_header_sha256"]
     ):
         raise ValueError("R110 PhysX SDK file identity differs")
     manifest = json.loads(manifest_path.read_bytes())
@@ -393,7 +422,7 @@ def audit_physx_lineage(
     ):
         if manifest.get(key) != expected[key]:
             raise ValueError("R110 PhysX SDK manifest differs")
-    header = header_path.read_text(encoding="utf-8")
+    header = material_header_path.read_text(encoding="utf-8")
     required_tokens = (
         "eAVERAGE",
         "eMIN",
@@ -405,6 +434,20 @@ def audit_physx_lineage(
     )
     if any(token not in header for token in required_tokens):
         raise ValueError("R110 PhysX material API evidence differs")
+    shape_header = shape_header_path.read_text(encoding="utf-8")
+    contact_modify_header = contact_modify_header_path.read_text(encoding="utf-8")
+    if (
+        any(
+            token not in shape_header
+            for token in (
+                "setTorsionalPatchRadius",
+                "setMinTorsionalPatchRadius",
+                "no torsional friction will be applied",
+            )
+        )
+        or "setTargetVelocity" not in contact_modify_header
+    ):
+        raise ValueError("R110 PhysX extended material evidence differs")
     return {
         "status": "PINNED_API_SUPPORTS_EXPLICIT_REPAIR",
         "physx_version": manifest["physx_version"],
@@ -415,6 +458,9 @@ def audit_physx_lineage(
         "physx_default_combine_mode": "average",
         "selected_combine_mode": "average",
         "default_is_authority": False,
+        "zero_torsional_patch_semantics": "EXPLICITLY_SUPPORTED",
+        "zero_surface_velocity_semantics": "NO_CONTACT_MODIFICATION_REQUIRED",
+        "nonzero_extended_fields": "FAIL_CLOSED_UNSUPPORTED_FOR_THIS_GENERATION",
     }
 
 
@@ -561,6 +607,14 @@ def audit_current_implementation_gap(
         "physics_material_descriptor_v1_present": (
             "struct PhysicsMaterialDescriptorV1" in descriptors
         ),
+        "implemented_material_v1_has_full_spec_26_fields": all(
+            token in descriptors
+            for token in (
+                "rolling_friction_q16",
+                "spinning_friction_q16",
+                "surface_velocity_micrometres_per_second",
+            )
+        ),
         "world_material_catalog_present": (
             "pub materials: BTreeMap<SchemaId, PhysicsMaterialDescriptorV1>" in catalog
         ),
@@ -581,6 +635,7 @@ def audit_current_implementation_gap(
     }
     if result != {
         "physics_material_descriptor_v1_present": True,
+        "implemented_material_v1_has_full_spec_26_fields": False,
         "world_material_catalog_present": True,
         "material_combine_contract_present": False,
         "compiled_v2_material_catalog_present": False,
@@ -602,9 +657,11 @@ def _validate_profile(profile: Mapping[str, Any]) -> None:
     if (
         profile.get("schema_version") != 1
         or profile.get("formulation_id") != FORMULATION_ID
+        or profile.get("formulation_revision") != 2
         or profile.get("status") != "FrozenResearchOnly"
         or profile.get("claim") != "CanonicalMaterialAndPointForceRepairFormulationOnly"
         or scope.get("run_id") != "R110"
+        or scope.get("formulation_revision") != 2
         or scope.get("initial_clip_id") != "cmu16-walk-nominal-b"
         or scope.get("initial_source_case_ordinal") != 7967
         or scope.get("body_count") != 24
@@ -626,6 +683,15 @@ def _validate_profile(profile: Mapping[str, Any]) -> None:
         or invariants.get("limit_changes") != "FORBIDDEN"
         or repair.get("coefficient_encoding") != "unsigned Q16 exact integers"
         or len(repair.get("material_descriptors", ())) != 3
+        or not repair.get("contract", "").startswith(
+            "new PhysicsMaterialDescriptorV2 successor"
+        )
+        or repair.get("lineage_policy", {}).get("material_descriptor_schema")
+        != "PhysicsMaterialDescriptorV2 successor required because changing the incomplete implemented V1 canonical record in place is forbidden"
+        or repair.get("lineage_policy", {}).get(
+            "nonzero_rolling_spinning_surface_velocity"
+        )
+        != "FAIL_CLOSED_UNSUPPORTED_FOR_THIS_GENERATION"
         or repair.get("lineage_policy", {}).get("compiled_descriptor_hash")
         != "MUST_CHANGE"
         or repair.get("lineage_policy", {}).get("old_runtime_equivalence_claim")

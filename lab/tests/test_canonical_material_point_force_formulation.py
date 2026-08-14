@@ -27,6 +27,7 @@ class CanonicalMaterialPointForceFormulationTests(unittest.TestCase):
 
     def test_profile_authorizes_only_r111_implementation(self) -> None:
         _validate_profile(self.profile)
+        self.assertEqual(self.profile["formulation_revision"], 2)
         self.assertFalse(self.profile["scope"]["runtime_changes"])
         self.assertEqual(self.profile["scope"]["solver_runs"], 0)
         self.assertEqual(
@@ -52,6 +53,22 @@ class CanonicalMaterialPointForceFormulationTests(unittest.TestCase):
         self.assertEqual(result["quantization_audit"]["dynamic_friction"]["q16"], 45875)
         self.assertEqual(result["status"], "FORMULATED_NEW_LINEAGE")
         self.assertFalse(result["runtime_implemented"])
+        self.assertTrue(
+            all(
+                row["rolling_friction_q16"] == 0
+                and row["spinning_friction_q16"] == 0
+                and row["surface_velocity_micrometres_per_second"] == [0, 0, 0]
+                for row in result["material_descriptors"]
+            )
+        )
+
+    def test_extended_material_field_must_fail_closed_when_nonzero(self) -> None:
+        profile = copy.deepcopy(self.profile)
+        profile["canonical_material_repair"]["material_descriptors"][0][
+            "rolling_friction_q16"
+        ] = 1
+        with self.assertRaisesRegex(ValueError, "material descriptor"):
+            audit_material_repair(profile=profile, descriptor=self.descriptor)
 
     def test_missing_source_material_assignment_fails_closed(self) -> None:
         descriptor = copy.deepcopy(self.descriptor)

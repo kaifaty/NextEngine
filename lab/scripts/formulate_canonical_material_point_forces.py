@@ -29,6 +29,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--v9-complete-clip", type=Path, required=True)
     parser.add_argument("--physx-sdk-manifest", type=Path, required=True)
     parser.add_argument("--px-material-header", type=Path, required=True)
+    parser.add_argument("--px-shape-header", type=Path, required=True)
+    parser.add_argument("--px-contact-modify-header", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
 
@@ -50,6 +52,8 @@ def main() -> None:
         v9_complete_clip_path=args.v9_complete_clip,
         physx_sdk_manifest_path=args.physx_sdk_manifest,
         px_material_header_path=args.px_material_header,
+        px_shape_header_path=args.px_shape_header,
+        px_contact_modify_header_path=args.px_contact_modify_header,
         tracked_sources=tracked_source_paths(repository_root),
         tool_path=Path(__file__),
         repository=repository,
