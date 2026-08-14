@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R104_ANCHOR_LATTICE_REJECTED / R105_FEASIBLE_DIRECTION_AUDIT_NEXT` |
+| Status | `R105_FEASIBLE_DIRECTION_COMPLETE / R106_PROJECTED_FORMULATION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -38,6 +38,7 @@ bounded research before another solver change or expensive native run.
 | R102 native-rollout audit | canonical/file/profile SHA-256 `b881f8a7a70542f07c045e2451458a427a38067078520a07dc02dac4034546f6` / `ef5f95eafe18f513abfa90803bc7ff67e8db756f327bd2b4d27f27c320b8ebee` / `ea7159cf69d530e3242aab03638415212ebeb7b2be0f369b8ae13ab5446d167c` | Clean `COMPLETE`: all frozen identities/facts reproduce; PhysX/candidate/trajectory/optimizer/training counts are `0`; candidate search remains `NOT_AUTHORIZED` |
 | R103 target-knot formulation v2 | canonical/file/profile SHA-256 `81e213c73a9a0ad071dd7459b0f6e3c285fe18985620b81045e3d4d4c90ddddc` / `0d213ecae85157ef4f2748fd7b82b4af245f43f97f05c26b82c43be03bccf954` / `cfb17e8f01ec7a120110646377206cf0fce173c41263d267fcde4c1f893d2378` | Clean `COMPLETE`: descriptor-ordered DoF identity is hash-bound; three convex V9→V7 scalar knots define exactly `27` report-only targets; candidate/PhysX/optimizer/training counts are `0` |
 | R104 exact offline preflight v2 | canonical/file/profile SHA-256 `d80504975367c13e01d724e9bbbae47335ed4d9ab366179b44851741813197ab` / `1b03170a2679d5061ed6d72c520fc7b0890431672f24ba3fa1f825c9454ebfa8` / `f7547b66d65341155b583735b9dcb52c08680810db102662e46064814b45076d` | Clean `STOP_AND_RESEARCH`: only the zero control passes; all `26/26` nonzero targets fail exact offline contact and/or velocity bounds; PhysX/optimizer/training counts are `0` |
+| R105 local feasible-direction audit | canonical/file/profile SHA-256 `c107230f01f75d25987ca0e9ac07d81cdda71fe94bca1889509d4f5504436f50` / `19971615f285608903877a265e0387e7dbb963254e1b56493c99c43617e39ae9` / `48cf5b605e5fc6b3ae36b72ccc85a05d6fffeb6ccaa6d635d468c3e5c5b82d9e` | Clean `COMPLETE`: early/middle bases collapse; late basis retains `9722 bp` anchor component and `9872 bp` cosine after a feasible local projection; only R106 formulation is permitted |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -165,9 +166,9 @@ with the two failed variants before any bounded construction change is chosen.
 
 | ID | Hypothesis | Current evidence | Discriminator |
 | --- | --- | --- | --- |
-| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R101 exactly matches V7's initial effort, while R104 shows the raw target correction leaves offline feasibility | Confirmed as trajectory-wide coupled feasibility; R105 tests a feasible local direction |
+| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R105 retains only the late projected direction; early/middle anchors collapse | Confirmed as trajectory-wide coupled feasibility; R106 freezes the projected formulation |
 | H23 | Near-zero offline collider clearance does not predict the full PhysX contact manifold and impulse | R95 isolates ordinal `2`: active foot `1539 µm` above surface with no derivative amplification; R97 reserve case passes all `11` ticks and lowers peak left-foot impulse `6440089 -> 4466405 µN·s` | Supported for the selected case only; broader contact cases remain untested |
-| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | R100/R101 alter remote support; R104's three time regions fail different coupled rows | Confirmed; end raw anchors and project against the full V9 constraint linearization |
+| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | R105 needs coupled root/bilateral-leg compensation and rejects two bases | Confirmed; formulate only the retained late direction before exact audit |
 | H26 | Motor-frame pose/derivative summaries hide the causal physical substep | R98 localizes V11 touchdown to tick `9` substep `2` and overspeed to the immediately following pre-substep state | Confirmed; retain substep traces for every future native discriminator |
 | H25 | Fresh-scene initialization is responsible | Initial state is exact within quantization in every worker | Falsified by R94; do not repeat partial-reset experiments |
 
@@ -661,13 +662,57 @@ projection collapse or severe loss of the target direction selects the
 progressive full kinodynamic formulation, beginning with KTO/ID variables and
 still no native run.
 
+## R105 local feasible-direction result
+
+Clean commit `3f5a32142e207afbc4eb682fc3e78991dec7e917` reconstructs the
+complete V9 root-plus-ten-leg SQP Jacobian (`10413` variables, `51881` rows,
+`229845` nonzeros) but permits changes only in the `130` variables at source
+frames `240..249`. Exactly `600` rows depend on that support, and byte-exact V9
+has zero normalized violation across them. Of those rows, `69` are within the
+predeclared normalized `0.05` near-binding band; they have rank `69`, local
+nullity `61` and retained-spectrum condition number `16750.23`. This confirms
+that nonzero local freedom exists, but the nearby feasible space is strongly
+constrained and ill-conditioned enough that raw coordinate edits are unsafe.
+
+The complete SQP component-box proxy reports maximum zero-direction violation
+`0.0172276` on rows outside the allowed support. It has no acceptance authority:
+R93/R104's exact nonlinear norm-based gate accepts the same byte-exact V9, and
+rows with zero coefficients in the local support cannot discriminate a local
+direction. R105 therefore records this full-proxy value explicitly, drops only
+rows which cannot depend on frames `240..249`, and requires zero violation on
+all retained rows. This is the reason the clean implementation fix
+`3f5a321` scopes the projection to locally relevant rows; no tolerance or
+acceptance limit changed.
+
+All three raw R103 bases violate at least one retained row:
+
+- offset `2` violates `27` rows and reaches normalized violation `30.729`;
+  projection retains only `510 bp` of the anchor component with cosine
+  `2304 bp`, so it is rejected;
+- offset `6` violates `24` rows and reaches `9.014`; projection retains only
+  `569 bp` with cosine `2492 bp`, so it is rejected;
+- offset `11` violates exactly one joint-velocity row by normalized `0.0257`.
+  Its projection retains `9722 bp` of the anchor component with cosine
+  `9872 bp`, needs at most `5688 µrad` joint and `41 µm` root correction after
+  quantization, and has projected row violation below `4e-17`.
+
+Only `anchor-offset-11` clears the predeclared usefulness thresholds. R105
+therefore returns
+`PERMIT_R106_EXACT_OFFLINE_PROJECTED_DIRECTION_FORMULATION_ONLY`. It constructs
+three mathematical bases and solves three local projection QPs, but constructs
+zero candidate targets/artifacts, runs zero exact nonlinear candidate audits,
+PhysX candidates, learned/trajectory optimizer steps or training runs. R106 may
+only freeze reconstruction, quantization and the later exact-offline audit
+contract for the late direction. It cannot yet emit or test a candidate.
+
 ## Decision
 
-Freeze R92–R104, retain the contact result as bounded support for H23, and
+Freeze R92–R105, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
-and perform only the bounded R105 feasible-direction audit before any new
-candidate construction. All-17 remains blocked until a future bounded
+and retain only the late projected direction for bounded R106 formulation.
+Candidate construction remains blocked until that contract closes. All-17
+remains blocked until a future bounded
 candidate passes every selected fresh control without changing controller
 semantics, safety limits, fresh-scene authority or the exact-zero gate.

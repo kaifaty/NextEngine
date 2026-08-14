@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`, including four control regressions, despite quantization-exact initial state. R95 selects contact-gap ordinal `2` and derivative-spike ordinal `10`. R96 direct emitted acceleration qualifies offline; R97 fails derivative case `10` on new ankle-roll velocity. R98 localizes pre-contact phase divergence, and R99 reproduces matched V7 PASS. R100/R101 boundary changes preserve local phase but fail remote right-support safety. Clean R102 closes the report-only evaluator. Descriptor-closed R103 defines three V9→V7 time knots; exact R104 passes only the zero control and rejects all `26/26` nonzero targets on contact and/or velocity before PhysX. The raw anchor family is rejected; R105 may only audit a constraint-feasible local direction. ADR-070 fresh-scene authority is retained; partial reset is report-only. New candidate construction/PhysX, full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`; R98–R101 exhaust manual boundary edits and R102 closes the report-only evaluator. Descriptor-closed R103 defines three V9→V7 time knots; R104 rejects all `26/26` nonzero raw targets before PhysX. Clean R105 projects the three bases over the local coupled V9 row system: early/middle collapse, while offset `11` retains `9722 bp` anchor component and `9872 bp` cosine. Only R106 reconstruction/quantization/exact-audit formulation is authorized; no candidate exists. ADR-070 fresh-scene authority is retained; partial reset is report-only. Candidate construction/PhysX, full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1817,6 +1817,17 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   torque and contact-wrench optimization. Before committing to that larger
   formulation, R105 may only report the V9 constraint-row rank/conditioning
   and projection of the three anchors into its local feasible direction space.
+  Clean R105 reconstructs `10413` complete-clip variables and `51881` SQP rows,
+  then retains only the `600` rows affected by `130` allowed variables at
+  frames `240..249`. Byte-exact V9 has zero violation there. The `69`
+  near-binding rows have rank `69`, leaving nullity `61` with condition number
+  `16750.23`. Early/middle projections retain only `510/569 bp` anchor
+  component and are rejected. The late offset-11 projection retains `9722 bp`
+  with `9872 bp` cosine, after at most `5688 µrad` joint and `41 µm` root
+  compensation. The complete component-box SQP proxy's unrelated `0.01723`
+  baseline violation is explicitly non-authoritative; exact R93/R104 remains
+  the gate. R105 builds no candidate and authorizes only R106 formulation of
+  reconstruction, quantization and a later exact nonlinear audit contract.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This

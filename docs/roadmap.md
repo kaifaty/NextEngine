@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-14 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 закрыл one-solve/exact-slice domain identity и отклонил V7 complete solver. R73 clean V8 passes complete `cmu05`/`cmu16` but fails raw `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all-three/all-17 offline with byte-exact overlap and zero point deletion. R94 fresh-scene V9 rejects `7/17`; R98/R99 localize pre-contact phase and R100/R101 reject manual boundary edits. R102 closes the report-only evaluator. Descriptor-closed R103 defines three V9→V7 target knots; exact R104 passes only byte-exact V9 and rejects all `26/26` nonzero lattice points before PhysX. `STOP_AND_RESEARCH` remains active: the raw anchor family is rejected and R105 may only audit a local constraint-feasible direction. Partial reset stays report-only. New candidate construction/PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 закрыл one-solve/exact-slice domain identity и отклонил V7 complete solver. R73–R93 produce offline V9, but R94 fresh rejects `7/17`; R98–R101 exhaust manual boundary edits and R102 closes the evaluator. Descriptor-closed R103 defines three knots and R104 rejects all `26/26` nonzero raw targets. Clean R105 finds 61-dimensional local nullity but retains only late offset `11` (`9722 bp` anchor component / `9872 bp` cosine); early/middle bases collapse. R106 may only freeze reconstruction, quantization and later exact-audit formulation; no candidate exists. Partial reset stays report-only. Candidate construction/PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -763,8 +763,8 @@ Current increment поэтому строит единый coupled trajectory so
 полного `cmu05`. Full 27-clip V19, visual/exhaustive gates, TRAIN-4 Advance и
 PPO остаются запрещены.
 
-**TRAIN-4 coupled/native trajectory research (`R104_ANCHOR_LATTICE_REJECTED /
-R105_FEASIBLE_DIRECTION_AUDIT_NEXT`, 2026-08-14):**
+**TRAIN-4 coupled/native trajectory research (`R105_FEASIBLE_DIRECTION_COMPLETE /
+R106_PROJECTED_FORMULATION_NEXT`, 2026-08-14):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -991,10 +991,19 @@ the isolated scalar anchor line is structurally weak. The raw R103 family is
 rejected, including grid refinement. R105 is report-only: reconstruct V9's
 root-plus-ten-leg constraint linearization, report binding-row rank and
 conditioning, and project each R103 basis into the local feasible direction
-space. It emits no candidate and runs no PhysX. A useful nonzero projection
-may authorize a separate exact-offline construction; collapse selects the
-progressive kinodynamic KTO/ID formulation. Controller/limits/reset changes,
-all-17 and training remain unauthorized.
+space. Clean commit `3f5a321` closes that audit. Of `10413` complete variables
+and `51881` rows, only `130` variables/`600` rows belong to the allowed window.
+The `69` near-binding rows have rank `69`, nullity is `61`, and condition number
+is `16750.23`. Early/middle projections retain only `510/569 bp` of their raw
+anchor components and are rejected. Late offset `11` retains `9722 bp` with
+`9872 bp` cosine and projected violation below `4e-17`. Canonical/file/profile
+SHA-256 is `c107230f01f75d25987ca0e9ac07d81cdda71fe94bca1889509d4f5504436f50` /
+`19971615f285608903877a265e0387e7dbb963254e1b56493c99c43617e39ae9` /
+`48cf5b605e5fc6b3ae36b72ccc85a05d6fffeb6ccaa6d635d468c3e5c5b82d9e`.
+R105 emits no candidate and runs no exact nonlinear audit or PhysX. It permits
+only R106 reconstruction/quantization/exact-audit formulation for the retained
+late direction. Controller/limits/reset changes, all-17 and training remain
+unauthorized.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -1759,10 +1768,12 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    plus hard ROM. Manual boundary substitution ends; R102 closes the
    report-only native-rollout evaluator. Descriptor-closed R103 defines three
    target-time knots, but exact R104 rejects every `26/26` nonzero lattice
-   point before PhysX on contact and/or joint velocity. The raw anchor family
-   is exhausted; R105 may only audit a local coupled feasible direction. До
-   exact-zero fresh/full-corpus/native/visual/exhaustive gates, `Advance` и PPO
-   запрещены. No training quality, Stage 0 or R5 completion is claimed here.
+   point before PhysX on contact and/or joint velocity. R105 rejects early and
+   middle bases after projection but retains the late basis at `9722/9872 bp`
+   component/cosine. It emits no candidate; R106 may formulate only its
+   reconstruction, quantization and later exact audit. До exact-zero
+   fresh/full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
+   No training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
    SPEC-20/ADR-052 only with the one-NPC production consumer, typed authoring,
    separate World Services routine segment, current-only replay successor and
