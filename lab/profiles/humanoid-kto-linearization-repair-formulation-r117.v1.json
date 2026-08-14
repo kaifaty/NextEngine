@@ -1,0 +1,304 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-kto-linearization-repair-formulation.v1",
+  "status": "FrozenReportOnly",
+  "claim": "ExactKernelKtoLinearizationRepairFormulationOnly",
+  "source": {
+    "r115_rc1": {
+      "report_sha256": "5edfe0613e2e4f9327cd1bfb6922c96e84ce8056144b05f9617787de0f883475",
+      "report_file_sha256": "74f6b7f7c13565618a2972d83b568d411ae8f4598b76699cd176b328f4a42f51",
+      "profile_sha256": "7e4186d0e44049102ab1d61e0cf49f51f3682e88557f9c8c2dd2d92c5c53c3f4",
+      "research_module_sha256": "6d1f702bab59520a73c709500254d22a8ade7678bd2b56292688f318c9e3c154",
+      "tool_sha256": "6cc93aed5c80a2d5fd5d7b5d600b3680ead910d4c2e56bc7964822ddee5d6665",
+      "repository_commit": "20b52c8608507b91cddc96ce013f7d7379a7f149"
+    },
+    "r115": {
+      "report_sha256": "b7baa0f4337597c1c61748255535d1102bbff35d0ce560a8a661ed6be7685433",
+      "report_file_sha256": "ed89c2733a376f5f50694fc01029abcf9791f2a186054196461ce2a787e8caa8",
+      "profile_sha256": "427958340debb62a3dfc7b9309411184c8e922965a5cef694163cae61d0b9e75",
+      "execution_module_sha256": "87c02f67c1c76ce1e6e9e5a0ed539f1ee752151f4ea8586d3195d0cca0cbc318",
+      "solver_module_sha256": "9d9047239e1d9a879e6dbd66993fb49778f57370f11de1bb0dcce5b22e852137",
+      "tool_sha256": "792f07306052d96398a6b66f536e5d1cd59391d64f0a6f48f3f04b620389d357",
+      "repository_commit": "e34f463263b54f2ea7612f4cd4a452b99667c1be"
+    },
+    "r114": {
+      "formulation_revision": 2,
+      "report_sha256": "7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4",
+      "report_file_sha256": "2666a275180b222c014eea91051ff4d3ebdb16a5740eb742ed2cca3a83b3d958",
+      "profile_sha256": "8e26b84de2a25e07d19cd93400bc8c04a6bc4840fb9a4d8eb6ab88237db59a43",
+      "repository_commit": "8b0ffc998dbed63ea37f07ca79d7dbe21f8dfc8f"
+    },
+    "contact_manifold_module_sha256": "89d0a51542d78cebfc49504f8473224a526d56d5c0ad2cf53afef986d92142b3"
+  },
+  "scope": {
+    "run_id": "R117",
+    "clip_id": "cmu16-walk-nominal-b",
+    "frame_count": 801,
+    "decision_scalar_count": 69687,
+    "formulation_reports": 1,
+    "qp_solves": 0,
+    "kto_solves": 0,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "research_resolution": {
+    "finding": "CONFIRMED_ANALYTIC_CONTACT_LINEARIZATION_IDENTITY_GAP",
+    "observed_gap": "R115 placed 33509 analytic-contact nonzeros only in velocity columns across 3723 rows, while the exact emitted kernel has nonzero configuration sensitivity in all nine hotspot probes",
+    "rejected_inference": "R115 does not establish intrinsic infeasibility of the frozen exact requirements or of quantization-aware KTO",
+    "repair_boundary": "replace only the analytic-contact continuous function, its derivative, nonlinear iterate globalization and row diagnostics; do not change any public requirement or execute a solver"
+  },
+  "inherited_r114_contract": {
+    "authority": "R114 revision 2 remains authoritative except for the four repair-boundary items named above",
+    "unchanged": [
+      "all 801 knots and all 69687 floating-base plus 23-joint q/v/a scalar variables",
+      "the fixed 60 Hz hybrid stencil and exact q-to-v and v-to-a equalities",
+      "the complete V9 contact schedule and the matched 12-frame V7 joint-position progress prior",
+      "all endpoint, ROM, collider, finite-contact, root-velocity and joint-velocity constraints",
+      "all exact integer quantization, quaternion, continuous-V9 root-yaw lift and dependent-array rederivation rules",
+      "the fixed zero-residual PD controller, gains, effort caps, limits and right-ankle 6000000 micronewton-second impulse safety limit",
+      "the objective terms, scales, weights, line-search fractions and resource ceilings",
+      "exact emitted acceptance authority and the absence of every public-limit margin"
+    ],
+    "forbidden": [
+      "controller, gain, cap, safety, limit, contact schedule, objective weight or time-grid change",
+      "grace, settling, velocity zeroing, post-emission repair or tolerance relaxation",
+      "reuse of the discarded R115 direction or reconstruction of its candidate arrays",
+      "QP, KTO, inverse-dynamics, kinodynamic, PhysX, all-17, V19 or learned-optimizer execution"
+    ]
+  },
+  "exact_contact_function": {
+    "identity": "the continuous constraint must be the physical-unit extension of the frozen contact_manifold._analytic_active_point_velocities function and must equal it at every emitted integer anchor",
+    "active_schedule": "byte-identical V9 active heel/forefoot mask",
+    "kinematic_mapping": [
+      "evaluate the same descriptor forward kinematics and the same heel/forefoot effector identifiers",
+      "start with engine-world root linear velocity",
+      "add the world-Y left-multiplied root lever formed by the frozen one-sided 0.0001-radian probe times continuous-V9-lifted root-yaw stencil velocity",
+      "add only the six same-side leg-joint levers, each formed by the frozen one-sided 0.0001-radian probe times its explicit joint velocity",
+      "preserve the frozen XZY yaw decomposition, nearest continuous V9 branch and entry/exit-aware two-sample stencil"
+    ],
+    "forbidden_substitutions": [
+      "a generic spatial frame Jacobian times all root angular and all joint velocities",
+      "a symmetric position Jacobian substituted for the one-sided exact-kernel lever",
+      "wrapped per-frame yaw or an independently unwrapped yaw branch",
+      "continuous feasibility substituted for the emitted integer audit"
+    ],
+    "normal_constraint": "-0.06 <= velocity_y_m_s <= 0.06",
+    "tangential_constraint": "velocity_x_m_s^2 + velocity_z_m_s^2 <= 0.12^2; this is the differentiable equivalent of the exact 2000-micrometre step norm at 60 Hz, not a component box",
+    "final_authority": "ceil(norm([vx,vz])/60) <= 2000 micrometres and ceil(abs(vy)/60) <= 1000 micrometres in the unchanged emitted exact audit"
+  },
+  "complete_derivative_contract": {
+    "function_first": "differentiate the whole exact_contact_function rather than composing the rejected R115 sole Jacobian",
+    "configuration_terms": [
+      "configuration derivative of every root-yaw and same-side joint finite-probe lever, including the product term d(lever)/dq times velocity",
+      "derivative of the continuous-V9 yaw lift and its two-sample stencil with respect to both neighboring orientation knots",
+      "all root-orientation and six same-side leg-configuration dependencies observed by the exact kernel; a dependency may be zero only when an independent whole-function audit confirms it"
+    ],
+    "velocity_terms": [
+      "identity derivative for the three engine-world root-linear velocity components",
+      "the six same-side one-sided joint levers for their explicit joint-velocity components",
+      "zero dependence on unrelated velocity dimensions only after deterministic conformance proves exact-kernel identity"
+    ],
+    "scalar_constraint_chain_rule": "apply the complete vector-velocity derivative to velocity_y and to velocity_x^2 + velocity_z^2",
+    "permitted_methods": [
+      "closed-form analytic differentiation",
+      "automatic differentiation of the bound whole function",
+      "deterministic symmetric finite difference of the bound whole function"
+    ],
+    "independent_reference": "R118 must use a separately implemented symmetric whole-function finite-difference reference even if the production derivative is finite-difference based",
+    "probes": {
+      "root_translation_metres": 0.00001,
+      "root_orientation_radians": 0.0001,
+      "joint_position_radians": 0.0001,
+      "root_linear_velocity_metres_per_second": 0.00001,
+      "joint_velocity_radians_per_second": 0.0001,
+      "exact_kernel_lever_radians": 0.0001
+    }
+  },
+  "nonlinear_iteration_contract": {
+    "initial_anchor": "byte-exact V9; do not restore or deserialize an R115 array",
+    "major_iteration": "linearize at the current emitted-and-rederived anchor, solve at most one QP and audit all six fractions in the frozen order 1, 1/2, 1/4, 1/8, 1/16, 1/32",
+    "line_search_fractions": [
+      "1",
+      "1/2",
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32"
+    ],
+    "exact_pass_priority": "accept and terminate on the first exact emitted PASS with strict nonzero integer V7 progress",
+    "single_bridge": {
+      "maximum_count": 1,
+      "eligibility": "strict integer V7 progress; endpoints, immutable arrays, ROM, collider, finite contact, analytic normal, root velocity and joint velocity all exact-PASS; the only exact failure is analytic tangential contact velocity",
+      "selection": "lexicographically minimize (maximum analytic tangential excess micrometres, negative integer V7 distance-improvement basis points, frozen fraction ordinal)",
+      "purpose": "enter feasibility restoration without declaring a relaxed public PASS",
+      "persistence": "solver-private memory for the current process only; no cache or candidate artifact"
+    },
+    "restoration_filter": {
+      "funnel": "over every active point, compute positive exact emitted analytic-tangent excess divided by 2000; compare (maximum excess ratio, sum excess ratio) lexicographically",
+      "acceptance": "retain strict nonzero integer V7 progress and every non-analytic exact constraint, then require a strict lexicographic funnel decrease",
+      "fraction_selection": "among eligible strictly decreasing fractions minimize (new funnel maximum, new funnel sum, negative V7 distance-improvement basis points, frozen fraction ordinal)",
+      "reanchor": "after every accepted intermediate, quantize q, canonicalize quaternion, apply continuous-V9 yaw lift, and rederive v/a/effectors/colliders before the next linearization",
+      "failure": "if no fraction is exact-PASS or filter-acceptable, terminate STOP_AND_RESEARCH; do not tune, restart, reuse the unaccepted float state or relax a limit"
+    },
+    "bounds": {
+      "maximum_major_iterations": 12,
+      "maximum_qp_solves": 12,
+      "maximum_exact_emission_audits": 72,
+      "maximum_wall_clock_seconds": 14400,
+      "maximum_resident_memory_bytes": 17179869184,
+      "randomized_restarts": 0,
+      "manual_intervention": "FORBIDDEN"
+    },
+    "failure_disposition": "STOP_AND_RESEARCH with metrics only; no execution retry is implied by this formulation"
+  },
+  "required_diagnostics": {
+    "per_major_iteration": [
+      "QP status, dimensions, nonzeros, iterations, primal and dual residual",
+      "accepted anchor identities and exact emitted-array hashes without array payloads",
+      "funnel before and after plus modeled and actual reduction"
+    ],
+    "per_analytic_row_hotspot": [
+      "frame, side, point and scalar component identity",
+      "QP-predicted value, continuous exact-kernel value and emitted exact value",
+      "configuration and velocity derivative nonzero counts and norms",
+      "modeled versus actual reduction and the selected fraction"
+    ],
+    "forbidden_payloads": [
+      "candidate arrays",
+      "discarded R115 direction",
+      "solver-private warm-start cache before an exact PASS"
+    ]
+  },
+  "r118_conformance_contract": {
+    "scope": "report-only implementation and numerical conformance; zero QP and KTO solves",
+    "numeric_tolerances": {
+      "function_identity_absolute_micrometres_per_second_per_component": 1.0,
+      "jacobian_absolute_micrometres_per_second_per_variable_unit": 5.0,
+      "jacobian_relative": 0.0001,
+      "configuration_nonzero_micrometres_per_second_per_radian": 1.0
+    },
+    "deterministic_anchor_requirements": [
+      "frame-328:left-forefoot",
+      "at least one contact-entry anchor on each side",
+      "at least one contact-exit anchor on each side",
+      "at least one centered-stencil anchor on each side"
+    ],
+    "required_checks": [
+      "at byte-exact V9 every active continuous vector velocity agrees with the frozen exact kernel within 1 micrometre per second per component",
+      "the deterministic set includes frame-328:left-forefoot plus entry, exit and centered stencil anchors on both sides",
+      "the implementation derivative agrees with an independent symmetric whole-function reference using absolute 5 micrometres per second per variable-unit plus relative 0.0001 tolerance",
+      "configuration columns are nonzero wherever the independent reference exceeds 1 micrometre per second per radian",
+      "neighbor orientation columns induced by the yaw stencil and explicit root-linear and same-side joint-velocity columns are present",
+      "the scalar tangential constraint is the norm-squared constraint, never the R115 component box",
+      "all inherited source identities, budgets, public limits and zero-execution counters remain exact"
+    ],
+    "failure": "STOP_AND_RESEARCH",
+    "success": "PERMIT_SEPARATE_REPORT_ONLY_R119_REPAIRED_KTO_EXECUTION_FORMULATION_ONLY"
+  },
+  "research_basis": [
+    {
+      "source": "Pinocchio frame derivatives",
+      "url": "https://docs.ros.org/en/rolling/p/pinocchio/generated/function_namespacepinocchio_1a0d05b1c07362deab78a8855467b354ef.html",
+      "applied_decision": "bind distinct configuration and velocity derivative blocks"
+    },
+    {
+      "source": "MIT Underactuated trajectory optimization",
+      "url": "https://underactuated.mit.edu/trajopt.html",
+      "applied_decision": "differentiate the complete nonlinear constraint with the full chain rule"
+    },
+    {
+      "source": "Fletcher and Leyffer filter SQP",
+      "url": "https://doi.org/10.1007/s101070100244",
+      "applied_decision": "predeclare a feasibility funnel and restoration acceptance rule"
+    },
+    {
+      "source": "TrajOpt sequential convex optimization",
+      "url": "https://doi.org/10.1177/0278364914528132",
+      "applied_decision": "relinearize only at accepted quantized anchors under a bounded line search"
+    }
+  ],
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/kto_linearization_repair_formulation.py",
+        "lab/scripts/formulate_kto_linearization_repair.py",
+        "lab/tests/test_kto_linearization_repair_formulation.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/kto_linearization_repair_formulation.py",
+        "lab/scripts/formulate_kto_linearization_repair.py",
+        "lab/tests/test_kto_linearization_repair_formulation.py"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "bounded_acceptance": {
+    "r118_linearization_repair_implementation_conformance": "AUTHORIZED_REPORT_ONLY",
+    "r119_repaired_kto_execution_formulation": "NOT_AUTHORIZED_UNTIL_R118_PASS",
+    "additional_kto_solve": "NOT_AUTHORIZED",
+    "r116_inverse_dynamics_formulation": "NOT_AUTHORIZED",
+    "inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  },
+  "decision": {
+    "complete": "PERMIT_R118_KTO_LINEARIZATION_REPAIR_IMPLEMENTATION_CONFORMANCE_ONLY",
+    "next_smallest_action": "implement the bound exact contact function and complete derivative, then run only the deterministic report-only conformance suite; do not solve a QP or KTO problem"
+  }
+}
