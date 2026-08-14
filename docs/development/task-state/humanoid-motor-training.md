@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R107_EXACT_FAIL / R108_FORMULATION_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R108_FORMULATION_COMPLETE / R109_IDENTITY_NEXT` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,19 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean R107 rejects the late projected direction only
-  on exact joint velocity: `2501 bp` versus the frozen `2500 bp` limit.
-- **Why:** Continuous projection is feasible below `4e-17`, but integer/stencil
-  recomputation produces `0.000411892` local proxy violation and exact FAIL.
-- **Next action:** R108 may formulate the progressive quantization-aware KTO →
-  fixed-PD inverse-dynamics → kinodynamic ladder; no solver run is authorized.
-- **Current blocker:** No trajectory-wide formulation yet couples quantized
-  position/velocity, fixed-PD effort and contact-wrench feasibility.
+- **Current conclusion:** Clean R108 freezes model identity → quantization-aware
+  KTO → fixed-PD inverse dynamics → full kinodynamics as separate gates.
+- **Why:** R107 proves exact integer/stencil closure differs from its continuous
+  proxy; KDMR/SPARK support coupled q/v/a, effort and contact-wrench variables.
+- **Next action:** R109 may only bind descriptor/native/derived-USD dynamics
+  identity; KTO and every later solve remain unauthorized.
+- **Current blocker:** Gravity/material/friction, body/joint frames and exact
+  fixed-PD clipping/slew conventions are not yet one hash-closed model.
 - **Do not retry:** Do not start PPO, substitute another scalar/vector/root/
   pose boundary, zero velocities, add grace/settling, tune controller, or
   loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** R108 closes hash-bound stage variables, gates and failure
-  dispositions before any new candidate construction or solve.
+- **Reconsider when:** R109 proves or rejects every required dynamics-field
+  mapping without inventing missing constants or running a solver.
 
 All TRAIN-5 checkpoints remain rejected. No optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -41,10 +41,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R92–R107 native research | R107 exact contact/geometry/ROM/root metrics pass, but joint velocity is `2501/2500 bp`; artifact/PhysX/optimizer/training stay `0` | Select R108 progressive formulation only |
+| R92–R108 native research | R108 freezes four progressive stages; descriptor basic inventory is `24/23/23/19` bodies/joints/actuators/colliders | Permit R109 model-identity preflight only |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R105/R106-v2/R107 canonical SHA-256: `c107230f01f75d25987ca0e9ac07d81cdda71fe94bca1889509d4f5504436f50` / `67a94a01f624cae4db9615646ee00a8ef00920119ad017f3ddead60d2e0c2996` / `5a3c26ca731ac2734637a3d9953d84eca15c6553fb97c9da2ed9a12c2f7781fa`.
+R106-v2/R107/R108 canonical SHA-256: `67a94a01f624cae4db9615646ee00a8ef00920119ad017f3ddead60d2e0c2996` / `5a3c26ca731ac2734637a3d9953d84eca15c6553fb97c9da2ed9a12c2f7781fa` / `4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -178,18 +178,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether quantization-aware KTO can reach exact-zero without
-  losing contact/geometry reserve, or inverse dynamics must enter immediately.
-- **Reconsider when:** R108 freezes stage gates without changing bounds, contact
-  modes, controller, reset or reference-target semantics.
+- **Uncertainty:** Whether descriptor/native/derived USD expose one complete,
+  sign-consistent dynamics model suitable for inverse dynamics.
+- **Reconsider when:** R109 closes model identity without changing bounds,
+  contact modes, controller, reset or reference-target semantics.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R107 exact direction misses joint velocity after quantization | The miss is only `1 bp`; plant effort remains untested | R108 progressive formulation |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 makes fixed-PD effort/contact wrench a required stage | No model-identity proof or ID result yet | R109 identity preflight |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R107 position support changes velocities on `239..250` | Exact contact geometry still passes | Couple q/v and exact stencil in R108 |
+| H24/H26: nonlocal coupling is hidden between motor samples | R108 lifts floating-base/all-joint q/v/a and 240 Hz effort state | Equations are not implemented | Bind coordinate/cadence identity in R109 |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -218,10 +218,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R107 and all superseded semantic reports.
-2. Reject `anchor-offset-11`; do not shrink, repair or sweep it.
-3. Define R108 KTO/inverse-dynamics/kinodynamic variables and stage gates.
-4. Run no solver, candidate artifact or PhysX until R108 closes its contract.
+1. Freeze clean R73–R108 and all superseded semantic reports.
+2. Retain R108's four stages; do not collapse or skip their gates.
+3. Audit exact dynamics-field identity in R109 with report-only output.
+4. Run no KTO/ID/kinodynamic solve, candidate artifact or PhysX in R109.
 
 ## Do not retry
 
@@ -239,10 +239,10 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R107 code/profile is committed; tracked research now
-  records R73–R107. Generated reports remain external and hash-bound.
-- **Checks:** Full lab `199/199`; clean R107 exact `FAIL 2501/2500 bp`; one QP/
-  in-memory audit, zero artifact/PhysX/optimizer/training work.
+- **Workspace state:** R108 code/profile is committed; tracked research now
+  records R73–R108. Generated reports remain external and hash-bound.
+- **Checks:** Full lab `201/201`; clean R108 `COMPLETE`; all solve, candidate,
+  artifact, PhysX, optimizer and training counts are zero.
 - **Remaining risk:** Dynamic-reference feasibility, full-corpus exact-zero
   coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any

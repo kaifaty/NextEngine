@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R107_EXACT_OFFLINE_FAIL / R108_PROGRESSIVE_FORMULATION_NEXT` |
+| Status | `R108_PROGRESSIVE_FORMULATION_COMPLETE / R109_MODEL_IDENTITY_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -41,6 +41,7 @@ bounded research before another solver change or expensive native run.
 | R105 local feasible-direction audit | canonical/file/profile SHA-256 `c107230f01f75d25987ca0e9ac07d81cdda71fe94bca1889509d4f5504436f50` / `19971615f285608903877a265e0387e7dbb963254e1b56493c99c43617e39ae9` / `48cf5b605e5fc6b3ae36b72ccc85a05d6fffeb6ccaa6d635d468c3e5c5b82d9e` | Clean `COMPLETE`: early/middle bases collapse; late basis retains `9722 bp` anchor component and `9872 bp` cosine after a feasible local projection; only R106 formulation is permitted |
 | R106 projected-direction formulation v2 | canonical/file/profile SHA-256 `67a94a01f624cae4db9615646ee00a8ef00920119ad017f3ddead60d2e0c2996` / `30512398d0e7030e95a61b8a662417b9ea1436ae96b58d0cdb0edaa3fe6b0679` / `6e67882da4e305aa0566c93d44216fc92f0318173a620aac4c2095eefc4a9937` | Clean `COMPLETE`: selects only late offset `11`, freezes reconstruction/quantization and permits one in-memory R107 exact audit; projection/candidate/PhysX/optimizer/training counts are `0` |
 | R107 projected-direction exact audit | canonical/file/profile SHA-256 `5a3c26ca731ac2734637a3d9953d84eca15c6553fb97c9da2ed9a12c2f7781fa` / `4095dfa6517847c5babfb9fb958e015908fc8c560f4e7c7083f840918b4f9a45` / `00b826d3aa11f1d1b4df66f99856ba5ed8dd3a08256a662dbfdb8a531c0e4539` | Clean `FAIL`: contact/collider geometry/ROM/root velocity retain V9 PASS metrics, but exact joint velocity is `2501/2500 bp`; selects progressive formulation with zero artifacts/PhysX/optimizer/training |
+| R108 progressive-kinodynamic formulation | canonical/file/profile SHA-256 `4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8` / `6a288d0cd2bdfc5f580c1dabb96ecf63ed71f79f09ae00bc40ebe15ca18fd4fb` / `1f5a006eb0a2d0f1bb575b67928e6bb9a86b42c00659393994189ebf8ce62b0f` | Clean `COMPLETE`: freezes model-identity→KTO→inverse-dynamics→kinodynamics gates; only R109 identity preflight is authorized and every solve/work count is `0` |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -168,9 +169,9 @@ with the two failed variants before any bounded construction change is chosen.
 
 | ID | Hypothesis | Current evidence | Discriminator |
 | --- | --- | --- | --- |
-| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R107 shows even the useful late linear direction misses exact joint velocity after integer/stencil recomputation | Confirmed as trajectory-wide coupled feasibility; R108 defines progressive KTO/inverse-dynamics/kinodynamic gates |
+| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R108 now separates exact kinematics, fixed-PD inverse dynamics and full substep dynamics | Confirmed structurally; R109 must first close model identity |
 | H23 | Near-zero offline collider clearance does not predict the full PhysX contact manifold and impulse | R95 isolates ordinal `2`: active foot `1539 µm` above surface with no derivative amplification; R97 reserve case passes all `11` ticks and lowers peak left-foot impulse `6440089 -> 4466405 µN·s` | Supported for the selected case only; broader contact cases remain untested |
-| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | R107 changes dependent joint velocities across frames `239..250` from position support `240..249` | Confirmed; future state variables and exact discretization must be coupled explicitly |
+| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | R108 lifts all 23 joint plus floating-base q/v/a rather than another scalar/local splice | Confirmed; R109 binds the exact conventions those variables require |
 | H26 | Motor-frame pose/derivative summaries hide the causal physical substep | R98 localizes V11 touchdown to tick `9` substep `2` and overspeed to the immediately following pre-substep state | Confirmed; retain substep traces for every future native discriminator |
 | H25 | Fresh-scene initialization is responsible | Initial state is exact within quantization in every worker | Falsified by R94; do not repeat partial-reset experiments |
 
@@ -766,15 +767,43 @@ dynamics/contact-wrench feasibility, then full kinodynamic optimization only if
 the cheaper stage cannot certify a safe reference. R108 may formulate that
 ladder only; it cannot run a solver, build an artifact or invoke PhysX.
 
+## R108 progressive formulation result
+
+Clean R108 at commit `3e4457a570212f82dc289285781c50cb32ae6851`
+binds R107 and the primary-source KDMR/SPARK/MIT rationale into four explicit
+stages. Stage 0 is an R109 model-identity preflight. Stage 1 lifts floating-base
+and all `23` joint `q/v/a` at `60 Hz`, keeps V9 contact modes and exact emitted
+integer closure, and treats V7 only as a tracking/safety prior. Stage 2 solves
+`240 Hz` generalized acceleration, actuator effort and scheduled contact
+wrench against rigid-body dynamics plus the descriptor's fixed-PD effort,
+slew, power and work limits. Stage 3 couples substep state, fixed-PD effort
+state, scheduled wrenches and held `60 Hz` targets. Every stage remains subject
+to the unchanged exact offline gate and later fresh-scene authority.
+
+The descriptor has the basic expected inventory (`24` bodies, `23` joints,
+`23` actuators, `19` colliders, `60/240 Hz`), but that count is explicitly not
+model-identity evidence. Before equations or a solve exist, R109 must bind body
+mass/CoM/inertia and principal frames; joint axes/frames/signs; actuator gains,
+clips and effort slew; collision exclusions/material/friction/gravity; target
+hold/integration cadence; and root/contact-wrench conventions to the exact
+descriptor, native PhysX and derived-USD lineage.
+
+R108 runs zero identity preflights, KTO/inverse-dynamics/kinodynamic solves,
+candidate constructions/artifacts, PhysX, optimizer steps and training. It
+returns `PERMIT_R109_DYNAMICS_MODEL_IDENTITY_PREFLIGHT_ONLY`; KTO execution is
+still unauthorized. A missing or contradictory R109 mapping stops with
+`STOP_INVALID_MODEL_LINEAGE`, rather than filling the gap with an assumed
+constant or imported simulator convention.
+
 ## Decision
 
-Freeze R92–R107, retain the contact result as bounded support for H23, and
+Freeze R92–R108, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
 and the late projected direction after its exact `2501/2500 bp` failure. Permit
-only R108 progressive KTO→inverse-dynamics→kinodynamic formulation. Candidate
-artifact/native construction remains blocked. All-17 remains blocked until a
-future bounded
+only R109 dynamics-model identity preflight under the frozen R108 ladder.
+Candidate artifact/native construction remains blocked. All-17 remains blocked
+until a future bounded
 candidate passes every selected fresh control without changing controller
 semantics, safety limits, fresh-scene authority or the exact-zero gate.
