@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R101_VECTOR_REJECTED / R102_NATIVE_ROLLOUT_CONTRACT_NEXT` |
+| Status | `R102_AUDIT_COMPLETE / R103_KNOT_FORMULATION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -35,6 +35,7 @@ bounded research before another solver change or expensive native run.
 | R100 native trace | canonical/file SHA-256 `024e2251e4518f83c1f5fba4d22142afa83d6a23d8dfdd04e41c40ba1d4210b3` / `afee35e799be7522c434998583175d71f4629cdeeb06e0009fffde9d45629426` | `FAIL` tick `5`, new right-ankle hard impact `6092658 µN·s`; complete `20/20` trace SHA-256 `24489460446a9bee160508b7e16b4125e43cb5ab1f70dbb4440710e754b6eeae` |
 | R101 velocity-vector input | canonical/file/artifact SHA-256 `42cc653095911a71a01d6ab3750228e2f47e6190a9fc4a378ce7a19840c183fb` / `096b2f94eaa59a555da82165276c39456cf0ee33cec9123489271548b6deeb2c` / `2dab3cbea1e71f60c328a48b3ec52a3a95af23b6c0214ac05c77c0c3a13ae58a` | Exactly `18` frame-0 joint-velocity cells change to V7; all other array elements remain V9; PhysX/optimizer/training `0` |
 | R101 native trace | canonical/file SHA-256 `04b91df1ca6be06c10af9fbf11505457fed8e5a25e2c50abe3f8523bdd684cb6` / `08ef6a379bfc2379ed43b1373f784025760d5b2bdce9bd54ab164376b1afc468` | `FAIL` tick `10`, right-ankle-pitch hard ROM plus remote hard impact `6006560 µN·s`; complete `40/40` trace SHA-256 `364ed05872fb522e6afbab5c945924fda5eaa09fd14d796163255c9ecb83ac31` |
+| R102 native-rollout audit | canonical/file/profile SHA-256 `b881f8a7a70542f07c045e2451458a427a38067078520a07dc02dac4034546f6` / `ef5f95eafe18f513abfa90803bc7ff67e8db756f327bd2b4d27f27c320b8ebee` / `ea7159cf69d530e3242aab03638415212ebeb7b2be0f369b8ae13ab5446d167c` | Clean `COMPLETE`: all frozen identities/facts reproduce; PhysX/candidate/trajectory/optimizer/training counts are `0`; candidate search remains `NOT_AUTHORIZED` |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -525,13 +526,41 @@ rollout cannot produce a deterministic, bounded one-case construction. A
 controller change requires a separate architecture decision and is not the
 R102 fallback.
 
+## R102 native-rollout audit result
+
+Clean commit `32258edf08eaf3bf946afc19c30e64b0a8d0fe39` closes the
+report-only evaluator. Its profile SHA-256 is
+`ea7159cf69d530e3242aab03638415212ebeb7b2be0f369b8ae13ab5446d167c`;
+the canonical/file report SHA-256 values are
+`b881f8a7a70542f07c045e2451458a427a38067078520a07dc02dac4034546f6` /
+`ef5f95eafe18f513abfa90803bc7ff67e8db756f327bd2b4d27f27c320b8ebee`.
+The audit recomputes the four physical-substep trace hashes and their frozen
+profile, worker and manifest identities rather than trusting copied summaries.
+
+The decisive comparisons reproduce exactly. R101's first requested-effort
+vector has zero disagreement with V7 across all `23` actuators, while its
+command and applied targets have zero disagreement with V9 across all `40`
+substeps. Its first-20 left-roll RMS distance is `267756 µrad/s` to V7 versus
+`6461306 µrad/s` to V9; whole-action RMS is `606637` versus `1623104 µrad/s`.
+The remote tick-5 impulse improves relative to R100 but regresses relative to
+V9, and R101 still reaches required-safety failure at tick `10`.
+
+R102 executes zero PhysX runs, candidate evaluations, trajectory mutations,
+optimizer steps and training runs. It therefore closes the measurement and
+priority contract, not a trajectory candidate. Its gate remains
+`STOP_AND_RESEARCH`: all-17, full V19 and training remain `NOT_AUTHORIZED`.
+The only admitted next action is R103 formulation of low-dimensional future
+joint-target time knots, interpolation, incremental horizon, exact budget and
+rollback/non-regression checks. No candidate search or new native run begins
+until that tracked formulation validates from a clean commit.
+
 ## Decision
 
-Freeze R92–R101, retain the contact result as bounded support for H23, and
+Freeze R92–R102, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
-values and do not begin training. Build only the report-only R102 native-
-rollout audit/evaluator before defining a candidate search. All-17 remains
+values and do not begin training. Freeze the completed R102 evaluator and
+define only the bounded R103 formulation before any candidate search. All-17 remains
 blocked until a future bounded candidate passes every selected fresh control
 without changing controller semantics, safety limits, fresh-scene authority
 or the exact-zero gate.
