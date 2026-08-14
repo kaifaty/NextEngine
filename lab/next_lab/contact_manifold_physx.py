@@ -253,6 +253,19 @@ def native_dynamics_trace_probe_shape_is_valid(
             and not cases[10].baseline_reasons
             and not cases[10].target_failure_categories
         )
+    if role == "v9-v7-boundary-velocity":
+        return (
+            common
+            and execution.get("worker_case_ordinals") == [0]
+            and _boundary_velocity_counterfactual_shape_is_valid(
+                prototype_manifest=prototype_manifest,
+                cases=cases,
+            )
+            and cases[0].source_case_ordinal == 7967
+            and cases[0].baseline_status == "PASS"
+            and not cases[0].baseline_reasons
+            and not cases[0].target_failure_categories
+        )
     return False
 
 
@@ -287,6 +300,72 @@ def _v7_all17_manifest_shape_is_valid(
             == 0
             for record in records
         )
+    )
+
+
+def _boundary_velocity_counterfactual_shape_is_valid(
+    *,
+    prototype_manifest: Mapping[str, Any],
+    cases: Sequence[ContactPrototypeCase],
+) -> bool:
+    """Validate the immutable one-cell R100 input without admitting it."""
+
+    scope = prototype_manifest.get("scope", {})
+    identities = prototype_manifest.get("identities", {})
+    verification = prototype_manifest.get("offline_verification", {})
+    records = prototype_manifest.get("cases", ())
+    changed = verification.get("changed_array_element_count_by_array", {})
+    edit = records[0].get("counterfactual_edit", {}) if len(records) == 1 else {}
+    return (
+        prototype_manifest.get("check")
+        == "TRAIN-4-CONTACT-MANIFOLD-BOUNDARY-VELOCITY-COUNTERFACTUAL"
+        and prototype_manifest.get("prototype_id")
+        == "nextengine.humanoid-contact-boundary-velocity-counterfactual.v1"
+        and prototype_manifest.get("gate_decision")
+        == "PERMIT_EXACTLY_ONE_R100_FRESH_TRACE_ONLY"
+        and scope.get("case_scope")
+        == "single-boundary-velocity-counterfactual"
+        and scope.get("case_count") == 1
+        and scope.get("failure_case_count") == 0
+        and scope.get("control_case_count") == 1
+        and scope.get("source_case_ordinal") == 7967
+        and scope.get("source_v7_control_case_ordinal") == 10
+        and scope.get("source_v9_case_ordinal") == 10
+        and len(cases) == 1
+        and len(records) == 1
+        and records[0].get("counterfactual_role")
+        == "boundary-velocity-locality"
+        and records[0].get("exact_complete_clip_slice_status") == "PASS"
+        and edit
+        == {
+            "array": "joint_velocity_urad_s",
+            "frame_offset": 0,
+            "source_frame": 238,
+            "dof_ordinal": 5,
+            "joint_id": "joint.left-ankle-roll",
+            "source_value_microradians_per_second": -53280,
+            "replacement_value_microradians_per_second": -40080,
+            "delta_microradians_per_second": 13200,
+        }
+        and verification.get("status") == "PASS"
+        and verification.get("direct_target_disagreement_count") == 0
+        and verification.get("changed_array_element_count") == 1
+        and isinstance(changed, Mapping)
+        and changed.get("joint_velocity_urad_s") == 1
+        and sum(changed.values()) == 1
+        and identities.get("v7_manifest_sha256")
+        == "1e56a2d3d14c8d3a8291639da49d4fda46263aa37c1d6682205343d4043202bb"
+        and identities.get("v7_case_artifact_sha256")
+        == "dac5066102b017c24213e0f5bd21a917416ebf6b74b8a4018586106f27e0d855"
+        and identities.get("v9_manifest_sha256")
+        == "7ee041b7710302b9fae909b0cb34c0de3a6c2df257032cd0e1c7dcaf16afefeb"
+        and identities.get("v9_case_artifact_sha256")
+        == "213d7f11074932f046bab835b5901f5928d851b31dc53e1ac154dc0d95d39af1"
+        and prototype_manifest.get("fresh_scene_runs") == 0
+        and prototype_manifest.get("physx_runs") == 0
+        and prototype_manifest.get("optimizer_steps") == 0
+        and prototype_manifest.get("training_runs") == 0
+        and prototype_manifest.get("repository", {}).get("dirty") is False
     )
 
 

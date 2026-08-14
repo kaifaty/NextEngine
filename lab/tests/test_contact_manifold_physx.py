@@ -67,6 +67,34 @@ class ContactManifoldPhysxTests(unittest.TestCase):
             )
         )
 
+        boundary_case = (
+            replace(_case(0, "PASS", (), ()), source_case_ordinal=7967),
+        )
+        boundary_manifest = _boundary_velocity_manifest()
+        self.assertTrue(
+            native_dynamics_trace_probe_shape_is_valid(
+                profile=_native_trace_profile(
+                    role="v9-v7-boundary-velocity",
+                    worker_case_ordinals=[0],
+                ),
+                prototype_manifest=boundary_manifest,
+                cases=boundary_case,
+            )
+        )
+        boundary_manifest["offline_verification"][
+            "changed_array_element_count"
+        ] = 2
+        self.assertFalse(
+            native_dynamics_trace_probe_shape_is_valid(
+                profile=_native_trace_profile(
+                    role="v9-v7-boundary-velocity",
+                    worker_case_ordinals=[0],
+                ),
+                prototype_manifest=boundary_manifest,
+                cases=boundary_case,
+            )
+        )
+
         v7_manifest = _v7_manifest()
         self.assertTrue(
             native_dynamics_trace_probe_shape_is_valid(
@@ -501,6 +529,72 @@ def _v7_manifest() -> dict[str, Any]:
             }
             for _ in range(17)
         ],
+    }
+
+
+def _boundary_velocity_manifest() -> dict[str, Any]:
+    edit = {
+        "array": "joint_velocity_urad_s",
+        "frame_offset": 0,
+        "source_frame": 238,
+        "dof_ordinal": 5,
+        "joint_id": "joint.left-ankle-roll",
+        "source_value_microradians_per_second": -53280,
+        "replacement_value_microradians_per_second": -40080,
+        "delta_microradians_per_second": 13200,
+    }
+    return {
+        "check": (
+            "TRAIN-4-CONTACT-MANIFOLD-BOUNDARY-VELOCITY-COUNTERFACTUAL"
+        ),
+        "prototype_id": (
+            "nextengine.humanoid-contact-boundary-velocity-counterfactual.v1"
+        ),
+        "gate_decision": "PERMIT_EXACTLY_ONE_R100_FRESH_TRACE_ONLY",
+        "scope": {
+            "case_scope": "single-boundary-velocity-counterfactual",
+            "case_count": 1,
+            "failure_case_count": 0,
+            "control_case_count": 1,
+            "source_case_ordinal": 7967,
+            "source_v7_control_case_ordinal": 10,
+            "source_v9_case_ordinal": 10,
+        },
+        "identities": {
+            "v7_manifest_sha256": (
+                "1e56a2d3d14c8d3a8291639da49d4fda46263aa37c1d6682205343d4043202bb"
+            ),
+            "v7_case_artifact_sha256": (
+                "dac5066102b017c24213e0f5bd21a917416ebf6b74b8a4018586106f27e0d855"
+            ),
+            "v9_manifest_sha256": (
+                "7ee041b7710302b9fae909b0cb34c0de3a6c2df257032cd0e1c7dcaf16afefeb"
+            ),
+            "v9_case_artifact_sha256": (
+                "213d7f11074932f046bab835b5901f5928d851b31dc53e1ac154dc0d95d39af1"
+            ),
+        },
+        "offline_verification": {
+            "status": "PASS",
+            "direct_target_disagreement_count": 0,
+            "changed_array_element_count": 1,
+            "changed_array_element_count_by_array": {
+                "joint_position_urad": 0,
+                "joint_velocity_urad_s": 1,
+            },
+        },
+        "cases": [
+            {
+                "counterfactual_role": "boundary-velocity-locality",
+                "counterfactual_edit": edit,
+                "exact_complete_clip_slice_status": "PASS",
+            }
+        ],
+        "fresh_scene_runs": 0,
+        "physx_runs": 0,
+        "optimizer_steps": 0,
+        "training_runs": 0,
+        "repository": {"dirty": False},
     }
 
 
