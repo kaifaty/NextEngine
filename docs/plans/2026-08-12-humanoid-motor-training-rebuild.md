@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` and fails the stronger raw-mask `cmu139`; R74–R85 isolate artificial infeasibility, blind active-set oscillation, mismatched merit and a persistent model/FK collider gap. The current increment is a directional model-fidelity audit on `cmu139`, not another solver knob. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` and fails the stronger raw-mask `cmu139`; R74–R85 isolate artificial infeasibility, blind active-set oscillation, mismatched merit and a persistent model/FK collider gap. R86 locates a model-valid correction radius; the current increment is a bounded trial-point re-solve on `cmu139`. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1734,10 +1734,16 @@ composes the R84 trial geometry with the unchanged R83 nonlinear phase-I; no
 new slack policy or limit is introduced. It selects normalized slack
 `0.235364` and balances every trial-model nonlinear group near that value, but
 exact collider is `-33352 µm` / violation `6.6700`; the correction is rejected
-and baseline restored. R86 therefore persists one reproduced direction and
-audits per-frame linear/exact error across a fixed scale ladder before any new
-solver identity. Only `cmu139` PASS permits an unchanged clean all-three/all-17
-offline rerun; only that PASS permits fresh all-17.
+and baseline restored. R86 persists one reproduced direction and audits
+per-frame linear/exact error across a fixed scale ladder. Scales `0.125/0.25`
+improve exact worst merit to `3.2958/3.1418`, with actual/predicted ratios
+`1.042/0.695`; scale `0.5` reverses progress (`4.4442`, ratio `-0.390`) as
+right-foot collider prediction error reaches `13030 µm` around source frame
+`1388`. R87 therefore re-solves, rather than scales, the trial-point minimax
+phase-I inside measured `10000 µm` root-component and `25000 µrad`
+joint-component trust bounds. It retains hard linear rows and the unchanged
+exact max-first gate. Only `cmu139` PASS permits an unchanged clean
+all-three/all-17 offline rerun; only that PASS permits fresh all-17.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This

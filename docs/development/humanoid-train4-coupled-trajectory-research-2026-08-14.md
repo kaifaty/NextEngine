@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-14 |
 | Scope | Optimizer-free learned-policy lane; offline constraint-solver research for `REQ-HUM-DATA-005/007` |
-| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / MODEL-FIDELITY RESEARCH` |
+| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / MODEL-VALID TRUST RE-SOLVE` |
 | Current implementation | `nextengine.dimensionless-contact-trajectory-qp.v8` |
 | Claim ceiling | Research infrastructure only; no V19, TRAIN-4 Advance, visual gate or learned optimization |
 
@@ -55,6 +55,7 @@ All generated artifacts remain under the external TRAIN-4 evaluation root.
 | R83 minimax nonlinear phase-I restoration | Relaxing only nonlinear rows makes the correction model feasible. Four bounded bisections bracket minimum normalized slack between `0.235364` infeasible and `0.470727` solved; linear/trust rows remain hard. The selected model balances every nonlinear group near `0.4707` and improves exact contact violations, but its `50 mm` root-saturated correction drives exact collider from baseline violation `3.1438` to `8.8592` (`-44298 µm`). Exact max-first audit rejects it and restores the baseline. | Reject the old-Jacobian minimax restoration identity. Its model predicts collider violation `0.4707` while integer FK measures `8.8592`, directly localizing stale linearization over the correction radius. Recompute the correction Jacobian at the nonlinear trial point before changing slack, trust or requirements. |
 | R84 hard trial-Jacobian restoration | The correction uses the Jacobian already evaluated at the quantized rejected trial, with identical `252303` base nonzeros, nonlinear row bounds and component trust. It remains `primal infeasible` after `66000` iterations with primal residual `0.06245`; no corrected exact state is evaluated. | Trial-point relinearization alone cannot remove local incompatibility. R83 and R84 isolate two independent requirements: trial geometry for exact fidelity and iteration-only phase-I slack for model feasibility. Test their direct composition before considering another mechanism. |
 | R85 trial-Jacobian minimax phase-I | The direct R83/R84 composition makes all tested slack levels feasible; the selected `0.235364` solve reaches `solved inaccurate` at `100000` iterations and balances trial-model nonlinear rows near `0.2354`. Exact contact violations improve, and total violation drops `12.7778 -> 11.9054`, but collider violation rises `3.1438 -> 6.6700` (`-33352 µm`). Exact max-first rejects the correction and restores the baseline. | Reject this local composition as an acceptance mechanism. Trial relinearization improves R83 collider error `8.8592 -> 6.6700` but still underpredicts it by a large margin over a `1.7887` normalized correction. Stop local solver-knob composition and map exact/model error versus frame and step scale before choosing a new geometry or trust model. |
+| R86 directional model-fidelity audit | The hash-bound R85 direction reproduces the reference exact violations with zero normalized delta. At scales `0.125` and `0.25`, model/exact worst merits are `3.3245/3.2958` and `2.8832/3.1418`; both improve the accepted `3.3690` baseline, with actual/predicted ratios `1.042` and `0.695`. At `0.5`, the ratio becomes `-0.390`, exact merit regresses to `4.4442` and maximum collider prediction error grows to `13030 µm`. The dominant error is `collider.right-foot`, especially source frames `1383..1392`, worst at `1388`. | Accept only a measured local model-valid interval, not any audited scale as a candidate. A quarter direction uses at most `8944 µm` root component / `9555 µm` root norm / `24992 µrad` joint component, while the half direction is outside reliable geometry. R87 must re-solve the trial-point phase-I inside `10000 µm` root-component and `25000 µrad` joint-component trust bounds; it must not scale the stored R85 direction. |
 
 R69 report SHA-256 is
 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56`;
@@ -122,6 +123,12 @@ R85 report/candidate/research-adapter SHA-256 are
 `bc23a1535deb1e5235ef312e5903f6d1b490d97fba85bd1a6a34a30f0a5732f1`.
 The R85 candidate is the restored accepted baseline and remains
 non-admissible because the unchanged gate is `FAIL`.
+R86 report/direction/research-adapter SHA-256 are
+`18e395edb33ed80a6f8946988e377f401943bdad4523813f648d42429eb15036` /
+`23cdcfe5ec5ccc9d080cfdf893b1563976b4516a94c256fe86f013f535f3c515` /
+`92676ca3cbb3d3351224d8922a207b537388db1a86623b0eeaa0fdbf74570f2f`.
+R86 emits no candidate and has `candidate_status=NOT_EVALUATED`; every scale
+is a research measurement rather than admissible TRAIN-4 evidence.
 
 ## Primary-source research decision
 
@@ -203,13 +210,22 @@ but the corrected FK still disagrees qualitatively with a tightly balanced
 linear model. This is the predeclared stop condition for local SOC/restoration
 composition, not a reason to add a fifth scalar or relax the exact gate.
 
-The next research discriminator, R86, is a model-fidelity audit rather than a
-candidate solver: reproduce one hash-bound R85 direction, persist it, and
-compare linear versus integer-FK contact/collider violations per frame across
-a fixed scale ladder. If a bounded interval has reliable predicted/actual
-agreement and improves exact max-first merit, an adaptive trust rule is
-justified; if not, the collider/contact model itself needs a different local
-geometry or decomposition. No R86 scale is admissible evidence by itself.
+R86 completed that predeclared discriminator. The exact/model relationship is
+reliable through a quarter of the stored direction and reverses before half:
+the worst-merit actual/predicted ratio changes from `0.695` at `0.25` to
+`-0.390` at `0.5`. Collider prediction error grows nonlinearly at the right
+foot around source frame `1388`, from `2485 µm` to `13030 µm` over the
+same interval. This supports an adaptive local trust contract and rejects both
+the original `50 mm / 100 mrad` correction and blind post-scaling.
+
+R87 is therefore a fresh trial-Jacobian minimax phase-I solve with root
+component trust `10000 µm` and joint component trust `25000 µrad`. Those
+bounds cover the largest exact-improving audited quarter direction but exclude
+the first sign-reversing half direction. R87 must recompute the QP inside those
+bounds, retain hard linear rows and unchanged exact max-first audit, and report
+the actual/model ratio. Scaling or admitting the stored R85 direction is not
+allowed. An exact-improving R87 result only justifies adaptive
+relinearization; it does not pass `cmu139` or advance TRAIN-4.
 
 ## V8 solver identity
 

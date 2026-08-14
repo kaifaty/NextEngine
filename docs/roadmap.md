@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-14 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 закрыл one-solve/exact-slice domain identity и отклонил V7 complete solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` but fails the stronger raw-mask `cmu139`; R74–R85 localize this to artificial infeasibility, blind step acceptance, mismatched merit and a persistent model/FK collider gap. Текущий increment — directional model-fidelity audit on `cmu139`, not another solver knob. Full V19, fresh PhysX, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 закрыл one-solve/exact-slice domain identity и отклонил V7 complete solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` but fails the stronger raw-mask `cmu139`; R74–R85 localize this to artificial infeasibility, blind step acceptance, mismatched merit and a persistent model/FK collider gap. R86 measures a reliable local interval through about `10 mm / 25 mrad`; the current increment is an in-trust trial-point re-solve on `cmu139`. Full V19, fresh PhysX, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -820,8 +820,12 @@ with no slack or limit change; that hard correction is also `primal infeasible`
 after `66000` iterations. R85 directly composes trial geometry with the
 unchanged sparse phase-I. Its trial model balances near slack `0.235364`, but
 integer FK still raises collider violation `3.1438 -> 6.6700`; exact audit
-rejects/restores it. R86 now maps per-frame linear/exact error over a fixed
-direction scale ladder before selecting any new geometry or trust mechanism.
+rejects/restores it. R86 then reproduces that direction and finds
+exact-improving/model-consistent scales `0.125/0.25` (ratios `1.042/0.695`)
+before scale `0.5` reverses progress (ratio `-0.390`). Error localizes to the
+right-foot collider around source frame `1388`. R87 now re-solves the
+trial-point phase-I inside `10000 µm` root-component / `25000 µrad`
+joint-component trust; it does not scale or admit the R86 direction.
 No fresh PhysX or training is authorized while this offline blocker remains.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
@@ -1568,8 +1572,8 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    `16/17`. R69 proved one simultaneous complete `cmu05` solution; R70/R71
    showed direct canonical-clip convergence. V8 now replaces sequential
    post-passes with one pinned coupled trajectory solver. Clean R73 passes
-   `cmu05`/`cmu16` and rejects `cmu139`; R74–R85 stop local solver composition
-   and select a directional model-fidelity audit. До unchanged all-three
+   `cmu05`/`cmu16` and rejects `cmu139`; R74–R85 stop local solver composition,
+   while R86 bounds the next re-solve to a measured model-valid radius. До unchanged all-three
    complete clips and all-17 exact slices PASS
    corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены. No
    training quality, Stage 0 or R5 completion is claimed here.
