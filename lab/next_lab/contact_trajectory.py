@@ -35,6 +35,9 @@ STABLE_FOOT_BOX_ALGORITHM_ID = (
 SECOND_DIFFERENCE_ALGORITHM_ID = (
     "nextengine.dimensionless-contact-trajectory-qp.v10"
 )
+EMITTED_ACCELERATION_ALGORITHM_ID = (
+    "nextengine.dimensionless-contact-trajectory-qp.v11"
+)
 SCALAR_COLLIDER_LINEARIZATION = "scalar-minimum.v1"
 STABLE_FOOT_BOX_COLLIDER_LINEARIZATION = (
     "stable-contact-role-8-box-vertices.v1"
@@ -43,6 +46,7 @@ _ALGORITHM_LINEARIZATION = {
     ALGORITHM_ID: SCALAR_COLLIDER_LINEARIZATION,
     STABLE_FOOT_BOX_ALGORITHM_ID: STABLE_FOOT_BOX_COLLIDER_LINEARIZATION,
     SECOND_DIFFERENCE_ALGORITHM_ID: STABLE_FOOT_BOX_COLLIDER_LINEARIZATION,
+    EMITTED_ACCELERATION_ALGORITHM_ID: STABLE_FOOT_BOX_COLLIDER_LINEARIZATION,
 }
 VELOCITY_SEMANTICS = (
     "forward on contact entry; backward on exit; centered otherwise; "
@@ -85,6 +89,7 @@ class CoupledTrajectoryClosure:
     objective_regularization: float
     first_difference_regularization: float
     second_difference_regularization: float
+    emitted_acceleration_regularization: float
     maximum_solver_iterations: int
     solver_absolute_tolerance: float
     solver_relative_tolerance: float
@@ -158,6 +163,8 @@ class CoupledTrajectoryClosure:
             or self.first_difference_regularization < 0.0
             or not math.isfinite(self.second_difference_regularization)
             or self.second_difference_regularization < 0.0
+            or not math.isfinite(self.emitted_acceleration_regularization)
+            or self.emitted_acceleration_regularization < 0.0
             or not math.isfinite(self.solver_absolute_tolerance)
             or self.solver_absolute_tolerance <= 0.0
             or not math.isfinite(self.solver_relative_tolerance)
@@ -484,6 +491,19 @@ def project_reference_coupled_trajectory(
             analytic_velocity,
         )
 
+    emitted_acceleration_operator = (
+        emitted_joint_acceleration_operator(
+            frame_count=frame_count,
+            local_variable_count=local_variable_count,
+            joint_local_indices=np.arange(
+                3, local_variable_count, dtype=np.int64
+            ),
+            stencil_indices=stencil_indices,
+            stencil_coefficients=stencil_coefficients,
+        )
+        if closure.emitted_acceleration_regularization > 0.0
+        else None
+    )
     objective = _objective_matrix(
         frame_count=frame_count,
         local_variable_count=local_variable_count,
@@ -492,6 +512,10 @@ def project_reference_coupled_trajectory(
         second_difference_regularization=(
             closure.second_difference_regularization
         ),
+        emitted_acceleration_regularization=(
+            closure.emitted_acceleration_regularization
+        ),
+        emitted_acceleration_operator=emitted_acceleration_operator,
     )
     history: list[dict[str, Any]] = []
     final_state: dict[str, Any] | None = None
@@ -536,10 +560,35 @@ def project_reference_coupled_trajectory(
             closure=closure,
         )
         last_categories = categories
+        objective_linear = np.zeros(variable_count, dtype=np.float64)
+        if emitted_acceleration_operator is not None:
+            normalized_state = np.concatenate(
+                (
+                    root
+                    / (
+                        closure.root_variable_scale_micrometres
+                        / 1_000_000.0
+                    ),
+                    joints[:, selected_flat]
+                    / (
+                        closure.joint_variable_scale_microradians
+                        / 1_000_000.0
+                    ),
+                ),
+                axis=1,
+            ).reshape(-1)
+            current_acceleration = (
+                emitted_acceleration_operator @ normalized_state
+            )
+            objective_linear = np.asarray(
+                closure.emitted_acceleration_regularization
+                * emitted_acceleration_operator.T
+                @ current_acceleration
+            ).reshape(-1)
         solver = osqp.OSQP()
         solver.setup(
             P=objective,
-            q=np.zeros(variable_count, dtype=np.float64),
+            q=objective_linear,
             A=matrix,
             l=lower,
             u=upper,
@@ -705,6 +754,13 @@ def project_reference_coupled_trajectory(
             "second_difference_regularization": (
                 closure.second_difference_regularization
             ),
+            "emitted_acceleration_regularization": (
+                closure.emitted_acceleration_regularization
+            ),
+            "emitted_acceleration_semantics": (
+                "first difference of the frozen hybrid 60 Hz velocity "
+                "stencil over normalized selected-joint final poses"
+            ),
             "termination": termination,
             "outer_iterations_completed": len(history),
             "maximum_outer_iterations": closure.maximum_outer_iterations,
@@ -779,6 +835,57 @@ def hybrid_velocity_stencil(
     return indices, coefficients
 
 
+def emitted_joint_acceleration_operator(
+    *,
+    frame_count: int,
+    local_variable_count: int,
+    joint_local_indices: NDArray[np.int64],
+    stencil_indices: NDArray[np.int64],
+    stencil_coefficients: NDArray[np.float64],
+) -> sparse.csc_matrix:
+    """Map normalized poses to differences of emitted 60 Hz velocity."""
+
+    local_indices = np.asarray(joint_local_indices, dtype=np.int64)
+    if (
+        frame_count < 3
+        or local_variable_count <= 0
+        or local_indices.ndim != 1
+        or len(local_indices) == 0
+        or len(set(int(value) for value in local_indices)) != len(local_indices)
+        or np.any(local_indices < 0)
+        or np.any(local_indices >= local_variable_count)
+        or stencil_indices.shape != (frame_count, 2)
+        or stencil_coefficients.shape != (frame_count, 2)
+    ):
+        raise ValueError("emitted-acceleration operator identity is invalid")
+    joint_count = len(local_indices)
+    rows: list[int] = []
+    columns: list[int] = []
+    values: list[float] = []
+    for frame in range(1, frame_count):
+        for joint_column, local in enumerate(local_indices):
+            row = (frame - 1) * joint_count + joint_column
+            for sign, velocity_frame in ((-1.0, frame - 1), (1.0, frame)):
+                for sample in range(2):
+                    source_frame = int(stencil_indices[velocity_frame, sample])
+                    rows.append(row)
+                    columns.append(
+                        source_frame * local_variable_count + int(local)
+                    )
+                    values.append(
+                        sign
+                        * float(stencil_coefficients[velocity_frame, sample])
+                        / 60.0
+                    )
+    return sparse.coo_matrix(
+        (values, (rows, columns)),
+        shape=(
+            (frame_count - 1) * joint_count,
+            frame_count * local_variable_count,
+        ),
+    ).tocsc()
+
+
 def _objective_matrix(
     *,
     frame_count: int,
@@ -786,6 +893,8 @@ def _objective_matrix(
     objective_regularization: float,
     first_difference_regularization: float,
     second_difference_regularization: float,
+    emitted_acceleration_regularization: float,
+    emitted_acceleration_operator: sparse.csc_matrix | None,
 ) -> sparse.csc_matrix:
     variable_count = frame_count * local_variable_count
     result = objective_regularization * sparse.eye(variable_count, format="csc")
@@ -832,6 +941,14 @@ def _objective_matrix(
         result = result + second_difference_regularization * (
             curvature.T @ curvature
         )
+    if emitted_acceleration_regularization > 0.0:
+        if emitted_acceleration_operator is None:
+            raise ValueError("emitted-acceleration operator is absent")
+        result = result + emitted_acceleration_regularization * (
+            emitted_acceleration_operator.T @ emitted_acceleration_operator
+        )
+    elif emitted_acceleration_operator is not None:
+        raise ValueError("unexpected emitted-acceleration operator")
     return sparse.triu(result, format="csc")
 
 

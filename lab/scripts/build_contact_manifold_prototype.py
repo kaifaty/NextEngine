@@ -996,6 +996,30 @@ def _validate_inputs(
             "second_difference_regularization"
         )
         == 1.0
+    ) or (
+        prototype_id
+        == (
+            "nextengine.humanoid-contact-manifold-prototype."
+            "v11-emitted-acceleration-counterfactual"
+        )
+        and isinstance(projection.get("trajectory_closure"), dict)
+        and "collider_closure" not in projection
+        and isinstance(discriminator, dict)
+        and discriminator.get("ordered_source_case_ordinals") == [7967]
+        and projection["trajectory_closure"].get("algorithm_id")
+        == contact_trajectory.EMITTED_ACCELERATION_ALGORITHM_ID
+        and projection["trajectory_closure"].get(
+            "internal_quantization_margins", {}
+        ).get("normal_residual_micrometres")
+        == 100
+        and projection["trajectory_closure"].get("solver", {}).get(
+            "second_difference_regularization"
+        )
+        == 0.0
+        and projection["trajectory_closure"].get("solver", {}).get(
+            "emitted_acceleration_regularization"
+        )
+        == 1.0
     )
     if (
         profile.get("schema_version") != 1
@@ -1028,6 +1052,10 @@ def _validate_inputs(
                 (
                     "nextengine.humanoid-contact-manifold-prototype."
                     "v10-second-difference-counterfactual"
+                ),
+                (
+                    "nextengine.humanoid-contact-manifold-prototype."
+                    "v11-emitted-acceleration-counterfactual"
                 ),
             }
             and profile["acceptance"].get(
@@ -1339,6 +1367,9 @@ def _trajectory_closure(
         contact_trajectory.SECOND_DIFFERENCE_ALGORITHM_ID: (
             contact_trajectory.STABLE_FOOT_BOX_COLLIDER_LINEARIZATION
         ),
+        contact_trajectory.EMITTED_ACCELERATION_ALGORITHM_ID: (
+            contact_trajectory.STABLE_FOOT_BOX_COLLIDER_LINEARIZATION
+        ),
     }.get(algorithm_id)
     if (
         not isinstance(document, dict)
@@ -1385,6 +1416,9 @@ def _trajectory_closure(
     second_difference_regularization = solver.get(
         "second_difference_regularization", 0.0
     )
+    emitted_acceleration_regularization = solver.get(
+        "emitted_acceleration_regularization", 0.0
+    )
     normal_residual_margin = margins.get("normal_residual_micrometres")
     regularization_identity_is_valid = (
         algorithm_id
@@ -1393,6 +1427,7 @@ def _trajectory_closure(
             contact_trajectory.STABLE_FOOT_BOX_ALGORITHM_ID,
         }
         and second_difference_regularization == 0.0
+        and emitted_acceleration_regularization == 0.0
         and normal_residual_margin
         in (
             {100, 4_500}
@@ -1403,6 +1438,12 @@ def _trajectory_closure(
     ) or (
         algorithm_id == contact_trajectory.SECOND_DIFFERENCE_ALGORITHM_ID
         and second_difference_regularization == 1.0
+        and emitted_acceleration_regularization == 0.0
+        and normal_residual_margin == 100
+    ) or (
+        algorithm_id == contact_trajectory.EMITTED_ACCELERATION_ALGORITHM_ID
+        and second_difference_regularization == 0.0
+        and emitted_acceleration_regularization == 1.0
         and normal_residual_margin == 100
     )
     expected_margins = {
@@ -1469,6 +1510,9 @@ def _trajectory_closure(
             "first_difference_regularization"
         ],
         second_difference_regularization=second_difference_regularization,
+        emitted_acceleration_regularization=(
+            emitted_acceleration_regularization
+        ),
         maximum_solver_iterations=solver["maximum_iterations"],
         solver_absolute_tolerance=solver["absolute_tolerance"],
         solver_relative_tolerance=solver["relative_tolerance"],

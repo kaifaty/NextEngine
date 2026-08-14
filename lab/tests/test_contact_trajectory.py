@@ -10,6 +10,7 @@ import numpy as np
 
 from next_lab.contact_trajectory import (
     ALGORITHM_ID,
+    EMITTED_ACCELERATION_ALGORITHM_ID,
     SCALAR_COLLIDER_LINEARIZATION,
     SECOND_DIFFERENCE_ALGORITHM_ID,
     STABLE_FOOT_BOX_ALGORITHM_ID,
@@ -17,6 +18,7 @@ from next_lab.contact_trajectory import (
     _collider_linearization_rows,
     _collider_linearization_values,
     _objective_matrix,
+    emitted_joint_acceleration_operator,
     hybrid_velocity_stencil,
     project_reference_coupled_trajectory,
 )
@@ -52,6 +54,14 @@ PROFILE_SECOND_DIFFERENCE = (
     / (
         "humanoid-contact-manifold-prototype."
         "v10-second-difference-counterfactual.json"
+    )
+)
+PROFILE_EMITTED_ACCELERATION = (
+    Path(__file__).parents[1]
+    / "profiles"
+    / (
+        "humanoid-contact-manifold-prototype."
+        "v11-emitted-acceleration-counterfactual.json"
     )
 )
 SCRIPT = Path(__file__).parents[1] / "scripts" / "build_contact_manifold_prototype.py"
@@ -122,6 +132,21 @@ class ContactTrajectoryTests(unittest.TestCase):
         self.assertEqual(derivative.normal_residual_margin_micrometres, 100)
         self.assertEqual(derivative.first_difference_regularization, 0.01)
         self.assertEqual(derivative.second_difference_regularization, 1.0)
+        self.assertEqual(derivative.emitted_acceleration_regularization, 0.0)
+
+        acceleration_profile = json.loads(
+            PROFILE_EMITTED_ACCELERATION.read_text(encoding="utf-8")
+        )
+        acceleration = builder._trajectory_closure(
+            acceleration_profile["projection"]
+        )
+        self.assertIsNotNone(acceleration)
+        assert acceleration is not None
+        self.assertEqual(
+            acceleration.algorithm_id, EMITTED_ACCELERATION_ALGORITHM_ID
+        )
+        self.assertEqual(acceleration.second_difference_regularization, 0.0)
+        self.assertEqual(acceleration.emitted_acceleration_regularization, 1.0)
 
     def test_second_difference_objective_penalizes_curvature(self) -> None:
         objective = _objective_matrix(
@@ -130,6 +155,8 @@ class ContactTrajectoryTests(unittest.TestCase):
             objective_regularization=1.0,
             first_difference_regularization=0.0,
             second_difference_regularization=1.0,
+            emitted_acceleration_regularization=0.0,
+            emitted_acceleration_operator=None,
         ).toarray()
         np.testing.assert_array_equal(
             objective,
@@ -142,6 +169,32 @@ class ContactTrajectoryTests(unittest.TestCase):
                 )
             ),
         )
+
+    def test_emitted_acceleration_operator_matches_hybrid_velocity(self) -> None:
+        active = np.zeros((6, 2, 2), dtype=np.bool_)
+        active[1:3, 1, 0] = True
+        indices, coefficients = hybrid_velocity_stencil(active)
+        operator = emitted_joint_acceleration_operator(
+            frame_count=6,
+            local_variable_count=2,
+            joint_local_indices=np.asarray((1,), dtype=np.int64),
+            stencil_indices=indices,
+            stencil_coefficients=coefficients,
+        )
+        positions = np.arange(6, dtype=np.float64) ** 2
+        state = np.column_stack((np.zeros(6), positions)).reshape(-1)
+        emitted_velocity = np.sum(
+            positions[indices] * coefficients / 60.0, axis=1
+        )
+        np.testing.assert_array_equal(
+            operator @ state,
+            np.diff(emitted_velocity),
+        )
+
+        linear = np.column_stack(
+            (np.zeros(6), np.arange(6, dtype=np.float64))
+        ).reshape(-1)
+        np.testing.assert_array_equal(operator @ linear, np.zeros(5))
 
     def test_stable_box_vertices_cross_scalar_minimum_cusp(self) -> None:
         collider = {
@@ -296,6 +349,40 @@ class ContactTrajectoryTests(unittest.TestCase):
         self.assertLessEqual(
             projection.diagnostics["maximum_joint_velocity_basis_points"],
             2_500,
+        )
+
+        acceleration_profile = json.loads(
+            PROFILE_EMITTED_ACCELERATION.read_text(encoding="utf-8")
+        )
+        acceleration_closure = builder._trajectory_closure(
+            acceleration_profile["projection"]
+        )
+        assert acceleration_closure is not None
+        acceleration_projection = project_reference_coupled_trajectory(
+            descriptor=descriptor,
+            effector_ids=effector_ids,
+            root_position_um=root_position,
+            root_quaternion_q1_30=root_quaternion,
+            root_yaw_velocity_urad_s=np.zeros(frame_count, dtype=np.int64),
+            joint_position_urad=joint_position,
+            effector_position_um=effector_position,
+            contacts=np.zeros((frame_count, 7), dtype=np.uint8),
+            support_state=np.zeros(frame_count, dtype=np.int64),
+            frame_first=0,
+            frame_last=frame_count - 1,
+            tolerances=builder._tolerances(
+                acceleration_profile["projection"]
+            ),
+            closure=acceleration_closure,
+        )
+        self.assertEqual(
+            acceleration_projection.diagnostics["status"], "PASS"
+        )
+        self.assertEqual(
+            acceleration_projection.diagnostics["trajectory_solver"][
+                "emitted_acceleration_regularization"
+            ],
+            1.0,
         )
 
 
