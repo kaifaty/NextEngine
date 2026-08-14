@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "audit_id": "nextengine.humanoid-canonical-material-lineage-implementation.v1",
+  "status": "FrozenImplementationAuditOnly",
+  "claim": "CanonicalMaterialLineageImplementationWithoutPhysXExecution",
+  "source": {
+    "r110": {
+      "report_sha256": "83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d",
+      "report_file_sha256": "234c7e51c3e6135bff55e503d8ce2bb58946c6cbef36598d92641ce7deb72637",
+      "profile_sha256": "85604a87bfc05ef170d21ff49d217d21327095414fb12b565efe76eb1afb9b18"
+    },
+    "architecture_commit": "14eb0b2cac25173dc137b64201732fae66ad5a27",
+    "implementation_commit": "6b87f78c1211ca354416c091789522aecfabd2c4",
+    "legacy_mirror_v1_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+    "mirror_v2_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "body_schema_hash": "e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d",
+    "legacy_compiled_descriptor_hash": "b6f8b1260b24ad401453942c9a4303d99ce378a8f71c6490db79bb78d85a1782",
+    "compiled_descriptor_v3_hash": "6751853a812f549866f1db9d3662d8115b18db9b6d73beabd7221bb9f972f027",
+    "material_lineage_hash": "2d13e197f766e6a24090edf396dfc2fb6cbbf4c578ea9868dffa06ab7adab751",
+    "physx_sdk": {
+      "physx_version": "5.9.0",
+      "source_revision": "517a0073715120e114ee055b63b26c95e00d9039",
+      "bridge_abi": 4,
+      "profile_hash": "f259d3da157cc6120b378b53ee14c10805be89698242b03d7417f699ca711c3b",
+      "manifest_file_sha256": "f93a69feb46168c4a51831354b811fb2ff91674739f9de833b178ae472fa3db1"
+    }
+  },
+  "scope": {
+    "run_id": "R111",
+    "architecture_changes": 1,
+    "contract_successors": 2,
+    "compiled_descriptor_successors": 1,
+    "mirror_successors": 1,
+    "bridge_abi_successors": 1,
+    "runtime_implementation_changes": 1,
+    "solver_runs": 0,
+    "physx_scene_runs": 0,
+    "candidate_construction": false,
+    "training": false
+  },
+  "expected_materials": [
+    {
+      "material_id": "physics-material.humanoid-body.v1",
+      "schema_version": 2,
+      "descriptor_revision": 1,
+      "static_friction_q16": 52429,
+      "dynamic_friction_q16": 45875,
+      "restitution_q16": 0,
+      "rolling_friction_q16": 0,
+      "spinning_friction_q16": 0,
+      "surface_velocity_micrometres_per_second": [0, 0, 0],
+      "canonical_material_tags": []
+    },
+    {
+      "material_id": "physics-material.humanoid-ground.v1",
+      "schema_version": 2,
+      "descriptor_revision": 1,
+      "static_friction_q16": 52429,
+      "dynamic_friction_q16": 45875,
+      "restitution_q16": 0,
+      "rolling_friction_q16": 0,
+      "spinning_friction_q16": 0,
+      "surface_velocity_micrometres_per_second": [0, 0, 0],
+      "canonical_material_tags": []
+    },
+    {
+      "material_id": "physics-material.humanoid-sole.v1",
+      "schema_version": 2,
+      "descriptor_revision": 1,
+      "static_friction_q16": 52429,
+      "dynamic_friction_q16": 45875,
+      "restitution_q16": 0,
+      "rolling_friction_q16": 0,
+      "spinning_friction_q16": 0,
+      "surface_velocity_micrometres_per_second": [0, 0, 0],
+      "canonical_material_tags": []
+    }
+  ],
+  "expected_combine_profile": {
+    "schema_version": 1,
+    "profile_id": "nextengine.physics-material-combine.humanoid-motor.v1",
+    "profile_revision": 1,
+    "static_friction": "ArithmeticMeanTiesToEven",
+    "dynamic_friction": "ArithmeticMeanTiesToEven",
+    "restitution": "ArithmeticMeanTiesToEven",
+    "rolling_friction": "ArithmeticMeanTiesToEven",
+    "spinning_friction": "ArithmeticMeanTiesToEven",
+    "surface_velocity": "CanonicalParticipantOrder"
+  },
+  "expected_collider_material_assignment_counts": [
+    {
+      "material_id": "physics-material.humanoid-body.v1",
+      "collider_count": 17
+    },
+    {
+      "material_id": "physics-material.humanoid-sole.v1",
+      "collider_count": 2
+    }
+  ],
+  "validation_commands": [
+    {
+      "id": "rustfmt",
+      "arguments": ["cargo", "fmt", "--all", "--", "--check"]
+    },
+    {
+      "id": "contracts",
+      "arguments": ["cargo", "test", "-p", "next_contracts"]
+    },
+    {
+      "id": "motor",
+      "arguments": ["cargo", "test", "-p", "next_motor"]
+    },
+    {
+      "id": "mock_abi",
+      "arguments": ["cargo", "test", "-p", "next_physics_physx_ffi", "-p", "next_physics_physx", "--features", "mock-abi"]
+    },
+    {
+      "id": "clippy_contracts_motor",
+      "arguments": ["cargo", "clippy", "-p", "next_contracts", "-p", "next_motor", "--all-targets", "--", "-D", "warnings"]
+    },
+    {
+      "id": "clippy_mock_abi",
+      "arguments": ["cargo", "clippy", "-p", "next_physics_physx_ffi", "-p", "next_physics_physx", "--all-targets", "--features", "mock-abi", "--", "-D", "warnings"]
+    },
+    {
+      "id": "physx_doctor",
+      "arguments": ["cargo", "run", "-q", "-p", "xtask", "--", "physx", "doctor"]
+    },
+    {
+      "id": "physx_compile_no_run",
+      "arguments": ["cargo", "test", "-p", "next_physics_physx_ffi", "-p", "next_physics_physx", "-p", "next_motor", "--features", "physx-sdk", "--no-run"]
+    }
+  ],
+  "frozen_invariants": {
+    "controller": "fixed zero-residual PD unchanged",
+    "limits_and_safety": "unchanged",
+    "fresh_scene_authority": "ADR-070 unchanged",
+    "partial_reset": "REPORT_ONLY",
+    "point_force_coordinates": "R110 solver-private order unchanged",
+    "derived_usd_and_isaac": "R112_REQUIRED",
+    "physx_execution": "FORBIDDEN_IN_R111",
+    "optimizer_and_training": "FORBIDDEN"
+  },
+  "decision": {
+    "pass": "PERMIT_R112_DERIVED_USD_MATERIAL_LINEAGE_IMPLEMENTATION_ONLY",
+    "fail": "RETAIN_R109_STOP_INVALID_MODEL_LINEAGE",
+    "next_smallest_action": "implement derived-USD material prims and physics-purpose bindings plus explicit Isaac ground consumption under regenerated translation identities, without running PhysX or training"
+  },
+  "bounded_acceptance": {
+    "r112_derived_usd_isaac_implementation": "AUTHORIZED_STATIC_ONLY",
+    "r113_model_identity_preflight": "NOT_AUTHORIZED_UNTIL_R112_COMPLETE",
+    "quantization_aware_kto": "NOT_AUTHORIZED",
+    "inverse_dynamics": "NOT_AUTHORIZED",
+    "kinodynamics": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
