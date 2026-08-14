@@ -432,6 +432,12 @@ def _validate_inputs(
         and isinstance(discriminator, dict)
         and discriminator.get("ordered_source_case_ordinals")
         == [3749, 3750, 3753, 8144]
+    ) or (
+        prototype_id == "nextengine.humanoid-contact-manifold-prototype.v4"
+        and isinstance(projection.get("collider_closure"), dict)
+        and isinstance(discriminator, dict)
+        and discriminator.get("ordered_source_case_ordinals")
+        == [3749, 3750, 3753, 8144]
     )
     if (
         profile.get("schema_version") != 1
@@ -499,16 +505,40 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
         not in {
             "nextengine.bounded-flight-collider-closure.v1",
             "nextengine.bounded-support-precedence-closure.v2",
+            "nextengine.support-conditioned-collider-closure.v3",
         }
         or document.get("root_vertical_policy")
         != "upward-only residual all-collider floor after leg-chain correction"
         or (
             algorithm_id == "nextengine.bounded-flight-collider-closure.v1"
-            and "active_contact_anchor_target_micrometres" in document
+            and any(
+                field in document
+                for field in (
+                    "active_contact_anchor_target_micrometres",
+                    "unsupported_flight_clearance_target_micrometres",
+                    "unsupported_correction_smoothing_passes",
+                )
+            )
         )
         or (
             algorithm_id == "nextengine.bounded-support-precedence-closure.v2"
-            and document.get("active_contact_anchor_target_micrometres") != 0
+            and (
+                document.get("active_contact_anchor_target_micrometres") != 0
+                or "unsupported_flight_clearance_target_micrometres" in document
+                or "unsupported_correction_smoothing_passes" in document
+            )
+        )
+        or (
+            algorithm_id == "nextengine.support-conditioned-collider-closure.v3"
+            and (
+                document.get("active_contact_anchor_target_micrometres") != 0
+                or document.get(
+                    "unsupported_flight_clearance_target_micrometres"
+                )
+                != 5_000
+                or document.get("unsupported_correction_smoothing_passes")
+                != 2
+            )
         )
     ):
         raise ValueError("collider-closure profile identity is invalid")
@@ -550,6 +580,12 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
         ],
         active_contact_anchor_target_micrometres=document.get(
             "active_contact_anchor_target_micrometres"
+        ),
+        unsupported_flight_clearance_target_micrometres=document.get(
+            "unsupported_flight_clearance_target_micrometres"
+        ),
+        unsupported_correction_smoothing_passes=document.get(
+            "unsupported_correction_smoothing_passes"
         ),
     )
     closure.validate()

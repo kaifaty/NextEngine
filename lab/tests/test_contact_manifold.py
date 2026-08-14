@@ -251,6 +251,54 @@ class ContactManifoldTests(unittest.TestCase):
             1_500,
         )
 
+    def test_support_condition_preserves_low_clearance_all_flight_solve(
+        self,
+    ) -> None:
+        descriptor = json.loads(
+            (FIXTURES / "biomechanics_motor_mirror_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        inputs = _flight_collider_inputs(descriptor)
+        inputs["effector_position_um"][:, :, 1] += 100_000
+
+        baseline = project_reference_contact_manifold(
+            descriptor=descriptor,
+            **inputs,
+            frame_first=0,
+            frame_last=5,
+            collider_closure=_collider_closure(descriptor),
+        )
+        conditioned = project_reference_contact_manifold(
+            descriptor=descriptor,
+            **inputs,
+            frame_first=0,
+            frame_last=5,
+            collider_closure=_collider_closure(
+                descriptor,
+                swing_clearance_target_micrometres=20_000,
+                correction_smoothing_passes=6,
+                active_contact_anchor_target_micrometres=0,
+                unsupported_flight_clearance_target_micrometres=5_000,
+                unsupported_correction_smoothing_passes=2,
+            ),
+        )
+
+        np.testing.assert_array_equal(
+            conditioned.contact_modes,
+            np.zeros((6, 2), dtype=np.uint8),
+        )
+        np.testing.assert_array_equal(
+            conditioned.root_position_um, baseline.root_position_um
+        )
+        np.testing.assert_array_equal(
+            conditioned.joint_position_urad, baseline.joint_position_urad
+        )
+        self.assertEqual(
+            conditioned.diagnostics["effective_correction_smoothing_passes"],
+            2,
+        )
+
 
 def _flight_collider_inputs(descriptor: dict[str, object]) -> dict[str, object]:
     frame_count = 6
@@ -302,6 +350,10 @@ def _collider_closure(
     outer_iterations: int = 40,
     maximum_joint_update_microradians: int = 80_000,
     active_contact_anchor_target_micrometres: int | None = None,
+    swing_clearance_target_micrometres: int = 5_000,
+    correction_smoothing_passes: int = 2,
+    unsupported_flight_clearance_target_micrometres: int | None = None,
+    unsupported_correction_smoothing_passes: int | None = None,
 ) -> ColliderClosure:
     suffixes = (
         "hip-pitch",
@@ -313,7 +365,9 @@ def _collider_closure(
     by_id = {joint["joint_id"]: joint for joint in descriptor["joints"]}
     return ColliderClosure(
         minimum_collider_height_micrometres=-2,
-        swing_clearance_target_micrometres=5_000,
+        swing_clearance_target_micrometres=(
+            swing_clearance_target_micrometres
+        ),
         maximum_root_vertical_velocity_micrometres_per_second=1_000_000,
         joint_velocity_limit_basis_points=10_000,
         ordered_joint_suffixes=suffixes,
@@ -330,9 +384,15 @@ def _collider_closure(
             maximum_joint_update_microradians
         ),
         correction_smoothing_kernel_weights=(1, 4, 6, 4, 1),
-        correction_smoothing_passes=2,
+        correction_smoothing_passes=correction_smoothing_passes,
         active_contact_anchor_target_micrometres=(
             active_contact_anchor_target_micrometres
+        ),
+        unsupported_flight_clearance_target_micrometres=(
+            unsupported_flight_clearance_target_micrometres
+        ),
+        unsupported_correction_smoothing_passes=(
+            unsupported_correction_smoothing_passes
         ),
     )
 

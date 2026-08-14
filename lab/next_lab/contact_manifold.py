@@ -95,6 +95,8 @@ class ColliderClosure:
     correction_smoothing_kernel_weights: tuple[int, ...]
     correction_smoothing_passes: int
     active_contact_anchor_target_micrometres: int | None = None
+    unsupported_flight_clearance_target_micrometres: int | None = None
+    unsupported_correction_smoothing_passes: int | None = None
 
     def validate(self) -> None:
         bounds = self.joint_bounds_microradians
@@ -165,6 +167,38 @@ class ColliderClosure:
                     )
                     or abs(self.active_contact_anchor_target_micrometres)
                     > 5_000
+                )
+            )
+            or (
+                (
+                    self.unsupported_flight_clearance_target_micrometres
+                    is None
+                )
+                != (self.unsupported_correction_smoothing_passes is None)
+            )
+            or (
+                self.unsupported_flight_clearance_target_micrometres
+                is not None
+                and (
+                    isinstance(
+                        self.unsupported_flight_clearance_target_micrometres,
+                        bool,
+                    )
+                    or not isinstance(
+                        self.unsupported_flight_clearance_target_micrometres,
+                        int,
+                    )
+                    or self.unsupported_flight_clearance_target_micrometres
+                    <= self.minimum_collider_height_micrometres
+                    or self.unsupported_flight_clearance_target_micrometres
+                    > self.swing_clearance_target_micrometres
+                    or isinstance(
+                        self.unsupported_correction_smoothing_passes, bool
+                    )
+                    or not isinstance(
+                        self.unsupported_correction_smoothing_passes, int
+                    )
+                    or self.unsupported_correction_smoothing_passes < 0
                 )
             )
         ):
@@ -617,8 +651,8 @@ def _close_reference_colliders(
         root_quaternion_q1_30.astype(np.float64) / float(1 << 30)
     )
     source_joints = joint_position_urad.astype(np.float64) / 1_000_000.0
+    active = contact_point_mask(contact_modes)
     if closure.active_contact_anchor_target_micrometres is not None:
-        active = contact_point_mask(contact_modes)
         for frame in range(frame_count):
             if not np.any(active[frame]):
                 continue
@@ -649,7 +683,16 @@ def _close_reference_colliders(
     joint_maximum_rad = joint_maximum.astype(np.float64) / 1_000_000.0
     probe = closure.jacobian_probe_microradians / 1_000_000.0
     maximum_update = closure.maximum_joint_update_microradians / 1_000_000.0
-    target_height = closure.swing_clearance_target_micrometres / 1_000_000.0
+    supported_target_height = (
+        closure.swing_clearance_target_micrometres / 1_000_000.0
+    )
+    unsupported_target_height = (
+        closure.unsupported_flight_clearance_target_micrometres
+        / 1_000_000.0
+        if closure.unsupported_flight_clearance_target_micrometres is not None
+        else supported_target_height
+    )
+    frame_has_active_contact = np.any(active, axis=(1, 2))
     floor_height = closure.minimum_collider_height_micrometres / 1_000_000.0
     flight_deficit = np.zeros(
         (frame_count, len(_COLLIDER_CLOSURE_SIDES)), dtype=np.bool_
@@ -691,6 +734,11 @@ def _close_reference_colliders(
                     positions,
                     rotations,
                     foot_colliders[side_index],
+                )
+                target_height = (
+                    supported_target_height
+                    if frame_has_active_contact[frame]
+                    else unsupported_target_height
                 )
                 deficit = target_height - baseline
                 if deficit <= 1.0e-9:
@@ -743,10 +791,16 @@ def _close_reference_colliders(
         solved_joints * 1_000_000.0 - joint_position_urad.astype(np.float64)
     )
     selected_ordinals = np.unique(joint_ordinals.reshape(-1))
+    smoothing_passes = (
+        closure.correction_smoothing_passes
+        if np.any(frame_has_active_contact)
+        or closure.unsupported_correction_smoothing_passes is None
+        else closure.unsupported_correction_smoothing_passes
+    )
     correction_urad[:, selected_ordinals] = _weighted_temporal_smooth_float(
         correction_urad[:, selected_ordinals],
         kernel=closure.correction_smoothing_kernel_weights,
-        passes=closure.correction_smoothing_passes,
+        passes=smoothing_passes,
     )
     solved_joint_urad = joint_position_urad.copy()
     solved_joint_urad[:, selected_ordinals] += np.rint(
@@ -872,6 +926,10 @@ def _close_reference_colliders(
         "initial_flight_collider_deficit_frame_count": int(
             np.sum(flight_deficit)
         ),
+        "unsupported_flight_frame_count": int(
+            np.sum(~frame_has_active_contact)
+        ),
+        "effective_correction_smoothing_passes": smoothing_passes,
         "flight_collider_deficit_without_leg_correction_count": (
             uncorrected_flight_deficits
         ),
@@ -890,6 +948,12 @@ def _close_reference_colliders(
             ),
             "active_contact_anchor_target_micrometres": (
                 closure.active_contact_anchor_target_micrometres
+            ),
+            "unsupported_flight_clearance_target_micrometres": (
+                closure.unsupported_flight_clearance_target_micrometres
+            ),
+            "unsupported_correction_smoothing_passes": (
+                closure.unsupported_correction_smoothing_passes
             ),
         },
     }
