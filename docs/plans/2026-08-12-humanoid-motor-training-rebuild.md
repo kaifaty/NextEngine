@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 then fails `7/17`, including four control regressions, despite quantization-exact initial state. The current increment is report-only R95 V7↔V9 native-dynamics differential audit before a bounded one- or two-case fresh counterfactual. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`, including four control regressions, despite quantization-exact initial state. Clean R95 selects contact-gap ordinal `2` and derivative-spike ordinal `10` as two independent counterfactuals. The current increment is offline R96 construction before fresh two-case R97. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1776,8 +1776,13 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   passing-control regressions. Post-reset root/joint state differs from the
   reference only by quantization, rejecting reset authorship as the cause.
   R95 is therefore a report-only V7↔V9 derivative, implied fixed-PD load and
-  contact-transition audit. It must select at most a one- or two-case fresh
-  counterfactual before any other all-17 run.
+  contact-transition audit. Clean R95 finds median `6.8865x/21.8469x`
+  acceleration/jerk amplification across new regressions and selects two
+  orthogonal cases. Ordinal `2` has unchanged derivatives but a `1539 µm`
+  active-support collider gap; ordinal `10` has `8.3576x/32.7269x`
+  acceleration/jerk and no impact. R96 builds independent contact-only and
+  derivative-only offline variants; R97 may fresh-run only those two before
+  any other all-17 run.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This

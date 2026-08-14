@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R94_FRESH_FAIL / STOP_AND_RESEARCH / R95_DIFFERENTIAL_AUDIT_NEXT` |
+| Status | `R95_COMPLETE / TWO_ORTHOGONAL_COUNTERFACTUALS_SELECTED` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -25,6 +25,7 @@ bounded research before another solver change or expensive native run.
 | R49 V7 fresh all-17 | report file SHA-256 `6b977a870c50b25545c2b73bc371575b38b40f6a914d1638ab19a3c7a56b5f0c` | `PASS 17/17`, required safety `0`, passing-control regressions `0` |
 | R93 V9 complete clips and exact slices | canonical/file SHA-256 `7ee041b7710302b9fae909b0cb34c0de3a6c2df257032cd0e1c7dcaf16afefeb` / `53984129cc45d295ced9ef4f49ea8532d0b224c3ccc19980e8b986cee7604d70` | All three clips and all 17 slices pass offline; `390` arrays over `30` overlap pairs agree byte-for-byte; no contact point is deleted |
 | R94 V9 fresh all-17 | canonical/file SHA-256 `0d429faff356e3240a7f2906115566b565fc0800043dd7ffa04544b2edb38925` / `4aab74888d50fae2ab644445597d3f7f7a64217f078ceca4b4f8045ed34f0929` | `FAIL 7/17`, `gate_decision=STOP_AND_RESEARCH` |
+| R95 V7↔V9 differential audit | canonical/file SHA-256 `ec453b347e9323819ba706daa40949a91924e7a359c9225ab7ce031dcf60bd6f` / `8287e3ef751d22a46cc312d1dc7a79f3245302a2fa4d3da965cd7e5efd652f76` | `COMPLETE`; selects ordinals `2` and `10` for at most two fresh counterfactuals |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -110,32 +111,62 @@ Only then choose a bounded construction change.
 
 | ID | Hypothesis | Current evidence | Discriminator |
 | --- | --- | --- | --- |
-| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R94 starts from the correct state yet diverges into late ROM/velocity failures; the offline solver has no equation of motion or effort proxy | R95 V7↔V9 position, velocity, acceleration, jerk and frozen-PD implied-effort audit over all 17 slices |
-| H23 | Near-zero offline collider clearance does not predict the full PhysX contact manifold and impulse | Tick-1/2 impacts occur despite offline collider/contact PASS; case 2 already shows actual foot height drifting through the reference surface | R95 contact-entry/clearance deltas, followed only if needed by one or two fresh counterfactual cases with extra geometric reserve inside unchanged public bounds |
-| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | V9 repairs source failures at ordinals `1`, `4`, `5`, `8` but creates control failures at `2`, `7`, `10`, `14` | R95 frame-local correction magnitude and derivative comparison around every selected window |
+| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R95 finds `8.3576x/32.7269x` acceleration/jerk amplification in new ROM regression `10` | R96 derivative-only construction, then fresh ordinal `10` |
+| H23 | Near-zero offline collider clearance does not predict the full PhysX contact manifold and impulse | R95 isolates ordinal `2`: active foot `1539 µm` above surface with no derivative amplification; ordinal `7` flight foot is only `49 µm` high | R96 contact-reserve-only construction, then fresh ordinal `2` |
+| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | R95 finds four new regressions and derivative hotspots shared across overlapping windows | R96 locality audit plus fresh ordinal `10` |
 | H25 | Fresh-scene initialization is responsible | Initial state is exact within quantization in every worker | Falsified by R94; do not repeat partial-reset experiments |
 
-## R95 bounded differential-audit contract
+## R95 differential-audit result
 
-R95 is report-only and must not run PhysX, mutate a trajectory, build V19 or
-start training. It compares the hash-bound R47 V7 and R93 V9 exact-slice
-artifacts for the same ordered 17 cases and records, per frame and case:
+R95 ran from clean commit
+`6491d241748cfd1a5080f7866186507f37e7c9bc`. Profile SHA-256 is
+`11e5eb851f1a5cecb29f9d7796dee7e8b5f7e51104a1e9ed00b3c65285b7fbba`.
+It is report-only: PhysX runs, trajectory mutations, optimizer steps and
+training runs are all zero.
 
-1. root/joint position and velocity deltas;
-2. maximum joint/root speed, acceleration and jerk;
-3. target-step and initial damping-load proxies for the frozen fixed-PD law;
-4. contact-entry and foot-collider-clearance changes;
-5. grouped summaries for R94 passes, old failures repaired by V9, persisting
-   failures and newly regressed controls.
+The four new control regressions have median V9/V7 joint-acceleration ratio
+`6.8865x` and jerk ratio `21.8469x`. The three persisting/changed source
+failures are higher still at `8.3367x` and `34.3599x`. Stable passing controls
+also become rougher (`1.7454x` / `3.3520x` median), so amplification alone is
+not sufficient; failure timing and contact state remain required discriminators.
 
-The report must bind all inputs by SHA-256 and separate direct measurements
-from proxies. A proxy can select a small native discriminator; it cannot prove
-dynamic feasibility or change an accepted requirement.
+Two cases isolate the competing mechanisms:
+
+- ordinal `2`, `cmu05@25`, has no acceleration amplification (`1.0000x`) and
+  only `1.0375x` jerk, yet its declared flat left support begins `1539 µm`
+  above the collider surface; passing V7 begins at `-2 µm`. R94 impacts that
+  left ankle at tick `2`. This is the contact-geometry discriminator.
+- ordinal `10`, `cmu16@238`, has no impact and fails hard ROM at tick `10`.
+  V9 reaches `78001200 µrad/s²` right-hip-pitch acceleration at frame `245`
+  (`8.3576x` V7) and `9073080000 µrad/s³` jerk at frame `246` (`32.7269x`).
+  This is the derivative/nonlocal-correction discriminator.
+
+Ordinal `7` independently shows both mechanisms and is therefore not the first
+counterfactual: its right flight foot starts only `49 µm` above ground versus
+`13513 µm` in V7, while acceleration/jerk also rise `5.4956x/11.6804x`.
+
+R95's fixed-PD quantities remain explicitly labelled proxies. They rank
+experiments but are neither native torque traces nor feasibility proof.
+
+## R96/R97 bounded counterfactual contract
+
+R96 may construct two independent report-only variants, not one bundled fix:
+
+1. contact reserve only for ordinal `2`, moving the declared active support
+   toward physical contact inside the unchanged `5000 µm` public residual and
+   `-2 µm` collider bounds;
+2. derivative regularity only for ordinal `10`, suppressing the frame
+   `245/246` correction spike without changing velocity, ROM or PD limits.
+
+Each variant must pass the unchanged offline audit and show that its intended
+metric decreases without silently changing contact modes or unrelated
+trajectory channels. R97 may then run exactly those two fresh cases. It is a
+causal discriminator, not all-17 acceptance or corpus evidence.
 
 ## Decision
 
-Freeze R92–R94. Do not retune V9 blindly and do not begin training. Execute R95
-first. After R95, choose the smallest one- or two-case fresh discriminator that
-separates H22 from H23/H24. A full all-17 rerun is allowed only after that
-counterfactual passes without changing controller semantics, safety limits,
-fresh-scene authority or the exact-zero gate.
+Freeze R92–R95. Do not retune V9 blindly and do not begin training. Implement
+the two independent R96 variants above, then run only ordinals `2` and `10` in
+fresh R97. A full all-17 rerun is allowed only if both causal counterfactuals
+pass without changing controller semantics, safety limits, fresh-scene
+authority or the exact-zero gate.

@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-14 |
 | Scope | Optimizer-free learned-policy lane; offline constraint-solver research for `REQ-HUM-DATA-005/007` |
-| Status | `R93 V9 OFFLINE PASS / R94 FRESH FAIL / STOP_AND_RESEARCH` |
+| Status | `R94 FRESH FAIL / R95 DIFFERENTIAL COMPLETE / R96 NEXT` |
 | Current implementation | `nextengine.dimensionless-contact-trajectory-qp.v9` |
 | Claim ceiling | Research infrastructure only; no V19, TRAIN-4 Advance, visual gate or learned optimization |
 
@@ -64,6 +64,7 @@ All generated artifacts remain under the external TRAIN-4 evaluation root.
 | R92 clean V9 raw `cmu139` | Commit `04005c7` adds eight stable rows for each contact-role foot box and preserves scalar rows elsewhere. The raw immutable clip reaches emitted-integer exact PASS at outer iteration three: residual `4901`, finite tangent/normal `1981/981`, analytic `1969/996`, collider `+49`, joint `2500`, root `199770`; every normalized violation is zero. Each QP has `73902` rows / `344787` nonzeros; solve iterations are `100000`, `84025`, `4350`, wall time `527.8 s`. | Accept the shared V9 identity for clean offline promotion testing, not the single-clip debug candidate. R92 remains `NOT_ADMISSIBLE`, optimizer/training/PhysX stay zero, and performance is report-only. R93 must reproduce all three complete clips, all 17 exact slices and overlap identity from one clean invocation before any fresh scene. |
 | R93 clean V9 all-three/all-17 | One clean invocation from commit `cffad89` solves each immutable complete clip exactly once. `cmu05`, `cmu16` and `cmu139` pass after `3/2/3` outer iterations; all 17 exact slices pass, all `390` compared arrays across `30` overlap pairs agree byte-for-byte, and contact-point deletion remains zero. Optimizer steps and training runs remain zero. | Accept the V9 offline promotion checkpoint and authorize the next ordered fresh-scene all-17 PhysX acceptance only. `gate_decision=NO_CHANGE` retains the claim ceiling: no corpus admission, V19, visual gate or training is implied by this solver-only PASS. |
 | R94 clean V9 fresh all-17 | Seventeen separate fresh-scene workers cover all cases from commit `5cedc41`. Initial root/joint state is exact within quantization, but seven cases fail: hard impact `4`, hard ROM `4`, joint safety/velocity `1`; ordinals `2/7/10/14` regress previously passing controls. Partial reset is not run; optimizer/training remain zero. | Record `FAIL / STOP_AND_RESEARCH`. Reject reset-state mismatch and the claim that offline V9 geometry is sufficient for fixed-PD native tracking. Freeze V9 and perform the linked report-only R95 V7↔V9 native-dynamics differential audit before any new PhysX counterfactual. |
+| R95 clean V7↔V9 differential audit | Report-only comparison finds new-regression median acceleration/jerk amplification `6.8865x/21.8469x`. Ordinal `2` has normal derivatives but an active foot `1539 µm` above the surface; ordinal `10` has no impact but reaches `8.3576x/32.7269x` acceleration/jerk. | Record `COMPLETE / PERMIT_AT_MOST_TWO_FRESH_COUNTERFACTUALS_ONLY`. Select independent contact-only ordinal `2` and derivative-only ordinal `10`; do not bundle causes or run all 17. |
 
 R69 report SHA-256 is
 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56`;
@@ -190,6 +191,12 @@ R94 canonical/file report SHA-256 are
 The run is bound to clean commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`; probe profile SHA-256 is
 `935bdd369c7ef3b485a114b8adadd7476b151345806f2957e1080595017d40e1`.
+R95 canonical/file report SHA-256 are
+`ec453b347e9323819ba706daa40949a91924e7a359c9225ab7ce031dcf60bd6f` /
+`8287e3ef751d22a46cc312d1dc7a79f3245302a2fa4d3da965cd7e5efd652f76`.
+The clean tool commit is `6491d241748cfd1a5080f7866186507f37e7c9bc`;
+audit profile SHA-256 is
+`11e5eb851f1a5cecb29f9d7796dee7e8b5f7e51104a1e9ed00b3c65285b7fbba`.
 
 ## Primary-source research decision
 
@@ -397,13 +404,14 @@ collider, root or joint bound. Clean R93 proves the unchanged all-clip/slice
 identity, while R94 disproves its dynamic sufficiency under the frozen fixed-PD
 plant. Detailed native evidence, source synthesis and hypotheses are in the
 [native-dynamics research decision](humanoid-train4-native-dynamics-research-2026-08-14.md).
-The next accepted evidence sequence is:
+R95 completes the first item of the returned research sequence. The next
+accepted evidence sequence is:
 
-1. compare hash-bound R47 V7 and R93 V9 exact slices in report-only R95,
-   including trajectory derivatives, implied fixed-PD load and contact entry;
-2. select at most a one- or two-case fresh discriminator from measured evidence;
-3. require that discriminator, then fresh all-17, to have exact-zero required
-   safety and zero control regressions before full-corpus construction.
+1. build two independent offline R96 variants: contact reserve for ordinal `2`
+   and derivative regularity for ordinal `10`;
+2. fresh-run exactly those two cases in R97 only after unchanged offline PASS;
+3. require both, then a later fresh all-17, to have exact-zero required safety
+   and zero control regressions before full-corpus construction.
 
 R94 has returned the work to bounded contact/physics research. Full
 27-clip V19, visual/exhaustive admission, TRAIN-4 Advance, TRAIN-5 and training

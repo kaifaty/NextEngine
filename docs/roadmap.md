@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-14 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 закрыл one-solve/exact-slice domain identity и отклонил V7 complete solver. R73 clean V8 passes complete `cmu05`/`cmu16` but fails raw `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all-three/all-17 offline with byte-exact overlap and zero point deletion. R94 fresh-scene V9 rejects `7/17` with four impacts, four hard-ROM, one velocity event and four passing-control regressions despite exact initial-state authorship. Current step is report-only R95 V7↔V9 native-dynamics differential audit; partial reset stays report-only. Full V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 закрыл one-solve/exact-slice domain identity и отклонил V7 complete solver. R73 clean V8 passes complete `cmu05`/`cmu16` but fails raw `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all-three/all-17 offline with byte-exact overlap and zero point deletion. R94 fresh-scene V9 rejects `7/17` despite exact initial state. Clean R95 selects two orthogonal regressions: ordinal `2` has a `1539 µm` active-support gap without derivative amplification; ordinal `10` has `8.3576x/32.7269x` acceleration/jerk amplification without impact. Current step is two independent offline R96 counterfactuals before fresh two-case R97; partial reset stays report-only. Full V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -763,8 +763,8 @@ Current increment поэтому строит единый coupled trajectory so
 полного `cmu05`. Full 27-clip V19, visual/exhaustive gates, TRAIN-4 Advance и
 PPO остаются запрещены.
 
-**TRAIN-4 coupled/native trajectory research (`R94_FRESH_FAIL /
-STOP_AND_RESEARCH`, 2026-08-14):**
+**TRAIN-4 coupled/native trajectory research (`R95_DIFFERENTIAL_COMPLETE /
+R96_TWO_VARIANTS_NEXT`, 2026-08-14):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -859,6 +859,16 @@ is not the cause. The [native-dynamics research decision](development/humanoid-t
 freezes V9 and places report-only R95 V7↔V9 derivative, implied-PD-load and
 contact-transition audit before another native counterfactual. Partial reset
 remains report-only; training remains blocked.
+
+Clean R95 executes that report-only audit from commit `6491d24`. Across the
+four new control regressions, median V9/V7 acceleration and jerk rise
+`6.8865x/21.8469x`. It separates ordinal `2`, where derivatives stay at
+`1.0000x/1.0375x` but the active left foot begins `1539 µm` above the surface,
+from ordinal `10`, where a non-impact hard-ROM failure follows
+`8.3576x/32.7269x` right-hip-pitch acceleration/jerk amplification. R95 permits
+only independent contact-only and derivative-only R96 constructions followed
+by exactly those two fresh R97 cases. It does not authorize all-17, V19 or
+training.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -1611,8 +1621,9 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    three complete clips, all 17 exact slices and byte-exact overlap identity.
    R94 fresh-scene V9 fails `7/17` despite exact reset state, with mixed early
    impacts and late ROM/velocity events plus four safe-control regressions.
-   R95 now compares V7/V9 derivatives, implied fixed-PD load and contact
-   transitions before a one- or two-case native discriminator. До exact-zero
+   Clean R95 selects ordinal `2` for contact reserve and ordinal `10` for
+   derivative regularity. R96 builds them independently; R97 may fresh-run
+   only those two after offline PASS. До exact-zero
    fresh/full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены. No
    training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
