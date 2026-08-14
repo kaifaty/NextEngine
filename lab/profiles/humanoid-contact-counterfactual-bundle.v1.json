@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "bundle_id": "nextengine.humanoid-contact-counterfactual-bundle.v1",
+  "status": "FrozenResearchOnly",
+  "source_audit_sha256": "ded76473905f7f26e4db0dfaa236508f649d46a692ff28938203f92dcf1c9b61",
+  "ordered_counterfactuals": [
+    {
+      "role": "contact-reserve",
+      "r95_case_ordinal": 2,
+      "source_case_ordinal": 25,
+      "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v10-contact-reserve-counterfactual",
+      "manifest_sha256": "376fedff6f8a6a327c2f99f6700d82a338e7117e310d26c36e92b154f9c691eb",
+      "manifest_file_sha256": "08b28cea1ebd69ebfc5bff88f6f17936cb98caa86bc8fb4661b1a4e2cc13fab9",
+      "prototype_profile_sha256": "289133123584fc1f228839731e5df405aacfb0deb6c7aca6cc692dbbe96c8a58",
+      "case_artifact_sha256": "e3a7cbfbec935c374420b34f8eb3110a17b91fb829be2bf8d16444503c24988f"
+    },
+    {
+      "role": "emitted-acceleration",
+      "r95_case_ordinal": 10,
+      "source_case_ordinal": 7967,
+      "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v11-emitted-acceleration-counterfactual",
+      "manifest_sha256": "94981a8b14b48c6ad01c331676fee8a4a24e9aa764a1cbdf13c090d524aaa2ae",
+      "manifest_file_sha256": "d4fe0ac9aec9ba56b7ffed6ac097ba205f1ee8afb3c38eb7570ec7034189d46c",
+      "prototype_profile_sha256": "80334fd709d25054d5e6e7bb61606d26e89cec0ed685e974e4dec5e4bb43ddbf",
+      "case_artifact_sha256": "4cac5ffc36c227fd71d5245d282c218cfd948ecdfe632e516ab92cac35a00b63"
+    }
+  ],
+  "execution": {
+    "fresh_scene_case_count": 2,
+    "indexed_partial_reset_enabled": false,
+    "all_17_enabled": false,
+    "optimizer_steps": 0,
+    "training_runs": 0
+  }
+}

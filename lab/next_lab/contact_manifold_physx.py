@@ -123,7 +123,11 @@ def load_contact_prototype_cases(
     without_hash = dict(manifest)
     without_hash.pop("manifest_sha256", None)
     if (
-        manifest.get("check") != "TRAIN-4-CONTACT-MANIFOLD-PROTOTYPE-BUILD"
+        manifest.get("check")
+        not in {
+            "TRAIN-4-CONTACT-MANIFOLD-PROTOTYPE-BUILD",
+            "TRAIN-4-CONTACT-MANIFOLD-COUNTERFACTUAL-BUNDLE",
+        }
         or manifest.get("status") != "PASS"
         or manifest.get("optimizer_steps") != 0
         or manifest.get("training_runs") != 0
