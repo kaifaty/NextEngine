@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
+import next_lab.contact_manifold as contact_manifold
 from next_lab.contact_manifold import (
     ColliderClosure,
     ContactManifoldTolerances,
@@ -299,6 +300,55 @@ class ContactManifoldTests(unittest.TestCase):
             2,
         )
 
+    def test_final_contact_root_velocity_closure_is_explicit_and_bounded(
+        self,
+    ) -> None:
+        descriptor = json.loads(
+            (FIXTURES / "biomechanics_motor_mirror_v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        projection = project_reference_contact_manifold(
+            descriptor=descriptor,
+            **_flight_collider_inputs(descriptor),
+            frame_first=0,
+            frame_last=5,
+            collider_closure=_collider_closure(
+                descriptor,
+                final_contact_root_velocity_closure_enabled=True,
+            ),
+        )
+
+        self.assertEqual(projection.diagnostics["status"], "PASS")
+        self.assertEqual(
+            projection.diagnostics[
+                "final_contact_reprojection_dropped_point_count"
+            ],
+            0,
+        )
+        self.assertGreaterEqual(
+            projection.diagnostics["root_velocity_closure_iterations"], 1
+        )
+
+    def test_upward_root_velocity_closure_never_lowers_samples(self) -> None:
+        source = np.asarray(
+            (915_632, 913_670, 911_384, 908_738, 905_717, 902_341, 898_694),
+            dtype=np.int64,
+        )
+
+        closed, iterations = (
+            contact_manifold._upward_root_vertical_velocity_closure(
+                source,
+                rate_hz=60,
+                maximum_velocity_micrometres_per_second=200_060,
+            )
+        )
+
+        self.assertGreaterEqual(iterations, 1)
+        self.assertTrue(np.all(closed >= source))
+        velocity = contact_manifold._integer_velocity(closed[:, None], 60)
+        self.assertLessEqual(int(np.max(np.abs(velocity))), 200_060)
+
 
 def _flight_collider_inputs(descriptor: dict[str, object]) -> dict[str, object]:
     frame_count = 6
@@ -354,6 +404,7 @@ def _collider_closure(
     correction_smoothing_passes: int = 2,
     unsupported_flight_clearance_target_micrometres: int | None = None,
     unsupported_correction_smoothing_passes: int | None = None,
+    final_contact_root_velocity_closure_enabled: bool = False,
 ) -> ColliderClosure:
     suffixes = (
         "hip-pitch",
@@ -393,6 +444,9 @@ def _collider_closure(
         ),
         unsupported_correction_smoothing_passes=(
             unsupported_correction_smoothing_passes
+        ),
+        final_contact_root_velocity_closure_enabled=(
+            final_contact_root_velocity_closure_enabled
         ),
     )
 

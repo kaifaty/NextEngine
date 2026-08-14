@@ -438,6 +438,12 @@ def _validate_inputs(
         and isinstance(discriminator, dict)
         and discriminator.get("ordered_source_case_ordinals")
         == [3749, 3750, 3753, 8144]
+    ) or (
+        prototype_id == "nextengine.humanoid-contact-manifold-prototype.v5"
+        and isinstance(projection.get("collider_closure"), dict)
+        and isinstance(discriminator, dict)
+        and discriminator.get("ordered_source_case_ordinals")
+        == [3749, 3750, 3753, 8144]
     )
     if (
         profile.get("schema_version") != 1
@@ -506,9 +512,21 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
             "nextengine.bounded-flight-collider-closure.v1",
             "nextengine.bounded-support-precedence-closure.v2",
             "nextengine.support-conditioned-collider-closure.v3",
+            "nextengine.final-contact-root-closure.v4",
         }
-        or document.get("root_vertical_policy")
-        != "upward-only residual all-collider floor after leg-chain correction"
+        or (
+            algorithm_id != "nextengine.final-contact-root-closure.v4"
+            and document.get("root_vertical_policy")
+            != "upward-only residual all-collider floor after leg-chain correction"
+        )
+        or (
+            algorithm_id == "nextengine.final-contact-root-closure.v4"
+            and document.get("root_vertical_policy")
+            != (
+                "upward-only all-collider floor plus final 60 Hz root-velocity "
+                "closure after active-contact reprojection"
+            )
+        )
         or (
             algorithm_id == "nextengine.bounded-flight-collider-closure.v1"
             and any(
@@ -517,6 +535,7 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
                     "active_contact_anchor_target_micrometres",
                     "unsupported_flight_clearance_target_micrometres",
                     "unsupported_correction_smoothing_passes",
+                    "final_contact_root_velocity_closure_enabled",
                 )
             )
         )
@@ -526,6 +545,7 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
                 document.get("active_contact_anchor_target_micrometres") != 0
                 or "unsupported_flight_clearance_target_micrometres" in document
                 or "unsupported_correction_smoothing_passes" in document
+                or "final_contact_root_velocity_closure_enabled" in document
             )
         )
         or (
@@ -538,6 +558,24 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
                 != 5_000
                 or document.get("unsupported_correction_smoothing_passes")
                 != 2
+                or "final_contact_root_velocity_closure_enabled" in document
+            )
+        )
+        or (
+            algorithm_id == "nextengine.final-contact-root-closure.v4"
+            and (
+                document.get("active_contact_anchor_target_micrometres") != 0
+                or document.get(
+                    "unsupported_flight_clearance_target_micrometres"
+                )
+                != 5_000
+                or document.get("unsupported_correction_smoothing_passes")
+                != 2
+                or document.get("correction_smoothing_passes") != 8
+                or document.get(
+                    "final_contact_root_velocity_closure_enabled"
+                )
+                is not True
             )
         )
     ):
@@ -586,6 +624,9 @@ def _collider_closure(projection: dict[str, Any]) -> ColliderClosure | None:
         ),
         unsupported_correction_smoothing_passes=document.get(
             "unsupported_correction_smoothing_passes"
+        ),
+        final_contact_root_velocity_closure_enabled=document.get(
+            "final_contact_root_velocity_closure_enabled", False
         ),
     )
     closure.validate()

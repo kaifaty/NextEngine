@@ -97,6 +97,7 @@ class ColliderClosure:
     active_contact_anchor_target_micrometres: int | None = None
     unsupported_flight_clearance_target_micrometres: int | None = None
     unsupported_correction_smoothing_passes: int | None = None
+    final_contact_root_velocity_closure_enabled: bool = False
 
     def validate(self) -> None:
         bounds = self.joint_bounds_microradians
@@ -156,6 +157,9 @@ class ColliderClosure:
             or isinstance(self.correction_smoothing_passes, bool)
             or not isinstance(self.correction_smoothing_passes, int)
             or self.correction_smoothing_passes < 0
+            or not isinstance(
+                self.final_contact_root_velocity_closure_enabled, bool
+            )
             or (
                 self.active_contact_anchor_target_micrometres is not None
                 and (
@@ -402,6 +406,7 @@ def project_reference_contact_manifold(
             root_quaternion_q1_30=root_quaternion_q1_30[interval],
             joint_position_urad=solved_joint_urad,
             contact_modes=modes,
+            tolerances=tolerances,
             closure=collider_closure,
         )
     solved_roots = solved_root_um.astype(np.float64) / 1_000_000.0
@@ -591,11 +596,13 @@ def _close_reference_colliders(
     root_quaternion_q1_30: NDArray[np.int64],
     joint_position_urad: NDArray[np.int64],
     contact_modes: NDArray[np.uint8],
+    tolerances: ContactManifoldTolerances,
     closure: ColliderClosure,
 ) -> tuple[NDArray[np.int64], NDArray[np.int64], dict[str, Any]]:
     """Close flight-foot and global ground geometry without changing limits."""
 
     closure.validate()
+    tolerances.validate()
     frame_count, joint_count = joint_position_urad.shape
     if (
         root_position_um.shape != (frame_count, 3)
@@ -852,6 +859,83 @@ def _close_reference_colliders(
         )
     solved_root_um[:, 1] += root_lift_um
 
+    final_contact_root_correction_um = np.zeros(
+        (frame_count, 3), dtype=np.int64
+    )
+    root_velocity_closure_lift_um = np.zeros(frame_count, dtype=np.int64)
+    root_velocity_closure_iterations = 0
+    final_contact_dropped_point_count = 0
+    if closure.final_contact_root_velocity_closure_enabled:
+        final_sole_position_um = np.empty(
+            (frame_count, len(_SIDES), len(_POINTS), 3), dtype=np.int64
+        )
+        for frame in range(frame_count):
+            positions, rotations = target_forward_kinematics(
+                descriptor,
+                solved_root_um[frame].astype(np.float64) / 1_000_000.0,
+                root_quaternions[frame],
+                solved_joint_urad[frame].astype(np.float64) / 1_000_000.0,
+            )
+            effectors = target_effectors(descriptor, positions, rotations)
+            for side_index, side in enumerate(_SIDES):
+                for point_index, point in enumerate(_POINTS):
+                    final_sole_position_um[frame, side_index, point_index] = (
+                        np.rint(
+                            effectors[f"effector.{side}-{point}"]
+                            * 1_000_000.0
+                        ).astype(np.int64)
+                    )
+        (
+            final_contact_root_correction_um,
+            final_active,
+        ) = _continuous_root_contact_projection(
+            sole_position_um=final_sole_position_um,
+            active=active,
+            maximum_normal_residual_micrometres=(
+                tolerances.maximum_normal_residual_micrometres - 1
+            ),
+            maximum_normal_step_micrometres=(
+                tolerances.maximum_normal_step_micrometres
+            ),
+        )
+        final_contact_dropped_point_count = int(np.sum(active & ~final_active))
+        solved_root_um += final_contact_root_correction_um
+
+        second_root_lift_um = np.zeros(frame_count, dtype=np.int64)
+        for frame in range(frame_count):
+            positions, rotations = target_forward_kinematics(
+                descriptor,
+                solved_root_um[frame].astype(np.float64) / 1_000_000.0,
+                root_quaternions[frame],
+                solved_joint_urad[frame].astype(np.float64) / 1_000_000.0,
+            )
+            minimum = _minimum_collider_height(
+                positions,
+                rotations,
+                all_colliders,
+            )
+            second_root_lift_um[frame] = max(
+                0,
+                int(np.ceil((floor_height - minimum) * 1_000_000.0)),
+            )
+        solved_root_um[:, 1] += second_root_lift_um
+        root_lift_um += second_root_lift_um
+
+        root_before_velocity_closure_um = solved_root_um[:, 1].copy()
+        (
+            solved_root_um[:, 1],
+            root_velocity_closure_iterations,
+        ) = _upward_root_vertical_velocity_closure(
+            root_before_velocity_closure_um,
+            rate_hz=60,
+            maximum_velocity_micrometres_per_second=(
+                closure.maximum_root_vertical_velocity_micrometres_per_second
+            ),
+        )
+        root_velocity_closure_lift_um = (
+            solved_root_um[:, 1] - root_before_velocity_closure_um
+        )
+
     minimum_final = math.inf
     for frame in range(frame_count):
         positions, rotations = target_forward_kinematics(
@@ -905,6 +989,7 @@ def _close_reference_colliders(
         and maximum_root_vertical_velocity
         <= closure.maximum_root_vertical_velocity_micrometres_per_second
         and uncorrected_flight_deficits == 0
+        and final_contact_dropped_point_count == 0
     )
     return solved_root_um, solved_joint_urad, {
         "collider_closure_status": "PASS" if passed else "FAIL",
@@ -916,6 +1001,18 @@ def _close_reference_colliders(
         "maximum_active_contact_anchor_micrometres": int(
             np.max(np.abs(active_contact_anchor_um))
         ),
+        "maximum_final_contact_root_correction_micrometres": int(
+            np.max(
+                np.linalg.norm(final_contact_root_correction_um, axis=1)
+            )
+        ),
+        "final_contact_reprojection_dropped_point_count": (
+            final_contact_dropped_point_count
+        ),
+        "maximum_root_velocity_closure_lift_micrometres": int(
+            np.max(root_velocity_closure_lift_um)
+        ),
+        "root_velocity_closure_iterations": root_velocity_closure_iterations,
         "maximum_root_vertical_velocity_micrometres_per_second": (
             maximum_root_vertical_velocity
         ),
@@ -954,6 +1051,9 @@ def _close_reference_colliders(
             ),
             "unsupported_correction_smoothing_passes": (
                 closure.unsupported_correction_smoothing_passes
+            ),
+            "final_contact_root_velocity_closure_enabled": (
+                closure.final_contact_root_velocity_closure_enabled
             ),
         },
     }
@@ -1023,6 +1123,63 @@ def _weighted_temporal_smooth_float(
             ]
         )
     return result
+
+
+def _upward_root_vertical_velocity_closure(
+    values_um: NDArray[np.int64],
+    *,
+    rate_hz: int,
+    maximum_velocity_micrometres_per_second: int,
+) -> tuple[NDArray[np.int64], int]:
+    """Raise samples until the emitted finite-difference velocity is bounded."""
+
+    if (
+        values_um.ndim != 1
+        or len(values_um) < 2
+        or values_um.dtype.kind not in "iu"
+        or isinstance(rate_hz, bool)
+        or not isinstance(rate_hz, int)
+        or rate_hz <= 0
+        or rate_hz % 2 != 0
+        or isinstance(maximum_velocity_micrometres_per_second, bool)
+        or not isinstance(maximum_velocity_micrometres_per_second, int)
+        or maximum_velocity_micrometres_per_second <= 0
+    ):
+        raise ValueError("root vertical velocity closure input is invalid")
+    result = values_um.astype(np.int64, copy=True)
+    adjacent_step_um = maximum_velocity_micrometres_per_second // rate_hz
+    central_step_um = maximum_velocity_micrometres_per_second // (rate_hz // 2)
+    if adjacent_step_um <= 0 or central_step_um <= 0:
+        raise ValueError("root vertical velocity closure bound is too small")
+
+    maximum_iterations = len(result) * len(result) + 1
+    for iteration in range(1, maximum_iterations + 1):
+        previous = result.copy()
+        first_delta = int(result[1] - result[0])
+        if first_delta < -adjacent_step_um:
+            result[1] = result[0] - adjacent_step_um
+        elif first_delta > adjacent_step_um:
+            result[0] = result[1] - adjacent_step_um
+
+        for frame in range(1, len(result) - 1):
+            central_delta = int(result[frame + 1] - result[frame - 1])
+            if central_delta < -central_step_um:
+                result[frame + 1] = result[frame - 1] - central_step_um
+            elif central_delta > central_step_um:
+                result[frame - 1] = result[frame + 1] - central_step_um
+
+        last_delta = int(result[-1] - result[-2])
+        if last_delta < -adjacent_step_um:
+            result[-1] = result[-2] - adjacent_step_um
+        elif last_delta > adjacent_step_um:
+            result[-2] = result[-1] - adjacent_step_um
+        if np.array_equal(result, previous):
+            if np.any(result < values_um) or np.max(
+                np.abs(_integer_velocity(result[:, None], rate_hz)[:, 0])
+            ) > maximum_velocity_micrometres_per_second:
+                raise RuntimeError("root vertical velocity closure is invalid")
+            return result, iteration
+    raise RuntimeError("root vertical velocity closure did not converge")
 
 
 def _continuous_root_contact_projection(

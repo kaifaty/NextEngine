@@ -137,8 +137,8 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Decision:** Implement opt-in V5 final contact reprojection, second collider
   floor and upward-only root-velocity closure; use eight smoothing passes.
 - **Rejected alternatives:** Another scalar sweep or looser safety bounds.
-- **Consequence:** V1–V4 remain byte-stable; V5 starts with the same four fresh
-  scenes and cannot feed an optimizer.
+- **Consequence:** V1–V4 projected case artifacts remain byte-stable; V5 starts
+  with the same four fresh scenes and cannot feed an optimizer.
 - **Reconsider when:** V5 regresses a control or introduces a new category.
 
 ### D-006 — Require one clip-global value per source frame

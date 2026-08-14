@@ -188,6 +188,9 @@ def _probe_version_shape_is_valid(
         "nextengine.humanoid-contact-manifold-physx-probe.v4": (
             "nextengine.humanoid-contact-manifold-prototype.v4"
         ),
+        "nextengine.humanoid-contact-manifold-physx-probe.v5": (
+            "nextengine.humanoid-contact-manifold-prototype.v5"
+        ),
     }
     if isinstance(probe_id, str) and probe_id in bounded_versions:
         return (

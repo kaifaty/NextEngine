@@ -104,8 +104,8 @@ Implement one immutable V5 bounded prototype with:
    `200060 µm/s` bound;
 5. failure if final reprojection drops an active point.
 
-Preserve V1–V4 behavior byte-for-byte through an opt-in V5 field and a new
-profile/algorithm identity. First rerun the four-case fresh-scene
+Preserve V1–V4 projected case-artifact bytes through an opt-in V5 field and a
+new profile/algorithm identity. First rerun the four-case fresh-scene
 discriminator. If it passes, run the ordered 17-case offline and fresh-scene
 matrix. Even a `17/17` result may only authorize a clip-global prototype.
 
