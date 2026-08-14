@@ -12,14 +12,14 @@
 ## Resume in 60 seconds
 
 - **Current conclusion:** Clean R73 passes complete `cmu05`/`cmu16` but V8
-  fails raw-mask `cmu139`. R80 removes the R75/R76 oscillation and lowers exact
-  max/sum violation `6.0602/18.0222 -> 2.4908/9.5412`, then stalls.
-- **Why:** Rejected R80 full steps lower total violation while temporarily
-  raising its worst component. A max-first scalar rule is now the blocker;
-  TrajOpt/SCvx/CRISP and SQP-filter research support explicit globalization.
-- **Next action:** Run R81 exact worst/total feasibility-filter discrimination.
-  If it reaches the same small-step plateau, implement bounded second-order
-  correction/restoration against the rejected candidate's nonlinear error.
+  fails raw-mask `cmu139`. R80 removes oscillation then stalls; R81 crosses
+  that plateau but trades worst violation `3.7554 -> 5.9160` for lower total.
+- **Why:** A max-first merit is too strict, while a worst/total feasibility
+  filter is too permissive. CRISP/SQP research now points to correction of the
+  nonlinear trial error rather than another scalar acceptance rule.
+- **Next action:** Build R82 exact-row second-order restoration: one bounded
+  correction QP after a rejected primary step, followed by unchanged integer-FK
+  exact audit. No Hessian, physical tolerance or final slack change.
 - **Current blocker:** The hard local QP predicts feasible corrections, but a
   blindly applied nonlinear step can worsen neighbouring contact boundaries;
   model and integer-FK merit are not yet the same functional.
@@ -45,7 +45,7 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R77–R80 globalization research | Exact rejection discriminates bad steps; dense slack and mismatched merit fail; max-first backtracking improves monotonically but stalls at factor `0.0625` | Test an exact filter, then second-order correction; stop stencil/cap/penalty tuning |
+| R77–R81 globalization research | Max-first R80 stalls; R81 filter crosses it but lets worst violation regress `3.7554 -> 5.9160`; R81 emitted no report and is non-promotable | Build exact-row second-order restoration; stop scalar/filter tuning |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
@@ -171,7 +171,7 @@ carry detailed evidence. The hashes above identify their external reports.
   breaking another; raw-variable least squares and line search are badly
   scaled and stagnate.
 - **Evidence:** R69/R72 simultaneous `cmu05` PASS, R73 clean two-clip PASS and
-  `cmu139` infeasibility, R75/R76 oscillation, and R77–R80 solver research.
+  `cmu139` infeasibility, R75/R76 oscillation, and R77–R81 solver research.
 - **Decision:** V8 uses one complete-clip SQP over root XYZ and ten selected
   leg joints, with dimensionless OSQP rows and no root/joint post-projection.
   Every source-inferred contact point is frozen. Candidate steps require one
@@ -181,16 +181,16 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether a non-dominated exact filter passes the curved
-  contact region or second-order correction is required for `cmu139`.
-- **Reconsider when:** R81 either passes the plateau or triggers restoration.
+- **Uncertainty:** Whether a bounded correction using the shared exact row
+  identity can repair contact curvature without another costly dense encoding.
+- **Reconsider when:** R82 either closes `cmu139` or rejects restoration.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H7: an exact feasibility filter passes the max-first plateau | R80 full steps reduce total violation more than accepted small steps | Worst violation temporarily rises and needs an explicit safeguard | R81 worst/total non-dominance filter under the fixed cap |
-| H8: second-order correction/restoration is required | R80 consumes the minimum factor with balanced contact violations; CRISP identifies Maratos rejection | Not yet tested against the emitted integer-FK nonlinear error | Run a bounded correction QP only if R81 stalls |
+| H7: exact feasibility filtering closes `cmu139` | R81 crosses the R80 max-first plateau | Worst violation regresses near its source value; no report/candidate was emitted | Reject this filter identity; retain only its causal observation |
+| H8: second-order correction/restoration closes `cmu139` | R80 curvature plateau and R81 trade-off match Maratos-style rejection | Not yet tested against the emitted integer-FK per-row error | R82 bounded correction QP after rejected primary step |
 
 ## Required context
 
@@ -218,8 +218,8 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73 and research R74–R80; none is corpus admission.
-2. Run only R81 exact feasibility-filter discrimination on raw `cmu139`.
+1. Freeze clean R73, R74–R80 reports and non-promotable R81 observation.
+2. Build and run only R82 exact-row restoration on raw `cmu139`.
 3. On PASS, implement one identity and rerun clean all-three/all-17 offline.
 4. Only after offline PASS, run fresh all-17; keep later gates blocked.
 
@@ -240,10 +240,10 @@ semantics.
 ## Handoff
 
 - **Workspace state:** V8 is committed at `f86df01`; tracked research records
-  R73–R80. Generated reports remain external and non-admissible.
+  R73–R81. Generated reports remain external and non-admissible.
 - **Checks:** V8 focused `15/15`, full lab `165/165` and host-check passed;
   clean R73 passes `cmu05`/`cmu16`; optimizer and training remain zero.
-- **Remaining risk:** R81/`cmu139`, unchanged all-three/all-17, fresh safety,
+- **Remaining risk:** R82/`cmu139`, unchanged all-three/all-17, fresh safety,
   full-corpus exact-zero coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding

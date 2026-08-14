@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-14 |
 | Scope | Optimizer-free learned-policy lane; offline constraint-solver research for `REQ-HUM-DATA-005/007` |
-| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / EXACT FILTER RESEARCH ACTIVE` |
+| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / SECOND-ORDER RESTORATION RESEARCH` |
 | Current implementation | `nextengine.dimensionless-contact-trajectory-qp.v8` |
 | Claim ceiling | Research infrastructure only; no V19, TRAIN-4 Advance, visual gate or learned optimization |
 
@@ -50,6 +50,7 @@ All generated artifacts remain under the external TRAIN-4 evaluation root.
 | R78 selective category-elastic trust | The first trial is accepted at ratio `0.274` and merit `12.8099`, but temporarily creates collider `-33386 µm`; the next QP reaches the iteration limit. | Global category slack columns destroy useful clip-local sparsity and are not a production encoding. |
 | R79 selective per-row L1 elastic trust | The first direction worsens gate-aligned max merit `18.0222 -> 24.4408`; both model and exact audit reject it. | A row-average L1 objective is not interchangeable with the current max-based acceptance metric. Stop representation tuning until model and exact merit are identical. |
 | R80 exact max/sum backtracking | Five accepted hard-QP steps reduce worst normalized violation `6.0602 -> 2.4908` and total violation `18.0222 -> 9.5412`, eliminating the R75/R76 alternation. Acceptance nevertheless contracts from factor `1` to `0.5`, `0.125` and the minimum `0.0625`; final collider/residual remain `-12456/17402 µm`. Rejected full steps at trials 3–5 reduce total violation to `9.5286`, `8.7025` and `8.9733` while temporarily increasing the worst component. | Partial discriminator, not a candidate. Monotone max-first backtracking prevents oscillation but stalls at contact curvature and discards useful non-dominated steps. Stop step-factor tuning; test an exact filter, then second-order correction/restoration if rejection persists. |
+| R81 exact worst/total feasibility-filter observation | The first two full candidates improve both measures. The filter then accepts the R80-rejected full third step (`3.3688/12.7776 -> 3.7554/9.5286`) and another non-dominated step (`3.7554/9.5286 -> 5.9160/8.8038`). Thus it crosses the max-first plateau, but permits worst violation to return close to the immutable source ceiling `6.0602`. The run was stopped between QPs before a report/candidate was emitted. | Support the filter diagnosis; reject this two-violation filter as a solver identity. It is an explicitly non-promotable interactive observation, not evidence. Move to exact-row second-order restoration rather than spend twelve more `100000`-iteration QPs on the permissive filter. |
 
 R69 report SHA-256 is
 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56`;
@@ -89,6 +90,9 @@ R80 report/candidate/research-adapter SHA-256 are
 The run was deliberately interrupted while solving trial six after the
 minimum factor had already been consumed; its report `FAIL` and
 `solver_failure/interrupted` termination are retained rather than relabelled.
+The non-promotable R81 adapter SHA-256 is
+`34f8ffcadaea0e51d05a512fcd6741aaa8379310caccd0cf38273c7f054fb0ea`.
+R81 has no report/candidate hash and cannot be cited as acceptance evidence.
 
 ## Primary-source research decision
 
@@ -137,17 +141,19 @@ the accepted small steps while temporarily moving the worst category. That is
 the signature for which a filter is preferable to a single scalar or
 lexicographic merit.
 
-The smallest next discriminator, R81, is therefore an exact feasibility
-filter over the separately recorded worst and total normalized violations of
-the emitted integer-FK candidate. It must reject dominated points, retain a
-hard maximum-violation safeguard, and carry no result into corpus admission.
-This is an evidence-specific adaptation of SQP filtering, not a claim that the
-paper prescribes these two measures. If R81 still rejects useful hard-QP
-directions or reaches a small-step plateau, stop backtracking and add the
-standard second-order correction/restoration pattern: evaluate nonlinear
-constraint error at the rejected trial point and solve a bounded correction
-subproblem against that error. Do not tune another stencil, cap, factor or
-penalty scalar.
+R81 confirms that a filter can retain a useful non-monotone step, but also
+rejects the naive choice of worst and total violation as its two coordinates.
+Both coordinates measure feasibility, so reducing the total can conceal a
+large regression in the exact-zero bottleneck. This is an evidence-specific
+observation, not a claim that the SQP-filter paper prescribes those measures.
+
+The smallest next discriminator, R82, is the standard second-order
+correction/restoration pattern without explicit Hessians: evaluate the exact
+per-row nonlinear error at the rejected trial point, solve one bounded
+minimum-correction QP against that error with the shared row identity, and
+accept only the corrected emitted integer-FK state. A temporary restoration
+slack remains iteration-local; the unchanged final audit still requires zero
+violations. Do not tune another stencil, cap, factor or penalty scalar.
 
 ## V8 solver identity
 
