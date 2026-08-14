@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "probe_id": "nextengine.humanoid-contact-manifold-physx-probe.v8",
+  "status": "FrozenResearchOnly",
+  "source": {
+    "audit_sha256": "ded76473905f7f26e4db0dfaa236508f649d46a692ff28938203f92dcf1c9b61",
+    "contact_prototype_manifest_sha256": "72334d74671747eab4b4e96538de31be8ccb7676c467540e67f90bc1e8c592d6",
+    "contact_prototype_manifest_file_sha256": "f5cc241b2cdb150e958e4a9836f04eb7eb21efd83a78e49889c53516da957c03",
+    "contact_prototype_profile_sha256": "aa1e8e5946c913a2e861b9854d09a87b0b3a0ea021f4b34be4b4cf38043c331e",
+    "corpus_manifest_sha256": "bd6164180a33585ed9231fd6a41cb3943b20e51da8b0e06ac0c978406e204456",
+    "corpus_manifest_file_sha256": "f4eab49ac48ba2b8bf741c03b7e6f50520e703fdc6c9cf72de9cd801dcc76d05",
+    "descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+    "gate_report_sha256": "2fc1d6c3d312a1e88a3820bdd851fd0eecf3230795a1162b55f13dd65d45cdb6",
+    "reference_tracker_profile_sha256": "19a8e5266f12c5c1ae9e307bd0f2f1a76bb6ea23a6ae9912e1ccec401eeaf28c",
+    "usd_sha256": "951fc04bed0ff3e15414bfd06d067636ee8db18ef70e6e4a0ced28c624fcefa4"
+  },
+  "execution": {
+    "case_selection": "exact ordered all-17 inventory from the V6 contact prototype manifest",
+    "controller": "zero residual through the frozen reference tracker",
+    "horizon_motor_ticks": 11,
+    "vector_environment_count": 17,
+    "reference_overlay": {
+      "projected_values": "exact bounded prototype artifact on relative frames 0 through 11",
+      "outside_projected_window": "unchanged reference values from the hash-closed V18 source corpus",
+      "observation_horizon_offsets_motor_ticks": [0, 4, 8, 16]
+    },
+    "fresh_scene": {
+      "method": "author root-link pose, root-link-derived center-of-mass world velocity and JointStateAPI position/velocity in a per-case USD layer before SimulationContext.reset; disable the already-authored ground collision only during two mandatory 1 ns Isaac initialization steps, re-enable it before contact-view creation, and restore 1/240 s before the episode",
+      "mandatory_initialization_physics_step_count": 2,
+      "initialization_physics_dt_seconds": 1e-9,
+      "episode_physics_dt_seconds": 0.004166666666666667,
+      "ground_collision_disabled_during_initialization": true,
+      "ground_collision_reenabled_before_contact_view": true,
+      "post_create_root_or_joint_state_writes": 0,
+      "target_vector_slot": "case ordinal",
+      "all_vector_slots_use_the_same_case": true
+    },
+    "indexed_partial_reset": {
+      "enabled": false,
+      "evidence_role": "report-only",
+      "reason": "R27 already disproved equivalence; the V8 all-17 probe accepts only fresh-scene evidence under ADR-070"
+    },
+    "optimizer_steps": 0,
+    "training_runs": 0
+  },
+  "fresh_state_verification": {
+    "maximum_root_position_error_micrometres": 10,
+    "minimum_root_orientation_absolute_dot_q1_30": 1073741800,
+    "maximum_root_linear_velocity_error_micrometres_per_second": 10,
+    "maximum_root_angular_velocity_error_microradians_per_second": 10,
+    "maximum_joint_position_error_microradians": 10,
+    "maximum_joint_velocity_error_microradians_per_second": 10
+  },
+  "reset_comparison": {
+    "report_only_disposition": "Retain ADR-070 fresh-scene authority; indexed running-scene partial reset is not run and cannot affect this all-17 probe"
+  },
+  "bounded_acceptance": {
+    "acceptance_authority": "fresh-scene",
+    "passing_control_regression_count": 0,
+    "targeted_failure_category_count_change": "strict decrease for each category present in the all-17 inventory",
+    "new_required_safety_reasons": 0,
+    "pass_gate_decision": "PERMIT_CLIP_GLOBAL_PROTOTYPE_ONLY",
+    "fail_gate_decision": "STOP_AND_RESEARCH",
+    "result_if_passed": "permit one clip-global, overlap-exact prototype; do not authorize a full V19 corpus, optimizer, TRAIN-4 Advance or any downstream stage"
+  }
+}
