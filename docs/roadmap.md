@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-14 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 закрыл one-solve/exact-slice domain identity и отклонил V7 complete solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` but fails the stronger raw-mask `cmu139`; R74–R85 localize this to artificial infeasibility, blind step acceptance, mismatched merit and a persistent model/FK collider gap. R86–R89 validate adaptive trust behavior; capped R90 improves exact merit to `1.1100/4.3599` but rejects at minimum trust. Current R91 audits nonsmooth box active-feature switching before any V9 change. Full V19, fresh PhysX, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. V18 имеет `204/12518` required-safety failed cases. R27 сохраняет ADR-070 fresh-scene authority и отклоняет indexed partial reset. Bounded V7/R49 проходит fresh `17/17`, но разрешает только clip-global prototype. R57 закрыл one-solve/exact-slice domain identity и отклонил V7 complete solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` but fails the stronger raw-mask `cmu139`; R74–R90 isolate globalization and a minimum-trust geometry plateau. R91 finds `84/85` exact feature switches on foot boxes and lowers maximum model error `992.020 -> 3.874 µm` with exact geometry preserved. Current R92 implements stable rows only for two contact-role foot boxes before a raw `cmu139` solve. Full V19, fresh PhysX, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -763,8 +763,8 @@ Current increment поэтому строит единый coupled trajectory so
 полного `cmu05`. Full 27-clip V19, visual/exhaustive gates, TRAIN-4 Advance и
 PPO остаются запрещены.
 
-**TRAIN-4 coupled trajectory research (`CMU05_CMU16_CLEAN_PASS /
-CMU139_R90_PLATEAU_R91_FEATURE_AUDIT`, 2026-08-14):**
+**TRAIN-4 coupled trajectory research (`R91_FEATURE_CAUSE_SUPPORTED /
+R92_V9_FOOT_VERTEX_ROWS`, 2026-08-14):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -839,9 +839,13 @@ R89 restores positive agreement (`0.517`) and improves exact merit to
 steps, and reaches exact `1.1100/4.3599`, but the final same-minimum-radius
 step is rejected at ratio `-1.832`. Collider model error changes from `1.6 µm`
 on the accepted fifth step to `992 µm` on the sixth, again at the right foot.
-R91 is therefore a report-only stable-vertex audit of the scalar box-minimum
-linearization. It must decide the geometry representation before any V9 solve;
-it emits no candidate and changes no physical limit.
+R91 then reproduces the scalar model within `9.1e-13 µm` and finds `85`
+baseline-to-exact box-feature switches, `84` on the feet. Stable vertex rows
+preserve exact box geometry within `2.3e-10 µm` while lowering maximum model
+error `992.020 -> 3.874 µm`; all predeclared discriminators pass. R92 therefore
+expands only the two contact-role foot boxes from one to eight rows, adding
+`14` rows/frame rather than expanding every body box. Exact all-collider FK and
+every physical limit remain unchanged.
 No fresh PhysX or training is authorized while this offline blocker remains.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
@@ -1590,8 +1594,8 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    post-passes with one pinned coupled trajectory solver. Clean R73 passes
    `cmu05`/`cmu16` and rejects `cmu139`; R74–R85 stop local solver composition,
    R86 bounds the radius, R87/R89 improve and R88 triggers contraction. R90
-   reaches `1.1100/4.3599` then rejects at minimum trust; R91 audits stable box
-   features before a V9 decision. До unchanged all-three
+   reaches `1.1100/4.3599` then rejects at minimum trust. R91 supports stable
+   foot-box features; R92 implements their bounded V9 row identity. До unchanged all-three
    complete clips and all-17 exact slices PASS
    corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены. No
    training quality, Stage 0 or R5 completion is claimed here.

@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-14 |
 | Scope | Optimizer-free learned-policy lane; offline constraint-solver research for `REQ-HUM-DATA-005/007` |
-| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 R90 MINIMUM-TRUST PLATEAU / R91 BOX-FEATURE AUDIT` |
+| Status | `R91 SUPPORTS STABLE FOOT-BOX VERTICES / R92 V9 PROTOTYPE` |
 | Current implementation | `nextengine.dimensionless-contact-trajectory-qp.v8` |
 | Claim ceiling | Research infrastructure only; no V19, TRAIN-4 Advance, visual gate or learned optimization |
 
@@ -60,6 +60,7 @@ All generated artifacts remain under the external TRAIN-4 evaluation root.
 | R88 unchanged-trust continuation | Relinearizing at R87 lowers feasible model slack to `0.763320` and predicts merit `0.7634/3.0533`. Exact contact groups all fall below one, but collider regresses `2.4324 -> 2.9816`; exact merit becomes `2.9816/5.6120` and actual/predicted ratio is `-0.327`. Maximum collider prediction error grows to `11143 µm` at `collider.right-foot`, source frame `1387`. | Exact max-first rejects R88 and retains R87. Do not repeat the same radius or accept lower total violation. Contract trust by `0.5` and re-solve from R87, not from the rejected R88 candidate: R89 uses `5000 µm / 12500 µrad`, matching the R86 scale-`0.125` interval whose ratio was `1.042`. |
 | R89 half-radius contracted re-solve | Starting again from retained R87, the contracted phase-I brackets slack between `0.915984` infeasible and `1.068648` feasible. Model merit `1.0686/4.2746` becomes exact `1.7226/4.8639`, improving both R87 coordinates with ratio `0.517`. Collider error falls from R88's `11143 µm` to `3321 µm`; root component/norm use is `3937/4676 µm`, while joint use reaches `12500 µrad`. | Accept R89 only as the new research iterate; exact collider/contact groups remain `1.7226/1.0348..1.0590`. The contraction restores agreement and validates an adaptive loop. R90 may run at most six relinearized attempts, retain trust after ratio `>=0.25`, halve it after rejection, never expand, and accept only exact max-first improvement. |
 | R90 capped adaptive trust loop | Six hash-bound attempts accept two and reject four. Exact merit improves `1.7226/4.8639 -> 1.1100/4.3599`; the accepted steps have ratios `0.697` and `0.999`. The final accepted state still violates collider/contact groups by `1.1098/1.1100/1.0625/1.0776`. A sixth solve at the unchanged minimum `625 µm / 1562 µrad` predicts improvement but measures exact `1.2382/4.3191`, ratio `-1.832`, and is rejected at minimum trust. | Record `COMPLETE / FAIL / NOT_ADMISSIBLE / minimum_trust_rejection`. Stop radius/acceptance tuning: at the fifth step collider prediction error is only `1.6 µm`, but the next same-radius step jumps to `992 µm` at the right foot. R91 audits whether the scalar box-minimum row switches its active support vertex; no candidate, PhysX or training run is authorized. |
+| R91 stable box-feature audit | The audit reproduces R90's scalar model to `9.1e-13 µm` and proves scalar-minimum/vertex-minimum exact identity to `2.3e-10 µm`. Across `15414` box/frame samples it finds `85` baseline-to-exact feature switches, `84` on foot boxes, plus `246` one-sided-probe switches. At the source-`1386` hotspot the active right-foot vertex changes `x-,y-,z+ -> x-,y-,z-`; scalar error is `992.020 µm`, while the stable-vertex prediction error is `3.706 µm`. Global maximum error falls to `3.874 µm`, ratio `0.00390`. | Record `COMPLETE / SUPPORTS_PER_VERTEX_BOX_ROWS / NOT_EVALUATED`: all predeclared discriminators pass, with no candidate or gate claim. R92 may implement stable vertex rows only for the two contact-role foot boxes, retaining scalar rows for the other 17 colliders. That bounded choice adds `14` rather than `98` rows per frame and keeps exact all-collider FK authority unchanged. |
 
 R69 report SHA-256 is
 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56`;
@@ -159,6 +160,11 @@ R90 report/accepted-candidate/research-adapter SHA-256 are
 `687df77b8624ddff851b675fa98f0e5e2c64be9ac3324ed9fe3636fd0e40125f`.
 R90 terminates at minimum trust with exact `FAIL`; its accepted state is a
 research baseline only and cannot enter TRAIN-4 evidence or a corpus.
+R91 report/debug/research-adapter SHA-256 are
+`a84cfe542d40ef30ff5d2efa2cf458c7829a2d3be117336d3974a499471040a7` /
+`25cdd801974c56e46b3f685d4ed621ead51b3144ecac596aad82e00b1607c764` /
+`0ca2ab6e2d2136897c6350516fa3211b0b862c18c2ae5a4bad72b66a4eb59e22`.
+R91 emits no motion candidate and leaves exact TRAIN-4 status unevaluated.
 
 ## Primary-source research decision
 
@@ -294,15 +300,23 @@ that scalar minimum with a one-sided angular probe. This map is nonsmooth when
 the lowest box vertex changes, especially around a nearly flat foot. A smaller
 trust radius alone therefore cannot guarantee a consistent active feature.
 
-R91 is a report-only active-feature audit. From R90 attempt five and the exact
-rejected attempt-six direction it will preserve stable labels for all eight box
-vertices, linearize their heights separately, take their predicted minimum,
-and compare that result with the existing scalar-minimum prediction and exact
-integer FK. It records switch counts and error concentration, emits no motion
-candidate, and runs no PhysX or optimizer. Only a material collapse of model
-error at the rejected hotspot authorizes a production V9 experiment with
-per-vertex box-floor rows; otherwise the geometry hypothesis is rejected and
-the research cycle must broaden again.
+R91 completed that report-only audit and passed every predeclared discriminator.
+The stable-vertex construction is exactly the same box/floor geometry, yet its
+worst prediction error is only `3.874 µm`, versus `992.020 µm` for the scalar
+minimum. The worst right-foot frame switches the expected `z` support feature,
+and the vertex model selects the same feature as exact FK. This rejects the
+radius-only explanation and supports changing the local row representation;
+it does not itself prove that the complete coupled constraints are feasible.
+
+R92 is the smallest implementation experiment justified by that evidence.
+Only box colliders with contact role `8` receive eight stable-labelled vertex
+floor rows; every sphere and nonfoot box keeps its existing scalar-minimum row.
+The two foot boxes therefore add `14` rows per frame (`15414` over `1101`
+frames), rather than the `107898` extra rows required to decompose all fourteen
+boxes. The exact emitted-integer audit still evaluates the unchanged scalar
+minimum of all `19` colliders against `-2 µm`. R92 first reruns raw `cmu139`
+from the immutable source with the existing bounded globalization contract;
+only exact PASS can promote the identity to clean all-three/all-17 evidence.
 
 ## V8 solver identity
 
@@ -349,9 +363,9 @@ values, and rejects any V8 profile that changes a frozen contact, collider,
 root or joint bound. Clean R73 proves that implementation is not yet an
 all-clip solution. The next accepted evidence sequence is:
 
-1. complete R91 and, only if its predeclared discriminator supports the
-   active-feature hypothesis, test one shared per-vertex box-floor identity on
-   `cmu139` with no per-clip tuning, point deletion or changed physical limit;
+1. implement and test R92 stable vertex rows for contact-role foot boxes, then
+   run that shared V9 identity on raw `cmu139` with no per-clip tuning, point
+   deletion or changed physical limit;
 2. rerun that unchanged identity on all three complete clips, all 17 exact
    slices and overlap identity from one clean commit;
 3. only then run fresh-scene all-17 PhysX acceptance, retaining partial reset

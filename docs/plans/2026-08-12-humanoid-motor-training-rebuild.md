@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` and fails the stronger raw-mask `cmu139`; R74–R85 isolate artificial infeasibility, blind active-set oscillation, mismatched merit and a persistent model/FK collider gap. R86–R89 establish adaptive trust behavior. R90 improves exact merit to `1.1100/4.3599` but rejects at minimum trust; R91 now audits box active-feature switching before any V9 change. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` and fails the stronger raw-mask `cmu139`; R74–R90 isolate globalization and a minimum-trust geometry plateau. R91 reproduces the scalar model, finds `84/85` exact feature switches on foot boxes and lowers maximum model error `992.020 -> 3.874 µm` with exact geometry unchanged. R92 now implements stable vertex rows only for the two contact-role foot boxes before a raw `cmu139` test. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1756,10 +1756,14 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   attempts, accepts two, and improves exact merit to `1.1100/4.3599`, then
   rejects a same-minimum-radius candidate at ratio `-1.832`. The scalar
   collider-model error jumps from `1.6 µm` to `992 µm` between the last two
-  attempts, localized to the right-foot box. R91 therefore audits stable box
-  vertices versus the nonsmooth scalar-minimum row before any V9 implementation.
-  Only a supported geometry discriminator and subsequent `cmu139` PASS permit
-  an unchanged clean
+  attempts, localized to the right-foot box. R91 reproduces that scalar model
+  within `9.1e-13 µm`, finds `85` baseline-to-exact switches (`84` at feet),
+  and reduces maximum error to `3.874 µm` by separately linearizing stable box
+  vertices. Its exact scalar/vertex geometry differs by only `2.3e-10 µm`, so
+  all predeclared discriminators support a V9 row experiment without changing
+  the physical gate. R92 expands only the two contact-role foot boxes from one
+  to eight rows each, adding `15414` rather than `107898` rows over `1101`
+  frames. Only its subsequent `cmu139` PASS permits an unchanged clean
 all-three/all-17 offline rerun; only that PASS permits fresh all-17.
 These results still cannot authorize full V19 or learned optimization.
 
