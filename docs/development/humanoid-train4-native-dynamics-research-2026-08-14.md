@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R99_MATCHED_V7_PASS / R100_BOUNDARY_VELOCITY_NEXT` |
+| Status | `R100_SCALAR_REJECTED / R101_VELOCITY_VECTOR_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -31,6 +31,8 @@ bounded research before another solver change or expensive native run.
 | R98 V9 native trace | canonical/file SHA-256 `b8e367e873d0384f4a849d25a338751e0a9c56aa7c4143923c1446b63b016372` / `fd6deb633a5b53c4a00b5de6943a5ce12ae59d4b0a232629586807107ef8d77b` | `COMPLETE`, exact R94 outcome reproduced, `40/40` physical substeps captured, trace SHA-256 `b032098868b6bf732155cf8211b4070704363e1f85f070294cb510d116240bcd` |
 | R98 V11/control native trace | canonical/file SHA-256 `06727950f3c2b8b6344b1bf15c2c975d52e9d7630a0edcd9503993dfb9f87910` / `5143a7ef5bb068c97594926d226460b657c87c6ba7f9b94a123b0f03c79e31cb` | `COMPLETE`, exact R97 PASS/FAIL reproduced, `44/44 + 36/36` substeps captured; no acceptance authority |
 | R99 matched V7 native trace | canonical/file SHA-256 `19aa8ddfce365fadce4146067470e60e6bd48d0c83f80e9064c587fe7e3613db` / `04553001223cdcb638a8cf8029b5f6a453610ca026fa995833418f97ed6b22dd` | Exact R49 case-10 `PASS 11/11` reproduced with `44/44` substeps; trace SHA-256 `552ddd671bc5501500504d54876451e5e93fd4a6979ff1b6b50b5b1649c2b40d`; no acceptance authority |
+| R100 one-scalar input | canonical/file/artifact SHA-256 `59d556f5a71943e6bdf60beb3dabbee03d5cc2a7618a341966a6ce3a5d050e78` / `e66cdda52f674d76a7ac1dd70cd60810c02143a9efdefed78804b52751a6a3da` / `427b5e1895519fe83c40189406c3027f14d9b9aa36d50e3b45e300d516f5761a` | Offline proof changes exactly one velocity cell and zero other array elements; PhysX/optimizer/training `0` |
+| R100 native trace | canonical/file SHA-256 `024e2251e4518f83c1f5fba4d22142afa83d6a23d8dfdd04e41c40ba1d4210b3` / `afee35e799be7522c434998583175d71f4629cdeeb06e0009fffde9d45629426` | `FAIL` tick `5`, new right-ankle hard impact `6092658 µN·s`; complete `20/20` trace SHA-256 `24489460446a9bee160508b7e16b4125e43cb5ab1f70dbb4440710e754b6eeae` |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -127,9 +129,9 @@ with the two failed variants before any bounded construction change is chosen.
 
 | ID | Hypothesis | Current evidence | Discriminator |
 | --- | --- | --- | --- |
-| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R99 V7 also crosses the inner guard but right-ankle-pitch effort debt stays `24212772 µN·m`, versus V9 `136680080 µN·m`; V7 remains inside the outer limit and passes | Refined: inner-guard contact alone is insufficient; closed-loop phase, effort debt and outer margin matter |
+| H22 | V9 satisfies pose/velocity geometry but asks the fixed PD plant for dynamically infeasible acceleration or effort | R100 aligns the direct left-ankle phase but shifts the terminal to a remote right-foot hard impact | Supported as coupled whole-body effort/contact phase; no scalar proxy is sufficient |
 | H23 | Near-zero offline collider clearance does not predict the full PhysX contact manifold and impulse | R95 isolates ordinal `2`: active foot `1539 µm` above surface with no derivative amplification; R97 reserve case passes all `11` ticks and lowers peak left-foot impulse `6440089 -> 4466405 µN·s` | Supported for the selected case only; broader contact cases remain untested |
-| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | V7/V9 left-ankle-roll targets are byte-identical across all 12 frames, yet a `13200 µrad/s` initial-velocity difference changes phase and touchdown timing | Supported; test exactly that one boundary value before adding a solver locality anchor |
+| H24 | Complete-clip corrections are nonlocal and regress safe controls while repairing old failures | One left-ankle velocity scalar moves its trace close to V7 but increases remote right-foot impulse by `1570786 µN·s` | Confirmed; reject per-channel locality and test only the coherent all-actuator boundary-velocity state |
 | H26 | Motor-frame pose/derivative summaries hide the causal physical substep | R98 localizes V11 touchdown to tick `9` substep `2` and overspeed to the immediately following pre-substep state | Confirmed; retain substep traces for every future native discriminator |
 | H25 | Fresh-scene initialization is responsible | Initial state is exact within quantization in every worker | Falsified by R94; do not repeat partial-reset experiments |
 
@@ -395,13 +397,59 @@ effect. If it does not, the scalar hypothesis is rejected and the next anchor
 must cover the coupled boundary state. Both outcomes remain
 `STOP_AND_RESEARCH`; no all-17, V19, optimizer or training is authorized.
 
+## R100 one-scalar result
+
+Clean commit `0bf2a69130b5b8f179064ac38d9ddb2e76bbab96` builds the exact
+one-cell input; clean commit `a11158610d2f062b3cf4744a254b789006fd10ca`
+binds its only fresh trace. Builder/trace profile SHA-256 is
+`15dfb154d76213ce590dc95f5cd7176a47b6537fa27769f54cd3ee185c034763` /
+`00542b76d6dad5a4fd10249e43baa27450734b47a1577ab4afce47d85a28ae02`;
+the full lab suite passes `178/178`.
+
+The scalar is causal for its local phase. Across the first `20` physical
+substeps, R100 left-ankle-roll velocity has RMS distance
+`177826 µrad/s` from V7 but `6542737 µrad/s` from V9. At tick `3`, substep
+`0`, R100 is `-7197047 µrad/s`, matching V7's negative phase rather than
+V9's `+7199121 µrad/s`. Maximum left-ankle speed stays within the unchanged
+outer limit at `7199996 µrad/s`.
+
+It is nevertheless unsafe and is rejected as a construction anchor. R100
+terminates at tick `5`, frame `243`, on a new
+`ground:body.right-ankle-roll` hard impact of `6092658 µN·s`; the matched V9
+impulse at the same motor tick is `4521872 µN·s`. The single left-channel
+edit therefore increases a remote right-foot impulse by `1570786 µN·s` and
+moves termination earlier than either prior failure. Partial reset remains
+`NOT_RUN`; optimizer/training remain zero.
+
+## R101 coherent velocity-vector discriminator
+
+R100 proves both sides of the question: boundary velocity controls phase, but
+per-channel repair is nonlocal and unsafe. The smallest coherent escalation is
+the complete frame-0 joint-velocity vector, not another joint scalar or a pose
+smoother. At zero position error, this vector determines the initial damping
+request for every actuator under the frozen controller.
+
+R101 may copy exact V9/R93 case `10` and replace only
+`joint_velocity_urad_s[0, :]` with the matched V7/R47 vector. The builder must
+record the exact changed-cell inventory (`18` expected), prove all other frames
+and arrays identical to V9, and prove the 12-frame direct left-ankle target
+still byte-identical. One fresh physical-substep trace then asks whether
+coherent initial actuator phase removes the R100 remote regression and moves
+the original V9 outcome. It remains a report-only discriminator, not an
+admissible hand edit.
+
+If R101 does not improve both local phase and remote contact safety, manual
+boundary-state substitution is exhausted and the roadmap must move to a
+native-rollout/coupled construction or an explicit architecture decision. No
+root/pose substitution, coefficient sweep or third scalar is allowed.
+
 ## Decision
 
-Freeze R92–R99, retain the contact result as bounded support for H23, and reject
+Freeze R92–R100, retain the contact result as bounded support for H23, and reject
 V11 plus any other open-loop derivative smoother as a merged/full-corpus
 direction. Do not tune controller or solver-limit values and do not begin
-training. Run only the one-scalar R100 discriminator, then either derive one
-boundary-velocity locality anchor or reject that scalar hypothesis. All-17 remains blocked
+training. Reject the R100 scalar anchor and run only the coherent R101
+frame-0 joint-velocity-vector discriminator. All-17 remains blocked
 until a future bounded candidate passes every selected fresh control without
 changing controller semantics, safety limits, fresh-scene authority or the
 exact-zero gate.

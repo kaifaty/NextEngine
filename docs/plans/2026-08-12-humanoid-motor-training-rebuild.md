@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`, including four control regressions, despite quantization-exact initial state. R95 selects contact-gap ordinal `2` and derivative-spike ordinal `10`. R96 direct emitted acceleration qualifies offline, and R97 then passes contact case `2` but fails derivative case `10` at tick `9` with a new left-ankle-roll velocity reason. R98 reproduces the outcomes with complete physical-substep traces and localizes pre-contact phase divergence. R99 reproduces matched V7 PASS `11/11`: inner-guard use itself is safe, while V7/V9 byte-identical ankle-roll targets still diverge from only `13200 µrad/s` boundary-velocity difference. `STOP_AND_RESEARCH` is retained; R100 tests exactly that scalar before any solver anchor. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 passes complete `cmu05`/`cmu16` and fails raw-mask `cmu139`; R74–R90 isolate globalization and a geometry plateau. R91 supports stable foot-box features. Clean V9/R92 passes raw `cmu139`; R93 passes all three complete clips, all 17 exact slices and byte-exact overlap identity with unchanged limits and zero point deletion. R94 fresh V9 fails `7/17`, including four control regressions, despite quantization-exact initial state. R95 selects contact-gap ordinal `2` and derivative-spike ordinal `10`. R96 direct emitted acceleration qualifies offline; R97 fails derivative case `10` on new ankle-roll velocity. R98 localizes pre-contact phase divergence, and R99 reproduces matched V7 PASS. R100 changes only the `13200 µrad/s` boundary scalar: local phase matches V7, but a new remote right-foot hard impact `6092658 µN·s` terminates at tick `5`. The scalar anchor is rejected; R101 tests the coherent frame-0 joint-velocity vector once. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1797,8 +1797,10 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   exact same-case V7/R49 PASS with `44/44` substeps. V7 safely reaches
   `7.290231 rad/s`; avoiding the inner guard is not a valid blanket fix.
   V7/V9 left-ankle-roll targets are byte-identical, but initial velocity differs
-  by `13200 µrad/s` and changes the closed-loop phase. R100 next replaces only
-  that V9 boundary scalar with V7's passing value before any solver change or all-17.
+  by `13200 µrad/s` and changes the closed-loop phase. R100 replaces only that
+  scalar and aligns local phase, yet creates a new tick-5 remote right-foot hard
+  impact `6092658 µN·s`. The scalar anchor is rejected. R101 next restores only
+  the coherent frame-0 joint-velocity vector before any solver change or all-17.
 These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This
