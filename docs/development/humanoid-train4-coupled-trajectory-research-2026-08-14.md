@@ -4,7 +4,7 @@
 | --- | --- |
 | Date | 2026-08-14 |
 | Scope | Optimizer-free learned-policy lane; offline constraint-solver research for `REQ-HUM-DATA-005/007` |
-| Status | `CMU05 SINGLE-INVOCATION PASS / V8 STRONGER MASK IMPLEMENTED / CLEAN ALL-CLIP EVIDENCE PENDING` |
+| Status | `V8 CLEAN CMU05/CMU16 PASS / CMU139 GLOBALIZATION FAILURE / BOUNDED RESEARCH ACTIVE` |
 | Current implementation | `nextengine.dimensionless-contact-trajectory-qp.v8` |
 | Claim ceiling | Research infrastructure only; no V19, TRAIN-4 Advance, visual gate or learned optimization |
 
@@ -42,6 +42,13 @@ All generated artifacts remain under the external TRAIN-4 evaluation root.
 | R70 raw canonical clip, eight outer iterations | Contact passes and all velocity/ROM facts pass; thirteen collider samples remain, minimum `-146 µm`. | R61 is not a semantic input, but eight direct iterations are insufficient. |
 | R71 exact R70 continuation | Two more relinearizations reach collider `+1 µm` and complete PASS while contact and velocity facts remain within bounds. | Freeze a direct-source V8 candidate with at most twelve outer iterations; require a single-invocation reproduction before evidence promotion. |
 | R72 raw canonical clip, one invocation with at most twelve iterations | Stops on exact PASS at iteration ten: residual `4900`, finite tangent/normal `1981/980`, analytic `1968/996`, collider `+1`, joint `2500`, root `199740`; zero dropped points. An independent FK audit of the emitted integers gives residual `4901`, finite normal `981` and collider `0`, still PASS. | Confirms the direct-source iteration bound and exposes that final metrics must be recomputed from emitted quantized root/joint values. R72 ran from a dirty research worktree, so clean-commit all-clip evidence remains required. |
+| R73 clean V8 all-three/all-17 invocation | `cmu05` passes at iteration ten and `cmu16` at iteration five. The stronger raw `cmu139` mask takes a `231006 µm` first root step, reaches collider `-34056 µm` and residual `31581 µm`, then OSQP reports primal infeasible. | Reject V8 as an all-clip solver. The clean run confirms two controls and localizes the blocker to `cmu139`; no fresh PhysX run is authorized. |
+| R74 point-entry stencil on raw `cmu139` | The 16 point-level edge differences are real, but the second QP is still primal infeasible. | Keep the semantic observation; reject it as sufficient remediation. |
+| R75 applied-step cap, original V8 stencil | All twelve QPs remain feasible. Final collider is `-5682 µm` and residual `5811 µm`; collider alternates between approximately `-7..-9 mm` and `-20..-27 mm`. | A bounded step removes artificial infeasibility, but blind acceptance creates an active-set oscillation. |
+| R76 point-entry plus applied-step cap | All twelve QPs remain feasible, but final residual/tangent/normal are `6296/2594/1078 µm` and collider is `-2732 µm`; alternate iterations still regress collider to `-26..-32 mm`. | Reject the combined semantic hypothesis. The remaining defect is step globalization, not a missing scalar or point-edge switch. |
+| R77 full group-elastic in-QP trust | The first trial improves exact normalized merit `18.0222 -> 14.09237`, but actual/predicted ratio `0.204` correctly rejects it and shrinks the radius. Duplicating all row sides then reaches the OSQP iteration limit. | Exact rejection behaves as intended; reject the dense/full elastic encoding. |
+| R78 selective category-elastic trust | The first trial is accepted at ratio `0.274` and merit `12.8099`, but temporarily creates collider `-33386 µm`; the next QP reaches the iteration limit. | Global category slack columns destroy useful clip-local sparsity and are not a production encoding. |
+| R79 selective per-row L1 elastic trust | The first direction worsens gate-aligned max merit `18.0222 -> 24.4408`; both model and exact audit reject it. | A row-average L1 objective is not interchangeable with the current max-based acceptance metric. Stop representation tuning until model and exact merit are identical. |
 
 R69 report SHA-256 is
 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56`;
@@ -58,6 +65,71 @@ R72 report/candidate SHA-256 are
 `10acecd2e9adad6cd850d906e9807d93059a16b9f62266f65913ab20b05e884e`;
 the research oracle SHA-256 is
 `81f7265a7bc706dba3f31f302ede95191cd3da0c75fbac4bfb55c2a27afe2491`.
+
+R73 manifest SHA-256 is
+`d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c`.
+R74 report/candidate SHA-256 are
+`c8cfcb6d52f80ef7c68b34bf0ab602a6919ece6cb2bee1cc0e5137c6c8710b72` /
+`fe8a61023bac2d35eadec1488cd92761055d0d66243a3c1dd94335a363afc840`.
+R75 report/candidate SHA-256 are
+`8e14416db70286873230e42c0419080e4799f66aafddf7b2bde81d2cddc82c86` /
+`5fbab9156e76981c88c6dbd9ba3168d04fa0a37eff081910bff3b9588796b433`.
+R76 report/candidate SHA-256 are
+`6e5093796cf1d786285813fef92c21682cb129e3dd0cd5ec3bf046b13590d00c` /
+`32d62f740151a462ce8faef379752b0029fe9268122904d782efed5fc81733d1`.
+R77/R78/R79 report SHA-256 are respectively
+`acedf2f3fe68d98fe89cb0fbd5e7a7c5ec7f4d07db7e1e9d28c0571d16e83fa`,
+`ff844f676a52f01faf1ac38b200346db64c9328f2bca23d30deed1d02f69bd87`
+and `53b2d262b8843eb8ecbec66c9f4d14386d57a9093e0e0d045a09cf084a7ab933`.
+
+## Primary-source research decision
+
+The observed failure is a known globalization failure of sequential convex
+optimization, not evidence that the unchanged physical problem is infeasible:
+
+- [TrajOpt](https://escholarship.org/uc/item/6km506db) places a box trust
+  region inside each convex subproblem, converts infeasible constraints to
+  L1 penalties, and accepts a step from true/model improvement rather than
+  applying every convex answer.
+- [SCvx](https://arxiv.org/abs/1608.05133) names the two matching defects
+  *artificial infeasibility* and *approximation error*. It uses penalized
+  virtual controls plus an adaptive trust region and rejects/re-solves when
+  actual reduction disagrees with the linear prediction.
+- [CRISP](https://arxiv.org/abs/2502.01055) is the closest contact-planning
+  analogue: an L-infinity trust region is part of the QP, constraint penalties
+  are individual, the radius follows actual/predicted merit reduction, and a
+  second-order correction is reserved for persistent Maratos-effect rejection.
+- [Trust-region SQP-filter methods](https://doi.org/10.1137/S1052623499357258)
+  provide the alternative when one arbitrary penalty sum is not defensible:
+  objective quality and constraint violation are filtered separately, with a
+  feasibility-restoration path.
+- [Contact Trust Region](https://arxiv.org/abs/2505.02291) shows that a
+  symmetric geometric trust region can be inconsistent with unilateral
+  contact. That is a secondary escalation if a correctly globalized V8 still
+  fails at heel/forefoot entry; R74 proves it is not the first fix.
+- [ContactIPM](https://arxiv.org/abs/2608.11731) demonstrates elastic contact
+  relaxation with termination gated by the unrelaxed physical residual. Its
+  full contact-implicit MPCC formulation would change the frozen-mode scope
+  and is therefore a fallback, not the current intervention.
+
+The immediate conclusion is narrower than adopting any paper wholesale. V8
+lacks a globalization contract: it solves a hard local feasibility QP and
+blindly applies the whole answer. R75/R76 show that bounding the applied step
+prevents false infeasibility but not oscillation. R77/R78 show that an exact
+actual/predicted rejection rule detects bad steps. R79 shows that the QP and
+the exact audit must use the same violation functional; category-max and
+row-average penalties cannot be mixed.
+
+Before another elastic formulation, the research adapter must expose one
+exact, dimensionless per-constraint violation collector shared by model and
+integer-FK evaluation. The smallest next discriminator, R80, applies exact
+max/sum merit backtracking to the already feasible V8 constraint-QP direction
+under the R75 step cap. This differs from rejected R64-R67: those directions
+came from weighted least squares, whereas R80 tests the simultaneous hard
+constraint direction that already brought R75 within millimetres of PASS. If
+R80 cannot make monotone progress, resume with the full CRISP-style in-QP
+trust/individual-L1 formulation and the shared exact merit; do not tune another
+stencil, cap or penalty scalar.
 
 ## V8 solver identity
 
@@ -97,19 +169,18 @@ as a bounded trajectory constraint solve.
 
 ## Decision and remaining gate
 
-The repository now contains the V8 profile, complete-clip builder dispatch,
+The repository contains the V8 profile, complete-clip builder dispatch,
 exact-slice path and focused tests. The production path recomputes final FK,
 effectors, center of mass and collider facts from emitted integer root/joint
 values, and rejects any V8 profile that changes a frozen contact, collider,
-root or joint bound. This implementation and the dirty-worktree R72 proof do
-not themselves pass TRAIN-4. The next accepted evidence sequence is:
+root or joint bound. Clean R73 proves that implementation is not yet an
+all-clip solution. The next accepted evidence sequence is:
 
-1. from one clean commit, reproduce direct-source `cmu05` in one invocation;
-2. apply the identical V8 profile to `cmu16` and `cmu139` with no per-clip
-   tuning;
-3. require all three complete clips, all 17 exact slices and overlap identity
-   to pass offline;
-4. only then run fresh-scene all-17 PhysX acceptance, retaining partial reset
+1. close `cmu139` with one shared, evidence-backed globalization identity and
+   no per-clip tuning, point deletion or changed physical limit;
+2. rerun that unchanged identity on all three complete clips, all 17 exact
+   slices and overlap identity from one clean commit;
+3. only then run fresh-scene all-17 PhysX acceptance, retaining partial reset
    as report-only.
 
 Any complete-clip failure returns to bounded solver research. Full 27-clip

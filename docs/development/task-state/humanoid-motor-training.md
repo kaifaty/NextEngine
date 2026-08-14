@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / COUPLED_TRAJECTORY_V8` |
+| Status | `ACTIVE_R&D / TRAIN-4 / V8_GLOBALIZATION` |
 | Updated | 2026-08-14 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before any optimizer work |
@@ -11,22 +11,23 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R72 reproduces direct-source complete `cmu05` PASS in
-  one coupled sparse-QP invocation, stopping at iteration ten. V8 implements
-  that bounded identity and recomputes final facts from emitted integers.
-- **Why:** R58–R67 reject weighted or sequential mechanisms; R69 proves simultaneous
-  feasibility and R70–R72 remove the intermediate-input precondition. Exact
-  R72 integer FK remains PASS: collider `0 µm`, residual `4901 µm`.
-- **Next action:** Commit the V8 implementation, then run the unchanged clean
-  identity once across `cmu05`, `cmu16`, `cmu139` and all 17 exact slices.
-- **Current blocker:** All-clip convergence is unknown. V8 intentionally keeps
-  11 `cmu139` source-active points that R57 deleted, so that clip is a stricter
-  discriminator than the earlier `cmu05` research proof.
+- **Current conclusion:** Clean R73 passes complete `cmu05`/`cmu16` but V8
+  fails raw-mask `cmu139`. R75/R76 remove false infeasibility with a step cap,
+  then oscillate between collider and contact active sets.
+- **Why:** R74 rejects point-entry semantics alone. TrajOpt/SCvx/CRISP research
+  and R77–R79 identify the missing contract as shared exact/model merit,
+  candidate acceptance and adaptive globalization—not another physical cap.
+- **Next action:** Run R80 exact max/sum merit backtracking on the simultaneous
+  V8 constraint-QP direction under the R75 step cap. If it stalls, implement
+  shared per-constraint exact L1/filter merit before another in-QP trust solve.
+- **Current blocker:** The hard local QP predicts feasible corrections, but a
+  blindly applied nonlinear step can worsen neighbouring contact boundaries;
+  model and integer-FK merit are not yet the same functional.
 - **Do not retry:** Do not start PPO, build another broad whole-corpus
   ankle/retarget identity, zero reference velocities, add grace/settling, or
   loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** One clip-global trajectory passes exact slices,
-  complete-clip invariants and the same fresh all-17 safety matrix.
+- **Reconsider when:** One unchanged globalization identity passes all three
+  complete clips, exact slices and the same fresh all-17 safety matrix.
 
 All TRAIN-5 checkpoints remain rejected. No optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -42,7 +43,9 @@ pending. This file cannot change those facts by itself.
 | R49 V7 all-17 fresh, file SHA-256 `6b977a870c50b25545c2b73bc371575b38b40f6a914d1638ab19a3c7a56b5f0c` | `PASS 17/17`; required safety `0`; controls `0`; optimizer/training `0` | Permits only one clip-global prototype |
 | R57 V7 clip-global, file SHA-256 `59fb91c9e19e22dde5caa017724a26e643cd889239a789333e3ad7b25b866271` | Domain `PASS`: one solve/clip, exact slices `17/17`, overlap disagreement `0`; solver `FAIL`: complete clips `0/3`, selected slices `16/17` | Retain clip-global path; replace the sequential solver before any fresh probe |
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
-| R72 direct-source single invocation, report SHA-256 `04247d340c0e533facdf71acd7a3c026ccd8a8f139b57340c7210ff04b5e7b5d` | Stops on complete `cmu05` PASS at iteration ten; emitted-integer audit also passes | Iteration bound is supported; dirty worktree prevents evidence promotion, so run unchanged from a clean V8 commit |
+| R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
+| R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
+| R77–R79 globalization research | Exact rejection discriminates bad steps; dense category slack hits solver limits and row-L1 disagrees with max merit | Build one shared model/exact merit; stop stencil/cap/penalty tuning |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
@@ -162,32 +165,32 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Reconsider when:** A clip-global trajectory provides a stronger physical
   landing model that passes the same exact evidence.
 
-### D-008 — Use one dimensionless coupled constraint solve
+### D-008 — Globalize the dimensionless coupled constraint solve
 
 - **Observation:** Sequential post-passes repeatedly repair one bound while
   breaking another; raw-variable least squares and line search are badly
   scaled and stagnate.
-- **Evidence:** R58–R68 rejection sequence, R69 simultaneous feasibility and
-  R72 direct-source single-invocation PASS.
+- **Evidence:** R69/R72 simultaneous `cmu05` PASS, R73 clean two-clip PASS and
+  `cmu139` infeasibility, R75/R76 oscillation, and R77–R79 solver research.
 - **Decision:** V8 uses one complete-clip SQP over root XYZ and ten selected
   leg joints, with dimensionless OSQP rows and no root/joint post-projection.
-  Every source-inferred contact point is frozen before the solve.
-- **Rejected alternatives:** More penalty tuning, per-frame IK, sequential
-  velocity closure, contact-point deletion or looser safety limits.
+  Every source-inferred contact point is frozen. Candidate steps require one
+  shared dimensionless model/exact merit and explicit accept/reject behavior.
+- **Rejected alternatives:** Point-entry semantics alone, blind post-scaling,
+  dense category slack, mismatched row-L1/max merit, or looser safety limits.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether the unchanged solver converges on `cmu16` and the
-  stricter `cmu139` mask.
-- **Reconsider when:** A clean all-three-clip run fails exact bounds or requires
-  per-clip tuning.
+- **Uncertainty:** Whether exact merit backtracking is enough or an in-QP
+  trust/filter restoration step is required for `cmu139`.
+- **Reconsider when:** R80 either makes monotone exact progress or stalls.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H5: one dimensionless trajectory constraint solve closes the coupled set | R69 and R72 pass complete `cmu05` simultaneously | Only one clip has passed; R72 was research-only and dirty | `CONFIRMED_CMU05`; run unchanged clean all-three evidence |
-| H6: the direct immutable contact mask remains feasible | `cmu05` direct and R57 masks are identical and R72 passes | V8 retains 11 `cmu139` points deleted by R57 | Run clean `cmu139` without deletion or per-clip tuning |
+| H7: hard-QP direction plus exact merit acceptance closes `cmu139` | R75 reaches millimetre-scale residuals and all twelve QPs remain feasible | Blind capped steps oscillate; earlier weighted-solver line search stalled | R80 max/sum exact-merit backtracking under the fixed R75 cap |
+| H8: a full in-QP filter/restoration step is required | SCvx/CRISP match artificial infeasibility and approximation error | R77–R79 encodings were costly or merit-mismatched, not a fair full test | Implement shared per-constraint exact/model merit only if R80 stalls |
 
 ## Required context
 
@@ -215,11 +218,10 @@ semantics.
 
 ## Next action
 
-1. Freeze V7/R49, R57 and dirty-worktree R72; none is corpus admission.
-2. Commit V8 with pinned dependencies and integer-FK status authority.
-3. Apply one clean identity to all three clips and 17 exact slices.
-4. If and only if offline evidence passes, run fresh all-17 safety.
-5. Keep full V19, visual/exhaustive gates and optimization blocked until then.
+1. Freeze clean R73 and research R74–R79; none is corpus admission.
+2. Run only R80 exact-merit backtracking on raw complete `cmu139`.
+3. On PASS, implement one identity and rerun clean all-three/all-17 offline.
+4. Only after offline PASS, run fresh all-17; keep later gates blocked.
 
 ## Do not retry
 
@@ -237,12 +239,12 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** V8 implementation is the active uncommitted increment;
-  generated reports stay under the external TRAIN-4 evaluation root.
-- **Checks:** focused builder/contact tests `15/15`; R72 direct `cmu05` and its
-  emitted-integer audit pass; optimizer and training remain zero.
-- **Remaining risk:** clean `cmu16`/`cmu139`, exact-slice identity, fresh slice
-  safety, full-corpus exact-zero coverage and visual review remain open.
+- **Workspace state:** V8 is committed at `f86df01`; current tracked changes
+  record R73–R79 research. Generated reports remain external.
+- **Checks:** V8 focused `15/15`, full lab `165/165` and host-check passed;
+  clean R73 passes `cmu05`/`cmu16`; optimizer and training remain zero.
+- **Remaining risk:** R80/`cmu139`, unchanged all-three/all-17, fresh safety,
+  full-corpus exact-zero coverage and visual review remain open.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.

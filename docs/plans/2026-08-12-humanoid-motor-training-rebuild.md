@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R69 proves simultaneous complete `cmu05` feasibility; R72 reproduces direct-source PASS in one invocation at iteration ten. V8 is implemented with pinned lab-only dependencies, strict frozen-limit identity and final integer-FK audit. The current increment is clean evidence on all three complete clips and their exact slices. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened. V18 passes `27/27` profile-local validation and `12815/12815` native poses, but exhaustive R14 still has `204/12518` required-safety failed cases. Bounded V7 passes R47 offline and R49 fresh `17/17`. R57 closes clip-global domain identity but rejects the V7 solver. R73 clean V8 evidence passes complete `cmu05`/`cmu16` and fails the stronger raw-mask `cmu139`; R74–R79 isolate artificial infeasibility, blind active-set oscillation and mismatched merit/globalization. The current increment is one bounded exact-merit `cmu139` discriminator, followed only on success by unchanged all-three/all-17 offline evidence. ADR-070 fresh-scene authority is retained; partial reset is report-only. Full V19, fresh PhysX, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. |
 | Дата | 2026-08-14 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1704,11 +1704,18 @@ production status authority. The detailed
 [coupled-solver decision](../development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 freezes V8 with at most twelve outer iterations, exact hybrid contact-edge
 velocity semantics, no post root/joint projection and pinned lab-only
-NumPy/SciPy/OSQP versions. Because R72 used a dirty research worktree, the
-remaining current gate is one unchanged clean-commit result on `cmu05`,
-`cmu16` and `cmu139`, all 17 exact slices and fresh-scene all-17 acceptance.
-These results still cannot authorize full V19 or learned optimization by
-themselves.
+NumPy/SciPy/OSQP versions. Clean R73 passed `cmu05` and `cmu16`, then failed
+`cmu139` after a large first correction and a primal-infeasible second QP.
+R74 rejects point-entry semantics as sufficient; R75/R76 remove false
+infeasibility with a step cap but expose alternating exact collider/contact
+violations. Primary-source review of TrajOpt, SCvx, CRISP, SQP-filter methods
+and contact trust regions selects a shared exact/model merit plus explicit
+step acceptance as the next mechanism. R77–R79 reject dense category slack
+and mismatched row-L1/max-merit encodings. The smallest next discriminator is
+exact max/sum merit backtracking on the simultaneous hard-constraint V8 QP
+direction under the supported R75 cap. Only its success permits an unchanged
+clean all-three/all-17 offline rerun; only that PASS permits fresh all-17.
+These results still cannot authorize full V19 or learned optimization.
 
 Roadmap status changes only after material implementation/check results. This
 planning document alone does not close R5, B-08, B-12, Stage 0, GPU
