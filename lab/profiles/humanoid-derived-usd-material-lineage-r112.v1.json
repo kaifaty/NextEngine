@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "audit_id": "nextengine.humanoid-derived-usd-material-lineage.v1",
+  "status": "FrozenStaticImplementationAuditOnly",
+  "claim": "DerivedUsdAndIsaacMaterialLineageWithoutSceneExecution",
+  "source": {
+    "r111": {
+      "report_sha256": "eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058",
+      "report_file_sha256": "c8b5663c86fdf89ba4f8729fdccb2860328fd5e7b6144388ab892d5d4bc97bd7",
+      "profile_sha256": "a5cb5a3330eddefaeff33639e79c885ecbace7dfb8bddbf86de32f11b04bf44e"
+    },
+    "implementation_commit": "61e02484290be11059433acd8c5da434d7a0fc93",
+    "mirror_v2_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "legacy_mirror_v1_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+    "legacy_usd_v1_sha256": "951fc04bed0ff3e15414bfd06d067636ee8db18ef70e6e4a0ced28c624fcefa4",
+    "body_schema_hash": "e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d",
+    "compiled_descriptor_v3_hash": "6751853a812f549866f1db9d3662d8115b18db9b6d73beabd7221bb9f972f027",
+    "material_lineage_hash": "2d13e197f766e6a24090edf396dfc2fb6cbbf4c578ea9868dffa06ab7adab751"
+  },
+  "scope": {
+    "run_id": "R112",
+    "product_check": "MODEL-MIRROR-P2",
+    "derived_usd_implementations": 1,
+    "isaac_ground_lineage_implementations": 1,
+    "model_identity_preflights": 0,
+    "physx_scene_runs": 0,
+    "candidate_construction": false,
+    "training": false
+  },
+  "expected_translation": {
+    "mirror_translator_id": "nextengine.isaac.biomechanics-mirror.v2",
+    "usd_translator_version": "nextengine.isaac-biomechanics-usda-translator.v2",
+    "manifest_schema_version": 3,
+    "descriptor_schema_version": 2,
+    "compiled_descriptor_schema_version": 3,
+    "humanoid_usd_path": "humanoid.usda",
+    "ground_usd_path": "ground.usda",
+    "humanoid_usd_sha256": "5ea8a3b9b4e745461fd02bda7823cb1ffb2a1f372c16a9987f385e2697493834",
+    "ground_usd_sha256": "e82398add4570bc0696929081b4602ca16c8e3cf434a73b61c7f780ca6e9d033",
+    "translation_manifest_file_sha256": "28fc9d97d42e071773057a159a0404d658d145f89eed90ee73b0571e8bfb6f6b",
+    "descriptor_content_sha256": "d750aecf97ac6eaef499ab364458cacd68fb58ca4ab07c2b29985e53a592ade4",
+    "humanoid_material_prim_count": 2,
+    "humanoid_physics_binding_count": 19,
+    "ground_material_prim_count": 1,
+    "ground_physics_binding_count": 1,
+    "body_binding_count": 17,
+    "sole_binding_count": 2,
+    "ground_binding_count": 1
+  },
+  "expected_materials": [
+    {
+      "canonical_material_tags": [],
+      "descriptor_revision": 1,
+      "dynamic_friction_q16": 45875,
+      "material_id": "physics-material.humanoid-body.v1",
+      "restitution_q16": 0,
+      "rolling_friction_q16": 0,
+      "schema_version": 2,
+      "spinning_friction_q16": 0,
+      "static_friction_q16": 52429,
+      "surface_velocity_micrometres_per_second": [0, 0, 0]
+    },
+    {
+      "canonical_material_tags": [],
+      "descriptor_revision": 1,
+      "dynamic_friction_q16": 45875,
+      "material_id": "physics-material.humanoid-ground.v1",
+      "restitution_q16": 0,
+      "rolling_friction_q16": 0,
+      "schema_version": 2,
+      "spinning_friction_q16": 0,
+      "static_friction_q16": 52429,
+      "surface_velocity_micrometres_per_second": [0, 0, 0]
+    },
+    {
+      "canonical_material_tags": [],
+      "descriptor_revision": 1,
+      "dynamic_friction_q16": 45875,
+      "material_id": "physics-material.humanoid-sole.v1",
+      "restitution_q16": 0,
+      "rolling_friction_q16": 0,
+      "schema_version": 2,
+      "spinning_friction_q16": 0,
+      "static_friction_q16": 52429,
+      "surface_velocity_micrometres_per_second": [0, 0, 0]
+    }
+  ],
+  "expected_combine_profile": {
+    "dynamic_friction": "ArithmeticMeanTiesToEven",
+    "profile_id": "nextengine.physics-material-combine.humanoid-motor.v1",
+    "profile_revision": 1,
+    "restitution": "ArithmeticMeanTiesToEven",
+    "rolling_friction": "ArithmeticMeanTiesToEven",
+    "schema_version": 1,
+    "spinning_friction": "ArithmeticMeanTiesToEven",
+    "static_friction": "ArithmeticMeanTiesToEven",
+    "surface_velocity": "CanonicalParticipantOrder"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx", "--from", "ruff==0.16.3", "ruff", "check",
+        "--ignore", "TRY004,BLE001",
+        "lab/next_lab/biomechanics_material_lineage.py",
+        "lab/next_lab/cli.py",
+        "lab/next_lab/derived_usd_material_lineage.py",
+        "lab/next_lab/isaac_reference_env.py",
+        "lab/next_lab/motor_mirror.py",
+        "lab/next_lab/usd_translation.py",
+        "lab/scripts/audit_derived_usd_material_lineage.py",
+        "lab/scripts/isaac_biomechanics_check.py",
+        "lab/tests/test_canonical_material_lineage_implementation.py",
+        "lab/tests/test_derived_usd_material_lineage.py",
+        "lab/tests/test_isaac_reference_env.py",
+        "lab/tests/test_usd_translation.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx", "--from", "ruff==0.16.3", "ruff", "format", "--check",
+        "lab/next_lab/biomechanics_material_lineage.py",
+        "lab/next_lab/cli.py",
+        "lab/next_lab/derived_usd_material_lineage.py",
+        "lab/next_lab/isaac_reference_env.py",
+        "lab/next_lab/motor_mirror.py",
+        "lab/next_lab/usd_translation.py",
+        "lab/scripts/audit_derived_usd_material_lineage.py",
+        "lab/scripts/isaac_biomechanics_check.py",
+        "lab/tests/test_canonical_material_lineage_implementation.py",
+        "lab/tests/test_derived_usd_material_lineage.py",
+        "lab/tests/test_isaac_reference_env.py",
+        "lab/tests/test_usd_translation.py"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {"PYTHONPATH": "lab"},
+      "arguments": [
+        "lab/.venv/bin/python", "-m", "unittest", "discover", "-s", "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": ["cargo", "test", "-p", "next_motor"]
+    },
+    {
+      "id": "host_check",
+      "arguments": ["cargo", "run", "-q", "-p", "xtask", "--", "host-check"]
+    }
+  ],
+  "frozen_invariants": {
+    "controller": "fixed zero-residual PD unchanged",
+    "limits_and_safety": "unchanged including right-ankle impulse 6000000 micronewton-seconds",
+    "fresh_scene_authority": "ADR-070 unchanged",
+    "partial_reset": "REPORT_ONLY",
+    "legacy_descriptor_and_usd": "immutable",
+    "physx_execution": "FORBIDDEN_IN_R112",
+    "optimizer_and_training": "FORBIDDEN"
+  },
+  "decision": {
+    "pass": "PERMIT_R113_CLEAN_DYNAMICS_MODEL_IDENTITY_PREFLIGHT_ONLY",
+    "fail": "RETAIN_R109_STOP_INVALID_MODEL_LINEAGE",
+    "next_smallest_action": "formulate and run one clean report-only R113 dynamics-model identity preflight against the exact R112 mirror, humanoid USD, ground USD and translation manifest; run no solve or scene"
+  },
+  "bounded_acceptance": {
+    "r113_model_identity_preflight": "AUTHORIZED_REPORT_ONLY",
+    "quantization_aware_kto": "NOT_AUTHORIZED",
+    "inverse_dynamics": "NOT_AUTHORIZED",
+    "kinodynamics": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
