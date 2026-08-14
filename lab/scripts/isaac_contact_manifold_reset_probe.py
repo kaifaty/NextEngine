@@ -27,6 +27,7 @@ from next_lab.contact_manifold_physx import (
     minimum_normalized_quaternion_dot_q1_30,
     overlay_bounded_reference_window,
 )
+from next_lab.motion_math import collider_minimum_y, target_forward_kinematics
 
 
 def parse_args() -> argparse.Namespace:
@@ -314,6 +315,10 @@ def _run_driver(
                 ),
                 "overlay_usd_sha256": overlay_hashes[case.ordinal],
                 "initial_state_verification": report["initial_state_verification"],
+                "trajectory_diagnostics": report["trajectory_diagnostics"],
+                "deferred_terminal_reset_count": report[
+                    "deferred_terminal_reset_count"
+                ],
             }
         )
         fresh_rows.append(report["phase_result"])
@@ -709,32 +714,59 @@ def _run_fresh_worker(
             device=environment.device,
         )
         first_tick_impulses: tuple[int, ...] | None = None
+        trajectory_diagnostics: list[dict[str, Any]] = []
+        deferred_terminal_reset_count = 0
+        original_episode_reset = environment._reset_idx
+
+        def defer_terminal_reset(env_ids: Any | None) -> None:
+            nonlocal deferred_terminal_reset_count
+            deferred_terminal_reset_count += int(
+                environment.num_envs
+                if env_ids is None
+                else env_ids.numel()
+            )
+
+        environment._reset_idx = defer_terminal_reset
         steps = 0
-        while accumulator.completed_case_count == 0:
-            observations, _, terminated, truncated, _ = environment.step(zero)
-            steps += 1
-            if not torch.isfinite(observations["policy"]).all():
-                raise RuntimeError("fresh-scene observation became non-finite")
-            done = terminated | truncated
-            tensors = _step_tensors_to_cpu(
-                environment=environment,
-                done=done,
-                truncated=truncated,
-            )
-            elapsed = int(tensors["elapsed_ticks"][target_slot].item())
-            if elapsed == 1:
-                first_tick_impulses = _integer_row(
-                    tensors["contact_pair_impulses"], target_slot
+        try:
+            while accumulator.completed_case_count == 0:
+                observations, _, terminated, truncated, _ = environment.step(zero)
+                steps += 1
+                if not torch.isfinite(observations["policy"]).all():
+                    raise RuntimeError("fresh-scene observation became non-finite")
+                done = terminated | truncated
+                tensors = _step_tensors_to_cpu(
+                    environment=environment,
+                    done=done,
+                    truncated=truncated,
                 )
-            _record_step(
-                accumulator=accumulator,
-                tensors=tensors,
-                tensor_index=target_slot,
-                assignment_ordinal=0,
-                clip_index=0,
-            )
-            if steps > case.horizon_motor_ticks:
-                raise RuntimeError("fresh-scene episode exceeded its progress bound")
+                elapsed = int(tensors["elapsed_ticks"][target_slot].item())
+                if elapsed == 1:
+                    first_tick_impulses = _integer_row(
+                        tensors["contact_pair_impulses"], target_slot
+                    )
+                trajectory_diagnostics.append(
+                    _fresh_trajectory_sample(
+                        environment=environment,
+                        descriptor=descriptor,
+                        arrays=arrays,
+                        tensors=tensors,
+                        tensor_index=target_slot,
+                    )
+                )
+                _record_step(
+                    accumulator=accumulator,
+                    tensors=tensors,
+                    tensor_index=target_slot,
+                    assignment_ordinal=0,
+                    clip_index=0,
+                )
+                if steps > case.horizon_motor_ticks:
+                    raise RuntimeError(
+                        "fresh-scene episode exceeded its progress bound"
+                    )
+        finally:
+            environment._reset_idx = original_episode_reset
         if first_tick_impulses is None:
             raise RuntimeError("fresh-scene episode did not expose first-tick impulses")
         sections = accumulator.report_sections()
@@ -763,6 +795,8 @@ def _run_fresh_worker(
                 ],
             },
             "reference_overlay": reference_overlay,
+            "trajectory_diagnostics": trajectory_diagnostics,
+            "deferred_terminal_reset_count": deferred_terminal_reset_count,
             "post_create_state_write_attempts_suppressed": write_attempts,
             "post_create_root_or_joint_state_writes_executed": 0,
             "initial_state_verification": {"before_reset": before, "after_reset": after},
@@ -1055,6 +1089,152 @@ def _install_reference_override(
         )
 
     environment._reference_at = reference_at
+
+
+def _fresh_trajectory_sample(
+    *,
+    environment: Any,
+    descriptor: Mapping[str, Any],
+    arrays: Mapping[str, np.ndarray],
+    tensors: Mapping[str, Any],
+    tensor_index: int,
+) -> dict[str, Any]:
+    reference_frame = int(tensors["reference_frame"][tensor_index].item())
+    start_frame = int(tensors["start_frame"][tensor_index].item())
+    relative_frame = reference_frame - start_frame
+    if not 0 <= relative_frame < len(arrays["root_position_um"]):
+        raise RuntimeError("fresh trajectory sample is outside the projection")
+    current = environment._canonical_current()
+    actual_root = (
+        current["root_position_um"][tensor_index].detach().cpu().numpy()
+    ).astype(np.int64)
+    actual_quaternion = (
+        current["root_quaternion_q1_30"][tensor_index]
+        .detach()
+        .cpu()
+        .numpy()
+    ).astype(np.int64)
+    actual_joint = (
+        current["joint_position_urad"][tensor_index].detach().cpu().numpy()
+    ).astype(np.int64)
+    actual_root_velocity = (
+        current["root_linear_velocity_um_s"][tensor_index]
+        .detach()
+        .cpu()
+        .numpy()
+    ).astype(np.int64)
+    actual_joint_velocity = (
+        current["joint_velocity_urad_s"][tensor_index]
+        .detach()
+        .cpu()
+        .numpy()
+    ).astype(np.int64)
+    reference_root = np.asarray(
+        arrays["root_position_um"][relative_frame], dtype=np.int64
+    )
+    reference_quaternion = np.asarray(
+        arrays["root_quaternion_q1_30"][relative_frame], dtype=np.int64
+    )
+    reference_joint = np.asarray(
+        arrays["joint_position_urad"][relative_frame], dtype=np.int64
+    )
+    joint_error = actual_joint - reference_joint
+    joint_lookup = {
+        joint["joint_id"]: int(joint["dof_ordinal"])
+        for joint in descriptor["joints"]
+    }
+    right_leg_ordinals = tuple(
+        joint_lookup[f"joint.right-{suffix}"]
+        for suffix in (
+            "hip-pitch",
+            "hip-roll",
+            "hip-yaw",
+            "knee",
+            "ankle-pitch",
+            "ankle-roll",
+        )
+    )
+    pair_index = environment.contact_pair_ids.index(
+        "ground:body.right-ankle-roll"
+    )
+    return {
+        "elapsed_motor_ticks": int(
+            tensors["elapsed_ticks"][tensor_index].item()
+        ),
+        "reference_frame": reference_frame,
+        "actual_root_position_micrometres": actual_root.tolist(),
+        "reference_root_position_micrometres": reference_root.tolist(),
+        "root_position_error_vector_micrometres": (
+            actual_root - reference_root
+        ).tolist(),
+        "actual_root_linear_velocity_micrometres_per_second": (
+            actual_root_velocity.tolist()
+        ),
+        "reference_root_linear_velocity_micrometres_per_second": np.asarray(
+            arrays["root_linear_velocity_um_s"][relative_frame], dtype=np.int64
+        ).tolist(),
+        "actual_right_foot_collider_minimum_micrometres": (
+            _foot_collider_minimum_micrometres(
+                descriptor=descriptor,
+                side="right",
+                root_position_um=actual_root,
+                root_quaternion_q1_30=actual_quaternion,
+                joint_position_urad=actual_joint,
+            )
+        ),
+        "reference_right_foot_collider_minimum_micrometres": (
+            _foot_collider_minimum_micrometres(
+                descriptor=descriptor,
+                side="right",
+                root_position_um=reference_root,
+                root_quaternion_q1_30=reference_quaternion,
+                joint_position_urad=reference_joint,
+            )
+        ),
+        "maximum_absolute_joint_position_error_microradians": int(
+            np.max(np.abs(joint_error))
+        ),
+        "maximum_absolute_right_leg_joint_position_error_microradians": int(
+            np.max(np.abs(joint_error[list(right_leg_ordinals)]))
+        ),
+        "maximum_absolute_joint_velocity_microradians_per_second": int(
+            np.max(np.abs(actual_joint_velocity))
+        ),
+        "observed_contacts": _integer_row(
+            tensors["observed_contacts"], tensor_index
+        ),
+        "right_foot_episode_maximum_impulse_micronewton_seconds": int(
+            tensors["contact_pair_impulses"][tensor_index, pair_index].item()
+        ),
+    }
+
+
+def _foot_collider_minimum_micrometres(
+    *,
+    descriptor: Mapping[str, Any],
+    side: str,
+    root_position_um: np.ndarray,
+    root_quaternion_q1_30: np.ndarray,
+    joint_position_urad: np.ndarray,
+) -> int:
+    positions, rotations = target_forward_kinematics(
+        descriptor,
+        root_position_um.astype(np.float64) / 1_000_000.0,
+        root_quaternion_q1_30.astype(np.float64) / float(1 << 30),
+        joint_position_urad.astype(np.float64) / 1_000_000.0,
+    )
+    body = next(
+        item
+        for item in descriptor["bodies"]
+        if item["body_id"] == f"body.{side}-ankle-roll"
+    )
+    slot = int(body["body_slot"])
+    minimum = min(
+        collider_minimum_y(positions[slot], rotations[slot], collider)
+        for collider in body["colliders"]
+        if int(collider["contact_role"]) == 8
+    )
+    return int(np.floor(minimum * 1_000_000.0 + 1.0e-9))
 
 
 def _verify_authored_state(
