@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R113_PASS / R114_KTO_FORMULATION_NEXT` |
+| Status | `R114_COMPLETE / R115_KTO_EXECUTION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -47,6 +47,7 @@ bounded research before another solver change or expensive native run.
 | R111 canonical material-lineage implementation | canonical/file/profile SHA-256 `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058` / `c8b5663c86fdf89ba4f8729fdccb2860328fd5e7b6144388ab892d5d4bc97bd7` / `a5cb5a3330eddefaeff33639e79c885ecbace7dfb8bddbf86de32f11b04bf44e` | Clean `PASS`: Accepted ADR-071, successor contracts/compiler/mirror and native ABI 4 close engine/native lineage; only static R112 USD/Isaac implementation is authorized and every scene/solve/work count is `0` |
 | R112 derived USD/Isaac material lineage | canonical/file/profile SHA-256 `dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2` / `a615359b7855ca270dacced899960d71ab4a43c8aab69403fd154a55a0067778` / `c98c383117f03b5bb594855c831f2aa3a31453ac94b6f4fa2dc483015a3b7f0a` | Clean `PASS`: exact humanoid/ground material prims, `19+1` bindings and explicit Isaac consumption close the derived lineage; only report-only R113 is authorized and every scene/solve/work count is `0` |
 | R113 clean dynamics-model identity | canonical/file/profile SHA-256 `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c` / `fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d` | Clean `PASS`: all R108 identity groups close with zero blockers; only report-only R114 KTO formulation is authorized, with one preflight and zero scene/solve/work counts |
+| R114 quantization-aware KTO execution formulation | canonical/file/profile SHA-256 `53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828` / `2f5c6c8b8c43864087feb51aa82207447bf2940283f2689f7ee1b278793c84ea` / `ec0a98376c7010970bae729ddbb4a39ded6323dcf11a711156d4a62992ba8e92` | Clean `COMPLETE`: freezes `69687` q/v/a scalars, exact emission/progress/resource gates and one R115 execution; all scene/solve/work counts remain `0` |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -1022,17 +1023,69 @@ kinodynamic, candidate, PhysX, optimizer or training work. The only successor
 gate is `PERMIT_SEPARATE_BOUNDED_KTO_EXECUTION_FORMULATION_ONLY`: R114 may
 freeze a bounded KTO execution contract, but may not execute it.
 
+## R114 quantization-aware KTO execution formulation result
+
+Clean R114 at commit `77be95dd01032bb19b7e5a7ecc61c54631d24a50`
+turns the R108 stage-1 sketch into one executable, fail-closed contract without
+running a solver. It independently binds the exact R113 PASS, the R108 ladder,
+the current material-complete descriptor, the byte-identical legacy kinematic
+projection and the V9/R93 complete `cmu16-walk-nominal-b` artifact.
+
+The source roles are deliberately asymmetric. V9/R93 is the only admissible
+`801`-knot initialization and whole-horizon reference. The matched V7/R47
+`cmu16@238..249` PASS case is only a twelve-frame joint-position tracking and
+safety prior. It differs from V9 in `61` cells with exact L1/squared distances
+`527631 µrad` / `17142428727 µrad²`. It cannot be a splice or complete
+candidate: the later V7/R57 complete `cmu16` trajectory itself fails the
+complete-clip contact gate. This distinction prevents a locally passing V7
+control from silently acquiring full-trajectory authority.
+
+The frozen decision vector has `87` scalars at each of `801` knots, or `69687`
+total: floating-base position/SO(3) tangent, linear/angular velocity and
+acceleration plus all `23` joint q/v/a channels. Velocity and acceleration are
+joined to configuration by the exact `60 Hz` hybrid stencil. Its byte hash is
+`00f8e3acc9fb19131cfa290109f391b0f0ed05b5c2f44bcec66c73d3e20d63ca`;
+the fixed V9 schedule selects `10` forward, `10` backward and `781` centered
+rows with entry precedence. Both endpoints remain exact V9 after emission.
+
+Acceptance has no continuous-solver shortcut. Each proposed iterate is emitted
+with ties-to-even root, quaternion and joint quantization; dependent velocities,
+FK, CoM and every collider sample are recomputed; and the unchanged V9 contact,
+collider `-2 µm`, root vertical `200060 µm/s`, joint `2500 bp` and soft-ROM
+limits must all PASS. Exact V7 progress additionally requires a positive
+integer directional dot, a strict squared-distance decrease from
+`17142428727`, and at least one changed joint cell. Rounding repair, margins,
+coefficient search, schedule/point changes and post-emission mutation are
+forbidden.
+
+R115 is limited to one single-threaded CPU SQP process, one solve, twelve major
+iterations/QPs, at most `72` exact emission audits, four hours and `16 GiB`.
+It uses the already pinned NumPy/SciPy/OSQP versions and frozen finite-difference,
+step, line-search and OSQP settings; no restart or manual intervention exists.
+Exact PASS may retain one external transient solver-private q/v/a warm-start
+cache for the separately gated inverse-dynamics stages. That cache has no
+candidate, corpus, controller, runtime or acceptance authority and is deleted
+on failure or after downstream use. No candidate artifact is authorized.
+
+The clean report passes Ruff, all `230` lab tests, motor tests and full
+`host-check`. Its canonical/file/profile SHA-256 is
+`53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828` /
+`2f5c6c8b8c43864087feb51aa82207447bf2940283f2689f7ee1b278793c84ea` /
+`ec0a98376c7010970bae729ddbb4a39ded6323dcf11a711156d4a62992ba8e92`.
+It records one formulation and zero solver, KTO, candidate, cache, PhysX,
+learned-optimizer or training work. Its only successor gate is
+`PERMIT_R115_SINGLE_BOUNDED_QUANTIZATION_AWARE_KTO_EXECUTION_ONLY`.
+
 ## Decision
 
-Freeze R92–R113, retain the contact result as bounded support for H23, and
+Freeze R92–R114, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
 and the late projected direction after its exact `2501/2500 bp` failure.
-R113 closes the R109 model-identity stop but authorizes only one report-only
-R114 formulation of the bounded quantization-aware KTO execution contract.
-KTO execution, candidate artifact/native scene construction and all-17 remain
-blocked until that formulation passes. Any later bounded execution stays
-separately gated and must preserve every selected fresh control without
-changing controller
+R114 closes that formulation and authorizes exactly one R115 KTO execution
+under its frozen resource and exact-emission contract. Candidate artifact,
+inverse dynamics, native scene construction and all-17 remain blocked until
+R115 reports exact PASS. That execution must preserve every selected fresh
+control without changing controller
 semantics, safety limits, fresh-scene authority or the exact-zero gate.

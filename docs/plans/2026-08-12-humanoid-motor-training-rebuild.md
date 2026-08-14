@@ -2,8 +2,8 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108 freezes model identity→quantization-aware KTO→fixed-PD inverse dynamics→kinodynamics as separate gates; R109 stops on invalid model lineage and R110 v2 formulates the exact material/point-force repair. Clean R111/R112 close native and derived material lineage; clean report-only R113 rechecks every R108 model-identity group with zero blockers and no scene/solve. Only R114 formulation of a bounded quantization-aware KTO execution contract is authorized next. KTO/ID/kinodynamic solves, candidates, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
-| Дата | 2026-08-14 |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108 freezes model identity→quantization-aware KTO→fixed-PD inverse dynamics→kinodynamics as separate gates; R109–R113 close the exact structural/material/derived/point-force identity. Clean report-only R114 now freezes one bounded `69687`-scalar quantization-aware KTO execution contract. Exactly one R115 KTO solve is next; ID/kinodynamic solves, candidate artifacts, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
 | Архитектурная опора | SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34, SPEC-35, ADR-027, ADR-030, ADR-046, ADR-053, ADR-058, ADR-059, ADR-064..071 |
@@ -1921,10 +1921,27 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   `fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d`.
   Five validations pass, including `226/226` lab tests and full `host-check`;
   one preflight and zero solver/PhysX/optimizer/training work are recorded.
-  Only report-only R114 KTO execution formulation is authorized; no solve.
+  R113 authorizes only report-only R114 KTO execution formulation; no R113 solve.
+  Clean R114 binds exact R108/R113 lineage, the current/legacy kinematic
+  identity and complete V9/R93 `cmu16` initialization. Passing V7/R47 frames
+  `238..249` are a local `61`-cell joint-position prior only; V7/R57 complete
+  `cmu16` is not admissible because it fails complete-clip contact. R114 lifts
+  floating-base and all `23` joint q/v/a at `801` knots (`69687` scalars),
+  freezes the exact `10/10/781` hybrid stencil, ties-to-even emission, unchanged
+  contact/collider/ROM/velocity limits and strict integer V7 progress.
+  Canonical/file/profile SHA-256 is
+  `53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828` /
+  `2f5c6c8b8c43864087feb51aa82207447bf2940283f2689f7ee1b278793c84ea` /
+  `ec0a98376c7010970bae729ddbb4a39ded6323dcf11a711156d4a62992ba8e92`.
+  Five validations pass including `230/230` lab tests and full `host-check`;
+  formulation count is one and every solve/cache/scene/candidate/learned-
+  optimizer/training count is zero. Exactly one single-threaded R115 solve is
+  now authorized with twelve SQP/QP iterations, at most `72` emitted audits,
+  four hours and `16 GiB`. Failure stops for research without tuning or retry;
+  exact PASS may retain only a transient solver-private warm-start cache.
 These results still cannot authorize full V19 or learned optimization.
 
-Roadmap status now advances only to report-only R114 formulation after clean R113. This planning
+Roadmap status now advances only to one bounded R115 KTO execution after clean R114. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-14 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14 имеет `204/12518` required-safety failures; R94 fresh V9 rejects `7/17`. R98–R107 exhaust bounded manual/kinematic repairs. R108 freezes four progressive dynamics gates, R109 stops invalid model lineage, and R110 v2 formulates the exact material/point-force repair. R111/R112 close native and derived material lineage; clean report-only R113 rechecks all model-identity groups with zero blockers and no scene/solve. Only report-only R114 formulation of bounded quantization-aware KTO execution is next. KTO solve, candidates, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14 имеет `204/12518` required-safety failures; R94 fresh V9 rejects `7/17`. R98–R107 exhaust bounded manual/kinematic repairs. R108 freezes four progressive dynamics gates; R109–R113 close exact model lineage. Clean report-only R114 freezes `69687` q/v/a scalars, quantization/progress/resource gates and authorizes exactly one bounded R115 KTO execution. ID/kinodynamic solves, candidate artifacts, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -763,8 +763,8 @@ Current increment поэтому строит единый coupled trajectory so
 полного `cmu05`. Full 27-clip V19, visual/exhaustive gates, TRAIN-4 Advance и
 PPO остаются запрещены.
 
-**TRAIN-4 coupled/native trajectory research (`R113_PASS /
-R114_KTO_FORMULATION_NEXT`, 2026-08-14):**
+**TRAIN-4 coupled/native trajectory research (`R114_COMPLETE /
+R115_KTO_EXECUTION_NEXT`, 2026-08-15):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -1127,6 +1127,30 @@ Five validations pass, including `226/226` lab tests and full `host-check`.
 Exactly one model-identity preflight and zero solver/KTO/PhysX/optimizer/training
 work are recorded. Its gate permits only one report-only R114 formulation of
 bounded quantization-aware KTO execution; the solve remains blocked.
+
+Clean R114 closes that formulation at commit
+`77be95dd01032bb19b7e5a7ecc61c54631d24a50`. V9/R93 is the sole complete
+`801`-knot initialization; passing V7/R47 `cmu16@238..249` is only a local
+joint-position prior because V7/R57 complete `cmu16` itself fails complete-clip
+contact. The contract lifts floating-base plus all `23` joint q/v/a channels,
+`87` scalars per knot and `69687` total. Its exact V9 hybrid stencil has hash
+`00f8e3acc9fb19131cfa290109f391b0f0ed05b5c2f44bcec66c73d3e20d63ca`
+and rows `10/10/781` forward/backward/centered. Ties-to-even emission must pass
+unchanged contact, collider, ROM and velocity limits while making a strict
+integer decrease toward the `61`-cell V7 prior.
+
+R114 canonical/file/profile SHA-256 is
+`53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828` /
+`2f5c6c8b8c43864087feb51aa82207447bf2940283f2689f7ee1b278793c84ea` /
+`ec0a98376c7010970bae729ddbb4a39ded6323dcf11a711156d4a62992ba8e92`.
+All five validations pass, including `230/230` lab tests and full `host-check`;
+every solve, cache, scene, candidate, learned-optimizer and training count is
+zero. The gate permits exactly one single-threaded R115 KTO solve with twelve
+SQP/QP iterations, at most `72` emitted audits, four hours and `16 GiB`.
+Failure is `STOP_AND_RESEARCH`; no setting sweep, second solve or weaker gate
+is permitted. Exact PASS may emit only a transient solver-private warm-start
+cache with no candidate/corpus/controller/runtime authority. ID, PhysX,
+all-17/V19 and learned training remain blocked.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -1900,7 +1924,7 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    contact-wrench lineage before KTO. R110 v2 freezes the full material-schema
    successor and ordered point-force repair. R111 closes contract/compiler/
    native ABI-4 lineage, R112 closes static USD/Isaac material lineage, and R113
-   closes whole-model identity; only report-only R114 KTO formulation is next. До exact-zero
+   closes whole-model identity. Clean R114 freezes one bounded R115 KTO run. До exact-zero
    fresh/full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
    No training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
