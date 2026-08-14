@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "audit_id": "nextengine.humanoid-contact-projected-direction-exact-audit.v1",
+  "status": "FrozenResearchOnly",
+  "claim": "OptimizerFreeExactOfflineProjectedDirectionAudit",
+  "source": {
+    "audit_sha256": "ded76473905f7f26e4db0dfaa236508f649d46a692ff28938203f92dcf1c9b61",
+    "r103": {
+      "report_sha256": "81e213c73a9a0ad071dd7459b0f6e3c285fe18985620b81045e3d4d4c90ddddc",
+      "report_file_sha256": "0d213ecae85157ef4f2748fd7b82b4af245f43f97f05c26b82c43be03bccf954",
+      "profile_sha256": "cfb17e8f01ec7a120110646377206cf0fce173c41263d267fcde4c1f893d2378"
+    },
+    "r105": {
+      "report_sha256": "c107230f01f75d25987ca0e9ac07d81cdda71fe94bca1889509d4f5504436f50",
+      "report_file_sha256": "19971615f285608903877a265e0387e7dbb963254e1b56493c99c43617e39ae9",
+      "profile_sha256": "48cf5b605e5fc6b3ae36b72ccc85a05d6fffeb6ccaa6d635d468c3e5c5b82d9e"
+    },
+    "r106": {
+      "report_sha256": "67a94a01f624cae4db9615646ee00a8ef00920119ad017f3ddead60d2e0c2996",
+      "report_file_sha256": "30512398d0e7030e95a61b8a662417b9ea1436ae96b58d0cdb0edaa3fe6b0679",
+      "profile_sha256": "6e67882da4e305aa0566c93d44216fc92f0318173a620aac4c2095eefc4a9937"
+    },
+    "v7": {
+      "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v7",
+      "manifest_sha256": "1e56a2d3d14c8d3a8291639da49d4fda46263aa37c1d6682205343d4043202bb",
+      "manifest_file_sha256": "70642cfa4c33e8d089fc5252b49fd040ae0ea6545a18649a5043128bfde8e187",
+      "prototype_profile_sha256": "63eea8c54f8b31c0f82888382a30090c341e8d296026a45ef577835700cea1b8",
+      "case_artifact_sha256": "dac5066102b017c24213e0f5bd21a917416ebf6b74b8a4018586106f27e0d855"
+    },
+    "v9": {
+      "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v9",
+      "manifest_sha256": "7ee041b7710302b9fae909b0cb34c0de3a6c2df257032cd0e1c7dcaf16afefeb",
+      "manifest_file_sha256": "53984129cc45d295ced9ef4f49ea8532d0b224c3ccc19980e8b986cee7604d70",
+      "prototype_profile_sha256": "bccf5eb12c8de2e1c0fa20df74c55f30cc9e964e7d5cbfcbf596bb6d672815ab",
+      "case_artifact_sha256": "213d7f11074932f046bab835b5901f5928d851b31dc53e1ac154dc0d95d39af1",
+      "complete_clip_artifact_sha256": "16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d"
+    },
+    "v9_profile_sha256": "bccf5eb12c8de2e1c0fa20df74c55f30cc9e964e7d5cbfcbf596bb6d672815ab",
+    "descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014"
+  },
+  "scope": {
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_case_ordinal": 7967,
+    "frame_first": 238,
+    "frame_last": 249,
+    "support_frame_first": 240,
+    "support_frame_last": 249,
+    "complete_clip_frame_count": 801,
+    "candidate_count": 1
+  },
+  "method": {
+    "selected_basis_id": "anchor-offset-11",
+    "knot_coefficients_basis_points": [0, 0, 10000],
+    "projection_qp_solve_count": 1,
+    "projection": "reconstruct the exact hash-bound R105 locally relevant public-limit projection once",
+    "quantization": "multiply physical root/joint increments by 1000000 and ties-to-even round before addition to V9 frames 240..249",
+    "dependent_recomputation": "reuse the frozen V9 hybrid-stencil velocity, FK, CoM, contact, all-collider, ROM and velocity audit kernel",
+    "contact_policy": "retain every V9 contact mode and source contact point; no inference, deletion, repair or post-pass",
+    "reference_target_policy": "quantized joint_position_urad is the fixed-PD reference target; no separate control target, desired velocity or feed-forward",
+    "candidate_artifact_policy": "construct in memory only; emit exact metrics report, not artifact",
+    "repair_or_grid_refinement": "FORBIDDEN",
+    "physx_runs": 0,
+    "optimizer_steps": 0,
+    "training_runs": 0
+  },
+  "limits": {
+    "maximum_normal_residual_micrometres": 5000,
+    "maximum_normal_step_micrometres": 1000,
+    "maximum_tangential_step_micrometres": 2000,
+    "maximum_analytic_normal_step_micrometres": 1000,
+    "maximum_analytic_tangential_step_micrometres": 2000,
+    "minimum_collider_height_micrometres": -2,
+    "maximum_root_vertical_velocity_micrometres_per_second": 200060,
+    "maximum_joint_velocity_basis_points": 2500,
+    "maximum_soft_rom_violation_microradians": 0
+  },
+  "expected_projection": {
+    "normalized_l2_norm": 0.0887876379443,
+    "normalized_distance_from_raw": 0.0143870590744,
+    "anchor_component_basis_points": 9722,
+    "cosine_similarity_basis_points": 9872,
+    "quantized_nonzero_joint_cell_count": 45,
+    "quantized_maximum_absolute_joint_correction_microradians": 5688,
+    "quantized_maximum_root_correction_micrometres": 41
+  },
+  "failure_disposition": {
+    "reconstruction_mismatch": "STOP_INVALID_EVIDENCE",
+    "exact_failure": "select progressive KTO then inverse-dynamics then kinodynamic formulation; do not shrink, scale, repair or sweep the late direction"
+  },
+  "decision": {
+    "pass": "PERMIT_R108_BOUNDED_FRESH_DISCRIMINATOR_FORMULATION_ONLY",
+    "fail": "SELECT_PROGRESSIVE_KINODYNAMIC_FORMULATION"
+  }
+}
