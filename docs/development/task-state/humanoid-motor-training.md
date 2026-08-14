@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R114_COMPLETE / R115_KTO_EXECUTION_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R115_FAIL / R115-RC1_COMPLETE / R117_FORMULATION_NEXT` |
 | Updated | 2026-08-15 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before learned optimizer work |
@@ -11,19 +11,18 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean R114 revision 2 freezes one bounded KTO execution
-  over exact R113 identity without running a solver or scene.
-- **Why:** All `69687` q/v/a variables, the continuous-V9 yaw branch, exact
-  quantization, resource bounds and fail-closed gates now close.
-- **Next action:** Hash-bind, validate and execute one R115 in-memory KTO solve;
-  persist only its external transient warm-start cache if exact PASS occurs.
-- **Current blocker:** KTO exact emitted feasibility with nonzero V7 progress
-  has not been executed; fixed-PD dynamic feasibility remains downstream.
-- **Do not retry:** Do not start PPO, substitute another scalar/vector/root/
-  pose boundary, zero velocities, add grace/settling, tune controller, or
-  loosen safety limits. The causal matrix rejects these as fixes.
-- **Reconsider when:** R115 reports exact emitted PASS/FAIL under the R114
-  budget, without a candidate artifact, scene, all-17 or learned optimization.
+- **Current conclusion:** The sole R115 solve is `FAIL / STOP_AND_RESEARCH`;
+  R115-RC1 confirms an analytic-contact linearization identity gap.
+- **Why:** All `3723` QP analytic rows omit q derivatives that the exact kernel
+  measurably has; fractions `1/4..1/32` fail only exact analytic tangent.
+- **Next action:** Freeze report-only R117 kernel-identical full-q/v derivative
+  and nonlinear-iteration formulation; do not execute another solve.
+- **Current blocker:** R115 does not establish KTO feasibility or infeasibility;
+  fixed-PD inverse dynamics remains downstream and unauthorized.
+- **Do not retry:** Do not rerun R115, start PPO/ID/PhysX, change boundaries,
+  zero velocities, add grace/settling, tune controller, or loosen limits.
+- **Reconsider when:** R117 closes exact-kernel function/derivative identity and
+  an explicit modeled-versus-exact nonlinear iterate rule without a solve.
 
 All TRAIN-5 checkpoints remain rejected. No learned optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -41,10 +40,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R111–R114 model/KTO lineage | R113 `PASS`, canonical `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf`; R114 revision 2 `COMPLETE`, canonical `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4`, 5/5 validations; solver-free R115 shape `69687×131180`, `426210` nonzeros | Permit one bounded R115 KTO execution only; no scene |
+| R115/R115-RC1 KTO result | R115 `FAIL`, canonical `b7baa0f4337597c1c61748255535d1102bbff35d0ce560a8a661ed6be7685433`; one QP/six audits/no cache. RC1 `COMPLETE`, canonical `5edfe0613e2e4f9327cd1bfb6922c96e84ce8056144b05f9617787de0f883475`; q nonzeros `0`, exact q sensitivity `9/9` | Permit report-only R117 formulation only; no solve or scene |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R109/R110-v2/R111/R112/R113/R114-v2 canonical SHA-256: `2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784` / `83408b97b6ba13dc801b4d9b4f68e55146f9f39b09a451c238b24cc4c8c7d88d` / `eafc8fc7f5bc64706b53c313cff143e0c0f8bd7684371e714d94bdef3e86f058` / `dfb3bd892b04023054ce947127743e7ada78b40000a93e22887101c544c493f2` / `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4`.
+R113/R114-v2/R115/R115-RC1 canonical SHA-256: `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4` / `b7baa0f4337597c1c61748255535d1102bbff35d0ce560a8a661ed6be7685433` / `5edfe0613e2e4f9327cd1bfb6922c96e84ce8056144b05f9617787de0f883475`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -178,18 +177,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether quantization-aware KTO can make nonzero tracking
-  progress while the emitted complete clip remains exact-zero feasible.
-- **Reconsider when:** The single R115 execution reports its exact emitted
-  outcome and proves whether nonzero V7 progress is simultaneously feasible.
+- **Uncertainty:** Whether kernel-identical quantization-aware KTO can make
+  nonzero progress while the emitted complete clip remains exact-zero feasible.
+- **Reconsider when:** Report-only R117 closes full q/v derivative identity and
+  nonlinear iterate rules; R115 itself cannot be retried or reinterpreted.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 requires fixed-PD effort/point forces | R114-v2 closes KTO formulation, but dynamics remain untested | Run R115; formulate ID only after exact PASS |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 requires fixed-PD effort/point forces | R115 failed before dynamics due linearization identity | Keep ID blocked; formulate R117 only |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R114-v2 lifts `69687` q/v/a; solver-free sparse assembly closes | 240 Hz effort state is still untested | Execute only the bounded R115 KTO stage |
+| H24/H26: nonlocal coupling is hidden between motor samples | R115 makes V7 progress; RC1 finds missing q derivative | 240 Hz effort state remains untested | Close R117 exact-kernel formulation only |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -218,10 +217,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R114 and all superseded semantic reports.
-2. Retain R108's four stages; do not collapse or skip their gates.
-3. Hash-bind, validate and execute exactly one clean bounded R115 KTO solve.
-4. Run no ID/kinodynamic solve, candidate artifact, PhysX scene or all-17.
+1. Freeze clean R73–R115, R115-RC1 and all superseded reports.
+2. Record R115 consumed/failed; never rerun or reinterpret it.
+3. Formulate report-only R117 exact-kernel q/v linearization and iterate rule.
+4. Run no KTO/ID/kinodynamic solve, candidate, PhysX scene or all-17.
 
 ## Do not retry
 
@@ -239,12 +238,13 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** Clean R114-v2 exists; R115 tooling is implemented and
-  tracked research records R73–R114. Reports remain external/hash-bound.
-- **Checks:** Full lab `235/235`; clean R114-v2 `COMPLETE`; every scene, solve,
-  candidate artifact, PhysX, learned-optimizer and training count is zero.
-- **Remaining risk:** KTO/dynamic feasibility,
+- **Workspace state:** R115 immutable FAIL and clean R115-RC1 research exist;
+  tracked research records R73–R115-RC1. Reports are external/hash-bound.
+- **Checks:** Full lab `239/239`; RC1 five validations PASS; R115 consumed one
+  KTO/QP, while cache/candidate/PhysX/ID/learned/training counts stay zero.
+- **Remaining risk:** kernel-identical KTO and dynamic feasibility,
   full-corpus exact-zero coverage and visual review remain open.
+- **Execution authority:** R117 formulation only; every new solve is blocked.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.

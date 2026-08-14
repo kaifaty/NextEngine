@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108 freezes model identity→quantization-aware KTO→fixed-PD inverse dynamics→kinodynamics as separate gates; R109–R113 close the exact structural/material/derived/point-force identity. Clean report-only R114 revision 2 now freezes one bounded `69687`-scalar quantization-aware KTO execution contract, including the continuous-V9 root-yaw branch. Exactly one R115 KTO solve is next; ID/kinodynamic solves, candidate artifacts, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108–R114 close progressive KTO/model lineage. The single R115 KTO execution is `FAIL / STOP_AND_RESEARCH`; clean R115-RC1 confirms an analytic-contact linearization identity gap, not intrinsic KTO infeasibility. Only report-only R117 repair formulation is next; another KTO solve, R116 inverse-dynamics formulation, ID/kinodynamic solves, candidate artifacts, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -1945,9 +1945,30 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   `131180` constraints and `426210` nonzeros without contradictory intervals;
   zero-state exact emission reproduces every V9 gate except deliberately
   nonzero V7 progress. It is not a solve or candidate result.
+  R115 consumes the sole authorized solve at clean commit `e34f463`. One
+  `69687 × 131180` QP solves in `2300` iterations, but all six exact emitted
+  fractions fail. Fractions `1/4..1/32` pass every gate except analytic
+  tangential contact velocity (`5498..2368 µm/frame` versus `2000`) while
+  retaining strict V7 progress. Canonical/file/profile SHA-256 is
+  `b7baa0f4337597c1c61748255535d1102bbff35d0ce560a8a661ed6be7685433` /
+  `ed89c2733a376f5f50694fc01029abcf9791f2a186054196461ce2a787e8caa8` /
+  `427958340debb62a3dfc7b9309411184c8e922965a5cef694163cae61d0b9e75`.
+  Result is `FAIL / STOP_AND_RESEARCH`; no retry/cache/candidate/scene or
+  downstream formulation/solve is authorized.
+  Clean report-only R115-RC1 confirms the cause. All `3723` analytic QP rows
+  have zero configuration coefficients, while the exact kernel has nonzero
+  configuration sensitivity at `frame 328 / left forefoot` for all nine tested
+  variables; the fraction response has `R²=0.9999147`. Canonical/file/profile
+  SHA-256 is
+  `5edfe0613e2e4f9327cd1bfb6922c96e84ce8056144b05f9617787de0f883475` /
+  `74f6b7f7c13565618a2972d83b568d411ae8f4598b76699cd176b328f4a42f51` /
+  `7e4186d0e44049102ab1d61e0cf49f51f3682e88557f9c8c2dd2d92c5c53c3f4`.
+  Five validations pass including `239/239` lab tests; research solve/work
+  counts are zero. Only report-only R117 kernel-identical full-q/v derivative
+  and nonlinear-iteration formulation is permitted; it may not execute.
 These results still cannot authorize full V19 or learned optimization.
 
-Roadmap status now advances only to one bounded R115 KTO execution after clean R114. This planning
+Roadmap status now advances only to report-only R117 formulation after R115/R115-RC1. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 
