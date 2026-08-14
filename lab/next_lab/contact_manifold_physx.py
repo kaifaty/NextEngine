@@ -199,7 +199,7 @@ def native_dynamics_trace_probe_shape_is_valid(
     prototype_manifest: Mapping[str, Any],
     cases: Sequence[ContactPrototypeCase],
 ) -> bool:
-    """Validate one-case, fresh-only R98 instrumentation without authority."""
+    """Validate bounded fresh-only native tracing without run authority."""
 
     execution = profile.get("execution", {})
     trace = execution.get("native_dynamics_trace", {})
@@ -240,7 +240,54 @@ def native_dynamics_trace_probe_shape_is_valid(
             )
             and cases[1].source_case_ordinal == 7967
         )
+    if role == "v7-passing-control":
+        return (
+            common
+            and execution.get("worker_case_ordinals") == [10]
+            and _v7_all17_manifest_shape_is_valid(
+                prototype_manifest=prototype_manifest,
+                cases=cases,
+            )
+            and cases[10].source_case_ordinal == 7967
+            and cases[10].baseline_status == "PASS"
+            and not cases[10].baseline_reasons
+            and not cases[10].target_failure_categories
+        )
     return False
+
+
+def _v7_all17_manifest_shape_is_valid(
+    *,
+    prototype_manifest: Mapping[str, Any],
+    cases: Sequence[ContactPrototypeCase],
+) -> bool:
+    """Validate the immutable V7/R47 inventory used as the R99 control."""
+
+    scope = prototype_manifest.get("scope", {})
+    projection = scope.get("projection", {})
+    collider_closure = projection.get("collider_closure", {})
+    records = prototype_manifest.get("cases", ())
+    return (
+        prototype_manifest.get("prototype_id")
+        == "nextengine.humanoid-contact-manifold-prototype.v7"
+        and scope.get("case_scope") == "all"
+        and scope.get("case_count") == 17
+        and scope.get("prototype_inventory_case_count") == 17
+        and scope.get("failure_case_count") == 7
+        and scope.get("control_case_count") == 10
+        and collider_closure.get("algorithm_id")
+        == "nextengine.quantized-support-clearance-closure.v6"
+        and len(cases) == 17
+        and len(records) == len(cases)
+        and all(
+            record.get("projection_diagnostics", {}).get("status") == "PASS"
+            and record.get("projection_diagnostics", {}).get(
+                "final_contact_reprojection_dropped_point_count"
+            )
+            == 0
+            for record in records
+        )
+    )
 
 
 def load_contact_prototype_cases(

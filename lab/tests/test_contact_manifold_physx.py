@@ -67,6 +67,29 @@ class ContactManifoldPhysxTests(unittest.TestCase):
             )
         )
 
+        v7_manifest = _v7_manifest()
+        self.assertTrue(
+            native_dynamics_trace_probe_shape_is_valid(
+                profile=_native_trace_profile(
+                    role="v7-passing-control", worker_case_ordinals=[10]
+                ),
+                prototype_manifest=v7_manifest,
+                cases=baseline_cases,
+            )
+        )
+        v7_manifest["cases"][10]["projection_diagnostics"][
+            "final_contact_reprojection_dropped_point_count"
+        ] = 1
+        self.assertFalse(
+            native_dynamics_trace_probe_shape_is_valid(
+                profile=_native_trace_profile(
+                    role="v7-passing-control", worker_case_ordinals=[10]
+                ),
+                prototype_manifest=v7_manifest,
+                cases=baseline_cases,
+            )
+        )
+
     def test_counterfactual_probe_requires_exact_two_case_bundle(self) -> None:
         cases = (
             replace(_case(0, "PASS", (), ()), source_case_ordinal=25),
@@ -449,6 +472,35 @@ def _v9_manifest() -> dict[str, Any]:
             {"exact_complete_clip_slice_status": "PASS"} for _ in range(17)
         ],
         "exact_slice_identity": {"status": "PASS", "disagreement_count": 0},
+    }
+
+
+def _v7_manifest() -> dict[str, Any]:
+    return {
+        "prototype_id": "nextengine.humanoid-contact-manifold-prototype.v7",
+        "scope": {
+            "case_scope": "all",
+            "case_count": 17,
+            "prototype_inventory_case_count": 17,
+            "failure_case_count": 7,
+            "control_case_count": 10,
+            "projection": {
+                "collider_closure": {
+                    "algorithm_id": (
+                        "nextengine.quantized-support-clearance-closure.v6"
+                    )
+                }
+            },
+        },
+        "cases": [
+            {
+                "projection_diagnostics": {
+                    "status": "PASS",
+                    "final_contact_reprojection_dropped_point_count": 0,
+                }
+            }
+            for _ in range(17)
+        ],
     }
 
 
