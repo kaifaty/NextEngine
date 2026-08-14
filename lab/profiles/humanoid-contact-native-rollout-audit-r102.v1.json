@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "audit_id": "nextengine.humanoid-contact-native-rollout-audit.v1",
+  "status": "FrozenResearchOnly",
+  "claim": "OptimizerFreeReportOnlyNativeRolloutAudit",
+  "source": {
+    "v7": {
+      "role": "v7",
+      "manifest_sha256": "19aa8ddfce365fadce4146067470e60e6bd48d0c83f80e9064c587fe7e3613db",
+      "manifest_file_sha256": "04553001223cdcb638a8cf8029b5f6a453610ca026fa995833418f97ed6b22dd",
+      "probe_profile_sha256": "4a1ac6899aa22542ee8bf57b4a3d7aeff1a3c4101ea7e1ed220dd2a76dfe8425",
+      "worker_report_sha256": "25f2315c6a16172563a548d3a019c10aec6ca74fa697917b368f4292b178f1d6",
+      "trace_sha256": "552ddd671bc5501500504d54876451e5e93fd4a6979ff1b6b50b5b1649c2b40d",
+      "worker_case_ordinal": 10,
+      "sample_count": 44,
+      "comparison_role": "v7-passing-control"
+    },
+    "v9": {
+      "role": "v9",
+      "manifest_sha256": "b8e367e873d0384f4a849d25a338751e0a9c56aa7c4143923c1446b63b016372",
+      "manifest_file_sha256": "fd6deb633a5b53c4a00b5de6943a5ce12ae59d4b0a232629586807107ef8d77b",
+      "probe_profile_sha256": "4183e55eb9f8e2601a4a0638ff0f8fe18ffa03a1059e0411a01b0ae55022bbd5",
+      "worker_report_sha256": "72499ce2707acb4ab2a39bab60e3f54bc534b4d170c41612cd5a6298ee1e6c59",
+      "trace_sha256": "b032098868b6bf732155cf8211b4070704363e1f85f070294cb510d116240bcd",
+      "worker_case_ordinal": 10,
+      "sample_count": 40,
+      "comparison_role": "v9-baseline"
+    },
+    "r100": {
+      "role": "r100",
+      "manifest_sha256": "024e2251e4518f83c1f5fba4d22142afa83d6a23d8dfdd04e41c40ba1d4210b3",
+      "manifest_file_sha256": "afee35e799be7522c434998583175d71f4629cdeeb06e0009fffde9d45629426",
+      "probe_profile_sha256": "00542b76d6dad5a4fd10249e43baa27450734b47a1577ab4afce47d85a28ae02",
+      "worker_report_sha256": "456a8cfe7fa0099cfbd05a86fba0b1e1844de9085e72948339ddafba9c57abd4",
+      "trace_sha256": "24489460446a9bee160508b7e16b4125e43cb5ab1f70dbb4440710e754b6eeae",
+      "worker_case_ordinal": 0,
+      "sample_count": 20,
+      "comparison_role": "v9-v7-boundary-velocity"
+    },
+    "r101": {
+      "role": "r101",
+      "manifest_sha256": "04b91df1ca6be06c10af9fbf11505457fed8e5a25e2c50abe3f8523bdd684cb6",
+      "manifest_file_sha256": "08ef6a379bfc2379ed43b1373f784025760d5b2bdce9bd54ab164376b1afc468",
+      "probe_profile_sha256": "1c0d94663c863564a4c1f144f14df2c358ff2bba701d93e4354c4b88b1b8c786",
+      "worker_report_sha256": "f76486b89cb5d7fbc5f2e656e0630384e7a9c0caa7142217de92cef6bc0182b3",
+      "trace_sha256": "364ed05872fb522e6afbab5c945924fda5eaa09fd14d796163255c9ecb83ac31",
+      "worker_case_ordinal": 0,
+      "sample_count": 40,
+      "comparison_role": "v9-v7-boundary-velocity-vector"
+    }
+  },
+  "scope": {
+    "input_roles": [
+      "v7",
+      "v9",
+      "r100",
+      "r101"
+    ],
+    "case_count": 1,
+    "clip_id": "cmu16-walk-nominal-b",
+    "start_frame": 238,
+    "source_case_ordinal": 7967
+  },
+  "measurement": {
+    "comparison_prefix_substeps": 20,
+    "remote_comparison_motor_tick": 5,
+    "left_roll_action_id": "actuator.left-ankle-roll",
+    "right_pitch_action_id": "actuator.right-ankle-pitch",
+    "remote_contact_pair_id": "ground:body.right-ankle-roll"
+  },
+  "expected": {
+    "source_metrics": {
+      "v7": {
+        "status": "PASS",
+        "terminal_motor_tick": null,
+        "terminal_reasons": [],
+        "sample_count": 44,
+        "maximum_left_roll_speed_microradians_per_second": 7290231,
+        "minimum_right_pitch_position_microradians": -602111,
+        "maximum_right_pitch_speed_microradians_per_second": 1629719,
+        "maximum_right_pitch_effort_debt_micronewton_metres": 24212772,
+        "remote_contact_hard_limit_micronewton_seconds": 6000000,
+        "remote_episode_maximum_impulse_micronewton_seconds": 5119055,
+        "remote_comparison_tick_maximum_impulse_micronewton_seconds": 2796346,
+        "first_remote_hard_impact": null
+      },
+      "v9": {
+        "status": "FAIL",
+        "terminal_motor_tick": 10,
+        "terminal_reasons": [
+          "hard_rom"
+        ],
+        "sample_count": 40,
+        "maximum_left_roll_speed_microradians_per_second": 7525471,
+        "minimum_right_pitch_position_microradians": -710034,
+        "maximum_right_pitch_speed_microradians_per_second": 3337332,
+        "maximum_right_pitch_effort_debt_micronewton_metres": 136680080,
+        "remote_contact_hard_limit_micronewton_seconds": 6000000,
+        "remote_episode_maximum_impulse_micronewton_seconds": 5938619,
+        "remote_comparison_tick_maximum_impulse_micronewton_seconds": 4521872,
+        "first_remote_hard_impact": null
+      },
+      "r100": {
+        "status": "FAIL",
+        "terminal_motor_tick": 5,
+        "terminal_reasons": [
+          "hard_impact"
+        ],
+        "sample_count": 20,
+        "maximum_left_roll_speed_microradians_per_second": 7199996,
+        "minimum_right_pitch_position_microradians": -520851,
+        "maximum_right_pitch_speed_microradians_per_second": 3388806,
+        "maximum_right_pitch_effort_debt_micronewton_metres": 43088179,
+        "remote_contact_hard_limit_micronewton_seconds": 6000000,
+        "remote_episode_maximum_impulse_micronewton_seconds": 6092658,
+        "remote_comparison_tick_maximum_impulse_micronewton_seconds": 6092658,
+        "first_remote_hard_impact": {
+          "motor_tick": 5,
+          "physics_substep": 1,
+          "episode_impulse_micronewton_seconds": 6092658
+        }
+      },
+      "r101": {
+        "status": "FAIL",
+        "terminal_motor_tick": 10,
+        "terminal_reasons": [
+          "hard_rom",
+          "hard_impact"
+        ],
+        "sample_count": 40,
+        "maximum_left_roll_speed_microradians_per_second": 7266544,
+        "minimum_right_pitch_position_microradians": -700948,
+        "maximum_right_pitch_speed_microradians_per_second": 3604658,
+        "maximum_right_pitch_effort_debt_micronewton_metres": 186668760,
+        "remote_contact_hard_limit_micronewton_seconds": 6000000,
+        "remote_episode_maximum_impulse_micronewton_seconds": 6006560,
+        "remote_comparison_tick_maximum_impulse_micronewton_seconds": 5707869,
+        "first_remote_hard_impact": {
+          "motor_tick": 10,
+          "physics_substep": 3,
+          "episode_impulse_micronewton_seconds": 6006560
+        }
+      }
+    },
+    "comparisons": {
+      "r100_left_roll_to_v7_first_prefix": {
+        "rounded_rms_microradians_per_second": 177826
+      },
+      "r100_left_roll_to_v9_first_prefix": {
+        "rounded_rms_microradians_per_second": 6542737
+      },
+      "r101_left_roll_to_v7_first_prefix": {
+        "rounded_rms_microradians_per_second": 267756
+      },
+      "r101_left_roll_to_v9_first_prefix": {
+        "rounded_rms_microradians_per_second": 6461306
+      },
+      "r101_all_actions_to_v7_first_prefix": {
+        "rounded_rms_microradians_per_second": 606637
+      },
+      "r101_all_actions_to_v9_first_prefix": {
+        "rounded_rms_microradians_per_second": 1623104
+      },
+      "r101_v9_applied_target_disagreement": {
+        "sample_count": 40,
+        "element_count": 0,
+        "maximum_absolute_delta": 0
+      },
+      "r101_v9_command_target_disagreement": {
+        "sample_count": 40,
+        "element_count": 0,
+        "maximum_absolute_delta": 0
+      },
+      "r101_v7_initial_requested_effort_disagreement": {
+        "sample_count": 1,
+        "element_count": 0,
+        "maximum_absolute_delta": 0
+      }
+    },
+    "findings": {
+      "r101_initial_requested_effort_matches_v7": true,
+      "r101_applied_targets_match_v9": true,
+      "r101_local_phase_is_closer_to_v7": true,
+      "r101_tick5_remote_impulse_improves_r100": true,
+      "r101_tick5_remote_impulse_regresses_v9": true,
+      "r101_required_safety_closed": false,
+      "boundary_state_is_sufficient": false,
+      "manual_boundary_substitution_disposition": "EXHAUSTED"
+    }
+  },
+  "future_candidate_contract": {
+    "status": "FORMULATION_ONLY",
+    "candidate_search": "NOT_AUTHORIZED",
+    "plant": "unchanged fixed zero-residual PD, effort clamp/slew and fresh-scene PhysX",
+    "required_safety_priority": "LEXICOGRAPHIC_REJECT_BEFORE_TRACKING",
+    "fresh_scene_required": true,
+    "physical_substep_trace_required": true,
+    "frame_0_state_mutable": false,
+    "controller_semantics_mutable": false,
+    "safety_limits_mutable": false,
+    "reset_semantics_mutable": false,
+    "allowed_next_design_if_audit_passes": "low-dimensional future joint-target time knots with incremental native-rollout horizon",
+    "fallback_if_rollout_construction_fails": "explicit whole-body kinodynamic state/torque/contact-force formulation; controller change requires a separate architecture decision"
+  },
+  "decision": {
+    "complete": "STOP_AND_RESEARCH",
+    "candidate_search": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
