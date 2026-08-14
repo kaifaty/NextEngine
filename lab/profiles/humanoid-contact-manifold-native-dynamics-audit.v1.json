@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "audit_id": "nextengine.humanoid-contact-manifold-native-dynamics-audit.v1",
+  "claim": "OptimizerFreeReportOnlyResearch",
+  "input_identities": {
+    "source_audit_file_sha256": "ded76473905f7f26e4db0dfaa236508f649d46a692ff28938203f92dcf1c9b61",
+    "descriptor_file_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+    "v7_manifest_sha256": "1e56a2d3d14c8d3a8291639da49d4fda46263aa37c1d6682205343d4043202bb",
+    "v7_manifest_file_sha256": "70642cfa4c33e8d089fc5252b49fd040ae0ea6545a18649a5043128bfde8e187",
+    "v9_manifest_sha256": "7ee041b7710302b9fae909b0cb34c0de3a6c2df257032cd0e1c7dcaf16afefeb",
+    "v9_manifest_file_sha256": "53984129cc45d295ced9ef4f49ea8532d0b224c3ccc19980e8b986cee7604d70",
+    "r94_report_sha256": "0d429faff356e3240a7f2906115566b565fc0800043dd7ffa04544b2edb38925",
+    "r94_report_file_sha256": "4aab74888d50fae2ab644445597d3f7f7a64217f078ceca4b4f8045ed34f0929"
+  },
+  "scope": {
+    "case_count": 17,
+    "horizon_reference_frames": 12,
+    "motor_hz": 60,
+    "v7_role": "fresh-scene-passing bounded window-local control",
+    "v9_role": "offline-passing complete-clip exact slice rejected by fresh R94",
+    "physx_execution": false,
+    "trajectory_mutation": false,
+    "clean_repository_required": true,
+    "optimizer_steps": 0,
+    "training_runs": 0
+  },
+  "measurements": {
+    "direct": [
+      "root and joint position/velocity deltas",
+      "joint and root speed/acceleration/jerk",
+      "reference target step and slew activation",
+      "left/right foot collider clearance",
+      "contact mode transitions"
+    ],
+    "proxies": [
+      "fixed-PD initial damping load",
+      "fixed-PD one-reference-frame-lag requested effort"
+    ],
+    "proxy_authority": "diagnostic ranking only; not a PhysX torque trace or feasibility proof"
+  },
+  "discriminator": {
+    "derivative_amplification_basis_points": 20000,
+    "early_impact_maximum_tick": 2,
+    "active_support_gap_micrometres": 500,
+    "flight_near_ground_micrometres": 500,
+    "maximum_selected_fresh_cases": 2,
+    "selection_policy": "prefer one early-impact control regression without derivative amplification and one non-impact control regression with maximum derivative amplification"
+  },
+  "decision": {
+    "complete": "PERMIT_AT_MOST_TWO_FRESH_COUNTERFACTUALS_ONLY",
+    "invalid": "STOP_AND_REPAIR_AUDIT",
+    "full_all17": "FORBIDDEN_UNTIL_SELECTED_COUNTERFACTUALS_PASS",
+    "full_v19": "FORBIDDEN",
+    "training": "FORBIDDEN"
+  }
+}
