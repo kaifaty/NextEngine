@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-canonical-material-point-force-repair.v1",
+  "status": "FrozenResearchOnly",
+  "claim": "CanonicalMaterialAndPointForceRepairFormulationOnly",
+  "source": {
+    "r109": {
+      "report_sha256": "2867aecd144d7996d3bf5bd0b6498dc1a5d480f7b8060106a97c5c6fc07da784",
+      "report_file_sha256": "97f149b12f5f4a6694da04298df774f33fd4854e93b54f3096d8882f2c1efc85",
+      "profile_sha256": "961926664ca8ff08a4c384180092dcbb7cb6591880bb8501148fef04d1e65ed0"
+    },
+    "descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+    "architecture": {
+      "spec_26_sha256": "3c6b527b33368826dad04f3ad588777f33b4fffcc69c01d8f4c07952f37e3054"
+    },
+    "repository_sources": {
+      "physics_descriptors_sha256": "ca5282ba319f7f71b23c712803fe09fb18dc24c47799124d099ad797a0a1a83c",
+      "physics_catalog_sha256": "9268fee654b7bee079be3c1f0160e808723503bbb29e7c629cb8224e688cc8e0",
+      "compiler_v2_sha256": "724edc7009c5ab81c8c85c06f3d1630257b232af363ba7d30fbed49ac39d0ebb",
+      "mirror_v2_sha256": "0a932e230c4625d8e827b6e2ce37da5e32f06d61ea8679f5caefb99155e6baec",
+      "physics_physx_sha256": "e6de89462a1784d8cf9c5a3a4b70dc36cd10a5dc3a3a057ab6da5cf31a72dd64",
+      "physx_ffi_lib_sha256": "864635c5801a48dd173b32344182d10535fbb85e8729703459980de9036771e0",
+      "physx_bridge_sha256": "db97e6828e102c89db5e0008596f8ca57eb6be4c5ca58bdddf844530ce700d66",
+      "usd_translation_sha256": "5bb4a7763b182e58f71e4af607751980740430d551f69b6897fbad9f21c29708",
+      "isaac_reference_env_sha256": "1e6c4d0c8b7a85e2a452b0f8146b483c03784ac06c3f5df020bde828baab6b2d",
+      "contact_manifold_sha256": "89d0a51542d78cebfc49504f8473224a526d56d5c0ad2cf53afef986d92142b3"
+    },
+    "physx_sdk": {
+      "physx_version": "5.9.0",
+      "source_revision": "517a0073715120e114ee055b63b26c95e00d9039",
+      "bridge_abi": 3,
+      "profile_hash": "9c792f938b8a24f715cc05c62991c4ad741b785f52ab7aeb2069ca4a32149ed0",
+      "manifest_file_sha256": "e3f774e1fa6aface0060f56a534d26056b2fd7d064d16a75e80d133b00ceed42",
+      "px_material_header_sha256": "803a88f43e1979163cc0809537d346fa679ca5ab3b583efdbcd3a7576b2fa9de"
+    },
+    "v9_contact_lineage": {
+      "prototype_profile_sha256": "bccf5eb12c8de2e1c0fa20df74c55f30cc9e964e7d5cbfcbf596bb6d672815ab",
+      "prototype_manifest_file_sha256": "53984129cc45d295ced9ef4f49ea8532d0b224c3ccc19980e8b986cee7604d70",
+      "prototype_manifest_sha256": "7ee041b7710302b9fae909b0cb34c0de3a6c2df257032cd0e1c7dcaf16afefeb",
+      "complete_clip_artifact_sha256": "16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d"
+    }
+  },
+  "scope": {
+    "run_id": "R110",
+    "initial_clip_id": "cmu16-walk-nominal-b",
+    "initial_source_case_ordinal": 7967,
+    "body_count": 24,
+    "joint_count": 23,
+    "actuator_count": 23,
+    "motor_hz": 60,
+    "physics_hz": 240,
+    "research_reports": 1,
+    "runtime_changes": false,
+    "solver_runs": 0,
+    "candidate_construction": false,
+    "physx_execution": false
+  },
+  "research_basis": [
+    {
+      "source": "Next Engine SPEC-26",
+      "url": "docs/architecture/26-physics-world-collision-constraints-queries-and-canonical-snapshots.md",
+      "bounded_claim": "material coefficients and one exact combine profile are engine-owned fixed-point inputs; a backend may not substitute defaults"
+    },
+    {
+      "source": "Pinned PhysX 5.9.0 PxMaterial.h",
+      "url": "local pinned SDK header identified above",
+      "bounded_claim": "PhysX supports average, minimum, multiply and maximum combine modes; the default is average and the higher mode wins"
+    },
+    {
+      "source": "NVIDIA ovphysx rigid-body materials",
+      "url": "https://nvidia-omniverse.github.io/PhysX/ovphysx/latest/simulation_setup/rigid_bodies.html",
+      "bounded_claim": "USD physics materials carry friction/restitution, bind with physics purpose and expose explicit combine modes"
+    },
+    {
+      "source": "MIT Underactuated multibody dynamics",
+      "url": "https://underactuated.mit.edu/multibody.html",
+      "bounded_claim": "a three-component point-contact force in normal/tangent coordinates contributes generalized force through the transpose contact Jacobian without requiring an independent contact moment"
+    }
+  ],
+  "frozen_invariants": {
+    "controller": "fixed zero-residual PD with zero desired velocity and descriptor gains/caps",
+    "controller_or_gain_changes": "FORBIDDEN",
+    "fresh_scene_authority": "ADR-070",
+    "partial_reset": "REPORT_ONLY",
+    "contact_schedule_changes": "FORBIDDEN",
+    "contact_point_deletion": "FORBIDDEN",
+    "limit_changes": "FORBIDDEN",
+    "grace_or_settling": "FORBIDDEN",
+    "cadence_changes": "FORBIDDEN",
+    "velocity_zeroing": "FORBIDDEN",
+    "learned_optimization": "FORBIDDEN_UNTIL_TRAIN_4_ADVANCE",
+    "visual_review": "REPORT_ONLY_PENDING"
+  },
+  "canonical_material_repair": {
+    "contract": "PhysicsMaterialDescriptorV1 plus one explicit arithmetic-mean-ties-to-even combine profile",
+    "coefficient_encoding": "unsigned Q16 exact integers",
+    "material_descriptors": [
+      {
+        "material_id": "physics-material.humanoid-body.v1",
+        "descriptor_revision": 1,
+        "static_friction_q16": 52429,
+        "dynamic_friction_q16": 45875,
+        "restitution_q16": 0,
+        "canonical_material_tags": []
+      },
+      {
+        "material_id": "physics-material.humanoid-ground.v1",
+        "descriptor_revision": 1,
+        "static_friction_q16": 52429,
+        "dynamic_friction_q16": 45875,
+        "restitution_q16": 0,
+        "canonical_material_tags": []
+      },
+      {
+        "material_id": "physics-material.humanoid-sole.v1",
+        "descriptor_revision": 1,
+        "static_friction_q16": 52429,
+        "dynamic_friction_q16": 45875,
+        "restitution_q16": 0,
+        "canonical_material_tags": []
+      }
+    ],
+    "combine_profile": {
+      "profile_id": "nextengine.physics-material-combine.humanoid-motor.v1",
+      "static_friction": "ArithmeticMeanTiesToEven",
+      "dynamic_friction": "ArithmeticMeanTiesToEven",
+      "restitution": "ArithmeticMeanTiesToEven"
+    },
+    "source_float_mapping": {
+      "rounding": "nearest integer, ties to even after multiplication by 65536",
+      "static_friction": {
+        "source_decimal": 0.8,
+        "source_f32_bits": 1061997773,
+        "q16": 52429
+      },
+      "dynamic_friction": {
+        "source_decimal": 0.7,
+        "source_f32_bits": 1060320051,
+        "q16": 45875
+      },
+      "restitution": {
+        "source_decimal": 0.0,
+        "source_f32_bits": 0,
+        "q16": 0
+      }
+    },
+    "assignments": {
+      "non_sole_collider_material_id": "physics-material.humanoid-body.v1",
+      "sole_collider_material_id": "physics-material.humanoid-sole.v1",
+      "canonical_ground_material_id": "physics-material.humanoid-ground.v1"
+    },
+    "backend_correspondence": {
+      "native": "derive one cached PxMaterial from the exact Q16 values only after proving all currently referenced descriptors are coefficient-identical; remove hard-coded literals",
+      "derived_usd": "author one UsdPhysics material prim per semantic material ID, explicit coefficients/combine modes and physics-purpose bindings on every collider and ground",
+      "isaac": "spawn ground and articulation from the derived USD lineage with no RigidBodyMaterialCfg or GroundPlaneCfg coefficient default",
+      "future_unequal_materials": "fail closed until a successor bridge ABI carries per-shape material selection; silent collapse is forbidden"
+    },
+    "lineage_policy": {
+      "body_schema_hash": "MAY_REMAIN_UNCHANGED",
+      "compiled_descriptor_hash": "MUST_CHANGE",
+      "derived_usd_hash": "MUST_CHANGE",
+      "translation_manifest_hash": "MUST_CHANGE",
+      "old_runtime_equivalence_claim": "FORBIDDEN",
+      "reason": "Q16 52429/45875 differs slightly from the prior C++ f32 literals and therefore requires new exact model lineage plus a later bounded correspondence regression"
+    }
+  },
+  "point_contact_force_coordinates": {
+    "owner": "hash-bound private TRAIN-4 stage-2/stage-3 formulation; not a public runtime wrench contract",
+    "surface": "flat canonical engine ground",
+    "engine_world_axes": "+X right, +Y up, +Z forward",
+    "contact_frame": {
+      "normal": "+Y engine world",
+      "right_tangent": "+X engine world",
+      "forward_tangent": "+Z engine world"
+    },
+    "force_component_order": [
+      "normal_newtons",
+      "right_newtons",
+      "forward_newtons"
+    ],
+    "world_force_mapping": "[right_newtons, normal_newtons, forward_newtons] in engine XYZ",
+    "ordered_points": [
+      {
+        "point_ordinal": 0,
+        "effector_id": "effector.left-heel",
+        "body_id": "body.left-ankle-roll",
+        "side_index": 0,
+        "point_index": 0,
+        "active_mode_bits": [1, 3]
+      },
+      {
+        "point_ordinal": 1,
+        "effector_id": "effector.left-forefoot",
+        "body_id": "body.left-ankle-roll",
+        "side_index": 0,
+        "point_index": 1,
+        "active_mode_bits": [2, 3]
+      },
+      {
+        "point_ordinal": 2,
+        "effector_id": "effector.right-heel",
+        "body_id": "body.right-ankle-roll",
+        "side_index": 1,
+        "point_index": 0,
+        "active_mode_bits": [1, 3]
+      },
+      {
+        "point_ordinal": 3,
+        "effector_id": "effector.right-forefoot",
+        "body_id": "body.right-ankle-roll",
+        "side_index": 1,
+        "point_index": 1,
+        "active_mode_bits": [2, 3]
+      }
+    ],
+    "mode_encoding": {
+      "0": "FLIGHT",
+      "1": "HEEL_STICKING",
+      "2": "FOREFOOT_STICKING",
+      "3": "FLAT_STICKING"
+    },
+    "cadence": "V9 60 Hz point modes are immutable and held for four 240 Hz force intervals; force values are 240 Hz decision variables",
+    "application": "evaluate the translational contact Jacobian at the named forward-kinematic effector point on its named foot body; J_contact rows are normal, right, forward and generalized force is J_contact(q)^T lambda",
+    "constraints": [
+      "normal_newtons >= 0",
+      "sqrt(right_newtons^2 + forward_newtons^2) <= (52429 / 65536) * normal_newtons for every active sticking point",
+      "all three components are exactly zero for every inactive point",
+      "no independent torque, yaw moment, center-of-pressure or six-dimensional wrench variable",
+      "no contact mode change, point deletion or application-point relocation"
+    ]
+  },
+  "implementation_sequence": [
+    {
+      "run_id": "R111",
+      "scope": "contracts/compiler/mirror lineage plus native shared-material input and fail-closed equality validation",
+      "execution": "implementation and static/golden tests only; no PhysX scene execution"
+    },
+    {
+      "run_id": "R112",
+      "scope": "derived-USD material prims/bindings, explicit Isaac ground lineage and regenerated descriptor/USD identities",
+      "execution": "implementation and static/golden tests only; no candidate or training"
+    },
+    {
+      "run_id": "R113",
+      "scope": "clean dynamics-model identity preflight against the regenerated lineage",
+      "execution": "separately formulated report-only gate before any KTO formulation"
+    }
+  ],
+  "rollback_and_non_regression": {
+    "rollback": "if any material ID is unresolved, unequal descriptors are silently collapsed, USD binding is absent or an old compiled/USD identity survives, revert the entire new lineage and retain R109 STOP_INVALID_MODEL_LINEAGE",
+    "required_static_controls": [
+      "body/sole collider material assignment counts remain 17/2",
+      "all three material descriptors and the combine profile affect the compiled descriptor hash",
+      "hard-coded native 0.8/0.7/0 literals and Isaac 0.5/0.5 defaults are not reachable for this lineage",
+      "controller, limits, safety, contact schedule, reset and cadence hashes remain unchanged"
+    ]
+  },
+  "decision": {
+    "complete": "PERMIT_R111_CANONICAL_MATERIAL_LINEAGE_IMPLEMENTATION_ONLY",
+    "next_smallest_action": "implement the hash-owned equal-material lineage and fail-closed native boundary without running PhysX or constructing a candidate"
+  },
+  "bounded_acceptance": {
+    "r111_canonical_material_lineage_implementation": "AUTHORIZED",
+    "r112_usd_isaac_material_lineage_implementation": "NOT_AUTHORIZED",
+    "r113_model_identity_preflight": "NOT_AUTHORIZED",
+    "quantization_aware_kto_formulation": "NOT_AUTHORIZED",
+    "quantization_aware_kto_solve": "NOT_AUTHORIZED",
+    "inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_target_construction": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
