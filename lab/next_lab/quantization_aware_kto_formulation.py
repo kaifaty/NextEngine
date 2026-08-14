@@ -191,6 +191,8 @@ def build_quantization_aware_kto_formulation(
         "claim": profile["claim"],
         "gate_decision": profile["decision"]["complete"],
         "formulation_id": FORMULATION_ID,
+        "formulation_revision": profile["formulation_revision"],
+        "superseded_evidence": profile["source"]["superseded_r114_v1"],
         "scope": profile["scope"],
         "frozen_invariants": profile["frozen_invariants"],
         "source_gates": {
@@ -897,6 +899,7 @@ def _validate_profile(profile: Mapping[str, Any]) -> None:
     if (
         profile.get("schema_version") != 1
         or profile.get("formulation_id") != FORMULATION_ID
+        or profile.get("formulation_revision") != 2
         or profile.get("status") != "FrozenReportOnly"
         or profile.get("claim") != "QuantizationAwareKtoExecutionFormulationOnly"
         or scope.get("run_id") != "R114"
@@ -986,6 +989,10 @@ def _validate_profile(profile: Mapping[str, Any]) -> None:
             "persisted_candidate_artifact"
         )
         != "FORBIDDEN"
+        or profile.get("quantization_and_emission", {}).get("root_yaw_branch_policy")
+        != "nearest continuous V9 branch; required to preserve frozen unwrapped root-yaw velocity semantics and never a post-emission repair"
+        or profile.get("source", {}).get("superseded_r114_v1", {}).get("disposition")
+        != "SUPERSEDED_BEFORE_KTO_EXECUTION_ROOT_YAW_BRANCH_WAS_UNDERDEFINED"
         or "external transient R115 cache"
         not in profile.get("quantization_and_emission", {}).get(
             "solver_private_warm_start_cache", ""

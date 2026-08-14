@@ -32,6 +32,7 @@ class QuantizationAwareKtoFormulationTests(unittest.TestCase):
 
     def test_profile_authorizes_only_one_r115_in_memory_solve(self) -> None:
         _validate_profile(self.profile)
+        self.assertEqual(self.profile["formulation_revision"], 2)
         self.assertEqual(self.profile["scope"]["kto_solves"], 0)
         self.assertFalse(self.profile["scope"]["candidate_construction"])
         self.assertEqual(
@@ -48,6 +49,10 @@ class QuantizationAwareKtoFormulationTests(unittest.TestCase):
         )
         self.assertIn(
             "never a complete trajectory", self.profile["source_roles"]["v7_prior"]
+        )
+        self.assertEqual(
+            self.profile["quantization_and_emission"]["root_yaw_branch_policy"],
+            "nearest continuous V9 branch; required to preserve frozen unwrapped root-yaw velocity semantics and never a post-emission repair",
         )
 
     def test_inventory_contains_complete_floating_base_and_all_joints(self) -> None:

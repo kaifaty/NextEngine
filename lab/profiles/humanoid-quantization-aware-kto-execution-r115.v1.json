@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "execution_id": "nextengine.humanoid-quantization-aware-kto-execution.v1",
+  "status": "FrozenSingleExecution",
+  "claim": "SingleBoundedQuantizationAwareKtoExecutionOnly",
+  "source": {
+    "r114": {
+      "report_sha256": "53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828",
+      "report_file_sha256": "2f5c6c8b8c43864087feb51aa82207447bf2940283f2689f7ee1b278793c84ea",
+      "profile_sha256": "ec0a98376c7010970bae729ddbb4a39ded6323dcf11a711156d4a62992ba8e92",
+      "formulation_module_sha256": "7e7bc82b8002047415f6428bd20cc065878e9ba1e2f670b33624b235078ef86d",
+      "tool_sha256": "a9e00a10d63bf112fec37a8b48a308dc3a17fc320f17a7dd44be46a6f159654a"
+    }
+  },
+  "scope": {
+    "run_id": "R115",
+    "clip_id": "cmu16-walk-nominal-b",
+    "frame_count": 801,
+    "decision_scalar_count": 69687,
+    "kto_process_count": 1,
+    "kto_solve_count": 1,
+    "physx_scene_runs": 0,
+    "all_17": false,
+    "training": false
+  },
+  "execution_contract": {
+    "authority": "the exact hash-bound R114 profile and report; this profile may not override any R114 variable, constraint, quantization, objective, resource, failure or transition rule",
+    "environment": {
+      "PYTHONHASHSEED": "0",
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "NUMEXPR_NUM_THREADS": "1"
+    },
+    "pre_solver_failure": "STOP_INVALID_EVIDENCE with kto_solves=0",
+    "post_solver_nonpass": "STOP_AND_RESEARCH with kto_solves=1; rerun forbidden",
+    "root_yaw_branch_resolution": "use the R114 revision-2 nearest continuous V9 branch; no independent unwrap, repair or branch choice",
+    "exact_pass_output": "metrics report plus one external transient solver-private q/v/a warm-start cache; no emitted candidate arrays",
+    "exact_fail_output": "metrics report only; no warm-start cache",
+    "candidate_artifact": "FORBIDDEN",
+    "native_scene": "FORBIDDEN",
+    "learned_optimization": "FORBIDDEN"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/quantization_aware_kto_solver.py",
+        "lab/next_lab/quantization_aware_kto_execution.py",
+        "lab/scripts/run_quantization_aware_kto.py",
+        "lab/tests/test_quantization_aware_kto_execution.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/quantization_aware_kto_solver.py",
+        "lab/next_lab/quantization_aware_kto_execution.py",
+        "lab/scripts/run_quantization_aware_kto.py",
+        "lab/tests/test_quantization_aware_kto_execution.py"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "result_transitions": {
+    "exact_pass": "PERMIT_SEPARATE_FIXED_PD_INVERSE_DYNAMICS_EXECUTION_FORMULATION_ONLY",
+    "exact_fail": "STOP_AND_RESEARCH",
+    "invalid": "STOP_INVALID_EVIDENCE"
+  },
+  "bounded_acceptance": {
+    "r116_inverse_dynamics_execution_formulation": "AUTHORIZED_ONLY_ON_R115_EXACT_PASS",
+    "additional_kto_solve": "NOT_AUTHORIZED",
+    "inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}

@@ -1,9 +1,16 @@
 {
   "schema_version": 1,
   "formulation_id": "nextengine.humanoid-quantization-aware-kto-execution-formulation.v1",
+  "formulation_revision": 2,
   "status": "FrozenReportOnly",
   "claim": "QuantizationAwareKtoExecutionFormulationOnly",
   "source": {
+    "superseded_r114_v1": {
+      "report_sha256": "53f77c4887586b4e64e4b11ac7271ac18fcc9a8f17a5e8ed60ec95c30aa44828",
+      "report_file_sha256": "2f5c6c8b8c43864087feb51aa82207447bf2940283f2689f7ee1b278793c84ea",
+      "profile_sha256": "ec0a98376c7010970bae729ddbb4a39ded6323dcf11a711156d4a62992ba8e92",
+      "disposition": "SUPERSEDED_BEFORE_KTO_EXECUTION_ROOT_YAW_BRANCH_WAS_UNDERDEFINED"
+    },
     "r113": {
       "report_sha256": "3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf",
       "report_file_sha256": "de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c",
@@ -175,7 +182,8 @@
     "rounding": "IEEE-754 nearest integer, ties-to-even only",
     "root_position": "metres multiplied by 1000000 to signed int64 micrometres",
     "root_orientation": "map the SO(3) matrix through the frozen canonical xyzw matrix_to_quaternion function, multiply by 2^30 and ties-to-even round",
-    "root_yaw": "decompose the emitted root quaternion with frozen XZY semantics, multiply radians by 1000000 and ties-to-even round",
+    "root_yaw": "decompose emitted and source-V9 quaternions with frozen XZY semantics, wrap their difference to [-pi,pi], add that delta to the continuous source-V9 root_yaw branch, multiply radians by 1000000 and ties-to-even round",
+    "root_yaw_branch_policy": "nearest continuous V9 branch; required to preserve frozen unwrapped root-yaw velocity semantics and never a post-emission repair",
     "joint_position": "radians multiplied by 1000000 to signed int64 microradians",
     "dependent_arrays": "recompute root/joint velocity, root yaw velocity, FK effectors, center of mass and every collider sample from emitted pose; copy only V9 contacts, modes, phase and reference-frame identity",
     "post_emission_mutation": "FORBIDDEN",
