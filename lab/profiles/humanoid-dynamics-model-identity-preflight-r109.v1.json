@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "preflight_id": "nextengine.humanoid-dynamics-model-identity-preflight.v1",
+  "status": "FrozenResearchOnly",
+  "claim": "OptimizerFreeDynamicsModelIdentityPreflightOnly",
+  "source": {
+    "r108": {
+      "report_sha256": "4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8",
+      "report_file_sha256": "6a288d0cd2bdfc5f580c1dabb96ecf63ed71f79f09ae00bc40ebe15ca18fd4fb",
+      "profile_sha256": "1f5a006eb0a2d0f1bb575b67928e6bb9a86b42c00659393994189ebf8ce62b0f"
+    },
+    "descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+    "translation_manifest_sha256": "46aea4041f0e54ddfff42856af95d88511b9fcca7833d0974d69b72a70c4454d",
+    "usd_sha256": "951fc04bed0ff3e15414bfd06d067636ee8db18ef70e6e4a0ced28c624fcefa4",
+    "architecture": {
+      "spec_26_sha256": "3c6b527b33368826dad04f3ad588777f33b4fffcc69c01d8f4c07952f37e3054",
+      "spec_35_sha256": "8224e7520427d2ad0e8fe838a833bd375e5a44f719ecb73b0eb22f05f6535146",
+      "adr_069_sha256": "b911093f9306e2230d2e7e769bfd2e254481a20367e139bd01d64d35cf670f03",
+      "adr_070_sha256": "673b15d5e3bd149f6f395cf0c1720a6e93f870a5521cfc1540ae8d2167318c90"
+    },
+    "repository_sources": {
+      "biomechanics_sha256": "ad2f903bccebb4ee5bca0bbd84387ad14241a23b8b4e5c15ed3059468a893d11",
+      "compiler_v2_sha256": "724edc7009c5ab81c8c85c06f3d1630257b232af363ba7d30fbed49ac39d0ebb",
+      "physics_descriptors_sha256": "ca5282ba319f7f71b23c712803fe09fb18dc24c47799124d099ad797a0a1a83c",
+      "physics_physx_sha256": "e6de89462a1784d8cf9c5a3a4b70dc36cd10a5dc3a3a057ab6da5cf31a72dd64",
+      "physx_ffi_build_sha256": "caea21725cb08db1a5595473adf2eae45cc3ba5331336109e5de36dcaae5dcbb",
+      "physx_ffi_lib_sha256": "864635c5801a48dd173b32344182d10535fbb85e8729703459980de9036771e0",
+      "physx_bridge_sha256": "db97e6828e102c89db5e0008596f8ca57eb6be4c5ca58bdddf844530ce700d66",
+      "safety_control_sha256": "731ed7a3e9ad2dfdfd5d71e0637a29a9faa675d455606b5429efa619ef2a7377",
+      "mirror_v2_sha256": "0a932e230c4625d8e827b6e2ce37da5e32f06d61ea8679f5caefb99155e6baec",
+      "usd_translation_sha256": "5bb4a7763b182e58f71e4af607751980740430d551f69b6897fbad9f21c29708",
+      "isaac_reference_env_sha256": "1e6c4d0c8b7a85e2a452b0f8146b483c03784ac06c3f5df020bde828baab6b2d",
+      "isaac_reference_env_tests_sha256": "6097b02a9e937a66d41261d831d0ff83e8240d0afdddf74db69de80ea77d8611"
+    },
+    "isaac_lab": {
+      "git_commit": "37ddf626871758333d6ed89cf64ad702aef127d0",
+      "git_tag": "v2.3.2",
+      "simulation_cfg_sha256": "d8035df355c576ad7c876789bba54be4ebb361f5c16786a4ec8578143eebc118",
+      "physics_materials_cfg_sha256": "0be87dcc50cac3e83d14845064b0dd1f5d7dbeffc09570dd00b0353c5909775f",
+      "from_files_cfg_sha256": "e144782c898bd4ac3ddecf27a8ad9e90777204ad713cd2b2bcdbf0dd3b8a121a"
+    }
+  },
+  "scope": {
+    "run_id": "R109",
+    "initial_clip_id": "cmu16-walk-nominal-b",
+    "initial_source_case_ordinal": 7967,
+    "body_count": 24,
+    "joint_count": 23,
+    "actuator_count": 23,
+    "collider_count": 19,
+    "motor_hz": 60,
+    "physics_hz": 240,
+    "solver_runs": 0,
+    "candidate_construction": false,
+    "physx_execution": false
+  },
+  "required_identity_groups": [
+    "body mass, center of mass, full/principal inertia and principal frame",
+    "joint hierarchy, parent/child frame, semantic axis/sign and hard/soft limits",
+    "fixed zero-residual PD target, rounding, effort, slew, power and work semantics",
+    "collider geometry, filters, exclusions, material and friction",
+    "gravity, 60/240 Hz cadence and four-substep target hold",
+    "root generalized-coordinate convention",
+    "scheduled contact-wrench frame and component order",
+    "canonical CPU versus Isaac mirror numerical-scene ownership"
+  ],
+  "expected_shared_identity": {
+    "body_schema_hash": "e2460e7dc4af93538ae4b0b68a9e1bf74b2b7990161e08e441d58687e953c43d",
+    "compiled_descriptor_hash": "b6f8b1260b24ad401453942c9a4303d99ce378a8f71c6490db79bb78d85a1782",
+    "total_mass_microkilograms": 75337000,
+    "non_colliding_carrier_count": 10,
+    "collision_exclusion_count": 30,
+    "material_id_counts": {
+      "physics-material.humanoid-body.v1": 17,
+      "physics-material.humanoid-sole.v1": 2
+    },
+    "coordinate_mapping": {
+      "engine_axes": "+X right, +Y up, +Z forward",
+      "isaac_from_engine_vector": [
+        "x",
+        "-z",
+        "y"
+      ],
+      "isaac_quaternion_order": "wxyz",
+      "engine_quaternion_order": "xyzw"
+    },
+    "engine_gravity_metres_per_second_squared": [
+      0.0,
+      -9.81,
+      0.0
+    ],
+    "isaac_gravity_metres_per_second_squared": [
+      0.0,
+      0.0,
+      -9.81
+    ],
+    "root_generalized_coordinate_order": "engine-world position xyz, orientation xyzw; engine-world linear xyz, angular xyz",
+    "joint_generalized_coordinate_order": "ascending descriptor dof_ordinal 0..22 with sign encoded by the semantic axis and translated joint frame"
+  },
+  "expected_native_backend": {
+    "backend": "canonical CPU PhysX 5.9.0",
+    "physics_hz": 240,
+    "solver": "TGS",
+    "position_iterations": 16,
+    "velocity_iterations": 4,
+    "broadphase": "PABP",
+    "friction_model": "patch",
+    "static_friction": 0.8,
+    "dynamic_friction": 0.7,
+    "restitution": 0.0,
+    "pcm": false,
+    "contact_cache": false,
+    "enhanced_determinism": true,
+    "sleeping": false,
+    "ground": "box centered at engine (0,-0.5,0) with half extents (50,0.5,50)"
+  },
+  "expected_isaac_backend": {
+    "backend": "Isaac Lab v2.3.2 GPU correspondence mirror",
+    "physics_hz": 240,
+    "solver": "TGS",
+    "position_iterations": 8,
+    "velocity_iterations": 4,
+    "static_friction": 0.5,
+    "dynamic_friction": 0.5,
+    "restitution": 0.0,
+    "friction_combine_mode": "average",
+    "enhanced_determinism": false,
+    "implicit_drive_stiffness": 0.0,
+    "implicit_drive_damping": 0.0,
+    "effort_source": "explicit descriptor fixed-PD safety mirror",
+    "ground": "Isaac GroundPlaneCfg default 100 m x 100 m plane"
+  },
+  "expected_blocking_reasons": [
+    "CANONICAL_MATERIAL_DESCRIPTORS_ABSENT",
+    "BACKEND_MATERIAL_DEFAULTS_DIVERGE",
+    "CONTACT_WRENCH_CONVENTION_UNOWNED"
+  ],
+  "decision": {
+    "pass": "PERMIT_SEPARATE_BOUNDED_KTO_EXECUTION_FORMULATION_ONLY",
+    "fail": "STOP_INVALID_MODEL_LINEAGE",
+    "expected": "STOP_INVALID_MODEL_LINEAGE",
+    "next_smallest_action": "research and formulate canonical material ownership plus contact-wrench coordinates before changing runtime or authorizing KTO"
+  },
+  "bounded_acceptance": {
+    "material_lineage_research": "REQUIRED",
+    "quantization_aware_kto_formulation": "NOT_AUTHORIZED",
+    "quantization_aware_kto_solve": "NOT_AUTHORIZED",
+    "inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_target_construction": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
