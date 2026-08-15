@@ -1,0 +1,390 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-contact-state-consistency-formulation.v1",
+  "status": "FrozenReportOnly",
+  "claim": "Stage2MassMetricTangentVelocityProjectionFormulationOnly",
+  "source": {
+    "r127_rc1": {
+      "report_sha256": "a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62",
+      "report_file_sha256": "a32f84719b72bf826255287209c596c4faba99646e16112f970acc3c4a5b63ba",
+      "profile_sha256": "1e0137b3c1ba37cedd62da9f20e71616b8cc3a52d2f3e36df49ed3613549ec70",
+      "module_sha256": "2af0ed998e2f3021f178901f642387192cdd8e4583573cd66817e0e1c48ce901",
+      "tool_sha256": "d8d878800541dc2581bb8f1ce400ac18f51e49a341d56ba742fb031b3cc198c1",
+      "repository_commit": "9d5cdbf70019f8c75be6b6a9484465c8e4103716"
+    },
+    "r127": {
+      "report_sha256": "255f2dd900f7ca67381fd6853aa42e47a991680f723b17539e9505651d6e7a4e",
+      "report_file_sha256": "0bdf21b2e995a3ea16f7670666a10b73379d6f6eda9dede04dea5c5e788e1a2b",
+      "profile_sha256": "0e3537dd36e1a148788d6e4634e4409a01d10136033bf957f7a5d684699976c2",
+      "module_sha256": "cb3f8ac06e7dd7b7826d5785c6ecd5ceeb5c655baf4bfa66675fe8d9088017b1",
+      "tool_sha256": "aa7b2483defb04fd65c466b5cd3c9779bb3b0fe054ff11a82181231da2e2aaa0",
+      "repository_commit": "44b536b655eddfefe00ef7d866c84e7baebfa6a4"
+    },
+    "r121": {
+      "report_sha256": "4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3",
+      "report_file_sha256": "5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7",
+      "profile_sha256": "9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93",
+      "module_sha256": "99de51fe96bdaed8efc8c5671272b0cf432011aa5e7318ec81a806385499716f",
+      "tool_sha256": "8e01c6c8b25478747eb565dd9ffb8f2815bf26342560ef99b2d1446674e5d4ae",
+      "repository_commit": "a20e9bcf04f7c8137955d102fa3f2b64ffb77d1d"
+    },
+    "r120": {
+      "report_sha256": "dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b",
+      "report_file_sha256": "35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc",
+      "profile_sha256": "3dfa2f1b8357cd3452481c9518e8d1ca0ce5c0bb664b3a024fc5ce2653837d55",
+      "cache_sha256": "e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5",
+      "repository_commit": "39708da5036a2f5a2f3bd4f1b4d2f840efe17088"
+    },
+    "current_descriptor_file_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "gauge_aware_kernel_sha256": "9b69802fd95d9e5a3e048802fb5b09a4a0f976741b2b69c6b2ccbb5aec5df5b2",
+    "formulation_module_sha256": "e622f637a9cdf3ee2ae1718b218a011fa3037bb8c84e0c10e19393b3d4378c73",
+    "tool_sha256": "0724d6db2d0bbee3af999892ea92fbe840cb2a5b8e33c95050433b84c47e7a71"
+  },
+  "scope": {
+    "run_id": "R128",
+    "clip_id": "cmu16-walk-nominal-b",
+    "motor_interval_count": 800,
+    "physics_collocation_count": 3200,
+    "contact_state_consistency_formulations": 1,
+    "state_projections": 0,
+    "mass_matrix_assemblies": 0,
+    "contact_jacobian_assemblies": 0,
+    "projection_factorizations": 0,
+    "projection_solves": 0,
+    "inverse_dynamics_solves": 0,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "diagnosis_contract": {
+    "closed_fact": "R127 rank/nullspace and analytic gauge checks pass, but the first equality RHS is outside the range before any cone classification",
+    "kinematic_cause": "at frozen collocation 0, the nonzero heel-to-forefoot Jdot-v line projection equals -L times squared perpendicular angular speed within 4.34e-19 m/s^2",
+    "state_lift_gap": "R121 independently interpolates q and v and explicitly claims neither qdot=v nor a discrete integration constraint in Stage 2",
+    "repair_target": "make each active collocation velocity tangent to its instantaneous active-contact manifold before recomputing Jdot-v, bias and fixed PD",
+    "not_a_repair_target": "do not modify the conformed force gauge, delete a closure row, relax residual limits or reinterpret R127"
+  },
+  "alternative_decisions": [
+    {
+      "alternative": "mass_metric_tangent_velocity_projection",
+      "decision": "SELECTED_STAGE2_DIAGNOSTIC",
+      "closes_observed_cause": true,
+      "reason": "it directly enforces J_A(q) v_hat = 0 with the unique minimum kinetic-metric velocity change while preserving q, contact identities and the conformed force-gauge formulation",
+      "claim_limit": "pointwise diagnostic state only; no position, integration, impact or native-behavior claim"
+    },
+    {
+      "alternative": "contact_mode_correction",
+      "decision": "DEFER_SCHEMA_AND_FRICTION_LAW_EXPANSION",
+      "closes_observed_cause": "only after a new mode law",
+      "reason": "the current four-value mode schema contains flight and sticking bits but no sliding mode; mapping both moving points to flight destroys scheduled support, while adding sliding changes friction and contact lineage",
+      "reconsider_when": "a bounded tangent projection is invalid or a separately reviewed sliding-mode schema is required by native evidence"
+    },
+    {
+      "alternative": "discrete_or_compliant_contact",
+      "decision": "DEFER_NATIVE_CORRESPONDENCE_FORMULATION",
+      "closes_observed_cause": "accepts off-manifold state by changing the model",
+      "reason": "it requires timestep, compliance, impact and Coulomb update semantics plus an explicit correspondence argument to the canonical PhysX backend",
+      "reconsider_when": "pointwise projected feasibility is valid and the next integrated formulation needs a native-faithful contact law, or projection is falsified"
+    },
+    {
+      "alternative": "baumgarte_or_residual_relaxation",
+      "decision": "REJECT_FOR_R127_REPAIR",
+      "closes_observed_cause": false,
+      "reason": "gain-dependent RHS modification or a looser threshold neither makes the frozen state tangent nor proves redundant-row compatibility",
+      "reconsider_when": "only as explicit stabilization inside a later position-and-velocity-consistent integrator, never as a retry of R127"
+    }
+  ],
+  "selected_projection_contract": {
+    "selection": "MASS_METRIC_TANGENT_VELOCITY_PROJECTION",
+    "input_state": "the exact R121 affine q_s and v_s at each of 3200 collocations, with exact R120/V9 mode and R113 point identity",
+    "instantaneous_anchor": "q_s remains unchanged and defines the instantaneous world position of every active point; no persistent stance anchor is claimed",
+    "active_jacobian": "J_A(q_s) stacks all three world translational rows for every active point without deleting the redundant flat-foot row",
+    "objective": "minimize 0.5 * delta_v^T M(q_s) delta_v",
+    "constraint": "J_A(q_s) * (v_s + delta_v) = 0",
+    "kkt_conditions": "M delta_v + J_A^T lambda = 0 and J_A delta_v = -J_A v_s",
+    "closed_form_identity": "delta_v = -M^-1 J_A^T (J_A M^-1 J_A^T)^+ J_A v_s",
+    "flat_foot_redundancy": "the two-point same-body Jacobian has six rows, rank five and one multiplier gauge; delta_v and v_hat are unique because the gauge is in null(J_A^T)",
+    "flight_identity": "when no point is active, delta_v is exact zero and v_hat equals v_s without a factorization",
+    "post_projection_recomputation": [
+      "recompute body motion, h(q_s,v_hat), Jdot(q_s,v_hat)v_hat and every velocity-derived diagnostic",
+      "recompute the complete sequential fixed-PD effort schedule from v_hat with unchanged targets, gains, effort/rate/power/work limits and ties-to-even observations",
+      "apply the unchanged R126 gauge-aware reduced inverse-dynamics and complete line-cone classifier only in a separately authorized execution"
+    ],
+    "position_policy": "R128 does not project q or claim persistent holonomic position consistency; a later integrated formulation must define position anchors, q integration and contact transitions before any candidate",
+    "impact_policy": "the mass metric motivates a unique minimum-change diagnostic projection; delta_v and lambda are not claimed as a physical reset impulse or native contact event",
+    "forbidden_interpretations": [
+      "R127 retry or repair in place",
+      "R120 cache mutation or candidate/corpus authority",
+      "qdot=v or integrated trajectory feasibility",
+      "native PhysX behavior, safety acceptance or training readiness"
+    ]
+  },
+  "projection_inventory_contract": {
+    "status": "PASS",
+    "modes": [
+      {
+        "mode": "flat_flight",
+        "motor_intervals": 302,
+        "collocations": 1208,
+        "active_point_count": 2,
+        "constraint_row_count": 6,
+        "expected_independent_rank": 5,
+        "expected_multiplier_nullity": 1,
+        "projection_kkt_width": 35,
+        "projected_velocity_width": 29,
+        "projection_required": true
+      },
+      {
+        "mode": "flight_flat",
+        "motor_intervals": 277,
+        "collocations": 1108,
+        "active_point_count": 2,
+        "constraint_row_count": 6,
+        "expected_independent_rank": 5,
+        "expected_multiplier_nullity": 1,
+        "projection_kkt_width": 35,
+        "projected_velocity_width": 29,
+        "projection_required": true
+      },
+      {
+        "mode": "flight_flight",
+        "motor_intervals": 140,
+        "collocations": 560,
+        "active_point_count": 0,
+        "constraint_row_count": 0,
+        "expected_independent_rank": 0,
+        "expected_multiplier_nullity": 0,
+        "projection_kkt_width": 29,
+        "projected_velocity_width": 29,
+        "projection_required": false
+      },
+      {
+        "mode": "flight_forefoot",
+        "motor_intervals": 43,
+        "collocations": 172,
+        "active_point_count": 1,
+        "constraint_row_count": 3,
+        "expected_independent_rank": 3,
+        "expected_multiplier_nullity": 0,
+        "projection_kkt_width": 32,
+        "projected_velocity_width": 29,
+        "projection_required": true
+      },
+      {
+        "mode": "forefoot_flight",
+        "motor_intervals": 38,
+        "collocations": 152,
+        "active_point_count": 1,
+        "constraint_row_count": 3,
+        "expected_independent_rank": 3,
+        "expected_multiplier_nullity": 0,
+        "projection_kkt_width": 32,
+        "projected_velocity_width": 29,
+        "projection_required": true
+      }
+    ],
+    "aggregate": {
+      "motor_intervals": 800,
+      "collocations": 3200,
+      "flight_collocations": 560,
+      "single_point_collocations": 324,
+      "flat_foot_collocations": 2316,
+      "projection_systems": 2640,
+      "constraint_rows": 14868,
+      "expected_independent_rank": 12552,
+      "redundant_multiplier_gauge_scalars": 2316,
+      "maximum_constraint_row_count": 6,
+      "maximum_projection_kkt_width": 35
+    }
+  },
+  "preserved_invariants": [
+    "exact R120 generalized configuration, root orientation and V9 endpoint/progress identity",
+    "exact V9 contact modes, timing, ordered R113 points and all active rows",
+    "current descriptor mass, inertia, joint, material, gravity and actuator identities",
+    "R121 60/240 Hz cadence, target hold, controller gains and every safety envelope",
+    "R126 reduced 29/32/35 inverse-dynamics layouts, rank guards, analytic force gauge and complete point cones",
+    "single-thread deterministic execution, fail-closed ambiguity and immutable external report boundary",
+    "no candidate, PhysX, all-17, full-corpus or learned optimizer authority"
+  ],
+  "explicitly_replaced_invariants": [
+    "R121 independently affine-interpolated generalized velocity is an input v_s, not the post-projection state v_hat",
+    "the exact R121 fixed-PD applied-effort schedule must be recomputed sequentially from projected joint velocity",
+    "h and Jdot-v must be recomputed from v_hat; no R127 local RHS or ordered-system hash is reusable",
+    "any later execution is a new projected-state lineage and never a restart or reinterpretation of R127"
+  ],
+  "claim_ceiling": {
+    "claimed": "a deterministic pointwise formulation that removes the proven tangent-state inconsistency before a new fixed-PD cone-feasibility diagnostic",
+    "not_claimed": [
+      "position-manifold projection or a persistent stance anchor",
+      "qdot=v, discrete integration, impact or complementarity",
+      "full trajectory, native PhysX, safety or training feasibility",
+      "candidate, corpus or runtime state authority"
+    ]
+  },
+  "numeric_contract": {
+    "float_dtype": "float64",
+    "mass_matrix": "symmetric positive definite under the exact R122-conformed descriptor kernel",
+    "rank_revealing_relative_null_maximum": 1e-12,
+    "rank_revealing_relative_retained_minimum": 1e-10,
+    "rank_gap_policy": "INVALID_WITHOUT_THRESHOLD_TUNING",
+    "maximum_active_point_velocity_absolute_metres_per_second": 1e-10,
+    "maximum_scaled_kkt_residual": 1e-10,
+    "maximum_projection_idempotence_error": 1e-10,
+    "maximum_mass_orthogonality_relative_error": 1e-10,
+    "maximum_kinetic_energy_increase_joules": 1e-12,
+    "nonfinite_policy": "INVALID_WITHOUT_RETRY"
+  },
+  "r129_conformance_contract": {
+    "run_id": "R129",
+    "execution": false,
+    "frozen_anchors": [
+      {"collocation": 0, "contact_modes": [0, 3], "expected_rank": 5, "expected_multiplier_nullity": 1},
+      {"collocation": 952, "contact_modes": [0, 2], "expected_rank": 3, "expected_multiplier_nullity": 0},
+      {"collocation": 976, "contact_modes": [0, 2], "expected_rank": 3, "expected_multiplier_nullity": 0},
+      {"collocation": 996, "contact_modes": [0, 0], "expected_rank": 0, "expected_multiplier_nullity": 0},
+      {"collocation": 1312, "contact_modes": [2, 0], "expected_rank": 3, "expected_multiplier_nullity": 0},
+      {"collocation": 2504, "contact_modes": [3, 0], "expected_rank": 5, "expected_multiplier_nullity": 1},
+      {"collocation": 3199, "contact_modes": [3, 0], "expected_rank": 5, "expected_multiplier_nullity": 1}
+    ],
+    "synthetic_cases": [
+      "full-rank single-point projection",
+      "same-body two-point rank-five multiplier gauge",
+      "projected-state idempotence",
+      "rank-gap and nonfinite fail-closed cases"
+    ],
+    "required_checks": [
+      "independent closed-form and KKT projected velocities agree",
+      "active point velocity closes under the frozen absolute limit",
+      "flat multiplier gauge changes neither delta_v nor v_hat",
+      "projection is idempotent and M-orthogonal and cannot increase kinetic energy beyond tolerance",
+      "the R127 first-frame rigid-line acceleration compatibility becomes zero within the frozen tolerance after projection",
+      "no full-schedule PD, inverse-dynamics, cone, candidate or native work is performed"
+    ],
+    "maximum_real_mass_matrix_assemblies": 7,
+    "maximum_real_contact_jacobian_assemblies": 6,
+    "maximum_real_projection_factorizations": 6,
+    "maximum_real_projection_solves": 6,
+    "maximum_real_inverse_dynamics_evaluations": 0,
+    "maximum_full_schedule_projection_count": 0,
+    "pass_transition": "PERMIT_R130_SINGLE_BOUNDED_TANGENT_PROJECTED_FIXED_PD_EXECUTION_ONLY",
+    "fail_transition": "STOP_INVALID_PROJECTION_IMPLEMENTATION"
+  },
+  "future_r130_execution_contract": {
+    "authorization": "NOT_AUTHORIZED_UNTIL_EXACT_R129_PASS",
+    "process_count": 1,
+    "thread_count": 1,
+    "collocation_count": 3200,
+    "maximum_projection_systems": 2640,
+    "maximum_projection_factorizations": 2640,
+    "maximum_projection_solves": 2640,
+    "maximum_inverse_dynamics_singular_value_decompositions": 3200,
+    "maximum_inverse_dynamics_particular_solutions": 3200,
+    "maximum_force_gauge_interval_classifications": 2316,
+    "controller_policy": "recompute one complete sequential fixed-PD schedule from projected velocity; never reuse R121 effort bytes",
+    "state_validity": "all projected velocity, controller envelope, rank, projection residual, rigid acceleration RHS and R126 cone classifiers must be numerically valid",
+    "classification": "valid feasible or valid infeasible pointwise projected-state cone result; invalid on any identity, state, rank, residual, ambiguity, resource or counter mismatch",
+    "result_scope": "Stage-2 pointwise diagnostic only; no q integration or native behavior claim",
+    "retry_or_resume": "FORBIDDEN",
+    "candidate_artifact": "FORBIDDEN",
+    "physx_scene": "FORBIDDEN",
+    "training": "FORBIDDEN"
+  },
+  "research_basis": [
+    {
+      "source": "Gear, Leimkuhler and Gupta, Automatic integration of Euler-Lagrange equations with constraints, 1985",
+      "url": "https://doi.org/10.1016/0377-0427(85)90008-1",
+      "relevance": "position and velocity constraints belong explicitly in an index-reduced constrained mechanical formulation"
+    },
+    {
+      "source": "Kraus et al., DAE time integration for real-time applications",
+      "url": "https://webdoc.sub.gwdg.de/ebook/serien/e/reports_Halle-Wittenberg_math/06-03report.pdf",
+      "relevance": "the M-norm velocity projection is the linear constrained minimum-change problem used here; the source also requires position projection for a full integrator"
+    },
+    {
+      "source": "Acary, Projected event-capturing time-stepping schemes for nonsmooth mechanical systems, 2013",
+      "url": "https://doi.org/10.1016/j.cma.2012.12.012",
+      "relevance": "unilateral contact, impact and Coulomb friction require an explicit time-discrete law and are therefore deferred rather than silently approximated"
+    }
+  ],
+  "result_transitions": {
+    "r128_complete": "PERMIT_R129_REPORT_ONLY_TANGENT_PROJECTION_CONFORMANCE_ONLY",
+    "r128_invalid": "STOP_INVALID_EVIDENCE",
+    "r129_pass": "PERMIT_R130_SINGLE_BOUNDED_TANGENT_PROJECTED_FIXED_PD_EXECUTION_ONLY",
+    "r129_fail": "STOP_INVALID_PROJECTION_IMPLEMENTATION"
+  },
+  "decision": {
+    "complete": "PERMIT_R129_REPORT_ONLY_TANGENT_PROJECTION_CONFORMANCE_ONLY"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/contact_state_consistency_formulation.py",
+        "lab/scripts/formulate_contact_state_consistency.py",
+        "lab/tests/test_contact_state_consistency_formulation.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/contact_state_consistency_formulation.py",
+        "lab/scripts/formulate_contact_state_consistency.py",
+        "lab/tests/test_contact_state_consistency_formulation.py"
+      ]
+    },
+    {
+      "id": "solver_free_import",
+      "environment": {"PYTHONPATH": "lab"},
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; import next_lab.contact_state_consistency_formulation; assert not any(name in sys.modules for name in ('numpy','osqp','scipy','pinocchio','next_lab.gauge_aware_fixed_pd_execution','next_lab.fixed_pd_contact_state_consistency_research'))"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": ["lab/.venv/bin/python", "-m", "unittest", "discover", "-s", "lab/tests"]
+    },
+    {
+      "id": "motor",
+      "arguments": ["cargo", "test", "-p", "next_motor"]
+    },
+    {
+      "id": "host_check",
+      "arguments": ["cargo", "run", "-q", "-p", "xtask", "--", "host-check"]
+    }
+  ],
+  "bounded_acceptance": {
+    "r129_projection_conformance": "AUTHORIZED_REPORT_ONLY_ON_R128_COMPLETE",
+    "r130_projected_fixed_pd_execution": "NOT_AUTHORIZED_UNTIL_R129_PASS",
+    "r127_retry": "NOT_AUTHORIZED",
+    "additional_inverse_dynamics_execution": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
