@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_SINGLE_EXECUTION_NEXT` |
+| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_RESEARCH_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -60,6 +60,7 @@ bounded research before another solver change or expensive native run.
 | R123-RC1 redundant-contact research | canonical/file/profile SHA-256 `ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` / `a35d408a901ea2c439ac387287fa03aa77c669863211fb6b0d7634ce3b0836f9` / `4ee1fd77701e638a3087cbeaa6498482e073c33133bbb89a1a0b6d134d2ee8b7` | Clean `COMPLETE / CONFIRMED_REDUNDANT_FLAT_FOOT_FORCE_GAUGE`: all nine exact geometry/artifact discriminators pass; rank ≤5, nullity ≥1; zero dynamics reconstruction/solve/downstream work; permits only report-only R125 formulation |
 | R125 gauge-aware feasibility formulation | canonical/file/profile SHA-256 `ddf443610315680d0326b478212105c846a0cfda2b8bcda95567556ea1773080` / `bdc5cd5388005bbb549df7bfb723dda49a1535d2a6a39c4e31da58340e3ac0db` / `ca9cc4019e45ea316072378422e7aab304664b24034f204e41b3ccbe30e7da05` | Clean `COMPLETE`: exact `29/32/35` layouts, `2316` gauge scalars and all `4956` cones; SVD particular plus complete line-cone interval semantics; zero execution work; permits only report-only R126 conformance |
 | R126 gauge-aware implementation conformance | canonical/file/profile SHA-256 `2a500b6e6514e3a5cc8cec453756089f235d66d8684718a56678c471202f3e8f` / `4931ff4c96e8bb062bed64a45681097ae70b23c615c022ba267c0ae6edb6ffd3` / `23007c0455fef7cf84da411528f9f6162cd04d97e8be86baa7be2c19ae7e87cb` | Clean `PASS`: seven real rank/nullspace anchors, five synthetic SVD cases and four decimal-oracle cone cases pass; zero real particular/gauge classification/downstream work; permits exactly one bounded R127 execution |
+| R127 sole gauge-aware fixed-PD execution | canonical/file/profile SHA-256 `255f2dd900f7ca67381fd6853aa42e47a991680f723b17539e9505651d6e7a4e` / `0bdf21b2e995a3ea16f7670666a10b73379d6f6eda9dede04dea5c5e788e1a2b` / `0e3537dd36e1a148788d6e4634e4409a01d10136033bf957f7a5d684699976c2` | Clean `INVALID`: collocation 0 rank/nullspace passes but scaled equality residual is `6.204e-5`; one SVD/particular, zero gauge classification/cache/downstream; no retry |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -1511,7 +1512,12 @@ SHA-256 is
 `2a500b6e6514e3a5cc8cec453756089f235d66d8684718a56678c471202f3e8f` /
 `4931ff4c96e8bb062bed64a45681097ae70b23c615c022ba267c0ae6edb6ffd3` /
 `23007c0455fef7cf84da411528f9f6162cd04d97e8be86baa7be2c19ae7e87cb`.
-Exactly one bounded R127 execution is next.
+The sole R127 at clean `44b536b` stops invalid at the first flat-foot state.
+Rank/nullity and analytic/SVD gauge agreement pass, but the equality RHS is not
+in the matrix range: scaled residual `6.2044653e-5` versus `1e-9`. A static
+no-solve identity finds perpendicular foot angular speed `0.131848744 rad/s`
+and line compatibility `-0.003737579615 m/s²`, matching
+`-L||omega×d||²` within `4.34e-19`. Only R127-RC1 research is next.
 
 ## Decision
 
@@ -1523,8 +1529,8 @@ and the late projected direction after its exact `2501/2500 bp` failure.
 R115 consumed and failed its sole solve; R120 consumed its separate sole solve
 and passed; R123 consumed its sole execution and stopped invalid before solve.
 None may be retried. Candidate artifacts, native scenes and all-17 remain
-blocked. R126 consumed and passed its report-only authority. R127 may consume
-at most `3200` SVD particular solutions and `2316` gauge classifications in one
-process with no retry. It may not run kinodynamics, construct a candidate,
-change controller/safety/quantization semantics, run PhysX or begin training.
-R124 remains unauthorized.
+blocked. R126 consumed and passed its report-only authority; R127 consumed its
+single execution and is invalid without retry. Only static R127-RC1 research may
+distinguish velocity/state projection, contact-mode correction, stabilization
+or compliant/discrete contact. It may not solve, construct a candidate, change
+semantics, run PhysX or begin training. R124 remains unauthorized.

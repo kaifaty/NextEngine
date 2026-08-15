@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID` before solve on a same-foot force gauge; R123-RC1 confirms rank ≤5/nullity ≥1. Clean R125 freezes gauge-aware `29/32/35` systems and all `4956` cones; clean R126 conforms rank/nullspace/line-cone implementation. Exactly one bounded R127 execution is next. Every retry, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID` at collocation 0 because the rank-valid flat-foot equality RHS is incompatible before gauge/cone classification. Only static R127-RC1 constraint-consistency research is next. Every retry/solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2091,8 +2091,23 @@ SHA-256 is
 All six validations pass (`295/295` lab, motor and full `host-check`); real
 particular/gauge-classification/R127/downstream counters are zero.
 
-Roadmap status now permits exactly one bounded R127 gauge-aware execution.
-No R123 retry, second R127, R124, candidate or scene is authorized. This planning
+The sole clean R127 at commit `44b536b` consumes that execution authority and
+stops `INVALID / STOP_INVALID_EVIDENCE_WITHOUT_RESTART` at collocation `0`.
+Rank `34`, nullity `1` and analytic/SVD nullspace agreement pass, but the
+particular scaled residual is `6.2044653e-5` against `1e-9`; one SVD and one
+particular are recorded, with zero gauge classifications/cache/downstream work.
+Canonical/file/profile SHA-256 is
+`255f2dd900f7ca67381fd6853aa42e47a991680f723b17539e9505651d6e7a4e` /
+`0bdf21b2e995a3ea16f7670666a10b73379d6f6eda9dede04dea5c5e788e1a2b` /
+`0e3537dd36e1a148788d6e4634e4409a01d10136033bf957f7a5d684699976c2`.
+
+Static no-solve reproduction finds a `0.215 m` right heel–forefoot line,
+perpendicular foot angular speed `0.131848744 rad/s`, and projected `Jdot-v`
+difference `-0.003737579615 m/s²`. This equals the rigid centripetal identity
+`-L||omega×d||²` within `4.34e-19`, so both zero point accelerations are
+incompatible at the frozen q/v state. Roadmap status permits only report-only
+R127-RC1 consistency research. No R123/R127 retry, R124, candidate or scene is
+authorized. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

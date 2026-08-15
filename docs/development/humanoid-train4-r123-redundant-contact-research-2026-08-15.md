@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R123 execution stopped before its first local solve |
-| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_SINGLE_EXECUTION_NEXT` |
+| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_RESEARCH_NEXT` |
 | Primary cause | `Environment / stage-2 rigid-contact formulation` |
 | Claim ceiling | Research and generated-test design only; no R123 retry, feasibility claim, candidate, scene or training |
 
@@ -184,3 +184,23 @@ All six validations pass (`295/295` lab, motor and full `host-check`). R126
 computes zero real particular solutions or gauge intervals and authorizes
 exactly one bounded R127 execution. No retry, candidate, PhysX or training is
 authorized.
+
+## R127 invalid boundary
+
+The sole clean R127 at commit `44b536b` passes all six validations, then stops
+at collocation `0`. The reduced system has the expected rank `34`, nullity `1`,
+analytic gauge residual `1.11e-16` and analytic/SVD projector error `8.35e-13`.
+Its RHS is nevertheless incompatible: particular scaled residual
+`6.2044653e-5` exceeds `1e-9`, so no gauge interval is classified. Canonical/
+file/profile SHA-256 is
+`255f2dd900f7ca67381fd6853aa42e47a991680f723b17539e9505651d6e7a4e` /
+`0bdf21b2e995a3ea16f7670666a10b73379d6f6eda9dede04dea5c5e788e1a2b` /
+`0e3537dd36e1a148788d6e4634e4409a01d10136033bf957f7a5d684699976c2`.
+
+Static reproduction without an SVD or solve gives right-foot line length
+`0.215 m`, perpendicular angular speed `0.131848744 rad/s` and projected
+heel/forefoot `Jdot-v` difference `-0.003737579615 m/s²`. It matches the rigid
+centripetal identity `-L||omega×d||²` within `4.34e-19`: the frozen velocity is
+not tangent to the two-point FlatSticking acceleration manifold. This is not a
+remaining force gauge defect. R127 cannot retry; only report-only R127-RC1
+constraint-consistency research is authorized.

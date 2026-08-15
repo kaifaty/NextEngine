@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-15 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123 is `INVALID` before solve; R123-RC1 confirms its exact same-foot force gauge. Clean R125 freezes gauge-aware `29/32/35` systems and all `4956` cones; clean R126 conforms the implementation on seven real anchors and independent synthetic/oracle cases. Exactly one bounded R127 execution is next. Every retry, R124, candidate, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID` at collocation 0: rank/nullspace passes, but the acceleration RHS is incompatible (`6.204e-5` scaled residual vs `1e-9`) before any gauge/cone classification. Only static R127-RC1 constraint-consistency research is next. Every retry/solve, R124, candidate, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -764,7 +764,7 @@ Current increment поэтому строит единый coupled trajectory so
 PPO остаются запрещены.
 
 **TRAIN-4 coupled/native trajectory research (`R123_INVALID / R123-RC1_COMPLETE /
-R125_COMPLETE / R126_PASS / R127_SINGLE_EXECUTION_NEXT`, 2026-08-15):**
+R125_COMPLETE / R126_PASS / R127_INVALID / R127-RC1_RESEARCH_NEXT`, 2026-08-15):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -1334,6 +1334,21 @@ cases. Canonical/file/profile SHA-256 is
 It computes zero real particular solutions or gauge intervals and authorizes
 exactly one bounded R127 execution; no retry, R124, candidate or PhysX action
 is permitted.
+The sole clean R127 at `44b536b` consumes that authority and stops `INVALID`
+at collocation `0`. Rank `34`, nullity `1` and analytic/SVD projector agreement
+all pass, but the equality-consistent particular has scaled residual
+`6.2044653e-5` against `1e-9`; no gauge interval is classified. Canonical/file/
+profile SHA-256 is
+`255f2dd900f7ca67381fd6853aa42e47a991680f723b17539e9505651d6e7a4e` /
+`0bdf21b2e995a3ea16f7670666a10b73379d6f6eda9dede04dea5c5e788e1a2b` /
+`0e3537dd36e1a148788d6e4634e4409a01d10136033bf957f7a5d684699976c2`.
+Preliminary static identity reproduces the cause without a solve: right-foot
+heel/forefoot separation is `0.215 m`, perpendicular angular speed is
+`0.131848744 rad/s`, and their `Jdot-v` difference projected on the rigid line
+is `-0.003737579615 m/s²`, exactly `-L||omega×d||²` within `4.34e-19`.
+The [R127 consistency decision](development/humanoid-train4-r127-constraint-consistency-research-2026-08-15.md)
+records the evidence and repair-family comparison. Only report-only R127-RC1
+consistency research is permitted; R127 cannot retry.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -2112,8 +2127,9 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    R118/R119 verify and freeze it, R120 passes directly at `1/32`, R121
    freezes the ID systems, and clean R122 passes descriptor-derived dynamics
    conformance. The sole R123 is invalid before solve on an exact flat-foot
-   force gauge, R123-RC1 hash-closes it, R125 freezes the gauge-aware
-   formulation, and clean R126 conforms it; one bounded R127 is next. До exact-zero fresh/
+   force gauge, R123-RC1 hash-closes it, R125/R126 repair and conform gauge
+   handling, but the sole R127 exposes an incompatible acceleration RHS; only
+   static R127-RC1 research is next. До exact-zero fresh/
    full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
    No training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
