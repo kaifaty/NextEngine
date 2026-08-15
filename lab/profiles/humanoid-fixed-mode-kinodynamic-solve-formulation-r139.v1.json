@@ -1,0 +1,503 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-fixed-mode-kinodynamic-solve-formulation.v1",
+  "status": "FrozenReportOnly",
+  "claim": "FixedModeKinodynamicSolveFormulationOnly",
+  "source": {
+    "decision_document_sha256": "01caa6be6b7705126b6813ed7e4df148db951e66847d93b820605641b38c5f21",
+    "decision_repository_commit": "813632fe4eef3ad34e8f5200237f01c8e8c91555",
+    "r120": {
+      "report_sha256": "dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b",
+      "report_file_sha256": "35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc",
+      "profile_sha256": "3dfa2f1b8357cd3452481c9518e8d1ca0ce5c0bb664b3a024fc5ce2653837d55",
+      "cache_sha256": "e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5",
+      "accepted_emitted_aggregate_sha256": "06e6113d862dcf6acd827962b8a580013f9e3689902b90c9189efaab641841cf",
+      "repository_commit": "39708da5036a2f5a2f3bd4f1b4d2f840efe17088"
+    },
+    "r133": {
+      "report_sha256": "f1fad2ca3c7abd49acaefd9fcd37873d02fb1d289a3081fd2039b0b1192fd3b6",
+      "report_file_sha256": "2ddef1cfae193eb0e32f4d001aba6a8b744056b700fa2ecbe533434bc8e5f7c2",
+      "profile_sha256": "20cccf2ffd413ae56148b95ca4cbd67c616f1ee396f2bee995a078ab1685a6a7",
+      "module_sha256": "60dbf107a19c795d6c6ffcbbecc4bf0db81dcf0c5efa5adc6a1a43f6d35f0c15",
+      "tool_sha256": "427bc05222dc767da3285a58815fa6fa1275ebd6bd3945e43fcb1a89df18f156",
+      "projected_velocity_float64_sha256": "e57bcb75629d403e04cc6d3197e8e2dada19ac0c0ef4c920083f2276c33bfb17",
+      "applied_target_float64_sha256": "195810f7e9c20b15ec6ddf165c8873f905a96414fe055a0dae7a2b45382be1a3",
+      "applied_effort_float64_sha256": "5ad7ac66c4d394ef5d06d111d86f58120069d42e61d1adf1ac82ca1d1d42a1ff",
+      "repository_commit": "03f8e0bec8cfc6cb662452b971cd1548f03051dc"
+    },
+    "r138": {
+      "report_sha256": "c2343b289a11e7794d4f092b261f18dc6f4776b265854893cd3403fc53daea6c",
+      "report_file_sha256": "cec76311db0c0c4d4cb693b806a1fae344eb3e79e24161aa4081c37a5e258d83",
+      "profile_sha256": "54e6291852997450f4acd2e15f9fb6e499a16196b9aea53295ffef74a979b216",
+      "module_sha256": "ba244e4540f15d354a2709dbb47b72e919b380c2420af96058e51060fa49e306",
+      "tool_sha256": "db4146dfa181b8020d55e561a10bc6da51cb99f3da41813bdebf74416fe9fdb4",
+      "graph_index_sha256": "844ed3a2e727712fedff2c0cd858c30639c8956e054f79f2012d67277535639b",
+      "transition_replay_sha256": "9f289c31ecfe2ef18b4beed4559982c3da25f7244eb6b17c022ac6000edc322a",
+      "repository_commit": "4745c0aa1273d3d256f1a468820813272b917a11"
+    },
+    "r131_motor_mode_sequence_sha256": "ab30a912550e06e1219b1fab87e0d93044eba6b0cdf8e7377f7b27a0e1915ca4",
+    "formulation_module_sha256": "cc84ee8cbc36c7e4591746963e266cdb76969276d835694fc9b3614f4f84a25f",
+    "tool_sha256": "c78bed4d6cbfd5e6a24d7cc618a1a300197216d80be15197c5f5bcb33f3f67e2"
+  },
+  "scope": {
+    "formulation_id": "R139",
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_reports_read": 3,
+    "source_array_payloads_read": 0,
+    "solve_formulations": 1,
+    "real_state_reconstructions": 0,
+    "real_state_lift_evaluations": 0,
+    "real_controller_schedule_derivations": 0,
+    "real_controller_graph_evaluations": 0,
+    "real_mass_matrix_assemblies": 0,
+    "real_contact_jacobian_assemblies": 0,
+    "real_dynamics_residual_evaluations": 0,
+    "real_integration_residual_evaluations": 0,
+    "real_impulse_residual_evaluations": 0,
+    "real_kinodynamic_system_assemblies": 0,
+    "real_qp_setups": 0,
+    "real_qp_solves": 0,
+    "real_kinodynamic_solves": 0,
+    "real_factorizations": 0,
+    "real_exact_trial_audits": 0,
+    "optimizer_steps": 0,
+    "candidate_artifacts_built": 0,
+    "solver_private_caches_built": 0,
+    "physx_scene_runs": 0,
+    "training_runs": 0
+  },
+  "source_reconstruction_contract": {
+    "authority": "tracked R139 research decision at 813632fe",
+    "r139_source_report_reads": 3,
+    "r139_source_array_payload_reads": 0,
+    "r120_cache_access_in_r139": "FORBIDDEN_REPORT_METADATA_ONLY",
+    "future_execution_reconstruction_order": [
+      "validate clean repository and all tracked/external report identities",
+      "load the byte-exact R120 solver-private cache and reproduce its accepted emitted-array hashes",
+      "independently reconstruct the R133 projected velocity and exact fixed-PD target/effort schedule",
+      "reproduce the R131 mode sequence and R138 graph index/event hashes",
+      "only then permit the first real graph evaluation"
+    ],
+    "future_before_first_graph_call": "ALL_REQUIRED_HASHES_MUST_REPRODUCE_EXACTLY",
+    "r136_cache_acceleration_or_force_import": "FORBIDDEN",
+    "r136_pointwise_witness_import": "FORBIDDEN",
+    "source_identity_failure": "INVALID_STOP_WITHOUT_RESTART"
+  },
+  "initial_and_endpoint_contract": {
+    "initial_configuration": {
+      "source": "R120_ACCEPTED_EXACT_ROW_0",
+      "immutable": true
+    },
+    "initial_velocity": {
+      "source": "R133_PROJECTED_VELOCITY_ROW_0",
+      "immutable": true
+    },
+    "interior_r120_r133_role": "INITIALIZATION_AND_DEVIATION_REFERENCE_ONLY_NOT_HARD_EQUALITY",
+    "terminal": {
+      "byte_fixed": false,
+      "periodic": false,
+      "fixed_terminal_mode_required": true,
+      "terminal_anchor_closure_required": true,
+      "all_hard_constraints_required": true,
+      "tracking_weight_multiplier": 16
+    },
+    "acceleration_initialization": "DERIVE_ONLY_FROM_RECONSTRUCTED_Q_V_REFERENCE_AND_FROZEN_DISCRETE_MAP",
+    "continuous_force_initialization_newtons": 0,
+    "activation_impulse_initialization_newton_seconds": 0,
+    "pointwise_inverse_dynamics_initialization": "FORBIDDEN"
+  },
+  "objective_hierarchy_contract": {
+    "hard_feasibility_priority": "LEXICOGRAPHICALLY_ABOVE_ALL_TRACKING_AND_REGULARIZATION",
+    "lexicographic_qp_passes": [
+      {
+        "pass": 1,
+        "objective": "MINIMIZE_MAXIMUM_NORMALIZED_ELASTIC_VIOLATION"
+      },
+      {
+        "pass": 2,
+        "maximum_optimum_hold_tolerance": 1e-8,
+        "objective": "MINIMIZE_MEAN_NORMALIZED_ELASTIC_VIOLATION"
+      },
+      {
+        "pass": 3,
+        "maximum_optimum_hold_tolerance": 1e-8,
+        "mean_optimum_hold_tolerance": 1e-8,
+        "objective": "MINIMIZE_TRACKING_AND_REGULARIZATION"
+      }
+    ],
+    "temporary_elastics_in_emitted_state": "FORBIDDEN",
+    "mean_squared_tracking_weights": {
+      "configuration": 1,
+      "generalized_velocity": 0.25,
+      "integer_command_target": 0.5
+    },
+    "terminal_q_v_tracking_multiplier": 16,
+    "regularization_weights": {
+      "acceleration_variation": 0.01,
+      "force_magnitude_and_variation": 0.0001,
+      "impulse_magnitude": 0.0001
+    },
+    "first_exact_hard_constraint_pass": "TERMINATE",
+    "post_feasibility_quality_polishing": "FORBIDDEN"
+  },
+  "normalization_and_trust_region_contract": {
+    "componentwise_physical_scales": {
+      "configuration_root_translation_metres": 0.01,
+      "configuration_root_rotation_radians": 0.025,
+      "configuration_joint_radians": 0.025,
+      "velocity_root_linear_metres_per_second": 0.25,
+      "velocity_root_angular_radians_per_second": 1,
+      "velocity_joint_radians_per_second": 2,
+      "acceleration_root_linear_metres_per_second_squared": 5,
+      "acceleration_root_angular_radians_per_second_squared": 20,
+      "acceleration_joint_radians_per_second_squared": 20,
+      "integer_command_microradians": 25000,
+      "active_force_newtons": 250,
+      "activation_impulse_newton_seconds": 25
+    },
+    "radius": {
+      "initial": 1,
+      "minimum": 0.03125,
+      "maximum": 2
+    },
+    "trial_fractions": [
+      "1",
+      "1/2",
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32",
+      "1/64"
+    ],
+    "exact_pass_priority": "ACCEPT_AND_TERMINATE",
+    "exact_funnel_order": [
+      "maximum_normalized_violation",
+      "mean_normalized_violation"
+    ],
+    "exact_funnel_minimum_lexicographic_decrease": 1e-6,
+    "actual_to_model_minimum_acceptance_ratio": 0.1,
+    "contraction_ratio_threshold": 0.25,
+    "expansion_ratio_threshold": 0.75,
+    "expansion_requires_active_trust_boundary": true,
+    "contraction_factor": 0.5,
+    "expansion_factor": 2,
+    "no_accepted_trial": "CONTRACT_AND_RESTORE_PREVIOUS_EXACT_ANCHOR",
+    "failure_at_minimum_radius": "VALID_STOP_AND_RESEARCH_WITHOUT_TUNING_OR_RESTART"
+  },
+  "candidate_generator_contract": {
+    "algorithm": "FIXED_MODE_SPARSE_MULTIPLE_SHOOTING_SCVX_SQP",
+    "qp_solver": "OSQP",
+    "qp_form": "SPARSE_L_LE_A_X_LE_U",
+    "authority": "CANDIDATE_GENERATION_ONLY",
+    "contact_mode_choice": "FORBIDDEN",
+    "controller_surrogate": {
+      "type": "CONTINUOUS_FIXED_BRANCH_LOCAL_MODEL",
+      "integer_rounding": "REMOVED_FOR_LOCAL_MODEL_ONLY",
+      "differentiated_branches": "CURRENTLY_SELECTED_CLAMP_AND_LIMITER_BRANCHES_ONLY",
+      "branch_equality_derivative": 0,
+      "branch_equality_ambiguity_count": "REQUIRED",
+      "branch_address_hash": "REQUIRED",
+      "free_effort": "FORBIDDEN",
+      "acceptance_authority": "NONE"
+    },
+    "friction_cone_model": {
+      "base_angular_half_spaces": 32,
+      "separation_update": "AT_MOST_ONE_DETERMINISTIC_DIRECTION_PER_EXACTLY_VIOLATED_CONE_PER_ACCEPTED_ANCHOR",
+      "separation_direction_order": "GRAPH_ROW_THEN_CONE_TYPE_THEN_POINT_ORDINAL",
+      "polyhedral_elastic_authority": "NONE",
+      "acceptance_authority": "EXACT_CIRCULAR_CONE_ONLY"
+    },
+    "local_model_may_linearize": [
+      "manifold dynamics and integration",
+      "fixed-mode sticking constraints",
+      "current fixed controller branch",
+      "unchanged descriptor bounds"
+    ]
+  },
+  "exact_acceptance_contract": {
+    "oracle": "EXACT_NONLINEAR_FIXED_MODE_GRAPH_ONLY",
+    "controller_replay": "EXACT_R133_ORDER_TIES_TO_EVEN_FROM_TRIAL_Q_V_AND_INTEGER_COMMAND",
+    "surrogate_effort_authority": "NONE_DISCARDED",
+    "changed_float_command_rounding_to_same_integer": "NO_COMMAND_PROGRESS",
+    "polyhedral_cone_authority": "NONE",
+    "force_and_impulse_cone": "EXACT_INDIVIDUAL_CIRCULAR_COULOMB_CONES",
+    "hard_checks": [
+      "source hash closure",
+      "exact controller target effort event and branch arrays",
+      "manifold integration and ordinary velocity update",
+      "rigid dynamics and activation momentum jumps",
+      "active anchor position velocity and acceleration closure",
+      "individual circular force and impulse cones",
+      "unchanged collider ROM generalized-velocity and controller descriptor bounds"
+    ],
+    "funnel": "LEXICOGRAPHIC_MAXIMUM_THEN_MEAN_NORMALIZED_EXACT_VIOLATION",
+    "qp_slack_or_status_as_feasibility": "FORBIDDEN",
+    "first_exact_pass": "TERMINATE_WITHOUT_POLISHING",
+    "accepted_anchor_required_hashes": "ALL_REQUIRED_EVERY_ACCEPTED_ANCHOR_HASHES",
+    "floating_trial_state_as_output": "FORBIDDEN"
+  },
+  "numeric_validity_contract": {
+    "evaluation_dtype": "float64",
+    "coefficient_elision_absolute_maximum": 1e-14,
+    "rank_policy": {
+      "null_singular_value_maximum": 1e-12,
+      "retained_singular_value_minimum": 1e-10,
+      "rank_gap_values": "INVALID",
+      "expected_contact_ranks": [
+        0,
+        3,
+        5
+      ],
+      "additional_nullity": "INVALID",
+      "known_flat_foot_force_gauge": "PRESERVED_NOT_REGULARIZED_INTO_FAKE_UNIQUENESS"
+    },
+    "osqp": {
+      "eps_abs": 1e-5,
+      "eps_rel": 1e-5,
+      "maximum_primal_or_dual_residual": 5e-5,
+      "accepted_statuses": [
+        "solved"
+      ],
+      "polish": true,
+      "adaptive_rho": true,
+      "termination_authority": "QP_CANDIDATE_ONLY"
+    },
+    "exact_acceptance_tolerances": {
+      "scaled_dynamics": 1e-7,
+      "manifold_integration": 1e-7,
+      "ordinary_velocity_update": 1e-7,
+      "momentum_jump": 1e-7,
+      "anchor_position_metres": 1e-6,
+      "sticking_velocity_metres_per_second": 1e-6,
+      "sticking_acceleration_metres_per_second_squared": 1e-5,
+      "force_circular_cone_newtons": 1e-7,
+      "impulse_circular_cone_newton_seconds": 1e-7,
+      "cone_classification_relative_ambiguity": 1e-12,
+      "existing_descriptor_and_controller_integer_checks": "EXACT_UNCHANGED"
+    },
+    "invalid_without_restart": [
+      "non-finite coefficient residual or iterate",
+      "unordered lower and upper bound",
+      "unexpected contact rank or additional nullity",
+      "singular value strictly inside the rank gap",
+      "norm versus squared-cone classification disagreement",
+      "solver status or residual ambiguity",
+      "counter budget or hash closure mismatch"
+    ]
+  },
+  "future_execution_budget_contract": {
+    "authority": "NOT_GRANTED_BY_R139",
+    "clean_processes": 1,
+    "observed_threads": 1,
+    "seed": 0,
+    "major_iteration_limit": 6,
+    "lexicographic_qp_passes_per_major_iteration": 3,
+    "qp_solve_limit": 18,
+    "trial_fractions_per_major_iteration": 7,
+    "exact_trial_audit_limit": 42,
+    "osqp_iteration_limit_per_qp": 100000,
+    "wall_time_seconds": 14400,
+    "peak_rss_bytes": 17179869184,
+    "restart": "FORBIDDEN",
+    "randomized_warm_restart": "FORBIDDEN",
+    "manual_intervention": "FORBIDDEN",
+    "within_process_factorization_reuse": "TRANSIENT_AND_HASH_COUNTED",
+    "r136_cache_load": "FORBIDDEN",
+    "budget_exhaustion": "VALID_STOP_AND_RESEARCH_NO_TOLERANCE_CHANGE"
+  },
+  "required_hash_contract": {
+    "before_first_real_graph_call": {
+      "r120_report": "dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b",
+      "r120_cache": "e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5",
+      "r120_accepted_arrays": "06e6113d862dcf6acd827962b8a580013f9e3689902b90c9189efaab641841cf",
+      "r133_report": "f1fad2ca3c7abd49acaefd9fcd37873d02fb1d289a3081fd2039b0b1192fd3b6",
+      "r133_projected_velocity": "e57bcb75629d403e04cc6d3197e8e2dada19ac0c0ef4c920083f2276c33bfb17",
+      "r133_applied_target": "195810f7e9c20b15ec6ddf165c8873f905a96414fe055a0dae7a2b45382be1a3",
+      "r133_applied_effort": "5ad7ac66c4d394ef5d06d111d86f58120069d42e61d1adf1ac82ca1d1d42a1ff",
+      "r131_mode_sequence": "ab30a912550e06e1219b1fab87e0d93044eba6b0cdf8e7377f7b27a0e1915ca4",
+      "r138_graph_index": "844ed3a2e727712fedff2c0cd858c30639c8956e054f79f2012d67277535639b",
+      "r138_transition_replay": "9f289c31ecfe2ef18b4beed4559982c3da25f7244eb6b17c022ac6000edc322a"
+    },
+    "every_accepted_anchor": [
+      "exact_q_array",
+      "exact_v_array",
+      "integer_command_array",
+      "exact_applied_target_array",
+      "exact_applied_effort_array",
+      "controller_event_address_array",
+      "controller_branch_address_array",
+      "exact_funnel_vector"
+    ],
+    "future_execution_output": [
+      "q",
+      "v",
+      "a",
+      "integer_command",
+      "exact_applied_target",
+      "exact_applied_effort",
+      "active_force",
+      "activation_impulse",
+      "contact_anchor",
+      "graph_row_address",
+      "controller_event_address",
+      "controller_branch_address",
+      "exact_residual_vector",
+      "exact_funnel_vector"
+    ],
+    "required_counter_closure": [
+      "real_state_reconstructions",
+      "real_state_lift_evaluations",
+      "real_controller_schedule_derivations",
+      "real_controller_graph_evaluations",
+      "real_mass_matrix_assemblies",
+      "real_contact_jacobian_assemblies",
+      "real_dynamics_residual_evaluations",
+      "real_integration_residual_evaluations",
+      "real_impulse_residual_evaluations",
+      "real_kinodynamic_system_assemblies",
+      "real_qp_setups",
+      "real_qp_solves",
+      "real_kinodynamic_solves",
+      "real_factorizations",
+      "real_exact_trial_audits",
+      "optimizer_steps",
+      "candidate_artifacts_built",
+      "solver_private_caches_built",
+      "physx_scene_runs",
+      "training_runs"
+    ]
+  },
+  "r140_implementation_conformance_contract": {
+    "claim": "FixedModeKinodynamicSolveImplementationConformanceOnly",
+    "required_checks": [
+      "metadata-only reconstruction-order and pre-graph hash fail-closed discriminators",
+      "synthetic sparse three-pass lexicographic QP construction and optimum-hold rows",
+      "synthetic trust contraction expansion restoration and minimum-radius stop cases",
+      "synthetic ties-to-even fixed-branch controller differential and exact replay disagreement cases",
+      "synthetic 32-plane cone plus deterministic exact-cone separation ordering",
+      "synthetic rank gap non-finite unordered-bound cone-ambiguity and solver-status invalid cases",
+      "exact resource formulas output hash inventory and counter closure",
+      "proof that no real source payload graph assembly QP solve cache candidate PhysX or training action occurs"
+    ],
+    "real_state_reconstructions": 0,
+    "real_controller_graph_evaluations": 0,
+    "real_kinodynamic_system_assemblies": 0,
+    "real_qp_solves": 0,
+    "real_kinodynamic_solves": 0,
+    "candidate_artifacts": 0,
+    "physx_scene_runs": 0,
+    "training_runs": 0,
+    "pass_transition": "PERMIT_EXPLICIT_ROADMAP_DECISION_FOR_ONE_BOUNDED_R141_ONLY",
+    "fail_transition": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "decision": {
+    "complete": "PERMIT_SEPARATE_REPORT_ONLY_R140_KINODYNAMIC_SOLVE_IMPLEMENTATION_CONFORMANCE_ONLY",
+    "invalid": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "result_transitions": {
+    "complete": "R139_COMPLETE_R140_CONFORMANCE_ONLY",
+    "invalid": "R139_INVALID_STOP_WITHOUT_EXECUTION"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/fixed_mode_kinodynamic_solve_formulation.py",
+        "lab/scripts/formulate_fixed_mode_kinodynamic_solve.py",
+        "lab/tests/test_fixed_mode_kinodynamic_solve_formulation.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/fixed_mode_kinodynamic_solve_formulation.py",
+        "lab/scripts/formulate_fixed_mode_kinodynamic_solve.py",
+        "lab/tests/test_fixed_mode_kinodynamic_solve_formulation.py"
+      ]
+    },
+    {
+      "id": "no_numeric_or_solver_import",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; import next_lab.fixed_mode_kinodynamic_solve_formulation; assert not any(name in sys.modules for name in ('numpy','osqp','scipy','pinocchio','next_lab.exit_mode_owned_projected_schedule_execution','next_lab.fixed_mode_kinodynamic_graph_conformance'))"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "bounded_acceptance": {
+    "r140_kinodynamic_solve_implementation_conformance": "AUTHORIZED_REPORT_ONLY_ON_R139_COMPLETE",
+    "r141_bounded_kinodynamic_solve": "NOT_AUTHORIZED_UNTIL_EXACT_R140_PASS_AND_EXPLICIT_ROADMAP_UPDATE",
+    "r136_retry": "NOT_AUTHORIZED",
+    "r137_retry": "NOT_AUTHORIZED",
+    "r138_retry": "NOT_AUTHORIZED",
+    "additional_pointwise_inverse_dynamics": "NOT_AUTHORIZED",
+    "real_state_reconstruction": "NOT_AUTHORIZED",
+    "real_controller_graph_evaluation": "NOT_AUTHORIZED",
+    "real_kinodynamic_assembly": "NOT_AUTHORIZED",
+    "qp_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "contact_semantics_change": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
