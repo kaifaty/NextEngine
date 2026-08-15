@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R120_PASS / R123_INVALID / R123-RC1_COMPLETE / R125_FORMULATION_NEXT` |
+| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_CONFORMANCE_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -58,6 +58,7 @@ bounded research before another solver change or expensive native run.
 | R122 fixed-PD inverse-dynamics implementation conformance | canonical/file/profile SHA-256 `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` / `8bb3f9cbe371f679ffa3d782ee4662de3fedc586ccf70c9d19536594c95afb81` / `21303443993a34bd527e735961f0e790aa0da88f2d94b46a4c6e1f85557e0ab2` | Clean `PASS`: all seven descriptor/M/h/J/Jdot-v, R113, exact R121 reproduction and no-solve resource discriminators pass; its one R123 authority was consumed by the invalid result below |
 | R123 single fixed-PD inverse-dynamics execution | canonical/file/profile SHA-256 `3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7` / `543513bf4f51797b515b718684123a9f5aeabe394bf4ea73fe20194a9d65acb2` / `492ce5da3852aa68811ce8afc6f0c5b57205ce8f2fc2ddf32dd71279b4ecda30` | Clean `INVALID / STOP_INVALID_EVIDENCE_WITHOUT_RESTART`: first flat-foot system condition `6.875e16`; one SVD, zero local solves/cache/downstream work; its R123-RC1 authority was consumed by the completed research below |
 | R123-RC1 redundant-contact research | canonical/file/profile SHA-256 `ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` / `a35d408a901ea2c439ac387287fa03aa77c669863211fb6b0d7634ce3b0836f9` / `4ee1fd77701e638a3087cbeaa6498482e073c33133bbb89a1a0b6d134d2ee8b7` | Clean `COMPLETE / CONFIRMED_REDUNDANT_FLAT_FOOT_FORCE_GAUGE`: all nine exact geometry/artifact discriminators pass; rank ≤5, nullity ≥1; zero dynamics reconstruction/solve/downstream work; permits only report-only R125 formulation |
+| R125 gauge-aware feasibility formulation | canonical/file/profile SHA-256 `ddf443610315680d0326b478212105c846a0cfda2b8bcda95567556ea1773080` / `bdc5cd5388005bbb549df7bfb723dda49a1535d2a6a39c4e31da58340e3ac0db` / `ca9cc4019e45ea316072378422e7aab304664b24034f204e41b3ccbe30e7da05` | Clean `COMPLETE`: exact `29/32/35` layouts, `2316` gauge scalars and all `4956` cones; SVD particular plus complete line-cone interval semantics; zero execution work; permits only report-only R126 conformance |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -1490,8 +1491,17 @@ R123-RC1 canonical/file/profile SHA-256 is
 `a35d408a901ea2c439ac387287fa03aa77c669863211fb6b0d7634ce3b0836f9` /
 `4ee1fd77701e638a3087cbeaa6498482e073c33133bbb89a1a0b6d134d2ee8b7`.
 All six validations pass; the research itself reconstructs/factors/solves zero
-local systems. Only report-only R125 gauge-aware feasibility formulation is
-next.
+local systems. Clean R125 now freezes the gauge-aware formulation. It removes
+fixed-effort and inactive-force variables algebraically while preserving their
+exact identities, every active closure row and all individual cones. The
+unchanged inventory is `560` flight, `324` single-point and `2316` flat-foot
+collocations; local dimensions are `29/32/35`, maximum gauge dimension is one,
+and exact-rational line-cone intersection classifies the whole gauge family
+rather than one pseudoinverse witness. Canonical/file/profile SHA-256 is
+`ddf443610315680d0326b478212105c846a0cfda2b8bcda95567556ea1773080` /
+`bdc5cd5388005bbb549df7bfb723dda49a1535d2a6a39c4e31da58340e3ac0db` /
+`ca9cc4019e45ea316072378422e7aab304664b24034f204e41b3ccbe30e7da05`.
+Only report-only R126 implementation/conformance is next.
 
 ## Decision
 
@@ -1503,7 +1513,7 @@ and the late projected direction after its exact `2501/2500 bp` failure.
 R115 consumed and failed its sole solve; R120 consumed its separate sole solve
 and passed; R123 consumed its sole execution and stopped invalid before solve.
 None may be retried. Candidate artifacts, native scenes and all-17 remain
-blocked. R125 may only freeze the gauge-aware feasibility contract and
-predeclared conformance/resource checks. It may not factor/solve real dynamics,
+blocked. R126 may only conform gauge/rank/interval implementation with at most
+seven anchor SVDs and zero full-schedule particular solutions. It may not solve,
 run kinodynamics, construct a candidate, change controller/safety/quantization
 semantics, run PhysX or begin training. R124 remains unauthorized.

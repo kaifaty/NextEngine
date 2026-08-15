@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R123 execution stopped before its first local solve |
-| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_REPORT_ONLY_FORMULATION_NEXT` |
+| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_CONFORMANCE_NEXT` |
 | Primary cause | `Environment / stage-2 rigid-contact formulation` |
 | Claim ceiling | Research and generated-test design only; no R123 retry, feasibility claim, candidate, scene or training |
 
@@ -142,3 +142,35 @@ execution authority.
 R124 remains unauthorized because its prerequisite was a *valid* R123
 completion. Every R123 retry, additional KTO/ID/kinodynamic solve, candidate,
 PhysX/all-17 run, corpus admission and learned optimization remains forbidden.
+
+## R125 formulation result
+
+Clean report-only R125 at commit `a80ed0e` freezes the selected repair without
+assembling a real system. Fixed effort and inactive forces are eliminated from
+the algebra but remain exact audited/output identities. Local layouts become
+`29` variables in flight, `32` for one active point and `35` for flat foot.
+Across the unchanged schedule this is `107668` algebraic rows/variables with
+independent rank `105352`; the difference is exactly the `2316` predeclared
+flat-foot gauge scalars. All original `4956` point cones remain.
+
+R125 freezes one SVD-derived equality-consistent particular solution, an
+analytic same-foot force gauge and exact-rational one-dimensional line-cone
+interval intersection. Feasibility depends on whether that complete interval
+is empty. A minimum normalized-force alpha is selected only afterward for
+deterministic cache bytes, so it cannot turn a feasible gauge family into an
+infeasible minimum-norm witness.
+
+Canonical/file/profile SHA-256 is
+`ddf443610315680d0326b478212105c846a0cfda2b8bcda95567556ea1773080` /
+`bdc5cd5388005bbb549df7bfb723dda49a1535d2a6a39c4e31da58340e3ac0db` /
+`ca9cc4019e45ea316072378422e7aab304664b24034f204e41b3ccbe30e7da05`.
+Formulation-module/tool SHA-256 is
+`fc18c0e112bf2dad7000cf49a9ff173e598bddbb0634bb0b4f121a49c00b295e` /
+`a93b7a12b4ede4b6336578dce54c28a88a701427916a3bac10b5751774b180dd`.
+All six validations pass, including `288/288` lab tests and full `host-check`;
+every SVD/particular/gauge classification and downstream work count is zero.
+
+Only report-only R126 implementation/conformance is authorized. It may use at
+most seven frozen-anchor SVD evaluations, but zero full-schedule particular
+solutions or gauge classifications. Only exact R126 PASS can authorize one
+bounded R127 execution.

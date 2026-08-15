@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R122 close bounded repair/model/conformance lineage; R120 is direct `PASS`. The sole R123 is `INVALID` before solve because its first same-foot heel/forefoot KKT is rank-deficient. Clean report-only R123-RC1 confirms the exact zero-wrench force gauge, rank ≤5/nullity ≥1, and permits only report-only R125 feasibility formulation. Every dynamics retry/solve, candidate artifact, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID` before solve on a same-foot force gauge; R123-RC1 confirms rank ≤5/nullity ≥1. Clean report-only R125 freezes gauge-aware `29/32/35` systems and complete line-cone feasibility while preserving all `4956` cones. Only report-only R126 conformance is next. Every dynamics retry/R127, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2069,9 +2069,20 @@ maximum. Canonical/file/profile SHA-256 is
 `4ee1fd77701e638a3087cbeaa6498482e073c33133bbb89a1a0b6d134d2ee8b7`.
 All six validations pass and every dynamics/downstream count is zero.
 
-Roadmap status now permits only report-only R125 gauge-aware feasibility
-formulation. No R123 retry, R124, R125 execution, dynamics solve, candidate or
-scene is authorized. This planning
+Clean report-only R125 at commit `a80ed0e` freezes `29/32/35` reduced layouts,
+`2316` exact one-dimensional flat-foot gauges and all `4956` unchanged cones.
+The SVD particular solution supplies only an equality-consistent origin; exact-
+rational line-cone interval intersection makes the feasibility decision and a
+secondary minimum-force alpha only stabilizes witness bytes. Canonical/file/
+profile SHA-256 is
+`ddf443610315680d0326b478212105c846a0cfda2b8bcda95567556ea1773080` /
+`bdc5cd5388005bbb549df7bfb723dda49a1535d2a6a39c4e31da58340e3ac0db` /
+`ca9cc4019e45ea316072378422e7aab304664b24034f204e41b3ccbe30e7da05`.
+All six validations pass and execution counters remain zero.
+
+Roadmap status now permits only report-only R126 implementation/conformance.
+No R123 retry, R124, R127 execution, dynamics solve, candidate or scene is
+authorized. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

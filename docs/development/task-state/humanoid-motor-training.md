@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R123-RC1_COMPLETE / R125_FORMULATION_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R125_COMPLETE / R126_CONFORMANCE_NEXT` |
 | Updated | 2026-08-15 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before learned optimizer work |
@@ -11,18 +11,18 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean report-only R123-RC1 confirms the R123 failure
-  is an exact redundant flat-foot force gauge, not numeric scaling.
-- **Why:** Integer geometry proves zero resultant force/moment, multiplier
-  nullity ≥1 and two-point sticking rank ≤5; all nine discriminators pass.
-- **Next action:** Freeze one report-only R125 feasibility formulation with an
-  independent sticking basis and existential gauge/cone treatment; do not solve.
-- **Current blocker:** The repaired feasibility contract and deterministic
-  conformance/resource gates are not yet frozen; fixed-PD feasibility is unknown.
+- **Current conclusion:** Clean report-only R125 freezes gauge-aware fixed-PD
+  feasibility without changing rigid sticking, point locations or cones.
+- **Why:** Exact inventory is `560/324/2316` flight/single/flat collocations;
+  layouts are `29/32/35`, with exactly `2316` gauge scalars and `4956` cones.
+- **Next action:** Implement report-only R126 conformance: synthetic interval/
+  rank cases plus at most seven frozen-anchor SVDs; no full-schedule solve.
+- **Current blocker:** Gauge/SVD/line-cone implementation is not yet independently
+  conformed; fixed-PD feasibility remains unknown until a later R127.
 - **Do not retry:** Never restart R123, raise its condition limit, substitute a
   pseudoinverse witness, or start KTO/ID/kinodynamics/PPO/PhysX.
-- **Reconsider when:** R125 closes report-only and permits only separate
-  implementation/conformance; no execution follows from formulation alone.
+- **Reconsider when:** Exact R126 PASS permits one separately bounded R127;
+  conformance failure stops without threshold tuning or execution.
 
 All TRAIN-5 checkpoints remain rejected. No learned optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -40,10 +40,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R123/R123-RC1 redundant-contact boundary | R123 canonical `3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7` is invalid before solve. R123-RC1 canonical `ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` confirms exact zero-wrench gauge, rank ≤5/nullity ≥1, with zero reconstructions/solves | Freeze both; permit only report-only R125 formulation |
+| R123-RC1/R125 redundant-contact repair | R123-RC1 canonical `ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` confirms the gauge. R125 canonical `ddf443610315680d0326b478212105c846a0cfda2b8bcda95567556ea1773080` preserves `4956` cones, reduces layouts to `29/32/35`, and freezes complete gauge-interval feasibility with zero execution work | Permit only report-only R126 implementation/conformance |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-Current R120/R121/R122/R123/R123-RC1 canonical SHA-256: `dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b` / `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` / `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` / `3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7` / `ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf`.
+Current R121/R122/R123/R123-RC1/R125 canonical SHA-256: `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` / `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` / `3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7` / `ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` / `ddf443610315680d0326b478212105c846a0cfda2b8bcda95567556ea1773080`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -189,7 +189,7 @@ carry detailed evidence. The hashes above identify their external reports.
 | H22: exact offline reference is dynamically too demanding for fixed PD | R122 proves the dynamics kernel conforms | R123 reached no local solve or cone margin | Keep unknown until a new formulation is separately authorized |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
 | H24/H26: nonlocal coupling is hidden between motor samples | R122 reproduces the affine 240 Hz lift and local dynamics identities | Integrated dynamics remains untested | Keep blocked; invalid R123 cannot authorize R124 |
-| H27: flat-foot point multipliers are structurally redundant | R123-RC1 exact integer audit confirms zero wrench, rank ≤5/nullity ≥1 | No contrary evidence | Confirmed; formulate gauge-aware R125 without solve |
+| H27: flat-foot point multipliers are structurally redundant | R123-RC1 confirms the gauge; R125 preserves all cones and searches its full interval | Implementation not yet conformed | Run report-only R126; no R127 yet |
 
 ## Required context
 
@@ -219,7 +219,7 @@ semantics.
 
 1. Freeze clean R73–R123, R115-RC1 and all superseded reports.
 2. Record R123 consumed/invalid; never rerun or reinterpret it.
-3. Freeze only the report-only R125 gauge-aware feasibility formulation.
+3. Implement/run only report-only R126 gauge/rank/interval conformance.
 4. Run no KTO/ID/kinodynamic solve, candidate, scene or all-17.
 
 ## Do not retry
@@ -238,13 +238,13 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R123-RC1 is immutable `COMPLETE` from clean `e8fa20f`;
-  its external report is canonical/hash-bound and R123 remains unretired invalid.
-- **Checks:** R123-RC1 PASS (`283/283` lab, motor, full `host-check`);
-  exact geometry audit, zero reconstruction/SVD/solve/candidate/PhysX/training.
+- **Workspace state:** R125 is immutable `COMPLETE` from clean `a80ed0e`; its
+  external formulation is canonical/hash-bound and R123 remains invalid.
+- **Checks:** R125 PASS (`288/288` lab, motor, full `host-check`); exact mode/
+  rank inventory, zero reconstruction/SVD/solve/candidate/PhysX/training.
 - **Remaining risk:** Fixed-PD feasibility, integrated/fresh PhysX,
   full-corpus exact-zero coverage and visual review remain open.
-- **Execution authority:** Report-only R125 formulation; no dynamics run.
+- **Execution authority:** Report-only R126 conformance; R127 is unauthorized.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.
