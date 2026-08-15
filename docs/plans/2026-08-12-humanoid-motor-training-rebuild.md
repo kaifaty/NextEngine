@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R135 close and conform its successor, while R136 is valid complete but cone-infeasible at `2418/3200` collocations. R137 freezes the selected fixed-mode controller-reachable graph. Clean report-only R138 passes graph/index/event and exact-controller conformance with zero target/effort differences and zero real work. R139 research selects sparse multiple-shooting SCvx/SQP with OSQP candidate steps and exact quantized acceptance; only its report-only formulation is authorized. No retry, real kinodynamic assembly/solve, contact-semantics change, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R135 close and conform its successor, while R136 is valid complete but cone-infeasible at `2418/3200` collocations. R137 freezes the selected fixed-mode controller-reachable graph. Clean report-only R138 passes graph/index/event and exact-controller conformance with zero target/effort differences and zero real work. Clean R139 freezes sparse multiple-shooting SCvx/SQP, three-pass OSQP candidate steps, exact quantized acceptance, numerical invalid stops and one bounded future envelope with zero real work; only report-only R140 implementation/numerical conformance is authorized. No retry, real reconstruction/kinodynamic assembly/QP/solve, contact-semantics change, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -29,6 +29,7 @@
 | TRAIN-4 R137 formulation result | [R137 fixed-mode kinodynamic formulation result](../development/humanoid-train4-r137-fixed-mode-kinodynamic-formulation-result-2026-08-15.md) |
 | TRAIN-4 R138 conformance result | [R138 kinodynamic graph conformance result](../development/humanoid-train4-r138-kinodynamic-graph-conformance-result-2026-08-15.md) |
 | TRAIN-4 R139 solve-method decision | [R139 sparse exact-acceptance solve research](../development/humanoid-train4-r139-kinodynamic-solve-research-2026-08-15.md) |
+| TRAIN-4 R139 formulation result | [R139 kinodynamic solve formulation result](../development/humanoid-train4-r139-kinodynamic-solve-formulation-result-2026-08-15.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -2233,10 +2234,20 @@ counters remain zero. Canonical/file/profile SHA-256 is
 `cec76311db0c0c4d4cb693b806a1fae344eb3e79e24161aa4081c37a5e258d83` /
 `54e6291852997450f4acd2e15f9fb6e499a16196b9aea53295ffef74a979b216`.
 The exact transition is `R138_PASS_R139_FORMULATION_ONLY`. Only report-only
-R139 is authorized. Its research decision selects sparse multiple-shooting
-SCvx/SQP, three lexicographic elastic QPs per major iteration, bounded trust
-globalization and exact quantized controller/dynamics acceptance. Real
-assembly/solve, candidate and scene remain blocked.
+R139 was authorized. Clean R139 at `0a71362` passes all six validations, reads
+three reports and zero source array payloads, and freezes sparse multiple-
+shooting SCvx/SQP with three lexicographic OSQP passes, bounded trust/funnel,
+exact quantized controller/nonlinear acceptance, rank/cone invalid stops and a
+future-only six-major/18-QP/42-audit/four-hour/16-GiB envelope. Every real graph,
+assembly, QP/factorization/solve and downstream counter is zero. Canonical/file/
+profile SHA-256 is
+`fc76b3072ca9323a2b5dfea45bb9f5c74de57e485a80ed01a7a8ecd6651fec0c` /
+`efd6968fac2a66144b43c8422d798b025a878d0e5588e85d8a3414b745b465de` /
+`55326991ba7fc025238a2a6ef3f288984c1dea14533cf8b50f9e6ad897f57853`.
+The exact transition is `R139_COMPLETE_R140_CONFORMANCE_ONLY`; only report-only
+R140 implementation/numerical conformance is authorized. R141 real execution,
+candidate and scene remain blocked pending exact R140 `PASS` and a later
+explicit roadmap update.
 This planning document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 
