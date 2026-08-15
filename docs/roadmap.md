@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-15 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID`; R127-RC1 confirms an off-manifold FlatSticking velocity, R128 selects a mass-metric tangent-velocity projection, and clean seven-anchor R129 conforms it with `PASS`. Only one bounded tangent-projected fixed-PD R130 execution is next. R127 retry, any extra projection/ID/kinodynamic solve, R124, candidate, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; their research and R125–R129 close force-gauge and tangent-projection mechanics. The sole R130 is `INVALID`: its projection passes `3200/3200`, but the projected schedule violates right-ankle-roll actuator bounds before inverse dynamics. Clean R130-RC1 confirms two repeated right-forefoot exit hotspots and permits only report-only R131 hybrid contact-edge state-lift formulation. Every retry/additional projection/ID/kinodynamic solve, R124, candidate, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -765,7 +765,8 @@ PPO остаются запрещены.
 
 **TRAIN-4 coupled/native trajectory research (`R123_INVALID / R123-RC1_COMPLETE /
 R125_COMPLETE / R126_PASS / R127_INVALID / R127-RC1_COMPLETE /
-R128_COMPLETE / R129_PASS / R130_EXECUTION_NEXT`, 2026-08-15):**
+R128_COMPLETE / R129_PASS / R130_INVALID / R130-RC1_COMPLETE /
+R131_FORMULATION_NEXT`, 2026-08-15):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -1376,9 +1377,32 @@ dynamics or downstream work. Canonical/file/profile SHA-256 is
 `b34eb4727165e9b16ef82f597138fde33993c12efa8e3177776254237c6fbb99` /
 `490b32f67c98d07d9daf0fe9c301372d69b8b85774227658b942b05210531829` /
 `d25557c5a07cc243570c1a2b57d9ecb6c8c9ac12bdd31c1ec950f4cfbfc4a376`.
-R127 cannot retry. Only one bounded 3200-collocation tangent-projected
-fixed-PD R130 execution is now permitted; every additional execution or
-downstream action remains unauthorized.
+The sole clean R130 at `4dbd0ac` consumes that authority and stops
+`INVALID / R130_CONSUMED_INVALID_NO_RETRY` before inverse dynamics. Its
+projection passes `3200/3200` rows with maximum active speed after
+`1.295e-14 m/s` and maximum scaled KKT residual `1.249e-13`, but the projected
+fixed-PD schedule creates four velocity violations and two empty effort
+envelopes, all on right-ankle-roll DoF `11`; its implied peak speed is
+`21.712253 rad/s` against the authored `8 rad/s` limit. Canonical/file/profile
+SHA-256 is
+`acd92a581a732c293cc9440d4215702fdf356f614c150ec4886d82a2fb197955` /
+`422a9b54d44ca10297927ccccb54eb541b4fc23cc2c778c34e98d5b55d07ea72` /
+`f10f557dd93d47f192f20d321052d309455cf54ba657bafc2829e7700fd2825f`.
+Clean report-only R130-RC1 at `74275e3` confirms the actuator conflict and
+localizes the four largest corrections to substeps `2/3` of two repeated
+right-forefoot intervals immediately followed by flight. Because R130 stores
+hashes but no projected vectors or controller-event row indices, this is an
+exit hotspot correlation, not an exact row/event identity. All twelve
+discriminators and six validations pass (`330/330` lab), with zero projection,
+inverse-dynamics, kinodynamic, candidate, PhysX or training work. Canonical/
+file/profile SHA-256 is
+`edc8f978e6ee068c32637fe2000495c066daafdd15458eb3809365d69446dd3d` /
+`68166bcf90d9d77d82e92faad159ee3653259da56bf66fe3020a927c174abc2b` /
+`7794c56283e9703f710682ec56b48689db299cbe7788b5ccbdd5653b631cd7eb`.
+The [R130 projected-schedule decision](development/humanoid-train4-r130-projected-schedule-research-2026-08-15.md)
+permits only a separate report-only R131 hybrid contact-edge state-lift
+formulation. R123/R127/R129/R130 cannot retry; every execution and downstream
+action remains unauthorized.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -2161,7 +2185,9 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    handling, the sole R127 exposes an incompatible acceleration RHS, and clean
    R127-RC1 proves the frozen FlatSticking q/v state is off-manifold, R128
    selects a mass-metric tangent projection, and R129 conforms it on seven
-   anchors; only one bounded tangent-projected fixed-PD R130 execution is next.
+   anchors. The sole R130 projection passes but its fixed-PD schedule violates
+   right-ankle-roll limits; R130-RC1 confirms repeated contact-exit hotspots
+   and permits only report-only R131 hybrid edge-lift formulation.
    До exact-zero fresh/
    full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
    No training quality, Stage 0 or R5 completion is claimed here.

@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID`; R127-RC1 confirms an off-manifold two-point FlatSticking velocity. R128 selects a mass-metric tangent-velocity projection and clean seven-anchor R129 conforms it with `PASS`. Only one bounded tangent-projected fixed-PD R130 execution is next. Every retry/additional execution or solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R123-RC1/R125/R126 and R127-RC1/R128/R129 close force-gauge and tangent-projection mechanics. The sole R130 is `INVALID`: projection passes `3200/3200`, but the projected schedule violates right-ankle-roll actuator bounds before inverse dynamics. Clean R130-RC1 confirms repeated contact-exit hotspots and permits only report-only R131 hybrid contact-edge state-lift formulation. Every retry/additional execution or solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -23,6 +23,7 @@
 | TRAIN-4 clip-global decision | [Clip-global contact trajectory research](../development/humanoid-train4-clip-global-research-2026-08-14.md) |
 | TRAIN-4 coupled-solver decision | [Coupled complete-clip trajectory research](../development/humanoid-train4-coupled-trajectory-research-2026-08-14.md) |
 | TRAIN-4 native-dynamics decision | [Fresh V9 rejection and differential-audit contract](../development/humanoid-train4-native-dynamics-research-2026-08-14.md) |
+| TRAIN-4 projected-schedule decision | [R130 actuator conflict and hybrid contact-exit research](../development/humanoid-train4-r130-projected-schedule-research-2026-08-15.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -2131,9 +2132,30 @@ or downstream work. Canonical/file/profile SHA-256 is
 `b34eb4727165e9b16ef82f597138fde33993c12efa8e3177776254237c6fbb99` /
 `490b32f67c98d07d9daf0fe9c301372d69b8b85774227658b942b05210531829` /
 `d25557c5a07cc243570c1a2b57d9ecb6c8c9ac12bdd31c1ec950f4cfbfc4a376`.
-Roadmap status now permits exactly one bounded tangent-projected fixed-PD R130
-execution. No R123/R127 retry, R124, additional projection/ID/kinodynamic
-execution, candidate or scene is authorized. This planning
+The sole R130 at clean commit `4dbd0ac` consumes that authority and stops
+`INVALID / R130_CONSUMED_INVALID_NO_RETRY` before inverse dynamics. All
+`3200/3200` projection rows pass, but the projected fixed-PD schedule has four
+velocity violations and two empty effort envelopes on right-ankle-roll DoF
+`11`; the implied peak speed is `21.712253 rad/s` against its authored
+`8 rad/s` limit. Canonical/file/profile SHA-256 is
+`acd92a581a732c293cc9440d4215702fdf356f614c150ec4886d82a2fb197955` /
+`422a9b54d44ca10297927ccccb54eb541b4fc23cc2c778c34e98d5b55d07ea72` /
+`f10f557dd93d47f192f20d321052d309455cf54ba657bafc2829e7700fd2825f`.
+
+Clean report-only R130-RC1 at commit `74275e3` confirms the projected-schedule
+actuator conflict. The four largest corrections are substeps `2/3` of two
+right-forefoot intervals immediately followed by flight; exact row-to-event
+identity remains unavailable because R130 emitted only projected-state hashes.
+All twelve discriminators and six validations pass (`330/330` lab), with zero
+projection/dynamics solves or downstream work. Canonical/file/profile SHA-256
+is
+`edc8f978e6ee068c32637fe2000495c066daafdd15458eb3809365d69446dd3d` /
+`68166bcf90d9d77d82e92faad159ee3653259da56bf66fe3020a927c174abc2b` /
+`7794c56283e9703f710682ec56b48689db299cbe7788b5ccbdd5653b631cd7eb`.
+Roadmap status now permits only one separate report-only R131 hybrid
+contact-edge state-lift formulation. No R123/R127/R129/R130 retry, R124,
+additional projection/ID/kinodynamic execution, candidate or scene is
+authorized. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 
