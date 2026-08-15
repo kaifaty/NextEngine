@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID`; R127-RC1 confirms an off-manifold two-point FlatSticking velocity. Clean R128 selects a mass-metric tangent-velocity projection as a pointwise diagnostic only. Only seven-anchor report-only R129 conformance is next. Every retry/full execution/solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID`; R127-RC1 confirms an off-manifold two-point FlatSticking velocity. R128 selects a mass-metric tangent-velocity projection and clean seven-anchor R129 conforms it with `PASS`. Only one bounded tangent-projected fixed-PD R130 execution is next. Every retry/additional execution or solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2120,9 +2120,20 @@ Canonical/file/profile SHA-256 is
 `32a9e278f0c1afe74b646daaf9ef2e446e04e1e56c101caa4e8221cab76cd3d0` /
 `15cba3557e487b3af33cb9b9b281501f90aea2fa662151dcbf99277bab46f56e` /
 `4a6caece3113ad622ad8a2481bb07849b139eab626015f68511c66cabfe74035`.
-Roadmap status permits only seven-anchor report-only R129 conformance, with at
-most six contact projections and zero inverse dynamics. No R123/R127 retry,
-R124, R130 execution, candidate or scene is authorized. This planning
+Clean report-only R129 at commit `b81270f` passes all seven frozen anchors.
+Six contact projections reduce maximum active-point velocity to
+`9.281e-16 m/s`, maximum scaled KKT residual to `1.469e-14`, and maximum flat
+rigid-line incompatibility after projection to `2.277e-17 m/s²`. Rank/nullity
+matches every predeclared `5/1`, `3/0` and `0/0` case; kinetic energy never
+increases. All six validations pass (`318/318` lab), with seven mass matrices,
+six contact Jacobians/projection solves and zero full-schedule, inverse-dynamics
+or downstream work. Canonical/file/profile SHA-256 is
+`b34eb4727165e9b16ef82f597138fde33993c12efa8e3177776254237c6fbb99` /
+`490b32f67c98d07d9daf0fe9c301372d69b8b85774227658b942b05210531829` /
+`d25557c5a07cc243570c1a2b57d9ecb6c8c9ac12bdd31c1ec950f4cfbfc4a376`.
+Roadmap status now permits exactly one bounded tangent-projected fixed-PD R130
+execution. No R123/R127 retry, R124, additional projection/ID/kinodynamic
+execution, candidate or scene is authorized. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

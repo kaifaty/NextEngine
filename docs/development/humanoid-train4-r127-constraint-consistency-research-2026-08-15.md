@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R127 stopped before its first gauge/cone classification |
-| Status | `R127_INVALID / R127-RC1_COMPLETE / R128_COMPLETE / R129_CONFORMANCE_NEXT` |
+| Status | `R127_INVALID / R127-RC1_COMPLETE / R128_COMPLETE / R129_PASS / R130_EXECUTION_NEXT` |
 | Primary cause | `Frozen q/v is incompatible with two-point FlatSticking acceleration closure` |
 | Claim ceiling | Static research and generated-test design only; no R127 retry, feasibility claim, candidate, scene or training |
 
@@ -151,7 +151,31 @@ scenes or training runs. Canonical/file/profile SHA-256 is
 `4a6caece3113ad622ad8a2481bb07849b139eab626015f68511c66cabfe74035`.
 The canonical hash independently recomputes exactly.
 
-Only report-only R129 implementation conformance is now permitted: seven
-frozen anchors, at most six contact projections, no full schedule, no inverse
-dynamics and no downstream work. R130 remains unauthorized until an exact R129
-`PASS`; R127 remains permanently consumed without retry.
+## R129 projection conformance result
+
+Clean R129 at commit `b81270f` passes all seven frozen anchors. Six contact
+projections have their exact predeclared ranks and nullities; maximum
+active-point velocity after projection is `9.281e-16 m/s`, maximum scaled KKT
+residual is `1.469e-14`, maximum closed-form/KKT disagreement is `3.775e-15`,
+and every projection lowers kinetic energy. The three flat-foot anchors retain
+one multiplier gauge while changing projected velocity by at most `4.072e-15`
+under that gauge.
+
+The collocation-0 rigid-line incompatibility falls from
+`-0.003737579615 m/s²` to `-1.917e-18 m/s²`; across all flat anchors its maximum
+post-projection magnitude is `2.277e-17 m/s²`. All synthetic rank-gap,
+nonfinite, idempotence and same-body gauge cases pass. All six validations pass
+(`318/318` lab, motor and full `host-check`). The official audit performs seven
+mass assemblies, six contact-Jacobian assemblies/factorizations/solves, and
+zero full-schedule projection, inverse dynamics or downstream work.
+
+Canonical/file/profile SHA-256 is
+`b34eb4727165e9b16ef82f597138fde33993c12efa8e3177776254237c6fbb99` /
+`490b32f67c98d07d9daf0fe9c301372d69b8b85774227658b942b05210531829` /
+`d25557c5a07cc243570c1a2b57d9ecb6c8c9ac12bdd31c1ec950f4cfbfc4a376`.
+The canonical hash independently recomputes exactly.
+
+R129 is consumed without retry. It authorizes exactly one bounded
+tangent-projected fixed-PD R130 execution. R127/R129 retries, additional
+projection/ID/kinodynamic execution, candidate construction, PhysX and
+training remain forbidden.

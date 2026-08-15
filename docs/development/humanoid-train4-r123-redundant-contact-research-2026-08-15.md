@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R123 execution stopped before its first local solve |
-| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_COMPLETE / R128_COMPLETE / R129_CONFORMANCE_NEXT` |
+| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_COMPLETE / R128_COMPLETE / R129_PASS / R130_EXECUTION_NEXT` |
 | Primary cause | `Environment / stage-2 rigid-contact formulation` |
 | Claim ceiling | Research and generated-test design only; no R123 retry, feasibility claim, candidate, scene or training |
 
@@ -213,5 +213,13 @@ profile SHA-256 is
 `32a9e278f0c1afe74b646daaf9ef2e446e04e1e56c101caa4e8221cab76cd3d0` /
 `15cba3557e487b3af33cb9b9b281501f90aea2fa662151dcbf99277bab46f56e` /
 `4a6caece3113ad622ad8a2481bb07849b139eab626015f68511c66cabfe74035`.
-Only seven-anchor report-only R129 projection conformance is authorized; R130
-execution remains blocked.
+Clean R129 at `b81270f` passes all seven frozen projection anchors. The exact
+rank/nullity cases pass, maximum active-point velocity is `9.281e-16 m/s`,
+maximum scaled KKT residual is `1.469e-14`, and the projected flat rigid-line
+incompatibility is at most `2.277e-17 m/s²`. It performs six projections and
+zero inverse-dynamics/downstream work. Canonical/file/profile SHA-256 is
+`b34eb4727165e9b16ef82f597138fde33993c12efa8e3177776254237c6fbb99` /
+`490b32f67c98d07d9daf0fe9c301372d69b8b85774227658b942b05210531829` /
+`d25557c5a07cc243570c1a2b57d9ecb6c8c9ac12bdd31c1ec950f4cfbfc4a376`.
+Only one bounded tangent-projected fixed-PD R130 execution is authorized;
+additional projection/ID/kinodynamic execution remains blocked.
