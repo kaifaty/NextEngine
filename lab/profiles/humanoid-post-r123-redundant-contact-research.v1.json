@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "research_id": "nextengine.humanoid-post-r123-redundant-contact-research.v1",
+  "status": "FrozenReportOnly",
+  "claim": "PostR123RedundantContactGeometryAuditOnly",
+  "source": {
+    "r123": {
+      "report_sha256": "3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7",
+      "report_file_sha256": "543513bf4f51797b515b718684123a9f5aeabe394bf4ea73fe20194a9d65acb2",
+      "execution_profile_sha256": "492ce5da3852aa68811ce8afc6f0c5b57205ce8f2fc2ddf32dd71279b4ecda30",
+      "execution_module_sha256": "81f436bb0ad21e683508e9d4e518c8f01fee4316707fd74ab4e805be28dba906",
+      "tool_sha256": "9efb02950023df50dfb70ee31369fa7772daef441bfbebd1816935dd2fca87ed",
+      "repository_commit": "7e9e93c6160afee45b70a649f94a058f4eb80628"
+    },
+    "r113": {
+      "report_sha256": "3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf",
+      "report_file_sha256": "de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c",
+      "profile_sha256": "fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d"
+    }
+  },
+  "scope": {
+    "research_cycle_id": "R123-RC1",
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_r123_execution_runs": 1,
+    "research_audits": 1,
+    "local_system_reconstructions": 0,
+    "singular_value_decompositions": 0,
+    "local_system_solves": 0,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "method": {
+    "artifact_audit": "recompute canonical/file/profile/module/tool identities for immutable R123 and point-identity hashes for R113",
+    "failure_boundary_audit": "read only the single emitted R123 invalid collocation row; do not reconstruct its q, v, M, h, J, Jdot-v, matrix or right-hand side",
+    "geometry_audit": "use exact integer R113 local translations to construct equal-and-opposite forces along the same-body heel-forefoot line and prove zero resultant force and moment",
+    "rank_inference": "derive the at-most-five rank of two complete 3D point constraints on one rigid body from the nonzero zero-wrench multiplier direction",
+    "solver_or_factorization_policy": "FORBIDDEN"
+  },
+  "discriminators": {
+    "maximum_scaled_condition_number": 1000000000000.0,
+    "expected_first_collocation": 0,
+    "expected_contact_modes": [
+      0,
+      3
+    ],
+    "expected_active_pair": [
+      {
+        "point_ordinal": 2,
+        "body_id": "body.right-ankle-roll",
+        "local_translation_micrometres": [
+          0,
+          -18635,
+          -35000
+        ]
+      },
+      {
+        "point_ordinal": 3,
+        "body_id": "body.right-ankle-roll",
+        "local_translation_micrometres": [
+          0,
+          -18635,
+          180000
+        ]
+      }
+    ],
+    "required_exact_resultant_force": [
+      0,
+      0,
+      0
+    ],
+    "required_exact_resultant_moment": [
+      0,
+      0,
+      0
+    ],
+    "required_constraint_rank_upper_bound": 5,
+    "required_minimum_force_nullity": 1
+  },
+  "hypothesis_disposition": [
+    {
+      "hypothesis": "artifact or model lineage corruption",
+      "decision": "falsified when all immutable hashes, canonical digest and validation statuses close"
+    },
+    {
+      "hypothesis": "numeric scaling or the 1e12 ceiling is the first cause",
+      "decision": "falsified when exact same-body integer geometry produces a nonzero zero-wrench force direction"
+    },
+    {
+      "hypothesis": "R121/R123 flat-foot force multipliers are structurally redundant",
+      "decision": "confirmed only when the first active pair shares one body, is distinct and has exact zero force/moment under the line-force construction"
+    },
+    {
+      "hypothesis": "the fixed-PD schedule is dynamically feasible or infeasible",
+      "decision": "remain unknown because R123 performed zero local solves and zero cone classifications"
+    }
+  ],
+  "research_basis": [
+    {
+      "source": "Carpentier, Le Lidec and Montaut, From Compliant to Rigid Contact Simulation: a Unified and Efficient Approach, RSS 2024",
+      "url": "https://www.roboticsproceedings.org/rss20/p108.pdf",
+      "relevance": "the rigid-contact KKT is often non-invertible when the contact Jacobian is rank deficient; compliance is a distinct regularized model"
+    },
+    {
+      "source": "MIT Underactuated Robotics, Multi-Body Dynamics",
+      "url": "https://underactuated.mit.edu/multibody.html",
+      "relevance": "rank-deficient constrained dynamics has multiple multipliers and a pseudoinverse adds a minimum-force selection rule"
+    },
+    {
+      "source": "Olsen and Kamrin, Resolving Force Indeterminacy in Contact Dynamics Using Compatibility Conditions, 2018",
+      "url": "https://arxiv.org/abs/1805.07437",
+      "relevance": "perfectly rigid contact networks can have non-unique contact-force distributions and require an added compatibility rule to select one"
+    },
+    {
+      "source": "Caron, Pham and Nakamura, Stability of Surface Contacts for Humanoid Robots, 2015",
+      "url": "https://arxiv.org/abs/1501.04719",
+      "relevance": "humanoid surface-contact feasibility can be represented by a resultant wrench cone without relying on a unique individual point-force split"
+    }
+  ],
+  "repair_alternatives": [
+    {
+      "alternative": "raise condition threshold or use the ordinary square solve",
+      "decision": "REJECT",
+      "reason": "cannot remove an exact nullspace and would select forces from roundoff"
+    },
+    {
+      "alternative": "use only a Moore-Penrose minimum-norm witness",
+      "decision": "REJECT_AS_FEASIBILITY_CLASSIFIER",
+      "reason": "one selected witness can violate an individual cone even when another gauge value is feasible"
+    },
+    {
+      "alternative": "delete one point or silently remove one row",
+      "decision": "REJECT",
+      "reason": "changes contact geometry or leaves force selection underdefined"
+    },
+    {
+      "alternative": "add compliance or Tikhonov/proximal regularization",
+      "decision": "DEFER",
+      "reason": "changes the rigid-contact model and needs an explicit physical parameter and identity decision"
+    },
+    {
+      "alternative": "preserve both points and test cone existence over the exact force nullspace or equivalent wrench/SOCP representation",
+      "decision": "SELECT_FOR_REPORT_ONLY_FORMULATION",
+      "reason": "removes only the proven gauge while preserving rigid sticking, point locations and existential cone semantics"
+    }
+  ],
+  "next_smallest_action": "freeze one separate report-only R125 formulation that uses an independent sticking basis and tests existence over the exact flat-foot force gauge, or proves an equivalent wrench/SOCP mapping; do not execute it",
+  "decision": {
+    "confirmed": "PERMIT_SEPARATE_REPORT_ONLY_R125_REDUNDANT_CONTACT_FEASIBILITY_FORMULATION_ONLY",
+    "inconclusive": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/fixed_pd_redundant_contact_research.py",
+        "lab/scripts/research_fixed_pd_redundant_contact.py",
+        "lab/tests/test_fixed_pd_redundant_contact_research.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/fixed_pd_redundant_contact_research.py",
+        "lab/scripts/research_fixed_pd_redundant_contact.py",
+        "lab/tests/test_fixed_pd_redundant_contact_research.py"
+      ]
+    },
+    {
+      "id": "solver_free_import",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; import next_lab.fixed_pd_redundant_contact_research; assert 'numpy' not in sys.modules; assert 'next_lab.fixed_pd_inverse_dynamics_execution' not in sys.modules"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "bounded_acceptance": {
+    "r123_retry": "NOT_AUTHORIZED",
+    "r124_formulation": "NOT_AUTHORIZED",
+    "r125_execution": "NOT_AUTHORIZED",
+    "additional_kto_solve": "NOT_AUTHORIZED",
+    "additional_inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
