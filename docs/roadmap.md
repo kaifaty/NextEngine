@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-15 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID`; clean R127-RC1 now confirms that its rank-valid RHS failure comes from an off-manifold two-point FlatSticking q/v state, not the force gauge. Only report-only R128 contact-state consistency formulation is next. Every retry/solve, R124, candidate, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID`; R127-RC1 confirms an off-manifold FlatSticking velocity, and clean R128 selects a mass-metric tangent-velocity projection as a pointwise diagnostic only. Only seven-anchor report-only R129 projection conformance is next. R127 retry, R130 execution/solve, R124, candidate, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -765,7 +765,7 @@ PPO остаются запрещены.
 
 **TRAIN-4 coupled/native trajectory research (`R123_INVALID / R123-RC1_COMPLETE /
 R125_COMPLETE / R126_PASS / R127_INVALID / R127-RC1_COMPLETE /
-R128_FORMULATION_NEXT`, 2026-08-15):**
+R128_COMPLETE / R129_CONFORMANCE_NEXT`, 2026-08-15):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -1354,9 +1354,18 @@ profile SHA-256 is
 `a32f84719b72bf826255287209c596c4faba99646e16112f970acc3c4a5b63ba` /
 `1e0137b3c1ba37cedd62da9f20e71616b8cc3a52d2f3e36df49ed3613549ec70`.
 The [R127 consistency decision](development/humanoid-train4-r127-constraint-consistency-research-2026-08-15.md)
-records the evidence and repair-family comparison. Only report-only R128
-contact-state consistency formulation is permitted; R127 cannot retry and R128
-cannot execute.
+records the evidence and repair-family comparison. Clean report-only R128 at
+`0220493` selects the mass-metric tangent-velocity projection as the smallest
+Stage-2 discriminator. It preserves q/modes/points/gains/limits, replaces the
+velocity-derived state and PD lineage, retains rank-five flat contact with one
+multiplier gauge, and claims no position projection or integration. All six
+validations pass (`310/310` lab); formulation execution counters are zero.
+Canonical/file/profile SHA-256 is
+`32a9e278f0c1afe74b646daaf9ef2e446e04e1e56c101caa4e8221cab76cd3d0` /
+`15cba3557e487b3af33cb9b9b281501f90aea2fa662151dcbf99277bab46f56e` /
+`4a6caece3113ad622ad8a2481bb07849b139eab626015f68511c66cabfe74035`.
+Only seven-anchor report-only R129 conformance is permitted; R127 cannot retry
+and the 3200-collocation R130 execution remains unauthorized.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -2137,8 +2146,9 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    conformance. The sole R123 is invalid before solve on an exact flat-foot
    force gauge, R123-RC1 hash-closes it, R125/R126 repair and conform gauge
    handling, the sole R127 exposes an incompatible acceleration RHS, and clean
-   R127-RC1 proves the frozen FlatSticking q/v state is off-manifold; only
-   report-only R128 formulation is next. До exact-zero fresh/
+   R127-RC1 proves the frozen FlatSticking q/v state is off-manifold, and R128
+   selects a mass-metric tangent projection; only seven-anchor report-only R129
+   conformance is next. До exact-zero fresh/
    full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
    No training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote

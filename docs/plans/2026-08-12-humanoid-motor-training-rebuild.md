@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID`; clean R127-RC1 confirms that its rank-valid RHS failure comes from an off-manifold two-point FlatSticking q/v state. Only report-only R128 contact-state consistency formulation is next. Every retry/solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID`; R127-RC1 confirms an off-manifold two-point FlatSticking velocity. Clean R128 selects a mass-metric tangent-velocity projection as a pointwise diagnostic only. Only seven-anchor report-only R129 conformance is next. Every retry/full execution/solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2111,10 +2111,18 @@ zero. Canonical/file/profile SHA-256 is
 `a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62` /
 `a32f84719b72bf826255287209c596c4faba99646e16112f970acc3c4a5b63ba` /
 `1e0137b3c1ba37cedd62da9f20e71616b8cc3a52d2f3e36df49ed3613549ec70`.
-Roadmap status permits only report-only R128 formulation comparing q/v
-manifold projection, honest contact-mode correction and explicit discrete/
-compliant contact. No R123/R127 retry, R124, R128 execution, candidate or scene
-is authorized. This planning
+Clean report-only R128 at commit `0220493` selects the mass-metric
+tangent-velocity projection as a Stage-2 diagnostic. It preserves q, modes,
+points, gains and limits, but requires a new velocity/`Jdot-v`/bias/PD lineage
+and claims no position projection or integration. All six validations pass
+(`310/310` lab); every projection/matrix/solve/downstream counter is zero.
+Canonical/file/profile SHA-256 is
+`32a9e278f0c1afe74b646daaf9ef2e446e04e1e56c101caa4e8221cab76cd3d0` /
+`15cba3557e487b3af33cb9b9b281501f90aea2fa662151dcbf99277bab46f56e` /
+`4a6caece3113ad622ad8a2481bb07849b139eab626015f68511c66cabfe74035`.
+Roadmap status permits only seven-anchor report-only R129 conformance, with at
+most six contact projections and zero inverse dynamics. No R123/R127 retry,
+R124, R130 execution, candidate or scene is authorized. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

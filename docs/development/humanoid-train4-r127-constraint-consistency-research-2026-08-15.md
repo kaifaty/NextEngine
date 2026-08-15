@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R127 stopped before its first gauge/cone classification |
-| Status | `R127_INVALID / R127-RC1_COMPLETE / R128_FORMULATION_NEXT` |
+| Status | `R127_INVALID / R127-RC1_COMPLETE / R128_COMPLETE / R129_CONFORMANCE_NEXT` |
 | Primary cause | `Frozen q/v is incompatible with two-point FlatSticking acceleration closure` |
 | Claim ceiling | Static research and generated-test design only; no R127 retry, feasibility claim, candidate, scene or training |
 
@@ -122,3 +122,36 @@ contact-mode correction and explicit discrete/compliant contact, choose the
 smallest falsifiable successor, and freeze its identities and acceptance
 criteria. It may not execute the formulation, retry R127, build a candidate,
 run PhysX or start training.
+
+## R128 formulation result
+
+Clean report-only R128 at commit `0220493` selects
+`mass_metric_tangent_velocity_projection` as a Stage-2 diagnostic. At each
+active collocation it freezes the unique minimum-kinetic-metric correction
+
+`delta_v = -M^-1 J_A^T (J_A M^-1 J_A^T)^+ J_A v`
+
+so that `J_A(q)(v+delta_v)=0`. It keeps `q`, modes, point identities, gains and
+safety limits unchanged, but explicitly invalidates reuse of the old velocity,
+`Jdot-v`, bias and fixed-PD effort bytes. Flat contact retains six rows, rank
+five and one multiplier gauge; the projected velocity is nevertheless unique.
+
+The alternative audit defers mode correction because the current schema has no
+sliding mode, defers discrete/compliant contact until its timestep/material/
+PhysX correspondence is explicit, and rejects Baumgarte or residual relaxation
+as an R127 repair. R128 claims no position projection, `qdot=v`, integration,
+impact, native behavior or candidate authority.
+
+All six validations pass (`310/310` lab, motor and full `host-check`). The
+official formulation performs zero state projections, matrix/Jacobian
+assemblies, factorizations, solves, inverse-dynamics evaluations, candidates,
+scenes or training runs. Canonical/file/profile SHA-256 is
+`32a9e278f0c1afe74b646daaf9ef2e446e04e1e56c101caa4e8221cab76cd3d0` /
+`15cba3557e487b3af33cb9b9b281501f90aea2fa662151dcbf99277bab46f56e` /
+`4a6caece3113ad622ad8a2481bb07849b139eab626015f68511c66cabfe74035`.
+The canonical hash independently recomputes exactly.
+
+Only report-only R129 implementation conformance is now permitted: seven
+frozen anchors, at most six contact projections, no full schedule, no inverse
+dynamics and no downstream work. R130 remains unauthorized until an exact R129
+`PASS`; R127 remains permanently consumed without retry.

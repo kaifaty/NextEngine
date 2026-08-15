@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R123 execution stopped before its first local solve |
-| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_COMPLETE / R128_FORMULATION_NEXT` |
+| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_COMPLETE / R128_COMPLETE / R129_CONFORMANCE_NEXT` |
 | Primary cause | `Environment / stage-2 rigid-contact formulation` |
 | Claim ceiling | Research and generated-test design only; no R123 retry, feasibility claim, candidate, scene or training |
 
@@ -206,5 +206,12 @@ SHA-256 is
 `a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62` /
 `a32f84719b72bf826255287209c596c4faba99646e16112f970acc3c4a5b63ba` /
 `1e0137b3c1ba37cedd62da9f20e71616b8cc3a52d2f3e36df49ed3613549ec70`.
-This is not a remaining force gauge defect. R127 cannot retry; only report-only
-R128 contact-state consistency formulation is authorized, without execution.
+This is not a remaining force gauge defect. R127 cannot retry. Clean R128 at
+`0220493` selects mass-metric tangent-velocity projection as the smallest
+pointwise diagnostic, with no position/integration claim. Its canonical/file/
+profile SHA-256 is
+`32a9e278f0c1afe74b646daaf9ef2e446e04e1e56c101caa4e8221cab76cd3d0` /
+`15cba3557e487b3af33cb9b9b281501f90aea2fa662151dcbf99277bab46f56e` /
+`4a6caece3113ad622ad8a2481bb07849b139eab626015f68511c66cabfe74035`.
+Only seven-anchor report-only R129 projection conformance is authorized; R130
+execution remains blocked.

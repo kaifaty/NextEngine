@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R127_INVALID / R127_RC1_COMPLETE / R128_FORMULATION_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R127_INVALID / R127_RC1_COMPLETE / R128_COMPLETE / R129_CONFORMANCE_NEXT` |
 | Updated | 2026-08-15 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before learned optimizer work |
@@ -11,18 +11,18 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R127-RC1 confirms the sole R127 is immutable `INVALID`
-  because frozen q/v is off the two-point FlatSticking constraint manifold.
-- **Why:** The nonzero line-projected `Jdot-v` difference is exactly the rigid
-  centripetal identity within `4.34e-19`; rank/nullspace itself conforms.
-- **Next action:** Freeze only report-only R128 contact-state consistency
-  formulation comparing q/v projection, mode correction and discrete contact.
+- **Current conclusion:** R128 selects mass-metric tangent-velocity projection
+  as the smallest pointwise diagnostic for the R127 off-manifold state.
+- **Why:** It enforces `J_A v_hat=0` with minimum kinetic-metric change while
+  retaining q/modes/points and the conformed flat-foot multiplier gauge.
+- **Next action:** Run only seven-anchor report-only R129 projection conformance;
+  at most six projections and zero inverse-dynamics evaluations.
 - **Current blocker:** Frozen q/v and FlatSticking mode are not on one common
   acceleration constraint manifold; cone feasibility was never classified.
 - **Do not retry:** Never restart R123/R127, raise a condition/residual limit, substitute a
   pseudoinverse witness, or start KTO/ID/kinodynamics/PPO/PhysX.
-- **Reconsider when:** Hash-closed R128 selects a falsifiable consistency repair
-  and explicitly freezes a later validation gate; R127 can never be retried.
+- **Reconsider when:** R129 passes every rank/residual/idempotence/energy guard;
+  only then may the separate one-shot R130 execution become authorized.
 
 All TRAIN-5 checkpoints remain rejected. No learned optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -40,10 +40,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R127 / R127-RC1 | R127 canonical `255f2dd900f7ca67381fd6853aa42e47a991680f723b17539e9505651d6e7a4e` is immutable `INVALID`; R127-RC1 canonical `a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62` confirms the exact centripetal incompatibility with one kinematic audit and zero solves | Permit only report-only R128 formulation; no R127 retry or R128 execution |
+| R127-RC1 / R128 | R127-RC1 canonical `a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62` confirms the exact centripetal cause; R128 canonical `32a9e278f0c1afe74b646daaf9ef2e446e04e1e56c101caa4e8221cab76cd3d0` selects tangent projection with zero execution counters | Permit only seven-anchor report-only R129; R127 retry/R130 remain blocked |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-Current R121/R122/R123/R123-RC1/R125/R126/R127/R127-RC1 canonical SHA-256: `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` / `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` / `3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7` / `ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` / `ddf443610315680d0326b478212105c846a0cfda2b8bcda95567556ea1773080` / `2a500b6e6514e3a5cc8cec453756089f235d66d868471202f3e8f` / `255f2dd900f7ca67381fd6853aa42e47a991680f723b17539e9505651d6e7a4e` / `a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62`.
+Current R121/R122/R123/R123-RC1/R125/R126/R127/R127-RC1/R128 canonical SHA-256: `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` / `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` / `3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7` / `ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` / `ddf443610315680d0326b478212105c846a0cfda2b8bcda95567556ea1773080` / `2a500b6e6514e3a5cc8cec453756089f235d66d868471202f3e8f` / `255f2dd900f7ca67381fd6853aa42e47a991680f723b17539e9505651d6e7a4e` / `a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62` / `32a9e278f0c1afe74b646daaf9ef2e446e04e1e56c101caa4e8221cab76cd3d0`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -189,7 +189,7 @@ carry detailed evidence. The hashes above identify their external reports.
 | H22: exact offline reference is dynamically too demanding for fixed PD | R122 proves the dynamics kernel conforms | R123 reached no local solve or cone margin | Keep unknown until a new formulation is separately authorized |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
 | H24/H26: nonlocal coupling is hidden between motor samples | R122 reproduces the affine 240 Hz lift and local dynamics identities | Integrated dynamics remains untested | Keep blocked; invalid R123 cannot authorize R124 |
-| H27: flat-foot point multipliers are structurally redundant | R123-RC1/R126 close gauge handling | R127-RC1 proves a separate off-manifold q/v defect | R128 report-only consistency formulation |
+| H27: flat-foot point multipliers are structurally redundant | R123-RC1/R126 close gauge handling | R127-RC1 proves a separate off-manifold q/v defect; R128 selects tangent projection | R129 seven-anchor projection conformance |
 
 ## Required context
 
@@ -220,7 +220,7 @@ semantics.
 1. Freeze clean R73–R123, R115-RC1 and all superseded reports.
 2. Record R123 consumed/invalid; never rerun or reinterpret it.
 3. Record R127 consumed/invalid; never rerun or reinterpret it.
-4. Freeze only report-only R128 consistency formulation; no execution/candidate/scene/all-17.
+4. Run only report-only R129 on seven anchors; no full schedule/inverse dynamics/downstream.
 
 ## Do not retry
 
@@ -238,13 +238,13 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R127 is immutable `INVALID`; clean R127-RC1 at `9d5cdbf`
-  is `COMPLETE`, canonical/file `a1028728...` / `a32f8471...`.
-- **Checks:** All six R127-RC1 validations PASS (`305/305` lab); one kinematic
-  audit and zero reconstruction/SVD/solve/downstream work.
+- **Workspace state:** R128 is clean `COMPLETE` at `0220493`, canonical/file
+  `32a9e278...` / `15cba355...`; R127 remains immutable `INVALID`.
+- **Checks:** All six R128 validations PASS (`310/310` lab); every projection,
+  matrix, solve and downstream counter is zero.
 - **Remaining risk:** Fixed-PD feasibility, integrated/fresh PhysX,
   full-corpus exact-zero coverage and visual review remain open.
-- **Execution authority:** Report-only R128 formulation only; no R127 retry or R128 execution.
+- **Execution authority:** Seven-anchor report-only R129 only; no R127 retry or R130 execution.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.

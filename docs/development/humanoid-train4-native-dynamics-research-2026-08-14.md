@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_COMPLETE / R128_FORMULATION_NEXT` |
+| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_COMPLETE / R128_COMPLETE / R129_CONFORMANCE_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -1521,7 +1521,13 @@ report-only R127-RC1 at `9d5cdbf` confirms perpendicular foot angular speed
 `a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62` /
 `a32f84719b72bf826255287209c596c4faba99646e16112f970acc3c4a5b63ba` /
 `1e0137b3c1ba37cedd62da9f20e71616b8cc3a52d2f3e36df49ed3613549ec70`.
-Only report-only R128 formulation is next.
+Clean report-only R128 at `0220493` selects a mass-metric tangent-velocity
+projection as a pointwise diagnostic and leaves position/integration unclaimed.
+Canonical/file/profile SHA-256 is
+`32a9e278f0c1afe74b646daaf9ef2e446e04e1e56c101caa4e8221cab76cd3d0` /
+`15cba3557e487b3af33cb9b9b281501f90aea2fa662151dcbf99277bab46f56e` /
+`4a6caece3113ad622ad8a2481bb07849b139eab626015f68511c66cabfe74035`.
+Only seven-anchor report-only R129 conformance is next.
 
 ## Decision
 
@@ -1535,7 +1541,9 @@ and passed; R123 consumed its sole execution and stopped invalid before solve.
 None may be retried. Candidate artifacts, native scenes and all-17 remain
 blocked. R126 consumed and passed its report-only authority; R127 consumed its
 single execution and is invalid without retry. R127-RC1 consumed and completed
-its static research authority. Only report-only R128 may formulate and select
-between q/v projection, contact-mode correction, stabilization and compliant/
-discrete contact. It may not execute, construct a candidate, change runtime
-semantics, run PhysX or begin training. R124 remains unauthorized.
+its static research authority. R128 consumed and completed its formulation
+authority, selecting mass-metric tangent-velocity projection while deferring
+mode-schema and discrete/native changes. Only report-only R129 may validate the
+projection on seven anchors; it may not run the full schedule, inverse dynamics,
+construct a candidate, run PhysX or begin training. R124/R130 remain
+unauthorized.
