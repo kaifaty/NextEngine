@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-15 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; their research and R125–R129 close force-gauge and tangent-projection mechanics. The sole R130 is `INVALID`; R130-RC1/R131 isolate a contact-exit lift. Clean R132 passes `36/36`: all `27` changed rows reduce correction, maximum falls `21.700328 -> 1.950192 rad/s`, and local speed violations are zero. Only one report-only R133 full projected schedule is now permitted; ID/kinodynamic solve, R124, candidate, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer remain blocked. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; their research and R125–R129 close force-gauge and tangent-projection mechanics. The sole R130 is `INVALID`; R130-RC1/R131 isolate a contact-exit lift. R132 passes bounded conformance, and clean R133 passes all `3200` projections plus the complete fixed-PD schedule with zero unsafe actuator categories. Only report-only R134 projected inverse-dynamics formulation is now permitted; numeric ID/kinodynamic solve, R124, candidate, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer remain blocked. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -766,7 +766,7 @@ PPO остаются запрещены.
 **TRAIN-4 coupled/native trajectory research (`R123_INVALID / R123-RC1_COMPLETE /
 R125_COMPLETE / R126_PASS / R127_INVALID / R127-RC1_COMPLETE /
 R128_COMPLETE / R129_PASS / R130_INVALID / R130-RC1_COMPLETE /
-R131_COMPLETE / R132_PASS / R133_SCHEDULE_NEXT`, 2026-08-15):**
+R131_COMPLETE / R132_PASS / R133_PASS / R134_FORMULATION_NEXT`, 2026-08-15):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -1422,10 +1422,14 @@ zero schedules/dynamics/downstream work. Canonical/file/profile SHA-256 is
 `9afd566adaa81de573462bf083948f8b1f49b0fc023c76726afb403e906e19d6` /
 `657ed7216f7fcf59a0f1e5b06e6068f4383fe1425418922ed3e115c36517d2c5` /
 `87b09fdf857c8b096898536f34909f5ba8c8eff3ffdb42f8baa61e6afa35937a`.
-R123/R127/R129/R130/R132 cannot retry. Only one report-only R133 full
-projected schedule (`3200` rows, at most `2640` projection systems, one
-controller derivation) is permitted; inverse dynamics and every downstream
-action remain unauthorized.
+Clean R133 at `03f8e0b` passes all `3200/3200` rows and the complete fixed-PD
+schedule with zero unsafe actuator categories. Its `1011` row-addressed events
+are exactly `1010` effort-rate clamps and one target slew. Canonical/file
+SHA-256 is `f1fad2ca3c7abd49acaefd9fcd37873d02fb1d289a3081fd2039b0b1192fd3b6` /
+`2ddef1cfae193eb0e32f4d001aba6a8b744056b700fa2ecbe533434bc8e5f7c2`.
+R123/R127/R129/R130/R132/R133 cannot retry. Only report-only R134 projected
+inverse-dynamics formulation is permitted; numeric inverse dynamics and every
+downstream action remain unauthorized.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -2210,9 +2214,9 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    selects a mass-metric tangent projection, and R129 conforms it on seven
    anchors. The sole R130 projection passes but its fixed-PD schedule violates
    right-ankle-roll limits; R130-RC1 confirms repeated contact-exit hotspots
-   and R131 selects a nine-exit mode-owned lift. R132 passes all 36 rows and
-   removes local speed violations; only one report-only R133 full projected
-   schedule is next.
+   and R131 selects a nine-exit mode-owned lift. R132 passes all 36 rows; R133
+   passes all 3200 projections and the complete actuator schedule. Only
+   report-only R134 projected inverse-dynamics formulation is next.
    До exact-zero fresh/
    full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
    No training quality, Stage 0 or R5 completion is claimed here.

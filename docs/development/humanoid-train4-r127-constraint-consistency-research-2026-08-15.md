@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R127 stopped before its first gauge/cone classification |
-| Status | `R127_INVALID / R128_COMPLETE / R129_PASS / R130_INVALID / R131_COMPLETE / R132_PASS / R133_SCHEDULE_NEXT` |
+| Status | `R127_INVALID / R129_PASS / R130_INVALID / R132_PASS / R133_PASS / R134_FORMULATION_NEXT` |
 | Primary cause | `Frozen q/v is incompatible with two-point FlatSticking acceleration closure` |
 | Claim ceiling | Static research and generated-test design only; no R127 retry, feasibility claim, candidate, scene or training |
 
@@ -182,6 +182,8 @@ dynamics. Clean [R130 projected-schedule research](humanoid-train4-r130-projecte
 confirms two repeated right-forefoot exit hotspots while preserving the exact
 row/event evidence boundary. Clean R131 selects a nine-exit mode-owned lift;
 clean R132 passes `36/36`, lowers all `27` changed corrections and finds zero
-local speed violations. Only one report-only R133 full projected schedule is
-authorized; R127/R129/R130/R132 retries, ID/kinodynamic execution, candidate
-construction, PhysX and training remain forbidden.
+local speed violations. Clean R133 passes all `3200` projections and the full
+schedule with zero unsafe actuator categories. Only report-only R134
+inverse-dynamics formulation is authorized; R127/R129/R130/R132/R133 retries,
+numeric ID/kinodynamic execution, candidate construction, PhysX and training
+remain forbidden.

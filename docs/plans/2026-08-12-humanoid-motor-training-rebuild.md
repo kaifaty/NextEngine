@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R130-RC1/R131 isolate a nine-exit mode-owned lift. Clean R132 passes `36/36`, lowers all `27` changed-row corrections and finds zero local speed violations. Only one report-only R133 full projected schedule is permitted. Every retry, ID/kinodynamic solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R130-RC1/R131 isolate a nine-exit mode-owned lift. R132 passes bounded conformance, and clean R133 passes all `3200` projections plus the complete fixed-PD schedule with zero unsafe actuator categories. Only report-only R134 projected inverse-dynamics formulation is permitted. Every retry, numeric ID/kinodynamic solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2174,10 +2174,16 @@ schedule, dynamics or downstream work. Canonical/file/profile SHA-256 is
 `657ed7216f7fcf59a0f1e5b06e6068f4383fe1425418922ed3e115c36517d2c5` /
 `87b09fdf857c8b096898536f34909f5ba8c8eff3ffdb42f8baa61e6afa35937a`.
 
-Roadmap status now permits only one report-only R133 full projected schedule:
-`3200` rows, at most `2640` projection systems and one controller derivation,
-with exact row-addressed controller activations. No R123/R127/R129/R130/R132
-retry, R124, ID/kinodynamic execution, candidate or scene is authorized. This planning
+Clean R133 at `03f8e0b` consumes that sole schedule authority and passes all
+`3200/3200` rows (`2640` contact projections plus `560` flight identities).
+The fixed-PD schedule has zero unsafe actuator categories; all `1011`
+row-addressed activations are `1010` effort-rate clamps and one target slew.
+Canonical/file SHA-256 is
+`f1fad2ca3c7abd49acaefd9fcd37873d02fb1d289a3081fd2039b0b1192fd3b6` /
+`2ddef1cfae193eb0e32f4d001aba6a8b744056b700fa2ecbe533434bc8e5f7c2`.
+Roadmap status now permits only report-only R134 projected inverse-dynamics
+formulation with zero numeric solves. No R123/R127/R129/R130/R132/R133 retry,
+R124, ID/kinodynamic execution, candidate or scene is authorized. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R130 stopped before inverse dynamics |
-| Status | `R130_INVALID / R130_RC1_COMPLETE / R131_COMPLETE / R132_PASS / R133_SCHEDULE_NEXT` |
+| Status | `R130_INVALID / R130_RC1_COMPLETE / R131_COMPLETE / R132_PASS / R133_PASS / R134_FORMULATION_NEXT` |
 | Confirmed boundary | `Numerically valid tangent projection creates an invalid fixed-PD actuator schedule` |
 | Supported hotspot | `The four largest corrections cluster at two right-forefoot contact exits` |
 | Claim ceiling | Static report-only research; no exact row/event identity, retry, projection, dynamics, candidate, PhysX or training |
@@ -200,7 +200,17 @@ Conformance-module/tool SHA-256 is
 `95a2e75e091075b81d7c789537c28f7a48ad27730281ccfd9a4ff244301c7a4c`.
 The canonical hash independently recomputes exactly.
 
-R132 permits exactly one report-only R133 full projected-schedule execution:
-`3200` collocations, at most `2640` projection systems and one controller
-schedule derivation, with row-addressed controller activations. Inverse
-dynamics, candidate construction, PhysX and training remain forbidden.
+Clean report-only R133 at commit `03f8e0b` consumes that authority and passes.
+All `3200/3200` rows pass (`2640` contact projections, `560` flight
+identities); the exact R132 anchor hashes reproduce, and the full fixed-PD
+schedule has zero hard-ROM, joint-velocity, static-effort, power,
+positive-work or empty-effort-envelope violations. Its `1011` row-addressed
+events are exactly `1010` admissible effort-rate clamps and one target slew.
+Canonical/file/profile SHA-256 is
+`f1fad2ca3c7abd49acaefd9fcd37873d02fb1d289a3081fd2039b0b1192fd3b6` /
+`2ddef1cfae193eb0e32f4d001aba6a8b744056b700fa2ecbe533434bc8e5f7c2` /
+`20cccf2ffd413ae56148b95ca4cbd67c616f1ee396f2bee995a078ab1685a6a7`.
+R133 performs zero inverse-dynamics, kinodynamic, candidate, PhysX or training
+work. It permits only a separate report-only R134 projected inverse-dynamics
+formulation; numeric inverse dynamics and every downstream action remain
+forbidden.
