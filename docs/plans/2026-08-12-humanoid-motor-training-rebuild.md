@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R135 close and conform its successor, while R136 is valid complete but cone-infeasible at `2418/3200` collocations. R137/R138 freeze and conform the fixed-mode controller-reachable graph. Clean R139 freezes sparse multiple-shooting SCvx/SQP and exact acceptance; clean R140 passes all 43 synthetic method cases plus 32 cone rows with zero payload reads and zero real work. Exactly one bounded R141 execution is authorized under the unchanged R139 envelope. No retry, contact-semantics change, candidate publication, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R135 close and conform its successor, while R136 is valid complete but cone-infeasible at `2418/3200` collocations. R137/R138 freeze and conform the fixed-mode controller-reachable graph. Clean R139 freezes sparse multiple-shooting SCvx/SQP and exact acceptance; clean R140 passes all 43 synthetic method cases plus 32 cone rows. The sole clean R141 is `INVALID` before solve because the frozen R120 cache cannot byte-reproduce its accepted Q1.30 quaternion; five other arrays and graph inventory match. R141 stops without retry, and no R142, contact-semantics change, candidate publication, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -31,6 +31,7 @@
 | TRAIN-4 R139 solve-method decision | [R139 sparse exact-acceptance solve research](../development/humanoid-train4-r139-kinodynamic-solve-research-2026-08-15.md) |
 | TRAIN-4 R139 formulation result | [R139 kinodynamic solve formulation result](../development/humanoid-train4-r139-kinodynamic-solve-formulation-result-2026-08-15.md) |
 | TRAIN-4 R140 conformance result/R141 decision | [R140 kinodynamic solve conformance result](../development/humanoid-train4-r140-kinodynamic-solve-conformance-result-2026-08-15.md) |
+| TRAIN-4 R141 execution result | [R141 fixed-mode kinodynamic execution result](../development/humanoid-train4-r141-fixed-mode-kinodynamic-execution-result-2026-08-15.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -2256,11 +2257,21 @@ SHA-256 is
 `68cab54fccef71b3a30b28159740272547c289b3a04866f6d59979217b35901c` /
 `5315eaf27d4ba3756cd119ff7260fa5dfaf664d2d7c5ff65a9d985f916a61f92` /
 `dd2dd64f0f37e700256eaa1668967bcfd97560371193340dbcffae4adf769b6a`.
-The exact transition is `R140_PASS_R141_ROADMAP_DECISION_ONLY`. The matching
-roadmap explicitly authorizes one clean R141 execution under the unchanged
-R139 budget and exact oracle. No retry, candidate publication, scene or
-training is authorized; exact feasible PASS may lead only to a later
-report-only R142 decision.
+The exact transition is `R140_PASS_R141_ROADMAP_DECISION_ONLY`. Clean R141 at
+`75661a1` consumes that sole authority and returns `INVALID` before the first
+real reconstruction or solve. The frozen R120 cache reproduces root position,
+joint position, root linear velocity, joint velocity and root-yaw velocity,
+but its reconstructed Q1.30 quaternion SHA-256 is `501e84bc...`, not the
+accepted `9b8a83dd...`. R120 retained a rotation/delta representation rather
+than the accepted quaternion bytes, so the round trip is not byte-invertible.
+The R131/R138 inventory still reproduces `4956` force, `18` impulse and `20`
+anchor rows with unchanged mode/graph/transition hashes. Every real-work and
+downstream counter is zero. Canonical/file/profile SHA-256 is
+`6933fea7842011f85ff74c0cb2a341e6a91dbd174b4273ca04543c1056d40d86` /
+`2a42c1f4cd3a42992d83da4552d7fe1c44a17e8188ad043924734c67c2c020bd` /
+`c7df8cef7dac766ea6b5ea93f1466b52dab8318f5819fcfebea741d09851c5e9`.
+Transition `R141_INVALID_STOP_WITHOUT_RETRY` closes this lineage: no retry,
+R142, candidate publication, scene, corpus or training work is authorized.
 This planning document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 
