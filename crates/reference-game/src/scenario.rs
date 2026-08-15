@@ -3,12 +3,16 @@ use next_contracts::input::{CORE_MELEE_ACTION_ID, PlayerActionPhaseV1};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::{PhysicsBodyIdV1, PhysicsPoseV1};
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2};
+use next_contracts::world_population::WorldPopulationSnapshotV1;
 use next_contracts::world_routine::{
     InteractionAvailabilityV1, WorldRoutineActivityV1, WorldRoutineSnapshotV1,
 };
 use next_presentation::PresentationBindingV1;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState, WorldServicesTickCommitV1};
-use next_world::{PreparedWorldStreamingPublicationV1, WorldRoutineOwnerV1, WorldStreamerV1};
+use next_world::{
+    PreparedWorldStreamingPublicationV1, WorldPopulationOwnerV1, WorldRoutineOwnerV1,
+    WorldStreamerV1,
+};
 
 use crate::ReferenceGameError;
 use crate::input::NormalizedReferenceInputV1;
@@ -66,6 +70,7 @@ pub struct ReferenceRunOutcomeV2 {
     pub tick_reports: Vec<next_runtime::TickReport>,
     pub world_streaming_snapshot: next_contracts::world::WorldStreamingSnapshotV1,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+    pub world_population_snapshot: WorldPopulationSnapshotV1,
     pub world_services_tick_commits: Vec<WorldServicesTickCommitV1>,
     pub world_routine_rest_branch_or_none: Option<ReferenceWorldRoutineRestBranchV1>,
     pub agent_intent_id: Option<ContentHash>,
@@ -179,6 +184,11 @@ pub fn run_reference_game_with_backend(
         fixture.activated_project.world_routine_catalog_or_none,
         runtime.next_tick(),
     )?;
+    let mut world_population = WorldPopulationOwnerV1::activate(
+        fixture.activated_project.world_population_catalog.clone(),
+        fixture.activated_project.world_navigation_catalog.clone(),
+        runtime.next_tick(),
+    )?;
     let mut inputs = Vec::new();
     if include_interaction {
         inputs.extend([
@@ -249,21 +259,16 @@ pub fn run_reference_game_with_backend(
             let (checkpoint, components) = runtime.world_checkpoint_with_canonical_components()?;
             let expected_root = checkpoint.state_root;
             let routine_snapshot_or_none = world_routine.snapshot_or_none().copied();
-            let expected_application_root = match routine_snapshot_or_none.as_ref() {
-                Some(routine) => {
-                    next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root_from_canonical_components(
-                        &components,
-                        world_streamer.snapshot(),
-                        routine,
-                    )?
-                }
-                None => {
-                    next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
-                        &components,
-                        world_streamer.snapshot(),
-                    )?
-                }
-            };
+            let population_snapshot = world_population
+                .snapshot_or_none()
+                .cloned()
+                .ok_or(ReferenceGameError::RecoveryInvalid)?;
+            let expected_application_root = next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root_from_canonical_components(
+                &components,
+                world_streamer.snapshot(),
+                routine_snapshot_or_none.as_ref(),
+                Some(&population_snapshot),
+            )?;
             runtime = RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
                 checkpoint,
                 fixture.authority.clone(),
@@ -275,7 +280,14 @@ pub fn run_reference_game_with_backend(
                 routine_snapshot_or_none,
                 runtime.next_tick(),
             )?;
+            world_population = WorldPopulationOwnerV1::restore(
+                fixture.activated_project.world_population_catalog.clone(),
+                fixture.activated_project.world_navigation_catalog.clone(),
+                population_snapshot,
+                runtime.next_tick(),
+            )?;
             runtime.validate_world_routine_ledger_closure(&world_routine)?;
+            runtime.validate_world_population_ledger_closure(&world_population)?;
             let restored_root = runtime.world_checkpoint()?.state_root;
             if restored_root != expected_root {
                 return Err(ReferenceGameError::RecoveryInvalid);
@@ -340,8 +352,11 @@ pub fn run_reference_game_with_backend(
             )?;
             let commit = run_scenario_tick(
                 &mut runtime,
-                &mut world_routine,
-                &mut world_streamer,
+                ScenarioWorldServices {
+                    routine: &mut world_routine,
+                    population: &mut world_population,
+                    world: &mut world_streamer,
+                },
                 &fixture.activated_project,
                 &content_generation,
                 [planned.world_command],
@@ -391,8 +406,11 @@ pub fn run_reference_game_with_backend(
         runtime.enqueue_input_sample(&fixture.principal, sample)?;
         let commit = run_scenario_tick(
             &mut runtime,
-            &mut world_routine,
-            &mut world_streamer,
+            ScenarioWorldServices {
+                routine: &mut world_routine,
+                population: &mut world_population,
+                world: &mut world_streamer,
+            },
             &fixture.activated_project,
             &content_generation,
             [],
@@ -426,6 +444,10 @@ pub fn run_reference_game_with_backend(
     let ticks = runtime.next_tick();
     let world_streaming_snapshot = world_streamer.snapshot();
     let world_routine_snapshot_or_none = world_routine.snapshot_or_none().copied();
+    let world_population_snapshot = world_population
+        .snapshot_or_none()
+        .cloned()
+        .ok_or(ReferenceGameError::RecoveryInvalid)?;
     let presentation_bindings = fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
     Ok(ReferenceRunOutcomeV2 {
         ticks,
@@ -461,6 +483,7 @@ pub fn run_reference_game_with_backend(
         tick_reports,
         world_streaming_snapshot: world_streaming_snapshot.clone(),
         world_routine_snapshot_or_none,
+        world_population_snapshot,
         world_services_tick_commits,
         world_routine_rest_branch_or_none,
         agent_intent_id,
@@ -491,16 +514,31 @@ fn run_world_routine_rest_branch(
         fixture.activated_project.world_routine_catalog_or_none,
         runtime.next_tick(),
     )?;
+    let mut population = WorldPopulationOwnerV1::activate(
+        fixture.activated_project.world_population_catalog.clone(),
+        fixture.activated_project.world_navigation_catalog.clone(),
+        runtime.next_tick(),
+    )?;
     let mut commits = Vec::with_capacity(4);
     for expected_tick in 0_u64..=2 {
-        let prepared =
-            runtime
-                .tick_preparation()
-                .prepare_with_world_services([], &routine, &world)?;
-        let validated =
-            runtime.validate_prepared_world_services_tick(&routine, &world, prepared)?;
-        let commit =
-            runtime.commit_validated_world_services_tick(&mut routine, &mut world, validated)?;
+        let prepared = runtime.tick_preparation().prepare_with_world_services(
+            [],
+            &routine,
+            &population,
+            &world,
+        )?;
+        let validated = runtime.validate_prepared_world_services_tick(
+            &routine,
+            &population,
+            &world,
+            prepared,
+        )?;
+        let commit = runtime.commit_validated_world_services_tick(
+            &mut routine,
+            &mut population,
+            &mut world,
+            validated,
+        )?;
         if commit.runtime_report.tick != expected_tick {
             return Err(ReferenceGameError::RecoveryInvalid);
         }
@@ -519,12 +557,17 @@ fn run_world_routine_rest_branch(
         &fixture.principal,
         crate::input::player_interact_sample(fixture, 0, PlayerActionPhaseV1::Started, true, None)?,
     )?;
-    let prepared = runtime
-        .tick_preparation()
-        .prepare_with_world_services([], &routine, &world)?;
-    let validated = runtime.validate_prepared_world_services_tick(&routine, &world, prepared)?;
+    let prepared = runtime.tick_preparation().prepare_with_world_services(
+        [],
+        &routine,
+        &population,
+        &world,
+    )?;
+    let validated =
+        runtime.validate_prepared_world_services_tick(&routine, &population, &world, prepared)?;
     commits.push(runtime.commit_validated_world_services_tick(
         &mut routine,
+        &mut population,
         &mut world,
         validated,
     )?);
@@ -535,21 +578,34 @@ fn run_world_routine_rest_branch(
     })
 }
 
+struct ScenarioWorldServices<'a> {
+    routine: &'a mut WorldRoutineOwnerV1,
+    population: &'a mut WorldPopulationOwnerV1,
+    world: &'a mut WorldStreamerV1,
+}
+
 fn run_scenario_tick(
     runtime: &mut RuntimeState,
-    routine: &mut WorldRoutineOwnerV1,
-    world: &mut WorldStreamerV1,
-    project: &next_contracts::project::ActivatedProjectV4,
+    services: ScenarioWorldServices<'_>,
+    project: &next_contracts::project::ActivatedProjectV5,
     content_generation: &next_assets::PinnedContentGeneration,
     commands: impl IntoIterator<Item = next_contracts::command::WorldCommand>,
     pending: &mut Option<PendingPackagedTransitionV1>,
 ) -> Result<WorldServicesTickCommitV1, ReferenceGameError> {
+    let ScenarioWorldServices {
+        routine,
+        population,
+        world,
+    } = services;
     let Some(stage) = pending.take() else {
         let prepared = runtime
             .tick_preparation()
-            .prepare_with_world_services(commands, routine, world)?;
-        let validated = runtime.validate_prepared_world_services_tick(routine, world, prepared)?;
-        return Ok(runtime.commit_validated_world_services_tick(routine, world, validated)?);
+            .prepare_with_world_services(commands, routine, population, world)?;
+        let validated =
+            runtime.validate_prepared_world_services_tick(routine, population, world, prepared)?;
+        return Ok(
+            runtime.commit_validated_world_services_tick(routine, population, world, validated)?
+        );
     };
     match stage {
         PendingPackagedTransitionV1::Begin {
@@ -558,10 +614,17 @@ fn run_scenario_tick(
         } => {
             let prepared = runtime
                 .tick_preparation()
-                .prepare_with_world_services_and_streaming(commands, routine, world, publication)?;
-            let validated =
-                runtime.validate_prepared_world_services_tick(routine, world, prepared)?;
-            let commit = runtime.commit_validated_world_services_tick(routine, world, validated)?;
+                .prepare_with_world_services_and_streaming(
+                    commands,
+                    routine,
+                    population,
+                    world,
+                    publication,
+                )?;
+            let validated = runtime
+                .validate_prepared_world_services_tick(routine, population, world, prepared)?;
+            let commit = runtime
+                .commit_validated_world_services_tick(routine, population, world, validated)?;
             debug_assert!(commit.streaming_transition_or_none.is_none());
             if save_restore {
                 let saved = world.snapshot().canonical_bytes()?;
@@ -583,10 +646,17 @@ fn run_scenario_tick(
         PendingPackagedTransitionV1::Complete { publication } => {
             let prepared = runtime
                 .tick_preparation()
-                .prepare_with_world_services_and_streaming(commands, routine, world, publication)?;
-            let validated =
-                runtime.validate_prepared_world_services_tick(routine, world, prepared)?;
-            let commit = runtime.commit_validated_world_services_tick(routine, world, validated)?;
+                .prepare_with_world_services_and_streaming(
+                    commands,
+                    routine,
+                    population,
+                    world,
+                    publication,
+                )?;
+            let validated = runtime
+                .validate_prepared_world_services_tick(routine, population, world, prepared)?;
+            let commit = runtime
+                .commit_validated_world_services_tick(routine, population, world, validated)?;
             if commit.streaming_transition_or_none.is_none() {
                 return Err(ReferenceGameError::WorldStreamingResumeMismatch);
             }

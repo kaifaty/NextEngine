@@ -80,6 +80,15 @@ pub(super) fn performance_report_once(
             compare_baseline,
         );
     }
+    if request.scenario == xtask::performance::PerformanceScenarioV1::R4_100Npc {
+        return r4_population::performance_report(
+            request,
+            run,
+            tool_run.project_composition_lock_hash.to_hex(),
+            profiling_enabled,
+            compare_baseline,
+        );
+    }
     if request.scenario == xtask::performance::PerformanceScenarioV1::R5Physics16 {
         return r5_physics::performance_report(
             request,

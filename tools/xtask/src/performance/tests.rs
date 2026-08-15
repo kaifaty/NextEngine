@@ -363,6 +363,27 @@ fn r2_alpha_render_is_an_available_six_window_workload() {
 }
 
 #[test]
+fn r4_population_is_an_available_report_only_production_workload() {
+    let scenario = PerformanceScenarioV1::R4_100Npc;
+    assert_eq!(scenario.unavailable_reason(), None);
+    assert_eq!(
+        performance_scenario_hash(scenario),
+        sha256_hex(
+            b"nextengine.performance.r4-100npc.v1:reference-alpha:npcs=100:cadence=16x3+32x15+52x60:warmup=1000:measured=10000:production-joint-world-services-tick:engine-graph-navigation:exact-due-trace:no-starvation:report-only:logical-accounting=r4-100npc-v1"
+        )
+    );
+    let methodology = methodology_for(scenario);
+    assert_eq!(methodology.warmup_samples, 1_000);
+    assert_eq!(methodology.measured_samples, 10_000);
+    assert!(
+        methodology
+            .notes
+            .iter()
+            .any(|note| note.contains("16 active / 32 near / 52 background"))
+    );
+}
+
+#[test]
 fn incompatible_host_is_not_a_conditional_pass() {
     let mut wrong = fingerprint();
     wrong.hostname = "OTHER".to_owned();

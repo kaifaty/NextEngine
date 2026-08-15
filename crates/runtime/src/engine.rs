@@ -12,6 +12,7 @@ mod result;
 mod state;
 mod targeting;
 mod tick;
+mod world_population;
 mod world_routine;
 
 pub use bootstrap::{RuntimeBootstrapV4, bootstrap_equipment_slot_policy_hash_v1};

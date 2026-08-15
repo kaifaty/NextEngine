@@ -4,7 +4,7 @@ use crate::input::{
     ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV2,
     RuntimeAdmissionLimitsV1,
 };
-use crate::persistence::{ManifestValidationError, ReplayTickManifestV6};
+use crate::persistence::{ManifestValidationError, ReplayTickManifestV7};
 use crate::physics::{
     ClosedPhysicsContactBatchV1, PhysicsQueryBatchV1, PhysicsQueryResultV1, PhysicsStepInputV2,
 };
@@ -19,7 +19,7 @@ pub(super) fn decode_replay_ticks_v6(
     value: JcsValue,
     limits: CanonicalDecodeLimits,
     admission: &RuntimeAdmissionLimitsV1,
-) -> Result<Vec<ReplayTickManifestV6>, ManifestCodecError> {
+) -> Result<Vec<ReplayTickManifestV7>, ManifestCodecError> {
     into_array(value, "ticks")?
         .into_iter()
         .map(|row| {
@@ -158,7 +158,7 @@ pub(super) fn decode_replay_ticks_v6(
             if let Some(field) = object.into_keys().next() {
                 return Err(ManifestCodecError::UnknownField(format!("ticks[].{field}")));
             }
-            Ok(ReplayTickManifestV6 {
+            Ok(ReplayTickManifestV7 {
                 tick,
                 world_streaming_input,
                 closed_ingress_batch,

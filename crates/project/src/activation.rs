@@ -14,12 +14,16 @@ use next_contracts::identity::RuntimeDeterminismBundleV1;
 use next_contracts::ids::AssetId;
 use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogErrorV1, TextCatalogV1};
 use next_contracts::project::{
-    ActivatedProjectV4, ContentManifestV1, ContentSemanticClassV1, ProjectContractError,
+    ActivatedProjectV5, ContentManifestV1, ContentSemanticClassV1, ProjectContractError,
     ProjectLockV3, SchemaEncodingV1, SchemaRefV1, SchemaRegistryManifestV2, SchemaRoleV1,
     WorldPartitionManifestV1, domain_hash,
 };
 use next_contracts::render_content::{
     B0CookedMeshV1, NeutralRenderRecordV1, RenderContentCatalogV1, RenderContentContractError,
+};
+use next_contracts::world_population::{
+    WORLD_NAVIGATION_CATALOG_SCHEMA_ID, WORLD_POPULATION_CATALOG_SCHEMA_ID,
+    WorldNavigationCatalogV1, WorldPopulationCatalogV1,
 };
 
 use crate::cook::{
@@ -32,13 +36,13 @@ use crate::cook_rpg::activate_rpg_definitions_v2;
 
 #[derive(Clone, Debug)]
 pub struct ActivatedProjectPackage {
-    pub project: ActivatedProjectV4,
+    pub project: ActivatedProjectV5,
     pub content_generation: PinnedContentGeneration,
 }
 
 pub fn activate_project(
     store: &ContentStore,
-) -> Result<ActivatedProjectV4, ProjectActivationError> {
+) -> Result<ActivatedProjectV5, ProjectActivationError> {
     Ok(activate_project_package(store)?.project)
 }
 
@@ -55,7 +59,7 @@ pub fn activate_project_package(
 
 fn activate_pinned_project(
     content_generation: &PinnedContentGeneration,
-) -> Result<ActivatedProjectV4, ProjectActivationError> {
+) -> Result<ActivatedProjectV5, ProjectActivationError> {
     let generation = content_generation.load_all_verified()?;
     let limits = CanonicalDecodeLimits::default();
     let project_lock = ProjectLockV3::from_jcs_bytes(
@@ -77,7 +81,7 @@ fn activate_pinned_project(
 
     if generation.generation_id != project_lock.project_lock_sha256
         || project_lock.runtime_determinism_profile_sha256
-            != RuntimeDeterminismBundleV1::core_r4a()
+            != RuntimeDeterminismBundleV1::core_r4b()
                 .expect("the engine-owned determinism bundle is canonical")
                 .runtime_profile_hash()
         || project_lock.launch_profiles_sha256 != launch_profiles_sha256()
@@ -119,6 +123,8 @@ fn activate_pinned_project(
     let mut neutral_skeletons = Vec::new();
     let mut neutral_animations = Vec::new();
     let mut world_routine_catalog_or_none = None;
+    let mut world_navigation_catalog_or_none = None;
+    let mut world_population_catalog_or_none = None;
     for entry in &content_manifest.body.asset_entries {
         require_schema(&current_schemas, &entry.schema_ref)?;
         let blob_path = format!(
@@ -244,6 +250,59 @@ fn activate_pinned_project(
                 return Err(ProjectActivationError::HashMismatch);
             }
             record_dependencies.insert(catalog.catalog_asset_id, BTreeSet::new());
+        } else if entry.schema_ref.schema_id.as_str() == WORLD_NAVIGATION_CATALOG_SCHEMA_ID {
+            let catalog = WorldNavigationCatalogV1::from_canonical_bytes(blob, limits)
+                .map_err(|_| ProjectActivationError::HashMismatch)?;
+            let expected_schema_ref = SchemaRefV1 {
+                schema_id: entry.schema_ref.schema_id.clone(),
+                schema_version: u32::from(catalog.schema_version),
+                descriptor_sha256: domain_hash(
+                    "nextengine.schema-descriptor.v1",
+                    WORLD_NAVIGATION_CATALOG_SCHEMA_ID.as_bytes(),
+                ),
+                role: SchemaRoleV1::NeutralContent,
+                encoding: SchemaEncodingV1::CanonicalBinaryV1,
+            };
+            if catalog.catalog_asset_id != entry.asset_revision.asset_id
+                || expected_schema_ref != entry.schema_ref
+                || catalog
+                    .revision()
+                    .map_err(|_| ProjectActivationError::HashMismatch)?
+                    != entry.asset_revision.record_sha256
+                || entry.semantic_class != ContentSemanticClassV1::DomainRelevant
+                || world_navigation_catalog_or_none
+                    .replace(catalog.clone())
+                    .is_some()
+            {
+                return Err(ProjectActivationError::HashMismatch);
+            }
+            record_dependencies.insert(catalog.catalog_asset_id, BTreeSet::new());
+        } else if entry.schema_ref.schema_id.as_str() == WORLD_POPULATION_CATALOG_SCHEMA_ID {
+            let catalog = WorldPopulationCatalogV1::from_canonical_bytes(blob, limits)
+                .map_err(|_| ProjectActivationError::HashMismatch)?;
+            let expected_schema_ref = SchemaRefV1 {
+                schema_id: entry.schema_ref.schema_id.clone(),
+                schema_version: u32::from(catalog.schema_version),
+                descriptor_sha256: domain_hash(
+                    "nextengine.schema-descriptor.v1",
+                    WORLD_POPULATION_CATALOG_SCHEMA_ID.as_bytes(),
+                ),
+                role: SchemaRoleV1::NeutralContent,
+                encoding: SchemaEncodingV1::CanonicalBinaryV1,
+            };
+            if catalog.catalog_asset_id != entry.asset_revision.asset_id
+                || expected_schema_ref != entry.schema_ref
+                || entry.semantic_class != ContentSemanticClassV1::DomainRelevant
+                || world_population_catalog_or_none
+                    .replace(catalog.clone())
+                    .is_some()
+            {
+                return Err(ProjectActivationError::HashMismatch);
+            }
+            record_dependencies.insert(
+                catalog.catalog_asset_id,
+                BTreeSet::from([catalog.navigation_catalog_asset_id]),
+            );
         } else if NeutralRenderRecordV1::supports_schema_id(&entry.schema_ref.schema_id) {
             let record = NeutralRenderRecordV1::from_canonical_bytes(blob, limits)?;
             if record.asset_id() != entry.asset_revision.asset_id
@@ -316,6 +375,24 @@ fn activate_pinned_project(
     neutral_skeletons.sort_by_key(|record| record.asset_id);
     neutral_animations.sort_by_key(|record| record.asset_id);
     let render_content_catalog = compile_render_content_catalog_v1(&render_records)?;
+    let world_navigation_catalog =
+        world_navigation_catalog_or_none.ok_or(ProjectActivationError::MissingReference)?;
+    let world_population_catalog =
+        world_population_catalog_or_none.ok_or(ProjectActivationError::MissingReference)?;
+    world_population_catalog
+        .validate_against_navigation(&world_navigation_catalog)
+        .map_err(|_| ProjectActivationError::HashMismatch)?;
+    if world_population_catalog
+        .revision(&world_navigation_catalog)
+        .map_err(|_| ProjectActivationError::HashMismatch)?
+        != entries
+            .get(&world_population_catalog.catalog_asset_id)
+            .ok_or(ProjectActivationError::MissingReference)?
+            .asset_revision
+            .record_sha256
+    {
+        return Err(ProjectActivationError::HashMismatch);
+    }
     let published_catalog = RenderContentCatalogV1::from_canonical_bytes(
         required_file(&generation.files, RENDER_CONTENT_CATALOG_PATH)?,
         limits,
@@ -338,7 +415,7 @@ fn activate_pinned_project(
     if generation.files.keys().cloned().collect::<BTreeSet<_>>() != expected_files {
         return Err(ProjectActivationError::UnexpectedArtifact);
     }
-    let activated = ActivatedProjectV4 {
+    let activated = ActivatedProjectV5 {
         project_lock,
         schema_registry,
         content_manifest,
@@ -355,6 +432,8 @@ fn activate_pinned_project(
         )
         .map_err(ProjectActivationError::Cook)?,
         world_routine_catalog_or_none,
+        world_navigation_catalog,
+        world_population_catalog,
         render_content_catalog,
     };
     activated.validate()?;

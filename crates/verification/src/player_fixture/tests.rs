@@ -18,7 +18,7 @@ use next_physics_api::PhysicsBackendPolicy;
 #[cfg(any(feature = "physx", feature = "physx-mock"))]
 use next_runtime::PhysicsLaunchOptions;
 use next_runtime::{RuntimeState, SnapshotRestoreError};
-use next_world::{WorldRoutineOwnerV1, WorldStreamerV1};
+use next_world::{WorldPopulationOwnerV1, WorldRoutineOwnerV1, WorldStreamerV1};
 
 use super::*;
 use crate::scratch::ScratchContext;
@@ -31,6 +31,7 @@ fn packaged_world_services_fixture(
     NeutralPlayerFixture,
     WorldStreamerV1,
     WorldRoutineOwnerV1,
+    WorldPopulationOwnerV1,
 ) {
     let scratch = ScratchContext::new(&std::env::temp_dir()).expect("test scratch root");
     let prepared = prepare_fixture_project_package_with_scratch(&scratch, project_id)
@@ -47,30 +48,37 @@ fn packaged_world_services_fixture(
     let routine =
         WorldRoutineOwnerV1::activate(fixture.activated_project.world_routine_catalog_or_none, 0)
             .expect("world routine");
-    (prepared, fixture, world, routine)
+    let population = WorldPopulationOwnerV1::activate(
+        fixture.activated_project.world_population_catalog.clone(),
+        fixture.activated_project.world_navigation_catalog.clone(),
+        0,
+    )
+    .expect("world population");
+    (prepared, fixture, world, routine, population)
 }
 
 fn run_joint_tick(
     runtime: &mut RuntimeState,
     routine: &mut WorldRoutineOwnerV1,
+    population: &mut WorldPopulationOwnerV1,
     world: &mut WorldStreamerV1,
 ) -> next_runtime::TickReport {
     let prepared = runtime
         .tick_preparation()
-        .prepare_with_world_services([], routine, world)
+        .prepare_with_world_services([], routine, population, world)
         .expect("prepare joint tick");
     let validated = runtime
-        .validate_prepared_world_services_tick(routine, world, prepared)
+        .validate_prepared_world_services_tick(routine, population, world, prepared)
         .expect("validate joint tick");
     runtime
-        .commit_validated_world_services_tick(routine, world, validated)
+        .commit_validated_world_services_tick(routine, population, world, validated)
         .expect("commit joint tick")
         .runtime_report
 }
 
 #[test]
 fn joint_world_services_commit_rejects_a_stale_candidate_without_partial_publication() {
-    let (_prepared, fixture, mut world, mut routine) =
+    let (_prepared, fixture, mut world, mut routine, mut population) =
         packaged_world_services_fixture("nextengine.test.world-services-stale");
     let rpg_snapshot = cooked_project_rpg_snapshot(&fixture);
     let mut runtime =
@@ -79,27 +87,28 @@ fn joint_world_services_commit_rejects_a_stale_candidate_without_partial_publica
 
     let first = runtime
         .tick_preparation()
-        .prepare_with_world_services([], &routine, &world)
+        .prepare_with_world_services([], &routine, &population, &world)
         .expect("first preparation");
     let second = runtime
         .tick_preparation()
-        .prepare_with_world_services([], &routine, &world)
+        .prepare_with_world_services([], &routine, &population, &world)
         .expect("second preparation");
     let first = runtime
-        .validate_prepared_world_services_tick(&routine, &world, first)
+        .validate_prepared_world_services_tick(&routine, &population, &world, first)
         .expect("first validation");
     let second = runtime
-        .validate_prepared_world_services_tick(&routine, &world, second)
+        .validate_prepared_world_services_tick(&routine, &population, &world, second)
         .expect("second validation");
     runtime
-        .commit_validated_world_services_tick(&mut routine, &mut world, first)
+        .commit_validated_world_services_tick(&mut routine, &mut population, &mut world, first)
         .expect("first joint commit");
 
     let runtime_after = runtime.snapshot();
     let routine_after = routine.snapshot_or_none().copied();
+    let population_after = population.snapshot_or_none().cloned();
     let world_after = world.snapshot().clone();
     let error = runtime
-        .commit_validated_world_services_tick(&mut routine, &mut world, second)
+        .commit_validated_world_services_tick(&mut routine, &mut population, &mut world, second)
         .expect_err("second candidate is stale");
 
     assert_eq!(
@@ -108,12 +117,13 @@ fn joint_world_services_commit_rejects_a_stale_candidate_without_partial_publica
     );
     assert_eq!(runtime.snapshot(), runtime_after);
     assert_eq!(routine.snapshot_or_none().copied(), routine_after);
+    assert_eq!(population.snapshot_or_none(), population_after.as_ref());
     assert_eq!(world.snapshot(), &world_after);
 }
 
 #[test]
 fn routine_snapshot_without_its_committed_ledger_receipt_fails_load_closure() {
-    let (_prepared, fixture, _world, _routine) =
+    let (_prepared, fixture, _world, _routine, _population) =
         packaged_world_services_fixture("nextengine.test.routine-ledger-closure");
     let rpg_snapshot = cooked_project_rpg_snapshot(&fixture);
     let catalog = fixture
@@ -136,6 +146,48 @@ fn routine_snapshot_without_its_committed_ledger_receipt_fails_load_closure() {
     assert!(matches!(
         runtime.validate_world_routine_ledger_closure(&routine),
         Err(SnapshotRestoreError::WorldRoutineLedgerClosureInvalid)
+    ));
+}
+
+#[test]
+fn population_snapshot_without_its_committed_ledger_receipt_fails_load_closure() {
+    let (_prepared, fixture, _world, _routine, _population) =
+        packaged_world_services_fixture("nextengine.test.population-ledger-closure");
+    let population_catalog = fixture.activated_project.world_population_catalog.clone();
+    let navigation_catalog = fixture.activated_project.world_navigation_catalog.clone();
+    let owner =
+        WorldPopulationOwnerV1::activate(population_catalog.clone(), navigation_catalog.clone(), 0)
+            .expect("population owner");
+    let transition_tick = population_catalog.courier_transition_start_tick;
+    let rpg_snapshot = cooked_project_rpg_snapshot(&fixture);
+    let mut runtime =
+        RuntimeState::with_rpg_snapshot(fixture.bootstrap, fixture.authority, rpg_snapshot)
+            .expect("runtime");
+    for _ in 0..=transition_tick {
+        runtime.run_tick([]).expect("runtime-only test tick");
+    }
+    let mut snapshot = owner
+        .snapshot_or_none()
+        .cloned()
+        .expect("initial population snapshot");
+    let command = owner
+        .expected_command_for_snapshot(&snapshot, transition_tick)
+        .expect("expected transition")
+        .expect("transition is due");
+    owner
+        .apply_command_to_snapshot(&mut snapshot, &command, transition_tick)
+        .expect("advance population without runtime receipt");
+    let restored = WorldPopulationOwnerV1::restore(
+        population_catalog,
+        navigation_catalog,
+        snapshot,
+        runtime.next_tick(),
+    )
+    .expect("population snapshot is calendar-valid in isolation");
+
+    assert!(matches!(
+        runtime.validate_world_population_ledger_closure(&restored),
+        Err(SnapshotRestoreError::WorldPopulationLedgerClosureInvalid)
     ));
 }
 
@@ -525,7 +577,7 @@ fn pickup_and_equip_retry_after_restore_do_not_duplicate_state_or_events() {
 
 #[test]
 fn cooked_dialogue_uses_query_targeting_and_invalid_participant_closure_fails_activation() {
-    let (_prepared, fixture, mut world, mut routine) =
+    let (_prepared, fixture, mut world, mut routine, mut population) =
         packaged_world_services_fixture("nextengine.test.dialogue-closure");
     let ready = cooked_project_rpg_snapshot(&fixture);
     let mut runtime = RuntimeState::with_rpg_snapshot(
@@ -542,7 +594,7 @@ fn cooked_dialogue_uses_query_targeting_and_invalid_participant_closure_fails_ac
                 .expect("interaction sample"),
         )
         .expect("enqueue interaction");
-    let report = run_joint_tick(&mut runtime, &mut routine, &mut world);
+    let report = run_joint_tick(&mut runtime, &mut routine, &mut population, &mut world);
     assert_eq!(
         report.mapping_receipts[0].frame_code,
         InputMappingCodeV1::Accepted
@@ -597,7 +649,7 @@ fn cooked_dialogue_uses_query_targeting_and_invalid_participant_closure_fails_ac
 
 #[test]
 fn nearest_query_selects_quest_giver_and_dialogue_transition_is_one_shot() {
-    let (_prepared, fixture, mut world, mut routine) =
+    let (_prepared, fixture, mut world, mut routine, mut population) =
         packaged_world_services_fixture("nextengine.test.dialogue-tie-break");
     let (accepted_node, _, _, _) = cooked_initial_interaction_outcome(&fixture);
     let mut runtime = RuntimeState::with_rpg_snapshot(
@@ -614,7 +666,7 @@ fn nearest_query_selects_quest_giver_and_dialogue_transition_is_one_shot() {
                 .expect("interaction sample"),
         )
         .expect("enqueue first interaction");
-    let dialogue = run_joint_tick(&mut runtime, &mut routine, &mut world);
+    let dialogue = run_joint_tick(&mut runtime, &mut routine, &mut population, &mut world);
     assert_eq!(
         dialogue
             .events
@@ -642,6 +694,10 @@ fn nearest_query_selects_quest_giver_and_dialogue_transition_is_one_shot() {
 
     let checkpoint = runtime.world_checkpoint().expect("checkpoint");
     let routine_snapshot = routine.snapshot_or_none().copied();
+    let population_snapshot = population
+        .snapshot_or_none()
+        .cloned()
+        .expect("population snapshot");
     let mut restored = RuntimeState::restore_world_checkpoint_with_definitions(
         checkpoint,
         fixture.authority.clone(),
@@ -654,11 +710,20 @@ fn nearest_query_selects_quest_giver_and_dialogue_transition_is_one_shot() {
         restored.next_tick(),
     )
     .expect("restore routine");
+    let mut restored_population = WorldPopulationOwnerV1::restore(
+        fixture.activated_project.world_population_catalog.clone(),
+        fixture.activated_project.world_navigation_catalog.clone(),
+        population_snapshot,
+        restored.next_tick(),
+    )
+    .expect("restore population");
     restored
         .validate_world_routine_ledger_closure(&restored_routine)
         .expect("restore routine ledger closure");
+    restored
+        .validate_world_population_ledger_closure(&restored_population)
+        .expect("restore population ledger closure");
     let rpg_before = restored.rpg_snapshot();
-    let ledger_before = ledger_hash(&restored);
     restored
         .enqueue_input_sample(
             &fixture.principal,
@@ -666,14 +731,32 @@ fn nearest_query_selects_quest_giver_and_dialogue_transition_is_one_shot() {
                 .expect("retry interaction"),
         )
         .expect("enqueue retry");
-    let retry = run_joint_tick(&mut restored, &mut restored_routine, &mut world);
+    let retry = run_joint_tick(
+        &mut restored,
+        &mut restored_routine,
+        &mut restored_population,
+        &mut world,
+    );
     assert_eq!(
         retry.mapping_receipts[0].frame_code,
         InputMappingCodeV1::Accepted
     );
     assert!(retry.mapping_receipts[0].derived_commands.is_empty());
-    assert!(retry.results.is_empty());
-    assert!(retry.events.is_empty());
+    assert!(
+        retry
+            .command_batches
+            .iter()
+            .flat_map(|batch| batch.body.envelopes.iter())
+            .all(|command| !matches!(
+                command.payload,
+                next_contracts::command::CommandPayload::Rpg(_)
+            ))
+    );
+    assert!(
+        retry
+            .events
+            .iter()
+            .all(|event| !matches!(event.payload, EventPayload::Rpg(_)))
+    );
     assert_eq!(restored.rpg_snapshot(), rpg_before);
-    assert_eq!(ledger_hash(&restored), ledger_before);
 }

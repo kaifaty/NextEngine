@@ -7,9 +7,9 @@ use next_contracts::input::{
     INPUT_MAPPING_RECEIPT_SCHEMA_VERSION, InputMappingCodeV1, InputMappingReceiptV2,
 };
 use next_contracts::persistence::{
-    AuthorityGrant, ManifestCodecError, ManifestValidationError, REPLAY_MANIFEST_V6_SCHEMA_VERSION,
-    ReplayCommandRecord, ReplayComparePointV6, ReplayManifestV6, ReplayOwnerSegmentV2,
-    ReplayTickManifestV6, SaveCompatibility, SaveSegmentDescriptor, TickSettings,
+    AuthorityGrant, ManifestCodecError, ManifestValidationError, REPLAY_MANIFEST_V7_SCHEMA_VERSION,
+    ReplayCommandRecord, ReplayComparePointV7, ReplayManifestV7, ReplayOwnerSegmentV2,
+    ReplayTickManifestV7, SaveCompatibility, SaveSegmentDescriptor, TickSettings,
     WorldStreamingReplayInputV1, replay_physics_query_batch_hash,
     replay_physics_query_results_hash, replay_targeting_query_trace_hash,
 };
@@ -30,6 +30,11 @@ use next_contracts::world::{
     WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION, WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
     WorldStreamingSnapshotV1,
 };
+use next_contracts::world_population::{
+    WORLD_POPULATION_SCHEMA_VERSION, WORLD_POPULATION_SNAPSHOT_OWNER_ID,
+    WORLD_POPULATION_SNAPSHOT_SCHEMA_ID, WORLD_POPULATION_SNAPSHOT_SEGMENT_ID,
+    WorldPopulationSnapshotV1,
+};
 use next_contracts::world_routine::{
     WORLD_ROUTINE_SCHEMA_VERSION, WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
     WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID, WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID, WorldRoutineSnapshotV1,
@@ -39,7 +44,7 @@ use next_runtime::{AuthorityRegistry, RuntimeReplayDriver, RuntimeReplayError, R
 
 use super::{
     ReplayError, ReplayInput, ReplayOutput, ReplayTickInput, ReplayTickRecord,
-    compare_replay_outputs, replay_command_results, run_replay, run_replay_manifest_v6,
+    compare_replay_outputs, replay_command_results, run_replay, run_replay_manifest_v7,
     verify_replay,
 };
 use crate::player_fixture::prepare_fixture_project_package_with_scratch;
@@ -108,14 +113,14 @@ fn compatibility() -> SaveCompatibility {
     }
 }
 
-fn replay_manifest_v6() -> (
-    ReplayManifestV6,
+fn replay_manifest_v7() -> (
+    ReplayManifestV7,
     ReplayOutput,
     crate::player_fixture::PreparedFixtureProjectPackage,
 ) {
     let scratch = ScratchContext::new(&std::env::temp_dir()).expect("test scratch root");
     let prepared =
-        prepare_fixture_project_package_with_scratch(&scratch, "nextengine.replay-v6-test")
+        prepare_fixture_project_package_with_scratch(&scratch, "nextengine.replay-v7-test")
             .expect("fixture project package");
     let session =
         next_reference_game::build_reference_game_session(prepared.package.project.clone())
@@ -161,12 +166,22 @@ fn replay_manifest_v6() -> (
         runtime.next_tick(),
     )
     .expect("initial routine owner");
+    let mut population = next_world::WorldPopulationOwnerV1::activate(
+        prepared.package.project.world_population_catalog.clone(),
+        prepared.package.project.world_navigation_catalog.clone(),
+        runtime.next_tick(),
+    )
+    .expect("initial population owner");
     let initial_checkpoint = runtime.world_checkpoint().expect("initial checkpoint");
     let initial_world_snapshot = world.snapshot().clone();
     let initial_routine_snapshot = routine
         .snapshot_or_none()
         .copied()
         .expect("reference project has a routine owner segment");
+    let initial_population_snapshot = population
+        .snapshot_or_none()
+        .cloned()
+        .expect("reference project has a population owner segment");
     let manifest_authority = authority
         .entries()
         .map(|(principal, capabilities)| AuthorityGrant {
@@ -180,16 +195,21 @@ fn replay_manifest_v6() -> (
     for direct_commands in &commands {
         let prepared_tick = runtime
             .tick_preparation()
-            .prepare_with_world_services(direct_commands.clone(), &routine, &world)
+            .prepare_with_world_services(direct_commands.clone(), &routine, &population, &world)
             .expect("record joint tick");
         let validated = runtime
-            .validate_prepared_world_services_tick(&routine, &world, prepared_tick)
+            .validate_prepared_world_services_tick(&routine, &population, &world, prepared_tick)
             .expect("validate joint tick");
         let commit = runtime
-            .commit_validated_world_services_tick(&mut routine, &mut world, validated)
+            .commit_validated_world_services_tick(
+                &mut routine,
+                &mut population,
+                &mut world,
+                validated,
+            )
             .expect("commit joint tick");
         let report = &commit.runtime_report;
-        ticks.push(ReplayTickManifestV6 {
+        ticks.push(ReplayTickManifestV7 {
             tick: report.tick,
             world_streaming_input: WorldStreamingReplayInputV1::None,
             closed_ingress_batch: report.closed_ingress_batch.clone(),
@@ -214,7 +234,7 @@ fn replay_manifest_v6() -> (
             expected_command_results: replay_command_results(&report.results),
             expected_events: report.events.clone(),
         });
-        compare_points.push(ReplayComparePointV6 {
+        compare_points.push(ReplayComparePointV7 {
             tick: report.tick,
             state_root: commit.application_state_root,
             command_ledger_hash: report.snapshot.command_ledger_hash().expect("ledger hash"),
@@ -258,21 +278,23 @@ fn replay_manifest_v6() -> (
         final_checkpoint,
     };
     (
-        ReplayManifestV6 {
-            schema_version: REPLAY_MANIFEST_V6_SCHEMA_VERSION,
+        ReplayManifestV7 {
+            schema_version: REPLAY_MANIFEST_V7_SCHEMA_VERSION,
             compatibility: compatibility(),
             initial_owner_segments: replay_owner_segments(
                 &initial_checkpoint,
                 &initial_world_snapshot,
                 &initial_routine_snapshot,
+                &initial_population_snapshot,
             ),
             initial_state_root:
-                next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
+                next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root(
                     &initial_checkpoint.runtime_snapshot,
                     &initial_checkpoint.rpg_snapshot,
                     &initial_checkpoint.physics_checkpoint,
                     &initial_world_snapshot,
-                    &initial_routine_snapshot,
+                    Some(&initial_routine_snapshot),
+                    Some(&initial_population_snapshot),
                 )
                 .expect("initial root computes"),
             authority: manifest_authority,
@@ -288,6 +310,7 @@ fn replay_owner_segments(
     checkpoint: &WorldCheckpointV4,
     world: &WorldStreamingSnapshotV1,
     routine: &WorldRoutineSnapshotV1,
+    population: &WorldPopulationSnapshotV1,
 ) -> Vec<ReplayOwnerSegmentV2> {
     let mut segments = vec![
         (
@@ -330,6 +353,13 @@ fn replay_owner_segments(
             WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID,
             u32::from(WORLD_ROUTINE_SCHEMA_VERSION),
             routine.canonical_bytes().expect("world routine"),
+        ),
+        (
+            WORLD_POPULATION_SNAPSHOT_OWNER_ID,
+            WORLD_POPULATION_SNAPSHOT_SCHEMA_ID,
+            WORLD_POPULATION_SNAPSHOT_SEGMENT_ID,
+            u32::from(WORLD_POPULATION_SCHEMA_VERSION),
+            population.canonical_bytes().expect("world population"),
         ),
     ]
     .into_iter()
@@ -448,33 +478,70 @@ fn replay_reports_first_divergent_tick() {
 
 #[test]
 fn versioned_manifest_restores_snapshot_and_checks_every_compare_point() {
-    let (manifest, expected, prepared) = replay_manifest_v6();
-    let actual = run_replay_manifest_v6(&manifest, prepared.package.clone())
+    let (manifest, expected, prepared) = replay_manifest_v7();
+    let actual = run_replay_manifest_v7(&manifest, prepared.package.clone())
         .expect("manifest replay is exact");
     assert_eq!(actual, expected);
 }
 
 #[test]
-fn replay_v6_rejects_a_calendar_valid_routine_without_its_ledger_receipt() {
+fn replay_v7_rejects_a_calendar_valid_routine_without_its_ledger_receipt() {
     let scratch = ScratchContext::new(&std::env::temp_dir()).expect("test scratch root");
     let prepared =
-        prepare_fixture_project_package_with_scratch(&scratch, "nextengine.replay-v6-ledger-gap")
+        prepare_fixture_project_package_with_scratch(&scratch, "nextengine.replay-v7-ledger-gap")
             .expect("fixture project package");
     let session =
         next_reference_game::build_reference_game_session(prepared.package.project.clone())
             .expect("reference session");
     let mut runtime = RuntimeState::new(session.bootstrap.clone(), session.authority.clone())
         .expect("initial runtime");
-    for _ in 0..3 {
-        runtime.run_tick([]).expect("runtime-only test tick");
-    }
-    let checkpoint = runtime.world_checkpoint().expect("checkpoint");
-    let world = next_world::WorldStreamerV1::activate(
+    let mut world = next_world::WorldStreamerV1::activate(
         prepared.package.project.clone(),
         prepared.package.content_generation.clone(),
         session.world_topology().initial_chunk_id().clone(),
     )
     .expect("world streamer");
+    let mut delayed_catalog = prepared
+        .package
+        .project
+        .world_routine_catalog_or_none
+        .expect("routine catalog");
+    delayed_catalog.routine.transition_world_tick = delayed_catalog
+        .profile
+        .anchor_world_tick
+        .checked_add(10_000)
+        .expect("delayed boundary");
+    let mut delayed_routine = next_world::WorldRoutineOwnerV1::activate(Some(delayed_catalog), 0)
+        .expect("delayed routine owner");
+    let mut population = next_world::WorldPopulationOwnerV1::activate(
+        prepared.package.project.world_population_catalog.clone(),
+        prepared.package.project.world_navigation_catalog.clone(),
+        0,
+    )
+    .expect("population owner");
+    for _ in 0..3 {
+        let candidate = runtime
+            .tick_preparation()
+            .prepare_with_world_services([], &delayed_routine, &population, &world)
+            .expect("prepare world-services test tick");
+        let validated = runtime
+            .validate_prepared_world_services_tick_without_application_evidence(
+                &delayed_routine,
+                &population,
+                &world,
+                candidate,
+            )
+            .expect("validate world-services test tick");
+        runtime
+            .commit_validated_world_services_tick_without_application_evidence(
+                &mut delayed_routine,
+                &mut population,
+                &mut world,
+                validated,
+            )
+            .expect("commit world-services test tick");
+    }
+    let checkpoint = runtime.world_checkpoint().expect("checkpoint");
     let catalog = prepared
         .package
         .project
@@ -488,17 +555,27 @@ fn replay_v6_rejects_a_calendar_valid_routine_without_its_ledger_receipt() {
         .validate_against(catalog, checkpoint.runtime_snapshot.next_tick)
         .expect("routine is calendar-valid in isolation");
     let world_snapshot = world.snapshot().clone();
-    let manifest = ReplayManifestV6 {
-        schema_version: REPLAY_MANIFEST_V6_SCHEMA_VERSION,
+    let population_snapshot = population
+        .snapshot_or_none()
+        .cloned()
+        .expect("population snapshot");
+    let manifest = ReplayManifestV7 {
+        schema_version: REPLAY_MANIFEST_V7_SCHEMA_VERSION,
         compatibility: compatibility(),
-        initial_owner_segments: replay_owner_segments(&checkpoint, &world_snapshot, &routine),
+        initial_owner_segments: replay_owner_segments(
+            &checkpoint,
+            &world_snapshot,
+            &routine,
+            &population_snapshot,
+        ),
         initial_state_root:
-            next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
+            next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root(
                 &checkpoint.runtime_snapshot,
                 &checkpoint.rpg_snapshot,
                 &checkpoint.physics_checkpoint,
                 &world_snapshot,
-                &routine,
+                Some(&routine),
+                Some(&population_snapshot),
             )
             .expect("initial root"),
         authority: session
@@ -513,7 +590,7 @@ fn replay_v6_rejects_a_calendar_valid_routine_without_its_ledger_receipt() {
         compare_points: Vec::new(),
     };
 
-    let error = run_replay_manifest_v6(&manifest, prepared.package.clone())
+    let error = run_replay_manifest_v7(&manifest, prepared.package.clone())
         .expect_err("routine/ledger mismatch must fail before replay publication");
     assert!(matches!(
         error,
@@ -529,22 +606,22 @@ fn replay_v6_rejects_a_calendar_valid_routine_without_its_ledger_receipt() {
 }
 
 #[test]
-fn replay_manifest_v6_round_trips_and_replays_query_and_v2_receipt_facts() {
-    let (manifest, expected, prepared) = replay_manifest_v6();
+fn replay_manifest_v7_round_trips_and_replays_query_and_v2_receipt_facts() {
+    let (manifest, expected, prepared) = replay_manifest_v7();
     let bytes = manifest.to_jcs_bytes().expect("manifest encodes");
-    let decoded = ReplayManifestV6::from_jcs_bytes(&bytes, CanonicalDecodeLimits::default())
+    let decoded = ReplayManifestV7::from_jcs_bytes(&bytes, CanonicalDecodeLimits::default())
         .expect("manifest decodes");
     assert_eq!(decoded, manifest);
     assert_eq!(decoded.to_jcs_bytes().expect("manifest re-encodes"), bytes);
     assert_eq!(
-        run_replay_manifest_v6(&decoded, prepared.package.clone()).expect("V6 replay is exact"),
+        run_replay_manifest_v7(&decoded, prepared.package.clone()).expect("V7 replay is exact"),
         expected
     );
 }
 
 #[test]
-fn replay_manifest_v6_rejects_v2_receipt_divergence() {
-    let (mut manifest, _, prepared) = replay_manifest_v6();
+fn replay_manifest_v7_rejects_v2_receipt_divergence() {
+    let (mut manifest, _, prepared) = replay_manifest_v7();
     manifest.ticks[0]
         .expected_mapping_receipts
         .push(InputMappingReceiptV2 {
@@ -558,7 +635,7 @@ fn replay_manifest_v6_rejects_v2_receipt_divergence() {
             derived_commands: Vec::new(),
         });
     let error =
-        run_replay_manifest_v6(&manifest, prepared.package.clone()).expect_err("receipt mismatch");
+        run_replay_manifest_v7(&manifest, prepared.package.clone()).expect_err("receipt mismatch");
     assert!(matches!(
         error,
         ReplayError::RecordedStageMismatch {
@@ -569,8 +646,8 @@ fn replay_manifest_v6_rejects_v2_receipt_divergence() {
 }
 
 #[test]
-fn replay_manifest_v6_rejects_query_batch_divergence_after_valid_rehash() {
-    let (mut manifest, _, prepared) = replay_manifest_v6();
+fn replay_manifest_v7_rejects_query_batch_divergence_after_valid_rehash() {
+    let (mut manifest, _, prepared) = replay_manifest_v7();
     manifest.ticks[0]
         .expected_physics_query_batch
         .snapshot_selector
@@ -579,7 +656,7 @@ fn replay_manifest_v6_rejects_query_batch_divergence_after_valid_rehash() {
         replay_physics_query_batch_hash(&manifest.ticks[0].expected_physics_query_batch)
             .expect("updated query batch hash");
     let error =
-        run_replay_manifest_v6(&manifest, prepared.package.clone()).expect_err("query mismatch");
+        run_replay_manifest_v7(&manifest, prepared.package.clone()).expect_err("query mismatch");
     assert!(matches!(
         error,
         ReplayError::RecordedStageMismatch {
@@ -590,10 +667,10 @@ fn replay_manifest_v6_rejects_query_batch_divergence_after_valid_rehash() {
 }
 
 #[test]
-fn replay_manifest_v6_rejects_targeting_trace_root_mismatch() {
-    let (mut manifest, _, prepared) = replay_manifest_v6();
+fn replay_manifest_v7_rejects_targeting_trace_root_mismatch() {
+    let (mut manifest, _, prepared) = replay_manifest_v7();
     manifest.compare_points[0].targeting_query_trace_hash = ContentHash::from_bytes([0x94; 32]);
-    let error = run_replay_manifest_v6(&manifest, prepared.package.clone())
+    let error = run_replay_manifest_v7(&manifest, prepared.package.clone())
         .expect_err("target trace mismatch");
     assert!(matches!(
         error,
@@ -605,7 +682,7 @@ fn replay_manifest_v6_rejects_targeting_trace_root_mismatch() {
 fn replay_manifest_v4_jcs_is_rejected_before_nested_decoding() {
     let bytes = br#"{"schema_version":4}"#;
     assert!(matches!(
-        ReplayManifestV6::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
+        ReplayManifestV7::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
         Err(ManifestCodecError::Validation(
             ManifestValidationError::UnsupportedReplayVersion(4)
         ))
@@ -616,7 +693,7 @@ fn replay_manifest_v4_jcs_is_rejected_before_nested_decoding() {
 fn retired_replay_manifest_v5_jcs_is_rejected_before_nested_decoding() {
     let bytes = br#"{"schema_version":5}"#;
     assert!(matches!(
-        ReplayManifestV6::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
+        ReplayManifestV7::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
         Err(ManifestCodecError::Validation(
             ManifestValidationError::UnsupportedReplayVersion(5)
         ))
@@ -625,9 +702,9 @@ fn retired_replay_manifest_v5_jcs_is_rejected_before_nested_decoding() {
 
 #[test]
 fn manifest_reports_first_ledger_or_state_divergence() {
-    let (mut manifest, _, prepared) = replay_manifest_v6();
+    let (mut manifest, _, prepared) = replay_manifest_v7();
     manifest.compare_points[0].state_root = StateRoot::from_bytes([9; 32]);
-    let error = run_replay_manifest_v6(&manifest, prepared.package.clone())
+    let error = run_replay_manifest_v7(&manifest, prepared.package.clone())
         .expect_err("compare point must fail");
     assert!(matches!(
         error,
@@ -639,11 +716,11 @@ fn manifest_reports_first_ledger_or_state_divergence() {
 
 #[test]
 fn manifest_decodes_entire_command_stream_before_runtime_restore() {
-    let (mut manifest, _, prepared) = replay_manifest_v6();
+    let (mut manifest, _, prepared) = replay_manifest_v7();
     manifest.ticks[1].direct_external_commands[0]
         .canonical_command_bytes
         .push(0);
-    let error = run_replay_manifest_v6(&manifest, prepared.package.clone())
+    let error = run_replay_manifest_v7(&manifest, prepared.package.clone())
         .expect_err("corrupt command must fail closed");
     assert!(matches!(error, ReplayError::Manifest(_)));
     assert_eq!(error.stable_code(), "REPLAY_MANIFEST_INVALID");
@@ -651,7 +728,7 @@ fn manifest_decodes_entire_command_stream_before_runtime_restore() {
 
 #[test]
 fn replay_driver_rejects_command_batch_before_state_mutation() {
-    let (manifest, _, prepared) = replay_manifest_v6();
+    let (manifest, _, prepared) = replay_manifest_v7();
     let (initial, mut ticks) = manifest
         .validate_and_decode(CanonicalDecodeLimits::default())
         .expect("manifest decodes");
@@ -696,10 +773,10 @@ fn replay_driver_rejects_command_batch_before_state_mutation() {
 
 #[test]
 fn v4_replay_is_rejected_before_nested_snapshot_decoding() {
-    let (mut manifest, _, prepared) = replay_manifest_v6();
+    let (mut manifest, _, prepared) = replay_manifest_v7();
     manifest.schema_version = 4;
     manifest.initial_owner_segments.clear();
-    let error = run_replay_manifest_v6(&manifest, prepared.package.clone())
+    let error = run_replay_manifest_v7(&manifest, prepared.package.clone())
         .expect_err("V4 replay fails closed");
     assert!(matches!(
         error,
@@ -716,6 +793,6 @@ fn scenario_final_root_pins_current_checkpoint_identity_ledger_archive_and_physi
             .final_state_root()
             .expect("scenario has ticks")
             .to_hex(),
-        "09e3a5ddd096a439ea95cedc6cd887a1c86667d6ff7a21a38a0bd024fcfd1d31"
+        "0da6c35a3dd4da7b1b0642f43aa0d2d425adc622d173ed91f5eb8cc5cecacaf1"
     );
 }

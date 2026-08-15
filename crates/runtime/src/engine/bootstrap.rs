@@ -24,6 +24,10 @@ use next_contracts::physics::{
 };
 use next_contracts::rpg::{CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CoreDialogueQuestClosureError};
 use next_contracts::rpg::{RpgRuntimeBindingsV1, RpgSnapshotV2};
+use next_contracts::world_population::{
+    WORLD_POPULATION_CAPABILITY_ID, WORLD_POPULATION_CAPABILITY_SUBJECT_ID,
+    WORLD_POPULATION_SYSTEM_ID,
+};
 use next_contracts::world_routine::{
     WORLD_ROUTINE_CAPABILITY_ID, WORLD_ROUTINE_CAPABILITY_SUBJECT_ID, WORLD_ROUTINE_SYSTEM_ID,
 };
@@ -157,7 +161,7 @@ impl RuntimeBootstrapV4 {
     }
 
     pub fn neutral_empty() -> Result<Self, SnapshotRestoreError> {
-        let profile = RuntimeDeterminismBundleV1::core_r4a()?.runtime_profile();
+        let profile = RuntimeDeterminismBundleV1::core_r4b()?.runtime_profile();
         let world_identity = WorldIdentityManifestV1::new(
             ProjectId::new("nextengine.runtime-empty")
                 .expect("built-in neutral project identifier is valid"),
@@ -192,7 +196,7 @@ pub(super) fn validate_bootstrap(
     bootstrap.rpg_bindings.validate()?;
     bootstrap.rpg_definitions.validate()?;
     bootstrap.physics_checkpoint.validate()?;
-    let determinism = RuntimeDeterminismBundleV1::core_r4a()?;
+    let determinism = RuntimeDeterminismBundleV1::core_r4b()?;
     bootstrap
         .physics_checkpoint
         .snapshot
@@ -243,6 +247,7 @@ pub(super) fn validate_bootstrap(
         return Err(SnapshotRestoreError::BootstrapClosureMismatch);
     }
     validate_world_routine_bootstrap_closure(bootstrap, authority)?;
+    validate_world_population_bootstrap_closure(bootstrap, authority)?;
     for (principal, _) in authority.entries() {
         if !bootstrap.principal_registry.is_active(principal) {
             return Err(SnapshotRestoreError::InactivePrincipal);
@@ -322,6 +327,49 @@ fn validate_world_routine_bootstrap_closure(
     let Some(record) = principal_record else {
         return Err(SnapshotRestoreError::BootstrapClosureMismatch);
     };
+    if record.status != next_contracts::identity::PrincipalStatus::Active
+        || record.provenance_hash != expected_provenance
+        || record.capability_subject_id != expected_subject
+        || authority.grants(&principal) != Some(&BTreeSet::from([expected_capability]))
+        || stream_entries.len() != 1
+        || stream_entries[0].0.stream_slot != 0
+        || stream_entries[0].0.stream_epoch != 0
+        || bootstrap.stream_registry.next_stream_slot.get(&principal) != Some(&1)
+    {
+        return Err(SnapshotRestoreError::BootstrapClosureMismatch);
+    }
+    Ok(())
+}
+
+fn validate_world_population_bootstrap_closure(
+    bootstrap: &RuntimeBootstrapV4,
+    authority: &AuthorityRegistry,
+) -> Result<(), SnapshotRestoreError> {
+    let principal = IssuerPrincipal::InternalSystem(
+        SystemId::new(WORLD_POPULATION_SYSTEM_ID)
+            .expect("engine-owned population system id is valid"),
+    );
+    let principal_record = bootstrap.principal_registry.principals.get(&principal);
+    let stream_entries = bootstrap
+        .stream_registry
+        .entries
+        .iter()
+        .filter(|(key, _)| key.principal == principal)
+        .collect::<Vec<_>>();
+    if principal_record.is_none() {
+        if !stream_entries.is_empty() || authority.is_authenticated(&principal) {
+            return Err(SnapshotRestoreError::BootstrapClosureMismatch);
+        }
+        return Ok(());
+    }
+    let expected_provenance = content_hash_from_bytes(sha256(
+        b"nextengine.principal.world-population-boundary.v1\0",
+    ));
+    let expected_capability = CapabilityId::new(WORLD_POPULATION_CAPABILITY_ID)
+        .expect("engine-owned population capability id is valid");
+    let expected_subject = SchemaId::new(WORLD_POPULATION_CAPABILITY_SUBJECT_ID)
+        .expect("engine-owned population capability subject id is valid");
+    let record = principal_record.expect("presence was checked");
     if record.status != next_contracts::identity::PrincipalStatus::Active
         || record.provenance_hash != expected_provenance
         || record.capability_subject_id != expected_subject

@@ -19,14 +19,14 @@ pub struct RuntimeDeterminismBundleV1 {
 }
 
 impl RuntimeDeterminismBundleV1 {
-    pub fn core_r4a() -> Result<Self, IdentityContractError> {
-        let command_kind_registry = CommandKindRegistryV1::core_r4a()?;
+    pub fn core_r4b() -> Result<Self, IdentityContractError> {
+        let command_kind_registry = CommandKindRegistryV1::core_r4b()?;
         let command_kind_registry_bytes = command_kind_registry.canonical_bytes()?;
         let command_kind_registry_hash = command_kind_registry.canonical_hash()?;
-        let schedule_manifest = ScheduleManifestV1::core_r4a()?;
+        let schedule_manifest = ScheduleManifestV1::core_r4b()?;
         let schedule_manifest_bytes = schedule_manifest.canonical_bytes()?;
         let schedule_manifest_hash = schedule_manifest.profile_hash()?;
-        let runtime_profile = RuntimeDeterminismProfileV1::from_materialized_r4a(
+        let runtime_profile = RuntimeDeterminismProfileV1::from_materialized_r4b(
             command_kind_registry_hash,
             schedule_manifest_hash,
         );
@@ -110,8 +110,8 @@ mod tests {
 
     #[test]
     fn one_builder_closes_registry_schedule_and_runtime_profile() {
-        let bundle = RuntimeDeterminismBundleV1::core_r4a().expect("bundle builds");
-        assert_eq!(bundle.command_kind_registry().entries.len(), 4);
+        let bundle = RuntimeDeterminismBundleV1::core_r4b().expect("bundle builds");
+        assert_eq!(bundle.command_kind_registry().entries.len(), 5);
         assert_eq!(bundle.schedule_manifest().stage_order.len(), 12);
         assert_eq!(
             bundle.runtime_profile().command_kind_registry_hash,

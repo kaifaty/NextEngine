@@ -1,7 +1,7 @@
 use next_contracts::canonical::CanonicalDecodeLimits;
-use next_contracts::persistence::ReplayManifestV6;
+use next_contracts::persistence::ReplayManifestV7;
 
-use crate::run_replay_manifest_v6_with_physics_options;
+use crate::run_replay_manifest_v7_with_physics_options;
 
 use super::super::PersistenceReplayCheckError;
 use super::super::replay_support::{compare_replay, replay_manifest};
@@ -18,6 +18,7 @@ pub(super) fn verify(
         &direct.initial_checkpoint,
         &direct.initial_world_snapshot,
         direct.initial_routine_snapshot_or_none.as_ref(),
+        &direct.initial_population_snapshot,
         &direct.reports,
         &direct.world_services_commits,
         &direct.replay_streaming_inputs,
@@ -35,17 +36,17 @@ pub(super) fn verify(
     }
     let replay_bytes = replay_manifest
         .to_jcs_bytes()
-        .map_err(|error| PersistenceReplayCheckError::new("encode replay V6", error.to_string()))?;
+        .map_err(|error| PersistenceReplayCheckError::new("encode replay V7", error.to_string()))?;
     let decoded_replay_manifest =
-        ReplayManifestV6::from_jcs_bytes(&replay_bytes, CanonicalDecodeLimits::default()).map_err(
-            |error| PersistenceReplayCheckError::new("decode replay V6", error.to_string()),
+        ReplayManifestV7::from_jcs_bytes(&replay_bytes, CanonicalDecodeLimits::default()).map_err(
+            |error| PersistenceReplayCheckError::new("decode replay V7", error.to_string()),
         )?;
     if decoded_replay_manifest != replay_manifest {
         return Err(PersistenceReplayCheckError::condition(
-            "replay V6 JCS round trip is exact",
+            "replay V7 JCS round trip is exact",
         ));
     }
-    let replay = run_replay_manifest_v6_with_physics_options(
+    let replay = run_replay_manifest_v7_with_physics_options(
         &decoded_replay_manifest,
         next_project::ActivatedProjectPackage {
             project: direct.fixture.activated_project.clone(),

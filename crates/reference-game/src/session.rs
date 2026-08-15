@@ -17,7 +17,7 @@ use next_contracts::physics::{
     PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     PhysicsWorldCheckpointV1,
 };
-use next_contracts::project::ActivatedProjectV4;
+use next_contracts::project::ActivatedProjectV5;
 use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
 
 use crate::{ReferenceGameError, ReferenceWorldTopologyV1, build_reference_runtime_bootstrap};
@@ -56,7 +56,7 @@ pub struct ReferenceGameSession {
     pub action_map_hash: ContentHash,
     pub context_stack: InputContextStackV1,
     pub context_stack_hash: ContentHash,
-    pub activated_project: ActivatedProjectV4,
+    pub activated_project: ActivatedProjectV5,
     world_topology: ReferenceWorldTopologyV1,
 }
 
@@ -68,13 +68,13 @@ impl ReferenceGameSession {
 }
 
 pub fn build_reference_game_session(
-    activated_project: ActivatedProjectV4,
+    activated_project: ActivatedProjectV5,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     build_reference_game_session_with_profile(activated_project, false)
 }
 
 pub fn build_reference_game_session_with_profile(
-    activated_project: ActivatedProjectV4,
+    activated_project: ActivatedProjectV5,
     physx_compatible: bool,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     let world_topology = ReferenceWorldTopologyV1::from_activated_project(&activated_project)?;
@@ -90,6 +90,9 @@ pub fn build_reference_game_session_with_profile(
         IssuerPrincipal::InternalSystem(SystemId::new("nextengine.agent.planner")?);
     let routine_principal = IssuerPrincipal::InternalSystem(SystemId::new(
         next_contracts::world_routine::WORLD_ROUTINE_SYSTEM_ID,
+    )?);
+    let population_principal = IssuerPrincipal::InternalSystem(SystemId::new(
+        next_contracts::world_population::WORLD_POPULATION_SYSTEM_ID,
     )?);
     let mut grants = vec![
         (
@@ -116,6 +119,12 @@ pub fn build_reference_game_session_with_profile(
             )?],
         ));
     }
+    grants.push((
+        population_principal,
+        vec![CapabilityId::new(
+            next_contracts::world_population::WORLD_POPULATION_CAPABILITY_ID,
+        )?],
+    ));
     let base = build_reference_runtime_bootstrap(&project_id, grants)?;
     let movement_stream_id = base
         .stream_for(&principal)

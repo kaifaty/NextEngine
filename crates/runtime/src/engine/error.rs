@@ -72,6 +72,7 @@ pub enum RuntimeFatalError {
     WorldStreaming(next_world::WorldStreamingError),
     WorldServicesCheckpoint(WorldCheckpointError),
     WorldRoutineInternalInvariant,
+    WorldPopulationInternalInvariant,
 }
 
 impl RuntimeFatalError {
@@ -103,6 +104,7 @@ impl RuntimeFatalError {
             Self::WorldStreaming(_) => "WORLD_STREAMING_STAGE_FAILED",
             Self::WorldServicesCheckpoint(_) => "WORLD_SERVICES_CHECKPOINT_INVALID",
             Self::WorldRoutineInternalInvariant => "WORLD_ROUTINE_INTERNAL_INVARIANT",
+            Self::WorldPopulationInternalInvariant => "WORLD_POPULATION_INTERNAL_INVARIANT",
         }
     }
 }
@@ -190,6 +192,7 @@ pub enum SnapshotRestoreError {
     ControllerClosureMismatch,
     CoreInteractionClosure(CoreDialogueQuestClosureError),
     WorldRoutineLedgerClosureInvalid,
+    WorldPopulationLedgerClosureInvalid,
 }
 
 impl Display for SnapshotRestoreError {
@@ -230,6 +233,9 @@ impl Display for SnapshotRestoreError {
             Self::CoreInteractionClosure(error) => Display::fmt(error, formatter),
             Self::WorldRoutineLedgerClosureInvalid => {
                 formatter.write_str("WORLD_ROUTINE_LEDGER_CLOSURE_INVALID")
+            }
+            Self::WorldPopulationLedgerClosureInvalid => {
+                formatter.write_str("WORLD_POPULATION_LEDGER_CLOSURE_INVALID")
             }
         }
     }

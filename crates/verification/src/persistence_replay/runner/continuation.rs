@@ -32,6 +32,7 @@ fn run_paired_tick(
     let direct_commit = commit_world_services_tick(
         &mut direct.runtime,
         &mut direct.routine,
+        &mut direct.population,
         &mut direct.world,
         direct_commands,
         direct_streaming,
@@ -40,6 +41,7 @@ fn run_paired_tick(
     let restored_commit = commit_world_services_tick(
         &mut restored.runtime,
         &mut restored.routine,
+        &mut restored.population,
         &mut restored.world,
         restored_commands,
         restored_streaming,

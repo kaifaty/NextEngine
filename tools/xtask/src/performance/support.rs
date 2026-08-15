@@ -84,8 +84,11 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
             methodology.warmup_samples = 1_000;
             methodology.measured_samples = 10_000;
             methodology.notes = vec![
-                "ADR-016 integrated 100-NPC workload at 30 Hz".to_owned(),
-                "all stage rows are exclusive; unowned time invalidates the run".to_owned(),
+                "the reference-alpha production catalog supplies exactly 100 persistent NPCs with ADR-016 membership 16 active / 32 near / 52 background and fixed 3/15/60-tick cadence phases".to_owned(),
+                "1,000 warm-up ticks precede 10,000 consecutive measured production Runtime + routine + population + streaming joint ticks at 30 Hz".to_owned(),
+                "an isolated navigation probe records all due engine-owned graph queries per tick; the joint-tick sample independently includes the production stage-6 population service and atomic stage-9 publication".to_owned(),
+                "every due query completes synchronously in deterministic class/PersistentId order; exact due counts and trace roots prove zero deferral, drop and starvation".to_owned(),
+                "the workload and ADR-016 absolute rows are report-only until B-12 receives clean ten-run THOTH calibration and one fixed three-run hard-gate batch".to_owned(),
             ];
         }
         PerformanceScenarioV1::R5Physics16 => {

@@ -1,10 +1,10 @@
 use serde::Deserialize;
 
-pub(super) const AUTHORING_FORMAT_V3: &str = "nextengine.project-authoring.v3";
+pub(super) const AUTHORING_FORMAT_V4: &str = "nextengine.project-authoring.v4";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct ProjectAuthoringManifestV3 {
+pub(super) struct ProjectAuthoringManifestV4 {
     pub format: String,
     pub project: AuthoringProjectV2,
     pub provenance: AuthoringProvenanceV1,
@@ -17,8 +17,31 @@ pub(super) struct ProjectAuthoringManifestV3 {
     pub neutral_animation_catalogs: Vec<AuthoringAnimationCatalogReferenceV1>,
     pub world_routine_catalog: Option<AuthoringWorldRoutineCatalogV1>,
     pub world_routine_interaction_binding: Option<AuthoringWorldRoutineInteractionBindingV1>,
+    pub world_navigation_catalog: AuthoringWorldNavigationCatalogV1,
+    pub world_population_catalog: AuthoringWorldPopulationCatalogV1,
     pub root_asset_ids: Vec<String>,
     pub allowed_presentation_targets: Vec<AuthoringPresentationTargetV1>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringWorldNavigationCatalogV1 {
+    pub schema_version: u16,
+    pub catalog_asset_id: String,
+    pub topology_revision: u64,
+    pub edge_cost: u32,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringWorldPopulationCatalogV1 {
+    pub schema_version: u16,
+    pub catalog_asset_id: String,
+    pub identity_domain: String,
+    pub courier_ordinal: u32,
+    pub courier_transition_start_tick: u64,
+    pub courier_initial_node_id: String,
+    pub courier_goal_node_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]

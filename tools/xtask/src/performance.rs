@@ -96,10 +96,8 @@ impl PerformanceScenarioV1 {
             | Self::InteractiveFrameSoak
             | Self::ProductionWorkerSoak
             | Self::R2AlphaRender
-            | Self::R3MultiregionStreaming => None,
-            Self::R4_100Npc => Some(
-                "R4_100NPC_WORKLOAD_UNAVAILABLE: population, navigation and integrated ADR-016 workload owners are not implemented",
-            ),
+            | Self::R3MultiregionStreaming
+            | Self::R4_100Npc => None,
             Self::R5Physics16 if cfg!(feature = "physx") => None,
             Self::R5Physics16 => Some(
                 "R5_PHYSICS_WORKLOAD_UNAVAILABLE: build xtask with --features physx after the pinned SDK setup",
@@ -128,10 +126,12 @@ pub fn performance_scenario_hash(scenario: PerformanceScenarioV1) -> String {
         PerformanceScenarioV1::R3MultiregionStreaming => {
             b"nextengine.performance.r3-multiregion-streaming.v1:reference-alpha:regions=4:chunks=64:cycles=1000:canonical-cyclic-route:two-fixed-ticks-per-transition:packaged-io:bounded-workers=2:logical-staging-charge:resource-observation=streaming-only"
         }
+        PerformanceScenarioV1::R4_100Npc => {
+            b"nextengine.performance.r4-100npc.v1:reference-alpha:npcs=100:cadence=16x3+32x15+52x60:warmup=1000:measured=10000:production-joint-world-services-tick:engine-graph-navigation:exact-due-trace:no-starvation:report-only:logical-accounting=r4-100npc-v1"
+        }
         PerformanceScenarioV1::R5Physics16 => {
             b"nextengine.performance.r5-physics-16.v1:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:fixed-standing-controller:fresh-scene-restore:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
         }
-        _ => return sha256_hex(scenario.as_str().as_bytes()),
     };
     sha256_hex(preimage)
 }

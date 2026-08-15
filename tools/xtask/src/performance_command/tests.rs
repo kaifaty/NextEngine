@@ -164,6 +164,7 @@ fn diagnostic_baseline_comparison_cannot_promote_report_only_to_a_gate() {
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
         xtask::performance::PerformanceScenarioV1::R2AlphaRender,
         xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming,
+        xtask::performance::PerformanceScenarioV1::R4_100Npc,
     ] {
         assert_eq!(
             preserve_report_only_scenario_verdict(
@@ -206,6 +207,10 @@ fn diagnostic_baseline_comparison_cannot_promote_report_only_to_a_gate() {
         Some(
             "PERF_R3_MULTIREGION_STREAMING_REPORT_ONLY: B-12 and the clean ten-run THOTH hard gate remain open",
         ),
+    );
+    assert_eq!(
+        report_only_gate_diagnostic(xtask::performance::PerformanceScenarioV1::R4_100Npc),
+        Some("PERF_R4_100NPC_REPORT_ONLY: B-12 and the clean ten-run THOTH hard gate remain open",),
     );
 }
 
@@ -293,6 +298,7 @@ fn r5_gate_details_report_medians_and_worst_tails_across_the_fixed_batch() {
                     render_planning: None,
                     live_runtime: None,
                     production_worker: None,
+                    r4_100npc: None,
                     r5_physics: Some(R5PhysicsPerformanceDetailsV1 {
                         evidence_run_count: 1,
                         slot_count: 16,

@@ -650,13 +650,100 @@ pub fn world_checkpoint_with_streaming_and_routine_v1_state_root_from_canonical_
     Ok(state_root_from_segments(segments)?)
 }
 
+pub fn world_checkpoint_with_world_services_v1_state_root_from_canonical_components(
+    components: &WorldCheckpointCanonicalComponentsV1,
+    world_streaming_snapshot: &crate::world::WorldStreamingSnapshotV1,
+    world_routine_snapshot_or_none: Option<&crate::world_routine::WorldRoutineSnapshotV1>,
+    world_population_snapshot_or_none: Option<&crate::world_population::WorldPopulationSnapshotV1>,
+) -> Result<StateRoot, WorldCheckpointError> {
+    world_streaming_snapshot.validate()?;
+    let mut segments = vec![
+        (
+            RUNTIME_SNAPSHOT_OWNER_ID,
+            RUNTIME_SNAPSHOT_SCHEMA_ID,
+            RUNTIME_SNAPSHOT_SEGMENT_ID,
+            components.runtime_snapshot_bytes().to_vec(),
+        ),
+        (
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+            components.rpg_snapshot_bytes().to_vec(),
+        ),
+        (
+            crate::physics::PHYSICS_SNAPSHOT_OWNER_ID,
+            PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+            PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+            components.physics_checkpoint_bytes().to_vec(),
+        ),
+        (
+            crate::world::WORLD_STREAMING_SNAPSHOT_OWNER_ID,
+            crate::world::WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+            crate::world::WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
+            world_streaming_snapshot.canonical_bytes()?,
+        ),
+    ];
+    if let Some(routine) = world_routine_snapshot_or_none {
+        segments.push((
+            crate::world_routine::WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
+            crate::world_routine::WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID,
+            crate::world_routine::WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID,
+            routine.canonical_bytes()?,
+        ));
+    }
+    if let Some(population) = world_population_snapshot_or_none {
+        segments.push((
+            crate::world_population::WORLD_POPULATION_SNAPSHOT_OWNER_ID,
+            crate::world_population::WORLD_POPULATION_SNAPSHOT_SCHEMA_ID,
+            crate::world_population::WORLD_POPULATION_SNAPSHOT_SEGMENT_ID,
+            population.canonical_bytes()?,
+        ));
+    }
+    segments.sort_by_key(|(owner, schema, segment, _)| (*owner, *schema, *segment));
+    let segment_refs = segments
+        .iter()
+        .map(|(owner, schema, segment, bytes)| (*owner, *schema, *segment, bytes.as_slice()))
+        .collect::<Vec<_>>();
+    Ok(state_root_from_segment_slices(&segment_refs)?)
+}
+
+pub fn world_checkpoint_with_world_services_v1_state_root(
+    runtime_snapshot: &RuntimeSnapshotV3,
+    rpg_snapshot: &RpgSnapshotV2,
+    physics_checkpoint: &PhysicsWorldCheckpointV1,
+    world_streaming_snapshot: &crate::world::WorldStreamingSnapshotV1,
+    world_routine_snapshot_or_none: Option<&crate::world_routine::WorldRoutineSnapshotV1>,
+    world_population_snapshot_or_none: Option<&crate::world_population::WorldPopulationSnapshotV1>,
+) -> Result<StateRoot, WorldCheckpointError> {
+    let (_, components) = WorldCheckpointV4::new_with_canonical_components(
+        runtime_snapshot.clone(),
+        rpg_snapshot.clone(),
+        physics_checkpoint.clone(),
+    )?;
+    world_checkpoint_with_world_services_v1_state_root_from_canonical_components(
+        &components,
+        world_streaming_snapshot,
+        world_routine_snapshot_or_none,
+        world_population_snapshot_or_none,
+    )
+}
+
 fn state_root_from_segments<const N: usize, B: AsRef<[u8]>>(
     segments: [(&str, &str, &str, B); N],
 ) -> Result<StateRoot, CanonicalError> {
+    let segment_refs = segments
+        .iter()
+        .map(|(owner, schema, segment, bytes)| (*owner, *schema, *segment, bytes.as_ref()))
+        .collect::<Vec<_>>();
+    state_root_from_segment_slices(&segment_refs)
+}
+
+fn state_root_from_segment_slices(
+    segments: &[(&str, &str, &str, &[u8])],
+) -> Result<StateRoot, CanonicalError> {
     let leaf_count = u64::try_from(segments.len()).map_err(|_| CanonicalError::LengthOverflow)?;
     let mut nodes = Vec::with_capacity(segments.len());
-    for (owner, schema, segment, bytes) in segments {
-        let bytes = bytes.as_ref();
+    for &(owner, schema, segment, bytes) in segments {
         let mut segment_hasher = sha2::Sha256::new();
         use sha2::Digest as _;
         segment_hasher.update(b"nextengine.state-segment.v1\0");
@@ -723,6 +810,7 @@ pub enum WorldCheckpointError {
     RpgV2(RpgContractErrorV1),
     Physics(PhysicsContractError),
     WorldStreaming(crate::world::WorldStreamingContractError),
+    WorldPopulation(crate::world_population::WorldPopulationContractError),
     CoreInteractionClosure(CoreDialogueQuestClosureError),
     ClosureMismatch,
 }
@@ -741,6 +829,7 @@ impl WorldCheckpointError {
                 }
                 _ => "WORLD_CHECKPOINT_STREAMING_CORRUPT",
             },
+            Self::WorldPopulation(error) => error.diagnostic_code(),
             Self::CoreInteractionClosure(error) => error.stable_code(),
             Self::Canonicalization(_) => "WORLD_CHECKPOINT_CANONICALIZATION_FAILED",
         }
@@ -782,6 +871,12 @@ impl From<PhysicsContractError> for WorldCheckpointError {
 impl From<crate::world::WorldStreamingContractError> for WorldCheckpointError {
     fn from(error: crate::world::WorldStreamingContractError) -> Self {
         Self::WorldStreaming(error)
+    }
+}
+
+impl From<crate::world_population::WorldPopulationContractError> for WorldCheckpointError {
+    fn from(error: crate::world_population::WorldPopulationContractError) -> Self {
+        Self::WorldPopulation(error)
     }
 }
 

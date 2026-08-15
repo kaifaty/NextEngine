@@ -1,34 +1,34 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::error::Error;
-use std::fmt::{Display, Formatter};
-
 use crate::cook_rpg::{compile_rpg_definitions_v2, rpg_definitions_v2_manifest_bytes};
 use crate::cook_support::{ensure_unique, schema_ref, validate_text_catalog_closure};
 use next_assets::{ContentPublicationV1, PublicationFileV1};
 use next_contracts::animation_content::{
-    NEUTRAL_ANIMATION_SCHEMA_ID, NEUTRAL_SKELETON_SCHEMA_ID, NeutralAnimationContentErrorV1,
-    NeutralAnimationV1, NeutralSkeletonV1,
+    NEUTRAL_ANIMATION_SCHEMA_ID, NEUTRAL_SKELETON_SCHEMA_ID, NeutralAnimationV1, NeutralSkeletonV1,
 };
-use next_contracts::audio::{NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioErrorV1, NeutralAudioV1};
-use next_contracts::content::{NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1};
+use next_contracts::audio::{NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioV1};
+use next_contracts::content::{NeutralRecordKindV1, NeutralRecordV1};
 use next_contracts::identity::RuntimeDeterminismBundleV1;
 use next_contracts::ids::{AssetId, ContentHash, ProjectId, SchemaId};
-use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogErrorV1, TextCatalogV1};
-use next_contracts::mechanics::{MechanicsContractError, RpgDefinitionRegistryV2};
+use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogV1};
+use next_contracts::mechanics::RpgDefinitionRegistryV2;
 use next_contracts::platform::PresentationTargetKindV1;
 use next_contracts::project::{
     AssetRevisionRefV1, ContentAssetEntryV1, ContentDependencyEdgeV1, ContentManifestBodyV1,
-    ContentManifestV1, ContentProvenanceV1, ContentSemanticClassV1, ProjectContractError,
-    ProjectLockV3, SchemaDescriptorV1, SchemaEncodingV1, SchemaRegistryManifestBodyV2,
-    SchemaRegistryManifestV2, SchemaRoleV1, WorldChunkBindingV1, WorldPartitionManifestBodyV1,
-    WorldPartitionManifestV1, canonical_empty_manifest_hash, domain_hash,
+    ContentManifestV1, ContentProvenanceV1, ContentSemanticClassV1, ProjectLockV3,
+    SchemaDescriptorV1, SchemaEncodingV1, SchemaRegistryManifestBodyV2, SchemaRegistryManifestV2,
+    SchemaRoleV1, WorldChunkBindingV1, WorldPartitionManifestBodyV1, WorldPartitionManifestV1,
+    canonical_empty_manifest_hash, domain_hash,
 };
 use next_contracts::render_content::{
     NeutralRenderRecordV1, RenderContentCatalogV1, RenderContentContractError,
 };
+use next_contracts::world_population::{
+    WORLD_NAVIGATION_CATALOG_SCHEMA_ID, WORLD_POPULATION_CATALOG_SCHEMA_ID,
+    WorldNavigationCatalogV1, WorldPopulationCatalogV1,
+};
 use next_contracts::world_routine::{
     WORLD_ROUTINE_CATALOG_SCHEMA_ID, WorldRoutineCatalogV1, WorldRoutineInteractionBindingV1,
 };
+use std::collections::{BTreeMap, BTreeSet};
 pub const PROJECT_LOCK_PATH: &str = "manifests/project-lock.json";
 pub const SCHEMA_REGISTRY_PATH: &str = "manifests/schema-registry.json";
 pub const CONTENT_MANIFEST_PATH: &str = "manifests/content.json";
@@ -70,7 +70,7 @@ pub struct SourceChunkBindingV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NeutralProjectSourceV3 {
+pub struct NeutralProjectSourceV4 {
     pub project_id: ProjectId,
     pub project_revision: u64,
     pub authoring_sha256: ContentHash,
@@ -82,6 +82,8 @@ pub struct NeutralProjectSourceV3 {
     pub animations: Vec<NeutralAnimationV1>,
     pub world_routine_catalog_or_none: Option<WorldRoutineCatalogV1>,
     pub world_routine_interaction_binding_or_none: Option<WorldRoutineInteractionBindingV1>,
+    pub world_navigation_catalog: WorldNavigationCatalogV1,
+    pub world_population_catalog: WorldPopulationCatalogV1,
     pub root_asset_ids: Vec<AssetId>,
     pub provenance: ContentProvenanceV1,
     pub license_manifest_sha256: ContentHash,
@@ -92,18 +94,20 @@ pub struct NeutralProjectSourceV3 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CookedProjectV3 {
+pub struct CookedProjectV4 {
     pub project_lock: ProjectLockV3,
     pub schema_registry: SchemaRegistryManifestV2,
     pub content_manifest: ContentManifestV1,
     pub world_partition: WorldPartitionManifestV1,
     pub rpg_definitions: RpgDefinitionRegistryV2,
     pub world_routine_catalog_or_none: Option<WorldRoutineCatalogV1>,
+    pub world_navigation_catalog: WorldNavigationCatalogV1,
+    pub world_population_catalog: WorldPopulationCatalogV1,
     pub render_content_catalog: RenderContentCatalogV1,
     pub blobs: BTreeMap<ContentHash, Vec<u8>>,
 }
 
-impl CookedProjectV3 {
+impl CookedProjectV4 {
     pub fn publication(&self) -> Result<ContentPublicationV1, ProjectCookError> {
         let mut files = vec![
             PublicationFileV1::new(PROJECT_LOCK_PATH, self.project_lock.to_jcs_bytes())?,
@@ -152,9 +156,9 @@ impl CookedProjectV3 {
     }
 }
 
-pub fn cook_project_v3(
-    mut source: NeutralProjectSourceV3,
-) -> Result<CookedProjectV3, ProjectCookError> {
+pub fn cook_project_v4(
+    mut source: NeutralProjectSourceV4,
+) -> Result<CookedProjectV4, ProjectCookError> {
     source.records.sort_by_key(|record| record.asset_id);
     source
         .render_records
@@ -230,6 +234,18 @@ pub fn cook_project_v3(
     if source.world_routine_catalog_or_none.is_some() {
         schema_refs.insert(world_routine_catalog_schema_ref.clone());
     }
+    let world_navigation_catalog_schema_ref = schema_ref(
+        WORLD_NAVIGATION_CATALOG_SCHEMA_ID,
+        SchemaRoleV1::NeutralContent,
+        SchemaEncodingV1::CanonicalBinaryV1,
+    )?;
+    schema_refs.insert(world_navigation_catalog_schema_ref.clone());
+    let world_population_catalog_schema_ref = schema_ref(
+        WORLD_POPULATION_CATALOG_SCHEMA_ID,
+        SchemaRoleV1::NeutralContent,
+        SchemaEncodingV1::CanonicalBinaryV1,
+    )?;
+    schema_refs.insert(world_population_catalog_schema_ref.clone());
     let content_schema_ref = schema_ref(
         "nextengine.content.manifest",
         SchemaRoleV1::Manifest,
@@ -427,6 +443,82 @@ pub fn cook_project_v3(
             required: true,
         });
     }
+    let navigation_bytes = source
+        .world_navigation_catalog
+        .canonical_bytes()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    let navigation_hash = source
+        .world_navigation_catalog
+        .revision()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    if blobs.insert(navigation_hash, navigation_bytes).is_some() {
+        return Err(ProjectCookError::HashCollision);
+    }
+    let navigation_revision = AssetRevisionRefV1 {
+        asset_id: source.world_navigation_catalog.catalog_asset_id,
+        record_sha256: navigation_hash,
+    };
+    if revisions
+        .insert(
+            source.world_navigation_catalog.catalog_asset_id,
+            navigation_revision,
+        )
+        .is_some()
+    {
+        return Err(ProjectCookError::DuplicateIdentity);
+    }
+    entries.push(ContentAssetEntryV1 {
+        asset_revision: navigation_revision,
+        schema_ref: world_navigation_catalog_schema_ref,
+        neutral_record_blob_sha256: navigation_hash,
+        semantic_class: ContentSemanticClassV1::DomainRelevant,
+        provenance_sha256: source.provenance.provenance_sha256,
+        license_manifest_sha256: source.license_manifest_sha256,
+        owning_bundle_id: SchemaId::new("nextengine.fixture.bundle.v1")
+            .expect("engine-owned identifier is valid"),
+    });
+
+    let population_bytes = source
+        .world_population_catalog
+        .canonical_bytes()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    let population_hash = source
+        .world_population_catalog
+        .revision(&source.world_navigation_catalog)
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    if blobs.insert(population_hash, population_bytes).is_some() {
+        return Err(ProjectCookError::HashCollision);
+    }
+    let population_revision = AssetRevisionRefV1 {
+        asset_id: source.world_population_catalog.catalog_asset_id,
+        record_sha256: population_hash,
+    };
+    if revisions
+        .insert(
+            source.world_population_catalog.catalog_asset_id,
+            population_revision,
+        )
+        .is_some()
+    {
+        return Err(ProjectCookError::DuplicateIdentity);
+    }
+    entries.push(ContentAssetEntryV1 {
+        asset_revision: population_revision,
+        schema_ref: world_population_catalog_schema_ref,
+        neutral_record_blob_sha256: population_hash,
+        semantic_class: ContentSemanticClassV1::DomainRelevant,
+        provenance_sha256: source.provenance.provenance_sha256,
+        license_manifest_sha256: source.license_manifest_sha256,
+        owning_bundle_id: SchemaId::new("nextengine.fixture.bundle.v1")
+            .expect("engine-owned identifier is valid"),
+    });
+    edges.push(ContentDependencyEdgeV1 {
+        source_asset_id: source.world_population_catalog.catalog_asset_id,
+        target_asset_id: source.world_navigation_catalog.catalog_asset_id,
+        dependency_kind: SchemaId::new("nextengine.content.required")
+            .expect("engine-owned identifier is valid"),
+        required: true,
+    });
     if let Some(catalog) = source.world_routine_catalog_or_none {
         let bytes = catalog
             .canonical_bytes()
@@ -482,7 +574,7 @@ pub fn cook_project_v3(
         ),
         cooker_contract_sha256: domain_hash(
             "nextengine.cooker-contract.v1",
-            b"next_project::cook_project_v3",
+            b"next_project::cook_project_v4",
         ),
         cooker_options_sha256: canonical_empty_manifest_hash("nextengine.cooker-options.v1"),
         root_assets,
@@ -524,10 +616,11 @@ pub fn cook_project_v3(
         topology_revision: source.project_revision,
         root_region_ids,
         chunk_bindings,
-        initial_placement_catalog_sha256: canonical_empty_manifest_hash(
-            "nextengine.initial-placement-catalog.v1",
-        ),
-        residency_policy_sha256: domain_hash("nextengine.residency-policy.v1", b"fixture-resident"),
+        initial_placement_catalog_sha256: population_hash,
+        residency_policy_sha256: source
+            .world_population_catalog
+            .residency_policy_revision(&source.world_navigation_catalog)
+            .map_err(|_| ProjectCookError::InvalidValue)?,
         schema_registry_manifest_sha256: schema_registry.schema_registry_manifest_sha256,
         content_manifest_sha256: content_manifest.content_manifest_sha256,
     })?;
@@ -540,7 +633,7 @@ pub fn cook_project_v3(
         content_manifest_sha256: content_manifest.content_manifest_sha256,
         world_partition_manifest_sha256: world_partition.world_partition_manifest_sha256,
         mechanics_lock_sha256: rpg_definitions.mechanics_lock.mechanics_lock_sha256,
-        runtime_determinism_profile_sha256: RuntimeDeterminismBundleV1::core_r4a()
+        runtime_determinism_profile_sha256: RuntimeDeterminismBundleV1::core_r4b()
             .expect("the engine-owned determinism bundle is canonical")
             .runtime_profile_hash(),
         launch_profiles_sha256: launch_profiles_sha256(),
@@ -549,13 +642,15 @@ pub fn cook_project_v3(
         allowed_presentation_targets: source.allowed_presentation_targets,
         project_lock_sha256: ContentHash::default(),
     })?;
-    Ok(CookedProjectV3 {
+    Ok(CookedProjectV4 {
         project_lock,
         schema_registry,
         content_manifest,
         world_partition,
         rpg_definitions,
         world_routine_catalog_or_none: source.world_routine_catalog_or_none,
+        world_navigation_catalog: source.world_navigation_catalog,
+        world_population_catalog: source.world_population_catalog,
         render_content_catalog,
         blobs,
     })
@@ -593,7 +688,7 @@ pub(crate) fn asset_revision(
     })
 }
 
-fn validate_source(source: &NeutralProjectSourceV3) -> Result<(), ProjectCookError> {
+fn validate_source(source: &NeutralProjectSourceV4) -> Result<(), ProjectCookError> {
     if source.project_revision == 0 {
         return Err(ProjectCookError::InvalidRevision);
     }
@@ -625,7 +720,9 @@ fn validate_source(source: &NeutralProjectSourceV3) -> Result<(), ProjectCookErr
                     .world_routine_catalog_or_none
                     .iter()
                     .map(|catalog| catalog.catalog_asset_id),
-            ),
+            )
+            .chain([source.world_navigation_catalog.catalog_asset_id])
+            .chain([source.world_population_catalog.catalog_asset_id]),
     )?;
     ensure_unique(source.records.iter().map(|record| record.record_id))?;
     for animation in &source.animations {
@@ -673,6 +770,8 @@ fn validate_source(source: &NeutralProjectSourceV3) -> Result<(), ProjectCookErr
                 .iter()
                 .map(|catalog| catalog.catalog_asset_id),
         )
+        .chain([source.world_navigation_catalog.catalog_asset_id])
+        .chain([source.world_population_catalog.catalog_asset_id])
         .collect();
     let mut revisions = BTreeMap::new();
     for record in &source.records {
@@ -687,6 +786,40 @@ fn validate_source(source: &NeutralProjectSourceV3) -> Result<(), ProjectCookErr
     for record in &source.animations {
         revisions.insert(record.asset_id, record.asset_revision()?);
     }
+    source
+        .world_navigation_catalog
+        .validate()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    source
+        .world_population_catalog
+        .validate_against_navigation(&source.world_navigation_catalog)
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    if source.world_navigation_catalog.topology_revision != source.project_revision
+        || source.world_population_catalog.navigation_catalog_asset_id
+            != source.world_navigation_catalog.catalog_asset_id
+    {
+        return Err(ProjectCookError::InvalidValue);
+    }
+    revisions.insert(
+        source.world_navigation_catalog.catalog_asset_id,
+        AssetRevisionRefV1 {
+            asset_id: source.world_navigation_catalog.catalog_asset_id,
+            record_sha256: source
+                .world_navigation_catalog
+                .revision()
+                .map_err(|_| ProjectCookError::InvalidValue)?,
+        },
+    );
+    revisions.insert(
+        source.world_population_catalog.catalog_asset_id,
+        AssetRevisionRefV1 {
+            asset_id: source.world_population_catalog.catalog_asset_id,
+            record_sha256: source
+                .world_population_catalog
+                .revision(&source.world_navigation_catalog)
+                .map_err(|_| ProjectCookError::InvalidValue)?,
+        },
+    );
     match (
         source.world_routine_catalog_or_none.as_ref(),
         source.world_routine_interaction_binding_or_none.as_ref(),
@@ -807,138 +940,36 @@ fn validate_source(source: &NeutralProjectSourceV3) -> Result<(), ProjectCookErr
             return Err(ProjectCookError::InvalidValue);
         }
     }
+    let navigation_nodes = source
+        .world_navigation_catalog
+        .nodes
+        .iter()
+        .map(|node| node.chunk_id.as_str())
+        .collect::<BTreeSet<_>>();
+    let source_chunks = source
+        .chunks
+        .iter()
+        .map(|chunk| chunk.chunk_id.as_str())
+        .collect::<BTreeSet<_>>();
+    if navigation_nodes != source_chunks
+        || source.world_navigation_catalog.nodes.iter().any(|node| {
+            source
+                .chunks
+                .iter()
+                .find(|chunk| chunk.chunk_id == node.chunk_id)
+                .is_none_or(|chunk| {
+                    source
+                        .world_navigation_catalog
+                        .region_for_node(&node.node_id)
+                        != Some(&chunk.region_id)
+                })
+        })
+    {
+        return Err(ProjectCookError::InvalidValue);
+    }
     Ok(())
 }
 
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum ProjectCookError {
-    Authoring(crate::ProjectAuthoringError),
-    Contract(ProjectContractError),
-    Neutral(NeutralRecordError),
-    Render(RenderContentContractError),
-    Localization(TextCatalogErrorV1),
-    Audio(NeutralAudioErrorV1),
-    Animation(NeutralAnimationContentErrorV1),
-    Store(next_assets::ContentStoreError),
-    Identifier(next_contracts::ids::IdentifierError),
-    MissingReference,
-    DuplicateIdentity,
-    InvalidRevision,
-    HashCollision,
-    LocalizationClosureInvalid,
-    Mechanics(MechanicsContractError),
-    InvalidValue,
-}
+mod error;
 
-impl ProjectCookError {
-    #[must_use]
-    pub const fn diagnostic_code(&self) -> &'static str {
-        match self {
-            Self::Authoring(error) => error.diagnostic_code(),
-            Self::Contract(_) | Self::Neutral(_) => "CONTENT_SCHEMA_INVALID",
-            Self::Render(error) => error.diagnostic_code(),
-            Self::Localization(_) => "CONTENT_SCHEMA_INVALID",
-            Self::Audio(_) => "CONTENT_SCHEMA_INVALID",
-            Self::Animation(_) => "CONTENT_SCHEMA_INVALID",
-            Self::Store(_) => "CONTENT_PUBLICATION_FAILED",
-            Self::Identifier(_) => "CONTENT_IDENTIFIER_INVALID",
-            Self::MissingReference => "CONTENT_REFERENCE_MISSING",
-            Self::DuplicateIdentity => "CONTENT_ID_DUPLICATE",
-            Self::InvalidRevision => "CONTENT_REVISION_INVALID",
-            Self::HashCollision => "CONTENT_HASH_COLLISION",
-            Self::LocalizationClosureInvalid => "LOCALIZATION_CLOSURE_INVALID",
-            Self::Mechanics(_) => "MECHANICS_MANIFEST_INVALID",
-            Self::InvalidValue => "CONTENT_VALUE_INVALID",
-        }
-    }
-}
-
-impl Display for ProjectCookError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Authoring(error) => write!(formatter, "project authoring failed: {error}"),
-            Self::Contract(error) => write!(formatter, "content contract invalid: {error}"),
-            Self::Neutral(error) => write!(formatter, "neutral record invalid: {error}"),
-            Self::Render(error) => write!(formatter, "render content invalid: {error}"),
-            Self::Localization(error) => write!(formatter, "text catalog invalid: {error}"),
-            Self::Audio(error) => write!(formatter, "neutral audio clip invalid: {error}"),
-            Self::Animation(error) => {
-                write!(formatter, "neutral animation content invalid: {error}")
-            }
-            Self::Store(error) => write!(formatter, "content publication failed: {error}"),
-            Self::Identifier(error) => write!(formatter, "content identifier invalid: {error}"),
-            Self::MissingReference => formatter.write_str("content reference is missing"),
-            Self::DuplicateIdentity => formatter.write_str("content identity is duplicated"),
-            Self::InvalidRevision => formatter.write_str("content revision must be positive"),
-            Self::HashCollision => formatter.write_str("content hash collision"),
-            Self::LocalizationClosureInvalid => {
-                formatter.write_str("localization fallback closure is invalid")
-            }
-            Self::Mechanics(error) => write!(formatter, "mechanics contract invalid: {error}"),
-            Self::InvalidValue => formatter.write_str("content property value is invalid"),
-        }
-    }
-}
-
-impl Error for ProjectCookError {}
-
-impl From<crate::ProjectAuthoringError> for ProjectCookError {
-    fn from(error: crate::ProjectAuthoringError) -> Self {
-        Self::Authoring(error)
-    }
-}
-
-impl From<ProjectContractError> for ProjectCookError {
-    fn from(error: ProjectContractError) -> Self {
-        Self::Contract(error)
-    }
-}
-
-impl From<NeutralRecordError> for ProjectCookError {
-    fn from(error: NeutralRecordError) -> Self {
-        Self::Neutral(error)
-    }
-}
-
-impl From<RenderContentContractError> for ProjectCookError {
-    fn from(error: RenderContentContractError) -> Self {
-        Self::Render(error)
-    }
-}
-
-impl From<TextCatalogErrorV1> for ProjectCookError {
-    fn from(error: TextCatalogErrorV1) -> Self {
-        Self::Localization(error)
-    }
-}
-
-impl From<NeutralAudioErrorV1> for ProjectCookError {
-    fn from(error: NeutralAudioErrorV1) -> Self {
-        Self::Audio(error)
-    }
-}
-
-impl From<NeutralAnimationContentErrorV1> for ProjectCookError {
-    fn from(error: NeutralAnimationContentErrorV1) -> Self {
-        Self::Animation(error)
-    }
-}
-
-impl From<next_assets::ContentStoreError> for ProjectCookError {
-    fn from(error: next_assets::ContentStoreError) -> Self {
-        Self::Store(error)
-    }
-}
-
-impl From<next_contracts::ids::IdentifierError> for ProjectCookError {
-    fn from(error: next_contracts::ids::IdentifierError) -> Self {
-        Self::Identifier(error)
-    }
-}
-
-impl From<MechanicsContractError> for ProjectCookError {
-    fn from(error: MechanicsContractError) -> Self {
-        Self::Mechanics(error)
-    }
-}
+pub use error::ProjectCookError;

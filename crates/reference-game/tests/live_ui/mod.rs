@@ -4,8 +4,8 @@ use super::*;
 fn live_ui_screen_toggles_are_deterministic_and_back_closes_before_pause() {
     let root = test_root("live-ui-screen-toggles");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v3(
-        next_reference_game::project_source_v3().expect("reference source"),
+    let cooked = next_project::cook_project_v4(
+        next_reference_game::project_source_v4().expect("reference source"),
     )
     .expect("cook");
     store

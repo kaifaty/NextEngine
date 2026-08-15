@@ -15,26 +15,19 @@ impl ReferenceGameDriverV2 {
         checkpoint: WorldCheckpointV4,
         world_streaming_snapshot: WorldStreamingSnapshotV1,
         world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+        world_population_snapshot: WorldPopulationSnapshotV1,
     ) -> Result<Self, ReferenceGameError> {
         checkpoint.validate()?;
         world_streaming_snapshot.validate()?;
-        let loaded_state_root = match world_routine_snapshot_or_none.as_ref() {
-            Some(routine) => {
-                next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
-                    &checkpoint.runtime_snapshot,
-                    &checkpoint.rpg_snapshot,
-                    &checkpoint.physics_checkpoint,
-                    &world_streaming_snapshot,
-                    routine,
-                )?
-            }
-            None => next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
+        let loaded_state_root =
+            next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root(
                 &checkpoint.runtime_snapshot,
                 &checkpoint.rpg_snapshot,
                 &checkpoint.physics_checkpoint,
                 &world_streaming_snapshot,
-            )?,
-        };
+                world_routine_snapshot_or_none.as_ref(),
+                Some(&world_population_snapshot),
+            )?;
         let next_logical_frame_sequence = checkpoint.runtime_snapshot.next_tick;
         let events = checkpoint.runtime_snapshot.committed_event_count;
         let fixture = self.fixture.clone();
@@ -71,7 +64,14 @@ impl ReferenceGameDriverV2 {
             world_routine_snapshot_or_none,
             runtime.next_tick(),
         )?;
+        let world_population = WorldPopulationOwnerV1::restore(
+            fixture.activated_project.world_population_catalog.clone(),
+            fixture.activated_project.world_navigation_catalog.clone(),
+            world_population_snapshot,
+            runtime.next_tick(),
+        )?;
         runtime.validate_world_routine_ledger_closure(&world_routine)?;
+        runtime.validate_world_population_ledger_closure(&world_population)?;
         let presentation_bindings =
             fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
 
@@ -119,6 +119,7 @@ impl ReferenceGameDriverV2 {
             content_generation: self.content_generation.clone(),
             runtime,
             world_routine,
+            world_population,
             world_streamer,
             input,
             presentation_bindings,

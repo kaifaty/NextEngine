@@ -2,13 +2,13 @@ use std::fs;
 
 use next_assets::{ContentStore, SaveStore, SessionStore};
 use next_contracts::ids::{ApplicationSessionId, ContentHash};
-use next_contracts::project::ActivatedProjectV4;
+use next_contracts::project::ActivatedProjectV5;
 use next_contracts::session::{
     ApplicationSessionManifestBodyV2, ApplicationSessionManifestV2, ApplicationSessionStatusV1,
     PresentationTargetKindV1,
 };
-use next_project::{ActivatedProjectPackage, activate_project_package, cook_project_v3};
-use next_reference_game::project_source_v3;
+use next_project::{ActivatedProjectPackage, activate_project_package, cook_project_v4};
+use next_reference_game::project_source_v4;
 use next_runtime::ApplicationSessionMachine;
 
 use crate::durable::DurableApplicationSnapshotV4;
@@ -134,7 +134,7 @@ impl ApplicationCoordinator {
 
 pub(super) fn session_manifest(
     launch: &LaunchRequestV1,
-    project: &ActivatedProjectV4,
+    project: &ActivatedProjectV5,
     session_id: ApplicationSessionId,
 ) -> Result<ApplicationSessionManifestV2, ApplicationError> {
     let lock = &project.project_lock;
@@ -165,7 +165,7 @@ fn activate_selected_project(
     };
     let store = ContentStore::new(&project_root);
     if matches!(launch.project, ProjectSelectionV1::Reference) {
-        let cooked = cook_project_v3(project_source_v3()?)?;
+        let cooked = cook_project_v4(project_source_v4()?)?;
         store.publish(&cooked.publication()?)?;
     }
     Ok(activate_project_package(&store)?)
@@ -173,7 +173,7 @@ fn activate_selected_project(
 
 fn validate_launch(
     launch: &LaunchRequestV1,
-    project: &ActivatedProjectV4,
+    project: &ActivatedProjectV5,
 ) -> Result<(), ApplicationError> {
     project
         .validate()

@@ -6,6 +6,7 @@ use next_contracts::ids::ContentHash;
 use next_contracts::presentation::PresentationSnapshotV2;
 use next_contracts::snapshot::{WorldCheckpointCanonicalComponentsV1, WorldCheckpointV4};
 use next_contracts::world::WorldStreamingSnapshotV1;
+use next_contracts::world_population::WorldPopulationSnapshotV1;
 use next_contracts::world_routine::WorldRoutineSnapshotV1;
 
 use crate::dialogue::ReferenceDialogueUiV1;
@@ -16,6 +17,7 @@ pub struct ReferenceLiveStateV2 {
     pub checkpoint_canonical_components: WorldCheckpointCanonicalComponentsV1,
     pub world_streaming_snapshot: WorldStreamingSnapshotV1,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+    pub world_population_snapshot: WorldPopulationSnapshotV1,
     pub ticks: u64,
     pub events: u64,
     pub rpg_events: u64,

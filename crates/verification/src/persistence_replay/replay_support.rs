@@ -1,8 +1,8 @@
 use next_contracts::command::WorldCommand;
 use next_contracts::ids::SchemaId;
 use next_contracts::persistence::{
-    AuthorityGrant, ReplayComparePointV6, ReplayManifestV6, ReplayOwnerSegmentV2,
-    ReplayTickManifestV6, SaveCompatibility, SaveSegmentDescriptor, WorldStreamingReplayInputV1,
+    AuthorityGrant, ReplayComparePointV7, ReplayManifestV7, ReplayOwnerSegmentV2,
+    ReplayTickManifestV7, SaveCompatibility, SaveSegmentDescriptor, WorldStreamingReplayInputV1,
     replay_physics_query_batch_hash, replay_physics_query_results_hash,
     replay_targeting_query_trace_hash,
 };
@@ -23,6 +23,11 @@ use next_contracts::world::{
     WORLD_STREAMING_SNAPSHOT_OWNER_ID, WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
     WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION, WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
     WorldStreamingSnapshotV1,
+};
+use next_contracts::world_population::{
+    WORLD_POPULATION_SCHEMA_VERSION, WORLD_POPULATION_SNAPSHOT_OWNER_ID,
+    WORLD_POPULATION_SNAPSHOT_SCHEMA_ID, WORLD_POPULATION_SNAPSHOT_SEGMENT_ID,
+    WorldPopulationSnapshotV1,
 };
 use next_contracts::world_routine::{
     WORLD_ROUTINE_SCHEMA_VERSION, WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
@@ -72,7 +77,7 @@ pub(super) fn rpg_contact_facts_from_report(
 
 #[allow(
     clippy::too_many_arguments,
-    reason = "the replay manifest constructor binds five initial owners plus the exact recorded tick streams"
+    reason = "the replay manifest constructor binds six initial owners plus the exact recorded tick streams"
 )]
 pub(super) fn replay_manifest(
     compatibility: SaveCompatibility,
@@ -80,11 +85,12 @@ pub(super) fn replay_manifest(
     initial_checkpoint: &WorldCheckpointV4,
     initial_world_snapshot: &WorldStreamingSnapshotV1,
     initial_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
+    initial_population_snapshot: &WorldPopulationSnapshotV1,
     reports: &[TickReport],
     world_services_commits: &[WorldServicesTickCommitV1],
     streaming_inputs: &[WorldStreamingReplayInputV1],
     direct_commands: &[Vec<WorldCommand>],
-) -> Result<ReplayManifestV6, PersistenceReplayCheckError> {
+) -> Result<ReplayManifestV7, PersistenceReplayCheckError> {
     if reports.len() != world_services_commits.len()
         || reports.len() != streaming_inputs.len()
         || reports.len() != direct_commands.len()
@@ -93,28 +99,23 @@ pub(super) fn replay_manifest(
             "recorded replay streams have exact common length",
         ));
     }
-    let initial_state_root = match initial_routine_snapshot_or_none {
-        Some(routine) => {
-            next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
-                &initial_checkpoint.runtime_snapshot,
-                &initial_checkpoint.rpg_snapshot,
-                &initial_checkpoint.physics_checkpoint,
-                initial_world_snapshot,
-                routine,
-            )
-        }
-        None => next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
+    let initial_state_root =
+        next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root(
             &initial_checkpoint.runtime_snapshot,
             &initial_checkpoint.rpg_snapshot,
             &initial_checkpoint.physics_checkpoint,
             initial_world_snapshot,
-        ),
-    }
-    .map_err(|error| PersistenceReplayCheckError::new("initial replay root", error.to_string()))?;
+            initial_routine_snapshot_or_none,
+            Some(initial_population_snapshot),
+        )
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("initial replay root", error.to_string())
+        })?;
     let initial_owner_segments = owner_segments(
         initial_checkpoint,
         initial_world_snapshot,
         initial_routine_snapshot_or_none,
+        initial_population_snapshot,
     )?;
     let authority = authority
         .entries()
@@ -147,7 +148,7 @@ pub(super) fn replay_manifest(
             .map_err(|error| {
                 PersistenceReplayCheckError::new("record direct commands", error.to_string())
             })?;
-        ticks.push(ReplayTickManifestV6 {
+        ticks.push(ReplayTickManifestV7 {
             tick: report.tick,
             world_streaming_input: streaming_inputs[index].clone(),
             closed_ingress_batch: report.closed_ingress_batch.clone(),
@@ -167,7 +168,7 @@ pub(super) fn replay_manifest(
             expected_command_results: replay_command_results(&report.results),
             expected_events: report.events.clone(),
         });
-        compare_points.push(ReplayComparePointV6 {
+        compare_points.push(ReplayComparePointV7 {
             tick: report.tick,
             state_root: commit.application_state_root,
             command_ledger_hash: report.snapshot.command_ledger_hash().map_err(|error| {
@@ -218,8 +219,8 @@ pub(super) fn replay_manifest(
             })?,
         });
     }
-    Ok(ReplayManifestV6 {
-        schema_version: next_contracts::persistence::REPLAY_MANIFEST_V6_SCHEMA_VERSION,
+    Ok(ReplayManifestV7 {
+        schema_version: next_contracts::persistence::REPLAY_MANIFEST_V7_SCHEMA_VERSION,
         compatibility,
         initial_owner_segments,
         initial_state_root,
@@ -233,6 +234,7 @@ fn owner_segments(
     checkpoint: &WorldCheckpointV4,
     world: &WorldStreamingSnapshotV1,
     routine_or_none: Option<&WorldRoutineSnapshotV1>,
+    population: &WorldPopulationSnapshotV1,
 ) -> Result<Vec<ReplayOwnerSegmentV2>, PersistenceReplayCheckError> {
     let mut raw = vec![
         (
@@ -289,6 +291,15 @@ fn owner_segments(
             })?,
         ));
     }
+    raw.push((
+        WORLD_POPULATION_SNAPSHOT_OWNER_ID,
+        WORLD_POPULATION_SNAPSHOT_SCHEMA_ID,
+        WORLD_POPULATION_SNAPSHOT_SEGMENT_ID,
+        u32::from(WORLD_POPULATION_SCHEMA_VERSION),
+        population.canonical_bytes().map_err(|error| {
+            PersistenceReplayCheckError::new("world population segment", error.to_string())
+        })?,
+    ));
     let mut segments = raw
         .into_iter()
         .map(|(owner, schema, segment, version, canonical_bytes)| {

@@ -18,6 +18,7 @@ const INTERACTIVE_FRAME_SOAK_FRAMES: u32 = 240;
 mod production_worker;
 mod r2_alpha_render;
 mod r3_multiregion;
+mod r4_population;
 mod r5_physics;
 mod runner;
 mod workloads;
@@ -62,6 +63,7 @@ fn preserve_report_only_scenario_verdict(
             | xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak
             | xtask::performance::PerformanceScenarioV1::R2AlphaRender
             | xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming
+            | xtask::performance::PerformanceScenarioV1::R4_100Npc
     );
     if mode == xtask::performance::PerformanceModeV1::Report
         && report_only_scenario
@@ -91,6 +93,9 @@ fn report_only_gate_diagnostic(
         ),
         xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming => Some(
             "PERF_R3_MULTIREGION_STREAMING_REPORT_ONLY: B-12 and the clean ten-run THOTH hard gate remain open",
+        ),
+        xtask::performance::PerformanceScenarioV1::R4_100Npc => Some(
+            "PERF_R4_100NPC_REPORT_ONLY: B-12 and the clean ten-run THOTH hard gate remain open",
         ),
         _ => None,
     }

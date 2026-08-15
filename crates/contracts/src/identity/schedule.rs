@@ -9,6 +9,12 @@ use crate::canonical::{
 };
 use crate::command::CommandPhase;
 use crate::ids::{ContentHash, SchemaId, SystemId, content_hash_from_bytes};
+use crate::world_population::{
+    WORLD_NAVIGATION_CATALOG_OWNER_ID, WORLD_NAVIGATION_CATALOG_SCHEMA_ID,
+    WORLD_POPULATION_CATALOG_OWNER_ID, WORLD_POPULATION_CATALOG_SCHEMA_ID,
+    WORLD_POPULATION_SHARD_PLAN_ID, WORLD_POPULATION_SNAPSHOT_OWNER_ID,
+    WORLD_POPULATION_SNAPSHOT_SCHEMA_ID, WORLD_POPULATION_SYSTEM_ID,
+};
 use crate::world_routine::{
     WORLD_ROUTINE_CATALOG_OWNER_ID, WORLD_ROUTINE_CATALOG_SCHEMA_ID, WORLD_ROUTINE_SHARD_PLAN_ID,
     WORLD_ROUTINE_SNAPSHOT_OWNER_ID, WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID, WORLD_ROUTINE_SYSTEM_ID,
@@ -21,7 +27,7 @@ use super::codec::{
 };
 use super::error::IdentityContractError;
 
-mod core_r4a;
+mod core_r4b;
 
 pub const SCHEDULE_MANIFEST_SCHEMA_VERSION: u16 = 1;
 pub const SCHEDULE_MANIFEST_OWNER_ID: &str = "nextengine.runtime";

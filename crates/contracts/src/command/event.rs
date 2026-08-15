@@ -6,6 +6,7 @@ use crate::canonical::{
 use crate::ids::{CommandId, ContentHash, EventId, SchemaId, content_hash_from_bytes};
 use crate::physics::PhysicalEventV1;
 use crate::rpg::RpgEventV1;
+use crate::world_population::{WORLD_POPULATION_EVENT_SCHEMA_ID, WorldPopulationChangedV1};
 use crate::world_routine::{WORLD_ROUTINE_EVENT_SCHEMA_ID, WorldRoutineActivityChangedV1};
 
 use super::body::CommandPhase;
@@ -99,6 +100,23 @@ impl DomainEventEnvelopeV2 {
             event_slot,
             SchemaId::new(WORLD_ROUTINE_EVENT_SCHEMA_ID)?,
             EventPayload::WorldRoutine(payload),
+        )
+    }
+
+    pub fn world_population(
+        tick: u64,
+        phase: CommandPhase,
+        command_id: CommandId,
+        event_slot: u32,
+        payload: WorldPopulationChangedV1,
+    ) -> Result<Self, CanonicalError> {
+        Self::build(
+            tick,
+            phase,
+            command_id,
+            event_slot,
+            SchemaId::new(WORLD_POPULATION_EVENT_SCHEMA_ID)?,
+            EventPayload::WorldPopulation(payload),
         )
     }
 
@@ -243,6 +261,7 @@ impl EventPayload {
             Self::WorldRoutine(payload) => payload
                 .canonical_payload_bytes()
                 .map_err(|_| CanonicalError::DuplicateSequenceValue)?,
+            Self::WorldPopulation(payload) => payload.canonical_payload_bytes()?,
         };
         encode_canonical_segment(
             EVENT_OWNER_ID,
@@ -259,4 +278,5 @@ pub enum EventPayload {
     Rpg(RpgEventV1),
     Physical(PhysicalEventV1),
     WorldRoutine(WorldRoutineActivityChangedV1),
+    WorldPopulation(WorldPopulationChangedV1),
 }

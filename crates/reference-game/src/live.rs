@@ -11,6 +11,7 @@ use next_contracts::presentation::{
 };
 use next_contracts::snapshot::WorldCheckpointV4;
 use next_contracts::world::WorldStreamingSnapshotV1;
+use next_contracts::world_population::WorldPopulationSnapshotV1;
 use next_contracts::world_routine::WorldRoutineSnapshotV1;
 use next_player::PlayerInputSessionV1;
 use next_presentation::audio_mix::AudioMixerV1;
@@ -24,7 +25,7 @@ use next_runtime::{
     PhysicsLaunchOptions, PreparedRuntimeWorldServicesTickV1, RuntimeState,
     ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1,
 };
-use next_world::{WorldRoutineOwnerV1, WorldStreamerV1};
+use next_world::{WorldPopulationOwnerV1, WorldRoutineOwnerV1, WorldStreamerV1};
 
 use crate::ReferenceGameError;
 use crate::camera::{
@@ -61,6 +62,7 @@ pub struct ReferenceGameDriverV2 {
     content_generation: next_assets::PinnedContentGeneration,
     runtime: RuntimeState,
     world_routine: WorldRoutineOwnerV1,
+    world_population: WorldPopulationOwnerV1,
     world_streamer: WorldStreamerV1,
     input: PlayerInputSessionV1,
     presentation_bindings: Vec<PresentationBindingV1>,
@@ -266,6 +268,11 @@ impl ReferenceGameDriverV2 {
             fixture.activated_project.world_routine_catalog_or_none,
             runtime.next_tick(),
         )?;
+        let world_population = WorldPopulationOwnerV1::activate(
+            fixture.activated_project.world_population_catalog.clone(),
+            fixture.activated_project.world_navigation_catalog.clone(),
+            runtime.next_tick(),
+        )?;
         let input = PlayerInputSessionV1::new(
             fixture.controller_id,
             fixture.source_id,
@@ -306,6 +313,7 @@ impl ReferenceGameDriverV2 {
             content_generation,
             runtime,
             world_routine,
+            world_population,
             world_streamer,
             input,
             presentation_bindings,
@@ -336,6 +344,7 @@ impl ReferenceGameDriverV2 {
         checkpoint: WorldCheckpointV4,
         world_streaming_snapshot: WorldStreamingSnapshotV1,
         world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+        world_population_snapshot: WorldPopulationSnapshotV1,
         recovery: ReferenceLiveDriverRecoveryV1,
     ) -> Result<Self, ReferenceGameError> {
         checkpoint.validate()?;
@@ -366,7 +375,14 @@ impl ReferenceGameDriverV2 {
             world_routine_snapshot_or_none,
             runtime.next_tick(),
         )?;
+        let world_population = WorldPopulationOwnerV1::restore(
+            fixture.activated_project.world_population_catalog.clone(),
+            fixture.activated_project.world_navigation_catalog.clone(),
+            world_population_snapshot,
+            runtime.next_tick(),
+        )?;
         runtime.validate_world_routine_ledger_closure(&world_routine)?;
+        runtime.validate_world_population_ledger_closure(&world_population)?;
         let input =
             PlayerInputSessionV1::restore_from_recovery_bytes(&recovery.input_session_bytes)?;
         let expected_last_logical_frame_sequence =
@@ -427,6 +443,7 @@ impl ReferenceGameDriverV2 {
             content_generation,
             runtime,
             world_routine,
+            world_population,
             world_streamer,
             input,
             presentation_bindings,
@@ -601,6 +618,7 @@ impl ReferenceGameDriverV2 {
         let mut prepared_runtime = runtime_preparation.prepare_with_world_services(
             [],
             &self.world_routine,
+            &self.world_population,
             &self.world_streamer,
         )?;
         if let Some((action_map, context_stack)) = pending_input_configuration {
@@ -733,6 +751,7 @@ impl ReferenceGameDriverV2 {
             .runtime
             .validate_prepared_world_services_tick_without_application_evidence(
                 &self.world_routine,
+                &self.world_population,
                 &self.world_streamer,
                 prepared.runtime,
             )?;
@@ -753,6 +772,7 @@ impl ReferenceGameDriverV2 {
         self.runtime
             .commit_validated_world_services_tick_without_application_evidence(
                 &mut self.world_routine,
+                &mut self.world_population,
                 &mut self.world_streamer,
                 validated.runtime,
             )?;

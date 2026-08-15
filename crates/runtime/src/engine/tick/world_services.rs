@@ -12,13 +12,17 @@ use next_contracts::rpg::{
 use next_contracts::snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
     RUNTIME_SNAPSHOT_SEGMENT_ID, WorldCheckpointCanonicalComponentsV1,
-    world_checkpoint_with_streaming_and_routine_v1_state_root_from_canonical_components,
-    world_checkpoint_with_streaming_v1_state_root_from_canonical_components,
+    world_checkpoint_with_world_services_v1_state_root_from_canonical_components,
 };
 use next_contracts::world::{
     WORLD_STREAMING_SNAPSHOT_OWNER_ID, WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
     WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION, WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
     WorldStreamingSnapshotV1,
+};
+use next_contracts::world_population::{
+    WORLD_POPULATION_SCHEMA_VERSION, WORLD_POPULATION_SNAPSHOT_OWNER_ID,
+    WORLD_POPULATION_SNAPSHOT_SCHEMA_ID, WORLD_POPULATION_SNAPSHOT_SEGMENT_ID,
+    WorldPopulationSnapshotV1,
 };
 use next_contracts::world_routine::{
     WORLD_ROUTINE_SCHEMA_VERSION, WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
@@ -32,6 +36,7 @@ use super::*;
 pub struct PreparedRuntimeWorldServicesTickV1 {
     runtime: PreparedRuntimeTick,
     routine: next_world::PreparedWorldRoutinePublicationV1,
+    population: next_world::PreparedWorldPopulationPublicationV1,
     base_world_state_hash: next_contracts::ids::ContentHash,
     staged_world_snapshot: WorldStreamingSnapshotV1,
     streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
@@ -43,6 +48,7 @@ pub struct PreparedRuntimeWorldServicesTickV1 {
 struct ValidatedWorldServicesGenerationV1 {
     runtime: ValidatedRuntimeTick,
     routine: next_world::ValidatedWorldRoutinePublicationV1,
+    population: next_world::ValidatedWorldPopulationPublicationV1,
     base_world_state_hash: next_contracts::ids::ContentHash,
     staged_world_snapshot: WorldStreamingSnapshotV1,
     streaming: Option<next_world::ValidatedWorldStreamingPublicationV1>,
@@ -65,6 +71,8 @@ struct CommittedWorldServicesGenerationV1 {
     runtime_report: TickReport,
     world_streaming_snapshot: WorldStreamingSnapshotV1,
     routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+    population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+    population_service_report_or_none: Option<next_world::PopulationNavigationServiceReportV1>,
     streaming_transition_or_none: Option<next_world::WorldTransitionCommitV1>,
 }
 
@@ -74,6 +82,8 @@ pub struct WorldServicesTickCommitV1 {
     pub runtime_report: TickReport,
     pub world_streaming_snapshot: WorldStreamingSnapshotV1,
     pub routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+    pub population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+    pub population_service_report_or_none: Option<next_world::PopulationNavigationServiceReportV1>,
     pub streaming_transition_or_none: Option<next_world::WorldTransitionCommitV1>,
     pub application_owner_segments: Vec<SaveSegmentDescriptor>,
     pub application_state_root: StateRoot,
@@ -84,25 +94,35 @@ impl RuntimeTickPreparation<'_> {
         self,
         commands: impl IntoIterator<Item = WorldCommand>,
         routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
         world: &next_world::WorldStreamerV1,
     ) -> Result<PreparedRuntimeWorldServicesTickV1, RuntimeFatalError> {
-        self.prepare_world_services_internal(commands, routine, world, None, None)
+        self.prepare_world_services_internal(commands, routine, population, world, None, None)
     }
 
     pub fn prepare_with_world_services_and_streaming(
         self,
         commands: impl IntoIterator<Item = WorldCommand>,
         routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
         world: &next_world::WorldStreamerV1,
         publication: next_world::PreparedWorldStreamingPublicationV1,
     ) -> Result<PreparedRuntimeWorldServicesTickV1, RuntimeFatalError> {
-        self.prepare_world_services_internal(commands, routine, world, Some(publication), None)
+        self.prepare_world_services_internal(
+            commands,
+            routine,
+            population,
+            world,
+            Some(publication),
+            None,
+        )
     }
 
     fn prepare_world_services_internal(
         self,
         commands: impl IntoIterator<Item = WorldCommand>,
         routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
         world: &next_world::WorldStreamerV1,
         streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
         replay_ingress: Option<next_contracts::input::ClosedIngressBatchV1>,
@@ -113,6 +133,8 @@ impl RuntimeTickPreparation<'_> {
             |value| value.next_snapshot().clone(),
         );
         let mut routine_stage = WorldRoutineStageContextV1::capture(self.runtime, routine)?;
+        let mut population_stage =
+            WorldPopulationStageContextV1::capture(self.runtime, population)?;
         let runtime = self.runtime.prepare_tick_internal(
             self.base_generation,
             self.ingress_checkpoint,
@@ -123,14 +145,25 @@ impl RuntimeTickPreparation<'_> {
                 .as_ref()
                 .map(|publication| WorldStreamingStageContext { world, publication }),
             Some(&mut routine_stage),
+            Some(&mut population_stage),
         )?;
         let routine_snapshot_or_none = routine_stage.finish(runtime.next_tick())?;
         let routine = routine
             .prepare_publication(routine_snapshot_or_none, runtime.next_tick())
             .map_err(map_routine_owner_error)?;
+        let (population_snapshot_or_none, population_service_report_or_none) =
+            population_stage.finish(runtime.next_tick())?;
+        let population = population
+            .prepare_publication(
+                population_snapshot_or_none,
+                population_service_report_or_none,
+                runtime.next_tick(),
+            )
+            .map_err(map_population_owner_error)?;
         Ok(PreparedRuntimeWorldServicesTickV1 {
             runtime,
             routine,
+            population,
             base_world_state_hash,
             staged_world_snapshot,
             streaming,
@@ -167,6 +200,18 @@ impl PreparedRuntimeWorldServicesTickV1 {
     #[must_use]
     pub const fn routine_snapshot_or_none(&self) -> Option<&WorldRoutineSnapshotV1> {
         self.routine.snapshot_or_none()
+    }
+
+    #[must_use]
+    pub const fn population_snapshot_or_none(&self) -> Option<&WorldPopulationSnapshotV1> {
+        self.population.snapshot_or_none()
+    }
+
+    #[must_use]
+    pub const fn population_service_report_or_none(
+        &self,
+    ) -> Option<&next_world::PopulationNavigationServiceReportV1> {
+        self.population.service_report_or_none()
     }
 
     pub fn world_checkpoint_with_canonical_components(
@@ -214,6 +259,18 @@ impl ValidatedRuntimeWorldServicesTickV1 {
     }
 
     #[must_use]
+    pub const fn population_snapshot_or_none(&self) -> Option<&WorldPopulationSnapshotV1> {
+        self.generation.population.snapshot_or_none()
+    }
+
+    #[must_use]
+    pub const fn population_service_report_or_none(
+        &self,
+    ) -> Option<&next_world::PopulationNavigationServiceReportV1> {
+        self.generation.population.service_report_or_none()
+    }
+
+    #[must_use]
     pub const fn application_state_root(&self) -> StateRoot {
         self.application_state_root
     }
@@ -254,6 +311,11 @@ impl ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1 {
         self.generation.routine.snapshot_or_none()
     }
 
+    #[must_use]
+    pub const fn population_snapshot_or_none(&self) -> Option<&WorldPopulationSnapshotV1> {
+        self.generation.population.snapshot_or_none()
+    }
+
     pub fn world_checkpoint_with_canonical_components(
         &self,
     ) -> Result<
@@ -275,12 +337,14 @@ impl RuntimeState {
         closed_ingress_batch: next_contracts::input::ClosedIngressBatchV1,
         commands: impl IntoIterator<Item = WorldCommand>,
         routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
         world: &next_world::WorldStreamerV1,
         streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
     ) -> Result<PreparedRuntimeWorldServicesTickV1, RuntimeFatalError> {
         self.tick_preparation().prepare_world_services_internal(
             commands,
             routine,
+            population,
             world,
             streaming,
             Some(closed_ingress_batch),
@@ -309,19 +373,22 @@ impl RuntimeState {
     pub fn validate_prepared_world_services_tick(
         &self,
         routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
         world: &next_world::WorldStreamerV1,
         prepared: PreparedRuntimeWorldServicesTickV1,
     ) -> Result<ValidatedRuntimeWorldServicesTickV1, RuntimeFatalError> {
         let generation =
-            self.validate_prepared_world_services_generation(routine, world, prepared)?;
+            self.validate_prepared_world_services_generation(routine, population, world, prepared)?;
         let (_, components) = generation
             .runtime
             .world_checkpoint_with_canonical_components()?;
         let routine_snapshot_or_none = generation.routine.snapshot_or_none().copied();
+        let population_snapshot_or_none = generation.population.snapshot_or_none().cloned();
         let (application_owner_segments, application_state_root) = application_closure(
             &components,
             &generation.staged_world_snapshot,
             routine_snapshot_or_none.as_ref(),
+            population_snapshot_or_none.as_ref(),
         )?;
         Ok(ValidatedRuntimeWorldServicesTickV1 {
             generation,
@@ -336,14 +403,16 @@ impl RuntimeState {
     pub fn validate_prepared_world_services_tick_without_application_evidence(
         &self,
         routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
         world: &next_world::WorldStreamerV1,
         prepared: PreparedRuntimeWorldServicesTickV1,
     ) -> Result<ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1, RuntimeFatalError>
     {
         Ok(
             ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1 {
-                generation: self
-                    .validate_prepared_world_services_generation(routine, world, prepared)?,
+                generation: self.validate_prepared_world_services_generation(
+                    routine, population, world, prepared,
+                )?,
             },
         )
     }
@@ -351,6 +420,7 @@ impl RuntimeState {
     fn validate_prepared_world_services_generation(
         &self,
         routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
         world: &next_world::WorldStreamerV1,
         prepared: PreparedRuntimeWorldServicesTickV1,
     ) -> Result<ValidatedWorldServicesGenerationV1, RuntimeFatalError> {
@@ -369,6 +439,9 @@ impl RuntimeState {
         let routine = routine
             .validate_prepared_publication(prepared.routine)
             .map_err(map_routine_owner_error)?;
+        let population = population
+            .validate_prepared_publication(prepared.population)
+            .map_err(map_population_owner_error)?;
         let streaming = prepared
             .streaming
             .map(|publication| {
@@ -378,6 +451,7 @@ impl RuntimeState {
         Ok(ValidatedWorldServicesGenerationV1 {
             runtime,
             routine,
+            population,
             base_world_state_hash: prepared.base_world_state_hash,
             staged_world_snapshot: prepared.staged_world_snapshot,
             streaming,
@@ -389,6 +463,7 @@ impl RuntimeState {
     pub fn commit_validated_world_services_tick(
         &mut self,
         routine: &mut next_world::WorldRoutineOwnerV1,
+        population: &mut next_world::WorldPopulationOwnerV1,
         world: &mut next_world::WorldStreamerV1,
         validated: ValidatedRuntimeWorldServicesTickV1,
     ) -> Result<WorldServicesTickCommitV1, RuntimeFatalError> {
@@ -397,12 +472,14 @@ impl RuntimeState {
             application_owner_segments,
             application_state_root,
         } = validated;
-        let committed =
-            self.commit_validated_world_services_generation(routine, world, generation)?;
+        let committed = self
+            .commit_validated_world_services_generation(routine, population, world, generation)?;
         Ok(WorldServicesTickCommitV1 {
             runtime_report: committed.runtime_report,
             world_streaming_snapshot: committed.world_streaming_snapshot,
             routine_snapshot_or_none: committed.routine_snapshot_or_none,
+            population_snapshot_or_none: committed.population_snapshot_or_none,
+            population_service_report_or_none: committed.population_service_report_or_none,
             streaming_transition_or_none: committed.streaming_transition_or_none,
             application_owner_segments,
             application_state_root,
@@ -414,17 +491,24 @@ impl RuntimeState {
     pub fn commit_validated_world_services_tick_without_application_evidence(
         &mut self,
         routine: &mut next_world::WorldRoutineOwnerV1,
+        population: &mut next_world::WorldPopulationOwnerV1,
         world: &mut next_world::WorldStreamerV1,
         validated: ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1,
     ) -> Result<TickReport, RuntimeFatalError> {
         Ok(self
-            .commit_validated_world_services_generation(routine, world, validated.generation)?
+            .commit_validated_world_services_generation(
+                routine,
+                population,
+                world,
+                validated.generation,
+            )?
             .runtime_report)
     }
 
     fn commit_validated_world_services_generation(
         &mut self,
         routine: &mut next_world::WorldRoutineOwnerV1,
+        population: &mut next_world::WorldPopulationOwnerV1,
         world: &mut next_world::WorldStreamerV1,
         validated: ValidatedWorldServicesGenerationV1,
     ) -> Result<CommittedWorldServicesGenerationV1, RuntimeFatalError> {
@@ -432,6 +516,9 @@ impl RuntimeState {
             || world.snapshot().state_hash()? != validated.base_world_state_hash
             || routine
                 .preflight_validated_publication(&validated.routine)
+                .is_err()
+            || population
+                .preflight_validated_publication(&validated.population)
                 .is_err()
             || validated.streaming.as_ref().is_some_and(|streaming| {
                 world
@@ -445,18 +532,24 @@ impl RuntimeState {
         let ValidatedWorldServicesGenerationV1 {
             runtime: validated_runtime,
             routine: validated_routine,
+            population: validated_population,
             staged_world_snapshot,
             streaming,
             ..
         } = validated;
         let runtime_report = self.commit_validated_tick(validated_runtime);
         routine.commit_validated_publication(validated_routine);
+        let population_service_report_or_none =
+            validated_population.service_report_or_none().cloned();
+        population.commit_validated_publication(validated_population);
         let streaming_transition_or_none =
             streaming.and_then(|streaming| world.commit_validated_publication(streaming));
         Ok(CommittedWorldServicesGenerationV1 {
             runtime_report,
             world_streaming_snapshot: staged_world_snapshot,
             routine_snapshot_or_none: routine.snapshot_or_none().copied(),
+            population_snapshot_or_none: population.snapshot_or_none().cloned(),
+            population_service_report_or_none,
             streaming_transition_or_none,
         })
     }
@@ -466,6 +559,7 @@ fn application_closure(
     components: &WorldCheckpointCanonicalComponentsV1,
     streaming: &WorldStreamingSnapshotV1,
     routine_or_none: Option<&WorldRoutineSnapshotV1>,
+    population_or_none: Option<&WorldPopulationSnapshotV1>,
 ) -> Result<(Vec<SaveSegmentDescriptor>, StateRoot), RuntimeFatalError> {
     let streaming_bytes = streaming.canonical_bytes()?;
     let mut descriptors = vec![
@@ -498,24 +592,35 @@ fn application_closure(
             &streaming_bytes,
         )?,
     ];
-    let application_state_root = match routine_or_none {
-        Some(routine) => {
-            let routine_bytes = routine.canonical_bytes()?;
-            descriptors.push(segment_descriptor(
-                WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
-                WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID,
-                WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID,
-                u32::from(WORLD_ROUTINE_SCHEMA_VERSION),
-                &routine_bytes,
-            )?);
-            world_checkpoint_with_streaming_and_routine_v1_state_root_from_canonical_components(
-                components, streaming, routine,
-            )?
-        }
-        None => world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
-            components, streaming,
-        )?,
-    };
+    if let Some(routine) = routine_or_none {
+        let routine_bytes = routine.canonical_bytes()?;
+        descriptors.push(segment_descriptor(
+            WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
+            WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID,
+            WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID,
+            u32::from(WORLD_ROUTINE_SCHEMA_VERSION),
+            &routine_bytes,
+        )?);
+    }
+    if let Some(population) = population_or_none {
+        let population_bytes = population
+            .canonical_bytes()
+            .map_err(|_| RuntimeFatalError::WorldPopulationInternalInvariant)?;
+        descriptors.push(segment_descriptor(
+            WORLD_POPULATION_SNAPSHOT_OWNER_ID,
+            WORLD_POPULATION_SNAPSHOT_SCHEMA_ID,
+            WORLD_POPULATION_SNAPSHOT_SEGMENT_ID,
+            u32::from(WORLD_POPULATION_SCHEMA_VERSION),
+            &population_bytes,
+        )?);
+    }
+    let application_state_root =
+        world_checkpoint_with_world_services_v1_state_root_from_canonical_components(
+            components,
+            streaming,
+            routine_or_none,
+            population_or_none,
+        )?;
     descriptors.sort();
     if descriptors.windows(2).any(|pair| {
         (&pair[0].owner_id, &pair[0].schema_id, &pair[0].segment_id)
@@ -547,5 +652,16 @@ fn map_routine_owner_error(error: next_world::WorldRoutineOwnerError) -> Runtime
         RuntimeFatalError::PreparedWorldServicesGenerationStale
     } else {
         RuntimeFatalError::WorldRoutineInternalInvariant
+    }
+}
+
+fn map_population_owner_error(error: next_world::WorldPopulationOwnerError) -> RuntimeFatalError {
+    if matches!(
+        error,
+        next_world::WorldPopulationOwnerError::PublicationStale
+    ) {
+        RuntimeFatalError::PreparedWorldServicesGenerationStale
+    } else {
+        RuntimeFatalError::WorldPopulationInternalInvariant
     }
 }

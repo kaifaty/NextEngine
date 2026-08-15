@@ -254,8 +254,8 @@ fn activated_reference_project(
         TEST_COUNTER.fetch_add(1, Ordering::Relaxed)
     ));
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v3(
-        next_reference_game::project_source_v3().expect("reference source"),
+    let cooked = next_project::cook_project_v4(
+        next_reference_game::project_source_v4().expect("reference source"),
     )
     .expect("cook");
     store

@@ -32,12 +32,14 @@ const STATE_SAMPLE_INTERVAL_TICKS: u64 = 30;
 const APPLICATION_ONE_TICK_ELAPSED: Duration = Duration::from_nanos(33_333_334);
 #[cfg(not(debug_assertions))]
 const LIVE_MOVEMENT_LIMIT: Duration = Duration::from_secs(30);
+// Debug ceilings are watchdogs for semantic tests, not promotion evidence.
+// The release ceilings above remain the performance contract.
 #[cfg(debug_assertions)]
-const LIVE_MOVEMENT_LIMIT: Duration = Duration::from_secs(60);
+const LIVE_MOVEMENT_LIMIT: Duration = Duration::from_secs(300);
 #[cfg(not(debug_assertions))]
 const LONG_SESSION_LIMIT: Duration = Duration::from_secs(90);
 #[cfg(debug_assertions)]
-const LONG_SESSION_LIMIT: Duration = Duration::from_secs(240);
+const LONG_SESSION_LIMIT: Duration = Duration::from_secs(1_200);
 
 #[derive(Clone, Copy)]
 struct LiveRuntimeWorkload {
@@ -290,7 +292,9 @@ mod tests {
             super::run_live_runtime_performance_check().expect("live runtime performance gate");
         println!("{report:?}");
         assert_eq!(report.ticks, 900);
-        assert_eq!(report.command_body_count, 901);
+        // 900 movement bodies + one routine transition + seven population
+        // transitions from the reference courier lifecycle.
+        assert_eq!(report.command_body_count, 908);
         assert_eq!(report.driver_prepare_microseconds.len(), 900);
         assert_eq!(report.driver_commit_microseconds.len(), 900);
         assert_eq!(

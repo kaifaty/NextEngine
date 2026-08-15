@@ -22,6 +22,11 @@ use next_contracts::world::{
     WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION, WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
     WorldStreamingSnapshotV1,
 };
+use next_contracts::world_population::{
+    WORLD_POPULATION_SCHEMA_VERSION, WORLD_POPULATION_SNAPSHOT_OWNER_ID,
+    WORLD_POPULATION_SNAPSHOT_SCHEMA_ID, WORLD_POPULATION_SNAPSHOT_SEGMENT_ID,
+    WorldPopulationSnapshotV1,
+};
 use next_contracts::world_routine::{
     WORLD_ROUTINE_SCHEMA_VERSION, WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
     WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID, WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID, WorldRoutineSnapshotV1,
@@ -212,6 +217,63 @@ impl SaveImage {
         Ok(image)
     }
 
+    pub fn from_world_checkpoint_with_world_services(
+        generation: u64,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+        world_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
+        world_population_snapshot: &WorldPopulationSnapshotV1,
+    ) -> Result<Self, SaveStoreError> {
+        let mut image = match world_routine_snapshot_or_none {
+            Some(routine) => Self::from_world_checkpoint_with_streaming_and_routine(
+                generation,
+                compatibility,
+                checkpoint,
+                world_streaming_snapshot,
+                routine,
+            )?,
+            None => Self::from_world_checkpoint_with_streaming(
+                generation,
+                compatibility,
+                checkpoint,
+                world_streaming_snapshot,
+            )?,
+        };
+        let bytes = world_population_snapshot.canonical_bytes()?;
+        let descriptor = SaveSegmentDescriptor::for_bytes(
+            SchemaId::new(WORLD_POPULATION_SNAPSHOT_OWNER_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(WORLD_POPULATION_SNAPSHOT_SCHEMA_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(WORLD_POPULATION_SNAPSHOT_SEGMENT_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            u32::from(WORLD_POPULATION_SCHEMA_VERSION),
+            &bytes,
+        )?;
+        let mut segments = image
+            .manifest
+            .segments
+            .into_iter()
+            .zip(image.segments)
+            .collect::<Vec<_>>();
+        segments.push((descriptor, bytes));
+        segments.sort_by(|left, right| {
+            (&left.0.owner_id, &left.0.schema_id, &left.0.segment_id).cmp(&(
+                &right.0.owner_id,
+                &right.0.schema_id,
+                &right.0.segment_id,
+            ))
+        });
+        image.manifest.segments = segments
+            .iter()
+            .map(|(descriptor, _)| descriptor.clone())
+            .collect();
+        image.segments = segments.into_iter().map(|(_, bytes)| bytes).collect();
+        image.manifest.validate()?;
+        Ok(image)
+    }
+
     pub fn validate_world(&self) -> Result<ValidatedSaveImage, SaveStoreError> {
         self.manifest.validate()?;
         if self.manifest.segments.len() != self.segments.len() {
@@ -303,8 +365,10 @@ impl SaveImage {
             rpg_snapshot.clone(),
             physics_checkpoint.clone(),
         )?;
-        let (world_streaming_index, world_routine_index) =
-            world_services_segment_indices(&self.manifest.segments)?;
+        let world_services_indices = world_services_segment_indices(&self.manifest.segments)?;
+        let world_streaming_index = world_services_indices.streaming;
+        let world_routine_index = world_services_indices.routine;
+        let world_population_index = world_services_indices.population;
         let world_streaming_snapshot = world_streaming_index
             .map(|index| {
                 WorldStreamingSnapshotV1::from_canonical_bytes(
@@ -316,6 +380,14 @@ impl SaveImage {
         let world_routine_snapshot_or_none = world_routine_index
             .map(|index| {
                 WorldRoutineSnapshotV1::from_canonical_bytes(
+                    &self.segments[index],
+                    CanonicalDecodeLimits::default(),
+                )
+            })
+            .transpose()?;
+        let world_population_snapshot_or_none = world_population_index
+            .map(|index| {
+                WorldPopulationSnapshotV1::from_canonical_bytes(
                     &self.segments[index],
                     CanonicalDecodeLimits::default(),
                 )
@@ -339,6 +411,7 @@ impl SaveImage {
             physics_checkpoint,
             world_streaming_snapshot,
             world_routine_snapshot_or_none,
+            world_population_snapshot_or_none,
         })
     }
 
@@ -441,8 +514,10 @@ impl SaveImage {
             &rpg_snapshot,
             &physics_checkpoint,
         )?;
-        let (world_streaming_index, world_routine_index) =
-            world_services_segment_indices(&self.manifest.segments)?;
+        let world_services_indices = world_services_segment_indices(&self.manifest.segments)?;
+        let world_streaming_index = world_services_indices.streaming;
+        let world_routine_index = world_services_indices.routine;
+        let world_population_index = world_services_indices.population;
         if let Some(world_index) = world_streaming_index {
             let _ = WorldStreamingSnapshotV1::from_canonical_bytes(
                 &self.segments[world_index],
@@ -452,6 +527,12 @@ impl SaveImage {
         if let Some(routine_index) = world_routine_index {
             let _ = WorldRoutineSnapshotV1::from_canonical_bytes(
                 &self.segments[routine_index],
+                CanonicalDecodeLimits::default(),
+            )?;
+        }
+        if let Some(population_index) = world_population_index {
+            let _ = WorldPopulationSnapshotV1::from_canonical_bytes(
+                &self.segments[population_index],
                 CanonicalDecodeLimits::default(),
             )?;
         }
@@ -478,13 +559,22 @@ pub struct ValidatedSaveImage {
     pub physics_checkpoint: PhysicsWorldCheckpointV1,
     pub world_streaming_snapshot: Option<WorldStreamingSnapshotV1>,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+    pub world_population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct WorldServicesSegmentIndices {
+    streaming: Option<usize>,
+    routine: Option<usize>,
+    population: Option<usize>,
 }
 
 fn world_services_segment_indices(
     descriptors: &[SaveSegmentDescriptor],
-) -> Result<(Option<usize>, Option<usize>), SaveStoreError> {
+) -> Result<WorldServicesSegmentIndices, SaveStoreError> {
     let mut streaming = None;
     let mut routine = None;
+    let mut population = None;
     for (index, descriptor) in descriptors
         .iter()
         .enumerate()
@@ -500,6 +590,11 @@ fn world_services_segment_indices(
             && descriptor.schema_version == u32::from(WORLD_ROUTINE_SCHEMA_VERSION)
         {
             &mut routine
+        } else if descriptor.schema_id.as_str() == WORLD_POPULATION_SNAPSHOT_SCHEMA_ID
+            && descriptor.segment_id.as_str() == WORLD_POPULATION_SNAPSHOT_SEGMENT_ID
+            && descriptor.schema_version == u32::from(WORLD_POPULATION_SCHEMA_VERSION)
+        {
+            &mut population
         } else {
             return Err(SaveStoreError::InvalidImage(
                 "WORLD_SERVICES_SCHEMA_UNSUPPORTED",
@@ -511,10 +606,14 @@ fn world_services_segment_indices(
             ));
         }
     }
-    if routine.is_some() && streaming.is_none() {
+    if (routine.is_some() || population.is_some()) && streaming.is_none() {
         return Err(SaveStoreError::InvalidImage(
             "SAVE_WORLD_ROUTINE_STREAMING_MISSING",
         ));
     }
-    Ok((streaming, routine))
+    Ok(WorldServicesSegmentIndices {
+        streaming,
+        routine,
+        population,
+    })
 }

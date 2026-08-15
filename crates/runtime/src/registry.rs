@@ -7,7 +7,7 @@ use next_contracts::ids::ContentHash;
 
 #[must_use]
 pub fn core_command_kind_registry() -> CommandKindRegistry {
-    CommandKindRegistry::core_r4a().expect("the engine-owned command registry is canonical")
+    CommandKindRegistry::core_r4b().expect("the engine-owned command registry is canonical")
 }
 
 #[must_use]

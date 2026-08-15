@@ -1,8 +1,8 @@
 {
-  "format": "nextengine.project-authoring.v3",
+  "format": "nextengine.project-authoring.v4",
   "project": {
     "project_id": "org.nextengine.reference-alpha",
-    "project_revision": 7
+    "project_revision": 8
   },
   "provenance": {
     "provenance_id": "nextengine.reference-alpha.provenance.cc0",
@@ -1641,6 +1641,21 @@
     "subject_id": "64646464646464646464646464646464",
     "required_activity": "duty"
   },
+  "world_navigation_catalog": {
+    "schema_version": 1,
+    "catalog_asset_id": "96969696969696969696969696969696",
+    "topology_revision": 8,
+    "edge_cost": 1000
+  },
+  "world_population_catalog": {
+    "schema_version": 1,
+    "catalog_asset_id": "95959595959595959595959595959595",
+    "identity_domain": "nextengine.reference-alpha.population.v1",
+    "courier_ordinal": 99,
+    "courier_transition_start_tick": 1,
+    "courier_initial_node_id": "nextengine.reference-alpha.chunk.relay-station",
+    "courier_goal_node_id": "nextengine.reference-alpha.chunk.frontier"
+  },
   "root_asset_ids": [
     "01010101010101010101010101010101",
     "81818181818181818181818181818181",
@@ -1669,7 +1684,9 @@
     "8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c",
     "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
     "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
-    "94949494949494949494949494949494"
+    "94949494949494949494949494949494",
+    "95959595959595959595959595959595",
+    "96969696969696969696969696969696"
   ],
   "allowed_presentation_targets": ["none", "interactive", "displayless-offscreen"]
 }

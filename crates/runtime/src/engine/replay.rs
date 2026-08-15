@@ -133,9 +133,10 @@ impl RuntimeReplayDriver {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn replay_world_services_tick_v6(
+    pub fn replay_world_services_tick_v7(
         &mut self,
         routine: &mut next_world::WorldRoutineOwnerV1,
+        population: &mut next_world::WorldPopulationOwnerV1,
         world: &mut next_world::WorldStreamerV1,
         streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
         closed_ingress_batch: ClosedIngressBatchV1,
@@ -168,12 +169,13 @@ impl RuntimeReplayDriver {
             closed_ingress_batch,
             direct_commands,
             routine,
+            population,
             world,
             streaming,
         )?;
         let validated = self
             .runtime
-            .validate_prepared_world_services_tick(routine, world, prepared)?;
+            .validate_prepared_world_services_tick(routine, population, world, prepared)?;
         let report = validated.report();
         if &report.physics_step_input != expected_physics_step_input {
             return Err(RuntimeReplayError::PhysicsStepInputMismatch { tick: report.tick });
@@ -204,7 +206,7 @@ impl RuntimeReplayDriver {
         }
         Ok(self
             .runtime
-            .commit_validated_world_services_tick(routine, world, validated)?)
+            .commit_validated_world_services_tick(routine, population, world, validated)?)
     }
 
     /// Prepares one recorded tick against the live runtime generation without
@@ -261,6 +263,14 @@ impl RuntimeReplayDriver {
         routine: &next_world::WorldRoutineOwnerV1,
     ) -> Result<(), SnapshotRestoreError> {
         self.runtime.validate_world_routine_ledger_closure(routine)
+    }
+
+    pub fn validate_world_population_ledger_closure(
+        &self,
+        population: &next_world::WorldPopulationOwnerV1,
+    ) -> Result<(), SnapshotRestoreError> {
+        self.runtime
+            .validate_world_population_ledger_closure(population)
     }
 }
 

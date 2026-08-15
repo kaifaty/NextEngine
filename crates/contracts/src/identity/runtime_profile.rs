@@ -33,7 +33,7 @@ pub struct RuntimeDeterminismProfileV1 {
 }
 
 impl RuntimeDeterminismProfileV1 {
-    pub(super) fn from_materialized_r4a(
+    pub(super) fn from_materialized_r4b(
         command_kind_registry_hash: ContentHash,
         schedule_manifest_hash: ContentHash,
     ) -> Self {

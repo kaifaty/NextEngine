@@ -30,6 +30,7 @@ impl RuntimeTickPreparation<'_> {
                 publication: &publication,
             }),
             None,
+            None,
         )?;
         Ok(PreparedRuntimeWorldTick {
             runtime: runtime_tick,

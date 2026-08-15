@@ -15,6 +15,11 @@ impl ReferenceGameDriverV2 {
             checkpoint_canonical_components,
             world_streaming_snapshot: self.world_streamer.snapshot().clone(),
             world_routine_snapshot_or_none: self.world_routine.snapshot_or_none().copied(),
+            world_population_snapshot: self
+                .world_population
+                .snapshot_or_none()
+                .cloned()
+                .ok_or(ReferenceGameError::RecoveryInvalid)?,
             ticks: self.runtime.next_tick(),
             events: self.events,
             rpg_events: self.rpg_events,
@@ -60,6 +65,11 @@ impl ReferenceGameDriverV2 {
             checkpoint,
             prepared.runtime.world_streaming_snapshot().clone(),
             prepared.runtime.routine_snapshot_or_none().copied(),
+            prepared
+                .runtime
+                .population_snapshot_or_none()
+                .cloned()
+                .ok_or(ReferenceGameError::RecoveryInvalid)?,
             prepared.next_tick(),
             &prepared.state,
         )
@@ -76,6 +86,11 @@ impl ReferenceGameDriverV2 {
             checkpoint,
             validated.runtime.world_streaming_snapshot().clone(),
             validated.runtime.routine_snapshot_or_none().copied(),
+            validated
+                .runtime
+                .population_snapshot_or_none()
+                .cloned()
+                .ok_or(ReferenceGameError::RecoveryInvalid)?,
             validated.next_tick(),
             &validated.state,
         )
@@ -89,6 +104,7 @@ impl ReferenceGameDriverV2 {
         ),
         world_streaming_snapshot: WorldStreamingSnapshotV1,
         world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+        world_population_snapshot: WorldPopulationSnapshotV1,
         ticks: u64,
         state: &PreparedReferenceGameState,
     ) -> Result<ReferenceLiveStateV2, ReferenceGameError> {
@@ -101,6 +117,7 @@ impl ReferenceGameDriverV2 {
             checkpoint_canonical_components,
             world_streaming_snapshot,
             world_routine_snapshot_or_none,
+            world_population_snapshot,
             ticks,
             events: state.events,
             rpg_events: state.rpg_events,

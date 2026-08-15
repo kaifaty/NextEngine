@@ -1,7 +1,7 @@
 use next_assets::SaveStore;
 use next_contracts::persistence::WorldStreamingReplayInputV1;
 use next_runtime::RuntimeState;
-use next_world::{WorldRoutineOwnerV1, WorldStreamerV1};
+use next_world::{WorldPopulationOwnerV1, WorldRoutineOwnerV1, WorldStreamerV1};
 
 use crate::scratch::ScratchContext;
 
@@ -60,12 +60,23 @@ pub(super) fn save_and_restore(
     let saved_routine_snapshot = saved_routine_snapshot_or_none.ok_or_else(|| {
         PersistenceReplayCheckError::condition("saved world routine owner segment exists")
     })?;
+    let saved_population_snapshot =
+        direct
+            .population
+            .snapshot_or_none()
+            .cloned()
+            .ok_or_else(|| {
+                PersistenceReplayCheckError::condition(
+                    "saved world population owner segment exists",
+                )
+            })?;
     let generation_zero = store
-        .commit_world_checkpoint_with_streaming_and_routine(
+        .commit_world_checkpoint_with_world_services(
             compatibility.clone(),
             &saved_checkpoint,
             &saved_world_snapshot,
-            &saved_routine_snapshot,
+            Some(&saved_routine_snapshot),
+            &saved_population_snapshot,
         )
         .map_err(|error| {
             PersistenceReplayCheckError::new("commit generation zero", error.to_string())
@@ -93,6 +104,9 @@ pub(super) fn save_and_restore(
     let loaded_routine = loaded.world_routine_snapshot_or_none.ok_or_else(|| {
         PersistenceReplayCheckError::condition("loaded world routine owner segment exists")
     })?;
+    let loaded_population = loaded.world_population_snapshot_or_none.ok_or_else(|| {
+        PersistenceReplayCheckError::condition("loaded world population owner segment exists")
+    })?;
 
     let runtime = RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
         loaded.checkpoint,
@@ -112,21 +126,45 @@ pub(super) fn save_and_restore(
     .map_err(|error| {
         PersistenceReplayCheckError::new("restore world routine", error.to_string())
     })?;
+    let population = WorldPopulationOwnerV1::restore(
+        direct
+            .fixture
+            .activated_project
+            .world_population_catalog
+            .clone(),
+        direct
+            .fixture
+            .activated_project
+            .world_navigation_catalog
+            .clone(),
+        loaded_population,
+        runtime.next_tick(),
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("restore world population", error.to_string())
+    })?;
     runtime
         .validate_world_routine_ledger_closure(&routine)
         .map_err(|error| {
             PersistenceReplayCheckError::new("restore routine ledger closure", error.to_string())
+        })?;
+    runtime
+        .validate_world_population_ledger_closure(&population)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("restore population ledger closure", error.to_string())
         })?;
 
     Ok(RestoredScenario {
         runtime,
         world: restored_world,
         routine,
+        population,
         store,
         compatibility,
         saved_checkpoint,
         saved_world_snapshot,
         saved_routine_snapshot_or_none,
+        saved_population_snapshot,
         _directory: directory,
     })
 }

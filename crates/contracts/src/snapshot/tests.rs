@@ -25,7 +25,7 @@ use super::{
 };
 
 fn fixture() -> RuntimeSnapshotV3 {
-    let bundle = RuntimeDeterminismBundleV1::core_r4a().expect("determinism bundle");
+    let bundle = RuntimeDeterminismBundleV1::core_r4b().expect("determinism bundle");
     let command_hash = bundle.command_kind_registry_hash();
     let profile = bundle.runtime_profile();
     let world = WorldIdentityManifestV1::new(

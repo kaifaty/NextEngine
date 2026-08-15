@@ -12,13 +12,13 @@ use std::collections::BTreeMap;
 use std::path::{Component, Path};
 
 use self::schema::{
-    AUTHORING_FORMAT_V3, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
+    AUTHORING_FORMAT_V4, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
     AuthoringHumanoidCatalogV1, AuthoringNeutralRecordKindV1, AuthoringPresentationTargetV1,
     AuthoringRenderRecordV1, AuthoringSourceReferenceV1, AuthoringSourceSpanV1,
     AuthoringTextureAlphaV1, AuthoringTextureColorSpaceV1, AuthoringWorldRoutineActivityV1,
-    ProjectAuthoringManifestV3,
+    ProjectAuthoringManifestV4,
 };
-use crate::cook::{NeutralProjectSourceV3, SourceChunkBindingV1};
+use crate::cook::{NeutralProjectSourceV4, SourceChunkBindingV1};
 use crate::cook_support::schema_ref;
 use next_contracts::animation_content::{
     AnimationInterpolationV1, AnimationPropertyV1, AnimationWrapModeV1, NeutralAnimationChannelV1,
@@ -52,6 +52,13 @@ use next_contracts::render_content::{
     NeutralTextureV1, RenderContentContractError, UvTransformV1,
     b0_shader_interface_manifest_sha256,
 };
+use next_contracts::world_population::{
+    NavigationCapabilityV1, PopulationCadenceClassV1, PopulationTierV1,
+    WORLD_POPULATION_ACTIVE_COUNT_V1, WORLD_POPULATION_BACKGROUND_COUNT_V1,
+    WORLD_POPULATION_COUNT_V1, WORLD_POPULATION_NEAR_COUNT_V1, WorldNavigationCatalogV1,
+    WorldNavigationEdgeV1, WorldNavigationNodeV1, WorldNavigationTileV1, WorldPopulationCatalogV1,
+    WorldPopulationDefinitionV1, navigation_tile_revision, population_cadence_phase,
+};
 use next_contracts::world_routine::{
     WorldRoutineActivityV1, WorldRoutineCatalogV1, WorldRoutineDefinitionV1,
     WorldRoutineInteractionBindingV1, WorldRoutineProfileV1,
@@ -64,31 +71,31 @@ struct ProjectAuthoringFormatProbe {
     format: String,
 }
 
-pub fn load_project_authoring_v3(
+pub fn load_project_authoring_v4(
     project_directory: impl AsRef<Path>,
-) -> Result<NeutralProjectSourceV3, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV4, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), None)
 }
 
-pub fn load_project_authoring_v3_with_project_id(
+pub fn load_project_authoring_v4_with_project_id(
     project_directory: impl AsRef<Path>,
     project_id: &str,
-) -> Result<NeutralProjectSourceV3, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV4, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), Some(project_id))
 }
 
 fn load_project_authoring_with_override(
     project_directory: &Path,
     project_id_override: Option<&str>,
-) -> Result<NeutralProjectSourceV3, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV4, ProjectAuthoringError> {
     let manifest_path = project_directory.join(PROJECT_AUTHORING_MANIFEST_FILE);
     let bytes = read_file(&manifest_path)?;
     let format: ProjectAuthoringFormatProbe = serde_json::from_slice(&bytes)?;
-    if format.format != AUTHORING_FORMAT_V3 {
+    if format.format != AUTHORING_FORMAT_V4 {
         return Err(ProjectAuthoringError::UnsupportedFormat(format.format));
     }
-    let manifest: ProjectAuthoringManifestV3 = serde_json::from_slice(&bytes)?;
-    if manifest.format != AUTHORING_FORMAT_V3 {
+    let manifest: ProjectAuthoringManifestV4 = serde_json::from_slice(&bytes)?;
+    if manifest.format != AUTHORING_FORMAT_V4 {
         return Err(ProjectAuthoringError::UnsupportedFormat(manifest.format));
     }
     validate_span(project_directory, &manifest.provenance.source_span)?;
@@ -222,12 +229,15 @@ fn load_project_authoring_with_override(
         (None, None) => {}
         _ => return Err(ProjectAuthoringError::InvalidValue),
     }
-    Ok(NeutralProjectSourceV3 {
+    let world_navigation_catalog = build_world_navigation_catalog(&manifest, &chunks)?;
+    let world_population_catalog =
+        build_world_population_catalog(&manifest, &world_navigation_catalog)?;
+    Ok(NeutralProjectSourceV4 {
         project_id: ProjectId::new(
             project_id_override.unwrap_or(manifest.project.project_id.as_str()),
         )?,
         project_revision: manifest.project.project_revision,
-        authoring_sha256: domain_hash(AUTHORING_FORMAT_V3, &bytes),
+        authoring_sha256: domain_hash(AUTHORING_FORMAT_V4, &bytes),
         records,
         render_records,
         text_catalogs,
@@ -236,6 +246,8 @@ fn load_project_authoring_with_override(
         animations,
         world_routine_catalog_or_none,
         world_routine_interaction_binding_or_none,
+        world_navigation_catalog,
+        world_population_catalog,
         root_asset_ids: manifest
             .root_asset_ids
             .iter()
@@ -252,6 +264,198 @@ fn load_project_authoring_with_override(
         chunks,
         allowed_presentation_targets,
     })
+}
+
+fn build_world_navigation_catalog(
+    manifest: &ProjectAuthoringManifestV4,
+    chunks: &[SourceChunkBindingV1],
+) -> Result<WorldNavigationCatalogV1, ProjectAuthoringError> {
+    let authored = &manifest.world_navigation_catalog;
+    if authored.schema_version != next_contracts::world_population::WORLD_POPULATION_SCHEMA_VERSION
+        || authored.topology_revision != manifest.project.project_revision
+        || authored.edge_cost == 0
+        || chunks.len() < 2
+    {
+        return Err(ProjectAuthoringError::InvalidValue);
+    }
+    let mut nodes = chunks
+        .iter()
+        .map(|chunk| {
+            Ok(WorldNavigationNodeV1 {
+                node_id: chunk.chunk_id.clone(),
+                tile_id: SchemaId::new(format!("{}.navigation-tile", chunk.region_id.as_str()))?,
+                chunk_id: chunk.chunk_id.clone(),
+            })
+        })
+        .collect::<Result<Vec<_>, ProjectAuthoringError>>()?;
+    nodes.sort();
+    let mut region_tiles = BTreeMap::<SchemaId, SchemaId>::new();
+    for chunk in chunks {
+        region_tiles.insert(
+            chunk.region_id.clone(),
+            SchemaId::new(format!("{}.navigation-tile", chunk.region_id.as_str()))?,
+        );
+    }
+    let mut tiles = region_tiles
+        .into_iter()
+        .map(|(region_id, tile_id)| {
+            let node_ids = nodes
+                .iter()
+                .filter(|node| node.tile_id == tile_id)
+                .map(|node| &node.node_id)
+                .collect::<Vec<_>>();
+            Ok(WorldNavigationTileV1 {
+                tile_revision: navigation_tile_revision(&tile_id, &region_id, &node_ids)
+                    .map_err(|_| ProjectAuthoringError::InvalidValue)?,
+                tile_id,
+                region_id,
+            })
+        })
+        .collect::<Result<Vec<_>, ProjectAuthoringError>>()?;
+    tiles.sort();
+    let mut edges = Vec::with_capacity(nodes.len());
+    for index in 0..nodes.len() {
+        let left = &nodes[index].node_id;
+        let right = &nodes[(index + 1) % nodes.len()].node_id;
+        let (node_low, node_high) = if left < right {
+            (left.clone(), right.clone())
+        } else {
+            (right.clone(), left.clone())
+        };
+        edges.push(WorldNavigationEdgeV1 {
+            node_low,
+            node_high,
+            cost: authored.edge_cost,
+            capability: NavigationCapabilityV1::AbstractTransfer,
+        });
+    }
+    edges.sort();
+    if edges.windows(2).any(|pair| pair[0] == pair[1]) {
+        return Err(ProjectAuthoringError::DuplicateIdentity);
+    }
+    let value = WorldNavigationCatalogV1 {
+        schema_version: authored.schema_version,
+        catalog_asset_id: asset_id(&authored.catalog_asset_id)?,
+        topology_revision: authored.topology_revision,
+        tiles,
+        nodes,
+        edges,
+    };
+    value
+        .validate()
+        .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    Ok(value)
+}
+
+fn build_world_population_catalog(
+    manifest: &ProjectAuthoringManifestV4,
+    navigation: &WorldNavigationCatalogV1,
+) -> Result<WorldPopulationCatalogV1, ProjectAuthoringError> {
+    let authored = &manifest.world_population_catalog;
+    if authored.schema_version != next_contracts::world_population::WORLD_POPULATION_SCHEMA_VERSION
+        || authored.identity_domain.is_empty()
+        || usize::try_from(authored.courier_ordinal)
+            .ok()
+            .is_none_or(|ordinal| ordinal >= WORLD_POPULATION_COUNT_V1)
+    {
+        return Err(ProjectAuthoringError::InvalidValue);
+    }
+    let courier_initial_node_id = SchemaId::new(&authored.courier_initial_node_id)?;
+    let courier_goal_node_id = SchemaId::new(&authored.courier_goal_node_id)?;
+    let node_count = navigation.nodes.len();
+    let mut records = Vec::with_capacity(WORLD_POPULATION_COUNT_V1);
+    for ordinal in 0..WORLD_POPULATION_COUNT_V1 {
+        let mut preimage = b"nextengine.population-subject.v1\0".to_vec();
+        append_string(&mut preimage, &authored.identity_domain)?;
+        preimage.extend_from_slice(
+            &u32::try_from(ordinal)
+                .map_err(|_| ProjectAuthoringError::InvalidValue)?
+                .to_le_bytes(),
+        );
+        let digest = next_contracts::canonical::sha256(&preimage);
+        let mut subject_bytes = [0_u8; 16];
+        subject_bytes.copy_from_slice(&digest[..16]);
+        let subject_id = PersistentId::from_bytes(subject_bytes);
+        let (cadence_class, initial_tier) = if ordinal < WORLD_POPULATION_ACTIVE_COUNT_V1 {
+            (PopulationCadenceClassV1::Active, PopulationTierV1::Active)
+        } else if ordinal < WORLD_POPULATION_ACTIVE_COUNT_V1 + WORLD_POPULATION_NEAR_COUNT_V1 {
+            (PopulationCadenceClassV1::Near, PopulationTierV1::Simulated)
+        } else if ordinal
+            == usize::try_from(authored.courier_ordinal)
+                .map_err(|_| ProjectAuthoringError::InvalidValue)?
+        {
+            (
+                PopulationCadenceClassV1::Background,
+                PopulationTierV1::Dormant,
+            )
+        } else {
+            (
+                PopulationCadenceClassV1::Background,
+                PopulationTierV1::Abstract,
+            )
+        };
+        let initial_node_id = if ordinal
+            == usize::try_from(authored.courier_ordinal)
+                .map_err(|_| ProjectAuthoringError::InvalidValue)?
+        {
+            courier_initial_node_id.clone()
+        } else {
+            navigation.nodes[ordinal % node_count].node_id.clone()
+        };
+        let navigation_goal_node_id = if ordinal
+            == usize::try_from(authored.courier_ordinal)
+                .map_err(|_| ProjectAuthoringError::InvalidValue)?
+        {
+            courier_goal_node_id.clone()
+        } else {
+            navigation.nodes[(ordinal + node_count / 2) % node_count]
+                .node_id
+                .clone()
+        };
+        records.push(WorldPopulationDefinitionV1 {
+            subject_id,
+            home_node_id: initial_node_id.clone(),
+            initial_node_id,
+            navigation_goal_node_id,
+            cadence_class,
+            cadence_phase: population_cadence_phase(subject_id, cadence_class),
+            initial_tier,
+        });
+    }
+    records.sort();
+    let courier_ordinal = usize::try_from(authored.courier_ordinal)
+        .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    let courier_subject_id = records
+        .iter()
+        .find(|record| {
+            record.initial_node_id == courier_initial_node_id
+                && record.initial_tier == PopulationTierV1::Dormant
+        })
+        .map(|record| record.subject_id)
+        .ok_or(ProjectAuthoringError::InvalidValue)?;
+    let _ = courier_ordinal;
+    debug_assert_eq!(
+        records
+            .iter()
+            .filter(|record| record.cadence_class == PopulationCadenceClassV1::Background)
+            .count(),
+        WORLD_POPULATION_BACKGROUND_COUNT_V1
+    );
+    let value = WorldPopulationCatalogV1 {
+        schema_version: authored.schema_version,
+        catalog_asset_id: asset_id(&authored.catalog_asset_id)?,
+        navigation_catalog_asset_id: navigation.catalog_asset_id,
+        navigation_catalog_revision: navigation
+            .revision()
+            .map_err(|_| ProjectAuthoringError::InvalidValue)?,
+        courier_subject_id,
+        courier_transition_start_tick: authored.courier_transition_start_tick,
+        records,
+    };
+    value
+        .validate_against_navigation(navigation)
+        .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    Ok(value)
 }
 
 fn build_render_records(
@@ -511,7 +715,7 @@ fn build_audio_records(
 
 fn build_animation_catalogs(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV3,
+    manifest: &ProjectAuthoringManifestV4,
 ) -> Result<(Vec<NeutralSkeletonV1>, Vec<NeutralAnimationV1>), ProjectAuthoringError> {
     let mut skeletons = Vec::new();
     let mut animations = Vec::new();
@@ -623,7 +827,7 @@ fn build_animation_catalogs(
 
 fn validate_provenance(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV3,
+    manifest: &ProjectAuthoringManifestV4,
 ) -> Result<ContentHash, ProjectAuthoringError> {
     if manifest.provenance.source_identity.is_empty()
         || manifest.provenance.referenced_sources.is_empty()
@@ -749,179 +953,8 @@ fn hex_fixed<const LENGTH: usize>(value: &str) -> Result<[u8; LENGTH], ProjectAu
     Ok(output)
 }
 
-fn neutral_kind(kind: AuthoringNeutralRecordKindV1) -> NeutralRecordKindV1 {
-    match kind {
-        AuthoringNeutralRecordKindV1::Scene => NeutralRecordKindV1::Scene,
-        AuthoringNeutralRecordKindV1::Collider => NeutralRecordKindV1::Collider,
-        AuthoringNeutralRecordKindV1::CharacterDefinition => {
-            NeutralRecordKindV1::CharacterDefinition
-        }
-        AuthoringNeutralRecordKindV1::ItemDefinition => NeutralRecordKindV1::ItemDefinition,
-        AuthoringNeutralRecordKindV1::InventoryDefinition => {
-            NeutralRecordKindV1::InventoryDefinition
-        }
-        AuthoringNeutralRecordKindV1::EquipmentDefinition => {
-            NeutralRecordKindV1::EquipmentDefinition
-        }
-        AuthoringNeutralRecordKindV1::DialogueDefinition => NeutralRecordKindV1::DialogueDefinition,
-        AuthoringNeutralRecordKindV1::QuestDefinition => NeutralRecordKindV1::QuestDefinition,
-        AuthoringNeutralRecordKindV1::RelationshipDefinition => {
-            NeutralRecordKindV1::RelationshipDefinition
-        }
-        AuthoringNeutralRecordKindV1::InteractionDefinition => {
-            NeutralRecordKindV1::InteractionDefinition
-        }
-        AuthoringNeutralRecordKindV1::AbilityDefinition => NeutralRecordKindV1::AbilityDefinition,
-        AuthoringNeutralRecordKindV1::WorldChunk => NeutralRecordKindV1::WorldChunk,
-    }
-}
-
-fn texture_color_space(value: AuthoringTextureColorSpaceV1) -> NeutralTextureColorSpaceV1 {
-    match value {
-        AuthoringTextureColorSpaceV1::Srgb => NeutralTextureColorSpaceV1::Srgb,
-        AuthoringTextureColorSpaceV1::Linear => NeutralTextureColorSpaceV1::Linear,
-        AuthoringTextureColorSpaceV1::Data => NeutralTextureColorSpaceV1::Data,
-    }
-}
-
-fn texture_alpha(value: AuthoringTextureAlphaV1) -> NeutralTextureAlphaSemanticsV1 {
-    match value {
-        AuthoringTextureAlphaV1::Opaque => NeutralTextureAlphaSemanticsV1::Opaque,
-        AuthoringTextureAlphaV1::Straight => NeutralTextureAlphaSemanticsV1::Straight,
-    }
-}
-
-fn insert_revision(
-    revisions: &mut BTreeMap<AssetId, AssetRevisionRefV1>,
-    revision: AssetRevisionRefV1,
-) -> Result<(), ProjectAuthoringError> {
-    if revisions.insert(revision.asset_id, revision).is_some() {
-        return Err(ProjectAuthoringError::DuplicateIdentity);
-    }
-    Ok(())
-}
-
-fn revision(
-    revisions: &BTreeMap<AssetId, AssetRevisionRefV1>,
-    id: &str,
-) -> Result<AssetRevisionRefV1, ProjectAuthoringError> {
-    revisions
-        .get(&asset_id(id)?)
-        .copied()
-        .ok_or_else(|| ProjectAuthoringError::MissingReference(id.to_owned()))
-}
-
-fn build_audio_clip(
-    asset_id: AssetId,
-    revision: u64,
-    sample_rate: u32,
-    samples: &[i16],
-) -> Result<NeutralAudioV1, ProjectAuthoringError> {
-    if samples.is_empty() {
-        return Err(ProjectAuthoringError::InvalidValue);
-    }
-    let mut pcm = Vec::with_capacity(samples.len() * 2);
-    let mut peak = 0_u32;
-    let mut energy = 0_u64;
-    for sample in samples {
-        pcm.extend_from_slice(&sample.to_le_bytes());
-        let magnitude = u32::from(sample.unsigned_abs());
-        peak = peak.max(magnitude);
-        energy = energy
-            .checked_add(u64::from(magnitude))
-            .ok_or(ProjectAuthoringError::InvalidValue)?;
-    }
-    let peak_q16_16 = peak.saturating_mul(65_536) / 32_767;
-    let mean =
-        energy / u64::try_from(samples.len()).map_err(|_| ProjectAuthoringError::InvalidValue)?;
-    let integrated = i32::try_from(mean.saturating_mul(65_536) / 32_767)
-        .unwrap_or(i32::MAX)
-        .saturating_sub(65_536);
-    Ok(NeutralAudioV1::new(
-        asset_id,
-        revision,
-        sample_rate,
-        1,
-        AudioPcmEncodingV1::PcmS16Le,
-        u64::try_from(samples.len()).map_err(|_| ProjectAuthoringError::InvalidValue)?,
-        None,
-        Vec::new(),
-        AudioLoudnessMetadataV1::new(integrated, peak_q16_16)?,
-        pcm,
-    )?)
-}
-
-fn envelope(amplitude: i32, index: u32, total: u32) -> i32 {
-    let total = i64::from(total.max(1));
-    let remaining = total.saturating_sub(i64::from(index));
-    i32::try_from(i64::from(amplitude).saturating_mul(remaining) / total).unwrap_or(
-        if amplitude.is_negative() {
-            i32::MIN
-        } else {
-            i32::MAX
-        },
-    )
-}
-
-fn synthesize_noise_burst(frames: u32, amplitude: i32, seed: u32) -> Vec<i16> {
-    let mut state = seed.max(1);
-    (0..frames)
-        .map(|index| {
-            state ^= state << 13;
-            state ^= state >> 17;
-            state ^= state << 5;
-            let noise = i32::from((state & 0xffff) as u16) - 32_767;
-            let sample = i64::from(noise) * i64::from(envelope(amplitude, index, frames)) / 32_767;
-            sample.clamp(-32_767, 32_767) as i16
-        })
-        .collect()
-}
-
-fn synthesize_two_tone(
-    frames: u32,
-    first_period: u32,
-    second_period: u32,
-    amplitude: i32,
-) -> Vec<i16> {
-    (0..frames)
-        .map(|index| {
-            let period = if index.saturating_mul(2) < frames {
-                first_period.max(2)
-            } else {
-                second_period.max(2)
-            };
-            let wave = if (index % period).saturating_mul(2) < period {
-                1_i64
-            } else {
-                -1_i64
-            };
-            (wave * i64::from(envelope(amplitude, index, frames))).clamp(-32_767, 32_767) as i16
-        })
-        .collect()
-}
-
-fn synthesize_thud(frames: u32, period: u32, amplitude: i32) -> Vec<i16> {
-    (0..frames)
-        .map(|index| {
-            let period = period.max(2);
-            let wave = if (index % period).saturating_mul(2) < period {
-                1_i64
-            } else {
-                -1_i64
-            };
-            let linear = i64::from(envelope(amplitude, index, frames));
-            let denominator = i64::from(amplitude.max(1));
-            (wave * linear * linear / denominator).clamp(-32_767, 32_767) as i16
-        })
-        .collect()
-}
-
-fn append_string(bytes: &mut Vec<u8>, value: &str) -> Result<(), ProjectAuthoringError> {
-    let length = u32::try_from(value.len()).map_err(|_| ProjectAuthoringError::InvalidValue)?;
-    bytes.extend_from_slice(&length.to_le_bytes());
-    bytes.extend_from_slice(value.as_bytes());
-    Ok(())
-}
+mod helpers;
+use helpers::*;
 
 #[derive(Debug)]
 #[non_exhaustive]

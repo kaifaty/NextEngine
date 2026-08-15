@@ -24,6 +24,7 @@ use super::{
 };
 use crate::engine::error::RuntimeFatalError;
 use crate::engine::result::{CommittedRpgPlanTraceV1, OrderedResult, RejectionCode};
+use crate::engine::world_population::WorldPopulationStageContextV1;
 use crate::engine::world_routine::WorldRoutineStageContextV1;
 use crate::registry::command_kind_registry_hash;
 
@@ -33,6 +34,7 @@ pub(super) fn execute_candidate(
     staged: &mut StagedAuthoritativeState,
     physical_bodies: &mut BTreeSet<next_contracts::ids::PersistentId>,
     world_routine: Option<&mut WorldRoutineStageContextV1>,
+    world_population: Option<&mut WorldPopulationStageContextV1>,
 ) -> Result<CandidateExecution, RuntimeFatalError> {
     let command = &candidate.command;
     let stream =
@@ -197,6 +199,15 @@ pub(super) fn execute_candidate(
                 );
             }
             CommandPayload::WorldRoutine(_) => {}
+            CommandPayload::WorldPopulation(_) if command.target.is_none() => {
+                return finalize_rejection(
+                    context,
+                    candidate,
+                    staged,
+                    RejectionCode::TargetNotAllowed,
+                );
+            }
+            CommandPayload::WorldPopulation(_) => {}
             _ if command.target.is_some() => {
                 return finalize_rejection(
                     context,
@@ -435,6 +446,17 @@ pub(super) fn execute_candidate(
         CommandPayload::WorldRoutine(_) => {
             let routine = world_routine.ok_or(RuntimeFatalError::WorldRoutineInternalInvariant)?;
             let (event, delta) = routine.apply_stage_9(
+                command,
+                context.tick,
+                context.phase_revision,
+                candidate.command_id,
+            )?;
+            (staged.rpg.clone(), vec![event], delta, None)
+        }
+        CommandPayload::WorldPopulation(_) => {
+            let population =
+                world_population.ok_or(RuntimeFatalError::WorldPopulationInternalInvariant)?;
+            let (event, delta) = population.apply_stage_9(
                 command,
                 context.tick,
                 context.phase_revision,

@@ -46,13 +46,17 @@ pub(super) fn complete(
     let final_routine_snapshot = direct.routine.snapshot_or_none().ok_or_else(|| {
         PersistenceReplayCheckError::condition("final world routine owner segment exists")
     })?;
+    let final_population_snapshot = direct.population.snapshot_or_none().ok_or_else(|| {
+        PersistenceReplayCheckError::condition("final world population owner segment exists")
+    })?;
     let final_state_root =
-        next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
+        next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root(
             &final_checkpoint.runtime_snapshot,
             &final_checkpoint.rpg_snapshot,
             &final_checkpoint.physics_checkpoint,
             direct.world.snapshot(),
-            final_routine_snapshot,
+            Some(final_routine_snapshot),
+            Some(final_population_snapshot),
         )
         .map_err(|error| PersistenceReplayCheckError::new("final state root", error.to_string()))?;
     let final_command_ledger_hash = final_checkpoint
@@ -96,13 +100,17 @@ fn verify_corrupt_fallbacks(
     let final_routine_snapshot = direct.routine.snapshot_or_none().ok_or_else(|| {
         PersistenceReplayCheckError::condition("final world routine owner segment exists")
     })?;
+    let final_population_snapshot = direct.population.snapshot_or_none().ok_or_else(|| {
+        PersistenceReplayCheckError::condition("final world population owner segment exists")
+    })?;
     let generation_one = restored
         .store
-        .commit_world_checkpoint_with_streaming_and_routine(
+        .commit_world_checkpoint_with_world_services(
             restored.compatibility.clone(),
             final_checkpoint,
             direct.world.snapshot(),
-            final_routine_snapshot,
+            Some(final_routine_snapshot),
+            final_population_snapshot,
         )
         .map_err(|error| {
             PersistenceReplayCheckError::new("commit generation one", error.to_string())
@@ -138,6 +146,8 @@ fn verify_corrupt_fallbacks(
         || fallback.checkpoint != restored.saved_checkpoint
         || fallback.world_streaming_snapshot.as_ref() != Some(&restored.saved_world_snapshot)
         || fallback.world_routine_snapshot_or_none != restored.saved_routine_snapshot_or_none
+        || fallback.world_population_snapshot_or_none
+            != Some(restored.saved_population_snapshot.clone())
         || !preserved_corrupt
         || !source_unchanged
     {

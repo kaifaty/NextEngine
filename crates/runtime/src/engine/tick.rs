@@ -30,6 +30,7 @@ use super::pipeline::{
 };
 use super::result::{StageTraceEntry, TickReport, TransactionStage};
 use super::state::{IngressQueueV1, RuntimeState, enqueue_input_sample_in_checkpoint};
+use super::world_population::WorldPopulationStageContextV1;
 use super::world_routine::WorldRoutineStageContextV1;
 
 mod preparation;
@@ -99,6 +100,7 @@ impl RuntimeTickPreparation<'_> {
             commands,
             outcome_provider,
             replay_ingress,
+            None,
             None,
             None,
         )
@@ -560,6 +562,7 @@ impl RuntimeState {
         replay_ingress: Option<ClosedIngressBatchV1>,
         world_streaming: Option<WorldStreamingStageContext<'_>>,
         mut world_routine: Option<&mut WorldRoutineStageContextV1>,
+        mut world_population: Option<&mut WorldPopulationStageContextV1>,
     ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
         let following_tick = self
             .next_tick
@@ -643,6 +646,7 @@ impl RuntimeState {
                 &mut staged,
                 world_streaming,
                 world_routine.as_deref_mut(),
+                world_population.as_deref_mut(),
             )?
         };
         let physics_step_input = ingress
@@ -735,6 +739,11 @@ impl RuntimeState {
             .map(|routine| routine.proposal_for_stage_9(tick, staged.revision))
             .transpose()?
             .flatten();
+        let population_proposal_or_none = world_population
+            .as_deref()
+            .map(|population| population.proposal_for_stage_9(tick, staged.revision))
+            .transpose()?
+            .flatten();
         let proposal_count = count(
             built_in_resolution
                 .outcomes
@@ -742,6 +751,9 @@ impl RuntimeState {
                 .checked_add(external_proposals.len())
                 .and_then(|count| {
                     count.checked_add(usize::from(routine_proposal_or_none.is_some()))
+                })
+                .and_then(|count| {
+                    count.checked_add(usize::from(population_proposal_or_none.is_some()))
                 })
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?,
         )?;
@@ -752,6 +764,9 @@ impl RuntimeState {
                 .checked_add(external_proposals.len())
                 .and_then(|count| {
                     count.checked_add(usize::from(routine_proposal_or_none.is_some()))
+                })
+                .and_then(|count| {
+                    count.checked_add(usize::from(population_proposal_or_none.is_some()))
                 })
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?,
         );
@@ -801,6 +816,9 @@ impl RuntimeState {
         if let Some(proposal) = routine_proposal_or_none {
             outcome_commands.push(proposal);
         }
+        if let Some(proposal) = population_proposal_or_none {
+            outcome_commands.push(proposal);
+        }
         sort_command_batch(&mut outcome_commands)?;
         let outcome_batch =
             ClosedCommandAdmissionBatchV2::from_body(ClosedCommandAdmissionBatchBodyV2 {
@@ -834,11 +852,15 @@ impl RuntimeState {
                 &mut staged,
                 None,
                 world_routine.as_deref_mut(),
+                world_population.as_deref_mut(),
             )?
         };
 
         if let Some(routine) = world_routine.as_deref() {
             routine.finish(following_tick)?;
+        }
+        if let Some(population) = world_population.as_deref() {
+            population.finish(following_tick)?;
         }
 
         stage_zone!("SnapshotPublication");

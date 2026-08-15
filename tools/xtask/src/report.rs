@@ -164,6 +164,36 @@ pub struct ProductionWorkerPerformanceDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct R4PopulationPerformanceDetailsV1 {
+    pub npc_count: u32,
+    pub active_count: u32,
+    pub near_count: u32,
+    pub background_count: u32,
+    pub warmup_ticks: u64,
+    pub measured_ticks: u64,
+    pub active_due: u64,
+    pub near_due: u64,
+    pub background_due: u64,
+    pub navigation_queries: u64,
+    pub maximum_queue_depth: u32,
+    pub deferred_work: u64,
+    pub dropped_work: u64,
+    pub maximum_starvation_age_ticks: u64,
+    pub navigation_p95_microseconds: u64,
+    pub navigation_p99_microseconds: u64,
+    pub world_services_p95_microseconds: u64,
+    pub world_services_p99_microseconds: u64,
+    pub elapsed_microseconds: u128,
+    pub command_body_count: u64,
+    pub final_population_snapshot_bytes: u64,
+    pub due_trace_root: String,
+    pub final_population_state_hash: String,
+    pub final_application_state_root: String,
+    pub final_command_ledger_hash: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct R5PhysicsWorkerPerformanceDetailsV1 {
     pub worker_count: u32,
     pub elapsed_microseconds: u64,
@@ -215,6 +245,8 @@ pub struct PerformanceDetailsV1 {
     pub live_runtime: Option<LiveRuntimePerformanceDetailsV1>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub production_worker: Option<ProductionWorkerPerformanceDetailsV1>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub r4_100npc: Option<R4PopulationPerformanceDetailsV1>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub r5_physics: Option<R5PhysicsPerformanceDetailsV1>,
 }
@@ -308,6 +340,7 @@ mod tests {
             render_planning: None,
             live_runtime: None,
             production_worker: None,
+            r4_100npc: None,
             r5_physics: None,
         };
 

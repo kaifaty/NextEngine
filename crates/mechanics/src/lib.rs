@@ -407,7 +407,7 @@ mod tests {
     }
 
     fn cooked_registry() -> RpgDefinitionRegistryV2 {
-        next_project::cook_project_v3(next_reference_game::project_source_v3().expect("source"))
+        next_project::cook_project_v4(next_reference_game::project_source_v4().expect("source"))
             .expect("cook")
             .rpg_definitions
     }

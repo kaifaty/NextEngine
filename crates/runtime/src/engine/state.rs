@@ -25,6 +25,10 @@ use next_contracts::snapshot::{
     RuntimeSnapshotV3, WorldCheckpointCanonicalComponentsV1, WorldCheckpointError,
     WorldCheckpointV4,
 };
+use next_contracts::world_population::{
+    WORLD_POPULATION_PRIORITY_CLASS, WORLD_POPULATION_SYSTEM_ID, WorldPopulationCommandV1,
+    WorldPopulationSnapshotV1,
+};
 use next_contracts::world_routine::{
     WORLD_ROUTINE_PRIORITY_CLASS, WORLD_ROUTINE_SYSTEM_ID, WorldRoutineActivityV1,
     WorldRoutineCommandV1, WorldRoutineSnapshotV1,
@@ -483,6 +487,111 @@ impl RuntimeState {
                 Ok(())
             }
             _ => Err(invalid()),
+        }
+    }
+
+    /// Validates that every durable population revision was created by the
+    /// exact committed boundary command prescribed by the population catalog.
+    /// Genesis has no receipt; courier revisions one through seven each have
+    /// one byte-valid command and one event receipt at their prescribed tick.
+    pub fn validate_world_population_ledger_closure(
+        &self,
+        owner: &next_world::WorldPopulationOwnerV1,
+    ) -> Result<(), SnapshotRestoreError> {
+        let invalid = || SnapshotRestoreError::WorldPopulationLedgerClosureInvalid;
+        owner.validate(self.next_tick).map_err(|_| invalid())?;
+        let (expected_subject, mut expected) = match (
+            owner.population_catalog_or_none(),
+            owner.navigation_catalog_or_none(),
+            owner.snapshot_or_none(),
+        ) {
+            (Some(population), Some(navigation), Some(snapshot)) => {
+                let mut staged = WorldPopulationSnapshotV1::initial(population, navigation)
+                    .map_err(|_| invalid())?;
+                let courier = snapshot
+                    .record(population.courier_subject_id)
+                    .ok_or_else(invalid)?;
+                let mut expected = Vec::with_capacity(
+                    usize::try_from(courier.record_revision).map_err(|_| invalid())?,
+                );
+                for offset in 0..courier.record_revision {
+                    let tick = population
+                        .courier_transition_start_tick
+                        .checked_add(offset)
+                        .ok_or_else(invalid)?;
+                    let command = owner
+                        .expected_command_for_snapshot(&staged, tick)
+                        .map_err(|_| invalid())?
+                        .ok_or_else(invalid)?;
+                    owner
+                        .apply_command_to_snapshot(&mut staged, &command, tick)
+                        .map_err(|_| invalid())?;
+                    expected.push((command, tick));
+                }
+                if &staged != snapshot {
+                    return Err(invalid());
+                }
+                (Some(population.courier_subject_id), expected)
+            }
+            (None, None, None) => (None, Vec::new()),
+            _ => return Err(invalid()),
+        };
+        let population_issuer = IssuerPrincipal::InternalSystem(
+            SystemId::new(WORLD_POPULATION_SYSTEM_ID).map_err(|_| invalid())?,
+        );
+        let mut committed = Vec::new();
+        for (body_hash, body_bytes) in self.body_archive.entries() {
+            let command =
+                WorldCommand::from_canonical_bytes(body_bytes, CanonicalDecodeLimits::default())
+                    .map_err(|_| invalid())?;
+            let CommandPayload::WorldPopulation(payload) = &command.payload else {
+                continue;
+            };
+            for receipt in self.command_ledger().streams.values().flat_map(|stream| {
+                stream.receipt_window.iter().filter(|receipt| {
+                    matches!(
+                        (&receipt.subject, &receipt.result),
+                        (
+                            CommandReceiptSubjectV1::Command {
+                                body_hash: receipt_body_hash,
+                                ..
+                            },
+                            CommandFinalResultV1::Committed
+                        ) if receipt_body_hash == body_hash
+                    )
+                })
+            }) {
+                let expected_sequence = match payload {
+                    WorldPopulationCommandV1::TransitionTier {
+                        expected_record_revision,
+                        ..
+                    }
+                    | WorldPopulationCommandV1::CommitAbstractTransfer {
+                        expected_record_revision,
+                        ..
+                    } => *expected_record_revision,
+                };
+                if command.issuer != population_issuer
+                    || command.phase != CommandPhase::Outcome
+                    || command.target != expected_subject
+                    || command.sequence != expected_sequence
+                    || receipt.phase != CommandPhase::Outcome
+                    || receipt.priority_class != WORLD_POPULATION_PRIORITY_CLASS
+                    || receipt.target_tick != command.target_tick
+                    || receipt.finalized_at_tick != command.target_tick
+                    || receipt.event_ids.len() != 1
+                {
+                    return Err(invalid());
+                }
+                committed.push((payload.clone(), command.target_tick));
+            }
+        }
+        expected.sort_by_key(|(_, tick)| *tick);
+        committed.sort_by_key(|(_, tick)| *tick);
+        if committed == expected {
+            Ok(())
+        } else {
+            Err(invalid())
         }
     }
 

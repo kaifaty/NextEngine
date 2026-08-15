@@ -254,6 +254,7 @@ mod tests {
                 render_planning: None,
                 live_runtime: None,
                 production_worker: None,
+                r4_100npc: None,
                 r5_physics: None,
             },
         );

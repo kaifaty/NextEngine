@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 use crate::canonical::{CanonicalDecodeError, CanonicalError};
 use crate::physics::PhysicsContractError;
 use crate::rpg::RpgContractErrorV1;
+use crate::world_population::WorldPopulationContractError;
 use crate::world_routine::WorldRoutineContractError;
 
 use super::principal::PrincipalDecodeError;
@@ -17,6 +18,7 @@ pub enum CommandDecodeError {
     Rpg(RpgContractErrorV1),
     Physics(PhysicsContractError),
     WorldRoutine(WorldRoutineContractError),
+    WorldPopulation(WorldPopulationContractError),
     Identifier(crate::ids::IdentifierError),
     WrongEnvelope,
     UnknownField(u32),
@@ -66,6 +68,12 @@ impl Display for CommandDecodeError {
                 write!(
                     formatter,
                     "command world routine payload is invalid: {error}"
+                )
+            }
+            Self::WorldPopulation(error) => {
+                write!(
+                    formatter,
+                    "command world population payload is invalid: {error}"
                 )
             }
             Self::Identifier(error) => write!(formatter, "command identifier is invalid: {error}"),
@@ -164,6 +172,12 @@ impl From<PhysicsContractError> for CommandDecodeError {
 impl From<WorldRoutineContractError> for CommandDecodeError {
     fn from(error: WorldRoutineContractError) -> Self {
         Self::WorldRoutine(error)
+    }
+}
+
+impl From<WorldPopulationContractError> for CommandDecodeError {
+    fn from(error: WorldPopulationContractError) -> Self {
+        Self::WorldPopulation(error)
     }
 }
 

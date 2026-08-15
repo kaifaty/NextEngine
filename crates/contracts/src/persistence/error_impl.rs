@@ -81,6 +81,12 @@ impl Display for ManifestValidationError {
             Self::WorldRoutine(error) => {
                 write!(formatter, "replay world-routine value is invalid: {error}")
             }
+            Self::WorldPopulation(error) => {
+                write!(
+                    formatter,
+                    "replay world-population value is invalid: {error}"
+                )
+            }
         }
     }
 }
@@ -150,5 +156,11 @@ impl From<crate::world::WorldStreamingContractError> for ManifestValidationError
 impl From<crate::world_routine::WorldRoutineContractError> for ManifestValidationError {
     fn from(error: crate::world_routine::WorldRoutineContractError) -> Self {
         Self::WorldRoutine(error)
+    }
+}
+
+impl From<crate::world_population::WorldPopulationContractError> for ManifestValidationError {
+    fn from(error: crate::world_population::WorldPopulationContractError) -> Self {
+        Self::WorldPopulation(error)
     }
 }

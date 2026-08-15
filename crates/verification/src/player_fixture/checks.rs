@@ -262,10 +262,10 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
                     && tick_1.runtime_report.tick == 1
                     && boundary_report.tick == 2
                     && rest_report.tick == 3
-                    && boundary_report.command_batches[1]
-                        .body
-                        .envelopes
+                    && boundary_report
+                        .command_batches
                         .iter()
+                        .flat_map(|batch| batch.body.envelopes.iter())
                         .filter(|command| {
                             matches!(
                                 command.payload,
@@ -306,7 +306,7 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
                     && rest_report.rpg_snapshot == branch.initial_rpg_snapshot
                     && commits
                         .iter()
-                        .all(|commit| commit.application_owner_segments.len() == 5)
+                        .all(|commit| commit.application_owner_segments.len() == 6)
             } else {
                 false
             };
@@ -401,23 +401,15 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         world_streaming_generation: scenario.world_streaming_snapshot.generation,
         current_chunk_id: scenario.world_streaming_snapshot.current_chunk_id.clone(),
         final_command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
-        final_state_root: match scenario.world_routine_snapshot_or_none.as_ref() {
-            Some(routine) => {
-                next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
-                    &checkpoint.runtime_snapshot,
-                    &checkpoint.rpg_snapshot,
-                    &checkpoint.physics_checkpoint,
-                    &scenario.world_streaming_snapshot,
-                    routine,
-                )?
-            }
-            None => next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
+        final_state_root:
+            next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root(
                 &checkpoint.runtime_snapshot,
                 &checkpoint.rpg_snapshot,
                 &checkpoint.physics_checkpoint,
                 &scenario.world_streaming_snapshot,
+                scenario.world_routine_snapshot_or_none.as_ref(),
+                Some(&scenario.world_population_snapshot),
             )?,
-        },
     };
     let command_archive_root = checkpoint
         .runtime_snapshot
@@ -433,7 +425,7 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         .to_hex();
     if report.ticks != 32
         || report.final_pose.translation_micrometres != [0, 900_000, -200_000]
-        || report.events != 28
+        || report.events != 35
         || report.rpg_events != 13
         || report.interactive_object_state.as_str()
             != next_contracts::rpg::CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
@@ -444,11 +436,11 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         || report.player_health != 50
         || report.world_streaming_generation != 2
         || command_archive_root
-            != "5e0be2267cee6dbf054598d7547278e40ef5dff0bf015f39b1cd1a8843184047"
+            != "f2686f556f345a79eb021cb6caaf83d4f624b74791e98a71ffcad8c809669040"
         || command_identity_index_root
-            != "296fd037cbc9866b998817f3b654cbbd4f79c8dcf159710e86dbdcd0545a8c40"
+            != "97a38fe7d903418fd2d40eaf7d794e42cd79c325d5a1e97b48b7c9c364843aa6"
         || report.final_command_ledger_hash.to_hex()
-            != "651c862041e27836300a4be6a0f55816b3a8f3f9f1a6a02bc4b0542eb18e8e2d"
+            != "5a4cb8d49e1ecdf2723b6bbf3fd3db66c2a3b5fc3d8d9e20786796b609e5e36e"
         || stage_checkpoint_count != 3
         || !stage_checkpoints_match_acceptance
         || !duty_branch_matches

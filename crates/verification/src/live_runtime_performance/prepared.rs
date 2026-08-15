@@ -336,10 +336,10 @@ impl PreparedDriverWorkload {
         scratch: &ScratchContext,
         workload: LiveRuntimeWorkload,
     ) -> Result<(Self, ScratchDirectory), LiveRuntimePerformanceError> {
-        let source = next_reference_game::project_source_v3().map_err(|error| {
+        let source = next_reference_game::project_source_v4().map_err(|error| {
             LiveRuntimePerformanceError::new("fixture source", error.to_string())
         })?;
-        let cooked = next_project::cook_project_v3(source)
+        let cooked = next_project::cook_project_v4(source)
             .map_err(|error| LiveRuntimePerformanceError::new("cook fixture", error.to_string()))?;
         let directory = scratch
             .create_directory(workload.directory_label)
@@ -800,11 +800,34 @@ fn finalize_driver_measurement(
             .len(),
     )
     .map_err(|error| LiveRuntimePerformanceError::new("command body count", error.to_string()))?;
-    // One movement command is authored per measured tick; the reference R4a
-    // routine contributes its single Duty -> Rest Outcome command.
-    let expected_command_body_count = workload.ticks.checked_add(1).ok_or_else(|| {
-        LiveRuntimePerformanceError::new("command body count", "expected count overflow")
-    })?;
+    // One movement command is authored per measured tick. Each durable
+    // World Services record revision is backed by exactly one additional
+    // command body in the ledger.
+    let routine_command_body_count = measurement
+        .state
+        .world_routine_snapshot_or_none
+        .as_ref()
+        .map_or(0, |snapshot| snapshot.record.record_revision);
+    let population_command_body_count = measurement
+        .state
+        .world_population_snapshot
+        .records
+        .iter()
+        .try_fold(0_u64, |count, record| {
+            count.checked_add(record.record_revision).ok_or_else(|| {
+                LiveRuntimePerformanceError::new(
+                    "command body count",
+                    "population revision count overflow",
+                )
+            })
+        })?;
+    let expected_command_body_count = workload
+        .ticks
+        .checked_add(routine_command_body_count)
+        .and_then(|count| count.checked_add(population_command_body_count))
+        .ok_or_else(|| {
+            LiveRuntimePerformanceError::new("command body count", "expected count overflow")
+        })?;
     if measurement.state.ticks != workload.ticks
         || command_body_count != expected_command_body_count
         || measurement.checkpoint_root != measurement.state.checkpoint.state_root

@@ -17,6 +17,11 @@ use crate::physics::{
 use crate::rpg::{
     RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID, RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
 };
+use crate::world_population::{
+    WORLD_POPULATION_CAPABILITY_ID, WORLD_POPULATION_COMMAND_KIND_ID,
+    WORLD_POPULATION_COMMAND_SCHEMA_ID, WORLD_POPULATION_COMMAND_SCHEMA_VERSION,
+    WORLD_POPULATION_PRIORITY_CLASS,
+};
 use crate::world_routine::{
     WORLD_ROUTINE_CAPABILITY_ID, WORLD_ROUTINE_COMMAND_KIND_ID, WORLD_ROUTINE_COMMAND_SCHEMA_ID,
     WORLD_ROUTINE_COMMAND_SCHEMA_VERSION,
@@ -95,7 +100,7 @@ pub struct CommandKindRegistryV1 {
 }
 
 impl CommandKindRegistryV1 {
-    pub fn core_r4a() -> Result<Self, IdentityContractError> {
+    pub fn core_r4b() -> Result<Self, IdentityContractError> {
         let entry = |payload_schema_id: &str,
                      payload_schema_version: u32,
                      command_kind_id: &str,
@@ -155,6 +160,14 @@ impl CommandKindRegistryV1 {
                     b"nextengine.command-validator.world-routine.v1\0",
                     WORLD_ROUTINE_CAPABILITY_ID,
                 )?,
+                entry(
+                    WORLD_POPULATION_COMMAND_SCHEMA_ID,
+                    WORLD_POPULATION_COMMAND_SCHEMA_VERSION,
+                    WORLD_POPULATION_COMMAND_KIND_ID,
+                    WORLD_POPULATION_PRIORITY_CLASS,
+                    b"nextengine.command-validator.world-population.v1\0",
+                    WORLD_POPULATION_CAPABILITY_ID,
+                )?,
             ]),
         };
         value.validate()?;
@@ -211,6 +224,10 @@ impl CommandKindRegistryV1 {
                     WORLD_ROUTINE_COMMAND_SCHEMA_ID,
                     CommandPayload::WorldRoutine(_)
                 )
+                | (
+                    WORLD_POPULATION_COMMAND_SCHEMA_ID,
+                    CommandPayload::WorldPopulation(_)
+                )
         )
     }
 
@@ -220,6 +237,7 @@ impl CommandKindRegistryV1 {
             NOOP_COMMAND_SCHEMA_ID | RPG_COMMAND_SCHEMA_ID => true,
             PHYSICAL_COMMAND_SCHEMA_ID => phase == CommandPhase::Ingress,
             WORLD_ROUTINE_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
+            WORLD_POPULATION_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
             _ => false,
         }
     }
@@ -471,9 +489,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn r4a_registry_is_four_entry_canonical_round_trip() {
-        let registry = CommandKindRegistryV1::core_r4a().expect("core registry builds");
-        assert_eq!(registry.entries.len(), 4);
+    fn r4b_registry_is_five_entry_canonical_round_trip() {
+        let registry = CommandKindRegistryV1::core_r4b().expect("core registry builds");
+        assert_eq!(registry.entries.len(), 5);
         let bytes = registry.canonical_bytes().expect("registry encodes");
         assert_eq!(
             CommandKindRegistryV1::from_canonical_bytes(&bytes, Default::default()),
@@ -487,12 +505,30 @@ mod tests {
 
     #[test]
     fn routine_entry_is_outcome_only_at_priority_250() {
-        let registry = CommandKindRegistryV1::core_r4a().expect("core registry builds");
+        let registry = CommandKindRegistryV1::core_r4b().expect("core registry builds");
         let schema = SchemaId::new(WORLD_ROUTINE_COMMAND_SCHEMA_ID).expect("schema is valid");
         let entry = registry
             .descriptor(&schema, WORLD_ROUTINE_COMMAND_SCHEMA_VERSION)
             .expect("routine command is registered");
         assert_eq!(entry.priority_class, 250);
+        assert!(!CommandKindRegistryV1::allows_phase(
+            entry,
+            CommandPhase::Ingress
+        ));
+        assert!(CommandKindRegistryV1::allows_phase(
+            entry,
+            CommandPhase::Outcome
+        ));
+    }
+
+    #[test]
+    fn population_entry_is_outcome_only_at_priority_260() {
+        let registry = CommandKindRegistryV1::core_r4b().expect("core registry builds");
+        let schema = SchemaId::new(WORLD_POPULATION_COMMAND_SCHEMA_ID).expect("schema is valid");
+        let entry = registry
+            .descriptor(&schema, WORLD_POPULATION_COMMAND_SCHEMA_VERSION)
+            .expect("population command is registered");
+        assert_eq!(entry.priority_class, WORLD_POPULATION_PRIORITY_CLASS);
         assert!(!CommandKindRegistryV1::allows_phase(
             entry,
             CommandPhase::Ingress

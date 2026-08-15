@@ -21,7 +21,7 @@ pub(super) fn fixture() -> Fixture {
 }
 
 pub(super) fn fixture_for(project_id: &str, principal: IssuerPrincipal) -> Fixture {
-    let profile = RuntimeDeterminismBundleV1::core_r4a()
+    let profile = RuntimeDeterminismBundleV1::core_r4b()
         .expect("determinism bundle")
         .runtime_profile();
     let world = WorldIdentityManifestV1::new(
@@ -85,7 +85,7 @@ pub(super) struct PhysicalFixture {
 
 pub(super) fn physical_fixture() -> PhysicalFixture {
     let principal = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([13; 16]));
-    let profile = RuntimeDeterminismBundleV1::core_r4a()
+    let profile = RuntimeDeterminismBundleV1::core_r4b()
         .expect("determinism bundle")
         .runtime_profile();
     let world = WorldIdentityManifestV1::new(

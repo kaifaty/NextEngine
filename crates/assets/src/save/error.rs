@@ -8,6 +8,7 @@ use next_contracts::physics::PhysicsContractError;
 use next_contracts::rpg::RpgContractErrorV1;
 use next_contracts::snapshot::{SnapshotDecodeError, WorldCheckpointError};
 use next_contracts::world::WorldStreamingContractError;
+use next_contracts::world_population::WorldPopulationContractError;
 use next_contracts::world_routine::WorldRoutineContractError;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -39,6 +40,7 @@ pub enum SaveStoreError {
     PhysicsSnapshotDecode(PhysicsContractError),
     WorldStreamingSnapshotDecode(WorldStreamingContractError),
     WorldRoutineSnapshotDecode(WorldRoutineContractError),
+    WorldPopulationSnapshotDecode(WorldPopulationContractError),
     WorldCheckpoint(WorldCheckpointError),
     InvalidImage(&'static str),
     InvalidStaging(&'static str),
@@ -81,6 +83,7 @@ impl SaveStoreError {
                 }
                 _ => "SAVE_WORLD_ROUTINE_SNAPSHOT_INVALID",
             },
+            Self::WorldPopulationSnapshotDecode(error) => error.diagnostic_code(),
             Self::WorldCheckpoint(error) => error.stable_code(),
             Self::InvalidImage(code) | Self::InvalidStaging(code) => code,
             Self::GenerationExhausted => "SAVE_GENERATION_EXHAUSTED",
@@ -120,6 +123,12 @@ impl Display for SaveStoreError {
             Self::WorldRoutineSnapshotDecode(error) => {
                 write!(formatter, "save world routine snapshot is invalid: {error}")
             }
+            Self::WorldPopulationSnapshotDecode(error) => {
+                write!(
+                    formatter,
+                    "save world population snapshot is invalid: {error}"
+                )
+            }
             Self::WorldCheckpoint(error) => {
                 write!(formatter, "save world checkpoint is invalid: {error}")
             }
@@ -142,6 +151,7 @@ impl Error for SaveStoreError {
             Self::PhysicsSnapshotDecode(error) => Some(error),
             Self::WorldStreamingSnapshotDecode(error) => Some(error),
             Self::WorldRoutineSnapshotDecode(error) => Some(error),
+            Self::WorldPopulationSnapshotDecode(error) => Some(error),
             Self::WorldCheckpoint(error) => Some(error),
             _ => None,
         }
@@ -193,6 +203,12 @@ impl From<WorldStreamingContractError> for SaveStoreError {
 impl From<WorldRoutineContractError> for SaveStoreError {
     fn from(error: WorldRoutineContractError) -> Self {
         Self::WorldRoutineSnapshotDecode(error)
+    }
+}
+
+impl From<WorldPopulationContractError> for SaveStoreError {
+    fn from(error: WorldPopulationContractError) -> Self {
+        Self::WorldPopulationSnapshotDecode(error)
     }
 }
 

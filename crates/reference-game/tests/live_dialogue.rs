@@ -182,8 +182,8 @@ fn quest_state_and_trust(driver: &ReferenceGameDriverV2) -> (String, i32) {
 fn live_dialogue_accept_after_boundary_is_rejected_by_production_routine_gate() {
     let root = test_root("live-dialogue-accept");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v3(
-        next_reference_game::project_source_v3().expect("reference source"),
+    let cooked = next_project::cook_project_v4(
+        next_reference_game::project_source_v4().expect("reference source"),
     )
     .expect("cook");
     store
@@ -309,8 +309,8 @@ fn live_dialogue_accept_after_boundary_is_rejected_by_production_routine_gate() 
 fn live_dialogue_leave_then_rest_blocks_reopen_and_survives_recovery() {
     let root = test_root("live-dialogue-leave-back");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v3(
-        next_reference_game::project_source_v3().expect("reference source"),
+    let cooked = next_project::cook_project_v4(
+        next_reference_game::project_source_v4().expect("reference source"),
     )
     .expect("cook");
     store
@@ -382,6 +382,7 @@ fn live_dialogue_leave_then_rest_blocks_reopen_and_survives_recovery() {
         saved.checkpoint.clone(),
         saved.world_streaming_snapshot.clone(),
         saved.world_routine_snapshot_or_none,
+        saved.world_population_snapshot,
         saved.driver_recovery.clone(),
     )
     .expect("restore");

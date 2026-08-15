@@ -7,6 +7,10 @@ use next_contracts::identity::{
 use next_contracts::ids::{
     CapabilityId, CommandStreamId, ProjectId, SchemaId, SystemId, content_hash_from_bytes,
 };
+use next_contracts::world_population::{
+    WORLD_POPULATION_CAPABILITY_ID, WORLD_POPULATION_CAPABILITY_SUBJECT_ID,
+    WORLD_POPULATION_SYSTEM_ID,
+};
 use next_contracts::world_routine::{
     WORLD_ROUTINE_CAPABILITY_ID, WORLD_ROUTINE_CAPABILITY_SUBJECT_ID, WORLD_ROUTINE_SYSTEM_ID,
 };
@@ -31,7 +35,7 @@ pub fn build_reference_runtime_bootstrap(
     project_id: &str,
     grants: impl IntoIterator<Item = (IssuerPrincipal, Vec<CapabilityId>)>,
 ) -> Result<ReferenceRuntimeBootstrap, crate::ReferenceGameError> {
-    let profile = RuntimeDeterminismBundleV1::core_r4a()?.runtime_profile();
+    let profile = RuntimeDeterminismBundleV1::core_r4b()?.runtime_profile();
     let world_identity = WorldIdentityManifestV1::new(
         ProjectId::new(project_id)?,
         sha256(format!("nextengine.fixture.nonce:{project_id}").as_bytes()),
@@ -50,6 +54,8 @@ pub fn build_reference_runtime_bootstrap(
     for (principal, capabilities) in grants {
         let routine_principal =
             IssuerPrincipal::InternalSystem(SystemId::new(WORLD_ROUTINE_SYSTEM_ID)?);
+        let population_principal =
+            IssuerPrincipal::InternalSystem(SystemId::new(WORLD_POPULATION_SYSTEM_ID)?);
         let (provenance_hash, capability_subject_id) = if principal == routine_principal {
             if capabilities.as_slice() != [CapabilityId::new(WORLD_ROUTINE_CAPABILITY_ID)?] {
                 return Err(crate::ReferenceGameError::DuplicatePrincipal);
@@ -59,6 +65,16 @@ pub fn build_reference_runtime_bootstrap(
                     b"nextengine.principal.world-routine-boundary.v1\0",
                 )),
                 SchemaId::new(WORLD_ROUTINE_CAPABILITY_SUBJECT_ID)?,
+            )
+        } else if principal == population_principal {
+            if capabilities.as_slice() != [CapabilityId::new(WORLD_POPULATION_CAPABILITY_ID)?] {
+                return Err(crate::ReferenceGameError::DuplicatePrincipal);
+            }
+            (
+                content_hash_from_bytes(sha256(
+                    b"nextengine.principal.world-population-boundary.v1\0",
+                )),
+                SchemaId::new(WORLD_POPULATION_CAPABILITY_SUBJECT_ID)?,
             )
         } else {
             let principal_bytes = principal.canonical_bytes()?;

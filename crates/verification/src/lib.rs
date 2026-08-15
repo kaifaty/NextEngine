@@ -8,6 +8,7 @@ mod persistence_replay;
 mod physics_parity;
 mod platform_check;
 mod player_fixture;
+mod population_performance;
 mod r2_render_performance;
 mod render_performance;
 mod replay;
@@ -71,6 +72,11 @@ pub use player_fixture::{
     run_physics_collision_check, run_physics_collision_check_with_backend, run_play_check,
     run_play_check_in, run_play_check_with_activated_project,
 };
+pub use population_performance::{
+    PopulationDueCountsV1, PopulationPerformanceErrorV1, PopulationPerformanceReportV1,
+    R4_100NPC_MEASURED_TICKS, R4_100NPC_WARMUP_TICKS, run_population_performance_check,
+    run_population_performance_check_in,
+};
 pub use r2_render_performance::{
     PreparedR2AlphaRenderPerformanceCheckV1, R2_ALPHA_RENDER_MEASURED_FRAMES_PER_WINDOW,
     R2_ALPHA_RENDER_PROFILE_COUNT, R2_ALPHA_RENDER_WARMUP_FRAMES_PER_WINDOW,
@@ -89,7 +95,7 @@ pub use render_performance::{
 pub use replay::{
     ReplayComparePointMismatch, ReplayError, ReplayInput, ReplayOutput, ReplayTickInput,
     ReplayTickRecord, RpgReplayInput, RpgReplayOutput, compare_replay_outputs,
-    compute_world_checkpoint_root, run_replay, run_replay_manifest_v6, run_rpg_replay,
+    compute_world_checkpoint_root, run_replay, run_replay_manifest_v7, run_rpg_replay,
     verify_replay,
 };
 pub use runtime_fixture::{
@@ -109,4 +115,4 @@ pub use v1_closure::{
     run_v1_closure_check, run_v1_closure_check_in,
 };
 
-pub(crate) use replay::{replay_command_results, run_replay_manifest_v6_with_physics_options};
+pub(crate) use replay::{replay_command_results, run_replay_manifest_v7_with_physics_options};

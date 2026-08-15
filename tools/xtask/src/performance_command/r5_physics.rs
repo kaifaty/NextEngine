@@ -342,6 +342,7 @@ pub(super) fn performance_report(
             render_planning: None,
             live_runtime: None,
             production_worker: None,
+            r4_100npc: None,
             r5_physics: Some(R5PhysicsPerformanceDetailsV1 {
                 evidence_run_count: 1,
                 slot_count: report.slot_count,

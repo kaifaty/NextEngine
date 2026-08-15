@@ -5,7 +5,7 @@ use next_contracts::canonical::{CanonicalDecodeLimits, CanonicalError};
 use next_contracts::command::{DomainEvent, WorldCommand};
 use next_contracts::ids::{CommandLedgerHash, SchemaId, StateRoot};
 use next_contracts::persistence::{
-    ManifestValidationError, ReplayCommandResultV2, ReplayManifestV6, SaveSegmentDescriptor,
+    ManifestValidationError, ReplayCommandResultV2, ReplayManifestV7, SaveSegmentDescriptor,
     WorldStreamingReplayInputV1, replay_physics_query_batch_hash,
     replay_physics_query_results_hash, replay_targeting_query_trace_hash,
 };
@@ -99,6 +99,7 @@ pub enum ReplayError {
     WorldStreaming(next_world::WorldStreamingError),
     WorldStreamingContract(next_contracts::world::WorldStreamingContractError),
     WorldRoutine(next_world::WorldRoutineOwnerError),
+    WorldPopulation(next_world::WorldPopulationOwnerError),
     Manifest(ManifestValidationError),
     SnapshotRestore(SnapshotRestoreError),
     WorldCheckpoint(next_contracts::snapshot::WorldCheckpointError),
@@ -127,6 +128,7 @@ impl ReplayError {
             Self::WorldStreaming(_) => "REPLAY_WORLD_STREAMING_FAILED",
             Self::WorldStreamingContract(_) => "REPLAY_WORLD_STREAMING_FAILED",
             Self::WorldRoutine(_) => "REPLAY_WORLD_ROUTINE_FAILED",
+            Self::WorldPopulation(_) => "REPLAY_WORLD_POPULATION_FAILED",
             Self::Manifest(ManifestValidationError::UnsupportedReplayVersion(_)) => {
                 "UNSUPPORTED_REPLAY_MANIFEST_VERSION"
             }
@@ -157,6 +159,9 @@ impl Display for ReplayError {
             }
             Self::WorldRoutine(error) => {
                 write!(formatter, "world routine failed during replay: {error}")
+            }
+            Self::WorldPopulation(error) => {
+                write!(formatter, "world population failed during replay: {error}")
             }
             Self::Manifest(error) => write!(formatter, "replay manifest is invalid: {error}"),
             Self::SnapshotRestore(error) => {
@@ -229,6 +234,12 @@ impl From<next_contracts::world::WorldStreamingContractError> for ReplayError {
 impl From<next_world::WorldRoutineOwnerError> for ReplayError {
     fn from(error: next_world::WorldRoutineOwnerError) -> Self {
         Self::WorldRoutine(error)
+    }
+}
+
+impl From<next_world::WorldPopulationOwnerError> for ReplayError {
+    fn from(error: next_world::WorldPopulationOwnerError) -> Self {
+        Self::WorldPopulation(error)
     }
 }
 
@@ -308,19 +319,19 @@ pub fn run_rpg_replay(input: &RpgReplayInput) -> Result<RpgReplayOutput, ReplayE
     })
 }
 
-pub fn run_replay_manifest_v6(
-    manifest: &ReplayManifestV6,
+pub fn run_replay_manifest_v7(
+    manifest: &ReplayManifestV7,
     package: next_project::ActivatedProjectPackage,
 ) -> Result<ReplayOutput, ReplayError> {
-    run_replay_manifest_v6_with_physics_options(
+    run_replay_manifest_v7_with_physics_options(
         manifest,
         package,
         next_runtime::PhysicsLaunchOptions::default(),
     )
 }
 
-pub fn run_replay_manifest_v6_with_physics_options(
-    manifest: &ReplayManifestV6,
+pub fn run_replay_manifest_v7_with_physics_options(
+    manifest: &ReplayManifestV7,
     package: next_project::ActivatedProjectPackage,
     physics_options: next_runtime::PhysicsLaunchOptions,
 ) -> Result<ReplayOutput, ReplayError> {
@@ -340,6 +351,12 @@ pub fn run_replay_manifest_v6_with_physics_options(
         initial.world_routine_snapshot_or_none,
         initial.checkpoint.runtime_snapshot.next_tick,
     )?;
+    let mut population = next_world::WorldPopulationOwnerV1::restore(
+        project.world_population_catalog.clone(),
+        project.world_navigation_catalog.clone(),
+        initial.world_population_snapshot,
+        initial.checkpoint.runtime_snapshot.next_tick,
+    )?;
 
     let mut authority = AuthorityRegistry::new();
     for grant in &manifest.authority {
@@ -354,6 +371,7 @@ pub fn run_replay_manifest_v6_with_physics_options(
         physics_options,
     )?;
     replay.validate_world_routine_ledger_closure(&routine)?;
+    replay.validate_world_population_ledger_closure(&population)?;
     let mut records = Vec::with_capacity(decoded_ticks.len());
     for ((tick_manifest, tick), compare_point) in manifest
         .ticks
@@ -366,8 +384,9 @@ pub fn run_replay_manifest_v6_with_physics_options(
             tick_manifest.tick,
             &mut world,
         )?;
-        let commit = match replay.replay_world_services_tick_v6(
+        let commit = match replay.replay_world_services_tick_v7(
             &mut routine,
+            &mut population,
             &mut world,
             streaming,
             tick.closed_ingress_batch,

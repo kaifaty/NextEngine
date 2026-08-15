@@ -66,10 +66,10 @@ pub fn run_live_runtime_history_scaling_diagnostic_in(
         })?;
     let store = ContentStore::new(directory.path());
     let result = (|| {
-        let source = next_reference_game::project_source_v3().map_err(|error| {
+        let source = next_reference_game::project_source_v4().map_err(|error| {
             LiveRuntimePerformanceError::new("history-scaling fixture source", error.to_string())
         })?;
-        let cooked = next_project::cook_project_v3(source).map_err(|error| {
+        let cooked = next_project::cook_project_v4(source).map_err(|error| {
             LiveRuntimePerformanceError::new("cook history-scaling fixture", error.to_string())
         })?;
         store

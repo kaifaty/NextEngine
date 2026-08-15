@@ -2,7 +2,7 @@ use next_contracts::input::PlayerActionPhaseV1;
 use next_contracts::persistence::WorldStreamingReplayInputV1;
 use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState};
-use next_world::{WorldRoutineOwnerV1, WorldStreamerV1};
+use next_world::{WorldPopulationOwnerV1, WorldRoutineOwnerV1, WorldStreamerV1};
 
 use crate::player_fixture::prepare_fixture_project_package_with_scratch;
 use crate::scratch::ScratchContext;
@@ -69,11 +69,22 @@ pub(super) fn initialize(
     .map_err(|error| {
         PersistenceReplayCheckError::new("activate world routine", error.to_string())
     })?;
+    let population = WorldPopulationOwnerV1::activate(
+        fixture.activated_project.world_population_catalog.clone(),
+        fixture.activated_project.world_navigation_catalog.clone(),
+        runtime.next_tick(),
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("activate world population", error.to_string())
+    })?;
     let initial_checkpoint = runtime.world_checkpoint().map_err(|error| {
         PersistenceReplayCheckError::new("initial checkpoint", error.to_string())
     })?;
     let initial_world_snapshot = world.snapshot().clone();
     let initial_routine_snapshot_or_none = routine.snapshot_or_none().copied();
+    let initial_population_snapshot = population.snapshot_or_none().cloned().ok_or_else(|| {
+        PersistenceReplayCheckError::condition("initial population owner segment exists")
+    })?;
     let direct_commands = rpg_commands(fixture.rpg_stream_id, fixture.principal.clone())?;
 
     Ok(DirectScenario {
@@ -87,10 +98,12 @@ pub(super) fn initialize(
         transition_chunk_id,
         world,
         routine,
+        population,
         runtime,
         initial_checkpoint,
         initial_world_snapshot,
         initial_routine_snapshot_or_none,
+        initial_population_snapshot,
         direct_commands,
         reports: Vec::new(),
         world_services_commits: Vec::new(),

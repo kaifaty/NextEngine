@@ -28,6 +28,7 @@ use super::result::{
     CommandOrderKey, CommittedRpgPlanTraceV1, OrderedResult, RejectionCode, StageTraceEntry,
     TransactionStage,
 };
+use super::world_population::WorldPopulationStageContextV1;
 use super::world_routine::WorldRoutineStageContextV1;
 
 mod execution;
@@ -142,6 +143,7 @@ pub(super) fn process_phase(
     staged: &mut StagedAuthoritativeState,
     world_streaming: Option<WorldStreamingStageContext<'_>>,
     mut world_routine: Option<&mut WorldRoutineStageContextV1>,
+    mut world_population: Option<&mut WorldPopulationStageContextV1>,
 ) -> Result<PhaseExecution, RuntimeFatalError> {
     let mut queued = due_commands(context, staged)?;
     queued.extend(commands.into_iter().map(|command| QueuedCommand {
@@ -227,6 +229,7 @@ pub(super) fn process_phase(
             staged,
             &mut physical_bodies,
             world_routine.as_deref_mut(),
+            world_population.as_deref_mut(),
         )? {
             CandidateExecution::Result(result, trace) => {
                 match trace {
@@ -265,6 +268,13 @@ pub(super) fn process_phase(
                 .checked_add(1)
                 .ok_or(RuntimeFatalError::RevisionExhausted)?;
             world_routine.produce_stage_6(context.tick, outcome_phase_revision)?;
+        }
+        if let Some(world_population) = world_population.as_deref_mut() {
+            let outcome_phase_revision = staged
+                .revision
+                .checked_add(1)
+                .ok_or(RuntimeFatalError::RevisionExhausted)?;
+            world_population.produce_stage_6(context.tick, outcome_phase_revision)?;
         }
         let physical_execution = finish_physical_step(context, physical_pending, staged)?;
         for (result, event) in physical_execution.command_results {
@@ -310,7 +320,7 @@ pub(super) fn process_phase(
             deduplicated: commit_deduplicated,
         },
     ];
-    if world_streaming.is_some() || world_routine.is_some() {
+    if world_streaming.is_some() || world_routine.is_some() || world_population.is_some() {
         stage_trace.push(StageTraceEntry {
             stage: TransactionStage::WorldStreamingCommit,
             received: 1,

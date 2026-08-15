@@ -4,11 +4,12 @@ use super::jcs::{
     decode_u64_string, ensure_no_more, hex_bytes, into_array, into_string, next, string,
 };
 use crate::command::{CommandPhase, DomainEvent, EventPayload};
-use crate::ids::{CommandId, PersistentId, SchemaId};
+use crate::ids::{CommandId, ContentHash, PersistentId, SchemaId};
 use crate::persistence::ManifestValidationError;
 use crate::physics::{PhysicalEventV1, PhysicsPoseV1};
 use crate::rpg::RpgEventV1;
 use crate::rpg::SkillProficiency;
+use crate::world_population::{PopulationTierV1, WorldPopulationChangedV1};
 use crate::world_routine::{WorldRoutineActivityChangedV1, WorldRoutineActivityV1};
 
 pub(super) fn encode_domain_event(event: &DomainEvent) -> Result<JcsValue, ManifestCodecError> {
@@ -124,6 +125,38 @@ fn encode_event_payload(payload: &EventPayload) -> JcsValue {
             string(event.boundary_world_tick.to_string()),
             string(event.record_revision.to_string()),
         ]),
+        EventPayload::WorldPopulation(WorldPopulationChangedV1::TierTransitioned {
+            subject_id,
+            previous_tier,
+            current_tier,
+            transition_tick,
+            record_revision,
+        }) => JcsValue::Array(vec![
+            string("world_population_tier_transitioned"),
+            string(subject_id.to_hex()),
+            JcsValue::Number(u64::from(*previous_tier as u8)),
+            JcsValue::Number(u64::from(*current_tier as u8)),
+            string(transition_tick.to_string()),
+            string(record_revision.to_string()),
+        ]),
+        EventPayload::WorldPopulation(WorldPopulationChangedV1::AbstractTransferred {
+            subject_id,
+            source_region_id,
+            source_node_id,
+            target_region_id,
+            target_node_id,
+            route_plan_hash,
+            record_revision,
+        }) => JcsValue::Array(vec![
+            string("world_population_abstract_transferred"),
+            string(subject_id.to_hex()),
+            string(source_region_id.as_str()),
+            string(source_node_id.as_str()),
+            string(target_region_id.as_str()),
+            string(target_node_id.as_str()),
+            string(route_plan_hash.to_hex()),
+            string(record_revision.to_string()),
+        ]),
     }
 }
 
@@ -177,6 +210,9 @@ pub(super) fn decode_domain_events(
                 }
                 EventPayload::WorldRoutine(payload) => {
                     DomainEvent::world_routine(tick, phase, command_id, event_slot, payload)?
+                }
+                EventPayload::WorldPopulation(payload) => {
+                    DomainEvent::world_population(tick, phase, command_id, event_slot, payload)?
                 }
             };
             if event.event_slot != event_slot || event.canonical_bytes()? != canonical_bytes {
@@ -298,6 +334,44 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
                 )?,
             })
         }
+        "world_population_tier_transitioned" => {
+            EventPayload::WorldPopulation(WorldPopulationChangedV1::TierTransitioned {
+                subject_id: decode_persistent_id(next(&mut columns, "event.subject_id")?)?,
+                previous_tier: decode_population_tier(
+                    next(&mut columns, "event.previous_tier")?,
+                    "event.previous_tier",
+                )?,
+                current_tier: decode_population_tier(
+                    next(&mut columns, "event.current_tier")?,
+                    "event.current_tier",
+                )?,
+                transition_tick: decode_u64_string(
+                    next(&mut columns, "event.transition_tick")?,
+                    "event.transition_tick",
+                )?,
+                record_revision: decode_u64_string(
+                    next(&mut columns, "event.record_revision")?,
+                    "event.record_revision",
+                )?,
+            })
+        }
+        "world_population_abstract_transferred" => {
+            EventPayload::WorldPopulation(WorldPopulationChangedV1::AbstractTransferred {
+                subject_id: decode_persistent_id(next(&mut columns, "event.subject_id")?)?,
+                source_region_id: decode_schema_id(next(&mut columns, "event.source_region_id")?)?,
+                source_node_id: decode_schema_id(next(&mut columns, "event.source_node_id")?)?,
+                target_region_id: decode_schema_id(next(&mut columns, "event.target_region_id")?)?,
+                target_node_id: decode_schema_id(next(&mut columns, "event.target_node_id")?)?,
+                route_plan_hash: ContentHash::from_bytes(decode_fixed_hex::<32>(
+                    next(&mut columns, "event.route_plan_hash")?,
+                    "event.route_plan_hash",
+                )?),
+                record_revision: decode_u64_string(
+                    next(&mut columns, "event.record_revision")?,
+                    "event.record_revision",
+                )?,
+            })
+        }
         _ => {
             return Err(ManifestCodecError::UnknownField(format!(
                 "ticks[].expected_events[].payload.{tag}"
@@ -315,6 +389,19 @@ fn decode_world_routine_activity(
     match decode_u32(value, path)? {
         1 => Ok(WorldRoutineActivityV1::Duty),
         2 => Ok(WorldRoutineActivityV1::Rest),
+        _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
+    }
+}
+
+fn decode_population_tier(
+    value: JcsValue,
+    path: &'static str,
+) -> Result<PopulationTierV1, ManifestCodecError> {
+    match decode_u32(value, path)? {
+        1 => Ok(PopulationTierV1::Dormant),
+        2 => Ok(PopulationTierV1::Abstract),
+        3 => Ok(PopulationTierV1::Simulated),
+        4 => Ok(PopulationTierV1::Active),
         _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
     }
 }

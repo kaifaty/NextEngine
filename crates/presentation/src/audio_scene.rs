@@ -282,6 +282,16 @@ fn event_principal_subject(event: &DomainEventEnvelopeV2) -> Option<PersistentId
             }
         },
         EventPayload::WorldRoutine(event) => Some(event.subject_id),
+        EventPayload::WorldPopulation(event) => Some(match event {
+            next_contracts::world_population::WorldPopulationChangedV1::TierTransitioned {
+                subject_id,
+                ..
+            }
+            | next_contracts::world_population::WorldPopulationChangedV1::AbstractTransferred {
+                subject_id,
+                ..
+            } => *subject_id,
+        }),
     }
 }
 
