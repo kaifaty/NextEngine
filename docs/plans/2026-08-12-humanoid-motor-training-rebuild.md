@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R135 close and conform its projected-schedule successor. The sole clean R136 is valid complete but cone-infeasible at `2418/3200` collocations. The post-R136 decision selects fixed-mode controller-reachable trajectory co-design and authorizes exactly one report-only R137 formulation. No R136 retry, real kinodynamic solve, contact-semantics change, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R135 close and conform its projected-schedule successor. R136 is valid complete but cone-infeasible at `2418/3200` collocations. Clean report-only R137 freezes the selected fixed-mode controller-reachable graph at `3201` nodes, `311780` primary scalars and zero free effort; exact `COMPLETE` authorizes only report-only R138 conformance. No R136 retry, real kinodynamic assembly/solve, contact-semantics change, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -26,6 +26,7 @@
 | TRAIN-4 projected-schedule decision | [R130 actuator conflict and hybrid contact-exit research](../development/humanoid-train4-r130-projected-schedule-research-2026-08-15.md) |
 | TRAIN-4 projected cone-feasibility decision | [R136 valid cone-infeasibility research](../development/humanoid-train4-r136-cone-feasibility-research-2026-08-15.md) |
 | TRAIN-4 post-R136 branch decision | [R137 fixed-mode controller-reachable kinodynamic research](../development/humanoid-train4-r137-fixed-mode-kinodynamic-research-2026-08-15.md) |
+| TRAIN-4 R137 formulation result | [R137 fixed-mode kinodynamic formulation result](../development/humanoid-train4-r137-fixed-mode-kinodynamic-formulation-result-2026-08-15.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -2212,11 +2213,19 @@ Canonical/file/profile SHA-256 is
 The exact R136 transition is `R136_VALID_INFEASIBLE_RESEARCH_REQUIRED`. The
 subsequent evidence-backed R137 decision selects fixed-mode rigid-contact
 trajectory co-design and authorizes exactly one hash-closed report-only
-formulation with zero numerical work. No R123/R127/R129/R130/R132/R133/R134/
-R135/R136 retry, R124, R138 conformance, kinodynamic solve, candidate or scene
-is authorized before the exact preceding gate grants it. This planning document
-alone does not close R5, B-08, B-12, Stage 0, GPU correspondence, Linux parity
-or any learned-policy ProductCheck.
+formulation with zero numerical work. Clean R137 at `c647eba` passes all six
+validations and freezes `3201` state nodes, `29` changed mode boundaries, `18`
+activation points, `18` zero-impulse releases and `311780` primary decision
+scalars; effort remains exact-derived with zero free effort variables.
+Canonical/file/profile SHA-256 is
+`f0db8b516897671461161cac299a9e81e9405a1a3ae38778fa6d3659c898381f` /
+`a1da712723a3fde29dbbd20496da6cd5937dc7a575b3d70f390cd5fe4b93c733` /
+`8468d67c02671de27e57cc6a550a01d16e2cac36ac4496124e875d96026176c9`.
+The exact transition is `R137_COMPLETE_R138_CONFORMANCE_ONLY`. No R123/R127/
+R129/R130/R132/R133/R134/R135/R136 retry, R124, R139 formulation, real
+kinodynamic assembly/solve, candidate or scene is authorized. This planning
+document alone does not close R5, B-08, B-12, Stage 0, GPU correspondence,
+Linux parity or any learned-policy ProductCheck.
 
 ## Definition of done
 
