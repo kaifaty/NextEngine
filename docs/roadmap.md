@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-15 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14 имеет `204/12518` required-safety failures; R94 fresh V9 rejects `7/17`. R98–R107 exhaust bounded manual/kinematic repairs. R108–R122 close the progressive KTO/model/conformance lineage; R120 is direct `PASS`. The sole clean R123 is `INVALID` before solve: its first same-foot heel/forefoot KKT has an exact internal-force gauge and condition `6.875e16`. Only report-only R123-RC1 geometry research is next. Every dynamics retry/solve, R124, candidate artifact, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14 имеет `204/12518` required-safety failures; R94 fresh V9 rejects `7/17`. R98–R122 close the bounded KTO/model/conformance lineage; R120 is direct `PASS`. The sole R123 is `INVALID` before solve. Clean report-only R123-RC1 confirms its exact same-foot zero-wrench force gauge, rank ≤5/nullity ≥1. Only report-only R125 gauge-aware feasibility formulation is next. Every dynamics retry/solve, R124, R125 execution, candidate artifact, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -764,7 +764,7 @@ Current increment поэтому строит единый coupled trajectory so
 PPO остаются запрещены.
 
 **TRAIN-4 coupled/native trajectory research (`R120_PASS / R123_INVALID /
-R123-RC1_REPORT_ONLY_NEXT`, 2026-08-15):**
+R123-RC1_COMPLETE / R125_FORMULATION_NEXT`, 2026-08-15):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -1314,8 +1314,13 @@ condition `6.875e16`, one SVD and zero local solves. Both active points belong
 to one ankle body, so equal/opposite forces along their line create an exact
 zero-wrench gauge and make the square KKT structurally singular. The
 [R123 research decision](development/humanoid-train4-r123-redundant-contact-research-2026-08-15.md)
-permits only report-only R123-RC1 geometry audit; no retry, R124, dynamics
-solve, candidate or PhysX action is permitted.
+is now clean `COMPLETE`: exact resultant force/moment is zero, rank ≤5/nullity
+≥1 and all nine discriminators pass. Canonical/file/profile SHA-256 is
+`ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` /
+`a35d408a901ea2c439ac387287fa03aa77c669863211fb6b0d7634ce3b0836f9` /
+`4ee1fd77701e638a3087cbeaa6498482e073c33133bbb89a1a0b6d134d2ee8b7`.
+Only report-only R125 formulation is permitted; no retry, R124, dynamics solve,
+candidate or PhysX action is permitted.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -2094,7 +2099,8 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    R118/R119 verify and freeze it, R120 passes directly at `1/32`, R121
    freezes the ID systems, and clean R122 passes descriptor-derived dynamics
    conformance. The sole R123 is invalid before solve on an exact flat-foot
-   force gauge; only report-only R123-RC1 research is next. До exact-zero fresh/
+   force gauge, and R123-RC1 hash-closes it; only report-only R125 formulation
+   is next. До exact-zero fresh/
    full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
    No training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote

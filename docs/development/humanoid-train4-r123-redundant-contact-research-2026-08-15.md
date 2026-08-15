@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R123 execution stopped before its first local solve |
-| Status | `R123_INVALID / R123-RC1_REPORT_ONLY_NEXT` |
+| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_REPORT_ONLY_FORMULATION_NEXT` |
 | Primary cause | `Environment / stage-2 rigid-contact formulation` |
 | Claim ceiling | Research and generated-test design only; no R123 retry, feasibility claim, candidate, scene or training |
 
@@ -56,7 +56,9 @@ rows: rotation about the line through the points remains free. The R123 saddle
 matrix embeds this exact null vector with zero acceleration, zero effort and
 zero inactive-point force. Row/column scaling cannot remove it; floating-point
 roundoff merely turns exact singularity into the observed `6.87e16` condition
-number.
+number. Clean report-only R123-RC1 at commit `e8fa20f` verifies all of these
+facts from the immutable JSON and integer geometry without importing NumPy or
+the R123 execution module.
 
 ## Competing hypotheses
 
@@ -65,7 +67,7 @@ number.
 | Corrupt artifact or stale model lineage | Clean commit, exact source hashes, canonical digest and all validations close | Falsified |
 | Incorrect M/h/J/Jdot-v implementation | R122's independent conformance remains PASS; the null vector exists for any mass matrix and configuration | Falsified as first cause |
 | Numeric scaling or too-strict `1e12` threshold | The same-body two-point wrench map has an exact algebraic nullspace | Falsified; raising the limit would hide invalid force selection |
-| Redundant flat-foot multipliers make the square KKT singular | First active set is exactly the same-body heel/forefoot pair and the equal/opposite line-force wrench is identically zero | Confirmed structurally; R123-RC1 will hash-close it |
+| Redundant flat-foot multipliers make the square KKT singular | First active set is exactly the same-body heel/forefoot pair and the equal/opposite line-force wrench is identically zero | Confirmed and hash-closed by R123-RC1 |
 | Fixed-PD dynamics are feasible or infeasible | No local solve was attempted and no cone margin exists | Still unknown |
 
 ## Primary-source research
@@ -107,15 +109,35 @@ If a deterministic force witness is needed after feasibility is established,
 its secondary selection rule must be explicit and separately audited. It must
 not change the existential cone classification.
 
+## R123-RC1 result
+
+The exact audit returns
+`COMPLETE / CONFIRMED_REDUNDANT_FLAT_FOOT_FORCE_GAUGE`. All nine discriminators
+pass. It measures separation `[0,0,215000] µm`, exact first/second moments
+`[-4006525000,0,0]` / `[4006525000,0,0]`, zero resultant force/moment,
+constraint-rank upper bound `5` and minimum force nullity `1`. The observed
+condition is `68749.56×` the frozen maximum.
+
+Canonical/file/profile SHA-256 is
+`ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` /
+`a35d408a901ea2c439ac387287fa03aa77c669863211fb6b0d7634ce3b0836f9` /
+`4ee1fd77701e638a3087cbeaa6498482e073c33133bbb89a1a0b6d134d2ee8b7`.
+Research-module/tool SHA-256 is
+`ddeb9c81f1a4d6488b972b6fcfa55a9f77f068ac516b1efe0fc0917c61942bb3` /
+`e3f0538aebcadaaf7e75881b7ce6ee52f2feaceca0ee50137c169c4717f67b91`.
+All six validations pass, including solver-free import, `283/283` lab tests,
+`56/56` motor tests and full `host-check`. The audit records one research audit
+and zero local-system reconstructions, SVDs, solves, caches or downstream work.
+
 ## Decision and next gate
 
 Freeze R123 as invalid and never retry or reinterpret it. The only next action
-is one hash-closed, report-only `R123-RC1` audit. It may inspect R123/R113
-identities, the first failure row and exact integer point geometry; it may not
-reconstruct, factor or solve a frozen local dynamics system. Confirmation may
-authorize only a separate report-only redundant-contact feasibility
-formulation (provisionally R125), with no execution authority. An inconclusive
-audit stops for further research.
+is one separate report-only R125 redundant-contact feasibility formulation. It
+must preserve both point locations, rigid sticking and individual friction
+cones; define an independent constraint basis and existential gauge treatment;
+and pre-register deterministic conformance/resource guards. It may not
+reconstruct, factor or solve a frozen local dynamics system. R125 itself has no
+execution authority.
 
 R124 remains unauthorized because its prerequisite was a *valid* R123
 completion. Every R123 retry, additional KTO/ID/kinodynamic solve, candidate,

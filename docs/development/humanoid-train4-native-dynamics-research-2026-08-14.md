@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R115_FAIL / R120_PASS / R123_INVALID / R123-RC1_REPORT_ONLY_NEXT` |
+| Status | `R120_PASS / R123_INVALID / R123-RC1_COMPLETE / R125_FORMULATION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -56,7 +56,8 @@ bounded research before another solver change or expensive native run.
 | R120 single repaired-KTO execution | canonical/file/profile/cache SHA-256 `dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b` / `35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc` / `3dfa2f1b8357cd3452481c9518e8d1ca0ce5c0bb664b3a024fc5ce2653837d55` / `e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5` | Clean direct `PASS` at `1/32`: all exact gates pass with `614 bp` strict V7 progress and no bridge; one KTO/QP, six emitted audits, zero candidate/scene/ID/kinodynamic/optimizer/training work; permits only report-only R121 fixed-PD inverse-dynamics execution formulation |
 | R121 fixed-PD inverse-dynamics execution formulation | canonical/file/profile SHA-256 `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` / `5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7` / `9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93` | Clean `COMPLETE`: freezes `3200` independent `64 × 64` pointwise systems (`204800` variables/equalities, `4956` friction cones); cache/contact/fixed-PD preflights PASS, zero dynamics solves; permits only report-only R122 implementation/conformance |
 | R122 fixed-PD inverse-dynamics implementation conformance | canonical/file/profile SHA-256 `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` / `8bb3f9cbe371f679ffa3d782ee4662de3fedc586ccf70c9d19536594c95afb81` / `21303443993a34bd527e735961f0e790aa0da88f2d94b46a4c6e1f85557e0ab2` | Clean `PASS`: all seven descriptor/M/h/J/Jdot-v, R113, exact R121 reproduction and no-solve resource discriminators pass; its one R123 authority was consumed by the invalid result below |
-| R123 single fixed-PD inverse-dynamics execution | canonical/file/profile SHA-256 `3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7` / `543513bf4f51797b515b718684123a9f5aeabe394bf4ea73fe20194a9d65acb2` / `492ce5da3852aa68811ce8afc6f0c5b57205ce8f2fc2ddf32dd71279b4ecda30` | Clean `INVALID / STOP_INVALID_EVIDENCE_WITHOUT_RESTART`: first flat-foot system condition `6.875e16`; one SVD, zero local solves/cache/downstream work; permits only report-only R123-RC1 causal research |
+| R123 single fixed-PD inverse-dynamics execution | canonical/file/profile SHA-256 `3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7` / `543513bf4f51797b515b718684123a9f5aeabe394bf4ea73fe20194a9d65acb2` / `492ce5da3852aa68811ce8afc6f0c5b57205ce8f2fc2ddf32dd71279b4ecda30` | Clean `INVALID / STOP_INVALID_EVIDENCE_WITHOUT_RESTART`: first flat-foot system condition `6.875e16`; one SVD, zero local solves/cache/downstream work; its R123-RC1 authority was consumed by the completed research below |
+| R123-RC1 redundant-contact research | canonical/file/profile SHA-256 `ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` / `a35d408a901ea2c439ac387287fa03aa77c669863211fb6b0d7634ce3b0836f9` / `4ee1fd77701e638a3087cbeaa6498482e073c33133bbb89a1a0b6d134d2ee8b7` | Clean `COMPLETE / CONFIRMED_REDUNDANT_FLAT_FOOT_FORCE_GAUGE`: all nine exact geometry/artifact discriminators pass; rank ≤5, nullity ≥1; zero dynamics reconstruction/solve/downstream work; permits only report-only R125 formulation |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -1474,8 +1475,8 @@ condition `6.874956301874059e16` against the frozen `1e12` limit. The external
 report is canonical/hash-closed, no cache was emitted, and every downstream
 work counter remains zero.
 
-The [R123 redundant-contact research](humanoid-train4-r123-redundant-contact-research-2026-08-15.md)
-shows the leading causal mechanism. The two points are separated by a nonzero
+The clean [R123 redundant-contact research](humanoid-train4-r123-redundant-contact-research-2026-08-15.md)
+confirms the causal mechanism. The two points are separated by a nonzero
 line on one rigid body. Equal and opposite forces along that line have zero
 resultant force and moment, so their six multiplier components contain an
 exact one-dimensional nullspace. The corresponding two 3D sticking Jacobians
@@ -1484,8 +1485,13 @@ was structurally singular by construction.
 
 R123 therefore supplies no fixed-PD feasibility or infeasibility evidence.
 R124 remains unauthorized because its prerequisite was valid R123 completion.
-Only one report-only R123-RC1 exact-geometry audit is next; it may not rebuild,
-factor or solve a frozen local dynamics system.
+R123-RC1 canonical/file/profile SHA-256 is
+`ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` /
+`a35d408a901ea2c439ac387287fa03aa77c669863211fb6b0d7634ce3b0836f9` /
+`4ee1fd77701e638a3087cbeaa6498482e073c33133bbb89a1a0b6d134d2ee8b7`.
+All six validations pass; the research itself reconstructs/factors/solves zero
+local systems. Only report-only R125 gauge-aware feasibility formulation is
+next.
 
 ## Decision
 
@@ -1497,7 +1503,7 @@ and the late projected direction after its exact `2501/2500 bp` failure.
 R115 consumed and failed its sole solve; R120 consumed its separate sole solve
 and passed; R123 consumed its sole execution and stopped invalid before solve.
 None may be retried. Candidate artifacts, native scenes and all-17 remain
-blocked. R123-RC1 may only hash-close the exact redundant-contact geometry and
-compare report-only repair formulations. It may not factor/solve real dynamics,
+blocked. R125 may only freeze the gauge-aware feasibility contract and
+predeclared conformance/resource checks. It may not factor/solve real dynamics,
 run kinodynamics, construct a candidate, change controller/safety/quantization
 semantics, run PhysX or begin training. R124 remains unauthorized.

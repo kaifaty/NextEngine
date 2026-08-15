@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108–R114 close progressive KTO/model lineage. R115 fails and R115-RC1 diagnoses its analytic-contact linearization gap; R117–R119 repair it. R120 repaired KTO is direct `PASS` at `1/32`; R121/R122 freeze and conform `3200` fixed-PD collocations. The sole clean R123 is `INVALID` before solve because its first same-foot heel/forefoot KKT is structurally rank-deficient. Only report-only R123-RC1 geometry research is next. Every dynamics retry/solve, candidate artifact, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R122 close bounded repair/model/conformance lineage; R120 is direct `PASS`. The sole R123 is `INVALID` before solve because its first same-foot heel/forefoot KKT is rank-deficient. Clean report-only R123-RC1 confirms the exact zero-wrench force gauge, rank ≤5/nullity ≥1, and permits only report-only R125 feasibility formulation. Every dynamics retry/solve, candidate artifact, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2059,9 +2059,19 @@ The exact equal/opposite heel–forefoot line force has zero generalized wrench,
 so six point multipliers contain one gauge and the rigid two-point constraint
 rank is at most five. R123 proves no fixed-PD feasibility fact.
 
-Roadmap status now permits only report-only R123-RC1 exact-geometry research.
-No R123 retry, R124 formulation, dynamics solve, candidate or scene is
-authorized. This planning
+That report-only research authority is now consumed. Clean R123-RC1 at commit
+`e8fa20f` returns
+`CONFIRMED_REDUNDANT_FLAT_FOOT_FORCE_GAUGE`: all nine discriminators pass,
+exact resultant force/moment is zero and the condition is `68749.56×` its
+maximum. Canonical/file/profile SHA-256 is
+`ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf` /
+`a35d408a901ea2c439ac387287fa03aa77c669863211fb6b0d7634ce3b0836f9` /
+`4ee1fd77701e638a3087cbeaa6498482e073c33133bbb89a1a0b6d134d2ee8b7`.
+All six validations pass and every dynamics/downstream count is zero.
+
+Roadmap status now permits only report-only R125 gauge-aware feasibility
+formulation. No R123 retry, R124, R125 execution, dynamics solve, candidate or
+scene is authorized. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 
