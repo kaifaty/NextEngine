@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "execution_id": "nextengine.humanoid-projected-fixed-pd-inverse-dynamics.v1",
+  "status": "FrozenSingleExecution",
+  "claim": "Stage2ExitModeOwnedProjectedFixedPdPointwiseConeFeasibilityOnly",
+  "source": {
+    "r135": {
+      "report_sha256": "21fd15693ad092158a9f1fd9d8d8f717cbea26eb38fdca6cd321b61ccc7b7525",
+      "report_file_sha256": "873f1049d81d7e4ca7237d3770f05fb2db949a94e78770cc04787de778849ee1",
+      "profile_sha256": "6b60d2f8d4f0431883856905495131484d1a232ae555917b4ce8f52ed0184acd",
+      "conformance_module_sha256": "b2a06c604650108e503db91017169b7b77154abf9806d0fd1debe5868ccbf539",
+      "tool_sha256": "02a4bb50520dc9dbd89a028fe0f97a2c35f025cd295e085e7a00735077628dc2"
+    },
+    "r134": {
+      "report_sha256": "17d696166a05a24bd50a545ca31e4aabd15a72ed49444a09983c472ff6b13783",
+      "report_file_sha256": "0f7ccdcdcb4fbcf1b3e73e1e8f5565b0387c15a4bd1cfa3c50fbd6754ba176be",
+      "profile_sha256": "7fafc5e874f5b5cd23e5e7720133640e1f84d7dad8c233f4ba384fc97d3cb4b9",
+      "module_sha256": "873e564a603c6e6b043e6827c27c117b47674521375e5dff82cdc9c5f77db280",
+      "tool_sha256": "894e0f04a89f865fca7451ff5d3d3c3500eb6791e8fbe5b6fc740bf1dfae32c7"
+    },
+    "r133": {
+      "report_sha256": "f1fad2ca3c7abd49acaefd9fcd37873d02fb1d289a3081fd2039b0b1192fd3b6",
+      "report_file_sha256": "2ddef1cfae193eb0e32f4d001aba6a8b744056b700fa2ecbe533434bc8e5f7c2",
+      "profile_sha256": "20cccf2ffd413ae56148b95ca4cbd67c616f1ee396f2bee995a078ab1685a6a7",
+      "module_sha256": "60dbf107a19c795d6c6ffcbbecc4bf0db81dcf0c5efa5adc6a1a43f6d35f0c15",
+      "tool_sha256": "427bc05222dc767da3285a58815fa6fa1275ebd6bd3945e43fcb1a89df18f156"
+    },
+    "r126": {
+      "report_sha256": "2a500b6e6514e3a5cc8cec453756089f235d66d8684718a56678c471202f3e8f",
+      "report_file_sha256": "4931ff4c96e8bb062bed64a45681097ae70b23c615c022ba267c0ae6edb6ffd3",
+      "profile_sha256": "23007c0455fef7cf84da411528f9f6162cd04d97e8be86baa7be2c19ae7e87cb",
+      "gauge_aware_kernel_sha256": "9b69802fd95d9e5a3e048802fb5b09a4a0f976741b2b69c6b2ccbb5aec5df5b2",
+      "conformance_module_sha256": "7afba7266e8fedb4af58dfeaf52d4ac431a7f0681d5886d1924350ab0c16f2c3",
+      "tool_sha256": "4526b4b34fb34313bc9014c934c63d45eb290bba0781a886422814d7482f133f"
+    },
+    "r121": {
+      "report_sha256": "4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3",
+      "report_file_sha256": "5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7",
+      "profile_sha256": "9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93"
+    },
+    "r113": {
+      "report_sha256": "3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf",
+      "report_file_sha256": "de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c",
+      "profile_sha256": "fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d"
+    },
+    "r120": {
+      "report_sha256": "dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b",
+      "report_file_sha256": "35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc",
+      "profile_sha256": "3dfa2f1b8357cd3452481c9518e8d1ca0ce5c0bb664b3a024fc5ce2653837d55",
+      "cache_sha256": "e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5"
+    },
+    "v9_complete_clip_sha256": "16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d",
+    "contact_conformance_module_sha256": "25c65634bebeca852519bacfea9c45a8d116f25edfb7e283f70930d6fe71a63e",
+    "collocation_lift_module_sha256": "81f436bb0ad21e683508e9d4e518c8f01fee4316707fd74ab4e805be28dba906",
+    "exit_mode_lift_module_sha256": "510a84a8dc46b6af5ec7e03f4419b9c6a08043c0ed3b67f0bdffc874e59f151b",
+    "projection_module_sha256": "c7ecd5980ded26d9cddfabce9a941fd737516338d3e211094618888353cffe2d",
+    "dynamics_kernel_sha256": "220e2db2113196031082eb9fa0b7e3d8614582438da7aaee3f2b6a986bac2a02",
+    "composition_module_sha256": "a06cfc5653e935597c7b811b1f717aae26732099cee47084b4e95b90c248e475",
+    "gauge_execution_module_sha256": "cb3f8ac06e7dd7b7826d5785c6ecd5ceeb5c655baf4bfa66675fe8d9088017b1",
+    "current_descriptor_file_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "execution_module_sha256": "6d226dda29048d7d2b9fadbc0dc16d42148b62c62115c377b07f8381e187ac1b",
+    "tool_sha256": "c4540a81533dcf0183057359cd3779bfa965dffef196b0322fa5ab4adf3b2d59"
+  },
+  "scope": {
+    "run_id": "R136",
+    "clip_id": "cmu16-walk-nominal-b",
+    "collocation_count": 3200,
+    "pointwise_inverse_dynamics_only": true,
+    "integration": false,
+    "impact_or_release_impulse": false,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "r135_target_shape_compatibility_contract": {
+    "status": "FrozenBoundedInputGuardRepair",
+    "r135_declared_target_shape": [3200, 23],
+    "r133_real_target_shape": [800, 23],
+    "cause": "R135 synthetic ARRAY_SHAPES used collocation count for a motor-interval target array",
+    "dynamics_impact": "NONE; target is provenance-only and applied effort remains 3200x23",
+    "required_repair": "independently validate the exact real target shape and hash before the first R136 ID assembly without modifying R135"
+  },
+  "r133_array_hash_contract": {
+    "projected_generalized_velocity": "e57bcb75629d403e04cc6d3197e8e2dada19ac0c0ef4c920083f2276c33bfb17",
+    "projection_delta_velocity": "6308386172a7341885acb46b51ef68189fcd5be1a152db7a72f1dab8d0e86760",
+    "applied_target_microradians": "195810f7e9c20b15ec6ddf165c8873f905a96414fe055a0dae7a2b45382be1a3",
+    "applied_effort_micronewton_metres": "5ad7ac66c4d394ef5d06d111d86f58120069d42e61d1adf1ac82ca1d1d42a1ff"
+  },
+  "expected_inventory": {
+    "state_lift_evaluations": 3200,
+    "flight_collocations": 560,
+    "single_point_collocations": 324,
+    "flat_foot_collocations": 2316,
+    "active_point_cones": 4956,
+    "projection_systems": 2640,
+    "projection_factorizations": 2640,
+    "projection_solves": 2640,
+    "controller_schedule_derivations": 1,
+    "inverse_dynamics_system_assemblies": 3200,
+    "singular_value_decompositions": 3200,
+    "particular_solutions": 3200,
+    "gauge_interval_classifications": 2316,
+    "equality_rows": 107668,
+    "expected_independent_rank": 105352,
+    "maximum_reduced_local_unknown_count": 35,
+    "maximum_flat_foot_gauge_dimension": 1
+  },
+  "projection_numeric_contract": {
+    "float_dtype": "float64",
+    "rank_revealing_relative_null_maximum": 1E-12,
+    "rank_revealing_relative_retained_minimum": 1E-10,
+    "maximum_mass_matrix_relative_symmetry": 1E-10,
+    "maximum_active_point_velocity_absolute_metres_per_second": 1E-10,
+    "maximum_scaled_kkt_residual": 1E-10,
+    "maximum_closed_form_to_kkt_absolute": 1E-10,
+    "maximum_projection_idempotence_error": 1E-10,
+    "maximum_mass_orthogonality_relative_error": 1E-10,
+    "maximum_kinetic_energy_increase_joules": 1E-12,
+    "maximum_gauge_velocity_effect_absolute": 1E-10,
+    "maximum_flat_rigid_line_compatibility_metres_per_second_squared": 1E-10,
+    "ambiguity_policy": "FAIL_WITHOUT_THRESHOLD_TUNING_OR_RETRY"
+  },
+  "inverse_dynamics_numeric_contract": {
+    "float_dtype": "float64",
+    "svd_null_relative_maximum": 1E-12,
+    "svd_retained_relative_minimum": 1E-10,
+    "analytic_gauge_scaled_residual": 1E-10,
+    "analytic_to_svd_null_projector_spectral_error": 1E-8,
+    "scaled_absolute_residual": 1E-9,
+    "backward_error": 1E-10,
+    "physical_group_absolute_residual": 1E-7,
+    "cone_absolute_newtons": 1E-7,
+    "quadratic_boundary_relative_ambiguity": 1E-12,
+    "ambiguity_policy": "values inside the SVD rank gap or quadratic boundary uncertainty return INVALID; no threshold tuning or retry"
+  },
+  "execution_budget": {
+    "process_count": 1,
+    "thread_count": 1,
+    "maximum_state_lift_evaluations": 3200,
+    "maximum_projection_systems": 2640,
+    "maximum_projection_factorizations": 2640,
+    "maximum_projection_solves": 2640,
+    "maximum_controller_schedule_derivations": 1,
+    "maximum_inverse_dynamics_system_assemblies": 3200,
+    "maximum_singular_value_decompositions": 3200,
+    "maximum_particular_solutions": 3200,
+    "maximum_gauge_interval_classifications": 2316,
+    "maximum_local_unknown_count": 35,
+    "maximum_flat_foot_gauge_dimension": 1,
+    "maximum_wall_clock_seconds": 7200,
+    "maximum_resident_memory_bytes": 8589934592,
+    "random_seed": 0,
+    "randomized_restart_count": 0,
+    "resume_or_warm_restart": "FORBIDDEN",
+    "manual_intervention": "FORBIDDEN"
+  },
+  "single_thread_environment": {
+    "BLIS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "decision": {
+    "valid_feasible": "PERMIT_SEPARATE_REPORT_ONLY_PROJECTED_STATE_KINODYNAMIC_FORMULATION_ONLY",
+    "valid_infeasible": "STOP_VALID_PROJECTED_FIXED_PD_CONE_INFEASIBILITY_FOR_RESEARCH",
+    "invalid": "STOP_INVALID_EVIDENCE_WITHOUT_RESTART"
+  },
+  "result_transitions": {
+    "valid_feasible": "R136_VALID_FEASIBLE_FORMULATION_ONLY",
+    "valid_infeasible": "R136_VALID_INFEASIBLE_RESEARCH_REQUIRED",
+    "invalid": "R136_CONSUMED_INVALID_NO_RETRY"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx", "--from", "ruff==0.16.3", "ruff", "check", "--ignore", "TRY004,BLE001",
+        "lab/next_lab/projected_fixed_pd_inverse_dynamics_execution.py",
+        "lab/scripts/execute_projected_fixed_pd_inverse_dynamics.py",
+        "lab/tests/test_projected_fixed_pd_inverse_dynamics_execution.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx", "--from", "ruff==0.16.3", "ruff", "format", "--check",
+        "lab/next_lab/projected_fixed_pd_inverse_dynamics_execution.py",
+        "lab/scripts/execute_projected_fixed_pd_inverse_dynamics.py",
+        "lab/tests/test_projected_fixed_pd_inverse_dynamics_execution.py"
+      ]
+    },
+    {
+      "id": "single_thread_import",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python", "-c",
+        "from next_lab.projected_fixed_pd_inverse_dynamics_execution import _linux_thread_count; assert _linux_thread_count() == 1"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": ["lab/.venv/bin/python", "-m", "unittest", "discover", "-s", "lab/tests"]
+    },
+    {
+      "id": "motor",
+      "arguments": ["cargo", "test", "-p", "next_motor"]
+    },
+    {
+      "id": "host_check",
+      "arguments": ["cargo", "run", "-q", "-p", "xtask", "--", "host-check"]
+    }
+  ],
+  "bounded_acceptance": {
+    "r136_retry": "NOT_AUTHORIZED",
+    "additional_projected_schedule_execution": "NOT_AUTHORIZED",
+    "additional_inverse_dynamics_execution": "NOT_AUTHORIZED",
+    "projected_state_kinodynamic_formulation": "AUTHORIZED_REPORT_ONLY_ON_VALID_FEASIBLE_R136",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
