@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID` before solve on a same-foot force gauge; R123-RC1 confirms rank ≤5/nullity ≥1. Clean report-only R125 freezes gauge-aware `29/32/35` systems and complete line-cone feasibility while preserving all `4956` cones. Only report-only R126 conformance is next. Every dynamics retry/R127, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID` before solve on a same-foot force gauge; R123-RC1 confirms rank ≤5/nullity ≥1. Clean R125 freezes gauge-aware `29/32/35` systems and all `4956` cones; clean R126 conforms rank/nullspace/line-cone implementation. Exactly one bounded R127 execution is next. Every retry, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2080,9 +2080,19 @@ profile SHA-256 is
 `ca9cc4019e45ea316072378422e7aab304664b24034f204e41b3ccbe30e7da05`.
 All six validations pass and execution counters remain zero.
 
-Roadmap status now permits only report-only R126 implementation/conformance.
-No R123 retry, R124, R127 execution, dynamics solve, candidate or scene is
-authorized. This planning
+Clean report-only R126 at commit `e963599` passes its seven real rank-only SVD
+anchors, five synthetic rank cases and four independent decimal-oracle cone
+cases. Every anchor has exactly the predeclared rank/nullity; maximum analytic/
+SVD projector error is `1.037e-12` against `1e-8`. Canonical/file/profile
+SHA-256 is
+`2a500b6e6514e3a5cc8cec453756089f235d66d8684718a56678c471202f3e8f` /
+`4931ff4c96e8bb062bed64a45681097ae70b23c615c022ba267c0ae6edb6ffd3` /
+`23007c0455fef7cf84da411528f9f6162cd04d97e8be86baa7be2c19ae7e87cb`.
+All six validations pass (`295/295` lab, motor and full `host-check`); real
+particular/gauge-classification/R127/downstream counters are zero.
+
+Roadmap status now permits exactly one bounded R127 gauge-aware execution.
+No R123 retry, second R127, R124, candidate or scene is authorized. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

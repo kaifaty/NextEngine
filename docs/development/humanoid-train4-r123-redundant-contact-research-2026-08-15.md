@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R123 execution stopped before its first local solve |
-| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_CONFORMANCE_NEXT` |
+| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_SINGLE_EXECUTION_NEXT` |
 | Primary cause | `Environment / stage-2 rigid-contact formulation` |
 | Claim ceiling | Research and generated-test design only; no R123 retry, feasibility claim, candidate, scene or training |
 
@@ -170,7 +170,17 @@ Formulation-module/tool SHA-256 is
 All six validations pass, including `288/288` lab tests and full `host-check`;
 every SVD/particular/gauge classification and downstream work count is zero.
 
-Only report-only R126 implementation/conformance is authorized. It may use at
-most seven frozen-anchor SVD evaluations, but zero full-schedule particular
-solutions or gauge classifications. Only exact R126 PASS can authorize one
-bounded R127 execution.
+## R126 conformance result
+
+Clean report-only R126 at commit `e963599` passes all seven frozen real
+`29/32/35` rank/nullspace anchors, five synthetic SVD discriminators and four
+independent decimal-oracle line-cone cases. Maximum analytic gauge residual is
+`9.056e-16`; maximum analytic/SVD projector error is `1.037e-12`. Canonical/
+file/profile SHA-256 is
+`2a500b6e6514e3a5cc8cec453756089f235d66d8684718a56678c471202f3e8f` /
+`4931ff4c96e8bb062bed64a45681097ae70b23c615c022ba267c0ae6edb6ffd3` /
+`23007c0455fef7cf84da411528f9f6162cd04d97e8be86baa7be2c19ae7e87cb`.
+All six validations pass (`295/295` lab, motor and full `host-check`). R126
+computes zero real particular solutions or gauge intervals and authorizes
+exactly one bounded R127 execution. No retry, candidate, PhysX or training is
+authorized.
