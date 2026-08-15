@@ -1,0 +1,293 @@
+{
+  "schema_version": 1,
+  "research_id": "nextengine.humanoid-post-r130-projected-schedule-research.v1",
+  "status": "FrozenReportOnly",
+  "claim": "PostR130ProjectedFixedPdScheduleFailureResearchOnly",
+  "source": {
+    "r130": {
+      "report_sha256": "acd92a581a732c293cc9440d4215702fdf356f614c150ec4886d82a2fb197955",
+      "report_file_sha256": "422a9b54d44ca10297927ccccb54eb541b4fc23cc2c778c34e98d5b55d07ea72",
+      "profile_sha256": "f10f557dd93d47f192f20d321052d309455cf54ba657bafc2829e7700fd2825f",
+      "execution_module_sha256": "a6b8945ab8550ce9aaae5b28b5a52237dcd3d56de3785fe4cf77c2f12580122e",
+      "tool_sha256": "733caaf4f8947f25079cf87effc79058274782d3bcfce3caa323f4e395b43fae",
+      "repository_commit": "4dbd0ac9b36887dad40d61a407b1e5122273d54c"
+    },
+    "r121": {
+      "report_sha256": "4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3",
+      "report_file_sha256": "5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7",
+      "profile_sha256": "9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93"
+    },
+    "current_descriptor_file_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "research_module_sha256": "15d4bea0dd4d81cd48d1682a6b6b460b942250bf987a93256fc387775e983573",
+    "tool_sha256": "284535f5f644b55c45cf88217b398f4f6c127239728edfcf5838d1422fc32fa7"
+  },
+  "scope": {
+    "research_cycle_id": "R130-RC1",
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_r130_execution_runs": 1,
+    "source_projection_collocations_read": 3200,
+    "source_controller_schedule_audits_read": 2,
+    "research_audits": 1,
+    "descriptor_channel_lookups": 1,
+    "state_projection_systems": 0,
+    "projection_factorizations": 0,
+    "projection_solves": 0,
+    "inverse_dynamics_system_assemblies": 0,
+    "singular_value_decompositions": 0,
+    "particular_solutions": 0,
+    "gauge_interval_classifications": 0,
+    "kinodynamic_solves": 0,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "method": {
+    "artifact_audit": "recompute canonical/file/profile/module/tool identities for immutable R130 and R121 plus the current descriptor",
+    "controller_ab": "compare the unchanged-target R121 baseline schedule with the R130 projected-velocity schedule",
+    "hotspot_audit": "rank only the already-recorded R130 per-collocation projection correction scalars and classify their adjacent contact-mode transitions",
+    "causal_claim": "confirm the projected schedule actuator conflict; treat exit-row localization as a hotspot correlation because R130 intentionally emitted no projected state values or row-to-controller-event mapping",
+    "forbidden_work": "do not reconstruct projected velocity, read or build a solver cache, assemble a projection or inverse-dynamics system, factor, solve, integrate or run PhysX",
+    "matrix_factorization_or_solve_policy": "FORBIDDEN"
+  },
+  "discriminators": {
+    "expected_projection_collocation_count": 3200,
+    "expected_projection_system_count": 2640,
+    "expected_inverse_dynamics_system_count": 0,
+    "expected_velocity_violation_count": 4,
+    "expected_infeasible_effort_envelope_count": 2,
+    "expected_failed_dof_ordinal": 11,
+    "expected_failed_joint_id": "joint.right-ankle-roll",
+    "expected_failed_actuator_id": "actuator.right-ankle-roll",
+    "expected_maximum_velocity_microradians_per_second": 8000000,
+    "expected_peak_velocity_excess_microradians_per_second": 13712253,
+    "expected_implied_peak_absolute_velocity_microradians_per_second": 21712253,
+    "hotspot_count": 4,
+    "hotspot_minimum_generalized_velocity_correction": 12.0,
+    "next_largest_correction_maximum": 8.0,
+    "numeric_absolute_tolerance": 1e-12,
+    "expected_hotspots": [
+      {
+        "collocation": 307,
+        "interval": 76,
+        "substep": 3,
+        "contact_modes": [0, 2],
+        "active_point_ordinals": [3],
+        "maximum_generalized_velocity_correction": 21.70032808604866,
+        "maximum_active_velocity_before_metres_per_second": 1.4789003871499842,
+        "next_interval_contact_modes": [0, 0]
+      },
+      {
+        "collocation": 2979,
+        "interval": 744,
+        "substep": 3,
+        "contact_modes": [0, 2],
+        "active_point_ordinals": [3],
+        "maximum_generalized_velocity_correction": 18.336224799177632,
+        "maximum_active_velocity_before_metres_per_second": 1.157680499001141,
+        "next_interval_contact_modes": [0, 0]
+      },
+      {
+        "collocation": 306,
+        "interval": 76,
+        "substep": 2,
+        "contact_modes": [0, 2],
+        "active_point_ordinals": [3],
+        "maximum_generalized_velocity_correction": 14.557628297400568,
+        "maximum_active_velocity_before_metres_per_second": 1.010664764327519,
+        "next_interval_contact_modes": [0, 0]
+      },
+      {
+        "collocation": 2978,
+        "interval": 744,
+        "substep": 2,
+        "contact_modes": [0, 2],
+        "active_point_ordinals": [3],
+        "maximum_generalized_velocity_correction": 12.829864635007187,
+        "maximum_active_velocity_before_metres_per_second": 0.7986036620644787,
+        "next_interval_contact_modes": [0, 0]
+      }
+    ]
+  },
+  "hypothesis_disposition": [
+    {
+      "hypothesis": "R130 failed because the tangent projection was numerically invalid",
+      "decision": "FALSIFIED",
+      "reason": "all 3200 rows pass and all 2640 active projections satisfy the frozen KKT, tangent, idempotence, energy and gauge bounds"
+    },
+    {
+      "hypothesis": "the pre-projection fixed-PD target or ROM lineage was already invalid",
+      "decision": "FALSIFIED",
+      "reason": "R121 passes with zero velocity/envelope failures and R130 preserves the exact zero-ROM, zero-target-clamp and one-slew target lineage"
+    },
+    {
+      "hypothesis": "unconstrained mass-metric tangent projection can preserve the complete actuator envelope automatically",
+      "decision": "FALSIFIED",
+      "reason": "R130 creates four velocity violations and two empty effort envelopes on right ankle roll before inverse dynamics"
+    },
+    {
+      "hypothesis": "the failure is concentrated at hybrid contact exit boundaries",
+      "decision": "SUPPORTED_HOTSPOT_NOT_EXACT_EVENT_MAPPING",
+      "reason": "the four largest recorded generalized corrections are the last two substeps of two right-forefoot intervals immediately followed by flight; projected vectors and controller event rows were intentionally not emitted"
+    },
+    {
+      "hypothesis": "R130 establishes fixed-PD cone feasibility or infeasibility",
+      "decision": "UNKNOWN",
+      "reason": "the controller schedule failed before any inverse-dynamics system assembly or force-gauge classification"
+    }
+  ],
+  "research_basis": [
+    {
+      "source": "Gear, Leimkuhler and Gupta, Automatic integration of Euler-Lagrange equations with constraints, 1985",
+      "url": "https://doi.org/10.1016/0377-0427(85)90008-1",
+      "relevance": "constraint projection is a DAE consistency mechanism, not an automatic treatment of unrelated actuator inequalities"
+    },
+    {
+      "source": "Escande, Mansard and Wieber, Hierarchical Quadratic Programming, 2014",
+      "url": "https://gepettoweb.laas.fr/uploads/Publications/2014_escande_ijrr.pdf",
+      "relevance": "whole-body equality tasks and inequality regions such as joint limits must be represented together when they can conflict"
+    },
+    {
+      "source": "Posa, Cantu and Tedrake, A Direct Method for Trajectory Optimization of Rigid Bodies Through Contact, 2014",
+      "url": "https://groups.csail.mit.edu/robotics-center/public_papers/Posa13.pdf",
+      "relevance": "making and breaking contact is hybrid dynamics; one smooth cross-mode state interpolation is not automatically valid"
+    },
+    {
+      "source": "Wang, Dehio, Tanguy and Kheddar, Impact-Aware Task-Space Quadratic-Programming Control, 2023",
+      "url": "https://arxiv.org/abs/2006.01987",
+      "relevance": "contact-induced velocity and torque jumps require explicit hardware-feasible state constraints rather than a controller-unaware projection"
+    },
+    {
+      "source": "Zhang, Haener, Madabushi and Tucker, Kinodynamic Motion Retargeting for Humanoid Locomotion, 2026",
+      "url": "https://arxiv.org/html/2603.09956",
+      "relevance": "kinematic references can retain contact and velocity artifacts; joint trajectory, dynamics, contact forces, integration and actuator limits are jointly optimized in the stronger fallback family"
+    }
+  ],
+  "repair_alternatives": [
+    {
+      "alternative": "hybrid contact-side 240 Hz state lift before the already-conformed tangent projection",
+      "decision": "PRIMARY_REPORT_ONLY_FORMULATION",
+      "reason": "directly tests the two exit-boundary hotspots while preserving q, contact schedule, descriptor limits and the no-retry boundary"
+    },
+    {
+      "alternative": "box- or actuator-constrained instantaneous tangent projection",
+      "decision": "SECONDARY_FORMULATION_FAMILY",
+      "reason": "can enforce joint velocity inequalities but does not by itself repair cross-mode timing, qdot consistency or sequential effort-rate/power/work coupling"
+    },
+    {
+      "alternative": "trajectory-level kinodynamic retargeting over q, v, a, effort and contact force",
+      "decision": "STRONG_FALLBACK_AFTER_SMALLER_DISCRIMINATOR",
+      "reason": "addresses integration, contact and actuator feasibility jointly but is materially broader than the localized exit-lift test"
+    },
+    {
+      "alternative": "replace sticking by an explicit sliding/compliant/impact mode",
+      "decision": "REQUIRES_SUCCESSOR_CONTACT_SEMANTICS",
+      "reason": "may be physically correct but changes the current mode and force-cone contract and needs native correspondence"
+    },
+    {
+      "alternative": "raise velocity/effort limits, reduce damping, loosen the schedule gate or retry R130",
+      "decision": "REJECT_PERMANENTLY",
+      "reason": "changes canonical body/controller safety or violates the consumed immutable execution"
+    }
+  ],
+  "next_smallest_action": "freeze one separate report-only R131 hybrid contact-edge state-lift formulation; compare the current affine cross-mode lift, contact-side one-sided lift, actuator-constrained projection and full kinodynamic fallback without executing any projection or dynamics system",
+  "decision": {
+    "confirmed": "PERMIT_SEPARATE_REPORT_ONLY_R131_HYBRID_CONTACT_EDGE_STATE_LIFT_FORMULATION_ONLY",
+    "inconclusive": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/projected_fixed_pd_schedule_failure_research.py",
+        "lab/scripts/research_projected_fixed_pd_schedule_failure.py",
+        "lab/tests/test_projected_fixed_pd_schedule_failure_research.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/projected_fixed_pd_schedule_failure_research.py",
+        "lab/scripts/research_projected_fixed_pd_schedule_failure.py",
+        "lab/tests/test_projected_fixed_pd_schedule_failure_research.py"
+      ]
+    },
+    {
+      "id": "no_numeric_or_solver_import",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; import next_lab.projected_fixed_pd_schedule_failure_research; assert not any(name in sys.modules for name in ('numpy','osqp','scipy','pinocchio','next_lab.tangent_velocity_projection_conformance','next_lab.tangent_projected_fixed_pd_execution'))"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "bounded_acceptance": {
+    "r130_retry": "NOT_AUTHORIZED",
+    "additional_projected_fixed_pd_execution": "NOT_AUTHORIZED",
+    "additional_projection_execution": "NOT_AUTHORIZED",
+    "hybrid_contact_edge_state_lift_execution": "NOT_AUTHORIZED",
+    "additional_inverse_dynamics_execution": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
