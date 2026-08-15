@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R135 close and conform its projected-schedule successor. The sole clean R136 is valid complete but cone-infeasible at `2418/3200` collocations and stops `R136_VALID_INFEASIBLE_RESEARCH_REQUIRED`. No R136 retry, new formulation, kinodynamic solve, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R135 close and conform its projected-schedule successor. The sole clean R136 is valid complete but cone-infeasible at `2418/3200` collocations. The post-R136 decision selects fixed-mode controller-reachable trajectory co-design and authorizes exactly one report-only R137 formulation. No R136 retry, real kinodynamic solve, contact-semantics change, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -25,6 +25,7 @@
 | TRAIN-4 native-dynamics decision | [Fresh V9 rejection and differential-audit contract](../development/humanoid-train4-native-dynamics-research-2026-08-14.md) |
 | TRAIN-4 projected-schedule decision | [R130 actuator conflict and hybrid contact-exit research](../development/humanoid-train4-r130-projected-schedule-research-2026-08-15.md) |
 | TRAIN-4 projected cone-feasibility decision | [R136 valid cone-infeasibility research](../development/humanoid-train4-r136-cone-feasibility-research-2026-08-15.md) |
+| TRAIN-4 post-R136 branch decision | [R137 fixed-mode controller-reachable kinodynamic research](../development/humanoid-train4-r137-fixed-mode-kinodynamic-research-2026-08-15.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -2208,10 +2209,12 @@ Canonical/file/profile SHA-256 is
 `b522dc92062d3f760536669cc30a053f6c11d845dfac9e09f2865de597daf6d5` /
 `3721ce6acde8f3ef943f33a9811f550611b1b1cbe47364aa75b44b61c9e5e070` /
 `6775f58d9e8cedac6f4cb574953e1a42abb881e2e026587fc15daf1421aada2e`.
-The exact transition is `R136_VALID_INFEASIBLE_RESEARCH_REQUIRED`. No
-R123/R127/R129/R130/R132/R133/R134/R135/R136 retry, R124, new formulation,
-kinodynamic solve, candidate or scene is authorized. A separate evidence-backed
-research/roadmap decision must freeze any successor. This planning document
+The exact R136 transition is `R136_VALID_INFEASIBLE_RESEARCH_REQUIRED`. The
+subsequent evidence-backed R137 decision selects fixed-mode rigid-contact
+trajectory co-design and authorizes exactly one hash-closed report-only
+formulation with zero numerical work. No R123/R127/R129/R130/R132/R133/R134/
+R135/R136 retry, R124, R138 conformance, kinodynamic solve, candidate or scene
+is authorized before the exact preceding gate grants it. This planning document
 alone does not close R5, B-08, B-12, Stage 0, GPU correspondence, Linux parity
 or any learned-policy ProductCheck.
 

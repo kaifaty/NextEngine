@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-15 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; their research and R125–R129 close force-gauge and tangent-projection mechanics. The sole R130 is `INVALID`; R131–R135 close and conform its projected-schedule successor. The sole clean R136 is valid complete but cone-infeasible: `782/3200` rows feasible and `2418/3200` infeasible. Its transition is `R136_VALID_INFEASIBLE_RESEARCH_REQUIRED`; no retry, new formulation, kinodynamic solve, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate or learned optimizer is authorized. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; their research and R125–R129 close force-gauge and tangent-projection mechanics. The sole R130 is `INVALID`; R131–R135 close and conform its projected-schedule successor. The sole clean R136 is valid complete but cone-infeasible: `782/3200` rows feasible and `2418/3200` infeasible. The post-R136 decision selects fixed-mode controller-reachable trajectory co-design and authorizes exactly one report-only R137 formulation; no solve, contact-semantics change, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate or learned optimizer is authorized. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -767,7 +767,7 @@ PPO остаются запрещены.
 R125_COMPLETE / R126_PASS / R127_INVALID / R127-RC1_COMPLETE /
 R128_COMPLETE / R129_PASS / R130_INVALID / R130-RC1_COMPLETE /
 R131_COMPLETE / R132_PASS / R133_PASS / R134_COMPLETE / R135_PASS /
-R136_VALID_INFEASIBLE / RESEARCH_REQUIRED`, 2026-08-15):**
+R136_VALID_INFEASIBLE / R137_FORMULATION_AUTHORIZED_REPORT_ONLY`, 2026-08-15):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -1450,9 +1450,13 @@ a negative normal margin. Canonical/file/profile SHA-256 is
 `3721ce6acde8f3ef943f33a9811f550611b1b1cbe47364aa75b44b61c9e5e070` /
 `6775f58d9e8cedac6f4cb574953e1a42abb881e2e026587fc15daf1421aada2e`;
 the [R136 research report](development/humanoid-train4-r136-cone-feasibility-research-2026-08-15.md)
-records the exact stop boundary. R123/R127/R129/R130/R132/R133/R134/R135/R136
-cannot retry. The valid infeasibility stops this path for research; no new
-formulation or downstream execution is authorized.
+records the exact stop boundary. The subsequent
+[R137 decision](development/humanoid-train4-r137-fixed-mode-kinodynamic-research-2026-08-15.md)
+selects fixed-mode rigid-contact trajectory co-design over changed contact
+semantics and authorizes exactly one report-only formulation with zero numeric
+work. R123/R127/R129/R130/R132/R133/R134/R135/R136 cannot retry; R138
+conformance, a real solve and every downstream execution remain unauthorized
+until the exact preceding gate grants them separately.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -2242,8 +2246,10 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    freezes their gauge-aware inverse-dynamics composition with zero numeric
    systems, and R135 passes implementation conformance. The sole clean R136
    then validates all `3200` equality systems but finds only `782` cone-feasible
-   rows versus `2418` infeasible. It stops `R136_VALID_INFEASIBLE_RESEARCH_REQUIRED`;
-   no retry, new formulation or downstream execution is authorized.
+   rows versus `2418` infeasible. The post-R136 decision selects fixed-mode
+   controller-reachable trajectory co-design and grants one report-only R137
+   formulation. No retry, real kinodynamic solve or downstream execution is
+   authorized.
    До exact-zero fresh/
    full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
    No training quality, Stage 0 or R5 completion is claimed here.
