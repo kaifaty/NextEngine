@@ -4,8 +4,8 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-15 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; their research and R125–R129 close force-gauge and tangent-projection mechanics. R130 is `INVALID`; R131–R135 close and conform its successor, while R136 is valid complete but cone-infeasible at `2418/3200` rows. R137–R140 freeze and conform the fixed-mode graph and solve method. The sole clean R141 is `INVALID` before solve: five R120 cache-reconstructed arrays and the graph inventory match, but its lossy rotation representation cannot byte-reproduce the accepted Q1.30 quaternion. The R141 authority is consumed; no retry, R142, contact-semantics change, candidate publication, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate or learned optimizer is authorized. Integrated kinodynamic feasibility remains unknown. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
-| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. R141 завершил bounded R5 research lineage как `INVALID / STOP_NO_RETRY`: solve не начался из-за невоспроизводимого accepted quaternion, и эта ветка не имеет R142/downstream authority. WIP=1 — [R4a derived calendar + authored relay-keeper routine](development/task-state/r4a-world-routine.md): public contracts, typed authoring/cook/activation, joint runtime owner commit и current-only Replay V6 реализуются до одновременного SPEC-20/ADR-052 promotion. TRAIN-8 optional; B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R4a derived calendar + authored relay-keeper routine; bounded TRAIN-4 lineage остановлена без retry/downstream authority. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
@@ -200,8 +200,8 @@ flowchart LR
 | R1. Native developer preview | `IN_PROGRESS` | S–M | Один exact package действительно запускается на обеих shipping targets. |
 | R2. Playable alpha | `COMPLETE / WINDOWS_ACCEPTED` | L | Data-first slice, Windows package, automated checks и зафиксированный 20–30-minute acceptance проходят. Linux/R1 cross-target closure не заявляется. |
 | R3. Scalable content and streaming | `COMPLETE` | XL | Private packaged vertical и bounded 4-region/64-chunk project проходят cook/load/unload/save/restart и report-only workload без hard-coded two-chunk assumptions. |
-| R4. Systemic living world | `PLANNED / QUEUED` | XL | NPC schedules, population/navigation, deterministic beliefs/needs/goals, Utility + bounded GOAP, social/work/trade consequences и 100-NPC cadence образуют живой offline world без model/network requirement. R4a остаётся следующим critical-path world increment после активной bounded R5 R&D lane. |
-| R5. Physical character integration | `PARALLEL / ACTIVE_R&D` | XL | Текущий WIP обучает fixed humanoid движениям; production integration, procedural fallback and stage closure остаются отдельными gates после R4 substrate. |
+| R4. Systemic living world | `IN_PROGRESS / R4a` | XL | Активный WIP реализует один exact authored relay-keeper routine; population/navigation/cognition/100-NPC breadth остаётся за R4b–R4d. |
+| R5. Physical character integration | `PLANNED / R&D_LINEAGE_STOPPED` | XL | Bounded TRAIN-4 lineage остановлена на R141 `INVALID / NO_RETRY`; production integration, procedural fallback and stage closure остаются отдельными gates после R4 substrate. |
 | R6. Creator beta | `PLANNED` | L–XL | Второй проект/пакет создаётся без правки engine internals. |
 | R7. V1 release candidate | `PLANNED` | L | Полный v1 scope стабилизирован и упакован для Windows/Linux. |
 | R8. Post-v1 tracks | `DEFERRED` | отдельные программы | Optional AI/narrative/importer/advanced rendering не размывают v1. |
@@ -429,8 +429,8 @@ ten-run performance evidence.
 
 Automated production path, lawful content/provenance, отсутствие hidden
 UI/camera mutation и ручной representative loop подтверждены. Архитектурный
-cleanup и R3 завершены; текущий WIP=1 — bounded R5 humanoid movement training,
-после него queued R4a.
+cleanup и R3 завершены; текущий WIP=1 — R4a derived calendar и authored
+relay-keeper routine.
 
 **Scope guard:** editor, advanced renderer, photoreal assets и procedural world
 generation не входят в этот этап.
@@ -507,9 +507,8 @@ intent и не является принятым R3 contract.
 
 ## R4 — Systemic living world
 
-**Статус:** `PLANNED / QUEUED`. R4a остаётся первым increment этого этапа и
-следующим world-system package, но текущий WIP=1 отдан bounded R5 humanoid
-movement training lane. Одновременная реализация R4a не ведётся.
+**Статус:** `IN_PROGRESS / R4a`. R4a является единственным активным increment;
+bounded R5 training lineage остановлена на R141 без retry/downstream authority.
 
 **Цель:** перейти от scripted encounter к offline world, где NPC и world state
 продолжают согласованно жить вне непосредственного контакта с игроком.
@@ -540,7 +539,7 @@ movement training lane. Одновременная реализация R4a не
 
 **Последовательность R4 product increments (внутренний WIP limit = 1):**
 
-1. **R4a — derived calendar + authored relay-keeper routine (`QUEUED`):** один
+1. **R4a — derived calendar + authored relay-keeper routine (`IN_PROGRESS`):** один
    существующий NPC в active relay-station chunk проходит одну authored
    `Duty → Rest` boundary. Exact integer-rational projection от
    `SimulationTick` создаёт internal World Services command/event; committed
@@ -2324,7 +2323,7 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    До exact-zero fresh/
    full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
    No training quality, Stage 0 or R5 completion is claimed here.
-8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote
+8. **R4a derived calendar + relay-keeper routine (`IN_PROGRESS`):** promote
    SPEC-20/ADR-052 only with the one-NPC production consumer, typed authoring,
    separate World Services routine segment, current-only replay successor and
    passing fast/play/persistence-replay/content-package plus conditional
@@ -2350,8 +2349,8 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    остаётся `DEFERRED_LINUX`, v1 shipping не заявляется.
 
 Каждый package должен быть отдельным product increment с focused checks. WIP=1:
-сейчас выполняется bounded R5 TRAIN-4 V19 contact-manifold/reset prototype;
-R4a не идёт параллельно и остаётся следующим queued world increment. SPEC-23 остаётся Proposed: завершённый R3 не
+сейчас выполняется R4a derived calendar + authored relay-keeper routine;
+bounded R5 lineage остановлена и не идёт параллельно. SPEC-23 остаётся Proposed: завершённый R3 не
 начинает универсальный scheduler design без второго concrete production
 workload.
 
