@@ -1,0 +1,196 @@
+{
+  "schema_version": 1,
+  "conformance_id": "nextengine.humanoid-fixed-pd-inverse-dynamics-implementation-conformance.v1",
+  "status": "FrozenReportOnly",
+  "claim": "DescriptorDerivedFixedPdInverseDynamicsImplementationConformanceOnly",
+  "source": {
+    "r121": {
+      "report_sha256": "4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3",
+      "report_file_sha256": "5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7",
+      "profile_sha256": "9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93",
+      "repository_commit": "a20e9bcf04f7c8137955d102fa3f2b64ffb77d1d",
+      "formulation_module_sha256": "99de51fe96bdaed8efc8c5671272b0cf432011aa5e7318ec81a806385499716f",
+      "tool_sha256": "8e01c6c8b25478747eb565dd9ffb8f2815bf26342560ef99b2d1446674e5d4ae"
+    },
+    "r113": {
+      "report_sha256": "3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf",
+      "report_file_sha256": "de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c",
+      "profile_sha256": "fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d"
+    },
+    "r120": {
+      "report_sha256": "dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b",
+      "report_file_sha256": "35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc",
+      "cache_sha256": "e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5"
+    },
+    "current_descriptor_file_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "v9_complete_clip_sha256": "16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d",
+    "kernel_module_sha256": "220e2db2113196031082eb9fa0b7e3d8614582438da7aaee3f2b6a986bac2a02",
+    "motion_math_module_sha256": "2866ef76bc7e056b4cfdd3bd60378ef5c7813d0b3003eaccf9bc5207b8b79d68"
+  },
+  "scope": {
+    "run_id": "R122",
+    "clip_id": "cmu16-walk-nominal-b",
+    "required_anchors": [
+      0,
+      238,
+      244,
+      249,
+      328,
+      626,
+      800
+    ],
+    "conformance_reports": 1,
+    "conformance_forward_dynamics_probes": 7,
+    "r123_local_system_solves": 0,
+    "inverse_dynamics_execution": false,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "kernel_contract": {
+    "coordinate_order": "engine-world root linear xyz, engine-world root angular xyz, descriptor joint dof ordinal 0..22",
+    "configuration_retraction": "root translation is affine, root rotation is world-left Exp(delta) R, joint positions are additive",
+    "forward_kinematics": "R_child = R_parent R_parentFrame Exp(axis*q) R_childFrame^T with descriptor translations",
+    "computational_inertia": "reconstruct each body tensor from descriptor solver principal inertia and solver principal frame",
+    "authoritative_inertia_identity": "the reconstructed solver tensor must remain within the per-body descriptor projection error from the authoritative six-component tensor",
+    "gravity_metres_per_second_squared": [
+      0.0,
+      -9.81,
+      0.0
+    ],
+    "mass_matrix_implementation": "independent kinetic-energy sum of COM translational and body angular Jacobian terms",
+    "inverse_dynamics_implementation": "world-coordinate recursive velocity/acceleration propagation followed by independent body inertial-wrench projection",
+    "contact_jacobian": "engine-world XYZ translational geometric Jacobian at each exact R113 effector point",
+    "jdot_v_implementation": "recursive zero-generalized-acceleration point acceleration",
+    "jdot_v_reference": "symmetric second derivative of the frozen target_forward_kinematics point trajectory under constant generalized velocity",
+    "point_force_projection": "R113 [normal,right,forward] maps to engine-world [right,normal,forward], then J_xyz^T f_world",
+    "external_dynamics_library": "NONE_PURE_NUMPY_DESCRIPTOR_DERIVED"
+  },
+  "required_checks": [
+    "descriptor-to-spatial-model body, inertia, joint-frame, semantic-axis and gravity identity",
+    "mass-matrix symmetry and positive-definiteness at all seven anchors",
+    "independent inverse/forward dynamics round-trip at all seven anchors",
+    "contact-point position and translational Jacobian agreement with the frozen kinematic kernel",
+    "Jdot-v finite-difference agreement on every active required anchor",
+    "R113 point-force order, frame, application point and generalized-force projection",
+    "R121 affine-lift, contact inventory and exact fixed-PD schedule reproduction",
+    "one-local-system resource instrumentation without solving any R123 system"
+  ],
+  "numeric_tolerances": {
+    "mass_matrix_relative_symmetry": 1e-10,
+    "dynamics_round_trip_scaled_absolute": 1e-9,
+    "contact_position_absolute": 1e-12,
+    "body_rotation_absolute": 1e-12,
+    "contact_jacobian_absolute": 1e-7,
+    "contact_jacobian_relative": 1e-6,
+    "jdot_v_absolute_metres_per_second_squared": 1e-5
+  },
+  "numeric_probes": {
+    "contact_jacobian_radians": 1e-6,
+    "jdot_v_seconds": 0.0001
+  },
+  "resource_instrumentation": {
+    "local_unknown_count": 64,
+    "matrix_dtype": "float64",
+    "right_hand_side_dtype": "float64",
+    "r123_system_solve": false,
+    "factorization": false
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/fixed_pd_inverse_dynamics_kernel.py",
+        "lab/next_lab/fixed_pd_inverse_dynamics_conformance.py",
+        "lab/scripts/audit_fixed_pd_inverse_dynamics_conformance.py",
+        "lab/tests/test_fixed_pd_inverse_dynamics_conformance.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/fixed_pd_inverse_dynamics_kernel.py",
+        "lab/next_lab/fixed_pd_inverse_dynamics_conformance.py",
+        "lab/scripts/audit_fixed_pd_inverse_dynamics_conformance.py",
+        "lab/tests/test_fixed_pd_inverse_dynamics_conformance.py"
+      ]
+    },
+    {
+      "id": "solver_free_import",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; import next_lab.fixed_pd_inverse_dynamics_conformance; assert 'osqp' not in sys.modules; assert 'scipy' not in sys.modules; assert 'pinocchio' not in sys.modules"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "decision": {
+    "pass": "PERMIT_R123_SINGLE_BOUNDED_FIXED_PD_INVERSE_DYNAMICS_EXECUTION_ONLY",
+    "fail": "STOP_INVALID_DYNAMICS_IMPLEMENTATION"
+  },
+  "next_smallest_action": {
+    "pass": "execute exactly one bounded R123 fixed-PD inverse-dynamics run under the frozen R121 resource budget; do not construct a candidate or run PhysX",
+    "fail": "stop before R123 and diagnose the first failed model, mass, dynamics, contact, Jdot-v, schedule or resource boundary"
+  },
+  "bounded_acceptance": {
+    "r123_inverse_dynamics_execution": "AUTHORIZED_ON_EXACT_R122_PASS_ONLY",
+    "additional_kto_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
