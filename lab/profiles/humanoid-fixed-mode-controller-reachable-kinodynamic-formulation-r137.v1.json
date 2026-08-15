@@ -1,0 +1,320 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-fixed-mode-controller-reachable-kinodynamic-formulation.v1",
+  "status": "FrozenReportOnly",
+  "claim": "FixedModeControllerReachableKinodynamicFeasibilityFormulationOnly",
+  "source": {
+    "decision_document_sha256": "db3a66a9f29f39b3f176949c5a96b96503207db1443c5ecfb2185147be488800",
+    "decision_repository_commit": "d4373ebf716a2d34e5161229ba5e17975b5a20aa",
+    "r136": {
+      "report_sha256": "b522dc92062d3f760536669cc30a053f6c11d845dfac9e09f2865de597daf6d5",
+      "report_file_sha256": "3721ce6acde8f3ef943f33a9811f550611b1b1cbe47364aa75b44b61c9e5e070",
+      "profile_sha256": "6775f58d9e8cedac6f4cb574953e1a42abb881e2e026587fc15daf1421aada2e",
+      "module_sha256": "6d226dda29048d7d2b9fadbc0dc16d42148b62c62115c377b07f8381e187ac1b",
+      "tool_sha256": "c4540a81533dcf0183057359cd3779bfa965dffef196b0322fa5ab4adf3b2d59",
+      "repository_commit": "3766e6c8ccea7d1fadbb0a1bbe3a9952bd5b9102"
+    },
+    "r131": {
+      "report_sha256": "480d28d4b9c90552cc0b42091a26f354118d56fe6b9292777c9813aa8b490696",
+      "report_file_sha256": "4a8e6c1bece5269c608a6da3b901ebd868a1a8de0b7f525835706d76f66a9a3d",
+      "profile_sha256": "005b1cddee646064cb4c89a076ac7fe929c1efb84b6dbaf7ef104e7f550543cf",
+      "module_sha256": "1d696a4e6a8408d93b18e869679b4736f6977ffef70be7fc0ea734709a3506af",
+      "tool_sha256": "2a1c6075fe919a0dcb5a32f3e49b7b952efe0e9b69c96f7c3488b4eeded28779",
+      "repository_commit": "9f54f3a2e60d3ede716968c5b317718f821cb680"
+    },
+    "formulation_module_sha256": "e373c528a5c9f8c75cf6678e98f9d95aac3ea64974d16710de8137f94f9e5ed0",
+    "tool_sha256": "65d8e7a43cd6ef0d0511f766a43ba1c8ca967f33827b4f24af3cbc6e67456e57"
+  },
+  "scope": {
+    "formulation_id": "R137",
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_reports_read": 2,
+    "source_collocation_metadata_rows_read": 3200,
+    "kinodynamic_formulations": 1,
+    "state_reconstructions": 0,
+    "state_lift_evaluations": 0,
+    "mass_matrix_assemblies": 0,
+    "contact_jacobian_assemblies": 0,
+    "controller_schedule_derivations": 0,
+    "controller_graph_evaluations": 0,
+    "dynamics_residual_evaluations": 0,
+    "integration_residual_evaluations": 0,
+    "impulse_residual_evaluations": 0,
+    "kinodynamic_system_assemblies": 0,
+    "kinodynamic_solves": 0,
+    "factorizations": 0,
+    "optimizer_steps": 0,
+    "candidate_artifacts_built": 0,
+    "solver_private_caches_built": 0,
+    "physx_scene_runs": 0,
+    "training_runs": 0
+  },
+  "source_contract": {
+    "authority": "tracked post-R136 research and roadmap decision at d4373eb",
+    "r136_status": "COMPLETE_VALID_INFEASIBLE",
+    "r136_numerically_valid_collocations": 3200,
+    "r136_feasible_collocations": 782,
+    "r136_infeasible_collocations": 2418,
+    "r136_retry": "FORBIDDEN",
+    "r131_motor_mode_sequence_sha256": "ab30a912550e06e1219b1fab87e0d93044eba6b0cdf8e7377f7b27a0e1915ca4",
+    "r136_warm_start_or_force_import": "FORBIDDEN",
+    "contact_semantics_change": "OUT_OF_SCOPE"
+  },
+  "branch_decisions": [
+    {
+      "branch": "fixed_mode_controller_reachable_trajectory_codesign",
+      "decision": "SELECT_R137_REPORT_ONLY_FORMULATION",
+      "reason": "it is the smallest successor that can couple q/v/a, exact reachable effort and rigid contact force without changing modes or materials"
+    },
+    {
+      "branch": "changed_contact_semantics",
+      "decision": "DEFER_REQUIRES_SEPARATE_CORRESPONDENCE_DECISION",
+      "reason": "sliding, compliance, contact-implicit mode choice or altered native semantics widen the correspondence surface before fixed-mode feasibility is known"
+    },
+    {
+      "branch": "pointwise_schedule_or_force_retry",
+      "decision": "REJECT_FROZEN_R136_INFEASIBILITY",
+      "reason": "R136 already produced a complete numerically valid 3200-row infeasibility map and cannot retry"
+    },
+    {
+      "branch": "free_effort_trajectory_optimization",
+      "decision": "REJECT_NOT_CONTROLLER_REACHABLE",
+      "reason": "an independently chosen torque trajectory would bypass the exact fixed-PD limiter graph exercised by R133 and R136"
+    }
+  ],
+  "fixed_mode_transition_contract": {
+    "status": "PASS",
+    "motor_intervals": 800,
+    "physics_intervals": 3200,
+    "state_nodes": 3201,
+    "motor_boundary_count": 799,
+    "unchanged_motor_boundary_count": 770,
+    "changed_motor_boundary_count": 29,
+    "activation_boundary_count": 11,
+    "activation_point_count": 18,
+    "deactivation_boundary_count": 18,
+    "deactivation_point_count": 18,
+    "initial_active_point_count": 2,
+    "terminal_active_point_count": 2,
+    "contact_point_anchor_count": 20,
+    "active_point_force_rows": 4956,
+    "motor_mode_sequence_sha256": "ab30a912550e06e1219b1fab87e0d93044eba6b0cdf8e7377f7b27a0e1915ca4"
+  },
+  "variable_inventory_contract": {
+    "status": "PASS",
+    "state_nodes": 3201,
+    "physics_intervals": 3200,
+    "motor_target_rows": 800,
+    "generalized_width": 29,
+    "actuated_joint_count": 23,
+    "configuration_local_scalars": 92829,
+    "generalized_velocity_scalars": 92829,
+    "generalized_acceleration_scalars": 92800,
+    "commanded_target_integer_scalars": 18400,
+    "active_contact_force_scalars": 14868,
+    "activation_impulse_scalars": 54,
+    "primary_decision_scalars": 311780,
+    "derived_applied_target_scalars": 18400,
+    "derived_applied_effort_scalars": 73600,
+    "free_effort_decision_scalars": 0,
+    "contact_anchor_decision_scalars": 0
+  },
+  "fixed_contact_semantics_contract": {
+    "contact_schedule": "exact R131/R136 left-owned two-foot mode sequence at all 800 motor intervals",
+    "mode_choice": "FIXED_NOT_A_DECISION_VARIABLE",
+    "point_identity": "exact R113 left heel/forefoot then right heel/forefoot ordinals 0/1/2/3",
+    "active_anchor": "each initially active or newly activated point retains its source world anchor for its complete active episode",
+    "sticking_constraints": "active point position equals its source anchor and J(q)v=0 at every owned state node; J(q)a+Jdot(q,v)v=0 on every owned continuous interval",
+    "continuous_force": "only active points have force variables and each force is ordered normal/right/forward",
+    "friction": "normal >= 0 and sqrt(right^2+forward^2) <= (52429/65536) normal for every active force and activation impulse",
+    "activation": "only a newly activated source point may carry a rigid boundary impulse",
+    "release": "point deactivation and complete contact exit apply exact zero impulse",
+    "sliding": "FORBIDDEN",
+    "compliance_or_penetration": "FORBIDDEN",
+    "contact_implicit_or_mode_optimization": "FORBIDDEN",
+    "material_or_friction_change": "FORBIDDEN",
+    "native_correspondence": "NOT_CLAIMED"
+  },
+  "controller_reachability_contract": {
+    "command_rows": 800,
+    "command_width": 23,
+    "command_domain": "signed integer microradians before the frozen target soft-clamp and slew graph",
+    "target_hold": "one commanded target row is held for exactly four ordered 240 Hz physics intervals",
+    "observation": "ties-to-even microradian joint-position and microradian-per-second joint-velocity quantization at every physics node",
+    "controller": "the exact current fixed-PD gains, descriptor limits and R133 sequential event order",
+    "limiter_state": "previous effort persists across all 3200 rows; positive-work state resets only at each 60 Hz motor interval",
+    "envelopes": "hard ROM, joint velocity, static effort, 240 Hz effort rate, power and positive work per motor tick remain exact",
+    "applied_target_rows": 800,
+    "effort_rows": 3200,
+    "effort_width": 23,
+    "effort_status": "EXACT_DERIVED_NOT_FREE",
+    "free_effort_substitution": "FORBIDDEN",
+    "acceptance_replay": "BYTE_EXACT_QUANTIZED_FIXED_PD_REQUIRED",
+    "continuous_surrogate": "CANDIDATE_GENERATION_ONLY_WITH_ZERO_ACCEPTANCE_AUTHORITY"
+  },
+  "hybrid_transcription_contract": {
+    "state_nodes": 3201,
+    "physics_intervals": 3200,
+    "time_step_seconds": "1/240",
+    "configuration": "root translation, root SO(3) and 23 joint positions represented on their exact manifold with 29-dimensional local updates",
+    "continuous_dynamics": "M(q_k)a_k+h(q_k,v_k)=S^T tau_exact_k+sum_active J_xyz(q_k)^T f_k",
+    "pre_event_velocity": "v_bar_(k+1)=v_k+(1/240)a_k",
+    "configuration_integration": "q_(k+1)=integrate_on_manifold(q_k,(1/240)v_bar_(k+1)) before a scheduled boundary impulse",
+    "ordinary_velocity_update": "v_(k+1)=v_bar_(k+1) when the boundary activates no point",
+    "activation_momentum_jump": "M(q_(k+1))(v_(k+1)-v_bar_(k+1))=sum_new J_xyz(q_(k+1))^T p_new only at the 11 activation boundaries",
+    "post_activation_closure": "every point active after the boundary satisfies its exact position anchor and J(q_(k+1))v_(k+1)=0",
+    "release_impulse": "EXACT_ZERO",
+    "contact_mode_choice": "FORBIDDEN",
+    "inactive_force_or_impulse": "ABSENT",
+    "initial_state": "exact R120 configuration with the exact R133 projected initial velocity; source hashes must reproduce before any future assembly",
+    "interior_reference": "R120/R133 state, target and effort arrays are initialization or deviation-reference evidence only, never hard interior equalities",
+    "r136_force_or_acceleration_import": "FORBIDDEN",
+    "hard_descriptor_bounds": "current collider, ROM, generalized velocity and controller envelope checks remain hard and are evaluated from the integrated trajectory"
+  },
+  "acceptance_semantics_contract": {
+    "feasibility": "all source hashes, exact controller replay, manifold integration, rigid dynamics, sticking closure, activation momentum jumps, individual force/impulse cones and unchanged descriptor bounds pass at every indexed row",
+    "soft_physical_constraints": "FORBIDDEN",
+    "quantization_or_limiter_tolerance_substitution": "FORBIDDEN",
+    "continuous_candidate_generator": "may propose variables but cannot establish controller reachability or acceptance",
+    "objective_and_solver": "DEFER_TO_POST_R138_REPORT_ONLY_SOLVE_FORMULATION",
+    "claim_ceiling": "symbolic fixed-mode feasibility graph and exact inventory only; no implementation conformance, numerical feasibility, native behavior, candidate, corpus or training claim"
+  },
+  "r138_implementation_conformance_contract": {
+    "claim": "FixedModeKinodynamicGraphImplementationConformanceOnly",
+    "required_checks": [
+      "exact 3201-node/3200-interval/motor-to-physics indexing and manifold integration ordering",
+      "independent reproduction of all 29 mode transitions, 18 point activations, 18 point releases and source mode hash",
+      "synthetic ordinary, activation, release, forefoot-to-flat, flat-to-forefoot and malformed transition residual blocks",
+      "synthetic exact fixed-PD quantization, four-step target hold, persistent effort-rate state and per-motor-tick work reset",
+      "proof that applied target and effort are derived and cannot be substituted as free variables",
+      "proof that inactive force, unscheduled impulse, sliding, compliance and mode-choice blocks are structurally absent",
+      "invalid identity, counter, event order and approximation-as-acceptance cases fail closed"
+    ],
+    "real_state_reconstructions": 0,
+    "real_controller_schedule_derivations": 0,
+    "real_mass_matrix_assemblies": 0,
+    "real_contact_jacobian_assemblies": 0,
+    "real_kinodynamic_system_assemblies": 0,
+    "real_kinodynamic_solves": 0,
+    "candidate_artifacts": 0,
+    "physx_scene_runs": 0,
+    "training_runs": 0,
+    "pass_transition": "PERMIT_SEPARATE_REPORT_ONLY_R139_KINODYNAMIC_SOLVE_FORMULATION_ONLY",
+    "fail_transition": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "future_r139_solve_formulation_contract": {
+    "authority": "NOT_GRANTED_UNTIL_EXACT_R138_PASS",
+    "purpose": "freeze objective/scaling, exact-versus-surrogate algorithm boundary, numeric tolerances, resource budget, output hashes and stop conditions",
+    "real_kinodynamic_assembly": "FORBIDDEN",
+    "real_controller_graph_evaluation": "FORBIDDEN",
+    "real_kinodynamic_solve": "FORBIDDEN",
+    "candidate_physx_training": "FORBIDDEN",
+    "solve_authority": "REQUIRES_A_LATER_EXPLICIT_CONFORMANCE_GATE_AND_ROADMAP_DECISION"
+  },
+  "decision": {
+    "complete": "PERMIT_SEPARATE_REPORT_ONLY_R138_KINODYNAMIC_FORMULATION_CONFORMANCE_ONLY",
+    "invalid": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "result_transitions": {
+    "complete": "R137_COMPLETE_R138_CONFORMANCE_ONLY",
+    "invalid": "R137_INVALID_STOP_WITHOUT_EXECUTION"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/fixed_mode_controller_reachable_kinodynamic_formulation.py",
+        "lab/scripts/formulate_fixed_mode_controller_reachable_kinodynamics.py",
+        "lab/tests/test_fixed_mode_controller_reachable_kinodynamic_formulation.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/fixed_mode_controller_reachable_kinodynamic_formulation.py",
+        "lab/scripts/formulate_fixed_mode_controller_reachable_kinodynamics.py",
+        "lab/tests/test_fixed_mode_controller_reachable_kinodynamic_formulation.py"
+      ]
+    },
+    {
+      "id": "no_numeric_or_solver_import",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; import next_lab.fixed_mode_controller_reachable_kinodynamic_formulation; assert not any(name in sys.modules for name in ('numpy','osqp','scipy','pinocchio','next_lab.projected_fixed_pd_inverse_dynamics_execution','next_lab.hybrid_contact_edge_state_lift_formulation'))"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "bounded_acceptance": {
+    "r138_kinodynamic_formulation_conformance": "AUTHORIZED_REPORT_ONLY_ON_R137_COMPLETE",
+    "r139_kinodynamic_solve_formulation": "NOT_AUTHORIZED_UNTIL_EXACT_R138_PASS",
+    "r136_retry": "NOT_AUTHORIZED",
+    "additional_pointwise_inverse_dynamics": "NOT_AUTHORIZED",
+    "real_controller_graph_evaluation": "NOT_AUTHORIZED",
+    "real_kinodynamic_assembly": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "contact_semantics_change": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
