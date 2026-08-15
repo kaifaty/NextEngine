@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R115_FAIL / R115-RC1_LINEARIZATION_GAP_CONFIRMED / R117_COMPLETE / R118_PASS / R119_COMPLETE / R120_EXECUTION_NEXT` |
+| Status | `R115_FAIL / R115-RC1_CONFIRMED / R118_PASS / R119_COMPLETE / R120_PASS / R121_FORMULATION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -53,6 +53,7 @@ bounded research before another solver change or expensive native run.
 | R117 exact-kernel linearization-repair formulation | canonical/file/profile SHA-256 `b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7` / `f32f31d895ed26f1f7ec842b2125ce0329a0d5802435aaebc5973d198dc06ed4` / `eaabc22958324504756d95239ceefec3597523cf01e2d3c8633d6942db23da55` | Clean `COMPLETE`: freezes the kernel-identical full-q/v derivative, norm-squared tangent constraint, quantized re-anchoring and explicit single-bridge/restoration filter; permits only report-only R118 implementation/conformance, with zero QP/KTO/scenes/candidates |
 | R118 exact-kernel full-q/v conformance | canonical/file/profile SHA-256 `23d9d556d8be630f7f2e9fe9907f394b74186ef545d0c46f7484f0efc1df45ca` / `f4d186a476c6bb73f1f001ac6e991088b7563d2aeeca49f63db6e872afb7e861` / `d97340714757c1ead27b9f571332f926690104a89fed8a2d3a6ef357c9de88f3` | Clean `PASS`: `1241/1241` active point-frames preserve the exact V9 kernel and all seven full-q/v Jacobian anchors pass; permits only a separate report-only R119 execution formulation, with zero QP/KTO/scenes/candidates |
 | R119 repaired-KTO execution formulation | canonical/file/profile SHA-256 `ac38e3f0a9dfb5e900373bc5a4908168a49f3c3b799fb431bd6e5c1306a4dd1b` / `e233f9dd60ba8056e55b132167e5dbd6e952781fb15bece56cbb23e62b0c1882` / `3b48c618cffc5494601a40ac15b04df0ffba2a1b7d6aadbdfd4309b6c167dcd1` | Clean `COMPLETE`: replaces `3723` component rows with `2482` exact normal/norm-squared rows, freezes emitted-anchor conformance guards and one-process budgets; permits exactly one R120 repaired-KTO execution, with zero QP/KTO/scenes/candidates in R119 |
+| R120 single repaired-KTO execution | canonical/file/profile/cache SHA-256 `dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b` / `35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc` / `3dfa2f1b8357cd3452481c9518e8d1ca0ce5c0bb664b3a024fc5ce2653837d55` / `e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5` | Clean direct `PASS` at `1/32`: all exact gates pass with `614 bp` strict V7 progress and no bridge; one KTO/QP, six emitted audits, zero candidate/scene/ID/kinodynamic/optimizer/training work; permits only report-only R121 fixed-PD inverse-dynamics execution formulation |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -1330,16 +1331,56 @@ All six validations pass, including solver-free import, `253/253` lab tests,
 `56/56` motor tests and full `host-check`; every R119 execution/work counter
 is zero.
 
+## R120 repaired-KTO execution result
+
+The sole clean R120 process at commit
+`39708da5036a2f5a2f3bd4f1b4d2f840efe17088` starts from byte-exact V9 and
+passes every pre-solver discriminator. The repaired sparse matrix is
+`129939 × 69687` with `434866` nonzeros: all `1241` normal and `1241`
+tangent norm-squared rows are present, the retired `3723` component boxes are
+absent, and all-active function identity plus all seven R118 Jacobian anchors
+pass before the only QP setup.
+
+That QP reaches `solved` in `3075` iterations. Its six immutable emitted
+fractions are audited exactly. Fractions `1` through `1/16` remain diagnostic
+failures; `1/32` is a direct exact `PASS`, not a bridge. The accepted result
+has contact residual `4913 µm`, finite tangent/normal steps `1982/982 µm`,
+analytic tangent/normal steps `2000/994 µm`, collider clearance `+47 µm`,
+root vertical velocity `199800 µm/s`, joint velocity `2500 bp`, zero
+descriptor/effective-ROM violations and matching endpoints. It strictly moves
+toward V7 by `614 bp`, with `142` changed target joint cells. Maximum emitted
+root-position, orientation and joint-position steps are respectively
+`0.000230419 m`, `0.001478205 rad` and `0.001521844 rad`.
+
+R120 consumes exactly one KTO process, one KTO solve, one QP and six emitted
+audits. It creates no candidate artifact and runs no inverse dynamics,
+kinodynamics, PhysX scene, optimizer or training. The external NPZ is a
+solver-private q/v/a warm-start cache only; it has no corpus-admission or
+runtime authority. Peak RSS is `1841029120` bytes, below the `16 GiB` ceiling.
+
+R120 canonical/file/profile/cache SHA-256 is
+`dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b` /
+`35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc` /
+`3dfa2f1b8357cd3452481c9518e8d1ca0ce5c0bb664b3a024fc5ce2653837d55` /
+`e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5`.
+The emitted aggregate SHA-256 is
+`06e6113d862dcf6acd827962b8a580013f9e3689902b90c9189efaab641841cf`.
+All validations pass, including `257/257` lab tests, `56/56` motor tests and
+full `host-check`.
+
 ## Decision
 
-Freeze R92–R119, retain the contact result as bounded support for H23, and
+Freeze R92–R120, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
 and the late projected direction after its exact `2501/2500 bp` failure.
-R115 consumed and failed its sole solve, so retry, the conditional R116
-inverse-dynamics formulation, candidate artifacts, native scenes and all-17
-remain blocked. R119 authorizes exactly one new repaired R120 execution from
-byte-exact V9 under its pre-solver and per-anchor guards. It may not change
-controller semantics, safety limits, fresh-scene authority, quantization or
-the exact-zero gate; every other KTO/ID/kinodynamic solve remains blocked.
+R115 consumed and failed its sole solve; R120 consumed its separate sole solve
+and passed. Neither may be retried. Candidate artifacts, native scenes and
+all-17 remain blocked. R120 authorizes only a separate report-only R121
+fixed-PD inverse-dynamics execution formulation. R121 may bind the R120 q/v/a
+cache, R113 model identity, 240 Hz acceleration/effort/contact-wrench
+variables, rigid-body/active-contact equations, fixed-PD effort identity,
+public actuator limits and one future bounded execution gate. It may not run
+inverse dynamics or kinodynamics, emit a candidate, change controller/safety/
+quantization semantics, run PhysX or begin training.
