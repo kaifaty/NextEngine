@@ -1,0 +1,211 @@
+{
+  "schema_version": 1,
+  "execution_id": "nextengine.humanoid-fixed-pd-inverse-dynamics-execution.v1",
+  "status": "FrozenSingleExecution",
+  "claim": "Stage2PointwiseFixedPdConstrainedDynamicsFeasibilityOnly",
+  "source": {
+    "r122": {
+      "report_sha256": "a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309",
+      "report_file_sha256": "8bb3f9cbe371f679ffa3d782ee4662de3fedc586ccf70c9d19536594c95afb81",
+      "profile_sha256": "21303443993a34bd527e735961f0e790aa0da88f2d94b46a4c6e1f85557e0ab2",
+      "repository_commit": "621ed03c0aa0e459134ef1d09efe9baaf0ab6cf7",
+      "kernel_module_sha256": "220e2db2113196031082eb9fa0b7e3d8614582438da7aaee3f2b6a986bac2a02",
+      "conformance_module_sha256": "25c65634bebeca852519bacfea9c45a8d116f25edfb7e283f70930d6fe71a63e",
+      "tool_sha256": "ed515ba52064d18eebcc54c8d7fd81c63c77431054e8c1e1482156152801b4cc"
+    },
+    "r121": {
+      "report_sha256": "4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3",
+      "report_file_sha256": "5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7",
+      "profile_sha256": "9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93"
+    },
+    "r113": {
+      "report_sha256": "3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf",
+      "report_file_sha256": "de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c",
+      "profile_sha256": "fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d"
+    },
+    "r120": {
+      "report_sha256": "dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b",
+      "report_file_sha256": "35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc",
+      "cache_sha256": "e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5"
+    },
+    "current_descriptor_file_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "v9_complete_clip_sha256": "16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d",
+    "execution_module_sha256": "81f436bb0ad21e683508e9d4e518c8f01fee4316707fd74ab4e805be28dba906"
+  },
+  "scope": {
+    "run_id": "R123",
+    "clip_id": "cmu16-walk-nominal-b",
+    "collocation_count": 3200,
+    "local_unknown_count": 64,
+    "inverse_dynamics_execution_runs": 1,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "system_contract": {
+    "unknown_order": "29 generalized accelerations, 23 descriptor-order applied efforts, then four R113 point forces each [normal,right,forward]",
+    "dynamics_rows": "M a + h - S^T tau - sum J_xyz^T [right,normal,forward] = 0",
+    "effort_rows": "each effort unknown equals the exact R121 fixed-PD applied effort at that collocation",
+    "active_point_rows": "J_xyz a + Jdot-v = 0",
+    "inactive_point_rows": "normal, right and forward force equal zero",
+    "active_inequalities": "normal >= 0 and hypot(right,forward) <= (52429/65536) normal",
+    "state_lift": "exact R121 affine q/v lift and principal world-left SO(3) interpolation; no integrated state carry",
+    "solution_method": "one row/column-equilibrated float64 square solve per collocation with one SVD condition audit",
+    "column_scaling": "per-coordinate maximum absolute R120 warm acceleration with floor 1; per-DoF maximum absolute fixed-PD effort with floor 1; total body weight for every point-force component",
+    "row_scaling": "maximum absolute scaled coefficient, right-hand side and 1",
+    "feasible_result": "all 3200 systems are numerically valid and every active point satisfies both frozen cone inequalities",
+    "infeasible_result": "all 3200 systems are numerically valid and at least one active point violates a frozen cone inequality beyond tolerance",
+    "invalid_result": "a missing/singular/ill-conditioned/nonfinite/residual-invalid system or resource breach; no retry"
+  },
+  "numeric_contract": {
+    "float_dtype": "float64",
+    "maximum_scaled_condition_number": 1000000000000.0,
+    "scaled_absolute_residual": 1e-9,
+    "backward_error": 1e-10,
+    "group_absolute_residual": 1e-7,
+    "cone_absolute_newtons": 1e-7,
+    "cone_tolerance_role": "classification tolerance only; raw signed normal and friction margins remain reported"
+  },
+  "execution_budget": {
+    "run_id": "R123",
+    "process_count": 1,
+    "thread_count": 1,
+    "maximum_local_system_solves": 3200,
+    "maximum_local_unknown_count": 64,
+    "maximum_wall_clock_seconds": 7200,
+    "maximum_resident_memory_bytes": 8589934592,
+    "random_seed": 0,
+    "randomized_restart_count": 0,
+    "resume_or_warm_restart": "FORBIDDEN",
+    "manual_intervention": "FORBIDDEN",
+    "invalid_or_resource_exhaustion": "STOP_INVALID_EVIDENCE_WITHOUT_RESTART"
+  },
+  "single_thread_environment": {
+    "BLIS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "execution_output": {
+    "valid_completion": "metrics report plus at most one external transient solver-private acceleration/effort/point-force warm-start cache",
+    "feasibility_claim": "stage-2 pointwise constrained-dynamics feasibility only; no trajectory integration, native behavior or acceptance authority",
+    "valid_infeasible_disposition": "PERMIT_SEPARATE_REPORT_ONLY_R124_FULL_KINODYNAMIC_EXECUTION_FORMULATION_ONLY",
+    "valid_feasible_disposition": "PERMIT_SEPARATE_REPORT_ONLY_R124_FULL_KINODYNAMIC_EXECUTION_FORMULATION_ONLY",
+    "candidate_artifact": "FORBIDDEN",
+    "physx_scene": "FORBIDDEN",
+    "training": "FORBIDDEN"
+  },
+  "required_checks": [
+    "clean exact R122 PASS, R121 formulation, R113 model/point identity and R120 cache lineage",
+    "exact R121 affine q/v lift, fixed-PD effort schedule and V9 contact-mode hold",
+    "one 64 by 64 local system per each of 3200 collocations in fixed row and column order",
+    "finite condition, equality residual and backward-error closure for every solved system",
+    "raw normal and Coulomb-cone margins for every active point without projection or repair",
+    "single process/thread, 7200-second, 8-GiB, zero-restart and no-intervention budget",
+    "at most one external solver-private cache and no candidate, PhysX, optimizer or training output"
+  ],
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/fixed_pd_inverse_dynamics_execution.py",
+        "lab/scripts/execute_fixed_pd_inverse_dynamics.py",
+        "lab/tests/test_fixed_pd_inverse_dynamics_execution.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/fixed_pd_inverse_dynamics_execution.py",
+        "lab/scripts/execute_fixed_pd_inverse_dynamics.py",
+        "lab/tests/test_fixed_pd_inverse_dynamics_execution.py"
+      ]
+    },
+    {
+      "id": "single_thread_import",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "VECLIB_MAXIMUM_THREADS": "1",
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; import next_lab.fixed_pd_inverse_dynamics_execution as m; assert m._linux_thread_count() == 1; assert 'osqp' not in sys.modules; assert 'scipy' not in sys.modules; assert 'pinocchio' not in sys.modules"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "decision": {
+    "valid_complete": "PERMIT_SEPARATE_REPORT_ONLY_R124_FULL_KINODYNAMIC_EXECUTION_FORMULATION_ONLY",
+    "invalid": "STOP_INVALID_EVIDENCE_WITHOUT_RESTART"
+  },
+  "result_transition": {
+    "valid_complete": "FREEZE_R123_AND_FORMULATE_REPORT_ONLY_R124_WITHOUT_EXECUTION",
+    "invalid": "STOP_R123_WITHOUT_RETRY"
+  },
+  "bounded_acceptance": {
+    "r123_retry": "NOT_AUTHORIZED",
+    "r124_formulation": "AUTHORIZED_REPORT_ONLY_ON_VALID_R123_COMPLETION",
+    "additional_kto_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
