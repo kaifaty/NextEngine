@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-22 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последняя проверка | 2026-08-15 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
-| Заменяет | SPEC-22 2.0; makes authoring V3, activation V4 and Replay V6 the current-only formats |
+| Версия | 2.2 |
+| Последняя проверка | 2026-08-16 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
+| Заменяет | SPEC-22 2.1; makes authoring V4, activation V5 and Replay V7 the current-only formats |
 
 ## Current policy
 
@@ -18,11 +18,11 @@ formats that have no public support promise.
 
 | Family | Current form | Retired examples | Required result |
 |---|---|---|---|
-| Project authoring | `nextengine.project-authoring.v3` | authoring v2 and earlier | typed `UNSUPPORTED_PROJECT_AUTHORING_FORMAT` |
-| Project activation | `ProjectLockV3`, `ActivatedProjectV4` | `ActivatedProjectV3`, resolver/composition locks | typed `UNSUPPORTED_PROJECT_FORMAT` or `PROJECT_LOCK_INVALID` |
+| Project authoring | `nextengine.project-authoring.v4` | authoring v3 and earlier | typed `UNSUPPORTED_PROJECT_AUTHORING_FORMAT` |
+| Project activation | `ProjectLockV3`, `ActivatedProjectV5` | `ActivatedProjectV4` and earlier, resolver/composition locks | typed `UNSUPPORTED_PROJECT_FORMAT` or `PROJECT_LOCK_INVALID` |
 | Schema registry | `SchemaRegistryManifestV2` | registry V1 | typed unsupported project/registry result |
 | Runtime/save | `RuntimeSnapshotV3`, `WorldCheckpointV4`, `SaveManifestV2` | retired alpha state forms | family-specific typed unsupported result |
-| Replay | `ReplayManifestV6` | `ReplayManifestV5` and earlier | `UNSUPPORTED_REPLAY_MANIFEST_VERSION` |
+| Replay | `ReplayManifestV7` | `ReplayManifestV6` and earlier | `UNSUPPORTED_REPLAY_MANIFEST_VERSION` |
 | Input mapping | `InputMappingReceiptV2` | V1 | typed unsupported mapping/version result |
 | Package | current package manifest with `project_lock_sha256` | pre-direct-lock packages | typed `UNSUPPORTED_PACKAGE_FORMAT` |
 
@@ -30,10 +30,10 @@ The bounded outer format/version probe runs before nested canonical decode,
 hash traversal, store publication or Runtime mutation. Unsupported input is not
 deleted or rewritten.
 
-`SaveManifestV2`, `WorldCheckpointV4`, `ReplayManifestV6`, the two-slot
+`SaveManifestV2`, `WorldCheckpointV4`, `ReplayManifestV7`, the two-slot
 `SaveStore` and `CommandLedgerV2` wire semantics remain unchanged by this
-policy. `ReplayManifestV6` validates its own current five-owner/full-tuple
-closure directly; it is not projected through a removed V5 type.
+policy. `ReplayManifestV7` validates its own current six-owner/full-tuple
+closure directly; it is not projected through a removed V6 type.
 
 ## `SchemaRegistryManifestV2`
 

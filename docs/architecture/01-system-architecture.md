@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-01 |
 | Статус | Accepted |
-| Версия | 2.5 |
-| Последнее изменение | 2026-08-15 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
+| Версия | 2.6 |
+| Последнее изменение | 2026-08-16 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
 
 ## Архитектурная форма
 
@@ -50,7 +50,7 @@ outcome — нет.
 | Project composition | immutable `ProjectLockV3` | validated atomic activation before world start |
 | Gameplay/RPG | revisioned RPG aggregates | validated `WorldCommand` transaction |
 | Derived world calendar and bounded routine | immutable `WorldRoutineCatalogV1` + World Services `WorldRoutineSnapshotV1` | exact stage-6 proposal, stage-9 command/event and joint owner commit |
-| Future broader population tiers/navigation | no current authority | Proposed R4b intent in SPEC-20; add only with its production consumers |
+| Bounded population tiers and graph navigation | immutable `WorldPopulationCatalogV1` + `WorldNavigationCatalogV1`; World Services `WorldPopulationSnapshotV1` | exact stage-6 query/proposal, stage-9 command/event and joint owner commit |
 | Runtime residency | Core Runtime mapping | deterministic spawn/despawn/streaming commit |
 | Physical world | engine-owned physics state and canonical snapshot | fixed step plus validated motor/topology operation |
 | Motor route/state | engine-owned policy supervisor state | deterministic route/action commit or procedural fallback |

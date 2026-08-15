@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 2.8 |
-| Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
-| Заменяет | SPEC-14 2.7; separates static morphology cache identity from per-tick effective-instance state |
+| Версия | 2.9 |
+| Последняя проверка | 2026-08-16 |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
+| Заменяет | SPEC-14 2.8; consumes the committed population-tier view while preserving independent physical authority |
 
 ## Назначение и invariants
 
@@ -42,7 +42,7 @@ animation graph или inference route.
 | Active policy route, transition и complete `PolicyStateRecordV1` | Motor Runtime `PolicySupervisor` | deterministic resolver + accepted transition/state commit |
 | Habits, working plan и tactical preferences | Agent Runtime | `AgentArchetypeDefinition`, perception, memory, planner |
 | Damage, stamina, cooldown, inventory и quest effects | RPG/Mechanics Runtime | EffectRequest/WorldCommand transaction |
-| Future durable population identity, schedule и `WorldResidencyTier` | Proposed World Services R4b track in SPEC-20/ADR-046 | no current view/API; after promotion it remains a committed world-service view, never physical-policy output |
+| Durable population identity, cadence и `PopulationTierV1` | World Services under SPEC-20/ADR-072 | committed immutable view only; never a physical-policy output or pose authority |
 | Physical simulation LOD и pose fidelity | Physical Embodiment LOD coordinator | deterministic selection constrained by committed residency view and physical profile |
 | Physical support status | Immutable bundle revision and deterministic product-check results | `Prototype` or `Supported` |
 
@@ -66,7 +66,7 @@ authoring sources + model artifacts + provenance
   → validate body/policies/skills/behavior references
   → deterministic cook + immutable content hashes
   → CreatureArchetypeManifest
-  → future R4b World Services may publish committed WorldResidencyTier
+  → World Services publishes committed PopulationTierV1 view
   → spawn/materialize generic Character + independently selected physical LOD
   → planner requests ability/PhysicalAvatarIntent
   → typed physical primitives + constraints; natural language is already absent
@@ -86,13 +86,12 @@ primitive/constraint enums, declared reference frames, numeric targets, masks
 and revision-bound evidence predicates. Display names and text provenance do
 not participate in motor routing, observation, chunk identity or success proof.
 
-After its own R4b promotion, `WorldResidencyTier` and physical LOD remain
-separate enums, owners and state machines. Residency may then decide whether
-durable population is materialized and which World Services work is due; it
-never selects a pose, actuator route or model. Physical Embodiment may consume
-that committed view but cannot write tier/schedule/population state. Until
-that promotion there is no tier input, transition command, persistence field
-or replay assertion in the current physical contract.
+Current `PopulationTierV1` and physical LOD remain separate enums, owners and
+state machines. Population tier decides which World Services work is due and
+records logical placement; it never selects a pose, actuator route or model.
+Physical Embodiment may consume that committed view but cannot write
+tier/cadence/population state. Its current contract does not convert the graph
+route into physical locomotion or treat an active tier as traversal evidence.
 
 ## Creature и physical archetype contracts
 

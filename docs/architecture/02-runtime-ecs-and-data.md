@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-02 |
 | Статус | Accepted |
-| Версия | 1.9 |
-| Последняя проверка | 2026-08-15 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
-| Заменяет | SPEC-02 1.8; admits the bounded R4a World Services stage-6/stage-9 consumer |
+| Версия | 2.0 |
+| Последняя проверка | 2026-08-16 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
+| Заменяет | SPEC-02 1.9; admits the bounded R4b population/navigation consumer without adding a Runtime stage |
 
 ## Source of truth и ownership
 
@@ -16,9 +16,10 @@ mapping, system schedule, command transaction log, DomainEvent order и snapshot
 publication. Exact active project configuration приходит только из immutable
 `ProjectLockV3`; RPG Framework владеет aggregate state/transaction semantics,
 Player Experience — action/UI/camera presentation state. World Services owns
-the current derived calendar and bounded routine projection from SPEC-20; it
-uses existing stages 6/9 and does not add a Runtime stage. Broader population
-tiers/navigation remain Proposed R4b scope. Domain component values принадлежат профильному context,
+the current derived calendar, bounded routine projection, durable
+`PopulationTierV1`, logical placement and graph-navigation service from
+SPEC-20/ADR-072; they use existing stages 6/9 and do not add a Runtime stage.
+Domain component values принадлежат профильному context,
 а ECS storage — только механизм размещения. ECS implementation не определяет
 публичную semantics.
 

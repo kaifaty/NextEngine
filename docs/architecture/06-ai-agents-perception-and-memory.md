@@ -4,17 +4,18 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.15 |
-| Последняя проверка | 2026-08-12 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
-| Заменяет | SPEC-06 1.14; makes the typed no-natural-language handoff to Physical Embodiment explicit |
+| Версия | 1.16 |
+| Последняя проверка | 2026-08-16 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
+| Заменяет | SPEC-06 1.15; recognizes the current R4b population substrate without promoting R4c cognition |
 
 ## Source of truth и ownership
 
 RPG aggregates остаются authoritative вне AI. Agent Runtime владеет working
-plan, attention, habits и deterministic decision state. Future
-calendar/population state не имеет current AI contract и остаётся Proposed в
-SPEC-20. Immutable `AgentArchetypeDefinition` принадлежит cooked content;
+plan, attention, habits и deterministic decision state. Current World Services
+calendar/population state is an immutable input boundary, but no current AI
+contract consumes it; beliefs, perception and bounded GOAP remain Proposed R4c
+scope in SPEC-20/32. Immutable `AgentArchetypeDefinition` принадлежит cooked content;
 Agent Runtime интерпретирует его, но не изменяет. Memory Service владеет durable
 episodic/semantic records и relationship recollections/indexes как versioned
 save segment; текущие relationship dimensions, quest/dialogue states,
@@ -151,7 +152,7 @@ Process получает минимальный serialized context, не filesys
 | AI-01 | Same 100 scenarios with `ai-host` disabled | Gameplay and quest outcomes remain correct without blocking a tick; use the built-in planner/dialogue fallback. |
 | AI-02 | 1,000 kill/restart/timeout/malformed-result injections | No host crash or duplicate committed command; fallback is selected no later than one gameplay tick after the deadline signal. |
 | AI-03 | Adversarial intents and stale facts | Every forbidden or stale mutation is rejected and no direct state write is possible. |
-| AI-04 | **Deferred R4b recipe; no current gate.** ADR-016 deterministic 100-NPC workload after its production population consumer exists | Due planning stays within p95 ≤1,250 us / p99 ≤1,500 us with deterministic deferral and no starvation, dropped work, LLM wait or unowned span; reduce planning cadence/LOD if needed. Until then the workload remains typed `NOT_RUN`/unavailable and this row creates no completion claim. |
+| AI-04 | **R4b substrate observation; R4c AI gate remains deferred.** Run current `r4-100npc.v1` for exact population due/query/no-starvation facts; it performs no cognition. | Population cadence and graph queries must retain exact counts and zero defer/drop/starvation. The separate planning p95 ≤1,250 us / p99 ≤1,500 us assertion remains typed `NOT_RUN` until an R4c production cognition consumer exists; R4b timings cannot satisfy it. |
 | MEMORY-P1 | SQLite candidate crash, compaction and migration corpus | Every committed record is recovered, canonical queries match, and corruption fails closed; fall back to the append-only log with compacted indexes. |
 | AI-05 | Restart/save/load with and without embeddings | Authoritative memory, relationship and narrative state is identical; embeddings may be rebuilt or disabled. |
 | AI-06 | Package affordance discovery | Every granted planner-visible ability is discoverable, new fixture abilities need no AI code change, and invalid/stale affordances are rejected; otherwise mark the ability manual-only. |

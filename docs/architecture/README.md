@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.39 |
-| Последняя проверка | 2026-08-15 |
-| Заменяет | INDEX-001 2.38; promotes the bounded SPEC-20/ADR-052 R4a production consumer |
+| Версия | 2.40 |
+| Последняя проверка | 2026-08-16 |
+| Заменяет | INDEX-001 2.39; promotes the bounded SPEC-08/20/25 and ADR-072 R4b production consumer |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -151,7 +151,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-05 | [Physics, animation и motor control](05-physics-animation-and-motor-control.md) | Accepted |
 | SPEC-06 | [AI agents, perception и memory](06-ai-agents-perception-and-memory.md) | Accepted |
 | SPEC-07 | [RPG, scripting и plugins](07-rpg-scripting-and-plugins.md) | Accepted |
-| SPEC-08 | [Audio, navigation и world services](08-audio-navigation-and-world-services.md) | Accepted current audio/partition ownership; navigation sections are a Proposed R4b candidate |
+| SPEC-08 | [Audio, navigation и world services](08-audio-navigation-and-world-services.md) | Accepted audio plus bounded engine-owned graph/query baseline; broader navmesh/traversal remains Proposed |
 | SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted |
 | SPEC-10 | [Gothic importer boundary](10-gothic-importer-boundary.md) | Accepted |
 | SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted |
@@ -163,7 +163,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
 | SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted |
 | SPEC-19 | [Current RPG domain state](19-rpg-domain-and-narrative-state.md) | Accepted |
-| SPEC-20 | [Derived world calendar and authored NPC routines](20-world-simulation-and-population-lifecycle.md) | Accepted bounded R4a calendar/routine consumer; R4b population/navigation breadth remains Proposed |
+| SPEC-20 | [World calendar, authored routines and bounded population lifecycle](20-world-simulation-and-population-lifecycle.md) | Accepted R4a calendar/routine plus R4b 100-record tier/navigation owner; R4c/R4d cognition/systemic breadth remains Proposed |
 | SPEC-21 | [Deterministic runtime primitives, command ledger и causal identity](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | Accepted |
 | SPEC-22 | [Current schema registry и format compatibility](22-schema-registry-compatibility-and-migration.md) | Accepted |
 | SPEC-23 | [Future generic jobs and resource work](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
@@ -259,12 +259,14 @@ traceability — навигационная карта, не admission authority
 | ADR-069 | [Biomechanics BodySchema V2 and explicit solver projection](adr/069-biomechanics-body-schema-v2-and-solver-projection.md) | Accepted current-only biomechanics schema with full inertia, explicit solver carriers/projection, collider/contact roles and hard safety closure; V1 unchanged |
 | ADR-070 | [Biomechanics reference-tracking training environment](adr/070-biomechanics-reference-tracking-training-environment.md) | Accepted current-only TRAIN-5 locomotion tracker profile, corpus-bound V3 manifest, fixed 435-channel observation and 23-channel residual action; no quality or runtime-policy claim |
 | ADR-071 | [Canonical physics-material lineage](adr/071-canonical-physics-material-lineage.md) | Accepted successor material/combine contracts, biomechanics compiled/mirror lineage and explicit ABI 4 material input; no PhysX or training claim |
+| ADR-072 | [Deterministic population tiers and graph-navigation vertical](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) | Accepted 100-record World Services owner, engine-owned 64-node graph, six-owner save closure, current-only Replay V7 and report-only R4 workload |
 
 ## Proposed tracks
 
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
-- Navigation sections of SPEC-08 — bounded R4b graph/tile candidate; no current
-  navigation API or gate until a production consumer is admitted.
+- Broader navigation sections of SPEC-08 — navmesh cooking, dynamic overlays,
+  tactical/physical path following and optional Recast adapter remain Proposed
+  beyond the current ADR-072 graph/query and abstract-transfer baseline.
 - SPEC-23 — future generic scheduler/resource work after the completed bounded
   R3 partition; no generic scheduler/resource framework is accepted.
 - SPEC-31 narrative director, generated quest graph and divine-standing intent

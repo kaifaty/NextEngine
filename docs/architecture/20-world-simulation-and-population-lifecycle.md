@@ -1,36 +1,35 @@
-# SPEC-20: Derived world calendar and authored NPC routines
+# SPEC-20: World calendar, authored routines and bounded population lifecycle
 
 | Field | Value |
 |---|---|
 | ID | SPEC-20 |
 | Status | Accepted |
-| Version | 3.1 |
-| Last verified | 2026-08-15 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
-| Replaces | SPEC-20 3.0; separates deterministic R4c/R4d work from optional learned R8 policies while preserving R4a scope |
+| Version | 4.0 |
+| Last verified | 2026-08-16 |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
+| Replaces | SPEC-20 3.1; promotes the bounded R4b population/navigation consumer while preserving the R4a routine and keeping R4c/R4d cognition/systemic work separate from optional learned R8 policies |
 
 ## Status and admission
 
-This document is the current contract for the first R4 product increment.
-ADR-046 admission was completed in the same changeset as the production
-consumer: the following five conditions are now part of the Accepted baseline:
+This document is the current contract for the completed R4a and R4b product
+increments. ADR-046 admission was completed with their production consumers:
 
 1. the reference-alpha relay keeper consumes the authored routine through the
    production application path;
 2. the engine-owned command/event, content, owner-segment and replay schemas
    below are implemented rather than listed as scaffolding;
-3. `fast`, `play`, `persistence-replay`, `content-package` and the conditional
-   report-only performance smoke pass the R4a scenario and its malformed-input
-   cases;
-4. ADR-052 becomes `Accepted` and explicitly supersedes every affected clause
-   listed in its `Supersession` section;
+3. `fast`, `play`, `persistence-replay`, `content-package` and report-only
+   performance paths cover routine plus population/navigation success and
+   malformed-input cases;
+4. ADR-052 and ADR-072 are `Accepted` and explicitly supersede their affected
+   clauses;
 5. affected Accepted SPECs, the architecture index, routing table,
    traceability map and roadmap describe the implemented current formats.
 
-This admission closes R4a only. It does not close R4, B-07, B-12, B-13 or make
-the R4b population/navigation contracts current.
+This admission closes R4a and the bounded R4b increment only. It does not close
+full R4, B-12, R4c/R4d cognition/systemic work, B-13 or v1 shipping.
 
-## R4a product slice
+## R4a product slice (retained)
 
 R4a's sole production consumer is the existing quest giver
 (the relay keeper) in the active reference-alpha relay-station chunk. One
@@ -59,12 +58,53 @@ policies and a generic jobs/resource scheduler. The keeper remains in the
 current active chunk. These exclusions mean R4a does not close R4, B-07, B-12
 or B-13.
 
+## R4b product slice
+
+R4b adds two domain-relevant content roots and one separate World Services
+owner. `WorldPopulationCatalogV1` contains exactly 100 sorted stable subjects:
+16 active-cadence records with period 3, 32 near-cadence records with period
+15 and 52 background-cadence records with period 60. Phase is the ADR-016
+SHA-256-derived integer and is stored only after exact validation. The closed
+durable tiers are `Dormant`, `Abstract`, `Simulated` and `Active`; physical LOD
+remains a separate Physics/Physical Embodiment concern.
+
+`WorldNavigationCatalogV1` contains four revision-bound region tiles and one
+node per current world chunk. Sorted undirected positive-cost edges form a
+connected graph. `NavigationQueryV1` binds exact graph revision, start, goal
+and `AbstractTransfer`; deterministic Dijkstra produces the ordered-node
+`NavigationRoutePlanV1`, integer total cost and plan hash.
+
+One background courier is the bounded production mutation consumer. Beginning
+at its authored start tick it commits exactly seven revisions:
+
+```text
+Dormant -> Abstract -> [route-bound relay-station to frontier transfer]
+        -> Simulated -> Active -> Simulated -> Abstract -> Dormant
+```
+
+The transfer can commit only while `Abstract`. An `Active` transfer returns
+`PHYSICAL_TRAVERSAL_REQUIRED`, changes no logical placement and never writes a
+physical pose. The same `PersistentId` survives all tiers and both regions.
+Every other population record remains a real due/query participant but retains
+revision zero in this bounded scenario.
+
+Current-only project types are
+`ProjectAuthoringManifestV4 -> NeutralProjectSourceV4 -> CookedProjectV4 ->
+ActivatedProjectV5`. The two catalogs change reference-alpha roots `28 -> 30`
+and content entries `114 -> 116`; the four-region/64-chunk partition shape is
+unchanged. Replay is current-only V7 and the application/save closure has six
+full-tuple owner segments.
+
 ## Ownership
 
 - Runtime owns `SimulationTick`, command admission, the two existing Ingress
   and Outcome phases, ledger identity and fixed-stage order.
 - World Services owns the calendar/routine catalog reference, durable routine
   membership, committed activity and its revision.
+- World Services also owns population membership, logical region/node, tier,
+  cadence and record revision through `WorldPopulationSnapshotV1`.
+- Asset & Persistence owns the immutable population/navigation catalogs and
+  exact graph, placement and residency-policy hashes.
 - Asset & Persistence owns immutable typed calendar/routine content and its
   exact package/hash closure.
 - RPG owns dialogue and quest aggregates. A schedule never writes an RPG
@@ -73,16 +113,18 @@ or B-13.
 - Player Experience renders availability from immutable projections and cannot
   change a routine, calendar or quest from a widget callback.
 - Streaming continues to own its existing reconstructible residency/cache
-  state. The routine segment does not copy a chunk state or loaded entity.
+  state. Routine/population segments do not copy a loaded chunk, runtime entity
+  or physical pose.
 
 `PersistentId` identifies the keeper across save/restart. A
 `RuntimeEntityId`, camera visibility, renderer frame, host clock, I/O timing or
 worker order cannot select activity or interaction availability.
 
-## Current content contracts
+## Retained R4a content contracts
 
-The current implementation uses typed content, not generic property bags or reference-game
-constants.
+The retained R4a layer uses typed content, not generic property bags or
+reference-game constants. Its V3/V4 project names below describe that
+increment's predecessor boundary; the current R4b successors are listed above.
 
 ```text
 WorldRoutineProfileV1 {
@@ -131,11 +173,11 @@ validated before project activation. R4a does not create
 separate profile and routine assets whose independent revision closure has no
 consumer.
 
-V1 structurally contains exactly one subject and one transition, so it can
+The R4a routine V1 structurally contains exactly one subject and one transition, so it can
 produce at most one due command in a tick. A second catalog, routine,
-transition or unknown field returns `WORLD_ROUTINE_CONTENT_INVALID`; a larger
-population requires a new version with its own consumer and is not evidence
-that R4b or a 100-NPC workload exists.
+transition or unknown field returns `WORLD_ROUTINE_CONTENT_INVALID`. R4b adds
+its population as a separate catalog/owner rather than widening this routine
+wire shape.
 
 The catalog's `subject_id` is the only source for the production
 `quest_giver_character_id`. Project activation validates the typed catalog;
@@ -311,9 +353,10 @@ with `next_tick == T` remains pre-boundary when the transition is due in tick
 be serialized or become a second authority.
 
 R4a checks the single record directly: calendar projection and due discovery
-are `O(1)`, and authoritative memory is `O(1)`. A reconstructible min-heap or
-timing wheel may be evaluated only when the R4b 100-NPC consumer demonstrates
-that a direct record scan is a measured limiting resource.
+are `O(1)`, and authoritative memory is `O(1)`. R4b retains a bounded sorted
+100-record scan. Its report-only measurement does not justify a generic heap,
+timing wheel or second scheduler authority; that requires another accepted
+consumer.
 
 ## Fixed-stage command and event semantics
 
@@ -430,9 +473,17 @@ the stated validator-profile hash, not an extra V1 registry field.
 | (`nextengine.command.world-routine`, `1`) | `nextengine.command-kind.world-routine` | 250 | `SHA256("nextengine.command-validator.world-routine.v1\0")` | `nextengine.capability.world-routine-commit` | Outcome only |
 
 The map key must equal each entry's payload schema/version and canonical map
-ordering follows SPEC-21. These exact four entries, not a numeric private
-registry version or a partially upgraded table, are the input to the canonical
-registry envelope/hash and its golden vector.
+ordering follows SPEC-21. These four entries define the retained R4a prefix.
+R4b `core_r4b` adds exactly one fifth entry:
+
+| Map key `(payload_schema_id, version)` | `command_kind_id` | Priority | Required capability | Validator phases |
+|---|---|---:|---|---|
+| (`nextengine.command.world-population`, `1`) | `nextengine.command-kind.world-population` | 260 | `nextengine.capability.world-population-commit` | Outcome only |
+
+Its validator profile is
+`SHA256("nextengine.command-validator.world-population.v1\0")`. The exact five
+entries, not a numeric private registry version or partially upgraded table,
+are the current canonical registry envelope/hash and golden vector.
 
 World bootstrap registers the active `InternalSystem(system_id)` principal,
 grants only that capability and derives its one `CommandStreamId` from the
@@ -450,7 +501,7 @@ The principal record is also pinned: `status = Active`,
 `capability_subject_id = "nextengine.capability-subject.world-routine-boundary"`
 and `provenance_hash = SHA256("nextengine.principal.world-routine-boundary.v1\0")`.
 The live authority
-registry and Replay V6 `AuthorityGrant` contain exactly the unscoped
+registry and the retained R4a Replay V6 `AuthorityGrant` contain exactly the unscoped
 `nextengine.capability.world-routine-commit` grant for this principal. The
 principal/stream/authority entries are created and validated with the routine
 owner before the first tick; partial bootstrap is forbidden.
@@ -528,6 +579,16 @@ registration-order defaults. It remains registered when a project has no
 routine catalog and deterministically emits no proposal, so the runtime profile
 does not vary with project content.
 
+The current R4b schedule adds
+`nextengine.system.world-population-boundary` at the same existing stage 6,
+owned by `nextengine.world-services`, with its own one-shard plan and exact
+population/navigation/snapshot read set. The routine descriptor orders itself
+`before` population and the population descriptor orders itself `after`
+routine; the relation is canonical rather than registration order. Population
+writes only the private `nextengine.world-population-proposal` staging key.
+Reducers remain empty, barriers stay Ingress-2/Outcome-9 ordinal zero and the
+twelve-stage vector is unchanged.
+
 One engine-owned determinism-bundle builder produces the exact canonical
 `CommandKindRegistryV1`, `ScheduleManifestV1` and
 `RuntimeDeterminismProfileV1` bytes plus their hashes. The cooker receives the
@@ -589,7 +650,7 @@ cannot delay or reclassify the streaming publication.
 The existing `TickReport` keeps its Runtime-owned shape and is not silently
 extended with World Services fields. The evidence-bearing validation path used
 by scenario, checkpoint and replay transiently materializes the complete staged
-core checkpoint (including the physics catalog), streaming/routine canonical
+core checkpoint (including the physics catalog), streaming/routine/population canonical
 bytes, their sorted full descriptors and the application root before live
 publication. Its commit returns one immutable `next_runtime` workspace result,
 not a durable `crates/contracts` schema:
@@ -599,6 +660,9 @@ WorldServicesTickCommitV1 {
   runtime_report: TickReport,
   world_streaming_snapshot: WorldStreamingSnapshotV1,
   routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+  population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+  population_service_report_or_none:
+    Option<PopulationNavigationServiceReportV1>,
   streaming_transition_or_none: Option<WorldTransitionCommitV1>,
   application_owner_segments: Vec<SaveSegmentDescriptor>,
   application_state_root: StateRoot,
@@ -609,17 +673,16 @@ WorldServicesTickCommitV1 {
 segment tuple and describes the exact committed bytes. The replay compare-point
 writer consumes the descriptors/root directly. Canonical segment bytes are not
 fields of this result and no no-reread claim is made: a later Save uses its
-ordinary freeze/snapshot boundary and validates the same helper output. A
-project without a routine catalog returns
-`routine_snapshot_or_none == None` and the corresponding four-segment closure;
-that closure uses the existing
-`world_checkpoint_with_streaming_v1_state_root`. The reference R4a profile
-always returns the five-segment closure. Root or
-descriptor construction is validation work and cannot occur after the first
-live write.
+ordinary freeze/snapshot boundary and validates the same helper output.
+Projects omit only the segments for absent optional World Services owners. The
+current `world_checkpoint_with_world_services_v1_state_root` helper sorts
+streaming plus optional routine/population alongside the three core owners.
+Reference R4a returned five segments; current reference R4b always returns
+six. Root or descriptor construction is validation work and cannot occur
+after the first live write.
 
 The ordinary `ReferenceGameDriverV2` live-advance path uses the same joint
-Runtime/routine/optional-streaming generation validation and final stale-base
+Runtime/routine/population/optional-streaming generation validation and final stale-base
 preflight, but does not construct application evidence that the caller would
 discard every tick. `state`, `prepared_state` and `validated_state` materialize
 the same canonical checkpoint/descriptors/root on an actual recovery, save or
@@ -740,11 +803,11 @@ tuple; uniqueness by owner alone is invalid. `SaveManifestV2` and
 Runtime/RPG/physics root. Following the R3 streaming pattern, R4a adds
 `world_checkpoint_with_streaming_and_routine_v1_state_root`, which applies the
 same canonical leaf framing to runtime, RPG, physics, world-streaming and
-world-routine bytes. This five-segment application root is used by the R4a
+world-routine bytes. This five-segment application root was used by the R4a
 application, save/restart checks and Replay V6; it does not silently redefine
 the V4 checkpoint field.
 
-R4a introduces current-only `ReplayManifestV6`. Its initial closure for
+R4a introduced the then-current-only `ReplayManifestV6`. Its initial closure for
 the R4a profile contains runtime, RPG, physics, world-streaming and
 world-routine segments. Initial bytes reuse `ReplayOwnerSegmentV2`.
 `ReplayTickManifestV6` starts from the ordered V5 tick facts, adds the missing
@@ -877,17 +940,55 @@ World Services state. With catalog `None`, the routine segment, conditioned
 interaction and dedicated routine principal/stream/grant are all forbidden;
 the schedule's registered producer remains a deterministic no-op.
 
+### R4b population segment and Replay V7
+
+R4b adds the separate segment:
+
+```text
+owner_id   = "nextengine.world-services"
+schema_id  = "nextengine.world-population-snapshot"
+segment_id = "world-population"
+version    = 1
+```
+
+`world_checkpoint_with_world_services_v1_state_root` frames Runtime, RPG,
+Physics, streaming, optional routine and optional population using the same
+full-tuple sort. Reference alpha requires all six. `SaveManifestV2` and the
+three-owner `WorldCheckpointV4.state_root` retain their wire meanings; the
+application root is the six-owner composition root.
+
+Current-only `ReplayManifestV7` retains the V6 ordered tick/query/streaming
+facts under V7 types and requires the population segment in its initial
+closure. Generic Outcome command/event vectors carry population mutations; no
+population-specific replay side channel or hard-coded courier tick exists.
+Every compare point exact-matches the six sorted descriptors, application
+root, command ledger and existing batch/query/trace hashes. V6 and earlier
+pre-v1 formats return `UNSUPPORTED_REPLAY_MANIFEST_VERSION` before nested
+decoding; there is no V6-to-V7 migration reader.
+
+Population restore proves both calendar/content closure and ledger closure.
+Each nonzero record revision must correspond to the exact contiguous dedicated
+stream commands, events, owner deltas, body/archive occurrences and receipt
+chain that produce the snapshot. Reference alpha admits exactly the courier's
+seven-command prefix and revision-zero state for the remaining 99 records.
+Missing, extra, forged or reordered evidence returns
+`WORLD_POPULATION_LEDGER_CLOSURE_INVALID` before Runtime, streaming, routine or
+population publication.
+
 ## Failure semantics
 
 | Failure | Required result |
 |---|---|
 | Invalid/overflowing calendar profile | `WORLD_CALENDAR_PROFILE_INVALID`; reject project/load or stop before the tick, with no partial mutation |
 | Missing/duplicate/oversized catalog, second routine/transition, invalid condition binding or bootstrap subject collision | `WORLD_ROUTINE_CONTENT_INVALID`; reject complete project activation/world bootstrap before the first tick |
+| Invalid population count/cadence/tier or navigation graph/catalog closure | reject complete V4/V5 project before World Services activation; retain the prior project/world |
+| Stale route/record/catalog or `Active` abstract transfer | reject before mutation; `Active` returns `PHYSICAL_TRAVERSAL_REQUIRED` and leaves logical placement/pose unchanged |
 | Impossible stage-6 routine state or non-byte-exact stage-9 dedicated candidate | `WORLD_ROUTINE_INTERNAL_INVARIANT`; abort the prepared joint tick before Outcome admission, command/archive/ledger mutation or owner publication |
+| Impossible population proposal or non-byte-exact stage-9 candidate | `WORLD_POPULATION_INTERNAL_INVARIANT`; abort the same joint tick before partial publication |
 | Wrong principal/capability/stream/sequence, phase, schema or outer Runtime precondition from any other submitted command | retain the existing generic code and that branch's existing no-reservation or terminal-receipt semantics; no routine-specific code masks it |
-| Runtime/routine/streaming joint-generation validation fails | publish none of the staged generations and retain every prior live owner |
+| Runtime/routine/population/streaming joint-generation validation fails | publish none of the staged generations and retain every prior live owner |
 | Missing/duplicate/corrupt save or replay segment | fail closed before world publication; preserve previous valid generation/source bytes |
-| `ai-host`, learned model or navigation absent | no effect on R4a; authored routine and stationary interaction remain the complete path |
+| `ai-host`, learned model or optional nav adapter absent | no effect; the engine-owned graph and deterministic authored path remain complete |
 
 The one fatal code covers absent/mismatched activated owner/catalog,
 subject/target, record revision, transition or due-tick facts; a bounded
@@ -896,32 +997,33 @@ hash-visible result code. The private `OutcomeProposal` constructor is not a
 public/direct/script/plugin input. Stale live bases remain the separate
 retryable `PREPARED_WORLD_SERVICES_GENERATION_STALE` final-preflight result,
 before ledger mutation. Corrupt saved closure remains
-`WORLD_ROUTINE_LEDGER_CLOSURE_INVALID`; a mismatched Replay V6 oracle remains
+`WORLD_ROUTINE_LEDGER_CLOSURE_INVALID`; a mismatched current Replay V7 oracle remains
 `NONDETERMINISTIC_RESULT`. This preserves SPEC-21's terminal receipt for every
 actually admitted deterministic rejection while preserving the
 genesis-or-one-committed-receipt routine load invariant.
 
 ## Current ProductChecks
 
-These checks map the current R4a production consumer and its fail-closed
-variants.
+These checks map the retained R4a behavior and current R4b production consumer
+with their fail-closed variants.
 
 | Check | Scenario | Expected |
 |---|---|---|
 | `WORLD-ROUTINE-P1` through `play` | Fork two isolated production runs from the same `Duty`/quest-available pre-boundary state. In branch A submit `accept-frontier-relay` before the boundary; in branch B cross the boundary without accepting, query and submit the same interaction in `Rest` | Branch A performs dialogue `offer -> accepted`, quest `available -> active` and relationship `0 -> 7`, and the journal shows `Frontier Relay - Active`. Branch B query returns `WORLD_ROUTINE_ACTIVITY_UNAVAILABLE`; the accepted input receipt has zero derived commands, those RPG revisions stay unchanged and the journal shows `Frontier Relay - Available`. No navigation/tier/model path is required |
-| `WORLD-ROUTINE-REPLAY-P1` through `persistence-replay` | Save with `next_tick == T` immediately before a tick-`T` boundary and again with `next_tick == T + 1`, restart the process and replay the same assigned inputs, including typed begin/complete streaming assignments; inject snapshot/stream receipt mismatches | Exact routine commands/events/delta and receipt-chain roots, full segment descriptors, typed interaction-availability values/hash and five-segment application root match uninterrupted execution without an off-by-one load rejection or runner-hardcoded transition tick; mismatched routine/ledger closure fails before publication |
-| `WORLD-ROUTINE-CONTENT-P1` through `content-package` | Cook/activate authoring v3 and inject zero/overflow ratio, invalid boundary/activity/condition, missing catalog binding, duplicate catalog, bootstrap ID collision and an old/mismatched runtime-profile lock | Valid reference content produces the exact typed V3/V2/V4 chain, `28` root IDs, `114` content entries and canonical schedule/registry/profile closure; every invalid candidate fails before partial project/world publication |
-| `fast` | Focused canonical codec, boundary arithmetic, stage-6/stage-9 internal-invariant faults, owner-delta/receipt roots, routine-stream load closure, joint commit, exact four-entry registry/schedule/profile/project-lock roots, segment order and retired-version tests | Exact bytes/diagnostics are stable; malformed dedicated proposals produce `WORLD_ROUTINE_INTERNAL_INVARIANT` with no batch/archive/receipt/owner publication, the schedule retains Ingress stage `2`/Outcome stage `9`, and no direct mutation, hardcoded keeper ID, opaque profile constant or owner-only segment lookup remains |
-| conditional `performance --scenario smoke --mode report` | Compare the ordinary fixed-stage path with the stage-6 O(1) calendar/routine producer enabled | Runtime/root parity holds and the routine span/logical charge is attributed; verdict remains `REPORT_ONLY`, does not run `r4-100npc` and does not close B-12 |
+| `WORLD-ROUTINE-REPLAY-P1` through `persistence-replay` | Save around the routine boundary, restart and replay the same assigned inputs; inject snapshot/stream receipt mismatches | Exact routine commands/events/delta, interaction availability and six-owner V7 application root match uninterrupted execution; mismatched routine/ledger closure fails before publication |
+| `WORLD-POPULATION-P1` through `play` | Run the reference courier from its authored start through all seven revisions and retry an `Active` abstract transfer | One identity crosses both regions and all tiers, ends revision 7 `Dormant` at the goal, and the invalid active transfer returns `PHYSICAL_TRAVERSAL_REQUIRED` without placement/pose mutation |
+| `WORLD-POPULATION-REPLAY-P1` through `persistence-replay` | Save/load and Replay V7 the courier; inject a calendar-valid snapshot without its receipt | Population bytes, commands/events/deltas, six descriptors, application/ledger roots and continuation are exact; missing ledger evidence returns `WORLD_POPULATION_LEDGER_CLOSURE_INVALID` before publication |
+| `WORLD-CONTENT-P1` through `content-package` | Cook/activate authoring V4 and inject malformed routine, 100-record, graph, hash, node/chunk, bootstrap and old-profile variants | Valid V4/V5 content produces `30` roots, `116` entries, four tiles/regions, 64 nodes/chunks and canonical five-kind/two-system closure; every invalid candidate fails before partial publication |
+| `fast` | Focused codecs, cadence phases, Dijkstra tie-break, stage-6/stage-9 invariant faults, owner-delta/receipt roots, both ledger closures, joint commit, exact registry/schedule/profile roots and retired-version tests | Exact bytes/diagnostics remain stable; malformed candidates create no partial batch/archive/receipt/owner publication, barriers stay Ingress-2/Outcome-9 and direct mutation/opaque profile/owner-only segment lookup remain absent |
+| conditional `performance --scenario smoke --mode report` | Compare the ordinary fixed-stage path with routine plus population enabled | 900 movement, one routine and seven population command bodies preserve exact roots; debug ceilings are watchdogs only and verdict remains report-only |
+| conditional `performance --scenario r4-100npc --mode report` | 1,000 warm-up plus 10,000 measured production joint ticks over the exact 16/32/52 population | Due/query counts and roots are exact, maximum queue depth is 16 and deferral/drop/starvation are zero. Unsupported-host timing is `NOT_RUN` and does not close B-12 |
 
-`r4-100npc` remains an honest `NOT_RUN`/unavailable workload after R4a. It is
-not a gate for this first consumer.
+`r4-100npc` is available only as an honest report-only workload. The recorded
+unsupported-host run is `NOT_RUN`, not a hard performance pass.
 
 ## Future expansion
 
-R4b may promote residency tiers, graph navigation, region transfer and the
-representative 100-NPC profile only with their own production consumers and
-checks. R4c may promote deterministic SPEC-32 cognition after that substrate;
+R4c may promote deterministic SPEC-32 cognition on the current R4b substrate;
 R4d may add the systemic work/currency/trade/food vertical. Learned policy
 documents SPEC-33/34 and ADR-050/053/054 are optional R8 work and do not block
 R4 or v1. A future bulk-time consumer

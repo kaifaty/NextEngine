@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-13 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последняя проверка | 2026-08-15 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
-| Заменяет | SPEC-13 2.1; updates current activation and routine-bound interaction definitions |
+| Версия | 2.3 |
+| Последняя проверка | 2026-08-16 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
+| Заменяет | SPEC-13 2.2; updates the current atomic activation type after R4b |
 
 ## Назначение
 
@@ -62,7 +62,7 @@ Definitions и package manifests canonical, bounded и content-addressed.
 2. Direct project cooking binds the exact `MechanicsLockV1` hash into
    `ProjectLockV3`.
 3. Activation validates the package/content/hash closure before publishing
-   `ActivatedProjectV4`.
+   `ActivatedProjectV5`.
 4. Runtime gives a package only declared immutable views and deterministic
    inputs.
 5. The package returns bounded `EffectRequestV1` or command proposal values.

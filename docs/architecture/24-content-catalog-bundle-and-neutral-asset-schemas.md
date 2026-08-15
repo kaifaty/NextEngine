@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последняя проверка | 2026-08-15 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
-| Заменяет | SPEC-24 2.0; admits the typed routine catalog in the exact content closure |
+| Версия | 2.2 |
+| Последняя проверка | 2026-08-16 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
+| Заменяет | SPEC-24 2.1; admits the typed population and graph-navigation catalogs in the exact content closure |
 
 ## Scope
 
@@ -16,6 +16,8 @@ reference project and package. It intentionally removes speculative archive
 ABI, target-profile resolver, capability-scoring/fallback plans and full future
 navigation/collision/world schema listings. Git history retains those designs;
 a future production consumer must reintroduce only the fields it demonstrates.
+The bounded domain-specific graph catalog admitted by ADR-072 is current; it
+does not restore the removed generic navmesh or bundle ABI.
 
 ## Invariants
 
@@ -103,6 +105,9 @@ The implemented specialized neutral records are:
   binding;
 - `NeutralAudioV1` with canonical bounded PCM/audio metadata;
 - `TextCatalogV1` with deterministic locale fallback from ADR-044.
+- domain-specific `WorldPopulationCatalogV1` and
+  `WorldNavigationCatalogV1`, each carried as an exact root asset rather than
+  a generic neutral navigation schema.
 
 These contracts use engine-owned fixed-width/canonical values, exact asset
 revisions and checked bounds. Render records validate index/attribute lengths,
@@ -133,7 +138,7 @@ schema/content/world/mechanics/render closure, writes exact blobs plus notices
 and publishes `project-lock.json`. Physical package layout is private; there is
 no public bundle archive ABI or runtime catalog resolver.
 
-`ActivatedProjectV4` revalidates:
+`ActivatedProjectV5` revalidates:
 
 - exact `ProjectLockV3`, `SchemaRegistryManifestV2`, `ContentManifestV1` and
   world/mechanics hashes;
@@ -142,6 +147,8 @@ no public bundle archive ABI or runtime catalog resolver.
 - localization fallback closure;
 - audio and animation/skeleton exact references;
 - render catalog canonical round-trip and equality to manifest render entries.
+- exact population/navigation catalog revisions, 100-record closure and graph
+  references against the 64 world chunks.
 
 Only the complete candidate publishes. Failure leaves the prior activated
 project/content untouched. Equal canonical inputs produce byte-identical
