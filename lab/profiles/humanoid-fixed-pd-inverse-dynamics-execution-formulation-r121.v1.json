@@ -1,0 +1,283 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-fixed-pd-inverse-dynamics-execution-formulation.v1",
+  "status": "FrozenReportOnly",
+  "claim": "FixedPdInverseDynamicsExecutionFormulationOnly",
+  "source": {
+    "r108": {
+      "report_sha256": "4ab1ccbc697fdf97efadc9e53ca6f2605956000927c88ed76f1960917590f9e8",
+      "report_file_sha256": "6a288d0cd2bdfc5f580c1dabb96ecf63ed71f79f09ae00bc40ebe15ca18fd4fb",
+      "profile_sha256": "1f5a006eb0a2d0f1bb575b67928e6bb9a86b42c00659393994189ebf8ce62b0f",
+      "repository_commit": "3e4457a570212f82dc289285781c50cb32ae6851",
+      "formulation_module_sha256": "54a2331978ac0b1843a1fe8428642b00cbd0d394e4cf5808c960b5efbb5fcc82",
+      "tool_sha256": "f77be11a0cbb04d09ad1bcdf817e59ad2da853c25c776a6f58d07ca4200eb496"
+    },
+    "r113": {
+      "report_sha256": "3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf",
+      "report_file_sha256": "de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c",
+      "profile_sha256": "fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d",
+      "repository_commit": "2bec28f5de9a97f8e49198e58cc55a1d7dd26ebd",
+      "preflight_module_sha256": "cefd5bbe4a5dee7d4a5fe4a3477b91804dccafdd2247190de616b64a76bd0ce3",
+      "tool_sha256": "d9e89281825e8708efc072b2b3436596572064bac9898bd8b5c2e66177f3db85"
+    },
+    "r120": {
+      "report_sha256": "dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b",
+      "report_file_sha256": "35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc",
+      "profile_sha256": "3dfa2f1b8357cd3452481c9518e8d1ca0ce5c0bb664b3a024fc5ce2653837d55",
+      "cache_sha256": "e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5",
+      "repository_commit": "39708da5036a2f5a2f3bd4f1b4d2f840efe17088",
+      "execution_module_sha256": "ee01fa7766e25840ae9bce7aef38c4a2843768f169b93864be60b4aea49c016a",
+      "tool_sha256": "5dde0605ca2a33aa0f82f046748d9f24e9dd3eff613e594fe56f9469ecb05346",
+      "emitted_aggregate_sha256": "06e6113d862dcf6acd827962b8a580013f9e3689902b90c9189efaab641841cf"
+    },
+    "v9_complete_clip_sha256": "16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d",
+    "current_descriptor_file_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "tracked_controller_sha256": {
+      "motor_mirror": "f47cbdb253e41caf335c96acbf4223e8c4ed92c1248c30dac9af49e1cd04dacf",
+      "isaac_reference_env": "ac091775bce7d5c59c3b42307984f5fa39d7235ceb0385ffbcfadfe2a1e584e8"
+    }
+  },
+  "scope": {
+    "run_id": "R121",
+    "clip_id": "cmu16-walk-nominal-b",
+    "frame_count": 801,
+    "motor_interval_count": 800,
+    "physics_substeps_per_motor_interval": 4,
+    "physics_collocation_count": 3200,
+    "body_count": 24,
+    "joint_count": 23,
+    "actuator_count": 23,
+    "scheduled_point_count": 4,
+    "generalized_velocity_width": 29,
+    "motor_hz": 60,
+    "physics_hz": 240,
+    "inverse_dynamics_execution_formulations": 1,
+    "inverse_dynamics_solves": 0,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "frozen_invariants": {
+    "controller": "exact zero-residual 60 Hz reference target, fixed descriptor PD and canonical safety intersection at every 240 Hz substep",
+    "controller_or_gain_changes": "FORBIDDEN",
+    "fresh_scene_authority": "ADR-070",
+    "partial_reset": "REPORT_ONLY",
+    "contact_schedule_changes": "FORBIDDEN",
+    "contact_point_deletion_or_relocation": "FORBIDDEN",
+    "descriptor_limit_changes": "FORBIDDEN",
+    "grace_or_settling": "FORBIDDEN",
+    "cadence_changes": "FORBIDDEN",
+    "r120_cache_role": "solver-private q/v/a input only; never a candidate, corpus or runtime artifact",
+    "stage_2_acceptance_authority": false,
+    "physx_execution": "FORBIDDEN",
+    "learned_optimization": "FORBIDDEN"
+  },
+  "state_lift_contract": {
+    "intervals": "motor intervals i=0..799 use exact R120 knots i and i+1",
+    "collocation_abscissae": ["0", "1/4", "1/2", "3/4"],
+    "translation_and_joint_configuration": "independent affine interpolation q(i,u)=(1-u)q_i+u q_(i+1)",
+    "linear_angular_and_joint_velocity": "independent affine interpolation v(i,u)=(1-u)v_i+u v_(i+1)",
+    "acceleration_warm_start": "independent affine interpolation a_warm(i,u)=(1-u)a_i+u a_(i+1)",
+    "root_orientation": "R(i,u)=Exp(u Log(R_(i+1) R_i^T)) R_i on the principal SO(3) branch",
+    "motor_boundary_reanchor": "every next interval starts from the exact next R120 knot; no integrated stage-2 state is carried",
+    "kinematic_derivative_identity": "NOT_CLAIMED_IN_STAGE_2",
+    "discrete_integration_constraint": "ABSENT_BY_DESIGN_AND_RESERVED_FOR_STAGE_3_FULL_KINODYNAMICS",
+    "rigid_body_evaluation_precision": "float64",
+    "controller_observation": "ties-to-even microradian and microradian-per-second projection of the lifted joint state"
+  },
+  "decision_variables": {
+    "per_physics_collocation": {
+      "generalized_acceleration": 29,
+      "applied_actuator_effort": 23,
+      "ordered_point_force": 12,
+      "total": 64
+    },
+    "ordered_point_force_layout": "four R113 point ordinals, each [normal_newtons, right_newtons, forward_newtons]",
+    "generalized_acceleration_layout": "engine-world root linear xyz, root angular xyz, then descriptor dof_ordinal 0..22",
+    "actuator_effort_layout": "descriptor dof_ordinal 0..22",
+    "total_generalized_acceleration_scalars": 92800,
+    "total_applied_effort_scalars": 73600,
+    "total_point_force_scalars": 38400,
+    "total_decision_scalars": 204800,
+    "configuration_or_velocity_variables": 0,
+    "contact_mode_or_timing_variables": 0
+  },
+  "equation_contract": {
+    "rigid_body_dynamics": "M(q_s) a_s + h(q_s,v_s,g) = S^T tau_s + sum_p J_p(q_s)^T [right_p, normal_p, forward_p]",
+    "rigid_body_equality_rows_per_collocation": 29,
+    "fixed_pd_effort_identity_rows_per_collocation": 23,
+    "point_rows_per_collocation": 12,
+    "active_point_rows": "J_p(q_s) a_s + Jdot_p(q_s,v_s) v_s = 0 in engine XYZ",
+    "inactive_point_rows": "all normal/right/forward force components equal zero",
+    "total_equality_rows_per_collocation": 64,
+    "total_equality_rows": 204800,
+    "active_point_friction": "normal >= 0 and sqrt(right^2+forward^2) <= (52429/65536) normal",
+    "active_point_acceleration_closure_scalar_rows": 14868,
+    "inactive_point_zero_force_scalar_rows": 23532,
+    "friction_second_order_cone_count": 4956,
+    "impact_or_complementarity_variables": 0,
+    "independent_contact_torque_variables": 0
+  },
+  "fixed_pd_contract": {
+    "initial_applied_target": "exact R120 frame-0 joint position in descriptor ordinal order",
+    "initial_previous_effort": "23 exact zeros",
+    "motor_target": "exact R120 joint position at the left knot i with zero residual, soft-ROM clamp, then descriptor target-delta slew from the previous applied target",
+    "target_hold": "one applied target is held over exactly four collocation substeps",
+    "positive_work_state": "reset to zero at each motor interval and accumulated over its four substeps",
+    "requested_effort": "round_ties_even(K_q16*(target-position_urad)/65536) - round_ties_even(D_q16*velocity_urad_s/65536)",
+    "applied_effort": "requested effort clamped to the intersection of descriptor effort, previous-effort rate, instantaneous power and remaining positive-work intervals",
+    "rate_delta": "round_ties_even(maximum_effort_rate/240)",
+    "power_bound": "floor(maximum_power_microwatts*1000000/abs(velocity_urad_s)); infinite at zero velocity",
+    "positive_work_bound": "floor(remaining_work_microjoules*240*1000000/abs(velocity_urad_s)); direction-selective and infinite at zero velocity",
+    "positive_work_charge": "ceil(max(applied_effort*velocity_urad_s,0)/(240*1000000))",
+    "observed_hard_rom_tolerance_microradians": 10,
+    "observed_velocity_limit": "exact descriptor maximum_velocity_microradians_per_second per dof",
+    "infeasible_intersection": "record exact channel/substep and continue only to a valid metrics report; never publish zero effort as a repair",
+    "identity_requirement": "the applied-effort decision variable equals the exact derived applied effort at every collocation",
+    "expected_formulation_audit": {
+      "status": "PASS",
+      "activation_counts": {
+        "hard_rom_violation": 0,
+        "velocity_violation": 0,
+        "target_soft_clamp": 0,
+        "target_slew": 1,
+        "static_effort_clamp": 0,
+        "effort_rate_clamp": 641,
+        "power_clamp": 0,
+        "positive_work_clamp": 0,
+        "infeasible_effort_envelope": 0
+      },
+      "target_slew_dof_ordinals": [6],
+      "effort_rate_clamp_dof_ordinals": [0, 1, 3, 4, 6, 7, 9, 10, 17, 21],
+      "maximum_target_lag_microradians": 1672,
+      "maximum_absolute_requested_effort_micronewton_metres": 145527100,
+      "maximum_absolute_applied_effort_micronewton_metres": 145527100,
+      "maximum_positive_work_microjoules_per_motor_tick": 56348
+    }
+  },
+  "contact_schedule_contract": {
+    "source": "byte-exact V9 modes retained unchanged by R120",
+    "motor_active_point_count": 1239,
+    "active_point_collocation_count": 4956,
+    "inactive_point_collocation_count": 7844,
+    "ordered_mode_counts_over_intervals": {
+      "flight_flight": 140,
+      "flight_forefoot": 43,
+      "flight_flat": 277,
+      "forefoot_flight": 38,
+      "flat_flight": 302
+    }
+  },
+  "implementation_conformance_contract": {
+    "next_run_id": "R122",
+    "execution_in_r122": false,
+    "required_anchors": [0, 238, 244, 249, 328, 626, 800],
+    "checks": [
+      "descriptor-to-spatial-model body, inertia, joint-frame, semantic-axis and gravity identity",
+      "mass-matrix symmetry and positive-definiteness at all seven anchors",
+      "independent inverse/forward dynamics round-trip at all seven anchors",
+      "contact-point position and translational Jacobian agreement with the frozen kinematic kernel",
+      "Jdot-v finite-difference agreement on every active required anchor",
+      "R113 point-force order, frame, application point and generalized-force projection",
+      "R121 affine-lift, contact inventory and exact fixed-PD schedule reproduction",
+      "one-local-system resource instrumentation without solving any R123 system"
+    ],
+    "mass_matrix_relative_symmetry_tolerance": 1e-10,
+    "dynamics_round_trip_scaled_absolute_tolerance": 1e-9,
+    "contact_jacobian_absolute_tolerance": 1e-7,
+    "contact_jacobian_relative_tolerance": 1e-6,
+    "jdot_v_absolute_metres_per_second_squared": 1e-5,
+    "pass_transition": "PERMIT_R123_SINGLE_BOUNDED_FIXED_PD_INVERSE_DYNAMICS_EXECUTION_ONLY",
+    "fail_transition": "STOP_INVALID_DYNAMICS_IMPLEMENTATION"
+  },
+  "future_single_execution_budget": {
+    "run_id": "R123",
+    "process_count": 1,
+    "thread_count": 1,
+    "maximum_local_system_solves": 3200,
+    "maximum_local_unknown_count": 64,
+    "maximum_wall_clock_seconds": 7200,
+    "maximum_resident_memory_bytes": 8589934592,
+    "random_seed": 0,
+    "randomized_restart_count": 0,
+    "resume_or_warm_restart": "FORBIDDEN",
+    "manual_intervention": "FORBIDDEN",
+    "invalid_or_resource_exhaustion": "STOP_INVALID_EVIDENCE_WITHOUT_RESTART"
+  },
+  "future_execution_output": {
+    "valid_completion": "metrics report plus at most one external transient solver-private acceleration/effort/point-force warm-start cache",
+    "feasibility_claim": "stage-2 pointwise constrained-dynamics feasibility only; no trajectory integration, native behavior or acceptance authority",
+    "valid_infeasible_disposition": "PERMIT_SEPARATE_REPORT_ONLY_R124_FULL_KINODYNAMIC_EXECUTION_FORMULATION_ONLY",
+    "valid_feasible_disposition": "PERMIT_SEPARATE_REPORT_ONLY_R124_FULL_KINODYNAMIC_EXECUTION_FORMULATION_ONLY",
+    "candidate_artifact": "FORBIDDEN",
+    "physx_scene": "FORBIDDEN",
+    "training": "FORBIDDEN"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx", "--from", "ruff==0.16.3", "ruff", "check",
+        "--ignore", "TRY004,BLE001",
+        "lab/next_lab/fixed_pd_inverse_dynamics_execution_formulation.py",
+        "lab/scripts/formulate_fixed_pd_inverse_dynamics_execution.py",
+        "lab/tests/test_fixed_pd_inverse_dynamics_execution_formulation.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx", "--from", "ruff==0.16.3", "ruff", "format", "--check",
+        "lab/next_lab/fixed_pd_inverse_dynamics_execution_formulation.py",
+        "lab/scripts/formulate_fixed_pd_inverse_dynamics_execution.py",
+        "lab/tests/test_fixed_pd_inverse_dynamics_execution_formulation.py"
+      ]
+    },
+    {
+      "id": "solver_free_import",
+      "environment": {"PYTHONPATH": "lab"},
+      "arguments": [
+        "lab/.venv/bin/python", "-c",
+        "import sys; import next_lab.fixed_pd_inverse_dynamics_execution_formulation; assert 'osqp' not in sys.modules; assert 'pinocchio' not in sys.modules; assert 'next_lab.fixed_pd_inverse_dynamics_solver' not in sys.modules; assert 'next_lab.fixed_pd_inverse_dynamics_execution' not in sys.modules"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {"PYTHONPATH": "lab"},
+      "arguments": [
+        "lab/.venv/bin/python", "-m", "unittest", "discover", "-s", "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": ["cargo", "test", "-p", "next_motor"]
+    },
+    {
+      "id": "host_check",
+      "arguments": ["cargo", "run", "-q", "-p", "xtask", "--", "host-check"]
+    }
+  ],
+  "result_transitions": {
+    "r121_complete": "PERMIT_R122_FIXED_PD_INVERSE_DYNAMICS_IMPLEMENTATION_CONFORMANCE_ONLY",
+    "r121_invalid": "STOP_INVALID_EVIDENCE",
+    "r122_pass": "PERMIT_R123_SINGLE_BOUNDED_FIXED_PD_INVERSE_DYNAMICS_EXECUTION_ONLY",
+    "r122_fail": "STOP_INVALID_DYNAMICS_IMPLEMENTATION",
+    "r123_valid_complete": "PERMIT_SEPARATE_REPORT_ONLY_R124_FULL_KINODYNAMIC_EXECUTION_FORMULATION_ONLY",
+    "r123_invalid": "STOP_INVALID_EVIDENCE"
+  },
+  "decision": {
+    "complete": "PERMIT_R122_FIXED_PD_INVERSE_DYNAMICS_IMPLEMENTATION_CONFORMANCE_ONLY"
+  },
+  "bounded_acceptance": {
+    "r122_implementation_conformance": "AUTHORIZED_REPORT_ONLY_ON_R121_COMPLETE",
+    "r123_inverse_dynamics_execution": "NOT_AUTHORIZED_UNTIL_R122_PASS",
+    "additional_kto_solve": "NOT_AUTHORIZED",
+    "inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
