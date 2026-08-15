@@ -1,7 +1,8 @@
 use next_contracts::input::PlayerActionPhaseV1;
+use next_contracts::persistence::WorldStreamingReplayInputV1;
 use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState};
-use next_world::WorldStreamerV1;
+use next_world::{WorldRoutineOwnerV1, WorldStreamerV1};
 
 use crate::player_fixture::prepare_fixture_project_package_with_scratch;
 use crate::scratch::ScratchContext;
@@ -13,7 +14,7 @@ use crate::{
 use super::super::extensions::{verify_luau_state_round_trip, verify_wasm_state_round_trip};
 use super::super::rpg_fixture::{initial_rpg_snapshot, rpg_commands};
 use super::super::{PersistenceReplayBackend, PersistenceReplayCheckError};
-use super::DirectScenario;
+use super::{DirectScenario, record_direct_tick};
 
 pub(super) fn initialize(
     scratch: &ScratchContext,
@@ -61,9 +62,18 @@ pub(super) fn initialize(
         physics_options,
     )
     .map_err(|error| PersistenceReplayCheckError::new("create runtime", error.to_string()))?;
+    let routine = WorldRoutineOwnerV1::activate(
+        fixture.activated_project.world_routine_catalog_or_none,
+        runtime.next_tick(),
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("activate world routine", error.to_string())
+    })?;
     let initial_checkpoint = runtime.world_checkpoint().map_err(|error| {
         PersistenceReplayCheckError::new("initial checkpoint", error.to_string())
     })?;
+    let initial_world_snapshot = world.snapshot().clone();
+    let initial_routine_snapshot_or_none = routine.snapshot_or_none().copied();
     let direct_commands = rpg_commands(fixture.rpg_stream_id, fixture.principal.clone())?;
 
     Ok(DirectScenario {
@@ -76,10 +86,16 @@ pub(super) fn initialize(
         initial_chunk_id,
         transition_chunk_id,
         world,
+        routine,
         runtime,
         initial_checkpoint,
+        initial_world_snapshot,
+        initial_routine_snapshot_or_none,
         direct_commands,
         reports: Vec::new(),
+        world_services_commits: Vec::new(),
+        replay_streaming_inputs: Vec::new(),
+        replay_direct_commands: Vec::new(),
     })
 }
 
@@ -88,8 +104,7 @@ pub(super) fn run_pre_save(
 ) -> Result<(), PersistenceReplayCheckError> {
     run_forward_movement(scenario)?;
     run_item_and_switch_interactions(scenario)?;
-    run_to_npc_contact(scenario)?;
-    queue_saved_melee(scenario)
+    run_to_npc_contact(scenario)
 }
 
 fn run_forward_movement(scenario: &mut DirectScenario) -> Result<(), PersistenceReplayCheckError> {
@@ -121,11 +136,13 @@ fn run_forward_movement(scenario: &mut DirectScenario) -> Result<(), Persistence
         } else {
             Vec::new()
         };
-        scenario
-            .reports
-            .push(scenario.runtime.run_tick(commands).map_err(|error| {
-                PersistenceReplayCheckError::new("run pre-save movement", error.to_string())
-            })?);
+        record_direct_tick(
+            scenario,
+            commands,
+            None,
+            WorldStreamingReplayInputV1::None,
+            "run pre-save movement",
+        )?;
     }
     Ok(())
 }
@@ -147,11 +164,13 @@ fn run_item_and_switch_interactions(
         .map_err(|error| {
             PersistenceReplayCheckError::new("enqueue pickup input", error.to_string())
         })?;
-    scenario
-        .reports
-        .push(scenario.runtime.run_tick([]).map_err(|error| {
-            PersistenceReplayCheckError::new("run pickup interaction", error.to_string())
-        })?);
+    record_direct_tick(
+        scenario,
+        Vec::new(),
+        None,
+        WorldStreamingReplayInputV1::None,
+        "run pickup interaction",
+    )?;
 
     let equip = player_equip_use_sample(
         &scenario.fixture,
@@ -167,11 +186,13 @@ fn run_item_and_switch_interactions(
         .map_err(|error| {
             PersistenceReplayCheckError::new("enqueue equip input", error.to_string())
         })?;
-    scenario
-        .reports
-        .push(scenario.runtime.run_tick([]).map_err(|error| {
-            PersistenceReplayCheckError::new("run equip interaction", error.to_string())
-        })?);
+    record_direct_tick(
+        scenario,
+        Vec::new(),
+        None,
+        WorldStreamingReplayInputV1::None,
+        "run equip interaction",
+    )?;
 
     let switch_interaction = player_interact_sample(
         &scenario.fixture,
@@ -187,11 +208,13 @@ fn run_item_and_switch_interactions(
         .map_err(|error| {
             PersistenceReplayCheckError::new("enqueue switch input", error.to_string())
         })?;
-    scenario
-        .reports
-        .push(scenario.runtime.run_tick([]).map_err(|error| {
-            PersistenceReplayCheckError::new("run switch interaction", error.to_string())
-        })?);
+    record_direct_tick(
+        scenario,
+        Vec::new(),
+        None,
+        WorldStreamingReplayInputV1::None,
+        "run switch interaction",
+    )?;
     Ok(())
 }
 
@@ -210,11 +233,13 @@ fn run_to_npc_contact(scenario: &mut DirectScenario) -> Result<(), PersistenceRe
         .map_err(|error| {
             PersistenceReplayCheckError::new("enqueue backward input", error.to_string())
         })?;
-    scenario
-        .reports
-        .push(scenario.runtime.run_tick([]).map_err(|error| {
-            PersistenceReplayCheckError::new("run backward movement", error.to_string())
-        })?);
+    record_direct_tick(
+        scenario,
+        Vec::new(),
+        None,
+        WorldStreamingReplayInputV1::None,
+        "run backward movement",
+    )?;
 
     for sequence in 8_u64..11 {
         let right = player_action_sample(
@@ -235,11 +260,13 @@ fn run_to_npc_contact(scenario: &mut DirectScenario) -> Result<(), PersistenceRe
             .map_err(|error| {
                 PersistenceReplayCheckError::new("enqueue right input", error.to_string())
             })?;
-        scenario
-            .reports
-            .push(scenario.runtime.run_tick([]).map_err(|error| {
-                PersistenceReplayCheckError::new("run right movement", error.to_string())
-            })?);
+        record_direct_tick(
+            scenario,
+            Vec::new(),
+            None,
+            WorldStreamingReplayInputV1::None,
+            "run right movement",
+        )?;
     }
     if !scenario
         .runtime
@@ -258,7 +285,9 @@ fn run_to_npc_contact(scenario: &mut DirectScenario) -> Result<(), PersistenceRe
     Ok(())
 }
 
-fn queue_saved_melee(scenario: &mut DirectScenario) -> Result<(), PersistenceReplayCheckError> {
+pub(super) fn queue_saved_melee(
+    scenario: &mut DirectScenario,
+) -> Result<(), PersistenceReplayCheckError> {
     let queued_melee = player_melee_sample(
         &scenario.fixture,
         11,

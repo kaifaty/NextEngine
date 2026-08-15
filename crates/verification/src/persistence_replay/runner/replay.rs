@@ -1,11 +1,10 @@
 use next_contracts::canonical::CanonicalDecodeLimits;
-use next_contracts::persistence::ReplayManifestV5;
-use next_world::WorldStreamerV1;
+use next_contracts::persistence::ReplayManifestV6;
 
-use crate::run_replay_manifest_v5_with_definitions_and_physics_options;
+use crate::run_replay_manifest_v6_with_physics_options;
 
 use super::super::PersistenceReplayCheckError;
-use super::super::replay_support::{compare_replay, replay_manifest, transition_world};
+use super::super::replay_support::{compare_replay, replay_manifest};
 use super::{AgentEvidence, DirectScenario, RestoredScenario};
 
 pub(super) fn verify(
@@ -16,72 +15,51 @@ pub(super) fn verify(
     let replay_manifest = replay_manifest(
         restored.compatibility.clone(),
         &direct.fixture.authority,
-        direct.initial_checkpoint.clone(),
+        &direct.initial_checkpoint,
+        &direct.initial_world_snapshot,
+        direct.initial_routine_snapshot_or_none.as_ref(),
         &direct.reports,
-        vec![
-            direct.direct_commands.clone(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            vec![agent.replay_command.clone()],
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-        ],
+        &direct.world_services_commits,
+        &direct.replay_streaming_inputs,
+        &direct.replay_direct_commands,
     )?;
+    if !direct
+        .replay_direct_commands
+        .iter()
+        .flatten()
+        .any(|command| command == &agent.replay_command)
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "recorded replay contains the exact planned agent command",
+        ));
+    }
     let replay_bytes = replay_manifest
         .to_jcs_bytes()
-        .map_err(|error| PersistenceReplayCheckError::new("encode replay V5", error.to_string()))?;
+        .map_err(|error| PersistenceReplayCheckError::new("encode replay V6", error.to_string()))?;
     let decoded_replay_manifest =
-        ReplayManifestV5::from_jcs_bytes(&replay_bytes, CanonicalDecodeLimits::default()).map_err(
-            |error| PersistenceReplayCheckError::new("decode replay V5", error.to_string()),
+        ReplayManifestV6::from_jcs_bytes(&replay_bytes, CanonicalDecodeLimits::default()).map_err(
+            |error| PersistenceReplayCheckError::new("decode replay V6", error.to_string()),
         )?;
     if decoded_replay_manifest != replay_manifest {
         return Err(PersistenceReplayCheckError::condition(
-            "replay V5 JCS round trip is exact",
+            "replay V6 JCS round trip is exact",
         ));
     }
-    let replay = run_replay_manifest_v5_with_definitions_and_physics_options(
+    let replay = run_replay_manifest_v6_with_physics_options(
         &decoded_replay_manifest,
-        direct.fixture.activated_project.rpg_definitions.clone(),
+        next_project::ActivatedProjectPackage {
+            project: direct.fixture.activated_project.clone(),
+            content_generation: direct.content_generation.clone(),
+        },
         direct.physics_options,
     )
     .map_err(|error| PersistenceReplayCheckError::new("closed-batch replay", error.to_string()))?;
-    compare_replay(&direct.runtime, &direct.reports, &replay)?;
-
-    let mut replay_world = WorldStreamerV1::activate(
-        direct.fixture.activated_project.clone(),
-        direct.content_generation.clone(),
-        direct.initial_chunk_id.clone(),
-    )
-    .map_err(|error| {
-        PersistenceReplayCheckError::new("activate replay world", error.to_string())
-    })?;
-    transition_world(
-        &mut replay_world,
-        direct.transition_chunk_id.clone(),
-        11,
-        "replay forward world",
+    compare_replay(
+        &direct.runtime,
+        &direct.reports,
+        &direct.world_services_commits,
+        &replay,
     )?;
-    transition_world(
-        &mut replay_world,
-        direct.initial_chunk_id.clone(),
-        16,
-        "replay return world",
-    )?;
-    if replay_world.snapshot() != direct.world.snapshot() {
-        return Err(PersistenceReplayCheckError::condition(
-            "world streaming replay reaches the same state",
-        ));
-    }
 
     Ok(())
 }

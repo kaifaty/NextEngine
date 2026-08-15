@@ -5,9 +5,10 @@ use super::schema::SchemaRegistryManifestV2;
 use super::world_partition::WorldPartitionManifestV1;
 use crate::canonical::CanonicalDecodeLimits;
 use crate::render_content::{NeutralRenderRecordV1, RenderContentCatalogV1};
+use crate::world_routine::WorldRoutineCatalogV1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ActivatedProjectV3 {
+pub struct ActivatedProjectV4 {
     pub project_lock: ProjectLockV3,
     pub schema_registry: SchemaRegistryManifestV2,
     pub content_manifest: ContentManifestV1,
@@ -17,11 +18,12 @@ pub struct ActivatedProjectV3 {
     pub audio_clips: Vec<crate::audio::NeutralAudioV1>,
     pub neutral_skeletons: Vec<crate::animation_content::NeutralSkeletonV1>,
     pub neutral_animations: Vec<crate::animation_content::NeutralAnimationV1>,
-    pub rpg_definitions: crate::mechanics::RpgDefinitionRegistryV1,
+    pub rpg_definitions: crate::mechanics::RpgDefinitionRegistryV2,
+    pub world_routine_catalog_or_none: Option<WorldRoutineCatalogV1>,
     pub render_content_catalog: RenderContentCatalogV1,
 }
 
-impl ActivatedProjectV3 {
+impl ActivatedProjectV4 {
     pub fn validate(&self) -> Result<(), ProjectContractError> {
         self.project_lock.validate()?;
         self.rpg_definitions
@@ -237,6 +239,59 @@ impl ActivatedProjectV3 {
         manifest_render_revisions.sort();
         if catalog_revisions != manifest_render_revisions {
             return Err(ProjectContractError::HashMismatch);
+        }
+        let conditioned_interactions = self
+            .rpg_definitions
+            .interactions
+            .iter()
+            .filter_map(|interaction| interaction.availability_condition_or_none)
+            .collect::<Vec<_>>();
+        match self.world_routine_catalog_or_none {
+            Some(catalog) => {
+                catalog
+                    .validate()
+                    .map_err(|_| ProjectContractError::HashMismatch)?;
+                let revision = catalog
+                    .revision()
+                    .map_err(|_| ProjectContractError::HashMismatch)?;
+                let matching_entries = self
+                    .content_manifest
+                    .body
+                    .asset_entries
+                    .iter()
+                    .filter(|entry| {
+                        entry.asset_revision.asset_id == catalog.catalog_asset_id
+                            && entry.asset_revision.record_sha256 == revision
+                            && entry.schema_ref.schema_id.as_str()
+                                == crate::world_routine::WORLD_ROUTINE_CATALOG_SCHEMA_ID
+                    })
+                    .count();
+                let matching_roots = self
+                    .content_manifest
+                    .body
+                    .root_assets
+                    .iter()
+                    .filter(|root| {
+                        root.asset_id == catalog.catalog_asset_id && root.record_sha256 == revision
+                    })
+                    .count();
+                if matching_entries != 1
+                    || matching_roots != 1
+                    || conditioned_interactions.is_empty()
+                    || conditioned_interactions.iter().any(|condition| {
+                        condition.subject_id != catalog.routine.subject_id
+                            || !matches!(
+                                condition.required_activity,
+                                crate::world_routine::WorldRoutineActivityV1::Duty
+                                    | crate::world_routine::WorldRoutineActivityV1::Rest
+                            )
+                    })
+                {
+                    return Err(ProjectContractError::HashMismatch);
+                }
+            }
+            None if conditioned_interactions.is_empty() => {}
+            None => return Err(ProjectContractError::HashMismatch),
         }
         if self.project_lock.project_id != self.content_manifest.body.project_id
             || self.project_lock.project_revision != self.content_manifest.body.content_revision

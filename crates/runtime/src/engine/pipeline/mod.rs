@@ -28,6 +28,7 @@ use super::result::{
     CommandOrderKey, CommittedRpgPlanTraceV1, OrderedResult, RejectionCode, StageTraceEntry,
     TransactionStage,
 };
+use super::world_routine::WorldRoutineStageContextV1;
 
 mod execution;
 mod ledger;
@@ -140,6 +141,7 @@ pub(super) fn process_phase(
     commands: Vec<WorldCommand>,
     staged: &mut StagedAuthoritativeState,
     world_streaming: Option<WorldStreamingStageContext<'_>>,
+    mut world_routine: Option<&mut WorldRoutineStageContextV1>,
 ) -> Result<PhaseExecution, RuntimeFatalError> {
     let mut queued = due_commands(context, staged)?;
     queued.extend(commands.into_iter().map(|command| QueuedCommand {
@@ -219,7 +221,13 @@ pub(super) fn process_phase(
     let mut contact_batch = None;
     let mut rpg_plan_traces = Vec::new();
     for candidate in candidates {
-        match execute_candidate(context, candidate, staged, &mut physical_bodies)? {
+        match execute_candidate(
+            context,
+            candidate,
+            staged,
+            &mut physical_bodies,
+            world_routine.as_deref_mut(),
+        )? {
             CandidateExecution::Result(result, trace) => {
                 match trace {
                     ExecutionTrace::Rejected => commit_rejected = checked_inc(commit_rejected)?,
@@ -246,6 +254,17 @@ pub(super) fn process_phase(
             world_streaming
                 .world
                 .validate_prepared_stage(world_streaming.publication, context.tick)?;
+        }
+        if let Some(world_routine) = world_routine.as_deref_mut() {
+            // The stage-6 envelope binds the exact stage-9 Runtime revision.
+            // The mandatory stage-8 physics step advances the canonical
+            // physics snapshot (including its tick) and therefore contributes
+            // exactly one authoritative revision before Outcome admission.
+            let outcome_phase_revision = staged
+                .revision
+                .checked_add(1)
+                .ok_or(RuntimeFatalError::RevisionExhausted)?;
+            world_routine.produce_stage_6(context.tick, outcome_phase_revision)?;
         }
         let physical_execution = finish_physical_step(context, physical_pending, staged)?;
         for (result, event) in physical_execution.command_results {
@@ -291,7 +310,7 @@ pub(super) fn process_phase(
             deduplicated: commit_deduplicated,
         },
     ];
-    if world_streaming.is_some() {
+    if world_streaming.is_some() || world_routine.is_some() {
         stage_trace.push(StageTraceEntry {
             stage: TransactionStage::WorldStreamingCommit,
             received: 1,
@@ -419,16 +438,20 @@ fn compare_validated_commands(left: &ValidatedCommand, right: &ValidatedCommand)
 }
 
 fn compare_execution_candidates(left: &ValidatedCommand, right: &ValidatedCommand) -> Ordering {
-    (
-        left.command.stream_id,
-        left.command.sequence,
-        &left.order_key,
-    )
-        .cmp(&(
-            right.command.stream_id,
-            right.command.sequence,
-            &right.order_key,
-        ))
+    if left.command.stream_id == right.command.stream_id {
+        (left.command.sequence, &left.order_key).cmp(&(right.command.sequence, &right.order_key))
+    } else {
+        (
+            &left.order_key,
+            left.command.stream_id,
+            left.command.sequence,
+        )
+            .cmp(&(
+                &right.order_key,
+                right.command.stream_id,
+                right.command.sequence,
+            ))
+    }
 }
 
 pub(super) fn count(value: usize) -> Result<u64, RuntimeFatalError> {

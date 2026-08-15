@@ -21,6 +21,8 @@ use super::codec::{
 };
 use super::error::IdentityContractError;
 
+mod core_r4a;
+
 pub const SCHEDULE_MANIFEST_SCHEMA_VERSION: u16 = 1;
 pub const SCHEDULE_MANIFEST_OWNER_ID: &str = "nextengine.runtime";
 pub const SCHEDULE_MANIFEST_SCHEMA_ID: &str = "nextengine.schedule-manifest";
@@ -174,104 +176,6 @@ pub struct ScheduleManifestV1 {
 }
 
 impl ScheduleManifestV1 {
-    pub fn core_r4a() -> Result<Self, IdentityContractError> {
-        let system_id = SystemId::new(WORLD_ROUTINE_SYSTEM_ID)?;
-        let shard_plan_id = SchemaId::new(WORLD_ROUTINE_SHARD_PLAN_ID)?;
-        let access = |owner: &str,
-                      schema: &str,
-                      field_id: u32|
-         -> Result<AccessKeyV1, IdentityContractError> {
-            Ok(AccessKeyV1 {
-                owner_id: SchemaId::new(owner)?,
-                schema_id: SchemaId::new(schema)?,
-                field_id,
-            })
-        };
-        let mut reads = vec![
-            access("nextengine.runtime", "nextengine.runtime-snapshot", 2)?,
-            access(
-                WORLD_ROUTINE_CATALOG_OWNER_ID,
-                WORLD_ROUTINE_CATALOG_SCHEMA_ID,
-                3,
-            )?,
-            access(
-                WORLD_ROUTINE_CATALOG_OWNER_ID,
-                WORLD_ROUTINE_CATALOG_SCHEMA_ID,
-                4,
-            )?,
-            access(
-                WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
-                WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID,
-                2,
-            )?,
-        ];
-        reads.sort();
-        let writes = vec![access(
-            WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
-            "nextengine.world-routine-proposal",
-            1,
-        )?];
-        let descriptor = SystemDescriptorV1 {
-            schema_version: SCHEDULE_MANIFEST_SCHEMA_VERSION,
-            system_id: system_id.clone(),
-            owner_id: SchemaId::new("nextengine.world-services")?,
-            stage_id: RuntimeStageId::WorldStreamingCommit,
-            before: Vec::new(),
-            after: Vec::new(),
-            access: AccessSetV1 { reads, writes },
-            query_order: QueryOrderV1::PersistentId,
-            shard_plan_id: shard_plan_id.clone(),
-            reducer_ids: Vec::new(),
-        };
-        let shard_plan = LogicalShardPlanV1 {
-            schema_version: SCHEDULE_MANIFEST_SCHEMA_VERSION,
-            shard_plan_id: shard_plan_id.clone(),
-            system_id: system_id.clone(),
-            logical_shard_count: 1,
-            partition_rule: ShardPartitionRuleV1::Sha256StableKeyFirstU64LeModulo,
-            record_order: ShardRecordOrderV1::CanonicalStableRecordKey,
-            merge_order: DeltaMergeOrderV1::OwnerSchemaRecordFieldSystemShard,
-        };
-        let value = Self {
-            schema_version: SCHEDULE_MANIFEST_SCHEMA_VERSION,
-            stage_order: vec![
-                RuntimeStageId::InputIngest,
-                RuntimeStageId::CandidateAuthentication,
-                RuntimeStageId::IngressValidationAndPlan,
-                RuntimeStageId::IngressAdmission,
-                RuntimeStageId::IngressCommit,
-                RuntimeStageId::WorldStreamingCommit,
-                RuntimeStageId::AgentPlanning,
-                RuntimeStageId::PhysicalStep,
-                RuntimeStageId::OutcomeCommit,
-                RuntimeStageId::ResidencyCommit,
-                RuntimeStageId::StateHash,
-                RuntimeStageId::SnapshotPublication,
-            ],
-            systems: BTreeMap::from([(system_id, descriptor)]),
-            reducers: BTreeMap::new(),
-            shard_plans: BTreeMap::from([(shard_plan_id, shard_plan)]),
-            command_admission_barriers: vec![
-                CommandAdmissionBarrierV1 {
-                    schema_version: SCHEDULE_MANIFEST_SCHEMA_VERSION,
-                    phase: CommandPhase::Ingress,
-                    stage_index: RuntimeStageId::CandidateAuthentication as u8,
-                    batch_ordinal: 0,
-                    source: CommandBarrierSourceV1::AuthenticatedExternalAndQueuedInternal,
-                },
-                CommandAdmissionBarrierV1 {
-                    schema_version: SCHEDULE_MANIFEST_SCHEMA_VERSION,
-                    phase: CommandPhase::Outcome,
-                    stage_index: RuntimeStageId::OutcomeCommit as u8,
-                    batch_ordinal: 0,
-                    source: CommandBarrierSourceV1::InternalSystemOnly,
-                },
-            ],
-        };
-        value.validate()?;
-        Ok(value)
-    }
-
     pub fn validate(&self) -> Result<(), IdentityContractError> {
         if self.schema_version != SCHEDULE_MANIFEST_SCHEMA_VERSION
             || self.stage_order.is_empty()
@@ -1085,40 +989,4 @@ fn strictly_sorted<T: Ord>(values: &[T]) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn r4a_schedule_materializes_twelve_stages_and_one_system() {
-        let schedule = ScheduleManifestV1::core_r4a().expect("schedule builds");
-        assert_eq!(schedule.stage_order.len(), 12);
-        assert_eq!(schedule.systems.len(), 1);
-        assert_eq!(schedule.reducers.len(), 0);
-        assert_eq!(schedule.shard_plans.len(), 1);
-        assert_eq!(schedule.command_admission_barriers.len(), 2);
-        let bytes = schedule.canonical_bytes().expect("schedule encodes");
-        assert_eq!(
-            ScheduleManifestV1::from_canonical_bytes(&bytes, Default::default()),
-            Ok(schedule.clone())
-        );
-        assert_ne!(
-            schedule.profile_hash().expect("schedule hashes"),
-            ContentHash::default()
-        );
-    }
-
-    #[test]
-    fn r4a_schedule_rejects_registration_order_and_access_ambiguity() {
-        let mut schedule = ScheduleManifestV1::core_r4a().expect("schedule builds");
-        let system = schedule
-            .systems
-            .values_mut()
-            .next()
-            .expect("routine system exists");
-        system.access.reads.reverse();
-        assert_eq!(
-            schedule.validate(),
-            Err(IdentityContractError::ScheduleClosureInvalid)
-        );
-    }
-}
+mod tests;

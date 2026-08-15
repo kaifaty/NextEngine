@@ -1,12 +1,16 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use next_contracts::ids::{AssetId, ContentHash, SchemaId};
+use next_contracts::ids::{AssetId, ContentHash, PersistentId, SchemaId};
 use next_contracts::persistence::{SaveCompatibility, TickSettings};
 use next_contracts::project::AssetRevisionRefV1;
 use next_contracts::rpg::RpgSnapshotV2;
 use next_contracts::snapshot::RuntimeSnapshotV3;
 use next_contracts::world::{
     WorldChunkLifecycleV1, WorldChunkResidencyRecordV1, WorldStreamingSnapshotV1,
+};
+use next_contracts::world_routine::{
+    WORLD_ROUTINE_SCHEMA_VERSION, WorldRoutineActivityV1, WorldRoutineRecordV1,
+    WorldRoutineSnapshotV1,
 };
 
 use super::error::SaveLoadError;
@@ -61,7 +65,7 @@ fn compatibility(seed: u8) -> SaveCompatibility {
 
 fn snapshot(revision: u64) -> RuntimeSnapshotV3 {
     let bootstrap =
-        next_runtime::RuntimeBootstrapV3::neutral_empty().expect("neutral bootstrap is valid");
+        next_runtime::RuntimeBootstrapV4::neutral_empty().expect("neutral bootstrap is valid");
     let runtime =
         next_runtime::RuntimeState::new(bootstrap, next_runtime::AuthorityRegistry::new())
             .expect("neutral runtime is valid");
@@ -90,6 +94,19 @@ fn world_streaming_snapshot() -> WorldStreamingSnapshotV1 {
             required_asset_ids: vec![AssetId::from_bytes([0x35; 16])],
         }],
         pending_transition: None,
+    }
+}
+
+fn world_routine_snapshot() -> WorldRoutineSnapshotV1 {
+    WorldRoutineSnapshotV1 {
+        schema_version: WORLD_ROUTINE_SCHEMA_VERSION,
+        record: WorldRoutineRecordV1 {
+            subject_id: PersistentId::from_bytes([0x36; 16]),
+            record_revision: 0,
+            catalog_asset_id: AssetId::from_bytes([0x37; 16]),
+            catalog_revision: ContentHash::from_bytes([0x38; 32]),
+            current_activity: WorldRoutineActivityV1::Duty,
+        },
     }
 }
 
@@ -151,6 +168,95 @@ fn world_generation_round_trips_streaming_owner_segment() {
     assert_eq!(loaded.world_streaming_snapshot, Some(world));
     assert_eq!(loaded.checkpoint, checkpoint);
     assert_eq!(loaded.image.manifest.segments.len(), 4);
+}
+
+#[test]
+fn world_generation_round_trips_five_owner_segments_by_full_tuple() {
+    let directory = TestDirectory::new();
+    let store = SaveStore::new(&directory.path);
+    let compatibility = compatibility(1);
+    let checkpoint =
+        synthetic_empty_checkpoint(snapshot(1), RpgSnapshotV2::default()).expect("checkpoint");
+    let world = world_streaming_snapshot();
+    let routine = world_routine_snapshot();
+
+    store
+        .commit_world_checkpoint_with_streaming_and_routine(
+            compatibility.clone(),
+            &checkpoint,
+            &world,
+            &routine,
+        )
+        .expect("five-owner generation commits");
+    let loaded = store
+        .load_latest(&compatibility)
+        .expect("five-owner generation loads");
+
+    assert_eq!(loaded.checkpoint, checkpoint);
+    assert_eq!(loaded.world_streaming_snapshot, Some(world));
+    assert_eq!(loaded.world_routine_snapshot_or_none, Some(routine));
+    assert_eq!(loaded.image.manifest.segments.len(), 5);
+    let world_services = loaded
+        .image
+        .manifest
+        .segments
+        .iter()
+        .filter(|descriptor| descriptor.owner_id.as_str() == "nextengine.world-services")
+        .collect::<Vec<_>>();
+    assert_eq!(world_services.len(), 2);
+    assert_ne!(world_services[0].schema_id, world_services[1].schema_id);
+    assert!(loaded.image.manifest.segments.windows(2).all(|pair| (
+        &pair[0].owner_id,
+        &pair[0].schema_id,
+        &pair[0].segment_id,
+    ) < (
+        &pair[1].owner_id,
+        &pair[1].schema_id,
+        &pair[1].segment_id,
+    )));
+}
+
+#[test]
+fn world_routine_segment_without_streaming_segment_fails_closed() {
+    let compatibility = compatibility(1);
+    let checkpoint =
+        synthetic_empty_checkpoint(snapshot(1), RpgSnapshotV2::default()).expect("checkpoint");
+    let world = world_streaming_snapshot();
+    let routine = world_routine_snapshot();
+    let mut image = super::image::SaveImage::from_world_checkpoint_with_streaming_and_routine(
+        0,
+        compatibility,
+        &checkpoint,
+        &world,
+        &routine,
+    )
+    .expect("five-owner image");
+    let streaming_index = image
+        .manifest
+        .segments
+        .iter()
+        .position(|descriptor| {
+            descriptor.schema_id.as_str()
+                == next_contracts::world::WORLD_STREAMING_SNAPSHOT_SCHEMA_ID
+        })
+        .expect("streaming descriptor");
+    image.manifest.segments.remove(streaming_index);
+    image.segments.remove(streaming_index);
+
+    assert_eq!(
+        image
+            .validate_world()
+            .expect_err("routine-only world services closure must reject")
+            .stable_code(),
+        "SAVE_WORLD_ROUTINE_STREAMING_MISSING"
+    );
+    assert_eq!(
+        image
+            .validate_world_light()
+            .expect_err("light validation must return the same verdict")
+            .stable_code(),
+        "SAVE_WORLD_ROUTINE_STREAMING_MISSING"
+    );
 }
 
 #[test]

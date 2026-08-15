@@ -13,23 +13,23 @@ use super::save::{
 };
 use crate::canonical::CanonicalDecodeLimits;
 use crate::command::IssuerPrincipal;
-use crate::ids::{CapabilityId, CommandId, CommandLedgerHash, StateRoot};
+use crate::ids::{CapabilityId, CommandId, CommandLedgerHash, SchemaId, StateRoot};
 use crate::persistence::{
-    AuthorityGrant, ManifestValidationError, REPLAY_MANIFEST_V5_SCHEMA_VERSION,
-    ReplayCommandRecord, ReplayCommandResultV2, ReplayComparePointV5, ReplayManifestV5,
-    ReplayOwnerSegmentV2, ReplayTickManifestV5,
+    AuthorityGrant, ManifestValidationError, REPLAY_MANIFEST_V6_SCHEMA_VERSION,
+    ReplayCommandRecord, ReplayCommandResultV2, ReplayComparePointV6, ReplayManifestV6,
+    ReplayOwnerSegmentV2, ReplayTickManifestV6, WorldStreamingReplayInputV1,
 };
 use crate::snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
     RuntimeSnapshotV3,
 };
 
-mod ticks_v5;
+mod ticks_v6;
 
-use ticks_v5::decode_replay_ticks_v5;
+use ticks_v6::decode_replay_ticks_v6;
 
-pub(crate) fn encode_replay_manifest_v5(
-    manifest: &ReplayManifestV5,
+pub(crate) fn encode_replay_manifest_v6(
+    manifest: &ReplayManifestV6,
 ) -> Result<Vec<u8>, ManifestCodecError> {
     manifest.validate_and_decode(CanonicalDecodeLimits::default())?;
     let mut object = BTreeMap::new();
@@ -49,7 +49,7 @@ pub(crate) fn encode_replay_manifest_v5(
             manifest
                 .compare_points
                 .iter()
-                .map(encode_compare_point_v5)
+                .map(encode_compare_point_v6)
                 .collect(),
         ),
     );
@@ -81,17 +81,17 @@ pub(crate) fn encode_replay_manifest_v5(
             manifest
                 .ticks
                 .iter()
-                .map(encode_replay_tick_v5)
+                .map(encode_replay_tick_v6)
                 .collect::<Result<Vec<_>, _>>()?,
         ),
     );
     Ok(encode_value(&JcsValue::Object(object)).into_bytes())
 }
 
-pub(crate) fn decode_replay_manifest_v5(
+pub(crate) fn decode_replay_manifest_v6(
     bytes: &[u8],
     limits: CanonicalDecodeLimits,
-) -> Result<ReplayManifestV5, ManifestCodecError> {
+) -> Result<ReplayManifestV6, ManifestCodecError> {
     if bytes.len() > limits.max_total_bytes {
         return Err(ManifestCodecError::InputTooLarge {
             actual: bytes.len(),
@@ -106,7 +106,7 @@ pub(crate) fn decode_replay_manifest_v5(
     }
     let mut object = into_object(value, "root")?;
     let schema_version = decode_u32(take(&mut object, "schema_version")?, "schema_version")?;
-    if schema_version != REPLAY_MANIFEST_V5_SCHEMA_VERSION {
+    if schema_version != REPLAY_MANIFEST_V6_SCHEMA_VERSION {
         return Err(ManifestValidationError::UnsupportedReplayVersion(schema_version).into());
     }
 
@@ -129,16 +129,16 @@ pub(crate) fn decode_replay_manifest_v5(
         RuntimeSnapshotV3::from_canonical_bytes(&runtime_segment.canonical_bytes, limits)
             .map_err(ManifestValidationError::from)?;
     let authority = decode_authority(take(&mut object, "authority")?, limits)?;
-    let ticks = decode_replay_ticks_v5(
+    let ticks = decode_replay_ticks_v6(
         take(&mut object, "ticks")?,
         limits,
         &runtime_snapshot.admission_limits,
     )?;
-    let compare_points = decode_compare_points_v5(take(&mut object, "compare_points")?)?;
+    let compare_points = decode_compare_points_v6(take(&mut object, "compare_points")?)?;
     if let Some(field) = object.into_keys().next() {
         return Err(ManifestCodecError::UnknownField(field));
     }
-    let manifest = ReplayManifestV5 {
+    let manifest = ReplayManifestV6 {
         schema_version,
         compatibility,
         initial_owner_segments,
@@ -224,8 +224,22 @@ fn decode_authority(
         .collect()
 }
 
-fn encode_replay_tick_v5(tick: &ReplayTickManifestV5) -> Result<JcsValue, ManifestCodecError> {
+fn encode_replay_tick_v6(tick: &ReplayTickManifestV6) -> Result<JcsValue, ManifestCodecError> {
     let mut object = BTreeMap::new();
+    object.insert(
+        "expected_interaction_availability".to_owned(),
+        JcsValue::Array(
+            tick.expected_interaction_availability
+                .iter()
+                .map(|availability| {
+                    availability
+                        .canonical_bytes()
+                        .map(|bytes| string(hex_bytes(&bytes)))
+                        .map_err(ManifestValidationError::from)
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+    );
     object.insert(
         "closed_ingress_batch".to_owned(),
         string(hex_bytes(&tick.closed_ingress_batch.canonical_bytes()?)),
@@ -338,7 +352,94 @@ fn encode_replay_tick_v5(tick: &ReplayTickManifestV5) -> Result<JcsValue, Manife
         ),
     );
     object.insert("tick".to_owned(), string(tick.tick.to_string()));
+    object.insert(
+        "world_streaming_input".to_owned(),
+        encode_world_streaming_input(&tick.world_streaming_input),
+    );
     Ok(JcsValue::Object(object))
+}
+
+fn encode_world_streaming_input(input: &WorldStreamingReplayInputV1) -> JcsValue {
+    match input {
+        WorldStreamingReplayInputV1::None => JcsValue::Array(vec![JcsValue::Number(0)]),
+        WorldStreamingReplayInputV1::BeginTransition {
+            target_chunk_id,
+            expected_base_world_state_hash,
+            expected_next_world_state_hash,
+        } => JcsValue::Array(vec![
+            JcsValue::Number(1),
+            string(target_chunk_id.as_str()),
+            string(expected_base_world_state_hash.to_hex()),
+            string(expected_next_world_state_hash.to_hex()),
+        ]),
+        WorldStreamingReplayInputV1::CompletePendingTransition {
+            target_chunk_id,
+            expected_base_world_state_hash,
+            expected_loaded_result_hash,
+            expected_next_world_state_hash,
+        } => JcsValue::Array(vec![
+            JcsValue::Number(2),
+            string(target_chunk_id.as_str()),
+            string(expected_base_world_state_hash.to_hex()),
+            string(expected_loaded_result_hash.to_hex()),
+            string(expected_next_world_state_hash.to_hex()),
+        ]),
+    }
+}
+
+pub(super) fn decode_world_streaming_input(
+    value: JcsValue,
+) -> Result<WorldStreamingReplayInputV1, ManifestCodecError> {
+    let mut columns = into_array(value, "ticks[].world_streaming_input")?.into_iter();
+    let tag = decode_u32(
+        next(&mut columns, "ticks[].world_streaming_input.tag")?,
+        "ticks[].world_streaming_input.tag",
+    )?;
+    let input = match tag {
+        0 => WorldStreamingReplayInputV1::None,
+        1 => WorldStreamingReplayInputV1::BeginTransition {
+            target_chunk_id: SchemaId::new(into_string(
+                next(
+                    &mut columns,
+                    "ticks[].world_streaming_input.target_chunk_id",
+                )?,
+                "ticks[].world_streaming_input.target_chunk_id",
+            )?)?,
+            expected_base_world_state_hash: decode_hash(
+                next(&mut columns, "ticks[].world_streaming_input.base_hash")?,
+                "ticks[].world_streaming_input.base_hash",
+            )?,
+            expected_next_world_state_hash: decode_hash(
+                next(&mut columns, "ticks[].world_streaming_input.next_hash")?,
+                "ticks[].world_streaming_input.next_hash",
+            )?,
+        },
+        2 => WorldStreamingReplayInputV1::CompletePendingTransition {
+            target_chunk_id: SchemaId::new(into_string(
+                next(
+                    &mut columns,
+                    "ticks[].world_streaming_input.target_chunk_id",
+                )?,
+                "ticks[].world_streaming_input.target_chunk_id",
+            )?)?,
+            expected_base_world_state_hash: decode_hash(
+                next(&mut columns, "ticks[].world_streaming_input.base_hash")?,
+                "ticks[].world_streaming_input.base_hash",
+            )?,
+            expected_loaded_result_hash: decode_hash(
+                next(&mut columns, "ticks[].world_streaming_input.loaded_hash")?,
+                "ticks[].world_streaming_input.loaded_hash",
+            )?,
+            expected_next_world_state_hash: decode_hash(
+                next(&mut columns, "ticks[].world_streaming_input.next_hash")?,
+                "ticks[].world_streaming_input.next_hash",
+            )?,
+        },
+        _ => return Err(ManifestValidationError::ReplayWorldStreamingInputInvalid.into()),
+    };
+    ensure_no_more(columns, "ticks[].world_streaming_input")?;
+    input.validate()?;
+    Ok(input)
 }
 
 fn encode_command_record(record: &ReplayCommandRecord) -> JcsValue {
@@ -441,14 +542,18 @@ fn decode_command_results(
         .collect()
 }
 
-fn encode_compare_point_v5(point: &ReplayComparePointV5) -> JcsValue {
+fn encode_compare_point_v6(point: &ReplayComparePointV6) -> JcsValue {
     JcsValue::Array(vec![
         string(point.tick.to_string()),
         string(point.state_root.to_hex()),
         string(point.command_ledger_hash.to_hex()),
-        string(point.runtime_segment_hash.to_hex()),
-        string(point.rpg_segment_hash.to_hex()),
-        string(point.physics_segment_hash.to_hex()),
+        JcsValue::Array(
+            point
+                .owner_segments
+                .iter()
+                .map(encode_segment_descriptor)
+                .collect(),
+        ),
         string(point.closed_ingress_batch_hash.to_hex()),
         string(point.ingress_command_batch_hash.to_hex()),
         string(point.physics_step_input_hash.to_hex()),
@@ -457,17 +562,18 @@ fn encode_compare_point_v5(point: &ReplayComparePointV5) -> JcsValue {
         string(point.physics_query_results_hash.to_hex()),
         string(point.targeting_query_trace_hash.to_hex()),
         string(point.outcome_command_batch_hash.to_hex()),
+        string(point.interaction_availability_hash.to_hex()),
     ])
 }
 
-fn decode_compare_points_v5(
+fn decode_compare_points_v6(
     value: JcsValue,
-) -> Result<Vec<ReplayComparePointV5>, ManifestCodecError> {
+) -> Result<Vec<ReplayComparePointV6>, ManifestCodecError> {
     into_array(value, "compare_points")?
         .into_iter()
         .map(|row| {
             let mut columns = into_array(row, "compare_points[]")?.into_iter();
-            let point = ReplayComparePointV5 {
+            let point = ReplayComparePointV6 {
                 tick: decode_u64_string(
                     next(&mut columns, "compare_points[].tick")?,
                     "compare_points[].tick",
@@ -480,18 +586,13 @@ fn decode_compare_points_v5(
                     next(&mut columns, "compare_points[].command_ledger_hash")?,
                     "compare_points[].command_ledger_hash",
                 )?),
-                runtime_segment_hash: decode_hash(
-                    next(&mut columns, "compare_points[].runtime_segment_hash")?,
-                    "compare_points[].runtime_segment_hash",
-                )?,
-                rpg_segment_hash: decode_hash(
-                    next(&mut columns, "compare_points[].rpg_segment_hash")?,
-                    "compare_points[].rpg_segment_hash",
-                )?,
-                physics_segment_hash: decode_hash(
-                    next(&mut columns, "compare_points[].physics_segment_hash")?,
-                    "compare_points[].physics_segment_hash",
-                )?,
+                owner_segments: into_array(
+                    next(&mut columns, "compare_points[].owner_segments")?,
+                    "compare_points[].owner_segments",
+                )?
+                .into_iter()
+                .map(decode_segment_descriptor)
+                .collect::<Result<Vec<_>, _>>()?,
                 closed_ingress_batch_hash: decode_hash(
                     next(&mut columns, "compare_points[].closed_ingress_batch_hash")?,
                     "compare_points[].closed_ingress_batch_hash",
@@ -523,6 +624,13 @@ fn decode_compare_points_v5(
                 outcome_command_batch_hash: decode_hash(
                     next(&mut columns, "compare_points[].outcome_command_batch_hash")?,
                     "compare_points[].outcome_command_batch_hash",
+                )?,
+                interaction_availability_hash: decode_hash(
+                    next(
+                        &mut columns,
+                        "compare_points[].interaction_availability_hash",
+                    )?,
+                    "compare_points[].interaction_availability_hash",
                 )?,
             };
             ensure_no_more(columns, "compare_points[]")?;

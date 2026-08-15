@@ -5,7 +5,7 @@ use next_contracts::localization::TextCatalogV1;
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::PhysicsPoseV1;
 use next_contracts::project::domain_hash;
-use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1};
+use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2};
 use next_physics_api::PhysicsBackendPolicy;
 use next_presentation::PresentationExtractorV1;
 use next_render::{ReferenceB0Renderer, RenderDevice, RenderTargetV1};
@@ -17,7 +17,7 @@ use crate::scratch::ScratchContext;
 use super::error::PlayCheckError;
 use super::prepare_fixture_project_package_with_scratch;
 use next_reference_game::{
-    ReferenceRunOutcomeV1, aggregate_payload, run_reference_game, run_reference_game_with_backend,
+    ReferenceRunOutcomeV2, aggregate_payload, run_reference_game, run_reference_game_with_backend,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -117,7 +117,7 @@ pub fn prepare_game_frame_with_activated_project(
 }
 
 fn prepare_game_frame_from_scenario(
-    scenario: ReferenceRunOutcomeV1,
+    scenario: ReferenceRunOutcomeV2,
     text_catalogs: Vec<TextCatalogV1>,
 ) -> Result<PreparedGameFrameV1, PlayCheckError> {
     let mut extractor = PresentationExtractorV1::new(
@@ -182,7 +182,7 @@ pub fn run_play_check_with_activated_project(
     play_check_report(scenario)
 }
 
-fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport, PlayCheckError> {
+fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport, PlayCheckError> {
     let stage_checkpoint_count = scenario.stage_checkpoint_roots.len();
     let stage_checkpoints_match_acceptance = match scenario.stage_checkpoints.as_slice() {
         [accepted, combat, relay] => {
@@ -198,6 +198,9 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
                 && accepted.player_health == 100
                 && accepted.relay_state_id.as_str()
                     == next_contracts::rpg::CORE_INTERACTIVE_OBJECT_READY_STATE_ID
+                && accepted.world_routine_activity_or_none
+                    == Some(next_contracts::world_routine::WorldRoutineActivityV1::Duty)
+                && accepted.world_routine_record_revision_or_none == Some(0)
                 && combat.quest_state_id == accepted.quest_state_id
                 && combat.dialogue_node_id == accepted.dialogue_node_id
                 && combat.player_inventory_contains_pickup
@@ -207,6 +210,9 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
                 && combat.relay_state_id.as_str()
                     == next_contracts::rpg::CORE_INTERACTIVE_OBJECT_READY_STATE_ID
                 && combat.current_chunk_id != accepted.current_chunk_id
+                && combat.world_routine_activity_or_none
+                    == Some(next_contracts::world_routine::WorldRoutineActivityV1::Rest)
+                && combat.world_routine_record_revision_or_none == Some(1)
                 && relay.quest_state_id == accepted.quest_state_id
                 && relay.dialogue_node_id == accepted.dialogue_node_id
                 && relay.player_inventory_contains_pickup
@@ -216,9 +222,104 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
                 && relay.relay_state_id.as_str()
                     == next_contracts::rpg::CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
                 && relay.current_chunk_id == combat.current_chunk_id
+                && relay.world_routine_activity_or_none
+                    == Some(next_contracts::world_routine::WorldRoutineActivityV1::Rest)
+                && relay.world_routine_record_revision_or_none == Some(1)
         }
         _ => false,
     };
+    let duty_branch_report = scenario.world_services_tick_commits.first();
+    let duty_branch_matches = duty_branch_report.is_some_and(|commit| {
+        let report = &commit.runtime_report;
+        report.tick == 0
+            && report.interaction_availability.len() == 1
+            && report.interaction_availability[0].code
+                == next_contracts::world_routine::InteractionAvailabilityCodeV1::Available
+            && report.mapping_receipts.len() == 1
+            && report.mapping_receipts[0].frame_code
+                == next_contracts::input::InputMappingCodeV1::Accepted
+            && !report.mapping_receipts[0].derived_commands.is_empty()
+    });
+    let duty_journal_matches = duty_branch_report.is_some_and(|commit| {
+        journal_projects_quest_state(
+            &scenario,
+            &commit.runtime_report.rpg_snapshot,
+            "nextengine.reference-alpha.quest.active",
+        )
+        .unwrap_or(false)
+    });
+    let (rest_branch_matches, rest_journal_matches) = scenario
+        .world_routine_rest_branch_or_none
+        .as_ref()
+        .map_or((false, false), |branch| {
+            let commits = &branch.world_services_tick_commits;
+            let branch_matches = if let [tick_0, tick_1, boundary, rest_interaction] =
+                commits.as_slice()
+            {
+                let boundary_report = &boundary.runtime_report;
+                let rest_report = &rest_interaction.runtime_report;
+                tick_0.runtime_report.tick == 0
+                    && tick_1.runtime_report.tick == 1
+                    && boundary_report.tick == 2
+                    && rest_report.tick == 3
+                    && boundary_report.command_batches[1]
+                        .body
+                        .envelopes
+                        .iter()
+                        .filter(|command| {
+                            matches!(
+                                command.payload,
+                                next_contracts::command::CommandPayload::WorldRoutine(_)
+                            )
+                        })
+                        .count()
+                        == 1
+                    && boundary_report
+                        .events
+                        .iter()
+                        .filter(|event| {
+                            matches!(
+                                event.payload,
+                                next_contracts::command::EventPayload::WorldRoutine(_)
+                            )
+                        })
+                        .count()
+                        == 1
+                    && boundary.routine_snapshot_or_none.as_ref().is_some_and(|snapshot| {
+                        snapshot.record.current_activity
+                            == next_contracts::world_routine::WorldRoutineActivityV1::Rest
+                            && snapshot.record.record_revision == 1
+                    })
+                    && branch.rest_query.code
+                        == next_contracts::world_routine::InteractionAvailabilityCodeV1::WorldRoutineActivityUnavailable
+                    && branch
+                        .rest_query
+                        .routine_binding_or_none
+                        .as_ref()
+                        .is_some_and(|binding| binding.routine_record_revision == 1)
+                    && rest_report.interaction_availability
+                        == vec![branch.rest_query.clone()]
+                    && rest_report.mapping_receipts.len() == 1
+                    && rest_report.mapping_receipts[0].frame_code
+                        == next_contracts::input::InputMappingCodeV1::Accepted
+                    && rest_report.mapping_receipts[0].derived_commands.is_empty()
+                    && rest_report.rpg_snapshot == branch.initial_rpg_snapshot
+                    && commits
+                        .iter()
+                        .all(|commit| commit.application_owner_segments.len() == 5)
+            } else {
+                false
+            };
+            let journal_matches = commits.last().is_some_and(|commit| {
+                journal_projects_quest_state(
+                    &scenario,
+                    &commit.runtime_report.rpg_snapshot,
+                    "nextengine.reference-alpha.quest.available",
+                )
+                .unwrap_or(false)
+            });
+            (branch_matches, journal_matches)
+        });
     let checkpoint = scenario.runtime.world_checkpoint()?;
     let rpg = scenario.runtime.rpg_snapshot();
     let interactive_object_state = match aggregate_payload(
@@ -300,12 +401,23 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
         world_streaming_generation: scenario.world_streaming_snapshot.generation,
         current_chunk_id: scenario.world_streaming_snapshot.current_chunk_id.clone(),
         final_command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
-        final_state_root: next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
-            &checkpoint.runtime_snapshot,
-            &checkpoint.rpg_snapshot,
-            &checkpoint.physics_checkpoint,
-            &scenario.world_streaming_snapshot,
-        )?,
+        final_state_root: match scenario.world_routine_snapshot_or_none.as_ref() {
+            Some(routine) => {
+                next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
+                    &checkpoint.runtime_snapshot,
+                    &checkpoint.rpg_snapshot,
+                    &checkpoint.physics_checkpoint,
+                    &scenario.world_streaming_snapshot,
+                    routine,
+                )?
+            }
+            None => next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
+                &checkpoint.runtime_snapshot,
+                &checkpoint.rpg_snapshot,
+                &checkpoint.physics_checkpoint,
+                &scenario.world_streaming_snapshot,
+            )?,
+        },
     };
     let command_archive_root = checkpoint
         .runtime_snapshot
@@ -321,7 +433,7 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
         .to_hex();
     if report.ticks != 32
         || report.final_pose.translation_micrometres != [0, 900_000, -200_000]
-        || report.events != 27
+        || report.events != 28
         || report.rpg_events != 13
         || report.interactive_object_state.as_str()
             != next_contracts::rpg::CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
@@ -332,19 +444,23 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
         || report.player_health != 50
         || report.world_streaming_generation != 2
         || command_archive_root
-            != "a639e601e6dcae3714af4262d70c05102d1cc54d0e4dc4bfdccb45f2aafd6c23"
+            != "5e0be2267cee6dbf054598d7547278e40ef5dff0bf015f39b1cd1a8843184047"
         || command_identity_index_root
-            != "6846ff19f3b5cdd844748c18fd827b55424973fc8c6aaf1f76e1a2a329de88f4"
+            != "296fd037cbc9866b998817f3b654cbbd4f79c8dcf159710e86dbdcd0545a8c40"
         || report.final_command_ledger_hash.to_hex()
-            != "bc40d4ed0c4bff60f7edd9959726986e451aa2ed6c4457d468fe6bcbd867283c"
+            != "651c862041e27836300a4be6a0f55816b3a8f3f9f1a6a02bc4b0542eb18e8e2d"
         || stage_checkpoint_count != 3
         || !stage_checkpoints_match_acceptance
+        || !duty_branch_matches
+        || !duty_journal_matches
+        || !rest_branch_matches
+        || !rest_journal_matches
     {
         return Err(PlayCheckError::AcceptanceMismatch(format!(
             "ticks={} pose={:?} events={} rpg_events={} object={} dialogue={} quest={} \
              trust={} npc_health={} player_health={} world_generation={} archive_root={} \
              identity_index_root={} ledger_root={} stage_checkpoints={} \
-             stage_checkpoint_facts={:?}",
+             stage_checkpoint_facts={:?} duty_branch={} duty_journal={} rest_branch={} rest_journal={}",
             report.ticks,
             report.final_pose.translation_micrometres,
             report.events,
@@ -361,9 +477,48 @@ fn play_check_report(scenario: ReferenceRunOutcomeV1) -> Result<PlayCheckReport,
             report.final_command_ledger_hash.to_hex(),
             stage_checkpoint_count,
             scenario.stage_checkpoints,
+            duty_branch_matches,
+            duty_journal_matches,
+            rest_branch_matches,
+            rest_journal_matches,
         )));
     }
     Ok(report)
+}
+
+fn journal_projects_quest_state(
+    scenario: &ReferenceRunOutcomeV2,
+    rpg: &RpgSnapshotV2,
+    expected_state_id: &str,
+) -> Result<bool, PlayCheckError> {
+    let records = next_reference_game::read_only_screen_semantic_ui_records_for_ids(
+        scenario.project_composition_lock_hash,
+        scenario.player_character_id,
+        scenario.quest_id,
+        &[scenario.pickup_item_id, scenario.npc_weapon_item_id],
+        &scenario.item_display_text_id,
+        &scenario.quest_display_text_id,
+        rpg,
+    )?;
+    Ok(records.iter().any(|record| {
+        record
+            .element
+            .element_id
+            .as_str()
+            .starts_with("nextengine.ui.element.quest-journal.entry.")
+            && record
+                .element
+                .text_or_none
+                .as_ref()
+                .and_then(|text| text.arguments.get(1))
+                .is_some_and(|argument| {
+                    matches!(
+                        argument,
+                        next_contracts::presentation::UiTextArgumentV1::TextId(state_id)
+                            if state_id.as_str() == expected_state_id
+                    )
+                })
+    }))
 }
 
 fn scratch_error(error: std::io::Error) -> PlayCheckError {
@@ -468,7 +623,7 @@ fn run_packaged_reference_fixture(
     include_interaction: bool,
     physx_compatible: bool,
     physics_options: PhysicsLaunchOptions,
-) -> Result<ReferenceRunOutcomeV1, PlayCheckError> {
+) -> Result<ReferenceRunOutcomeV2, PlayCheckError> {
     let scratch = ScratchContext::new(&std::env::temp_dir()).map_err(scratch_error)?;
     let prepared = prepare_fixture_project_package_with_scratch(&scratch, project_id)?;
     let result = run_reference_game_with_backend(

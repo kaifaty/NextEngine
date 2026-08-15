@@ -1,14 +1,14 @@
-use next_contracts::command::EventPayload;
 use next_contracts::ids::{ContentHash, PersistentId, SchemaId, StateRoot};
 use next_contracts::input::{CORE_MELEE_ACTION_ID, PlayerActionPhaseV1};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
-use next_contracts::physics::{ContactPhaseV1, PhysicsBodyIdV1, PhysicsPoseV1};
-use next_contracts::rpg::{
-    RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1, RpgSnapshotV2,
+use next_contracts::physics::{PhysicsBodyIdV1, PhysicsPoseV1};
+use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2};
+use next_contracts::world_routine::{
+    InteractionAvailabilityV1, WorldRoutineActivityV1, WorldRoutineSnapshotV1,
 };
 use next_presentation::PresentationBindingV1;
-use next_runtime::{PhysicsLaunchOptions, RuntimeState, TickReport};
-use next_world::{PreparedWorldStreamingPublicationV1, WorldStreamerV1};
+use next_runtime::{PhysicsLaunchOptions, RuntimeState, WorldServicesTickCommitV1};
+use next_world::{PreparedWorldStreamingPublicationV1, WorldRoutineOwnerV1, WorldStreamerV1};
 
 use crate::ReferenceGameError;
 use crate::input::NormalizedReferenceInputV1;
@@ -17,9 +17,16 @@ use crate::session::{
     ReferenceGameSession, build_reference_game_session, build_reference_game_session_with_profile,
 };
 
+mod evidence;
+
+use evidence::{accumulate_report, reference_stage_checkpoint, rpg_contact_facts_from_report};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReferenceStageCheckpointV1 {
+pub struct ReferenceStageCheckpointV2 {
     pub state_root: StateRoot,
+    pub application_state_root: StateRoot,
+    pub world_routine_activity_or_none: Option<WorldRoutineActivityV1>,
+    pub world_routine_record_revision_or_none: Option<u64>,
     pub quest_state_id: SchemaId,
     pub dialogue_node_id: SchemaId,
     pub player_inventory_contains_pickup: bool,
@@ -30,7 +37,7 @@ pub struct ReferenceStageCheckpointV1 {
     pub current_chunk_id: SchemaId,
 }
 
-pub struct ReferenceRunOutcomeV1 {
+pub struct ReferenceRunOutcomeV2 {
     pub runtime: RuntimeState,
     pub ticks: u64,
     pub final_pose: PhysicsPoseV1,
@@ -58,10 +65,24 @@ pub struct ReferenceRunOutcomeV1 {
     pub presentation_bindings: Vec<PresentationBindingV1>,
     pub tick_reports: Vec<next_runtime::TickReport>,
     pub world_streaming_snapshot: next_contracts::world::WorldStreamingSnapshotV1,
+    pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+    pub world_services_tick_commits: Vec<WorldServicesTickCommitV1>,
+    pub world_routine_rest_branch_or_none: Option<ReferenceWorldRoutineRestBranchV1>,
     pub agent_intent_id: Option<ContentHash>,
     pub agent_projection_hash: Option<ContentHash>,
     pub stage_checkpoint_roots: Vec<StateRoot>,
-    pub stage_checkpoints: Vec<ReferenceStageCheckpointV1>,
+    pub stage_checkpoints: Vec<ReferenceStageCheckpointV2>,
+}
+
+/// Exact isolated branch-B evidence for `WORLD-ROUTINE-P1`. The branch starts
+/// from the same authored Duty/quest-available state as the main branch-A run,
+/// crosses the boundary without accepting, queries availability in Rest and
+/// submits the same production interaction.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReferenceWorldRoutineRestBranchV1 {
+    pub initial_rpg_snapshot: RpgSnapshotV2,
+    pub rest_query: InteractionAvailabilityV1,
+    pub world_services_tick_commits: Vec<WorldServicesTickCommitV1>,
 }
 
 enum ScenarioAction {
@@ -88,7 +109,7 @@ enum PendingPackagedTransitionV1 {
 pub fn run_reference_game(
     package: next_project::ActivatedProjectPackage,
     include_interaction: bool,
-) -> Result<ReferenceRunOutcomeV1, ReferenceGameError> {
+) -> Result<ReferenceRunOutcomeV2, ReferenceGameError> {
     run_reference_game_with_backend(
         include_interaction,
         false,
@@ -102,7 +123,7 @@ pub fn run_reference_game_with_backend(
     physx_compatible: bool,
     physics_options: PhysicsLaunchOptions,
     package: next_project::ActivatedProjectPackage,
-) -> Result<ReferenceRunOutcomeV1, ReferenceGameError> {
+) -> Result<ReferenceRunOutcomeV2, ReferenceGameError> {
     let next_project::ActivatedProjectPackage {
         project: activated_project,
         content_generation,
@@ -120,6 +141,26 @@ pub fn run_reference_game_with_backend(
     } else {
         RpgSnapshotV2::default()
     };
+    let world_routine_rest_branch_or_none = if include_interaction {
+        let first = run_world_routine_rest_branch(
+            &fixture,
+            &content_generation,
+            rpg_snapshot.clone(),
+            physics_options,
+        )?;
+        let repeated = run_world_routine_rest_branch(
+            &fixture,
+            &content_generation,
+            rpg_snapshot.clone(),
+            physics_options,
+        )?;
+        if first != repeated {
+            return Err(ReferenceGameError::RecoveryInvalid);
+        }
+        Some(first)
+    } else {
+        None
+    };
     let mut runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
         fixture.bootstrap.clone(),
         fixture.authority.clone(),
@@ -133,6 +174,10 @@ pub fn run_reference_game_with_backend(
         fixture.activated_project.clone(),
         content_generation.clone(),
         initial_chunk_id.clone(),
+    )?;
+    let mut world_routine = WorldRoutineOwnerV1::activate(
+        fixture.activated_project.world_routine_catalog_or_none,
+        runtime.next_tick(),
     )?;
     let mut inputs = Vec::new();
     if include_interaction {
@@ -192,6 +237,7 @@ pub fn run_reference_game_with_backend(
     let mut end_contacts = 0_u64;
     let mut contact_preimage = b"nextengine.physics-collision-check.contacts.v1\0".to_vec();
     let mut tick_reports: Vec<next_runtime::TickReport> = Vec::new();
+    let mut world_services_tick_commits = Vec::new();
     let mut sequence = 0_u64;
     let mut agent_intent_id = None;
     let mut agent_projection_hash = None;
@@ -200,14 +246,36 @@ pub fn run_reference_game_with_backend(
     let mut pending_packaged_transition = None;
     for action in inputs {
         if matches!(&action, ScenarioAction::Checkpoint) {
-            let checkpoint = runtime.world_checkpoint()?;
+            let (checkpoint, components) = runtime.world_checkpoint_with_canonical_components()?;
             let expected_root = checkpoint.state_root;
+            let routine_snapshot_or_none = world_routine.snapshot_or_none().copied();
+            let expected_application_root = match routine_snapshot_or_none.as_ref() {
+                Some(routine) => {
+                    next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root_from_canonical_components(
+                        &components,
+                        world_streamer.snapshot(),
+                        routine,
+                    )?
+                }
+                None => {
+                    next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
+                        &components,
+                        world_streamer.snapshot(),
+                    )?
+                }
+            };
             runtime = RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
                 checkpoint,
                 fixture.authority.clone(),
                 fixture.activated_project.rpg_definitions.clone(),
                 physics_options,
             )?;
+            world_routine = WorldRoutineOwnerV1::restore(
+                fixture.activated_project.world_routine_catalog_or_none,
+                routine_snapshot_or_none,
+                runtime.next_tick(),
+            )?;
+            runtime.validate_world_routine_ledger_closure(&world_routine)?;
             let restored_root = runtime.world_checkpoint()?.state_root;
             if restored_root != expected_root {
                 return Err(ReferenceGameError::RecoveryInvalid);
@@ -215,8 +283,10 @@ pub fn run_reference_game_with_backend(
             stage_checkpoint_roots.push(restored_root);
             stage_checkpoints.push(reference_stage_checkpoint(
                 &runtime,
+                &world_routine,
                 &fixture,
                 restored_root,
+                expected_application_root,
                 world_streamer.snapshot().current_chunk_id.clone(),
             )?);
             continue;
@@ -268,14 +338,16 @@ pub fn run_reference_game_with_backend(
                     target_tick: runtime.next_tick(),
                 },
             )?;
-            let report = run_scenario_tick(
+            let commit = run_scenario_tick(
                 &mut runtime,
+                &mut world_routine,
                 &mut world_streamer,
                 &fixture.activated_project,
                 &content_generation,
                 [planned.world_command],
                 &mut pending_packaged_transition,
             )?;
+            let report = commit.runtime_report.clone();
             if !report.results.iter().any(|result| {
                 matches!(
                     result.disposition,
@@ -296,6 +368,7 @@ pub fn run_reference_game_with_backend(
                 &mut contact_preimage,
             )?;
             tick_reports.push(report);
+            world_services_tick_commits.push(commit);
             continue;
         }
         let sample = match action {
@@ -316,14 +389,16 @@ pub fn run_reference_game_with_backend(
             ScenarioAction::Checkpoint => unreachable!("handled before input mapping"),
         };
         runtime.enqueue_input_sample(&fixture.principal, sample)?;
-        let report = run_scenario_tick(
+        let commit = run_scenario_tick(
             &mut runtime,
+            &mut world_routine,
             &mut world_streamer,
             &fixture.activated_project,
             &content_generation,
             [],
             &mut pending_packaged_transition,
         )?;
+        let report = commit.runtime_report.clone();
         accumulate_report(
             &report,
             &mut events,
@@ -334,6 +409,7 @@ pub fn run_reference_game_with_backend(
             &mut contact_preimage,
         )?;
         tick_reports.push(report);
+        world_services_tick_commits.push(commit);
         sequence = sequence
             .checked_add(1)
             .ok_or(ReferenceGameError::CountOverflow)?;
@@ -349,8 +425,9 @@ pub fn run_reference_game_with_backend(
         .pose;
     let ticks = runtime.next_tick();
     let world_streaming_snapshot = world_streamer.snapshot();
+    let world_routine_snapshot_or_none = world_routine.snapshot_or_none().copied();
     let presentation_bindings = fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
-    Ok(ReferenceRunOutcomeV1 {
+    Ok(ReferenceRunOutcomeV2 {
         ticks,
         final_pose,
         events,
@@ -383,6 +460,9 @@ pub fn run_reference_game_with_backend(
         presentation_bindings,
         tick_reports,
         world_streaming_snapshot: world_streaming_snapshot.clone(),
+        world_routine_snapshot_or_none,
+        world_services_tick_commits,
+        world_routine_rest_branch_or_none,
         agent_intent_id,
         agent_projection_hash,
         stage_checkpoint_roots,
@@ -390,30 +470,99 @@ pub fn run_reference_game_with_backend(
     })
 }
 
+fn run_world_routine_rest_branch(
+    fixture: &ReferenceGameSession,
+    content_generation: &next_assets::PinnedContentGeneration,
+    initial_rpg_snapshot: RpgSnapshotV2,
+    physics_options: PhysicsLaunchOptions,
+) -> Result<ReferenceWorldRoutineRestBranchV1, ReferenceGameError> {
+    let mut runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
+        fixture.bootstrap.clone(),
+        fixture.authority.clone(),
+        initial_rpg_snapshot.clone(),
+        physics_options,
+    )?;
+    let mut world = WorldStreamerV1::activate(
+        fixture.activated_project.clone(),
+        content_generation.clone(),
+        fixture.world_topology().initial_chunk_id().clone(),
+    )?;
+    let mut routine = WorldRoutineOwnerV1::activate(
+        fixture.activated_project.world_routine_catalog_or_none,
+        runtime.next_tick(),
+    )?;
+    let mut commits = Vec::with_capacity(4);
+    for expected_tick in 0_u64..=2 {
+        let prepared =
+            runtime
+                .tick_preparation()
+                .prepare_with_world_services([], &routine, &world)?;
+        let validated =
+            runtime.validate_prepared_world_services_tick(&routine, &world, prepared)?;
+        let commit =
+            runtime.commit_validated_world_services_tick(&mut routine, &mut world, validated)?;
+        if commit.runtime_report.tick != expected_tick {
+            return Err(ReferenceGameError::RecoveryInvalid);
+        }
+        commits.push(commit);
+    }
+    let interaction_id = fixture
+        .activated_project
+        .rpg_definitions
+        .interactions
+        .first()
+        .ok_or(ReferenceGameError::RecoveryInvalid)?
+        .interaction_id
+        .clone();
+    let rest_query = runtime.interaction_availability(&interaction_id, &routine)?;
+    runtime.enqueue_input_sample(
+        &fixture.principal,
+        crate::input::player_interact_sample(fixture, 0, PlayerActionPhaseV1::Started, true, None)?,
+    )?;
+    let prepared = runtime
+        .tick_preparation()
+        .prepare_with_world_services([], &routine, &world)?;
+    let validated = runtime.validate_prepared_world_services_tick(&routine, &world, prepared)?;
+    commits.push(runtime.commit_validated_world_services_tick(
+        &mut routine,
+        &mut world,
+        validated,
+    )?);
+    Ok(ReferenceWorldRoutineRestBranchV1 {
+        initial_rpg_snapshot,
+        rest_query,
+        world_services_tick_commits: commits,
+    })
+}
+
 fn run_scenario_tick(
     runtime: &mut RuntimeState,
+    routine: &mut WorldRoutineOwnerV1,
     world: &mut WorldStreamerV1,
-    project: &next_contracts::project::ActivatedProjectV3,
+    project: &next_contracts::project::ActivatedProjectV4,
     content_generation: &next_assets::PinnedContentGeneration,
     commands: impl IntoIterator<Item = next_contracts::command::WorldCommand>,
     pending: &mut Option<PendingPackagedTransitionV1>,
-) -> Result<TickReport, ReferenceGameError> {
+) -> Result<WorldServicesTickCommitV1, ReferenceGameError> {
     let Some(stage) = pending.take() else {
-        return Ok(runtime.run_tick(commands)?);
+        let prepared = runtime
+            .tick_preparation()
+            .prepare_with_world_services(commands, routine, world)?;
+        let validated = runtime.validate_prepared_world_services_tick(routine, world, prepared)?;
+        return Ok(runtime.commit_validated_world_services_tick(routine, world, validated)?);
     };
     match stage {
         PendingPackagedTransitionV1::Begin {
             publication,
             save_restore,
         } => {
-            let prepared = runtime.tick_preparation().prepare_with_world_streaming(
-                commands,
-                world,
-                publication,
-            )?;
-            let validated = runtime.validate_prepared_world_tick(world, prepared)?;
-            let (report, receipt) = runtime.commit_validated_world_tick(world, validated);
-            debug_assert!(receipt.is_none());
+            let prepared = runtime
+                .tick_preparation()
+                .prepare_with_world_services_and_streaming(commands, routine, world, publication)?;
+            let validated =
+                runtime.validate_prepared_world_services_tick(routine, world, prepared)?;
+            let commit = runtime.commit_validated_world_services_tick(routine, world, validated)?;
+            debug_assert!(commit.streaming_transition_or_none.is_none());
             if save_restore {
                 let saved = world.snapshot().canonical_bytes()?;
                 let decoded =
@@ -429,169 +578,21 @@ fn run_scenario_tick(
             let loaded = world.load_pending(next_world::WORLD_CHUNK_DEFAULT_WORKERS)?;
             let publication = world.prepare_loaded_commit(loaded, runtime.next_tick())?;
             *pending = Some(PendingPackagedTransitionV1::Complete { publication });
-            Ok(report)
+            Ok(commit)
         }
         PendingPackagedTransitionV1::Complete { publication } => {
-            let prepared = runtime.tick_preparation().prepare_with_world_streaming(
-                commands,
-                world,
-                publication,
-            )?;
-            let validated = runtime.validate_prepared_world_tick(world, prepared)?;
-            let (report, receipt) = runtime.commit_validated_world_tick(world, validated);
-            if receipt.is_none() {
+            let prepared = runtime
+                .tick_preparation()
+                .prepare_with_world_services_and_streaming(commands, routine, world, publication)?;
+            let validated =
+                runtime.validate_prepared_world_services_tick(routine, world, prepared)?;
+            let commit = runtime.commit_validated_world_services_tick(routine, world, validated)?;
+            if commit.streaming_transition_or_none.is_none() {
                 return Err(ReferenceGameError::WorldStreamingResumeMismatch);
             }
-            Ok(report)
+            Ok(commit)
         }
     }
-}
-
-fn reference_stage_checkpoint(
-    runtime: &RuntimeState,
-    fixture: &ReferenceGameSession,
-    state_root: StateRoot,
-    current_chunk_id: SchemaId,
-) -> Result<ReferenceStageCheckpointV1, ReferenceGameError> {
-    let rpg = runtime.rpg_snapshot();
-    let quest_state_id = match aggregate_payload(&rpg, RpgAggregateKindV1::Quest, fixture.quest_id)
-    {
-        Some(RpgAggregatePayloadV1::Quest(quest)) => quest.state_id.clone(),
-        _ => return Err(ReferenceGameError::RecoveryInvalid),
-    };
-    let dialogue_node_id =
-        match aggregate_payload(&rpg, RpgAggregateKindV1::Dialogue, fixture.dialogue_id) {
-            Some(RpgAggregatePayloadV1::Dialogue(dialogue)) => dialogue.node_id.clone(),
-            _ => return Err(ReferenceGameError::RecoveryInvalid),
-        };
-    let player_inventory_contains_pickup = match aggregate_payload(
-        &rpg,
-        RpgAggregateKindV1::Inventory,
-        fixture.player_inventory_id,
-    ) {
-        Some(RpgAggregatePayloadV1::Inventory(inventory)) => {
-            inventory.item_ids.contains(&fixture.pickup_item_id)
-        }
-        _ => return Err(ReferenceGameError::RecoveryInvalid),
-    };
-    let player_equipment_contains_pickup = match aggregate_payload(
-        &rpg,
-        RpgAggregateKindV1::Equipment,
-        fixture.player_equipment_id,
-    ) {
-        Some(RpgAggregatePayloadV1::Equipment(equipment)) => equipment
-            .assignments
-            .iter()
-            .any(|assignment| assignment.item_id == fixture.pickup_item_id),
-        _ => return Err(ReferenceGameError::RecoveryInvalid),
-    };
-    let health =
-        |character_id| match aggregate_payload(&rpg, RpgAggregateKindV1::Character, character_id) {
-            Some(RpgAggregatePayloadV1::Character(character)) => character
-                .resources
-                .iter()
-                .find(|resource| resource.resource_id.as_str() == CORE_CHARACTER_HEALTH_RESOURCE_ID)
-                .map(|resource| resource.current_value),
-            _ => None,
-        };
-    let relay_state_id = match aggregate_payload(
-        &rpg,
-        RpgAggregateKindV1::InteractiveObject,
-        fixture.interactive_object_id,
-    ) {
-        Some(RpgAggregatePayloadV1::InteractiveObject(relay)) => relay.state_id.clone(),
-        _ => return Err(ReferenceGameError::RecoveryInvalid),
-    };
-    Ok(ReferenceStageCheckpointV1 {
-        state_root,
-        quest_state_id,
-        dialogue_node_id,
-        player_inventory_contains_pickup,
-        player_equipment_contains_pickup,
-        npc_health: health(fixture.npc_character_id).ok_or(ReferenceGameError::RecoveryInvalid)?,
-        player_health: health(fixture.body_id).ok_or(ReferenceGameError::RecoveryInvalid)?,
-        relay_state_id,
-        current_chunk_id,
-    })
-}
-
-#[allow(
-    clippy::too_many_arguments,
-    reason = "the acceptance accumulator updates the complete deterministic report"
-)]
-fn accumulate_report(
-    report: &next_runtime::TickReport,
-    events: &mut u64,
-    rpg_events: &mut u64,
-    begin_contacts: &mut u64,
-    persist_contacts: &mut u64,
-    end_contacts: &mut u64,
-    contact_preimage: &mut Vec<u8>,
-) -> Result<(), ReferenceGameError> {
-    *events = events
-        .checked_add(
-            u64::try_from(report.events.len()).map_err(|_| ReferenceGameError::CountOverflow)?,
-        )
-        .ok_or(ReferenceGameError::CountOverflow)?;
-    *rpg_events = rpg_events
-        .checked_add(
-            u64::try_from(
-                report
-                    .events
-                    .iter()
-                    .filter(|event| matches!(&event.payload, EventPayload::Rpg(_)))
-                    .count(),
-            )
-            .map_err(|_| ReferenceGameError::CountOverflow)?,
-        )
-        .ok_or(ReferenceGameError::CountOverflow)?;
-    for contact in &report.contact_batch.events {
-        let count = match contact.phase {
-            ContactPhaseV1::Begin => &mut *begin_contacts,
-            ContactPhaseV1::Persist => &mut *persist_contacts,
-            ContactPhaseV1::End => &mut *end_contacts,
-        };
-        *count = count
-            .checked_add(1)
-            .ok_or(ReferenceGameError::CountOverflow)?;
-    }
-    contact_preimage.extend_from_slice(report.contact_batch.batch_hash.as_bytes());
-    Ok(())
-}
-
-fn rpg_contact_facts_from_report(
-    batch: &next_contracts::physics::ClosedPhysicsContactBatchV1,
-    physics_checkpoint_revision: u64,
-) -> Vec<RpgPhysicalContactFactV1> {
-    let mut facts = batch
-        .events
-        .iter()
-        .filter(|event| matches!(event.phase, ContactPhaseV1::Begin | ContactPhaseV1::Persist))
-        .filter_map(|event| {
-            let first = event.participant_low.body_id.subject_id;
-            let second = event.participant_high.body_id.subject_id;
-            if first == second {
-                return None;
-            }
-            let (subject_low, subject_high) = if first < second {
-                (first, second)
-            } else {
-                (second, first)
-            };
-            Some(RpgPhysicalContactFactV1 {
-                gameplay_tick: batch.gameplay_tick,
-                contact_id: event.contact_id,
-                subject_low,
-                subject_high,
-                physics_checkpoint_revision,
-                source_snapshot_hash: event.source_snapshot_hash,
-                contact_batch_hash: batch.batch_hash,
-            })
-        })
-        .collect::<Vec<_>>();
-    facts.sort_unstable();
-    facts.dedup();
-    facts
 }
 
 pub(super) fn fixture_presentation_bindings(

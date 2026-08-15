@@ -30,7 +30,7 @@ pub struct RelationshipDefinitionV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct InteractionDefinitionV1 {
+pub struct InteractionDefinitionV2 {
     pub asset_revision: AssetRevisionRefV1,
     pub interaction_id: SchemaId,
     pub dialogue_definition: AssetRevisionRefV1,
@@ -40,6 +40,7 @@ pub struct InteractionDefinitionV1 {
     pub relationship_definition: AssetRevisionRefV1,
     pub relationship_source_value: i32,
     pub relationship_delta: i32,
+    pub availability_condition_or_none: Option<WorldRoutineActivityConditionV1>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]

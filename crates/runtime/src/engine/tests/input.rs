@@ -240,7 +240,7 @@ fn prepared_tick_generation_includes_the_exact_ingress_checkpoint() {
 
 #[test]
 fn physx_fallback_is_confined_to_world_activation() {
-    let bootstrap = RuntimeBootstrapV3::neutral_empty().expect("neutral bootstrap");
+    let bootstrap = RuntimeBootstrapV4::neutral_empty().expect("neutral bootstrap");
     let runtime = RuntimeState::new_with_physics_options(
         bootstrap.clone(),
         AuthorityRegistry::new(),
@@ -676,7 +676,7 @@ fn player_mapping_binds_the_assignment_with_the_exact_source_class() {
 }
 
 #[test]
-fn replay_v5_rejects_query_batch_divergence_before_state_commit() {
+fn replay_driver_rejects_query_batch_divergence_before_state_commit() {
     let mut recorded = fixture();
     let direct = command(&recorded, 0, 0);
     let initial_checkpoint = recorded
@@ -694,7 +694,7 @@ fn replay_v5_rejects_query_batch_divergence_before_state_commit() {
     let mut replay =
         RuntimeReplayDriver::new(initial_checkpoint.clone(), authority).expect("replay driver");
     let error = replay
-        .replay_tick_v5(
+        .replay_tick_with_query_facts(
             report.closed_ingress_batch.clone(),
             vec![direct],
             &report.command_batches[0],

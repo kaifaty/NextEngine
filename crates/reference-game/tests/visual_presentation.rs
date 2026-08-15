@@ -18,16 +18,23 @@ fn test_root() -> std::path::PathBuf {
 fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
     let root = test_root();
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
+    let quest_giver_character_id = activated
+        .project
+        .world_routine_catalog_or_none
+        .as_ref()
+        .expect("reference routine catalog")
+        .routine
+        .subject_id;
 
-    let driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+    let driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .expect("live driver");
     let initial = driver.state().expect("initial state");
     let initial_scene = initial
@@ -83,7 +90,7 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
     );
     let quest_giver = initial_scene
         .iter()
-        .find(|record| record.object_key.persistent_id == PersistentId::from_bytes([0x64; 16]))
+        .find(|record| record.object_key.persistent_id == quest_giver_character_id)
         .expect("quest-giver presentation");
     assert_eq!(
         quest_giver.mesh_revision.asset_id,

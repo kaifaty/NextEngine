@@ -2,6 +2,7 @@ mod fixtures;
 mod input;
 mod input_configuration;
 mod ledger;
+mod world_routine;
 
 use std::collections::BTreeMap;
 

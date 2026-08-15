@@ -9,6 +9,7 @@ use crate::persistence::ManifestValidationError;
 use crate::physics::{PhysicalEventV1, PhysicsPoseV1};
 use crate::rpg::RpgEventV1;
 use crate::rpg::SkillProficiency;
+use crate::world_routine::{WorldRoutineActivityChangedV1, WorldRoutineActivityV1};
 
 pub(super) fn encode_domain_event(event: &DomainEvent) -> Result<JcsValue, ManifestCodecError> {
     event.validate()?;
@@ -115,6 +116,14 @@ fn encode_event_payload(payload: &EventPayload) -> JcsValue {
             encode_pose(before),
             encode_pose(after),
         ]),
+        EventPayload::WorldRoutine(event) => JcsValue::Array(vec![
+            string("world_routine_activity_changed"),
+            string(event.subject_id.to_hex()),
+            JcsValue::Number(u64::from(event.previous_activity as u8)),
+            JcsValue::Number(u64::from(event.current_activity as u8)),
+            string(event.boundary_world_tick.to_string()),
+            string(event.record_revision.to_string()),
+        ]),
     }
 }
 
@@ -165,6 +174,9 @@ pub(super) fn decode_domain_events(
                 }
                 EventPayload::Physical(payload) => {
                     DomainEvent::physical(tick, phase, command_id, event_slot, payload)?
+                }
+                EventPayload::WorldRoutine(payload) => {
+                    DomainEvent::world_routine(tick, phase, command_id, event_slot, payload)?
                 }
             };
             if event.event_slot != event_slot || event.canonical_bytes()? != canonical_bytes {
@@ -265,6 +277,27 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
             before: decode_pose(next(&mut columns, "event.before")?)?,
             after: decode_pose(next(&mut columns, "event.after")?)?,
         }),
+        "world_routine_activity_changed" => {
+            EventPayload::WorldRoutine(WorldRoutineActivityChangedV1 {
+                subject_id: decode_persistent_id(next(&mut columns, "event.subject_id")?)?,
+                previous_activity: decode_world_routine_activity(
+                    next(&mut columns, "event.previous_activity")?,
+                    "event.previous_activity",
+                )?,
+                current_activity: decode_world_routine_activity(
+                    next(&mut columns, "event.current_activity")?,
+                    "event.current_activity",
+                )?,
+                boundary_world_tick: decode_u64_string(
+                    next(&mut columns, "event.boundary_world_tick")?,
+                    "event.boundary_world_tick",
+                )?,
+                record_revision: decode_u64_string(
+                    next(&mut columns, "event.record_revision")?,
+                    "event.record_revision",
+                )?,
+            })
+        }
         _ => {
             return Err(ManifestCodecError::UnknownField(format!(
                 "ticks[].expected_events[].payload.{tag}"
@@ -273,6 +306,17 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
     };
     ensure_no_more(columns, "ticks[].expected_events[].payload")?;
     Ok(payload)
+}
+
+fn decode_world_routine_activity(
+    value: JcsValue,
+    path: &'static str,
+) -> Result<WorldRoutineActivityV1, ManifestCodecError> {
+    match decode_u32(value, path)? {
+        1 => Ok(WorldRoutineActivityV1::Duty),
+        2 => Ok(WorldRoutineActivityV1::Rest),
+        _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
+    }
 }
 
 fn encode_pose(pose: &PhysicsPoseV1) -> JcsValue {

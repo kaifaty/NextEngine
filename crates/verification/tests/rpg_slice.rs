@@ -13,7 +13,7 @@ use next_contracts::rpg::{
 use next_contracts::rpg::{RPG_COMMAND_CAPABILITY_ID, SkillProficiency};
 use next_contracts::snapshot::WorldCheckpointV4;
 use next_runtime::{
-    AuthorityRegistry, CommandDisposition, RejectionCode, RuntimeBootstrapV3, RuntimeState,
+    AuthorityRegistry, CommandDisposition, RejectionCode, RuntimeBootstrapV4, RuntimeState,
 };
 use next_verification::{
     NeutralRuntimeFixture, ReplayTickInput, RpgReplayInput, build_neutral_runtime_fixture,
@@ -60,7 +60,7 @@ fn runtime_fixture() -> NeutralRuntimeFixture {
     .expect("neutral RPG fixture")
 }
 
-fn bootstrap() -> RuntimeBootstrapV3 {
+fn bootstrap() -> RuntimeBootstrapV4 {
     runtime_fixture().bootstrap
 }
 

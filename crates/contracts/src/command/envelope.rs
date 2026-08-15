@@ -2,7 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::canonical::{CanonicalDecodeLimits, CanonicalError, sha256};
 use crate::ids::{
-    CommandBodyHash, CommandId, CommandStreamId, PersistentId, SchemaId,
+    CommandBodyHash, CommandId, CommandStreamId, PersistentId, SchemaId, SystemId,
     command_body_hash_from_bytes,
 };
 use crate::physics::{
@@ -11,6 +11,10 @@ use crate::physics::{
 };
 use crate::rpg::{RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID};
 use crate::rpg::{RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1};
+use crate::world_routine::{
+    WORLD_ROUTINE_CAPABILITY_ID, WORLD_ROUTINE_COMMAND_SCHEMA_ID,
+    WORLD_ROUTINE_COMMAND_SCHEMA_VERSION, WorldRoutineCommandV1,
+};
 
 use super::body::{
     COMMAND_SCHEMA_VERSION, CanonicalCommandBodyV2, CapabilityRefV1, CommandPayload, CommandPhase,
@@ -123,6 +127,43 @@ impl WorldCommandEnvelopeV2 {
                 capability_claims: vec![CapabilityRefV1::unscoped(PHYSICAL_COMMAND_CAPABILITY_ID)?],
                 preconditions: Vec::new(),
                 payload: CommandPayload::Physical(payload),
+            },
+        };
+        command.refresh_command_id()?;
+        Ok(command)
+    }
+
+    pub fn world_routine(
+        stream_id: CommandStreamId,
+        system_id: SystemId,
+        sequence: u64,
+        target_tick: u64,
+        authoritative_revision: u64,
+        payload: WorldRoutineCommandV1,
+    ) -> Result<Self, CanonicalError> {
+        payload
+            .validate_shape()
+            .map_err(|_| CanonicalError::DuplicateSequenceValue)?;
+        let subject_id = match payload {
+            WorldRoutineCommandV1::CommitActivityBoundary { subject_id, .. } => subject_id,
+        };
+        let mut command = Self {
+            envelope_schema_version: COMMAND_ENVELOPE_SCHEMA_VERSION,
+            claimed_command_id: None,
+            body: CanonicalCommandBodyV2 {
+                payload_schema_id: SchemaId::new(WORLD_ROUTINE_COMMAND_SCHEMA_ID)?,
+                payload_schema_version: WORLD_ROUTINE_COMMAND_SCHEMA_VERSION,
+                issuer: IssuerPrincipal::InternalSystem(system_id),
+                stream_id,
+                sequence,
+                target_tick,
+                phase: CommandPhase::Outcome,
+                target: Some(subject_id),
+                capability_claims: vec![CapabilityRefV1::unscoped(WORLD_ROUTINE_CAPABILITY_ID)?],
+                preconditions: vec![CommandPreconditionV1::authoritative_revision(
+                    authoritative_revision,
+                )?],
+                payload: CommandPayload::WorldRoutine(payload),
             },
         };
         command.refresh_command_id()?;

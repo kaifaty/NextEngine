@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::cook_rpg::compile_rpg_definitions_v1;
+use crate::cook_rpg::{compile_rpg_definitions_v2, rpg_definitions_v2_manifest_bytes};
 use crate::cook_support::{ensure_unique, schema_ref, validate_text_catalog_closure};
 use next_assets::{ContentPublicationV1, PublicationFileV1};
 use next_contracts::animation_content::{
@@ -14,7 +14,7 @@ use next_contracts::content::{NeutralRecordError, NeutralRecordKindV1, NeutralRe
 use next_contracts::identity::RuntimeDeterminismBundleV1;
 use next_contracts::ids::{AssetId, ContentHash, ProjectId, SchemaId};
 use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogErrorV1, TextCatalogV1};
-use next_contracts::mechanics::{MechanicsContractError, RpgDefinitionRegistryV1};
+use next_contracts::mechanics::{MechanicsContractError, RpgDefinitionRegistryV2};
 use next_contracts::platform::PresentationTargetKindV1;
 use next_contracts::project::{
     AssetRevisionRefV1, ContentAssetEntryV1, ContentDependencyEdgeV1, ContentManifestBodyV1,
@@ -26,6 +26,9 @@ use next_contracts::project::{
 use next_contracts::render_content::{
     NeutralRenderRecordV1, RenderContentCatalogV1, RenderContentContractError,
 };
+use next_contracts::world_routine::{
+    WORLD_ROUTINE_CATALOG_SCHEMA_ID, WorldRoutineCatalogV1, WorldRoutineInteractionBindingV1,
+};
 pub const PROJECT_LOCK_PATH: &str = "manifests/project-lock.json";
 pub const SCHEMA_REGISTRY_PATH: &str = "manifests/schema-registry.json";
 pub const CONTENT_MANIFEST_PATH: &str = "manifests/content.json";
@@ -33,6 +36,7 @@ pub const WORLD_PARTITION_PATH: &str = "manifests/world-partition.json";
 pub const CONTENT_BLOB_DIRECTORY: &str = "blobs";
 pub const RENDER_CONTENT_CATALOG_PATH: &str = "render-content/catalog.bin";
 pub const RENDER_CONTENT_MESH_DIRECTORY: &str = "render-content/meshes";
+pub const RPG_DEFINITIONS_PATH: &str = "mechanics/rpg-definitions-v2.bin";
 pub const CORE_INTERACTION_PACKAGE_ID: &str = "org.nextengine.core.interaction";
 pub const CORE_COMBAT_PACKAGE_ID: &str = "org.nextengine.core.combat";
 
@@ -66,7 +70,7 @@ pub struct SourceChunkBindingV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NeutralProjectSourceV2 {
+pub struct NeutralProjectSourceV3 {
     pub project_id: ProjectId,
     pub project_revision: u64,
     pub authoring_sha256: ContentHash,
@@ -76,6 +80,8 @@ pub struct NeutralProjectSourceV2 {
     pub audio_records: Vec<NeutralAudioV1>,
     pub skeletons: Vec<NeutralSkeletonV1>,
     pub animations: Vec<NeutralAnimationV1>,
+    pub world_routine_catalog_or_none: Option<WorldRoutineCatalogV1>,
+    pub world_routine_interaction_binding_or_none: Option<WorldRoutineInteractionBindingV1>,
     pub root_asset_ids: Vec<AssetId>,
     pub provenance: ContentProvenanceV1,
     pub license_manifest_sha256: ContentHash,
@@ -86,17 +92,18 @@ pub struct NeutralProjectSourceV2 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CookedProjectV2 {
+pub struct CookedProjectV3 {
     pub project_lock: ProjectLockV3,
     pub schema_registry: SchemaRegistryManifestV2,
     pub content_manifest: ContentManifestV1,
     pub world_partition: WorldPartitionManifestV1,
-    pub rpg_definitions: RpgDefinitionRegistryV1,
+    pub rpg_definitions: RpgDefinitionRegistryV2,
+    pub world_routine_catalog_or_none: Option<WorldRoutineCatalogV1>,
     pub render_content_catalog: RenderContentCatalogV1,
     pub blobs: BTreeMap<ContentHash, Vec<u8>>,
 }
 
-impl CookedProjectV2 {
+impl CookedProjectV3 {
     pub fn publication(&self) -> Result<ContentPublicationV1, ProjectCookError> {
         let mut files = vec![
             PublicationFileV1::new(PROJECT_LOCK_PATH, self.project_lock.to_jcs_bytes())?,
@@ -106,6 +113,10 @@ impl CookedProjectV2 {
             PublicationFileV1::new(
                 RENDER_CONTENT_CATALOG_PATH,
                 self.render_content_catalog.canonical_bytes()?,
+            )?,
+            PublicationFileV1::new(
+                RPG_DEFINITIONS_PATH,
+                rpg_definitions_v2_manifest_bytes(&self.rpg_definitions)?,
             )?,
         ];
         files.extend(
@@ -141,9 +152,9 @@ impl CookedProjectV2 {
     }
 }
 
-pub fn cook_project_v2(
-    mut source: NeutralProjectSourceV2,
-) -> Result<CookedProjectV2, ProjectCookError> {
+pub fn cook_project_v3(
+    mut source: NeutralProjectSourceV3,
+) -> Result<CookedProjectV3, ProjectCookError> {
     source.records.sort_by_key(|record| record.asset_id);
     source
         .render_records
@@ -210,6 +221,14 @@ pub fn cook_project_v2(
     )?;
     if !source.animations.is_empty() {
         schema_refs.insert(animation_schema_ref.clone());
+    }
+    let world_routine_catalog_schema_ref = schema_ref(
+        WORLD_ROUTINE_CATALOG_SCHEMA_ID,
+        SchemaRoleV1::NeutralContent,
+        SchemaEncodingV1::CanonicalBinaryV1,
+    )?;
+    if source.world_routine_catalog_or_none.is_some() {
+        schema_refs.insert(world_routine_catalog_schema_ref.clone());
     }
     let content_schema_ref = schema_ref(
         "nextengine.content.manifest",
@@ -307,7 +326,9 @@ pub fn cook_project_v2(
     }
     let render_content_catalog = compile_render_content_catalog_v1(&source.render_records)?;
     for catalog in &source.text_catalogs {
-        let bytes = catalog.canonical_bytes()?;
+        let bytes = catalog
+            .canonical_bytes()
+            .map_err(|_| ProjectCookError::InvalidValue)?;
         let record_hash = catalog.record_sha256()?;
         if blobs.insert(record_hash, bytes).is_some() {
             return Err(ProjectCookError::HashCollision);
@@ -406,6 +427,37 @@ pub fn cook_project_v2(
             required: true,
         });
     }
+    if let Some(catalog) = source.world_routine_catalog_or_none {
+        let bytes = catalog
+            .canonical_bytes()
+            .map_err(|_| ProjectCookError::InvalidValue)?;
+        let record_hash = catalog
+            .revision()
+            .map_err(|_| ProjectCookError::InvalidValue)?;
+        if blobs.insert(record_hash, bytes).is_some() {
+            return Err(ProjectCookError::HashCollision);
+        }
+        let revision = AssetRevisionRefV1 {
+            asset_id: catalog.catalog_asset_id,
+            record_sha256: record_hash,
+        };
+        if revisions
+            .insert(catalog.catalog_asset_id, revision)
+            .is_some()
+        {
+            return Err(ProjectCookError::DuplicateIdentity);
+        }
+        entries.push(ContentAssetEntryV1 {
+            asset_revision: revision,
+            schema_ref: world_routine_catalog_schema_ref,
+            neutral_record_blob_sha256: record_hash,
+            semantic_class: ContentSemanticClassV1::DomainRelevant,
+            provenance_sha256: source.provenance.provenance_sha256,
+            license_manifest_sha256: source.license_manifest_sha256,
+            owning_bundle_id: SchemaId::new("nextengine.fixture.bundle.v1")
+                .expect("engine-owned identifier is valid"),
+        });
+    }
     let root_assets = source
         .root_asset_ids
         .iter()
@@ -430,7 +482,7 @@ pub fn cook_project_v2(
         ),
         cooker_contract_sha256: domain_hash(
             "nextengine.cooker-contract.v1",
-            b"next_project::cook_project_v2",
+            b"next_project::cook_project_v3",
         ),
         cooker_options_sha256: canonical_empty_manifest_hash("nextengine.cooker-options.v1"),
         root_assets,
@@ -439,7 +491,10 @@ pub fn cook_project_v2(
         dependency_edges: edges,
         domain_closure_sha256: ContentHash::default(),
     })?;
-    let rpg_definitions = compile_rpg_definitions_v1(&source.records)?;
+    let rpg_definitions = compile_rpg_definitions_v2(
+        &source.records,
+        source.world_routine_interaction_binding_or_none.as_ref(),
+    )?;
 
     let mut root_region_ids: Vec<_> = source
         .chunks
@@ -494,12 +549,13 @@ pub fn cook_project_v2(
         allowed_presentation_targets: source.allowed_presentation_targets,
         project_lock_sha256: ContentHash::default(),
     })?;
-    Ok(CookedProjectV2 {
+    Ok(CookedProjectV3 {
         project_lock,
         schema_registry,
         content_manifest,
         world_partition,
         rpg_definitions,
+        world_routine_catalog_or_none: source.world_routine_catalog_or_none,
         render_content_catalog,
         blobs,
     })
@@ -537,7 +593,7 @@ pub(crate) fn asset_revision(
     })
 }
 
-fn validate_source(source: &NeutralProjectSourceV2) -> Result<(), ProjectCookError> {
+fn validate_source(source: &NeutralProjectSourceV3) -> Result<(), ProjectCookError> {
     if source.project_revision == 0 {
         return Err(ProjectCookError::InvalidRevision);
     }
@@ -563,7 +619,13 @@ fn validate_source(source: &NeutralProjectSourceV2) -> Result<(), ProjectCookErr
             )
             .chain(source.audio_records.iter().map(|record| record.asset_id))
             .chain(source.skeletons.iter().map(|record| record.asset_id))
-            .chain(source.animations.iter().map(|record| record.asset_id)),
+            .chain(source.animations.iter().map(|record| record.asset_id))
+            .chain(
+                source
+                    .world_routine_catalog_or_none
+                    .iter()
+                    .map(|catalog| catalog.catalog_asset_id),
+            ),
     )?;
     ensure_unique(source.records.iter().map(|record| record.record_id))?;
     for animation in &source.animations {
@@ -605,6 +667,12 @@ fn validate_source(source: &NeutralProjectSourceV2) -> Result<(), ProjectCookErr
         .chain(source.audio_records.iter().map(|record| record.asset_id))
         .chain(source.skeletons.iter().map(|record| record.asset_id))
         .chain(source.animations.iter().map(|record| record.asset_id))
+        .chain(
+            source
+                .world_routine_catalog_or_none
+                .iter()
+                .map(|catalog| catalog.catalog_asset_id),
+        )
         .collect();
     let mut revisions = BTreeMap::new();
     for record in &source.records {
@@ -618,6 +686,30 @@ fn validate_source(source: &NeutralProjectSourceV2) -> Result<(), ProjectCookErr
     }
     for record in &source.animations {
         revisions.insert(record.asset_id, record.asset_revision()?);
+    }
+    match (
+        source.world_routine_catalog_or_none.as_ref(),
+        source.world_routine_interaction_binding_or_none.as_ref(),
+    ) {
+        (Some(catalog), Some(binding)) => {
+            catalog
+                .validate()
+                .map_err(|_| ProjectCookError::InvalidValue)?;
+            binding
+                .validate_against(catalog)
+                .map_err(|_| ProjectCookError::InvalidValue)?;
+            revisions.insert(
+                catalog.catalog_asset_id,
+                AssetRevisionRefV1 {
+                    asset_id: catalog.catalog_asset_id,
+                    record_sha256: catalog
+                        .revision()
+                        .map_err(|_| ProjectCookError::InvalidValue)?,
+                },
+            );
+        }
+        (None, None) => {}
+        _ => return Err(ProjectCookError::InvalidValue),
     }
     let records: BTreeSet<_> = source
         .records

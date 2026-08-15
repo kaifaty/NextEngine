@@ -611,11 +611,10 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
         };
     }
 
-    // Reproduce the exact seam that failed in the packaged run: open the
-    // real dialogue, confirm the quest, then cross a durable checkpoint on
-    // the simulation worker before touching the pause menu. Every callback
-    // is checked for terminal worker failure, including the injected accept
-    // frame and the checkpoint/recovery publication.
+    // Open the real dialogue before the authored routine boundary, then
+    // confirm after the keeper has crossed into Rest. The modal input remains
+    // accepted as a frame but cannot mutate the gated quest. Every callback is
+    // checked for terminal worker failure through checkpoint and recovery.
     submit(
         &mut worker,
         vec![key(
@@ -647,25 +646,25 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
     );
     submit(&mut worker, Vec::new());
     submit(&mut worker, Vec::new());
-    let mut accepted = worker
+    let mut post_dialogue = worker
         .read_latest_snapshot()
-        .expect("quest-accepted snapshot")
+        .expect("post-dialogue snapshot")
         .snapshot;
-    while accepted.simulation_tick < 35 {
+    while post_dialogue.simulation_tick < 35 {
         submit(&mut worker, Vec::new());
-        accepted = worker
+        post_dialogue = worker
             .read_latest_snapshot()
-            .expect("post-accept checkpoint snapshot")
+            .expect("post-dialogue checkpoint snapshot")
             .snapshot;
     }
     assert_eq!(
-        ui_text_argument_id(&accepted, "nextengine.ui.element.hud.quest", 0,),
-        Some("nextengine.reference-alpha.quest.active".to_owned())
+        ui_text_argument_id(&post_dialogue, "nextengine.ui.element.hud.quest", 0,),
+        Some("nextengine.reference-alpha.quest.available".to_owned())
     );
-    assert!(accepted.semantic_ui_records().any(|record| {
+    assert!(!post_dialogue.semantic_ui_records().any(|record| {
         record.element.element_id.as_str() == "nextengine.ui.element.hud.subtitle"
     }));
-    let accepted_tick = accepted.simulation_tick;
+    let post_dialogue_tick = post_dialogue.simulation_tick;
 
     // The fixed-step scheduler consumes the pending queue, so a submitted
     // batch takes effect on the NEXT pump: the escape press commits ui-back
@@ -682,7 +681,7 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
         .expect("ticking snapshot")
         .snapshot;
     assert!(!pause_menu_visible(&ticking));
-    assert_eq!(ticking.simulation_tick, accepted_tick + 1);
+    assert_eq!(ticking.simulation_tick, post_dialogue_tick + 1);
     submit(
         &mut worker,
         vec![key(
@@ -695,7 +694,7 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
         .expect("suspended snapshot")
         .snapshot;
     assert!(pause_menu_visible(&suspended));
-    assert_eq!(suspended.simulation_tick, accepted_tick + 2);
+    assert_eq!(suspended.simulation_tick, post_dialogue_tick + 2);
     assert_eq!(
         selected_pause_menu_element(&suspended),
         Some(next_reference_game::PAUSE_MENU_RESUME_ELEMENT_ID.to_owned())
@@ -762,8 +761,8 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
     assert_eq!(resumed.snapshot_sequence, backed_out.snapshot_sequence + 1);
 
     // Create a visually and authoritatively distinct world before loading.
-    // This guards the exact manual acceptance observation: Load must move the
-    // player back to the saved pose, not merely close the menu.
+    // This guards the exact recovery observation: Load must move the player
+    // back to the saved pose, not merely close the menu.
     submit(
         &mut worker,
         vec![key(
@@ -831,7 +830,7 @@ fn pause_menu_navigation_save_load_and_resume_run_through_the_worker() {
     assert_eq!(player_translation(&recovery_cut), saved_player_translation);
     assert_eq!(
         ui_text_argument_id(&recovery_cut, "nextengine.ui.element.hud.quest", 0,),
-        Some("nextengine.reference-alpha.quest.active".to_owned())
+        Some("nextengine.reference-alpha.quest.available".to_owned())
     );
     next_desktop_sdl_ash::validate_presentation_snapshot_transition(&loading, &recovery_cut)
         .expect("desktop adapter accepts the required cross-epoch rollback cut");

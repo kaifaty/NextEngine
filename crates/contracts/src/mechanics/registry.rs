@@ -136,18 +136,18 @@ impl MechanicsLockV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RpgDefinitionRegistryV1 {
+pub struct RpgDefinitionRegistryV2 {
     pub dialogues: Vec<DialogueDefinitionV1>,
     pub quests: Vec<QuestDefinitionV1>,
     pub relationships: Vec<RelationshipDefinitionV1>,
-    pub interactions: Vec<InteractionDefinitionV1>,
+    pub interactions: Vec<InteractionDefinitionV2>,
     pub abilities: Vec<AbilityDefinitionV1>,
     pub packages: Vec<MechanicPackageManifestV1>,
     pub mechanics_lock: MechanicsLockV1,
     pub registry_sha256: ContentHash,
 }
 
-impl RpgDefinitionRegistryV1 {
+impl RpgDefinitionRegistryV2 {
     pub fn empty() -> Result<Self, MechanicsContractError> {
         Self::new(
             Vec::new(),
@@ -164,7 +164,7 @@ impl RpgDefinitionRegistryV1 {
         mut dialogues: Vec<DialogueDefinitionV1>,
         mut quests: Vec<QuestDefinitionV1>,
         mut relationships: Vec<RelationshipDefinitionV1>,
-        mut interactions: Vec<InteractionDefinitionV1>,
+        mut interactions: Vec<InteractionDefinitionV2>,
         mut abilities: Vec<AbilityDefinitionV1>,
         mut packages: Vec<MechanicPackageManifestV1>,
         mechanics_lock: MechanicsLockV1,
@@ -294,7 +294,7 @@ impl RpgDefinitionRegistryV1 {
         let interaction_hashes: BTreeSet<_> = self
             .interactions
             .iter()
-            .map(interaction_definition_hash)
+            .map(interaction_definition_hash_v2)
             .collect();
         for package in &self.packages {
             let locked_package = self
@@ -395,12 +395,12 @@ impl RpgDefinitionRegistryV1 {
             bytes.extend_from_slice(relationship_definition_hash(relationship).as_bytes());
         }
         for interaction in &self.interactions {
-            bytes.extend_from_slice(interaction_definition_hash(interaction).as_bytes());
+            bytes.extend_from_slice(interaction_definition_hash_v2(interaction).as_bytes());
         }
         for ability in &self.abilities {
             bytes.extend_from_slice(ability_definition_hash(ability).as_bytes());
         }
         bytes.extend_from_slice(self.mechanics_lock.mechanics_lock_sha256.as_bytes());
-        domain_hash("nextengine.rpg-definition-registry.v1", &bytes)
+        domain_hash("nextengine.rpg-definition-registry.v2", &bytes)
     }
 }

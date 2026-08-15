@@ -1,6 +1,3 @@
-use std::error::Error;
-use std::fmt::{Display, Formatter};
-
 use crate::canonical::{
     CANONICAL_TYPE_HASH256, CANONICAL_TYPE_ID128, CANONICAL_TYPE_OPTIONAL, CANONICAL_TYPE_STRUCT,
     CANONICAL_TYPE_U8, CANONICAL_TYPE_U16, CANONICAL_TYPE_U64, CANONICAL_TYPE_UTF8_NFC,
@@ -10,6 +7,8 @@ use crate::canonical::{
 use crate::ids::{
     AssetId, ContentHash, IdentifierError, PersistentId, SchemaId, content_hash_from_bytes,
 };
+
+mod error_impl;
 
 pub const WORLD_ROUTINE_SCHEMA_VERSION: u16 = 1;
 pub const WORLD_ROUTINE_COMMAND_SCHEMA_VERSION: u32 = 1;
@@ -631,7 +630,7 @@ pub struct InteractionRoutineRevisionBindingV1 {
 pub struct InteractionAvailabilityV1 {
     pub schema_version: u16,
     pub interaction_id: SchemaId,
-    pub interaction_definition_hash: ContentHash,
+    pub interaction_definition_hash_v2: ContentHash,
     pub routine_binding_or_none: Option<InteractionRoutineRevisionBindingV1>,
     pub code: InteractionAvailabilityCodeV1,
 }
@@ -684,12 +683,83 @@ impl InteractionAvailabilityV1 {
                 CanonicalField::new(
                     3,
                     CANONICAL_TYPE_HASH256,
-                    self.interaction_definition_hash.as_bytes().to_vec(),
+                    self.interaction_definition_hash_v2.as_bytes().to_vec(),
                 ),
                 CanonicalField::new(4, CANONICAL_TYPE_OPTIONAL, binding),
                 field_u8(5, self.code as u8),
             ],
         )?)
+    }
+
+    pub fn from_canonical_bytes(
+        bytes: &[u8],
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, WorldRoutineContractError> {
+        let segment = decode_contract(
+            bytes,
+            limits,
+            "nextengine.mechanics",
+            "nextengine.interaction-availability",
+            "v1",
+            &[
+                (1, CANONICAL_TYPE_U16),
+                (2, CANONICAL_TYPE_UTF8_NFC),
+                (3, CANONICAL_TYPE_HASH256),
+                (4, CANONICAL_TYPE_OPTIONAL),
+                (5, CANONICAL_TYPE_U8),
+            ],
+        )?;
+        let routine_binding_or_none = {
+            let mut cursor = CanonicalCursor::new(field(&segment, 4)?);
+            let value = match cursor.read_u8()? {
+                0 => None,
+                1 => {
+                    if cursor.read_u8()? != CANONICAL_TYPE_STRUCT {
+                        return Err(WorldRoutineContractError::FieldType);
+                    }
+                    let length = usize::try_from(cursor.read_u64()?)
+                        .map_err(|_| WorldRoutineContractError::FieldLength)?;
+                    if length > limits.max_field_payload_bytes {
+                        return Err(WorldRoutineContractError::FieldLength);
+                    }
+                    let fields = decode_struct(cursor.read_exact(length)?, limits)?;
+                    require_fields(
+                        &fields,
+                        &[(1, CANONICAL_TYPE_ID128), (2, CANONICAL_TYPE_U64)],
+                    )?;
+                    Some(InteractionRoutineRevisionBindingV1 {
+                        subject_id: PersistentId::from_bytes(read_exact(nested_field(
+                            &fields, 1,
+                        )?)?),
+                        routine_record_revision: read_u64(nested_field(&fields, 2)?)?,
+                    })
+                }
+                _ => return Err(WorldRoutineContractError::FieldType),
+            };
+            cursor.finish()?;
+            value
+        };
+        let value = Self {
+            schema_version: read_u16(field(&segment, 1)?)?,
+            interaction_id: SchemaId::new(
+                std::str::from_utf8(field(&segment, 2)?)
+                    .map_err(|_| WorldRoutineContractError::ContentInvalid)?,
+            )?,
+            interaction_definition_hash_v2: ContentHash::from_bytes(read_exact(field(
+                &segment, 3,
+            )?)?),
+            routine_binding_or_none,
+            code: match read_u8(field(&segment, 5)?)? {
+                0 => InteractionAvailabilityCodeV1::Available,
+                1 => InteractionAvailabilityCodeV1::WorldRoutineActivityUnavailable,
+                _ => return Err(WorldRoutineContractError::AvailabilityInvalid),
+            },
+        };
+        value.validate()?;
+        if value.canonical_bytes()? != bytes {
+            return Err(WorldRoutineContractError::NonCanonicalEncoding);
+        }
+        Ok(value)
     }
 
     pub fn canonical_hash(&self) -> Result<ContentHash, WorldRoutineContractError> {
@@ -747,67 +817,6 @@ pub enum WorldRoutineContractError {
     FieldType,
     FieldLength,
     NonCanonicalEncoding,
-}
-
-impl Display for WorldRoutineContractError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Canonical(error) => {
-                write!(formatter, "world routine canonicalization failed: {error}")
-            }
-            Self::Decode(error) => write!(formatter, "world routine encoding is invalid: {error}"),
-            Self::Identifier(error) => {
-                write!(formatter, "world routine identifier is invalid: {error}")
-            }
-            Self::UnsupportedVersion(version) => {
-                write!(formatter, "unsupported world routine version {version}")
-            }
-            Self::UnknownActivity(tag) => write!(formatter, "unknown world routine activity {tag}"),
-            Self::UnknownCommand(tag) => write!(formatter, "unknown world routine command {tag}"),
-            Self::CalendarProfileInvalid => formatter.write_str("WORLD_CALENDAR_PROFILE_INVALID"),
-            Self::ContentInvalid => formatter.write_str("WORLD_ROUTINE_CONTENT_INVALID"),
-            Self::BindingInvalid => {
-                formatter.write_str("world routine interaction binding is invalid")
-            }
-            Self::SnapshotClosureInvalid => {
-                formatter.write_str("world routine snapshot closure is invalid")
-            }
-            Self::AvailabilityInvalid => {
-                formatter.write_str("world routine interaction availability is invalid")
-            }
-            Self::RevisionExhausted => {
-                formatter.write_str("world routine record revision exhausted")
-            }
-            Self::WrongEnvelope => formatter.write_str("world routine envelope is invalid"),
-            Self::MissingField(id) => write!(formatter, "world routine field {id} is missing"),
-            Self::UnknownField(id) => write!(formatter, "world routine field {id} is unknown"),
-            Self::FieldType => formatter.write_str("world routine field type is invalid"),
-            Self::FieldLength => formatter.write_str("world routine field length is invalid"),
-            Self::NonCanonicalEncoding => {
-                formatter.write_str("world routine value is not canonical")
-            }
-        }
-    }
-}
-
-impl Error for WorldRoutineContractError {}
-
-impl From<CanonicalError> for WorldRoutineContractError {
-    fn from(error: CanonicalError) -> Self {
-        Self::Canonical(error)
-    }
-}
-
-impl From<CanonicalDecodeError> for WorldRoutineContractError {
-    fn from(error: CanonicalDecodeError) -> Self {
-        Self::Decode(error)
-    }
-}
-
-impl From<IdentifierError> for WorldRoutineContractError {
-    fn from(error: IdentifierError) -> Self {
-        Self::Identifier(error)
-    }
 }
 
 fn domain_hash(domain: &str, bytes: &[u8]) -> ContentHash {
@@ -979,87 +988,4 @@ fn read_u64(bytes: &[u8]) -> Result<u64, WorldRoutineContractError> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn catalog() -> WorldRoutineCatalogV1 {
-        WorldRoutineCatalogV1 {
-            schema_version: 1,
-            catalog_asset_id: AssetId::from_bytes([0x41; 16]),
-            profile: WorldRoutineProfileV1 {
-                schema_version: 1,
-                anchor_simulation_tick: 10,
-                anchor_world_tick: 100,
-                world_ticks_per_simulation_tick_num: 3,
-                world_ticks_per_simulation_tick_den: 2,
-            },
-            routine: WorldRoutineDefinitionV1 {
-                schema_version: 1,
-                subject_id: PersistentId::from_bytes([0x64; 16]),
-                initial_activity: WorldRoutineActivityV1::Duty,
-                transition_world_tick: 104,
-                next_activity: WorldRoutineActivityV1::Rest,
-            },
-        }
-    }
-
-    #[test]
-    fn calendar_projection_and_due_tick_are_exact() {
-        let catalog = catalog();
-        assert_eq!(catalog.profile.world_tick(10), Ok(100));
-        assert_eq!(catalog.profile.world_tick(12), Ok(103));
-        assert_eq!(catalog.profile.world_tick(13), Ok(104));
-        assert_eq!(catalog.due_simulation_tick(), Ok(13));
-    }
-
-    #[test]
-    fn catalog_and_snapshot_round_trip_canonically() {
-        let catalog = catalog();
-        let bytes = catalog.canonical_bytes().expect("catalog encodes");
-        assert_eq!(
-            WorldRoutineCatalogV1::from_canonical_bytes(&bytes, Default::default()),
-            Ok(catalog)
-        );
-        let snapshot = WorldRoutineSnapshotV1::initial(&catalog).expect("snapshot builds");
-        snapshot
-            .validate_against(&catalog, 13)
-            .expect("save immediately before due tick remains Duty");
-        let bytes = snapshot.canonical_bytes().expect("snapshot encodes");
-        assert_eq!(
-            WorldRoutineSnapshotV1::from_canonical_bytes(&bytes, Default::default()),
-            Ok(snapshot)
-        );
-    }
-
-    #[test]
-    fn malformed_ratio_and_activity_pair_fail_closed() {
-        let mut invalid_ratio = catalog();
-        invalid_ratio.profile.world_ticks_per_simulation_tick_den = 0;
-        assert_eq!(
-            invalid_ratio.validate(),
-            Err(WorldRoutineContractError::CalendarProfileInvalid)
-        );
-        let mut invalid_pair = catalog();
-        invalid_pair.routine.next_activity = WorldRoutineActivityV1::Duty;
-        assert_eq!(
-            invalid_pair.validate(),
-            Err(WorldRoutineContractError::ContentInvalid)
-        );
-    }
-
-    #[test]
-    fn command_delta_binds_exact_owner_write() {
-        let catalog = catalog();
-        let snapshot = WorldRoutineSnapshotV1::initial(&catalog).expect("snapshot builds");
-        let command = WorldRoutineCommandV1::commit_boundary(&snapshot, &catalog)
-            .expect("boundary command builds");
-        let payload = command.canonical_payload_bytes().expect("payload encodes");
-        assert_eq!(
-            WorldRoutineCommandV1::from_canonical_payload_bytes(&payload, Default::default()),
-            Ok(command)
-        );
-        let delta = command.owner_delta_bytes().expect("delta encodes");
-        assert!(delta.starts_with(b"nextengine.world-routine-owner-write-set.v1\0"));
-        assert_eq!(delta.len(), 138);
-    }
-}
+mod tests;

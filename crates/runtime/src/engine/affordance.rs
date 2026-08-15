@@ -1,5 +1,5 @@
 use next_contracts::ids::{CommandStreamId, ContentHash, PersistentId};
-use next_contracts::mechanics::RpgDefinitionRegistryV1;
+use next_contracts::mechanics::RpgDefinitionRegistryV2;
 use next_contracts::physics::{PhysicsQueryHitV1, PhysicsQueryResultPayloadV1};
 use next_contracts::project::AssetRevisionRefV1;
 use next_contracts::rpg::{
@@ -80,7 +80,7 @@ pub(super) fn select_interaction_affordance(
     issuer_stream_id: CommandStreamId,
     physics: &PhysicsWorldHost,
     rpg: &RpgState,
-    rpg_definitions: &RpgDefinitionRegistryV1,
+    rpg_definitions: &RpgDefinitionRegistryV2,
 ) -> Result<InteractionAffordanceSelection, RuntimeFatalError> {
     let controlled_body_id = intent.controlled_body_id;
     let kind = intent.kind;
@@ -247,7 +247,7 @@ fn select_equip_use_affordance(
 
 pub(super) fn resolve_dialogue_quest_binding_v2(
     rpg: &RpgState,
-    definitions: &RpgDefinitionRegistryV1,
+    definitions: &RpgDefinitionRegistryV2,
     controlled_character_id: PersistentId,
 ) -> Result<Option<AuthoredDialogueQuestBindingV1>, CoreDialogueQuestClosureError> {
     if definitions.interactions.is_empty() {

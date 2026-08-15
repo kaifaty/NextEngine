@@ -302,9 +302,9 @@ fn build_staged_package(
         format!("NATIVE_GATE_PACKAGE_INVALID: failed to create package bin: {error}")
     })?;
     let project_directory = staging.join("project");
-    let source = next_reference_game::project_source_v2()
+    let source = next_reference_game::project_source_v3()
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
-    let cooked = next_project::cook_project_v2(source)
+    let cooked = next_project::cook_project_v3(source)
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
     let project_store = next_assets::ContentStore::new(&project_directory);
     let publication = cooked

@@ -1,15 +1,14 @@
 use next_contracts::command::WorldCommand;
 use next_contracts::ids::SchemaId;
 use next_contracts::persistence::{
-    AuthorityGrant, ReplayComparePointV5, ReplayManifestV5, ReplayOwnerSegmentV2,
-    ReplayTickManifestV5, SaveCompatibility, SaveSegmentDescriptor,
+    AuthorityGrant, ReplayComparePointV6, ReplayManifestV6, ReplayOwnerSegmentV2,
+    ReplayTickManifestV6, SaveCompatibility, SaveSegmentDescriptor, WorldStreamingReplayInputV1,
     replay_physics_query_batch_hash, replay_physics_query_results_hash,
     replay_targeting_query_trace_hash,
 };
 use next_contracts::physics::{
     ContactPhaseV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
-    PhysicsWorldCheckpointV1,
 };
 use next_contracts::rpg::{
     RPG_AGGREGATE_SNAPSHOT_OWNER_ID, RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
@@ -20,47 +19,21 @@ use next_contracts::snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
     RUNTIME_SNAPSHOT_SEGMENT_ID, WorldCheckpointV4,
 };
-use next_runtime::{RuntimeState, TickReport};
-use next_world::WorldStreamerV1;
-
-use crate::{
-    ReplayOutput, checkpoint_segment_hashes, compute_world_checkpoint_root, replay_command_results,
+use next_contracts::world::{
+    WORLD_STREAMING_SNAPSHOT_OWNER_ID, WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+    WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION, WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
+    WorldStreamingSnapshotV1,
 };
+use next_contracts::world_routine::{
+    WORLD_ROUTINE_SCHEMA_VERSION, WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
+    WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID, WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID, WorldRoutineSnapshotV1,
+    interaction_availability_batch_hash,
+};
+use next_runtime::{RuntimeState, TickReport, WorldServicesTickCommitV1};
+
+use crate::{ReplayOutput, replay_command_results};
 
 use super::PersistenceReplayCheckError;
-
-pub(super) fn transition_world(
-    world: &mut WorldStreamerV1,
-    target_chunk_id: SchemaId,
-    gameplay_tick: u64,
-    context: &'static str,
-) -> Result<(), PersistenceReplayCheckError> {
-    let publication = world
-        .prepare_begin_transition(target_chunk_id, gameplay_tick)
-        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
-    let validated = world
-        .validate_prepared_publication(publication, gameplay_tick)
-        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
-    if world.commit_validated_publication(validated).is_some() {
-        return Err(PersistenceReplayCheckError::condition(context));
-    }
-    let loaded = world
-        .load_pending(next_world::WORLD_CHUNK_DEFAULT_WORKERS)
-        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
-    let completion_tick = gameplay_tick
-        .checked_add(1)
-        .ok_or_else(|| PersistenceReplayCheckError::new(context, "gameplay tick overflow"))?;
-    let publication = world
-        .prepare_loaded_commit(loaded, completion_tick)
-        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
-    let validated = world
-        .validate_prepared_publication(publication, completion_tick)
-        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
-    if world.commit_validated_publication(validated).is_none() {
-        return Err(PersistenceReplayCheckError::condition(context));
-    }
-    Ok(())
-}
 
 pub(super) fn rpg_contact_facts_from_report(
     batch: &next_contracts::physics::ClosedPhysicsContactBatchV1,
@@ -97,18 +70,52 @@ pub(super) fn rpg_contact_facts_from_report(
     facts
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the replay manifest constructor binds five initial owners plus the exact recorded tick streams"
+)]
 pub(super) fn replay_manifest(
     compatibility: SaveCompatibility,
     authority: &next_runtime::AuthorityRegistry,
-    initial_checkpoint: WorldCheckpointV4,
+    initial_checkpoint: &WorldCheckpointV4,
+    initial_world_snapshot: &WorldStreamingSnapshotV1,
+    initial_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
     reports: &[TickReport],
-    direct_commands: Vec<Vec<WorldCommand>>,
-) -> Result<ReplayManifestV5, PersistenceReplayCheckError> {
-    let initial_state_root =
-        compute_world_checkpoint_root(&initial_checkpoint).map_err(|error| {
-            PersistenceReplayCheckError::new("initial replay root", error.to_string())
-        })?;
-    let initial_owner_segments = owner_segments(&initial_checkpoint)?;
+    world_services_commits: &[WorldServicesTickCommitV1],
+    streaming_inputs: &[WorldStreamingReplayInputV1],
+    direct_commands: &[Vec<WorldCommand>],
+) -> Result<ReplayManifestV6, PersistenceReplayCheckError> {
+    if reports.len() != world_services_commits.len()
+        || reports.len() != streaming_inputs.len()
+        || reports.len() != direct_commands.len()
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "recorded replay streams have exact common length",
+        ));
+    }
+    let initial_state_root = match initial_routine_snapshot_or_none {
+        Some(routine) => {
+            next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
+                &initial_checkpoint.runtime_snapshot,
+                &initial_checkpoint.rpg_snapshot,
+                &initial_checkpoint.physics_checkpoint,
+                initial_world_snapshot,
+                routine,
+            )
+        }
+        None => next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
+            &initial_checkpoint.runtime_snapshot,
+            &initial_checkpoint.rpg_snapshot,
+            &initial_checkpoint.physics_checkpoint,
+            initial_world_snapshot,
+        ),
+    }
+    .map_err(|error| PersistenceReplayCheckError::new("initial replay root", error.to_string()))?;
+    let initial_owner_segments = owner_segments(
+        initial_checkpoint,
+        initial_world_snapshot,
+        initial_routine_snapshot_or_none,
+    )?;
     let authority = authority
         .entries()
         .map(|(principal, capabilities)| AuthorityGrant {
@@ -118,40 +125,31 @@ pub(super) fn replay_manifest(
         .collect();
     let mut ticks = Vec::with_capacity(reports.len());
     let mut compare_points = Vec::with_capacity(reports.len());
-    let physics_catalog = initial_checkpoint.physics_checkpoint.catalog.clone();
-    for ((report, direct), expected_tick) in reports.iter().zip(direct_commands).zip(0_u64..) {
-        if report.tick != expected_tick {
+    let first_tick = initial_checkpoint.runtime_snapshot.next_tick;
+    for (index, report) in reports.iter().enumerate() {
+        let expected_tick = first_tick
+            .checked_add(u64::try_from(index).map_err(|error| {
+                PersistenceReplayCheckError::new("record replay tick", error.to_string())
+            })?)
+            .ok_or_else(|| {
+                PersistenceReplayCheckError::new("record replay tick", "tick overflow")
+            })?;
+        let commit = &world_services_commits[index];
+        if report.tick != expected_tick || commit.runtime_report != *report {
             return Err(PersistenceReplayCheckError::condition(
-                "recorded replay ticks are contiguous",
+                "recorded replay ticks and joint commits are contiguous and exact",
             ));
         }
-        let checkpoint = WorldCheckpointV4::new(
-            report.snapshot.clone(),
-            report.rpg_snapshot.clone(),
-            PhysicsWorldCheckpointV1::new(physics_catalog.clone(), report.physics_snapshot.clone())
-                .map_err(|error| {
-                    PersistenceReplayCheckError::new("record physics checkpoint", error.to_string())
-                })?,
-        )
-        .map_err(|error| {
-            PersistenceReplayCheckError::new("record checkpoint", error.to_string())
-        })?;
-        let state_root = compute_world_checkpoint_root(&checkpoint).map_err(|error| {
-            PersistenceReplayCheckError::new("record state root", error.to_string())
-        })?;
-        let (runtime_segment_hash, rpg_segment_hash, physics_segment_hash) =
-            checkpoint_segment_hashes(&checkpoint).map_err(|error| {
-                PersistenceReplayCheckError::new("record segment hashes", error.to_string())
-            })?;
-        let direct_external_commands = direct
+        let direct_external_commands = direct_commands[index]
             .iter()
             .map(next_contracts::persistence::ReplayCommandRecord::from_command)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| {
                 PersistenceReplayCheckError::new("record direct commands", error.to_string())
             })?;
-        ticks.push(ReplayTickManifestV5 {
+        ticks.push(ReplayTickManifestV6 {
             tick: report.tick,
+            world_streaming_input: streaming_inputs[index].clone(),
             closed_ingress_batch: report.closed_ingress_batch.clone(),
             direct_external_commands,
             expected_ingress_command_batch: report.command_batches[0].clone(),
@@ -165,18 +163,17 @@ pub(super) fn replay_manifest(
             expected_physics_query_results: report.physics_query_results.clone(),
             expected_outcome_command_batch: report.command_batches[1].clone(),
             expected_mapping_receipts: report.mapping_receipts.clone(),
+            expected_interaction_availability: report.interaction_availability.clone(),
             expected_command_results: replay_command_results(&report.results),
             expected_events: report.events.clone(),
         });
-        compare_points.push(ReplayComparePointV5 {
+        compare_points.push(ReplayComparePointV6 {
             tick: report.tick,
-            state_root,
+            state_root: commit.application_state_root,
             command_ledger_hash: report.snapshot.command_ledger_hash().map_err(|error| {
                 PersistenceReplayCheckError::new("record ledger hash", error.to_string())
             })?,
-            runtime_segment_hash,
-            rpg_segment_hash,
-            physics_segment_hash,
+            owner_segments: commit.application_owner_segments.clone(),
             closed_ingress_batch_hash: report.closed_ingress_batch.batch_hash,
             ingress_command_batch_hash: report.command_batches[0].batch_hash,
             physics_step_input_hash: report.physics_step_input.input_hash().map_err(|error| {
@@ -210,10 +207,19 @@ pub(super) fn replay_manifest(
                 )
             })?,
             outcome_command_batch_hash: report.command_batches[1].batch_hash,
+            interaction_availability_hash: interaction_availability_batch_hash(
+                &report.interaction_availability,
+            )
+            .map_err(|error| {
+                PersistenceReplayCheckError::new(
+                    "record interaction availability hash",
+                    error.to_string(),
+                )
+            })?,
         });
     }
-    Ok(ReplayManifestV5 {
-        schema_version: next_contracts::persistence::REPLAY_MANIFEST_V5_SCHEMA_VERSION,
+    Ok(ReplayManifestV6 {
+        schema_version: next_contracts::persistence::REPLAY_MANIFEST_V6_SCHEMA_VERSION,
         compatibility,
         initial_owner_segments,
         initial_state_root,
@@ -225,8 +231,10 @@ pub(super) fn replay_manifest(
 
 fn owner_segments(
     checkpoint: &WorldCheckpointV4,
+    world: &WorldStreamingSnapshotV1,
+    routine_or_none: Option<&WorldRoutineSnapshotV1>,
 ) -> Result<Vec<ReplayOwnerSegmentV2>, PersistenceReplayCheckError> {
-    let raw = [
+    let mut raw = vec![
         (
             RUNTIME_SNAPSHOT_OWNER_ID,
             RUNTIME_SNAPSHOT_SCHEMA_ID,
@@ -260,7 +268,27 @@ fn owner_segments(
                     PersistenceReplayCheckError::new("physics segment", error.to_string())
                 })?,
         ),
+        (
+            WORLD_STREAMING_SNAPSHOT_OWNER_ID,
+            WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+            WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
+            WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION,
+            world.canonical_bytes().map_err(|error| {
+                PersistenceReplayCheckError::new("world streaming segment", error.to_string())
+            })?,
+        ),
     ];
+    if let Some(routine) = routine_or_none {
+        raw.push((
+            WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
+            WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID,
+            WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID,
+            u32::from(WORLD_ROUTINE_SCHEMA_VERSION),
+            routine.canonical_bytes().map_err(|error| {
+                PersistenceReplayCheckError::new("world routine segment", error.to_string())
+            })?,
+        ));
+    }
     let mut segments = raw
         .into_iter()
         .map(|(owner, schema, segment, version, canonical_bytes)| {
@@ -307,35 +335,23 @@ fn owner_segments(
 pub(super) fn compare_replay(
     direct: &RuntimeState,
     reports: &[TickReport],
+    world_services_commits: &[WorldServicesTickCommitV1],
     replay: &ReplayOutput,
 ) -> Result<(), PersistenceReplayCheckError> {
-    if reports.len() != replay.ticks.len() {
+    if reports.len() != replay.ticks.len() || reports.len() != world_services_commits.len() {
         return Err(PersistenceReplayCheckError::condition(
             "direct and replay tick counts match",
         ));
     }
-    for (report, replay_tick) in reports.iter().zip(&replay.ticks) {
-        let checkpoint = WorldCheckpointV4::new(
-            report.snapshot.clone(),
-            report.rpg_snapshot.clone(),
-            PhysicsWorldCheckpointV1::new(
-                direct.physics_checkpoint().catalog.clone(),
-                report.physics_snapshot.clone(),
-            )
-            .map_err(|error| {
-                PersistenceReplayCheckError::new("compare physics checkpoint", error.to_string())
-            })?,
-        )
-        .map_err(|error| {
-            PersistenceReplayCheckError::new("compare checkpoint", error.to_string())
-        })?;
-        let state_root = compute_world_checkpoint_root(&checkpoint).map_err(|error| {
-            PersistenceReplayCheckError::new("compare state root", error.to_string())
-        })?;
+    for ((report, commit), replay_tick) in reports
+        .iter()
+        .zip(world_services_commits)
+        .zip(&replay.ticks)
+    {
         if report.tick != replay_tick.tick
             || report.results != replay_tick.command_results
             || report.events != replay_tick.events
-            || state_root != replay_tick.state_root
+            || commit.application_state_root != replay_tick.state_root
             || report.snapshot.command_ledger_hash().map_err(|error| {
                 PersistenceReplayCheckError::new("compare ledger", error.to_string())
             })? != replay_tick.command_ledger_hash

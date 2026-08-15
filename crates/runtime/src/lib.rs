@@ -10,10 +10,12 @@ mod stage_zone;
 pub use authority::{AuthorityRegistry, AuthorityRegistryError};
 pub use engine::{
     CommandDisposition, CommandResult, InputAdmissionError, PhysicsLaunchOptions,
-    PreparedRuntimeTick, PreparedRuntimeWorldTick, RejectionCode, RuntimeBootstrapV3,
-    RuntimeFatalError, RuntimeReplayDriver, RuntimeReplayError, RuntimeState,
-    RuntimeTickPreparation, SnapshotRestoreError, StageTraceEntry, TickReport, TransactionStage,
-    ValidatedRuntimeTick, ValidatedRuntimeWorldTick, bootstrap_equipment_slot_policy_hash_v1,
+    PreparedRuntimeTick, PreparedRuntimeWorldServicesTickV1, PreparedRuntimeWorldTick,
+    RejectionCode, RuntimeBootstrapV4, RuntimeFatalError, RuntimeReplayDriver, RuntimeReplayError,
+    RuntimeState, RuntimeTickPreparation, SnapshotRestoreError, StageTraceEntry, TickReport,
+    TransactionStage, ValidatedRuntimeTick, ValidatedRuntimeWorldServicesTickV1,
+    ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1, ValidatedRuntimeWorldTick,
+    WorldServicesTickCommitV1, bootstrap_equipment_slot_policy_hash_v1,
 };
 pub use outcome::{
     NoOutcomes, OutcomeCollectionError, OutcomeContext, OutcomeProposal, OutcomeProvider,

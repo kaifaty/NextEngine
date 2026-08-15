@@ -13,7 +13,7 @@ use next_contracts::extension::{
     LuauPackageManifestV1,
 };
 use next_contracts::ids::{CapabilityId, ContentHash, SchemaId, content_hash_from_bytes};
-use next_contracts::mechanics::RpgDefinitionRegistryV1;
+use next_contracts::mechanics::RpgDefinitionRegistryV2;
 use next_contracts::rpg::{RpgPhysicalContactFactV1, RpgSnapshotV2};
 use next_mechanics::{
     AbilityInvocationV1, CompiledAbilityEffectV1, MechanicsHostError, compile_contact_ability_v1,
@@ -217,7 +217,7 @@ impl LuauPackageRuntimeV1 {
 
 pub fn compile_first_scripted_action_v1(
     outcome: &LuauCallbackOutcomeV1,
-    registry: &RpgDefinitionRegistryV1,
+    registry: &RpgDefinitionRegistryV2,
     snapshot: &RpgSnapshotV2,
     gameplay_tick: u64,
     source_character_id: next_contracts::ids::PersistentId,

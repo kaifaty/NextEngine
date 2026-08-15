@@ -10,7 +10,7 @@ use next_contracts::extension::{
     WitInterfaceSelectionV1, WitResourceHandleV1, negotiate_wit_interface_v1,
 };
 use next_contracts::ids::{CapabilityId, ContentHash, PluginId, SchemaId, content_hash_from_bytes};
-use next_contracts::mechanics::RpgDefinitionRegistryV1;
+use next_contracts::mechanics::RpgDefinitionRegistryV2;
 use next_contracts::rpg::{RpgPhysicalContactFactV1, RpgSnapshotV2};
 use next_mechanics::{
     AbilityInvocationV1, CompiledAbilityEffectV1, MechanicsHostError, compile_contact_ability_v1,

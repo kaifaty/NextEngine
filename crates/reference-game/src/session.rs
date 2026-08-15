@@ -17,7 +17,7 @@ use next_contracts::physics::{
     PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     PhysicsWorldCheckpointV1,
 };
-use next_contracts::project::ActivatedProjectV3;
+use next_contracts::project::ActivatedProjectV4;
 use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
 
 use crate::{ReferenceGameError, ReferenceWorldTopologyV1, build_reference_runtime_bootstrap};
@@ -27,7 +27,7 @@ const WORLD_COLLISION_MASK: u64 = 1 << WORLD_COLLISION_LAYER;
 
 #[derive(Clone, Debug)]
 pub struct ReferenceGameSession {
-    pub bootstrap: next_runtime::RuntimeBootstrapV3,
+    pub bootstrap: next_runtime::RuntimeBootstrapV4,
     pub authority: next_runtime::AuthorityRegistry,
     pub principal: IssuerPrincipal,
     pub movement_stream_id: CommandStreamId,
@@ -56,7 +56,7 @@ pub struct ReferenceGameSession {
     pub action_map_hash: ContentHash,
     pub context_stack: InputContextStackV1,
     pub context_stack_hash: ContentHash,
-    pub activated_project: ActivatedProjectV3,
+    pub activated_project: ActivatedProjectV4,
     world_topology: ReferenceWorldTopologyV1,
 }
 
@@ -68,13 +68,13 @@ impl ReferenceGameSession {
 }
 
 pub fn build_reference_game_session(
-    activated_project: ActivatedProjectV3,
+    activated_project: ActivatedProjectV4,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     build_reference_game_session_with_profile(activated_project, false)
 }
 
 pub fn build_reference_game_session_with_profile(
-    activated_project: ActivatedProjectV3,
+    activated_project: ActivatedProjectV4,
     physx_compatible: bool,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     let world_topology = ReferenceWorldTopologyV1::from_activated_project(&activated_project)?;
@@ -88,26 +88,35 @@ pub fn build_reference_game_session_with_profile(
         IssuerPrincipal::InternalSystem(SystemId::new(PLAYER_INTERACTION_SYSTEM_ID)?);
     let agent_principal =
         IssuerPrincipal::InternalSystem(SystemId::new("nextengine.agent.planner")?);
-    let base = build_reference_runtime_bootstrap(
-        &project_id,
-        [
-            (
-                principal.clone(),
-                vec![
-                    CapabilityId::new(PHYSICAL_COMMAND_CAPABILITY_ID)?,
-                    CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?,
-                ],
-            ),
-            (
-                interaction_principal.clone(),
-                vec![CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?],
-            ),
-            (
-                agent_principal.clone(),
-                vec![CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?],
-            ),
-        ],
-    )?;
+    let routine_principal = IssuerPrincipal::InternalSystem(SystemId::new(
+        next_contracts::world_routine::WORLD_ROUTINE_SYSTEM_ID,
+    )?);
+    let mut grants = vec![
+        (
+            principal.clone(),
+            vec![
+                CapabilityId::new(PHYSICAL_COMMAND_CAPABILITY_ID)?,
+                CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?,
+            ],
+        ),
+        (
+            interaction_principal.clone(),
+            vec![CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?],
+        ),
+        (
+            agent_principal.clone(),
+            vec![CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?],
+        ),
+    ];
+    if activated_project.world_routine_catalog_or_none.is_some() {
+        grants.push((
+            routine_principal,
+            vec![CapabilityId::new(
+                next_contracts::world_routine::WORLD_ROUTINE_CAPABILITY_ID,
+            )?],
+        ));
+    }
+    let base = build_reference_runtime_bootstrap(&project_id, grants)?;
     let movement_stream_id = base
         .stream_for(&principal)
         .expect("neutral fixture allocates its declared principal stream");
@@ -146,7 +155,7 @@ pub fn build_reference_game_session_with_profile(
                 .rpg_definitions
                 .interactions
                 .iter()
-                .map(next_contracts::mechanics::interaction_definition_hash),
+                .map(next_contracts::mechanics::interaction_definition_hash_v2),
         );
     bootstrap
         .rpg_bindings
@@ -198,7 +207,6 @@ pub fn build_reference_game_session_with_profile(
     };
     let interactive_object_id = PersistentId::from_bytes([0x58; 16]);
     let npc_character_id = PersistentId::from_bytes([0x59; 16]);
-    let quest_giver_character_id = PersistentId::from_bytes([0x64; 16]);
     let dialogue_id = PersistentId::from_bytes([0x5a; 16]);
     let quest_id = PersistentId::from_bytes([0x5b; 16]);
     let relationship_id = PersistentId::from_bytes([0x5c; 16]);
@@ -209,9 +217,41 @@ pub fn build_reference_game_session_with_profile(
     let npc_inventory_id = PersistentId::from_bytes([0x61; 16]);
     let npc_equipment_id = PersistentId::from_bytes([0x62; 16]);
     let npc_weapon_item_id = PersistentId::from_bytes([0x63; 16]);
+    let quest_giver_character_id = activated_project
+        .world_routine_catalog_or_none
+        .as_ref()
+        .ok_or(ReferenceGameError::WorldRoutineContentInvalid)?
+        .routine
+        .subject_id;
+    if [
+        controller_id,
+        body_id,
+        interactive_object_id,
+        npc_character_id,
+        dialogue_id,
+        quest_id,
+        relationship_id,
+        player_inventory_id,
+        player_equipment_id,
+        pickup_item_id,
+        pickup_proxy_id,
+        npc_inventory_id,
+        npc_equipment_id,
+        npc_weapon_item_id,
+        PersistentId::from_bytes([0x57; 16]),
+        PersistentId::from_bytes([0x71; 16]),
+        PersistentId::from_bytes([0x72; 16]),
+        PersistentId::from_bytes([0x73; 16]),
+        PersistentId::from_bytes([0x74; 16]),
+    ]
+    .contains(&quest_giver_character_id)
+    {
+        return Err(ReferenceGameError::WorldRoutineContentInvalid);
+    }
     bootstrap.physics_checkpoint = grounded_capsule_checkpoint(
         PhysicsWorldId::from_bytes(*bootstrap.world_identity.world_namespace.as_bytes()),
         physics_body_id,
+        quest_giver_character_id,
         &bootstrap.tick_rate_profile,
         &bootstrap.authoritative_numeric_profile,
         &bootstrap.physics_quantization_profile,
@@ -254,6 +294,7 @@ pub fn build_reference_game_session_with_profile(
 fn grounded_capsule_checkpoint(
     world_id: PhysicsWorldId,
     capsule_body_id: PhysicsBodyIdV1,
+    quest_giver_character_id: PersistentId,
     tick_rate: &next_contracts::input::TickRateProfileV1,
     numeric: &next_contracts::physics::AuthoritativeNumericProfileV1,
     quantization: &next_contracts::physics::PhysicsQuantizationProfileV1,
@@ -356,7 +397,7 @@ fn grounded_capsule_checkpoint(
         WORLD_COLLISION_MASK,
     );
     let quest_giver_body_id = PhysicsBodyIdV1 {
-        subject_id: PersistentId::from_bytes([0x64; 16]),
+        subject_id: quest_giver_character_id,
         body_slot: 0,
     };
     let quest_giver_shape_id = PhysicsShapeIdV1 {

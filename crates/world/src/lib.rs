@@ -12,7 +12,7 @@ use next_contracts::canonical::{CanonicalDecodeLimits, sha256};
 use next_contracts::content::{NeutralRecordKindV1, NeutralRecordV1};
 use next_contracts::ids::{AssetId, ContentHash, PersistentId, SchemaId, content_hash_from_bytes};
 use next_contracts::project::{
-    ActivatedProjectV3, AssetRevisionRefV1, ContentAssetEntryV1, ContentSemanticClassV1,
+    ActivatedProjectV4, AssetRevisionRefV1, ContentAssetEntryV1, ContentSemanticClassV1,
     WorldChunkBindingV1,
 };
 use next_contracts::world::{
@@ -32,7 +32,9 @@ pub const WORLD_CHUNK_DEFAULT_WORKERS: usize = 2;
 mod commit;
 mod error;
 mod load;
+mod load_result;
 mod request;
+mod routine;
 
 pub use commit::WorldTransitionCommitV1;
 pub use error::{WorldAssetLoadErrorCodeV1, WorldStreamingError};
@@ -43,6 +45,10 @@ use load::{
 };
 use request::WorldChunkLoadRequestV1;
 pub use request::WorldStreamingLoadMetricsV1;
+pub use routine::{
+    PreparedWorldRoutinePublicationV1, ValidatedWorldRoutinePublicationV1, WorldRoutineOwnerError,
+    WorldRoutineOwnerV1,
+};
 
 /// Immutable, revision-bound output of the private R3a packaged workers.
 ///
@@ -55,38 +61,6 @@ pub struct PreparedWorldChunkLoadV1 {
     ordered_record_ids: Vec<PersistentId>,
     result_hash: ContentHash,
     metrics: WorldStreamingLoadMetricsV1,
-}
-
-impl PreparedWorldChunkLoadV1 {
-    #[must_use]
-    pub const fn result_hash(&self) -> ContentHash {
-        self.result_hash
-    }
-
-    #[must_use]
-    pub const fn metrics(&self) -> WorldStreamingLoadMetricsV1 {
-        self.metrics
-    }
-
-    fn computed_hash(&self) -> Result<ContentHash, WorldStreamingError> {
-        let mut bytes = WORLD_CHUNK_RESULT_DOMAIN_V1.to_vec();
-        bytes.extend_from_slice(self.request.request_hash.as_bytes());
-        extend_count(&mut bytes, self.request.ordered_asset_revisions.len())?;
-        for (revision, record) in self
-            .request
-            .ordered_asset_revisions
-            .iter()
-            .zip(&self.records)
-        {
-            bytes.extend_from_slice(revision.asset_id.as_bytes());
-            bytes.extend_from_slice(revision.record_sha256.as_bytes());
-            bytes.extend_from_slice(record.record_id.as_bytes());
-        }
-        extend_count(&mut bytes, self.metrics.asset_count)?;
-        extend_count(&mut bytes, self.metrics.encoded_bytes)?;
-        extend_count(&mut bytes, self.metrics.required_staging_bytes)?;
-        Ok(content_hash_from_bytes(sha256(&bytes)))
-    }
 }
 
 /// A complete next World generation which has not yet been published.
@@ -112,20 +86,34 @@ impl PreparedWorldStreamingPublicationV1 {
             .state_hash()
             .expect("validated prepared world snapshot")
     }
+
+    #[must_use]
+    pub const fn next_snapshot(&self) -> &WorldStreamingSnapshotV1 {
+        &self.next_snapshot
+    }
 }
 
 /// Runtime/World paired validation consumes a prepared publication and turns
 /// it into this commit-only value. Publication itself performs no validation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ValidatedWorldStreamingPublicationV1 {
+    base_world_state_hash: ContentHash,
+    expected_gameplay_tick: u64,
     next_snapshot: WorldStreamingSnapshotV1,
     next_active_records: Vec<NeutralRecordV1>,
     receipt: Option<WorldTransitionCommitV1>,
 }
 
+impl ValidatedWorldStreamingPublicationV1 {
+    #[must_use]
+    pub const fn next_snapshot(&self) -> &WorldStreamingSnapshotV1 {
+        &self.next_snapshot
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct WorldStreamerV1 {
-    project: Arc<ActivatedProjectV3>,
+    project: Arc<ActivatedProjectV4>,
     content_generation: PinnedContentGeneration,
     snapshot: WorldStreamingSnapshotV1,
     active_records: Vec<NeutralRecordV1>,
@@ -133,7 +121,7 @@ pub struct WorldStreamerV1 {
 
 impl WorldStreamerV1 {
     pub fn activate(
-        project: ActivatedProjectV3,
+        project: ActivatedProjectV4,
         content_generation: PinnedContentGeneration,
         initial_chunk_id: SchemaId,
     ) -> Result<Self, WorldStreamingError> {
@@ -184,7 +172,7 @@ impl WorldStreamerV1 {
     }
 
     pub fn restore(
-        project: ActivatedProjectV3,
+        project: ActivatedProjectV4,
         content_generation: PinnedContentGeneration,
         snapshot: WorldStreamingSnapshotV1,
     ) -> Result<Self, WorldStreamingError> {
@@ -361,6 +349,8 @@ impl WorldStreamerV1 {
     ) -> Result<ValidatedWorldStreamingPublicationV1, WorldStreamingError> {
         self.validate_prepared_stage(&prepared, gameplay_tick)?;
         Ok(ValidatedWorldStreamingPublicationV1 {
+            base_world_state_hash: prepared.base_world_state_hash,
+            expected_gameplay_tick: prepared.expected_gameplay_tick,
             next_snapshot: prepared.next_snapshot,
             next_active_records: prepared.next_active_records,
             receipt: prepared.receipt,
@@ -381,6 +371,20 @@ impl WorldStreamerV1 {
             return Err(WorldStreamingError::PublicationStale);
         }
         prepared.next_snapshot.validate()?;
+        Ok(())
+    }
+
+    /// Final read-only check of the captured streaming generation.
+    pub fn preflight_validated_publication(
+        &self,
+        validated: &ValidatedWorldStreamingPublicationV1,
+        gameplay_tick: u64,
+    ) -> Result<(), WorldStreamingError> {
+        if validated.base_world_state_hash != self.snapshot.state_hash()?
+            || validated.expected_gameplay_tick != gameplay_tick
+        {
+            return Err(WorldStreamingError::PublicationStale);
+        }
         Ok(())
     }
 
@@ -713,7 +717,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use next_assets::{ContentStore, PinnedContentGeneration};
-    use next_project::{activate_project_package, cook_project_v2};
+    use next_project::{activate_project_package, cook_project_v3};
 
     use super::*;
 
@@ -911,7 +915,7 @@ mod tests {
     }
 
     fn run_route(
-        project: &ActivatedProjectV3,
+        project: &ActivatedProjectV4,
         generation: &PinnedContentGeneration,
         route: &[SchemaId],
         workers: usize,
@@ -962,12 +966,12 @@ mod tests {
     fn fixture_project(
         label: &str,
     ) -> (
-        ActivatedProjectV3,
+        ActivatedProjectV4,
         PinnedContentGeneration,
         std::path::PathBuf,
     ) {
         let cooked =
-            cook_project_v2(next_reference_game::project_source_v2().expect("fixture source"))
+            cook_project_v3(next_reference_game::project_source_v3().expect("fixture source"))
                 .expect("cook fixture");
         let root = std::env::temp_dir().join(format!(
             "nextengine-world-{label}-{}-{}",
@@ -982,7 +986,7 @@ mod tests {
         (package.project, package.content_generation, root)
     }
 
-    fn first_two_chunk_ids(project: &ActivatedProjectV3) -> (SchemaId, SchemaId) {
+    fn first_two_chunk_ids(project: &ActivatedProjectV4) -> (SchemaId, SchemaId) {
         let topology =
             next_reference_game::ReferenceWorldTopologyV1::from_activated_project(project)
                 .expect("reference topology");

@@ -106,7 +106,7 @@ fn relay_collision_matches_visible_parts_and_hidden_pickup_stays_contained() {
 fn live_player_can_walk_beyond_the_former_twenty_metre_wall() {
     let (root, activated) = activated_reference_project("relay-traversal");
     let mut driver =
-        next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("live driver");
+        next_reference_game::ReferenceGameDriverV2::new(activated, true).expect("live driver");
 
     hold_key(
         &mut driver,
@@ -213,7 +213,7 @@ fn each_large_rock_has_an_inset_solid_proxy_and_keeps_the_central_route_open() {
     for (first_key, first_ticks, second_key, second_ticks, axis, boundary, greater) in
         movement_cases
     {
-        let mut driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+        let mut driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
             .expect("live driver");
         hold_key(&mut driver, first_key, 0, first_ticks);
         hold_key(&mut driver, second_key, 2, second_ticks);
@@ -254,8 +254,8 @@ fn activated_reference_project(
         TEST_COUNTER.fetch_add(1, Ordering::Relaxed)
     ));
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
@@ -266,7 +266,7 @@ fn activated_reference_project(
 }
 
 fn hold_key(
-    driver: &mut next_reference_game::ReferenceGameDriverV1,
+    driver: &mut next_reference_game::ReferenceGameDriverV2,
     control_path: &str,
     source_sequence: u64,
     ticks: usize,

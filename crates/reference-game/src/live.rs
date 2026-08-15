@@ -9,8 +9,9 @@ use next_contracts::presentation::{
     CameraProjectionProfileV1, CameraResultSampleV1, CameraRoleV1, PresentationSnapshotV2,
     QuantizedPresentationTransformV1, ThirdPersonCameraIntentSampleV1,
 };
-use next_contracts::snapshot::{WorldCheckpointCanonicalComponentsV1, WorldCheckpointV4};
+use next_contracts::snapshot::WorldCheckpointV4;
 use next_contracts::world::WorldStreamingSnapshotV1;
+use next_contracts::world_routine::WorldRoutineSnapshotV1;
 use next_player::PlayerInputSessionV1;
 use next_presentation::audio_mix::AudioMixerV1;
 use next_presentation::audio_scene::{
@@ -19,8 +20,11 @@ use next_presentation::audio_scene::{
 use next_presentation::{
     CameraPresentationBindingV1, PresentationBindingV1, PresentationExtractorV1,
 };
-use next_runtime::{PhysicsLaunchOptions, PreparedRuntimeTick, RuntimeState, ValidatedRuntimeTick};
-use next_world::WorldStreamerV1;
+use next_runtime::{
+    PhysicsLaunchOptions, PreparedRuntimeWorldServicesTickV1, RuntimeState,
+    ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1,
+};
+use next_world::{WorldRoutineOwnerV1, WorldStreamerV1};
 
 use crate::ReferenceGameError;
 use crate::camera::{
@@ -39,9 +43,10 @@ const SEMANTIC_UI_RECORDS_PER_BATCH: usize = 64;
 
 mod audio_ops;
 mod load;
+mod recovery_state;
 mod state;
 
-pub use state::{ReferenceLiveDriverRecoveryV1, ReferenceLiveStateV1};
+pub use state::{ReferenceLiveDriverRecoveryV1, ReferenceLiveStateV2};
 
 #[must_use]
 pub fn reference_b0_presentation_profile_hash() -> ContentHash {
@@ -51,10 +56,11 @@ pub fn reference_b0_presentation_profile_hash() -> ContentHash {
     )
 }
 
-pub struct ReferenceGameDriverV1 {
+pub struct ReferenceGameDriverV2 {
     fixture: ReferenceGameSession,
     content_generation: next_assets::PinnedContentGeneration,
     runtime: RuntimeState,
+    world_routine: WorldRoutineOwnerV1,
     world_streamer: WorldStreamerV1,
     input: PlayerInputSessionV1,
     presentation_bindings: Vec<PresentationBindingV1>,
@@ -94,7 +100,7 @@ struct ReferenceGameGenerationV1 {
 }
 
 impl ReferenceGameGenerationV1 {
-    fn capture(driver: &ReferenceGameDriverV1) -> Result<Self, ReferenceGameError> {
+    fn capture(driver: &ReferenceGameDriverV2) -> Result<Self, ReferenceGameError> {
         let presentation = driver.presentation_snapshot()?;
         Ok(Self {
             next_logical_frame_sequence: driver.next_logical_frame_sequence,
@@ -111,7 +117,7 @@ impl ReferenceGameGenerationV1 {
         })
     }
 
-    fn matches(&self, driver: &ReferenceGameDriverV1) -> bool {
+    fn matches(&self, driver: &ReferenceGameDriverV2) -> bool {
         let Some(presentation) = driver.presentation_extractor.accepted_snapshot() else {
             return false;
         };
@@ -153,7 +159,7 @@ struct PreparedReferenceGameState {
 /// preview. The live driver has not changed.
 pub struct PreparedReferenceGameAdvance {
     base_generation: ReferenceGameGenerationV1,
-    runtime: PreparedRuntimeTick,
+    runtime: PreparedRuntimeWorldServicesTickV1,
     state: PreparedReferenceGameState,
 }
 
@@ -183,7 +189,7 @@ impl PreparedReferenceGameAdvance {
 /// A prepared reference-game generation bound to the current runtime and
 /// driver generation and ready for an infallible commit.
 pub struct ValidatedReferenceGameAdvance {
-    runtime: ValidatedRuntimeTick,
+    runtime: ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1,
     state: PreparedReferenceGameState,
 }
 
@@ -217,7 +223,7 @@ impl ValidatedReferenceGameAdvance {
     }
 }
 
-impl ReferenceGameDriverV1 {
+impl ReferenceGameDriverV2 {
     pub fn new(
         package: next_project::ActivatedProjectPackage,
         include_interaction: bool,
@@ -255,6 +261,10 @@ impl ReferenceGameDriverV1 {
             fixture.activated_project.clone(),
             content_generation.clone(),
             initial_chunk_id,
+        )?;
+        let world_routine = WorldRoutineOwnerV1::activate(
+            fixture.activated_project.world_routine_catalog_or_none,
+            runtime.next_tick(),
         )?;
         let input = PlayerInputSessionV1::new(
             fixture.controller_id,
@@ -295,6 +305,7 @@ impl ReferenceGameDriverV1 {
             fixture,
             content_generation,
             runtime,
+            world_routine,
             world_streamer,
             input,
             presentation_bindings,
@@ -324,6 +335,7 @@ impl ReferenceGameDriverV1 {
         package: next_project::ActivatedProjectPackage,
         checkpoint: WorldCheckpointV4,
         world_streaming_snapshot: WorldStreamingSnapshotV1,
+        world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
         recovery: ReferenceLiveDriverRecoveryV1,
     ) -> Result<Self, ReferenceGameError> {
         checkpoint.validate()?;
@@ -349,6 +361,12 @@ impl ReferenceGameDriverV1 {
             content_generation.clone(),
             world_streaming_snapshot,
         )?;
+        let world_routine = WorldRoutineOwnerV1::restore(
+            fixture.activated_project.world_routine_catalog_or_none,
+            world_routine_snapshot_or_none,
+            runtime.next_tick(),
+        )?;
+        runtime.validate_world_routine_ledger_closure(&world_routine)?;
         let input =
             PlayerInputSessionV1::restore_from_recovery_bytes(&recovery.input_session_bytes)?;
         let expected_last_logical_frame_sequence =
@@ -408,6 +426,7 @@ impl ReferenceGameDriverV1 {
             fixture,
             content_generation,
             runtime,
+            world_routine,
             world_streamer,
             input,
             presentation_bindings,
@@ -531,6 +550,14 @@ impl ReferenceGameDriverV1 {
                         && action.phase == PlayerActionPhaseV1::Started
                         && action.value == PlayerActionValueV1::Digital(true)
                 })
+                && self
+                    .runtime
+                    .interaction_availability(
+                        &crate::dialogue::reference_dialogue_interaction_id(&self.fixture)?,
+                        &self.world_routine,
+                    )?
+                    .code
+                    == next_contracts::world_routine::InteractionAvailabilityCodeV1::Available
                 && crate::dialogue::dialogue_open_available(
                     &self.runtime.rpg_snapshot(),
                     self.runtime.physics_snapshot(),
@@ -571,14 +598,20 @@ impl ReferenceGameDriverV1 {
         )? {
             runtime_preparation.enqueue_input_sample(&self.fixture.principal, sample)?;
         }
-        let mut prepared_runtime = runtime_preparation.prepare([])?;
+        let mut prepared_runtime = runtime_preparation.prepare_with_world_services(
+            [],
+            &self.world_routine,
+            &self.world_streamer,
+        )?;
         if let Some((action_map, context_stack)) = pending_input_configuration {
-            prepared_runtime = self.runtime.stage_player_input_configuration_activation(
-                prepared_runtime,
-                self.fixture.source_id,
-                action_map,
-                context_stack,
-            )?;
+            prepared_runtime = self
+                .runtime
+                .stage_player_input_configuration_activation_world_services(
+                    prepared_runtime,
+                    self.fixture.source_id,
+                    action_map,
+                    context_stack,
+                )?;
         }
         let events = self
             .events
@@ -696,7 +729,13 @@ impl ReferenceGameDriverV1 {
         if !prepared.base_generation.matches(self) {
             return Err(next_runtime::RuntimeFatalError::PreparedGenerationStale.into());
         }
-        let runtime = self.runtime.validate_prepared_tick(prepared.runtime)?;
+        let runtime = self
+            .runtime
+            .validate_prepared_world_services_tick_without_application_evidence(
+                &self.world_routine,
+                &self.world_streamer,
+                prepared.runtime,
+            )?;
         Ok(ValidatedReferenceGameAdvance {
             runtime,
             state: prepared.state,
@@ -712,7 +751,11 @@ impl ReferenceGameDriverV1 {
         validated: ValidatedReferenceGameAdvance,
     ) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
         self.runtime
-            .commit_validated_tick_without_report(validated.runtime);
+            .commit_validated_world_services_tick_without_application_evidence(
+                &mut self.world_routine,
+                &mut self.world_streamer,
+                validated.runtime,
+            )?;
         self.input = validated.state.input;
         self.presentation_bindings = validated.state.presentation_bindings;
         self.presentation_extractor = validated.state.presentation_extractor;
@@ -733,122 +776,6 @@ impl ReferenceGameDriverV1 {
             .presentation_extractor
             .accepted_snapshot()
             .expect("validated reference advance contains a presentation snapshot"))
-    }
-
-    pub fn state(&self) -> Result<ReferenceLiveStateV1, ReferenceGameError> {
-        let presentation_input_count = u64::try_from(self.presentation_bindings.len())
-            .map_err(|_| ReferenceGameError::CountOverflow)?
-            .checked_add(1)
-            .ok_or(ReferenceGameError::CountOverflow)?;
-        let (checkpoint, checkpoint_canonical_components) =
-            self.runtime.world_checkpoint_with_canonical_components()?;
-        Ok(ReferenceLiveStateV1 {
-            checkpoint,
-            checkpoint_canonical_components,
-            world_streaming_snapshot: self.world_streamer.snapshot().clone(),
-            ticks: self.runtime.next_tick(),
-            events: self.events,
-            rpg_events: self.rpg_events,
-            project_composition_lock_hash: self
-                .fixture
-                .activated_project
-                .project_lock
-                .project_lock_sha256,
-            content_manifest_hash: self
-                .fixture
-                .activated_project
-                .content_manifest
-                .content_manifest_sha256,
-            presentation_input_count,
-            presentation_snapshot: self
-                .presentation_extractor
-                .accepted_snapshot()
-                .cloned()
-                .ok_or(ReferenceGameError::PresentationSnapshotMissing)?,
-            driver_recovery: ReferenceLiveDriverRecoveryV1 {
-                next_logical_frame_sequence: self.next_logical_frame_sequence,
-                events: self.events,
-                rpg_events: self.rpg_events,
-                camera_yaw_millidegrees: self.camera_yaw_millidegrees,
-                camera_pitch_millidegrees: self.camera_pitch_millidegrees,
-                camera_cut: self.camera_cut,
-                ui_screen: self.ui_screen,
-                dialogue: self.dialogue,
-                input_session_bytes: self.input.recovery_bytes()?,
-                presentation_snapshot_bytes: self.presentation_extractor.recovery_bytes()?,
-            },
-        })
-    }
-
-    pub fn prepared_state(
-        &self,
-        prepared: &PreparedReferenceGameAdvance,
-    ) -> Result<ReferenceLiveStateV1, ReferenceGameError> {
-        let checkpoint = prepared
-            .runtime
-            .world_checkpoint_with_canonical_components()?;
-        self.state_from_prepared_parts(checkpoint, prepared.next_tick(), &prepared.state)
-    }
-
-    pub fn validated_state(
-        &self,
-        validated: &ValidatedReferenceGameAdvance,
-    ) -> Result<ReferenceLiveStateV1, ReferenceGameError> {
-        let checkpoint = validated
-            .runtime
-            .world_checkpoint_with_canonical_components()?;
-        self.state_from_prepared_parts(checkpoint, validated.next_tick(), &validated.state)
-    }
-
-    fn state_from_prepared_parts(
-        &self,
-        (checkpoint, checkpoint_canonical_components): (
-            WorldCheckpointV4,
-            WorldCheckpointCanonicalComponentsV1,
-        ),
-        ticks: u64,
-        state: &PreparedReferenceGameState,
-    ) -> Result<ReferenceLiveStateV1, ReferenceGameError> {
-        let presentation_input_count = u64::try_from(self.presentation_bindings.len())
-            .map_err(|_| ReferenceGameError::CountOverflow)?
-            .checked_add(1)
-            .ok_or(ReferenceGameError::CountOverflow)?;
-        Ok(ReferenceLiveStateV1 {
-            checkpoint,
-            checkpoint_canonical_components,
-            world_streaming_snapshot: self.world_streamer.snapshot().clone(),
-            ticks,
-            events: state.events,
-            rpg_events: state.rpg_events,
-            project_composition_lock_hash: self
-                .fixture
-                .activated_project
-                .project_lock
-                .project_lock_sha256,
-            content_manifest_hash: self
-                .fixture
-                .activated_project
-                .content_manifest
-                .content_manifest_sha256,
-            presentation_input_count,
-            presentation_snapshot: state
-                .presentation_extractor
-                .accepted_snapshot()
-                .cloned()
-                .ok_or(ReferenceGameError::PresentationSnapshotMissing)?,
-            driver_recovery: ReferenceLiveDriverRecoveryV1 {
-                next_logical_frame_sequence: state.next_logical_frame_sequence,
-                events: state.events,
-                rpg_events: state.rpg_events,
-                camera_yaw_millidegrees: state.camera_yaw_millidegrees,
-                camera_pitch_millidegrees: state.camera_pitch_millidegrees,
-                camera_cut: state.camera_cut,
-                ui_screen: state.ui_screen,
-                dialogue: state.dialogue,
-                input_session_bytes: state.input.recovery_bytes()?,
-                presentation_snapshot_bytes: state.presentation_extractor.recovery_bytes()?,
-            },
-        })
     }
 
     pub fn cancel_recovered_controls(&mut self) -> Result<(), ReferenceGameError> {

@@ -8,6 +8,7 @@ use next_contracts::physics::PhysicsContractError;
 use next_contracts::rpg::RpgContractErrorV1;
 use next_contracts::snapshot::{SnapshotDecodeError, WorldCheckpointError};
 use next_contracts::world::WorldStreamingContractError;
+use next_contracts::world_routine::WorldRoutineContractError;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PreservedFile {
@@ -37,6 +38,7 @@ pub enum SaveStoreError {
     RpgSnapshotDecode(RpgContractErrorV1),
     PhysicsSnapshotDecode(PhysicsContractError),
     WorldStreamingSnapshotDecode(WorldStreamingContractError),
+    WorldRoutineSnapshotDecode(WorldRoutineContractError),
     WorldCheckpoint(WorldCheckpointError),
     InvalidImage(&'static str),
     InvalidStaging(&'static str),
@@ -72,6 +74,12 @@ impl SaveStoreError {
                     "WORLD_STREAM_SCHEMA_UNSUPPORTED"
                 }
                 _ => "SAVE_WORLD_STREAMING_SNAPSHOT_INVALID",
+            },
+            Self::WorldRoutineSnapshotDecode(error) => match error {
+                WorldRoutineContractError::UnsupportedVersion(_) => {
+                    "WORLD_ROUTINE_SCHEMA_UNSUPPORTED"
+                }
+                _ => "SAVE_WORLD_ROUTINE_SNAPSHOT_INVALID",
             },
             Self::WorldCheckpoint(error) => error.stable_code(),
             Self::InvalidImage(code) | Self::InvalidStaging(code) => code,
@@ -109,6 +117,9 @@ impl Display for SaveStoreError {
                     "save world streaming snapshot is invalid: {error}"
                 )
             }
+            Self::WorldRoutineSnapshotDecode(error) => {
+                write!(formatter, "save world routine snapshot is invalid: {error}")
+            }
             Self::WorldCheckpoint(error) => {
                 write!(formatter, "save world checkpoint is invalid: {error}")
             }
@@ -130,6 +141,7 @@ impl Error for SaveStoreError {
             Self::RpgSnapshotDecode(error) => Some(error),
             Self::PhysicsSnapshotDecode(error) => Some(error),
             Self::WorldStreamingSnapshotDecode(error) => Some(error),
+            Self::WorldRoutineSnapshotDecode(error) => Some(error),
             Self::WorldCheckpoint(error) => Some(error),
             _ => None,
         }
@@ -175,6 +187,12 @@ impl From<PhysicsContractError> for SaveStoreError {
 impl From<WorldStreamingContractError> for SaveStoreError {
     fn from(error: WorldStreamingContractError) -> Self {
         Self::WorldStreamingSnapshotDecode(error)
+    }
+}
+
+impl From<WorldRoutineContractError> for SaveStoreError {
+    fn from(error: WorldRoutineContractError) -> Self {
+        Self::WorldRoutineSnapshotDecode(error)
     }
 }
 

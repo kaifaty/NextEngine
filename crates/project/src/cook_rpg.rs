@@ -1,24 +1,29 @@
 use std::collections::BTreeMap;
 
 use next_contracts::content::{NeutralRecordKindV1, NeutralRecordV1};
-use next_contracts::ids::{CapabilityId, MechanicPackageId, SchemaId};
+use next_contracts::ids::{AssetId, CapabilityId, ContentHash, MechanicPackageId, SchemaId};
 use next_contracts::mechanics::{
     AbilityDefinitionV1, AbilityTargetKindV1, CooldownSpecV1, DialogueDefinitionV1,
-    InteractionDefinitionV1, LockedMechanicPackageV1, MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID,
+    InteractionDefinitionV2, LockedMechanicPackageV1, MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID,
     MechanicAffordanceV1, MechanicPackageManifestV1, MechanicsLockV1,
     PHYSICS_QUERY_CONTACT_CAPABILITY_ID, QuestDefinitionV1, RelationshipDefinitionV1,
-    RpgDefinitionRegistryV1, StateTransitionV1, ability_definition_hash,
-    interaction_definition_hash,
+    RpgDefinitionRegistryV2, StateTransitionV1, ability_definition_hash,
+    interaction_definition_hash_v2,
 };
 use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
+use next_contracts::world_routine::{
+    WorldRoutineActivityConditionV1, WorldRoutineActivityV1, WorldRoutineCatalogV1,
+    WorldRoutineInteractionBindingV1,
+};
 
 use crate::cook::{
     CORE_COMBAT_PACKAGE_ID, CORE_INTERACTION_PACKAGE_ID, ProjectCookError, asset_revision,
 };
 
-pub(crate) fn compile_rpg_definitions_v1(
+pub(crate) fn compile_rpg_definitions_v2(
     records: &[NeutralRecordV1],
-) -> Result<RpgDefinitionRegistryV1, ProjectCookError> {
+    routine_binding_or_none: Option<&WorldRoutineInteractionBindingV1>,
+) -> Result<RpgDefinitionRegistryV2, ProjectCookError> {
     let mut by_kind = BTreeMap::new();
     let mut interaction_records = Vec::new();
     for record in records {
@@ -116,12 +121,17 @@ pub(crate) fn compile_rpg_definitions_v1(
                     Ok((record.kind, asset_revision(record)?))
                 })
                 .collect::<Result<_, ProjectCookError>>()?;
-            Ok(InteractionDefinitionV1 {
+            let interaction_id =
+                property_id(interaction_record, "nextengine.interaction.definition-id")?;
+            let availability_condition_or_none = routine_binding_or_none
+                .filter(|binding| binding.interaction_id == interaction_id)
+                .map(|binding| WorldRoutineActivityConditionV1 {
+                    subject_id: binding.subject_id,
+                    required_activity: binding.required_activity,
+                });
+            Ok(InteractionDefinitionV2 {
                 asset_revision: asset_revision(interaction_record)?,
-                interaction_id: property_id(
-                    interaction_record,
-                    "nextengine.interaction.definition-id",
-                )?,
+                interaction_id,
                 dialogue_definition: *dependency_revisions
                     .get(&NeutralRecordKindV1::DialogueDefinition)
                     .ok_or(ProjectCookError::MissingReference)?,
@@ -147,12 +157,22 @@ pub(crate) fn compile_rpg_definitions_v1(
                     interaction_record,
                     "nextengine.interaction.relationship-delta",
                 )?,
+                availability_condition_or_none,
             })
         })
         .collect::<Result<Vec<_>, ProjectCookError>>()?;
+    if routine_binding_or_none.is_some_and(|binding| {
+        interactions
+            .iter()
+            .filter(|interaction| interaction.interaction_id == binding.interaction_id)
+            .count()
+            != 1
+    }) {
+        return Err(ProjectCookError::MissingReference);
+    }
     let interaction_hashes = interactions
         .iter()
-        .map(interaction_definition_hash)
+        .map(interaction_definition_hash_v2)
         .collect();
     let rpg_capability =
         CapabilityId::new(RPG_COMMAND_CAPABILITY_ID).expect("engine-owned RPG capability is valid");
@@ -219,7 +239,7 @@ pub(crate) fn compile_rpg_definitions_v1(
             granted_capabilities: vec![effect_capability, contact_capability],
         },
     ])?;
-    Ok(RpgDefinitionRegistryV1::new(
+    Ok(RpgDefinitionRegistryV2::new(
         vec![dialogue],
         vec![quest],
         vec![relationship],
@@ -228,6 +248,179 @@ pub(crate) fn compile_rpg_definitions_v1(
         vec![interaction_package, combat_package],
         mechanics_lock,
     )?)
+}
+
+pub(crate) fn rpg_definitions_v2_manifest_bytes(
+    registry: &RpgDefinitionRegistryV2,
+) -> Result<Vec<u8>, ProjectCookError> {
+    registry.validate()?;
+    let mut bytes = b"nextengine.rpg-definitions-v2.v1\0".to_vec();
+    bytes.extend_from_slice(registry.registry_sha256.as_bytes());
+    bytes.extend_from_slice(
+        &u32::try_from(registry.interactions.len())
+            .map_err(|_| ProjectCookError::InvalidValue)?
+            .to_le_bytes(),
+    );
+    for interaction in &registry.interactions {
+        bytes.extend_from_slice(interaction.asset_revision.asset_id.as_bytes());
+        bytes.extend_from_slice(interaction.asset_revision.record_sha256.as_bytes());
+        extend_text(&mut bytes, interaction.interaction_id.as_str())?;
+        bytes.extend_from_slice(interaction_definition_hash_v2(interaction).as_bytes());
+        match interaction.availability_condition_or_none {
+            None => bytes.push(0),
+            Some(condition) => {
+                bytes.push(1);
+                bytes.extend_from_slice(condition.subject_id.as_bytes());
+                bytes.push(condition.required_activity as u8);
+            }
+        }
+    }
+    Ok(bytes)
+}
+
+pub(crate) fn activate_rpg_definitions_v2(
+    records: &[NeutralRecordV1],
+    catalog_or_none: Option<&WorldRoutineCatalogV1>,
+    bytes: &[u8],
+) -> Result<RpgDefinitionRegistryV2, ProjectCookError> {
+    let mut reader = ManifestReader::new(bytes);
+    reader.expect(b"nextengine.rpg-definitions-v2.v1\0")?;
+    let expected_registry_hash = ContentHash::from_bytes(reader.array()?);
+    let count = usize::try_from(reader.u32()?).map_err(|_| ProjectCookError::InvalidValue)?;
+    let mut expected = Vec::with_capacity(count);
+    let mut routine_binding_or_none = None;
+    for _ in 0..count {
+        let asset_id = AssetId::from_bytes(reader.array()?);
+        let record_sha256 = ContentHash::from_bytes(reader.array()?);
+        let interaction_id = SchemaId::new(reader.text()?)?;
+        let interaction_hash = ContentHash::from_bytes(reader.array()?);
+        let condition = match reader.u8()? {
+            0 => None,
+            1 => {
+                let condition = WorldRoutineActivityConditionV1 {
+                    subject_id: next_contracts::ids::PersistentId::from_bytes(reader.array()?),
+                    required_activity: match reader.u8()? {
+                        1 => WorldRoutineActivityV1::Duty,
+                        2 => WorldRoutineActivityV1::Rest,
+                        _ => return Err(ProjectCookError::InvalidValue),
+                    },
+                };
+                if routine_binding_or_none
+                    .replace(WorldRoutineInteractionBindingV1 {
+                        interaction_id: interaction_id.clone(),
+                        subject_id: condition.subject_id,
+                        required_activity: condition.required_activity,
+                    })
+                    .is_some()
+                {
+                    return Err(ProjectCookError::InvalidValue);
+                }
+                Some(condition)
+            }
+            _ => return Err(ProjectCookError::InvalidValue),
+        };
+        expected.push((
+            asset_id,
+            record_sha256,
+            interaction_id,
+            interaction_hash,
+            condition,
+        ));
+    }
+    reader.finish()?;
+    match (catalog_or_none, routine_binding_or_none.as_ref()) {
+        (Some(catalog), Some(binding)) => binding
+            .validate_against(catalog)
+            .map_err(|_| ProjectCookError::InvalidValue)?,
+        (None, None) => {}
+        _ => return Err(ProjectCookError::InvalidValue),
+    }
+    let registry = compile_rpg_definitions_v2(records, routine_binding_or_none.as_ref())?;
+    if registry.registry_sha256 != expected_registry_hash
+        || registry.interactions.len() != expected.len()
+        || registry.interactions.iter().zip(expected).any(
+            |(
+                interaction,
+                (asset_id, record_sha256, interaction_id, interaction_hash, condition),
+            )| {
+                interaction.asset_revision.asset_id != asset_id
+                    || interaction.asset_revision.record_sha256 != record_sha256
+                    || interaction.interaction_id != interaction_id
+                    || interaction_definition_hash_v2(interaction) != interaction_hash
+                    || interaction.availability_condition_or_none != condition
+            },
+        )
+    {
+        return Err(ProjectCookError::InvalidValue);
+    }
+    Ok(registry)
+}
+
+fn extend_text(bytes: &mut Vec<u8>, value: &str) -> Result<(), ProjectCookError> {
+    bytes.extend_from_slice(
+        &u32::try_from(value.len())
+            .map_err(|_| ProjectCookError::InvalidValue)?
+            .to_le_bytes(),
+    );
+    bytes.extend_from_slice(value.as_bytes());
+    Ok(())
+}
+
+struct ManifestReader<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> ManifestReader<'a> {
+    const fn new(bytes: &'a [u8]) -> Self {
+        Self { bytes, offset: 0 }
+    }
+
+    fn take(&mut self, length: usize) -> Result<&'a [u8], ProjectCookError> {
+        let end = self
+            .offset
+            .checked_add(length)
+            .ok_or(ProjectCookError::InvalidValue)?;
+        let value = self
+            .bytes
+            .get(self.offset..end)
+            .ok_or(ProjectCookError::InvalidValue)?;
+        self.offset = end;
+        Ok(value)
+    }
+
+    fn expect(&mut self, expected: &[u8]) -> Result<(), ProjectCookError> {
+        if self.take(expected.len())? != expected {
+            return Err(ProjectCookError::InvalidValue);
+        }
+        Ok(())
+    }
+
+    fn array<const N: usize>(&mut self) -> Result<[u8; N], ProjectCookError> {
+        self.take(N)?
+            .try_into()
+            .map_err(|_| ProjectCookError::InvalidValue)
+    }
+
+    fn u8(&mut self) -> Result<u8, ProjectCookError> {
+        Ok(self.array::<1>()?[0])
+    }
+
+    fn u32(&mut self) -> Result<u32, ProjectCookError> {
+        Ok(u32::from_le_bytes(self.array()?))
+    }
+
+    fn text(&mut self) -> Result<&'a str, ProjectCookError> {
+        let length = usize::try_from(self.u32()?).map_err(|_| ProjectCookError::InvalidValue)?;
+        std::str::from_utf8(self.take(length)?).map_err(|_| ProjectCookError::InvalidValue)
+    }
+
+    fn finish(self) -> Result<(), ProjectCookError> {
+        if self.offset != self.bytes.len() {
+            return Err(ProjectCookError::InvalidValue);
+        }
+        Ok(())
+    }
 }
 
 fn property_id(record: &NeutralRecordV1, property_id: &str) -> Result<SchemaId, ProjectCookError> {

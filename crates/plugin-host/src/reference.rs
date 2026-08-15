@@ -55,7 +55,7 @@ pub fn reference_wasm_manifest_v1(
 
 pub fn compile_reference_wasm_action_v1(
     outcome: &WasmCallbackOutcomeV1,
-    registry: &RpgDefinitionRegistryV1,
+    registry: &RpgDefinitionRegistryV2,
     snapshot: &RpgSnapshotV2,
     gameplay_tick: u64,
     source_character_id: next_contracts::ids::PersistentId,

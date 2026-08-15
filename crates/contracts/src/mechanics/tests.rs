@@ -34,7 +34,7 @@ fn package_capability_denial_is_rejected_before_activation() {
     .expect("lock");
 
     assert_eq!(
-        RpgDefinitionRegistryV1::new(
+        RpgDefinitionRegistryV2::new(
             Vec::new(),
             Vec::new(),
             Vec::new(),
@@ -60,7 +60,7 @@ fn package_hash_mismatch_is_rejected_before_activation() {
     .expect("lock");
 
     assert_eq!(
-        RpgDefinitionRegistryV1::new(
+        RpgDefinitionRegistryV2::new(
             Vec::new(),
             Vec::new(),
             Vec::new(),

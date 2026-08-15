@@ -5,6 +5,10 @@ use std::fmt::{Display, Formatter};
 use crate::canonical::sha256;
 use crate::ids::{CapabilityId, ContentHash, MechanicPackageId, SchemaId, content_hash_from_bytes};
 use crate::project::AssetRevisionRefV1;
+pub use crate::world_routine::{
+    InteractionAvailabilityCodeV1, InteractionAvailabilityV1, InteractionRoutineRevisionBindingV1,
+    WorldRoutineActivityConditionV1,
+};
 
 pub const DATA_ONLY_PACKAGE_KIND_V1: &str = "nextengine.mechanic-package.data-only.v1";
 pub const MECHANICS_EFFECT_PROPOSE_CAPABILITY_ID: &str = "mechanics.effect.propose";
@@ -46,7 +50,7 @@ pub fn relationship_definition_hash(definition: &RelationshipDefinitionV1) -> Co
 }
 
 #[must_use]
-pub fn interaction_definition_hash(definition: &InteractionDefinitionV1) -> ContentHash {
+pub fn interaction_definition_hash_v2(definition: &InteractionDefinitionV2) -> ContentHash {
     let mut bytes = asset_revision_bytes(definition.asset_revision);
     extend_text(&mut bytes, definition.interaction_id.as_str());
     bytes.extend_from_slice(&asset_revision_bytes(definition.dialogue_definition));
@@ -56,7 +60,15 @@ pub fn interaction_definition_hash(definition: &InteractionDefinitionV1) -> Cont
     bytes.extend_from_slice(&asset_revision_bytes(definition.relationship_definition));
     bytes.extend_from_slice(&definition.relationship_source_value.to_le_bytes());
     bytes.extend_from_slice(&definition.relationship_delta.to_le_bytes());
-    domain_hash("nextengine.interaction-definition.v1", &bytes)
+    match definition.availability_condition_or_none {
+        None => bytes.push(0),
+        Some(condition) => {
+            bytes.push(1);
+            bytes.extend_from_slice(condition.subject_id.as_bytes());
+            bytes.push(condition.required_activity as u8);
+        }
+    }
+    domain_hash("nextengine.interaction-definition.v2", &bytes)
 }
 
 #[must_use]

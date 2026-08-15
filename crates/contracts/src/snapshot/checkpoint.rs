@@ -562,6 +562,94 @@ pub fn world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
     Ok(state_root_from_segments(segments)?)
 }
 
+pub fn world_checkpoint_with_streaming_and_routine_v1_state_root(
+    runtime_snapshot: &RuntimeSnapshotV3,
+    rpg_snapshot: &RpgSnapshotV2,
+    physics_checkpoint: &PhysicsWorldCheckpointV1,
+    world_streaming_snapshot: &crate::world::WorldStreamingSnapshotV1,
+    world_routine_snapshot: &crate::world_routine::WorldRoutineSnapshotV1,
+) -> Result<StateRoot, WorldCheckpointError> {
+    world_streaming_snapshot.validate()?;
+    let mut segments = [
+        (
+            RUNTIME_SNAPSHOT_OWNER_ID,
+            RUNTIME_SNAPSHOT_SCHEMA_ID,
+            RUNTIME_SNAPSHOT_SEGMENT_ID,
+            runtime_snapshot.canonical_bytes()?,
+        ),
+        (
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+            rpg_snapshot.canonical_bytes()?,
+        ),
+        (
+            crate::physics::PHYSICS_SNAPSHOT_OWNER_ID,
+            PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+            PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+            physics_checkpoint.canonical_bytes()?,
+        ),
+        (
+            crate::world::WORLD_STREAMING_SNAPSHOT_OWNER_ID,
+            crate::world::WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+            crate::world::WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
+            world_streaming_snapshot.canonical_bytes()?,
+        ),
+        (
+            crate::world_routine::WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
+            crate::world_routine::WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID,
+            crate::world_routine::WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID,
+            world_routine_snapshot.canonical_bytes()?,
+        ),
+    ];
+    segments.sort_by_key(|(owner, schema, segment, _)| (*owner, *schema, *segment));
+    Ok(state_root_from_segments(segments)?)
+}
+
+pub fn world_checkpoint_with_streaming_and_routine_v1_state_root_from_canonical_components(
+    components: &WorldCheckpointCanonicalComponentsV1,
+    world_streaming_snapshot: &crate::world::WorldStreamingSnapshotV1,
+    world_routine_snapshot: &crate::world_routine::WorldRoutineSnapshotV1,
+) -> Result<StateRoot, WorldCheckpointError> {
+    world_streaming_snapshot.validate()?;
+    let streaming_bytes = world_streaming_snapshot.canonical_bytes()?;
+    let routine_bytes = world_routine_snapshot.canonical_bytes()?;
+    let mut segments = [
+        (
+            RUNTIME_SNAPSHOT_OWNER_ID,
+            RUNTIME_SNAPSHOT_SCHEMA_ID,
+            RUNTIME_SNAPSHOT_SEGMENT_ID,
+            components.runtime_snapshot_bytes(),
+        ),
+        (
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_OWNER_ID,
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_SCHEMA_ID,
+            crate::rpg::RPG_AGGREGATE_SNAPSHOT_SEGMENT_ID,
+            components.rpg_snapshot_bytes(),
+        ),
+        (
+            crate::physics::PHYSICS_SNAPSHOT_OWNER_ID,
+            PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
+            PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
+            components.physics_checkpoint_bytes(),
+        ),
+        (
+            crate::world::WORLD_STREAMING_SNAPSHOT_OWNER_ID,
+            crate::world::WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+            crate::world::WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
+            streaming_bytes.as_slice(),
+        ),
+        (
+            crate::world_routine::WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
+            crate::world_routine::WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID,
+            crate::world_routine::WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID,
+            routine_bytes.as_slice(),
+        ),
+    ];
+    segments.sort_by_key(|(owner, schema, segment, _)| (*owner, *schema, *segment));
+    Ok(state_root_from_segments(segments)?)
+}
+
 fn state_root_from_segments<const N: usize, B: AsRef<[u8]>>(
     segments: [(&str, &str, &str, B); N],
 ) -> Result<StateRoot, CanonicalError> {

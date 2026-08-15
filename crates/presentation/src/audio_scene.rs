@@ -281,6 +281,7 @@ fn event_principal_subject(event: &DomainEventEnvelopeV2) -> Option<PersistentId
                 Some(*body_id)
             }
         },
+        EventPayload::WorldRoutine(event) => Some(event.subject_id),
     }
 }
 

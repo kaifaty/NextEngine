@@ -6,7 +6,7 @@ use std::fmt::{Display, Formatter};
 use next_contracts::ids::{PersistentId, SchemaId};
 use next_contracts::mechanics::{
     AbilityDefinitionV1, AbilityTargetKindV1, EffectRequestV1, MechanicsContractError,
-    RpgDefinitionRegistryV1, ability_definition_hash,
+    RpgDefinitionRegistryV2, ability_definition_hash,
 };
 use next_contracts::project::AssetRevisionRefV1;
 use next_contracts::rpg::{
@@ -32,7 +32,7 @@ pub struct CompiledAbilityEffectV1 {
 }
 
 pub fn compile_contact_ability_v1(
-    registry: &RpgDefinitionRegistryV1,
+    registry: &RpgDefinitionRegistryV2,
     snapshot: &RpgSnapshotV2,
     mut invocation: AbilityInvocationV1,
 ) -> Result<CompiledAbilityEffectV1, MechanicsHostError> {
@@ -238,7 +238,7 @@ fn exact_definition_revision(aggregate: &RpgAggregateEnvelopeV1) -> Option<Asset
 }
 
 fn validate_package_grants(
-    registry: &RpgDefinitionRegistryV1,
+    registry: &RpgDefinitionRegistryV2,
     ability: &AbilityDefinitionV1,
 ) -> Result<(), MechanicsHostError> {
     let locked = registry
@@ -320,7 +320,7 @@ impl From<next_contracts::canonical::CanonicalError> for MechanicsHostError {
 mod tests {
     use next_contracts::ids::{AssetId, ContentHash, PersistentId, PhysicsContactId, SchemaId};
     use next_contracts::mechanics::{
-        CooldownSpecV1, MechanicsContractError, MechanicsLockV1, RpgDefinitionRegistryV1,
+        CooldownSpecV1, MechanicsContractError, MechanicsLockV1, RpgDefinitionRegistryV2,
     };
     use next_contracts::rpg::{
         CharacterPayloadV1, CharacterResourceEntryV1, DefinitionRefV1, EquipmentPayloadV1,
@@ -393,7 +393,7 @@ mod tests {
         combat.granted_capabilities.pop();
         let denied_lock = MechanicsLockV1::new(locked).expect("canonical denied lock");
         assert_eq!(
-            RpgDefinitionRegistryV1::new(
+            RpgDefinitionRegistryV2::new(
                 registry.dialogues.clone(),
                 registry.quests.clone(),
                 registry.relationships.clone(),
@@ -406,14 +406,14 @@ mod tests {
         );
     }
 
-    fn cooked_registry() -> RpgDefinitionRegistryV1 {
-        next_project::cook_project_v2(next_reference_game::project_source_v2().expect("source"))
+    fn cooked_registry() -> RpgDefinitionRegistryV2 {
+        next_project::cook_project_v3(next_reference_game::project_source_v3().expect("source"))
             .expect("cook")
             .rpg_definitions
     }
 
     fn combat_snapshot(
-        registry: &RpgDefinitionRegistryV1,
+        registry: &RpgDefinitionRegistryV2,
     ) -> (RpgSnapshotV2, PersistentId, PersistentId) {
         let ability = registry.abilities.first().expect("ability");
         let source_id = PersistentId::from_bytes([1; 16]);

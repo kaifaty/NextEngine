@@ -18,6 +18,7 @@ use next_contracts::rpg::RpgSnapshotV2;
 use next_contracts::snapshot::RuntimeSnapshotV3;
 use next_contracts::snapshot::WorldCheckpointV4;
 use next_contracts::world::WorldStreamingSnapshotV1;
+use next_contracts::world_routine::WorldRoutineSnapshotV1;
 
 use super::error::{RejectedGeneration, SaveLoadError, SaveStoreError};
 use super::generation::{
@@ -161,6 +162,23 @@ impl SaveStore {
             checkpoint,
             Some(world_streaming_snapshot),
             None,
+            None,
+        )
+    }
+
+    pub fn commit_world_checkpoint_with_streaming_and_routine(
+        &self,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+        world_routine_snapshot: &WorldRoutineSnapshotV1,
+    ) -> Result<SaveCommitReceipt, SaveStoreError> {
+        self.commit_world_checkpoint_inner_with_streaming(
+            compatibility,
+            checkpoint,
+            Some(world_streaming_snapshot),
+            Some(world_routine_snapshot),
+            None,
         )
     }
 
@@ -185,6 +203,32 @@ impl SaveStore {
             compatibility,
             checkpoint,
             world_streaming_snapshot,
+        )
+    }
+
+    pub fn prepare_world_checkpoint_with_streaming_and_routine(
+        &self,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+        world_routine_snapshot: &WorldRoutineSnapshotV1,
+    ) -> Result<SaveImage, SaveStoreError> {
+        let next_generation = self
+            .probe_candidates()
+            .iter()
+            .map(|candidate| candidate.manifest.generation)
+            .max()
+            .map_or(Ok(0), |generation| {
+                generation
+                    .checked_add(1)
+                    .ok_or(SaveStoreError::GenerationExhausted)
+            })?;
+        SaveImage::from_world_checkpoint_with_streaming_and_routine(
+            next_generation,
+            compatibility,
+            checkpoint,
+            world_streaming_snapshot,
+            world_routine_snapshot,
         )
     }
 
@@ -229,7 +273,13 @@ impl SaveStore {
         checkpoint: &WorldCheckpointV4,
         fault: Option<CommitBoundary>,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
-        self.commit_world_checkpoint_inner_with_streaming(compatibility, checkpoint, None, fault)
+        self.commit_world_checkpoint_inner_with_streaming(
+            compatibility,
+            checkpoint,
+            None,
+            None,
+            fault,
+        )
     }
 
     fn commit_world_checkpoint_inner_with_streaming(
@@ -237,6 +287,7 @@ impl SaveStore {
         compatibility: SaveCompatibility,
         checkpoint: &WorldCheckpointV4,
         world_streaming_snapshot: Option<&WorldStreamingSnapshotV1>,
+        world_routine_snapshot: Option<&WorldRoutineSnapshotV1>,
         fault: Option<CommitBoundary>,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
         fs::create_dir_all(&self.root)
@@ -253,14 +304,30 @@ impl SaveStore {
                     .checked_add(1)
                     .ok_or(SaveStoreError::GenerationExhausted)
             })?;
-        let image = match world_streaming_snapshot {
-            Some(snapshot) => SaveImage::from_world_checkpoint_with_streaming(
+        let image = match (world_streaming_snapshot, world_routine_snapshot) {
+            (Some(streaming), Some(routine)) => {
+                SaveImage::from_world_checkpoint_with_streaming_and_routine(
+                    next_generation,
+                    compatibility,
+                    checkpoint,
+                    streaming,
+                    routine,
+                )?
+            }
+            (Some(snapshot), None) => SaveImage::from_world_checkpoint_with_streaming(
                 next_generation,
                 compatibility,
                 checkpoint,
                 snapshot,
             )?,
-            None => SaveImage::from_world_checkpoint(next_generation, compatibility, checkpoint)?,
+            (None, None) => {
+                SaveImage::from_world_checkpoint(next_generation, compatibility, checkpoint)?
+            }
+            (None, Some(_)) => {
+                return Err(SaveStoreError::InvalidImage(
+                    "SAVE_WORLD_ROUTINE_STREAMING_MISSING",
+                ));
+            }
         };
         self.commit_image_inner(&image, fault)
     }

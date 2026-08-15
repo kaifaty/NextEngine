@@ -5,9 +5,9 @@ use next_contracts::canonical::{CanonicalDecodeLimits, CanonicalError};
 use next_contracts::command::{DomainEvent, WorldCommand};
 use next_contracts::ids::{CommandLedgerHash, SchemaId, StateRoot};
 use next_contracts::persistence::{
-    ManifestValidationError, ReplayCommandResultV2, ReplayManifestV5, SaveSegmentDescriptor,
-    replay_physics_query_batch_hash, replay_physics_query_results_hash,
-    replay_targeting_query_trace_hash,
+    ManifestValidationError, ReplayCommandResultV2, ReplayManifestV6, SaveSegmentDescriptor,
+    WorldStreamingReplayInputV1, replay_physics_query_batch_hash,
+    replay_physics_query_results_hash, replay_targeting_query_trace_hash,
 };
 use next_contracts::physics::{
     PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
@@ -22,20 +22,20 @@ use next_contracts::snapshot::{
     RuntimeSnapshotV3, WorldCheckpointV4,
 };
 use next_runtime::{
-    AuthorityRegistry, CommandResult, RuntimeBootstrapV3, RuntimeFatalError, RuntimeReplayDriver,
+    AuthorityRegistry, CommandResult, RuntimeBootstrapV4, RuntimeFatalError, RuntimeReplayDriver,
     RuntimeReplayError, RuntimeState, SnapshotRestoreError,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReplayInput {
-    pub bootstrap: RuntimeBootstrapV3,
+    pub bootstrap: RuntimeBootstrapV4,
     pub authority: AuthorityRegistry,
     pub ticks: Vec<ReplayTickInput>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RpgReplayInput {
-    pub bootstrap: RuntimeBootstrapV3,
+    pub bootstrap: RuntimeBootstrapV4,
     pub authority: AuthorityRegistry,
     pub initial_rpg_snapshot: RpgSnapshotV2,
     pub ticks: Vec<ReplayTickInput>,
@@ -96,6 +96,9 @@ pub struct ReplayComparePointMismatch {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ReplayError {
     Runtime(RuntimeFatalError),
+    WorldStreaming(next_world::WorldStreamingError),
+    WorldStreamingContract(next_contracts::world::WorldStreamingContractError),
+    WorldRoutine(next_world::WorldRoutineOwnerError),
     Manifest(ManifestValidationError),
     SnapshotRestore(SnapshotRestoreError),
     WorldCheckpoint(next_contracts::snapshot::WorldCheckpointError),
@@ -121,6 +124,9 @@ impl ReplayError {
     pub const fn stable_code(&self) -> &'static str {
         match self {
             Self::Runtime(_) => "REPLAY_RUNTIME_FATAL",
+            Self::WorldStreaming(_) => "REPLAY_WORLD_STREAMING_FAILED",
+            Self::WorldStreamingContract(_) => "REPLAY_WORLD_STREAMING_FAILED",
+            Self::WorldRoutine(_) => "REPLAY_WORLD_ROUTINE_FAILED",
             Self::Manifest(ManifestValidationError::UnsupportedReplayVersion(_)) => {
                 "UNSUPPORTED_REPLAY_MANIFEST_VERSION"
             }
@@ -140,6 +146,18 @@ impl Display for ReplayError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Runtime(error) => write!(formatter, "runtime failed during replay: {error}"),
+            Self::WorldStreaming(error) => {
+                write!(formatter, "world streaming failed during replay: {error}")
+            }
+            Self::WorldStreamingContract(error) => {
+                write!(
+                    formatter,
+                    "world streaming contract failed during replay: {error}"
+                )
+            }
+            Self::WorldRoutine(error) => {
+                write!(formatter, "world routine failed during replay: {error}")
+            }
             Self::Manifest(error) => write!(formatter, "replay manifest is invalid: {error}"),
             Self::SnapshotRestore(error) => {
                 write!(formatter, "replay snapshot restore failed: {error}")
@@ -193,6 +211,24 @@ impl Error for ReplayError {}
 impl From<RuntimeFatalError> for ReplayError {
     fn from(error: RuntimeFatalError) -> Self {
         Self::Runtime(error)
+    }
+}
+
+impl From<next_world::WorldStreamingError> for ReplayError {
+    fn from(error: next_world::WorldStreamingError) -> Self {
+        Self::WorldStreaming(error)
+    }
+}
+
+impl From<next_contracts::world::WorldStreamingContractError> for ReplayError {
+    fn from(error: next_contracts::world::WorldStreamingContractError) -> Self {
+        Self::WorldStreamingContract(error)
+    }
+}
+
+impl From<next_world::WorldRoutineOwnerError> for ReplayError {
+    fn from(error: next_world::WorldRoutineOwnerError) -> Self {
+        Self::WorldRoutine(error)
     }
 }
 
@@ -272,30 +308,38 @@ pub fn run_rpg_replay(input: &RpgReplayInput) -> Result<RpgReplayOutput, ReplayE
     })
 }
 
-pub fn run_replay_manifest_v5(manifest: &ReplayManifestV5) -> Result<ReplayOutput, ReplayError> {
-    run_replay_manifest_v5_with_definitions_and_physics_options(
+pub fn run_replay_manifest_v6(
+    manifest: &ReplayManifestV6,
+    package: next_project::ActivatedProjectPackage,
+) -> Result<ReplayOutput, ReplayError> {
+    run_replay_manifest_v6_with_physics_options(
         manifest,
-        next_contracts::mechanics::RpgDefinitionRegistryV1::empty()
-            .expect("empty RPG definition registry is canonical"),
+        package,
         next_runtime::PhysicsLaunchOptions::default(),
     )
 }
 
-pub fn run_replay_manifest_v5_with_definitions_and_physics_options(
-    manifest: &ReplayManifestV5,
-    rpg_definitions: next_contracts::mechanics::RpgDefinitionRegistryV1,
+pub fn run_replay_manifest_v6_with_physics_options(
+    manifest: &ReplayManifestV6,
+    package: next_project::ActivatedProjectPackage,
     physics_options: next_runtime::PhysicsLaunchOptions,
 ) -> Result<ReplayOutput, ReplayError> {
     let limits = CanonicalDecodeLimits::default();
-    let (initial_checkpoint, decoded_ticks) = manifest.validate_and_decode(limits)?;
-
-    let actual_initial_root = compute_world_checkpoint_root(&initial_checkpoint)?;
-    if actual_initial_root != manifest.initial_state_root {
-        return Err(ReplayError::InitialSnapshotMismatch {
-            expected_state_root: manifest.initial_state_root,
-            actual_state_root: actual_initial_root,
-        });
-    }
+    let (initial, decoded_ticks) = manifest.validate_and_decode(limits)?;
+    let next_project::ActivatedProjectPackage {
+        project,
+        content_generation,
+    } = package;
+    let mut world = next_world::WorldStreamerV1::restore(
+        project.clone(),
+        content_generation,
+        initial.world_streaming_snapshot,
+    )?;
+    let mut routine = next_world::WorldRoutineOwnerV1::restore(
+        project.world_routine_catalog_or_none,
+        initial.world_routine_snapshot_or_none,
+        initial.checkpoint.runtime_snapshot.next_tick,
+    )?;
 
     let mut authority = AuthorityRegistry::new();
     for grant in &manifest.authority {
@@ -304,11 +348,12 @@ pub fn run_replay_manifest_v5_with_definitions_and_physics_options(
             .map_err(|_| ManifestValidationError::AuthorityNotStrictlySorted)?;
     }
     let mut replay = RuntimeReplayDriver::new_with_definitions_and_physics_options(
-        initial_checkpoint,
+        initial.checkpoint,
         authority,
-        rpg_definitions,
+        project.rpg_definitions.clone(),
         physics_options,
     )?;
+    replay.validate_world_routine_ledger_closure(&routine)?;
     let mut records = Vec::with_capacity(decoded_ticks.len());
     for ((tick_manifest, tick), compare_point) in manifest
         .ticks
@@ -316,7 +361,15 @@ pub fn run_replay_manifest_v5_with_definitions_and_physics_options(
         .zip(decoded_ticks)
         .zip(&manifest.compare_points)
     {
-        let report = match replay.replay_tick_v5(
+        let streaming = prepare_replay_world_streaming_input(
+            &tick.world_streaming_input,
+            tick_manifest.tick,
+            &mut world,
+        )?;
+        let commit = match replay.replay_world_services_tick_v6(
+            &mut routine,
+            &mut world,
+            streaming,
             tick.closed_ingress_batch,
             tick.direct_external_commands,
             &tick.expected_ingress_command_batch,
@@ -327,8 +380,9 @@ pub fn run_replay_manifest_v5_with_definitions_and_physics_options(
             &tick.expected_physics_query_batch,
             &tick.expected_physics_query_results,
             &tick.expected_outcome_command_batch,
+            &tick.expected_interaction_availability,
         ) {
-            Ok(report) => report,
+            Ok(commit) => commit,
             Err(RuntimeReplayError::Runtime(error)) => return Err(error.into()),
             Err(
                 RuntimeReplayError::CommandBatchMismatch { .. }
@@ -337,7 +391,8 @@ pub fn run_replay_manifest_v5_with_definitions_and_physics_options(
                 | RuntimeReplayError::TargetingIntentMismatch { .. }
                 | RuntimeReplayError::TargetingQueryMismatch { .. }
                 | RuntimeReplayError::PhysicsQueryBatchMismatch { .. }
-                | RuntimeReplayError::PhysicsQueryResultMismatch { .. },
+                | RuntimeReplayError::PhysicsQueryResultMismatch { .. }
+                | RuntimeReplayError::InteractionAvailabilityMismatch { .. },
             ) => {
                 return Err(ReplayError::RecordedStageMismatch {
                     tick: tick_manifest.tick,
@@ -351,7 +406,11 @@ pub fn run_replay_manifest_v5_with_definitions_and_physics_options(
                 });
             }
         };
+        let state_root = commit.application_state_root;
+        let owner_segments = commit.application_owner_segments.clone();
+        let report = commit.runtime_report;
         if report.mapping_receipts != tick.expected_mapping_receipts
+            || report.interaction_availability != tick.expected_interaction_availability
             || replay_command_results(&report.results) != tick.expected_command_results
             || report.events != tick.expected_events
         {
@@ -360,18 +419,12 @@ pub fn run_replay_manifest_v5_with_definitions_and_physics_options(
                 stage: "closed-ingress-command-outcome",
             });
         }
-        let checkpoint = replay
-            .world_checkpoint()
-            .map_err(SnapshotRestoreError::from)?;
-        let state_root = compute_world_checkpoint_root(&checkpoint)?;
         let command_ledger_hash = report.snapshot.command_ledger_hash()?;
-        let (runtime_segment_hash, rpg_segment_hash, physics_segment_hash) =
-            checkpoint_segment_hashes(&checkpoint)?;
         if state_root != compare_point.state_root
             || command_ledger_hash != compare_point.command_ledger_hash
-            || runtime_segment_hash != compare_point.runtime_segment_hash
-            || rpg_segment_hash != compare_point.rpg_segment_hash
-            || physics_segment_hash != compare_point.physics_segment_hash
+            || owner_segments != compare_point.owner_segments
+            || report.closed_ingress_batch.batch_hash != compare_point.closed_ingress_batch_hash
+            || report.command_batches[0].batch_hash != compare_point.ingress_command_batch_hash
             || report.physics_step_input.input_hash()? != compare_point.physics_step_input_hash
             || report.contact_batch.batch_hash != compare_point.contact_batch_hash
             || replay_physics_query_batch_hash(&report.physics_query_batch)?
@@ -382,6 +435,12 @@ pub fn run_replay_manifest_v5_with_definitions_and_physics_options(
                 &report.targeting_intents,
                 &report.authoritative_targeting_queries,
             )? != compare_point.targeting_query_trace_hash
+            || report.command_batches[1].batch_hash != compare_point.outcome_command_batch_hash
+            || next_contracts::world_routine::interaction_availability_batch_hash(
+                &report.interaction_availability,
+            )
+            .map_err(ManifestValidationError::from)?
+                != compare_point.interaction_availability_hash
         {
             return Err(ReplayError::ComparePointMismatch(Box::new(
                 ReplayComparePointMismatch {
@@ -407,6 +466,60 @@ pub fn run_replay_manifest_v5_with_definitions_and_physics_options(
         final_snapshot: final_checkpoint.runtime_snapshot.clone(),
         final_checkpoint,
     })
+}
+
+fn prepare_replay_world_streaming_input(
+    input: &WorldStreamingReplayInputV1,
+    tick: u64,
+    world: &mut next_world::WorldStreamerV1,
+) -> Result<Option<next_world::PreparedWorldStreamingPublicationV1>, ReplayError> {
+    let base_hash = world.snapshot().state_hash()?;
+    let mismatch = || ReplayError::RecordedStageMismatch {
+        tick,
+        stage: "world-streaming-input",
+    };
+    match input {
+        WorldStreamingReplayInputV1::None => Ok(None),
+        WorldStreamingReplayInputV1::BeginTransition {
+            target_chunk_id,
+            expected_base_world_state_hash,
+            expected_next_world_state_hash,
+        } => {
+            if base_hash != *expected_base_world_state_hash {
+                return Err(mismatch());
+            }
+            let publication = world.prepare_begin_transition(target_chunk_id.clone(), tick)?;
+            if publication.next_world_state_hash() != *expected_next_world_state_hash {
+                return Err(mismatch());
+            }
+            Ok(Some(publication))
+        }
+        WorldStreamingReplayInputV1::CompletePendingTransition {
+            target_chunk_id,
+            expected_base_world_state_hash,
+            expected_loaded_result_hash,
+            expected_next_world_state_hash,
+        } => {
+            if base_hash != *expected_base_world_state_hash
+                || world
+                    .snapshot()
+                    .pending_transition
+                    .as_ref()
+                    .is_none_or(|pending| &pending.target_chunk_id != target_chunk_id)
+            {
+                return Err(mismatch());
+            }
+            let loaded = world.load_pending(next_world::WORLD_CHUNK_DEFAULT_WORKERS)?;
+            if loaded.result_hash() != *expected_loaded_result_hash {
+                return Err(mismatch());
+            }
+            let publication = world.prepare_loaded_commit(loaded, tick)?;
+            if publication.next_world_state_hash() != *expected_next_world_state_hash {
+                return Err(mismatch());
+            }
+            Ok(Some(publication))
+        }
+    }
 }
 
 pub fn compute_world_checkpoint_root(

@@ -12,9 +12,9 @@ use next_presentation::audio_scene::extract_audio_scene;
 
 use crate::ReferenceGameError;
 
-use super::ReferenceGameDriverV1;
+use super::ReferenceGameDriverV2;
 
-impl ReferenceGameDriverV1 {
+impl ReferenceGameDriverV2 {
     /// Latest published immutable audio scene for this driver.
     #[must_use]
     pub fn audio_scene(&self) -> &AudioSceneSnapshotV1 {

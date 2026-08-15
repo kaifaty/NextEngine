@@ -76,7 +76,7 @@ pub(super) fn map_store_error(
 }
 
 pub(super) fn content_entries(
-    project: &ActivatedProjectV3,
+    project: &ActivatedProjectV4,
 ) -> BTreeMap<AssetId, &ContentAssetEntryV1> {
     project
         .content_manifest
@@ -88,7 +88,7 @@ pub(super) fn content_entries(
 }
 
 pub(super) fn declared_dependencies(
-    project: &ActivatedProjectV3,
+    project: &ActivatedProjectV4,
 ) -> BTreeMap<AssetId, BTreeSet<AssetId>> {
     let mut dependencies = project
         .content_manifest
@@ -108,7 +108,7 @@ pub(super) fn declared_dependencies(
 }
 
 pub(super) fn eager_chunk_records(
-    project: &ActivatedProjectV3,
+    project: &ActivatedProjectV4,
     chunk_id: &SchemaId,
 ) -> Result<Vec<NeutralRecordV1>, WorldStreamingError> {
     let binding = project

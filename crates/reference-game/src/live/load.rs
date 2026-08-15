@@ -6,7 +6,7 @@ pub(super) fn initial_chunk_id(fixture: &ReferenceGameSession) -> SchemaId {
     fixture.world_topology().initial_chunk_id().clone()
 }
 
-impl ReferenceGameDriverV1 {
+impl ReferenceGameDriverV2 {
     /// Builds a fully validated candidate driver from a published save world.
     /// The current driver is unchanged until the application coordinator has
     /// atomically published the candidate recovery closure.
@@ -14,16 +14,27 @@ impl ReferenceGameDriverV1 {
         &self,
         checkpoint: WorldCheckpointV4,
         world_streaming_snapshot: WorldStreamingSnapshotV1,
+        world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     ) -> Result<Self, ReferenceGameError> {
         checkpoint.validate()?;
         world_streaming_snapshot.validate()?;
-        let loaded_state_root =
-            next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
+        let loaded_state_root = match world_routine_snapshot_or_none.as_ref() {
+            Some(routine) => {
+                next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
+                    &checkpoint.runtime_snapshot,
+                    &checkpoint.rpg_snapshot,
+                    &checkpoint.physics_checkpoint,
+                    &world_streaming_snapshot,
+                    routine,
+                )?
+            }
+            None => next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
                 &checkpoint.runtime_snapshot,
                 &checkpoint.rpg_snapshot,
                 &checkpoint.physics_checkpoint,
                 &world_streaming_snapshot,
-            )?;
+            )?,
+        };
         let next_logical_frame_sequence = checkpoint.runtime_snapshot.next_tick;
         let events = checkpoint.runtime_snapshot.committed_event_count;
         let fixture = self.fixture.clone();
@@ -55,6 +66,12 @@ impl ReferenceGameDriverV1 {
             self.content_generation.clone(),
             world_streaming_snapshot,
         )?;
+        let world_routine = WorldRoutineOwnerV1::restore(
+            fixture.activated_project.world_routine_catalog_or_none,
+            world_routine_snapshot_or_none,
+            runtime.next_tick(),
+        )?;
+        runtime.validate_world_routine_ledger_closure(&world_routine)?;
         let presentation_bindings =
             fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
 
@@ -101,6 +118,7 @@ impl ReferenceGameDriverV1 {
             fixture,
             content_generation: self.content_generation.clone(),
             runtime,
+            world_routine,
             world_streamer,
             input,
             presentation_bindings,

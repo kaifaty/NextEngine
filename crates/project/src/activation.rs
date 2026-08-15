@@ -14,7 +14,7 @@ use next_contracts::identity::RuntimeDeterminismBundleV1;
 use next_contracts::ids::AssetId;
 use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogErrorV1, TextCatalogV1};
 use next_contracts::project::{
-    ActivatedProjectV3, ContentManifestV1, ContentSemanticClassV1, ProjectContractError,
+    ActivatedProjectV4, ContentManifestV1, ContentSemanticClassV1, ProjectContractError,
     ProjectLockV3, SchemaEncodingV1, SchemaRefV1, SchemaRegistryManifestV2, SchemaRoleV1,
     WorldPartitionManifestV1, domain_hash,
 };
@@ -24,21 +24,21 @@ use next_contracts::render_content::{
 
 use crate::cook::{
     CONTENT_BLOB_DIRECTORY, CONTENT_MANIFEST_PATH, PROJECT_LOCK_PATH, RENDER_CONTENT_CATALOG_PATH,
-    RENDER_CONTENT_MESH_DIRECTORY, SCHEMA_REGISTRY_PATH, WORLD_PARTITION_PATH,
-    compile_render_content_catalog_v1, launch_profiles_sha256, platform_capability_profile_sha256,
-    platform_timebase_profile_sha256,
+    RENDER_CONTENT_MESH_DIRECTORY, RPG_DEFINITIONS_PATH, SCHEMA_REGISTRY_PATH,
+    WORLD_PARTITION_PATH, compile_render_content_catalog_v1, launch_profiles_sha256,
+    platform_capability_profile_sha256, platform_timebase_profile_sha256,
 };
-use crate::cook_rpg::compile_rpg_definitions_v1;
+use crate::cook_rpg::activate_rpg_definitions_v2;
 
 #[derive(Clone, Debug)]
 pub struct ActivatedProjectPackage {
-    pub project: ActivatedProjectV3,
+    pub project: ActivatedProjectV4,
     pub content_generation: PinnedContentGeneration,
 }
 
 pub fn activate_project(
     store: &ContentStore,
-) -> Result<ActivatedProjectV3, ProjectActivationError> {
+) -> Result<ActivatedProjectV4, ProjectActivationError> {
     Ok(activate_project_package(store)?.project)
 }
 
@@ -55,7 +55,7 @@ pub fn activate_project_package(
 
 fn activate_pinned_project(
     content_generation: &PinnedContentGeneration,
-) -> Result<ActivatedProjectV3, ProjectActivationError> {
+) -> Result<ActivatedProjectV4, ProjectActivationError> {
     let generation = content_generation.load_all_verified()?;
     let limits = CanonicalDecodeLimits::default();
     let project_lock = ProjectLockV3::from_jcs_bytes(
@@ -106,6 +106,7 @@ fn activate_pinned_project(
         CONTENT_MANIFEST_PATH,
         WORLD_PARTITION_PATH,
         RENDER_CONTENT_CATALOG_PATH,
+        RPG_DEFINITIONS_PATH,
     ]
     .into_iter()
     .map(str::to_owned)
@@ -117,6 +118,7 @@ fn activate_pinned_project(
     let mut audio_clips = Vec::new();
     let mut neutral_skeletons = Vec::new();
     let mut neutral_animations = Vec::new();
+    let mut world_routine_catalog_or_none = None;
     for entry in &content_manifest.body.asset_entries {
         require_schema(&current_schemas, &entry.schema_ref)?;
         let blob_path = format!(
@@ -212,6 +214,36 @@ fn activate_pinned_project(
                 BTreeSet::from([animation.skeleton_revision.asset_id]),
             );
             neutral_animations.push(animation);
+        } else if entry.schema_ref.schema_id.as_str()
+            == next_contracts::world_routine::WORLD_ROUTINE_CATALOG_SCHEMA_ID
+        {
+            let catalog =
+                next_contracts::world_routine::WorldRoutineCatalogV1::from_canonical_bytes(
+                    blob, limits,
+                )
+                .map_err(|_| ProjectActivationError::HashMismatch)?;
+            let expected_schema_ref = SchemaRefV1 {
+                schema_id: entry.schema_ref.schema_id.clone(),
+                schema_version: u32::from(catalog.schema_version),
+                descriptor_sha256: domain_hash(
+                    "nextengine.schema-descriptor.v1",
+                    next_contracts::world_routine::WORLD_ROUTINE_CATALOG_SCHEMA_ID.as_bytes(),
+                ),
+                role: SchemaRoleV1::NeutralContent,
+                encoding: SchemaEncodingV1::CanonicalBinaryV1,
+            };
+            if catalog.catalog_asset_id != entry.asset_revision.asset_id
+                || expected_schema_ref != entry.schema_ref
+                || catalog
+                    .revision()
+                    .map_err(|_| ProjectActivationError::HashMismatch)?
+                    != entry.asset_revision.record_sha256
+                || entry.semantic_class != ContentSemanticClassV1::DomainRelevant
+                || world_routine_catalog_or_none.replace(catalog).is_some()
+            {
+                return Err(ProjectActivationError::HashMismatch);
+            }
+            record_dependencies.insert(catalog.catalog_asset_id, BTreeSet::new());
         } else if NeutralRenderRecordV1::supports_schema_id(&entry.schema_ref.schema_id) {
             let record = NeutralRenderRecordV1::from_canonical_bytes(blob, limits)?;
             if record.asset_id() != entry.asset_revision.asset_id
@@ -306,7 +338,7 @@ fn activate_pinned_project(
     if generation.files.keys().cloned().collect::<BTreeSet<_>>() != expected_files {
         return Err(ProjectActivationError::UnexpectedArtifact);
     }
-    let activated = ActivatedProjectV3 {
+    let activated = ActivatedProjectV4 {
         project_lock,
         schema_registry,
         content_manifest,
@@ -316,8 +348,13 @@ fn activate_pinned_project(
         audio_clips,
         neutral_skeletons,
         neutral_animations,
-        rpg_definitions: compile_rpg_definitions_v1(&neutral_records)
-            .map_err(ProjectActivationError::Cook)?,
+        rpg_definitions: activate_rpg_definitions_v2(
+            &neutral_records,
+            world_routine_catalog_or_none.as_ref(),
+            required_file(&generation.files, RPG_DEFINITIONS_PATH)?,
+        )
+        .map_err(ProjectActivationError::Cook)?,
+        world_routine_catalog_or_none,
         render_content_catalog,
     };
     activated.validate()?;

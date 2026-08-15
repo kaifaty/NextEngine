@@ -9,7 +9,7 @@ use next_contracts::presentation::PresentationSnapshotV2;
 use next_contracts::project::domain_hash;
 use next_contracts::render_content::RenderContentCatalogV1;
 use next_presentation::PresentationExtractorV1;
-use next_reference_game::{ReferenceDialogueChoiceV1, ReferenceRunOutcomeV1};
+use next_reference_game::{ReferenceDialogueChoiceV1, ReferenceRunOutcomeV2};
 
 use crate::platform_check::{
     DesktopFrameTimingSmokeReport, prepare_desktop_frame_timing_workload_for_inputs_in,
@@ -383,7 +383,7 @@ impl PreparedR2AlphaRenderPerformanceCheckV1 {
 }
 
 fn extract_window_snapshot(
-    scenario: &ReferenceRunOutcomeV1,
+    scenario: &ReferenceRunOutcomeV2,
     profile: R2AlphaRenderProfileV1,
     dialogue: bool,
 ) -> Result<PresentationSnapshotV2, R2AlphaRenderPerformanceErrorV1> {

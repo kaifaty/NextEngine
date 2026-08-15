@@ -78,8 +78,8 @@ pub(super) fn run(root: &Path, request: &VisualSmokeRequest) -> Result<(), Strin
         fs::remove_dir_all(&scratch).map_err(|error| error.to_string())?;
     }
     let store = ContentStore::new(&scratch);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().map_err(|error| error.to_string())?,
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())?;
     store
@@ -154,7 +154,7 @@ pub(super) fn run(root: &Path, request: &VisualSmokeRequest) -> Result<(), Strin
 fn fixed_snapshots(
     activated: &next_project::ActivatedProjectPackage,
 ) -> Result<Vec<(&'static str, PresentationSnapshotV2)>, String> {
-    let spawn_driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+    let spawn_driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .map_err(|error| error.to_string())?;
     let spawn = spawn_driver
         .state()
@@ -162,7 +162,7 @@ fn fixed_snapshots(
         .presentation_snapshot
         .clone();
 
-    let mut offer_driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+    let mut offer_driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .map_err(|error| error.to_string())?;
     let quest_offer = offer_driver
         .advance(&[control_event(
@@ -173,7 +173,7 @@ fn fixed_snapshots(
         .map_err(|error| error.to_string())?
         .clone();
 
-    let mut pause_driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+    let mut pause_driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .map_err(|error| error.to_string())?;
     let pause = pause_driver
         .advance(&[control_event(
@@ -184,7 +184,7 @@ fn fixed_snapshots(
         .map_err(|error| error.to_string())?
         .clone();
 
-    let mut driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+    let mut driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .map_err(|error| error.to_string())?;
     let script = visual_script();
     let mut relay_inactive = None;

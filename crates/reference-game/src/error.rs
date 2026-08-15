@@ -51,6 +51,7 @@ pub enum ReferenceGameError {
     AudioExtraction(next_presentation::audio_scene::AudioSceneExtractionErrorV1),
     AudioMix(next_presentation::audio_mix::AudioMixErrorV1),
     WorldStreaming(next_world::WorldStreamingError),
+    WorldRoutine(next_world::WorldRoutineOwnerError),
     WorldStreamingContract(next_contracts::world::WorldStreamingContractError),
     Agent(next_agent::AgentPlannerError),
     DuplicatePrincipal,
@@ -61,6 +62,7 @@ pub enum ReferenceGameError {
     WorldChunkRecordKindMismatch,
     WorldChunkRoleMissing(&'static str),
     WorldChunkRoleDuplicate(&'static str),
+    WorldRoutineContentInvalid,
     WorldStreamingResumeMismatch,
     WorldStreamingMutatedRpg,
     AgentActionMissing,
@@ -94,6 +96,7 @@ impl Display for ReferenceGameError {
             Self::AudioExtraction(error) => write!(formatter, "{error}"),
             Self::AudioMix(error) => write!(formatter, "{error}"),
             Self::WorldStreaming(error) => write!(formatter, "{error}"),
+            Self::WorldRoutine(error) => write!(formatter, "{error}"),
             Self::WorldStreamingContract(error) => write!(formatter, "{error}"),
             Self::Agent(error) => write!(formatter, "{error}"),
             Self::DuplicatePrincipal => formatter.write_str("reference principal is duplicated"),
@@ -111,6 +114,9 @@ impl Display for ReferenceGameError {
             }
             Self::WorldChunkRoleDuplicate(role) => {
                 write!(formatter, "reference world {role} chunk role is duplicated")
+            }
+            Self::WorldRoutineContentInvalid => {
+                formatter.write_str("WORLD_ROUTINE_CONTENT_INVALID")
             }
             Self::WorldStreamingResumeMismatch => {
                 formatter.write_str("restaged world group changed after restore")
@@ -179,6 +185,7 @@ from_error!(
 );
 from_error!(next_presentation::audio_mix::AudioMixErrorV1, AudioMix);
 from_error!(next_world::WorldStreamingError, WorldStreaming);
+from_error!(next_world::WorldRoutineOwnerError, WorldRoutine);
 from_error!(
     next_contracts::world::WorldStreamingContractError,
     WorldStreamingContract

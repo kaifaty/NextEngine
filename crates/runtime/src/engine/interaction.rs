@@ -12,7 +12,8 @@ use next_contracts::ledger::{
     CommandReceiptSubjectV1,
 };
 use next_contracts::mechanics::{
-    MechanicsContractError, RpgDefinitionRegistryV1, interaction_definition_hash,
+    InteractionAvailabilityCodeV1, InteractionAvailabilityV1, InteractionRoutineRevisionBindingV1,
+    MechanicsContractError, RpgDefinitionRegistryV2, interaction_definition_hash_v2,
 };
 use next_contracts::physics::{ClosedPhysicsContactBatchV1, ContactPhaseV1};
 use next_contracts::rpg::{
@@ -24,6 +25,7 @@ use next_contracts::rpg::{
     RpgAggregateKindV1, RpgAggregateRefV1, RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1,
     RpgPhysicalContactFactV1,
 };
+use next_contracts::world_routine::WorldRoutineSnapshotV1;
 use next_mechanics::{AbilityInvocationV1, MechanicsHostError, compile_contact_ability_v1};
 use next_physics_api::PhysicsWorldHost;
 use next_rpg::RpgState;
@@ -49,12 +51,14 @@ pub(super) struct BuiltInInteractionOutcome {
     pub(super) source_sequence: u64,
     pub(super) payload_hash: ContentHash,
     pub(super) source_action_ordinal: u32,
+    pub(super) routine_binding_or_none: Option<InteractionRoutineRevisionBindingV1>,
 }
 
 #[derive(Clone, Debug)]
 pub(super) struct BuiltInInteractionResolution {
     pub(super) outcomes: Vec<BuiltInInteractionOutcome>,
     pub(super) targeting: Vec<ResolvedInteractionTargetingV1>,
+    pub(super) availability: Vec<InteractionAvailabilityV1>,
 }
 
 pub(super) fn rpg_physical_contact_facts(
@@ -142,12 +146,14 @@ pub(super) fn build_interaction_outcomes(
         gameplay_tick,
         physical_contact_facts,
         authoritative_revision,
+        routine_snapshot_or_none,
     } = context;
     let Some(route) = route else {
         if intents.is_empty() {
             return Ok(BuiltInInteractionResolution {
                 outcomes: Vec::new(),
                 targeting: Vec::new(),
+                availability: Vec::new(),
             });
         }
         return Err(RuntimeFatalError::InternalIdentityCollision);
@@ -162,6 +168,7 @@ pub(super) fn build_interaction_outcomes(
         .expect("built-in equipment slot identifier is valid");
     let mut outcomes = Vec::new();
     let mut targeting_facts = Vec::new();
+    let mut availability_facts = Vec::new();
     let interaction_stream =
         ledger
             .streams
@@ -183,6 +190,7 @@ pub(super) fn build_interaction_outcomes(
         }
         let query_slot =
             u32::try_from(intent_index).map_err(|_| RuntimeFatalError::TraceCountExhausted)?;
+        let mut routine_binding_or_none = None;
         let payload = if intent.kind == InteractionIntentKind::Melee {
             let compiled = match compile_contact_ability_v1(
                 rpg_definitions,
@@ -279,6 +287,15 @@ pub(super) fn build_interaction_outcomes(
                         .ok_or(RuntimeFatalError::CoreInteractionClosure(
                             CoreDialogueQuestClosureError,
                         ))?;
+                    let availability =
+                        interaction_availability(interaction, routine_snapshot_or_none)?;
+                    availability_facts.push(availability.clone());
+                    routine_binding_or_none = availability.routine_binding_or_none;
+                    if availability.code
+                        == InteractionAvailabilityCodeV1::WorldRoutineActivityUnavailable
+                    {
+                        continue;
+                    }
                     let dialogue_definition = rpg_definitions
                         .dialogue(interaction.dialogue_definition)
                         .ok_or(RuntimeFatalError::CoreInteractionClosure(
@@ -312,7 +329,7 @@ pub(super) fn build_interaction_outcomes(
                         .ok_or(RuntimeFatalError::CoreInteractionClosure(
                             CoreDialogueQuestClosureError,
                         ))?;
-                    let policy = interaction_definition_hash(interaction);
+                    let policy = interaction_definition_hash_v2(interaction);
                     RpgCommandV1 {
                         operations: vec![
                             RpgOperationV1 {
@@ -460,11 +477,13 @@ pub(super) fn build_interaction_outcomes(
             source_sequence: intent.source_sequence,
             payload_hash: intent.payload_hash,
             source_action_ordinal: intent.source_action_ordinal,
+            routine_binding_or_none,
         });
     }
     Ok(BuiltInInteractionResolution {
         outcomes,
         targeting: targeting_facts,
+        availability: availability_facts,
     })
 }
 
@@ -473,13 +492,78 @@ pub(super) struct InteractionBuildContext<'a> {
     pub(super) route: Option<&'a InteractionOutcomeRoute>,
     pub(super) physics: &'a PhysicsWorldHost,
     pub(super) rpg: &'a RpgState,
-    pub(super) rpg_definitions: &'a RpgDefinitionRegistryV1,
+    pub(super) rpg_definitions: &'a RpgDefinitionRegistryV2,
     pub(super) ledger: &'a CommandLedgerV2,
     pub(super) archive: &'a CommandBodyArchiveV1,
     pub(super) archive_additions: &'a BTreeMap<CommandBodyHash, std::sync::Arc<[u8]>>,
     pub(super) gameplay_tick: u64,
     pub(super) physical_contact_facts: &'a [RpgPhysicalContactFactV1],
     pub(super) authoritative_revision: u64,
+    pub(super) routine_snapshot_or_none: Option<&'a WorldRoutineSnapshotV1>,
+}
+
+pub(super) fn interaction_availability(
+    definition: &next_contracts::mechanics::InteractionDefinitionV2,
+    routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
+) -> Result<InteractionAvailabilityV1, RuntimeFatalError> {
+    let (routine_binding_or_none, code) = match definition.availability_condition_or_none {
+        None => (None, InteractionAvailabilityCodeV1::Available),
+        Some(condition) => {
+            let snapshot = routine_snapshot_or_none
+                .filter(|snapshot| snapshot.record.subject_id == condition.subject_id)
+                .ok_or(RuntimeFatalError::WorldRoutineInternalInvariant)?;
+            (
+                Some(InteractionRoutineRevisionBindingV1 {
+                    subject_id: condition.subject_id,
+                    routine_record_revision: snapshot.record.record_revision,
+                }),
+                if snapshot.record.current_activity == condition.required_activity {
+                    InteractionAvailabilityCodeV1::Available
+                } else {
+                    InteractionAvailabilityCodeV1::WorldRoutineActivityUnavailable
+                },
+            )
+        }
+    };
+    let value = InteractionAvailabilityV1 {
+        schema_version: next_contracts::world_routine::WORLD_ROUTINE_SCHEMA_VERSION,
+        interaction_id: definition.interaction_id.clone(),
+        interaction_definition_hash_v2: interaction_definition_hash_v2(definition),
+        routine_binding_or_none,
+        code,
+    };
+    value
+        .validate()
+        .map_err(|_| RuntimeFatalError::WorldRoutineInternalInvariant)?;
+    Ok(value)
+}
+
+impl super::state::RuntimeState {
+    pub fn interaction_availability(
+        &self,
+        interaction_id: &SchemaId,
+        routine: &next_world::WorldRoutineOwnerV1,
+    ) -> Result<InteractionAvailabilityV1, RuntimeFatalError> {
+        routine
+            .validate(self.next_tick)
+            .map_err(|_| RuntimeFatalError::WorldRoutineInternalInvariant)?;
+        let mut definitions = self
+            .rpg_definitions
+            .interactions
+            .iter()
+            .filter(|definition| &definition.interaction_id == interaction_id);
+        let definition = definitions
+            .next()
+            .ok_or(RuntimeFatalError::CoreInteractionClosure(
+                CoreDialogueQuestClosureError,
+            ))?;
+        if definitions.next().is_some() {
+            return Err(RuntimeFatalError::CoreInteractionClosure(
+                CoreDialogueQuestClosureError,
+            ));
+        }
+        interaction_availability(definition, routine.snapshot_or_none())
+    }
 }
 
 fn latest_ability_commit_tick(

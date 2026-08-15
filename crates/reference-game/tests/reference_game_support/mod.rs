@@ -1,7 +1,7 @@
 use next_runtime::{TickReport, TransactionStage};
 
-pub(super) fn assert_world_streaming_stage_order(reports: &[TickReport]) {
-    let streaming_reports = reports
+pub(super) fn assert_world_services_stage_order(reports: &[TickReport]) {
+    let world_services_reports = reports
         .iter()
         .filter(|report| {
             report
@@ -10,8 +10,8 @@ pub(super) fn assert_world_streaming_stage_order(reports: &[TickReport]) {
                 .any(|entry| entry.stage == TransactionStage::WorldStreamingCommit)
         })
         .collect::<Vec<_>>();
-    assert_eq!(streaming_reports.len(), 4);
-    for report in streaming_reports {
+    assert_eq!(world_services_reports.len(), reports.len());
+    for report in world_services_reports {
         let ingress = report
             .stage_trace
             .iter()

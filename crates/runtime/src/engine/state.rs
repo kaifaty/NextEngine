@@ -1,10 +1,10 @@
 use next_contracts::canonical::{CanonicalDecodeLimits, sha256};
-use next_contracts::command::IssuerPrincipal;
+use next_contracts::command::{CommandPayload, CommandPhase, IssuerPrincipal, WorldCommand};
 use next_contracts::identity::{
     CommandStreamRegistryV1, PrincipalRegistryV1, RuntimeDeterminismProfileV1,
     WorldIdentityManifestV1,
 };
-use next_contracts::ids::{ContentHash, InputSourceId, content_hash_from_bytes};
+use next_contracts::ids::{ContentHash, InputSourceId, SystemId, content_hash_from_bytes};
 use next_contracts::input::{
     ActionMapManifestV1, ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1,
     IngressAssignmentProfileV1, IngressCheckpointV1, InputContextStackV1, InputContractError,
@@ -12,9 +12,10 @@ use next_contracts::input::{
     TickRateProfileV1,
 };
 use next_contracts::ledger::{
-    CommandBodyArchiveV1, CommandLedgerV2, CommandStreamLedgerV2, command_identity_index_root,
+    CommandBodyArchiveV1, CommandFinalResultV1, CommandLedgerV2, CommandReceiptSubjectV1,
+    CommandStreamLedgerV2, command_identity_index_root,
 };
-use next_contracts::mechanics::RpgDefinitionRegistryV1;
+use next_contracts::mechanics::RpgDefinitionRegistryV2;
 use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PhysicsCanonicalSnapshotV2, PhysicsQuantizationProfileV1,
     PhysicsWorldCheckpointV1,
@@ -23,6 +24,10 @@ use next_contracts::rpg::{RpgRuntimeBindingsV1, RpgSnapshotV2};
 use next_contracts::snapshot::{
     RuntimeSnapshotV3, WorldCheckpointCanonicalComponentsV1, WorldCheckpointError,
     WorldCheckpointV4,
+};
+use next_contracts::world_routine::{
+    WORLD_ROUTINE_PRIORITY_CLASS, WORLD_ROUTINE_SYSTEM_ID, WorldRoutineActivityV1,
+    WorldRoutineCommandV1, WorldRoutineSnapshotV1,
 };
 use next_physics_api::{PhysicsBackendKind, PhysicsWorldHost};
 use next_rpg::RpgState;
@@ -34,7 +39,7 @@ use crate::registry::{
 };
 
 use super::bootstrap::{
-    RuntimeBootstrapV3, register_bootstrap_identities, validate_bootstrap,
+    RuntimeBootstrapV4, register_bootstrap_identities, validate_bootstrap,
     validate_core_interaction_runtime_closure, validate_rpg_snapshot,
 };
 use super::error::{InputAdmissionError, SnapshotRestoreError};
@@ -71,19 +76,19 @@ pub struct RuntimeState {
     pub(super) ledger_snapshot_cache: OnceLock<CommandLedgerV2>,
     pub(super) rpg: RpgState,
     pub(super) rpg_bindings: RpgRuntimeBindingsV1,
-    pub(super) rpg_definitions: RpgDefinitionRegistryV1,
+    pub(super) rpg_definitions: RpgDefinitionRegistryV2,
 }
 
 impl RuntimeState {
     pub fn new(
-        bootstrap: RuntimeBootstrapV3,
+        bootstrap: RuntimeBootstrapV4,
         authority: AuthorityRegistry,
     ) -> Result<Self, SnapshotRestoreError> {
         Self::new_with_physics_options(bootstrap, authority, PhysicsLaunchOptions::default())
     }
 
     pub fn new_with_physics_options(
-        bootstrap: RuntimeBootstrapV3,
+        bootstrap: RuntimeBootstrapV4,
         authority: AuthorityRegistry,
         physics_options: PhysicsLaunchOptions,
     ) -> Result<Self, SnapshotRestoreError> {
@@ -91,7 +96,7 @@ impl RuntimeState {
     }
 
     pub fn with_rpg_snapshot(
-        bootstrap: RuntimeBootstrapV3,
+        bootstrap: RuntimeBootstrapV4,
         authority: AuthorityRegistry,
         snapshot: RpgSnapshotV2,
     ) -> Result<Self, SnapshotRestoreError> {
@@ -104,7 +109,7 @@ impl RuntimeState {
     }
 
     pub fn with_rpg_snapshot_and_physics_options(
-        bootstrap: RuntimeBootstrapV3,
+        bootstrap: RuntimeBootstrapV4,
         authority: AuthorityRegistry,
         snapshot: RpgSnapshotV2,
         physics_options: PhysicsLaunchOptions,
@@ -118,7 +123,7 @@ impl RuntimeState {
     }
 
     fn from_bootstrap(
-        bootstrap: RuntimeBootstrapV3,
+        bootstrap: RuntimeBootstrapV4,
         authority: AuthorityRegistry,
         rpg: RpgState,
         physics_options: PhysicsLaunchOptions,
@@ -216,7 +221,7 @@ impl RuntimeState {
         Self::restore_world_checkpoint_with_definitions_and_physics_options(
             checkpoint,
             authority,
-            RpgDefinitionRegistryV1::empty().expect("empty RPG definition registry is canonical"),
+            RpgDefinitionRegistryV2::empty().expect("empty RPG definition registry is canonical"),
             physics_options,
         )
     }
@@ -224,7 +229,7 @@ impl RuntimeState {
     pub fn restore_world_checkpoint_with_definitions(
         checkpoint: WorldCheckpointV4,
         authority: AuthorityRegistry,
-        rpg_definitions: RpgDefinitionRegistryV1,
+        rpg_definitions: RpgDefinitionRegistryV2,
     ) -> Result<Self, SnapshotRestoreError> {
         Self::restore_world_checkpoint_with_definitions_and_physics_options(
             checkpoint,
@@ -237,7 +242,7 @@ impl RuntimeState {
     pub fn restore_world_checkpoint_with_definitions_and_physics_options(
         checkpoint: WorldCheckpointV4,
         authority: AuthorityRegistry,
-        rpg_definitions: RpgDefinitionRegistryV1,
+        rpg_definitions: RpgDefinitionRegistryV2,
         physics_options: PhysicsLaunchOptions,
     ) -> Result<Self, SnapshotRestoreError> {
         checkpoint.validate()?;
@@ -267,11 +272,11 @@ impl RuntimeState {
         rpg: RpgState,
         physical: PhysicsWorldCheckpointV1,
         authority: AuthorityRegistry,
-        rpg_definitions: RpgDefinitionRegistryV1,
+        rpg_definitions: RpgDefinitionRegistryV2,
         physics_options: PhysicsLaunchOptions,
     ) -> Result<Self, SnapshotRestoreError> {
         let registry = core_command_kind_registry();
-        let bootstrap = RuntimeBootstrapV3 {
+        let bootstrap = RuntimeBootstrapV4 {
             world_identity: snapshot.world_identity.clone(),
             principal_registry: snapshot.principal_registry.clone(),
             stream_registry: snapshot.stream_registry.clone(),
@@ -395,6 +400,90 @@ impl RuntimeState {
     #[must_use]
     pub fn body_archive(&self) -> &CommandBodyArchiveV1 {
         &self.body_archive
+    }
+
+    /// Validates the durable routine record against the committed Runtime
+    /// command receipt which created it. This is the cross-owner load closure:
+    /// a Duty genesis has no committed routine command, while Rest revision 1
+    /// has exactly one byte-valid boundary command and one event receipt.
+    pub fn validate_world_routine_ledger_closure(
+        &self,
+        owner: &next_world::WorldRoutineOwnerV1,
+    ) -> Result<(), SnapshotRestoreError> {
+        let invalid = || SnapshotRestoreError::WorldRoutineLedgerClosureInvalid;
+        owner.validate(self.next_tick).map_err(|_| invalid())?;
+        let expected = match (owner.catalog_or_none(), owner.snapshot_or_none()) {
+            (Some(catalog), Some(snapshot)) => match snapshot.record.current_activity {
+                WorldRoutineActivityV1::Duty if snapshot.record.record_revision == 0 => None,
+                WorldRoutineActivityV1::Rest if snapshot.record.record_revision == 1 => {
+                    let initial =
+                        WorldRoutineSnapshotV1::initial(catalog).map_err(|_| invalid())?;
+                    Some((
+                        WorldRoutineCommandV1::commit_boundary(&initial, catalog)
+                            .map_err(|_| invalid())?,
+                        catalog.due_simulation_tick().map_err(|_| invalid())?,
+                    ))
+                }
+                _ => return Err(invalid()),
+            },
+            (None, None) => None,
+            _ => return Err(invalid()),
+        };
+        let routine_issuer = IssuerPrincipal::InternalSystem(
+            SystemId::new(WORLD_ROUTINE_SYSTEM_ID).map_err(|_| invalid())?,
+        );
+        let mut committed = Vec::new();
+        for (body_hash, body_bytes) in self.body_archive.entries() {
+            let command =
+                WorldCommand::from_canonical_bytes(body_bytes, CanonicalDecodeLimits::default())
+                    .map_err(|_| invalid())?;
+            let CommandPayload::WorldRoutine(payload) = command.payload else {
+                continue;
+            };
+            for receipt in self.command_ledger().streams.values().flat_map(|stream| {
+                stream.receipt_window.iter().filter(|receipt| {
+                    matches!(
+                        (&receipt.subject, &receipt.result),
+                        (
+                            CommandReceiptSubjectV1::Command {
+                                body_hash: receipt_body_hash,
+                                ..
+                            },
+                            CommandFinalResultV1::Committed
+                        ) if receipt_body_hash == body_hash
+                    )
+                })
+            }) {
+                if command.issuer != routine_issuer
+                    || command.phase != CommandPhase::Outcome
+                    || command.target
+                        != Some(
+                            owner
+                                .snapshot_or_none()
+                                .ok_or_else(invalid)?
+                                .record
+                                .subject_id,
+                        )
+                    || receipt.phase != CommandPhase::Outcome
+                    || receipt.priority_class != WORLD_ROUTINE_PRIORITY_CLASS
+                    || receipt.target_tick != command.target_tick
+                    || receipt.finalized_at_tick != command.target_tick
+                    || receipt.event_ids.len() != 1
+                {
+                    return Err(invalid());
+                }
+                committed.push((payload, command.target_tick));
+            }
+        }
+        match (expected, committed.as_slice()) {
+            (None, []) => Ok(()),
+            (Some((expected_payload, expected_tick)), [(payload, tick)])
+                if *payload == expected_payload && *tick == expected_tick =>
+            {
+                Ok(())
+            }
+            _ => Err(invalid()),
+        }
     }
 
     #[must_use]
@@ -603,7 +692,7 @@ pub(super) fn enqueue_input_sample_in_checkpoint(
 impl Default for RuntimeState {
     fn default() -> Self {
         Self::new(
-            RuntimeBootstrapV3::neutral_empty().expect("neutral empty bootstrap is valid"),
+            RuntimeBootstrapV4::neutral_empty().expect("neutral empty bootstrap is valid"),
             AuthorityRegistry::new(),
         )
         .expect("neutral empty runtime is valid")

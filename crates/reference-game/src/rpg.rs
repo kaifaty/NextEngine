@@ -214,7 +214,7 @@ pub fn cooked_initial_interaction_outcome(
 
 fn cooked_interaction_definition_outcome(
     fixture: &ReferenceGameSession,
-    interaction: &next_contracts::mechanics::InteractionDefinitionV1,
+    interaction: &next_contracts::mechanics::InteractionDefinitionV2,
 ) -> (SchemaId, SchemaId, SchemaId, i32) {
     let definitions = &fixture.activated_project.rpg_definitions;
     let dialogue = definitions

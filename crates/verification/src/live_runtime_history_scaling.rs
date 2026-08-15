@@ -4,7 +4,7 @@ use std::time::Instant;
 use next_assets::ContentStore;
 use next_contracts::ids::{CommandLedgerHash, ContentHash, StateRoot};
 use next_contracts::ledger::command_identity_index_root;
-use next_reference_game::{ReferenceGameDriverV1, ReferenceLiveStateV1};
+use next_reference_game::{ReferenceGameDriverV2, ReferenceLiveStateV2};
 
 use crate::live_runtime_performance::{LiveRuntimePerformanceError, movement_started_event};
 use crate::scratch::ScratchContext;
@@ -66,10 +66,10 @@ pub fn run_live_runtime_history_scaling_diagnostic_in(
         })?;
     let store = ContentStore::new(directory.path());
     let result = (|| {
-        let source = next_reference_game::project_source_v2().map_err(|error| {
+        let source = next_reference_game::project_source_v3().map_err(|error| {
             LiveRuntimePerformanceError::new("history-scaling fixture source", error.to_string())
         })?;
-        let cooked = next_project::cook_project_v2(source).map_err(|error| {
+        let cooked = next_project::cook_project_v3(source).map_err(|error| {
             LiveRuntimePerformanceError::new("cook history-scaling fixture", error.to_string())
         })?;
         store
@@ -88,13 +88,13 @@ pub fn run_live_runtime_history_scaling_diagnostic_in(
         let project = next_project::activate_project_package(&store).map_err(|error| {
             LiveRuntimePerformanceError::new("activate history-scaling fixture", error.to_string())
         })?;
-        let mut measured = ReferenceGameDriverV1::new(project.clone(), true).map_err(|error| {
+        let mut measured = ReferenceGameDriverV2::new(project.clone(), true).map_err(|error| {
             LiveRuntimePerformanceError::new(
                 "create measured history-scaling driver",
                 error.to_string(),
             )
         })?;
-        let mut repeated = ReferenceGameDriverV1::new(project, true).map_err(|error| {
+        let mut repeated = ReferenceGameDriverV2::new(project, true).map_err(|error| {
             LiveRuntimePerformanceError::new(
                 "create repeated history-scaling driver",
                 error.to_string(),
@@ -187,8 +187,8 @@ pub fn run_live_runtime_history_scaling_diagnostic_in(
 }
 
 fn capture_boundary_sample(
-    measured: &ReferenceGameDriverV1,
-    repeated: &ReferenceGameDriverV1,
+    measured: &ReferenceGameDriverV2,
+    repeated: &ReferenceGameDriverV2,
     expected_history_size: u64,
 ) -> Result<LiveRuntimeHistoryScalingSample, LiveRuntimePerformanceError> {
     let checkpoint_started = Instant::now();
@@ -254,8 +254,8 @@ struct AuthoritativeRoots {
 }
 
 fn compare_authoritative_roots(
-    measured: &ReferenceLiveStateV1,
-    repeated: &ReferenceLiveStateV1,
+    measured: &ReferenceLiveStateV2,
+    repeated: &ReferenceLiveStateV2,
     expected_history_size: u64,
 ) -> Result<AuthoritativeRoots, LiveRuntimePerformanceError> {
     let measured_snapshot = &measured.checkpoint.runtime_snapshot;

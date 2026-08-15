@@ -30,11 +30,18 @@ use super::pipeline::{
 };
 use super::result::{StageTraceEntry, TickReport, TransactionStage};
 use super::state::{IngressQueueV1, RuntimeState, enqueue_input_sample_in_checkpoint};
+use super::world_routine::WorldRoutineStageContextV1;
 
 mod preparation;
+mod snapshot_materialization;
+mod world_services;
 mod world_streaming;
 
 use preparation::RuntimeGenerationV1;
+pub use world_services::{
+    PreparedRuntimeWorldServicesTickV1, ValidatedRuntimeWorldServicesTickV1,
+    ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1, WorldServicesTickCommitV1,
+};
 pub use world_streaming::{PreparedRuntimeWorldTick, ValidatedRuntimeWorldTick};
 
 /// Opaque staging scope for one runtime tick.
@@ -93,6 +100,7 @@ impl RuntimeTickPreparation<'_> {
             outcome_provider,
             replay_ingress,
             None,
+            None,
         )
     }
 }
@@ -124,6 +132,7 @@ struct PreparedTickReportParts {
     authoritative_targeting_queries: Vec<AuthoritativeTargetingQueryV1>,
     physics_query_batch: PhysicsQueryBatchV1,
     physics_query_results: Vec<next_contracts::physics::PhysicsQueryResultV1>,
+    interaction_availability: Vec<next_contracts::world_routine::InteractionAvailabilityV1>,
     rpg_plan_traces: Vec<super::result::CommittedRpgPlanTraceV1>,
 }
 
@@ -155,64 +164,6 @@ struct PreparedTickReportSources<'a> {
     command_batches: &'a [ClosedCommandAdmissionBatchV2],
 }
 
-impl PreparedRuntimeSnapshotFields {
-    fn snapshot(
-        &self,
-        next_tick: u64,
-        staged: &StagedAuthoritativeState,
-        command_ledger: next_contracts::ledger::CommandLedgerV2,
-        body_archive: next_contracts::ledger::CommandBodyArchiveV1,
-    ) -> RuntimeSnapshotV3 {
-        RuntimeSnapshotV3 {
-            next_tick,
-            committed_event_count: staged.event_count,
-            authoritative_revision: staged.revision,
-            world_identity: self.world_identity.clone(),
-            principal_registry: self.principal_registry.clone(),
-            stream_registry: self.stream_registry.clone(),
-            runtime_profile: self.runtime_profile,
-            admission_limits: self.admission_limits,
-            tick_rate_profile: self.tick_rate_profile,
-            ingress_assignment_profile: self.ingress_assignment_profile,
-            authoritative_numeric_profile: self.authoritative_numeric_profile.clone(),
-            physics_quantization_profile: self.physics_quantization_profile.clone(),
-            player_controller_registry: self.player_controller_registry.clone(),
-            ingress_checkpoint: staged.ingress.clone(),
-            rpg_runtime_bindings: self.rpg_runtime_bindings.clone(),
-            command_ledger,
-            body_archive,
-        }
-    }
-
-    fn into_snapshot(
-        self,
-        next_tick: u64,
-        staged: &StagedAuthoritativeState,
-        command_ledger: next_contracts::ledger::CommandLedgerV2,
-        body_archive: next_contracts::ledger::CommandBodyArchiveV1,
-    ) -> RuntimeSnapshotV3 {
-        RuntimeSnapshotV3 {
-            next_tick,
-            committed_event_count: staged.event_count,
-            authoritative_revision: staged.revision,
-            world_identity: self.world_identity,
-            principal_registry: self.principal_registry,
-            stream_registry: self.stream_registry,
-            runtime_profile: self.runtime_profile,
-            admission_limits: self.admission_limits,
-            tick_rate_profile: self.tick_rate_profile,
-            ingress_assignment_profile: self.ingress_assignment_profile,
-            authoritative_numeric_profile: self.authoritative_numeric_profile,
-            physics_quantization_profile: self.physics_quantization_profile,
-            player_controller_registry: self.player_controller_registry,
-            ingress_checkpoint: staged.ingress.clone(),
-            rpg_runtime_bindings: self.rpg_runtime_bindings,
-            command_ledger,
-            body_archive,
-        }
-    }
-}
-
 impl PreparedTickReportParts {
     fn report(
         &self,
@@ -240,6 +191,7 @@ impl PreparedTickReportParts {
             authoritative_targeting_queries: self.authoritative_targeting_queries.clone(),
             physics_query_batch: self.physics_query_batch.clone(),
             physics_query_results: self.physics_query_results.clone(),
+            interaction_availability: self.interaction_availability.clone(),
             closed_ingress_batch: sources.closed_ingress_batch.clone(),
             mapping_receipts: sources.mapping_receipts.to_vec(),
             command_batches: sources.command_batches.to_vec(),
@@ -273,6 +225,7 @@ impl PreparedTickReportParts {
             authoritative_targeting_queries: self.authoritative_targeting_queries,
             physics_query_batch: self.physics_query_batch,
             physics_query_results: self.physics_query_results,
+            interaction_availability: self.interaction_availability,
             closed_ingress_batch: sources.closed_ingress_batch.clone(),
             mapping_receipts: sources.mapping_receipts.to_vec(),
             command_batches: sources.command_batches.to_vec(),
@@ -594,6 +547,10 @@ impl RuntimeState {
         Ok(ingress_batch)
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the private tick transaction explicitly receives each optional staged owner and replay input"
+    )]
     fn prepare_tick_internal(
         &self,
         base_generation: RuntimeGenerationV1,
@@ -602,6 +559,7 @@ impl RuntimeState {
         outcome_provider: &mut impl OutcomeProvider,
         replay_ingress: Option<ClosedIngressBatchV1>,
         world_streaming: Option<WorldStreamingStageContext<'_>>,
+        mut world_routine: Option<&mut WorldRoutineStageContextV1>,
     ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
         let following_tick = self
             .next_tick
@@ -684,6 +642,7 @@ impl RuntimeState {
                 ingress_commands,
                 &mut staged,
                 world_streaming,
+                world_routine.as_deref_mut(),
             )?
         };
         let physics_step_input = ingress
@@ -714,12 +673,16 @@ impl RuntimeState {
                     gameplay_tick: tick,
                     physical_contact_facts: &physical_contact_facts,
                     authoritative_revision: staged.revision,
+                    routine_snapshot_or_none: world_routine
+                        .as_deref()
+                        .and_then(WorldRoutineStageContextV1::committed_projection_or_none),
                 },
             )?
         };
         built_in_resolution
             .targeting
             .sort_by_key(|targeting| targeting.query.physics_query.query_id);
+        let interaction_availability = built_in_resolution.availability.clone();
         let query_snapshot_selector =
             staged
                 .physics
@@ -767,11 +730,19 @@ impl RuntimeState {
             )
             .map_err(RuntimeFatalError::OutcomeCollection)?;
         let external_proposals = outcome_sink.into_proposals();
+        let routine_proposal_or_none = world_routine
+            .as_deref()
+            .map(|routine| routine.proposal_for_stage_9(tick, staged.revision))
+            .transpose()?
+            .flatten();
         let proposal_count = count(
             built_in_resolution
                 .outcomes
                 .len()
                 .checked_add(external_proposals.len())
+                .and_then(|count| {
+                    count.checked_add(usize::from(routine_proposal_or_none.is_some()))
+                })
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?,
         )?;
         let mut outcome_commands = Vec::with_capacity(
@@ -779,6 +750,9 @@ impl RuntimeState {
                 .outcomes
                 .len()
                 .checked_add(external_proposals.len())
+                .and_then(|count| {
+                    count.checked_add(usize::from(routine_proposal_or_none.is_some()))
+                })
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?,
         );
         for built_in in built_in_resolution.outcomes {
@@ -787,6 +761,12 @@ impl RuntimeState {
                 .into_command(tick)
                 .map_err(RuntimeFatalError::InternalCanonicalization)?;
             let command_id = command.compute_command_id()?;
+            if let Some(binding) = built_in.routine_binding_or_none {
+                world_routine
+                    .as_deref_mut()
+                    .ok_or(RuntimeFatalError::WorldRoutineInternalInvariant)?
+                    .register_interaction_binding(command_id, binding)?;
+            }
             let receipt = closed_ingress
                 .mapping_receipts
                 .iter_mut()
@@ -818,13 +798,16 @@ impl RuntimeState {
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         );
+        if let Some(proposal) = routine_proposal_or_none {
+            outcome_commands.push(proposal);
+        }
         sort_command_batch(&mut outcome_commands)?;
         let outcome_batch =
             ClosedCommandAdmissionBatchV2::from_body(ClosedCommandAdmissionBatchBodyV2 {
                 schema_version: CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION,
                 simulation_tick: tick,
                 phase: CommandPhase::Outcome,
-                batch_ordinal: 1,
+                batch_ordinal: 0,
                 envelopes: outcome_commands.clone(),
             })?;
         outcome_batch.validate(&self.admission_limits)?;
@@ -850,8 +833,13 @@ impl RuntimeState {
                 outcome_commands,
                 &mut staged,
                 None,
+                world_routine.as_deref_mut(),
             )?
         };
+
+        if let Some(routine) = world_routine.as_deref() {
+            routine.finish(following_tick)?;
+        }
 
         stage_zone!("SnapshotPublication");
         let ledger_update =
@@ -958,6 +946,7 @@ impl RuntimeState {
             authoritative_targeting_queries,
             physics_query_batch,
             physics_query_results,
+            interaction_availability,
             rpg_plan_traces,
         };
 

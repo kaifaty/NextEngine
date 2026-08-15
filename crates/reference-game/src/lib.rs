@@ -23,8 +23,8 @@ pub use input::{
     player_melee_sample, player_pickup_sample,
 };
 pub use live::{
-    PreparedReferenceGameAdvance, ReferenceGameDriverV1, ReferenceLiveDriverRecoveryV1,
-    ReferenceLiveStateV1, ValidatedReferenceGameAdvance, reference_b0_presentation_profile_hash,
+    PreparedReferenceGameAdvance, ReferenceGameDriverV2, ReferenceLiveDriverRecoveryV1,
+    ReferenceLiveStateV2, ValidatedReferenceGameAdvance, reference_b0_presentation_profile_hash,
 };
 pub use rpg::{
     aggregate_payload, cooked_initial_interaction_outcome, cooked_interaction_outcome,
@@ -32,14 +32,14 @@ pub use rpg::{
 };
 pub use runtime_bootstrap::{ReferenceRuntimeBootstrap, build_reference_runtime_bootstrap};
 pub use scenario::{
-    ReferenceRunOutcomeV1, ReferenceStageCheckpointV1, run_reference_game,
-    run_reference_game_with_backend,
+    ReferenceRunOutcomeV2, ReferenceStageCheckpointV2, ReferenceWorldRoutineRestBranchV1,
+    run_reference_game, run_reference_game_with_backend,
 };
 pub use session::{
     ReferenceGameSession, build_reference_game_session, build_reference_game_session_with_profile,
 };
 pub use source::{
-    REFERENCE_GAME_PROJECT_ID, project_source_v2, project_source_v2_with_id,
+    REFERENCE_GAME_PROJECT_ID, project_source_v3, project_source_v3_with_id,
     reference_alpha_project_directory,
 };
 pub use topology::{ReferenceChunkRouteEntryV1, ReferenceWorldTopologyV1};

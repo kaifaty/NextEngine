@@ -94,6 +94,21 @@ pub fn reference_dialogue_entry_node_id(
         .clone())
 }
 
+/// The exact authored acceptance interaction represented by the reference
+/// dialogue surface. Availability is queried from Runtime before the surface
+/// opens, so presentation never invents a second routine-gating rule.
+pub fn reference_dialogue_interaction_id(
+    fixture: &ReferenceGameSession,
+) -> Result<SchemaId, ReferenceGameError> {
+    fixture
+        .activated_project
+        .rpg_definitions
+        .interactions
+        .first()
+        .map(|interaction| interaction.interaction_id.clone())
+        .ok_or(ReferenceGameError::RecoveryInvalid)
+}
+
 /// True while the dialogue aggregate sits at the authored offer node, which is
 /// exactly when the runtime dialogue/quest closure reports the binding ready.
 fn dialogue_offer_available(

@@ -1,6 +1,3 @@
-use std::error::Error;
-use std::fmt::{Display, Formatter};
-
 use crate::canonical::{CanonicalDecodeLimits, CanonicalError, sha256};
 use crate::command::{CommandDecodeError, DomainEvent, IssuerPrincipal, WorldCommand};
 use crate::ids::{
@@ -25,11 +22,22 @@ use crate::targeting::{
     AUTHORITATIVE_TARGETING_QUERY_SCHEMA_VERSION, AuthoritativeTargetingQueryV1,
     TargetingContractError, TargetingIntentV1,
 };
+use crate::world::{
+    WORLD_STREAMING_SNAPSHOT_OWNER_ID, WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+    WORLD_STREAMING_SNAPSHOT_SEGMENT_ID, WorldStreamingSnapshotV1,
+};
+use crate::world_routine::{
+    InteractionAvailabilityV1, WORLD_ROUTINE_SNAPSHOT_OWNER_ID, WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID,
+    WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID, WorldRoutineSnapshotV1,
+};
+
+mod error_impl;
 
 pub const SAVE_MANIFEST_SCHEMA_VERSION: u32 = 2;
-pub const REPLAY_MANIFEST_V5_SCHEMA_VERSION: u32 = 5;
+pub const RETIRED_REPLAY_MANIFEST_V5_SCHEMA_VERSION: u32 = 5;
 pub const SAVE_MANIFEST_V3_SCHEMA_VERSION: u32 = 3;
 pub const REPLAY_MANIFEST_V6_SCHEMA_VERSION: u32 = 6;
+pub const PHYSICAL_TRAINING_REPLAY_MANIFEST_SCHEMA_VERSION: u32 = 6;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TickSettings {
@@ -232,7 +240,7 @@ impl SaveManifestV3 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayManifestV6 {
+pub struct PhysicalTrainingReplayManifestV6 {
     pub schema_version: u32,
     pub replay_id: SchemaId,
     pub physical_training: PhysicalTrainingCompatibilityV1,
@@ -244,9 +252,9 @@ pub struct ReplayManifestV6 {
     pub final_ledger_root: CommandLedgerHash,
 }
 
-impl ReplayManifestV6 {
+impl PhysicalTrainingReplayManifestV6 {
     pub fn validate(&self) -> Result<(), ManifestValidationError> {
-        if self.schema_version != REPLAY_MANIFEST_V6_SCHEMA_VERSION {
+        if self.schema_version != PHYSICAL_TRAINING_REPLAY_MANIFEST_SCHEMA_VERSION {
             return Err(ManifestValidationError::UnsupportedReplayVersion(
                 self.schema_version,
             ));
@@ -390,8 +398,25 @@ pub struct ReplayOwnerSegmentV2 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayTickManifestV5 {
+pub enum WorldStreamingReplayInputV1 {
+    None,
+    BeginTransition {
+        target_chunk_id: SchemaId,
+        expected_base_world_state_hash: ContentHash,
+        expected_next_world_state_hash: ContentHash,
+    },
+    CompletePendingTransition {
+        target_chunk_id: SchemaId,
+        expected_base_world_state_hash: ContentHash,
+        expected_loaded_result_hash: ContentHash,
+        expected_next_world_state_hash: ContentHash,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReplayTickManifestV6 {
     pub tick: u64,
+    pub world_streaming_input: WorldStreamingReplayInputV1,
     pub closed_ingress_batch: ClosedIngressBatchV1,
     pub direct_external_commands: Vec<ReplayCommandRecord>,
     pub expected_ingress_command_batch: ClosedCommandAdmissionBatchV2,
@@ -403,18 +428,17 @@ pub struct ReplayTickManifestV5 {
     pub expected_physics_query_results: Vec<PhysicsQueryResultV1>,
     pub expected_outcome_command_batch: ClosedCommandAdmissionBatchV2,
     pub expected_mapping_receipts: Vec<InputMappingReceiptV2>,
+    pub expected_interaction_availability: Vec<InteractionAvailabilityV1>,
     pub expected_command_results: Vec<ReplayCommandResultV2>,
     pub expected_events: Vec<DomainEvent>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ReplayComparePointV5 {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReplayComparePointV6 {
     pub tick: u64,
     pub state_root: StateRoot,
     pub command_ledger_hash: CommandLedgerHash,
-    pub runtime_segment_hash: ContentHash,
-    pub rpg_segment_hash: ContentHash,
-    pub physics_segment_hash: ContentHash,
+    pub owner_segments: Vec<SaveSegmentDescriptor>,
     pub closed_ingress_batch_hash: ContentHash,
     pub ingress_command_batch_hash: ContentHash,
     pub physics_step_input_hash: ContentHash,
@@ -423,22 +447,31 @@ pub struct ReplayComparePointV5 {
     pub physics_query_results_hash: ContentHash,
     pub targeting_query_trace_hash: ContentHash,
     pub outcome_command_batch_hash: ContentHash,
+    pub interaction_availability_hash: ContentHash,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayManifestV5 {
+pub struct ReplayManifestV6 {
     pub schema_version: u32,
     pub compatibility: SaveCompatibility,
     pub initial_owner_segments: Vec<ReplayOwnerSegmentV2>,
     pub initial_state_root: StateRoot,
     pub authority: Vec<AuthorityGrant>,
-    pub ticks: Vec<ReplayTickManifestV5>,
-    pub compare_points: Vec<ReplayComparePointV5>,
+    pub ticks: Vec<ReplayTickManifestV6>,
+    pub compare_points: Vec<ReplayComparePointV6>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DecodedReplayTickV5 {
+pub struct DecodedReplayInitialStateV6 {
+    pub checkpoint: WorldCheckpointV4,
+    pub world_streaming_snapshot: WorldStreamingSnapshotV1,
+    pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DecodedReplayTickV6 {
     pub tick: u64,
+    pub world_streaming_input: WorldStreamingReplayInputV1,
     pub closed_ingress_batch: ClosedIngressBatchV1,
     pub direct_external_commands: Vec<WorldCommand>,
     pub expected_ingress_command_batch: ClosedCommandAdmissionBatchV2,
@@ -450,6 +483,7 @@ pub struct DecodedReplayTickV5 {
     pub expected_physics_query_results: Vec<PhysicsQueryResultV1>,
     pub expected_outcome_command_batch: ClosedCommandAdmissionBatchV2,
     pub expected_mapping_receipts: Vec<InputMappingReceiptV2>,
+    pub expected_interaction_availability: Vec<InteractionAvailabilityV1>,
     pub expected_command_results: Vec<ReplayCommandResultV2>,
     pub expected_events: Vec<DomainEvent>,
 }
@@ -527,29 +561,30 @@ fn replay_framed_hash(
     Ok(content_hash_from_bytes(sha256(&preimage)))
 }
 
-impl ReplayManifestV5 {
+impl ReplayManifestV6 {
     pub fn to_jcs_bytes(&self) -> Result<Vec<u8>, ManifestCodecError> {
-        crate::manifest_jcs::encode_replay_manifest_v5(self)
+        crate::manifest_jcs::encode_replay_manifest_v6(self)
     }
 
     pub fn from_jcs_bytes(
         bytes: &[u8],
         limits: CanonicalDecodeLimits,
     ) -> Result<Self, ManifestCodecError> {
-        crate::manifest_jcs::decode_replay_manifest_v5(bytes, limits)
+        crate::manifest_jcs::decode_replay_manifest_v6(bytes, limits)
     }
 
     pub fn validate_and_decode(
         &self,
         limits: CanonicalDecodeLimits,
-    ) -> Result<(WorldCheckpointV4, Vec<DecodedReplayTickV5>), ManifestValidationError> {
-        if self.schema_version != REPLAY_MANIFEST_V5_SCHEMA_VERSION {
+    ) -> Result<(DecodedReplayInitialStateV6, Vec<DecodedReplayTickV6>), ManifestValidationError>
+    {
+        if self.schema_version != REPLAY_MANIFEST_V6_SCHEMA_VERSION {
             return Err(ManifestValidationError::UnsupportedReplayVersion(
                 self.schema_version,
             ));
         }
         self.compatibility.validate()?;
-        if self.initial_owner_segments.len() != 3
+        if !matches!(self.initial_owner_segments.len(), 4 | 5)
             || self.initial_owner_segments.windows(2).any(|pair| {
                 (
                     &pair[0].descriptor.owner_id,
@@ -593,13 +628,54 @@ impl ReplayManifestV5 {
             PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
         )
         .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
+        let streaming = segment(
+            WORLD_STREAMING_SNAPSHOT_OWNER_ID,
+            WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
+            WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
+        )
+        .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
+        let routine_or_none = segment(
+            WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
+            WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID,
+            WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID,
+        );
+        if self.initial_owner_segments.len() != 4 + usize::from(routine_or_none.is_some()) {
+            return Err(ManifestValidationError::ReplayInitialSegmentsInvalid);
+        }
         let runtime_snapshot =
             RuntimeSnapshotV3::from_canonical_bytes(&runtime.canonical_bytes, limits)?;
         let rpg_snapshot = RpgSnapshotV2::from_canonical_bytes(&rpg.canonical_bytes, limits)?;
         let physics_checkpoint =
             PhysicsWorldCheckpointV1::from_canonical_bytes(&physics.canonical_bytes, limits)?;
+        let world_streaming_snapshot =
+            WorldStreamingSnapshotV1::from_canonical_bytes(&streaming.canonical_bytes, limits)?;
+        let world_routine_snapshot_or_none = routine_or_none
+            .map(|routine| {
+                WorldRoutineSnapshotV1::from_canonical_bytes(&routine.canonical_bytes, limits)
+            })
+            .transpose()?;
         let checkpoint =
             WorldCheckpointV4::new(runtime_snapshot, rpg_snapshot, physics_checkpoint)?;
+        let actual_initial_root = match world_routine_snapshot_or_none.as_ref() {
+            Some(routine) => {
+                crate::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
+                    &checkpoint.runtime_snapshot,
+                    &checkpoint.rpg_snapshot,
+                    &checkpoint.physics_checkpoint,
+                    &world_streaming_snapshot,
+                    routine,
+                )?
+            }
+            None => crate::snapshot::world_checkpoint_with_streaming_v1_state_root(
+                &checkpoint.runtime_snapshot,
+                &checkpoint.rpg_snapshot,
+                &checkpoint.physics_checkpoint,
+                &world_streaming_snapshot,
+            )?,
+        };
+        if actual_initial_root != self.initial_state_root {
+            return Err(ManifestValidationError::ReplayInitialSegmentsInvalid);
+        }
         if self
             .authority
             .windows(2)
@@ -629,6 +705,16 @@ impl ReplayManifestV5 {
             tick.expected_outcome_command_batch
                 .validate(&checkpoint.runtime_snapshot.admission_limits)?;
             validate_replay_query_facts(tick)?;
+            tick.world_streaming_input.validate()?;
+            if point.owner_segments.len()
+                != 4 + usize::from(world_routine_snapshot_or_none.is_some())
+                || point.owner_segments.windows(2).any(|pair| {
+                    (&pair[0].owner_id, &pair[0].schema_id, &pair[0].segment_id)
+                        >= (&pair[1].owner_id, &pair[1].schema_id, &pair[1].segment_id)
+                })
+            {
+                return Err(ManifestValidationError::ReplayOwnerSegmentsInvalid);
+            }
             if tick.closed_ingress_batch.body.assigned_tick != expected_tick
                 || tick.expected_ingress_command_batch.body.simulation_tick != expected_tick
                 || tick.expected_ingress_command_batch.body.phase
@@ -645,6 +731,10 @@ impl ReplayManifestV5 {
                 || point.contact_batch_hash != tick.expected_contact_batch.batch_hash
                 || point.outcome_command_batch_hash
                     != tick.expected_outcome_command_batch.batch_hash
+                || point.interaction_availability_hash
+                    != crate::world_routine::interaction_availability_batch_hash(
+                        &tick.expected_interaction_availability,
+                    )?
             {
                 return Err(ManifestValidationError::ReplayBatchMismatch);
             }
@@ -664,8 +754,9 @@ impl ReplayManifestV5 {
             for record in &tick.direct_external_commands {
                 commands.push(record.decode_command(limits)?);
             }
-            decoded.push(DecodedReplayTickV5 {
+            decoded.push(DecodedReplayTickV6 {
                 tick: tick.tick,
+                world_streaming_input: tick.world_streaming_input.clone(),
                 closed_ingress_batch: tick.closed_ingress_batch.clone(),
                 direct_external_commands: commands,
                 expected_ingress_command_batch: tick.expected_ingress_command_batch.clone(),
@@ -679,6 +770,7 @@ impl ReplayManifestV5 {
                 expected_physics_query_results: tick.expected_physics_query_results.clone(),
                 expected_outcome_command_batch: tick.expected_outcome_command_batch.clone(),
                 expected_mapping_receipts: tick.expected_mapping_receipts.clone(),
+                expected_interaction_availability: tick.expected_interaction_availability.clone(),
                 expected_command_results: tick.expected_command_results.clone(),
                 expected_events: tick.expected_events.clone(),
             });
@@ -686,11 +778,49 @@ impl ReplayManifestV5 {
                 .checked_add(1)
                 .ok_or(ManifestValidationError::ReplayTickExhausted)?;
         }
-        Ok((checkpoint, decoded))
+        Ok((
+            DecodedReplayInitialStateV6 {
+                checkpoint,
+                world_streaming_snapshot,
+                world_routine_snapshot_or_none,
+            },
+            decoded,
+        ))
     }
 }
 
-fn validate_replay_query_facts(tick: &ReplayTickManifestV5) -> Result<(), ManifestValidationError> {
+impl WorldStreamingReplayInputV1 {
+    pub fn validate(&self) -> Result<(), ManifestValidationError> {
+        match self {
+            Self::None => Ok(()),
+            Self::BeginTransition {
+                expected_base_world_state_hash,
+                expected_next_world_state_hash,
+                ..
+            } if *expected_base_world_state_hash != ContentHash::default()
+                && *expected_next_world_state_hash != ContentHash::default()
+                && expected_base_world_state_hash != expected_next_world_state_hash =>
+            {
+                Ok(())
+            }
+            Self::CompletePendingTransition {
+                expected_base_world_state_hash,
+                expected_loaded_result_hash,
+                expected_next_world_state_hash,
+                ..
+            } if *expected_base_world_state_hash != ContentHash::default()
+                && *expected_loaded_result_hash != ContentHash::default()
+                && *expected_next_world_state_hash != ContentHash::default()
+                && expected_base_world_state_hash != expected_next_world_state_hash =>
+            {
+                Ok(())
+            }
+            _ => Err(ManifestValidationError::ReplayWorldStreamingInputInvalid),
+        }
+    }
+}
+
+fn validate_replay_query_facts(tick: &ReplayTickManifestV6) -> Result<(), ManifestValidationError> {
     tick.expected_physics_query_batch.validate()?;
     for receipt in &tick.expected_mapping_receipts {
         receipt.validate()?;
@@ -752,6 +882,8 @@ pub enum ManifestValidationError {
     ReplayTickSequenceMismatch,
     ReplayTickExhausted,
     ReplayInitialSegmentsInvalid,
+    ReplayOwnerSegmentsInvalid,
+    ReplayWorldStreamingInputInvalid,
     ReplayBatchMismatch,
     ReplayQueryFactsInvalid,
     WorldCheckpoint(crate::snapshot::WorldCheckpointError),
@@ -759,129 +891,8 @@ pub enum ManifestValidationError {
     Physics(crate::physics::PhysicsContractError),
     Input(crate::input::InputContractError),
     Targeting(TargetingContractError),
-}
-
-impl Display for ManifestValidationError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Identifier(error) => write!(formatter, "manifest identifier is invalid: {error}"),
-            Self::Canonicalization(error) => {
-                write!(formatter, "manifest canonicalization failed: {error}")
-            }
-            Self::Snapshot(error) => write!(formatter, "manifest snapshot is invalid: {error}"),
-            Self::Command(error) => write!(formatter, "manifest command is invalid: {error}"),
-            Self::InvalidTickSettings => formatter.write_str("manifest tick settings are invalid"),
-            Self::HashBindingsNotStrictlySorted => {
-                formatter.write_str("manifest hash bindings are not strictly sorted")
-            }
-            Self::SchemaBindingsNotStrictlySorted => {
-                formatter.write_str("manifest schema bindings are not strictly sorted")
-            }
-            Self::SegmentsNotStrictlySorted => {
-                formatter.write_str("manifest segments are not strictly sorted")
-            }
-            Self::CapabilitiesNotStrictlySorted => {
-                formatter.write_str("manifest capabilities are not strictly sorted")
-            }
-            Self::AuthorityNotStrictlySorted => {
-                formatter.write_str("manifest authority grants are not strictly sorted")
-            }
-            Self::MissingRequiredSegment => formatter.write_str("manifest has no state segment"),
-            Self::CompatibilityMismatch => {
-                formatter.write_str("manifest physical/training compatibility does not match")
-            }
-            Self::UnsupportedSaveVersion(version) => {
-                write!(formatter, "unsupported save manifest version {version}")
-            }
-            Self::UnsupportedReplayVersion(version) => {
-                write!(formatter, "unsupported replay manifest version {version}")
-            }
-            Self::ReplayCommandIdMismatch => {
-                formatter.write_str("replay command id does not match canonical command bytes")
-            }
-            Self::ComparePointCountMismatch => {
-                formatter.write_str("replay tick and compare-point counts differ")
-            }
-            Self::ReplayTickSequenceMismatch => {
-                formatter.write_str("replay ticks or compare points are not contiguous")
-            }
-            Self::ReplayTickExhausted => formatter.write_str("replay tick sequence overflowed"),
-            Self::ReplayInitialSegmentsInvalid => {
-                formatter.write_str("replay initial owner segments are incomplete or invalid")
-            }
-            Self::ReplayBatchMismatch => {
-                formatter.write_str("replay closed batch closure does not match")
-            }
-            Self::ReplayQueryFactsInvalid => {
-                formatter.write_str("replay targeting/query facts do not form an exact closure")
-            }
-            Self::WorldCheckpoint(error) => {
-                write!(formatter, "replay checkpoint is invalid: {error}")
-            }
-            Self::RpgV2(error) => write!(formatter, "replay RPG segment is invalid: {error}"),
-            Self::Physics(error) => write!(formatter, "replay physics segment is invalid: {error}"),
-            Self::Input(error) => write!(formatter, "replay ingress batch is invalid: {error}"),
-            Self::Targeting(error) => {
-                write!(formatter, "replay targeting fact is invalid: {error}")
-            }
-        }
-    }
-}
-
-impl Error for ManifestValidationError {}
-
-impl From<crate::ids::IdentifierError> for ManifestValidationError {
-    fn from(error: crate::ids::IdentifierError) -> Self {
-        Self::Identifier(error)
-    }
-}
-
-impl From<CanonicalError> for ManifestValidationError {
-    fn from(error: CanonicalError) -> Self {
-        Self::Canonicalization(error)
-    }
-}
-
-impl From<crate::snapshot::SnapshotDecodeError> for ManifestValidationError {
-    fn from(error: crate::snapshot::SnapshotDecodeError) -> Self {
-        Self::Snapshot(error)
-    }
-}
-
-impl From<CommandDecodeError> for ManifestValidationError {
-    fn from(error: CommandDecodeError) -> Self {
-        Self::Command(error)
-    }
-}
-
-impl From<crate::snapshot::WorldCheckpointError> for ManifestValidationError {
-    fn from(error: crate::snapshot::WorldCheckpointError) -> Self {
-        Self::WorldCheckpoint(error)
-    }
-}
-
-impl From<crate::rpg::RpgContractErrorV1> for ManifestValidationError {
-    fn from(error: crate::rpg::RpgContractErrorV1) -> Self {
-        Self::RpgV2(error)
-    }
-}
-
-impl From<crate::physics::PhysicsContractError> for ManifestValidationError {
-    fn from(error: crate::physics::PhysicsContractError) -> Self {
-        Self::Physics(error)
-    }
-}
-
-impl From<crate::input::InputContractError> for ManifestValidationError {
-    fn from(error: crate::input::InputContractError) -> Self {
-        Self::Input(error)
-    }
-}
-
-impl From<TargetingContractError> for ManifestValidationError {
-    fn from(error: TargetingContractError) -> Self {
-        Self::Targeting(error)
-    }
+    WorldStreaming(crate::world::WorldStreamingContractError),
+    WorldRoutine(crate::world_routine::WorldRoutineContractError),
 }
 
 fn validate_sorted_unique_hash_bindings(
@@ -910,23 +921,4 @@ fn validate_sorted_unique_schema_bindings(
 pub use crate::manifest_jcs::ManifestCodecError;
 
 #[cfg(test)]
-mod tests {
-    use crate::canonical::CanonicalDecodeLimits;
-    use crate::command::{IssuerPrincipal, WorldCommand};
-    use crate::ids::{CommandId, CommandStreamId, PlayerPrincipalId};
-    use crate::persistence::ReplayCommandRecord;
-
-    #[test]
-    fn replay_record_preserves_invalid_envelope_claim_for_deterministic_rejection() {
-        let principal = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([1; 16]));
-        let mut command = WorldCommand::noop(CommandStreamId::from_bytes([2; 16]), principal, 0, 0)
-            .expect("canonical command");
-        command.envelope_schema_version = 1;
-        command.claimed_command_id = Some(CommandId::from_bytes([9; 16]));
-        let record = ReplayCommandRecord::from_command(&command).expect("record");
-        let decoded = record
-            .decode_command(CanonicalDecodeLimits::default())
-            .expect("record decodes");
-        assert_eq!(decoded, command);
-    }
-}
+mod tests;

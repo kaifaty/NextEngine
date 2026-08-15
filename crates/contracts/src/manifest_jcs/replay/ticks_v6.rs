@@ -1,29 +1,32 @@
-use super::{decode_command_records, decode_command_results};
+use super::{decode_command_records, decode_command_results, decode_world_streaming_input};
 use crate::canonical::CanonicalDecodeLimits;
 use crate::input::{
     ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, InputMappingReceiptV2,
     RuntimeAdmissionLimitsV1,
 };
-use crate::persistence::{ManifestValidationError, ReplayTickManifestV5};
+use crate::persistence::{ManifestValidationError, ReplayTickManifestV6};
 use crate::physics::{
     ClosedPhysicsContactBatchV1, PhysicsQueryBatchV1, PhysicsQueryResultV1, PhysicsStepInputV2,
 };
 use crate::targeting::{AuthoritativeTargetingQueryV1, TargetingIntentV1};
+use crate::world_routine::InteractionAvailabilityV1;
 
 use super::super::ManifestCodecError;
 use super::super::jcs::{JcsValue, decode_hex, decode_u64_string, into_array, into_object, take};
 use super::super::replay_event::decode_domain_events;
 
-pub(super) fn decode_replay_ticks_v5(
+pub(super) fn decode_replay_ticks_v6(
     value: JcsValue,
     limits: CanonicalDecodeLimits,
     admission: &RuntimeAdmissionLimitsV1,
-) -> Result<Vec<ReplayTickManifestV5>, ManifestCodecError> {
+) -> Result<Vec<ReplayTickManifestV6>, ManifestCodecError> {
     into_array(value, "ticks")?
         .into_iter()
         .map(|row| {
             let mut object = into_object(row, "ticks[]")?;
             let tick = decode_u64_string(take(&mut object, "tick")?, "ticks[].tick")?;
+            let world_streaming_input =
+                decode_world_streaming_input(take(&mut object, "world_streaming_input")?)?;
             let closed_ingress_batch = ClosedIngressBatchV1::from_canonical_bytes(
                 &decode_hex(
                     take(&mut object, "closed_ingress_batch")?,
@@ -135,14 +138,29 @@ pub(super) fn decode_replay_ticks_v5(
                 .map_err(ManifestCodecError::from)
             })
             .collect::<Result<Vec<_>, _>>()?;
+            let expected_interaction_availability = into_array(
+                take(&mut object, "expected_interaction_availability")?,
+                "ticks[].expected_interaction_availability",
+            )?
+            .into_iter()
+            .map(|value| {
+                InteractionAvailabilityV1::from_canonical_bytes(
+                    &decode_hex(value, "ticks[].expected_interaction_availability[]")?,
+                    limits,
+                )
+                .map_err(ManifestValidationError::from)
+                .map_err(ManifestCodecError::from)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
             let expected_command_results =
                 decode_command_results(take(&mut object, "expected_command_results")?)?;
             let expected_events = decode_domain_events(take(&mut object, "expected_events")?)?;
             if let Some(field) = object.into_keys().next() {
                 return Err(ManifestCodecError::UnknownField(format!("ticks[].{field}")));
             }
-            Ok(ReplayTickManifestV5 {
+            Ok(ReplayTickManifestV6 {
                 tick,
+                world_streaming_input,
                 closed_ingress_batch,
                 direct_external_commands,
                 expected_ingress_command_batch,
@@ -154,6 +172,7 @@ pub(super) fn decode_replay_ticks_v5(
                 expected_physics_query_results,
                 expected_outcome_command_batch,
                 expected_mapping_receipts,
+                expected_interaction_availability,
                 expected_command_results,
                 expected_events,
             })

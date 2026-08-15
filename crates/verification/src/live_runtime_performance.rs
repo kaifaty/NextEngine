@@ -290,7 +290,7 @@ mod tests {
             super::run_live_runtime_performance_check().expect("live runtime performance gate");
         println!("{report:?}");
         assert_eq!(report.ticks, 900);
-        assert_eq!(report.command_body_count, 900);
+        assert_eq!(report.command_body_count, 901);
         assert_eq!(report.driver_prepare_microseconds.len(), 900);
         assert_eq!(report.driver_commit_microseconds.len(), 900);
         assert_eq!(

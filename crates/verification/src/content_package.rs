@@ -2,14 +2,15 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::path::Path;
 
-use next_assets::ContentStore;
+use next_assets::{ContentPublicationV1, ContentStore, PublicationFileV1};
 use next_contracts::command::WorldCommand;
-use next_contracts::ids::{AssetId, ContentHash, PhysicsContactId};
+use next_contracts::ids::{AssetId, ContentHash, PersistentId, PhysicsContactId};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::ContactPhaseV1;
+use next_contracts::project::ProjectLockV3;
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1};
 use next_project::{
-    ProjectActivationError, ProjectCookError, activate_project_package, cook_project_v2,
+    ProjectActivationError, ProjectCookError, activate_project_package, cook_project_v3,
 };
 use next_render::{RenderTargetV1, build_b0_frame_plan};
 
@@ -49,8 +50,13 @@ pub fn run_content_package_check_in(
 pub(crate) fn run_content_package_check_with_scratch(
     scratch: &ScratchContext,
 ) -> Result<ContentPackageCheckReport, ContentPackageCheckError> {
-    let source = next_reference_game::project_source_v2()?;
-    let cooked = cook_project_v2(source)?;
+    let source = next_reference_game::project_source_v3()?;
+    if source.root_asset_ids.len() != 28 {
+        return Err(ContentPackageCheckError::FixtureClosureMismatch);
+    }
+    verify_world_routine_source_faults()?;
+    let cooked = cook_project_v3(source)?;
+    verify_world_routine_publication_faults(scratch, &cooked)?;
     let directory = scratch
         .create_directory("content-package")
         .map_err(ContentPackageCheckError::Cleanup)?;
@@ -67,7 +73,7 @@ pub(crate) fn run_content_package_check_with_scratch(
             run_reference_wasm_plugin(activated.clone())?;
         let catalog = &activated.render_content_catalog;
         let fallback_plan = fallback_material_plan(&prepared)?;
-        if activated.content_manifest.body.asset_entries.len() != 113
+        if activated.content_manifest.body.asset_entries.len() != 114
             || activated.text_catalogs.len() != 2
             || activated.audio_clips.len() != 4
             || activated.neutral_skeletons.len() != 1
@@ -76,6 +82,13 @@ pub(crate) fn run_content_package_check_with_scratch(
             || activated.world_partition.body.chunk_bindings.len() != 64
             || activated.rpg_definitions.packages.len() != 2
             || activated.rpg_definitions.abilities.len() != 1
+            || activated.world_routine_catalog_or_none.is_none()
+            || activated
+                .rpg_definitions
+                .interactions
+                .first()
+                .and_then(|interaction| interaction.availability_condition_or_none)
+                .is_none()
             || catalog.meshes().len() != 10
             || catalog.materials().len() != 11
             || catalog.textures().len() != 7
@@ -121,6 +134,157 @@ pub(crate) fn run_content_package_check_with_scratch(
         })
     })();
     directory.finish(result, ContentPackageCheckError::Cleanup)
+}
+
+fn verify_world_routine_source_faults() -> Result<(), ContentPackageCheckError> {
+    use next_contracts::world_routine::WorldRoutineActivityV1;
+
+    let invalid = |source| matches!(cook_project_v3(source), Err(ProjectCookError::InvalidValue));
+
+    let mut zero_ratio = next_reference_game::project_source_v3()?;
+    zero_ratio
+        .world_routine_catalog_or_none
+        .as_mut()
+        .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?
+        .profile
+        .world_ticks_per_simulation_tick_num = 0;
+
+    let mut overflow = next_reference_game::project_source_v3()?;
+    let overflow_catalog = overflow
+        .world_routine_catalog_or_none
+        .as_mut()
+        .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?;
+    overflow_catalog.profile.anchor_simulation_tick = u64::MAX;
+    overflow_catalog.profile.anchor_world_tick = 0;
+    overflow_catalog.profile.world_ticks_per_simulation_tick_num = 1;
+    overflow_catalog.profile.world_ticks_per_simulation_tick_den = 1;
+    overflow_catalog.routine.transition_world_tick = 1;
+
+    let mut invalid_boundary = next_reference_game::project_source_v3()?;
+    let boundary_catalog = invalid_boundary
+        .world_routine_catalog_or_none
+        .as_mut()
+        .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?;
+    boundary_catalog.routine.transition_world_tick = boundary_catalog.profile.anchor_world_tick;
+
+    let mut invalid_activity = next_reference_game::project_source_v3()?;
+    invalid_activity
+        .world_routine_catalog_or_none
+        .as_mut()
+        .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?
+        .routine
+        .next_activity = WorldRoutineActivityV1::Duty;
+
+    let mut invalid_condition = next_reference_game::project_source_v3()?;
+    invalid_condition
+        .world_routine_interaction_binding_or_none
+        .as_mut()
+        .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?
+        .required_activity = WorldRoutineActivityV1::Rest;
+
+    let mut missing_binding = next_reference_game::project_source_v3()?;
+    missing_binding.world_routine_interaction_binding_or_none = None;
+
+    let mut missing_catalog = next_reference_game::project_source_v3()?;
+    missing_catalog.world_routine_catalog_or_none = None;
+
+    let mut catalog_identity_collision = next_reference_game::project_source_v3()?;
+    let colliding_asset_id = catalog_identity_collision.records[0].asset_id;
+    catalog_identity_collision
+        .world_routine_catalog_or_none
+        .as_mut()
+        .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?
+        .catalog_asset_id = colliding_asset_id;
+
+    if !invalid(zero_ratio)
+        || !invalid(overflow)
+        || !invalid(invalid_boundary)
+        || !invalid(invalid_activity)
+        || !invalid(invalid_condition)
+        || !invalid(missing_binding)
+        || !invalid(missing_catalog)
+        || !matches!(
+            cook_project_v3(catalog_identity_collision),
+            Err(ProjectCookError::DuplicateIdentity)
+        )
+    {
+        return Err(ContentPackageCheckError::FixtureClosureMismatch);
+    }
+    Ok(())
+}
+
+fn verify_world_routine_publication_faults(
+    scratch: &ScratchContext,
+    cooked: &next_project::CookedProjectV3,
+) -> Result<(), ContentPackageCheckError> {
+    let stale_directory = scratch
+        .create_directory("content-package-stale-profile")
+        .map_err(ContentPackageCheckError::Cleanup)?;
+    let stale_result = (|| {
+        let original = cooked.publication()?;
+        let mut stale_lock = cooked.project_lock.clone();
+        stale_lock.runtime_determinism_profile_sha256 = ContentHash::from_bytes([0xfa; 32]);
+        let stale_lock = ProjectLockV3::new(stale_lock)
+            .map_err(|_| ContentPackageCheckError::FixtureClosureMismatch)?;
+        let files = original
+            .files
+            .iter()
+            .map(|file| {
+                PublicationFileV1::new(
+                    file.relative_path(),
+                    if file.relative_path() == "manifests/project-lock.json" {
+                        stale_lock.to_jcs_bytes()
+                    } else {
+                        file.bytes().to_vec()
+                    },
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let store = ContentStore::new(stale_directory.path());
+        store.publish(&ContentPublicationV1::new(
+            stale_lock.project_lock_sha256,
+            files,
+        )?)?;
+        if !matches!(
+            activate_project_package(&store),
+            Err(ProjectActivationError::HashMismatch)
+        ) {
+            return Err(ContentPackageCheckError::FixtureClosureMismatch);
+        }
+        Ok(())
+    })();
+    stale_directory.finish(stale_result, ContentPackageCheckError::Cleanup)?;
+
+    let collision_directory = scratch
+        .create_directory("content-package-subject-collision")
+        .map_err(ContentPackageCheckError::Cleanup)?;
+    let collision_result = (|| {
+        let mut source = next_reference_game::project_source_v3()?;
+        let colliding_subject = PersistentId::from_bytes([0x54; 16]);
+        source
+            .world_routine_catalog_or_none
+            .as_mut()
+            .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?
+            .routine
+            .subject_id = colliding_subject;
+        source
+            .world_routine_interaction_binding_or_none
+            .as_mut()
+            .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?
+            .subject_id = colliding_subject;
+        let collision_cooked = cook_project_v3(source)?;
+        let store = ContentStore::new(collision_directory.path());
+        store.publish(&collision_cooked.publication()?)?;
+        let activated = activate_project_package(&store)?;
+        if !matches!(
+            next_reference_game::build_reference_game_session(activated.project),
+            Err(next_reference_game::ReferenceGameError::WorldRoutineContentInvalid)
+        ) {
+            return Err(ContentPackageCheckError::FixtureClosureMismatch);
+        }
+        Ok(())
+    })();
+    collision_directory.finish(collision_result, ContentPackageCheckError::Cleanup)
 }
 
 fn fallback_material_plan(
@@ -180,7 +344,7 @@ fn fallback_material_plan(
 }
 
 fn run_reference_wasm_plugin(
-    activated: next_contracts::project::ActivatedProjectV3,
+    activated: next_contracts::project::ActivatedProjectV4,
 ) -> Result<(i32, ContentHash, u16), ContentPackageCheckError> {
     let fixture = crate::build_neutral_player_fixture_from_activated_project(activated)?;
     let snapshot = crate::cooked_project_rpg_snapshot(&fixture);
@@ -265,7 +429,7 @@ fn run_reference_wasm_plugin(
 }
 
 fn run_reference_luau_package(
-    activated: next_contracts::project::ActivatedProjectV3,
+    activated: next_contracts::project::ActivatedProjectV4,
 ) -> Result<(i32, ContentHash), ContentPackageCheckError> {
     let fixture = crate::build_neutral_player_fixture_from_activated_project(activated)?;
     let snapshot = crate::cooked_project_rpg_snapshot(&fixture);
@@ -469,7 +633,7 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert_eq!(report.records, 113);
+        assert_eq!(report.records, 114);
         assert_eq!(report.chunks, 64);
         assert_eq!(report.mechanic_packages, 2);
         assert_eq!(report.wasm_plugins, 1);

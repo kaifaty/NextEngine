@@ -5,14 +5,17 @@ use next_contracts::identity::{
     RuntimeDeterminismBundleV1, WorldIdentityManifestV1,
 };
 use next_contracts::ids::{
-    CapabilityId, CommandStreamId, ProjectId, SchemaId, content_hash_from_bytes,
+    CapabilityId, CommandStreamId, ProjectId, SchemaId, SystemId, content_hash_from_bytes,
 };
-use next_runtime::{AuthorityRegistry, RuntimeBootstrapV3};
+use next_contracts::world_routine::{
+    WORLD_ROUTINE_CAPABILITY_ID, WORLD_ROUTINE_CAPABILITY_SUBJECT_ID, WORLD_ROUTINE_SYSTEM_ID,
+};
+use next_runtime::{AuthorityRegistry, RuntimeBootstrapV4};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug)]
 pub struct ReferenceRuntimeBootstrap {
-    pub bootstrap: RuntimeBootstrapV3,
+    pub bootstrap: RuntimeBootstrapV4,
     pub authority: AuthorityRegistry,
     pub streams: BTreeMap<IssuerPrincipal, CommandStreamId>,
 }
@@ -45,21 +48,38 @@ pub fn build_reference_runtime_bootstrap(
         return Err(crate::ReferenceGameError::DuplicatePrincipal);
     }
     for (principal, capabilities) in grants {
-        let principal_bytes = principal.canonical_bytes()?;
-        let mut provenance = Vec::new();
-        provenance.extend_from_slice(world_identity.world_namespace.as_bytes());
-        provenance.extend_from_slice(&(principal_bytes.len() as u64).to_le_bytes());
-        provenance.extend_from_slice(&principal_bytes);
-        let provenance_hash = content_hash_from_bytes(sha256(&provenance));
-        principal_registry.register(
-            principal.clone(),
-            PrincipalRecordV1 {
-                provenance_hash,
-                capability_subject_id: SchemaId::new(format!(
+        let routine_principal =
+            IssuerPrincipal::InternalSystem(SystemId::new(WORLD_ROUTINE_SYSTEM_ID)?);
+        let (provenance_hash, capability_subject_id) = if principal == routine_principal {
+            if capabilities.as_slice() != [CapabilityId::new(WORLD_ROUTINE_CAPABILITY_ID)?] {
+                return Err(crate::ReferenceGameError::DuplicatePrincipal);
+            }
+            (
+                content_hash_from_bytes(sha256(
+                    b"nextengine.principal.world-routine-boundary.v1\0",
+                )),
+                SchemaId::new(WORLD_ROUTINE_CAPABILITY_SUBJECT_ID)?,
+            )
+        } else {
+            let principal_bytes = principal.canonical_bytes()?;
+            let mut provenance = Vec::new();
+            provenance.extend_from_slice(world_identity.world_namespace.as_bytes());
+            provenance.extend_from_slice(&(principal_bytes.len() as u64).to_le_bytes());
+            provenance.extend_from_slice(&principal_bytes);
+            (
+                content_hash_from_bytes(sha256(&provenance)),
+                SchemaId::new(format!(
                     "fixture.principal.{}.{}",
                     principal.tag(),
                     hex_identifier(principal.identifier_bytes())
                 ))?,
+            )
+        };
+        principal_registry.register(
+            principal.clone(),
+            PrincipalRecordV1 {
+                provenance_hash,
+                capability_subject_id,
                 status: PrincipalStatus::Active,
             },
         )?;
@@ -68,7 +88,7 @@ pub fn build_reference_runtime_bootstrap(
         streams.insert(principal, stream_id);
     }
     Ok(ReferenceRuntimeBootstrap {
-        bootstrap: RuntimeBootstrapV3::new(
+        bootstrap: RuntimeBootstrapV4::new(
             world_identity,
             principal_registry,
             stream_registry,

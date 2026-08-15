@@ -4,8 +4,8 @@ use super::*;
 fn live_ui_screen_toggles_are_deterministic_and_back_closes_before_pause() {
     let root = test_root("live-ui-screen-toggles");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
@@ -13,7 +13,7 @@ fn live_ui_screen_toggles_are_deterministic_and_back_closes_before_pause() {
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
 
-    let mut driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+    let mut driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .expect("live driver");
     let en_resolver = reference_game_support::text_resolver(&activated, "en");
 

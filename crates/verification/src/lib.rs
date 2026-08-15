@@ -89,7 +89,7 @@ pub use render_performance::{
 pub use replay::{
     ReplayComparePointMismatch, ReplayError, ReplayInput, ReplayOutput, ReplayTickInput,
     ReplayTickRecord, RpgReplayInput, RpgReplayOutput, compare_replay_outputs,
-    compute_world_checkpoint_root, run_replay, run_replay_manifest_v5, run_rpg_replay,
+    compute_world_checkpoint_root, run_replay, run_replay_manifest_v6, run_rpg_replay,
     verify_replay,
 };
 pub use runtime_fixture::{
@@ -109,7 +109,4 @@ pub use v1_closure::{
     run_v1_closure_check, run_v1_closure_check_in,
 };
 
-pub(crate) use replay::{
-    checkpoint_segment_hashes, replay_command_results,
-    run_replay_manifest_v5_with_definitions_and_physics_options,
-};
+pub(crate) use replay::{replay_command_results, run_replay_manifest_v6_with_physics_options};

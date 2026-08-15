@@ -1,5 +1,5 @@
 {
-  "format": "nextengine.project-authoring.v2",
+  "format": "nextengine.project-authoring.v3",
   "project": {
     "project_id": "org.nextengine.reference-alpha",
     "project_revision": 7
@@ -1618,6 +1618,29 @@
       "source_span": { "relative_path": "assets/humanoid-cc0.catalog.json", "line": 1, "column": 1 }
     }
   ],
+  "world_routine_catalog": {
+    "schema_version": 1,
+    "catalog_asset_id": "94949494949494949494949494949494",
+    "profile": {
+      "schema_version": 1,
+      "anchor_simulation_tick": 0,
+      "anchor_world_tick": 0,
+      "world_ticks_per_simulation_tick_num": 1,
+      "world_ticks_per_simulation_tick_den": 1
+    },
+    "routine": {
+      "schema_version": 1,
+      "subject_id": "64646464646464646464646464646464",
+      "initial_activity": "duty",
+      "transition_world_tick": 2,
+      "next_activity": "rest"
+    }
+  },
+  "world_routine_interaction_binding": {
+    "interaction_id": "nextengine.reference-alpha.interaction.accept-frontier-relay",
+    "subject_id": "64646464646464646464646464646464",
+    "required_activity": "duty"
+  },
   "root_asset_ids": [
     "01010101010101010101010101010101",
     "81818181818181818181818181818181",
@@ -1645,7 +1668,8 @@
     "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b",
     "8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c",
     "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
-    "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+    "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+    "94949494949494949494949494949494"
   ],
   "allowed_presentation_targets": ["none", "interactive", "displayless-offscreen"]
 }

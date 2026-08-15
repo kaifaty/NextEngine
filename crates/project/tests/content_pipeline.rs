@@ -6,15 +6,17 @@ use next_assets::{
 use next_contracts::content::NeutralRecordKindV1;
 use next_contracts::ids::PersistentId;
 use next_contracts::ids::{AssetId, ContentHash, SchemaId, content_hash_from_bytes};
+use next_contracts::mechanics::interaction_definition_hash_v2;
+use next_contracts::project::ProjectLockV3;
 use next_contracts::render_content::{
     B0RenderContentProfileV1, NeutralRenderRecordV1, RenderContentContractError,
 };
-use next_project::{ProjectActivationError, ProjectCookError, activate_project, cook_project_v2};
+use next_project::{ProjectActivationError, ProjectCookError, activate_project, cook_project_v3};
 
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
-fn retired_authoring_format_is_rejected_before_v2_schema_decode() {
+fn retired_authoring_format_is_rejected_before_v3_schema_decode() {
     let root = test_root("authoring-v1");
     std::fs::create_dir_all(&root).expect("create test project");
     std::fs::write(
@@ -22,7 +24,7 @@ fn retired_authoring_format_is_rejected_before_v2_schema_decode() {
         br#"{"format":"nextengine.project-authoring.v1","legacy":true}"#,
     )
     .expect("write retired authoring manifest");
-    let error = next_project::load_project_authoring_v2(&root).expect_err("v1 must reject");
+    let error = next_project::load_project_authoring_v3(&root).expect_err("v1 must reject");
     assert_eq!(
         error.diagnostic_code(),
         "UNSUPPORTED_PROJECT_AUTHORING_FORMAT"
@@ -31,15 +33,34 @@ fn retired_authoring_format_is_rejected_before_v2_schema_decode() {
 }
 
 #[test]
+fn duplicate_authored_routine_catalog_field_is_rejected_before_source_access() {
+    let root = test_root("duplicate-routine-catalog");
+    std::fs::create_dir_all(&root).expect("create test project");
+    std::fs::write(
+        root.join(next_project::PROJECT_AUTHORING_MANIFEST_FILE),
+        br#"{
+            "format":"nextengine.project-authoring.v3",
+            "world_routine_catalog":null,
+            "world_routine_catalog":null
+        }"#,
+    )
+    .expect("write duplicate authored catalog");
+    let error = next_project::load_project_authoring_v3(&root)
+        .expect_err("duplicate authored catalog must reject");
+    assert_eq!(error.diagnostic_code(), "PROJECT_MANIFEST_INVALID");
+    std::fs::remove_dir_all(root).expect("remove test project");
+}
+
+#[test]
 fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() {
-    let first = cook_project_v2(next_reference_game::project_source_v2().expect("fixture"))
+    let first = cook_project_v3(next_reference_game::project_source_v3().expect("fixture"))
         .expect("first cook");
-    let mut reordered = next_reference_game::project_source_v2().expect("fixture");
+    let mut reordered = next_reference_game::project_source_v3().expect("fixture");
     reordered.records.reverse();
     reordered.render_records.reverse();
     reordered.root_asset_ids.reverse();
     reordered.chunks.reverse();
-    let second = cook_project_v2(reordered).expect("second cook");
+    let second = cook_project_v3(reordered).expect("second cook");
     assert_eq!(first, second);
     assert_eq!(
         first.publication().expect("publication"),
@@ -56,7 +77,8 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.project_lock.project_lock_sha256,
         first.project_lock.project_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 113);
+    assert_eq!(activated.content_manifest.body.root_assets.len(), 28);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 114);
     assert_eq!(activated.neutral_records.len(), 76);
     assert_eq!(activated.world_partition.body.root_region_ids.len(), 4);
     assert_eq!(activated.world_partition.body.chunk_bindings.len(), 64);
@@ -74,6 +96,75 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
     }
     assert_eq!(activated.rpg_definitions.abilities.len(), 1);
     assert_eq!(activated.rpg_definitions.packages.len(), 2);
+    let routine_catalog = activated
+        .world_routine_catalog_or_none
+        .as_ref()
+        .expect("reference project has one routine catalog");
+    let accept = activated
+        .rpg_definitions
+        .interactions
+        .iter()
+        .find(|interaction| {
+            interaction.interaction_id.as_str()
+                == "nextengine.reference-alpha.interaction.accept-frontier-relay"
+        })
+        .expect("accept interaction");
+    assert_eq!(
+        accept.availability_condition_or_none,
+        Some(
+            next_contracts::world_routine::WorldRoutineActivityConditionV1 {
+                subject_id: routine_catalog.routine.subject_id,
+                required_activity: next_contracts::world_routine::WorldRoutineActivityV1::Duty,
+            }
+        )
+    );
+    assert!(
+        activated
+            .rpg_definitions
+            .interactions
+            .iter()
+            .find(|interaction| {
+                interaction.interaction_id.as_str()
+                    == "nextengine.reference-alpha.interaction.complete-frontier-relay"
+            })
+            .expect("complete interaction")
+            .availability_condition_or_none
+            .is_none()
+    );
+    assert!(
+        activated
+            .content_manifest
+            .body
+            .asset_entries
+            .iter()
+            .any(|entry| {
+                entry.asset_revision.asset_id == routine_catalog.catalog_asset_id
+                    && entry.asset_revision.record_sha256
+                        == routine_catalog.revision().expect("catalog revision")
+            })
+    );
+
+    let mut unconditioned_source = next_reference_game::project_source_v3().expect("fixture");
+    let catalog_asset_id = unconditioned_source
+        .world_routine_catalog_or_none
+        .expect("reference catalog")
+        .catalog_asset_id;
+    unconditioned_source.world_routine_catalog_or_none = None;
+    unconditioned_source.world_routine_interaction_binding_or_none = None;
+    unconditioned_source
+        .root_asset_ids
+        .retain(|asset_id| *asset_id != catalog_asset_id);
+    let unconditioned = cook_project_v3(unconditioned_source).expect("unconditioned cook");
+    let unconditioned_accept = unconditioned
+        .rpg_definitions
+        .interactions
+        .iter()
+        .find(|interaction| interaction.interaction_id == accept.interaction_id)
+        .expect("unconditioned accept interaction");
+    assert_ne!(
+        interaction_definition_hash_v2(accept),
+        interaction_definition_hash_v2(unconditioned_accept)
+    );
     assert_eq!(activated.render_content_catalog.meshes().len(), 10);
     assert_eq!(activated.render_content_catalog.materials().len(), 11);
     assert_eq!(activated.render_content_catalog.textures().len(), 7);
@@ -128,45 +219,179 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
 
 #[test]
 fn chunk_binding_identity_class_and_dependency_faults_fail_before_publication() {
-    let mut duplicate_chunk = next_reference_game::project_source_v2().expect("fixture");
+    let mut duplicate_chunk = next_reference_game::project_source_v3().expect("fixture");
     duplicate_chunk.chunks[1].chunk_id = duplicate_chunk.chunks[0].chunk_id.clone();
     assert!(matches!(
-        cook_project_v2(duplicate_chunk),
+        cook_project_v3(duplicate_chunk),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 
-    let mut duplicate_asset = next_reference_game::project_source_v2().expect("fixture");
+    let mut duplicate_asset = next_reference_game::project_source_v3().expect("fixture");
     duplicate_asset.chunks[1].chunk_asset_id = duplicate_asset.chunks[0].chunk_asset_id;
     assert!(matches!(
-        cook_project_v2(duplicate_asset),
+        cook_project_v3(duplicate_asset),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 
-    let mut missing_asset = next_reference_game::project_source_v2().expect("fixture");
+    let mut missing_asset = next_reference_game::project_source_v3().expect("fixture");
     missing_asset.chunks[2].required_asset_ids[0] = AssetId::from_bytes([0xfe; 16]);
     assert!(matches!(
-        cook_project_v2(missing_asset),
+        cook_project_v3(missing_asset),
         Err(ProjectCookError::MissingReference)
     ));
 
-    let mut wrong_class = next_reference_game::project_source_v2().expect("fixture");
+    let mut wrong_class = next_reference_game::project_source_v3().expect("fixture");
     wrong_class.chunks[2].chunk_asset_id = AssetId::from_bytes([0x02; 16]);
     assert!(matches!(
-        cook_project_v2(wrong_class),
+        cook_project_v3(wrong_class),
         Err(ProjectCookError::InvalidValue)
     ));
 
-    let mut dependency_mismatch = next_reference_game::project_source_v2().expect("fixture");
+    let mut dependency_mismatch = next_reference_game::project_source_v3().expect("fixture");
     dependency_mismatch.chunks[2].required_asset_ids.clear();
     assert!(matches!(
-        cook_project_v2(dependency_mismatch),
+        cook_project_v3(dependency_mismatch),
         Err(ProjectCookError::InvalidValue)
     ));
 }
 
 #[test]
+fn malformed_world_routine_content_fails_before_publication() {
+    use next_contracts::world_routine::WorldRoutineActivityV1;
+
+    fn source() -> next_project::NeutralProjectSourceV3 {
+        next_reference_game::project_source_v3().expect("fixture")
+    }
+
+    let mut zero_ratio = source();
+    zero_ratio
+        .world_routine_catalog_or_none
+        .as_mut()
+        .expect("catalog")
+        .profile
+        .world_ticks_per_simulation_tick_num = 0;
+    assert!(matches!(
+        cook_project_v3(zero_ratio),
+        Err(ProjectCookError::InvalidValue)
+    ));
+
+    let mut overflow = source();
+    let overflow_catalog = overflow
+        .world_routine_catalog_or_none
+        .as_mut()
+        .expect("catalog");
+    overflow_catalog.profile.anchor_simulation_tick = u64::MAX;
+    overflow_catalog.profile.anchor_world_tick = 0;
+    overflow_catalog.profile.world_ticks_per_simulation_tick_num = 1;
+    overflow_catalog.profile.world_ticks_per_simulation_tick_den = 1;
+    overflow_catalog.routine.transition_world_tick = 1;
+    assert!(matches!(
+        cook_project_v3(overflow),
+        Err(ProjectCookError::InvalidValue)
+    ));
+
+    let mut invalid_boundary = source();
+    let invalid_boundary_catalog = invalid_boundary
+        .world_routine_catalog_or_none
+        .as_mut()
+        .expect("catalog");
+    invalid_boundary_catalog.routine.transition_world_tick =
+        invalid_boundary_catalog.profile.anchor_world_tick;
+    assert!(matches!(
+        cook_project_v3(invalid_boundary),
+        Err(ProjectCookError::InvalidValue)
+    ));
+
+    let mut invalid_activity = source();
+    invalid_activity
+        .world_routine_catalog_or_none
+        .as_mut()
+        .expect("catalog")
+        .routine
+        .next_activity = WorldRoutineActivityV1::Duty;
+    assert!(matches!(
+        cook_project_v3(invalid_activity),
+        Err(ProjectCookError::InvalidValue)
+    ));
+
+    let mut invalid_condition = source();
+    invalid_condition
+        .world_routine_interaction_binding_or_none
+        .as_mut()
+        .expect("binding")
+        .required_activity = WorldRoutineActivityV1::Rest;
+    assert!(matches!(
+        cook_project_v3(invalid_condition),
+        Err(ProjectCookError::InvalidValue)
+    ));
+
+    let mut missing_binding = source();
+    missing_binding.world_routine_interaction_binding_or_none = None;
+    assert!(matches!(
+        cook_project_v3(missing_binding),
+        Err(ProjectCookError::InvalidValue)
+    ));
+
+    let mut missing_catalog = source();
+    missing_catalog.world_routine_catalog_or_none = None;
+    assert!(matches!(
+        cook_project_v3(missing_catalog),
+        Err(ProjectCookError::InvalidValue)
+    ));
+
+    let mut catalog_identity_collision = source();
+    catalog_identity_collision
+        .world_routine_catalog_or_none
+        .as_mut()
+        .expect("catalog")
+        .catalog_asset_id = catalog_identity_collision.records[0].asset_id;
+    assert!(matches!(
+        cook_project_v3(catalog_identity_collision),
+        Err(ProjectCookError::DuplicateIdentity)
+    ));
+}
+
+#[test]
+fn stale_runtime_profile_lock_fails_before_activation() {
+    let cooked =
+        cook_project_v3(next_reference_game::project_source_v3().expect("fixture")).expect("cook");
+    let original = cooked.publication().expect("publication");
+    let mut stale_lock = cooked.project_lock.clone();
+    stale_lock.runtime_determinism_profile_sha256 = ContentHash::from_bytes([0xfa; 32]);
+    let stale_lock = ProjectLockV3::new(stale_lock).expect("stale lock is structurally canonical");
+    let files = original
+        .files
+        .iter()
+        .map(|file| {
+            PublicationFileV1::new(
+                file.relative_path(),
+                if file.relative_path() == "manifests/project-lock.json" {
+                    stale_lock.to_jcs_bytes()
+                } else {
+                    file.bytes().to_vec()
+                },
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .expect("stale-profile publication files");
+    let root = test_root("stale-runtime-profile");
+    let store = ContentStore::new(&root);
+    store
+        .publish(
+            &ContentPublicationV1::new(stale_lock.project_lock_sha256, files)
+                .expect("storage-valid stale-profile publication"),
+        )
+        .expect("publish stale-profile generation");
+    assert!(matches!(
+        activate_project(&store),
+        Err(ProjectActivationError::HashMismatch)
+    ));
+    std::fs::remove_dir_all(root).expect("remove stale-profile store");
+}
+
+#[test]
 fn multiple_presentation_records_do_not_change_rpg_singleton_selection() {
-    let mut source = next_reference_game::project_source_v2().expect("fixture");
+    let mut source = next_reference_game::project_source_v3().expect("fixture");
     let mut second_scene = source
         .records
         .iter()
@@ -177,7 +402,7 @@ fn multiple_presentation_records_do_not_change_rpg_singleton_selection() {
     second_scene.record_id = PersistentId::from_bytes([0xe2; 16]);
     source.records.push(second_scene);
 
-    let cooked = cook_project_v2(source).expect("multiple presentation records");
+    let cooked = cook_project_v3(source).expect("multiple presentation records");
 
     assert_eq!(cooked.rpg_definitions.abilities.len(), 1);
     assert_eq!(cooked.rpg_definitions.interactions.len(), 2);
@@ -186,7 +411,7 @@ fn multiple_presentation_records_do_not_change_rpg_singleton_selection() {
 #[test]
 fn missing_blob_and_blob_hash_mismatch_fail_before_activation() {
     let cooked =
-        cook_project_v2(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
+        cook_project_v3(next_reference_game::project_source_v3().expect("fixture")).expect("cook");
     let root = test_root("missing");
     let store = ContentStore::new(&root);
     store
@@ -226,7 +451,7 @@ fn missing_blob_and_blob_hash_mismatch_fail_before_activation() {
 #[test]
 fn missing_cooked_mesh_payload_fails_before_activation() {
     let cooked =
-        cook_project_v2(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
+        cook_project_v3(next_reference_game::project_source_v3().expect("fixture")).expect("cook");
     let root = test_root("missing-cooked-mesh");
     let store = ContentStore::new(&root);
     store
@@ -253,7 +478,7 @@ fn missing_cooked_mesh_payload_fails_before_activation() {
 #[test]
 fn storage_valid_but_corrupt_render_catalog_fails_activation() {
     let cooked =
-        cook_project_v2(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
+        cook_project_v3(next_reference_game::project_source_v3().expect("fixture")).expect("cook");
     let original = cooked.publication().expect("publication");
     let files = original
         .files
@@ -287,7 +512,7 @@ fn storage_valid_but_corrupt_render_catalog_fails_activation() {
 #[test]
 fn invalid_activation_never_replaces_the_callers_active_project() {
     let cooked =
-        cook_project_v2(next_reference_game::project_source_v2().expect("fixture")).expect("cook");
+        cook_project_v3(next_reference_game::project_source_v3().expect("fixture")).expect("cook");
     let root = test_root("activation-fault");
     let store = ContentStore::new(&root);
     store
@@ -333,38 +558,38 @@ fn invalid_activation_never_replaces_the_callers_active_project() {
 
 #[test]
 fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
-    let mut malformed = next_reference_game::project_source_v2().expect("fixture");
+    let mut malformed = next_reference_game::project_source_v3().expect("fixture");
     malformed.records[0].schema_ref.schema_id =
         SchemaId::new("nextengine.content.wrong.v1").expect("valid ID");
     assert!(matches!(
-        cook_project_v2(malformed),
+        cook_project_v3(malformed),
         Err(ProjectCookError::Neutral(_))
     ));
 
-    let mut missing = next_reference_game::project_source_v2().expect("fixture");
+    let mut missing = next_reference_game::project_source_v3().expect("fixture");
     missing.records[0]
         .asset_dependencies
         .push(AssetId::from_bytes([0xfe; 16]));
     assert!(matches!(
-        cook_project_v2(missing),
+        cook_project_v3(missing),
         Err(ProjectCookError::MissingReference)
     ));
 
-    let mut duplicate = next_reference_game::project_source_v2().expect("fixture");
+    let mut duplicate = next_reference_game::project_source_v3().expect("fixture");
     duplicate.records[1].asset_id = duplicate.records[0].asset_id;
     assert!(matches!(
-        cook_project_v2(duplicate),
+        cook_project_v3(duplicate),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 
-    let mut cross_kind_duplicate = next_reference_game::project_source_v2().expect("fixture");
+    let mut cross_kind_duplicate = next_reference_game::project_source_v3().expect("fixture");
     cross_kind_duplicate.records[0].asset_id = cross_kind_duplicate.render_records[0].asset_id();
     assert!(matches!(
-        cook_project_v2(cross_kind_duplicate),
+        cook_project_v3(cross_kind_duplicate),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 
-    let mut missing_fallback = next_reference_game::project_source_v2().expect("fixture");
+    let mut missing_fallback = next_reference_game::project_source_v3().expect("fixture");
     let fallback_texture = missing_fallback
         .render_records
         .iter()
@@ -377,22 +602,22 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
         .render_records
         .retain(|record| record.asset_id() != fallback_texture);
     assert!(matches!(
-        cook_project_v2(missing_fallback),
+        cook_project_v3(missing_fallback),
         Err(ProjectCookError::MissingReference)
     ));
 
-    let mut missing_profile = next_reference_game::project_source_v2().expect("fixture");
+    let mut missing_profile = next_reference_game::project_source_v3().expect("fixture");
     missing_profile
         .render_records
         .retain(|record| !matches!(record, NeutralRenderRecordV1::Profile(_)));
     assert!(matches!(
-        cook_project_v2(missing_profile),
+        cook_project_v3(missing_profile),
         Err(ProjectCookError::Render(
             RenderContentContractError::MissingReference
         ))
     ));
 
-    let mut duplicate_profile = next_reference_game::project_source_v2().expect("fixture");
+    let mut duplicate_profile = next_reference_game::project_source_v3().expect("fixture");
     let profile = duplicate_profile
         .render_records
         .iter()
@@ -412,17 +637,17 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
     .expect("second profile");
     duplicate_profile.render_records.push(second_profile.into());
     assert!(matches!(
-        cook_project_v2(duplicate_profile),
+        cook_project_v3(duplicate_profile),
         Err(ProjectCookError::Render(
             RenderContentContractError::DuplicateIdentity
         ))
     ));
 
-    let mut cycle = next_reference_game::project_source_v2().expect("fixture");
+    let mut cycle = next_reference_game::project_source_v3().expect("fixture");
     let scene = cycle.records[0].asset_id;
     cycle.records[1].asset_dependencies.push(scene);
     assert!(matches!(
-        cook_project_v2(cycle),
+        cook_project_v3(cycle),
         Err(ProjectCookError::Contract(
             next_contracts::project::ProjectContractError::DependencyCycle
         ))
@@ -449,7 +674,7 @@ fn localization_closure_violations_are_rejected_before_publication() {
         .expect("rebuilt catalog")
     }
 
-    let mut duplicate_locale = next_reference_game::project_source_v2().expect("fixture");
+    let mut duplicate_locale = next_reference_game::project_source_v3().expect("fixture");
     duplicate_locale.text_catalogs[1] = rebuild(
         &duplicate_locale.text_catalogs[1].clone(),
         AssetId::from_bytes([0x92; 16]),
@@ -457,11 +682,11 @@ fn localization_closure_violations_are_rejected_before_publication() {
         None,
     );
     assert!(matches!(
-        cook_project_v2(duplicate_locale),
+        cook_project_v3(duplicate_locale),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 
-    let mut two_roots = next_reference_game::project_source_v2().expect("fixture");
+    let mut two_roots = next_reference_game::project_source_v3().expect("fixture");
     two_roots.text_catalogs[1] = rebuild(
         &two_roots.text_catalogs[1].clone(),
         AssetId::from_bytes([0x92; 16]),
@@ -469,11 +694,11 @@ fn localization_closure_violations_are_rejected_before_publication() {
         None,
     );
     assert!(matches!(
-        cook_project_v2(two_roots),
+        cook_project_v3(two_roots),
         Err(ProjectCookError::LocalizationClosureInvalid)
     ));
 
-    let mut missing_fallback = next_reference_game::project_source_v2().expect("fixture");
+    let mut missing_fallback = next_reference_game::project_source_v3().expect("fixture");
     missing_fallback.text_catalogs[1] = rebuild(
         &missing_fallback.text_catalogs[1].clone(),
         AssetId::from_bytes([0x92; 16]),
@@ -481,11 +706,11 @@ fn localization_closure_violations_are_rejected_before_publication() {
         Some("de"),
     );
     assert!(matches!(
-        cook_project_v2(missing_fallback),
+        cook_project_v3(missing_fallback),
         Err(ProjectCookError::MissingReference)
     ));
 
-    let mut cyclic = next_reference_game::project_source_v2().expect("fixture");
+    let mut cyclic = next_reference_game::project_source_v3().expect("fixture");
     cyclic.text_catalogs[1] = rebuild(
         &cyclic.text_catalogs[1].clone(),
         AssetId::from_bytes([0x92; 16]),
@@ -500,11 +725,11 @@ fn localization_closure_violations_are_rejected_before_publication() {
     );
     cyclic.text_catalogs.push(cyclic_de);
     assert!(matches!(
-        cook_project_v2(cyclic),
+        cook_project_v3(cyclic),
         Err(ProjectCookError::LocalizationClosureInvalid)
     ));
 
-    let mut shared_asset_id = next_reference_game::project_source_v2().expect("fixture");
+    let mut shared_asset_id = next_reference_game::project_source_v3().expect("fixture");
     shared_asset_id.text_catalogs[1] = rebuild(
         &shared_asset_id.text_catalogs[1].clone(),
         shared_asset_id.records[0].asset_id,
@@ -512,7 +737,7 @@ fn localization_closure_violations_are_rejected_before_publication() {
         Some("en"),
     );
     assert!(matches!(
-        cook_project_v2(shared_asset_id),
+        cook_project_v3(shared_asset_id),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 }
@@ -537,9 +762,9 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
     )
     .expect("clip");
 
-    let mut source = next_reference_game::project_source_v2().expect("fixture");
+    let mut source = next_reference_game::project_source_v3().expect("fixture");
     source.audio_records.push(clip.clone());
-    let cooked = cook_project_v2(source).expect("cook with audio");
+    let cooked = cook_project_v3(source).expect("cook with audio");
     let audio_entries: Vec<_> = cooked
         .content_manifest
         .body
@@ -572,7 +797,7 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
     assert!(activated.audio_clips.contains(&clip));
     std::fs::remove_dir_all(root).expect("remove audio store");
 
-    let mut duplicate = next_reference_game::project_source_v2().expect("fixture");
+    let mut duplicate = next_reference_game::project_source_v3().expect("fixture");
     duplicate.audio_records.push(
         NeutralAudioV1::new(
             duplicate.records[0].asset_id,
@@ -589,16 +814,16 @@ fn audio_clips_cook_publish_and_activate_through_production_loader() {
         .expect("clip"),
     );
     assert!(matches!(
-        cook_project_v2(duplicate),
+        cook_project_v3(duplicate),
         Err(ProjectCookError::DuplicateIdentity)
     ));
 
-    let mut invalid = next_reference_game::project_source_v2().expect("fixture");
+    let mut invalid = next_reference_game::project_source_v3().expect("fixture");
     let mut invalid_clip = clip;
     invalid_clip.sample_rate_hz = 7_999;
     invalid.audio_records.push(invalid_clip);
     assert!(matches!(
-        cook_project_v2(invalid),
+        cook_project_v3(invalid),
         Err(ProjectCookError::Audio(_))
     ));
 }

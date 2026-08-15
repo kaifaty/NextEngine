@@ -12,8 +12,9 @@ mod result;
 mod state;
 mod targeting;
 mod tick;
+mod world_routine;
 
-pub use bootstrap::{RuntimeBootstrapV3, bootstrap_equipment_slot_policy_hash_v1};
+pub use bootstrap::{RuntimeBootstrapV4, bootstrap_equipment_slot_policy_hash_v1};
 pub use error::{InputAdmissionError, RuntimeFatalError, SnapshotRestoreError};
 pub use physics::PhysicsLaunchOptions;
 pub use replay::{RuntimeReplayDriver, RuntimeReplayError};
@@ -22,8 +23,10 @@ pub use result::{
 };
 pub use state::RuntimeState;
 pub use tick::{
-    PreparedRuntimeTick, PreparedRuntimeWorldTick, RuntimeTickPreparation, ValidatedRuntimeTick,
-    ValidatedRuntimeWorldTick,
+    PreparedRuntimeTick, PreparedRuntimeWorldServicesTickV1, PreparedRuntimeWorldTick,
+    RuntimeTickPreparation, ValidatedRuntimeTick, ValidatedRuntimeWorldServicesTickV1,
+    ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1, ValidatedRuntimeWorldTick,
+    WorldServicesTickCommitV1,
 };
 
 #[cfg(test)]

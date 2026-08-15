@@ -12,6 +12,7 @@ use next_contracts::physics::{
 use next_contracts::rpg::RpgSnapshotV2;
 use next_contracts::snapshot::RuntimeSnapshotV3;
 use next_contracts::targeting::{AuthoritativeTargetingQueryV1, TargetingIntentV1};
+use next_contracts::world_routine::InteractionAvailabilityV1;
 
 use crate::registry::CommandKindRegistry;
 
@@ -237,6 +238,7 @@ pub struct TickReport {
     pub authoritative_targeting_queries: Vec<AuthoritativeTargetingQueryV1>,
     pub physics_query_batch: PhysicsQueryBatchV1,
     pub physics_query_results: Vec<PhysicsQueryResultV1>,
+    pub interaction_availability: Vec<InteractionAvailabilityV1>,
     pub closed_ingress_batch: ClosedIngressBatchV1,
     pub mapping_receipts: Vec<InputMappingReceiptV2>,
     pub command_batches: Vec<ClosedCommandAdmissionBatchV2>,

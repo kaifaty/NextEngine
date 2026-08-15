@@ -52,7 +52,7 @@ pub(super) fn fixture_for(project_id: &str, principal: IssuerPrincipal) -> Fixtu
         )
         .expect("authority");
     let runtime = RuntimeState::new(
-        RuntimeBootstrapV3::new(world, principals, streams, profile),
+        RuntimeBootstrapV4::new(world, principals, streams, profile),
         authority,
     )
     .expect("runtime");
@@ -123,7 +123,7 @@ pub(super) fn physical_fixture() -> PhysicalFixture {
     let action_map_hash = action_map.content_hash;
     let context_stack = InputContextStackV1::gameplay_v1().expect("gameplay context stack");
     let context_stack_hash = context_stack.content_hash;
-    let mut bootstrap = RuntimeBootstrapV3::new(world, principals, streams, profile);
+    let mut bootstrap = RuntimeBootstrapV4::new(world, principals, streams, profile);
     let binding = PlayerControllerBindingV1 {
         principal: principal.clone(),
         source_id,

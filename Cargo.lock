@@ -669,6 +669,7 @@ dependencies = [
  "next_project",
  "next_reference_game",
  "next_runtime",
+ "next_world",
  "serde",
  "serde_json",
 ]

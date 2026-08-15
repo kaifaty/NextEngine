@@ -5,20 +5,20 @@
 //! neutral records consumed by the existing resolve/cook/activate path. The
 //! runtime never opens this file or any referenced source path.
 
+mod error_impl;
 mod schema;
 
 use std::collections::BTreeMap;
-use std::error::Error;
-use std::fmt::{Display, Formatter};
 use std::path::{Component, Path};
 
 use self::schema::{
-    AUTHORING_FORMAT_V2, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
+    AUTHORING_FORMAT_V3, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
     AuthoringHumanoidCatalogV1, AuthoringNeutralRecordKindV1, AuthoringPresentationTargetV1,
     AuthoringRenderRecordV1, AuthoringSourceReferenceV1, AuthoringSourceSpanV1,
-    AuthoringTextureAlphaV1, AuthoringTextureColorSpaceV1, ProjectAuthoringManifestV2,
+    AuthoringTextureAlphaV1, AuthoringTextureColorSpaceV1, AuthoringWorldRoutineActivityV1,
+    ProjectAuthoringManifestV3,
 };
-use crate::cook::{NeutralProjectSourceV2, SourceChunkBindingV1};
+use crate::cook::{NeutralProjectSourceV3, SourceChunkBindingV1};
 use crate::cook_support::schema_ref;
 use next_contracts::animation_content::{
     AnimationInterpolationV1, AnimationPropertyV1, AnimationWrapModeV1, NeutralAnimationChannelV1,
@@ -52,6 +52,10 @@ use next_contracts::render_content::{
     NeutralTextureV1, RenderContentContractError, UvTransformV1,
     b0_shader_interface_manifest_sha256,
 };
+use next_contracts::world_routine::{
+    WorldRoutineActivityV1, WorldRoutineCatalogV1, WorldRoutineDefinitionV1,
+    WorldRoutineInteractionBindingV1, WorldRoutineProfileV1,
+};
 
 pub const PROJECT_AUTHORING_MANIFEST_FILE: &str = "project.authoring.json";
 
@@ -60,31 +64,31 @@ struct ProjectAuthoringFormatProbe {
     format: String,
 }
 
-pub fn load_project_authoring_v2(
+pub fn load_project_authoring_v3(
     project_directory: impl AsRef<Path>,
-) -> Result<NeutralProjectSourceV2, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV3, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), None)
 }
 
-pub fn load_project_authoring_v2_with_project_id(
+pub fn load_project_authoring_v3_with_project_id(
     project_directory: impl AsRef<Path>,
     project_id: &str,
-) -> Result<NeutralProjectSourceV2, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV3, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), Some(project_id))
 }
 
 fn load_project_authoring_with_override(
     project_directory: &Path,
     project_id_override: Option<&str>,
-) -> Result<NeutralProjectSourceV2, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV3, ProjectAuthoringError> {
     let manifest_path = project_directory.join(PROJECT_AUTHORING_MANIFEST_FILE);
     let bytes = read_file(&manifest_path)?;
     let format: ProjectAuthoringFormatProbe = serde_json::from_slice(&bytes)?;
-    if format.format != AUTHORING_FORMAT_V2 {
+    if format.format != AUTHORING_FORMAT_V3 {
         return Err(ProjectAuthoringError::UnsupportedFormat(format.format));
     }
-    let manifest: ProjectAuthoringManifestV2 = serde_json::from_slice(&bytes)?;
-    if manifest.format != AUTHORING_FORMAT_V2 {
+    let manifest: ProjectAuthoringManifestV3 = serde_json::from_slice(&bytes)?;
+    if manifest.format != AUTHORING_FORMAT_V3 {
         return Err(ProjectAuthoringError::UnsupportedFormat(manifest.format));
     }
     validate_span(project_directory, &manifest.provenance.source_span)?;
@@ -161,18 +165,77 @@ fn load_project_authoring_with_override(
             }
         })
         .collect();
-    Ok(NeutralProjectSourceV2 {
+    let activity = |value: AuthoringWorldRoutineActivityV1| match value {
+        AuthoringWorldRoutineActivityV1::Duty => WorldRoutineActivityV1::Duty,
+        AuthoringWorldRoutineActivityV1::Rest => WorldRoutineActivityV1::Rest,
+    };
+    let world_routine_catalog_or_none = manifest
+        .world_routine_catalog
+        .as_ref()
+        .map(|catalog| {
+            let value = WorldRoutineCatalogV1 {
+                schema_version: catalog.schema_version,
+                catalog_asset_id: asset_id(&catalog.catalog_asset_id)?,
+                profile: WorldRoutineProfileV1 {
+                    schema_version: catalog.profile.schema_version,
+                    anchor_simulation_tick: catalog.profile.anchor_simulation_tick,
+                    anchor_world_tick: catalog.profile.anchor_world_tick,
+                    world_ticks_per_simulation_tick_num: catalog
+                        .profile
+                        .world_ticks_per_simulation_tick_num,
+                    world_ticks_per_simulation_tick_den: catalog
+                        .profile
+                        .world_ticks_per_simulation_tick_den,
+                },
+                routine: WorldRoutineDefinitionV1 {
+                    schema_version: catalog.routine.schema_version,
+                    subject_id: persistent_id(&catalog.routine.subject_id)?,
+                    initial_activity: activity(catalog.routine.initial_activity),
+                    transition_world_tick: catalog.routine.transition_world_tick,
+                    next_activity: activity(catalog.routine.next_activity),
+                },
+            };
+            value
+                .validate()
+                .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+            Ok::<_, ProjectAuthoringError>(value)
+        })
+        .transpose()?;
+    let world_routine_interaction_binding_or_none = manifest
+        .world_routine_interaction_binding
+        .as_ref()
+        .map(|binding| {
+            Ok::<_, ProjectAuthoringError>(WorldRoutineInteractionBindingV1 {
+                interaction_id: SchemaId::new(&binding.interaction_id)?,
+                subject_id: persistent_id(&binding.subject_id)?,
+                required_activity: activity(binding.required_activity),
+            })
+        })
+        .transpose()?;
+    match (
+        &world_routine_catalog_or_none,
+        &world_routine_interaction_binding_or_none,
+    ) {
+        (Some(catalog), Some(binding)) => binding
+            .validate_against(catalog)
+            .map_err(|_| ProjectAuthoringError::InvalidValue)?,
+        (None, None) => {}
+        _ => return Err(ProjectAuthoringError::InvalidValue),
+    }
+    Ok(NeutralProjectSourceV3 {
         project_id: ProjectId::new(
             project_id_override.unwrap_or(manifest.project.project_id.as_str()),
         )?,
         project_revision: manifest.project.project_revision,
-        authoring_sha256: domain_hash(AUTHORING_FORMAT_V2, &bytes),
+        authoring_sha256: domain_hash(AUTHORING_FORMAT_V3, &bytes),
         records,
         render_records,
         text_catalogs,
         audio_records,
         skeletons,
         animations,
+        world_routine_catalog_or_none,
+        world_routine_interaction_binding_or_none,
         root_asset_ids: manifest
             .root_asset_ids
             .iter()
@@ -448,7 +511,7 @@ fn build_audio_records(
 
 fn build_animation_catalogs(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV2,
+    manifest: &ProjectAuthoringManifestV3,
 ) -> Result<(Vec<NeutralSkeletonV1>, Vec<NeutralAnimationV1>), ProjectAuthoringError> {
     let mut skeletons = Vec::new();
     let mut animations = Vec::new();
@@ -560,7 +623,7 @@ fn build_animation_catalogs(
 
 fn validate_provenance(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV2,
+    manifest: &ProjectAuthoringManifestV3,
 ) -> Result<ContentHash, ProjectAuthoringError> {
     if manifest.provenance.source_identity.is_empty()
         || manifest.provenance.referenced_sources.is_empty()
@@ -885,92 +948,3 @@ pub enum ProjectAuthoringError {
     MissingReference(String),
     HashMismatch(String),
 }
-
-impl ProjectAuthoringError {
-    #[must_use]
-    pub const fn diagnostic_code(&self) -> &'static str {
-        match self {
-            Self::Io { .. } => "PROJECT_AUTHORING_IO",
-            Self::Json(_) => "PROJECT_MANIFEST_INVALID",
-            Self::UnsupportedFormat(_) => "UNSUPPORTED_PROJECT_AUTHORING_FORMAT",
-            Self::Identifier(_) | Self::InvalidHex | Self::InvalidValue => "CONTENT_VALUE_INVALID",
-            Self::Contract(_) => "CONTENT_SCHEMA_INVALID",
-            Self::Neutral(_)
-            | Self::Render(_)
-            | Self::Localization(_)
-            | Self::Audio(_)
-            | Self::Animation(_) => "CONTENT_SCHEMA_INVALID",
-            Self::UnsafePath(_) => "CONTENT_SOURCE_PATH_INVALID",
-            Self::InvalidSourceSpan => "CONTENT_SOURCE_SPAN_INVALID",
-            Self::InvalidProvenance | Self::HashMismatch(_) => "CONTENT_PROVENANCE_INVALID",
-            Self::DuplicateIdentity => "CONTENT_ID_DUPLICATE",
-            Self::MissingReference(_) => "CONTENT_REFERENCE_MISSING",
-        }
-    }
-}
-
-impl Display for ProjectAuthoringError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Io { path, source } => {
-                write!(formatter, "cannot read authoring source {path}: {source}")
-            }
-            Self::Json(error) => write!(formatter, "authoring manifest JSON is invalid: {error}"),
-            Self::Identifier(error) => {
-                write!(formatter, "authoring identifier is invalid: {error}")
-            }
-            Self::Contract(error) => {
-                write!(formatter, "authoring project contract is invalid: {error}")
-            }
-            Self::Neutral(error) => {
-                write!(formatter, "neutral authoring record is invalid: {error}")
-            }
-            Self::Render(error) => write!(formatter, "render authoring record is invalid: {error}"),
-            Self::Localization(error) => {
-                write!(formatter, "text authoring record is invalid: {error}")
-            }
-            Self::Audio(error) => write!(formatter, "audio authoring record is invalid: {error}"),
-            Self::Animation(error) => {
-                write!(formatter, "animation authoring record is invalid: {error}")
-            }
-            Self::UnsupportedFormat(format) => {
-                write!(formatter, "unsupported authoring format {format}")
-            }
-            Self::UnsafePath(path) => {
-                write!(formatter, "authoring path is not project-relative: {path}")
-            }
-            Self::InvalidHex => formatter.write_str("authoring hex value is invalid"),
-            Self::InvalidSourceSpan => formatter.write_str("authoring source span is invalid"),
-            Self::InvalidProvenance => {
-                formatter.write_str("authoring provenance closure is invalid")
-            }
-            Self::InvalidValue => formatter.write_str("authoring value is invalid"),
-            Self::DuplicateIdentity => formatter.write_str("authoring identity is duplicated"),
-            Self::MissingReference(reference) => {
-                write!(formatter, "authoring reference is missing: {reference}")
-            }
-            Self::HashMismatch(subject) => write!(formatter, "authoring hash mismatch: {subject}"),
-        }
-    }
-}
-
-impl Error for ProjectAuthoringError {}
-
-macro_rules! from_error {
-    ($source:ty, $variant:ident) => {
-        impl From<$source> for ProjectAuthoringError {
-            fn from(value: $source) -> Self {
-                Self::$variant(value)
-            }
-        }
-    };
-}
-
-from_error!(serde_json::Error, Json);
-from_error!(IdentifierError, Identifier);
-from_error!(ProjectContractError, Contract);
-from_error!(NeutralRecordError, Neutral);
-from_error!(RenderContentContractError, Render);
-from_error!(TextCatalogErrorV1, Localization);
-from_error!(NeutralAudioErrorV1, Audio);
-from_error!(NeutralAnimationContentErrorV1, Animation);

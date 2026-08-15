@@ -1,10 +1,10 @@
 use serde::Deserialize;
 
-pub(super) const AUTHORING_FORMAT_V2: &str = "nextengine.project-authoring.v2";
+pub(super) const AUTHORING_FORMAT_V3: &str = "nextengine.project-authoring.v3";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct ProjectAuthoringManifestV2 {
+pub(super) struct ProjectAuthoringManifestV3 {
     pub format: String,
     pub project: AuthoringProjectV2,
     pub provenance: AuthoringProvenanceV1,
@@ -15,8 +15,54 @@ pub(super) struct ProjectAuthoringManifestV2 {
     pub audio_records: Vec<AuthoringAudioRecordV1>,
     #[serde(default)]
     pub neutral_animation_catalogs: Vec<AuthoringAnimationCatalogReferenceV1>,
+    pub world_routine_catalog: Option<AuthoringWorldRoutineCatalogV1>,
+    pub world_routine_interaction_binding: Option<AuthoringWorldRoutineInteractionBindingV1>,
     pub root_asset_ids: Vec<String>,
     pub allowed_presentation_targets: Vec<AuthoringPresentationTargetV1>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringWorldRoutineCatalogV1 {
+    pub schema_version: u16,
+    pub catalog_asset_id: String,
+    pub profile: AuthoringWorldRoutineProfileV1,
+    pub routine: AuthoringWorldRoutineDefinitionV1,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringWorldRoutineProfileV1 {
+    pub schema_version: u16,
+    pub anchor_simulation_tick: u64,
+    pub anchor_world_tick: u64,
+    pub world_ticks_per_simulation_tick_num: u64,
+    pub world_ticks_per_simulation_tick_den: u64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringWorldRoutineDefinitionV1 {
+    pub schema_version: u16,
+    pub subject_id: String,
+    pub initial_activity: AuthoringWorldRoutineActivityV1,
+    pub transition_world_tick: u64,
+    pub next_activity: AuthoringWorldRoutineActivityV1,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(super) enum AuthoringWorldRoutineActivityV1 {
+    Duty,
+    Rest,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringWorldRoutineInteractionBindingV1 {
+    pub interaction_id: String,
+    pub subject_id: String,
+    pub required_activity: AuthoringWorldRoutineActivityV1,
 }
 
 #[derive(Clone, Debug, Deserialize)]

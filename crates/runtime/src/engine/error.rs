@@ -56,6 +56,7 @@ pub enum RuntimeFatalError {
     IngressGenerationExhausted,
     IngressCheckpointCorrupt,
     PreparedGenerationStale,
+    PreparedWorldServicesGenerationStale,
     Input(InputContractError),
     OutcomeCollection(OutcomeCollectionError),
     InternalCanonicalization(CanonicalError),
@@ -69,6 +70,7 @@ pub enum RuntimeFatalError {
     Mechanics(MechanicsHostError),
     Snapshot(SnapshotDecodeError),
     WorldStreaming(next_world::WorldStreamingError),
+    WorldServicesCheckpoint(WorldCheckpointError),
     WorldRoutineInternalInvariant,
 }
 
@@ -83,6 +85,9 @@ impl RuntimeFatalError {
             Self::IngressGenerationExhausted => "INGRESS_QUEUE_GENERATION_EXHAUSTED",
             Self::IngressCheckpointCorrupt => "INGRESS_CHECKPOINT_CORRUPT",
             Self::PreparedGenerationStale => "RUNTIME_PREPARED_GENERATION_STALE",
+            Self::PreparedWorldServicesGenerationStale => {
+                "PREPARED_WORLD_SERVICES_GENERATION_STALE"
+            }
             Self::Input(_) => "INGRESS_CONTRACT_CORRUPT",
             Self::OutcomeCollection(error) => error.stable_code(),
             Self::InternalCanonicalization(_) => "INTERNAL_CANONICALIZATION_FAILED",
@@ -96,6 +101,7 @@ impl RuntimeFatalError {
             Self::Mechanics(_) => "MECHANICS_HOST_INVARIANT_FAILED",
             Self::Snapshot(_) => "RUNTIME_SNAPSHOT_CLOSURE_CORRUPT",
             Self::WorldStreaming(_) => "WORLD_STREAMING_STAGE_FAILED",
+            Self::WorldServicesCheckpoint(_) => "WORLD_SERVICES_CHECKPOINT_INVALID",
             Self::WorldRoutineInternalInvariant => "WORLD_ROUTINE_INTERNAL_INVARIANT",
         }
     }
@@ -145,6 +151,18 @@ impl From<next_world::WorldStreamingError> for RuntimeFatalError {
     }
 }
 
+impl From<next_contracts::world::WorldStreamingContractError> for RuntimeFatalError {
+    fn from(error: next_contracts::world::WorldStreamingContractError) -> Self {
+        Self::WorldStreaming(next_world::WorldStreamingError::from(error))
+    }
+}
+
+impl From<WorldCheckpointError> for RuntimeFatalError {
+    fn from(error: WorldCheckpointError) -> Self {
+        Self::WorldServicesCheckpoint(error)
+    }
+}
+
 impl From<TargetingContractError> for RuntimeFatalError {
     fn from(error: TargetingContractError) -> Self {
         Self::Targeting(error)
@@ -171,6 +189,7 @@ pub enum SnapshotRestoreError {
     IdentityCollision,
     ControllerClosureMismatch,
     CoreInteractionClosure(CoreDialogueQuestClosureError),
+    WorldRoutineLedgerClosureInvalid,
 }
 
 impl Display for SnapshotRestoreError {
@@ -209,6 +228,9 @@ impl Display for SnapshotRestoreError {
                 formatter.write_str("runtime controller registry closure does not match")
             }
             Self::CoreInteractionClosure(error) => Display::fmt(error, formatter),
+            Self::WorldRoutineLedgerClosureInvalid => {
+                formatter.write_str("WORLD_ROUTINE_LEDGER_CLOSURE_INVALID")
+            }
         }
     }
 }

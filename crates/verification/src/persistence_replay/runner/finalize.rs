@@ -43,13 +43,18 @@ pub(super) fn complete(
         .map_err(|error| PersistenceReplayCheckError::new("final checkpoint", error.to_string()))?;
     verify_corrupt_fallbacks(scratch, direct, restored, &final_checkpoint)?;
     let outcome = read_final_outcome(direct, &final_checkpoint)?;
-    let final_state_root = next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
-        &final_checkpoint.runtime_snapshot,
-        &final_checkpoint.rpg_snapshot,
-        &final_checkpoint.physics_checkpoint,
-        direct.world.snapshot(),
-    )
-    .map_err(|error| PersistenceReplayCheckError::new("final state root", error.to_string()))?;
+    let final_routine_snapshot = direct.routine.snapshot_or_none().ok_or_else(|| {
+        PersistenceReplayCheckError::condition("final world routine owner segment exists")
+    })?;
+    let final_state_root =
+        next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
+            &final_checkpoint.runtime_snapshot,
+            &final_checkpoint.rpg_snapshot,
+            &final_checkpoint.physics_checkpoint,
+            direct.world.snapshot(),
+            final_routine_snapshot,
+        )
+        .map_err(|error| PersistenceReplayCheckError::new("final state root", error.to_string()))?;
     let final_command_ledger_hash = final_checkpoint
         .runtime_snapshot
         .command_ledger_hash()
@@ -58,7 +63,8 @@ pub(super) fn complete(
         })?;
 
     Ok(PersistenceReplayCheckReport {
-        ticks: 16,
+        ticks: u64::try_from(direct.reports.len())
+            .map_err(|error| PersistenceReplayCheckError::new("tick count", error.to_string()))?,
         generations: 2,
         final_pose: outcome.pose,
         rpg_events: u64::try_from(outcome.rpg_events).map_err(|error| {
@@ -87,12 +93,16 @@ fn verify_corrupt_fallbacks(
     restored: &RestoredScenario,
     final_checkpoint: &WorldCheckpointV4,
 ) -> Result<(), PersistenceReplayCheckError> {
+    let final_routine_snapshot = direct.routine.snapshot_or_none().ok_or_else(|| {
+        PersistenceReplayCheckError::condition("final world routine owner segment exists")
+    })?;
     let generation_one = restored
         .store
-        .commit_world_checkpoint_with_streaming(
+        .commit_world_checkpoint_with_streaming_and_routine(
             restored.compatibility.clone(),
             final_checkpoint,
             direct.world.snapshot(),
+            final_routine_snapshot,
         )
         .map_err(|error| {
             PersistenceReplayCheckError::new("commit generation one", error.to_string())
@@ -127,16 +137,18 @@ fn verify_corrupt_fallbacks(
         || fallback.rejected_generations.len() != 1
         || fallback.checkpoint != restored.saved_checkpoint
         || fallback.world_streaming_snapshot.as_ref() != Some(&restored.saved_world_snapshot)
+        || fallback.world_routine_snapshot_or_none != restored.saved_routine_snapshot_or_none
         || !preserved_corrupt
         || !source_unchanged
     {
         return Err(PersistenceReplayCheckError::new(
             "corrupt RPG generation falls back without rewriting bytes",
             format!(
-                "generation={}, rejected={}, checkpoint_equal={}, preserved={}, source_unchanged={}",
+                "generation={}, rejected={}, checkpoint_equal={}, routine_equal={}, preserved={}, source_unchanged={}",
                 fallback.image.manifest.generation,
                 fallback.rejected_generations.len(),
                 fallback.checkpoint == restored.saved_checkpoint,
+                fallback.world_routine_snapshot_or_none == restored.saved_routine_snapshot_or_none,
                 preserved_corrupt,
                 source_unchanged,
             ),
@@ -233,12 +245,16 @@ fn read_final_outcome(
         .count();
     let dialogue_node_id = dialogue_node(&checkpoint.rpg_snapshot, fixture.dialogue_id)?;
     let quest_state_id = quest_state(&checkpoint.rpg_snapshot, fixture.quest_id)?;
-    let (
-        expected_dialogue_node_id,
-        expected_quest_state_id,
-        relationship_dimension_id,
-        expected_relationship_value,
-    ) = cooked_initial_interaction_outcome(fixture);
+    let (_, _, relationship_dimension_id, _) = cooked_initial_interaction_outcome(fixture);
+    let expected_dialogue_node_id =
+        dialogue_node(&direct.initial_checkpoint.rpg_snapshot, fixture.dialogue_id)?;
+    let expected_quest_state_id =
+        quest_state(&direct.initial_checkpoint.rpg_snapshot, fixture.quest_id)?;
+    let expected_relationship_value = relationship_value(
+        &direct.initial_checkpoint.rpg_snapshot,
+        fixture,
+        &relationship_dimension_id,
+    )?;
     let npc_player_trust = relationship_value(
         &checkpoint.rpg_snapshot,
         fixture,
@@ -261,13 +277,13 @@ fn read_final_outcome(
         || npc_player_trust != expected_relationship_value
         || npc_health != 50
         || player_health != 50
-        || rpg_events != 11
+        || rpg_events != 8
         || !pickup_is_collected
         || !pickup_is_owned
         || !pickup_is_equipped
     {
         return Err(PersistenceReplayCheckError::condition(
-            "interaction activates object exactly once",
+            "Rest-gated interaction preserves dialogue, quest, and relationship state",
         ));
     }
 

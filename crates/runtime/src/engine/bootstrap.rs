@@ -1,12 +1,15 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::canonical::{CanonicalDecodeLimits, sha256};
 use next_contracts::command::IssuerPrincipal;
 use next_contracts::identity::{
     CommandStreamRegistryV1, PrincipalRegistryV1, RuntimeDeterminismBundleV1,
     RuntimeDeterminismProfileV1, WorldIdentityManifestV1,
 };
-use next_contracts::ids::{ContentHash, PhysicsWorldId, ProjectId};
+use next_contracts::ids::{
+    CapabilityId, ContentHash, PhysicsWorldId, ProjectId, SchemaId, SystemId,
+    content_hash_from_bytes,
+};
 use next_contracts::input::{
     IngressAssignmentProfileV1, PlayerControllerRegistryV1, RuntimeAdmissionLimitsV1,
     TickRateProfileV1,
@@ -14,13 +17,16 @@ use next_contracts::input::{
 use next_contracts::ledger::{
     CausalIdentityKey, CausalIdentityKind, CommandLedgerV2, IdentityInsertResult,
 };
-use next_contracts::mechanics::{RpgDefinitionRegistryV1, interaction_definition_hash};
+use next_contracts::mechanics::{RpgDefinitionRegistryV2, interaction_definition_hash_v2};
 use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PhysicsMotionKindV1, PhysicsQuantizationProfileV1,
     PhysicsWorldCheckpointV1,
 };
 use next_contracts::rpg::{CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CoreDialogueQuestClosureError};
 use next_contracts::rpg::{RpgRuntimeBindingsV1, RpgSnapshotV2};
+use next_contracts::world_routine::{
+    WORLD_ROUTINE_CAPABILITY_ID, WORLD_ROUTINE_CAPABILITY_SUBJECT_ID, WORLD_ROUTINE_SYSTEM_ID,
+};
 use next_rpg::RpgState;
 
 use crate::authority::AuthorityRegistry;
@@ -69,7 +75,7 @@ pub fn bootstrap_equipment_slot_policy_hash_v1() -> ContentHash {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RuntimeBootstrapV3 {
+pub struct RuntimeBootstrapV4 {
     pub world_identity: WorldIdentityManifestV1,
     pub principal_registry: PrincipalRegistryV1,
     pub stream_registry: CommandStreamRegistryV1,
@@ -82,10 +88,10 @@ pub struct RuntimeBootstrapV3 {
     pub player_controller_registry: PlayerControllerRegistryV1,
     pub physics_checkpoint: PhysicsWorldCheckpointV1,
     pub rpg_bindings: RpgRuntimeBindingsV1,
-    pub rpg_definitions: RpgDefinitionRegistryV1,
+    pub rpg_definitions: RpgDefinitionRegistryV2,
 }
 
-impl RuntimeBootstrapV3 {
+impl RuntimeBootstrapV4 {
     pub fn new(
         world_identity: WorldIdentityManifestV1,
         principal_registry: PrincipalRegistryV1,
@@ -94,7 +100,7 @@ impl RuntimeBootstrapV3 {
     ) -> Self {
         let rpg_bindings = bootstrap_rpg_bindings(&world_identity, &runtime_profile);
         let rpg_definitions =
-            RpgDefinitionRegistryV1::empty().expect("empty RPG definition registry is canonical");
+            RpgDefinitionRegistryV2::empty().expect("empty RPG definition registry is canonical");
         let admission_limits = RuntimeAdmissionLimitsV1::default();
         let tick_rate_profile = TickRateProfileV1::at_30_hz();
         let ingress_assignment_profile = IngressAssignmentProfileV1::core_v1(&admission_limits)
@@ -169,7 +175,7 @@ impl RuntimeBootstrapV3 {
 }
 
 pub(super) fn validate_bootstrap(
-    bootstrap: &RuntimeBootstrapV3,
+    bootstrap: &RuntimeBootstrapV4,
     authority: &AuthorityRegistry,
     registry: &CommandKindRegistry,
 ) -> Result<(), SnapshotRestoreError> {
@@ -230,12 +236,13 @@ pub(super) fn validate_bootstrap(
             bootstrap
                 .rpg_bindings
                 .active_definition_policy_hashes
-                .binary_search(&interaction_definition_hash(definition))
+                .binary_search(&interaction_definition_hash_v2(definition))
                 .is_err()
         })
     {
         return Err(SnapshotRestoreError::BootstrapClosureMismatch);
     }
+    validate_world_routine_bootstrap_closure(bootstrap, authority)?;
     for (principal, _) in authority.entries() {
         if !bootstrap.principal_registry.is_active(principal) {
             return Err(SnapshotRestoreError::InactivePrincipal);
@@ -274,8 +281,63 @@ pub(super) fn validate_bootstrap(
     Ok(())
 }
 
+fn validate_world_routine_bootstrap_closure(
+    bootstrap: &RuntimeBootstrapV4,
+    authority: &AuthorityRegistry,
+) -> Result<(), SnapshotRestoreError> {
+    let conditioned = bootstrap
+        .rpg_definitions
+        .interactions
+        .iter()
+        .filter(|definition| definition.availability_condition_or_none.is_some())
+        .count();
+    if conditioned > 1 {
+        return Err(SnapshotRestoreError::BootstrapClosureMismatch);
+    }
+    let principal = IssuerPrincipal::InternalSystem(
+        SystemId::new(WORLD_ROUTINE_SYSTEM_ID).expect("engine-owned routine system id is valid"),
+    );
+    let principal_record = bootstrap.principal_registry.principals.get(&principal);
+    let stream_entries = bootstrap
+        .stream_registry
+        .entries
+        .iter()
+        .filter(|(key, _)| key.principal == principal)
+        .collect::<Vec<_>>();
+    if conditioned == 0 {
+        if principal_record.is_some()
+            || !stream_entries.is_empty()
+            || authority.is_authenticated(&principal)
+        {
+            return Err(SnapshotRestoreError::BootstrapClosureMismatch);
+        }
+        return Ok(());
+    }
+    let expected_provenance =
+        content_hash_from_bytes(sha256(b"nextengine.principal.world-routine-boundary.v1\0"));
+    let expected_capability = CapabilityId::new(WORLD_ROUTINE_CAPABILITY_ID)
+        .expect("engine-owned routine capability id is valid");
+    let expected_subject = SchemaId::new(WORLD_ROUTINE_CAPABILITY_SUBJECT_ID)
+        .expect("engine-owned routine capability subject id is valid");
+    let Some(record) = principal_record else {
+        return Err(SnapshotRestoreError::BootstrapClosureMismatch);
+    };
+    if record.status != next_contracts::identity::PrincipalStatus::Active
+        || record.provenance_hash != expected_provenance
+        || record.capability_subject_id != expected_subject
+        || authority.grants(&principal) != Some(&BTreeSet::from([expected_capability]))
+        || stream_entries.len() != 1
+        || stream_entries[0].0.stream_slot != 0
+        || stream_entries[0].0.stream_epoch != 0
+        || bootstrap.stream_registry.next_stream_slot.get(&principal) != Some(&1)
+    {
+        return Err(SnapshotRestoreError::BootstrapClosureMismatch);
+    }
+    Ok(())
+}
+
 pub(super) fn validate_core_interaction_runtime_closure(
-    bootstrap: &RuntimeBootstrapV3,
+    bootstrap: &RuntimeBootstrapV4,
     rpg: &RpgState,
     authority: &AuthorityRegistry,
 ) -> Result<(), SnapshotRestoreError> {

@@ -19,6 +19,7 @@ next_project.workspace = true
 next_presentation.workspace = true
 next_reference_game.workspace = true
 next_runtime.workspace = true
+next_world.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

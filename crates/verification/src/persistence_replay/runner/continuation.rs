@@ -1,19 +1,59 @@
 use next_contracts::command::{EventPayload, WorldCommand};
 use next_contracts::ids::SchemaId;
 use next_contracts::input::{InputMappingCodeV1, PlayerActionPhaseV1};
+use next_contracts::persistence::WorldStreamingReplayInputV1;
 use next_contracts::physics::ContactPhaseV1;
 use next_contracts::rpg::RpgEventV1;
 
 use crate::{player_action_sample, player_interact_sample, player_melee_sample};
 
 use super::super::PersistenceReplayCheckError;
-use super::super::replay_support::{rpg_contact_facts_from_report, transition_world};
-use super::{AgentEvidence, DirectScenario, RestoredScenario};
+use super::super::replay_support::rpg_contact_facts_from_report;
+use super::{AgentEvidence, DirectScenario, RestoredScenario, commit_world_services_tick};
 
 struct PlannedAgent {
     evidence: AgentEvidence,
     direct_command: WorldCommand,
     restored_command: WorldCommand,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_paired_tick(
+    direct: &mut DirectScenario,
+    restored: &mut RestoredScenario,
+    direct_commands: Vec<WorldCommand>,
+    restored_commands: Vec<WorldCommand>,
+    direct_streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
+    restored_streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
+    streaming_input: WorldStreamingReplayInputV1,
+    context: &'static str,
+) -> Result<next_runtime::TickReport, PersistenceReplayCheckError> {
+    let replay_commands = direct_commands.clone();
+    let direct_commit = commit_world_services_tick(
+        &mut direct.runtime,
+        &mut direct.routine,
+        &mut direct.world,
+        direct_commands,
+        direct_streaming,
+        context,
+    )?;
+    let restored_commit = commit_world_services_tick(
+        &mut restored.runtime,
+        &mut restored.routine,
+        &mut restored.world,
+        restored_commands,
+        restored_streaming,
+        context,
+    )?;
+    if direct_commit != restored_commit {
+        return Err(PersistenceReplayCheckError::condition(context));
+    }
+    let report = direct_commit.runtime_report.clone();
+    direct.reports.push(report.clone());
+    direct.world_services_commits.push(direct_commit);
+    direct.replay_streaming_inputs.push(streaming_input);
+    direct.replay_direct_commands.push(replay_commands);
+    Ok(report)
 }
 
 pub(super) fn run(
@@ -37,16 +77,71 @@ fn run_queued_melee_and_plan_agent(
     direct: &mut DirectScenario,
     restored: &mut RestoredScenario,
 ) -> Result<PlannedAgent, PersistenceReplayCheckError> {
-    let direct_melee = direct
-        .runtime
-        .run_tick([])
-        .map_err(|error| PersistenceReplayCheckError::new("direct melee", error.to_string()))?;
-    let restored_melee = restored
-        .runtime
-        .run_tick([])
-        .map_err(|error| PersistenceReplayCheckError::new("restored melee", error.to_string()))?;
-    if direct_melee != restored_melee
-        || direct_melee.mapping_receipts.len() != 1
+    let tick = direct.runtime.next_tick();
+    let expected_base_world_state_hash = direct.world.snapshot().state_hash().map_err(|error| {
+        PersistenceReplayCheckError::new("complete world base hash", error.to_string())
+    })?;
+    if restored.world.snapshot().state_hash().map_err(|error| {
+        PersistenceReplayCheckError::new("restored complete world base hash", error.to_string())
+    })? != expected_base_world_state_hash
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "pending world bases match after restore",
+        ));
+    }
+    let direct_loaded = direct
+        .world
+        .load_pending(next_world::WORLD_CHUNK_DEFAULT_WORKERS)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("load direct packaged world", error.to_string())
+        })?;
+    let restored_loaded = restored
+        .world
+        .load_pending(next_world::WORLD_CHUNK_DEFAULT_WORKERS)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("load restored packaged world", error.to_string())
+        })?;
+    let expected_loaded_result_hash = direct_loaded.result_hash();
+    if restored_loaded.result_hash() != expected_loaded_result_hash {
+        return Err(PersistenceReplayCheckError::condition(
+            "packaged result reconstructs exactly after save",
+        ));
+    }
+    let direct_publication = direct
+        .world
+        .prepare_loaded_commit(direct_loaded, tick)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("prepare direct world completion", error.to_string())
+        })?;
+    let restored_publication = restored
+        .world
+        .prepare_loaded_commit(restored_loaded, tick)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("prepare restored world completion", error.to_string())
+        })?;
+    let expected_next_world_state_hash = direct_publication.next_world_state_hash();
+    if restored_publication.next_world_state_hash() != expected_next_world_state_hash {
+        return Err(PersistenceReplayCheckError::condition(
+            "completed world publications match",
+        ));
+    }
+    let target_chunk_id = direct.transition_chunk_id.clone();
+    let direct_melee = run_paired_tick(
+        direct,
+        restored,
+        Vec::new(),
+        Vec::new(),
+        Some(direct_publication),
+        Some(restored_publication),
+        WorldStreamingReplayInputV1::CompletePendingTransition {
+            target_chunk_id,
+            expected_base_world_state_hash,
+            expected_loaded_result_hash,
+            expected_next_world_state_hash,
+        },
+        "queued melee and world completion",
+    )?;
+    if direct_melee.mapping_receipts.len() != 1
         || direct_melee.mapping_receipts[0].frame_code != InputMappingCodeV1::Accepted
         || direct_melee.mapping_receipts[0].derived_commands.is_empty()
         || direct_melee
@@ -81,7 +176,7 @@ fn run_queued_melee_and_plan_agent(
         direct.runtime.physics_snapshot().checkpoint_revision,
     );
     let restored_agent_facts = rpg_contact_facts_from_report(
-        &restored_melee.contact_batch,
+        &direct_melee.contact_batch,
         restored.runtime.physics_snapshot().checkpoint_revision,
     );
     let direct_agent_snapshot = direct.runtime.rpg_snapshot();
@@ -138,7 +233,6 @@ fn run_queued_melee_and_plan_agent(
     };
     let direct_command = direct_agent.world_command;
     let restored_command = restored_agent.world_command;
-    direct.reports.push(direct_melee);
     Ok(PlannedAgent {
         evidence,
         direct_command,
@@ -172,20 +266,17 @@ fn run_cooldown_retry(
         .map_err(|error| {
             PersistenceReplayCheckError::new("enqueue restored cooldown retry", error.to_string())
         })?;
-    let direct_cooldown = direct
-        .runtime
-        .run_tick([direct_agent_command])
-        .map_err(|error| {
-            PersistenceReplayCheckError::new("direct cooldown retry", error.to_string())
-        })?;
-    let restored_cooldown = restored
-        .runtime
-        .run_tick([restored_agent_command])
-        .map_err(|error| {
-            PersistenceReplayCheckError::new("restored cooldown retry", error.to_string())
-        })?;
-    if direct_cooldown != restored_cooldown
-        || direct_cooldown.mapping_receipts.len() != 1
+    let direct_cooldown = run_paired_tick(
+        direct,
+        restored,
+        vec![direct_agent_command],
+        vec![restored_agent_command],
+        None,
+        None,
+        WorldStreamingReplayInputV1::None,
+        "direct/restored cooldown retry",
+    )?;
+    if direct_cooldown.mapping_receipts.len() != 1
         || direct_cooldown.mapping_receipts[0].frame_code != InputMappingCodeV1::Accepted
         || !direct_cooldown.mapping_receipts[0]
             .derived_commands
@@ -206,7 +297,6 @@ fn run_cooldown_retry(
             "cooldown retry is a no-op while the agent command commits exactly after restore",
         ));
     }
-    direct.reports.push(direct_cooldown);
     Ok(())
 }
 
@@ -234,13 +324,23 @@ fn run_dialogue_transaction(
         .map_err(|error| {
             PersistenceReplayCheckError::new("enqueue restored interaction", error.to_string())
         })?;
-    let direct_interaction = direct.runtime.run_tick([]).map_err(|error| {
-        PersistenceReplayCheckError::new("direct interaction", error.to_string())
-    })?;
-    let restored_interaction = restored.runtime.run_tick([]).map_err(|error| {
-        PersistenceReplayCheckError::new("restored interaction", error.to_string())
-    })?;
-    if direct_interaction != restored_interaction
+    let direct_interaction = run_paired_tick(
+        direct,
+        restored,
+        Vec::new(),
+        Vec::new(),
+        None,
+        None,
+        WorldStreamingReplayInputV1::None,
+        "direct/restored unavailable interaction",
+    )?;
+    if direct_interaction.mapping_receipts.len() != 1
+        || !direct_interaction.mapping_receipts[0]
+            .derived_commands
+            .is_empty()
+        || direct_interaction.interaction_availability.len() != 1
+        || direct_interaction.interaction_availability[0].code
+            != next_contracts::world_routine::InteractionAvailabilityCodeV1::WorldRoutineActivityUnavailable
         || direct_interaction
             .events
             .iter()
@@ -255,13 +355,12 @@ fn run_dialogue_transaction(
                 )
             })
             .count()
-            != 3
+            != 0
     {
         return Err(PersistenceReplayCheckError::condition(
-            "dialogue transaction remains exact after restored melee",
+            "Rest interaction remains unavailable after restored melee",
         ));
     }
-    direct.reports.push(direct_interaction);
     Ok(())
 }
 
@@ -289,26 +388,26 @@ fn run_left_movement(
         .map_err(|error| {
             PersistenceReplayCheckError::new("enqueue restored left", error.to_string())
         })?;
-    let direct_left = direct
-        .runtime
-        .run_tick([])
-        .map_err(|error| PersistenceReplayCheckError::new("direct left", error.to_string()))?;
-    let restored_left = restored
-        .runtime
-        .run_tick([])
-        .map_err(|error| PersistenceReplayCheckError::new("restored left", error.to_string()))?;
-    if direct_left != restored_left
-        || !direct_left
-            .contact_batch
-            .events
-            .iter()
-            .any(|event| event.phase == ContactPhaseV1::End)
+    let direct_left = run_paired_tick(
+        direct,
+        restored,
+        Vec::new(),
+        Vec::new(),
+        None,
+        None,
+        WorldStreamingReplayInputV1::None,
+        "direct/restored left",
+    )?;
+    if !direct_left
+        .contact_batch
+        .events
+        .iter()
+        .any(|event| event.phase == ContactPhaseV1::End)
     {
         return Err(PersistenceReplayCheckError::condition(
             "left movement ends NPC contact exactly after interaction restore",
         ));
     }
-    direct.reports.push(direct_left);
     Ok(())
 }
 
@@ -336,26 +435,25 @@ fn run_stop_and_compare(
         .map_err(|error| {
             PersistenceReplayCheckError::new("enqueue restored stop", error.to_string())
         })?;
-    let direct_stop = direct
-        .runtime
-        .run_tick([])
-        .map_err(|error| PersistenceReplayCheckError::new("direct stop", error.to_string()))?;
-    let restored_stop = restored
-        .runtime
-        .run_tick([])
-        .map_err(|error| PersistenceReplayCheckError::new("restored stop", error.to_string()))?;
-    if direct_stop != restored_stop
-        || direct.runtime.world_checkpoint().map_err(|error| {
-            PersistenceReplayCheckError::new("direct final checkpoint", error.to_string())
-        })? != restored.runtime.world_checkpoint().map_err(|error| {
-            PersistenceReplayCheckError::new("restored final checkpoint", error.to_string())
-        })?
-    {
+    let _direct_stop = run_paired_tick(
+        direct,
+        restored,
+        Vec::new(),
+        Vec::new(),
+        None,
+        None,
+        WorldStreamingReplayInputV1::None,
+        "direct/restored stop",
+    )?;
+    if direct.runtime.world_checkpoint().map_err(|error| {
+        PersistenceReplayCheckError::new("direct final checkpoint", error.to_string())
+    })? != restored.runtime.world_checkpoint().map_err(|error| {
+        PersistenceReplayCheckError::new("restored final checkpoint", error.to_string())
+    })? {
         return Err(PersistenceReplayCheckError::condition(
             "uninterrupted and restored worlds remain exact",
         ));
     }
-    direct.reports.push(direct_stop);
     Ok(())
 }
 
@@ -363,17 +461,101 @@ fn return_world(
     direct: &mut DirectScenario,
     restored: &mut RestoredScenario,
 ) -> Result<(), PersistenceReplayCheckError> {
-    transition_world(
-        &mut direct.world,
-        direct.initial_chunk_id.clone(),
-        16,
-        "return direct world",
+    let begin_tick = direct.runtime.next_tick();
+    let expected_base_world_state_hash = direct.world.snapshot().state_hash().map_err(|error| {
+        PersistenceReplayCheckError::new("return world base hash", error.to_string())
+    })?;
+    let direct_begin = direct
+        .world
+        .prepare_begin_transition(direct.initial_chunk_id.clone(), begin_tick)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("prepare direct world return", error.to_string())
+        })?;
+    let restored_begin = restored
+        .world
+        .prepare_begin_transition(direct.initial_chunk_id.clone(), begin_tick)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("prepare restored world return", error.to_string())
+        })?;
+    let expected_next_world_state_hash = direct_begin.next_world_state_hash();
+    if restored_begin.next_world_state_hash() != expected_next_world_state_hash {
+        return Err(PersistenceReplayCheckError::condition(
+            "return world begin publications match",
+        ));
+    }
+    let initial_chunk_id = direct.initial_chunk_id.clone();
+    run_paired_tick(
+        direct,
+        restored,
+        Vec::new(),
+        Vec::new(),
+        Some(direct_begin),
+        Some(restored_begin),
+        WorldStreamingReplayInputV1::BeginTransition {
+            target_chunk_id: initial_chunk_id.clone(),
+            expected_base_world_state_hash,
+            expected_next_world_state_hash,
+        },
+        "joint return world begin",
     )?;
-    transition_world(
-        &mut restored.world,
-        direct.initial_chunk_id.clone(),
-        16,
-        "return restored world",
+
+    let complete_tick = direct.runtime.next_tick();
+    let expected_base_world_state_hash = direct.world.snapshot().state_hash().map_err(|error| {
+        PersistenceReplayCheckError::new("return completion base hash", error.to_string())
+    })?;
+    let direct_loaded = direct
+        .world
+        .load_pending(next_world::WORLD_CHUNK_DEFAULT_WORKERS)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("load direct return world", error.to_string())
+        })?;
+    let restored_loaded = restored
+        .world
+        .load_pending(next_world::WORLD_CHUNK_DEFAULT_WORKERS)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("load restored return world", error.to_string())
+        })?;
+    let expected_loaded_result_hash = direct_loaded.result_hash();
+    if restored_loaded.result_hash() != expected_loaded_result_hash {
+        return Err(PersistenceReplayCheckError::condition(
+            "return world loaded results match",
+        ));
+    }
+    let direct_complete = direct
+        .world
+        .prepare_loaded_commit(direct_loaded, complete_tick)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("prepare direct return completion", error.to_string())
+        })?;
+    let restored_complete = restored
+        .world
+        .prepare_loaded_commit(restored_loaded, complete_tick)
+        .map_err(|error| {
+            PersistenceReplayCheckError::new(
+                "prepare restored return completion",
+                error.to_string(),
+            )
+        })?;
+    let expected_next_world_state_hash = direct_complete.next_world_state_hash();
+    if restored_complete.next_world_state_hash() != expected_next_world_state_hash {
+        return Err(PersistenceReplayCheckError::condition(
+            "return world completion publications match",
+        ));
+    }
+    run_paired_tick(
+        direct,
+        restored,
+        Vec::new(),
+        Vec::new(),
+        Some(direct_complete),
+        Some(restored_complete),
+        WorldStreamingReplayInputV1::CompletePendingTransition {
+            target_chunk_id: initial_chunk_id,
+            expected_base_world_state_hash,
+            expected_loaded_result_hash,
+            expected_next_world_state_hash,
+        },
+        "joint return world completion",
     )?;
     if direct.world.snapshot() != restored.world.snapshot() {
         return Err(PersistenceReplayCheckError::condition(

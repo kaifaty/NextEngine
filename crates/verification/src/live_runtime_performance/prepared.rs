@@ -11,7 +11,7 @@ use next_contracts::ids::{ContentHash, StateRoot};
 use next_contracts::ledger::command_identity_index_root;
 use next_contracts::platform::PlatformEventV1;
 use next_contracts::session::{CompositionRootV1, PresentationTargetKindV1};
-use next_reference_game::{ReferenceGameDriverV1, ReferenceLiveStateV1};
+use next_reference_game::{ReferenceGameDriverV2, ReferenceLiveStateV2};
 
 use crate::scratch::{ScratchContext, ScratchDirectory};
 
@@ -60,7 +60,7 @@ pub struct LiveRuntimePerformanceMeasurement {
 }
 
 struct PreparedDriverWorkload {
-    driver: ReferenceGameDriverV1,
+    driver: ReferenceGameDriverV2,
     tick_events: Vec<Option<PlatformEventV1>>,
     window_microseconds: [u128; 3],
     checkpoint_microseconds: [u128; 3],
@@ -73,7 +73,7 @@ struct PreparedDriverWorkload {
 }
 
 struct DriverMeasurement {
-    state: ReferenceLiveStateV1,
+    state: ReferenceLiveStateV2,
     checkpoint_root: StateRoot,
     elapsed_microseconds: u128,
     window_microseconds: [u128; 3],
@@ -336,10 +336,10 @@ impl PreparedDriverWorkload {
         scratch: &ScratchContext,
         workload: LiveRuntimeWorkload,
     ) -> Result<(Self, ScratchDirectory), LiveRuntimePerformanceError> {
-        let source = next_reference_game::project_source_v2().map_err(|error| {
+        let source = next_reference_game::project_source_v3().map_err(|error| {
             LiveRuntimePerformanceError::new("fixture source", error.to_string())
         })?;
-        let cooked = next_project::cook_project_v2(source)
+        let cooked = next_project::cook_project_v3(source)
             .map_err(|error| LiveRuntimePerformanceError::new("cook fixture", error.to_string()))?;
         let directory = scratch
             .create_directory(workload.directory_label)
@@ -358,7 +358,7 @@ impl PreparedDriverWorkload {
             let project = next_project::activate_project_package(&store).map_err(|error| {
                 LiveRuntimePerformanceError::new("activate fixture", error.to_string())
             })?;
-            let driver = ReferenceGameDriverV1::new(project, true).map_err(|error| {
+            let driver = ReferenceGameDriverV2::new(project, true).map_err(|error| {
                 LiveRuntimePerformanceError::new("create live driver", error.to_string())
             })?;
             let (tick_events, camera_event_count) = prepare_driver_inputs(workload)?;
@@ -730,7 +730,7 @@ fn prepare_application_inputs(
 }
 
 fn probe_checkpoint_roots(
-    state: &ReferenceLiveStateV1,
+    state: &ReferenceLiveStateV2,
     window_index: usize,
     identity_microseconds: &mut [u128; 3],
     archive_microseconds: &mut [u128; 3],
@@ -800,8 +800,13 @@ fn finalize_driver_measurement(
             .len(),
     )
     .map_err(|error| LiveRuntimePerformanceError::new("command body count", error.to_string()))?;
+    // One movement command is authored per measured tick; the reference R4a
+    // routine contributes its single Duty -> Rest Outcome command.
+    let expected_command_body_count = workload.ticks.checked_add(1).ok_or_else(|| {
+        LiveRuntimePerformanceError::new("command body count", "expected count overflow")
+    })?;
     if measurement.state.ticks != workload.ticks
-        || command_body_count != workload.ticks
+        || command_body_count != expected_command_body_count
         || measurement.checkpoint_root != measurement.state.checkpoint.state_root
     {
         return Err(LiveRuntimePerformanceError::new(

@@ -153,9 +153,9 @@ fn prepare_streaming_performance_check_with_scratch(
     route_kind: StreamingRouteKind,
     directory_label: &str,
 ) -> Result<PreparedStreamingPerformanceCheck, StreamingPerformanceError> {
-    let source = next_reference_game::project_source_v2()
+    let source = next_reference_game::project_source_v3()
         .map_err(|error| StreamingPerformanceError::new("fixture source", error.to_string()))?;
-    let cooked = next_project::cook_project_v2(source)
+    let cooked = next_project::cook_project_v3(source)
         .map_err(|error| StreamingPerformanceError::new("cook fixture", error.to_string()))?;
     let directory = scratch.create_directory(directory_label).map_err(|error| {
         StreamingPerformanceError::new("create performance fixture", error.to_string())

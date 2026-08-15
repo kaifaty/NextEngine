@@ -11,7 +11,7 @@ use next_contracts::agent::{
 use next_contracts::canonical::sha256;
 use next_contracts::command::{IssuerPrincipal, WorldCommand};
 use next_contracts::ids::{CommandStreamId, PersistentId, SchemaId, content_hash_from_bytes};
-use next_contracts::mechanics::{RpgDefinitionRegistryV1, ability_definition_hash};
+use next_contracts::mechanics::{RpgDefinitionRegistryV2, ability_definition_hash};
 use next_contracts::rpg::{RpgAggregateKindV1, RpgPhysicalContactFactV1, RpgSnapshotV2};
 use next_mechanics::{
     AbilityInvocationV1, CompiledAbilityEffectV1, MechanicsHostError, compile_contact_ability_v1,
@@ -29,7 +29,7 @@ pub struct AgentPlanningRequestV1<'a> {
     pub ai_host_available: bool,
     pub model_available: bool,
     pub rpg_snapshot: &'a RpgSnapshotV2,
-    pub definitions: &'a RpgDefinitionRegistryV1,
+    pub definitions: &'a RpgDefinitionRegistryV2,
     pub physical_contact_facts: &'a [RpgPhysicalContactFactV1],
 }
 
@@ -399,7 +399,7 @@ mod tests {
 
     fn request<'a>(
         snapshot: &'a RpgSnapshotV2,
-        definitions: &'a next_contracts::mechanics::RpgDefinitionRegistryV1,
+        definitions: &'a next_contracts::mechanics::RpgDefinitionRegistryV2,
         facts: &'a [RpgPhysicalContactFactV1],
         allowed_semantic_actions: Vec<SchemaId>,
         source_character_id: PersistentId,
@@ -425,14 +425,14 @@ mod tests {
         SchemaId::new(next_contracts::input::CORE_MELEE_ACTION_ID).expect("melee")
     }
 
-    fn registry() -> next_contracts::mechanics::RpgDefinitionRegistryV1 {
-        next_project::cook_project_v2(next_reference_game::project_source_v2().expect("source"))
+    fn registry() -> next_contracts::mechanics::RpgDefinitionRegistryV2 {
+        next_project::cook_project_v3(next_reference_game::project_source_v3().expect("source"))
             .expect("cook")
             .rpg_definitions
     }
 
     fn state(
-        registry: &next_contracts::mechanics::RpgDefinitionRegistryV1,
+        registry: &next_contracts::mechanics::RpgDefinitionRegistryV2,
     ) -> (
         RpgSnapshotV2,
         PersistentId,

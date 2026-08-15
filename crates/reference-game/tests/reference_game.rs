@@ -20,12 +20,12 @@ static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
 fn reference_source_recooks_byte_identically_and_runs_through_production_paths() {
-    let first = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let first = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("first cook");
-    let second = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let second = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("second cook");
     assert_eq!(first, second);
@@ -63,10 +63,18 @@ fn reference_source_recooks_byte_identically_and_runs_through_production_paths()
     let outcome = next_reference_game::run_reference_game(activated, true).expect("reference run");
     let checkpoint = outcome.runtime.world_checkpoint().expect("checkpoint");
     assert_eq!(outcome.ticks, 32);
-    assert_eq!(outcome.events, 27);
+    assert_eq!(outcome.events, 28);
     assert_eq!(outcome.rpg_events, 13);
     assert_eq!(outcome.world_streaming_snapshot.generation, 2);
-    reference_game_support::assert_world_streaming_stage_order(&outcome.tick_reports);
+    reference_game_support::assert_world_services_stage_order(&outcome.tick_reports);
+    assert_eq!(
+        outcome
+            .world_services_tick_commits
+            .iter()
+            .filter(|commit| commit.streaming_transition_or_none.is_some())
+            .count(),
+        2
+    );
     let query_reports = outcome
         .tick_reports
         .iter()
@@ -166,10 +174,10 @@ fn reference_source_recooks_byte_identically_and_runs_through_production_paths()
 }
 
 fn assert_reference_topology_faults_are_typed(
-    project: &next_contracts::project::ActivatedProjectV3,
+    project: &next_contracts::project::ActivatedProjectV4,
     topology: &next_reference_game::ReferenceWorldTopologyV1,
 ) {
-    let record_index = |project: &next_contracts::project::ActivatedProjectV3,
+    let record_index = |project: &next_contracts::project::ActivatedProjectV4,
                         chunk_id: &SchemaId| {
         let asset_id = project
             .world_partition
@@ -189,7 +197,7 @@ fn assert_reference_topology_faults_are_typed(
 
     let initial_index = record_index(project, topology.initial_chunk_id());
     let target_index = record_index(project, topology.gameplay_target_chunk_id());
-    let role_index = |project: &next_contracts::project::ActivatedProjectV3, index: usize| {
+    let role_index = |project: &next_contracts::project::ActivatedProjectV4, index: usize| {
         project.neutral_records[index]
             .properties
             .iter()
@@ -235,8 +243,8 @@ fn assert_reference_topology_faults_are_typed(
 fn prepared_live_advance_preserves_driver_and_commits_its_exact_preview() {
     let root = test_root("prepared-live-advance");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
@@ -244,10 +252,10 @@ fn prepared_live_advance_preserves_driver_and_commits_its_exact_preview() {
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
     let mut prepared_driver =
-        next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+        next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
             .expect("prepared driver");
     let mut ordinary_driver =
-        next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("ordinary driver");
+        next_reference_game::ReferenceGameDriverV2::new(activated, true).expect("ordinary driver");
     let event = control_event(
         KEYBOARD_DEVICE_CLASS_ID,
         KEYBOARD_W_CONTROL_PATH_ID,
@@ -293,8 +301,8 @@ fn prepared_live_advance_preserves_driver_and_commits_its_exact_preview() {
 fn prepared_live_advance_rejects_a_stale_driver_generation() {
     let root = test_root("stale-prepared-live-advance");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
@@ -302,7 +310,7 @@ fn prepared_live_advance_rejects_a_stale_driver_generation() {
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
     let mut driver =
-        next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("live driver");
+        next_reference_game::ReferenceGameDriverV2::new(activated, true).expect("live driver");
     let prepared = driver.stage_advance(&[]).expect("prepare advance");
     driver.advance(&[]).expect("advance current driver");
 
@@ -323,8 +331,8 @@ fn prepared_live_advance_rejects_a_stale_driver_generation() {
 fn failed_live_staging_preserves_input_camera_ledger_and_physics() {
     let root = test_root("failed-live-staging");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
@@ -332,7 +340,7 @@ fn failed_live_staging_preserves_input_camera_ledger_and_physics() {
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
     let driver =
-        next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("live driver");
+        next_reference_game::ReferenceGameDriverV2::new(activated, true).expect("live driver");
     let before = driver.state().expect("before state");
     let conflicting = [
         control_event_with_sequence(
@@ -363,8 +371,8 @@ fn failed_live_staging_preserves_input_camera_ledger_and_physics() {
 fn live_normalized_controls_move_the_player_while_camera_input_stays_nonauthoritative() {
     let root = test_root("live-input");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
@@ -372,7 +380,7 @@ fn live_normalized_controls_move_the_player_while_camera_input_stays_nonauthorit
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
 
-    let mut movement = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+    let mut movement = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .expect("movement driver");
     let initial = movement.state().expect("initial state");
     let body_id = next_contracts::physics::PhysicsBodyIdV1 {
@@ -405,10 +413,10 @@ fn live_normalized_controls_move_the_player_while_camera_input_stays_nonauthorit
         initial_pose.translation_micrometres[2] + 100_000
     );
 
-    let mut camera = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+    let mut camera = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .expect("camera driver");
     let mut neutral =
-        next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("neutral driver");
+        next_reference_game::ReferenceGameDriverV2::new(activated, true).expect("neutral driver");
     camera
         .advance(&[control_event(
             MOUSE_DEVICE_CLASS_ID,
@@ -457,8 +465,8 @@ fn live_normalized_controls_move_the_player_while_camera_input_stays_nonauthorit
 fn live_driver_continues_after_quantized_corner_contact() {
     let root = test_root("live-corner-contact");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
@@ -466,7 +474,7 @@ fn live_driver_continues_after_quantized_corner_contact() {
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
     let mut driver =
-        next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("live driver");
+        next_reference_game::ReferenceGameDriverV2::new(activated, true).expect("live driver");
 
     driver
         .advance(&[control_event_with_sequence(
@@ -558,8 +566,8 @@ fn live_driver_continues_after_quantized_corner_contact() {
 fn live_composite_camera_and_gameplay_frame_preserves_gameplay_root() {
     let root = test_root("live-composite-camera-gameplay");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
@@ -567,10 +575,10 @@ fn live_composite_camera_and_gameplay_frame_preserves_gameplay_root() {
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
 
-    let mut composite = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+    let mut composite = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .expect("composite driver");
     let mut gameplay =
-        next_reference_game::ReferenceGameDriverV1::new(activated, true).expect("gameplay driver");
+        next_reference_game::ReferenceGameDriverV2::new(activated, true).expect("gameplay driver");
     let movement = control_event_with_sequence(
         KEYBOARD_DEVICE_CLASS_ID,
         KEYBOARD_W_CONTROL_PATH_ID,
@@ -604,8 +612,8 @@ fn live_composite_camera_and_gameplay_frame_preserves_gameplay_root() {
 fn live_recovery_republishes_sequence_zero_camera_cut_under_a_new_epoch() {
     let root = test_root("live-presentation-recovery-cut");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
@@ -613,7 +621,7 @@ fn live_recovery_republishes_sequence_zero_camera_cut_under_a_new_epoch() {
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
 
-    let mut original = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+    let mut original = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .expect("original driver");
     original.advance(&[]).expect("non-cut live frame");
     let persisted = original.state().expect("persisted live state");
@@ -625,10 +633,11 @@ fn live_recovery_republishes_sequence_zero_camera_cut_under_a_new_epoch() {
             .all(|camera| !camera.cut)
     );
 
-    let recovered = next_reference_game::ReferenceGameDriverV1::restore(
+    let recovered = next_reference_game::ReferenceGameDriverV2::restore(
         activated,
         persisted.checkpoint.clone(),
         persisted.world_streaming_snapshot.clone(),
+        persisted.world_routine_snapshot_or_none,
         persisted.driver_recovery.clone(),
     )
     .expect("recovered driver")
@@ -666,8 +675,8 @@ fn live_recovery_republishes_sequence_zero_camera_cut_under_a_new_epoch() {
 fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
     let root = test_root("live-semantic-ui-hud");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
@@ -675,7 +684,7 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
 
-    let mut driver = next_reference_game::ReferenceGameDriverV1::new(activated.clone(), true)
+    let mut driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .expect("live driver");
     let initial = driver.state().expect("initial state");
     let ui_records = initial
@@ -787,10 +796,11 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
     // recovered driver rebuilds the same HUD under the recovery cut epoch.
     driver.advance(&[]).expect("non-cut live frame");
     let persisted = driver.state().expect("persisted state");
-    let recovered = next_reference_game::ReferenceGameDriverV1::restore(
+    let recovered = next_reference_game::ReferenceGameDriverV2::restore(
         activated.clone(),
         persisted.checkpoint.clone(),
         persisted.world_streaming_snapshot.clone(),
+        persisted.world_routine_snapshot_or_none,
         persisted.driver_recovery.clone(),
     )
     .expect("recovered driver")
@@ -813,7 +823,7 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
 
     // A non-interactive scenario has no RPG sources and publishes no
     // semantic UI batches.
-    let non_interactive = next_reference_game::ReferenceGameDriverV1::new(activated, false)
+    let non_interactive = next_reference_game::ReferenceGameDriverV2::new(activated, false)
         .expect("non-interactive driver")
         .state()
         .expect("non-interactive state");
@@ -834,8 +844,8 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
 }
 
 fn assert_live_state_eq(
-    left: &next_reference_game::ReferenceLiveStateV1,
-    right: &next_reference_game::ReferenceLiveStateV1,
+    left: &next_reference_game::ReferenceLiveStateV2,
+    right: &next_reference_game::ReferenceLiveStateV2,
 ) {
     assert_eq!(left.checkpoint, right.checkpoint);
     assert_eq!(

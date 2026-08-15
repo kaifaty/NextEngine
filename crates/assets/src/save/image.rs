@@ -22,6 +22,10 @@ use next_contracts::world::{
     WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION, WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
     WorldStreamingSnapshotV1,
 };
+use next_contracts::world_routine::{
+    WORLD_ROUTINE_SCHEMA_VERSION, WORLD_ROUTINE_SNAPSHOT_OWNER_ID,
+    WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID, WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID, WorldRoutineSnapshotV1,
+};
 
 use super::error::SaveStoreError;
 
@@ -161,6 +165,53 @@ impl SaveImage {
         Ok(image)
     }
 
+    pub fn from_world_checkpoint_with_streaming_and_routine(
+        generation: u64,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+        world_routine_snapshot: &WorldRoutineSnapshotV1,
+    ) -> Result<Self, SaveStoreError> {
+        let mut image = Self::from_world_checkpoint_with_streaming(
+            generation,
+            compatibility,
+            checkpoint,
+            world_streaming_snapshot,
+        )?;
+        let bytes = world_routine_snapshot.canonical_bytes()?;
+        let descriptor = SaveSegmentDescriptor::for_bytes(
+            SchemaId::new(WORLD_ROUTINE_SNAPSHOT_OWNER_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            u32::from(WORLD_ROUTINE_SCHEMA_VERSION),
+            &bytes,
+        )?;
+        let mut segments = image
+            .manifest
+            .segments
+            .into_iter()
+            .zip(image.segments)
+            .collect::<Vec<_>>();
+        segments.push((descriptor, bytes));
+        segments.sort_by(|left, right| {
+            (&left.0.owner_id, &left.0.schema_id, &left.0.segment_id).cmp(&(
+                &right.0.owner_id,
+                &right.0.schema_id,
+                &right.0.segment_id,
+            ))
+        });
+        image.manifest.segments = segments
+            .iter()
+            .map(|(descriptor, _)| descriptor.clone())
+            .collect();
+        image.segments = segments.into_iter().map(|(_, bytes)| bytes).collect();
+        image.manifest.validate()?;
+        Ok(image)
+    }
+
     pub fn validate_world(&self) -> Result<ValidatedSaveImage, SaveStoreError> {
         self.manifest.validate()?;
         if self.manifest.segments.len() != self.segments.len() {
@@ -252,35 +303,24 @@ impl SaveImage {
             rpg_snapshot.clone(),
             physics_checkpoint.clone(),
         )?;
-        let world_streaming_indices = self
-            .manifest
-            .segments
-            .iter()
-            .enumerate()
-            .filter(|(_, segment)| segment.owner_id.as_str() == WORLD_STREAMING_SNAPSHOT_OWNER_ID)
-            .collect::<Vec<_>>();
-        if world_streaming_indices.len() > 1 {
-            return Err(SaveStoreError::InvalidImage(
-                "SAVE_WORLD_STREAMING_SEGMENT_DUPLICATE",
-            ));
-        }
-        let world_streaming_snapshot =
-            if let Some((world_index, descriptor)) = world_streaming_indices.first().copied() {
-                if descriptor.schema_id.as_str() != WORLD_STREAMING_SNAPSHOT_SCHEMA_ID
-                    || descriptor.segment_id.as_str() != WORLD_STREAMING_SNAPSHOT_SEGMENT_ID
-                    || descriptor.schema_version != WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION
-                {
-                    return Err(SaveStoreError::InvalidImage(
-                        "WORLD_STREAM_SCHEMA_UNSUPPORTED",
-                    ));
-                }
-                Some(WorldStreamingSnapshotV1::from_canonical_bytes(
-                    &self.segments[world_index],
+        let (world_streaming_index, world_routine_index) =
+            world_services_segment_indices(&self.manifest.segments)?;
+        let world_streaming_snapshot = world_streaming_index
+            .map(|index| {
+                WorldStreamingSnapshotV1::from_canonical_bytes(
+                    &self.segments[index],
                     CanonicalDecodeLimits::default(),
-                )?)
-            } else {
-                None
-            };
+                )
+            })
+            .transpose()?;
+        let world_routine_snapshot_or_none = world_routine_index
+            .map(|index| {
+                WorldRoutineSnapshotV1::from_canonical_bytes(
+                    &self.segments[index],
+                    CanonicalDecodeLimits::default(),
+                )
+            })
+            .transpose()?;
         let tick = &self.manifest.compatibility.tick_settings;
         if tick.gameplay_hz != runtime_snapshot.tick_rate_profile.gameplay_hz
             || tick.physics_hz != runtime_snapshot.tick_rate_profile.physics_hz()
@@ -298,6 +338,7 @@ impl SaveImage {
             rpg_snapshot,
             physics_checkpoint,
             world_streaming_snapshot,
+            world_routine_snapshot_or_none,
         })
     }
 
@@ -400,29 +441,17 @@ impl SaveImage {
             &rpg_snapshot,
             &physics_checkpoint,
         )?;
-        let world_streaming_indices = self
-            .manifest
-            .segments
-            .iter()
-            .enumerate()
-            .filter(|(_, segment)| segment.owner_id.as_str() == WORLD_STREAMING_SNAPSHOT_OWNER_ID)
-            .collect::<Vec<_>>();
-        if world_streaming_indices.len() > 1 {
-            return Err(SaveStoreError::InvalidImage(
-                "SAVE_WORLD_STREAMING_SEGMENT_DUPLICATE",
-            ));
-        }
-        if let Some((world_index, descriptor)) = world_streaming_indices.first().copied() {
-            if descriptor.schema_id.as_str() != WORLD_STREAMING_SNAPSHOT_SCHEMA_ID
-                || descriptor.segment_id.as_str() != WORLD_STREAMING_SNAPSHOT_SEGMENT_ID
-                || descriptor.schema_version != WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION
-            {
-                return Err(SaveStoreError::InvalidImage(
-                    "WORLD_STREAM_SCHEMA_UNSUPPORTED",
-                ));
-            }
+        let (world_streaming_index, world_routine_index) =
+            world_services_segment_indices(&self.manifest.segments)?;
+        if let Some(world_index) = world_streaming_index {
             let _ = WorldStreamingSnapshotV1::from_canonical_bytes(
                 &self.segments[world_index],
+                CanonicalDecodeLimits::default(),
+            )?;
+        }
+        if let Some(routine_index) = world_routine_index {
+            let _ = WorldRoutineSnapshotV1::from_canonical_bytes(
+                &self.segments[routine_index],
                 CanonicalDecodeLimits::default(),
             )?;
         }
@@ -448,4 +477,44 @@ pub struct ValidatedSaveImage {
     pub rpg_snapshot: RpgSnapshotV2,
     pub physics_checkpoint: PhysicsWorldCheckpointV1,
     pub world_streaming_snapshot: Option<WorldStreamingSnapshotV1>,
+    pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
+}
+
+fn world_services_segment_indices(
+    descriptors: &[SaveSegmentDescriptor],
+) -> Result<(Option<usize>, Option<usize>), SaveStoreError> {
+    let mut streaming = None;
+    let mut routine = None;
+    for (index, descriptor) in descriptors
+        .iter()
+        .enumerate()
+        .filter(|(_, descriptor)| descriptor.owner_id.as_str() == WORLD_STREAMING_SNAPSHOT_OWNER_ID)
+    {
+        let target = if descriptor.schema_id.as_str() == WORLD_STREAMING_SNAPSHOT_SCHEMA_ID
+            && descriptor.segment_id.as_str() == WORLD_STREAMING_SNAPSHOT_SEGMENT_ID
+            && descriptor.schema_version == WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION
+        {
+            &mut streaming
+        } else if descriptor.schema_id.as_str() == WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID
+            && descriptor.segment_id.as_str() == WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID
+            && descriptor.schema_version == u32::from(WORLD_ROUTINE_SCHEMA_VERSION)
+        {
+            &mut routine
+        } else {
+            return Err(SaveStoreError::InvalidImage(
+                "WORLD_SERVICES_SCHEMA_UNSUPPORTED",
+            ));
+        };
+        if target.replace(index).is_some() {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_WORLD_SERVICES_SEGMENT_DUPLICATE",
+            ));
+        }
+    }
+    if routine.is_some() && streaming.is_none() {
+        return Err(SaveStoreError::InvalidImage(
+            "SAVE_WORLD_ROUTINE_STREAMING_MISSING",
+        ));
+    }
+    Ok((streaming, routine))
 }

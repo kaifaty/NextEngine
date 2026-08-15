@@ -1,5 +1,5 @@
 //! AUDIO-02-style displayless audio check (SPEC-08): the production live
-//! loop (`ReferenceGameDriverV1`) runs a scripted interactive session twice;
+//! loop (`ReferenceGameDriverV2`) runs a scripted interactive session twice;
 //! per-tick audio scenes, acoustic facts, canonical PCM and the gameplay
 //! state root must be byte-exact across the two runs, cue bindings must
 //! produce the authored activations, and the canonical WAV sink must encode
@@ -20,7 +20,7 @@ use next_contracts::platform::{
 };
 use next_contracts::presentation::audio_scene::AudioSceneSnapshotV1;
 use next_presentation::audio_mix::encode_canonical_wav;
-use next_reference_game::ReferenceGameDriverV1;
+use next_reference_game::ReferenceGameDriverV2;
 
 use super::error::PlayCheckError;
 use crate::player_fixture::prepare_fixture_project_package_with_scratch;
@@ -87,25 +87,22 @@ pub(crate) fn run_audio_scene_check_with_scratch(
             next_reference_game::audio::REFERENCE_SWITCH_CLIP_ASSET_ID,
             next_reference_game::audio::REFERENCE_PICKUP_CLIP_ASSET_ID,
             next_reference_game::audio::REFERENCE_MELEE_CLIP_ASSET_ID,
-            next_reference_game::audio::REFERENCE_DIALOGUE_CLIP_ASSET_ID,
         ];
         if cue_count < 4
             || acoustic_fact_count != cue_count
             || !expected_clips
                 .iter()
                 .all(|clip_id| clip_ids.contains(clip_id))
+            || clip_ids.contains(&next_reference_game::audio::REFERENCE_DIALOGUE_CLIP_ASSET_ID)
         {
             return Err(PlayCheckError::AcceptanceMismatch(format!(
                 "audio cue acceptance failed: cues={cue_count} facts={acoustic_fact_count} \
                  clips={clip_ids:?}"
             )));
         }
-        // Voice-absent subtitle fallback (A5): the dialogue-accept speech cue
-        // leaves its exact text ID on the HUD subtitle channel for the
-        // declared window after the scripted session ends.
-        let expected_subtitle =
-            next_reference_game::audio::REFERENCE_DIALOGUE_SUBTITLE_TEXT_ID.to_owned();
-        if first.subtitle_after_session.as_deref() != Some(expected_subtitle.as_str())
+        // The scripted live attempt occurs after Duty -> Rest, so the rejected
+        // interaction must not synthesize a dialogue cue or subtitle.
+        if first.subtitle_after_session.is_some()
             || first.subtitle_after_session != second.subtitle_after_session
         {
             return Err(PlayCheckError::AcceptanceMismatch(format!(
@@ -169,7 +166,7 @@ fn run_scripted_audio_session(
 fn run_scripted_audio_session_with_package(
     package: next_project::ActivatedProjectPackage,
 ) -> Result<ScriptedAudioOutcomeV1, PlayCheckError> {
-    let mut driver = ReferenceGameDriverV1::new(package, true)?;
+    let mut driver = ReferenceGameDriverV2::new(package, true)?;
     let mut scenes = Vec::new();
     let mut pcm_samples = Vec::new();
     for frame_events in audio_script() {
@@ -182,12 +179,23 @@ fn run_scripted_audio_session_with_package(
         .flat_map(|sample| sample.to_le_bytes())
         .collect();
     let state = driver.state()?;
-    let final_state_root = next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
-        &state.checkpoint.runtime_snapshot,
-        &state.checkpoint.rpg_snapshot,
-        &state.checkpoint.physics_checkpoint,
-        &state.world_streaming_snapshot,
-    )?;
+    let final_state_root = match state.world_routine_snapshot_or_none.as_ref() {
+        Some(routine) => {
+            next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
+                &state.checkpoint.runtime_snapshot,
+                &state.checkpoint.rpg_snapshot,
+                &state.checkpoint.physics_checkpoint,
+                &state.world_streaming_snapshot,
+                routine,
+            )?
+        }
+        None => next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
+            &state.checkpoint.runtime_snapshot,
+            &state.checkpoint.rpg_snapshot,
+            &state.checkpoint.physics_checkpoint,
+            &state.world_streaming_snapshot,
+        )?,
+    };
     let subtitle_after_session = driver
         .current_audio_subtitle(driver.next_tick())
         .map(|text_id| text_id.as_str().to_owned());
@@ -202,7 +210,7 @@ fn run_scripted_audio_session_with_package(
 
 /// Scripted interactive session mirroring the reference play scenario's
 /// interactive portion: move forward, pickup, equip, interact (switch),
-/// approach the NPC, melee, open the dialogue and accept it.
+/// approach the NPC, melee, then attempt the now Rest-gated dialogue.
 fn audio_script() -> Vec<Vec<PlatformEventV1>> {
     use NormalizedControlPhaseV1::{Completed, Started};
     let mut sequence = 0_u64;

@@ -6,8 +6,7 @@ use next_assets::ContentStore;
 use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
 use next_contracts::input::{
     KEYBOARD_DEVICE_CLASS_ID, KEYBOARD_DOWN_CONTROL_PATH_ID, KEYBOARD_E_CONTROL_PATH_ID,
-    KEYBOARD_ESCAPE_CONTROL_PATH_ID, KEYBOARD_J_CONTROL_PATH_ID, KEYBOARD_RETURN_CONTROL_PATH_ID,
-    KEYBOARD_UP_CONTROL_PATH_ID,
+    KEYBOARD_J_CONTROL_PATH_ID, KEYBOARD_RETURN_CONTROL_PATH_ID, KEYBOARD_UP_CONTROL_PATH_ID,
 };
 use next_contracts::platform::{
     NormalizedControlEventV1, NormalizedControlPhaseV1, PlatformEventKindV1,
@@ -15,7 +14,7 @@ use next_contracts::platform::{
 };
 use next_contracts::presentation::PresentationSnapshotV2;
 use next_contracts::rpg::RpgAggregatePayloadV1;
-use next_reference_game::ReferenceGameDriverV1;
+use next_reference_game::ReferenceGameDriverV2;
 
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -34,7 +33,6 @@ const DIALOGUE_SURFACE_IDS: [&str; 4] = [
     "nextengine.ui.element.dialogue.title",
 ];
 const DIALOGUE_OFFER_NODE_ID: &str = "nextengine.reference-alpha.dialogue.offer";
-const DIALOGUE_ACCEPTED_NODE_ID: &str = "nextengine.reference-alpha.dialogue.accepted";
 
 fn control_event_with_sequence(
     device_class: &str,
@@ -95,7 +93,7 @@ fn key_event(
     )
 }
 
-fn tap_key(driver: &mut ReferenceGameDriverV1, sequence: &mut u64, control_path: &'static str) {
+fn tap_key(driver: &mut ReferenceGameDriverV2, sequence: &mut u64, control_path: &'static str) {
     let press = key_event(sequence, control_path, NormalizedControlPhaseV1::Started);
     driver.advance(&[press]).expect("key press frame");
     let release = key_event(sequence, control_path, NormalizedControlPhaseV1::Completed);
@@ -139,7 +137,7 @@ fn dialogue_selected_choice(snapshot: &PresentationSnapshotV2) -> Option<String>
     })
 }
 
-fn dialogue_node_id(driver: &ReferenceGameDriverV1) -> String {
+fn dialogue_node_id(driver: &ReferenceGameDriverV2) -> String {
     let state = driver.state().expect("driver state");
     state
         .checkpoint
@@ -153,7 +151,7 @@ fn dialogue_node_id(driver: &ReferenceGameDriverV1) -> String {
         .expect("dialogue aggregate")
 }
 
-fn quest_state_and_trust(driver: &ReferenceGameDriverV1) -> (String, i32) {
+fn quest_state_and_trust(driver: &ReferenceGameDriverV2) -> (String, i32) {
     let state = driver.state().expect("driver state");
     let mut quest_state = None;
     let mut trust = None;
@@ -181,18 +179,18 @@ fn quest_state_and_trust(driver: &ReferenceGameDriverV1) -> (String, i32) {
 }
 
 #[test]
-fn live_dialogue_arbitration_accepts_through_production_interaction_path() {
+fn live_dialogue_accept_after_boundary_is_rejected_by_production_routine_gate() {
     let root = test_root("live-dialogue-accept");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
-    let mut driver = ReferenceGameDriverV1::new(activated, true).expect("live driver");
+    let mut driver = ReferenceGameDriverV2::new(activated, true).expect("live driver");
     let mut sequence = 0_u64;
 
     // Interact near the NPC opens the modal dialogue surface instead of
@@ -252,9 +250,9 @@ fn live_dialogue_arbitration_accepts_through_production_interaction_path() {
     );
     driver.advance(&[release]).expect("nav up release frame");
 
-    // ui-confirm on Accept closes the surface; the committed frame injects a
-    // synthetic interact through the production interaction accept path once
-    // the tagging stack no longer carries the dialogue layer.
+    // The modal workflow necessarily crosses the authored tick-2 Duty -> Rest
+    // boundary. Confirm still submits through the production interaction path,
+    // but Runtime accepts the input with no derived RPG command in Rest.
     let press = key_event(
         &mut sequence,
         KEYBOARD_RETURN_CONTROL_PATH_ID,
@@ -270,20 +268,20 @@ fn live_dialogue_arbitration_accepts_through_production_interaction_path() {
     driver.advance(&[release]).expect("confirm release frame");
     assert_eq!(dialogue_node_id(&driver), DIALOGUE_OFFER_NODE_ID);
     driver.advance(&[]).expect("accept injection frame");
-    assert_eq!(dialogue_node_id(&driver), DIALOGUE_ACCEPTED_NODE_ID);
+    assert_eq!(dialogue_node_id(&driver), DIALOGUE_OFFER_NODE_ID);
     assert_eq!(
         quest_state_and_trust(&driver),
-        ("nextengine.reference-alpha.quest.active".to_owned(), 7)
+        ("nextengine.reference-alpha.quest.available".to_owned(), 0)
     );
 
-    // The manual journal observation is tied to the same committed quest
-    // state rather than a fixture-only UI row.
+    // The manual journal observation stays tied to the unchanged authoritative
+    // quest state rather than presentation-only modal state.
     let press = key_event(
         &mut sequence,
         KEYBOARD_J_CONTROL_PATH_ID,
         NormalizedControlPhaseV1::Started,
     );
-    let journal = driver.advance(&[press]).expect("active journal frame");
+    let journal = driver.advance(&[press]).expect("available journal frame");
     let entry = journal
         .semantic_ui_records()
         .find(|record| {
@@ -299,7 +297,8 @@ fn live_dialogue_arbitration_accepts_through_production_interaction_path() {
             .arguments
             .get(1),
         Some(&next_contracts::presentation::UiTextArgumentV1::TextId(
-            SchemaId::new("nextengine.reference-alpha.quest.active").expect("active quest state"),
+            SchemaId::new("nextengine.reference-alpha.quest.available")
+                .expect("available quest state"),
         ))
     );
 
@@ -307,24 +306,35 @@ fn live_dialogue_arbitration_accepts_through_production_interaction_path() {
 }
 
 #[test]
-fn live_dialogue_leave_and_back_close_without_command_and_recover() {
+fn live_dialogue_leave_then_rest_blocks_reopen_and_survives_recovery() {
     let root = test_root("live-dialogue-leave-back");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v2(
-        next_reference_game::project_source_v2().expect("reference source"),
+    let cooked = next_project::cook_project_v3(
+        next_reference_game::project_source_v3().expect("reference source"),
     )
     .expect("cook");
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
-    let mut driver = ReferenceGameDriverV1::new(activated.clone(), true).expect("live driver");
+    let mut driver = ReferenceGameDriverV2::new(activated.clone(), true).expect("live driver");
     let mut sequence = 0_u64;
 
     tap_key(&mut driver, &mut sequence, KEYBOARD_E_CONTROL_PATH_ID);
     driver.advance(&[]).expect("context swap frame");
+    assert_eq!(
+        driver
+            .state()
+            .expect("Rest state")
+            .world_routine_snapshot_or_none
+            .expect("routine snapshot")
+            .record
+            .current_activity,
+        next_contracts::world_routine::WorldRoutineActivityV1::Rest
+    );
 
-    // ui-confirm on Leave closes the surface without any domain command.
+    // ui-confirm on Leave closes the already-open surface without a domain
+    // command even though the routine boundary has now committed.
     tap_key(&mut driver, &mut sequence, KEYBOARD_DOWN_CONTROL_PATH_ID);
     let press = key_event(
         &mut sequence,
@@ -340,53 +350,55 @@ fn live_dialogue_leave_and_back_close_without_command_and_recover() {
     );
     driver.advance(&[release]).expect("leave release frame");
     assert_eq!(dialogue_node_id(&driver), DIALOGUE_OFFER_NODE_ID);
+    assert_eq!(
+        quest_state_and_trust(&driver),
+        ("nextengine.reference-alpha.quest.available".to_owned(), 0)
+    );
 
-    // Reopen; ui-back closes the dialogue and is consumed: no pause suspend
-    // publication carries the pause-menu surface.
-    tap_key(&mut driver, &mut sequence, KEYBOARD_E_CONTROL_PATH_ID);
-    driver.advance(&[]).expect("context swap frame");
+    // A fresh open request in Rest queries Runtime availability first and is
+    // rejected before presentation can create a stale modal surface.
     let press = key_event(
         &mut sequence,
-        KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+        KEYBOARD_E_CONTROL_PATH_ID,
         NormalizedControlPhaseV1::Started,
     );
-    let snapshot = driver.advance(&[press]).expect("back close frame");
-    let records = record_ids(snapshot);
-    assert_eq!(records, expected_records(false));
-    assert!(!records.iter().any(|id| id.contains("pause-menu")));
+    let snapshot = driver.advance(&[press]).expect("Rest reopen frame");
+    assert_eq!(record_ids(snapshot), expected_records(false));
     let release = key_event(
         &mut sequence,
-        KEYBOARD_ESCAPE_CONTROL_PATH_ID,
+        KEYBOARD_E_CONTROL_PATH_ID,
         NormalizedControlPhaseV1::Completed,
     );
-    driver.advance(&[release]).expect("back release frame");
+    driver
+        .advance(&[release])
+        .expect("Rest reopen release frame");
     assert_eq!(dialogue_node_id(&driver), DIALOGUE_OFFER_NODE_ID);
 
-    // Reopen once more and restore mid-dialogue: the recovered driver
-    // republishes the dialogue surface and accepts through the same path.
-    tap_key(&mut driver, &mut sequence, KEYBOARD_E_CONTROL_PATH_ID);
-    driver.advance(&[]).expect("context swap frame");
+    // Recovery preserves the Rest revision and the same query result; it does
+    // not reconstruct or permit a presentation-only dialogue surface.
     let saved = driver.state().expect("state before restore");
-    let mut restored = ReferenceGameDriverV1::restore(
+    let mut restored = ReferenceGameDriverV2::restore(
         activated,
         saved.checkpoint.clone(),
         saved.world_streaming_snapshot.clone(),
+        saved.world_routine_snapshot_or_none,
         saved.driver_recovery.clone(),
     )
     .expect("restore");
     let snapshot = restored.presentation_snapshot().expect("restored snapshot");
-    assert_eq!(record_ids(snapshot), expected_records(true));
-
-    tap_key(
-        &mut restored,
+    assert_eq!(record_ids(snapshot), expected_records(false));
+    let press = key_event(
         &mut sequence,
-        KEYBOARD_RETURN_CONTROL_PATH_ID,
+        KEYBOARD_E_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Started,
     );
-    restored.advance(&[]).expect("accept injection frame");
-    assert_eq!(dialogue_node_id(&restored), DIALOGUE_ACCEPTED_NODE_ID);
+    let snapshot = restored
+        .advance(&[press])
+        .expect("restored Rest reopen frame");
+    assert_eq!(record_ids(snapshot), expected_records(false));
     assert_eq!(
         quest_state_and_trust(&restored),
-        ("nextengine.reference-alpha.quest.active".to_owned(), 7)
+        ("nextengine.reference-alpha.quest.available".to_owned(), 0)
     );
 
     std::fs::remove_dir_all(root).expect("cleanup");

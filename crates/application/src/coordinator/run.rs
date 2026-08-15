@@ -3,8 +3,9 @@ use next_contracts::platform::{PlatformEventKindV1, PlatformEventV1};
 use next_contracts::session::{ApplicationSessionStatusV1, PresentationTargetKindV1};
 use next_contracts::snapshot::WorldCheckpointV4;
 use next_contracts::world::WorldStreamingSnapshotV1;
+use next_contracts::world_routine::WorldRoutineSnapshotV1;
 use next_reference_game::{
-    ReferenceGameDriverV1, ReferenceLiveStateV1, ReferenceRunOutcomeV1, run_reference_game,
+    ReferenceGameDriverV2, ReferenceLiveStateV2, ReferenceRunOutcomeV2, run_reference_game,
 };
 use std::sync::Arc;
 
@@ -17,6 +18,7 @@ use super::{save_compatibility, save_identity};
 pub(super) struct PreparedRunV1 {
     pub(super) checkpoint: WorldCheckpointV4,
     pub(super) streaming: WorldStreamingSnapshotV1,
+    pub(super) routine: Option<WorldRoutineSnapshotV1>,
     pub(super) summary: ApplicationRunOutcomeV1,
 }
 
@@ -54,7 +56,7 @@ impl ApplicationCoordinator {
         if self.machine.state().state != ApplicationSessionStatusV1::Suspended {
             return Err(ApplicationError::RecoveryIncompatible);
         }
-        let base = ReferenceGameDriverV1::new_with_presentation_epoch(
+        let base = ReferenceGameDriverV2::new_with_presentation_epoch(
             self.activated_package(),
             true,
             presentation_snapshot_epoch(
@@ -74,7 +76,11 @@ impl ApplicationCoordinator {
                     .world_streaming_snapshot
                     .ok_or(ApplicationError::RecoveryIncompatible)?;
                 let generation_hash = save_identity(&loaded.image.manifest)?.0;
-                let candidate = base.load_saved_world_candidate(loaded.checkpoint, streaming)?;
+                let candidate = base.load_saved_world_candidate(
+                    loaded.checkpoint,
+                    streaming,
+                    loaded.world_routine_snapshot_or_none,
+                )?;
                 let prepared = prepare_live_state(
                     self.machine.state().session_id,
                     candidate.state()?,
@@ -138,7 +144,7 @@ impl ApplicationCoordinator {
         if self.live_run.is_some() || self.prepared_run.is_some() {
             return Err(ApplicationError::LiveRunAlreadyActive);
         }
-        let driver = ReferenceGameDriverV1::new_with_presentation_epoch(
+        let driver = ReferenceGameDriverV2::new_with_presentation_epoch(
             self.activated_package(),
             include_interaction,
             presentation_snapshot_epoch(
@@ -347,7 +353,11 @@ impl ApplicationCoordinator {
             .live_run
             .as_ref()
             .ok_or(ApplicationError::NoLiveRun)?
-            .load_saved_world_candidate(loaded.checkpoint, streaming)?;
+            .load_saved_world_candidate(
+                loaded.checkpoint,
+                streaming,
+                loaded.world_routine_snapshot_or_none,
+            )?;
         let prepared = prepare_live_state(
             self.machine.state().session_id,
             candidate.state()?,
@@ -449,13 +459,14 @@ fn validate_direct_live_lifecycle_batch(
 
 fn prepare_live_state(
     session_id: ApplicationSessionId,
-    state: ReferenceLiveStateV1,
+    state: ReferenceLiveStateV2,
     presentation_target: PresentationTargetKindV1,
 ) -> Result<PreparedRunV1, ApplicationError> {
-    let ReferenceLiveStateV1 {
+    let ReferenceLiveStateV2 {
         checkpoint,
         checkpoint_canonical_components,
         world_streaming_snapshot,
+        world_routine_snapshot_or_none,
         ticks,
         events,
         rpg_events,
@@ -465,11 +476,17 @@ fn prepare_live_state(
         presentation_snapshot,
         driver_recovery: _,
     } = state;
-    let authoritative_state_root =
-        next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
+    let authoritative_state_root = match world_routine_snapshot_or_none.as_ref() {
+        Some(routine) => next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root_from_canonical_components(
             &checkpoint_canonical_components,
             &world_streaming_snapshot,
-        )?;
+            routine,
+        )?,
+        None => next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
+            &checkpoint_canonical_components,
+            &world_streaming_snapshot,
+        )?,
+    };
     let summary = ApplicationRunOutcomeV1 {
         session_id,
         project_composition_lock_hash,
@@ -496,6 +513,7 @@ fn prepare_live_state(
     Ok(PreparedRunV1 {
         checkpoint,
         streaming: world_streaming_snapshot,
+        routine: world_routine_snapshot_or_none,
         summary,
     })
 }
@@ -506,7 +524,7 @@ fn prepare_reference_run(
     include_interaction: bool,
     presentation_target: PresentationTargetKindV1,
 ) -> Result<PreparedRunV1, ApplicationError> {
-    let run: ReferenceRunOutcomeV1 = run_reference_game(package, include_interaction)?;
+    let run: ReferenceRunOutcomeV2 = run_reference_game(package, include_interaction)?;
     let (checkpoint, checkpoint_canonical_components) =
         run.runtime.world_checkpoint_with_canonical_components()?;
     let presentation_snapshot = if presentation_target == PresentationTargetKindV1::None {
@@ -536,11 +554,17 @@ fn prepare_reference_run(
     };
     let presentation_input_count = u64::try_from(run.presentation_bindings.len())
         .map_err(|_| ApplicationError::DurableSnapshotInvalid)?;
-    let authoritative_state_root =
-        next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
+    let authoritative_state_root = match run.world_routine_snapshot_or_none.as_ref() {
+        Some(routine) => next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root_from_canonical_components(
             &checkpoint_canonical_components,
             &run.world_streaming_snapshot,
-        )?;
+            routine,
+        )?,
+        None => next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root_from_canonical_components(
+            &checkpoint_canonical_components,
+            &run.world_streaming_snapshot,
+        )?,
+    };
     let summary = ApplicationRunOutcomeV1 {
         session_id,
         project_composition_lock_hash: run.project_composition_lock_hash,
@@ -566,6 +590,7 @@ fn prepare_reference_run(
     Ok(PreparedRunV1 {
         checkpoint,
         streaming: run.world_streaming_snapshot,
+        routine: run.world_routine_snapshot_or_none,
         summary,
     })
 }
