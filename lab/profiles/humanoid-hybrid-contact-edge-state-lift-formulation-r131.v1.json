@@ -1,0 +1,296 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-hybrid-contact-edge-state-lift-formulation.v1",
+  "status": "FrozenReportOnly",
+  "claim": "HybridContactEdgeStateLiftFormulationOnly",
+  "source": {
+    "r130_rc1": {
+      "report_sha256": "edc8f978e6ee068c32637fe2000495c066daafdd15458eb3809365d69446dd3d",
+      "report_file_sha256": "68166bcf90d9d77d82e92faad159ee3653259da56bf66fe3020a927c174abc2b",
+      "profile_sha256": "7794c56283e9703f710682ec56b48689db299cbe7788b5ccbdd5653b631cd7eb",
+      "module_sha256": "15d4bea0dd4d81cd48d1682a6b6b460b942250bf987a93256fc387775e983573",
+      "tool_sha256": "284535f5f644b55c45cf88217b398f4f6c127239728edfcf5838d1422fc32fa7",
+      "repository_commit": "74275e300c2122a49d6a96f5ab383439495b98c5"
+    },
+    "r130": {
+      "report_sha256": "acd92a581a732c293cc9440d4215702fdf356f614c150ec4886d82a2fb197955",
+      "report_file_sha256": "422a9b54d44ca10297927ccccb54eb541b4fc23cc2c778c34e98d5b55d07ea72",
+      "profile_sha256": "f10f557dd93d47f192f20d321052d309455cf54ba657bafc2829e7700fd2825f",
+      "execution_module_sha256": "a6b8945ab8550ce9aaae5b28b5a52237dcd3d56de3785fe4cf77c2f12580122e",
+      "tool_sha256": "733caaf4f8947f25079cf87effc79058274782d3bcfce3caa323f4e395b43fae",
+      "repository_commit": "4dbd0ac9b36887dad40d61a407b1e5122273d54c"
+    },
+    "r121": {
+      "report_sha256": "4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3",
+      "report_file_sha256": "5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7",
+      "profile_sha256": "9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93",
+      "repository_commit": "a20e9bcf04f7c8137955d102fa3f2b64ffb77d1d"
+    },
+    "collocation_lift_module_sha256": "81f436bb0ad21e683508e9d4e518c8f01fee4316707fd74ab4e805be28dba906",
+    "formulation_module_sha256": "1d696a4e6a8408d93b18e869679b4736f6977ffef70be7fc0ea734709a3506af",
+    "tool_sha256": "2a1c6075fe919a0dcb5a32f3e49b7b952efe0e9b69c96f7c3488b4eeded28779"
+  },
+  "scope": {
+    "formulation_id": "R131",
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_reports_read": 3,
+    "source_projection_collocations_read": 3200,
+    "contact_edge_inventory_audits": 1,
+    "hybrid_state_lift_formulations": 1,
+    "state_lift_evaluations": 0,
+    "mass_matrix_assemblies": 0,
+    "contact_jacobian_assemblies": 0,
+    "projection_factorizations": 0,
+    "projection_solves": 0,
+    "controller_schedule_derivations": 0,
+    "inverse_dynamics_system_assemblies": 0,
+    "kinodynamic_solves": 0,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "diagnosis_contract": {
+    "confirmed": "R130's mass-metric tangent projection is numerically valid but its resulting fixed-PD input schedule violates the frozen right-ankle-roll actuator limits before inverse dynamics",
+    "supported_hotspot": "the four largest R130 corrections occupy substeps 2/3 of exit intervals 76 and 744, both right forefoot to flight",
+    "not_claimed": "R130 emitted no projected vectors or controller-event row indices, so exact row-to-violation identity and inverse-dynamics feasibility remain unknown",
+    "smallest_question": "does importing the next flight knot velocity into a still-active exit interval cause the actuator-invalid late correction?"
+  },
+  "current_cross_mode_lift_contract": {
+    "motor_intervals": 800,
+    "physics_substeps_per_interval": 4,
+    "collocation_abscissae": ["0", "1/4", "1/2", "3/4"],
+    "configuration": "q(i,u) is independently interpolated from exact knots q_i and q_(i+1)",
+    "velocity": "v_aff(i,u)=(1-u)v_i+u v_(i+1) independently of q",
+    "contact_mode": "the left interval mode A_i owns all four collocations",
+    "motor_boundary_reanchor": "interval i+1 starts from exact knot v_(i+1)",
+    "kinematic_derivative_identity": "NOT_CLAIMED_IN_STAGE_2",
+    "problem_at_exit": "for A_i active and A_(i+1) flight, u>0 mixes flight-side v_(i+1) into rows still constrained by A_i"
+  },
+  "contact_edge_inventory_contract": {
+    "motor_interval_count": 800,
+    "collocation_count": 3200,
+    "boundary_count": 799,
+    "unchanged_boundary_count": 770,
+    "changed_boundary_count": 29,
+    "simultaneous_side_change_boundary_count": 0,
+    "contact_entry_boundary_count": 9,
+    "contact_exit_boundary_count": 9,
+    "active_mode_change_boundary_count": 11,
+    "left": {
+      "entry_count": 5,
+      "exit_count": 4,
+      "active_mode_change_count": 6
+    },
+    "right": {
+      "entry_count": 4,
+      "exit_count": 5,
+      "active_mode_change_count": 5
+    },
+    "entry_intervals": [91, 178, 262, 351, 430, 517, 592, 686, 763],
+    "exit_intervals": [76, 165, 244, 337, 412, 501, 575, 676, 744],
+    "active_mode_change_intervals": [67, 92, 157, 235, 327, 404, 492, 566, 667, 736, 764],
+    "right_forefoot_exit_hotspot_intervals": [76, 744],
+    "selected_exit_collocation_rows": 36,
+    "selected_changed_base_velocity_rows": 27,
+    "motor_mode_sequence_sha256": "ab30a912550e06e1219b1fab87e0d93044eba6b0cdf8e7377f7b27a0e1915ca4"
+  },
+  "alternative_decisions": [
+    {
+      "alternative": "current_affine_cross_mode_velocity_lift",
+      "decision": "REJECT_AS_R130_EXECUTION_INPUT_RETAIN_AS_BASELINE",
+      "reason": "R130 falsifies actuator-schedule preservation and its largest corrections cluster where the right endpoint belongs to flight"
+    },
+    {
+      "alternative": "exit_mode_owned_left_velocity_trace_hold",
+      "decision": "SELECT_R132_BOUNDED_CONFORMANCE",
+      "reason": "it removes only future flight-velocity contamination from nine contact-exit intervals and yields a 36-row falsifiable anchor set"
+    },
+    {
+      "alternative": "instantaneous_actuator_constrained_tangent_projection",
+      "decision": "DEFER_AFTER_EDGE_CAUSAL_DISCRIMINATOR",
+      "reason": "a pointwise velocity box does not by itself close qdot identity or sequential effort-rate, power and work state"
+    },
+    {
+      "alternative": "full_trajectory_kinodynamic_retargeting",
+      "decision": "STRONG_FALLBACK_IF_LOCAL_DISCRIMINATOR_FAILS",
+      "reason": "joint q, v, a, effort and contact-force variables address integration and actuator feasibility but materially widen the intervention"
+    },
+    {
+      "alternative": "sliding_compliant_or_impact_contact_successor",
+      "decision": "DEFER_TO_CONTACT_SEMANTICS_AND_NATIVE_CORRESPONDENCE",
+      "reason": "it changes current rigid mode ownership and requires an explicit backend correspondence contract"
+    }
+  ],
+  "selected_edge_lift_contract": {
+    "name": "exit_mode_owned_left_velocity_trace_hold",
+    "purpose": "CAUSAL_DIAGNOSTIC_NOT_PRODUCTION_STATE_INTEGRATOR",
+    "selection_predicate": "an interval i is selected iff any foot mode is nonzero in A_i and zero in A_(i+1)",
+    "selected_intervals": [76, 165, 244, 337, 412, 501, 575, 676, 744],
+    "ordinary_interval_velocity_weights": "at substep s use endpoint numerators [4-s,s] over denominator 4",
+    "selected_exit_interval_velocity_weights": "at every substep s use endpoint numerators [4,0] over denominator 4",
+    "substep_zero_identity": "selected and current lifts are byte-identical at u=0",
+    "changed_rows": "only substeps 1/2/3 of the nine selected exit intervals may change before projection",
+    "right_boundary_reanchor": "the next interval starts from exact v_(i+1); the diagnostic permits an explicit mode-boundary velocity trace discontinuity",
+    "configuration": "retain R121 affine translation/joint configuration and SO(3) root interpolation byte-for-byte",
+    "contact_schedule": "retain every R121/R130 mode and active point byte-for-byte",
+    "target_schedule": "retain every R121/R130 fixed-PD target, gain and descriptor safety limit byte-for-byte",
+    "projection": "apply the already-conformed R129 mass-metric tangent projection against A_i after selecting the base velocity",
+    "controller_observation": "use the same ties-to-even joint position/velocity quantization and fixed-PD schedule rules as R130",
+    "warm_acceleration": "INVALIDATED_AND_NOT_CONSUMED_BY_R132",
+    "kinematic_derivative_identity": "NOT_CLAIMED",
+    "discrete_integration_constraint": "ABSENT",
+    "impact_or_release_impulse": "NOT_MODELLED",
+    "promotion_ceiling": "a later schedule PASS would isolate the edge-lift cause but would not establish integration, impact, inverse-dynamics, PhysX or corpus feasibility"
+  },
+  "r132_conformance_contract": {
+    "claim": "ExitModeOwnedLiftImplementationConformanceOnly",
+    "real_anchor_intervals": [76, 165, 244, 337, 412, 501, 575, 676, 744],
+    "real_anchor_substeps": [0, 1, 2, 3],
+    "maximum_real_anchor_rows": 36,
+    "maximum_real_projection_systems": 36,
+    "maximum_changed_base_velocity_rows": 27,
+    "required_checks": [
+      "exact endpoint-weight selection and source reanchor identity",
+      "exact q/mode/point/target preservation",
+      "R129 rank, KKT, tangent, idempotence, energy and gauge bounds on every selected row",
+      "row-addressed pre/post projection joint velocity and correction evidence",
+      "synthetic ordinary, entry, active-mode-change, exit and malformed-edge cases"
+    ],
+    "full_schedule_projection": "FORBIDDEN",
+    "controller_schedule_derivation": "FORBIDDEN",
+    "inverse_dynamics": "FORBIDDEN",
+    "pass_transition": "PERMIT_ONE_BOUNDED_R133_EXIT_MODE_OWNED_PROJECTED_SCHEDULE_EXECUTION",
+    "fail_transition": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "future_r133_schedule_contract": {
+    "authority": "NOT_GRANTED_BY_R131_AND_REQUIRES_R132_PASS",
+    "maximum_process_count": 1,
+    "full_collocation_count": 3200,
+    "maximum_projection_systems": 2640,
+    "maximum_controller_schedule_derivations": 1,
+    "required_acceptance": [
+      "all projection numerical guards pass",
+      "zero hard-ROM violations",
+      "zero joint-velocity violations",
+      "zero infeasible effort envelopes",
+      "R121 target lineage remains exact",
+      "every controller activation records collocation and DoF identity"
+    ],
+    "inverse_dynamics": "FORBIDDEN",
+    "candidate_physx_training": "FORBIDDEN"
+  },
+  "research_basis": [
+    {
+      "source": "Posa, Cantu and Tedrake, A Direct Method for Trajectory Optimization of Rigid Bodies Through Contact, 2014",
+      "url": "https://groups.csail.mit.edu/robotics-center/public_papers/Posa13.pdf",
+      "relevance": "contact creation and breakage are hybrid events and should not silently share one smooth cross-mode state assumption"
+    },
+    {
+      "source": "Wang, Dehio, Tanguy and Kheddar, Impact-Aware Task-Space Quadratic-Programming Control, 2023",
+      "url": "https://arxiv.org/abs/2006.01987",
+      "relevance": "contact-related velocity and torque jumps require explicit hardware-feasible treatment"
+    },
+    {
+      "source": "Escande, Mansard and Wieber, Hierarchical Quadratic Programming, 2014",
+      "url": "https://gepettoweb.laas.fr/uploads/Publications/2014_escande_ijrr.pdf",
+      "relevance": "equality tasks and actuator or joint inequality regions must be represented together when the smaller diagnostic fails"
+    },
+    {
+      "source": "Zhang, Haener, Madabushi and Tucker, Kinodynamic Motion Retargeting for Humanoid Locomotion, 2026",
+      "url": "https://arxiv.org/html/2603.09956",
+      "relevance": "trajectory-level q, v, a, torque and contact-force optimization is the evidence-backed stronger fallback"
+    }
+  ],
+  "decision": {
+    "complete": "PERMIT_SEPARATE_REPORT_ONLY_R132_EXIT_MODE_OWNED_LIFT_CONFORMANCE_ONLY",
+    "invalid": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "result_transitions": {
+    "complete": "R131_COMPLETE_R132_CONFORMANCE_ONLY",
+    "invalid": "R131_INVALID_STOP_WITHOUT_EXECUTION"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/hybrid_contact_edge_state_lift_formulation.py",
+        "lab/scripts/formulate_hybrid_contact_edge_state_lift.py",
+        "lab/tests/test_hybrid_contact_edge_state_lift_formulation.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/hybrid_contact_edge_state_lift_formulation.py",
+        "lab/scripts/formulate_hybrid_contact_edge_state_lift.py",
+        "lab/tests/test_hybrid_contact_edge_state_lift_formulation.py"
+      ]
+    },
+    {
+      "id": "no_numeric_or_solver_import",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; import next_lab.hybrid_contact_edge_state_lift_formulation; assert not any(name in sys.modules for name in ('numpy','osqp','scipy','pinocchio','next_lab.fixed_pd_inverse_dynamics_execution','next_lab.tangent_projected_fixed_pd_execution'))"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": ["cargo", "test", "-p", "next_motor"]
+    },
+    {
+      "id": "host_check",
+      "arguments": ["cargo", "run", "-q", "-p", "xtask", "--", "host-check"]
+    }
+  ],
+  "bounded_acceptance": {
+    "r132_edge_lift_conformance": "AUTHORIZED_REPORT_ONLY_ON_R131_COMPLETE",
+    "r133_projected_schedule_execution": "NOT_AUTHORIZED_UNTIL_R132_PASS",
+    "r130_retry": "NOT_AUTHORIZED",
+    "additional_projected_fixed_pd_execution": "NOT_AUTHORIZED",
+    "additional_projection_execution": "NOT_AUTHORIZED_EXCEPT_FUTURE_BOUNDED_R132_ON_R131_COMPLETE",
+    "additional_inverse_dynamics_execution": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
