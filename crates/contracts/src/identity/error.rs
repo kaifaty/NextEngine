@@ -38,6 +38,8 @@ pub enum IdentityContractError {
     FutureHorizonExceeded(u32),
     UnknownTag(u8),
     DuplicateKey,
+    RegistryClosureInvalid,
+    ScheduleClosureInvalid,
     NonCanonicalEncoding,
 }
 
@@ -95,6 +97,12 @@ impl Display for IdentityContractError {
             ),
             Self::UnknownTag(tag) => write!(formatter, "identity contract tag {tag} is unknown"),
             Self::DuplicateKey => formatter.write_str("identity contract contains a duplicate key"),
+            Self::RegistryClosureInvalid => {
+                formatter.write_str("command kind registry closure is invalid")
+            }
+            Self::ScheduleClosureInvalid => {
+                formatter.write_str("schedule manifest closure is invalid")
+            }
             Self::NonCanonicalEncoding => {
                 formatter.write_str("identity contract does not re-encode byte-exactly")
             }

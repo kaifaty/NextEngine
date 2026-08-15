@@ -393,11 +393,9 @@ fn validate_command(
         .iter()
         .map(|claim| claim.capability_id.clone())
         .collect();
-    if descriptor
-        .required_capabilities()
-        .iter()
-        .any(|required| !declared.contains(required))
-    {
+    if descriptor.required_capabilities().iter().any(|required| {
+        required.scope_hash.is_some() || !declared.contains(&required.capability_id)
+    }) {
         return Err(RejectionCode::CapabilityRequired);
     }
     if declared

@@ -29,7 +29,9 @@ use next_rpg::RpgState;
 use std::sync::OnceLock;
 
 use crate::authority::AuthorityRegistry;
-use crate::registry::CommandKindRegistry;
+use crate::registry::{
+    CommandKindRegistry, command_kind_registry_hash, core_command_kind_registry,
+};
 
 use super::bootstrap::{
     RuntimeBootstrapV3, register_bootstrap_identities, validate_bootstrap,
@@ -121,7 +123,7 @@ impl RuntimeState {
         rpg: RpgState,
         physics_options: PhysicsLaunchOptions,
     ) -> Result<Self, SnapshotRestoreError> {
-        let registry = CommandKindRegistry::core_v1();
+        let registry = core_command_kind_registry();
         validate_bootstrap(&bootstrap, &authority, &registry)?;
         validate_core_interaction_runtime_closure(&bootstrap, &rpg, &authority)?;
         let physics = activate_physics(
@@ -134,7 +136,7 @@ impl RuntimeState {
         let profile_hash = bootstrap.runtime_profile.profile_hash()?;
         let (mut command_ledger, body_archive) = CommandLedgerV2::empty(
             bootstrap.world_identity.world_namespace,
-            registry.canonical_hash(),
+            command_kind_registry_hash(&registry),
             profile_hash,
         )?;
         register_bootstrap_identities(
@@ -268,7 +270,7 @@ impl RuntimeState {
         rpg_definitions: RpgDefinitionRegistryV1,
         physics_options: PhysicsLaunchOptions,
     ) -> Result<Self, SnapshotRestoreError> {
-        let registry = CommandKindRegistry::core_v1();
+        let registry = core_command_kind_registry();
         let bootstrap = RuntimeBootstrapV3 {
             world_identity: snapshot.world_identity.clone(),
             principal_registry: snapshot.principal_registry.clone(),
@@ -286,7 +288,9 @@ impl RuntimeState {
         };
         validate_bootstrap(&bootstrap, &authority, &registry)?;
         validate_core_interaction_runtime_closure(&bootstrap, &rpg, &authority)?;
-        if snapshot.command_ledger.command_kind_registry_hash != registry.canonical_hash() {
+        if snapshot.command_ledger.command_kind_registry_hash
+            != command_kind_registry_hash(&registry)
+        {
             return Err(SnapshotRestoreError::CommandRegistryMismatch);
         }
         let physics = activate_physics(

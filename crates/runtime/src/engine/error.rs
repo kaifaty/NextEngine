@@ -69,6 +69,7 @@ pub enum RuntimeFatalError {
     Mechanics(MechanicsHostError),
     Snapshot(SnapshotDecodeError),
     WorldStreaming(next_world::WorldStreamingError),
+    WorldRoutineInternalInvariant,
 }
 
 impl RuntimeFatalError {
@@ -95,6 +96,7 @@ impl RuntimeFatalError {
             Self::Mechanics(_) => "MECHANICS_HOST_INVARIANT_FAILED",
             Self::Snapshot(_) => "RUNTIME_SNAPSHOT_CLOSURE_CORRUPT",
             Self::WorldStreaming(_) => "WORLD_STREAMING_STAGE_FAILED",
+            Self::WorldRoutineInternalInvariant => "WORLD_ROUTINE_INTERNAL_INVARIANT",
         }
     }
 }

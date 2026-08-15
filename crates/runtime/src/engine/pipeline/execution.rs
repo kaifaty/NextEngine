@@ -24,6 +24,7 @@ use super::{
 };
 use crate::engine::error::RuntimeFatalError;
 use crate::engine::result::{CommittedRpgPlanTraceV1, OrderedResult, RejectionCode};
+use crate::registry::command_kind_registry_hash;
 
 pub(super) fn execute_candidate(
     context: PhaseContext<'_>,
@@ -222,7 +223,7 @@ pub(super) fn execute_candidate(
             target_tick: command.target_tick,
             phase: command.phase,
             priority_class: candidate.order_key.priority_class,
-            command_kind_registry_hash: context.registry.canonical_hash(),
+            command_kind_registry_hash: command_kind_registry_hash(context.registry),
         };
         let reserve = staged
             .ledger
@@ -416,6 +417,9 @@ pub(super) fn execute_candidate(
         }
         CommandPayload::Physical(_) => {
             unreachable!("physical commands return a pending step before domain execution")
+        }
+        CommandPayload::WorldRoutine(_) => {
+            return Err(RuntimeFatalError::WorldRoutineInternalInvariant);
         }
     };
     for event in &events {

@@ -10,6 +10,9 @@ use crate::physics::{
 };
 use crate::rpg::RPG_COMMAND_SCHEMA_ID;
 use crate::rpg::{RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1};
+use crate::world_routine::{
+    WORLD_ROUTINE_COMMAND_SCHEMA_ID, WORLD_ROUTINE_COMMAND_SCHEMA_VERSION, WorldRoutineCommandV1,
+};
 
 use super::codec::{
     decode_capability_set, decode_exact, decode_optional_hash, decode_optional_id,
@@ -44,6 +47,7 @@ pub enum CommandPayload {
     Noop,
     Rpg(RpgCommandV1),
     Physical(PhysicalCommandV1),
+    WorldRoutine(WorldRoutineCommandV1),
 }
 
 impl CommandPayload {
@@ -52,6 +56,7 @@ impl CommandPayload {
             Self::Noop => Ok(Vec::new()),
             Self::Rpg(command) => command.canonical_payload_bytes(),
             Self::Physical(command) => command.canonical_payload_bytes(),
+            Self::WorldRoutine(command) => command.canonical_payload_bytes(),
         }
     }
 }
@@ -343,8 +348,17 @@ impl CanonicalCommandBodyV2 {
                     limits,
                 )?)
             }
+            (WORLD_ROUTINE_COMMAND_SCHEMA_ID, WORLD_ROUTINE_COMMAND_SCHEMA_VERSION) => {
+                CommandPayload::WorldRoutine(WorldRoutineCommandV1::from_canonical_payload_bytes(
+                    payload_bytes,
+                    limits,
+                )?)
+            }
             (
-                NOOP_COMMAND_SCHEMA_ID | RPG_COMMAND_SCHEMA_ID | PHYSICAL_COMMAND_SCHEMA_ID,
+                NOOP_COMMAND_SCHEMA_ID
+                | RPG_COMMAND_SCHEMA_ID
+                | PHYSICAL_COMMAND_SCHEMA_ID
+                | WORLD_ROUTINE_COMMAND_SCHEMA_ID,
                 version,
             ) => {
                 return Err(CommandDecodeError::UnsupportedPayloadSchemaVersion(version));

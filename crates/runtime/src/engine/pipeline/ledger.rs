@@ -10,6 +10,7 @@ use next_contracts::ledger::{
 use super::{PhaseContext, StagedAuthoritativeState, ValidatedCommand};
 use crate::engine::error::RuntimeFatalError;
 use crate::engine::result::{OrderedResult, RejectionCode};
+use crate::registry::command_kind_registry_hash;
 
 pub(super) fn handle_collision(
     context: PhaseContext<'_>,
@@ -140,7 +141,7 @@ pub(super) fn command_receipt(
         target_tick: command.target_tick,
         finalized_at_tick: context.tick,
         priority_class: candidate.order_key.priority_class,
-        command_kind_registry_hash: context.registry.canonical_hash(),
+        command_kind_registry_hash: command_kind_registry_hash(context.registry),
         result,
         diagnostic_digest: None,
         event_ids,
@@ -170,7 +171,7 @@ pub(super) fn collision_receipt(
         target_tick: context.tick,
         finalized_at_tick: context.tick,
         priority_class: u16::MAX,
-        command_kind_registry_hash: context.registry.canonical_hash(),
+        command_kind_registry_hash: command_kind_registry_hash(context.registry),
         result: CommandFinalResultV1::Collision {
             code: next_contracts::ids::SchemaId::new(
                 RejectionCode::CommandSequenceCollision.as_str(),

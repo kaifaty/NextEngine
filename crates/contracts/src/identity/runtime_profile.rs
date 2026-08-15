@@ -33,8 +33,10 @@ pub struct RuntimeDeterminismProfileV1 {
 }
 
 impl RuntimeDeterminismProfileV1 {
-    #[must_use]
-    pub fn bootstrap_default(command_kind_registry_hash: ContentHash) -> Self {
+    pub(super) fn from_materialized_r4a(
+        command_kind_registry_hash: ContentHash,
+        schedule_manifest_hash: ContentHash,
+    ) -> Self {
         let fixed = |name: &[u8]| content_hash_from_bytes(sha256(name));
         let admission_limits = crate::input::RuntimeAdmissionLimitsV1::default();
         let tick_rate_profile = crate::input::TickRateProfileV1::at_30_hz();
@@ -60,7 +62,7 @@ impl RuntimeDeterminismProfileV1 {
             command_identity_profile_hash: fixed(b"nextengine.bootstrap.command-identity.v2"),
             command_ledger_profile_hash: fixed(b"nextengine.bootstrap.command-ledger.v2"),
             rng_profile_hash: fixed(b"nextengine.bootstrap.rng.v1"),
-            schedule_manifest_hash: fixed(b"nextengine.bootstrap.schedule.v1"),
+            schedule_manifest_hash,
             task_merge_profile_hash: fixed(b"nextengine.bootstrap.task-merge.v1"),
             numeric_profile_hash: authoritative_numeric_profile
                 .profile_hash()

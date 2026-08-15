@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 use crate::canonical::{CanonicalDecodeError, CanonicalError};
 use crate::physics::PhysicsContractError;
 use crate::rpg::RpgContractErrorV1;
+use crate::world_routine::WorldRoutineContractError;
 
 use super::principal::PrincipalDecodeError;
 
@@ -15,6 +16,7 @@ pub enum CommandDecodeError {
     Principal(PrincipalDecodeError),
     Rpg(RpgContractErrorV1),
     Physics(PhysicsContractError),
+    WorldRoutine(WorldRoutineContractError),
     Identifier(crate::ids::IdentifierError),
     WrongEnvelope,
     UnknownField(u32),
@@ -59,6 +61,12 @@ impl Display for CommandDecodeError {
             Self::Rpg(error) => write!(formatter, "command RPG payload is invalid: {error}"),
             Self::Physics(error) => {
                 write!(formatter, "command physical payload is invalid: {error}")
+            }
+            Self::WorldRoutine(error) => {
+                write!(
+                    formatter,
+                    "command world routine payload is invalid: {error}"
+                )
             }
             Self::Identifier(error) => write!(formatter, "command identifier is invalid: {error}"),
             Self::WrongEnvelope => formatter.write_str("command body envelope does not match V2"),
@@ -150,6 +158,12 @@ impl From<RpgContractErrorV1> for CommandDecodeError {
 impl From<PhysicsContractError> for CommandDecodeError {
     fn from(error: PhysicsContractError) -> Self {
         Self::Physics(error)
+    }
+}
+
+impl From<WorldRoutineContractError> for CommandDecodeError {
+    fn from(error: WorldRoutineContractError) -> Self {
+        Self::WorldRoutine(error)
     }
 }
 

@@ -20,8 +20,8 @@ pub use outcome::{
     OutcomeSink,
 };
 pub use registry::{
-    COMMAND_KIND_REGISTRY_VERSION, CommandKindDescriptor, CommandKindRegistry, CommandPayloadKind,
-    NOOP_PRIORITY_CLASS, PHYSICAL_PRIORITY_CLASS, RPG_PRIORITY_CLASS,
+    CommandKindDescriptor, CommandKindRegistry, NOOP_PRIORITY_CLASS, PHYSICAL_PRIORITY_CLASS,
+    RPG_PRIORITY_CLASS,
 };
 pub use session::{
     ApplicationSessionMachine, LastLifecycleRecordV2, SessionMachineError,

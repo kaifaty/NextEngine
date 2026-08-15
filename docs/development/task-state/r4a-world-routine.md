@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / CONTRACT_LAYER` |
+| Status | `ACTIVE / AUTHORING_COOK_LAYER` |
 | Updated | 2026-08-15 |
 | Task key | `r4a-world-routine` |
 | Scope | One authored relay-keeper `Duty -> Rest` boundary through cook, runtime, save and replay |
@@ -12,8 +12,8 @@
 ## Resume in 60 seconds
 
 - **Current conclusion:** R141 consumed its authority and stopped without retry; R4a is the sole active roadmap increment.
-- **Current implementation point:** Materialize the public routine, command-registry, schedule and determinism-profile contracts before changing project/runtime consumers.
-- **Next action:** Add exact canonical contract types and tests, then replace the private runtime registry/profile constants with the shared builder.
+- **Current implementation point:** Public routine/calendar, four-entry command registry, 12-stage schedule and the single determinism bundle are materialized; runtime/project no longer use the private registry or opaque profile constant.
+- **Next action:** Cut authoring/project/mechanics APIs to V3/V2/V4 and cook the typed catalog plus binding into the reference package.
 - **Promotion guard:** Keep SPEC-20 and ADR-052 `Proposed` until authoring, cook, activation, runtime, persistence and Replay V6 production paths pass all required checks.
 - **Scope guard:** No navigation, population tiers, bulk time, transfer, cognition, 100-NPC workload, learned model or B-12 claim.
 
@@ -77,6 +77,16 @@ current-only replay reproduce the same five-owner application closure.
 7. `fast`, `play`, `persistence-replay`, `content-package`, host-check and
    conditional report-only performance smoke.
 8. Promote SPEC-20/ADR-052 and update roadmap only after every gate passes.
+
+## Current evidence
+
+- `next_contracts` passes `195/195` library tests with calendar overflow,
+  catalog/snapshot round-trip, registry/schedule and bundle coverage.
+- `next_runtime` passes `42/42` library tests after replacing its private
+  three-entry registry with the public four-entry value.
+- Workspace `cargo check --workspace --all-targets` passes.
+- Focused `cargo clippy -p next_contracts -p next_runtime --all-targets --
+  -D warnings` passes.
 
 ## Required context
 

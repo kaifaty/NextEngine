@@ -21,8 +21,9 @@ pub(super) fn fixture() -> Fixture {
 }
 
 pub(super) fn fixture_for(project_id: &str, principal: IssuerPrincipal) -> Fixture {
-    let registry_hash = CommandKindRegistry::core_v1().canonical_hash();
-    let profile = RuntimeDeterminismProfileV1::bootstrap_default(registry_hash);
+    let profile = RuntimeDeterminismBundleV1::core_r4a()
+        .expect("determinism bundle")
+        .runtime_profile();
     let world = WorldIdentityManifestV1::new(
         ProjectId::new(project_id).expect("project"),
         [1; 32],
@@ -84,8 +85,9 @@ pub(super) struct PhysicalFixture {
 
 pub(super) fn physical_fixture() -> PhysicalFixture {
     let principal = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([13; 16]));
-    let registry_hash = CommandKindRegistry::core_v1().canonical_hash();
-    let profile = RuntimeDeterminismProfileV1::bootstrap_default(registry_hash);
+    let profile = RuntimeDeterminismBundleV1::core_r4a()
+        .expect("determinism bundle")
+        .runtime_profile();
     let world = WorldIdentityManifestV1::new(
         ProjectId::new("nextengine.runtime-physical-fixture").expect("project"),
         [14; 32],

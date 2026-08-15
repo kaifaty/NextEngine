@@ -33,7 +33,9 @@ fn world_player_and_stream_ids_are_stable_and_body_sensitive() {
 
 #[test]
 fn identity_contracts_round_trip_and_reject_v1_drift() {
-    let profile = RuntimeDeterminismProfileV1::bootstrap_default(hash(9));
+    let profile = RuntimeDeterminismBundleV1::core_r4a()
+        .expect("determinism bundle")
+        .runtime_profile();
     let profile_bytes = profile.canonical_bytes().expect("profile bytes");
     assert_eq!(
         RuntimeDeterminismProfileV1::from_canonical_bytes(

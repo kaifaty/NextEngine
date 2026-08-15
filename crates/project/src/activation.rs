@@ -10,6 +10,7 @@ use next_contracts::animation_content::{
 use next_contracts::audio::{NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioErrorV1, NeutralAudioV1};
 use next_contracts::canonical::CanonicalDecodeLimits;
 use next_contracts::content::{NeutralRecordError, NeutralRecordV1};
+use next_contracts::identity::RuntimeDeterminismBundleV1;
 use next_contracts::ids::AssetId;
 use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogErrorV1, TextCatalogV1};
 use next_contracts::project::{
@@ -25,7 +26,7 @@ use crate::cook::{
     CONTENT_BLOB_DIRECTORY, CONTENT_MANIFEST_PATH, PROJECT_LOCK_PATH, RENDER_CONTENT_CATALOG_PATH,
     RENDER_CONTENT_MESH_DIRECTORY, SCHEMA_REGISTRY_PATH, WORLD_PARTITION_PATH,
     compile_render_content_catalog_v1, launch_profiles_sha256, platform_capability_profile_sha256,
-    platform_timebase_profile_sha256, runtime_determinism_profile_sha256,
+    platform_timebase_profile_sha256,
 };
 use crate::cook_rpg::compile_rpg_definitions_v1;
 
@@ -75,7 +76,10 @@ fn activate_pinned_project(
     )?;
 
     if generation.generation_id != project_lock.project_lock_sha256
-        || project_lock.runtime_determinism_profile_sha256 != runtime_determinism_profile_sha256()
+        || project_lock.runtime_determinism_profile_sha256
+            != RuntimeDeterminismBundleV1::core_r4a()
+                .expect("the engine-owned determinism bundle is canonical")
+                .runtime_profile_hash()
         || project_lock.launch_profiles_sha256 != launch_profiles_sha256()
         || project_lock.platform_capability_profile_sha256 != platform_capability_profile_sha256()
         || project_lock.platform_timebase_profile_sha256 != platform_timebase_profile_sha256()

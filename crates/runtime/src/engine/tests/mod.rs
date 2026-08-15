@@ -10,7 +10,7 @@ use next_contracts::command::{
 };
 use next_contracts::identity::{
     CommandStreamKeyV1, CommandStreamRegistryV1, PrincipalRecordV1, PrincipalRegistryV1,
-    PrincipalStatus, RuntimeDeterminismProfileV1, WorldIdentityManifestV1,
+    PrincipalStatus, RuntimeDeterminismBundleV1, WorldIdentityManifestV1,
 };
 use next_contracts::ids::{
     CapabilityId, CommandId, CommandStreamId, ContentHash, InputSourceId, PersistentId,
@@ -38,7 +38,7 @@ use next_contracts::physics::{
 use next_physics_api::{PhysicsBackendKind, PhysicsBackendPolicy};
 
 use super::*;
-use crate::{AuthorityRegistry, CommandKindRegistry};
+use crate::AuthorityRegistry;
 use fixtures::{PhysicalFixture, command, fixture, fixture_for, movement_sample, physical_fixture};
 
 fn exact_player_sample(

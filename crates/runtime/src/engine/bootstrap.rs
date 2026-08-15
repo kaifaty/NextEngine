@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use next_contracts::canonical::CanonicalDecodeLimits;
 use next_contracts::command::IssuerPrincipal;
 use next_contracts::identity::{
-    CommandStreamRegistryV1, PrincipalRegistryV1, RuntimeDeterminismProfileV1,
-    WorldIdentityManifestV1,
+    CommandStreamRegistryV1, PrincipalRegistryV1, RuntimeDeterminismBundleV1,
+    RuntimeDeterminismProfileV1, WorldIdentityManifestV1,
 };
 use next_contracts::ids::{ContentHash, PhysicsWorldId, ProjectId};
 use next_contracts::input::{
@@ -24,7 +24,7 @@ use next_contracts::rpg::{RpgRuntimeBindingsV1, RpgSnapshotV2};
 use next_rpg::RpgState;
 
 use crate::authority::AuthorityRegistry;
-use crate::registry::CommandKindRegistry;
+use crate::registry::{CommandKindRegistry, command_kind_registry_hash};
 
 use super::affordance::resolve_dialogue_quest_binding_v2;
 use super::error::SnapshotRestoreError;
@@ -47,7 +47,7 @@ fn bootstrap_rpg_bindings(
             b"nextengine.bootstrap-project-composition.v1\0",
             &project_bytes,
         ),
-        schema_registry_hash: CommandKindRegistry::core_v1().canonical_hash(),
+        schema_registry_hash: runtime_profile.command_kind_registry_hash,
         budget_policy_hash: domain_hash(b"nextengine.bootstrap-rpg-budget.v1\0", &budget_bytes),
         active_definition_policy_hashes: {
             let mut hashes = vec![
@@ -151,8 +151,7 @@ impl RuntimeBootstrapV3 {
     }
 
     pub fn neutral_empty() -> Result<Self, SnapshotRestoreError> {
-        let registry_hash = CommandKindRegistry::core_v1().canonical_hash();
-        let profile = RuntimeDeterminismProfileV1::bootstrap_default(registry_hash);
+        let profile = RuntimeDeterminismBundleV1::core_r4a()?.runtime_profile();
         let world_identity = WorldIdentityManifestV1::new(
             ProjectId::new("nextengine.runtime-empty")
                 .expect("built-in neutral project identifier is valid"),
@@ -187,6 +186,7 @@ pub(super) fn validate_bootstrap(
     bootstrap.rpg_bindings.validate()?;
     bootstrap.rpg_definitions.validate()?;
     bootstrap.physics_checkpoint.validate()?;
+    let determinism = RuntimeDeterminismBundleV1::core_r4a()?;
     bootstrap
         .physics_checkpoint
         .snapshot
@@ -199,10 +199,14 @@ pub(super) fn validate_bootstrap(
     let world = bootstrap.world_identity.world_namespace;
     let profile_hash = bootstrap.runtime_profile.profile_hash()?;
     if bootstrap.world_identity.runtime_determinism_profile_hash != profile_hash
+        || bootstrap.runtime_profile != determinism.runtime_profile()
+        || registry != determinism.command_kind_registry()
         || bootstrap.principal_registry.world_namespace != world
         || bootstrap.stream_registry.world_namespace != world
         || bootstrap.player_controller_registry.world_namespace != world
-        || bootstrap.runtime_profile.command_kind_registry_hash != registry.canonical_hash()
+        || bootstrap.runtime_profile.command_kind_registry_hash
+            != command_kind_registry_hash(registry)
+        || bootstrap.runtime_profile.schedule_manifest_hash != determinism.schedule_manifest_hash()
         || bootstrap.runtime_profile.admission_limits_profile_hash
             != bootstrap.admission_limits.profile_hash()?
         || bootstrap.runtime_profile.tick_rate_profile_hash

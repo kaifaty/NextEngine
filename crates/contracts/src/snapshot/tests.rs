@@ -6,7 +6,7 @@ use crate::canonical::{
 use crate::command::IssuerPrincipal;
 use crate::identity::{
     CommandStreamRegistryV1, PrincipalRecordV1, PrincipalRegistryV1, PrincipalStatus,
-    RuntimeDeterminismProfileV1, WorldIdentityManifestV1,
+    RuntimeDeterminismBundleV1, WorldIdentityManifestV1,
 };
 use crate::ids::{ContentHash, PlayerPrincipalId, ProjectId, SchemaId};
 use crate::input::{
@@ -25,8 +25,9 @@ use super::{
 };
 
 fn fixture() -> RuntimeSnapshotV3 {
-    let command_hash = ContentHash::from_bytes([7; 32]);
-    let profile = RuntimeDeterminismProfileV1::bootstrap_default(command_hash);
+    let bundle = RuntimeDeterminismBundleV1::core_r4a().expect("determinism bundle");
+    let command_hash = bundle.command_kind_registry_hash();
+    let profile = bundle.runtime_profile();
     let world = WorldIdentityManifestV1::new(
         ProjectId::new("nextengine.snapshot-fixture").expect("project id"),
         [1; 32],

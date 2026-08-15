@@ -2,12 +2,12 @@ use next_contracts::canonical::sha256;
 use next_contracts::command::IssuerPrincipal;
 use next_contracts::identity::{
     CommandStreamRegistryV1, PrincipalRecordV1, PrincipalRegistryV1, PrincipalStatus,
-    RuntimeDeterminismProfileV1, WorldIdentityManifestV1,
+    RuntimeDeterminismBundleV1, WorldIdentityManifestV1,
 };
 use next_contracts::ids::{
     CapabilityId, CommandStreamId, ProjectId, SchemaId, content_hash_from_bytes,
 };
-use next_runtime::{AuthorityRegistry, CommandKindRegistry, RuntimeBootstrapV3};
+use next_runtime::{AuthorityRegistry, RuntimeBootstrapV3};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug)]
@@ -28,8 +28,7 @@ pub fn build_reference_runtime_bootstrap(
     project_id: &str,
     grants: impl IntoIterator<Item = (IssuerPrincipal, Vec<CapabilityId>)>,
 ) -> Result<ReferenceRuntimeBootstrap, crate::ReferenceGameError> {
-    let registry_hash = CommandKindRegistry::core_v1().canonical_hash();
-    let profile = RuntimeDeterminismProfileV1::bootstrap_default(registry_hash);
+    let profile = RuntimeDeterminismBundleV1::core_r4a()?.runtime_profile();
     let world_identity = WorldIdentityManifestV1::new(
         ProjectId::new(project_id)?,
         sha256(format!("nextengine.fixture.nonce:{project_id}").as_bytes()),

@@ -11,6 +11,7 @@ use next_contracts::animation_content::{
 };
 use next_contracts::audio::{NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioErrorV1, NeutralAudioV1};
 use next_contracts::content::{NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1};
+use next_contracts::identity::RuntimeDeterminismBundleV1;
 use next_contracts::ids::{AssetId, ContentHash, ProjectId, SchemaId};
 use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogErrorV1, TextCatalogV1};
 use next_contracts::mechanics::{MechanicsContractError, RpgDefinitionRegistryV1};
@@ -34,13 +35,6 @@ pub const RENDER_CONTENT_CATALOG_PATH: &str = "render-content/catalog.bin";
 pub const RENDER_CONTENT_MESH_DIRECTORY: &str = "render-content/meshes";
 pub const CORE_INTERACTION_PACKAGE_ID: &str = "org.nextengine.core.interaction";
 pub const CORE_COMBAT_PACKAGE_ID: &str = "org.nextengine.core.combat";
-
-pub(crate) fn runtime_determinism_profile_sha256() -> ContentHash {
-    domain_hash(
-        "nextengine.runtime-determinism-profile.v1",
-        b"fixed-stage-order+adr-022-ingress",
-    )
-}
 
 pub(crate) fn launch_profiles_sha256() -> ContentHash {
     domain_hash(
@@ -491,7 +485,9 @@ pub fn cook_project_v2(
         content_manifest_sha256: content_manifest.content_manifest_sha256,
         world_partition_manifest_sha256: world_partition.world_partition_manifest_sha256,
         mechanics_lock_sha256: rpg_definitions.mechanics_lock.mechanics_lock_sha256,
-        runtime_determinism_profile_sha256: runtime_determinism_profile_sha256(),
+        runtime_determinism_profile_sha256: RuntimeDeterminismBundleV1::core_r4a()
+            .expect("the engine-owned determinism bundle is canonical")
+            .runtime_profile_hash(),
         launch_profiles_sha256: launch_profiles_sha256(),
         platform_capability_profile_sha256: platform_capability_profile_sha256(),
         platform_timebase_profile_sha256: platform_timebase_profile_sha256(),
