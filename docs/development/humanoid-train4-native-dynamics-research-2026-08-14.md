@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R115_FAIL / R120_PASS / R121_COMPLETE / R122_CONFORMANCE_NEXT` |
+| Status | `R115_FAIL / R120_PASS / R122_PASS / R123_SINGLE_EXECUTION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -55,6 +55,7 @@ bounded research before another solver change or expensive native run.
 | R119 repaired-KTO execution formulation | canonical/file/profile SHA-256 `ac38e3f0a9dfb5e900373bc5a4908168a49f3c3b799fb431bd6e5c1306a4dd1b` / `e233f9dd60ba8056e55b132167e5dbd6e952781fb15bece56cbb23e62b0c1882` / `3b48c618cffc5494601a40ac15b04df0ffba2a1b7d6aadbdfd4309b6c167dcd1` | Clean `COMPLETE`: replaces `3723` component rows with `2482` exact normal/norm-squared rows, freezes emitted-anchor conformance guards and one-process budgets; permits exactly one R120 repaired-KTO execution, with zero QP/KTO/scenes/candidates in R119 |
 | R120 single repaired-KTO execution | canonical/file/profile/cache SHA-256 `dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b` / `35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc` / `3dfa2f1b8357cd3452481c9518e8d1ca0ce5c0bb664b3a024fc5ce2653837d55` / `e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5` | Clean direct `PASS` at `1/32`: all exact gates pass with `614 bp` strict V7 progress and no bridge; one KTO/QP, six emitted audits, zero candidate/scene/ID/kinodynamic/optimizer/training work; permits only report-only R121 fixed-PD inverse-dynamics execution formulation |
 | R121 fixed-PD inverse-dynamics execution formulation | canonical/file/profile SHA-256 `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` / `5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7` / `9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93` | Clean `COMPLETE`: freezes `3200` independent `64 × 64` pointwise systems (`204800` variables/equalities, `4956` friction cones); cache/contact/fixed-PD preflights PASS, zero dynamics solves; permits only report-only R122 implementation/conformance |
+| R122 fixed-PD inverse-dynamics implementation conformance | canonical/file/profile SHA-256 `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` / `8bb3f9cbe371f679ffa3d782ee4662de3fedc586ccf70c9d19536594c95afb81` / `21303443993a34bd527e735961f0e790aa0da88f2d94b46a4c6e1f85557e0ab2` | Clean `PASS`: all seven descriptor/M/h/J/Jdot-v, R113, exact R121 reproduction and no-solve resource discriminators pass; zero R123/scene/candidate/training work; permits exactly one bounded R123 execution |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -1415,19 +1416,68 @@ All six validations pass, including solver-free import, `264/264` lab tests,
 system, inverse-dynamics, kinodynamic, candidate, PhysX, optimizer and training
 counts are zero.
 
+## R122 fixed-PD inverse-dynamics conformance result
+
+Clean report-only R122 at commit
+`621ed03c0aa0e459134ef1d09efe9baaf0ab6cf7` implements the R121 equations as
+a transparent pure-NumPy descriptor-derived world-coordinate kernel. It uses
+engine-world root linear/angular coordinates, exact semantic joint axes and
+frames, engine gravity `[0,-9.81,0]`, and reconstructs each computational body
+tensor from the descriptor solver principal inertia/frame. Every reconstructed
+tensor stays within its authoritative declared projection error; the maximum
+actual/declared error is exactly `1785 µkg·m²`.
+
+All seven frozen frames `0/238/244/249/328/626/800` pass. A kinetic-energy
+Jacobian sum and independent inertial-wrench inverse-dynamics columns construct
+the same mass matrix within `6.72e-15`; maximum relative symmetry error is
+`3.54e-18`, minimum eigenvalue `0.0022854963`, and maximum condition number
+`34246.81`. Independent inverse/forward acceleration round-trip error is at
+most `1.0325e-13`, well inside the frozen `1e-9` scaled bound.
+
+Body/contact positions agree with the pre-existing frozen FK to floating-point
+closure. The separately finite-differenced frozen-FK contact Jacobian differs
+by at most `4.0309e-10`, against `1e-7 + 1e-6 relative`. Nine active point-
+anchor Jdot-v comparisons use a symmetric second derivative of the frozen
+point trajectory; maximum error is `4.7426e-8 m/s²` against `1e-5`. R113
+normal/right/forward ordering, world-force mapping, application points and
+generalized projection all pass independently.
+
+R122 also byte-recomputes all `3200` R121 affine-lift samples, all `800` exact
+left-boundary reanchors, the `4956/7844` active/inactive inventory and the
+complete fixed-PD schedule. The lift SHA-256 is
+`7d0f698fe10803df2becc3aeddf2361277762057fd2a8a0feadf41e0ddb33935`;
+contact, inventory and PD structures equal R121 exactly. A single `64 × 64`
+float64 matrix plus right-hand side is instrumented at `33280` bytes without
+factorization or solve.
+
+R122 canonical/file/profile SHA-256 is
+`a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` /
+`8bb3f9cbe371f679ffa3d782ee4662de3fedc586ccf70c9d19536594c95afb81` /
+`21303443993a34bd527e735961f0e790aa0da88f2d94b46a4c6e1f85557e0ab2`.
+Kernel/conformance/tool SHA-256 is
+`220e2db2113196031082eb9fa0b7e3d8614582438da7aaee3f2b6a986bac2a02` /
+`25c65634bebeca852519bacfea9c45a8d116f25edfb7e283f70930d6fe71a63e` /
+`ed515ba52064d18eebcc54c8d7fd81c63c77431054e8c1e1482156152801b4cc`.
+All six validations pass, including solver-free import, `270/270` lab tests,
+`56/56` motor tests and full `host-check`. Seven conformance forward-dynamics
+probes and `224` inverse-dynamics evaluations are reported explicitly; R123
+local-system solves, ID execution, kinodynamics, candidate, PhysX, optimizer
+and training counts are zero.
+
 ## Decision
 
-Freeze R92–R121, retain the contact result as bounded support for H23, and
+Freeze R92–R122, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
 and the late projected direction after its exact `2501/2500 bp` failure.
 R115 consumed and failed its sole solve; R120 consumed its separate sole solve
 and passed. Neither may be retried. Candidate artifacts, native scenes and
-all-17 remain blocked. R121 authorizes only report-only R122 implementation
-and numerical conformance at the seven frozen anchors. R122 may implement and
-audit descriptor-derived M/h/J/Jdot-v, point-force projection and one-local-
-system resource instrumentation. It may not solve any R123 system, run
-kinodynamics, emit a candidate, change controller/safety/quantization
-semantics, run PhysX or begin training. Only exact R122 PASS may authorize the
-single bounded R123 execution already constrained by R121.
+all-17 remain blocked. Exact R122 PASS authorizes exactly one R123 process to
+solve at most `3200` frozen `64 × 64` local systems, single-threaded, within
+`7200 s` and `8 GiB`, with seed zero, no restart, resume, manual intervention
+or invalid-result retry. R123 may emit only its solver-private execution
+evidence. It may not run kinodynamics, construct a candidate, change controller/
+safety/quantization semantics, run PhysX or begin training. Only valid R123
+completion may authorize a separate report-only R124 full-kinodynamic
+execution formulation.

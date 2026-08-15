@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108–R114 close progressive KTO/model lineage. R115 fails and R115-RC1 diagnoses its analytic-contact linearization gap; R117–R119 repair it. R120 repaired KTO is direct `PASS` at `1/32`. Clean report-only R121 freezes `3200` fixed-PD inverse-dynamics collocations with zero dynamics execution; only report-only R122 implementation/conformance is next. Every additional KTO solve, ID/kinodynamic solve, candidate artifact, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108–R114 close progressive KTO/model lineage. R115 fails and R115-RC1 diagnoses its analytic-contact linearization gap; R117–R119 repair it. R120 repaired KTO is direct `PASS` at `1/32`; R121 freezes `3200` fixed-PD inverse-dynamics collocations. Clean report-only R122 passes descriptor-derived M/h/J/Jdot-v conformance and permits exactly one bounded R123 fixed-PD inverse-dynamics execution. Every additional KTO solve, R123 retry, kinodynamic solve, candidate artifact, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2027,11 +2027,30 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   `9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93`.
   Six validations pass including `264/264` lab tests and full `host-check`;
   every dynamics/scene/candidate/optimizer/training count is zero.
+  Clean report-only R122 at commit `621ed03` implements a pure-NumPy,
+  descriptor-derived world-coordinate dynamics kernel and passes all seven
+  frozen anchors. Kinetic-energy and inverse-dynamics mass matrices agree to
+  `6.72e-15`; maximum relative symmetry error is `3.54e-18`, minimum
+  eigenvalue `0.0022855`, and the independent inverse/forward round-trip error
+  is `1.033e-13` against the frozen `1e-9` bound. Exact descriptor FK and the
+  separate frozen finite-difference reference bound contact Jacobian error to
+  `4.031e-10`; all nine active-anchor Jdot-v checks stay below `4.743e-8 m/s²`
+  against `1e-5`. R113 point-force projection and exact R121 affine lift,
+  contact inventory and fixed-PD schedule reproduce; a `64 × 64` local-system
+  payload uses `33280` bytes but is neither factored nor solved. Canonical/file/
+  profile SHA-256 is
+  `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` /
+  `8bb3f9cbe371f679ffa3d782ee4662de3fedc586ccf70c9d19536594c95afb81` /
+  `21303443993a34bd527e735961f0e790aa0da88f2d94b46a4c6e1f85557e0ab2`.
+  Six validations pass including solver-free import, `270/270` lab tests,
+  `56/56` motor tests and full `host-check`; R123/local execution, candidate,
+  PhysX, optimizer and training counts remain zero.
 These results still cannot authorize full V19 or learned optimization.
 
-Roadmap status now advances only to report-only R122 dynamics implementation/
-conformance after R121. The bounded R123 inverse-dynamics execution remains
-blocked until exact R122 PASS. This planning document alone does not close R5, B-08, B-12, Stage 0, GPU
+Roadmap status now advances to exactly one bounded R123 fixed-PD inverse-
+dynamics execution under the frozen R121 budget. No retry, R124 formulation,
+candidate or scene is authorized before valid R123 completion. This planning
+document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 
 ## Definition of done

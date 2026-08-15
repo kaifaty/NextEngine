@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R115_FAIL / R120_PASS / R121_COMPLETE / R122_CONFORMANCE_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R115_FAIL / R120_PASS / R122_PASS / R123_SINGLE_EXECUTION_NEXT` |
 | Updated | 2026-08-15 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before learned optimizer work |
@@ -11,18 +11,18 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean report-only R121 is `COMPLETE`; it freezes the
-  fixed-PD inverse-dynamics discriminator without executing dynamics.
-- **Why:** `3200` collocations form independent `64 × 64` systems: `204800`
-  variables/equalities plus `4956` cones; R120 cache/contact/PD audits pass.
-- **Next action:** Implement report-only R122 dynamics-kernel conformance at
-  seven fixed anchors; do not execute any R123 local system yet.
-- **Current blocker:** The descriptor-derived dynamics kernel, M/h/J/Jdot-v
-  identities and resource instrumentation have not passed conformance.
-- **Do not retry:** Do not rerun R115, start PPO/ID/PhysX, change boundaries,
-  zero velocities, add grace/settling, tune controller, or loosen limits.
-- **Reconsider when:** R122 passes and permits exactly one bounded R123 ID
-  execution, or stops invalid without weakening the R108–R121 lineage.
+- **Current conclusion:** Clean report-only R122 is `PASS`; the descriptor-
+  derived M/h/J/Jdot-v implementation conforms at all seven frozen anchors.
+- **Why:** Independent mass/ID, FK/Jacobian, Jdot-v, R113 force and exact R121
+  schedule/resource checks pass; every R123 execution counter remains zero.
+- **Next action:** Prepare and execute exactly one bounded single-process R123
+  fixed-PD inverse-dynamics run; do not construct a candidate or run PhysX.
+- **Current blocker:** Feasibility of the `3200` frozen `64 × 64` local systems
+  under fixed effort, active acceleration and friction has not been executed.
+- **Do not retry:** Do not rerun R115/R120, restart R123, start PPO/PhysX,
+  change boundaries, zero velocities, add grace/settling, or loosen limits.
+- **Reconsider when:** R123 completes validly and permits only report-only R124,
+  or stops invalid without weakening the frozen R108–R122 lineage.
 
 All TRAIN-5 checkpoints remain rejected. No learned optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -40,10 +40,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R115-RC1/R117–R121 dynamics lineage | R120 direct `PASS` at `1/32`. R121 canonical `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` is clean `COMPLETE`: `3200` collocations, `204800` variables/equalities, `4956` cones; cache, contact schedule and fixed-PD audit PASS with zero ROM/velocity/envelope failures and zero ID/scene/candidate/training work | Permit only report-only R122 implementation/conformance |
+| R115-RC1/R117–R122 dynamics lineage | R120 direct `PASS`; R121 freezes `3200` systems. Clean R122 canonical `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` passes all model/M/h/J/Jdot-v, R113, schedule and resource discriminators with zero R123/scene/candidate/training work | Permit exactly one bounded R123 fixed-PD inverse-dynamics execution |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R113/R114-v2/R115/R115-RC1/R117/R118/R119/R120/R121 canonical SHA-256: `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4` / `b7baa0f4337597c1c61748255535d1102bbff35d0ce560a8a661ed6be7685433` / `5edfe0613e2e4f9327cd1bfb6922c96e84ce8056144b05f9617787de0f883475` / `b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7` / `23d9d556d8be630f7f2e9fe9907f394b74186ef545d0c46f7484f0efc1df45ca` / `ac38e3f0a9dfb5e900373bc5a4908168a49f3c3b799fb431bd6e5c1306a4dd1b` / `dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b` / `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3`.
+R113/R114-v2/R115/R115-RC1/R117/R118/R119/R120/R121/R122 canonical SHA-256: `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4` / `b7baa0f4337597c1c61748255535d1102bbff35d0ce560a8a661ed6be7685433` / `5edfe0613e2e4f9327cd1bfb6922c96e84ce8056144b05f9617787de0f883475` / `b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7` / `23d9d556d8be630f7f2e9fe9907f394b74186ef545d0c46f7484f0efc1df45ca` / `ac38e3f0a9dfb5e900373bc5a4908168a49f3c3b799fb431bd6e5c1306a4dd1b` / `dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b` / `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` / `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -177,18 +177,18 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether a conforming dynamics kernel finds the frozen R121
-  pointwise systems feasible, and whether later integrated/PhysX gates pass.
-- **Reconsider when:** R122 closes implementation identity; R120/R121 cannot be
-  retried or reinterpreted as dynamic/native feasibility.
+- **Uncertainty:** Whether the conforming kernel finds every frozen R121 local
+  system feasible, and whether later integrated/PhysX gates pass.
+- **Reconsider when:** R123 executes once; R120–R122 cannot be retried or
+  reinterpreted as dynamic/native feasibility.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: exact offline reference is dynamically too demanding for fixed PD | R121 freezes the exact effort/point-force systems from R120 q/v/a | No ID equation has run | Implement/conform R122; keep R123 blocked |
+| H22: exact offline reference is dynamically too demanding for fixed PD | R122 proves the descriptor-derived dynamics implementation conforms | No frozen R121 local system has run | Execute the sole bounded R123 discriminator |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R121 affine 240 Hz lift has zero ROM/velocity/envelope failures | Rigid dynamics remains untested | Conform M/h/J/Jdot-v at seven R122 anchors |
+| H24/H26: nonlocal coupling is hidden between motor samples | R122 reproduces the affine 240 Hz lift and local dynamics identities | Integrated dynamics remains untested | Run R123 pointwise ID, then formulate R124 only on valid completion |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -217,10 +217,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R121, R115-RC1 and all superseded reports.
+1. Freeze clean R73–R122, R115-RC1 and all superseded reports.
 2. Record R115 consumed/failed; never rerun or reinterpret it.
-3. Implement report-only R122 conformance against R121's seven fixed anchors.
-4. Run no additional KTO or ID/kinodynamic solve, candidate, scene or all-17.
+3. Prepare and execute the sole bounded R123 run against frozen R121/R122.
+4. Run no extra KTO/R123 restart, kinodynamic solve, candidate, scene or all-17.
 
 ## Do not retry
 
@@ -238,13 +238,13 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R121 is immutable `COMPLETE` from clean `a20e9bc`; its
-  report is external/hash-bound and the R120 cache remains solver-private.
-- **Checks:** R121 validations PASS (`264/264` lab, motor, full `host-check`);
-  one formulation, zero local systems/ID/candidate/PhysX/training work.
-- **Remaining risk:** fixed-PD dynamics, fresh PhysX, full-corpus exact-zero
-  coverage and visual review remain open.
-- **Execution authority:** Report-only R122 conformance; every solve is blocked.
+- **Workspace state:** R122 is immutable `PASS` from clean `621ed03`; its
+  external report is canonical/hash-bound and the R120 cache stays private.
+- **Checks:** R122 validations PASS (`270/270` lab, motor, full `host-check`);
+  seven conformance probes, zero R123/ID-execution/candidate/PhysX/training work.
+- **Remaining risk:** R123 fixed-PD feasibility, integrated/fresh PhysX,
+  full-corpus exact-zero coverage and visual review remain open.
+- **Execution authority:** Exactly one bounded R123 run; no retry or expansion.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.
