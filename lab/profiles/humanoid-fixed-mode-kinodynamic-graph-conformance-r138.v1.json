@@ -1,0 +1,404 @@
+{
+  "schema_version": 1,
+  "conformance_id": "nextengine.humanoid-fixed-mode-kinodynamic-graph-conformance.v1",
+  "status": "FrozenReportOnly",
+  "claim": "FixedModeKinodynamicGraphImplementationConformanceOnly",
+  "source": {
+    "r137": {
+      "report_sha256": "f0db8b516897671461161cac299a9e81e9405a1a3ae38778fa6d3659c898381f",
+      "report_file_sha256": "a1da712723a3fde29dbbd20496da6cd5937dc7a575b3d70f390cd5fe4b93c733",
+      "profile_sha256": "8468d67c02671de27e57cc6a550a01d16e2cac36ac4496124e875d96026176c9",
+      "module_sha256": "e373c528a5c9f8c75cf6678e98f9d95aac3ea64974d16710de8137f94f9e5ed0",
+      "tool_sha256": "65d8e7a43cd6ef0d0511f766a43ba1c8ca967f33827b4f24af3cbc6e67456e57",
+      "repository_commit": "c647eba6c5dcd359092ac245323cf81c2c3b0664"
+    },
+    "base_controller_module_sha256": "81f436bb0ad21e683508e9d4e518c8f01fee4316707fd74ab4e805be28dba906",
+    "projected_controller_module_sha256": "a6b8945ab8550ce9aaae5b28b5a52237dcd3d56de3785fe4cf77c2f12580122e",
+    "eventful_controller_module_sha256": "60dbf107a19c795d6c6ffcbbecc4bf0db81dcf0c5efa5adc6a1a43f6d35f0c15",
+    "synthetic_descriptor_sha256": "f1f2be6a486367038f605709ebf54edb4fa6ef400fa797dd772d7590e06f3014",
+    "conformance_module_sha256": "ba244e4540f15d354a2709dbb47b72e919b380c2420af96058e51060fa49e306",
+    "tool_sha256": "db4146dfa181b8020d55e561a10bc6da51cb99f3da41813bdebf74416fe9fdb4"
+  },
+  "scope": {
+    "conformance_id": "R138",
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_reports_read": 1,
+    "source_transition_metadata_rows_read": 29,
+    "synthetic_layout_cases": 6,
+    "synthetic_malformed_cases": 1,
+    "synthetic_controller_cases": 3,
+    "synthetic_controller_schedule_derivations": 6,
+    "synthetic_controller_rows_evaluated": 19200,
+    "real_state_reconstructions": 0,
+    "real_state_lift_evaluations": 0,
+    "real_controller_schedule_derivations": 0,
+    "real_controller_graph_evaluations": 0,
+    "real_mass_matrix_assemblies": 0,
+    "real_contact_jacobian_assemblies": 0,
+    "real_dynamics_residual_evaluations": 0,
+    "real_integration_residual_evaluations": 0,
+    "real_impulse_residual_evaluations": 0,
+    "real_kinodynamic_system_assemblies": 0,
+    "real_kinodynamic_solves": 0,
+    "real_factorizations": 0,
+    "optimizer_steps": 0,
+    "candidate_artifacts_built": 0,
+    "solver_private_caches_built": 0,
+    "physx_scene_runs": 0,
+    "training_runs": 0
+  },
+  "r137_zero_counters": [
+    "state_reconstructions",
+    "state_lift_evaluations",
+    "mass_matrix_assemblies",
+    "contact_jacobian_assemblies",
+    "controller_schedule_derivations",
+    "controller_graph_evaluations",
+    "dynamics_residual_evaluations",
+    "integration_residual_evaluations",
+    "impulse_residual_evaluations",
+    "kinodynamic_system_assemblies",
+    "kinodynamic_solves",
+    "factorizations",
+    "optimizer_steps",
+    "candidate_artifacts_built",
+    "solver_private_caches_built",
+    "physx_scene_runs",
+    "training_runs"
+  ],
+  "synthetic_layout_contract": {
+    "cases": [
+      {
+        "case": "ordinary_flight",
+        "from_modes": [0, 0],
+        "to_modes": [0, 0],
+        "event": "ORDINARY_CONTINUOUS_BOUNDARY",
+        "current_point_ordinals": [],
+        "next_point_ordinals": [],
+        "activated_point_ordinals": [],
+        "deactivated_point_ordinals": [],
+        "continuous_force_scalars": 0,
+        "activation_impulse_scalars": 0,
+        "active_position_rows": 0,
+        "active_acceleration_rows": 0,
+        "release_impulse": "NOT_APPLICABLE",
+        "free_effort_scalars": 0,
+        "inactive_force_scalars": 0,
+        "unscheduled_impulse_scalars": 0
+      },
+      {
+        "case": "flight_to_forefoot",
+        "from_modes": [0, 0],
+        "to_modes": [2, 0],
+        "event": "RIGID_POINT_ACTIVATION_IMPULSE",
+        "current_point_ordinals": [],
+        "next_point_ordinals": [1],
+        "activated_point_ordinals": [1],
+        "deactivated_point_ordinals": [],
+        "continuous_force_scalars": 0,
+        "activation_impulse_scalars": 3,
+        "active_position_rows": 3,
+        "active_acceleration_rows": 0,
+        "release_impulse": "NOT_APPLICABLE",
+        "free_effort_scalars": 0,
+        "inactive_force_scalars": 0,
+        "unscheduled_impulse_scalars": 0
+      },
+      {
+        "case": "flight_to_flat",
+        "from_modes": [0, 0],
+        "to_modes": [0, 3],
+        "event": "RIGID_POINT_ACTIVATION_IMPULSE",
+        "current_point_ordinals": [],
+        "next_point_ordinals": [2, 3],
+        "activated_point_ordinals": [2, 3],
+        "deactivated_point_ordinals": [],
+        "continuous_force_scalars": 0,
+        "activation_impulse_scalars": 6,
+        "active_position_rows": 6,
+        "active_acceleration_rows": 0,
+        "release_impulse": "NOT_APPLICABLE",
+        "free_effort_scalars": 0,
+        "inactive_force_scalars": 0,
+        "unscheduled_impulse_scalars": 0
+      },
+      {
+        "case": "forefoot_to_flat",
+        "from_modes": [2, 0],
+        "to_modes": [3, 0],
+        "event": "RIGID_POINT_ACTIVATION_IMPULSE",
+        "current_point_ordinals": [1],
+        "next_point_ordinals": [0, 1],
+        "activated_point_ordinals": [0],
+        "deactivated_point_ordinals": [],
+        "continuous_force_scalars": 3,
+        "activation_impulse_scalars": 3,
+        "active_position_rows": 6,
+        "active_acceleration_rows": 3,
+        "release_impulse": "NOT_APPLICABLE",
+        "free_effort_scalars": 0,
+        "inactive_force_scalars": 0,
+        "unscheduled_impulse_scalars": 0
+      },
+      {
+        "case": "flat_to_forefoot",
+        "from_modes": [3, 0],
+        "to_modes": [2, 0],
+        "event": "ZERO_IMPULSE_POINT_RELEASE",
+        "current_point_ordinals": [0, 1],
+        "next_point_ordinals": [1],
+        "activated_point_ordinals": [],
+        "deactivated_point_ordinals": [0],
+        "continuous_force_scalars": 6,
+        "activation_impulse_scalars": 0,
+        "active_position_rows": 3,
+        "active_acceleration_rows": 6,
+        "release_impulse": "EXACT_ZERO",
+        "free_effort_scalars": 0,
+        "inactive_force_scalars": 0,
+        "unscheduled_impulse_scalars": 0
+      },
+      {
+        "case": "forefoot_to_flight",
+        "from_modes": [0, 2],
+        "to_modes": [0, 0],
+        "event": "ZERO_IMPULSE_POINT_RELEASE",
+        "current_point_ordinals": [3],
+        "next_point_ordinals": [],
+        "activated_point_ordinals": [],
+        "deactivated_point_ordinals": [3],
+        "continuous_force_scalars": 3,
+        "activation_impulse_scalars": 0,
+        "active_position_rows": 0,
+        "active_acceleration_rows": 3,
+        "release_impulse": "EXACT_ZERO",
+        "free_effort_scalars": 0,
+        "inactive_force_scalars": 0,
+        "unscheduled_impulse_scalars": 0
+      }
+    ],
+    "malformed_cases": [
+      {
+        "case": "simultaneous_left_release_right_activation",
+        "from_modes": [2, 0],
+        "to_modes": [0, 2],
+        "expected_error": "R138 transition activates and releases together"
+      }
+    ]
+  },
+  "synthetic_controller_contract": {
+    "implementation_pair": "R130 projected fixed-PD schedule versus R133 eventful projected fixed-PD schedule",
+    "descriptor": "tracked synthetic biomechanics motor mirror fixture only",
+    "exact_array_comparison": true,
+    "expected_cases": [
+      {
+        "case": "zero",
+        "status": "PASS",
+        "activation_counts": {
+          "hard_rom_violation": 0,
+          "velocity_violation": 0,
+          "target_soft_clamp": 0,
+          "target_slew": 0,
+          "static_effort_clamp": 0,
+          "effort_rate_clamp": 0,
+          "power_clamp": 0,
+          "positive_work_clamp": 0,
+          "infeasible_effort_envelope": 0
+        },
+        "event_count": 0,
+        "first_target_microradians": [0, 0, 0],
+        "maximum_positive_work_microjoules_per_motor_tick": 0.0,
+        "differing_target_scalars": 0,
+        "differing_effort_scalars": 0
+      },
+      {
+        "case": "ties_even",
+        "status": "PASS",
+        "activation_counts": {
+          "hard_rom_violation": 0,
+          "velocity_violation": 0,
+          "target_soft_clamp": 0,
+          "target_slew": 0,
+          "static_effort_clamp": 0,
+          "effort_rate_clamp": 0,
+          "power_clamp": 0,
+          "positive_work_clamp": 0,
+          "infeasible_effort_envelope": 0
+        },
+        "event_count": 0,
+        "first_target_microradians": [0, 2, -2],
+        "maximum_positive_work_microjoules_per_motor_tick": 0.0,
+        "differing_target_scalars": 0,
+        "differing_effort_scalars": 0
+      },
+      {
+        "case": "limiter_state",
+        "status": "PASS",
+        "activation_counts": {
+          "hard_rom_violation": 0,
+          "velocity_violation": 0,
+          "target_soft_clamp": 0,
+          "target_slew": 1,
+          "static_effort_clamp": 0,
+          "effort_rate_clamp": 8,
+          "power_clamp": 0,
+          "positive_work_clamp": 6,
+          "infeasible_effort_envelope": 0
+        },
+        "event_count": 15,
+        "first_target_microradians": [0, 0, 0],
+        "maximum_positive_work_microjoules_per_motor_tick": 1.0,
+        "differing_target_scalars": 0,
+        "differing_effort_scalars": 0
+      }
+    ]
+  },
+  "conformed_graph_contract": {
+    "indexing": "800 ordered command rows each own exactly four 240 Hz intervals; 3200 intervals connect 3201 state nodes without gaps or overlap",
+    "target_and_effort": "applied target and effort are exact derived controller outputs; free effort columns are structurally absent",
+    "contact_force": "only points active in the current fixed mode own continuous force columns and acceleration closure rows",
+    "activation": "only newly active points own impulse columns/cones and the post-integration momentum-jump block",
+    "release": "deactivated points own no impulse column; velocity transition is continuous with exact zero release impulse",
+    "sticking": "next active points own position/velocity closure; current active points own continuous acceleration closure",
+    "forbidden_blocks": "inactive force, unscheduled impulse, free effort, sliding, compliance and contact-mode choice remain absent",
+    "controller_differential": "R130 and R133 implementations are byte-identical for zero, ties-to-even and target/effort-rate/work limiter-state synthetic cases",
+    "real_problem": "NOT_ASSEMBLED_OR_EVALUATED"
+  },
+  "acceptance_boundary": {
+    "proved": "symbolic index/event layout and exact synthetic controller derivation are implementation-conformant to R137",
+    "not_proved": "real state reconstruction, dynamics/Jacobian composition, nonlinear numerical feasibility, objective/scaling suitability, native correspondence or safety",
+    "real_cache_read": "FORBIDDEN_AND_NOT_USED",
+    "real_controller_derivation": "FORBIDDEN_AND_NOT_USED",
+    "real_kinodynamic_assembly_or_solve": "FORBIDDEN_AND_NOT_USED",
+    "synthetic_descriptor_mutation": "in-memory maximum-work reduction on actuator ordinal zero activates the limiter only and has no production descriptor authority"
+  },
+  "future_r139_solve_formulation_contract": {
+    "authority": "NOT_GRANTED_UNTIL_EXACT_R138_PASS",
+    "claim": "FixedModeKinodynamicSolveFormulationOnly",
+    "required_freeze": [
+      "real source reconstruction and exact initial-state identities",
+      "objective hierarchy, normalization, trust region and endpoint policy",
+      "exact discrete graph versus differentiable candidate-generator boundary",
+      "algorithm, tolerances, rank/residual/cone ambiguity policy and invalid stop",
+      "single bounded process/thread/time/memory/restart budget",
+      "required row/array/system hashes and complete counter closure"
+    ],
+    "real_controller_graph_evaluation": "FORBIDDEN",
+    "real_kinodynamic_assembly": "FORBIDDEN",
+    "real_kinodynamic_solve": "FORBIDDEN",
+    "candidate_physx_training": "FORBIDDEN",
+    "solve_authority": "REQUIRES_LATER_IMPLEMENTATION_CONFORMANCE_AND_EXPLICIT_ROADMAP_GATE"
+  },
+  "decision": {
+    "pass": "PERMIT_SEPARATE_REPORT_ONLY_R139_KINODYNAMIC_SOLVE_FORMULATION_ONLY",
+    "invalid": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "result_transitions": {
+    "pass": "R138_PASS_R139_FORMULATION_ONLY",
+    "invalid": "R138_INVALID_STOP_WITHOUT_EXECUTION"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/fixed_mode_kinodynamic_graph_conformance.py",
+        "lab/scripts/conform_fixed_mode_kinodynamic_graph.py",
+        "lab/tests/test_fixed_mode_kinodynamic_graph_conformance.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/fixed_mode_kinodynamic_graph_conformance.py",
+        "lab/scripts/conform_fixed_mode_kinodynamic_graph.py",
+        "lab/tests/test_fixed_mode_kinodynamic_graph_conformance.py"
+      ]
+    },
+    {
+      "id": "single_thread_import",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "from next_lab.fixed_mode_kinodynamic_graph_conformance import _linux_thread_count; assert _linux_thread_count() == 1"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "bounded_acceptance": {
+    "r139_kinodynamic_solve_formulation": "AUTHORIZED_REPORT_ONLY_ON_R138_PASS",
+    "r136_retry": "NOT_AUTHORIZED",
+    "r137_retry": "NOT_AUTHORIZED",
+    "additional_pointwise_inverse_dynamics": "NOT_AUTHORIZED",
+    "real_controller_graph_evaluation": "NOT_AUTHORIZED",
+    "real_kinodynamic_assembly": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "contact_semantics_change": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
