@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108–R114 close progressive KTO/model lineage. The single R115 KTO execution is `FAIL / STOP_AND_RESEARCH`; clean R115-RC1 confirms its analytic-contact linearization identity gap. R117–R119 freeze and verify the repair. The sole clean R120 repaired-KTO process is direct `PASS` at `1/32`; only a separate report-only R121 fixed-PD inverse-dynamics execution formulation is next. Every additional KTO solve, ID/kinodynamic solve, candidate artifact, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108–R114 close progressive KTO/model lineage. R115 fails and R115-RC1 diagnoses its analytic-contact linearization gap; R117–R119 repair it. R120 repaired KTO is direct `PASS` at `1/32`. Clean report-only R121 freezes `3200` fixed-PD inverse-dynamics collocations with zero dynamics execution; only report-only R122 implementation/conformance is next. Every additional KTO solve, ID/kinodynamic solve, candidate artifact, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2015,11 +2015,23 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   `e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5`.
   R120 uses one KTO/QP and six audits; candidate, PhysX, ID, kinodynamic,
   optimizer and training counts are zero. Its cache is solver-private only.
+  Clean report-only R121 at commit `a20e9bc` binds that cache and the R113
+  model into `3200` independent 240 Hz pointwise systems. Each has `29`
+  acceleration, `23` effort and `12` point-force variables with a matching
+  `64` equality rows; the complete inventory is `204800` variables/equalities
+  plus `4956` friction cones. The affine q/v lift produces zero ROM, velocity
+  or effort-envelope failures; one target slew reaches `1672 µrad`, and the
+  effort-rate limiter activates `641` times. Canonical/file/profile SHA-256 is
+  `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` /
+  `5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7` /
+  `9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93`.
+  Six validations pass including `264/264` lab tests and full `host-check`;
+  every dynamics/scene/candidate/optimizer/training count is zero.
 These results still cannot authorize full V19 or learned optimization.
 
-Roadmap status now advances only to a separate report-only R121 fixed-PD
-inverse-dynamics execution formulation after R120. The inverse-dynamics solve
-itself remains blocked. This planning document alone does not close R5, B-08, B-12, Stage 0, GPU
+Roadmap status now advances only to report-only R122 dynamics implementation/
+conformance after R121. The bounded R123 inverse-dynamics execution remains
+blocked until exact R122 PASS. This planning document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 
 ## Definition of done

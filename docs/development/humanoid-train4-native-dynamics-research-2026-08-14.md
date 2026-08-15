@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R115_FAIL / R115-RC1_CONFIRMED / R118_PASS / R119_COMPLETE / R120_PASS / R121_FORMULATION_NEXT` |
+| Status | `R115_FAIL / R120_PASS / R121_COMPLETE / R122_CONFORMANCE_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -54,6 +54,7 @@ bounded research before another solver change or expensive native run.
 | R118 exact-kernel full-q/v conformance | canonical/file/profile SHA-256 `23d9d556d8be630f7f2e9fe9907f394b74186ef545d0c46f7484f0efc1df45ca` / `f4d186a476c6bb73f1f001ac6e991088b7563d2aeeca49f63db6e872afb7e861` / `d97340714757c1ead27b9f571332f926690104a89fed8a2d3a6ef357c9de88f3` | Clean `PASS`: `1241/1241` active point-frames preserve the exact V9 kernel and all seven full-q/v Jacobian anchors pass; permits only a separate report-only R119 execution formulation, with zero QP/KTO/scenes/candidates |
 | R119 repaired-KTO execution formulation | canonical/file/profile SHA-256 `ac38e3f0a9dfb5e900373bc5a4908168a49f3c3b799fb431bd6e5c1306a4dd1b` / `e233f9dd60ba8056e55b132167e5dbd6e952781fb15bece56cbb23e62b0c1882` / `3b48c618cffc5494601a40ac15b04df0ffba2a1b7d6aadbdfd4309b6c167dcd1` | Clean `COMPLETE`: replaces `3723` component rows with `2482` exact normal/norm-squared rows, freezes emitted-anchor conformance guards and one-process budgets; permits exactly one R120 repaired-KTO execution, with zero QP/KTO/scenes/candidates in R119 |
 | R120 single repaired-KTO execution | canonical/file/profile/cache SHA-256 `dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b` / `35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc` / `3dfa2f1b8357cd3452481c9518e8d1ca0ce5c0bb664b3a024fc5ce2653837d55` / `e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5` | Clean direct `PASS` at `1/32`: all exact gates pass with `614 bp` strict V7 progress and no bridge; one KTO/QP, six emitted audits, zero candidate/scene/ID/kinodynamic/optimizer/training work; permits only report-only R121 fixed-PD inverse-dynamics execution formulation |
+| R121 fixed-PD inverse-dynamics execution formulation | canonical/file/profile SHA-256 `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` / `5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7` / `9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93` | Clean `COMPLETE`: freezes `3200` independent `64 × 64` pointwise systems (`204800` variables/equalities, `4956` friction cones); cache/contact/fixed-PD preflights PASS, zero dynamics solves; permits only report-only R122 implementation/conformance |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -1368,19 +1369,65 @@ The emitted aggregate SHA-256 is
 All validations pass, including `257/257` lab tests, `56/56` motor tests and
 full `host-check`.
 
+## R121 fixed-PD inverse-dynamics formulation result
+
+Clean report-only R121 at commit
+`a20e9bcf04f7c8137955d102fa3f2b64ffb77d1d` binds the R108 stage-2
+contract, the complete R113 model identity and exact R120 PASS/cache without
+importing OSQP, Pinocchio or an inverse-dynamics implementation. The four
+directly emitted cache projections — root/joint position and root/joint
+velocity — reproduce the R120 array hashes, and all `801` reference rotations
+remain orthogonal with maximum error below `2e-15`.
+
+R121 maps the `800` motor intervals to four pre-integration collocations each,
+for `3200` fixed `q/v` samples. Configuration, velocity and acceleration warm
+starts are independently affine between neighboring R120 knots; root rotation
+uses the principal SO(3) geodesic. This deliberately claims no kinematic
+derivative or discrete-integration identity: every motor boundary reanchors to
+the next exact R120 knot, while state integration remains exclusive to the
+later full-kinodynamic stage.
+
+Each collocation has `64` ordered unknowns: `29` generalized accelerations,
+`23` applied efforts and `12` scalar components for the four R113 point forces.
+It has `29` rigid-body equations, `23` exact fixed-PD effort identities and
+`12` point rows, which are active-contact acceleration closure or inactive
+zero force. Across the clip this is `204800` variables and `204800` equality
+rows. The frozen V9/R120 schedule yields `4956` active point-collocations,
+`7844` inactive ones and `4956` static-friction second-order cones.
+
+The exact controller schedule preflight finds zero intermediate hard-ROM,
+velocity, static-effort, power, positive-work or infeasible-envelope events.
+Target slew activates once on DoF `6`, by at most `1672 µrad`; the effort-rate
+limit activates `641` times on ten DoFs. Maximum requested/applied effort is
+`145527100 µN·m`, power `359610852.5932 µW` and positive work `56348 µJ` per
+motor tick. These are input-schedule facts only, not rigid-dynamics or native
+feasibility evidence.
+
+R121 canonical/file/profile SHA-256 is
+`4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` /
+`5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7` /
+`9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93`.
+The formulation module/tool SHA-256 is
+`99de51fe96bdaed8efc8c5671272b0cf432011aa5e7318ec81a806385499716f` /
+`8e01c6c8b25478747eb565dd9ffb8f2815bf26342560ef99b2d1446674e5d4ae`.
+All six validations pass, including solver-free import, `264/264` lab tests,
+`56/56` motor tests and full `host-check`. Formulation count is one; local
+system, inverse-dynamics, kinodynamic, candidate, PhysX, optimizer and training
+counts are zero.
+
 ## Decision
 
-Freeze R92–R120, retain the contact result as bounded support for H23, and
+Freeze R92–R121, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
 and the late projected direction after its exact `2501/2500 bp` failure.
 R115 consumed and failed its sole solve; R120 consumed its separate sole solve
 and passed. Neither may be retried. Candidate artifacts, native scenes and
-all-17 remain blocked. R120 authorizes only a separate report-only R121
-fixed-PD inverse-dynamics execution formulation. R121 may bind the R120 q/v/a
-cache, R113 model identity, 240 Hz acceleration/effort/contact-wrench
-variables, rigid-body/active-contact equations, fixed-PD effort identity,
-public actuator limits and one future bounded execution gate. It may not run
-inverse dynamics or kinodynamics, emit a candidate, change controller/safety/
-quantization semantics, run PhysX or begin training.
+all-17 remain blocked. R121 authorizes only report-only R122 implementation
+and numerical conformance at the seven frozen anchors. R122 may implement and
+audit descriptor-derived M/h/J/Jdot-v, point-force projection and one-local-
+system resource instrumentation. It may not solve any R123 system, run
+kinodynamics, emit a candidate, change controller/safety/quantization
+semantics, run PhysX or begin training. Only exact R122 PASS may authorize the
+single bounded R123 execution already constrained by R121.
