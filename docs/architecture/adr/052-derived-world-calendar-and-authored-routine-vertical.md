@@ -3,12 +3,12 @@
 | Field | Value |
 |---|---|
 | ID | ADR-052 |
-| Status | Proposed |
+| Status | Accepted |
 | Version | 1.0 |
 | Decision date | 2026-08-09 |
-| Last verified | 2026-08-09 |
+| Last verified | 2026-08-15 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](../18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-20](../20-world-simulation-and-population-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](../22-schema-registry-compatibility-and-migration.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-29](../29-platform-host-and-application-session.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-019](019-canonical-player-actions-and-presentation-authority.md), [ADR-021](021-deterministic-population-residency-and-time-advance.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](025-schema-content-and-migration-authority.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-034](034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](047-simple-application-session-and-save-on-close.md), [ADR-048](048-direct-exact-project-lock.md), [ADR-051](051-r3a-packaged-chunk-streaming-commit-boundary.md) |
-| Supersedes | none while `Proposed`; on promotion, the affected clauses are listed in `Supersession` |
+| Supersedes | Partially ADR-021's retired mutable calendar/tier/bulk-first representation, ADR-034/046/047's Replay V5 designation, ADR-048's authoring-v2/ActivatedProjectV3/Replay-V5 forms and ADR-051's ActivatedProjectV3/replay format freeze; exact scope is listed in `Supersession` |
 | Superseded by | none |
 
 ## Context
@@ -26,14 +26,13 @@ The smallest useful consumer is the existing relay keeper: one authored
 current active chunk and survives save/restart/replay. Navigation, residency
 tiers, bulk time and learned behavior are not required to prove this boundary.
 
-This ADR remains `Proposed` until that consumer and its ProductChecks exist.
-Marking it Accepted from documentation or scaffolding alone would violate
-ADR-046.
+That consumer and its ProductChecks now exist in the production path; the
+decision is Accepted under ADR-046 without admitting the excluded R4b/R4c/R4d
+scope.
 
-## Decision candidate
+## Decision
 
-On promotion, Next Engine will implement the candidate contract in SPEC-20
-with these rules:
+Next Engine implements the contract in SPEC-20 with these rules:
 
 1. Runtime remains the sole owner of `SimulationTick`. World Services owns an
    immutable, project-bound integer-rational mapping from `SimulationTick` to
@@ -54,12 +53,16 @@ with these rules:
    routine + optional-streaming transaction extends the current R3 paired
    commit, so all live owners publish together or none do. No new stage,
    scheduler, command barrier or generic transaction framework is added.
-   Its validated candidate precomputes the sorted owner descriptors and
-   application root; commit returns `WorldServicesTickCommitV1` around the
-   unchanged Runtime `TickReport`, streaming/routine projections, optional
-   streaming receipt, exact descriptors and root. This is a `next_runtime`
-   workspace result rather than a durable schema; a later Save retains its
-   ordinary independent freeze/snapshot boundary.
+   Its evidence-bearing validation path precomputes the sorted owner
+   descriptors and application root; commit returns
+   `WorldServicesTickCommitV1` around the unchanged Runtime `TickReport`,
+   streaming/routine projections, optional streaming receipt, exact
+   descriptors and root. The ordinary live driver uses the same joint
+   generation validation and final preflight without materializing discarded
+   evidence on every tick; checkpoint/save/replay state materializes that
+   evidence before publication. These are `next_runtime` workspace results
+   rather than durable schemas; a later Save retains its ordinary independent
+   freeze/snapshot boundary.
 5. Ingress in tick `T` observes the state committed at the end of `T - 1`.
    The tick-`T` routine Outcome enters the tick-`T` root/presentation and gates
    interaction beginning at `T + 1`. Fresh activation requires
@@ -116,7 +119,7 @@ with these rules:
     entry or receipt. Existing generic command/ledger rejection,
     no-reservation and terminal-receipt semantics remain unchanged for their
     respective submitted-command branches.
-11. Promotion materializes the SPEC-21 canonical `CommandKindRegistryV1` and
+11. R4a materializes the SPEC-21 canonical `CommandKindRegistryV1` and
     `ScheduleManifestV1` rather than private version counters or opaque fixed
     hashes. SPEC-20 closes `RuntimeStageId` as the twelve existing numbered
     SPEC-02 steps. The schedule has exactly the two existing Ingress-2 and
@@ -147,10 +150,10 @@ public schema or second authority merely for asymptotic preference.
 
 ## Product impact
 
-On promotion, the reference project will gain its first observable
-living-world behavior: the relay keeper changes between work and rest on
+The reference project has its first observable living-world behavior: the
+relay keeper changes between work and rest on
 deterministic in-world time, and the exact quest-acceptance interaction follows
-that fact after save/restart/replay. The promotion implementation will exercise
+that fact after save/restart/replay. The implementation exercises
 production content, command, event, interaction and persistence boundaries
 without waiting for navigation, models or a 100-NPC benchmark.
 
@@ -158,7 +161,7 @@ R4a does not close R4 or its blockers. The keeper does not move, no off-screen
 outcome is synthesized, `r4-100npc` remains unavailable, and gameplay remains
 fully offline without `ai-host`.
 
-## Relevant ProductChecks on promotion
+## Relevant ProductChecks
 
 | Check | Scenario | Expected | Fallback |
 |---|---|---|---|
@@ -189,7 +192,7 @@ fully offline without `ai-host`.
 - Generic scheduler, persisted due heap, JPS or flow fields now — rejected
   because no measured R4a constraint requires them.
 
-## Consequences on promotion
+## Consequences
 
 - `crates/contracts` gains the routine catalog/snapshot/command/event schemas,
   `InteractionDefinitionV2`, `RpgDefinitionRegistryV2` and the Replay V6
@@ -205,9 +208,11 @@ fully offline without `ai-host`.
 - The runtime uses its existing stage graph and one Outcome batch; it adds the
   engine-declared World Services producer/command kind and a narrow joint
   prepared/validated commit with optional streaming. The unchanged Runtime
-  `TickReport` is wrapped by `WorldServicesTickCommitV1`, whose exact segment
-  descriptors and application root are prepared before live publication; the
-  wrapper does not claim to carry canonical owner bytes.
+  `TickReport` is wrapped by `WorldServicesTickCommitV1` on the
+  evidence-bearing path, whose exact segment descriptors and application root
+  are prepared before publication; the ordinary live path skips unused
+  evidence while retaining the same joint preflight/commit. The wrapper does
+  not claim to carry canonical owner bytes.
 - The existing SPEC-21 V1 registry/schedule schemas are finally materialized by
   one canonical determinism-bundle builder. Their changed hashes flow through
   the unchanged `RuntimeDeterminismProfileV1` and `ProjectLockV3` wire shapes;
@@ -216,13 +221,11 @@ fully offline without `ai-host`.
   mutation.
 - Fixed-stage performance smoke is recorded as `REPORT_ONLY`; R4a does not
   activate `r4-100npc` or close B-12.
-- Roadmap work proceeds to tiers/navigation/100 NPC only after R4a passes.
+- Roadmap work may proceed to tiers/navigation/100 NPC because R4a passes.
 
 ## Supersession
 
-While this ADR is `Proposed`, it supersedes nothing and creates no current API,
-format or check. In the production-consumer changeset that promotes it to
-`Accepted`, its metadata and the affected documents MUST state that it:
+This Accepted decision:
 
 - partially supersedes ADR-021's retired mutable `WorldCalendarStateV1` and
   full tier/bulk-first design for the current R4a representation, while

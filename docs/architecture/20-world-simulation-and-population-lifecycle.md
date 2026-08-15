@@ -3,21 +3,17 @@
 | Field | Value |
 |---|---|
 | ID | SPEC-20 |
-| Status | Proposed |
+| Status | Accepted |
 | Version | 3.1 |
-| Last verified | 2026-08-09 |
+| Last verified | 2026-08-15 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
 | Replaces | SPEC-20 3.0; separates deterministic R4c/R4d work from optional learned R8 policies while preserving R4a scope |
 
 ## Status and admission
 
-This document is the implementation-ready candidate for the first R4 product
-increment. It deliberately remains `Proposed`: ADR-046 permits promotion only
-in the same changeset that supplies a production consumer and a passing mapped
-ProductCheck. Types, schema names and checks below therefore describe the
-candidate contract and MUST NOT be reported as current or shipped yet.
-
-Promotion to `Accepted` requires all of the following in one changeset:
+This document is the current contract for the first R4 product increment.
+ADR-046 admission was completed in the same changeset as the production
+consumer: the following five conditions are now part of the Accepted baseline:
 
 1. the reference-alpha relay keeper consumes the authored routine through the
    production application path;
@@ -29,15 +25,14 @@ Promotion to `Accepted` requires all of the following in one changeset:
 4. ADR-052 becomes `Accepted` and explicitly supersedes every affected clause
    listed in its `Supersession` section;
 5. affected Accepted SPECs, the architecture index, routing table,
-   traceability map and roadmap are updated to describe the implemented
-   current formats rather than this candidate.
+   traceability map and roadmap describe the implemented current formats.
 
-Until that admission, current runtime, save/replay, authoring and project
-formats remain exactly those described by their Accepted SPECs.
+This admission closes R4a only. It does not close R4, B-07, B-12, B-13 or make
+the R4b population/navigation contracts current.
 
 ## R4a product slice
 
-The promotion's sole production consumer will be the existing quest giver
+R4a's sole production consumer is the existing quest giver
 (the relay keeper) in the active reference-alpha relay-station chunk. One
 authored routine contains
 a single `Duty -> Rest` boundary. The exact gated interaction is
@@ -84,9 +79,9 @@ or B-13.
 `RuntimeEntityId`, camera visibility, renderer frame, host clock, I/O timing or
 worker order cannot select activity or interaction availability.
 
-## Candidate content contracts
+## Current content contracts
 
-The candidate uses typed content, not generic property bags or reference-game
+The current implementation uses typed content, not generic property bags or reference-game
 constants.
 
 ```text
@@ -201,7 +196,7 @@ asset: its `catalog_asset_id` occurs exactly once in `root_asset_ids` and the
 content manifest, and that entry's record hash is the catalog revision stored
 by the routine record. The cooker consumes the binding into exactly one
 `InteractionDefinitionV2` and publishes no second runtime binding table.
-For the bounded reference-alpha promotion this is the only added content
+For the bounded reference-alpha slice this is the only added content
 entry: authoring `root_asset_ids` changes from `27` to `28` and the activated
 `ContentManifestV1.asset_entries` count changes from `113` to `114`; the
 existing interaction entry changes hash/version but does not add a second
@@ -283,7 +278,7 @@ The catalog is immutable after world creation in R4a. Player `Wait`, a mutable
 time scale, re-anchoring and bulk advance require a future consumer and a new
 versioned decision.
 
-## Candidate authoritative snapshot
+## Current authoritative snapshot
 
 ```text
 WorldRoutineRecordV1 {
@@ -421,7 +416,7 @@ stream_slot     = 0, stream_epoch = 0 for this InternalSystem principal
 sequence        = expected_record_revision
 ```
 
-Promotion replaces the current private three-entry descriptor/hash with one
+R4a replaces the retired private three-entry descriptor/hash with one
 canonical SPEC-21 `CommandKindRegistryV1` containing exactly these four map
 entries. Every capability set is a singleton `CapabilityRefV1` with
 `scope_hash = None`; the final column is the validator phase policy bound by
@@ -460,7 +455,7 @@ registry and Replay V6 `AuthorityGrant` contain exactly the unscoped
 principal/stream/authority entries are created and validated with the routine
 owner before the first tick; partial bootstrap is forbidden.
 
-Promotion materializes that complete canonical `CommandKindRegistryV1`
+R4a materializes that complete canonical `CommandKindRegistryV1`
 defined by SPEC-21. It does not create a `CommandKindRegistryV2` or V3: the
 V1 map's canonical bytes and content hash replace the private descriptor/hash
 while its schema and envelope remain V1. Existing
@@ -471,7 +466,7 @@ while its schema and envelope remain V1. Existing
 variants selected by the schema IDs above; no opaque or unknown payload is
 accepted.
 
-The same promotion materializes the already-specified canonical
+The same R4a cut materializes the already-specified canonical
 `ScheduleManifestV1`; an opaque fixed schedule constant is not a valid
 substitute. For this first materialization, the previously abstract
 `RuntimeStageId` is the following closed `u8` value and `stage_order` is exactly
@@ -592,12 +587,12 @@ stage 6 but routine mutation remains the priority-250 stage-9 Outcome; it
 cannot delay or reclassify the streaming publication.
 
 The existing `TickReport` keeps its Runtime-owned shape and is not silently
-extended with World Services fields. Before live publication, the validated
-candidate transiently materializes the complete staged core checkpoint
-(including the physics catalog), streaming/routine canonical bytes, their
-sorted full descriptors and the application root. The commit returns one
-immutable `next_runtime` workspace result, not a durable `crates/contracts`
-schema:
+extended with World Services fields. The evidence-bearing validation path used
+by scenario, checkpoint and replay transiently materializes the complete staged
+core checkpoint (including the physics catalog), streaming/routine canonical
+bytes, their sorted full descriptors and the application root before live
+publication. Its commit returns one immutable `next_runtime` workspace result,
+not a durable `crates/contracts` schema:
 
 ```text
 WorldServicesTickCommitV1 {
@@ -622,6 +617,14 @@ that closure uses the existing
 always returns the five-segment closure. Root or
 descriptor construction is validation work and cannot occur after the first
 live write.
+
+The ordinary `ReferenceGameDriverV2` live-advance path uses the same joint
+Runtime/routine/optional-streaming generation validation and final stale-base
+preflight, but does not construct application evidence that the caller would
+discard every tick. `state`, `prepared_state` and `validated_state` materialize
+the same canonical checkpoint/descriptors/root on an actual recovery, save or
+replay boundary, before any such state is published. Both paths retain the
+same fixed-order, no-fallible-work-after-first-write owner publication.
 
 The private prepared/validated structs do not become public contracts or a
 generic cross-context transaction framework. They specialize the existing R3
@@ -718,7 +721,7 @@ relationship revisions remain unchanged. The accepted
 dialogue/quest/relationship mutation remains the existing RPG transaction; the
 routine event never fabricates a quest transition.
 
-## Save and replay candidate
+## Save and replay
 
 The routine snapshot is a separate segment:
 
@@ -741,7 +744,7 @@ world-routine bytes. This five-segment application root is used by the R4a
 application, save/restart checks and Replay V6; it does not silently redefine
 the V4 checkpoint field.
 
-Promotion introduces current-only `ReplayManifestV6`. Its initial closure for
+R4a introduces current-only `ReplayManifestV6`. Its initial closure for
 the R4a profile contains runtime, RPG, physics, world-streaming and
 world-routine segments. Initial bytes reuse `ReplayOwnerSegmentV2`.
 `ReplayTickManifestV6` starts from the ordered V5 tick facts, adds the missing
@@ -898,10 +901,10 @@ before ledger mutation. Corrupt saved closure remains
 actually admitted deterministic rejection while preserving the
 genesis-or-one-committed-receipt routine load invariant.
 
-## Promotion ProductChecks
+## Current ProductChecks
 
-These are future promotion gates, not current checks while this SPEC is
-`Proposed`.
+These checks map the current R4a production consumer and its fail-closed
+variants.
 
 | Check | Scenario | Expected |
 |---|---|---|
@@ -912,7 +915,7 @@ These are future promotion gates, not current checks while this SPEC is
 | conditional `performance --scenario smoke --mode report` | Compare the ordinary fixed-stage path with the stage-6 O(1) calendar/routine producer enabled | Runtime/root parity holds and the routine span/logical charge is attributed; verdict remains `REPORT_ONLY`, does not run `r4-100npc` and does not close B-12 |
 
 `r4-100npc` remains an honest `NOT_RUN`/unavailable workload after R4a. It is
-not a promotion gate for this first consumer.
+not a gate for this first consumer.
 
 ## Future expansion
 

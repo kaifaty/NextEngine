@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / AUTHORING_COOK_LAYER` |
+| Status | `COMPLETE` |
 | Updated | 2026-08-15 |
 | Task key | `r4a-world-routine` |
 | Scope | One authored relay-keeper `Duty -> Rest` boundary through cook, runtime, save and replay |
@@ -11,10 +11,10 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R141 consumed its authority and stopped without retry; R4a is the sole active roadmap increment.
-- **Current implementation point:** Public routine/calendar, four-entry command registry, 12-stage schedule and the single determinism bundle are materialized; runtime/project no longer use the private registry or opaque profile constant.
-- **Next action:** Cut authoring/project/mechanics APIs to V3/V2/V4 and cook the typed catalog plus binding into the reference package.
-- **Promotion guard:** Keep SPEC-20 and ADR-052 `Proposed` until authoring, cook, activation, runtime, persistence and Replay V6 production paths pass all required checks.
+- **Current conclusion:** R4a passed its production and documentation gates; SPEC-20/ADR-052 are `Accepted` and the increment is complete.
+- **Current implementation point:** The full typed V3/V2/V4 authoring path, runtime routine owner, joint commit, five-owner persistence and current-only Replay V6 are production consumers.
+- **Next action:** R4b tiers + graph navigation + 100 NPC is the next eligible roadmap increment and is outside this completed changeset.
+- **Promotion result:** Format/check/clippy, focused rollback/retired-format coverage, `play`, `persistence-replay`, `content-package`, `boundary-scan` and `host-check` pass. Performance metrics remain report-only and make no B-12 claim.
 - **Scope guard:** No navigation, population tiers, bulk time, transfer, cognition, 100-NPC workload, learned model or B-12 claim.
 
 ## Product outcome
@@ -68,25 +68,32 @@ current-only replay reproduce the same five-owner application closure.
 
 ## Execution plan
 
-1. Contract layer and exact codecs/hashes.
-2. Shared registry/schedule/profile materialization.
-3. Authoring/cook/activation V3/V4 chain.
-4. Runtime routine owner, stage-6 proposal and joint commit.
-5. Reference interaction/live/save/replay V6 consumer.
-6. Focused malformed-input and deterministic repeat tests.
-7. `fast`, `play`, `persistence-replay`, `content-package`, host-check and
-   conditional report-only performance smoke.
-8. Promote SPEC-20/ADR-052 and update roadmap only after every gate passes.
+1. [complete] Contract layer and exact codecs/hashes.
+2. [complete] Shared registry/schedule/profile materialization.
+3. [complete] Authoring/cook/activation V3/V4 chain.
+4. [complete] Runtime routine owner, stage-6 proposal and joint commit.
+5. [complete] Reference interaction/live/save/replay V6 consumer.
+6. [complete] Focused malformed-input and deterministic repeat tests.
+7. [complete] `fast`, `play`, `persistence-replay`, `content-package`,
+   host-check and conditional report-only performance smoke.
+8. [complete] Promote SPEC-20/ADR-052 and update roadmap after every gate.
 
 ## Current evidence
 
-- `next_contracts` passes `195/195` library tests with calendar overflow,
-  catalog/snapshot round-trip, registry/schedule and bundle coverage.
-- `next_runtime` passes `42/42` library tests after replacing its private
-  three-entry registry with the public four-entry value.
-- Workspace `cargo check --workspace --all-targets` passes.
-- Focused `cargo clippy -p next_contracts -p next_runtime --all-targets --
-  -D warnings` passes.
+| Check | Result |
+| --- | --- |
+| `fast` composition | `cargo fmt --all -- --check`, workspace all-target check/clippy, focused positive/failure tests and `boundary-scan` pass |
+| `host-check` | `PASS` on `x86_64-unknown-linux-gnu`, Rust `1.97.1` |
+| `play` | `PASS`: 32 ticks, 28 events, 13 RPG events, revision 41; state root `64b2318210a938d6e23327af56fcfc372b1e3ba76e8c61f0ef261b0f0f0a75e1` |
+| `persistence-replay` | `PASS`: 19 ticks, 2 generations, 8 RPG events, current chunk `relay-station`; final state root `2f9ab39b00d4891bf699d7f0a0d6dc576f925bc486297eba5e239b0da7142043` |
+| `content-package` | `PASS`: 28 roots, 114 records, 64 chunks, 2 mechanics, 1 Luau and 1 Wasm package; composition lock `22811df68d2de1b193d54a98f5b3adb74d9b72e7de1995144525573097e12c47` |
+| performance smoke | 900 live ticks / 901 commands, stable live root `fce912bf569c5c0228a7ce345f5c827aa3b5936e078b008da7274632313ebe04`; all six metrics `REPORT_ONLY`; outer result `NOT_RUN / PERF_TARGET_FINGERPRINT_UNSUPPORTED_HOST` |
+
+Negative coverage includes stage-6/stage-9 fatal rollback, stale joint commit,
+load-time routine/ledger closure rejection and typed retired Replay V5
+rejection. The ordinary live path validates the same fixed-order joint owner
+commit without rebuilding application evidence every tick; scenario,
+checkpoint and replay paths retain full evidence-bearing validation.
 
 ## Required context
 
@@ -110,9 +117,11 @@ current-only replay reproduce the same five-owner application closure.
 
 ## Handoff
 
-- **Workspace:** clean at R4a activation; R141 implementation/docs are commits
+- **Workspace:** R4a implementation, checks and documentation are complete on
+  the roadmap branch; earlier R141 implementation/docs remain commits
   `75661a1` and `320e9f1`.
 - **Training authority:** no R141 retry, R142 or downstream training work.
-- **Architecture status:** SPEC-20 v3.1 and ADR-052 remain `Proposed`.
-- **Current risk:** the public contract/API cut is broad; avoid compatibility
-  shims that leave retired types or duplicate canonical authorities.
+- **Architecture status:** SPEC-20 v3.1 and ADR-052 are `Accepted`.
+- **Next scope:** R4b may introduce tiers/navigation/100-NPC contracts only
+  with their production consumer and mapped ProductChecks; no generic
+  scheduler or compatibility shim was admitted by R4a.

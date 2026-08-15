@@ -4,9 +4,9 @@
 |---|---|
 | ID | SPEC-01 |
 | Статус | Accepted |
-| Версия | 2.4 |
-| Последнее изменение | 2026-08-08 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Версия | 2.5 |
+| Последнее изменение | 2026-08-15 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
 
 ## Архитектурная форма
 
@@ -49,7 +49,8 @@ outcome — нет.
 |---|---|---|
 | Project composition | immutable `ProjectLockV3` | validated atomic activation before world start |
 | Gameplay/RPG | revisioned RPG aggregates | validated `WorldCommand` transaction |
-| Future world calendar/population | no current authority | Proposed intent in SPEC-20; add only with a production consumer |
+| Derived world calendar and bounded routine | immutable `WorldRoutineCatalogV1` + World Services `WorldRoutineSnapshotV1` | exact stage-6 proposal, stage-9 command/event and joint owner commit |
+| Future broader population tiers/navigation | no current authority | Proposed R4b intent in SPEC-20; add only with its production consumers |
 | Runtime residency | Core Runtime mapping | deterministic spawn/despawn/streaming commit |
 | Physical world | engine-owned physics state and canonical snapshot | fixed step plus validated motor/topology operation |
 | Motor route/state | engine-owned policy supervisor state | deterministic route/action commit or procedural fallback |

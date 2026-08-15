@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-25 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) |
-| Заменяет | SPEC-25 1.0 generic admission planner, pins/leases/eviction, population tiers and unimplemented spatial-object schemas |
+| Версия | 2.3 |
+| Последняя проверка | 2026-08-15 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
+| Заменяет | SPEC-25 2.2; updates activation and package-count closure for R4a without admitting broader tiers |
 
 ## Назначение
 
@@ -91,7 +91,7 @@ and binds its hash into `ProjectLockV3`. Package publication includes the
 manifest and every referenced content blob.
 
 Activation reads `ProjectLockV3`, verifies the complete hash closure, decodes
-the partition with current limits and publishes one `ActivatedProjectV3` only
+the partition with current limits and publishes one `ActivatedProjectV4` only
 after all project artifacts agree. It does not resolve versions from a
 catalog, scan ambient files or repair a partial closure.
 
@@ -157,7 +157,7 @@ ProductCheck; they are not part of the completed bounded R3 partition.
 | Check | Current evidence |
 |---|---|
 | focused project/contracts tests | canonical four-region/64-chunk ordering, bounds, unknown-field, duplicate ID, wrong class and dependency mismatch failures |
-| `content-package` | cooker/package/activation agree on 4 regions, 64 chunks, 76 neutral records and 113 packaged entries |
+| `content-package` | cooker/package/activation agree on 4 regions, 64 chunks, the typed routine catalog and 114 packaged entries |
 | `persistence-replay` | save after `Requested`, process restart, exact pinned reactivation and re-fetch complete the full route with the uninterrupted root |
 | `performance --scenario smoke --mode report` | 1,000 transitions perform real packaged I/O and record existing V4 logical staging charges; 30 seconds remains report-only |
 | `performance --scenario r3-multiregion-streaming --mode report` | 1,000 transitions cycle over the canonical 64-chunk route with production default two workers; only `streaming_world` is authoritative and the scenario remains report-only |

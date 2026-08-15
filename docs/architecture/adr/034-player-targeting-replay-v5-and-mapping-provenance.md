@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-034 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Дата решения | 2026-07-30 |
-| Последняя проверка | 2026-07-30 |
+| Последняя проверка | 2026-08-15 |
 | Нормативные зависимости | [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-18](../18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](../22-schema-registry-compatibility-and-migration.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-019](019-canonical-player-actions-and-presentation-authority.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](025-schema-content-and-migration-authority.md), [ADR-032](032-grounded-capsule-physics-checkpoint-version-boundary.md) |
 | Заменяет | частично ADR-032: обозначение `ReplayManifestV4` как current generated replay и соответствующее последствие о version boundary; не заменяет правила physics snapshot V1/V2 или replay V2 |
-| Заменён | legacy Replay V4/InputMappingReceipt V1 retention partially superseded by [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Заменён | legacy Replay V4/InputMappingReceipt V1 retention partially superseded by [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md); Replay V5 designation partially superseded by current-only Replay V6 in [ADR-052](052-derived-world-calendar-and-authored-routine-vertical.md), while targeting and exact mapping provenance remain Accepted |
 
 ## Контекст
 

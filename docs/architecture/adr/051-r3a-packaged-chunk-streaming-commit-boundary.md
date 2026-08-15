@@ -4,11 +4,12 @@
 |---|---|
 | ID | ADR-051 |
 | Статус | Accepted |
-| Версия | 1.1 |
+| Версия | 1.2 |
 | Дата решения | 2026-08-08 |
-| Последняя проверка | 2026-08-09 |
+| Последняя проверка | 2026-08-15 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](../22-schema-registry-compatibility-and-migration.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-026](026-deterministic-work-resource-and-streaming-admission.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](048-direct-exact-project-lock.md) |
 | Заменяет | Proposed R3a implementation intent in SPEC-23; не принимает generic scheduler/resource framework |
+| Заменён | частично [ADR-052](052-derived-world-calendar-and-authored-routine-vertical.md): the current joint preflight/commit includes Runtime, World Routine and optional World Streaming owners; bounded packaged streaming semantics remain Accepted |
 
 ## Контекст
 

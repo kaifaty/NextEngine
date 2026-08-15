@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.38 |
-| Последняя проверка | 2026-08-14 |
-| Заменяет | INDEX-001 2.37; indexes ADR-071 canonical physics-material lineage |
+| Версия | 2.39 |
+| Последняя проверка | 2026-08-15 |
+| Заменяет | INDEX-001 2.38; promotes the bounded SPEC-20/ADR-052 R4a production consumer |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -163,7 +163,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
 | SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted |
 | SPEC-19 | [Current RPG domain state](19-rpg-domain-and-narrative-state.md) | Accepted |
-| SPEC-20 | [Derived world calendar and authored NPC routines](20-world-simulation-and-population-lifecycle.md) | Proposed; implementation-ready R4a candidate, not current until its production consumer and checks exist |
+| SPEC-20 | [Derived world calendar and authored NPC routines](20-world-simulation-and-population-lifecycle.md) | Accepted bounded R4a calendar/routine consumer; R4b population/navigation breadth remains Proposed |
 | SPEC-21 | [Deterministic runtime primitives, command ledger и causal identity](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | Accepted |
 | SPEC-22 | [Current schema registry и format compatibility](22-schema-registry-compatibility-and-migration.md) | Accepted |
 | SPEC-23 | [Future generic jobs and resource work](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
@@ -239,7 +239,7 @@ traceability — навигационная карта, не admission authority
 | ADR-049 | [Performance evidence without allocator instrumentation](adr/049-performance-evidence-without-allocator-instrumentation.md) | Accepted allocator-removal and low-overhead resource evidence; Performance V4/methodology identity are superseded by ADR-063 |
 | ADR-050 | [Optional learned strategic and tactical behavior-policy boundary](adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md) | Proposed optional R8 role policies with exact applied-decision parity and ADR-056 fallback |
 | ADR-051 | [R3a packaged chunk streaming commit boundary](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) | Accepted; one pinned packaged fetch/decode/validate/two-tick commit vertical, without generic scheduler/resource promotion |
-| ADR-052 | [Derived world calendar and authored routine vertical](adr/052-derived-world-calendar-and-authored-routine-vertical.md) | Proposed; R4a candidate for one relay-keeper routine, exact derived calendar and separate World Services segment |
+| ADR-052 | [Derived world calendar and authored routine vertical](adr/052-derived-world-calendar-and-authored-routine-vertical.md) | Accepted; one relay-keeper routine, exact derived calendar, joint owner commit and current-only Replay V6 |
 | ADR-053 | [Engine-native model training and immutable artifact boundary](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md) | Proposed; canonical headless environment, accelerated mirrors and immutable candidate bundles |
 | ADR-054 | [Bounded strategic adaptation and two-tier sleep](adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md) | Proposed; Hope-inspired explicit bounded state, deterministic runtime consolidation and offline child bundles |
 | ADR-055 | [Mamba-2 physical motion foundation profile](adr/055-mamba2-physical-motion-foundation-profile.md) | Superseded by ADR-057; current authority ADR-066 |
@@ -263,10 +263,6 @@ traceability — навигационная карта, не admission authority
 ## Proposed tracks
 
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
-- SPEC-20/ADR-052 — implementation-ready R4a candidate: exact derived
-  calendar plus one authored relay-keeper `Duty/Rest` routine. It remains
-  Proposed and creates no current schema/check until the production consumer,
-  save/replay path and mapped ProductChecks land in the promotion changeset.
 - Navigation sections of SPEC-08 — bounded R4b graph/tile candidate; no current
   navigation API or gate until a production consumer is admitted.
 - SPEC-23 — future generic scheduler/resource work after the completed bounded

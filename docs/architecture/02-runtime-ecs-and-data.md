@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-02 |
 | Статус | Accepted |
-| Версия | 1.8 |
-| Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
-| Заменяет | SPEC-02 1.7 resolver-lock and current population-stage wording |
+| Версия | 1.9 |
+| Последняя проверка | 2026-08-15 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
+| Заменяет | SPEC-02 1.8; admits the bounded R4a World Services stage-6/stage-9 consumer |
 
 ## Source of truth и ownership
 
@@ -15,9 +15,10 @@ Core runtime владеет fixed tick clocks, entity residency, RuntimeEntityId
 mapping, system schedule, command transaction log, DomainEvent order и snapshot
 publication. Exact active project configuration приходит только из immutable
 `ProjectLockV3`; RPG Framework владеет aggregate state/transaction semantics,
-Player Experience — action/UI/camera presentation state. Future
-calendar/population authority остаётся Proposed в SPEC-20 и не добавляет
-current Runtime stage. Domain component values принадлежат профильному context,
+Player Experience — action/UI/camera presentation state. World Services owns
+the current derived calendar and bounded routine projection from SPEC-20; it
+uses existing stages 6/9 and does not add a Runtime stage. Broader population
+tiers/navigation remain Proposed R4b scope. Domain component values принадлежат профильному context,
 а ECS storage — только механизм размещения. ECS implementation не определяет
 публичную semantics.
 
@@ -59,7 +60,7 @@ Tick rates и divisors MUST входить в project/save/replay manifests. Run
 3. validate schema, target, preconditions и RPG rules; multi-aggregate operation строит immutable revision-bound `RpgTransactionPlan`;
 4. пересчитать V2 body hash/command ID, выполнить ADR-022 `CommandLedgerV2` admission/deduplication через соответствующий `CommandStreamLedgerV2` и sort `Ingress` commands по `(target_tick, phase, priority_class, issuer_tag, issuer_payload_bytes, sequence, command_id)`;
 5. атомарно apply `Ingress` transaction и emit ordered DomainEvent; RPG plan либо полностью коммитит stable mutation/event order, либо не меняет state;
-6. применить current deterministic world/streaming commitments; calendar/population work здесь отсутствует до отдельного production consumer;
+6. применить current deterministic world/streaming commitments and derive the bounded World Services routine proposal for the existing stage-9 Outcome batch;
 7. deterministic agent planning и PhysicalAvatarIntent generation;
 8. physics/motor substeps, contact normalization и physical outcomes;
 9. сформировать один закрытый `Outcome` batch внутренних commands, пропустить его через тот же validator/order/transaction и запретить same-tick re-entry;

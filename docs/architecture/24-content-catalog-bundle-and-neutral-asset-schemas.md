@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md) |
-| Заменяет | SPEC-24 version 1.2 unimplemented bundle/variant/schema catalog design |
+| Версия | 2.1 |
+| Последняя проверка | 2026-08-15 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
+| Заменяет | SPEC-24 2.0; admits the typed routine catalog in the exact content closure |
 
 ## Scope
 
@@ -133,7 +133,7 @@ schema/content/world/mechanics/render closure, writes exact blobs plus notices
 and publishes `project-lock.json`. Physical package layout is private; there is
 no public bundle archive ABI or runtime catalog resolver.
 
-`ActivatedProjectV3` revalidates:
+`ActivatedProjectV4` revalidates:
 
 - exact `ProjectLockV3`, `SchemaRegistryManifestV2`, `ContentManifestV1` and
   world/mechanics hashes;

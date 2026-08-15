@@ -4,14 +4,14 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md) |
-| Заменяет | SPEC-03 version 1.16 resolver/migration/session-object/future narrative clauses |
+| Версия | 2.3 |
+| Последняя проверка | 2026-08-15 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
+| Заменяет | SPEC-03 2.2; adds the R4a routine owner and current-only Replay V6 closure |
 
 ## Sources of truth
 
-Before cooking, `nextengine.project-authoring.v2` and referenced source files
+Before cooking, `nextengine.project-authoring.v3` and referenced source files
 are editable intent. After cooking, `ProjectLockV3` plus its exact
 `SchemaRegistryManifestV2`, content/mechanics/world/render manifests and blobs
 are the only runtime content source. Runtime never scans source directories,
@@ -124,12 +124,14 @@ validates the full closure before mutation, then atomically replaces world
 state. It creates a fresh presentation epoch/sequence `0` and waits for Resume.
 Corrupt or incompatible input leaves the current world and source bytes intact.
 
-`ReplayManifestV5` binds the same owner segments, exact
+`ReplayManifestV6` binds the runtime, RPG, physics, world-streaming and optional
+world-routine owner segments, exact
 `InputMappingReceiptV2`, targeting/query facts, closed ingress and command
-admission batches, expected receipts/events and per-tick compare roots. Replay
+admission batches, typed streaming assignments, interaction availability,
+expected receipts/events and per-tick full-tuple descriptors/application roots. Replay
 is read-only production re-execution: it injects recorded authoritative inputs,
 uses the ordinary validators/order and stops at the first divergence. There is
-no branching/counterfactual replay API and no projection through Replay V4.
+no branching/counterfactual replay API and no projection through Replay V5.
 
 `CommandLedgerV2` wire semantics, identity, reservation/receipt window and
 golden roots are unchanged.
@@ -157,14 +159,14 @@ Missing optional content uses only an exact declared fallback.
 ## Product checks
 
 - `content-package`: deterministic cook and activation of the complete
-  four-region/64-chunk, 113-entry closure plus malformed/cyclic/missing content
+  four-region/64-chunk, 114-entry closure plus malformed/cyclic/missing content
   and Luau/Wasm packages.
 - `play`: exact initial-role → frontier-role → initial-role transition through
   the paired production Assets/World/Runtime path without changing the R2
   gameplay and ledger baseline.
 - `persistence-replay`: Save in `Requested`, process restart, exact pinned
   reactivation and re-fetch converge with uninterrupted execution; ordinary
-  Save/Load/Resume, Replay V5 and retired-format rejection remain exact.
+  Save/Load/Resume, Replay V6 and retired-format rejection remain exact.
 - `performance --scenario smoke --mode report`: 1,000 real packaged transitions
   record Performance V5 `required_staging_bytes`; the 30-second limit remains
   report-only.

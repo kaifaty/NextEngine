@@ -4,11 +4,12 @@
 |---|---|
 | ID | ADR-048 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Дата решения | 2026-08-08 |
-| Последняя проверка | 2026-08-08 |
+| Последняя проверка | 2026-08-15 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-22](../22-schema-registry-compatibility-and-migration.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](047-simple-application-session-and-save-on-close.md) |
 | Заменяет | resolver/catalog semantics и policy closure [ADR-018](018-authoritative-project-composition-and-configuration.md) |
+| Заменён | частично [ADR-052](052-derived-world-calendar-and-authored-routine-vertical.md): authoring V3, `ActivatedProjectV4`, routine closure and Replay V6 replace the V2/V3/V5 forms; direct exact `ProjectLockV3` semantics remain Accepted |
 
 ## Контекст
 
@@ -67,4 +68,3 @@ ADR-047: current close policy всегда save-on-close.
 - package build/validation на schema version 4;
 - structural scan: production source не содержит project resolver/catalog,
   requirements, selected records или retired project/session policy symbols.
-

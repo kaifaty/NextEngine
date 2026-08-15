@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-047 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Дата решения | 2026-08-08 |
-| Последняя проверка | 2026-08-08 |
+| Последняя проверка | 2026-08-15 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-29](../29-platform-host-and-application-session.md), [ADR-028](028-platform-session-and-presentation-authority.md), [ADR-035](035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
 | Заменяет | Полностью [ADR-037](037-packed-session-object-storage.md). Частично ADR-028/035: active-run checkpoint cadence, recovery evidence/history, session object closure, retry/deadline/failure-disposition и final-save-ledger clauses. Authority split, platform-host admission, presentation immutability и восемь lifecycle-состояний сохраняются. |
-| Заменён | не заменён |
+| Заменён | частично [ADR-052](052-derived-world-calendar-and-authored-routine-vertical.md): current replay becomes V6 and durable application closure gains the World Routine owner; simple session/save-on-close semantics remain Accepted |
 
 ## Контекст
 

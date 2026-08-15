@@ -4,22 +4,23 @@
 |---|---|
 | ID | SPEC-08 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-08 2.0; adds the proposed Strategic Agent logical-location/tier boundary without current schemas |
+| Версия | 2.2 |
+| Последняя проверка | 2026-08-15 |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
+| Заменяет | SPEC-08 2.1; admits the bounded routine owner while retaining broader population/navigation as Proposed |
 
 ## Source of truth и ownership
 
 World Services currently owns `WorldPartitionManifestV1` logical topology,
-`WorldStreamingSnapshotV1` lifecycle state, reconstructible streaming caches
-and audio scene descriptions. The manifest's current placement/residency
+`WorldStreamingSnapshotV1` lifecycle state, the derived
+`WorldRoutineCatalogV1`/`WorldRoutineSnapshotV1` calendar-routine projection,
+reconstructible streaming caches and audio scene descriptions. The manifest's current placement/residency
 profile hashes are opaque empty-profile bindings; there is no current durable
 placement, tombstone, cross-chunk object or spatial-index public API.
 Navigation, placement and route reservations are Proposed ownership targets
 described below; no current API or ProductCheck follows from those sections.
-Future calendar/weather/population work remains Proposed in SPEC-20/ADR-052
-until its production consumer is admitted. Asset & Persistence владеет immutable schema/content
+Broader population tiers, navigation and weather remain Proposed R4b scope;
+the bounded R4a routine is current under SPEC-20/ADR-052. Asset & Persistence владеет immutable schema/content
 publication, а Core Runtime — fixed `SimulationTick`, ephemeral residency
 mapping и transaction boundaries; ни один из них не становится вторым owner
 world topology/placement. Navigation plan не владеет фактическим character
@@ -30,7 +31,8 @@ deterministic acoustic facts, а не звуковую карту устройс
 ## Public boundary
 
 Current public contracts are limited to deterministic acoustic facts,
-`WorldPartitionManifestV1`, `WorldStreamingSnapshotV1` and typed errors used by
+`WorldPartitionManifestV1`, `WorldStreamingSnapshotV1`, the bounded
+world-routine catalog/snapshot/command/event projections and typed errors used by
 their production consumers. Durable placement/tombstone/cross-chunk values,
 `NavigationQuery`, `RoutePlan` and traversal-link values are candidate
 contracts in the Proposed track below.
