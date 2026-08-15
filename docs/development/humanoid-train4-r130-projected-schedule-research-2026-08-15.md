@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R130 stopped before inverse dynamics |
-| Status | `R130_INVALID / R130_RC1_COMPLETE / R131_COMPLETE / R132_CONFORMANCE_NEXT` |
+| Status | `R130_INVALID / R130_RC1_COMPLETE / R131_COMPLETE / R132_PASS / R133_SCHEDULE_NEXT` |
 | Confirmed boundary | `Numerically valid tangent projection creates an invalid fixed-PD actuator schedule` |
 | Supported hotspot | `The four largest corrections cluster at two right-forefoot contact exits` |
 | Claim ceiling | Static report-only research; no exact row/event identity, retry, projection, dynamics, candidate, PhysX or training |
@@ -167,8 +167,40 @@ Formulation-module/tool SHA-256 is
 `2a1c6075fe919a0dcb5a32f3e49b7b952efe0e9b69c96f7c3488b4eeded28779`.
 The canonical hash independently recomputes exactly.
 
-R131 permits only separate report-only R132 conformance over the `36` rows of
-the nine exit intervals, with at most `36` projection systems and exactly
-row-addressed pre/post velocity evidence. Full-schedule projection, controller
-schedule derivation, inverse dynamics, candidate construction, PhysX and
-training remain forbidden.
+## R132 conformance result
+
+Clean report-only R132 at commit `5c4cb55` evaluates exactly the predeclared
+`9 × 4 = 36` exit rows. It preserves configuration, mode, active point and the
+position-only target lineage, replaces exactly the expected `27` substeps
+`1/2/3` by the left-knot velocity, and passes all `36/36` rank-three R129
+projection guards. Maximum active-point velocity after projection is
+`5.551e-16 m/s`, maximum scaled KKT residual is `1.762e-14`, and maximum
+idempotence error is `3.553e-15`.
+
+The causal discriminator is positive. Every one of the `27` changed rows has
+a strictly smaller generalized-velocity correction than its row-matched R130
+baseline. Across the bounded set, the maximum falls from `21.700328` to
+`1.950192 rad/s`. At the late hotspot rows `307/2979`, the correction ratios
+are `0.02856/0.10636`; projected right-ankle-roll speeds are
+`0.619858/1.950192 rad/s`, both below the authored `8 rad/s` limit. All
+`36` selected rows have zero descriptor joint-velocity violations.
+
+This is evidence for cross-mode flight-velocity contamination as the cause of
+R130's late correction, not yet proof of controller feasibility: R132 does not
+carry sequential effort-rate, power or work state. All six validations pass
+(`343/343` lab, `56/56` motor and full `host-check`). R132 performs exactly
+`36` state-lift evaluations, mass/Jacobian assemblies and projections, with
+zero full-schedule projection, controller derivation, inverse dynamics,
+candidate, PhysX or training work. Canonical/file/profile SHA-256 is
+`9afd566adaa81de573462bf083948f8b1f49b0fc023c76726afb403e906e19d6` /
+`657ed7216f7fcf59a0f1e5b06e6068f4383fe1425418922ed3e115c36517d2c5` /
+`87b09fdf857c8b096898536f34909f5ba8c8eff3ffdb42f8baa61e6afa35937a`.
+Conformance-module/tool SHA-256 is
+`510a84a8dc46b6af5ec7e03f4419b9c6a08043c0ed3b67f0bdffc874e59f151b` /
+`95a2e75e091075b81d7c789537c28f7a48ad27730281ccfd9a4ff244301c7a4c`.
+The canonical hash independently recomputes exactly.
+
+R132 permits exactly one report-only R133 full projected-schedule execution:
+`3200` collocations, at most `2640` projection systems and one controller
+schedule derivation, with row-addressed controller activations. Inverse
+dynamics, candidate construction, PhysX and training remain forbidden.

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R123_INVALID / R127_INVALID / R130_INVALID / R130_RC1_COMPLETE / R131_COMPLETE / R132_CONFORMANCE_NEXT` |
+| Status | `R123_INVALID / R127_INVALID / R130_INVALID / R131_COMPLETE / R132_PASS / R133_SCHEDULE_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -61,7 +61,7 @@ bounded research before another solver change or expensive native run.
 | R125 gauge-aware feasibility formulation | canonical/file/profile SHA-256 `ddf443610315680d0326b478212105c846a0cfda2b8bcda95567556ea1773080` / `bdc5cd5388005bbb549df7bfb723dda49a1535d2a6a39c4e31da58340e3ac0db` / `ca9cc4019e45ea316072378422e7aab304664b24034f204e41b3ccbe30e7da05` | Clean `COMPLETE`: exact `29/32/35` layouts, `2316` gauge scalars and all `4956` cones; SVD particular plus complete line-cone interval semantics; zero execution work; permits only report-only R126 conformance |
 | R126 gauge-aware implementation conformance | canonical/file/profile SHA-256 `2a500b6e6514e3a5cc8cec453756089f235d66d8684718a56678c471202f3e8f` / `4931ff4c96e8bb062bed64a45681097ae70b23c615c022ba267c0ae6edb6ffd3` / `23007c0455fef7cf84da411528f9f6162cd04d97e8be86baa7be2c19ae7e87cb` | Clean `PASS`: seven real rank/nullspace anchors, five synthetic SVD cases and four decimal-oracle cone cases pass; zero real particular/gauge classification/downstream work; permits exactly one bounded R127 execution |
 | R127 sole gauge-aware fixed-PD execution | canonical/file/profile SHA-256 `255f2dd900f7ca67381fd6853aa42e47a991680f723b17539e9505651d6e7a4e` / `0bdf21b2e995a3ea16f7670666a10b73379d6f6eda9dede04dea5c5e788e1a2b` / `0e3537dd36e1a148788d6e4634e4409a01d10136033bf957f7a5d684699976c2` | Clean `INVALID`: collocation 0 rank/nullspace passes but scaled equality residual is `6.204e-5`; one SVD/particular, zero gauge classification/cache/downstream; no retry |
-| R130 / R130-RC1 / R131 | R130 canonical `acd92a581a732c293cc9440d4215702fdf356f614c150ec4886d82a2fb197955`; R130-RC1 `edc8f978e6ee068c32637fe2000495c066daafdd15458eb3809365d69446dd3d`; R131 `480d28d4b9c90552cc0b42091a26f354118d56fe6b9292777c9813aa8b490696` | [R130 research](humanoid-train4-r130-projected-schedule-research-2026-08-15.md) closes the exit hotspot; R131 selects the nine-exit mode-owned lift and permits only 36-row R132 conformance |
+| R130–R132 | R130 canonical `acd92a581a732c293cc9440d4215702fdf356f614c150ec4886d82a2fb197955`; R131 `480d28d4b9c90552cc0b42091a26f354118d56fe6b9292777c9813aa8b490696`; R132 `9afd566adaa81de573462bf083948f8b1f49b0fc023c76726afb403e906e19d6` | [R130 research](humanoid-train4-r130-projected-schedule-research-2026-08-15.md) closes the exit hotspot; R132 passes `36/36`, lowers all `27` changed corrections and permits one R133 schedule-only execution |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -1544,9 +1544,10 @@ envelopes occur on right-ankle-roll DoF `11`. Clean report-only R130-RC1 at
 immediately before right-forefoot exit to flight. Exact row/event mapping is
 unavailable, so the [R130 research decision](humanoid-train4-r130-projected-schedule-research-2026-08-15.md)
 records the boundary. Clean R131 at `9f54f3a` selects a mode-owned left velocity
-trace on nine complete exits, changing at most `27/3200` base rows while
-claiming no `qdot=v` or integration. Only 36-row report-only R132 conformance
-is permitted.
+trace on nine complete exits. Clean R132 at `5c4cb55` passes `36/36`, changes
+exactly `27` rows, lowers every changed correction and finds zero local speed
+violations, while still claiming no `qdot=v` or integration. Only one
+report-only R133 full projected schedule is permitted.
 
 ## Decision
 
@@ -1564,6 +1565,7 @@ selected tangent-projection path within their exact claims. R130 consumed its
 sole execution and is invalid without retry; R130-RC1 consumed its static
 research authority and confirms the actuator conflict plus contact-exit
 hotspots. R131 consumes its formulation authority and selects the bounded
-nine-exit lift. Only report-only R132 conformance with at most `36` projection
-systems is authorized; full-schedule projection, ID/kinodynamic execution,
-R124, candidate construction, PhysX and training remain forbidden.
+nine-exit lift. R132 consumes and passes its `36`-row conformance authority;
+it cannot retry. Only one R133 full projected schedule with at most `2640`
+projection systems and one controller derivation is authorized. ID/kinodynamic
+execution, R124, candidate construction, PhysX and training remain forbidden.
