@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R133 close its contact-exit actuator defect. Clean R134 freezes the projected ID composition and clean R135 passes synthetic/API conformance with zero real systems. Exactly one bounded R136 pointwise projected inverse-dynamics execution is permitted. Every retry, kinodynamic candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R135 close and conform its projected-schedule successor. The sole clean R136 is valid complete but cone-infeasible at `2418/3200` collocations and stops `R136_VALID_INFEASIBLE_RESEARCH_REQUIRED`. No R136 retry, new formulation, kinodynamic solve, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -24,6 +24,7 @@
 | TRAIN-4 coupled-solver decision | [Coupled complete-clip trajectory research](../development/humanoid-train4-coupled-trajectory-research-2026-08-14.md) |
 | TRAIN-4 native-dynamics decision | [Fresh V9 rejection and differential-audit contract](../development/humanoid-train4-native-dynamics-research-2026-08-14.md) |
 | TRAIN-4 projected-schedule decision | [R130 actuator conflict and hybrid contact-exit research](../development/humanoid-train4-r130-projected-schedule-research-2026-08-15.md) |
+| TRAIN-4 projected cone-feasibility decision | [R136 valid cone-infeasibility research](../development/humanoid-train4-r136-cone-feasibility-research-2026-08-15.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -2197,11 +2198,22 @@ systems. Canonical/file/profile SHA-256 is
 `21fd15693ad092158a9f1fd9d8d8f717cbea26eb38fdca6cd321b61ccc7b7525` /
 `873f1049d81d7e4ca7237d3770f05fb2db949a94e78770cc04787de778849ee1` /
 `6b60d2f8d4f0431883856905495131484d1a232ae555917b4ce8f52ed0184acd`.
-Roadmap status permits exactly one bounded R136 pointwise projected
-inverse-dynamics execution. No R123/R127/R129/R130/R132/R133/R134/R135 retry,
-R124, kinodynamic candidate or scene is authorized. This planning
-document alone does not close R5, B-08, B-12, Stage 0, GPU
-correspondence, Linux parity or any learned-policy ProductCheck.
+Clean R136 at `3766e6c` consumes its sole authority and passes all six
+validations (`369/369` lab, `56/56` motor, host). All `3200` equality systems
+are numerically valid, but the frozen projected q/v plus fixed-PD effort is
+cone-feasible at only `782`: flight `560/560`, single-point `12/324` and
+flat-foot `210/2316`. The remaining `2418` rows are infeasible and every one
+has a negative friction margin; `1345` also have a negative normal margin.
+Canonical/file/profile SHA-256 is
+`b522dc92062d3f760536669cc30a053f6c11d845dfac9e09f2865de597daf6d5` /
+`3721ce6acde8f3ef943f33a9811f550611b1b1cbe47364aa75b44b61c9e5e070` /
+`6775f58d9e8cedac6f4cb574953e1a42abb881e2e026587fc15daf1421aada2e`.
+The exact transition is `R136_VALID_INFEASIBLE_RESEARCH_REQUIRED`. No
+R123/R127/R129/R130/R132/R133/R134/R135/R136 retry, R124, new formulation,
+kinodynamic solve, candidate or scene is authorized. A separate evidence-backed
+research/roadmap decision must freeze any successor. This planning document
+alone does not close R5, B-08, B-12, Stage 0, GPU correspondence, Linux parity
+or any learned-policy ProductCheck.
 
 ## Definition of done
 

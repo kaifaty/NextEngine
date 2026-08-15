@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R130_INVALID / R133_PASS / R134_COMPLETE / R135_PASS / R136_EXECUTION_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R136_VALID_INFEASIBLE / RESEARCH_REQUIRED / NO_EXECUTION_AUTHORITY` |
 | Updated | 2026-08-15 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before learned optimizer work |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R135 passes the report-only composition conformance and permits exactly one bounded R136 projected inverse-dynamics execution.
-- **Why:** Independent block/SVD/gauge/hash oracles pass, warm acceleration changes only column scale, and all R133 source-array hashes match; every real numeric counter remains zero.
-- **Next action:** Implement, validate, commit and execute the sole R136 from a clean tree; reconstruct R133 once, hash-check all four arrays before the first ID system, then classify all `3200` collocations.
-- **Current blocker:** Dynamic equality and friction-cone feasibility of the projected q/v plus applied-effort lineage is still unknown; `qdot=v`, release impulse and integrated feasibility remain unclaimed.
-- **Do not retry:** Never restart R123/R127/R129/R130, tune a frozen tolerance, substitute a witness, or start KTO/kinodynamics/PPO/PhysX.
-- **Reconsider when:** R136 returns a valid complete feasibility map; feasible and infeasible outcomes lead to different separately authorized research branches.
+- **Current conclusion:** The sole R136 is valid complete but cone-infeasible at `2418/3200` collocations; freeze it and stop the projected fixed-PD path for research.
+- **Why:** All `3200` equality systems pass rank/residual guards, yet only `782` are cone-feasible; every infeasible row has a negative friction margin and `1345` also have negative normal margin.
+- **Next action:** Require a separate evidence-backed research/roadmap decision between trajectory-level q/v/a/effort/force co-design and changed contact semantics before any new formulation. No execution is currently authorized.
+- **Current blocker:** The exact projected q/v plus frozen fixed-PD effort cannot satisfy the rigid unilateral friction cones broadly; `qdot=v`, release impulse and integrated feasibility remain unclaimed.
+- **Do not retry:** Never restart R123/R127/R129/R130/R136, tune a frozen tolerance, substitute a witness, or start KTO/kinodynamics/PPO/PhysX.
+- **Reconsider when:** A separate decision freezes a new optimizer-free claim, inputs, budget and stop conditions; this task-state cannot authorize it.
 
 All TRAIN-5 checkpoints remain rejected. No learned optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -34,19 +34,20 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R130–R135 | R130 is `INVALID`; R131–R133 close its actuator defect; R134 freezes projected ID composition; R135 canonical `21fd15693ad092158a9f1fd9d8d8f717cbea26eb38fdca6cd321b61ccc7b7525` passes synthetic/API conformance with zero real systems | Permit exactly one R136 pointwise execution; keep every downstream action blocked |
+| R130–R136 | R130 is `INVALID`; R131–R135 close and conform the projected schedule/composition; sole R136 canonical `b522dc92062d3f760536669cc30a053f6c11d845dfac9e09f2865de597daf6d5` is valid but cone-infeasible at `2418/3200` rows | Stop for research; no retry, new formulation or downstream execution is authorized |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-Current R133/R134/R135 canonical SHA-256:
+Current R133/R134/R135/R136 canonical SHA-256:
 `f1fad2ca3c7abd49acaefd9fcd37873d02fb1d289a3081fd2039b0b1192fd3b6` /
 `17d696166a05a24bd50a545ca31e4aabd15a72ed49444a09983c472ff6b13783` /
-`21fd15693ad092158a9f1fd9d8d8f717cbea26eb38fdca6cd321b61ccc7b7525`.
+`21fd15693ad092158a9f1fd9d8d8f717cbea26eb38fdca6cd321b61ccc7b7525` /
+`b522dc92062d3f760536669cc30a053f6c11d845dfac9e09f2865de597daf6d5`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
 and [support-authorization decision](../humanoid-train4-support-authorization-research-2026-08-14.md)
 and [clip-global decision](../humanoid-train4-clip-global-research-2026-08-14.md)
-and [coupled-solver decision](../humanoid-train4-coupled-trajectory-research-2026-08-14.md), the [native-dynamics decision](../humanoid-train4-native-dynamics-research-2026-08-14.md), [R123 redundant-contact research](../humanoid-train4-r123-redundant-contact-research-2026-08-15.md), [R127 consistency research](../humanoid-train4-r127-constraint-consistency-research-2026-08-15.md) and [R130 projected-schedule research](../humanoid-train4-r130-projected-schedule-research-2026-08-15.md)
+and [coupled-solver decision](../humanoid-train4-coupled-trajectory-research-2026-08-14.md), the [native-dynamics decision](../humanoid-train4-native-dynamics-research-2026-08-14.md), [R123 redundant-contact research](../humanoid-train4-r123-redundant-contact-research-2026-08-15.md), [R127 consistency research](../humanoid-train4-r127-constraint-consistency-research-2026-08-15.md), [R130 projected-schedule research](../humanoid-train4-r130-projected-schedule-research-2026-08-15.md) and [R136 cone-feasibility research](../humanoid-train4-r136-cone-feasibility-research-2026-08-15.md)
 carry detailed evidence. The hashes above identify their external reports.
 
 ## Decisions that still constrain the work
@@ -164,7 +165,8 @@ carry detailed evidence. The hashes above identify their external reports.
   breaking another; raw-variable least squares and line search are badly
   scaled and stagnate.
 - **Evidence:** R69/R72 simultaneous `cmu05` PASS, R73 clean two-clip PASS,
-  R77–R91 isolation, R93 offline PASS, R94–R97 native and R118 q/v conformance.
+  R77–R91 isolation, R93 offline PASS, R94–R97 native, R118 q/v conformance
+  and R136 valid `2418/3200` pointwise cone infeasibility.
 - **Decision:** V9 retains one complete-clip SQP over root XYZ and ten selected
   leg joints, adds stable rows only for the two foot boxes, and uses no
   root/joint post-projection. Every source contact point remains frozen;
@@ -174,21 +176,21 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether projected q/v and the passing applied-effort schedule
-  satisfy inverse-dynamics equality and friction cones remains unknown.
-- **Reconsider when:** The sole R136 returns a valid complete pointwise
-  feasibility map.
+- **Uncertainty:** Whether trajectory-level q/v/a/effort/force co-design or a
+  separately justified contact-semantics change is the smallest valid repair.
+- **Reconsider when:** A separate research/roadmap decision freezes one new
+  optimizer-free formulation; R136 itself cannot retry.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: exact offline reference is dynamically too demanding for fixed PD | R122 proves the dynamics kernel conforms | R123 reached no local solve or cone margin | Keep unknown until a new formulation is separately authorized |
+| H22: exact offline reference is dynamically too demanding for fixed PD | R136 finds `2418/3200` cone-infeasible rows after every numeric guard passes | The pointwise result does not select trajectory co-design versus changed contact semantics | Supported for the frozen lineage; new discriminator requires separate authorization |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
 | H24/H26: nonlocal coupling is hidden between motor samples | R122 reproduces the affine 240 Hz lift and local dynamics identities | Integrated dynamics remains untested | Keep blocked; invalid R123 cannot authorize R124 |
 | H27: flat-foot point multipliers are structurally redundant | R123-RC1/R126 close gauge handling; R129 closes tangent projection | R127-RC1 proves a separate off-manifold q/v defect | Closed within exact claim |
 | H28: affine q/v lift across contact exit causes actuator-invalid late projection | R132 lowers every changed-row correction; R133 passes the complete projected schedule with zero unsafe categories | The claim remains schedule-local and proves no integrated dynamics | Closed within the fixed-PD schedule claim |
-| H29: the projected schedule is pointwise dynamically feasible | R122/R126 conform the kernel/solver; R133 closes actuator inputs; R134 freezes composition; R135 conforms its implementation | No real projected inverse-dynamics system has been assembled or solved | Sole R136 execution |
+| H29: the projected schedule is pointwise dynamically feasible | R122/R126 conform the kernel/solver; R133–R135 close the inputs and composition | R136 rejects it: only `782/3200` rows are cone-feasible | Rejected for the frozen lineage; no retry |
 
 ## Required context
 
@@ -216,10 +218,9 @@ semantics.
 
 ## Next action
 
-1. Freeze R123/R127/R129/R130 and all superseded reports; never retry them.
-2. Freeze immutable R132/R133, complete R134 and passing R135; never rerun them.
-3. Implement and validate the one bounded R136 without consuming its authority.
-4. From a clean commit, execute R136 exactly once; execute no candidate, PhysX or training.
+1. Freeze R123/R127/R129/R130/R136 and all superseded reports; never retry them.
+2. Preserve the hash-closed R136 report/cache as solver-private research evidence; it has no candidate or corpus authority.
+3. Start no new formulation or run until a separate research/roadmap decision freezes its claim, inputs, bounded budget and stop conditions.
 
 ## Do not retry
 
@@ -237,10 +238,10 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** Clean R135 at `0f85033` is `PASS`, canonical/file `21fd1569...` / `873f1049...`; R130 remains immutable `INVALID`.
-- **Checks:** All six R135 validations PASS (`364/364` lab, `56/56` motor, host); composition, rank/cone, gauge and hash audits pass with zero real numeric work.
-- **Remaining risk:** Pointwise ID feasibility, integrated/fresh PhysX, full-corpus exact-zero coverage and visual review remain open.
-- **Execution authority:** Exactly one R136 projected inverse-dynamics execution: `3200` state lifts/assemblies/SVD/particular solves, `2640` projections, `2316` gauges; no retry or downstream work.
+- **Workspace state:** R136 implementation commit `3766e6c`; external canonical/file evidence `b522dc92...` / `3721ce6a...` is valid `INFEASIBLE`; R130 remains immutable `INVALID`.
+- **Checks:** All six R136 validations PASS (`369/369` lab, `56/56` motor, host); all `3200` numeric rows are valid and the canonical report hash independently reproduces.
+- **Remaining risk:** The repair family, integrated/fresh PhysX, full-corpus exact-zero coverage and visual review remain open.
+- **Execution authority:** None. R136 is consumed; retry, new formulation, kinodynamic solve, candidate, PhysX and training remain unauthorized.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.
