@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R130 stopped before inverse dynamics |
-| Status | `R130_INVALID / R130_RC1_COMPLETE / R131_COMPLETE / R132_PASS / R133_PASS / R134_FORMULATION_NEXT` |
+| Status | `R130_INVALID / R130_RC1_COMPLETE / R132_PASS / R133_PASS / R134_COMPLETE / R135_CONFORMANCE_NEXT` |
 | Confirmed boundary | `Numerically valid tangent projection creates an invalid fixed-PD actuator schedule` |
 | Supported hotspot | `The four largest corrections cluster at two right-forefoot contact exits` |
 | Claim ceiling | Static report-only research; no exact row/event identity, retry, projection, dynamics, candidate, PhysX or training |
@@ -211,6 +211,14 @@ Canonical/file/profile SHA-256 is
 `2ddef1cfae193eb0e32f4d001aba6a8b744056b700fa2ecbe533434bc8e5f7c2` /
 `20cccf2ffd413ae56148b95ca4cbd67c616f1ee396f2bee995a078ab1685a6a7`.
 R133 performs zero inverse-dynamics, kinodynamic, candidate, PhysX or training
-work. It permits only a separate report-only R134 projected inverse-dynamics
-formulation; numeric inverse dynamics and every downstream action remain
-forbidden.
+work. Clean report-only R134 at `5a4085b` then freezes the exact R133 projected
+q/v/effort plus R126 gauge-aware `29/32/35` composition. It accounts for
+`107668` equality rows, `4956` point cones and `2316` force gauges while making
+R120 acceleration scale/diagnostic-only. All validations pass (`354/354` lab,
+`56/56` motor, host); every real state/projection/schedule/ID/downstream counter
+is zero. Canonical/file/profile SHA-256 is
+`17d696166a05a24bd50a545ca31e4aabd15a72ed49444a09983c472ff6b13783` /
+`0f7ccdcdcb4fbcf1b3e73e1e8f5565b0387c15a4bd1cfa3c50fbd6754ba176be` /
+`7fafc5e874f5b5cd23e5e7720133640e1f84d7dad8c233f4ba384fc97d3cb4b9`.
+Only report-only R135 implementation conformance is authorized; R136 numeric
+inverse dynamics and every downstream action remain forbidden.

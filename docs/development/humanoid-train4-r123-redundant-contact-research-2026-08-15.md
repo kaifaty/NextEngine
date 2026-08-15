@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R123 execution stopped before its first local solve |
-| Status | `R123_INVALID / R127_INVALID / R130_INVALID / R132_PASS / R133_PASS / R134_FORMULATION_NEXT` |
+| Status | `R123_INVALID / R127_INVALID / R130_INVALID / R133_PASS / R134_COMPLETE / R135_CONFORMANCE_NEXT` |
 | Primary cause | `Environment / stage-2 rigid-contact formulation` |
 | Claim ceiling | Research and generated-test design only; no R123 retry, feasibility claim, candidate, scene or training |
 
@@ -227,6 +227,7 @@ dynamics. Clean [R130-RC1](humanoid-train4-r130-projected-schedule-research-2026
 confirms repeated contact-exit hotspots. Clean R131 selects a nine-exit
 mode-owned lift; clean R132 passes `36/36`, lowers all `27` changed corrections
 and finds zero local speed violations. Clean R133 passes all `3200` projections
-and the complete schedule with zero unsafe actuator categories. Only report-only
-R134 inverse-dynamics formulation is permitted; numeric ID/kinodynamic
-execution remains blocked.
+and the complete schedule with zero unsafe actuator categories. Clean R134
+freezes the exact projected q/v/effort plus gauge-aware inverse-dynamics
+composition with zero numeric systems. Only report-only R135 implementation
+conformance is permitted; numeric R136 ID/kinodynamic execution remains blocked.
