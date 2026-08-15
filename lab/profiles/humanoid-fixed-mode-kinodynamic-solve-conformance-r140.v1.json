@@ -1,0 +1,579 @@
+{
+  "schema_version": 1,
+  "conformance_id": "nextengine.humanoid-fixed-mode-kinodynamic-solve-conformance.v1",
+  "status": "FrozenReportOnly",
+  "claim": "FixedModeKinodynamicSolveImplementationConformanceOnly",
+  "source": {
+    "authority_document_sha256": "0e2c12115383fe85a293fce93550a2639ba84cee718a1f947fdea0e7ac30902f",
+    "authority_repository_commit": "8383e5edd787b60ebd3b171985392244085fee02",
+    "r139": {
+      "report_sha256": "fc76b3072ca9323a2b5dfea45bb9f5c74de57e485a80ed01a7a8ecd6651fec0c",
+      "report_file_sha256": "efd6968fac2a66144b43c8422d798b025a878d0e5588e85d8a3414b745b465de",
+      "profile_sha256": "55326991ba7fc025238a2a6ef3f288984c1dea14533cf8b50f9e6ad897f57853",
+      "module_sha256": "cc84ee8cbc36c7e4591746963e266cdb76969276d835694fc9b3614f4f84a25f",
+      "tool_sha256": "c78bed4d6cbfd5e6a24d7cc618a1a300197216d80be15197c5f5bcb33f3f67e2",
+      "repository_commit": "0a71362e6d1e77378bbf53662f3ccf6cec223f77"
+    },
+    "conformance_module_sha256": "f50ef49450ec15dbedbf8ddc0201cb97ad98a8d7d1653e650cbed620a6ed2ee3",
+    "tool_sha256": "8a88f9288f832500be37336cf8c7ec7cebdfae416f62547ef8a04fcf5ae2fb51"
+  },
+  "scope": {
+    "conformance_id": "R140",
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_reports_read": 1,
+    "source_array_payloads_read": 0,
+    "synthetic_reconstruction_gate_cases": 3,
+    "synthetic_qp_schema_cases": 3,
+    "synthetic_trust_cases": 7,
+    "synthetic_rounding_cases": 6,
+    "synthetic_branch_cases": 5,
+    "synthetic_cone_base_rows": 32,
+    "synthetic_cone_classification_cases": 3,
+    "synthetic_cone_separation_cases": 3,
+    "synthetic_numeric_valid_cases": 5,
+    "synthetic_numeric_invalid_cases": 8,
+    "real_state_reconstructions": 0,
+    "real_state_lift_evaluations": 0,
+    "real_controller_schedule_derivations": 0,
+    "real_controller_graph_evaluations": 0,
+    "real_mass_matrix_assemblies": 0,
+    "real_contact_jacobian_assemblies": 0,
+    "real_dynamics_residual_evaluations": 0,
+    "real_integration_residual_evaluations": 0,
+    "real_impulse_residual_evaluations": 0,
+    "real_kinodynamic_system_assemblies": 0,
+    "real_qp_setups": 0,
+    "real_qp_solves": 0,
+    "real_kinodynamic_solves": 0,
+    "real_factorizations": 0,
+    "real_exact_trial_audits": 0,
+    "optimizer_steps": 0,
+    "candidate_artifacts_built": 0,
+    "solver_private_caches_built": 0,
+    "physx_scene_runs": 0,
+    "training_runs": 0
+  },
+  "reconstruction_gate_contract": {
+    "authority": "METADATA_ONLY_NO_SOURCE_ARRAY_OR_CACHE_READ",
+    "required_source_hashes": {
+      "r120_report": "dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b",
+      "r120_cache": "e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5",
+      "r120_accepted_arrays": "06e6113d862dcf6acd827962b8a580013f9e3689902b90c9189efaab641841cf",
+      "r133_report": "f1fad2ca3c7abd49acaefd9fcd37873d02fb1d289a3081fd2039b0b1192fd3b6",
+      "r133_projected_velocity": "e57bcb75629d403e04cc6d3197e8e2dada19ac0c0ef4c920083f2276c33bfb17",
+      "r133_applied_target": "195810f7e9c20b15ec6ddf165c8873f905a96414fe055a0dae7a2b45382be1a3",
+      "r133_applied_effort": "5ad7ac66c4d394ef5d06d111d86f58120069d42e61d1adf1ac82ca1d1d42a1ff",
+      "r131_mode_sequence": "ab30a912550e06e1219b1fab87e0d93044eba6b0cdf8e7377f7b27a0e1915ca4",
+      "r138_graph_index": "844ed3a2e727712fedff2c0cd858c30639c8956e054f79f2012d67277535639b",
+      "r138_transition_replay": "9f289c31ecfe2ef18b4beed4559982c3da25f7244eb6b17c022ac6000edc322a"
+    },
+    "passing_cases": 1,
+    "rejected_cases": [
+      "mismatched_source_hash",
+      "premature_real_graph_call"
+    ],
+    "failure": "INVALID_BEFORE_REAL_GRAPH_CALL"
+  },
+  "lexicographic_qp_schema_contract": {
+    "maximum_optimum": "0.75",
+    "mean_optimum": "0.25",
+    "optimum_hold_tolerance": "0.00000001",
+    "expected_passes": [
+      {
+        "pass": 1,
+        "sparse_form": "L_LE_A_X_LE_U",
+        "objective": "MINIMIZE_MAXIMUM_NORMALIZED_ELASTIC_VIOLATION",
+        "optimum_hold_rows": [],
+        "temporary_elastics_emitted": false,
+        "acceptance_authority": "NONE_CANDIDATE_ONLY"
+      },
+      {
+        "pass": 2,
+        "sparse_form": "L_LE_A_X_LE_U",
+        "objective": "MINIMIZE_MEAN_NORMALIZED_ELASTIC_VIOLATION",
+        "optimum_hold_rows": [
+          {
+            "quantity": "maximum_normalized_elastic_violation",
+            "relation": "<=",
+            "upper_bound": "0.75000001"
+          }
+        ],
+        "temporary_elastics_emitted": false,
+        "acceptance_authority": "NONE_CANDIDATE_ONLY"
+      },
+      {
+        "pass": 3,
+        "sparse_form": "L_LE_A_X_LE_U",
+        "objective": "MINIMIZE_TRACKING_AND_REGULARIZATION",
+        "optimum_hold_rows": [
+          {
+            "quantity": "maximum_normalized_elastic_violation",
+            "relation": "<=",
+            "upper_bound": "0.75000001"
+          },
+          {
+            "quantity": "mean_normalized_elastic_violation",
+            "relation": "<=",
+            "upper_bound": "0.25000001"
+          }
+        ],
+        "temporary_elastics_emitted": false,
+        "acceptance_authority": "NONE_CANDIDATE_ONLY"
+      }
+    ]
+  },
+  "trust_funnel_conformance_contract": {
+    "cases": [
+      {
+        "case": "exact_pass_priority",
+        "radius": "1",
+        "exact_pass": true,
+        "exact_maximum_decrease": "0",
+        "exact_mean_decrease": "0",
+        "actual_to_model_ratio": "0",
+        "active_trust_boundary": false,
+        "decision": "ACCEPT_AND_TERMINATE_EXACT_PASS",
+        "next_radius": "1",
+        "restore_previous_exact_anchor": false
+      },
+      {
+        "case": "insufficient_funnel_decrease",
+        "radius": "1",
+        "exact_pass": false,
+        "exact_maximum_decrease": "0.0000009",
+        "exact_mean_decrease": "0.0000009",
+        "actual_to_model_ratio": "1",
+        "active_trust_boundary": true,
+        "decision": "REJECT_RESTORE_AND_CONTRACT",
+        "next_radius": "0.5",
+        "restore_previous_exact_anchor": true
+      },
+      {
+        "case": "insufficient_actual_model_ratio",
+        "radius": "1",
+        "exact_pass": false,
+        "exact_maximum_decrease": "0.001",
+        "exact_mean_decrease": "0",
+        "actual_to_model_ratio": "0.09",
+        "active_trust_boundary": true,
+        "decision": "REJECT_RESTORE_AND_CONTRACT",
+        "next_radius": "0.5",
+        "restore_previous_exact_anchor": true
+      },
+      {
+        "case": "accepted_contract",
+        "radius": "1",
+        "exact_pass": false,
+        "exact_maximum_decrease": "0.001",
+        "exact_mean_decrease": "0",
+        "actual_to_model_ratio": "0.2",
+        "active_trust_boundary": false,
+        "decision": "ACCEPT_AND_CONTRACT",
+        "next_radius": "0.5",
+        "restore_previous_exact_anchor": false
+      },
+      {
+        "case": "accepted_hold",
+        "radius": "1",
+        "exact_pass": false,
+        "exact_maximum_decrease": "0",
+        "exact_mean_decrease": "0.001",
+        "actual_to_model_ratio": "0.5",
+        "active_trust_boundary": false,
+        "decision": "ACCEPT_AND_HOLD",
+        "next_radius": "1",
+        "restore_previous_exact_anchor": false
+      },
+      {
+        "case": "accepted_expand",
+        "radius": "1",
+        "exact_pass": false,
+        "exact_maximum_decrease": "0.001",
+        "exact_mean_decrease": "0",
+        "actual_to_model_ratio": "0.8",
+        "active_trust_boundary": true,
+        "decision": "ACCEPT_AND_EXPAND",
+        "next_radius": "2",
+        "restore_previous_exact_anchor": false
+      },
+      {
+        "case": "minimum_radius_stop",
+        "radius": "0.03125",
+        "exact_pass": false,
+        "exact_maximum_decrease": "0",
+        "exact_mean_decrease": "0",
+        "actual_to_model_ratio": "0",
+        "active_trust_boundary": false,
+        "decision": "STOP_AND_RESEARCH_AT_MINIMUM_RADIUS",
+        "next_radius": "0.03125",
+        "restore_previous_exact_anchor": true
+      }
+    ]
+  },
+  "controller_boundary_conformance_contract": {
+    "rounding_cases": [
+      {
+        "numerator": -5,
+        "denominator": 2,
+        "expected_integer": -2
+      },
+      {
+        "numerator": -3,
+        "denominator": 2,
+        "expected_integer": -2
+      },
+      {
+        "numerator": -1,
+        "denominator": 2,
+        "expected_integer": 0
+      },
+      {
+        "numerator": 1,
+        "denominator": 2,
+        "expected_integer": 0
+      },
+      {
+        "numerator": 3,
+        "denominator": 2,
+        "expected_integer": 2
+      },
+      {
+        "numerator": 5,
+        "denominator": 2,
+        "expected_integer": 2
+      }
+    ],
+    "branch_cases": [
+      {
+        "case": "below_lower",
+        "value": "-2",
+        "lower": "-1",
+        "upper": "1",
+        "branch": "LOWER_CLAMP",
+        "derivative": 0,
+        "ambiguity_recorded": false
+      },
+      {
+        "case": "lower_equality",
+        "value": "-1",
+        "lower": "-1",
+        "upper": "1",
+        "branch": "LOWER_EQUALITY",
+        "derivative": 0,
+        "ambiguity_recorded": true
+      },
+      {
+        "case": "interior",
+        "value": "0",
+        "lower": "-1",
+        "upper": "1",
+        "branch": "INTERIOR",
+        "derivative": 1,
+        "ambiguity_recorded": false
+      },
+      {
+        "case": "upper_equality",
+        "value": "1",
+        "lower": "-1",
+        "upper": "1",
+        "branch": "UPPER_EQUALITY",
+        "derivative": 0,
+        "ambiguity_recorded": true
+      },
+      {
+        "case": "above_upper",
+        "value": "2",
+        "lower": "-1",
+        "upper": "1",
+        "branch": "UPPER_CLAMP",
+        "derivative": 0,
+        "ambiguity_recorded": false
+      }
+    ],
+    "surrogate_authority": "CANDIDATE_ONLY",
+    "exact_replay_authority": "SOLE_ACCEPTANCE_ORACLE",
+    "free_effort_scalars": 0
+  },
+  "friction_cone_conformance_contract": {
+    "base_half_space_count": 32,
+    "base_half_space_rows_sha256": "d03a7f8afef7ddc8678903ed07d4e3a33ead40dab14979b810a0bc54b5e78943",
+    "classification_cases": [
+      {
+        "case": "inside_circular_cone",
+        "normal": 10,
+        "right": 3,
+        "forward": 4,
+        "inside": true,
+        "normal_nonnegative": true
+      },
+      {
+        "case": "outside_circular_cone",
+        "normal": 5,
+        "right": 3,
+        "forward": 4,
+        "inside": false,
+        "normal_nonnegative": true
+      },
+      {
+        "case": "negative_normal",
+        "normal": -1,
+        "right": 0,
+        "forward": 0,
+        "inside": false,
+        "normal_nonnegative": false
+      }
+    ],
+    "violated_cones": [
+      {
+        "graph_row": 7,
+        "cone_type": "activation_impulse",
+        "point_ordinal": 3,
+        "right": 0,
+        "forward": 5
+      },
+      {
+        "graph_row": 2,
+        "cone_type": "activation_impulse",
+        "point_ordinal": 1,
+        "right": 5,
+        "forward": 12
+      },
+      {
+        "graph_row": 2,
+        "cone_type": "continuous_force",
+        "point_ordinal": 1,
+        "right": 3,
+        "forward": 4
+      }
+    ],
+    "expected_separation_directions": [
+      {
+        "graph_row": 2,
+        "cone_type": "continuous_force",
+        "point_ordinal": 1,
+        "right_numerator": 3,
+        "forward_numerator": 4,
+        "normalizer": 5
+      },
+      {
+        "graph_row": 2,
+        "cone_type": "activation_impulse",
+        "point_ordinal": 1,
+        "right_numerator": 5,
+        "forward_numerator": 12,
+        "normalizer": 13
+      },
+      {
+        "graph_row": 7,
+        "cone_type": "activation_impulse",
+        "point_ordinal": 3,
+        "right_numerator": 0,
+        "forward_numerator": 5,
+        "normalizer": 5
+      }
+    ],
+    "polyhedral_authority": "CANDIDATE_ONLY",
+    "circular_cone_authority": "SOLE_ACCEPTANCE_ORACLE"
+  },
+  "numeric_invalid_conformance_contract": {
+    "valid_cases": [
+      "rank_0",
+      "rank_3",
+      "rank_5",
+      "ordered_bounds",
+      "solver_candidate"
+    ],
+    "invalid_cases": [
+      "rank_gap",
+      "unexpected_rank",
+      "nonfinite_singular",
+      "nonfinite_coefficient",
+      "unordered_bound",
+      "cone_ambiguity",
+      "solver_status",
+      "solver_residual"
+    ],
+    "null_singular_value_maximum": 1e-12,
+    "retained_singular_value_minimum": 1e-10,
+    "expected_contact_ranks": [
+      0,
+      3,
+      5
+    ],
+    "coefficient_elision_absolute_maximum": 1e-14,
+    "solver_residual_maximum": 5e-5,
+    "failure": "INVALID_WITHOUT_RESTART"
+  },
+  "budget_and_hash_conformance_contract": {
+    "future_execution_budget": {
+      "authority": "NOT_GRANTED_BY_R139",
+      "clean_processes": 1,
+      "observed_threads": 1,
+      "seed": 0,
+      "major_iteration_limit": 6,
+      "lexicographic_qp_passes_per_major_iteration": 3,
+      "qp_solve_limit": 18,
+      "trial_fractions_per_major_iteration": 7,
+      "exact_trial_audit_limit": 42,
+      "osqp_iteration_limit_per_qp": 100000,
+      "wall_time_seconds": 14400,
+      "peak_rss_bytes": 17179869184,
+      "restart": "FORBIDDEN",
+      "randomized_warm_restart": "FORBIDDEN",
+      "manual_intervention": "FORBIDDEN",
+      "within_process_factorization_reuse": "TRANSIENT_AND_HASH_COUNTED",
+      "r136_cache_load": "FORBIDDEN",
+      "budget_exhaustion": "VALID_STOP_AND_RESEARCH_NO_TOLERANCE_CHANGE"
+    },
+    "pre_graph_hash_count": 10,
+    "accepted_anchor_hash_count": 8,
+    "output_hash_count": 14,
+    "counter_closure_count": 20
+  },
+  "conformed_implementation_contract": {
+    "reconstruction_gate": "ALL_TEN_HASH_CATEGORIES_BEFORE_FIRST_REAL_GRAPH_CALL",
+    "qp_schema": "THREE_ORDERED_SPARSE_LEXICOGRAPHIC_PASSES_WITH_1E_8_OPTIMUM_HOLDS",
+    "trust_funnel": "EXACT_PASS_PRIORITY_OTHERWISE_1E_6_FUNNEL_AND_0_1_RATIO",
+    "controller_boundary": "ZERO_DERIVATIVE_AT_EQUALITY_EXACT_TIES_EVEN_REPLAY_ONLY",
+    "friction_cone": "32_PLANE_CANDIDATE_PLUS_DETERMINISTIC_SEPARATION_EXACT_CIRCLE_ONLY",
+    "numeric_invalid": "RANK_GAP_NONFINITE_BOUND_CONE_AND_SOLVER_AMBIGUITY_FAIL_CLOSED",
+    "budget_hash_counter": "6_MAJOR_18_QP_42_AUDIT_4_HOUR_16_GIB_COMPLETE_HASH_AND_COUNTER_CLOSURE",
+    "real_problem": "NOT_RECONSTRUCTED_ASSEMBLED_OR_SOLVED"
+  },
+  "acceptance_boundary": {
+    "proved": "synthetic and metadata-only implementation conformance to the R139 method contract",
+    "not_proved": "real reconstruction correctness nonlinear feasibility convergence candidate quality native behavior corpus admission or safety",
+    "source_payload_read": "FORBIDDEN_AND_NOT_USED",
+    "numeric_solver_import": "FORBIDDEN_AND_NOT_USED",
+    "real_graph_assembly_qp_or_solve": "FORBIDDEN_AND_NOT_USED"
+  },
+  "future_r141_execution_contract": {
+    "authority": "NOT_GRANTED_BY_R140",
+    "required_preconditions": [
+      "EXACT_R140_PASS",
+      "EXPLICIT_LATER_ROADMAP_UPDATE"
+    ],
+    "single_bounded_execution": "R141_ONLY",
+    "must_use_exact_r139_budget": true,
+    "must_use_exact_r139_hash_and_acceptance_contract": true,
+    "restart_or_manual_intervention": "FORBIDDEN",
+    "candidate_physx_training": "FORBIDDEN"
+  },
+  "decision": {
+    "pass": "PERMIT_EXPLICIT_ROADMAP_DECISION_FOR_ONE_BOUNDED_R141_ONLY",
+    "invalid": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "result_transitions": {
+    "pass": "R140_PASS_R141_ROADMAP_DECISION_ONLY",
+    "invalid": "R140_INVALID_STOP_WITHOUT_EXECUTION"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/fixed_mode_kinodynamic_solve_conformance.py",
+        "lab/scripts/conform_fixed_mode_kinodynamic_solve.py",
+        "lab/tests/test_fixed_mode_kinodynamic_solve_conformance.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/fixed_mode_kinodynamic_solve_conformance.py",
+        "lab/scripts/conform_fixed_mode_kinodynamic_solve.py",
+        "lab/tests/test_fixed_mode_kinodynamic_solve_conformance.py"
+      ]
+    },
+    {
+      "id": "single_thread_no_numeric_solver_import",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; from next_lab.fixed_mode_kinodynamic_solve_conformance import _linux_thread_count; assert _linux_thread_count() == 1; assert not any(name in sys.modules for name in ('numpy','osqp','scipy','pinocchio','next_lab.fixed_mode_kinodynamic_solve_formulation'))"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "bounded_acceptance": {
+    "r141_bounded_kinodynamic_solve_roadmap_decision": "AUTHORIZED_DECISION_ONLY_ON_R140_PASS",
+    "r141_bounded_kinodynamic_solve": "NOT_AUTHORIZED_UNTIL_EXPLICIT_ROADMAP_UPDATE",
+    "r136_retry": "NOT_AUTHORIZED",
+    "r137_retry": "NOT_AUTHORIZED",
+    "r138_retry": "NOT_AUTHORIZED",
+    "r139_retry": "NOT_AUTHORIZED",
+    "additional_pointwise_inverse_dynamics": "NOT_AUTHORIZED",
+    "real_state_reconstruction": "NOT_AUTHORIZED",
+    "real_controller_graph_evaluation": "NOT_AUTHORIZED",
+    "real_kinodynamic_assembly": "NOT_AUTHORIZED",
+    "qp_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "contact_semantics_change": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
