@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R130_INVALID / R130_RC1_COMPLETE / R131_FORMULATION_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R130_INVALID / R130_RC1_COMPLETE / R131_COMPLETE / R132_CONFORMANCE_NEXT` |
 | Updated | 2026-08-15 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before learned optimizer work |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The sole R130 is immutable `INVALID`: projection passes `3200/3200`, but its fixed-PD schedule violates right-ankle-roll speed/effort bounds before inverse dynamics.
-- **Why:** R130-RC1 finds the four largest corrections at substeps `2/3` of two repeated right-forefoot intervals immediately followed by flight.
-- **Next action:** Freeze one report-only R131 hybrid contact-edge state-lift formulation; execute no projection, inverse dynamics or training.
-- **Current blocker:** Exact row/event identity is unavailable; cross-mode q/v/`qdot` ownership and actuator-aware alternatives are not yet specified.
+- **Current conclusion:** R131 selects a nine-exit mode-owned velocity lift that changes at most `27/3200` base rows; it is diagnostic, not a production integrator.
+- **Why:** R130-RC1's two hotspots are right-forefoot exits; R131 closes all `799` mode boundaries and removes only next-flight velocity mixing from complete exits.
+- **Next action:** Run only report-only R132 conformance over `36` exit rows and at most `36` projection systems; no full schedule or inverse dynamics.
+- **Current blocker:** The selected lift has not been numerically conformed; `qdot=v`, release impulse and integrated feasibility remain unclaimed.
 - **Do not retry:** Never restart R123/R127/R129/R130, tune a frozen tolerance, substitute a witness, or start KTO/kinodynamics/PPO/PhysX.
-- **Reconsider when:** R131 freezes the smallest falsifiable successor.
+- **Reconsider when:** R132 returns row-addressed pre/post velocity evidence.
 
 All TRAIN-5 checkpoints remain rejected. No learned optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -34,13 +34,14 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R130 / R130-RC1 | R130 canonical `acd92a581a732c293cc9440d4215702fdf356f614c150ec4886d82a2fb197955` is `INVALID`: four DoF-11 velocity violations and two empty effort envelopes; R130-RC1 canonical `edc8f978e6ee068c32637fe2000495c066daafdd15458eb3809365d69446dd3d` confirms two repeated contact-exit hotspots | Permit only report-only R131 hybrid edge-lift formulation |
+| R130 / R130-RC1 / R131 | R130 is `INVALID`; R130-RC1 confirms two exit hotspots; R131 canonical `480d28d4b9c90552cc0b42091a26f354118d56fe6b9292777c9813aa8b490696` selects nine-exit/27-row mode-owned lift with zero numerical execution | Permit only 36-row report-only R132 conformance |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-Current R129/R130/R130-RC1 canonical SHA-256:
+Current R129/R130/R130-RC1/R131 canonical SHA-256:
 `b34eb4727165e9b16ef82f597138fde33993c12efa8e3177776254237c6fbb99` /
 `acd92a581a732c293cc9440d4215702fdf356f614c150ec4886d82a2fb197955` /
-`edc8f978e6ee068c32637fe2000495c066daafdd15458eb3809365d69446dd3d`.
+`edc8f978e6ee068c32637fe2000495c066daafdd15458eb3809365d69446dd3d` /
+`480d28d4b9c90552cc0b42091a26f354118d56fe6b9292777c9813aa8b490696`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -174,10 +175,9 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** R130 fails before inverse dynamics; whether a contact-edge
-  lift can preserve both sticking and actuator bounds remains unknown.
-- **Reconsider when:** R131 compares cross-mode lift, contact-side lift,
-  constrained projection and kinodynamic fallback without execution.
+- **Uncertainty:** Whether the selected exit lift preserves tangent and joint-
+  velocity bounds on its `36` anchor rows remains unknown.
+- **Reconsider when:** R132 conforms or rejects the exact selected weights.
 
 ## Open hypotheses
 
@@ -187,7 +187,7 @@ carry detailed evidence. The hashes above identify their external reports.
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
 | H24/H26: nonlocal coupling is hidden between motor samples | R122 reproduces the affine 240 Hz lift and local dynamics identities | Integrated dynamics remains untested | Keep blocked; invalid R123 cannot authorize R124 |
 | H27: flat-foot point multipliers are structurally redundant | R123-RC1/R126 close gauge handling; R129 closes tangent projection | R127-RC1 proves a separate off-manifold q/v defect | Closed within exact claim |
-| H28: affine q/v lift across contact exit causes actuator-invalid late projection | R130-RC1 localizes all four largest corrections to two repeated exit pairs | Exact controller-event rows were not emitted | Report-only R131 hybrid edge-lift formulation |
+| H28: affine q/v lift across contact exit causes actuator-invalid late projection | R130-RC1 localizes the hotspots; R131 removes only future-flight mixing from nine exits | Selected lift has no numerical result and claims no `qdot=v` | 36-row report-only R132 conformance |
 
 ## Required context
 
@@ -216,10 +216,9 @@ semantics.
 ## Next action
 
 1. Freeze R123/R127/R129/R130 and all superseded reports; never retry them.
-2. Specify only report-only R131 q/v/`qdot` and contact-edge ownership.
-3. Compare one-sided lift, actuator-constrained projection and full
-   kinodynamic fallback; select the smallest falsifiable successor.
-4. Execute no projection, inverse dynamics, candidate, PhysX or training.
+2. Conform only the R131 lift on all `9 × 4 = 36` exit rows in R132.
+3. Emit exact row-addressed base/projected joint velocities and projection guards.
+4. Execute no full schedule, inverse dynamics, candidate, PhysX or training.
 
 ## Do not retry
 
@@ -237,12 +236,10 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R130 is immutable `INVALID`; clean R130-RC1 at
-  `74275e3` is `COMPLETE`, canonical/file `edc8f978...` / `68166bcf...`.
-- **Checks:** All twelve R130-RC1 discriminators and six validations PASS
-  (`330/330` lab); audit performs zero projection/dynamics/downstream work.
-- **Remaining risk:** Correct hybrid state lift, fixed-PD/ID feasibility, integrated/fresh PhysX, full-corpus exact-zero coverage and visual review remain open.
-- **Execution authority:** None; only report-only R131 formulation is permitted.
+- **Workspace state:** Clean R131 at `9f54f3a` is `COMPLETE`, canonical/file `480d28d4...` / `4a8e6c1b...`; R130 remains immutable `INVALID`.
+- **Checks:** All six R131 validations PASS (`336/336` lab); formulation performs zero state-lift/projection/dynamics/downstream work.
+- **Remaining risk:** R132 anchor conformance, fixed-PD/ID feasibility, integrated/fresh PhysX, full-corpus exact-zero coverage and visual review remain open.
+- **Execution authority:** Only report-only R132 with at most `36` projection systems.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.

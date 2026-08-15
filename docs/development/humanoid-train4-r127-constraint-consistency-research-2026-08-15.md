@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R127 stopped before its first gauge/cone classification |
-| Status | `R127_INVALID / R127-RC1_COMPLETE / R128_COMPLETE / R129_PASS / R130_INVALID / R130_RC1_COMPLETE / R131_FORMULATION_NEXT` |
+| Status | `R127_INVALID / R127-RC1_COMPLETE / R128_COMPLETE / R129_PASS / R130_INVALID / R130_RC1_COMPLETE / R131_COMPLETE / R132_CONFORMANCE_NEXT` |
 | Primary cause | `Frozen q/v is incompatible with two-point FlatSticking acceleration closure` |
 | Claim ceiling | Static research and generated-test design only; no R127 retry, feasibility claim, candidate, scene or training |
 
@@ -180,7 +180,8 @@ immutable `INVALID`: projection passes all `3200/3200` rows, but the recomputed
 fixed-PD schedule violates right-ankle-roll speed/effort bounds before inverse
 dynamics. Clean [R130 projected-schedule research](humanoid-train4-r130-projected-schedule-research-2026-08-15.md)
 confirms two repeated right-forefoot exit hotspots while preserving the exact
-row/event evidence boundary. Only report-only R131 hybrid contact-edge
-state-lift formulation is authorized; R127/R129/R130 retries, additional
-projection/ID/kinodynamic execution, candidate construction, PhysX and
-training remain forbidden.
+row/event evidence boundary. Clean R131 selects a nine-exit mode-owned lift
+affecting at most `27/3200` base rows. Only 36-row report-only R132 conformance
+is authorized; R127/R129/R130 retries, full-schedule projection, ID/
+kinodynamic execution, candidate construction, PhysX and training remain
+forbidden.

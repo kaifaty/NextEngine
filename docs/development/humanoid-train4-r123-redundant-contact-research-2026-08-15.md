@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R123 execution stopped before its first local solve |
-| Status | `R123_INVALID / R127_INVALID / R130_INVALID / R130_RC1_COMPLETE / R131_FORMULATION_NEXT` |
+| Status | `R123_INVALID / R127_INVALID / R130_INVALID / R130_RC1_COMPLETE / R131_COMPLETE / R132_CONFORMANCE_NEXT` |
 | Primary cause | `Environment / stage-2 rigid-contact formulation` |
 | Claim ceiling | Research and generated-test design only; no R123 retry, feasibility claim, candidate, scene or training |
 
@@ -224,5 +224,6 @@ zero inverse-dynamics/downstream work. Canonical/file/profile SHA-256 is
 The sole R130 is consumed and immutable `INVALID`: all projection rows pass,
 but its fixed-PD schedule violates right-ankle-roll bounds before inverse
 dynamics. Clean [R130-RC1](humanoid-train4-r130-projected-schedule-research-2026-08-15.md)
-confirms repeated contact-exit hotspots and permits only report-only R131;
-additional projection/ID/kinodynamic execution remains blocked.
+confirms repeated contact-exit hotspots. Clean R131 selects a nine-exit
+mode-owned lift and permits only 36-row report-only R132 conformance;
+full-schedule projection and ID/kinodynamic execution remain blocked.

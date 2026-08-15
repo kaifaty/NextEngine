@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R130 stopped before inverse dynamics |
-| Status | `R130_INVALID / R130_RC1_COMPLETE / R131_FORMULATION_NEXT` |
+| Status | `R130_INVALID / R130_RC1_COMPLETE / R131_COMPLETE / R132_CONFORMANCE_NEXT` |
 | Confirmed boundary | `Numerically valid tangent projection creates an invalid fixed-PD actuator schedule` |
 | Supported hotspot | `The four largest corrections cluster at two right-forefoot contact exits` |
 | Claim ceiling | Static report-only research; no exact row/event identity, retry, projection, dynamics, candidate, PhysX or training |
@@ -132,12 +132,43 @@ Research-module/tool SHA-256 is
 `284535f5f644b55c45cf88217b398f4f6c127239728edfcf5838d1422fc32fa7`.
 The canonical hash independently recomputes exactly.
 
-## Next bounded action
+## R131 formulation result
 
-R131 must be a separate report-only formulation. It must compare the current
-affine cross-mode lift, a contact-side one-sided hybrid lift, an instantaneous
-actuator-constrained projection and full kinodynamic fallback; define the exact
-q/v/`qdot`/mode ownership at entry and exit edges; freeze fail-closed generated
-tests and identities; and choose the smallest falsifiable successor. It may
-not execute a state projection or inverse-dynamics system, rebuild R130,
-construct a candidate, run PhysX or start training.
+Clean report-only R131 at commit `9f54f3a` audits all `3200` stored R130
+collocation metadata rows and freezes the contact-edge inventory: `799`
+boundaries contain `770` unchanged modes, `9` contact entries, `9` complete
+contact exits and `11` active-mode changes. No boundary changes both feet at
+once. Intervals `76/744` are confirmed as two of the five right-forefoot exits.
+
+R131 selects `exit_mode_owned_left_velocity_trace_hold` as the smallest causal
+discriminator. Only on the nine complete exit intervals, substeps `1/2/3`
+replace affine endpoint weights `[4-s,s]/4` by `[4,0]/4`; substep zero and the
+next interval's exact knot remain unchanged. Thus at most `27/3200` base-
+velocity rows change before the already-conformed projection. Configuration,
+SO(3) interpolation, modes, points, targets, gains and limits remain exact.
+
+This is explicitly a diagnostic, not a production integrator: `qdot=v`, a
+discrete integration constraint and release impulse are not claimed. The
+instantaneous actuator-constrained projection remains secondary because it
+does not close sequential rate/power/work state; full trajectory-level
+kinodynamic retargeting is the stronger fallback if the local discriminator
+fails.
+
+All six validations pass (`336/336` lab, `56/56` motor and full `host-check`).
+R131 performs one metadata inventory and one formulation, with zero state-lift
+evaluations, matrix/Jacobian assemblies, projections, controller schedules,
+inverse dynamics, candidates, scenes or training. Canonical/file/profile
+SHA-256 is
+`480d28d4b9c90552cc0b42091a26f354118d56fe6b9292777c9813aa8b490696` /
+`4a8e6c1bece5269c608a6da3b901ebd868a1a8de0b7f525835706d76f66a9a3d` /
+`005b1cddee646064cb4c89a076ac7fe929c1efb84b6dbaf7ef104e7f550543cf`.
+Formulation-module/tool SHA-256 is
+`1d696a4e6a8408d93b18e869679b4736f6977ffef70be7fc0ea734709a3506af` /
+`2a1c6075fe919a0dcb5a32f3e49b7b952efe0e9b69c96f7c3488b4eeded28779`.
+The canonical hash independently recomputes exactly.
+
+R131 permits only separate report-only R132 conformance over the `36` rows of
+the nine exit intervals, with at most `36` projection systems and exactly
+row-addressed pre/post velocity evidence. Full-schedule projection, controller
+schedule derivation, inverse dynamics, candidate construction, PhysX and
+training remain forbidden.
