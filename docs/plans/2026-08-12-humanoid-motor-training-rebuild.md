@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R135 close and conform its successor, while R136 is valid complete but cone-infeasible at `2418/3200` collocations. R137 freezes the selected fixed-mode controller-reachable graph. Clean report-only R138 passes graph/index/event and exact-controller conformance with zero target/effort differences and zero real work. Clean R139 freezes sparse multiple-shooting SCvx/SQP, three-pass OSQP candidate steps, exact quantized acceptance, numerical invalid stops and one bounded future envelope with zero real work; only report-only R140 implementation/numerical conformance is authorized. No retry, real reconstruction/kinodynamic assembly/QP/solve, contact-semantics change, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R135 close and conform its successor, while R136 is valid complete but cone-infeasible at `2418/3200` collocations. R137/R138 freeze and conform the fixed-mode controller-reachable graph. Clean R139 freezes sparse multiple-shooting SCvx/SQP and exact acceptance; clean R140 passes all 43 synthetic method cases plus 32 cone rows with zero payload reads and zero real work. Exactly one bounded R141 execution is authorized under the unchanged R139 envelope. No retry, contact-semantics change, candidate publication, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance or `TRAIN-6` is authorized. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -30,6 +30,7 @@
 | TRAIN-4 R138 conformance result | [R138 kinodynamic graph conformance result](../development/humanoid-train4-r138-kinodynamic-graph-conformance-result-2026-08-15.md) |
 | TRAIN-4 R139 solve-method decision | [R139 sparse exact-acceptance solve research](../development/humanoid-train4-r139-kinodynamic-solve-research-2026-08-15.md) |
 | TRAIN-4 R139 formulation result | [R139 kinodynamic solve formulation result](../development/humanoid-train4-r139-kinodynamic-solve-formulation-result-2026-08-15.md) |
+| TRAIN-4 R140 conformance result/R141 decision | [R140 kinodynamic solve conformance result](../development/humanoid-train4-r140-kinodynamic-solve-conformance-result-2026-08-15.md) |
 | TRAIN-5 current base tracker profile | [Humanoid reference tracker physics/velocity guard V4](../../lab/profiles/humanoid-reference-tracker-physics-velocity-guard.v4.json) |
 | TRAIN-5 current base tracker SHA-256 | `7061e43bc59097312c10e90ea566485116bca4b5ec40ab1e93e22919b2160b5d` |
 | TRAIN-5 rejected optimization child profiles | soft ROM `c482e68f05ad574b74ba037412a5d8b1d378966ac788de308b457885f7b0c35b`; predictive ROM `2640aa58886b00c901240f9f2b8912cfcff74e5a8490e846ad69b35b4fedc3b5`; realized contact impact margin `6a8b7c5871c200377cec4895ebefe370861f83c20a060e77ea9055f88e82ca06` |
@@ -2245,9 +2246,21 @@ profile SHA-256 is
 `efd6968fac2a66144b43c8422d798b025a878d0e5588e85d8a3414b745b465de` /
 `55326991ba7fc025238a2a6ef3f288984c1dea14533cf8b50f9e6ad897f57853`.
 The exact transition is `R139_COMPLETE_R140_CONFORMANCE_ONLY`; only report-only
-R140 implementation/numerical conformance is authorized. R141 real execution,
-candidate and scene remain blocked pending exact R140 `PASS` and a later
-explicit roadmap update.
+R140 implementation/numerical conformance was authorized. Clean R140 at
+`0dfdccf` passes all six validations, 43 synthetic method cases and 32 fixed
+cone coefficient rows with zero source payload reads or real work. It closes
+pre-graph hash ordering, three-pass QP schemas, trust/funnel outcomes, exact-
+versus-surrogate controller behavior, deterministic cone separation, numeric
+invalid stops and all budget/hash/counter formulas. Canonical/file/profile
+SHA-256 is
+`68cab54fccef71b3a30b28159740272547c289b3a04866f6d59979217b35901c` /
+`5315eaf27d4ba3756cd119ff7260fa5dfaf664d2d7c5ff65a9d985f916a61f92` /
+`dd2dd64f0f37e700256eaa1668967bcfd97560371193340dbcffae4adf769b6a`.
+The exact transition is `R140_PASS_R141_ROADMAP_DECISION_ONLY`. The matching
+roadmap explicitly authorizes one clean R141 execution under the unchanged
+R139 budget and exact oracle. No retry, candidate publication, scene or
+training is authorized; exact feasible PASS may lead only to a later
+report-only R142 decision.
 This planning document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

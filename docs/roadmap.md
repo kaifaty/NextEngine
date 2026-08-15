@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-15 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; their research and R125–R129 close force-gauge and tangent-projection mechanics. R130 is `INVALID`; R131–R135 close and conform its successor, while R136 is valid complete but cone-infeasible at `2418/3200` rows. R137 freezes the selected fixed-mode controller-reachable graph; clean report-only R138 passes index/event and exact-controller conformance with zero target/effort differences and zero real work. Clean R139 freezes sparse multiple-shooting SCvx/SQP, three-pass OSQP candidate steps, exact quantized acceptance, numerical invalid stops and one bounded future envelope with zero real work; only report-only R140 implementation/numerical conformance is authorized. No real reconstruction/assembly/QP/solve, contact-semantics change, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate or learned optimizer is authorized. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14/R94 remain failed. R98–R122 close bounded KTO/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; their research and R125–R129 close force-gauge and tangent-projection mechanics. R130 is `INVALID`; R131–R135 close and conform its successor, while R136 is valid complete but cone-infeasible at `2418/3200` rows. R137 freezes the selected fixed-mode controller-reachable graph; clean report-only R138 passes index/event and exact-controller conformance. Clean R139 freezes sparse multiple-shooting SCvx/SQP and exact acceptance; clean R140 passes all 43 synthetic method cases and 32 cone coefficient rows with zero payload reads and zero real work. This roadmap explicitly authorizes exactly one bounded R141 execution under the unchanged R139 envelope. No retry, contact-semantics change, candidate publication, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate or learned optimizer is authorized. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -768,7 +768,7 @@ R125_COMPLETE / R126_PASS / R127_INVALID / R127-RC1_COMPLETE /
 R128_COMPLETE / R129_PASS / R130_INVALID / R130-RC1_COMPLETE /
 R131_COMPLETE / R132_PASS / R133_PASS / R134_COMPLETE / R135_PASS /
 R136_VALID_INFEASIBLE / R137_COMPLETE / R138_PASS / R139_COMPLETE /
-R140_CONFORMANCE_AUTHORIZED_REPORT_ONLY`, 2026-08-15):**
+R140_PASS / ONE_R141_EXECUTION_AUTHORIZED`, 2026-08-15):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -1489,9 +1489,26 @@ counter is zero. Canonical/file/profile SHA-256 is
 `55326991ba7fc025238a2a6ef3f288984c1dea14533cf8b50f9e6ad897f57853`;
 the [R139 result](development/humanoid-train4-r139-kinodynamic-solve-formulation-result-2026-08-15.md)
 records the exact stop boundary. Transition `R139_COMPLETE_R140_CONFORMANCE_ONLY`
-authorizes only report-only R140 implementation/numerical conformance. R141
-still requires exact R140 `PASS` plus an explicit later roadmap update; every
-real or downstream execution remains blocked.
+authorizes only report-only R140 implementation/numerical conformance. Clean
+R140 at `0dfdccf` passes all six validations, 43 synthetic method cases and 32
+fixed float64 cone coefficient rows without importing the numeric/solver stack
+or reading a source payload. It rejects changed pre-graph identity, premature
+graph calls, malformed QP pass, insufficient funnel/ratio, rank gap, unexpected
+rank, non-finite coefficient, unordered bound, cone disagreement and ambiguous
+solver status/residual. Canonical/file/profile SHA-256 is
+`68cab54fccef71b3a30b28159740272547c289b3a04866f6d59979217b35901c` /
+`5315eaf27d4ba3756cd119ff7260fa5dfaf664d2d7c5ff65a9d985f916a61f92` /
+`dd2dd64f0f37e700256eaa1668967bcfd97560371193340dbcffae4adf769b6a`;
+the [R140 result](development/humanoid-train4-r140-kinodynamic-solve-conformance-result-2026-08-15.md)
+records `R140_PASS_R141_ROADMAP_DECISION_ONLY` and zero real work. This roadmap
+now explicitly authorizes exactly one clean R141 execution under the unchanged
+R139 limits: one process/thread, seed zero, six major iterations, 18 QPs, 42
+exact audits, four hours and `16 GiB`, without restart or manual intervention.
+R141 must reproduce all ten source hash categories before its first graph call;
+exact nonlinear/controller/circular-cone acceptance is sole authority. Exact
+feasibility may permit only a later report-only R142 decision. Valid bounded
+stop or invalid stops without retry; candidate, PhysX, corpus and training stay
+blocked in every outcome.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -2288,9 +2305,10 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    exact-controller conformance with zero target/effort differences. Clean R139
    freezes sparse multiple-shooting SCvx/SQP, three lexicographic OSQP passes,
    exact quantized acceptance, numeric invalid stops and the bounded future
-   envelope with zero payload reads or real work. Only report-only R140
-   implementation/numerical conformance is authorized; no real solve or
-   downstream execution is.
+   envelope with zero payload reads or real work. Clean R140 passes all 43
+   synthetic method cases plus 32 cone rows. Exactly one R141 execution is now
+   authorized under the unchanged envelope; retry and every downstream action
+   remain blocked.
    До exact-zero fresh/
    full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
    No training quality, Stage 0 or R5 completion is claimed here.

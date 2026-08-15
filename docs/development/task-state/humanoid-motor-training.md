@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R139_COMPLETE / R140_CONFORMANCE_AUTHORIZED / REPORT_ONLY / NO_SOLVE_AUTHORITY` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R140_PASS / ONE_R141_EXECUTION_AUTHORIZED / NO_DOWNSTREAM_AUTHORITY` |
 | Updated | 2026-08-15 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before learned optimizer work |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R139 is exact `COMPLETE`; sparse fixed-mode SCvx/SQP, OSQP candidate steps and the exact quantized acceptance oracle are hash-closed.
-- **Why:** Three lexicographic QPs, normalized trust/funnel, exact replay, rank/cone invalid stops and a one-process resource envelope now have machine-checked boundaries.
-- **Next action:** Build one report-only R140 implementation/numerical-conformance increment using synthetic and metadata-only discriminators with zero real work.
-- **Current blocker:** The algorithm is frozen but not implementation-conformant; the real graph remains intentionally unreconstructed, unassembled and unsolved.
+- **Current conclusion:** R140 is exact `PASS`; all 43 synthetic method cases and 32 cone coefficient rows conform with zero payload reads and zero real work.
+- **Why:** Reconstruction order, three QP passes, trust/funnel, exact controller boundary, cone refinement, numeric invalid stops, hashes, counters and budget all fail closed.
+- **Next action:** Implement and consume exactly one bounded R141 real kinodynamic execution under the unchanged R139 envelope.
+- **Current blocker:** Numerical feasibility remains unknown until the sole R141 run; no retry, candidate, PhysX, corpus or training authority follows automatically.
 - **Do not retry:** Never restart R123/R127/R129/R130/R136, tune a frozen tolerance, substitute a witness, or start KTO/kinodynamics/PPO/PhysX.
-- **Reconsider when:** Exact R140 `PASS` plus an explicit roadmap update may authorize one bounded R141 execution; neither condition exists yet.
+- **Reconsider when:** R141 returns exact feasible PASS, valid bounded stop, or invalid; only PASS may lead to a separate report-only R142 decision.
 
 All TRAIN-5 checkpoints remain rejected. No learned optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -34,23 +34,23 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R137/R138/R139 fixed-mode graph/solve formulation, latest canonical `fc76b3072ca9323a2b5dfea45bb9f5c74de57e485a80ed01a7a8ecd6651fec0c` | R137 `COMPLETE`; R138 `PASS`; R139 `COMPLETE` with three-pass exact-acceptance method and zero real work | Authorizes only report-only R140 implementation conformance |
+| R137–R140 fixed-mode graph/solve method, latest canonical `68cab54fccef71b3a30b28159740272547c289b3a04866f6d59979217b35901c` | R139 `COMPLETE`; R140 `PASS` on 43 cases plus 32 cone rows with zero real work | Authorizes exactly one bounded R141 execution |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-Current R133/R134/R135/R136/R137/R138/R139 canonical SHA-256:
+Current R133/R134/R135/R136/R137/R138/R139/R140 canonical SHA-256:
 `f1fad2ca3c7abd49acaefd9fcd37873d02fb1d289a3081fd2039b0b1192fd3b6` /
 `17d696166a05a24bd50a545ca31e4aabd15a72ed49444a09983c472ff6b13783` /
 `21fd15693ad092158a9f1fd9d8d8f717cbea26eb38fdca6cd321b61ccc7b7525` /
 `b522dc92062d3f760536669cc30a053f6c11d845dfac9e09f2865de597daf6d5` /
 `f0db8b516897671461161cac299a9e81e9405a1a3ae38778fa6d3659c898381f` /
 `c2343b289a11e7794d4f092b261f18dc6f4776b265854893cd3403fc53daea6c` /
-`fc76b3072ca9323a2b5dfea45bb9f5c74de57e485a80ed01a7a8ecd6651fec0c`.
+`fc76b3072ca9323a2b5dfea45bb9f5c74de57e485a80ed01a7a8ecd6651fec0c` / `68cab54fccef71b3a30b28159740272547c289b3a04866f6d59979217b35901c`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
 and [support-authorization decision](../humanoid-train4-support-authorization-research-2026-08-14.md)
 and [clip-global decision](../humanoid-train4-clip-global-research-2026-08-14.md)
-and [coupled-solver decision](../humanoid-train4-coupled-trajectory-research-2026-08-14.md), the [native-dynamics decision](../humanoid-train4-native-dynamics-research-2026-08-14.md), [R123 redundant-contact research](../humanoid-train4-r123-redundant-contact-research-2026-08-15.md), [R127 consistency research](../humanoid-train4-r127-constraint-consistency-research-2026-08-15.md), [R130 projected-schedule research](../humanoid-train4-r130-projected-schedule-research-2026-08-15.md), [R136 cone-feasibility research](../humanoid-train4-r136-cone-feasibility-research-2026-08-15.md), [R137 decision](../humanoid-train4-r137-fixed-mode-kinodynamic-research-2026-08-15.md), [R137 result](../humanoid-train4-r137-fixed-mode-kinodynamic-formulation-result-2026-08-15.md), [R138 result](../humanoid-train4-r138-kinodynamic-graph-conformance-result-2026-08-15.md), [R139 solve-method decision](../humanoid-train4-r139-kinodynamic-solve-research-2026-08-15.md) and [R139 result](../humanoid-train4-r139-kinodynamic-solve-formulation-result-2026-08-15.md)
+and [coupled-solver decision](../humanoid-train4-coupled-trajectory-research-2026-08-14.md), the [native-dynamics decision](../humanoid-train4-native-dynamics-research-2026-08-14.md), [R123 redundant-contact research](../humanoid-train4-r123-redundant-contact-research-2026-08-15.md), [R127 consistency research](../humanoid-train4-r127-constraint-consistency-research-2026-08-15.md), [R130 projected-schedule research](../humanoid-train4-r130-projected-schedule-research-2026-08-15.md), [R136 cone-feasibility research](../humanoid-train4-r136-cone-feasibility-research-2026-08-15.md), [R137 decision](../humanoid-train4-r137-fixed-mode-kinodynamic-research-2026-08-15.md), [R137 result](../humanoid-train4-r137-fixed-mode-kinodynamic-formulation-result-2026-08-15.md), [R138 result](../humanoid-train4-r138-kinodynamic-graph-conformance-result-2026-08-15.md), [R139 solve-method decision](../humanoid-train4-r139-kinodynamic-solve-research-2026-08-15.md), [R139 result](../humanoid-train4-r139-kinodynamic-solve-formulation-result-2026-08-15.md) and [R140 result/decision](../humanoid-train4-r140-kinodynamic-solve-conformance-result-2026-08-15.md)
 carry detailed evidence. The hashes above identify their external reports.
 
 ## Decisions that still constrain the work
@@ -179,16 +179,16 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether the frozen bounded method can search the exact-
-  accepted graph within its resource envelope remains unproved.
-- **Reconsider when:** Report-only R140 implementation/numerical conformance
-  passes; R136/R137/R138 cannot retry and R141 still needs roadmap authority.
+- **Uncertainty:** Whether the now-conformed bounded method can reach exact
+  feasibility inside its sole resource envelope remains unproved.
+- **Reconsider when:** The authorized R141 returns; R136–R140 cannot retry and
+  no downstream action follows from valid stop or invalid.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: exact offline reference is dynamically too demanding for fixed PD | R136 finds `2418/3200` cone-infeasible rows; R137–R139 freeze graph, implementation boundary and solve method | The real graph remains intentionally unassembled and unsolved | Supported for the frozen lineage; R140 report-only conformance is next |
+| H22: exact offline reference is dynamically too demanding for fixed PD | R136 finds `2418/3200` cone-infeasible rows; R137–R140 freeze and conform graph/method | The real graph remains intentionally unassembled and unsolved | Supported for the frozen lineage; sole bounded R141 is next |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
 | H24/H26: nonlocal coupling is hidden between motor samples | R122 reproduces the affine 240 Hz lift and local dynamics identities | Integrated dynamics remains untested | Keep blocked; invalid R123 cannot authorize R124 |
 | H27: flat-foot point multipliers are structurally redundant | R123-RC1/R126 close gauge handling; R129 closes tangent projection | R127-RC1 proves a separate off-manifold q/v defect | Closed within exact claim |
@@ -222,8 +222,8 @@ semantics.
 ## Next action
 
 1. Freeze R123/R127/R129/R130/R136 and all superseded reports; never retry them.
-2. Preserve R136 evidence and R137/R138/R139 lineage as immutable; none has warm-start, candidate or corpus authority.
-3. Build one report-only R140 implementation/numerical-conformance increment; stop before real reconstruction, controller evaluation, assembly, QP or solve.
+2. Preserve R136 evidence and R137–R140 lineage as immutable; none has candidate or corpus authority and none may retry.
+3. Build and consume exactly one R141 execution under the R139 envelope; stop after its report before candidate, PhysX or training.
 
 ## Do not retry
 
@@ -241,10 +241,10 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R139 implementation commit `0a71362`; external canonical/file evidence `fc76b307...` / `efd6968f...` is exact `COMPLETE`; R137/R138 remain immutable.
-- **Checks:** All six R139 validations PASS; canonical hash reproduces, source payload reads and every real-work counter are zero.
+- **Workspace state:** R140 implementation commit `0dfdccf`; external canonical/file evidence `68cab54f...` / `5315eaf2...` is exact `PASS`; R137–R139 remain immutable.
+- **Checks:** All six R140 validations PASS; 43 synthetic cases and 32 cone rows pass, canonical hash reproduces and every real-work counter is zero.
 - **Remaining risk:** The repair family, integrated/fresh PhysX, full-corpus exact-zero coverage and visual review remain open.
-- **Execution authority:** R140 report-only implementation conformance. No real reconstruction/controller evaluation/assembly, QP/solve, candidate, PhysX or training is authorized.
+- **Execution authority:** Exactly one bounded R141 real execution under R139; no restart, candidate publication, PhysX, corpus or training is authorized.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.
