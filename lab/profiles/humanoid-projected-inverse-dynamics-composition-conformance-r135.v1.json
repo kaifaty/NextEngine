@@ -1,0 +1,250 @@
+{
+  "schema_version": 1,
+  "conformance_id": "nextengine.humanoid-projected-inverse-dynamics-composition-conformance.v1",
+  "status": "FrozenReportOnlyConformance",
+  "claim": "ProjectedInverseDynamicsCompositionImplementationConformanceOnly",
+  "source": {
+    "r134": {
+      "report_sha256": "17d696166a05a24bd50a545ca31e4aabd15a72ed49444a09983c472ff6b13783",
+      "report_file_sha256": "0f7ccdcdcb4fbcf1b3e73e1e8f5565b0387c15a4bd1cfa3c50fbd6754ba176be",
+      "profile_sha256": "7fafc5e874f5b5cd23e5e7720133640e1f84d7dad8c233f4ba384fc97d3cb4b9",
+      "module_sha256": "873e564a603c6e6b043e6827c27c117b47674521375e5dff82cdc9c5f77db280",
+      "tool_sha256": "894e0f04a89f865fca7451ff5d3d3c3500eb6791e8fbe5b6fc740bf1dfae32c7",
+      "repository_commit": "5a4085b719495c2a46d9535565a52565ce6646a4"
+    },
+    "r133": {
+      "report_sha256": "f1fad2ca3c7abd49acaefd9fcd37873d02fb1d289a3081fd2039b0b1192fd3b6",
+      "report_file_sha256": "2ddef1cfae193eb0e32f4d001aba6a8b744056b700fa2ecbe533434bc8e5f7c2",
+      "profile_sha256": "20cccf2ffd413ae56148b95ca4cbd67c616f1ee396f2bee995a078ab1685a6a7",
+      "module_sha256": "60dbf107a19c795d6c6ffcbbecc4bf0db81dcf0c5efa5adc6a1a43f6d35f0c15",
+      "tool_sha256": "427bc05222dc767da3285a58815fa6fa1275ebd6bd3945e43fcb1a89df18f156"
+    },
+    "r126": {
+      "report_sha256": "2a500b6e6514e3a5cc8cec453756089f235d66d8684718a56678c471202f3e8f",
+      "report_file_sha256": "4931ff4c96e8bb062bed64a45681097ae70b23c615c022ba267c0ae6edb6ffd3",
+      "profile_sha256": "23007c0455fef7cf84da411528f9f6162cd04d97e8be86baa7be2c19ae7e87cb",
+      "gauge_aware_kernel_sha256": "9b69802fd95d9e5a3e048802fb5b09a4a0f976741b2b69c6b2ccbb5aec5df5b2",
+      "conformance_module_sha256": "7afba7266e8fedb4af58dfeaf52d4ac431a7f0681d5886d1924350ab0c16f2c3",
+      "tool_sha256": "4526b4b34fb34313bc9014c934c63d45eb290bba0781a886422814d7482f133f"
+    },
+    "composition_module_sha256": "a06cfc5653e935597c7b811b1f717aae26732099cee47084b4e95b90c248e475",
+    "conformance_module_sha256": "b2a06c604650108e503db91017169b7b77154abf9806d0fd1debe5868ccbf539",
+    "tool_sha256": "02a4bb50520dc9dbd89a028fe0f97a2c35f025cd295e085e7a00735077628dc2"
+  },
+  "scope": {
+    "run_id": "R135",
+    "clip_id": "cmu16-walk-nominal-b",
+    "source_reports_read": 3,
+    "real_collocations_read": 0,
+    "real_state_lift_evaluations": 0,
+    "real_state_projection_systems": 0,
+    "real_projection_factorizations": 0,
+    "real_projection_solves": 0,
+    "real_controller_schedule_derivations": 0,
+    "real_inverse_dynamics_system_assemblies": 0,
+    "real_particular_solutions": 0,
+    "real_gauge_interval_classifications": 0,
+    "kinodynamic_solves": 0,
+    "candidate_artifacts_built": 0,
+    "solver_private_caches_built": 0,
+    "physx_scene_runs": 0,
+    "optimizer_steps": 0,
+    "training_runs": 0
+  },
+  "system_inventory_contract": {
+    "status": "PASS",
+    "motor_intervals": 800,
+    "collocations": 3200,
+    "flight_collocations": 560,
+    "single_point_collocations": 324,
+    "flat_foot_collocations": 2316,
+    "active_point_collocations": 4956,
+    "friction_cones": 4956,
+    "inverse_dynamics_system_assemblies": 3200,
+    "singular_value_decompositions": 3200,
+    "particular_solutions": 3200,
+    "gauge_interval_classifications": 2316,
+    "reduced_decision_scalars": 107668,
+    "algebraic_equality_rows": 107668,
+    "expected_independent_equality_rank": 105352,
+    "exact_force_gauge_scalars": 2316,
+    "maximum_reduced_local_unknown_count": 35,
+    "maximum_flat_foot_gauge_dimension": 1
+  },
+  "expected_synthetic_inventory": {
+    "system_compositions": 3,
+    "singular_value_decompositions": 7,
+    "particular_solutions": 6,
+    "gauge_interval_classifications": 2,
+    "hash_guard_cases": 2,
+    "real_system_compositions": 0
+  },
+  "numeric_contract": {
+    "float_dtype": "float64",
+    "svd_null_relative_maximum": 1e-12,
+    "svd_retained_relative_minimum": 1e-10,
+    "analytic_gauge_scaled_residual": 1e-10,
+    "analytic_to_svd_null_projector_spectral_error": 1e-8,
+    "scaled_absolute_residual": 1e-9,
+    "backward_error": 1e-10,
+    "physical_group_absolute_residual": 1e-7,
+    "cone_absolute_newtons": 1e-7,
+    "quadratic_boundary_relative_ambiguity": 1e-12,
+    "ambiguity_policy": "values inside the SVD rank gap or quadratic boundary uncertainty return INVALID; no threshold tuning or retry"
+  },
+  "r133_array_hash_contract": {
+    "projected_generalized_velocity": "e57bcb75629d403e04cc6d3197e8e2dada19ac0c0ef4c920083f2276c33bfb17",
+    "projection_delta_velocity": "6308386172a7341885acb46b51ef68189fcd5be1a152db7a72f1dab8d0e86760",
+    "applied_target_microradians": "195810f7e9c20b15ec6ddf165c8873f905a96414fe055a0dae7a2b45382be1a3",
+    "applied_effort_micronewton_metres": "5ad7ac66c4d394ef5d06d111d86f58120069d42e61d1adf1ac82ca1d1d42a1ff"
+  },
+  "future_r136_execution_contract": {
+    "authority": "NOT_GRANTED_UNTIL_EXACT_R135_PASS",
+    "run_id": "R136",
+    "collocation_count": 3200,
+    "upstream_reconstruction": "one in-memory R133 q/v projection and sequential controller reconstruction solely as the input phase of R136; byte hashes must match before ID begins and no independent schedule result is claimed",
+    "required_output": [
+      "one row for every collocation with interval/substep/mode/active-point identity",
+      "rank/nullity, scaled and physical residuals, cone or gauge-interval classification",
+      "complete feasible/infeasible counts and first valid-infeasible row without early stopping",
+      "hashes for projected velocity, projection delta, target, effort, acceleration, point force, gauge intervals and feasibility mask",
+      "ordered reduced-system digest and exact resource/counter closure"
+    ],
+    "execution_budget": {
+      "process_count": 1,
+      "thread_count": 1,
+      "maximum_state_lift_evaluations": 3200,
+      "maximum_projection_systems": 2640,
+      "maximum_projection_factorizations": 2640,
+      "maximum_projection_solves": 2640,
+      "maximum_controller_schedule_derivations": 1,
+      "maximum_inverse_dynamics_system_assemblies": 3200,
+      "maximum_singular_value_decompositions": 3200,
+      "maximum_particular_solutions": 3200,
+      "maximum_gauge_interval_classifications": 2316,
+      "maximum_local_unknown_count": 35,
+      "maximum_flat_foot_gauge_dimension": 1,
+      "maximum_wall_clock_seconds": 7200,
+      "maximum_resident_memory_bytes": 8589934592,
+      "random_seed": 0,
+      "randomized_restart_count": 0,
+      "resume_or_warm_restart": "FORBIDDEN",
+      "manual_intervention": "FORBIDDEN"
+    },
+    "valid_feasible_transition": "PERMIT_SEPARATE_REPORT_ONLY_PROJECTED_STATE_KINODYNAMIC_FORMULATION_ONLY",
+    "valid_infeasible_transition": "STOP_VALID_PROJECTED_FIXED_PD_CONE_INFEASIBILITY_FOR_RESEARCH",
+    "invalid_transition": "STOP_INVALID_EVIDENCE_WITHOUT_RESTART"
+  },
+  "resource_budget": {
+    "process_count": 1,
+    "thread_count": 1,
+    "maximum_wall_clock_seconds": 60,
+    "maximum_resident_memory_bytes": 2147483648,
+    "random_seed": 0,
+    "randomized_restart_count": 0,
+    "resume_or_warm_restart": "FORBIDDEN",
+    "manual_intervention": "FORBIDDEN"
+  },
+  "single_thread_environment": {
+    "BLIS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "decision": {
+    "pass": "PERMIT_ONE_R136_PROJECTED_INVERSE_DYNAMICS_EXECUTION_ONLY",
+    "fail": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "result_transitions": {
+    "pass": "R135_PASS_R136_SINGLE_EXECUTION_ONLY",
+    "fail": "R135_FAIL_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/projected_inverse_dynamics_composition.py",
+        "lab/next_lab/projected_inverse_dynamics_composition_conformance.py",
+        "lab/scripts/audit_projected_inverse_dynamics_composition.py",
+        "lab/tests/test_projected_inverse_dynamics_composition.py",
+        "lab/tests/test_projected_inverse_dynamics_composition_conformance.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/projected_inverse_dynamics_composition.py",
+        "lab/next_lab/projected_inverse_dynamics_composition_conformance.py",
+        "lab/scripts/audit_projected_inverse_dynamics_composition.py",
+        "lab/tests/test_projected_inverse_dynamics_composition.py",
+        "lab/tests/test_projected_inverse_dynamics_composition_conformance.py"
+      ]
+    },
+    {
+      "id": "single_thread_import",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "from next_lab.projected_inverse_dynamics_composition_conformance import _linux_thread_count; assert _linux_thread_count() == 1"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": ["lab/.venv/bin/python", "-m", "unittest", "discover", "-s", "lab/tests"]
+    },
+    {"id": "motor", "arguments": ["cargo", "test", "-p", "next_motor"]},
+    {"id": "host_check", "arguments": ["cargo", "run", "-q", "-p", "xtask", "--", "host-check"]}
+  ],
+  "bounded_acceptance": {
+    "r135_retry": "NOT_AUTHORIZED",
+    "r136_projected_inverse_dynamics_execution": "AUTHORIZED_ONE_EXECUTION_ONLY_ON_R135_PASS",
+    "r123_retry": "NOT_AUTHORIZED",
+    "r127_retry": "NOT_AUTHORIZED",
+    "r129_retry": "NOT_AUTHORIZED",
+    "r130_retry": "NOT_AUTHORIZED",
+    "r132_retry": "NOT_AUTHORIZED",
+    "r133_retry": "NOT_AUTHORIZED",
+    "r134_retry": "NOT_AUTHORIZED",
+    "additional_projected_schedule_execution": "NOT_AUTHORIZED",
+    "additional_inverse_dynamics_execution": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
