@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_RESEARCH_NEXT` |
+| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_COMPLETE / R128_FORMULATION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -1514,10 +1514,14 @@ SHA-256 is
 `23007c0455fef7cf84da411528f9f6162cd04d97e8be86baa7be2c19ae7e87cb`.
 The sole R127 at clean `44b536b` stops invalid at the first flat-foot state.
 Rank/nullity and analytic/SVD gauge agreement pass, but the equality RHS is not
-in the matrix range: scaled residual `6.2044653e-5` versus `1e-9`. A static
-no-solve identity finds perpendicular foot angular speed `0.131848744 rad/s`
-and line compatibility `-0.003737579615 m/s²`, matching
-`-L||omega×d||²` within `4.34e-19`. Only R127-RC1 research is next.
+in the matrix range: scaled residual `6.2044653e-5` versus `1e-9`. Clean
+report-only R127-RC1 at `9d5cdbf` confirms perpendicular foot angular speed
+`0.131848744 rad/s` and line compatibility `-0.003737579615 m/s²`, matching
+`-L||omega×d||²` within `4.34e-19`. Its canonical/file/profile SHA-256 is
+`a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62` /
+`a32f84719b72bf826255287209c596c4faba99646e16112f970acc3c4a5b63ba` /
+`1e0137b3c1ba37cedd62da9f20e71616b8cc3a52d2f3e36df49ed3613549ec70`.
+Only report-only R128 formulation is next.
 
 ## Decision
 
@@ -1530,7 +1534,8 @@ R115 consumed and failed its sole solve; R120 consumed its separate sole solve
 and passed; R123 consumed its sole execution and stopped invalid before solve.
 None may be retried. Candidate artifacts, native scenes and all-17 remain
 blocked. R126 consumed and passed its report-only authority; R127 consumed its
-single execution and is invalid without retry. Only static R127-RC1 research may
-distinguish velocity/state projection, contact-mode correction, stabilization
-or compliant/discrete contact. It may not solve, construct a candidate, change
+single execution and is invalid without retry. R127-RC1 consumed and completed
+its static research authority. Only report-only R128 may formulate and select
+between q/v projection, contact-mode correction, stabilization and compliant/
+discrete contact. It may not execute, construct a candidate, change runtime
 semantics, run PhysX or begin training. R124 remains unauthorized.

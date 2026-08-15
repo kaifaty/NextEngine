@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R123 execution stopped before its first local solve |
-| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_RESEARCH_NEXT` |
+| Status | `R123_INVALID / R123-RC1_COMPLETE / R125_COMPLETE / R126_PASS / R127_INVALID / R127_RC1_COMPLETE / R128_FORMULATION_NEXT` |
 | Primary cause | `Environment / stage-2 rigid-contact formulation` |
 | Claim ceiling | Research and generated-test design only; no R123 retry, feasibility claim, candidate, scene or training |
 
@@ -197,10 +197,14 @@ file/profile SHA-256 is
 `0bdf21b2e995a3ea16f7670666a10b73379d6f6eda9dede04dea5c5e788e1a2b` /
 `0e3537dd36e1a148788d6e4634e4409a01d10136033bf957f7a5d684699976c2`.
 
-Static reproduction without an SVD or solve gives right-foot line length
-`0.215 m`, perpendicular angular speed `0.131848744 rad/s` and projected
-heel/forefoot `Jdot-v` difference `-0.003737579615 m/s²`. It matches the rigid
-centripetal identity `-L||omega×d||²` within `4.34e-19`: the frozen velocity is
-not tangent to the two-point FlatSticking acceleration manifold. This is not a
-remaining force gauge defect. R127 cannot retry; only report-only R127-RC1
-constraint-consistency research is authorized.
+Clean report-only R127-RC1 at `9d5cdbf` gives right-foot line length `0.215 m`,
+perpendicular angular speed `0.131848744 rad/s` and projected heel/forefoot
+`Jdot-v` difference `-0.003737579615 m/s²`. It matches the rigid centripetal
+identity `-L||omega×d||²` within `4.34e-19`: the frozen velocity is not tangent
+to the two-point FlatSticking acceleration manifold. Canonical/file/profile
+SHA-256 is
+`a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62` /
+`a32f84719b72bf826255287209c596c4faba99646e16112f970acc3c4a5b63ba` /
+`1e0137b3c1ba37cedd62da9f20e71616b8cc3a52d2f3e36df49ed3613549ec70`.
+This is not a remaining force gauge defect. R127 cannot retry; only report-only
+R128 contact-state consistency formulation is authorized, without execution.

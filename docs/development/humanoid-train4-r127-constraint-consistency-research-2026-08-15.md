@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R127 stopped before its first gauge/cone classification |
-| Status | `R127_INVALID / PRELIMINARY_CAUSE_CONFIRMED / R127-RC1_NEXT` |
+| Status | `R127_INVALID / R127-RC1_COMPLETE / R128_FORMULATION_NEXT` |
 | Primary cause | `Frozen q/v is incompatible with two-point FlatSticking acceleration closure` |
 | Claim ceiling | Static research and generated-test design only; no R127 retry, feasibility claim, candidate, scene or training |
 
@@ -87,9 +87,10 @@ distinct: R126 fixed the former correctly; it cannot fix the latter.
 | Delete one closure row while retaining two point cones | Makes the square algebra solvable | Hides an off-manifold velocity and breaks the frozen physical residual contract | Reject |
 | Raise residual limits or retry R127 | Masks the incompatibility | Violates the consumed immutable gate | Reject permanently |
 
-## R127-RC1 contract
+## R127-RC1 contract and result
 
-The next admissible action is one static, report-only R127-RC1 audit. It must:
+The R127-RC1 implementation at clean commit `9d5cdbf` performs one static,
+report-only audit. Its frozen contract requires it to:
 
 1. bind the exact R127 report/profile/module/tool and clean commit;
 2. reproduce only collocation `0` q/v, point identity and rigid-body kinematics;
@@ -101,5 +102,23 @@ The next admissible action is one static, report-only R127-RC1 audit. It must:
    kinodynamic solves, candidates, scenes and training runs;
 6. stop invalid on any source, identity, nonfinite or tolerance mismatch.
 
-Only an exact research `COMPLETE` may permit a separate report-only
-contact-state consistency formulation. It may not authorize an execution.
+The official audit is `COMPLETE` with finding
+`CONFIRMED_FLAT_STICKING_STATE_ACCELERATION_INCOMPATIBILITY`. All six
+validations pass (`305/305` lab, motor and full `host-check`), all ten
+predeclared discriminators are true, and the rigid-line identity independently
+reproduces the preliminary values. It performs one kinematic audit and zero
+contact-Jacobian assemblies, local-system reconstructions, SVDs, particular
+solutions, gauge classifications, solves, candidates, scenes or training runs.
+
+Canonical/file/profile SHA-256 is
+`a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62` /
+`a32f84719b72bf826255287209c596c4faba99646e16112f970acc3c4a5b63ba` /
+`1e0137b3c1ba37cedd62da9f20e71616b8cc3a52d2f3e36df49ed3613549ec70`.
+The canonical hash independently recomputes exactly.
+
+The resulting gate permits only a separate report-only R128 contact-state
+consistency formulation. R128 must compare q/v manifold projection, honest
+contact-mode correction and explicit discrete/compliant contact, choose the
+smallest falsifiable successor, and freeze its identities and acceptance
+criteria. It may not execute the formulation, retry R127, build a candidate,
+run PhysX or start training.

@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID` at collocation 0 because the rank-valid flat-foot equality RHS is incompatible before gauge/cone classification. Only static R127-RC1 constraint-consistency research is next. Every retry/solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123 is `INVALID`; R123-RC1/R125/R126 close its same-foot force gauge. The sole R127 is `INVALID`; clean R127-RC1 confirms that its rank-valid RHS failure comes from an off-manifold two-point FlatSticking q/v state. Only report-only R128 contact-state consistency formulation is next. Every retry/solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2101,13 +2101,20 @@ Canonical/file/profile SHA-256 is
 `0bdf21b2e995a3ea16f7670666a10b73379d6f6eda9dede04dea5c5e788e1a2b` /
 `0e3537dd36e1a148788d6e4634e4409a01d10136033bf957f7a5d684699976c2`.
 
-Static no-solve reproduction finds a `0.215 m` right heel–forefoot line,
-perpendicular foot angular speed `0.131848744 rad/s`, and projected `Jdot-v`
-difference `-0.003737579615 m/s²`. This equals the rigid centripetal identity
-`-L||omega×d||²` within `4.34e-19`, so both zero point accelerations are
-incompatible at the frozen q/v state. Roadmap status permits only report-only
-R127-RC1 consistency research. No R123/R127 retry, R124, candidate or scene is
-authorized. This planning
+Clean report-only R127-RC1 at commit `9d5cdbf` finds a `0.215 m` right
+heel–forefoot line, perpendicular foot angular speed `0.131848744 rad/s`, and
+projected `Jdot-v` difference `-0.003737579615 m/s²`. This equals the rigid
+centripetal identity `-L||omega×d||²` within `4.34e-19`, so both zero point
+accelerations are incompatible at the frozen q/v state. All six validations
+pass (`305/305` lab), and all reconstruction/SVD/solve/downstream counters are
+zero. Canonical/file/profile SHA-256 is
+`a1028728e50050747c2167b45d76726aceebd24a7c881bd11bc9eb1e2c8dcc62` /
+`a32f84719b72bf826255287209c596c4faba99646e16112f970acc3c4a5b63ba` /
+`1e0137b3c1ba37cedd62da9f20e71616b8cc3a52d2f3e36df49ed3613549ec70`.
+Roadmap status permits only report-only R128 formulation comparing q/v
+manifold projection, honest contact-mode correction and explicit discrete/
+compliant contact. No R123/R127 retry, R124, R128 execution, candidate or scene
+is authorized. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 
