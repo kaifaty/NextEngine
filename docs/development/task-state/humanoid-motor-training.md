@@ -11,10 +11,10 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R138 passes fixed-mode graph/index/event and exact-controller implementation conformance; freeze R137/R138 and retain unchanged rigid contact semantics.
-- **Why:** Six layouts plus malformed rejection pass, all 29 transitions replay, and two controller paths differ at zero target/effort scalars across zero, ties-even and limiter-state cases.
+- **Current conclusion:** R138 passes conformance; R139 research selects sparse fixed-mode SCvx/SQP with OSQP candidate steps and exact quantized acceptance.
+- **Why:** The fixed schedule removes contact search, while multiple shooting, elastic restoration and trust globalization preserve sparse structure without granting the smooth surrogate evidence authority.
 - **Next action:** Build one report-only R139 solve formulation that freezes reconstruction, objective/scaling/trust, exact-versus-smooth boundary, algorithm/tolerances, resource budget, hashes and stops.
-- **Current blocker:** The real graph is intentionally unassembled and unsolved; no objective, numerical method or solve budget is frozen yet.
+- **Current blocker:** The selected method is research-only until R139 is hash-closed; the real graph remains intentionally unassembled and unsolved.
 - **Do not retry:** Never restart R123/R127/R129/R130/R136, tune a frozen tolerance, substitute a witness, or start KTO/kinodynamics/PPO/PhysX.
 - **Reconsider when:** Exact R139 `COMPLETE` may authorize only a separate report-only implementation-conformance increment, not a solve.
 
@@ -49,7 +49,7 @@ and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
 and [support-authorization decision](../humanoid-train4-support-authorization-research-2026-08-14.md)
 and [clip-global decision](../humanoid-train4-clip-global-research-2026-08-14.md)
-and [coupled-solver decision](../humanoid-train4-coupled-trajectory-research-2026-08-14.md), the [native-dynamics decision](../humanoid-train4-native-dynamics-research-2026-08-14.md), [R123 redundant-contact research](../humanoid-train4-r123-redundant-contact-research-2026-08-15.md), [R127 consistency research](../humanoid-train4-r127-constraint-consistency-research-2026-08-15.md), [R130 projected-schedule research](../humanoid-train4-r130-projected-schedule-research-2026-08-15.md), [R136 cone-feasibility research](../humanoid-train4-r136-cone-feasibility-research-2026-08-15.md), [R137 decision](../humanoid-train4-r137-fixed-mode-kinodynamic-research-2026-08-15.md), [R137 result](../humanoid-train4-r137-fixed-mode-kinodynamic-formulation-result-2026-08-15.md) and [R138 result](../humanoid-train4-r138-kinodynamic-graph-conformance-result-2026-08-15.md)
+and [coupled-solver decision](../humanoid-train4-coupled-trajectory-research-2026-08-14.md), the [native-dynamics decision](../humanoid-train4-native-dynamics-research-2026-08-14.md), [R123 redundant-contact research](../humanoid-train4-r123-redundant-contact-research-2026-08-15.md), [R127 consistency research](../humanoid-train4-r127-constraint-consistency-research-2026-08-15.md), [R130 projected-schedule research](../humanoid-train4-r130-projected-schedule-research-2026-08-15.md), [R136 cone-feasibility research](../humanoid-train4-r136-cone-feasibility-research-2026-08-15.md), [R137 decision](../humanoid-train4-r137-fixed-mode-kinodynamic-research-2026-08-15.md), [R137 result](../humanoid-train4-r137-fixed-mode-kinodynamic-formulation-result-2026-08-15.md), [R138 result](../humanoid-train4-r138-kinodynamic-graph-conformance-result-2026-08-15.md) and [R139 solve-method decision](../humanoid-train4-r139-kinodynamic-solve-research-2026-08-15.md)
 carry detailed evidence. The hashes above identify their external reports.
 
 ## Decisions that still constrain the work
