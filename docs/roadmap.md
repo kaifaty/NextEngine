@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-15 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14 имеет `204/12518` required-safety failures; R94 fresh V9 rejects `7/17`. R98–R107 exhaust bounded manual/kinematic repairs. R108–R114 close the progressive KTO/model lineage. The single R115 KTO execution is `FAIL / STOP_AND_RESEARCH`; R115-RC1 confirms the missing configuration derivative, R117 freezes the repair, and clean R118 passes exact-kernel full-q/v conformance. Only a separate report-only R119 repaired-KTO execution formulation is next. Another QP/KTO/ID/kinodynamic solve, candidate artifacts, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R2/R3 checks и Windows acceptance не изменились, performance остаётся `REPORT_ONLY`. WIP=1 — [humanoid movement training rebuild](plans/2026-08-12-humanoid-motor-training-rebuild.md): TRAIN-0..3 advanced, TRAIN-4 reopened, all TRAIN-5 checkpoints rejected. R14 имеет `204/12518` required-safety failures; R94 fresh V9 rejects `7/17`. R98–R107 exhaust bounded manual/kinematic repairs. R108–R114 close the progressive KTO/model lineage. The single R115 KTO execution is `FAIL / STOP_AND_RESEARCH`; R115-RC1 confirms the missing configuration derivative, R117 freezes the repair, R118 passes full-q/v conformance and clean R119 freezes one repaired execution. Exactly one bounded R120 repaired-KTO process is next. Every additional KTO/ID/kinodynamic solve, candidate artifact, PhysX, full all-17/V19, corpus admission, visual/exhaustive gate и learned optimizer остаются заблокированы. ADR-070 fresh-scene authority and report-only partial reset remain unchanged. TRAIN-8 optional, R4a queued, B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04 и R3b/B-06 `COMPLETE`; это не закрывает R1, B-12, Linux или paired cross-target evidence. Активный самостоятельный increment — R5 humanoid movement TRAIN-4 dynamic-reference-feasibility remediation after failed TRAIN-5 safety evidence; R4a поставлен следующим в очередь после этой bounded training lane либо явного решения остановить её. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -765,7 +765,7 @@ PPO остаются запрещены.
 
 **TRAIN-4 coupled/native trajectory research (`R115_FAIL /
 R115-RC1_LINEARIZATION_GAP_CONFIRMED / R117_COMPLETE /
-R118_PASS / R119_FORMULATION_NEXT`, 2026-08-15):**
+R118_PASS / R119_COMPLETE / R120_EXECUTION_NEXT`, 2026-08-15):**
 [coupled-solver report](development/humanoid-train4-coupled-trajectory-research-2026-08-14.md)
 фиксирует R58–R72. Weighted Gauss-Newton, hard root/joint post-projections,
 active-corridor penalties and line-search reduction were rejected because
@@ -1241,6 +1241,27 @@ All six validations pass, including solver-free import, `248/248` lab tests,
 scene, optimizer and training count is zero. Only a separate report-only R119
 repaired-KTO execution formulation is authorized. It may bind a future bounded
 execution gate, but may not itself import/run a solver or emit a candidate.
+
+Clean report-only R119 at commit `322896b` now closes that gate without loading
+OSQP. It replaces R115's `3723` analytic component rows with `1241` two-sided
+normal and `1241` upper-bounded tangent norm-squared rows: `2482` repaired rows
+and `129939` total constraints. The seven R118 scalar projections pass with
+normal nonzeros `15` and tangent nonzeros `18..20`, including `10..12` q and
+exactly `8` explicit v coefficients. Every accepted emitted anchor is fully
+rederived and must repeat the all-active/seven-anchor conformance guard before
+another QP; rejected float states are discarded. R115's direction, arrays,
+state and cache are forbidden inputs.
+
+R119 canonical/file/profile SHA-256 is
+`ac38e3f0a9dfb5e900373bc5a4908168a49f3c3b799fb431bd6e5c1306a4dd1b` /
+`e233f9dd60ba8056e55b132167e5dbd6e952781fb15bece56cbb23e62b0c1882` /
+`3b48c618cffc5494601a40ac15b04df0ffba2a1b7d6aadbdfd4309b6c167dcd1`.
+All six validations pass, including solver-free import, `253/253` lab tests,
+`56/56` motor tests and full `host-check`; every formulation execution/work
+count is zero. Exactly one new single-threaded R120 process from byte-exact V9
+is authorized, with at most `12` QPs, `72` exact audits, four hours and
+`16 GiB`. No restart, additional solve, candidate, PhysX or training is
+authorized.
 
 Ни исправленный BodySchema, ни trainer launch, ни checkpoint не меняют статус
 Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN`, пока не опубликован
@@ -2016,7 +2037,7 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    native ABI-4 lineage, R112 closes static USD/Isaac material lineage, and R113
    closes whole-model identity. R114 freezes one bounded R115 KTO run; R115
    fails, R115-RC1 diagnoses its omitted q derivative, R117 freezes the repair,
-   and R118 passes its full-q/v conformance. R119 formulation is next. До exact-zero fresh/
+   R118 passes full-q/v conformance and R119 freezes one R120 execution. До exact-zero fresh/
    full-corpus/native/visual/exhaustive gates, `Advance` и PPO запрещены.
    No training quality, Stage 0 or R5 completion is claimed here.
 8. **R4a derived calendar + relay-keeper routine (`PLANNED / QUEUED`):** promote

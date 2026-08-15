@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R115_FAIL / R115-RC1_COMPLETE / R117_COMPLETE / R118_PASS / R119_FORMULATION_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R115_FAIL / R115-RC1_COMPLETE / R117_COMPLETE / R118_PASS / R119_COMPLETE / R120_EXECUTION_NEXT` |
 | Updated | 2026-08-15 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before learned optimizer work |
@@ -11,18 +11,18 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean R118 passes exact-kernel full-q/v conformance;
-  R115 remains immutable `FAIL` and no repaired KTO execution has occurred.
-- **Why:** All `1241` active point-frames and seven deterministic Jacobian
-  anchors pass, including neighbor yaw, explicit v and tangent-chain checks.
-- **Next action:** Freeze one separate report-only R119 repaired-KTO execution
-  formulation; do not import/run OSQP, solve, build a candidate or run a scene.
-- **Current blocker:** The bounded repaired execution/acceptance contract is not
-  yet independently frozen; dynamic feasibility remains downstream.
+- **Current conclusion:** Clean R119 freezes one repaired R120 execution;
+  R115 remains immutable `FAIL` and no repaired KTO solve has occurred yet.
+- **Why:** R119 binds `2482` repaired contact rows, emitted-anchor rebasing,
+  per-anchor conformance guards, exact restoration and one-process budgets.
+- **Next action:** Implement/preflight R120, then execute its sole authorized
+  KTO process only if every pre-solver discriminator passes; run no scene.
+- **Current blocker:** R120 integration and preflight do not yet exist, so
+  repaired-KTO feasibility remains unknown.
 - **Do not retry:** Do not rerun R115, start PPO/ID/PhysX, change boundaries,
   zero velocities, add grace/settling, tune controller, or loosen limits.
-- **Reconsider when:** R119 hash-closes one bounded execution contract and its
-  exact stop/acceptance/resource rules without running a solve.
+- **Reconsider when:** The sole R120 returns exact PASS, exact FAIL or invalid
+  preflight under the immutable R119 stop/acceptance/resource rules.
 
 All TRAIN-5 checkpoints remain rejected. No learned optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -40,10 +40,10 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R115-RC1/R117/R118 repair lineage | R115 `FAIL`; RC1 finds q nonzeros `0` versus exact sensitivity `9/9`; R117 freezes the repair. R118 `PASS`, canonical `23d9d556d8be630f7f2e9fe9907f394b74186ef545d0c46f7484f0efc1df45ca`: `1241/1241` point-frames and `7/7` Jacobian anchors pass; zero QP/KTO/scene/candidate | Permit only a separate report-only R119 execution formulation |
+| R115-RC1/R117–R119 repair lineage | R115 `FAIL`; RC1 finds q gap; R117 freezes repair; R118 `PASS` on `1241/1241` point-frames and `7/7` anchors. R119 `COMPLETE`, canonical `ac38e3f0a9dfb5e900373bc5a4908168a49f3c3b799fb431bd6e5c1306a4dd1b`: `2482` repaired rows, `129939` total; zero QP/KTO/scene/candidate | Permit exactly one bounded R120 repaired-KTO process |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R113/R114-v2/R115/R115-RC1/R117/R118 canonical SHA-256: `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4` / `b7baa0f4337597c1c61748255535d1102bbff35d0ce560a8a661ed6be7685433` / `5edfe0613e2e4f9327cd1bfb6922c96e84ce8056144b05f9617787de0f883475` / `b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7` / `23d9d556d8be630f7f2e9fe9907f394b74186ef545d0c46f7484f0efc1df45ca`.
+R113/R114-v2/R115/R115-RC1/R117/R118/R119 canonical SHA-256: `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4` / `b7baa0f4337597c1c61748255535d1102bbff35d0ce560a8a661ed6be7685433` / `5edfe0613e2e4f9327cd1bfb6922c96e84ce8056144b05f9617787de0f883475` / `b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7` / `23d9d556d8be630f7f2e9fe9907f394b74186ef545d0c46f7484f0efc1df45ca` / `ac38e3f0a9dfb5e900373bc5a4908168a49f3c3b799fb431bd6e5c1306a4dd1b`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -179,16 +179,16 @@ carry detailed evidence. The hashes above identify their external reports.
   integer poses. The adapter has no runtime or corpus-admission authority.
 - **Uncertainty:** Whether kernel-identical quantization-aware KTO can make
   nonzero progress while the emitted complete clip remains exact-zero feasible.
-- **Reconsider when:** Report-only R119 freezes a bounded repaired execution;
+- **Reconsider when:** The one R120 repaired execution reaches an exact result;
   R115 itself cannot be retried or reinterpreted.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 requires fixed-PD effort/point forces | R115 failed before dynamics; R118 repairs only conformance | Keep ID blocked; formulate R119 only |
+| H22: V9 is kinematically safe but dynamically too demanding for fixed PD | R108 requires fixed-PD effort/point forces | R115 failed before dynamics; R119 now repairs the execution contract | Keep ID blocked; execute only R120 |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R115 makes V7 progress; RC1 finds missing q derivative; R118 passes repair conformance | 240 Hz effort state remains untested | Freeze R119 without a solve |
+| H24/H26: nonlocal coupling is hidden between motor samples | R115 makes V7 progress; RC1 finds missing q derivative; R118/R119 close repair | 240 Hz effort state remains untested | Run sole R120 discriminator |
 | H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
 
 ## Required context
@@ -217,10 +217,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R118, R115-RC1 and all superseded reports.
+1. Freeze clean R73–R119, R115-RC1 and all superseded reports.
 2. Record R115 consumed/failed; never rerun or reinterpret it.
-3. Formulate report-only R119 repaired-KTO execution and exact stop rules.
-4. Run no QP/KTO/ID/kinodynamic solve, candidate, PhysX scene or all-17.
+3. Implement and preflight R120; execute its one authorized repaired KTO only.
+4. Run no additional KTO/ID/kinodynamic solve, candidate, scene or all-17.
 
 ## Do not retry
 
@@ -238,13 +238,13 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R115 immutable FAIL and clean R115-RC1/R117/R118 exist;
-  tracked research records R73–R118. Reports are external/hash-bound.
-- **Checks:** Full lab `248/248`; R118 six validations PASS with zero new
+- **Workspace state:** R115 immutable FAIL and clean R115-RC1/R117–R119 exist;
+  tracked research records R73–R119. Reports are external/hash-bound.
+- **Checks:** Full lab `253/253`; R119 six validations PASS with zero new
   QP/KTO/cache/candidate/PhysX/ID/learned/training work.
 - **Remaining risk:** kernel-identical KTO and dynamic feasibility,
   full-corpus exact-zero coverage and visual review remain open.
-- **Execution authority:** R119 formulation only; every new solve is blocked.
+- **Execution authority:** Exactly one R120 repaired KTO; every other solve blocked.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.
