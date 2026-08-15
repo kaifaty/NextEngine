@@ -1,0 +1,243 @@
+{
+  "schema_version": 1,
+  "execution_id": "nextengine.humanoid-exit-mode-owned-projected-schedule.v1",
+  "status": "FrozenSingleReportOnlyExecution",
+  "claim": "ExitModeOwnedFullProjectedFixedPdScheduleOnly",
+  "source": {
+    "r132": {
+      "report_sha256": "9afd566adaa81de573462bf083948f8b1f49b0fc023c76726afb403e906e19d6",
+      "report_file_sha256": "657ed7216f7fcf59a0f1e5b06e6068f4383fe1425418922ed3e115c36517d2c5",
+      "profile_sha256": "87b09fdf857c8b096898536f34909f5ba8c8eff3ffdb42f8baa61e6afa35937a",
+      "module_sha256": "510a84a8dc46b6af5ec7e03f4419b9c6a08043c0ed3b67f0bdffc874e59f151b",
+      "tool_sha256": "95a2e75e091075b81d7c789537c28f7a48ad27730281ccfd9a4ff244301c7a4c",
+      "repository_commit": "5c4cb55d910e862cbb9f7e683d6677b0b1640ae8"
+    },
+    "r129": {
+      "report_sha256": "b34eb4727165e9b16ef82f597138fde33993c12efa8e3177776254237c6fbb99",
+      "report_file_sha256": "490b32f67c98d07d9daf0fe9c301372d69b8b85774227658b942b05210531829",
+      "profile_sha256": "d25557c5a07cc243570c1a2b57d9ecb6c8c9ac12bdd31c1ec950f4cfbfc4a376",
+      "projection_module_sha256": "c7ecd5980ded26d9cddfabce9a941fd737516338d3e211094618888353cffe2d",
+      "tool_sha256": "2d69e8d57d7877dc3e37e40ac7295df1e741d3aed9587a19b0e1fd8fcc2bf21f"
+    },
+    "r130": {
+      "report_sha256": "acd92a581a732c293cc9440d4215702fdf356f614c150ec4886d82a2fb197955",
+      "report_file_sha256": "422a9b54d44ca10297927ccccb54eb541b4fc23cc2c778c34e98d5b55d07ea72",
+      "profile_sha256": "f10f557dd93d47f192f20d321052d309455cf54ba657bafc2829e7700fd2825f",
+      "execution_module_sha256": "a6b8945ab8550ce9aaae5b28b5a52237dcd3d56de3785fe4cf77c2f12580122e",
+      "repository_commit": "4dbd0ac9b36887dad40d61a407b1e5122273d54c"
+    },
+    "r121": {
+      "report_sha256": "4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3",
+      "report_file_sha256": "5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7",
+      "profile_sha256": "9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93"
+    },
+    "r113": {
+      "report_sha256": "3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf",
+      "report_file_sha256": "de584af485e789a19e457708cf154193c5d870dd1deb8ee29a61b6abddb6541c",
+      "profile_sha256": "fa52cf18be25144893fb1d4da57bbae2fc2056d00d13e4bac012276ccc8cdf5d"
+    },
+    "r120": {
+      "report_sha256": "dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b",
+      "report_file_sha256": "35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc",
+      "profile_sha256": "3dfa2f1b8357cd3452481c9518e8d1ca0ce5c0bb664b3a024fc5ce2653837d55",
+      "cache_sha256": "e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5"
+    },
+    "v9_complete_clip_sha256": "16cacfc0d6a5a57a7e2e2fad75faef1681e9b17c02cd3b78bafc7bb4ed3b5b7d",
+    "collocation_lift_module_sha256": "81f436bb0ad21e683508e9d4e518c8f01fee4316707fd74ab4e805be28dba906",
+    "dynamics_kernel_sha256": "220e2db2113196031082eb9fa0b7e3d8614582438da7aaee3f2b6a986bac2a02",
+    "current_descriptor_file_sha256": "7928fe23affaf9dd16a0c82db1d7da85e61af2ad0f071f9423c6df1121ba50a3",
+    "execution_module_sha256": "60dbf107a19c795d6c6ffcbbecc4bf0db81dcf0c5efa5adc6a1a43f6d35f0c15",
+    "tool_sha256": "427bc05222dc767da3285a58815fa6fa1275ebd6bd3945e43fcb1a89df18f156"
+  },
+  "scope": {
+    "run_id": "R133",
+    "clip_id": "cmu16-walk-nominal-b",
+    "motor_interval_count": 800,
+    "collocation_count": 3200,
+    "maximum_projection_systems": 2640,
+    "maximum_controller_schedule_derivations": 1,
+    "inverse_dynamics_system_assemblies": 0,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "expected_inventory": {
+    "flight_collocations": 560,
+    "single_point_collocations": 324,
+    "flat_foot_collocations": 2316,
+    "active_point_collocations": 4956,
+    "projection_systems": 2640,
+    "projection_factorizations": 2640,
+    "projection_solves": 2640,
+    "changed_base_velocity_rows": 27,
+    "r132_anchor_rows": 36
+  },
+  "edge_lift_contract": {
+    "name": "exit_mode_owned_left_velocity_trace_hold",
+    "exit_intervals": [76, 165, 244, 337, 412, 501, 575, 676, 744],
+    "selected_rows": "all four substeps use exact left-knot R120 generalized velocity",
+    "ordinary_rows": "retain byte-identical R121 affine generalized velocity",
+    "configuration": "retain byte-identical R121 collocation configuration",
+    "contact_schedule": "retain exact V9 modes and R113 active point identity",
+    "projection": "reuse exact R129 mass-metric tangent projection and numeric guards",
+    "target_gains_limits": "retain exact R121/R130 position-only target and current descriptor controller contract",
+    "kinematic_derivative_identity": "NOT_CLAIMED",
+    "discrete_integration_constraint": "ABSENT",
+    "impact_or_release_impulse": "NOT_MODELLED"
+  },
+  "numeric_contract": {
+    "float_dtype": "float64",
+    "rank_revealing_relative_null_maximum": 1e-12,
+    "rank_revealing_relative_retained_minimum": 1e-10,
+    "maximum_mass_matrix_relative_symmetry": 1e-10,
+    "maximum_active_point_velocity_absolute_metres_per_second": 1e-10,
+    "maximum_scaled_kkt_residual": 1e-10,
+    "maximum_closed_form_to_kkt_absolute": 1e-10,
+    "maximum_projection_idempotence_error": 1e-10,
+    "maximum_mass_orthogonality_relative_error": 1e-10,
+    "maximum_kinetic_energy_increase_joules": 1e-12,
+    "maximum_gauge_velocity_effect_absolute": 1e-10,
+    "maximum_flat_rigid_line_compatibility_metres_per_second_squared": 1e-10,
+    "ambiguity_policy": "FAIL_WITHOUT_THRESHOLD_TUNING_OR_RETRY"
+  },
+  "controller_lineage_contract": {
+    "target_soft_clamp_count": 0,
+    "target_soft_clamp_dof_ordinals": [],
+    "target_slew_count": 1,
+    "target_slew_dof_ordinals": [6],
+    "maximum_target_lag_microradians": 1672.0
+  },
+  "acceptance_contract": {
+    "required_projection_rows": 3200,
+    "required_projection_status": "PASS",
+    "required_changed_base_velocity_rows": 27,
+    "required_r132_anchor_rows_reproduced": 36,
+    "required_schedule_status": "PASS",
+    "required_hard_rom_violation_count": 0,
+    "required_velocity_violation_count": 0,
+    "required_infeasible_effort_envelope_count": 0,
+    "required_applied_target_float64_sha256": "195810f7e9c20b15ec6ddf165c8873f905a96414fe055a0dae7a2b45382be1a3",
+    "required_controller_event_address_closure": true,
+    "required_controller_schedule_derivations": 1,
+    "inverse_dynamics": "FORBIDDEN",
+    "failure_policy": "STOP_AND_RESEARCH_WITHOUT_R133_RETRY_OR_DOWNSTREAM_EXECUTION"
+  },
+  "execution_budget": {
+    "process_count": 1,
+    "thread_count": 1,
+    "maximum_projection_systems": 2640,
+    "maximum_projection_factorizations": 2640,
+    "maximum_projection_solves": 2640,
+    "maximum_controller_schedule_derivations": 1,
+    "maximum_wall_clock_seconds": 7200,
+    "maximum_resident_memory_bytes": 8589934592,
+    "random_seed": 0,
+    "randomized_restart_count": 0,
+    "resume_or_warm_restart": "FORBIDDEN",
+    "manual_intervention": "FORBIDDEN"
+  },
+  "single_thread_environment": {
+    "BLIS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "decision": {
+    "pass": "PERMIT_SEPARATE_REPORT_ONLY_R134_PROJECTED_INVERSE_DYNAMICS_FORMULATION_ONLY",
+    "fail": "STOP_AND_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "result_transitions": {
+    "pass": "R133_PASS_R134_FORMULATION_ONLY",
+    "fail": "R133_FAIL_RESEARCH_WITHOUT_EXECUTION"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/exit_mode_owned_projected_schedule_execution.py",
+        "lab/scripts/execute_exit_mode_owned_projected_schedule.py",
+        "lab/tests/test_exit_mode_owned_projected_schedule_execution.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/exit_mode_owned_projected_schedule_execution.py",
+        "lab/scripts/execute_exit_mode_owned_projected_schedule.py",
+        "lab/tests/test_exit_mode_owned_projected_schedule_execution.py"
+      ]
+    },
+    {
+      "id": "single_thread_import",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "from next_lab.exit_mode_owned_projected_schedule_execution import _linux_thread_count; assert _linux_thread_count() == 1"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "BLIS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1",
+        "NUMEXPR_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "PYTHONPATH": "lab",
+        "VECLIB_MAXIMUM_THREADS": "1"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": ["cargo", "test", "-p", "next_motor"]
+    },
+    {
+      "id": "host_check",
+      "arguments": ["cargo", "run", "-q", "-p", "xtask", "--", "host-check"]
+    }
+  ],
+  "bounded_acceptance": {
+    "r133_retry": "NOT_AUTHORIZED",
+    "r134_projected_inverse_dynamics_formulation": "AUTHORIZED_ON_R133_PASS_ONLY",
+    "additional_projected_schedule_execution": "NOT_AUTHORIZED",
+    "inverse_dynamics_execution": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
