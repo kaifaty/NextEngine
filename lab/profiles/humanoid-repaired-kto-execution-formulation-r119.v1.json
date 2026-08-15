@@ -1,0 +1,327 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-repaired-kto-execution-formulation.v1",
+  "status": "FrozenReportOnly",
+  "claim": "RepairedExactKernelKtoExecutionFormulationOnly",
+  "source": {
+    "r118": {
+      "report_sha256": "23d9d556d8be630f7f2e9fe9907f394b74186ef545d0c46f7484f0efc1df45ca",
+      "report_file_sha256": "f4d186a476c6bb73f1f001ac6e991088b7563d2aeeca49f63db6e872afb7e861",
+      "profile_sha256": "d97340714757c1ead27b9f571332f926690104a89fed8a2d3a6ef357c9de88f3",
+      "conformance_module_sha256": "1eb2016c467f3505b2a0834c8d3c83b142b963f317644ceaa9d106ae3a269ede",
+      "tool_sha256": "0b22d1360985289ced647d60703f7cea9a6be8e7d58d0871ba8db2053a9869d9",
+      "repository_commit": "990f1e9045d045ba6586962e751980a0a6c8649d"
+    },
+    "r117": {
+      "report_sha256": "b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7",
+      "report_file_sha256": "f32f31d895ed26f1f7ec842b2125ce0329a0d5802435aaebc5973d198dc06ed4",
+      "profile_sha256": "eaabc22958324504756d95239ceefec3597523cf01e2d3c8633d6942db23da55",
+      "formulation_module_sha256": "ca6f6d63968955eabbd14683db4a6c108e1269bc788d84c5381ac9fe48d41973",
+      "tool_sha256": "d96cf61509fdebfa96ca97f5b3b0f6a85470b5f46fdefe97e598fc912f4cd09a",
+      "repository_commit": "41b72395d7a7f6c5c4eb2b8f19bcb86dbc594321"
+    },
+    "r114": {
+      "formulation_revision": 2,
+      "report_sha256": "7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4",
+      "report_file_sha256": "2666a275180b222c014eea91051ff4d3ebdb16a5740eb742ed2cca3a83b3d958",
+      "profile_sha256": "8e26b84de2a25e07d19cd93400bc8c04a6bc4840fb9a4d8eb6ab88237db59a43",
+      "formulation_module_sha256": "7651d5e370bac5ecc19d0cfaa05c730e0825376c5b76a921714c453cb68baef9",
+      "tool_sha256": "a9e00a10d63bf112fec37a8b48a308dc3a17fc320f17a7dd44be46a6f159654a",
+      "repository_commit": "8b0ffc998dbed63ea37f07ca79d7dbe21f8dfc8f"
+    }
+  },
+  "scope": {
+    "run_id": "R119",
+    "clip_id": "cmu16-walk-nominal-b",
+    "frame_count": 801,
+    "decision_scalar_count": 69687,
+    "repaired_execution_formulations": 1,
+    "qp_solves": 0,
+    "kto_solves": 0,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "inheritance_contract": {
+    "authority": "the exact hash-bound R114 revision-2 contract remains authoritative except for the four R117 repair-boundary items proven by R118",
+    "replaced_only": [
+      "analytic contact continuous function",
+      "complete analytic contact q/v derivative and scalar chain rule",
+      "nonlinear iterate bridge/restoration globalization",
+      "analytic contact row diagnostics"
+    ],
+    "unchanged": [
+      "all 801 knots and 69687 floating-base plus 23-joint q/v/a scalars",
+      "the V9 initialization, complete contact schedule, V7 progress prior and endpoint identity",
+      "the 60 Hz hybrid q-to-v and v-to-a stencil and continuous-V9 yaw branch",
+      "collider, ROM, finite-contact, root-velocity and joint-velocity constraints",
+      "integer quantization, quaternion canonicalization and dependent-array rederivation",
+      "objective terms, scales, weights, variable trust bounds and public acceptance limits",
+      "fixed controller, gains, effort caps, safety limits and ADR-070 fresh-scene authority",
+      "single-threaded pinned runtime and the 4-hour/16-GiB resource ceilings"
+    ],
+    "forbidden": [
+      "reuse or reconstruction of the R115 QP direction, floating iterate or candidate arrays",
+      "R115 warm start, resume, randomized restart or a V7 splice",
+      "component-box analytic tangent rows or generic frame-Jacobian substitution",
+      "public-limit margin, grace, settling, post-emission repair or controller change"
+    ]
+  },
+  "repaired_contact_row_contract": {
+    "active_point_frame_count": 1241,
+    "retired_r115_component_row_count": 3723,
+    "normal_row_count": 1241,
+    "tangential_norm_squared_row_count": 1241,
+    "replacement_row_count": 2482,
+    "resulting_total_constraint_row_count": 129939,
+    "normal_linearization": "-0.06 - vy0 <= Jy * delta_x <= 0.06 - vy0, with one two-sided row per active point-frame",
+    "normal_row_scale": 0.06,
+    "tangential_function": "g(x) = vx(x)^2 + vz(x)^2",
+    "tangential_linearization": "2 * (vx0 * Jx + vz0 * Jz) * delta_x <= 0.12^2 - (vx0^2 + vz0^2), with one upper-bounded row per active point-frame",
+    "tangential_row_scale": 0.0144,
+    "vector_function": "the exact R118 physical-unit yaw-plus-six-leg contact function",
+    "vector_derivative": "the R118-conformant deterministic symmetric whole-function q/v derivative",
+    "derivative_probes": {
+      "root_translation_metres": 0.00001,
+      "root_orientation_radians": 0.0001,
+      "joint_position_radians": 0.0001,
+      "root_linear_velocity_metres_per_second": 0.00001,
+      "root_angular_velocity_radians_per_second": 0.0001,
+      "joint_velocity_radians_per_second": 0.0001,
+      "exact_kernel_lever_radians": 0.0001
+    },
+    "coefficient_elision_absolute_physical": 1e-14,
+    "global_column_mapping": [
+      "current-knot root translation, world-tangent root orientation and all 23 joint configurations",
+      "world-tangent root orientation at every distinct hybrid-yaw stencil source knot",
+      "current-knot engine-world root linear/angular velocity and all 23 joint velocities"
+    ],
+    "independently_zero_columns": "root angular velocity and unrelated joint velocities remain explicit zero contact columns; q-to-v constraints remain unchanged",
+    "finite_contact_rows": "the separate emitted-position finite normal/tangent rows remain unchanged and are not replaced by these analytic rows",
+    "forbidden": [
+      "the R115 vx/vz component box",
+      "a sqrt or norm derivative at zero",
+      "velocity-only analytic rows",
+      "dropping neighbor orientation columns",
+      "continuous feasibility as final acceptance"
+    ]
+  },
+  "anchor_rebase_contract": {
+    "initial_anchor": "byte-exact V9 complete clip; no R115 state is an input",
+    "local_coordinates": "each QP step is expressed about the current accepted emitted-and-rederived integer anchor while global V9 trust/endpoint bounds remain absolute",
+    "zero_perturbation_identity": "seed the continuous function with the current anchor's exact emitted root-linear, root-yaw and joint velocities plus geometry, not a freshly reconstructed V9 yaw-rate stencil",
+    "yaw_delta": "apply the frozen hybrid stencil only to continuous nearest-branch orientation deltas local to the current anchor",
+    "accepted_rebase": "ties-to-even quantize q, canonicalize quaternion, lift yaw on the nearest continuous V9 branch, rederive every v/a/FK/collider/contact fact, then rebuild the local function and derivative at zero",
+    "rejected_state": "discard every unaccepted float and emitted state before the next decision"
+  },
+  "nonlinear_execution_contract": {
+    "single_execution": "R120 is one new repaired-KTO process from V9, not a retry or continuation of R115",
+    "major_iteration": "at the current accepted emitted anchor, pass the local conformance guard, build exactly one repaired QP, solve it once, and audit the frozen fractions in order",
+    "local_conformance_guard": "before every QP setup, reproduce all-active zero-perturbation exact-kernel identity and the seven R118 whole-function derivative discriminators around the current emitted anchor",
+    "line_search_fractions": [
+      "1",
+      "1/2",
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32"
+    ],
+    "termination_priority": "the first exact emitted all-gate PASS with strict nonzero integer V7 progress terminates successfully",
+    "single_bridge": {
+      "maximum_count": 1,
+      "eligibility": "strict V7 progress and every exact gate except analytic tangent PASS",
+      "selection": "minimize (maximum analytic tangent excess micrometres, negative V7 improvement basis points, fraction ordinal)",
+      "historical_r115_fraction": "metric-only discriminator; 1/32 and its arrays/direction are never execution inputs"
+    },
+    "restoration_filter": {
+      "funnel": "lexicographic (maximum, sum) of positive exact emitted analytic-tangent excess divided by 2000 over active points",
+      "acceptance": "preserve strict V7 progress and every non-analytic exact gate, then require strict lexicographic funnel decrease",
+      "selection": "minimize (new funnel maximum, new funnel sum, negative V7 improvement basis points, fraction ordinal)",
+      "no_eligible_fraction": "STOP_AND_RESEARCH"
+    },
+    "maximum_major_iterations_reached": "STOP_AND_RESEARCH",
+    "infeasible_or_resource_exhausted": "STOP_AND_RESEARCH",
+    "invalid_identity_or_preflight": "STOP_INVALID_EVIDENCE with zero solver counts",
+    "invalid_reanchor_conformance": "STOP_INVALID_EVIDENCE with no further QP and exact already-consumed counters preserved"
+  },
+  "pre_solver_contract": {
+    "conformance_tolerances": {
+      "function_identity_absolute_micrometres_per_second_per_component": 1.0,
+      "jacobian_absolute_micrometres_per_second_per_variable_unit": 5.0,
+      "jacobian_relative": 0.0001,
+      "configuration_nonzero_micrometres_per_second_per_radian": 1.0,
+      "tangent_chain_rule_absolute_square_metres_per_square_second_per_unit": 0.000005
+    },
+    "required_before_first_osqp_setup": [
+      "validate exact R114/R117/R118 report, profile, implementation and repository identities",
+      "prove R115 arrays, direction, cache and execution report are not runtime inputs",
+      "reproduce the R118 V9 all-active identity and seven-anchor derivative discriminators",
+      "build exactly 2482 repaired analytic contact rows and 129939 total rows with finite coefficients and ordered bounds",
+      "report total matrix nonzeros plus per-category row/nonzero counts without treating count alone as correctness",
+      "prove zero-state exact emission reproduces V9 and no lower bound exceeds its upper bound",
+      "enforce the pinned one-thread deterministic environment and resource limits"
+    ],
+    "failure": "STOP_INVALID_EVIDENCE with qp_solves=0, kto_solves=0 and no output cache or candidate"
+  },
+  "execution_budget": {
+    "solver_family": "deterministic sparse sequential quadratic programming with OSQP subproblems",
+    "runtime_versions": {
+      "python": "3.12",
+      "numpy": "2.5.2",
+      "scipy": "1.18.0",
+      "osqp": "1.1.3"
+    },
+    "thread_count": 1,
+    "kto_process_count": 1,
+    "kto_solve_count": 1,
+    "maximum_major_iterations": 12,
+    "maximum_qp_solves": 12,
+    "maximum_osqp_iterations_per_subproblem": 100000,
+    "osqp_absolute_tolerance": 0.00001,
+    "osqp_relative_tolerance": 0.00001,
+    "osqp_polishing_enabled": true,
+    "osqp_adaptive_rho_enabled": true,
+    "line_search_fractions": [
+      "1",
+      "1/2",
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32"
+    ],
+    "maximum_exact_emission_audits": 72,
+    "maximum_wall_clock_seconds": 14400,
+    "maximum_resident_memory_bytes": 17179869184,
+    "random_seed": 0,
+    "randomized_restart_count": 0,
+    "resume_or_warm_restart": "FORBIDDEN",
+    "manual_intervention": "FORBIDDEN"
+  },
+  "required_diagnostics": {
+    "pre_solver": [
+      "source and implementation hashes",
+      "variable, total-row, per-category row and nonzero counts",
+      "V9 zero-state function/Jacobian conformance summary",
+      "zero-state exact emission and bound-consistency result"
+    ],
+    "per_major_iteration": [
+      "accepted anchor number and emitted-array hashes without payloads",
+      "QP dimensions, nonzeros, status, iterations and primal/dual residual",
+      "bridge-used flag and exact funnel before/model/after",
+      "all six fraction outcomes in frozen order with modeled and actual reductions"
+    ],
+    "per_contact_hotspot": [
+      "frame, side, point and normal/tangent row identity",
+      "baseline vector velocity, q/v nonzero counts and derivative norms",
+      "QP-predicted, continuous evaluated and emitted exact scalar values",
+      "selected fraction and modeled-versus-actual reduction"
+    ],
+    "outputs": {
+      "exact_pass": "metrics report plus at most one external transient solver-private q/v/a cache bound to emitted-array hashes",
+      "exact_fail": "metrics report only",
+      "candidate_artifact": "FORBIDDEN",
+      "physx_scene": "FORBIDDEN"
+    }
+  },
+  "result_transitions": {
+    "r119_complete": "PERMIT_R120_SINGLE_BOUNDED_REPAIRED_KTO_EXECUTION_ONLY",
+    "r120_exact_pass": "PERMIT_SEPARATE_REPORT_ONLY_R121_FIXED_PD_INVERSE_DYNAMICS_EXECUTION_FORMULATION_ONLY",
+    "r120_exact_fail": "STOP_AND_RESEARCH",
+    "r120_invalid": "STOP_INVALID_EVIDENCE"
+  },
+  "bounded_acceptance": {
+    "r120_repaired_kto_execution": "AUTHORIZED_ONE_IN_MEMORY_EXECUTION_ONLY_ON_R119_COMPLETE",
+    "r120_solver_private_warm_start_cache": "AUTHORIZED_ONLY_ON_R120_EXACT_PASS",
+    "additional_kto_solve": "NOT_AUTHORIZED",
+    "r116_inverse_dynamics_formulation": "NOT_AUTHORIZED",
+    "r121_inverse_dynamics_formulation": "NOT_AUTHORIZED_UNTIL_R120_EXACT_PASS",
+    "inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/repaired_kto_execution_formulation.py",
+        "lab/scripts/formulate_repaired_kto_execution.py",
+        "lab/tests/test_repaired_kto_execution_formulation.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/repaired_kto_execution_formulation.py",
+        "lab/scripts/formulate_repaired_kto_execution.py",
+        "lab/tests/test_repaired_kto_execution_formulation.py"
+      ]
+    },
+    {
+      "id": "solver_free_import",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; import next_lab.repaired_kto_execution_formulation; assert 'osqp' not in sys.modules; assert 'next_lab.quantization_aware_kto_solver' not in sys.modules; assert 'next_lab.quantization_aware_kto_execution' not in sys.modules"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "decision": {
+    "complete": "PERMIT_R120_SINGLE_BOUNDED_REPAIRED_KTO_EXECUTION_ONLY",
+    "next_smallest_action": "implement and preflight the exact R119 contract, then execute one R120 repaired-KTO process with at most twelve QP subproblems; emit metrics only and run no PhysX scene"
+  }
+}
