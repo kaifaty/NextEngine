@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R123_INVALID / R127_INVALID / R130_INVALID / R133_PASS / R134_COMPLETE / R135_CONFORMANCE_NEXT` |
+| Status | `R123_INVALID / R127_INVALID / R130_INVALID / R133_PASS / R134_COMPLETE / R135_PASS / R136_EXECUTION_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -1577,7 +1577,7 @@ research authority and confirms the actuator conflict plus contact-exit
 hotspots. R131 consumes its formulation authority and selects the bounded
 nine-exit lift. R132 consumes and passes its `36`-row conformance authority;
 R133 consumes and passes the sole full projected-schedule authority; R134
-consumes and completes its formulation authority. Neither can retry. Only
-report-only R135 implementation conformance is authorized; numeric R136
-ID/kinodynamic execution, R124, candidate construction, PhysX and training
-remain forbidden.
+consumes and completes its formulation authority; R135 consumes and passes
+its report-only composition-conformance authority. None can retry. Exactly one
+bounded R136 pointwise ID execution is authorized; R124, kinodynamic candidate
+construction, PhysX and training remain forbidden.

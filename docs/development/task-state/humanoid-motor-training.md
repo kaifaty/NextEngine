@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R130_INVALID / R133_PASS / R134_COMPLETE / R135_CONFORMANCE_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R130_INVALID / R133_PASS / R134_COMPLETE / R135_PASS / R136_EXECUTION_NEXT` |
 | Updated | 2026-08-15 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before learned optimizer work |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R134 hash-closes the R133 projected q/v/effort lineage and the R126 gauge-aware `29/32/35` inverse-dynamics composition without executing it.
-- **Why:** The formulation accounts for `3200` systems, `107668` equality rows, `4956` point cones and `2316` exact force gauges; R120 acceleration is explicitly scale/diagnostic-only, never an equality input.
-- **Next action:** Implement only report-only R135 composition conformance with synthetic or static source checks and zero real state/projection/schedule/ID execution.
+- **Current conclusion:** R135 passes the report-only composition conformance and permits exactly one bounded R136 projected inverse-dynamics execution.
+- **Why:** Independent block/SVD/gauge/hash oracles pass, warm acceleration changes only column scale, and all R133 source-array hashes match; every real numeric counter remains zero.
+- **Next action:** Implement, validate, commit and execute the sole R136 from a clean tree; reconstruct R133 once, hash-check all four arrays before the first ID system, then classify all `3200` collocations.
 - **Current blocker:** Dynamic equality and friction-cone feasibility of the projected q/v plus applied-effort lineage is still unknown; `qdot=v`, release impulse and integrated feasibility remain unclaimed.
 - **Do not retry:** Never restart R123/R127/R129/R130, tune a frozen tolerance, substitute a witness, or start KTO/kinodynamics/PPO/PhysX.
-- **Reconsider when:** R135 proves the implementation composes R133 state/effort with R126 dynamics without warm-acceleration leakage.
+- **Reconsider when:** R136 returns a valid complete feasibility map; feasible and infeasible outcomes lead to different separately authorized research branches.
 
 All TRAIN-5 checkpoints remain rejected. No learned optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -34,12 +34,13 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R130–R134 | R130 is `INVALID`; R131–R133 close the contact-exit actuator defect; R134 canonical `17d696166a05a24bd50a545ca31e4aabd15a72ed49444a09983c472ff6b13783` freezes the projected ID composition with zero numeric systems | Permit only R135 implementation conformance; keep R136 execution and downstream blocked |
+| R130–R135 | R130 is `INVALID`; R131–R133 close its actuator defect; R134 freezes projected ID composition; R135 canonical `21fd15693ad092158a9f1fd9d8d8f717cbea26eb38fdca6cd321b61ccc7b7525` passes synthetic/API conformance with zero real systems | Permit exactly one R136 pointwise execution; keep every downstream action blocked |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-Current R133/R134 canonical SHA-256:
+Current R133/R134/R135 canonical SHA-256:
 `f1fad2ca3c7abd49acaefd9fcd37873d02fb1d289a3081fd2039b0b1192fd3b6` /
-`17d696166a05a24bd50a545ca31e4aabd15a72ed49444a09983c472ff6b13783`.
+`17d696166a05a24bd50a545ca31e4aabd15a72ed49444a09983c472ff6b13783` /
+`21fd15693ad092158a9f1fd9d8d8f717cbea26eb38fdca6cd321b61ccc7b7525`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
@@ -175,8 +176,8 @@ carry detailed evidence. The hashes above identify their external reports.
   integer poses. The adapter has no runtime or corpus-admission authority.
 - **Uncertainty:** Whether projected q/v and the passing applied-effort schedule
   satisfy inverse-dynamics equality and friction cones remains unknown.
-- **Reconsider when:** R135 implementation conformance authorizes one bounded
-  projected inverse-dynamics execution.
+- **Reconsider when:** The sole R136 returns a valid complete pointwise
+  feasibility map.
 
 ## Open hypotheses
 
@@ -187,7 +188,7 @@ carry detailed evidence. The hashes above identify their external reports.
 | H24/H26: nonlocal coupling is hidden between motor samples | R122 reproduces the affine 240 Hz lift and local dynamics identities | Integrated dynamics remains untested | Keep blocked; invalid R123 cannot authorize R124 |
 | H27: flat-foot point multipliers are structurally redundant | R123-RC1/R126 close gauge handling; R129 closes tangent projection | R127-RC1 proves a separate off-manifold q/v defect | Closed within exact claim |
 | H28: affine q/v lift across contact exit causes actuator-invalid late projection | R132 lowers every changed-row correction; R133 passes the complete projected schedule with zero unsafe categories | The claim remains schedule-local and proves no integrated dynamics | Closed within the fixed-PD schedule claim |
-| H29: the projected schedule is pointwise dynamically feasible | R122/R126 conform the kernel/solver; R133 closes actuator inputs; R134 freezes their exact composition | No projected inverse-dynamics system has been assembled or solved | R135 implementation conformance |
+| H29: the projected schedule is pointwise dynamically feasible | R122/R126 conform the kernel/solver; R133 closes actuator inputs; R134 freezes composition; R135 conforms its implementation | No real projected inverse-dynamics system has been assembled or solved | Sole R136 execution |
 
 ## Required context
 
@@ -216,9 +217,9 @@ semantics.
 ## Next action
 
 1. Freeze R123/R127/R129/R130 and all superseded reports; never retry them.
-2. Freeze immutable R132/R133 and complete R134; never rerun them.
-3. Implement R135 composition conformance without real projected states or ID systems.
-4. Execute no R136 inverse dynamics, candidate, PhysX or training.
+2. Freeze immutable R132/R133, complete R134 and passing R135; never rerun them.
+3. Implement and validate the one bounded R136 without consuming its authority.
+4. From a clean commit, execute R136 exactly once; execute no candidate, PhysX or training.
 
 ## Do not retry
 
@@ -236,10 +237,10 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** Clean R134 at `5a4085b` is `COMPLETE`, canonical/file `17d69616...` / `0f7ccdcd...`; R130 remains immutable `INVALID`.
-- **Checks:** All six R134 validations PASS (`354/354` lab, `56/56` motor, host); source lineage and inventory pass with zero numeric work.
+- **Workspace state:** Clean R135 at `0f85033` is `PASS`, canonical/file `21fd1569...` / `873f1049...`; R130 remains immutable `INVALID`.
+- **Checks:** All six R135 validations PASS (`364/364` lab, `56/56` motor, host); composition, rank/cone, gauge and hash audits pass with zero real numeric work.
 - **Remaining risk:** Pointwise ID feasibility, integrated/fresh PhysX, full-corpus exact-zero coverage and visual review remain open.
-- **Execution authority:** R135 report-only implementation conformance; zero real state lifts, projections, schedule derivations or ID systems.
+- **Execution authority:** Exactly one R136 projected inverse-dynamics execution: `3200` state lifts/assemblies/SVD/particular solves, `2640` projections, `2316` gauges; no retry or downstream work.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.

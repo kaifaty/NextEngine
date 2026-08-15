@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R130 stopped before inverse dynamics |
-| Status | `R130_INVALID / R130_RC1_COMPLETE / R132_PASS / R133_PASS / R134_COMPLETE / R135_CONFORMANCE_NEXT` |
+| Status | `R130_INVALID / R130_RC1_COMPLETE / R132_PASS / R133_PASS / R134_COMPLETE / R135_PASS / R136_EXECUTION_NEXT` |
 | Confirmed boundary | `Numerically valid tangent projection creates an invalid fixed-PD actuator schedule` |
 | Supported hotspot | `The four largest corrections cluster at two right-forefoot contact exits` |
 | Claim ceiling | Static report-only research; no exact row/event identity, retry, projection, dynamics, candidate, PhysX or training |
@@ -220,5 +220,8 @@ is zero. Canonical/file/profile SHA-256 is
 `17d696166a05a24bd50a545ca31e4aabd15a72ed49444a09983c472ff6b13783` /
 `0f7ccdcdcb4fbcf1b3e73e1e8f5565b0387c15a4bd1cfa3c50fbd6754ba176be` /
 `7fafc5e874f5b5cd23e5e7720133640e1f84d7dad8c233f4ba384fc97d3cb4b9`.
-Only report-only R135 implementation conformance is authorized; R136 numeric
-inverse dynamics and every downstream action remain forbidden.
+Clean R135 at `0f85033` passes composition conformance with zero real systems;
+canonical/file SHA-256 is `21fd15693ad092158a9f1fd9d8d8f717cbea26eb38fdca6cd321b61ccc7b7525` /
+`873f1049d81d7e4ca7237d3770f05fb2db949a94e78770cc04787de778849ee1`.
+Exactly one bounded R136 pointwise inverse-dynamics execution is authorized;
+every downstream action remains forbidden.

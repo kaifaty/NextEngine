@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R133 close its contact-exit actuator defect. Clean R134 freezes the exact projected q/v/effort plus gauge-aware `29/32/35` inverse-dynamics composition with zero numeric systems. Only report-only R135 implementation conformance is permitted. Every retry, numeric R136 ID/kinodynamic solve, candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after R14/R94 failures. R98–R122 close bounded repair/model lineage; R120 is direct `PASS`. R123/R127 remain immutable `INVALID`; R125–R129 close force-gauge and projection mechanics. R130 is `INVALID`; R131–R133 close its contact-exit actuator defect. Clean R134 freezes the projected ID composition and clean R135 passes synthetic/API conformance with zero real systems. Exactly one bounded R136 pointwise projected inverse-dynamics execution is permitted. Every retry, kinodynamic candidate, PhysX, all-17/V19, learned optimizer, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2191,9 +2191,15 @@ numeric ID or downstream work. Canonical/file/profile SHA-256 is
 `17d696166a05a24bd50a545ca31e4aabd15a72ed49444a09983c472ff6b13783` /
 `0f7ccdcdcb4fbcf1b3e73e1e8f5565b0387c15a4bd1cfa3c50fbd6754ba176be` /
 `7fafc5e874f5b5cd23e5e7720133640e1f84d7dad8c233f4ba384fc97d3cb4b9`.
-Roadmap status permits only report-only R135 implementation conformance with
-zero real systems. No R123/R127/R129/R130/R132/R133/R134 retry, R124, R136
-ID/kinodynamic execution, candidate or scene is authorized. This planning
+Clean R135 at `0f85033` passes composition/API conformance, exact R133 array
+hash guards and independent synthetic block/SVD/gauge oracles with zero real
+systems. Canonical/file/profile SHA-256 is
+`21fd15693ad092158a9f1fd9d8d8f717cbea26eb38fdca6cd321b61ccc7b7525` /
+`873f1049d81d7e4ca7237d3770f05fb2db949a94e78770cc04787de778849ee1` /
+`6b60d2f8d4f0431883856905495131484d1a232ae555917b4ce8f52ed0184acd`.
+Roadmap status permits exactly one bounded R136 pointwise projected
+inverse-dynamics execution. No R123/R127/R129/R130/R132/R133/R134/R135 retry,
+R124, kinodynamic candidate or scene is authorized. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

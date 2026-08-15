@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free causal research after the sole R123 execution stopped before its first local solve |
-| Status | `R123_INVALID / R127_INVALID / R130_INVALID / R133_PASS / R134_COMPLETE / R135_CONFORMANCE_NEXT` |
+| Status | `R123_INVALID / R127_INVALID / R130_INVALID / R133_PASS / R134_COMPLETE / R135_PASS / R136_EXECUTION_NEXT` |
 | Primary cause | `Environment / stage-2 rigid-contact formulation` |
 | Claim ceiling | Research and generated-test design only; no R123 retry, feasibility claim, candidate, scene or training |
 
@@ -229,5 +229,6 @@ mode-owned lift; clean R132 passes `36/36`, lowers all `27` changed corrections
 and finds zero local speed violations. Clean R133 passes all `3200` projections
 and the complete schedule with zero unsafe actuator categories. Clean R134
 freezes the exact projected q/v/effort plus gauge-aware inverse-dynamics
-composition with zero numeric systems. Only report-only R135 implementation
-conformance is permitted; numeric R136 ID/kinodynamic execution remains blocked.
+composition with zero numeric systems. Clean R135 passes its report-only
+composition conformance. Exactly one bounded R136 pointwise ID execution is
+permitted; kinodynamic execution and every downstream action remain blocked.
