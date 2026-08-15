@@ -1,0 +1,337 @@
+{
+  "schema_version": 1,
+  "formulation_id": "nextengine.humanoid-redundant-contact-feasibility-formulation.v1",
+  "status": "FrozenReportOnly",
+  "claim": "GaugeAwareStage2PointwiseFixedPdConeFeasibilityFormulationOnly",
+  "source": {
+    "r123_rc1": {
+      "report_sha256": "ebf257991c36970e9ccf9501fe4175fc0efa0efed2e3b1a8ac1e176acef045cf",
+      "report_file_sha256": "a35d408a901ea2c439ac387287fa03aa77c669863211fb6b0d7634ce3b0836f9",
+      "profile_sha256": "4ee1fd77701e638a3087cbeaa6498482e073c33133bbb89a1a0b6d134d2ee8b7",
+      "module_sha256": "ddeb9c81f1a4d6488b972b6fcfa55a9f77f068ac516b1efe0fc0917c61942bb3",
+      "tool_sha256": "e3f0538aebcadaaf7e75881b7ce6ee52f2feaceca0ee50137c169c4717f67b91",
+      "repository_commit": "e8fa20f6f964bc36bcef39ca756cf102e2a3dbc1"
+    },
+    "r121": {
+      "report_sha256": "4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3",
+      "report_file_sha256": "5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7",
+      "profile_sha256": "9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93",
+      "module_sha256": "99de51fe96bdaed8efc8c5671272b0cf432011aa5e7318ec81a806385499716f",
+      "tool_sha256": "8e01c6c8b25478747eb565dd9ffb8f2815bf26342560ef99b2d1446674e5d4ae",
+      "repository_commit": "a20e9bcf04f7c8137955d102fa3f2b64ffb77d1d"
+    }
+  },
+  "scope": {
+    "run_id": "R125",
+    "clip_id": "cmu16-walk-nominal-b",
+    "motor_interval_count": 800,
+    "physics_collocation_count": 3200,
+    "generalized_acceleration_width": 29,
+    "maximum_active_point_count": 2,
+    "maximum_flat_foot_gauge_dimension": 1,
+    "formulation_runs": 1,
+    "local_system_reconstructions": 0,
+    "singular_value_decompositions": 0,
+    "local_system_solves": 0,
+    "candidate_construction": false,
+    "physx_scene_runs": 0,
+    "training": false
+  },
+  "preserved_invariants": [
+    "exact R120 trajectory/cache and R121 affine q/v lift at 240 Hz",
+    "exact R121 fixed-PD applied-effort schedule, controller gains and descriptor limits",
+    "exact R113 point identities, application locations and normal/right/forward ordering",
+    "exact V9 contact modes held for four physics substeps with no point deletion or relocation",
+    "rigid active-point acceleration closure J a + Jdot-v = 0",
+    "raw individual-point normal and circular Coulomb cones with mu=52429/65536",
+    "no impact, complementarity, compliance, torque, center-of-pressure or contact-timing variable",
+    "all safety, quantization, fresh-scene and training gates remain unchanged"
+  ],
+  "mode_inventory_contract": {
+    "status": "PASS",
+    "modes": [
+      {
+        "mode": "flat_flight",
+        "motor_intervals": 302,
+        "collocations": 1208,
+        "active_point_count": 2,
+        "flat_foot_gauge_dimension": 1,
+        "reduced_local_unknown_count": 35,
+        "algebraic_equality_row_count": 35,
+        "expected_independent_rank": 34,
+        "friction_cone_count": 2416
+      },
+      {
+        "mode": "flight_flat",
+        "motor_intervals": 277,
+        "collocations": 1108,
+        "active_point_count": 2,
+        "flat_foot_gauge_dimension": 1,
+        "reduced_local_unknown_count": 35,
+        "algebraic_equality_row_count": 35,
+        "expected_independent_rank": 34,
+        "friction_cone_count": 2216
+      },
+      {
+        "mode": "flight_flight",
+        "motor_intervals": 140,
+        "collocations": 560,
+        "active_point_count": 0,
+        "flat_foot_gauge_dimension": 0,
+        "reduced_local_unknown_count": 29,
+        "algebraic_equality_row_count": 29,
+        "expected_independent_rank": 29,
+        "friction_cone_count": 0
+      },
+      {
+        "mode": "flight_forefoot",
+        "motor_intervals": 43,
+        "collocations": 172,
+        "active_point_count": 1,
+        "flat_foot_gauge_dimension": 0,
+        "reduced_local_unknown_count": 32,
+        "algebraic_equality_row_count": 32,
+        "expected_independent_rank": 32,
+        "friction_cone_count": 172
+      },
+      {
+        "mode": "forefoot_flight",
+        "motor_intervals": 38,
+        "collocations": 152,
+        "active_point_count": 1,
+        "flat_foot_gauge_dimension": 0,
+        "reduced_local_unknown_count": 32,
+        "algebraic_equality_row_count": 32,
+        "expected_independent_rank": 32,
+        "friction_cone_count": 152
+      }
+    ],
+    "aggregate": {
+      "motor_intervals": 800,
+      "collocations": 3200,
+      "flight_collocations": 560,
+      "single_point_collocations": 324,
+      "flat_foot_collocations": 2316,
+      "active_point_collocations": 4956,
+      "friction_cones": 4956,
+      "reduced_decision_scalars": 107668,
+      "algebraic_equality_rows": 107668,
+      "expected_independent_equality_rank": 105352,
+      "exact_force_gauge_scalars": 2316,
+      "maximum_reduced_local_unknown_count": 35,
+      "maximum_flat_foot_gauge_dimension": 1
+    }
+  },
+  "reduced_local_system_contract": {
+    "unknown_order": "29 generalized accelerations followed only by the three normal/right/forward force components of each active R113 point in ordinal order",
+    "eliminated_effort_variables": "substitute the exact R121 fixed-PD effort directly into the dynamics right-hand side and independently hash/audit the unchanged effort schedule",
+    "eliminated_inactive_force_variables": "inactive point forces are absent from the reduced system and restored as exact zero triples only in solver-private output",
+    "dynamics_rows": "M a + h - S^T tau_fixed - sum_active J_xyz^T [right,normal,forward] = 0",
+    "active_closure_rows": "retain every original J_xyz a + Jdot-v = 0 row; rank handling may not delete a physical residual or contact point",
+    "matrix_shape": "square 29+3k by 29+3k for k active points; 29 in flight, 32 for one point, 35 for flat foot",
+    "expected_nullity": "exactly one for each FlatSticking foot and zero otherwise; the frozen schedule has at most one flat foot",
+    "scaling": "inherit R123 acceleration-column scales, total-body-weight force scales and maximum-absolute row equilibration"
+  },
+  "analytic_force_gauge_contract": {
+    "construction": "for each flat foot, rotate the normalized local heel-to-forefoot line by the common foot-body world rotation; map world XYZ to normal/right/forward as [Y,X,Z]",
+    "embedding": "zero acceleration plus +line force at heel and -line force at forefoot; all other active-force components are zero",
+    "required_identities": [
+      "nonzero gauge column",
+      "zero resultant world force and moment",
+      "scaled local matrix times gauge is within the frozen gauge residual tolerance",
+      "SVD right-null projector agrees with the analytic gauge projector",
+      "SVD nullity equals the contact-mode expected nullity and no extra null direction exists"
+    ],
+    "semantics": "the gauge changes only the individual heel/forefoot force split; generalized acceleration and generalized contact wrench are invariant"
+  },
+  "rank_revealing_particular_solution_contract": {
+    "factorization": "one float64 SVD of the row/column-equilibrated reduced matrix per collocation",
+    "rank_rule": "singular values at or below 1e-12 of the maximum are null; every retained singular value must be at least 1e-10 of the maximum, leaving a 100x invalid ambiguity band",
+    "threshold_basis": "35*binary64_epsilon*128 is below 1e-12; the frozen bound is a dimension-aware backward-error safety factor, not a fit to R123",
+    "particular_solution": "Moore-Penrose solution using only retained singular triplets; it supplies one equality-consistent point, not the friction-feasibility verdict",
+    "required_checks": [
+      "finite singular values and expected rank/nullity",
+      "analytic/SVD null-projector alignment",
+      "left-null compatibility through full scaled residual",
+      "scaled residual, backward error and physical dynamics/contact residual bounds",
+      "full original active closure rows re-evaluated after reconstruction"
+    ],
+    "forbidden_interpretation": "the minimum-norm particular force split alone may not classify friction feasibility"
+  },
+  "friction_gauge_interval_contract": {
+    "parameterization": "x(alpha)=x_particular+g*alpha in physical units; there is no alpha in flight or single-point modes and exactly one scalar alpha in every frozen flat-foot mode",
+    "per_point_constraints": "normal(alpha)>=0 and right(alpha)^2+forward(alpha)^2 <= (52429/65536)^2 normal(alpha)^2",
+    "line_cone_polynomial": "after multiplying by 65536^2, each cone is one quadratic inequality in alpha plus one linear normal half-space; coefficients are evaluated without approximating the friction ratio",
+    "feasible_set": "intersect the two closed line-cone intervals for heel and forefoot, retaining extended endpoints; empty intersection means cone-infeasible",
+    "deterministic_witness": "only after nonempty intersection is established, choose the alpha minimizing the total body-weight-normalized squared heel/forefoot force and clip its unconstrained minimizer to the interval",
+    "witness_role": "the secondary strictly convex selection makes cache bytes deterministic but cannot change empty versus nonempty feasibility",
+    "direct_recheck": "recompute every raw normal/friction margin at the selected witness; a numerically ambiguous root, interval endpoint or classification is INVALID rather than repaired"
+  },
+  "feasibility_classification_contract": {
+    "feasible": "all 3200 reduced systems are numerically valid; every single-point force is in its cone and every flat-foot gauge interval is nonempty with a valid witness",
+    "infeasible": "all 3200 reduced systems are numerically valid and at least one fixed single-point force or complete flat-foot gauge interval violates the unchanged cone contract",
+    "invalid": "source/rank/nullspace/nonfinite/residual/interval/resource ambiguity or mismatch; stop without retry",
+    "continuation": "record valid cone infeasibility and continue through all collocations; stop immediately on numeric/model invalidity",
+    "claim_ceiling": "stage-2 independent pointwise fixed-PD cone feasibility only; no integrated trajectory, native behavior, safety acceptance or training authority"
+  },
+  "numeric_contract": {
+    "float_dtype": "float64",
+    "svd_null_relative_maximum": 1e-12,
+    "svd_retained_relative_minimum": 1e-10,
+    "analytic_gauge_scaled_residual": 1e-10,
+    "analytic_to_svd_null_projector_spectral_error": 1e-8,
+    "scaled_absolute_residual": 1e-9,
+    "backward_error": 1e-10,
+    "physical_group_absolute_residual": 1e-7,
+    "cone_absolute_newtons": 1e-7,
+    "quadratic_boundary_relative_ambiguity": 1e-12,
+    "ambiguity_policy": "values inside the SVD rank gap or quadratic boundary uncertainty return INVALID; no threshold tuning or retry"
+  },
+  "implementation_conformance_contract": {
+    "run_id": "R126",
+    "execution_in_r126": false,
+    "checks": [
+      "exact R123-RC1, R123, R122, R121 and R113 transitive lineage",
+      "exact R121 mode inventory and 29/32/35 reduced system layouts",
+      "effort substitution and inactive-force elimination preserve the original physical equations",
+      "analytic flat-foot gauge gives zero world wrench and zero scaled matrix product at all seven frozen anchors",
+      "rank-revealing SVD finds only the predeclared gauge and its projector matches the analytic construction",
+      "independent synthetic flight, single-point and flat-foot systems cover full-rank, known feasible, known infeasible, ambiguous and extra-nullity outcomes",
+      "line-cone interval endpoints and minimum-force witnesses match an independent high-precision one-dimensional oracle",
+      "one maximum 35 by 35 payload meets resource instrumentation without any R127 execution"
+    ],
+    "maximum_frozen_anchor_svd_evaluations": 7,
+    "maximum_real_schedule_particular_solutions": 0,
+    "maximum_real_schedule_gauge_classifications": 0,
+    "pass_transition": "PERMIT_R127_SINGLE_BOUNDED_GAUGE_AWARE_FIXED_PD_EXECUTION_ONLY",
+    "fail_transition": "STOP_INVALID_REDUNDANT_CONTACT_IMPLEMENTATION"
+  },
+  "future_single_execution_budget": {
+    "run_id": "R127",
+    "process_count": 1,
+    "thread_count": 1,
+    "maximum_singular_value_decompositions": 3200,
+    "maximum_particular_solutions": 3200,
+    "maximum_gauge_interval_classifications": 2316,
+    "maximum_local_unknown_count": 35,
+    "maximum_flat_foot_gauge_dimension": 1,
+    "maximum_wall_clock_seconds": 7200,
+    "maximum_resident_memory_bytes": 8589934592,
+    "random_seed": 0,
+    "randomized_restart_count": 0,
+    "resume_or_warm_restart": "FORBIDDEN",
+    "manual_intervention": "FORBIDDEN",
+    "invalid_or_resource_exhaustion": "STOP_INVALID_EVIDENCE_WITHOUT_RESTART"
+  },
+  "future_execution_output": {
+    "valid_completion": "metrics report plus at most one external solver-private acceleration/fixed-effort/four-point-force/gauge-interval cache",
+    "inactive_force_output": "restore exact zero normal/right/forward triples for every inactive R113 point",
+    "feasibility_claim": "stage-2 pointwise gauge-aware fixed-PD cone feasibility only",
+    "candidate_artifact": "FORBIDDEN",
+    "physx_scene": "FORBIDDEN",
+    "training": "FORBIDDEN"
+  },
+  "result_transitions": {
+    "r125_complete": "PERMIT_R126_REDUNDANT_CONTACT_IMPLEMENTATION_CONFORMANCE_ONLY",
+    "r125_invalid": "STOP_INVALID_EVIDENCE",
+    "r126_pass": "PERMIT_R127_SINGLE_BOUNDED_GAUGE_AWARE_FIXED_PD_EXECUTION_ONLY",
+    "r126_fail": "STOP_INVALID_REDUNDANT_CONTACT_IMPLEMENTATION",
+    "r127_invalid": "STOP_INVALID_EVIDENCE_WITHOUT_RESTART",
+    "r127_valid_complete": "PERMIT_SEPARATE_REPORT_ONLY_FULL_KINODYNAMIC_FORMULATION_ONLY"
+  },
+  "decision": {
+    "complete": "PERMIT_R126_REDUNDANT_CONTACT_IMPLEMENTATION_CONFORMANCE_ONLY",
+    "invalid": "STOP_INVALID_EVIDENCE"
+  },
+  "validation_commands": [
+    {
+      "id": "ruff_check",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "check",
+        "--ignore",
+        "TRY004,BLE001",
+        "lab/next_lab/redundant_contact_feasibility_formulation.py",
+        "lab/scripts/formulate_redundant_contact_feasibility.py",
+        "lab/tests/test_redundant_contact_feasibility_formulation.py"
+      ]
+    },
+    {
+      "id": "ruff_format",
+      "arguments": [
+        "uvx",
+        "--from",
+        "ruff==0.16.3",
+        "ruff",
+        "format",
+        "--check",
+        "lab/next_lab/redundant_contact_feasibility_formulation.py",
+        "lab/scripts/formulate_redundant_contact_feasibility.py",
+        "lab/tests/test_redundant_contact_feasibility_formulation.py"
+      ]
+    },
+    {
+      "id": "solver_free_import",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-c",
+        "import sys; import next_lab.redundant_contact_feasibility_formulation; assert 'numpy' not in sys.modules; assert 'next_lab.fixed_pd_inverse_dynamics_execution' not in sys.modules"
+      ]
+    },
+    {
+      "id": "lab_full",
+      "environment": {
+        "PYTHONPATH": "lab"
+      },
+      "arguments": [
+        "lab/.venv/bin/python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "lab/tests"
+      ]
+    },
+    {
+      "id": "motor",
+      "arguments": [
+        "cargo",
+        "test",
+        "-p",
+        "next_motor"
+      ]
+    },
+    {
+      "id": "host_check",
+      "arguments": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "xtask",
+        "--",
+        "host-check"
+      ]
+    }
+  ],
+  "bounded_acceptance": {
+    "r123_retry": "NOT_AUTHORIZED",
+    "r124_formulation": "NOT_AUTHORIZED",
+    "r126_implementation_conformance": "AUTHORIZED_REPORT_ONLY_ON_R125_COMPLETE",
+    "r127_execution": "NOT_AUTHORIZED",
+    "additional_kto_solve": "NOT_AUTHORIZED",
+    "additional_inverse_dynamics_solve": "NOT_AUTHORIZED",
+    "kinodynamic_solve": "NOT_AUTHORIZED",
+    "candidate_artifact": "NOT_AUTHORIZED",
+    "physx": "NOT_AUTHORIZED",
+    "all_17": "NOT_AUTHORIZED",
+    "full_v19": "NOT_AUTHORIZED",
+    "training": "NOT_AUTHORIZED"
+  }
+}
