@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_R&D / TRAIN-4 / R115_FAIL / R120_PASS / R122_PASS / R123_SINGLE_EXECUTION_NEXT` |
+| Status | `ACTIVE_R&D / TRAIN-4 / R123_INVALID / R123-RC1_REPORT_ONLY_NEXT` |
 | Updated | 2026-08-15 |
 | Task key | `humanoid-motor-training-rebuild` |
 | Scope | Close `REQ-HUM-DATA-005/007` dynamic-reference feasibility before learned optimizer work |
@@ -11,18 +11,18 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Clean report-only R122 is `PASS`; the descriptor-
-  derived M/h/J/Jdot-v implementation conforms at all seven frozen anchors.
-- **Why:** Independent mass/ID, FK/Jacobian, Jdot-v, R113 force and exact R121
-  schedule/resource checks pass; every R123 execution counter remains zero.
-- **Next action:** Prepare and execute exactly one bounded single-process R123
-  fixed-PD inverse-dynamics run; do not construct a candidate or run PhysX.
-- **Current blocker:** Feasibility of the `3200` frozen `64 × 64` local systems
-  under fixed effort, active acceleration and friction has not been executed.
-- **Do not retry:** Do not rerun R115/R120, restart R123, start PPO/PhysX,
-  change boundaries, zero velocities, add grace/settling, or loosen limits.
-- **Reconsider when:** R123 completes validly and permits only report-only R124,
-  or stops invalid without weakening the frozen R108–R122 lineage.
+- **Current conclusion:** The sole clean R123 is `INVALID`; its first flat-foot
+  KKT has condition `6.875e16` and no local solve was attempted.
+- **Why:** Active points `2/3` are heel/forefoot on one rigid ankle body. Equal
+  and opposite line forces form an exact zero-wrench gauge, so six rows rank ≤5.
+- **Next action:** Run one hash-closed report-only R123-RC1 geometric audit; do
+  not reconstruct/factor a real local system or construct a candidate.
+- **Current blocker:** R121's square equality formulation assumes a unique
+  point-force split; actual fixed-PD cone feasibility therefore remains unknown.
+- **Do not retry:** Never restart R123, raise its condition limit, substitute a
+  pseudoinverse witness, or start KTO/ID/kinodynamics/PPO/PhysX.
+- **Reconsider when:** R123-RC1 confirms the exact nullspace and permits only a
+  separately reviewed report-only repair formulation; inconclusive means stop.
 
 All TRAIN-5 checkpoints remain rejected. No learned optimizer run, multi-seed run,
 TRAIN-5 Advance or TRAIN-6 work is authorized. Formal visual review remains
@@ -40,16 +40,16 @@ pending. This file cannot change those facts by itself.
 | R69 coupled feasibility, report SHA-256 `4e840f9f9d91f4b13ffbda8f23ab33b2158f61ad87bcdd1e12c6932ae9606b56` | Complete `cmu05` passes contact, collider, ROM and root/joint velocity simultaneously | Accept the dimensionless sparse-QP mechanism; remove the R61 intermediate input |
 | R73 clean V8 all-three, manifest SHA-256 `d0b3897545af22bfefa68e69562eb27e5bfc182b240e09baa12325d0ab31d37c` | `cmu05`/`cmu16` PASS; `cmu139` second QP primal infeasible after collider `-34056 µm` | Reject V8 as all-clip solver; keep fresh PhysX blocked |
 | R75/R76 bounded-step counterfactuals | Twelve feasible QPs, but collider/contact alternate; best final collider `-2732 µm`, residual `6296 µm` | Trust removes artificial infeasibility; blind acceptance remains invalid |
-| R115-RC1/R117–R122 dynamics lineage | R120 direct `PASS`; R121 freezes `3200` systems. Clean R122 canonical `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` passes all model/M/h/J/Jdot-v, R113, schedule and resource discriminators with zero R123/scene/candidate/training work | Permit exactly one bounded R123 fixed-PD inverse-dynamics execution |
+| R115-RC1/R117–R123 dynamics lineage | R120 direct `PASS`; R122 conforms. Sole clean R123 canonical `3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7` is `INVALID` at collocation `0`: condition `6.875e16`, one SVD, zero local solves | Freeze R123; permit only report-only R123-RC1 redundant-contact research |
 | Formal visual review | `PENDING` | No visual acceptance claim |
 
-R113/R114-v2/R115/R115-RC1/R117/R118/R119/R120/R121/R122 canonical SHA-256: `3ac92ae2ca508234a52d77f0414ad5557f1164028e51a3938cc045ac4c5147cf` / `7a735320509a303f9feacba79087f2042d451d526b57585d4fe4041603b46ae4` / `b7baa0f4337597c1c61748255535d1102bbff35d0ce560a8a661ed6be7685433` / `5edfe0613e2e4f9327cd1bfb6922c96e84ce8056144b05f9617787de0f883475` / `b0a9f07012e0f43c660019df8a1f31e7368f6130312231cf6c2bddb0f59fb7c7` / `23d9d556d8be630f7f2e9fe9907f394b74186ef545d0c46f7484f0efc1df45ca` / `ac38e3f0a9dfb5e900373bc5a4908168a49f3c3b799fb431bd6e5c1306a4dd1b` / `dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b` / `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` / `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309`.
+Current R120/R121/R122/R123 canonical SHA-256: `dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b` / `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` / `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` / `3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7`.
 The [initial causal decision](../humanoid-train4-causal-research-2026-08-14.md)
 and [bounded prototype decision](../humanoid-train4-v19-prototype-research-2026-08-14.md)
 and [contact-boundary decision](../humanoid-train4-contact-boundary-research-2026-08-14.md)
 and [support-authorization decision](../humanoid-train4-support-authorization-research-2026-08-14.md)
 and [clip-global decision](../humanoid-train4-clip-global-research-2026-08-14.md)
-and [coupled-solver decision](../humanoid-train4-coupled-trajectory-research-2026-08-14.md) plus the [native-dynamics decision](../humanoid-train4-native-dynamics-research-2026-08-14.md)
+and [coupled-solver decision](../humanoid-train4-coupled-trajectory-research-2026-08-14.md), the [native-dynamics decision](../humanoid-train4-native-dynamics-research-2026-08-14.md) and [R123 redundant-contact research](../humanoid-train4-r123-redundant-contact-research-2026-08-15.md)
 carry detailed evidence. The hashes above identify their external reports.
 
 ## Decisions that still constrain the work
@@ -177,19 +177,19 @@ carry detailed evidence. The hashes above identify their external reports.
 - **Consequences:** NumPy/SciPy/OSQP are pinned private lab dependencies; final
   contact, collider, CoM, ROM and velocity facts are recomputed from emitted
   integer poses. The adapter has no runtime or corpus-admission authority.
-- **Uncertainty:** Whether the conforming kernel finds every frozen R121 local
-  system feasible, and whether later integrated/PhysX gates pass.
-- **Reconsider when:** R123 executes once; R120–R122 cannot be retried or
-  reinterpreted as dynamic/native feasibility.
+- **Uncertainty:** Fixed-PD cone feasibility remains unknown because R123
+  stopped before solve; integrated/PhysX gates also remain untested.
+- **Reconsider when:** A report-only repair removes only the proven force gauge;
+  R120–R123 cannot be retried or reinterpreted as dynamic feasibility.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H22: exact offline reference is dynamically too demanding for fixed PD | R122 proves the descriptor-derived dynamics implementation conforms | No frozen R121 local system has run | Execute the sole bounded R123 discriminator |
+| H22: exact offline reference is dynamically too demanding for fixed PD | R122 proves the dynamics kernel conforms | R123 reached no local solve or cone margin | Keep unknown until a new formulation is separately authorized |
 | H23: offline clearance misses PhysX impulse risk | R97 case `2` passes with impulse `4466405` | Only one contact case is tested | Freeze bounded support only |
-| H24/H26: nonlocal coupling is hidden between motor samples | R122 reproduces the affine 240 Hz lift and local dynamics identities | Integrated dynamics remains untested | Run R123 pointwise ID, then formulate R124 only on valid completion |
-| H25: reset mismatch causes R94 | Earlier reset concerns | R94 state is exact within quantization | Falsified; do not retry |
+| H24/H26: nonlocal coupling is hidden between motor samples | R122 reproduces the affine 240 Hz lift and local dynamics identities | Integrated dynamics remains untested | Keep blocked; invalid R123 cannot authorize R124 |
+| H27: flat-foot point multipliers are structurally redundant | First active pair shares one body; exact equal/opposite line force has zero wrench | No contrary geometric evidence | Hash-close with report-only R123-RC1 |
 
 ## Required context
 
@@ -217,10 +217,10 @@ semantics.
 
 ## Next action
 
-1. Freeze clean R73–R122, R115-RC1 and all superseded reports.
-2. Record R115 consumed/failed; never rerun or reinterpret it.
-3. Prepare and execute the sole bounded R123 run against frozen R121/R122.
-4. Run no extra KTO/R123 restart, kinodynamic solve, candidate, scene or all-17.
+1. Freeze clean R73–R123, R115-RC1 and all superseded reports.
+2. Record R123 consumed/invalid; never rerun or reinterpret it.
+3. Implement and run only the report-only R123-RC1 exact-geometry audit.
+4. Run no KTO/ID/kinodynamic solve, candidate, scene or all-17.
 
 ## Do not retry
 
@@ -238,13 +238,13 @@ semantics.
 
 ## Handoff
 
-- **Workspace state:** R122 is immutable `PASS` from clean `621ed03`; its
-  external report is canonical/hash-bound and the R120 cache stays private.
-- **Checks:** R122 validations PASS (`270/270` lab, motor, full `host-check`);
-  seven conformance probes, zero R123/ID-execution/candidate/PhysX/training work.
-- **Remaining risk:** R123 fixed-PD feasibility, integrated/fresh PhysX,
+- **Workspace state:** R123 is immutable `INVALID` from clean `7e9e93c`; its
+  external report is canonical/hash-bound and no R123 cache exists.
+- **Checks:** R123 prechecks PASS (`278/278` lab, motor, full `host-check`);
+  one SVD, zero local solves/candidate/PhysX/training work.
+- **Remaining risk:** Fixed-PD feasibility, integrated/fresh PhysX,
   full-corpus exact-zero coverage and visual review remain open.
-- **Execution authority:** Exactly one bounded R123 run; no retry or expansion.
+- **Execution authority:** Report-only R123-RC1 geometry audit; no dynamics run.
 - **Promotion needed:** None for reset semantics: ADR-070 is retained. Any
   future attempt to admit indexed running-scene reset requires a superseding
   ADR and new evidence.

@@ -2,7 +2,7 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108–R114 close progressive KTO/model lineage. R115 fails and R115-RC1 diagnoses its analytic-contact linearization gap; R117–R119 repair it. R120 repaired KTO is direct `PASS` at `1/32`; R121 freezes `3200` fixed-PD inverse-dynamics collocations. Clean report-only R122 passes descriptor-derived M/h/J/Jdot-v conformance and permits exactly one bounded R123 fixed-PD inverse-dynamics execution. Every additional KTO solve, R123 retry, kinodynamic solve, candidate artifact, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
+| Статус | In execution: `TRAIN-3` remains advanced; `TRAIN-4` remains reopened after exhaustive R14 found `204/12518` required-safety failures and R94 fresh V9 failed `7/17`. R98–R107 exhausted bounded manual/kinematic repairs. R108–R114 close progressive KTO/model lineage. R115 fails and R115-RC1 diagnoses its analytic-contact linearization gap; R117–R119 repair it. R120 repaired KTO is direct `PASS` at `1/32`; R121/R122 freeze and conform `3200` fixed-PD collocations. The sole clean R123 is `INVALID` before solve because its first same-foot heel/forefoot KKT is structurally rank-deficient. Only report-only R123-RC1 geometry research is next. Every dynamics retry/solve, candidate artifact, PhysX, all-17/V19, learned optimizer execution, multi-seed, `TRAIN-5` Advance and `TRAIN-6` remain forbidden. ADR-070 fresh-scene authority is retained; partial reset is report-only. |
 | Дата | 2026-08-15 |
 | Scope | Новый fixed-humanoid путь: biomechanics → motion tracking → command locomotion → recovery → export |
 | Не является | ADR, доказательством качества модели или разрешением пропустить ProductCheck |
@@ -2047,9 +2047,21 @@ scale-`0.125` interval. R89 restores ratio `0.517` and improves exact merit to
   PhysX, optimizer and training counts remain zero.
 These results still cannot authorize full V19 or learned optimization.
 
-Roadmap status now advances to exactly one bounded R123 fixed-PD inverse-
-dynamics execution under the frozen R121 budget. No retry, R124 formulation,
-candidate or scene is authorized before valid R123 completion. This planning
+The sole clean R123 at commit `7e9e93c` passes all prechecks but stops
+`INVALID / STOP_INVALID_EVIDENCE_WITHOUT_RESTART` at collocation `0`. Right
+heel/forefoot are active on the same ankle body; the square KKT condition is
+`6.875e16`, one SVD is recorded and no local solve/cache/downstream work occurs.
+Canonical/file/profile SHA-256 is
+`3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7` /
+`543513bf4f51797b515b718684123a9f5aeabe394bf4ea73fe20194a9d65acb2` /
+`492ce5da3852aa68811ce8afc6f0c5b57205ce8f2fc2ddf32dd71279b4ecda30`.
+The exact equal/opposite heel–forefoot line force has zero generalized wrench,
+so six point multipliers contain one gauge and the rigid two-point constraint
+rank is at most five. R123 proves no fixed-PD feasibility fact.
+
+Roadmap status now permits only report-only R123-RC1 exact-geometry research.
+No R123 retry, R124 formulation, dynamics solve, candidate or scene is
+authorized. This planning
 document alone does not close R5, B-08, B-12, Stage 0, GPU
 correspondence, Linux parity or any learned-policy ProductCheck.
 

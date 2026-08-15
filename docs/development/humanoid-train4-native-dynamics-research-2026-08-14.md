@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Scope | Optimizer-free research after complete-clip V9 fresh-scene rejection |
-| Status | `R115_FAIL / R120_PASS / R122_PASS / R123_SINGLE_EXECUTION_NEXT` |
+| Status | `R115_FAIL / R120_PASS / R123_INVALID / R123-RC1_REPORT_ONLY_NEXT` |
 | Acceptance authority | Fresh scene under ADR-070 |
 | Claim ceiling | Research and generated-test design only; no corpus admission or training |
 
@@ -55,7 +55,8 @@ bounded research before another solver change or expensive native run.
 | R119 repaired-KTO execution formulation | canonical/file/profile SHA-256 `ac38e3f0a9dfb5e900373bc5a4908168a49f3c3b799fb431bd6e5c1306a4dd1b` / `e233f9dd60ba8056e55b132167e5dbd6e952781fb15bece56cbb23e62b0c1882` / `3b48c618cffc5494601a40ac15b04df0ffba2a1b7d6aadbdfd4309b6c167dcd1` | Clean `COMPLETE`: replaces `3723` component rows with `2482` exact normal/norm-squared rows, freezes emitted-anchor conformance guards and one-process budgets; permits exactly one R120 repaired-KTO execution, with zero QP/KTO/scenes/candidates in R119 |
 | R120 single repaired-KTO execution | canonical/file/profile/cache SHA-256 `dfcb05e006467ee30bab70aac00f4408acce26782fbdbf5d1cea89821c06953b` / `35e35581b4062ce3048cb564a7856787efdd59e1fa12b64eef9526200ea4f2fc` / `3dfa2f1b8357cd3452481c9518e8d1ca0ce5c0bb664b3a024fc5ce2653837d55` / `e305fc5888a1cf1dff238c32ac07707a284b215bb49d25920dfb5ee8f097afc5` | Clean direct `PASS` at `1/32`: all exact gates pass with `614 bp` strict V7 progress and no bridge; one KTO/QP, six emitted audits, zero candidate/scene/ID/kinodynamic/optimizer/training work; permits only report-only R121 fixed-PD inverse-dynamics execution formulation |
 | R121 fixed-PD inverse-dynamics execution formulation | canonical/file/profile SHA-256 `4e6e9494cd7695208aa893fb898003a74f6d3f91fd1ecab583c026509c298ce3` / `5be2a83f03fd6eb29b61992cfe0995ddb2f419110ba6078bd107a21489343bf7` / `9145d5f3312d5615df84f5bef6444210e7a7a110b5d41206b0ce582bf45a8c93` | Clean `COMPLETE`: freezes `3200` independent `64 × 64` pointwise systems (`204800` variables/equalities, `4956` friction cones); cache/contact/fixed-PD preflights PASS, zero dynamics solves; permits only report-only R122 implementation/conformance |
-| R122 fixed-PD inverse-dynamics implementation conformance | canonical/file/profile SHA-256 `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` / `8bb3f9cbe371f679ffa3d782ee4662de3fedc586ccf70c9d19536594c95afb81` / `21303443993a34bd527e735961f0e790aa0da88f2d94b46a4c6e1f85557e0ab2` | Clean `PASS`: all seven descriptor/M/h/J/Jdot-v, R113, exact R121 reproduction and no-solve resource discriminators pass; zero R123/scene/candidate/training work; permits exactly one bounded R123 execution |
+| R122 fixed-PD inverse-dynamics implementation conformance | canonical/file/profile SHA-256 `a03f0a7e605a7e35c370e3ee12dcb7e737c24ee928d00ca92f33c2ff8958d309` / `8bb3f9cbe371f679ffa3d782ee4662de3fedc586ccf70c9d19536594c95afb81` / `21303443993a34bd527e735961f0e790aa0da88f2d94b46a4c6e1f85557e0ab2` | Clean `PASS`: all seven descriptor/M/h/J/Jdot-v, R113, exact R121 reproduction and no-solve resource discriminators pass; its one R123 authority was consumed by the invalid result below |
+| R123 single fixed-PD inverse-dynamics execution | canonical/file/profile SHA-256 `3436d95d492586570cdd27fa685f2a517e1ac81ab9350fbd4f2c42f7bb5ab6c7` / `543513bf4f51797b515b718684123a9f5aeabe394bf4ea73fe20194a9d65acb2` / `492ce5da3852aa68811ce8afc6f0c5b57205ce8f2fc2ddf32dd71279b4ecda30` | Clean `INVALID / STOP_INVALID_EVIDENCE_WITHOUT_RESTART`: first flat-foot system condition `6.875e16`; one SVD, zero local solves/cache/downstream work; permits only report-only R123-RC1 causal research |
 
 R94 is bound to clean repository commit
 `5cedc41d23958023f7b4d7dcee46c34f2f230b73`, R93, the unchanged source
@@ -1464,20 +1465,39 @@ probes and `224` inverse-dynamics evaluations are reported explicitly; R123
 local-system solves, ID execution, kinodynamics, candidate, PhysX, optimizer
 and training counts are zero.
 
+## R123 invalid execution and research gate
+
+The sole R123 process at clean commit `7e9e93c` passed all six validations, then
+stopped before its first local solve. Collocation `0` activates right heel and
+forefoot on the same `body.right-ankle-roll`; its scaled `64 × 64` matrix has
+condition `6.874956301874059e16` against the frozen `1e12` limit. The external
+report is canonical/hash-closed, no cache was emitted, and every downstream
+work counter remains zero.
+
+The [R123 redundant-contact research](humanoid-train4-r123-redundant-contact-research-2026-08-15.md)
+shows the leading causal mechanism. The two points are separated by a nonzero
+line on one rigid body. Equal and opposite forces along that line have zero
+resultant force and moment, so their six multiplier components contain an
+exact one-dimensional nullspace. The corresponding two 3D sticking Jacobians
+have rank at most five. Scaling cannot remove this gauge; the first square KKT
+was structurally singular by construction.
+
+R123 therefore supplies no fixed-PD feasibility or infeasibility evidence.
+R124 remains unauthorized because its prerequisite was valid R123 completion.
+Only one report-only R123-RC1 exact-geometry audit is next; it may not rebuild,
+factor or solve a frozen local dynamics system.
+
 ## Decision
 
-Freeze R92–R122, retain the contact result as bounded support for H23, and
+Freeze R92–R123, retain the contact result as bounded support for H23, and
 reject V11 plus every manual boundary-state or open-loop derivative smoother
 as a merged/full-corpus direction. Do not tune controller or solver-limit
 values and do not begin training. Reject the raw three-knot V7↔V9 anchor family
 and the late projected direction after its exact `2501/2500 bp` failure.
 R115 consumed and failed its sole solve; R120 consumed its separate sole solve
-and passed. Neither may be retried. Candidate artifacts, native scenes and
-all-17 remain blocked. Exact R122 PASS authorizes exactly one R123 process to
-solve at most `3200` frozen `64 × 64` local systems, single-threaded, within
-`7200 s` and `8 GiB`, with seed zero, no restart, resume, manual intervention
-or invalid-result retry. R123 may emit only its solver-private execution
-evidence. It may not run kinodynamics, construct a candidate, change controller/
-safety/quantization semantics, run PhysX or begin training. Only valid R123
-completion may authorize a separate report-only R124 full-kinodynamic
-execution formulation.
+and passed; R123 consumed its sole execution and stopped invalid before solve.
+None may be retried. Candidate artifacts, native scenes and all-17 remain
+blocked. R123-RC1 may only hash-close the exact redundant-contact geometry and
+compare report-only repair formulations. It may not factor/solve real dynamics,
+run kinodynamics, construct a candidate, change controller/safety/quantization
+semantics, run PhysX or begin training. R124 remains unauthorized.
