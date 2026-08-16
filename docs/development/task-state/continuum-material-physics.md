@@ -2,94 +2,151 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PAUSED_AFTER_RESEARCH` |
+| Status | `READY_FOR_WATER_ORACLE` |
 | Updated | `2026-08-16` |
 | Task key | `continuum-material-physics` |
-| Scope | Research and specification series for local water and deformable materials |
-| Definition of done | Proposed architecture, implementation work packages, source-backed report, routing and roadmap are coherent and documentation checks pass |
-| Authority | Working context only; Accepted SPEC/ADR, roadmap and exact future ProductCheck evidence outrank this file |
+| Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
+| Definition of done | Decision-complete water W0–W6 roadmap plus independent terrain/wet/lifecycle DAG; documentation checks pass; no runtime/public-contract claim |
+| Authority | Working context only; Accepted SPEC/ADR, main roadmap, exact profiles and future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** use one Physical Embodiment ownership umbrella with CPU DFSPH for the water oracle, GPU correspondence second and APIC/MLS-MPM for dry terrain; wet mud is later.
-- **Why:** DFSPH evidence fits incompressible free surfaces, while APIC/MLS-MPM evidence fits elastoplastic/history-dependent solids; current ADR-058 and ADR-046 forbid silently promoting another production backend or speculative contracts.
-- **Next action:** implement work package 01 only after selecting a bounded player-visible or tool consumer and freezing its particle/error budget.
-- **Current blocker:** no selected production consumer or measured Next Engine solver evidence; every `CONTINUUM-*` check is `NOT_RUN`.
-- **Do not retry:** one SPH solver for every material, GPU-first authority, or broad public schemas before a consumer.
-- **Reconsider when:** a measured corpus shows a different method strictly dominates on the same correctness, conservation and budget criteria.
+- **Current conclusion:** start the separate water worktree at W1 with a serial
+  safe-Rust CPU DFSPH oracle; no runtime or public schema is authorized.
+- **Selected consumer:** one sealed `4 × 2 × 1 m` basin, `0.75 m` depth,
+  nominal `48k`/hard `50k` samples, one `0.5 m`/`50 kg` PhysX crate and debug
+  particles; unavailable capability selects an authored dry variant before
+  activation.
+- **Authority:** private `f64` solve, ties-to-even canonical sample
+  position/velocity after every 240 Hz substep, and the next substep starts
+  from that state. CPU is canonical; GPU is optional mirror only.
+- **Next action:** create the water worktree from the documentation checkpoint
+  and implement only [W1](../../plans/continuum-water/01-serial-cpu-dfsph-oracle.md).
+- **Activation gate:** the main R8 row remains `PLANNED / NOT_ACTIVE` until
+  `CONTINUUM-WATER-REF-P1 = PASS`.
+- **Current uncertainty:** numerical correctness and 50k real-time cost are
+  unmeasured; every `CONTINUUM-*` check is `NOT_RUN`.
+- **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
+  hidden warm-start/float continuation, iterative coupling, sleep before exact
+  persistence, or wet terrain before dry-sand evidence.
 
 ## Current evidence
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| [Research report](../continuum-material-physics-research-2026-08-16.md) | `REPORT_ONLY` | Supports the multi-lane Proposed architecture; proves no implementation |
-| [SPEC-36](../../architecture/36-continuum-material-physics.md) and [ADR-072](../../architecture/adr/072-continuum-material-physics-track.md) | `Proposed` | Candidate ownership/failure/promotion semantics only |
-| [Implementation series](../../plans/continuum-material-physics/README.md) | `Proposed` | Orders falsifiable work packages and stop conditions |
+| [Research report](../continuum-material-physics-research-2026-08-16.md) | `REPORT_ONLY` | Supports solver-family separation; proves no implementation |
+| [SPEC-36](../../architecture/36-continuum-material-physics.md) and [ADR-072](../../architecture/adr/072-continuum-material-physics-track.md), checkpoint `63d597a` | `Proposed` | Candidate CPU authority, fixed-point boundary, one-pass coupling and exact-active semantics are closed |
+| [Standalone water roadmap](../../plans/continuum-water/README.md), checkpoint `870fffd` | `W0 COMPLETE / W1 NOT_STARTED` | Separate worktree has a bounded execution and stop path |
+| [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | `CONTINUUM-*` ProductChecks | `NOT_RUN` | No solver, performance, persistence or production claim is admissible |
 
-## Decisions that still constrain the work
+## Decisions that constrain the next work
 
 ### D-001 — Solver family, not solver monoculture
 
-- **Observation:** free-surface liquids and elastoplastic terrain need materially different state and discretization behavior.
-- **Evidence:** linked primary DFSPH, APIC/MLS-MPM, sand and snow sources in the research report.
-- **Decision:** CPU DFSPH water lane; APIC/MLS-MPM dry-terrain lane; separate material-specific SoA.
-- **Rejected alternatives:** one generic particle struct and SPH formulation for every material.
-- **Consequences:** shared infrastructure is limited to identity, bounds, scheduling, coupling and evidence, not numerical state layout.
-- **Uncertainty:** measured Next Engine costs and quality thresholds do not exist.
-- **Reconsider when:** equal-corpus measurements falsify the separation.
+- **Evidence:** the research report and SPEC-36.
+- **Decision:** CPU DFSPH for water; APIC/MLS-MPM for one calibrated dry-sand
+  profile; separate material-specific SoA.
+- **Rejected:** one SPH solver/particle record for water, sand, mud and snow.
+- **Reconsider when:** the same frozen corpora show one method strictly
+  dominates without weakening state/history semantics.
 
-### D-002 — GPU is mirror-first
+### D-002 — CPU canonical fixed-point boundary
 
-- **Observation:** parallel floating-point order and GPU execution profiles are not inherently cross-target exact.
-- **Evidence:** Vulkan/SPIR-V specifications and CUDA floating-point guidance linked in the report.
-- **Decision:** the first GPU water path is non-authoritative correspondence evidence.
-- **Rejected alternatives:** final-output quantization as proof of deterministic trajectory equivalence.
-- **Consequences:** production promotion must choose an explicit authority/replay model.
-- **Uncertainty:** acceptable gameplay correspondence and target profiles remain unmeasured.
-- **Reconsider when:** pinned target evidence and a production scenario support a narrower Accepted decision.
+- **Observation:** an internal `f64` trajectory with hidden pressure/warm-start
+  state is not an exact replay contract.
+- **Decision:** after each water substep publish only stable sample ID,
+  micrometre position and micrometre-per-second velocity; uniform mass is in
+  the profile, other solve fields are rebuilt, and warm start is disabled.
+- **Rejected:** float owner state, final-output-only quantization and GPU-first
+  canonical execution.
+- **Reconsider when:** a later consumer and exact cross-target evidence require
+  a versioned larger continuation state.
 
-### D-003 — Persistence is an explicit transition
+### D-003 — One-pass composite coupling
 
-- **Observation:** active particle state to a compact sleeping field is generally approximate and can lose constitutive history.
-- **Evidence:** architecture persistence invariants plus adaptive/conversion stability concerns in the report.
-- **Decision:** require conservation/error receipts and repeated wake-cycle tests; otherwise pin active or disable persistent deformation.
-- **Rejected alternatives:** call the conversion lossless or reconstruct dirty state from immutable base content.
-- **Consequences:** sleeping format follows implementation evidence, not the other way around.
-- **Uncertainty:** no candidate sleep representation has been tested.
-- **Reconsider when:** a bounded conversion corpus passes repeated cycles.
+- **Decision:** freeze rigid input, solve water, emit one canonical reaction
+  batch, let PhysX integrate once, then publish both owners or neither.
+- **Rejected:** delayed reaction, wall-time-selected iteration count, duplicate
+  contact writers and partial water/rigid commits.
+- **Reconsider when:** the W3 corpus fails a frozen stability threshold and a
+  bounded fixed-iteration alternative passes without changing authority.
+
+### D-004 — Sealed pinned-active exact persistence first
+
+- **Decision:** one region, no halo/transfer, exact active state in a composite
+  checkpoint; sleep/wake is a later lossy conversion with separate roots and
+  repeated-cycle evidence.
+- **Rejected:** sidecar save, active-root equals sleep-root claim, camera-driven
+  eviction and reconstructing dirty state from immutable content.
+- **Reconsider when:** W5 passes and a real streaming consumer requires 20X or
+  21X.
+
+### D-005 — Product and budget gate
+
+- **Decision:** 50k is the production particle gate; 100k is stress/report.
+  Promotion must stay inside current THOTH physical `4/6 ms` p95/p99 and
+  integrated `8/12 ms` ceilings.
+- **Stop rule:** after two evidence-backed W2 optimization cycles, a miss keeps
+  the track `RESEARCH_ONLY`. A smaller gate, larger budget or GPU authority is
+  a new decision.
+
+### D-006 — Terrain material ladder
+
+- **Decision:** exact calibrated dry sand → serial reference → exclusive
+  prescribed-wheel contact → exact active persistence → saturation/drainage →
+  optional closed free-water flux.
+- **Rejected:** generic soil claim, simultaneous PhysX/MPM ground contact,
+  full vehicle first and wet material before dry persistence.
+- **Current blocker:** Package 10T has no calibrated exact constants/curve
+  thresholds; terrain code must not start until it closes them.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: CPU DFSPH is affordable for one local gameplay region | Mature formulation and libraries | Published examples do not prove Next Engine real-time budgets | Package 01 at 10k/50k/100k particles |
-| H2: Drucker-Prager MLS-MPM covers the first terrain scenario | Established sand model and contact behavior | May miss rate dependence, cohesive clay or saturated behavior | Package 05 curve corpus |
-| H3: simplified saturation coupling is enough for mud | Smallest product-driven model | May not fit drainage and shear together | Package 06 contradictory-fit test |
+| H1: fixed-point-boundary CPU DFSPH passes the clean-water corpus | DFSPH/SPlisHSPlasH prior art and bounded profile | no Next Engine implementation; quantization may alter convergence | W1 serial corpus, same-target repeat and external aggregate comparison |
+| H2: 50k CPU water fits the current THOTH budget | bounded sealed region and fixed profile | published prior art does not prove Next Engine 240 Hz cost | W2 exact 10k/50k/100k workload after W1 PASS |
+| H3: one-pass coupling is stable for the basin crate | narrow consumer and fixed cadence | fast impact/added-mass behavior is unmeasured | W3 float/impact corpus and reaction closure |
+| H4: one Drucker-Prager profile covers the first wheel scenario | established dry-sand model | exact source material and curve thresholds are not selected | Package 10T calibration closure |
 
 ## Required context
 
-1. [Agent routing](../../architecture/agent-routing.md), SPEC-26 and current physics ADRs.
-2. [Roadmap](../../roadmap.md), especially R8 and the permanent B-10 scope gate.
-3. [SPEC-36](../../architecture/36-continuum-material-physics.md) and [implementation series](../../plans/continuum-material-physics/README.md).
-4. [Research report](../continuum-material-physics-research-2026-08-16.md).
+1. [Agent routing](../../architecture/agent-routing.md), SPEC-26 and current
+   physics ADRs.
+2. [Main roadmap](../../roadmap.md), R8, B-10 and performance boundaries.
+3. [SPEC-36](../../architecture/36-continuum-material-physics.md) and ADR-072.
+4. [Water roadmap](../../plans/continuum-water/README.md), especially W0/W1.
+5. [Research report](../continuum-material-physics-research-2026-08-16.md).
 
 ## Next action
 
-1. Select one bounded water consumer and freeze scenario/error/particle limits.
-2. Implement package 01 without public contracts or runtime integration.
-3. Require repeat/conservation checks; remove the lab cleanly if it cannot meet them.
+1. Create a dedicated water worktree from this coherent documentation
+   checkpoint.
+2. Add only the internal `next_continuum_water` crate and
+   `xtask continuum water oracle` required by W1.
+3. Run the small focused/golden cases, then the external full corpus; preserve
+   exact same-target roots and stop at the first failure.
+4. Update this task-state only when W1 passes/fails materially or evidence
+   changes the approach.
 
 ## Do not retry
 
-- General `ContinuumMaterialSystem` public API first — ADR-046 requires a production consumer.
-- GPU-first authoritative solver — cross-target semantics are unresolved.
-- Adaptivity before fixed resolution — split/merge conservation and stability are unproven.
-- Wet mud before dry terrain — too many unconstrained variables.
+- Add continuum types to `crates/contracts` during W1.
+- Use SPlisHSPlasH source as a linked/copied engine implementation.
+- Parallelize or add GPU before the serial correctness gate.
+- Persist density, pressure, neighbor, warm-start or render cache as V1 water
+  authority.
+- Hide a non-convergent frame by retaining the previous water state and
+  continuing the evidence run.
+- Start terrain code while Package 10T remains profile-unclosed.
 
 ## Handoff
 
-- **Workspace state:** documentation-only Proposed architecture/research/plan changes; no runtime or schema changes.
-- **Checks:** `git diff --check` PASS; changed local Markdown link/path validation PASS; Cargo/host-check/ProductChecks NOT_RUN because the change is documentation-only.
-- **Remaining risk:** numerical accuracy, performance, target correspondence and sleep conversion are all unmeasured.
-- **Promotion needed:** later consumer-backed Accepted ADR/SPEC update; none is authorized by this state.
+- **Workspace claim:** documentation-only Proposed architecture/specification
+  closure; no runtime, schema or ProductCheck implementation.
+- **Expected checks:** documentation cheap path only; Cargo/host-check and all
+  continuum executable checks remain `NOT_RUN`.
+- **Remaining risk:** solver accuracy, fixed-point trajectory behavior, 50k
+  performance, coupling stability, exact persistence implementation and all
+  terrain constitutive evidence are unmeasured.
