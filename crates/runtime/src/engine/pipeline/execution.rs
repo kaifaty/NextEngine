@@ -22,6 +22,7 @@ use super::{
     CandidateExecution, ExecutionTrace, PhaseContext, PhysicalPending, StagedAuthoritativeState,
     ValidatedCommand,
 };
+use crate::engine::agent_cognition::AgentCognitionStageContextV1;
 use crate::engine::error::RuntimeFatalError;
 use crate::engine::result::{CommittedRpgPlanTraceV1, OrderedResult, RejectionCode};
 use crate::engine::world_population::WorldPopulationStageContextV1;
@@ -35,6 +36,7 @@ pub(super) fn execute_candidate(
     physical_bodies: &mut BTreeSet<next_contracts::ids::PersistentId>,
     world_routine: Option<&mut WorldRoutineStageContextV1>,
     world_population: Option<&mut WorldPopulationStageContextV1>,
+    agent_cognition: Option<&mut AgentCognitionStageContextV1>,
 ) -> Result<CandidateExecution, RuntimeFatalError> {
     let command = &candidate.command;
     let stream =
@@ -208,6 +210,15 @@ pub(super) fn execute_candidate(
                 );
             }
             CommandPayload::WorldPopulation(_) => {}
+            CommandPayload::AgentCognition(_) if command.target.is_none() => {
+                return finalize_rejection(
+                    context,
+                    candidate,
+                    staged,
+                    RejectionCode::TargetNotAllowed,
+                );
+            }
+            CommandPayload::AgentCognition(_) => {}
             _ if command.target.is_some() => {
                 return finalize_rejection(
                     context,
@@ -457,6 +468,17 @@ pub(super) fn execute_candidate(
             let population =
                 world_population.ok_or(RuntimeFatalError::WorldPopulationInternalInvariant)?;
             let (event, delta) = population.apply_stage_9(
+                command,
+                context.tick,
+                context.phase_revision,
+                candidate.command_id,
+            )?;
+            (staged.rpg.clone(), vec![event], delta, None)
+        }
+        CommandPayload::AgentCognition(_) => {
+            let cognition =
+                agent_cognition.ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?;
+            let (event, delta) = cognition.apply_stage_9(
                 command,
                 context.tick,
                 context.phase_revision,

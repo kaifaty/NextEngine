@@ -1,7 +1,7 @@
 use next_contracts::canonical::sha256;
 use next_contracts::ids::{ContentHash, SchemaId, content_hash_from_bytes};
 use next_contracts::persistence::{SaveCompatibility, TickSettings};
-use next_contracts::project::ActivatedProjectV5;
+use next_contracts::project::ActivatedProjectV6;
 use next_contracts::session::{
     ApplicationSessionStatusV1, CausalInputReferenceV1, CausalInputSourceKindV1,
     CloseSessionJournalStageV2, CloseSessionJournalV2, CloseSessionReceiptV2,
@@ -43,15 +43,15 @@ impl ApplicationCoordinator {
             .as_ref()
             .ok_or(ApplicationError::NoRunOutcome)?;
         let compatibility = save_compatibility(&self.activated_project, &prepared.checkpoint)?;
-        let receipt = self
-            .save_store
-            .commit_world_checkpoint_with_world_services(
-                compatibility,
-                &prepared.checkpoint,
-                &prepared.streaming,
-                prepared.routine.as_ref(),
-                &prepared.population,
-            )?;
+        let receipt = self.save_store.commit_world_checkpoint_with_cognition(
+            compatibility,
+            &prepared.checkpoint,
+            &prepared.streaming,
+            prepared.routine.as_ref(),
+            &prepared.population,
+            &prepared.agent,
+            &prepared.memory,
+        )?;
         let loaded = self.save_store.load_latest(&save_compatibility(
             &self.activated_project,
             &prepared.checkpoint,
@@ -122,15 +122,15 @@ impl ApplicationCoordinator {
             .as_ref()
             .ok_or(ApplicationError::NoRunOutcome)?;
         let compatibility = save_compatibility(&self.activated_project, &prepared.checkpoint)?;
-        let image = self
-            .save_store
-            .prepare_world_checkpoint_with_world_services(
-                compatibility,
-                &prepared.checkpoint,
-                &prepared.streaming,
-                prepared.routine.as_ref(),
-                &prepared.population,
-            )?;
+        let image = self.save_store.prepare_world_checkpoint_with_cognition(
+            compatibility,
+            &prepared.checkpoint,
+            &prepared.streaming,
+            prepared.routine.as_ref(),
+            &prepared.population,
+            &prepared.agent,
+            &prepared.memory,
+        )?;
         let image_hash = image.content_hash()?;
         self.durable.close_journal = Some(CloseSessionJournalV2::prepared(&request, image_hash));
         self.durable.prepared_save_image = Some(image);
@@ -227,7 +227,7 @@ impl ApplicationCoordinator {
 }
 
 pub(crate) fn save_compatibility(
-    project: &ActivatedProjectV5,
+    project: &ActivatedProjectV6,
     checkpoint: &WorldCheckpointV4,
 ) -> Result<SaveCompatibility, ApplicationError> {
     let profile = checkpoint.runtime_snapshot.tick_rate_profile;

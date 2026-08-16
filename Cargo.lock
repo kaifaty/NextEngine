@@ -661,6 +661,7 @@ dependencies = [
 name = "next_application"
 version = "0.1.0"
 dependencies = [
+ "next_agent",
  "next_assets",
  "next_contracts",
  "next_desktop_sdl_ash",
@@ -845,6 +846,7 @@ dependencies = [
 name = "next_runtime"
 version = "0.1.0"
 dependencies = [
+ "next_agent",
  "next_contracts",
  "next_mechanics",
  "next_physics_api",

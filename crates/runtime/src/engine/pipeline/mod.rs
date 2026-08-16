@@ -23,6 +23,7 @@ use next_rpg::RpgState;
 use crate::authority::AuthorityRegistry;
 use crate::registry::CommandKindRegistry;
 
+use super::agent_cognition::AgentCognitionStageContextV1;
 use super::error::RuntimeFatalError;
 use super::result::{
     CommandOrderKey, CommittedRpgPlanTraceV1, OrderedResult, RejectionCode, StageTraceEntry,
@@ -144,6 +145,7 @@ pub(super) fn process_phase(
     world_streaming: Option<WorldStreamingStageContext<'_>>,
     mut world_routine: Option<&mut WorldRoutineStageContextV1>,
     mut world_population: Option<&mut WorldPopulationStageContextV1>,
+    mut agent_cognition: Option<&mut AgentCognitionStageContextV1>,
 ) -> Result<PhaseExecution, RuntimeFatalError> {
     let mut queued = due_commands(context, staged)?;
     queued.extend(commands.into_iter().map(|command| QueuedCommand {
@@ -230,6 +232,7 @@ pub(super) fn process_phase(
             &mut physical_bodies,
             world_routine.as_deref_mut(),
             world_population.as_deref_mut(),
+            agent_cognition.as_deref_mut(),
         )? {
             CandidateExecution::Result(result, trace) => {
                 match trace {
@@ -275,6 +278,13 @@ pub(super) fn process_phase(
                 .checked_add(1)
                 .ok_or(RuntimeFatalError::RevisionExhausted)?;
             world_population.produce_stage_6(context.tick, outcome_phase_revision)?;
+        }
+        if let Some(agent_cognition) = agent_cognition.as_deref_mut() {
+            let outcome_phase_revision = staged
+                .revision
+                .checked_add(1)
+                .ok_or(RuntimeFatalError::RevisionExhausted)?;
+            agent_cognition.produce_stage_7(context.tick, outcome_phase_revision, &staged.rpg)?;
         }
         let physical_execution = finish_physical_step(context, physical_pending, staged)?;
         for (result, event) in physical_execution.command_results {
@@ -323,6 +333,16 @@ pub(super) fn process_phase(
     if world_streaming.is_some() || world_routine.is_some() || world_population.is_some() {
         stage_trace.push(StageTraceEntry {
             stage: TransactionStage::WorldStreamingCommit,
+            received: 1,
+            accepted: 1,
+            rejected: 0,
+            committed: 1,
+            deduplicated: 0,
+        });
+    }
+    if agent_cognition.is_some() {
+        stage_trace.push(StageTraceEntry {
+            stage: TransactionStage::AgentPlanning,
             received: 1,
             accepted: 1,
             rejected: 0,

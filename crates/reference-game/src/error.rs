@@ -53,6 +53,7 @@ pub enum ReferenceGameError {
     WorldStreaming(next_world::WorldStreamingError),
     WorldRoutine(next_world::WorldRoutineOwnerError),
     WorldPopulation(next_world::WorldPopulationOwnerError),
+    Cognition(next_agent::cognition::StrategicAgentError),
     WorldStreamingContract(next_contracts::world::WorldStreamingContractError),
     Agent(next_agent::AgentPlannerError),
     DuplicatePrincipal,
@@ -99,6 +100,7 @@ impl Display for ReferenceGameError {
             Self::WorldStreaming(error) => write!(formatter, "{error}"),
             Self::WorldRoutine(error) => write!(formatter, "{error}"),
             Self::WorldPopulation(error) => write!(formatter, "{error}"),
+            Self::Cognition(error) => write!(formatter, "{error}"),
             Self::WorldStreamingContract(error) => write!(formatter, "{error}"),
             Self::Agent(error) => write!(formatter, "{error}"),
             Self::DuplicatePrincipal => formatter.write_str("reference principal is duplicated"),
@@ -189,6 +191,7 @@ from_error!(next_presentation::audio_mix::AudioMixErrorV1, AudioMix);
 from_error!(next_world::WorldStreamingError, WorldStreaming);
 from_error!(next_world::WorldRoutineOwnerError, WorldRoutine);
 from_error!(next_world::WorldPopulationOwnerError, WorldPopulation);
+from_error!(next_agent::cognition::StrategicAgentError, Cognition);
 from_error!(
     next_contracts::world::WorldStreamingContractError,
     WorldStreamingContract

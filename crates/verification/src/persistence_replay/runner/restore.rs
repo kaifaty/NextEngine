@@ -70,13 +70,17 @@ pub(super) fn save_and_restore(
                     "saved world population owner segment exists",
                 )
             })?;
+    let saved_agent_snapshot = direct.cognition.agent_snapshot().clone();
+    let saved_memory_snapshot = direct.cognition.memory_snapshot().clone();
     let generation_zero = store
-        .commit_world_checkpoint_with_world_services(
+        .commit_world_checkpoint_with_cognition(
             compatibility.clone(),
             &saved_checkpoint,
             &saved_world_snapshot,
             Some(&saved_routine_snapshot),
             &saved_population_snapshot,
+            &saved_agent_snapshot,
+            &saved_memory_snapshot,
         )
         .map_err(|error| {
             PersistenceReplayCheckError::new("commit generation zero", error.to_string())
@@ -106,6 +110,12 @@ pub(super) fn save_and_restore(
     })?;
     let loaded_population = loaded.world_population_snapshot_or_none.ok_or_else(|| {
         PersistenceReplayCheckError::condition("loaded world population owner segment exists")
+    })?;
+    let loaded_agent = loaded.agent_cognition_snapshot_or_none.ok_or_else(|| {
+        PersistenceReplayCheckError::condition("loaded agent cognition owner segment exists")
+    })?;
+    let loaded_memory = loaded.agent_memory_snapshot_or_none.ok_or_else(|| {
+        PersistenceReplayCheckError::condition("loaded agent memory owner segment exists")
     })?;
 
     let runtime = RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
@@ -143,6 +153,18 @@ pub(super) fn save_and_restore(
     .map_err(|error| {
         PersistenceReplayCheckError::new("restore world population", error.to_string())
     })?;
+    let cognition = next_agent::cognition::StrategicAgentOwnersV1::restore(
+        direct
+            .fixture
+            .activated_project
+            .agent_cognition_catalog
+            .clone(),
+        loaded_agent,
+        loaded_memory,
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("restore strategic cognition", error.to_string())
+    })?;
     runtime
         .validate_world_routine_ledger_closure(&routine)
         .map_err(|error| {
@@ -159,12 +181,15 @@ pub(super) fn save_and_restore(
         world: restored_world,
         routine,
         population,
+        cognition,
         store,
         compatibility,
         saved_checkpoint,
         saved_world_snapshot,
         saved_routine_snapshot_or_none,
         saved_population_snapshot,
+        saved_agent_snapshot,
+        saved_memory_snapshot,
         _directory: directory,
     })
 }

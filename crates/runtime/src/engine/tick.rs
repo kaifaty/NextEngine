@@ -17,6 +17,7 @@ use std::sync::OnceLock;
 use crate::outcome::{NoOutcomes, OutcomeContext, OutcomeProvider, OutcomeSink};
 use crate::stage_zone::stage_zone;
 
+use super::agent_cognition::AgentCognitionStageContextV1;
 use super::error::{InputAdmissionError, RuntimeFatalError};
 use super::ingress::{accept_closed_ingress, close_ingress, finalize_mapping_receipt_v2};
 use super::interaction::{
@@ -100,6 +101,7 @@ impl RuntimeTickPreparation<'_> {
             commands,
             outcome_provider,
             replay_ingress,
+            None,
             None,
             None,
             None,
@@ -563,6 +565,7 @@ impl RuntimeState {
         world_streaming: Option<WorldStreamingStageContext<'_>>,
         mut world_routine: Option<&mut WorldRoutineStageContextV1>,
         mut world_population: Option<&mut WorldPopulationStageContextV1>,
+        mut agent_cognition: Option<&mut AgentCognitionStageContextV1>,
     ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
         let following_tick = self
             .next_tick
@@ -647,6 +650,7 @@ impl RuntimeState {
                 world_streaming,
                 world_routine.as_deref_mut(),
                 world_population.as_deref_mut(),
+                agent_cognition.as_deref_mut(),
             )?
         };
         let physics_step_input = ingress
@@ -744,6 +748,11 @@ impl RuntimeState {
             .map(|population| population.proposal_for_stage_9(tick, staged.revision))
             .transpose()?
             .flatten();
+        let cognition_proposal_or_none = agent_cognition
+            .as_deref()
+            .map(|cognition| cognition.proposal_for_stage_9(tick, staged.revision))
+            .transpose()?
+            .flatten();
         let proposal_count = count(
             built_in_resolution
                 .outcomes
@@ -754,6 +763,9 @@ impl RuntimeState {
                 })
                 .and_then(|count| {
                     count.checked_add(usize::from(population_proposal_or_none.is_some()))
+                })
+                .and_then(|count| {
+                    count.checked_add(usize::from(cognition_proposal_or_none.is_some()))
                 })
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?,
         )?;
@@ -767,6 +779,9 @@ impl RuntimeState {
                 })
                 .and_then(|count| {
                     count.checked_add(usize::from(population_proposal_or_none.is_some()))
+                })
+                .and_then(|count| {
+                    count.checked_add(usize::from(cognition_proposal_or_none.is_some()))
                 })
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?,
         );
@@ -819,6 +834,9 @@ impl RuntimeState {
         if let Some(proposal) = population_proposal_or_none {
             outcome_commands.push(proposal);
         }
+        if let Some(proposal) = cognition_proposal_or_none {
+            outcome_commands.push(proposal);
+        }
         sort_command_batch(&mut outcome_commands)?;
         let outcome_batch =
             ClosedCommandAdmissionBatchV2::from_body(ClosedCommandAdmissionBatchBodyV2 {
@@ -853,6 +871,7 @@ impl RuntimeState {
                 None,
                 world_routine.as_deref_mut(),
                 world_population.as_deref_mut(),
+                agent_cognition.as_deref_mut(),
             )?
         };
 
@@ -861,6 +880,9 @@ impl RuntimeState {
         }
         if let Some(population) = world_population.as_deref() {
             population.finish(following_tick)?;
+        }
+        if let Some(cognition) = agent_cognition.as_deref() {
+            cognition.finish()?;
         }
 
         stage_zone!("SnapshotPublication");

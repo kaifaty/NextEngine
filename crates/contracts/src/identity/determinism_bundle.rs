@@ -21,9 +21,22 @@ pub struct RuntimeDeterminismBundleV1 {
 impl RuntimeDeterminismBundleV1 {
     pub fn core_r4b() -> Result<Self, IdentityContractError> {
         let command_kind_registry = CommandKindRegistryV1::core_r4b()?;
+        let schedule_manifest = ScheduleManifestV1::core_r4b()?;
+        Self::materialize(command_kind_registry, schedule_manifest)
+    }
+
+    pub fn core_r4c() -> Result<Self, IdentityContractError> {
+        let command_kind_registry = CommandKindRegistryV1::core_r4c()?;
+        let schedule_manifest = ScheduleManifestV1::core_r4c()?;
+        Self::materialize(command_kind_registry, schedule_manifest)
+    }
+
+    fn materialize(
+        command_kind_registry: CommandKindRegistryV1,
+        schedule_manifest: ScheduleManifestV1,
+    ) -> Result<Self, IdentityContractError> {
         let command_kind_registry_bytes = command_kind_registry.canonical_bytes()?;
         let command_kind_registry_hash = command_kind_registry.canonical_hash()?;
-        let schedule_manifest = ScheduleManifestV1::core_r4b()?;
         let schedule_manifest_bytes = schedule_manifest.canonical_bytes()?;
         let schedule_manifest_hash = schedule_manifest.profile_hash()?;
         let runtime_profile = RuntimeDeterminismProfileV1::from_materialized_r4b(
@@ -109,10 +122,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn one_builder_closes_registry_schedule_and_runtime_profile() {
-        let bundle = RuntimeDeterminismBundleV1::core_r4b().expect("bundle builds");
-        assert_eq!(bundle.command_kind_registry().entries.len(), 5);
+    fn r4c_builder_closes_registry_schedule_and_runtime_profile() {
+        let bundle = RuntimeDeterminismBundleV1::core_r4c().expect("bundle builds");
+        assert_eq!(bundle.command_kind_registry().entries.len(), 6);
         assert_eq!(bundle.schedule_manifest().stage_order.len(), 12);
+        assert_eq!(bundle.schedule_manifest().systems.len(), 3);
         assert_eq!(
             bundle.runtime_profile().command_kind_registry_hash,
             bundle.command_kind_registry_hash()

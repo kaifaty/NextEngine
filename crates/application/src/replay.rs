@@ -5,7 +5,7 @@ use next_contracts::canonical::{CanonicalDecodeLimits, CanonicalError};
 use next_contracts::command::{DomainEvent, WorldCommand};
 use next_contracts::ids::{CommandLedgerHash, SchemaId, StateRoot};
 use next_contracts::persistence::{
-    ManifestValidationError, ReplayCommandResultV2, ReplayManifestV7, SaveSegmentDescriptor,
+    ManifestValidationError, ReplayCommandResultV2, ReplayManifestV8, SaveSegmentDescriptor,
     WorldStreamingReplayInputV1, replay_physics_query_batch_hash,
     replay_physics_query_results_hash, replay_targeting_query_trace_hash,
 };
@@ -319,19 +319,19 @@ pub fn run_rpg_replay(input: &RpgReplayInput) -> Result<RpgReplayOutput, ReplayE
     })
 }
 
-pub fn run_replay_manifest_v7(
-    manifest: &ReplayManifestV7,
+pub fn run_replay_manifest_v8(
+    manifest: &ReplayManifestV8,
     package: next_project::ActivatedProjectPackage,
 ) -> Result<ReplayOutput, ReplayError> {
-    run_replay_manifest_v7_with_physics_options(
+    run_replay_manifest_v8_with_physics_options(
         manifest,
         package,
         next_runtime::PhysicsLaunchOptions::default(),
     )
 }
 
-pub fn run_replay_manifest_v7_with_physics_options(
-    manifest: &ReplayManifestV7,
+pub fn run_replay_manifest_v8_with_physics_options(
+    manifest: &ReplayManifestV8,
     package: next_project::ActivatedProjectPackage,
     physics_options: next_runtime::PhysicsLaunchOptions,
 ) -> Result<ReplayOutput, ReplayError> {
@@ -357,6 +357,12 @@ pub fn run_replay_manifest_v7_with_physics_options(
         initial.world_population_snapshot,
         initial.checkpoint.runtime_snapshot.next_tick,
     )?;
+    let mut cognition = next_agent::cognition::StrategicAgentOwnersV1::restore(
+        project.agent_cognition_catalog.clone(),
+        initial.agent_cognition_snapshot,
+        initial.agent_memory_snapshot,
+    )
+    .map_err(|_| ManifestValidationError::ReplayInitialSegmentsInvalid)?;
 
     let mut authority = AuthorityRegistry::new();
     for grant in &manifest.authority {
@@ -384,9 +390,10 @@ pub fn run_replay_manifest_v7_with_physics_options(
             tick_manifest.tick,
             &mut world,
         )?;
-        let commit = match replay.replay_world_services_tick_v7(
+        let commit = match replay.replay_world_services_tick_v8(
             &mut routine,
             &mut population,
+            &mut cognition,
             &mut world,
             streaming,
             tick.closed_ingress_batch,

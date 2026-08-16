@@ -7,7 +7,7 @@ pub mod audio_check;
 mod tests;
 
 use next_assets::ContentStore;
-use next_contracts::project::ActivatedProjectV5;
+use next_contracts::project::ActivatedProjectV6;
 
 pub use checks::{
     GameCheckReport, PhysicsCollisionBackend, PhysicsCollisionCheckReport, PlayCheckReport,
@@ -75,7 +75,7 @@ pub(crate) fn build_neutral_player_fixture_with_scratch(
 }
 
 pub fn build_neutral_player_fixture_from_activated_project(
-    activated_project: ActivatedProjectV5,
+    activated_project: ActivatedProjectV6,
 ) -> Result<NeutralPlayerFixture, NeutralFixtureError> {
     Ok(next_reference_game::build_reference_game_session(
         activated_project,
@@ -84,7 +84,7 @@ pub fn build_neutral_player_fixture_from_activated_project(
 
 pub(crate) fn activate_fixture_project(
     project_id: &str,
-) -> Result<ActivatedProjectV5, NeutralFixtureError> {
+) -> Result<ActivatedProjectV6, NeutralFixtureError> {
     let scratch =
         ScratchContext::new(&std::env::temp_dir()).map_err(NeutralFixtureError::Cleanup)?;
     activate_fixture_project_with_scratch(&scratch, project_id)
@@ -93,9 +93,9 @@ pub(crate) fn activate_fixture_project(
 pub(crate) fn activate_fixture_project_with_scratch(
     scratch: &ScratchContext,
     project_id: &str,
-) -> Result<ActivatedProjectV5, NeutralFixtureError> {
-    let source = next_reference_game::project_source_v4_with_id(project_id)?;
-    let cooked = next_project::cook_project_v4(source)?;
+) -> Result<ActivatedProjectV6, NeutralFixtureError> {
+    let source = next_reference_game::project_source_v5_with_id(project_id)?;
+    let cooked = next_project::cook_project_v5(source)?;
     let directory = scratch
         .create_directory("play-project")
         .map_err(NeutralFixtureError::Cleanup)?;
@@ -111,8 +111,8 @@ pub(crate) fn prepare_fixture_project_package_with_scratch(
     scratch: &ScratchContext,
     project_id: &str,
 ) -> Result<PreparedFixtureProjectPackage, NeutralFixtureError> {
-    let source = next_reference_game::project_source_v4_with_id(project_id)?;
-    let cooked = next_project::cook_project_v4(source)?;
+    let source = next_reference_game::project_source_v5_with_id(project_id)?;
+    let cooked = next_project::cook_project_v5(source)?;
     let directory = scratch
         .create_directory("play-project-package")
         .map_err(NeutralFixtureError::Cleanup)?;

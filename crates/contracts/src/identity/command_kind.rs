@@ -6,6 +6,11 @@ use crate::canonical::{
     CanonicalCursor, CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError, CanonicalField,
     decode_canonical_segment, encode_canonical_segment, sha256,
 };
+use crate::cognition::{
+    AGENT_COGNITION_CAPABILITY_ID, AGENT_COGNITION_COMMAND_KIND_ID,
+    AGENT_COGNITION_COMMAND_SCHEMA_ID, AGENT_COGNITION_COMMAND_SCHEMA_VERSION,
+    AGENT_COGNITION_PRIORITY_CLASS,
+};
 use crate::command::{
     COMMAND_SCHEMA_VERSION, CapabilityRefV1, CommandPayload, CommandPhase,
     NOOP_COMMAND_CAPABILITY_ID, NOOP_COMMAND_SCHEMA_ID,
@@ -101,6 +106,14 @@ pub struct CommandKindRegistryV1 {
 
 impl CommandKindRegistryV1 {
     pub fn core_r4b() -> Result<Self, IdentityContractError> {
+        Self::core(false)
+    }
+
+    pub fn core_r4c() -> Result<Self, IdentityContractError> {
+        Self::core(true)
+    }
+
+    fn core(include_agent_cognition: bool) -> Result<Self, IdentityContractError> {
         let entry = |payload_schema_id: &str,
                      payload_schema_version: u32,
                      command_kind_id: &str,
@@ -125,50 +138,62 @@ impl CommandKindRegistryV1 {
                 value,
             ))
         };
+        let mut entries = BTreeMap::from([
+            entry(
+                NOOP_COMMAND_SCHEMA_ID,
+                COMMAND_SCHEMA_VERSION,
+                NOOP_COMMAND_KIND_ID,
+                NOOP_PRIORITY_CLASS,
+                b"nextengine.command-validator.noop.v1\0",
+                NOOP_COMMAND_CAPABILITY_ID,
+            )?,
+            entry(
+                RPG_COMMAND_SCHEMA_ID,
+                RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
+                RPG_COMMAND_KIND_ID,
+                RPG_PRIORITY_CLASS,
+                b"nextengine.command-validator.rpg.v2\0",
+                RPG_COMMAND_CAPABILITY_ID,
+            )?,
+            entry(
+                PHYSICAL_COMMAND_SCHEMA_ID,
+                PHYSICAL_COMMAND_SCHEMA_VERSION,
+                PHYSICAL_COMMAND_KIND_ID,
+                PHYSICAL_PRIORITY_CLASS,
+                b"nextengine.command-validator.physical.v1\0",
+                PHYSICAL_COMMAND_CAPABILITY_ID,
+            )?,
+            entry(
+                WORLD_ROUTINE_COMMAND_SCHEMA_ID,
+                WORLD_ROUTINE_COMMAND_SCHEMA_VERSION,
+                WORLD_ROUTINE_COMMAND_KIND_ID,
+                crate::world_routine::WORLD_ROUTINE_PRIORITY_CLASS,
+                b"nextengine.command-validator.world-routine.v1\0",
+                WORLD_ROUTINE_CAPABILITY_ID,
+            )?,
+            entry(
+                WORLD_POPULATION_COMMAND_SCHEMA_ID,
+                WORLD_POPULATION_COMMAND_SCHEMA_VERSION,
+                WORLD_POPULATION_COMMAND_KIND_ID,
+                WORLD_POPULATION_PRIORITY_CLASS,
+                b"nextengine.command-validator.world-population.v1\0",
+                WORLD_POPULATION_CAPABILITY_ID,
+            )?,
+        ]);
+        if include_agent_cognition {
+            let (key, value) = entry(
+                AGENT_COGNITION_COMMAND_SCHEMA_ID,
+                AGENT_COGNITION_COMMAND_SCHEMA_VERSION,
+                AGENT_COGNITION_COMMAND_KIND_ID,
+                AGENT_COGNITION_PRIORITY_CLASS,
+                b"nextengine.command-validator.agent-cognition.v1\0",
+                AGENT_COGNITION_CAPABILITY_ID,
+            )?;
+            entries.insert(key, value);
+        }
         let value = Self {
             schema_version: COMMAND_KIND_REGISTRY_SCHEMA_VERSION,
-            entries: BTreeMap::from([
-                entry(
-                    NOOP_COMMAND_SCHEMA_ID,
-                    COMMAND_SCHEMA_VERSION,
-                    NOOP_COMMAND_KIND_ID,
-                    NOOP_PRIORITY_CLASS,
-                    b"nextengine.command-validator.noop.v1\0",
-                    NOOP_COMMAND_CAPABILITY_ID,
-                )?,
-                entry(
-                    RPG_COMMAND_SCHEMA_ID,
-                    RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
-                    RPG_COMMAND_KIND_ID,
-                    RPG_PRIORITY_CLASS,
-                    b"nextengine.command-validator.rpg.v2\0",
-                    RPG_COMMAND_CAPABILITY_ID,
-                )?,
-                entry(
-                    PHYSICAL_COMMAND_SCHEMA_ID,
-                    PHYSICAL_COMMAND_SCHEMA_VERSION,
-                    PHYSICAL_COMMAND_KIND_ID,
-                    PHYSICAL_PRIORITY_CLASS,
-                    b"nextengine.command-validator.physical.v1\0",
-                    PHYSICAL_COMMAND_CAPABILITY_ID,
-                )?,
-                entry(
-                    WORLD_ROUTINE_COMMAND_SCHEMA_ID,
-                    WORLD_ROUTINE_COMMAND_SCHEMA_VERSION,
-                    WORLD_ROUTINE_COMMAND_KIND_ID,
-                    crate::world_routine::WORLD_ROUTINE_PRIORITY_CLASS,
-                    b"nextengine.command-validator.world-routine.v1\0",
-                    WORLD_ROUTINE_CAPABILITY_ID,
-                )?,
-                entry(
-                    WORLD_POPULATION_COMMAND_SCHEMA_ID,
-                    WORLD_POPULATION_COMMAND_SCHEMA_VERSION,
-                    WORLD_POPULATION_COMMAND_KIND_ID,
-                    WORLD_POPULATION_PRIORITY_CLASS,
-                    b"nextengine.command-validator.world-population.v1\0",
-                    WORLD_POPULATION_CAPABILITY_ID,
-                )?,
-            ]),
+            entries,
         };
         value.validate()?;
         Ok(value)
@@ -228,6 +253,10 @@ impl CommandKindRegistryV1 {
                     WORLD_POPULATION_COMMAND_SCHEMA_ID,
                     CommandPayload::WorldPopulation(_)
                 )
+                | (
+                    AGENT_COGNITION_COMMAND_SCHEMA_ID,
+                    CommandPayload::AgentCognition(_)
+                )
         )
     }
 
@@ -238,6 +267,7 @@ impl CommandKindRegistryV1 {
             PHYSICAL_COMMAND_SCHEMA_ID => phase == CommandPhase::Ingress,
             WORLD_ROUTINE_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
             WORLD_POPULATION_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
+            AGENT_COGNITION_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
             _ => false,
         }
     }
@@ -529,6 +559,25 @@ mod tests {
             .descriptor(&schema, WORLD_POPULATION_COMMAND_SCHEMA_VERSION)
             .expect("population command is registered");
         assert_eq!(entry.priority_class, WORLD_POPULATION_PRIORITY_CLASS);
+        assert!(!CommandKindRegistryV1::allows_phase(
+            entry,
+            CommandPhase::Ingress
+        ));
+        assert!(CommandKindRegistryV1::allows_phase(
+            entry,
+            CommandPhase::Outcome
+        ));
+    }
+
+    #[test]
+    fn r4c_cognition_entry_is_outcome_only_at_priority_270() {
+        let registry = CommandKindRegistryV1::core_r4c().expect("core registry builds");
+        assert_eq!(registry.entries.len(), 6);
+        let schema = SchemaId::new(AGENT_COGNITION_COMMAND_SCHEMA_ID).expect("schema is valid");
+        let entry = registry
+            .descriptor(&schema, AGENT_COGNITION_COMMAND_SCHEMA_VERSION)
+            .expect("cognition command is registered");
+        assert_eq!(entry.priority_class, AGENT_COGNITION_PRIORITY_CLASS);
         assert!(!CommandKindRegistryV1::allows_phase(
             entry,
             CommandPhase::Ingress

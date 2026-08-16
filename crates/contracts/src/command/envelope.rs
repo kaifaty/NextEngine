@@ -1,6 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::canonical::{CanonicalDecodeLimits, CanonicalError, sha256};
+use crate::cognition::{
+    AGENT_COGNITION_CAPABILITY_ID, AGENT_COGNITION_COMMAND_SCHEMA_ID,
+    AGENT_COGNITION_COMMAND_SCHEMA_VERSION, AgentCognitionCommandV1,
+};
 use crate::ids::{
     CommandBodyHash, CommandId, CommandStreamId, PersistentId, SchemaId, SystemId,
     command_body_hash_from_bytes,
@@ -203,6 +207,46 @@ impl WorldCommandEnvelopeV2 {
                     authoritative_revision,
                 )?],
                 payload: CommandPayload::WorldPopulation(payload),
+            },
+        };
+        command.refresh_command_id()?;
+        Ok(command)
+    }
+
+    pub fn agent_cognition(
+        stream_id: CommandStreamId,
+        system_id: SystemId,
+        sequence: u64,
+        target_tick: u64,
+        authoritative_revision: u64,
+        payload: AgentCognitionCommandV1,
+    ) -> Result<Self, CanonicalError> {
+        payload
+            .validate()
+            .map_err(|_| CanonicalError::DuplicateSequenceValue)?;
+        let subject_id = match &payload {
+            AgentCognitionCommandV1::CommitDecision {
+                next_agent_snapshot,
+                ..
+            } => next_agent_snapshot.subject_id,
+        };
+        let mut command = Self {
+            envelope_schema_version: COMMAND_ENVELOPE_SCHEMA_VERSION,
+            claimed_command_id: None,
+            body: CanonicalCommandBodyV2 {
+                payload_schema_id: SchemaId::new(AGENT_COGNITION_COMMAND_SCHEMA_ID)?,
+                payload_schema_version: AGENT_COGNITION_COMMAND_SCHEMA_VERSION,
+                issuer: IssuerPrincipal::InternalSystem(system_id),
+                stream_id,
+                sequence,
+                target_tick,
+                phase: CommandPhase::Outcome,
+                target: Some(subject_id),
+                capability_claims: vec![CapabilityRefV1::unscoped(AGENT_COGNITION_CAPABILITY_ID)?],
+                preconditions: vec![CommandPreconditionV1::authoritative_revision(
+                    authoritative_revision,
+                )?],
+                payload: CommandPayload::AgentCognition(payload),
             },
         };
         command.refresh_command_id()?;

@@ -13,6 +13,7 @@ profile-tracy = ["next_runtime/profile-tracy"]
 
 [dependencies]
 next_assets.workspace = true
+next_agent.workspace = true
 next_contracts.workspace = true
 next_player.workspace = true
 next_project.workspace = true

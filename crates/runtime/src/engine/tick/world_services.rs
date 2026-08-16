@@ -1,3 +1,13 @@
+use next_agent::cognition::{
+    PreparedStrategicAgentPublicationV1, StrategicAgentOwnersV1,
+    ValidatedStrategicAgentPublicationV1,
+};
+use next_contracts::cognition::{
+    AGENT_MEMORY_SNAPSHOT_OWNER_ID, AGENT_MEMORY_SNAPSHOT_SCHEMA_ID,
+    AGENT_MEMORY_SNAPSHOT_SEGMENT_ID, AGENT_RUNTIME_SNAPSHOT_OWNER_ID,
+    AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID, AGENT_RUNTIME_SNAPSHOT_SEGMENT_ID, AgentCognitionSnapshotV1,
+    AgentMemorySnapshotV1, COGNITION_SCHEMA_VERSION, DecisionTraceV1,
+};
 use next_contracts::ids::{InputSourceId, SchemaId, StateRoot};
 use next_contracts::input::{ActionMapManifestV1, InputContextStackV1};
 use next_contracts::persistence::SaveSegmentDescriptor;
@@ -12,6 +22,7 @@ use next_contracts::rpg::{
 use next_contracts::snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
     RUNTIME_SNAPSHOT_SEGMENT_ID, WorldCheckpointCanonicalComponentsV1,
+    world_checkpoint_with_cognition_v1_state_root_from_canonical_components,
     world_checkpoint_with_world_services_v1_state_root_from_canonical_components,
 };
 use next_contracts::world::{
@@ -37,6 +48,10 @@ pub struct PreparedRuntimeWorldServicesTickV1 {
     runtime: PreparedRuntimeTick,
     routine: next_world::PreparedWorldRoutinePublicationV1,
     population: next_world::PreparedWorldPopulationPublicationV1,
+    cognition: Option<PreparedStrategicAgentPublicationV1>,
+    agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
+    memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
+    decision_trace_or_none: Option<DecisionTraceV1>,
     base_world_state_hash: next_contracts::ids::ContentHash,
     staged_world_snapshot: WorldStreamingSnapshotV1,
     streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
@@ -49,6 +64,10 @@ struct ValidatedWorldServicesGenerationV1 {
     runtime: ValidatedRuntimeTick,
     routine: next_world::ValidatedWorldRoutinePublicationV1,
     population: next_world::ValidatedWorldPopulationPublicationV1,
+    cognition: Option<ValidatedStrategicAgentPublicationV1>,
+    agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
+    memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
+    decision_trace_or_none: Option<DecisionTraceV1>,
     base_world_state_hash: next_contracts::ids::ContentHash,
     staged_world_snapshot: WorldStreamingSnapshotV1,
     streaming: Option<next_world::ValidatedWorldStreamingPublicationV1>,
@@ -72,6 +91,9 @@ struct CommittedWorldServicesGenerationV1 {
     world_streaming_snapshot: WorldStreamingSnapshotV1,
     routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+    agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
+    memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
+    decision_trace_or_none: Option<DecisionTraceV1>,
     population_service_report_or_none: Option<next_world::PopulationNavigationServiceReportV1>,
     streaming_transition_or_none: Option<next_world::WorldTransitionCommitV1>,
 }
@@ -83,6 +105,9 @@ pub struct WorldServicesTickCommitV1 {
     pub world_streaming_snapshot: WorldStreamingSnapshotV1,
     pub routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     pub population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+    pub agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
+    pub memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
+    pub decision_trace_or_none: Option<DecisionTraceV1>,
     pub population_service_report_or_none: Option<next_world::PopulationNavigationServiceReportV1>,
     pub streaming_transition_or_none: Option<next_world::WorldTransitionCommitV1>,
     pub application_owner_segments: Vec<SaveSegmentDescriptor>,
@@ -97,7 +122,26 @@ impl RuntimeTickPreparation<'_> {
         population: &next_world::WorldPopulationOwnerV1,
         world: &next_world::WorldStreamerV1,
     ) -> Result<PreparedRuntimeWorldServicesTickV1, RuntimeFatalError> {
-        self.prepare_world_services_internal(commands, routine, population, world, None, None)
+        self.prepare_world_services_internal(commands, routine, population, None, world, None, None)
+    }
+
+    pub fn prepare_with_world_services_and_cognition(
+        self,
+        commands: impl IntoIterator<Item = WorldCommand>,
+        routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
+        cognition: &StrategicAgentOwnersV1,
+        world: &next_world::WorldStreamerV1,
+    ) -> Result<PreparedRuntimeWorldServicesTickV1, RuntimeFatalError> {
+        self.prepare_world_services_internal(
+            commands,
+            routine,
+            population,
+            Some(cognition),
+            world,
+            None,
+            None,
+        )
     }
 
     pub fn prepare_with_world_services_and_streaming(
@@ -112,6 +156,27 @@ impl RuntimeTickPreparation<'_> {
             commands,
             routine,
             population,
+            None,
+            world,
+            Some(publication),
+            None,
+        )
+    }
+
+    pub fn prepare_with_world_services_cognition_and_streaming(
+        self,
+        commands: impl IntoIterator<Item = WorldCommand>,
+        routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
+        cognition: &StrategicAgentOwnersV1,
+        world: &next_world::WorldStreamerV1,
+        publication: next_world::PreparedWorldStreamingPublicationV1,
+    ) -> Result<PreparedRuntimeWorldServicesTickV1, RuntimeFatalError> {
+        self.prepare_world_services_internal(
+            commands,
+            routine,
+            population,
+            Some(cognition),
             world,
             Some(publication),
             None,
@@ -123,6 +188,7 @@ impl RuntimeTickPreparation<'_> {
         commands: impl IntoIterator<Item = WorldCommand>,
         routine: &next_world::WorldRoutineOwnerV1,
         population: &next_world::WorldPopulationOwnerV1,
+        cognition: Option<&StrategicAgentOwnersV1>,
         world: &next_world::WorldStreamerV1,
         streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
         replay_ingress: Option<next_contracts::input::ClosedIngressBatchV1>,
@@ -135,6 +201,15 @@ impl RuntimeTickPreparation<'_> {
         let mut routine_stage = WorldRoutineStageContextV1::capture(self.runtime, routine)?;
         let mut population_stage =
             WorldPopulationStageContextV1::capture(self.runtime, population)?;
+        let mut cognition_stage = cognition
+            .map(|owners| {
+                super::super::agent_cognition::AgentCognitionStageContextV1::capture(
+                    self.runtime,
+                    owners,
+                    population,
+                )
+            })
+            .transpose()?;
         let runtime = self.runtime.prepare_tick_internal(
             self.base_generation,
             self.ingress_checkpoint,
@@ -146,6 +221,7 @@ impl RuntimeTickPreparation<'_> {
                 .map(|publication| WorldStreamingStageContext { world, publication }),
             Some(&mut routine_stage),
             Some(&mut population_stage),
+            cognition_stage.as_mut(),
         )?;
         let routine_snapshot_or_none = routine_stage.finish(runtime.next_tick())?;
         let routine = routine
@@ -160,10 +236,35 @@ impl RuntimeTickPreparation<'_> {
                 runtime.next_tick(),
             )
             .map_err(map_population_owner_error)?;
+        let (
+            cognition_publication,
+            agent_snapshot_or_none,
+            memory_snapshot_or_none,
+            decision_trace_or_none,
+        ) = match (cognition, cognition_stage.as_ref()) {
+            (Some(owners), Some(stage)) => {
+                let (agent_snapshot, memory_snapshot, trace) = stage.finish()?;
+                let publication = owners
+                    .prepare_publication(agent_snapshot.clone(), memory_snapshot.clone())
+                    .map_err(map_cognition_owner_error)?;
+                (
+                    Some(publication),
+                    Some(agent_snapshot),
+                    Some(memory_snapshot),
+                    trace,
+                )
+            }
+            (None, None) => (None, None, None, None),
+            _ => return Err(RuntimeFatalError::AgentCognitionInternalInvariant),
+        };
         Ok(PreparedRuntimeWorldServicesTickV1 {
             runtime,
             routine,
             population,
+            cognition: cognition_publication,
+            agent_snapshot_or_none,
+            memory_snapshot_or_none,
+            decision_trace_or_none,
             base_world_state_hash,
             staged_world_snapshot,
             streaming,
@@ -205,6 +306,21 @@ impl PreparedRuntimeWorldServicesTickV1 {
     #[must_use]
     pub const fn population_snapshot_or_none(&self) -> Option<&WorldPopulationSnapshotV1> {
         self.population.snapshot_or_none()
+    }
+
+    #[must_use]
+    pub const fn agent_snapshot_or_none(&self) -> Option<&AgentCognitionSnapshotV1> {
+        self.agent_snapshot_or_none.as_ref()
+    }
+
+    #[must_use]
+    pub const fn memory_snapshot_or_none(&self) -> Option<&AgentMemorySnapshotV1> {
+        self.memory_snapshot_or_none.as_ref()
+    }
+
+    #[must_use]
+    pub const fn decision_trace_or_none(&self) -> Option<&DecisionTraceV1> {
+        self.decision_trace_or_none.as_ref()
     }
 
     #[must_use]
@@ -264,6 +380,21 @@ impl ValidatedRuntimeWorldServicesTickV1 {
     }
 
     #[must_use]
+    pub const fn agent_snapshot_or_none(&self) -> Option<&AgentCognitionSnapshotV1> {
+        self.generation.agent_snapshot_or_none.as_ref()
+    }
+
+    #[must_use]
+    pub const fn memory_snapshot_or_none(&self) -> Option<&AgentMemorySnapshotV1> {
+        self.generation.memory_snapshot_or_none.as_ref()
+    }
+
+    #[must_use]
+    pub const fn decision_trace_or_none(&self) -> Option<&DecisionTraceV1> {
+        self.generation.decision_trace_or_none.as_ref()
+    }
+
+    #[must_use]
     pub const fn population_service_report_or_none(
         &self,
     ) -> Option<&next_world::PopulationNavigationServiceReportV1> {
@@ -316,6 +447,16 @@ impl ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1 {
         self.generation.population.snapshot_or_none()
     }
 
+    #[must_use]
+    pub const fn agent_snapshot_or_none(&self) -> Option<&AgentCognitionSnapshotV1> {
+        self.generation.agent_snapshot_or_none.as_ref()
+    }
+
+    #[must_use]
+    pub const fn memory_snapshot_or_none(&self) -> Option<&AgentMemorySnapshotV1> {
+        self.generation.memory_snapshot_or_none.as_ref()
+    }
+
     pub fn world_checkpoint_with_canonical_components(
         &self,
     ) -> Result<
@@ -332,12 +473,13 @@ impl ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1 {
 }
 
 impl RuntimeState {
-    pub(in crate::engine) fn prepare_replay_world_services_tick(
+    pub(in crate::engine) fn prepare_replay_world_services_tick_with_cognition(
         &self,
         closed_ingress_batch: next_contracts::input::ClosedIngressBatchV1,
         commands: impl IntoIterator<Item = WorldCommand>,
         routine: &next_world::WorldRoutineOwnerV1,
         population: &next_world::WorldPopulationOwnerV1,
+        cognition: &StrategicAgentOwnersV1,
         world: &next_world::WorldStreamerV1,
         streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
     ) -> Result<PreparedRuntimeWorldServicesTickV1, RuntimeFatalError> {
@@ -345,6 +487,7 @@ impl RuntimeState {
             commands,
             routine,
             population,
+            Some(cognition),
             world,
             streaming,
             Some(closed_ingress_batch),
@@ -377,8 +520,9 @@ impl RuntimeState {
         world: &next_world::WorldStreamerV1,
         prepared: PreparedRuntimeWorldServicesTickV1,
     ) -> Result<ValidatedRuntimeWorldServicesTickV1, RuntimeFatalError> {
-        let generation =
-            self.validate_prepared_world_services_generation(routine, population, world, prepared)?;
+        let generation = self.validate_prepared_world_services_generation(
+            routine, population, None, world, prepared,
+        )?;
         let (_, components) = generation
             .runtime
             .world_checkpoint_with_canonical_components()?;
@@ -389,6 +533,43 @@ impl RuntimeState {
             &generation.staged_world_snapshot,
             routine_snapshot_or_none.as_ref(),
             population_snapshot_or_none.as_ref(),
+            generation.agent_snapshot_or_none.as_ref(),
+            generation.memory_snapshot_or_none.as_ref(),
+        )?;
+        Ok(ValidatedRuntimeWorldServicesTickV1 {
+            generation,
+            application_owner_segments,
+            application_state_root,
+        })
+    }
+
+    pub fn validate_prepared_world_services_tick_with_cognition(
+        &self,
+        routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
+        cognition: &StrategicAgentOwnersV1,
+        world: &next_world::WorldStreamerV1,
+        prepared: PreparedRuntimeWorldServicesTickV1,
+    ) -> Result<ValidatedRuntimeWorldServicesTickV1, RuntimeFatalError> {
+        let generation = self.validate_prepared_world_services_generation(
+            routine,
+            population,
+            Some(cognition),
+            world,
+            prepared,
+        )?;
+        let (_, components) = generation
+            .runtime
+            .world_checkpoint_with_canonical_components()?;
+        let routine_snapshot_or_none = generation.routine.snapshot_or_none().copied();
+        let population_snapshot_or_none = generation.population.snapshot_or_none().cloned();
+        let (application_owner_segments, application_state_root) = application_closure(
+            &components,
+            &generation.staged_world_snapshot,
+            routine_snapshot_or_none.as_ref(),
+            population_snapshot_or_none.as_ref(),
+            generation.agent_snapshot_or_none.as_ref(),
+            generation.memory_snapshot_or_none.as_ref(),
         )?;
         Ok(ValidatedRuntimeWorldServicesTickV1 {
             generation,
@@ -411,7 +592,29 @@ impl RuntimeState {
         Ok(
             ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1 {
                 generation: self.validate_prepared_world_services_generation(
-                    routine, population, world, prepared,
+                    routine, population, None, world, prepared,
+                )?,
+            },
+        )
+    }
+
+    pub fn validate_prepared_world_services_tick_with_cognition_without_application_evidence(
+        &self,
+        routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
+        cognition: &StrategicAgentOwnersV1,
+        world: &next_world::WorldStreamerV1,
+        prepared: PreparedRuntimeWorldServicesTickV1,
+    ) -> Result<ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1, RuntimeFatalError>
+    {
+        Ok(
+            ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1 {
+                generation: self.validate_prepared_world_services_generation(
+                    routine,
+                    population,
+                    Some(cognition),
+                    world,
+                    prepared,
                 )?,
             },
         )
@@ -421,6 +624,7 @@ impl RuntimeState {
         &self,
         routine: &next_world::WorldRoutineOwnerV1,
         population: &next_world::WorldPopulationOwnerV1,
+        cognition: Option<&StrategicAgentOwnersV1>,
         world: &next_world::WorldStreamerV1,
         prepared: PreparedRuntimeWorldServicesTickV1,
     ) -> Result<ValidatedWorldServicesGenerationV1, RuntimeFatalError> {
@@ -442,6 +646,15 @@ impl RuntimeState {
         let population = population
             .validate_prepared_publication(prepared.population)
             .map_err(map_population_owner_error)?;
+        let cognition = match (cognition, prepared.cognition) {
+            (Some(owner), Some(publication)) => Some(
+                owner
+                    .validate_prepared_publication(publication)
+                    .map_err(map_cognition_owner_error)?,
+            ),
+            (None, None) => None,
+            _ => return Err(RuntimeFatalError::AgentCognitionInternalInvariant),
+        };
         let streaming = prepared
             .streaming
             .map(|publication| {
@@ -452,6 +665,10 @@ impl RuntimeState {
             runtime,
             routine,
             population,
+            cognition,
+            agent_snapshot_or_none: prepared.agent_snapshot_or_none,
+            memory_snapshot_or_none: prepared.memory_snapshot_or_none,
+            decision_trace_or_none: prepared.decision_trace_or_none,
             base_world_state_hash: prepared.base_world_state_hash,
             staged_world_snapshot: prepared.staged_world_snapshot,
             streaming,
@@ -472,13 +689,52 @@ impl RuntimeState {
             application_owner_segments,
             application_state_root,
         } = validated;
-        let committed = self
-            .commit_validated_world_services_generation(routine, population, world, generation)?;
+        let committed = self.commit_validated_world_services_generation(
+            routine, population, None, world, generation,
+        )?;
         Ok(WorldServicesTickCommitV1 {
             runtime_report: committed.runtime_report,
             world_streaming_snapshot: committed.world_streaming_snapshot,
             routine_snapshot_or_none: committed.routine_snapshot_or_none,
             population_snapshot_or_none: committed.population_snapshot_or_none,
+            agent_snapshot_or_none: committed.agent_snapshot_or_none,
+            memory_snapshot_or_none: committed.memory_snapshot_or_none,
+            decision_trace_or_none: committed.decision_trace_or_none,
+            population_service_report_or_none: committed.population_service_report_or_none,
+            streaming_transition_or_none: committed.streaming_transition_or_none,
+            application_owner_segments,
+            application_state_root,
+        })
+    }
+
+    pub fn commit_validated_world_services_tick_with_cognition(
+        &mut self,
+        routine: &mut next_world::WorldRoutineOwnerV1,
+        population: &mut next_world::WorldPopulationOwnerV1,
+        cognition: &mut StrategicAgentOwnersV1,
+        world: &mut next_world::WorldStreamerV1,
+        validated: ValidatedRuntimeWorldServicesTickV1,
+    ) -> Result<WorldServicesTickCommitV1, RuntimeFatalError> {
+        let ValidatedRuntimeWorldServicesTickV1 {
+            generation,
+            application_owner_segments,
+            application_state_root,
+        } = validated;
+        let committed = self.commit_validated_world_services_generation(
+            routine,
+            population,
+            Some(cognition),
+            world,
+            generation,
+        )?;
+        Ok(WorldServicesTickCommitV1 {
+            runtime_report: committed.runtime_report,
+            world_streaming_snapshot: committed.world_streaming_snapshot,
+            routine_snapshot_or_none: committed.routine_snapshot_or_none,
+            population_snapshot_or_none: committed.population_snapshot_or_none,
+            agent_snapshot_or_none: committed.agent_snapshot_or_none,
+            memory_snapshot_or_none: committed.memory_snapshot_or_none,
+            decision_trace_or_none: committed.decision_trace_or_none,
             population_service_report_or_none: committed.population_service_report_or_none,
             streaming_transition_or_none: committed.streaming_transition_or_none,
             application_owner_segments,
@@ -499,6 +755,26 @@ impl RuntimeState {
             .commit_validated_world_services_generation(
                 routine,
                 population,
+                None,
+                world,
+                validated.generation,
+            )?
+            .runtime_report)
+    }
+
+    pub fn commit_validated_world_services_tick_with_cognition_without_application_evidence(
+        &mut self,
+        routine: &mut next_world::WorldRoutineOwnerV1,
+        population: &mut next_world::WorldPopulationOwnerV1,
+        cognition: &mut StrategicAgentOwnersV1,
+        world: &mut next_world::WorldStreamerV1,
+        validated: ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1,
+    ) -> Result<TickReport, RuntimeFatalError> {
+        Ok(self
+            .commit_validated_world_services_generation(
+                routine,
+                population,
+                Some(cognition),
                 world,
                 validated.generation,
             )?
@@ -509,6 +785,7 @@ impl RuntimeState {
         &mut self,
         routine: &mut next_world::WorldRoutineOwnerV1,
         population: &mut next_world::WorldPopulationOwnerV1,
+        mut cognition: Option<&mut StrategicAgentOwnersV1>,
         world: &mut next_world::WorldStreamerV1,
         validated: ValidatedWorldServicesGenerationV1,
     ) -> Result<CommittedWorldServicesGenerationV1, RuntimeFatalError> {
@@ -520,6 +797,13 @@ impl RuntimeState {
             || population
                 .preflight_validated_publication(&validated.population)
                 .is_err()
+            || match (cognition.as_deref(), validated.cognition.as_ref()) {
+                (Some(owner), Some(publication)) => {
+                    owner.preflight_validated_publication(publication).is_err()
+                }
+                (None, None) => false,
+                _ => true,
+            }
             || validated.streaming.as_ref().is_some_and(|streaming| {
                 world
                     .preflight_validated_publication(streaming, validated.runtime.report().tick)
@@ -533,6 +817,10 @@ impl RuntimeState {
             runtime: validated_runtime,
             routine: validated_routine,
             population: validated_population,
+            cognition: validated_cognition,
+            agent_snapshot_or_none,
+            memory_snapshot_or_none,
+            decision_trace_or_none,
             staged_world_snapshot,
             streaming,
             ..
@@ -542,6 +830,9 @@ impl RuntimeState {
         let population_service_report_or_none =
             validated_population.service_report_or_none().cloned();
         population.commit_validated_publication(validated_population);
+        if let (Some(owner), Some(publication)) = (cognition.as_deref_mut(), validated_cognition) {
+            owner.commit_validated_publication(publication);
+        }
         let streaming_transition_or_none =
             streaming.and_then(|streaming| world.commit_validated_publication(streaming));
         Ok(CommittedWorldServicesGenerationV1 {
@@ -549,6 +840,9 @@ impl RuntimeState {
             world_streaming_snapshot: staged_world_snapshot,
             routine_snapshot_or_none: routine.snapshot_or_none().copied(),
             population_snapshot_or_none: population.snapshot_or_none().cloned(),
+            agent_snapshot_or_none,
+            memory_snapshot_or_none,
+            decision_trace_or_none,
             population_service_report_or_none,
             streaming_transition_or_none,
         })
@@ -560,6 +854,8 @@ fn application_closure(
     streaming: &WorldStreamingSnapshotV1,
     routine_or_none: Option<&WorldRoutineSnapshotV1>,
     population_or_none: Option<&WorldPopulationSnapshotV1>,
+    agent_or_none: Option<&AgentCognitionSnapshotV1>,
+    memory_or_none: Option<&AgentMemorySnapshotV1>,
 ) -> Result<(Vec<SaveSegmentDescriptor>, StateRoot), RuntimeFatalError> {
     let streaming_bytes = streaming.canonical_bytes()?;
     let mut descriptors = vec![
@@ -614,13 +910,53 @@ fn application_closure(
             &population_bytes,
         )?);
     }
-    let application_state_root =
-        world_checkpoint_with_world_services_v1_state_root_from_canonical_components(
-            components,
-            streaming,
-            routine_or_none,
-            population_or_none,
-        )?;
+    match (agent_or_none, memory_or_none) {
+        (Some(agent), Some(memory)) => {
+            let agent_bytes = agent
+                .canonical_bytes()
+                .map_err(|_| RuntimeFatalError::AgentCognitionInternalInvariant)?;
+            descriptors.push(segment_descriptor(
+                AGENT_RUNTIME_SNAPSHOT_OWNER_ID,
+                AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID,
+                AGENT_RUNTIME_SNAPSHOT_SEGMENT_ID,
+                u32::from(COGNITION_SCHEMA_VERSION),
+                &agent_bytes,
+            )?);
+            let memory_bytes = memory
+                .canonical_bytes()
+                .map_err(|_| RuntimeFatalError::AgentCognitionInternalInvariant)?;
+            descriptors.push(segment_descriptor(
+                AGENT_MEMORY_SNAPSHOT_OWNER_ID,
+                AGENT_MEMORY_SNAPSHOT_SCHEMA_ID,
+                AGENT_MEMORY_SNAPSHOT_SEGMENT_ID,
+                u32::from(COGNITION_SCHEMA_VERSION),
+                &memory_bytes,
+            )?);
+        }
+        (None, None) => {}
+        _ => return Err(RuntimeFatalError::AgentCognitionInternalInvariant),
+    }
+    let application_state_root = match (agent_or_none, memory_or_none) {
+        (Some(agent), Some(memory)) => {
+            world_checkpoint_with_cognition_v1_state_root_from_canonical_components(
+                components,
+                streaming,
+                routine_or_none,
+                population_or_none,
+                agent,
+                memory,
+            )?
+        }
+        (None, None) => {
+            world_checkpoint_with_world_services_v1_state_root_from_canonical_components(
+                components,
+                streaming,
+                routine_or_none,
+                population_or_none,
+            )?
+        }
+        _ => return Err(RuntimeFatalError::AgentCognitionInternalInvariant),
+    };
     descriptors.sort();
     if descriptors.windows(2).any(|pair| {
         (&pair[0].owner_id, &pair[0].schema_id, &pair[0].segment_id)
@@ -663,5 +999,18 @@ fn map_population_owner_error(error: next_world::WorldPopulationOwnerError) -> R
         RuntimeFatalError::PreparedWorldServicesGenerationStale
     } else {
         RuntimeFatalError::WorldPopulationInternalInvariant
+    }
+}
+
+fn map_cognition_owner_error(
+    error: next_agent::cognition::StrategicAgentError,
+) -> RuntimeFatalError {
+    if matches!(
+        error,
+        next_agent::cognition::StrategicAgentError::PreparedPublicationStale
+    ) {
+        RuntimeFatalError::PreparedWorldServicesGenerationStale
+    } else {
+        RuntimeFatalError::AgentCognitionInternalInvariant
     }
 }

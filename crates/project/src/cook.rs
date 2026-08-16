@@ -5,6 +5,7 @@ use next_contracts::animation_content::{
     NEUTRAL_ANIMATION_SCHEMA_ID, NEUTRAL_SKELETON_SCHEMA_ID, NeutralAnimationV1, NeutralSkeletonV1,
 };
 use next_contracts::audio::{NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioV1};
+use next_contracts::cognition::{AGENT_COGNITION_CATALOG_SCHEMA_ID, AgentCognitionCatalogV1};
 use next_contracts::content::{NeutralRecordKindV1, NeutralRecordV1};
 use next_contracts::identity::RuntimeDeterminismBundleV1;
 use next_contracts::ids::{AssetId, ContentHash, ProjectId, SchemaId};
@@ -70,7 +71,7 @@ pub struct SourceChunkBindingV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NeutralProjectSourceV4 {
+pub struct NeutralProjectSourceV5 {
     pub project_id: ProjectId,
     pub project_revision: u64,
     pub authoring_sha256: ContentHash,
@@ -84,6 +85,7 @@ pub struct NeutralProjectSourceV4 {
     pub world_routine_interaction_binding_or_none: Option<WorldRoutineInteractionBindingV1>,
     pub world_navigation_catalog: WorldNavigationCatalogV1,
     pub world_population_catalog: WorldPopulationCatalogV1,
+    pub agent_cognition_catalog: AgentCognitionCatalogV1,
     pub root_asset_ids: Vec<AssetId>,
     pub provenance: ContentProvenanceV1,
     pub license_manifest_sha256: ContentHash,
@@ -94,7 +96,7 @@ pub struct NeutralProjectSourceV4 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CookedProjectV4 {
+pub struct CookedProjectV5 {
     pub project_lock: ProjectLockV3,
     pub schema_registry: SchemaRegistryManifestV2,
     pub content_manifest: ContentManifestV1,
@@ -103,11 +105,12 @@ pub struct CookedProjectV4 {
     pub world_routine_catalog_or_none: Option<WorldRoutineCatalogV1>,
     pub world_navigation_catalog: WorldNavigationCatalogV1,
     pub world_population_catalog: WorldPopulationCatalogV1,
+    pub agent_cognition_catalog: AgentCognitionCatalogV1,
     pub render_content_catalog: RenderContentCatalogV1,
     pub blobs: BTreeMap<ContentHash, Vec<u8>>,
 }
 
-impl CookedProjectV4 {
+impl CookedProjectV5 {
     pub fn publication(&self) -> Result<ContentPublicationV1, ProjectCookError> {
         let mut files = vec![
             PublicationFileV1::new(PROJECT_LOCK_PATH, self.project_lock.to_jcs_bytes())?,
@@ -156,9 +159,9 @@ impl CookedProjectV4 {
     }
 }
 
-pub fn cook_project_v4(
-    mut source: NeutralProjectSourceV4,
-) -> Result<CookedProjectV4, ProjectCookError> {
+pub fn cook_project_v5(
+    mut source: NeutralProjectSourceV5,
+) -> Result<CookedProjectV5, ProjectCookError> {
     source.records.sort_by_key(|record| record.asset_id);
     source
         .render_records
@@ -246,6 +249,12 @@ pub fn cook_project_v4(
         SchemaEncodingV1::CanonicalBinaryV1,
     )?;
     schema_refs.insert(world_population_catalog_schema_ref.clone());
+    let agent_cognition_catalog_schema_ref = schema_ref(
+        AGENT_COGNITION_CATALOG_SCHEMA_ID,
+        SchemaRoleV1::NeutralContent,
+        SchemaEncodingV1::CanonicalBinaryV1,
+    )?;
+    schema_refs.insert(agent_cognition_catalog_schema_ref.clone());
     let content_schema_ref = schema_ref(
         "nextengine.content.manifest",
         SchemaRoleV1::Manifest,
@@ -519,6 +528,47 @@ pub fn cook_project_v4(
             .expect("engine-owned identifier is valid"),
         required: true,
     });
+    let cognition_bytes = source
+        .agent_cognition_catalog
+        .canonical_bytes()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    let cognition_hash = source
+        .agent_cognition_catalog
+        .revision()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    if blobs.insert(cognition_hash, cognition_bytes).is_some() {
+        return Err(ProjectCookError::HashCollision);
+    }
+    let cognition_revision = AssetRevisionRefV1 {
+        asset_id: source.agent_cognition_catalog.catalog_asset_id,
+        record_sha256: cognition_hash,
+    };
+    if revisions
+        .insert(
+            source.agent_cognition_catalog.catalog_asset_id,
+            cognition_revision,
+        )
+        .is_some()
+    {
+        return Err(ProjectCookError::DuplicateIdentity);
+    }
+    entries.push(ContentAssetEntryV1 {
+        asset_revision: cognition_revision,
+        schema_ref: agent_cognition_catalog_schema_ref,
+        neutral_record_blob_sha256: cognition_hash,
+        semantic_class: ContentSemanticClassV1::DomainRelevant,
+        provenance_sha256: source.provenance.provenance_sha256,
+        license_manifest_sha256: source.license_manifest_sha256,
+        owning_bundle_id: SchemaId::new("nextengine.fixture.bundle.v1")
+            .expect("engine-owned identifier is valid"),
+    });
+    edges.push(ContentDependencyEdgeV1 {
+        source_asset_id: source.agent_cognition_catalog.catalog_asset_id,
+        target_asset_id: source.world_population_catalog.catalog_asset_id,
+        dependency_kind: SchemaId::new("nextengine.content.required")
+            .expect("engine-owned identifier is valid"),
+        required: true,
+    });
     if let Some(catalog) = source.world_routine_catalog_or_none {
         let bytes = catalog
             .canonical_bytes()
@@ -574,7 +624,7 @@ pub fn cook_project_v4(
         ),
         cooker_contract_sha256: domain_hash(
             "nextengine.cooker-contract.v1",
-            b"next_project::cook_project_v4",
+            b"next_project::cook_project_v5",
         ),
         cooker_options_sha256: canonical_empty_manifest_hash("nextengine.cooker-options.v1"),
         root_assets,
@@ -633,7 +683,7 @@ pub fn cook_project_v4(
         content_manifest_sha256: content_manifest.content_manifest_sha256,
         world_partition_manifest_sha256: world_partition.world_partition_manifest_sha256,
         mechanics_lock_sha256: rpg_definitions.mechanics_lock.mechanics_lock_sha256,
-        runtime_determinism_profile_sha256: RuntimeDeterminismBundleV1::core_r4b()
+        runtime_determinism_profile_sha256: RuntimeDeterminismBundleV1::core_r4c()
             .expect("the engine-owned determinism bundle is canonical")
             .runtime_profile_hash(),
         launch_profiles_sha256: launch_profiles_sha256(),
@@ -642,7 +692,7 @@ pub fn cook_project_v4(
         allowed_presentation_targets: source.allowed_presentation_targets,
         project_lock_sha256: ContentHash::default(),
     })?;
-    Ok(CookedProjectV4 {
+    Ok(CookedProjectV5 {
         project_lock,
         schema_registry,
         content_manifest,
@@ -651,6 +701,7 @@ pub fn cook_project_v4(
         world_routine_catalog_or_none: source.world_routine_catalog_or_none,
         world_navigation_catalog: source.world_navigation_catalog,
         world_population_catalog: source.world_population_catalog,
+        agent_cognition_catalog: source.agent_cognition_catalog,
         render_content_catalog,
         blobs,
     })
@@ -688,7 +739,7 @@ pub(crate) fn asset_revision(
     })
 }
 
-fn validate_source(source: &NeutralProjectSourceV4) -> Result<(), ProjectCookError> {
+fn validate_source(source: &NeutralProjectSourceV5) -> Result<(), ProjectCookError> {
     if source.project_revision == 0 {
         return Err(ProjectCookError::InvalidRevision);
     }
@@ -722,7 +773,8 @@ fn validate_source(source: &NeutralProjectSourceV4) -> Result<(), ProjectCookErr
                     .map(|catalog| catalog.catalog_asset_id),
             )
             .chain([source.world_navigation_catalog.catalog_asset_id])
-            .chain([source.world_population_catalog.catalog_asset_id]),
+            .chain([source.world_population_catalog.catalog_asset_id])
+            .chain([source.agent_cognition_catalog.catalog_asset_id]),
     )?;
     ensure_unique(source.records.iter().map(|record| record.record_id))?;
     for animation in &source.animations {
@@ -772,6 +824,7 @@ fn validate_source(source: &NeutralProjectSourceV4) -> Result<(), ProjectCookErr
         )
         .chain([source.world_navigation_catalog.catalog_asset_id])
         .chain([source.world_population_catalog.catalog_asset_id])
+        .chain([source.agent_cognition_catalog.catalog_asset_id])
         .collect();
     let mut revisions = BTreeMap::new();
     for record in &source.records {
@@ -794,9 +847,17 @@ fn validate_source(source: &NeutralProjectSourceV4) -> Result<(), ProjectCookErr
         .world_population_catalog
         .validate_against_navigation(&source.world_navigation_catalog)
         .map_err(|_| ProjectCookError::InvalidValue)?;
+    source
+        .agent_cognition_catalog
+        .validate()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
     if source.world_navigation_catalog.topology_revision != source.project_revision
         || source.world_population_catalog.navigation_catalog_asset_id
             != source.world_navigation_catalog.catalog_asset_id
+        || source
+            .world_population_catalog
+            .definition(source.agent_cognition_catalog.subject_id)
+            .is_none()
     {
         return Err(ProjectCookError::InvalidValue);
     }
@@ -817,6 +878,16 @@ fn validate_source(source: &NeutralProjectSourceV4) -> Result<(), ProjectCookErr
             record_sha256: source
                 .world_population_catalog
                 .revision(&source.world_navigation_catalog)
+                .map_err(|_| ProjectCookError::InvalidValue)?,
+        },
+    );
+    revisions.insert(
+        source.agent_cognition_catalog.catalog_asset_id,
+        AssetRevisionRefV1 {
+            asset_id: source.agent_cognition_catalog.catalog_asset_id,
+            record_sha256: source
+                .agent_cognition_catalog
+                .revision()
                 .map_err(|_| ProjectCookError::InvalidValue)?,
         },
     );

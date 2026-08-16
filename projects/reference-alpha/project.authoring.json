@@ -1,5 +1,5 @@
 {
-  "format": "nextengine.project-authoring.v4",
+  "format": "nextengine.project-authoring.v5",
   "project": {
     "project_id": "org.nextengine.reference-alpha",
     "project_revision": 8
@@ -1656,6 +1656,34 @@
     "courier_initial_node_id": "nextengine.reference-alpha.chunk.relay-station",
     "courier_goal_node_id": "nextengine.reference-alpha.chunk.frontier"
   },
+  "agent_cognition_catalog": {
+    "schema_version": 1,
+    "catalog_asset_id": "97979797979797979797979797979797",
+    "population_subject_ordinal": 0,
+    "evaluation_start_tick": 1,
+    "evaluation_period_ticks": 3,
+    "retrieval_limit": 4,
+    "goal_switch_threshold_q16": 16384,
+    "emergency_health_threshold": 30,
+    "planner_max_depth": 2,
+    "planner_max_expanded_nodes": 8,
+    "ordinary_goal_id": "nextengine.goal.reach-frontier",
+    "emergency_goal_id": "nextengine.goal.preserve-self",
+    "navigate_action_id": "nextengine.affordance.request-logical-route",
+    "hold_action_id": "nextengine.affordance.hold-position",
+    "route_known_fact_id": "nextengine.fact.route-known",
+    "travel_needed_fact_id": "nextengine.fact.travel-needed",
+    "emergency_fact_id": "nextengine.fact.health-emergency",
+    "navigate_ready_fact_id": "nextengine.fact.navigate-intent-ready",
+    "hold_ready_fact_id": "nextengine.fact.hold-intent-ready",
+    "seed_beliefs": [
+      {
+        "predicate_id": "nextengine.belief.frontier-duty",
+        "value_id": "nextengine.belief-value.required",
+        "confidence_q16": 65536
+      }
+    ]
+  },
   "root_asset_ids": [
     "01010101010101010101010101010101",
     "81818181818181818181818181818181",
@@ -1686,7 +1714,8 @@
     "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
     "94949494949494949494949494949494",
     "95959595959595959595959595959595",
-    "96969696969696969696969696969696"
+    "96969696969696969696969696969696",
+    "97979797979797979797979797979797"
   ],
   "allowed_presentation_targets": ["none", "interactive", "displayless-offscreen"]
 }

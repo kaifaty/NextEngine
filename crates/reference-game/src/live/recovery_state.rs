@@ -20,6 +20,8 @@ impl ReferenceGameDriverV2 {
                 .snapshot_or_none()
                 .cloned()
                 .ok_or(ReferenceGameError::RecoveryInvalid)?,
+            agent_cognition_snapshot: self.cognition.agent_snapshot().clone(),
+            agent_memory_snapshot: self.cognition.memory_snapshot().clone(),
             ticks: self.runtime.next_tick(),
             events: self.events,
             rpg_events: self.rpg_events,
@@ -70,6 +72,16 @@ impl ReferenceGameDriverV2 {
                 .population_snapshot_or_none()
                 .cloned()
                 .ok_or(ReferenceGameError::RecoveryInvalid)?,
+            prepared
+                .runtime
+                .agent_snapshot_or_none()
+                .cloned()
+                .ok_or(ReferenceGameError::RecoveryInvalid)?,
+            prepared
+                .runtime
+                .memory_snapshot_or_none()
+                .cloned()
+                .ok_or(ReferenceGameError::RecoveryInvalid)?,
             prepared.next_tick(),
             &prepared.state,
         )
@@ -91,6 +103,16 @@ impl ReferenceGameDriverV2 {
                 .population_snapshot_or_none()
                 .cloned()
                 .ok_or(ReferenceGameError::RecoveryInvalid)?,
+            validated
+                .runtime
+                .agent_snapshot_or_none()
+                .cloned()
+                .ok_or(ReferenceGameError::RecoveryInvalid)?,
+            validated
+                .runtime
+                .memory_snapshot_or_none()
+                .cloned()
+                .ok_or(ReferenceGameError::RecoveryInvalid)?,
             validated.next_tick(),
             &validated.state,
         )
@@ -105,6 +127,8 @@ impl ReferenceGameDriverV2 {
         world_streaming_snapshot: WorldStreamingSnapshotV1,
         world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
         world_population_snapshot: WorldPopulationSnapshotV1,
+        agent_cognition_snapshot: next_contracts::cognition::AgentCognitionSnapshotV1,
+        agent_memory_snapshot: next_contracts::cognition::AgentMemorySnapshotV1,
         ticks: u64,
         state: &PreparedReferenceGameState,
     ) -> Result<ReferenceLiveStateV2, ReferenceGameError> {
@@ -118,6 +142,8 @@ impl ReferenceGameDriverV2 {
             world_streaming_snapshot,
             world_routine_snapshot_or_none,
             world_population_snapshot,
+            agent_cognition_snapshot,
+            agent_memory_snapshot,
             ticks,
             events: state.events,
             rpg_events: state.rpg_events,

@@ -43,6 +43,166 @@ pub struct StrategicEvaluationV1 {
     pub decision_trace: DecisionTraceV1,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StrategicAgentOwnersV1 {
+    catalog: AgentCognitionCatalogV1,
+    agent_snapshot: AgentCognitionSnapshotV1,
+    memory_snapshot: AgentMemorySnapshotV1,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PreparedStrategicAgentPublicationV1 {
+    base_agent_hash: ContentHash,
+    base_memory_hash: ContentHash,
+    next_agent_snapshot: AgentCognitionSnapshotV1,
+    next_memory_snapshot: AgentMemorySnapshotV1,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ValidatedStrategicAgentPublicationV1(PreparedStrategicAgentPublicationV1);
+
+impl StrategicAgentOwnersV1 {
+    pub fn initial(
+        catalog: AgentCognitionCatalogV1,
+        decision_rng_state: u64,
+    ) -> Result<Self, StrategicAgentError> {
+        catalog.validate()?;
+        let agent_snapshot =
+            AgentCognitionSnapshotV1::initial(catalog.subject_id, decision_rng_state);
+        let memory_snapshot = AgentMemorySnapshotV1::initial(&catalog)?;
+        let value = Self {
+            catalog,
+            agent_snapshot,
+            memory_snapshot,
+        };
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn restore(
+        catalog: AgentCognitionCatalogV1,
+        agent_snapshot: AgentCognitionSnapshotV1,
+        memory_snapshot: AgentMemorySnapshotV1,
+    ) -> Result<Self, StrategicAgentError> {
+        let value = Self {
+            catalog,
+            agent_snapshot,
+            memory_snapshot,
+        };
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn validate(&self) -> Result<(), StrategicAgentError> {
+        self.catalog.validate()?;
+        self.agent_snapshot.validate()?;
+        self.memory_snapshot.validate()?;
+        if self.catalog.subject_id != self.agent_snapshot.subject_id
+            || self.catalog.subject_id != self.memory_snapshot.subject_id
+            || self.agent_snapshot.revision != self.memory_snapshot.revision
+        {
+            return Err(StrategicAgentError::OwnerClosureInvalid);
+        }
+        Ok(())
+    }
+
+    #[must_use]
+    pub const fn catalog(&self) -> &AgentCognitionCatalogV1 {
+        &self.catalog
+    }
+
+    #[must_use]
+    pub const fn agent_snapshot(&self) -> &AgentCognitionSnapshotV1 {
+        &self.agent_snapshot
+    }
+
+    #[must_use]
+    pub const fn memory_snapshot(&self) -> &AgentMemorySnapshotV1 {
+        &self.memory_snapshot
+    }
+
+    pub fn prepare_publication(
+        &self,
+        next_agent_snapshot: AgentCognitionSnapshotV1,
+        next_memory_snapshot: AgentMemorySnapshotV1,
+    ) -> Result<PreparedStrategicAgentPublicationV1, StrategicAgentError> {
+        self.validate()?;
+        Ok(PreparedStrategicAgentPublicationV1 {
+            base_agent_hash: snapshot_hash(&self.agent_snapshot.canonical_bytes()?),
+            base_memory_hash: snapshot_hash(&self.memory_snapshot.canonical_bytes()?),
+            next_agent_snapshot,
+            next_memory_snapshot,
+        })
+    }
+
+    pub fn validate_prepared_publication(
+        &self,
+        prepared: PreparedStrategicAgentPublicationV1,
+    ) -> Result<ValidatedStrategicAgentPublicationV1, StrategicAgentError> {
+        self.validate()?;
+        if prepared.base_agent_hash != snapshot_hash(&self.agent_snapshot.canonical_bytes()?)
+            || prepared.base_memory_hash != snapshot_hash(&self.memory_snapshot.canonical_bytes()?)
+        {
+            return Err(StrategicAgentError::PreparedPublicationStale);
+        }
+        let restored = Self::restore(
+            self.catalog.clone(),
+            prepared.next_agent_snapshot.clone(),
+            prepared.next_memory_snapshot.clone(),
+        )?;
+        let unchanged = restored.agent_snapshot == self.agent_snapshot
+            && restored.memory_snapshot == self.memory_snapshot;
+        let advanced = restored.agent_snapshot.revision
+            == self
+                .agent_snapshot
+                .revision
+                .checked_add(1)
+                .ok_or(StrategicAgentError::RevisionExhausted)?;
+        if !unchanged && !advanced {
+            return Err(StrategicAgentError::OwnerClosureInvalid);
+        }
+        Ok(ValidatedStrategicAgentPublicationV1(prepared))
+    }
+
+    pub fn commit_validated_publication(
+        &mut self,
+        validated: ValidatedStrategicAgentPublicationV1,
+    ) {
+        self.agent_snapshot = validated.0.next_agent_snapshot;
+        self.memory_snapshot = validated.0.next_memory_snapshot;
+    }
+
+    pub fn preflight_validated_publication(
+        &self,
+        validated: &ValidatedStrategicAgentPublicationV1,
+    ) -> Result<(), StrategicAgentError> {
+        self.validate()?;
+        if validated.0.base_agent_hash != snapshot_hash(&self.agent_snapshot.canonical_bytes()?)
+            || validated.0.base_memory_hash
+                != snapshot_hash(&self.memory_snapshot.canonical_bytes()?)
+        {
+            return Err(StrategicAgentError::PreparedPublicationStale);
+        }
+        Ok(())
+    }
+}
+
+impl ValidatedStrategicAgentPublicationV1 {
+    #[must_use]
+    pub const fn agent_snapshot(&self) -> &AgentCognitionSnapshotV1 {
+        &self.0.next_agent_snapshot
+    }
+
+    #[must_use]
+    pub const fn memory_snapshot(&self) -> &AgentMemorySnapshotV1 {
+        &self.0.next_memory_snapshot
+    }
+}
+
+fn snapshot_hash(bytes: &[u8]) -> ContentHash {
+    content_hash_from_bytes(sha256(bytes))
+}
+
 pub fn build_epistemic_view_v1(
     observation: &StrategicObservationV1<'_>,
 ) -> Result<EpistemicViewV1, StrategicAgentError> {
@@ -593,6 +753,8 @@ pub enum StrategicAgentError {
     UtilityOverflow,
     PlannerInvariant,
     RevisionExhausted,
+    OwnerClosureInvalid,
+    PreparedPublicationStale,
 }
 
 impl Display for StrategicAgentError {
@@ -607,6 +769,10 @@ impl Display for StrategicAgentError {
             Self::UtilityOverflow => formatter.write_str("fixed-point utility overflow"),
             Self::PlannerInvariant => formatter.write_str("strategic planner invariant failed"),
             Self::RevisionExhausted => formatter.write_str("strategic owner revision exhausted"),
+            Self::OwnerClosureInvalid => formatter.write_str("strategic owner closure is invalid"),
+            Self::PreparedPublicationStale => {
+                formatter.write_str("strategic prepared publication is stale")
+            }
         }
     }
 }

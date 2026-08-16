@@ -7,6 +7,12 @@ use crate::canonical::{
     CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError, CanonicalField,
     decode_canonical_segment, encode_canonical_segment, sha256,
 };
+use crate::cognition::{
+    AGENT_COGNITION_CATALOG_OWNER_ID, AGENT_COGNITION_CATALOG_SCHEMA_ID,
+    AGENT_COGNITION_SHARD_PLAN_ID, AGENT_COGNITION_SYSTEM_ID, AGENT_MEMORY_SNAPSHOT_OWNER_ID,
+    AGENT_MEMORY_SNAPSHOT_SCHEMA_ID, AGENT_RUNTIME_SNAPSHOT_OWNER_ID,
+    AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID,
+};
 use crate::command::CommandPhase;
 use crate::ids::{ContentHash, SchemaId, SystemId, content_hash_from_bytes};
 use crate::world_population::{

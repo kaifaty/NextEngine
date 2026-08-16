@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1};
 use next_contracts::command::EventPayload;
 use next_contracts::ids::{AssetId, ContentHash, PersistentId, SchemaId};
 use next_contracts::input::{CORE_INTERACT_ACTION_ID, PlayerActionPhaseV1, PlayerActionValueV1};
@@ -34,7 +35,7 @@ use crate::camera::{
 };
 use crate::dialogue::{ReferenceDialogueChoiceV1, ReferenceDialogueUiV1};
 use crate::input::ReferenceUiScreenV1;
-use crate::rpg::cooked_project_rpg_snapshot;
+use crate::rpg::{cognition_only_rpg_snapshot, cooked_project_rpg_snapshot};
 use crate::scenario::fixture_presentation_bindings;
 use crate::session::{ReferenceGameSession, build_reference_game_session};
 
@@ -63,6 +64,7 @@ pub struct ReferenceGameDriverV2 {
     runtime: RuntimeState,
     world_routine: WorldRoutineOwnerV1,
     world_population: WorldPopulationOwnerV1,
+    cognition: next_agent::cognition::StrategicAgentOwnersV1,
     world_streamer: WorldStreamerV1,
     input: PlayerInputSessionV1,
     presentation_bindings: Vec<PresentationBindingV1>,
@@ -250,7 +252,7 @@ impl ReferenceGameDriverV2 {
         let rpg_snapshot = if include_interaction {
             cooked_project_rpg_snapshot(&fixture)
         } else {
-            next_contracts::rpg::RpgSnapshotV2::default()
+            cognition_only_rpg_snapshot(&fixture)
         };
         let runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
             fixture.bootstrap.clone(),
@@ -273,6 +275,7 @@ impl ReferenceGameDriverV2 {
             fixture.activated_project.world_navigation_catalog.clone(),
             runtime.next_tick(),
         )?;
+        let cognition = fixture.initial_cognition_owners()?;
         let input = PlayerInputSessionV1::new(
             fixture.controller_id,
             fixture.source_id,
@@ -314,6 +317,7 @@ impl ReferenceGameDriverV2 {
             runtime,
             world_routine,
             world_population,
+            cognition,
             world_streamer,
             input,
             presentation_bindings,
@@ -345,6 +349,8 @@ impl ReferenceGameDriverV2 {
         world_streaming_snapshot: WorldStreamingSnapshotV1,
         world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
         world_population_snapshot: WorldPopulationSnapshotV1,
+        agent_cognition_snapshot: AgentCognitionSnapshotV1,
+        agent_memory_snapshot: AgentMemorySnapshotV1,
         recovery: ReferenceLiveDriverRecoveryV1,
     ) -> Result<Self, ReferenceGameError> {
         checkpoint.validate()?;
@@ -380,6 +386,11 @@ impl ReferenceGameDriverV2 {
             fixture.activated_project.world_navigation_catalog.clone(),
             world_population_snapshot,
             runtime.next_tick(),
+        )?;
+        let cognition = next_agent::cognition::StrategicAgentOwnersV1::restore(
+            fixture.activated_project.agent_cognition_catalog.clone(),
+            agent_cognition_snapshot,
+            agent_memory_snapshot,
         )?;
         runtime.validate_world_routine_ledger_closure(&world_routine)?;
         runtime.validate_world_population_ledger_closure(&world_population)?;
@@ -444,6 +455,7 @@ impl ReferenceGameDriverV2 {
             runtime,
             world_routine,
             world_population,
+            cognition,
             world_streamer,
             input,
             presentation_bindings,
@@ -615,10 +627,11 @@ impl ReferenceGameDriverV2 {
         )? {
             runtime_preparation.enqueue_input_sample(&self.fixture.principal, sample)?;
         }
-        let mut prepared_runtime = runtime_preparation.prepare_with_world_services(
+        let mut prepared_runtime = runtime_preparation.prepare_with_world_services_and_cognition(
             [],
             &self.world_routine,
             &self.world_population,
+            &self.cognition,
             &self.world_streamer,
         )?;
         if let Some((action_map, context_stack)) = pending_input_configuration {
@@ -749,9 +762,10 @@ impl ReferenceGameDriverV2 {
         }
         let runtime = self
             .runtime
-            .validate_prepared_world_services_tick_without_application_evidence(
+            .validate_prepared_world_services_tick_with_cognition_without_application_evidence(
                 &self.world_routine,
                 &self.world_population,
+                &self.cognition,
                 &self.world_streamer,
                 prepared.runtime,
             )?;
@@ -770,9 +784,10 @@ impl ReferenceGameDriverV2 {
         validated: ValidatedReferenceGameAdvance,
     ) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
         self.runtime
-            .commit_validated_world_services_tick_without_application_evidence(
+            .commit_validated_world_services_tick_with_cognition_without_application_evidence(
                 &mut self.world_routine,
                 &mut self.world_population,
+                &mut self.cognition,
                 &mut self.world_streamer,
                 validated.runtime,
             )?;

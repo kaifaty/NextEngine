@@ -3,6 +3,7 @@ use super::jcs::{
     JcsValue, decode_fixed_hex, decode_hex, decode_i32_string, decode_i64_string, decode_u32,
     decode_u64_string, ensure_no_more, hex_bytes, into_array, into_string, next, string,
 };
+use crate::cognition::{AgentDecisionCommittedV1, COGNITION_SCHEMA_VERSION};
 use crate::command::{CommandPhase, DomainEvent, EventPayload};
 use crate::ids::{CommandId, ContentHash, PersistentId, SchemaId};
 use crate::persistence::ManifestValidationError;
@@ -157,6 +158,14 @@ fn encode_event_payload(payload: &EventPayload) -> JcsValue {
             string(route_plan_hash.to_hex()),
             string(record_revision.to_string()),
         ]),
+        EventPayload::AgentCognition(event) => JcsValue::Array(vec![
+            string("agent_cognition_decision_committed"),
+            string(event.subject_id.to_hex()),
+            string(event.agent_revision.to_string()),
+            string(event.memory_revision.to_string()),
+            string(event.active_goal_id.as_str()),
+            string(event.intent_id.to_hex()),
+        ]),
     }
 }
 
@@ -213,6 +222,9 @@ pub(super) fn decode_domain_events(
                 }
                 EventPayload::WorldPopulation(payload) => {
                     DomainEvent::world_population(tick, phase, command_id, event_slot, payload)?
+                }
+                EventPayload::AgentCognition(payload) => {
+                    DomainEvent::agent_cognition(tick, phase, command_id, event_slot, payload)?
                 }
             };
             if event.event_slot != event_slot || event.canonical_bytes()? != canonical_bytes {
@@ -370,6 +382,25 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
                     next(&mut columns, "event.record_revision")?,
                     "event.record_revision",
                 )?,
+            })
+        }
+        "agent_cognition_decision_committed" => {
+            EventPayload::AgentCognition(AgentDecisionCommittedV1 {
+                schema_version: COGNITION_SCHEMA_VERSION,
+                subject_id: decode_persistent_id(next(&mut columns, "event.subject_id")?)?,
+                agent_revision: decode_u64_string(
+                    next(&mut columns, "event.agent_revision")?,
+                    "event.agent_revision",
+                )?,
+                memory_revision: decode_u64_string(
+                    next(&mut columns, "event.memory_revision")?,
+                    "event.memory_revision",
+                )?,
+                active_goal_id: decode_schema_id(next(&mut columns, "event.active_goal_id")?)?,
+                intent_id: ContentHash::from_bytes(decode_fixed_hex::<32>(
+                    next(&mut columns, "event.intent_id")?,
+                    "event.intent_id",
+                )?),
             })
         }
         _ => {

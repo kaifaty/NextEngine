@@ -12,13 +12,13 @@ use std::collections::BTreeMap;
 use std::path::{Component, Path};
 
 use self::schema::{
-    AUTHORING_FORMAT_V4, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
+    AUTHORING_FORMAT_V5, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
     AuthoringHumanoidCatalogV1, AuthoringNeutralRecordKindV1, AuthoringPresentationTargetV1,
     AuthoringRenderRecordV1, AuthoringSourceReferenceV1, AuthoringSourceSpanV1,
     AuthoringTextureAlphaV1, AuthoringTextureColorSpaceV1, AuthoringWorldRoutineActivityV1,
-    ProjectAuthoringManifestV4,
+    ProjectAuthoringManifestV5,
 };
-use crate::cook::{NeutralProjectSourceV4, SourceChunkBindingV1};
+use crate::cook::{NeutralProjectSourceV5, SourceChunkBindingV1};
 use crate::cook_support::schema_ref;
 use next_contracts::animation_content::{
     AnimationInterpolationV1, AnimationPropertyV1, AnimationWrapModeV1, NeutralAnimationChannelV1,
@@ -27,6 +27,10 @@ use next_contracts::animation_content::{
 };
 use next_contracts::audio::{
     AudioLoudnessMetadataV1, AudioPcmEncodingV1, NeutralAudioErrorV1, NeutralAudioV1,
+};
+use next_contracts::cognition::{
+    AgentCognitionCatalogV1, BeliefContradictionV1, BeliefSourceV1, COGNITION_SCHEMA_VERSION,
+    SemanticBeliefV1,
 };
 use next_contracts::content::{
     NeutralPropertyV1, NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1,
@@ -71,31 +75,31 @@ struct ProjectAuthoringFormatProbe {
     format: String,
 }
 
-pub fn load_project_authoring_v4(
+pub fn load_project_authoring_v5(
     project_directory: impl AsRef<Path>,
-) -> Result<NeutralProjectSourceV4, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV5, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), None)
 }
 
-pub fn load_project_authoring_v4_with_project_id(
+pub fn load_project_authoring_v5_with_project_id(
     project_directory: impl AsRef<Path>,
     project_id: &str,
-) -> Result<NeutralProjectSourceV4, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV5, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), Some(project_id))
 }
 
 fn load_project_authoring_with_override(
     project_directory: &Path,
     project_id_override: Option<&str>,
-) -> Result<NeutralProjectSourceV4, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV5, ProjectAuthoringError> {
     let manifest_path = project_directory.join(PROJECT_AUTHORING_MANIFEST_FILE);
     let bytes = read_file(&manifest_path)?;
     let format: ProjectAuthoringFormatProbe = serde_json::from_slice(&bytes)?;
-    if format.format != AUTHORING_FORMAT_V4 {
+    if format.format != AUTHORING_FORMAT_V5 {
         return Err(ProjectAuthoringError::UnsupportedFormat(format.format));
     }
-    let manifest: ProjectAuthoringManifestV4 = serde_json::from_slice(&bytes)?;
-    if manifest.format != AUTHORING_FORMAT_V4 {
+    let manifest: ProjectAuthoringManifestV5 = serde_json::from_slice(&bytes)?;
+    if manifest.format != AUTHORING_FORMAT_V5 {
         return Err(ProjectAuthoringError::UnsupportedFormat(manifest.format));
     }
     validate_span(project_directory, &manifest.provenance.source_span)?;
@@ -232,12 +236,14 @@ fn load_project_authoring_with_override(
     let world_navigation_catalog = build_world_navigation_catalog(&manifest, &chunks)?;
     let world_population_catalog =
         build_world_population_catalog(&manifest, &world_navigation_catalog)?;
-    Ok(NeutralProjectSourceV4 {
+    let agent_cognition_catalog =
+        build_agent_cognition_catalog(&manifest, &world_population_catalog)?;
+    Ok(NeutralProjectSourceV5 {
         project_id: ProjectId::new(
             project_id_override.unwrap_or(manifest.project.project_id.as_str()),
         )?,
         project_revision: manifest.project.project_revision,
-        authoring_sha256: domain_hash(AUTHORING_FORMAT_V4, &bytes),
+        authoring_sha256: domain_hash(AUTHORING_FORMAT_V5, &bytes),
         records,
         render_records,
         text_catalogs,
@@ -248,6 +254,7 @@ fn load_project_authoring_with_override(
         world_routine_interaction_binding_or_none,
         world_navigation_catalog,
         world_population_catalog,
+        agent_cognition_catalog,
         root_asset_ids: manifest
             .root_asset_ids
             .iter()
@@ -267,7 +274,7 @@ fn load_project_authoring_with_override(
 }
 
 fn build_world_navigation_catalog(
-    manifest: &ProjectAuthoringManifestV4,
+    manifest: &ProjectAuthoringManifestV5,
     chunks: &[SourceChunkBindingV1],
 ) -> Result<WorldNavigationCatalogV1, ProjectAuthoringError> {
     let authored = &manifest.world_navigation_catalog;
@@ -348,7 +355,7 @@ fn build_world_navigation_catalog(
 }
 
 fn build_world_population_catalog(
-    manifest: &ProjectAuthoringManifestV4,
+    manifest: &ProjectAuthoringManifestV5,
     navigation: &WorldNavigationCatalogV1,
 ) -> Result<WorldPopulationCatalogV1, ProjectAuthoringError> {
     let authored = &manifest.world_population_catalog;
@@ -365,17 +372,7 @@ fn build_world_population_catalog(
     let node_count = navigation.nodes.len();
     let mut records = Vec::with_capacity(WORLD_POPULATION_COUNT_V1);
     for ordinal in 0..WORLD_POPULATION_COUNT_V1 {
-        let mut preimage = b"nextengine.population-subject.v1\0".to_vec();
-        append_string(&mut preimage, &authored.identity_domain)?;
-        preimage.extend_from_slice(
-            &u32::try_from(ordinal)
-                .map_err(|_| ProjectAuthoringError::InvalidValue)?
-                .to_le_bytes(),
-        );
-        let digest = next_contracts::canonical::sha256(&preimage);
-        let mut subject_bytes = [0_u8; 16];
-        subject_bytes.copy_from_slice(&digest[..16]);
-        let subject_id = PersistentId::from_bytes(subject_bytes);
+        let subject_id = population_subject_id(&authored.identity_domain, ordinal)?;
         let (cadence_class, initial_tier) = if ordinal < WORLD_POPULATION_ACTIVE_COUNT_V1 {
             (PopulationCadenceClassV1::Active, PopulationTierV1::Active)
         } else if ordinal < WORLD_POPULATION_ACTIVE_COUNT_V1 + WORLD_POPULATION_NEAR_COUNT_V1 {
@@ -456,6 +453,87 @@ fn build_world_population_catalog(
         .validate_against_navigation(navigation)
         .map_err(|_| ProjectAuthoringError::InvalidValue)?;
     Ok(value)
+}
+
+fn build_agent_cognition_catalog(
+    manifest: &ProjectAuthoringManifestV5,
+    population: &WorldPopulationCatalogV1,
+) -> Result<AgentCognitionCatalogV1, ProjectAuthoringError> {
+    let authored = &manifest.agent_cognition_catalog;
+    if authored.schema_version != COGNITION_SCHEMA_VERSION {
+        return Err(ProjectAuthoringError::InvalidValue);
+    }
+    let ordinal = usize::try_from(authored.population_subject_ordinal)
+        .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    if ordinal >= WORLD_POPULATION_COUNT_V1 {
+        return Err(ProjectAuthoringError::InvalidValue);
+    }
+    let subject_id =
+        population_subject_id(&manifest.world_population_catalog.identity_domain, ordinal)?;
+    if population.definition(subject_id).is_none() {
+        return Err(ProjectAuthoringError::InvalidValue);
+    }
+    let mut seed_beliefs = authored
+        .seed_beliefs
+        .iter()
+        .map(|belief| {
+            SemanticBeliefV1::new(
+                subject_id,
+                SchemaId::new(&belief.predicate_id)?,
+                SchemaId::new(&belief.value_id)?,
+                belief.confidence_q16,
+                BeliefSourceV1::AuthoredSeed,
+                0,
+                0,
+                BeliefContradictionV1::Consistent,
+            )
+            .map_err(|_| ProjectAuthoringError::InvalidValue)
+        })
+        .collect::<Result<Vec<_>, ProjectAuthoringError>>()?;
+    seed_beliefs.sort();
+    let value = AgentCognitionCatalogV1 {
+        schema_version: authored.schema_version,
+        catalog_asset_id: asset_id(&authored.catalog_asset_id)?,
+        subject_id,
+        evaluation_start_tick: authored.evaluation_start_tick,
+        evaluation_period_ticks: authored.evaluation_period_ticks,
+        retrieval_limit: authored.retrieval_limit,
+        goal_switch_threshold_q16: authored.goal_switch_threshold_q16,
+        emergency_health_threshold: authored.emergency_health_threshold,
+        planner_max_depth: authored.planner_max_depth,
+        planner_max_expanded_nodes: authored.planner_max_expanded_nodes,
+        ordinary_goal_id: SchemaId::new(&authored.ordinary_goal_id)?,
+        emergency_goal_id: SchemaId::new(&authored.emergency_goal_id)?,
+        navigate_action_id: SchemaId::new(&authored.navigate_action_id)?,
+        hold_action_id: SchemaId::new(&authored.hold_action_id)?,
+        route_known_fact_id: SchemaId::new(&authored.route_known_fact_id)?,
+        travel_needed_fact_id: SchemaId::new(&authored.travel_needed_fact_id)?,
+        emergency_fact_id: SchemaId::new(&authored.emergency_fact_id)?,
+        navigate_ready_fact_id: SchemaId::new(&authored.navigate_ready_fact_id)?,
+        hold_ready_fact_id: SchemaId::new(&authored.hold_ready_fact_id)?,
+        seed_beliefs,
+    };
+    value
+        .validate()
+        .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    Ok(value)
+}
+
+fn population_subject_id(
+    identity_domain: &str,
+    ordinal: usize,
+) -> Result<PersistentId, ProjectAuthoringError> {
+    let mut preimage = b"nextengine.population-subject.v1\0".to_vec();
+    append_string(&mut preimage, identity_domain)?;
+    preimage.extend_from_slice(
+        &u32::try_from(ordinal)
+            .map_err(|_| ProjectAuthoringError::InvalidValue)?
+            .to_le_bytes(),
+    );
+    let digest = next_contracts::canonical::sha256(&preimage);
+    let mut subject_bytes = [0_u8; 16];
+    subject_bytes.copy_from_slice(&digest[..16]);
+    Ok(PersistentId::from_bytes(subject_bytes))
 }
 
 fn build_render_records(
@@ -715,7 +793,7 @@ fn build_audio_records(
 
 fn build_animation_catalogs(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV4,
+    manifest: &ProjectAuthoringManifestV5,
 ) -> Result<(Vec<NeutralSkeletonV1>, Vec<NeutralAnimationV1>), ProjectAuthoringError> {
     let mut skeletons = Vec::new();
     let mut animations = Vec::new();
@@ -827,7 +905,7 @@ fn build_animation_catalogs(
 
 fn validate_provenance(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV4,
+    manifest: &ProjectAuthoringManifestV5,
 ) -> Result<ContentHash, ProjectAuthoringError> {
     if manifest.provenance.source_identity.is_empty()
         || manifest.provenance.referenced_sources.is_empty()

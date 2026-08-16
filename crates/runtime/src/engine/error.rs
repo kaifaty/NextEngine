@@ -73,6 +73,7 @@ pub enum RuntimeFatalError {
     WorldServicesCheckpoint(WorldCheckpointError),
     WorldRoutineInternalInvariant,
     WorldPopulationInternalInvariant,
+    AgentCognitionInternalInvariant,
 }
 
 impl RuntimeFatalError {
@@ -105,6 +106,7 @@ impl RuntimeFatalError {
             Self::WorldServicesCheckpoint(_) => "WORLD_SERVICES_CHECKPOINT_INVALID",
             Self::WorldRoutineInternalInvariant => "WORLD_ROUTINE_INTERNAL_INVARIANT",
             Self::WorldPopulationInternalInvariant => "WORLD_POPULATION_INTERNAL_INVARIANT",
+            Self::AgentCognitionInternalInvariant => "AGENT_COGNITION_INTERNAL_INVARIANT",
         }
     }
 }

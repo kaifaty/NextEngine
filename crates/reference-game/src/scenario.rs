@@ -1,3 +1,4 @@
+use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1, DecisionTraceV1};
 use next_contracts::ids::{ContentHash, PersistentId, SchemaId, StateRoot};
 use next_contracts::input::{CORE_MELEE_ACTION_ID, PlayerActionPhaseV1};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
@@ -16,7 +17,10 @@ use next_world::{
 
 use crate::ReferenceGameError;
 use crate::input::NormalizedReferenceInputV1;
-use crate::rpg::{aggregate_payload, cooked_interaction_outcome, cooked_project_rpg_snapshot};
+use crate::rpg::{
+    aggregate_payload, cognition_only_rpg_snapshot, cooked_interaction_outcome,
+    cooked_project_rpg_snapshot,
+};
 use crate::session::{
     ReferenceGameSession, build_reference_game_session, build_reference_game_session_with_profile,
 };
@@ -71,6 +75,9 @@ pub struct ReferenceRunOutcomeV2 {
     pub world_streaming_snapshot: next_contracts::world::WorldStreamingSnapshotV1,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     pub world_population_snapshot: WorldPopulationSnapshotV1,
+    pub agent_cognition_snapshot: AgentCognitionSnapshotV1,
+    pub agent_memory_snapshot: AgentMemorySnapshotV1,
+    pub decision_traces: Vec<DecisionTraceV1>,
     pub world_services_tick_commits: Vec<WorldServicesTickCommitV1>,
     pub world_routine_rest_branch_or_none: Option<ReferenceWorldRoutineRestBranchV1>,
     pub agent_intent_id: Option<ContentHash>,
@@ -144,7 +151,7 @@ pub fn run_reference_game_with_backend(
     let rpg_snapshot = if include_interaction {
         cooked_project_rpg_snapshot(&fixture)
     } else {
-        RpgSnapshotV2::default()
+        cognition_only_rpg_snapshot(&fixture)
     };
     let world_routine_rest_branch_or_none = if include_interaction {
         let first = run_world_routine_rest_branch(
@@ -189,6 +196,7 @@ pub fn run_reference_game_with_backend(
         fixture.activated_project.world_navigation_catalog.clone(),
         runtime.next_tick(),
     )?;
+    let mut cognition = fixture.initial_cognition_owners()?;
     let mut inputs = Vec::new();
     if include_interaction {
         inputs.extend([
@@ -263,11 +271,15 @@ pub fn run_reference_game_with_backend(
                 .snapshot_or_none()
                 .cloned()
                 .ok_or(ReferenceGameError::RecoveryInvalid)?;
-            let expected_application_root = next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root_from_canonical_components(
+            let agent_snapshot = cognition.agent_snapshot().clone();
+            let memory_snapshot = cognition.memory_snapshot().clone();
+            let expected_application_root = next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root_from_canonical_components(
                 &components,
                 world_streamer.snapshot(),
                 routine_snapshot_or_none.as_ref(),
                 Some(&population_snapshot),
+                &agent_snapshot,
+                &memory_snapshot,
             )?;
             runtime = RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
                 checkpoint,
@@ -285,6 +297,11 @@ pub fn run_reference_game_with_backend(
                 fixture.activated_project.world_navigation_catalog.clone(),
                 population_snapshot,
                 runtime.next_tick(),
+            )?;
+            cognition = next_agent::cognition::StrategicAgentOwnersV1::restore(
+                fixture.activated_project.agent_cognition_catalog.clone(),
+                agent_snapshot,
+                memory_snapshot,
             )?;
             runtime.validate_world_routine_ledger_closure(&world_routine)?;
             runtime.validate_world_population_ledger_closure(&world_population)?;
@@ -355,6 +372,7 @@ pub fn run_reference_game_with_backend(
                 ScenarioWorldServices {
                     routine: &mut world_routine,
                     population: &mut world_population,
+                    cognition: &mut cognition,
                     world: &mut world_streamer,
                 },
                 &fixture.activated_project,
@@ -409,6 +427,7 @@ pub fn run_reference_game_with_backend(
             ScenarioWorldServices {
                 routine: &mut world_routine,
                 population: &mut world_population,
+                cognition: &mut cognition,
                 world: &mut world_streamer,
             },
             &fixture.activated_project,
@@ -448,6 +467,12 @@ pub fn run_reference_game_with_backend(
         .snapshot_or_none()
         .cloned()
         .ok_or(ReferenceGameError::RecoveryInvalid)?;
+    let agent_cognition_snapshot = cognition.agent_snapshot().clone();
+    let agent_memory_snapshot = cognition.memory_snapshot().clone();
+    let decision_traces = world_services_tick_commits
+        .iter()
+        .filter_map(|commit| commit.decision_trace_or_none.clone())
+        .collect();
     let presentation_bindings = fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
     Ok(ReferenceRunOutcomeV2 {
         ticks,
@@ -484,6 +509,9 @@ pub fn run_reference_game_with_backend(
         world_streaming_snapshot: world_streaming_snapshot.clone(),
         world_routine_snapshot_or_none,
         world_population_snapshot,
+        agent_cognition_snapshot,
+        agent_memory_snapshot,
+        decision_traces,
         world_services_tick_commits,
         world_routine_rest_branch_or_none,
         agent_intent_id,
@@ -519,23 +547,29 @@ fn run_world_routine_rest_branch(
         fixture.activated_project.world_navigation_catalog.clone(),
         runtime.next_tick(),
     )?;
+    let mut cognition = fixture.initial_cognition_owners()?;
     let mut commits = Vec::with_capacity(4);
     for expected_tick in 0_u64..=2 {
-        let prepared = runtime.tick_preparation().prepare_with_world_services(
-            [],
+        let prepared = runtime
+            .tick_preparation()
+            .prepare_with_world_services_and_cognition(
+                [],
+                &routine,
+                &population,
+                &cognition,
+                &world,
+            )?;
+        let validated = runtime.validate_prepared_world_services_tick_with_cognition(
             &routine,
             &population,
-            &world,
-        )?;
-        let validated = runtime.validate_prepared_world_services_tick(
-            &routine,
-            &population,
+            &cognition,
             &world,
             prepared,
         )?;
-        let commit = runtime.commit_validated_world_services_tick(
+        let commit = runtime.commit_validated_world_services_tick_with_cognition(
             &mut routine,
             &mut population,
+            &mut cognition,
             &mut world,
             validated,
         )?;
@@ -557,17 +591,20 @@ fn run_world_routine_rest_branch(
         &fixture.principal,
         crate::input::player_interact_sample(fixture, 0, PlayerActionPhaseV1::Started, true, None)?,
     )?;
-    let prepared = runtime.tick_preparation().prepare_with_world_services(
-        [],
+    let prepared = runtime
+        .tick_preparation()
+        .prepare_with_world_services_and_cognition([], &routine, &population, &cognition, &world)?;
+    let validated = runtime.validate_prepared_world_services_tick_with_cognition(
         &routine,
         &population,
+        &cognition,
         &world,
+        prepared,
     )?;
-    let validated =
-        runtime.validate_prepared_world_services_tick(&routine, &population, &world, prepared)?;
-    commits.push(runtime.commit_validated_world_services_tick(
+    commits.push(runtime.commit_validated_world_services_tick_with_cognition(
         &mut routine,
         &mut population,
+        &mut cognition,
         &mut world,
         validated,
     )?);
@@ -581,13 +618,14 @@ fn run_world_routine_rest_branch(
 struct ScenarioWorldServices<'a> {
     routine: &'a mut WorldRoutineOwnerV1,
     population: &'a mut WorldPopulationOwnerV1,
+    cognition: &'a mut next_agent::cognition::StrategicAgentOwnersV1,
     world: &'a mut WorldStreamerV1,
 }
 
 fn run_scenario_tick(
     runtime: &mut RuntimeState,
     services: ScenarioWorldServices<'_>,
-    project: &next_contracts::project::ActivatedProjectV5,
+    project: &next_contracts::project::ActivatedProjectV6,
     content_generation: &next_assets::PinnedContentGeneration,
     commands: impl IntoIterator<Item = next_contracts::command::WorldCommand>,
     pending: &mut Option<PendingPackagedTransitionV1>,
@@ -595,17 +633,21 @@ fn run_scenario_tick(
     let ScenarioWorldServices {
         routine,
         population,
+        cognition,
         world,
     } = services;
     let Some(stage) = pending.take() else {
         let prepared = runtime
             .tick_preparation()
-            .prepare_with_world_services(commands, routine, population, world)?;
-        let validated =
-            runtime.validate_prepared_world_services_tick(routine, population, world, prepared)?;
-        return Ok(
-            runtime.commit_validated_world_services_tick(routine, population, world, validated)?
-        );
+            .prepare_with_world_services_and_cognition(
+                commands, routine, population, cognition, world,
+            )?;
+        let validated = runtime.validate_prepared_world_services_tick_with_cognition(
+            routine, population, cognition, world, prepared,
+        )?;
+        return Ok(runtime.commit_validated_world_services_tick_with_cognition(
+            routine, population, cognition, world, validated,
+        )?);
     };
     match stage {
         PendingPackagedTransitionV1::Begin {
@@ -614,17 +656,20 @@ fn run_scenario_tick(
         } => {
             let prepared = runtime
                 .tick_preparation()
-                .prepare_with_world_services_and_streaming(
+                .prepare_with_world_services_cognition_and_streaming(
                     commands,
                     routine,
                     population,
+                    cognition,
                     world,
                     publication,
                 )?;
-            let validated = runtime
-                .validate_prepared_world_services_tick(routine, population, world, prepared)?;
-            let commit = runtime
-                .commit_validated_world_services_tick(routine, population, world, validated)?;
+            let validated = runtime.validate_prepared_world_services_tick_with_cognition(
+                routine, population, cognition, world, prepared,
+            )?;
+            let commit = runtime.commit_validated_world_services_tick_with_cognition(
+                routine, population, cognition, world, validated,
+            )?;
             debug_assert!(commit.streaming_transition_or_none.is_none());
             if save_restore {
                 let saved = world.snapshot().canonical_bytes()?;
@@ -646,17 +691,20 @@ fn run_scenario_tick(
         PendingPackagedTransitionV1::Complete { publication } => {
             let prepared = runtime
                 .tick_preparation()
-                .prepare_with_world_services_and_streaming(
+                .prepare_with_world_services_cognition_and_streaming(
                     commands,
                     routine,
                     population,
+                    cognition,
                     world,
                     publication,
                 )?;
-            let validated = runtime
-                .validate_prepared_world_services_tick(routine, population, world, prepared)?;
-            let commit = runtime
-                .commit_validated_world_services_tick(routine, population, world, validated)?;
+            let validated = runtime.validate_prepared_world_services_tick_with_cognition(
+                routine, population, cognition, world, prepared,
+            )?;
+            let commit = runtime.commit_validated_world_services_tick_with_cognition(
+                routine, population, cognition, world, validated,
+            )?;
             if commit.streaming_transition_or_none.is_none() {
                 return Err(ReferenceGameError::WorldStreamingResumeMismatch);
             }

@@ -1,4 +1,7 @@
 use next_contracts::canonical::sha256;
+use next_contracts::cognition::{
+    AGENT_COGNITION_CAPABILITY_ID, AGENT_COGNITION_CAPABILITY_SUBJECT_ID, AGENT_COGNITION_SYSTEM_ID,
+};
 use next_contracts::command::IssuerPrincipal;
 use next_contracts::identity::{
     CommandStreamRegistryV1, PrincipalRecordV1, PrincipalRegistryV1, PrincipalStatus,
@@ -35,7 +38,7 @@ pub fn build_reference_runtime_bootstrap(
     project_id: &str,
     grants: impl IntoIterator<Item = (IssuerPrincipal, Vec<CapabilityId>)>,
 ) -> Result<ReferenceRuntimeBootstrap, crate::ReferenceGameError> {
-    let profile = RuntimeDeterminismBundleV1::core_r4b()?.runtime_profile();
+    let profile = RuntimeDeterminismBundleV1::core_r4c()?.runtime_profile();
     let world_identity = WorldIdentityManifestV1::new(
         ProjectId::new(project_id)?,
         sha256(format!("nextengine.fixture.nonce:{project_id}").as_bytes()),
@@ -56,6 +59,8 @@ pub fn build_reference_runtime_bootstrap(
             IssuerPrincipal::InternalSystem(SystemId::new(WORLD_ROUTINE_SYSTEM_ID)?);
         let population_principal =
             IssuerPrincipal::InternalSystem(SystemId::new(WORLD_POPULATION_SYSTEM_ID)?);
+        let cognition_principal =
+            IssuerPrincipal::InternalSystem(SystemId::new(AGENT_COGNITION_SYSTEM_ID)?);
         let (provenance_hash, capability_subject_id) = if principal == routine_principal {
             if capabilities.as_slice() != [CapabilityId::new(WORLD_ROUTINE_CAPABILITY_ID)?] {
                 return Err(crate::ReferenceGameError::DuplicatePrincipal);
@@ -75,6 +80,16 @@ pub fn build_reference_runtime_bootstrap(
                     b"nextengine.principal.world-population-boundary.v1\0",
                 )),
                 SchemaId::new(WORLD_POPULATION_CAPABILITY_SUBJECT_ID)?,
+            )
+        } else if principal == cognition_principal {
+            if capabilities.as_slice() != [CapabilityId::new(AGENT_COGNITION_CAPABILITY_ID)?] {
+                return Err(crate::ReferenceGameError::DuplicatePrincipal);
+            }
+            (
+                content_hash_from_bytes(sha256(
+                    b"nextengine.principal.agent-cognition-boundary.v1\0",
+                )),
+                SchemaId::new(AGENT_COGNITION_CAPABILITY_SUBJECT_ID)?,
             )
         } else {
             let principal_bytes = principal.canonical_bytes()?;

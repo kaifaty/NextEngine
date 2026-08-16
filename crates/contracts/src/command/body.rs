@@ -4,6 +4,10 @@ use crate::canonical::{
     CANONICAL_TYPE_U32, CANONICAL_TYPE_U64, CANONICAL_TYPE_UTF8_NFC, CanonicalDecodeLimits,
     CanonicalError, CanonicalField, decode_canonical_segment, encode_canonical_segment,
 };
+use crate::cognition::{
+    AGENT_COGNITION_COMMAND_SCHEMA_ID, AGENT_COGNITION_COMMAND_SCHEMA_VERSION,
+    AgentCognitionCommandV1,
+};
 use crate::ids::{CapabilityId, CommandStreamId, ContentHash, PersistentId, SchemaId};
 use crate::physics::{
     PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION, PhysicalCommandV1,
@@ -53,6 +57,7 @@ pub enum CommandPayload {
     Physical(PhysicalCommandV1),
     WorldRoutine(WorldRoutineCommandV1),
     WorldPopulation(WorldPopulationCommandV1),
+    AgentCognition(AgentCognitionCommandV1),
 }
 
 impl CommandPayload {
@@ -63,6 +68,7 @@ impl CommandPayload {
             Self::Physical(command) => command.canonical_payload_bytes(),
             Self::WorldRoutine(command) => command.canonical_payload_bytes(),
             Self::WorldPopulation(command) => command.canonical_payload_bytes(),
+            Self::AgentCognition(command) => command.canonical_payload_bytes(),
         }
     }
 }
@@ -365,12 +371,18 @@ impl CanonicalCommandBodyV2 {
                     WorldPopulationCommandV1::from_canonical_payload_bytes(payload_bytes, limits)?,
                 )
             }
+            (AGENT_COGNITION_COMMAND_SCHEMA_ID, AGENT_COGNITION_COMMAND_SCHEMA_VERSION) => {
+                CommandPayload::AgentCognition(
+                    AgentCognitionCommandV1::from_canonical_payload_bytes(payload_bytes, limits)?,
+                )
+            }
             (
                 NOOP_COMMAND_SCHEMA_ID
                 | RPG_COMMAND_SCHEMA_ID
                 | PHYSICAL_COMMAND_SCHEMA_ID
                 | WORLD_ROUTINE_COMMAND_SCHEMA_ID
-                | WORLD_POPULATION_COMMAND_SCHEMA_ID,
+                | WORLD_POPULATION_COMMAND_SCHEMA_ID
+                | AGENT_COGNITION_COMMAND_SCHEMA_ID,
                 version,
             ) => {
                 return Err(CommandDecodeError::UnsupportedPayloadSchemaVersion(version));

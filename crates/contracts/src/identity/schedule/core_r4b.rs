@@ -169,4 +169,102 @@ impl ScheduleManifestV1 {
         value.validate()?;
         Ok(value)
     }
+
+    pub fn core_r4c() -> Result<Self, IdentityContractError> {
+        let mut value = Self::core_r4b()?;
+        let system_id = SystemId::new(AGENT_COGNITION_SYSTEM_ID)?;
+        let shard_plan_id = SchemaId::new(AGENT_COGNITION_SHARD_PLAN_ID)?;
+        let access = |owner: &str,
+                      schema: &str,
+                      field_id: u32|
+         -> Result<AccessKeyV1, IdentityContractError> {
+            Ok(AccessKeyV1 {
+                owner_id: SchemaId::new(owner)?,
+                schema_id: SchemaId::new(schema)?,
+                field_id,
+            })
+        };
+        let mut reads = vec![
+            access("nextengine.runtime", "nextengine.runtime-snapshot", 2)?,
+            access(
+                AGENT_COGNITION_CATALOG_OWNER_ID,
+                AGENT_COGNITION_CATALOG_SCHEMA_ID,
+                4,
+            )?,
+            access(
+                AGENT_MEMORY_SNAPSHOT_OWNER_ID,
+                AGENT_MEMORY_SNAPSHOT_SCHEMA_ID,
+                3,
+            )?,
+            access(
+                AGENT_RUNTIME_SNAPSHOT_OWNER_ID,
+                AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID,
+                3,
+            )?,
+            access("rpg", "nextengine.rpg.snapshot", 2)?,
+            access(
+                WORLD_POPULATION_SNAPSHOT_OWNER_ID,
+                WORLD_POPULATION_SNAPSHOT_SCHEMA_ID,
+                6,
+            )?,
+            access(
+                WORLD_NAVIGATION_CATALOG_OWNER_ID,
+                WORLD_NAVIGATION_CATALOG_SCHEMA_ID,
+                4,
+            )?,
+            access(
+                WORLD_NAVIGATION_CATALOG_OWNER_ID,
+                WORLD_NAVIGATION_CATALOG_SCHEMA_ID,
+                5,
+            )?,
+            access(
+                WORLD_NAVIGATION_CATALOG_OWNER_ID,
+                WORLD_NAVIGATION_CATALOG_SCHEMA_ID,
+                6,
+            )?,
+        ];
+        reads.sort();
+        let mut writes = vec![
+            access(
+                AGENT_RUNTIME_SNAPSHOT_OWNER_ID,
+                "nextengine.agent-cognition-proposal",
+                1,
+            )?,
+            access(
+                AGENT_MEMORY_SNAPSHOT_OWNER_ID,
+                "nextengine.agent-memory-proposal",
+                1,
+            )?,
+        ];
+        writes.sort();
+        value.systems.insert(
+            system_id.clone(),
+            SystemDescriptorV1 {
+                schema_version: SCHEDULE_MANIFEST_SCHEMA_VERSION,
+                system_id: system_id.clone(),
+                owner_id: SchemaId::new(AGENT_RUNTIME_SNAPSHOT_OWNER_ID)?,
+                stage_id: RuntimeStageId::AgentPlanning,
+                before: Vec::new(),
+                after: Vec::new(),
+                access: AccessSetV1 { reads, writes },
+                query_order: QueryOrderV1::PersistentId,
+                shard_plan_id: shard_plan_id.clone(),
+                reducer_ids: Vec::new(),
+            },
+        );
+        value.shard_plans.insert(
+            shard_plan_id.clone(),
+            LogicalShardPlanV1 {
+                schema_version: SCHEDULE_MANIFEST_SCHEMA_VERSION,
+                shard_plan_id,
+                system_id,
+                logical_shard_count: 1,
+                partition_rule: ShardPartitionRuleV1::Sha256StableKeyFirstU64LeModulo,
+                record_order: ShardRecordOrderV1::CanonicalStableRecordKey,
+                merge_order: DeltaMergeOrderV1::OwnerSchemaRecordFieldSystemShard,
+            },
+        );
+        value.validate()?;
+        Ok(value)
+    }
 }

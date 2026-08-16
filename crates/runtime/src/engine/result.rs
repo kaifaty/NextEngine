@@ -204,6 +204,7 @@ pub enum TransactionStage {
     IngressAdmission,
     IngressCommit,
     WorldStreamingCommit,
+    AgentPlanning,
     PhysicalStep,
     PhysicsContactPublication,
     OutcomeCollection,

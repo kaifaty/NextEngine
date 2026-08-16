@@ -103,6 +103,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapsho
                 skills: Vec::new(),
             }),
         ),
+        cognition_character_aggregate(fixture),
         fixture_aggregate_from_asset(
             fixture.npc_weapon_item_id,
             ability_definition.required_item_definition,
@@ -186,6 +187,32 @@ pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapsho
     ];
     aggregates.sort_by_key(|aggregate| (aggregate.aggregate_kind, aggregate.persistent_id));
     RpgSnapshotV2 { aggregates }
+}
+
+#[must_use]
+pub fn cognition_only_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapshotV2 {
+    RpgSnapshotV2 {
+        aggregates: vec![cognition_character_aggregate(fixture)],
+    }
+}
+
+fn cognition_character_aggregate(fixture: &ReferenceGameSession) -> RpgAggregateEnvelopeV1 {
+    reference_aggregate(
+        fixture.cognition_subject_id,
+        0x97,
+        RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+            inventory_id: None,
+            equipment_id: None,
+            resources: vec![CharacterResourceEntryV1 {
+                resource_id: SchemaId::new(CORE_CHARACTER_HEALTH_RESOURCE_ID)
+                    .expect("engine-owned health resource is valid"),
+                current_value: 100,
+                minimum_value: 0,
+                maximum_value: 100,
+            }],
+            skills: Vec::new(),
+        }),
+    )
 }
 
 #[must_use]

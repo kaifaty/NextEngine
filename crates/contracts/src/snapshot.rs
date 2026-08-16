@@ -5,6 +5,8 @@ mod training;
 pub use checkpoint::{
     WorldCheckpointCanonicalComponentsV1, WorldCheckpointError, WorldCheckpointV4,
     validate_world_checkpoint_component_closures, world_checkpoint_v4_state_root,
+    world_checkpoint_with_cognition_v1_state_root,
+    world_checkpoint_with_cognition_v1_state_root_from_canonical_components,
     world_checkpoint_with_streaming_and_routine_v1_state_root,
     world_checkpoint_with_streaming_and_routine_v1_state_root_from_canonical_components,
     world_checkpoint_with_streaming_v1_state_root,

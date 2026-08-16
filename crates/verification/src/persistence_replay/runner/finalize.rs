@@ -49,16 +49,17 @@ pub(super) fn complete(
     let final_population_snapshot = direct.population.snapshot_or_none().ok_or_else(|| {
         PersistenceReplayCheckError::condition("final world population owner segment exists")
     })?;
-    let final_state_root =
-        next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root(
-            &final_checkpoint.runtime_snapshot,
-            &final_checkpoint.rpg_snapshot,
-            &final_checkpoint.physics_checkpoint,
-            direct.world.snapshot(),
-            Some(final_routine_snapshot),
-            Some(final_population_snapshot),
-        )
-        .map_err(|error| PersistenceReplayCheckError::new("final state root", error.to_string()))?;
+    let final_state_root = next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root(
+        &final_checkpoint.runtime_snapshot,
+        &final_checkpoint.rpg_snapshot,
+        &final_checkpoint.physics_checkpoint,
+        direct.world.snapshot(),
+        Some(final_routine_snapshot),
+        Some(final_population_snapshot),
+        direct.cognition.agent_snapshot(),
+        direct.cognition.memory_snapshot(),
+    )
+    .map_err(|error| PersistenceReplayCheckError::new("final state root", error.to_string()))?;
     let final_command_ledger_hash = final_checkpoint
         .runtime_snapshot
         .command_ledger_hash()
@@ -105,12 +106,14 @@ fn verify_corrupt_fallbacks(
     })?;
     let generation_one = restored
         .store
-        .commit_world_checkpoint_with_world_services(
+        .commit_world_checkpoint_with_cognition(
             restored.compatibility.clone(),
             final_checkpoint,
             direct.world.snapshot(),
             Some(final_routine_snapshot),
             final_population_snapshot,
+            direct.cognition.agent_snapshot(),
+            direct.cognition.memory_snapshot(),
         )
         .map_err(|error| {
             PersistenceReplayCheckError::new("commit generation one", error.to_string())
@@ -148,6 +151,8 @@ fn verify_corrupt_fallbacks(
         || fallback.world_routine_snapshot_or_none != restored.saved_routine_snapshot_or_none
         || fallback.world_population_snapshot_or_none
             != Some(restored.saved_population_snapshot.clone())
+        || fallback.agent_cognition_snapshot_or_none != Some(restored.saved_agent_snapshot.clone())
+        || fallback.agent_memory_snapshot_or_none != Some(restored.saved_memory_snapshot.clone())
         || !preserved_corrupt
         || !source_unchanged
     {

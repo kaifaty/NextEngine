@@ -39,7 +39,7 @@ pub use session::{
     ReferenceGameSession, build_reference_game_session, build_reference_game_session_with_profile,
 };
 pub use source::{
-    REFERENCE_GAME_PROJECT_ID, project_source_v4, project_source_v4_with_id,
+    REFERENCE_GAME_PROJECT_ID, project_source_v5, project_source_v5_with_id,
     reference_alpha_project_directory,
 };
 pub use topology::{ReferenceChunkRouteEntryV1, ReferenceWorldTopologyV1};

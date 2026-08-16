@@ -2,6 +2,7 @@
 //! recovery evidence of the interactive reference driver. Kept out of
 //! `live.rs` to respect the 1000-line source-file limit.
 
+use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1};
 use next_contracts::ids::ContentHash;
 use next_contracts::presentation::PresentationSnapshotV2;
 use next_contracts::snapshot::{WorldCheckpointCanonicalComponentsV1, WorldCheckpointV4};
@@ -18,6 +19,8 @@ pub struct ReferenceLiveStateV2 {
     pub world_streaming_snapshot: WorldStreamingSnapshotV1,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     pub world_population_snapshot: WorldPopulationSnapshotV1,
+    pub agent_cognition_snapshot: AgentCognitionSnapshotV1,
+    pub agent_memory_snapshot: AgentMemorySnapshotV1,
     pub ticks: u64,
     pub events: u64,
     pub rpg_events: u64,

@@ -16,6 +16,7 @@ physx-mock = ["dep:next_physics_physx", "next_physics_physx/mock-abi"]
 profile-tracy = ["dep:tracy-client", "tracy-client/enable", "tracy-client/ondemand"]
 
 [dependencies]
+next_agent.workspace = true
 next_contracts.workspace = true
 next_mechanics.workspace = true
 next_physics_api.workspace = true

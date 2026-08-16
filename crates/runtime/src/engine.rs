@@ -1,4 +1,5 @@
 mod affordance;
+mod agent_cognition;
 mod bootstrap;
 mod error;
 mod ingress;

@@ -3,6 +3,7 @@ use crate::canonical::{
     CANONICAL_TYPE_U16, CANONICAL_TYPE_U32, CANONICAL_TYPE_U64, CANONICAL_TYPE_UTF8_NFC,
     CanonicalError, CanonicalField, encode_canonical_segment, sha256,
 };
+use crate::cognition::{AGENT_COGNITION_EVENT_SCHEMA_ID, AgentDecisionCommittedV1};
 use crate::ids::{CommandId, ContentHash, EventId, SchemaId, content_hash_from_bytes};
 use crate::physics::PhysicalEventV1;
 use crate::rpg::RpgEventV1;
@@ -117,6 +118,23 @@ impl DomainEventEnvelopeV2 {
             event_slot,
             SchemaId::new(WORLD_POPULATION_EVENT_SCHEMA_ID)?,
             EventPayload::WorldPopulation(payload),
+        )
+    }
+
+    pub fn agent_cognition(
+        tick: u64,
+        phase: CommandPhase,
+        command_id: CommandId,
+        event_slot: u32,
+        payload: AgentDecisionCommittedV1,
+    ) -> Result<Self, CanonicalError> {
+        Self::build(
+            tick,
+            phase,
+            command_id,
+            event_slot,
+            SchemaId::new(AGENT_COGNITION_EVENT_SCHEMA_ID)?,
+            EventPayload::AgentCognition(payload),
         )
     }
 
@@ -262,6 +280,7 @@ impl EventPayload {
                 .canonical_payload_bytes()
                 .map_err(|_| CanonicalError::DuplicateSequenceValue)?,
             Self::WorldPopulation(payload) => payload.canonical_payload_bytes()?,
+            Self::AgentCognition(payload) => payload.canonical_payload_bytes()?,
         };
         encode_canonical_segment(
             EVENT_OWNER_ID,
@@ -279,4 +298,5 @@ pub enum EventPayload {
     Physical(PhysicalEventV1),
     WorldRoutine(WorldRoutineActivityChangedV1),
     WorldPopulation(WorldPopulationChangedV1),
+    AgentCognition(AgentDecisionCommittedV1),
 }

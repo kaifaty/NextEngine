@@ -9,12 +9,13 @@ use next_contracts::animation_content::{
 };
 use next_contracts::audio::{NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioErrorV1, NeutralAudioV1};
 use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::cognition::{AGENT_COGNITION_CATALOG_SCHEMA_ID, AgentCognitionCatalogV1};
 use next_contracts::content::{NeutralRecordError, NeutralRecordV1};
 use next_contracts::identity::RuntimeDeterminismBundleV1;
 use next_contracts::ids::AssetId;
 use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogErrorV1, TextCatalogV1};
 use next_contracts::project::{
-    ActivatedProjectV5, ContentManifestV1, ContentSemanticClassV1, ProjectContractError,
+    ActivatedProjectV6, ContentManifestV1, ContentSemanticClassV1, ProjectContractError,
     ProjectLockV3, SchemaEncodingV1, SchemaRefV1, SchemaRegistryManifestV2, SchemaRoleV1,
     WorldPartitionManifestV1, domain_hash,
 };
@@ -36,13 +37,13 @@ use crate::cook_rpg::activate_rpg_definitions_v2;
 
 #[derive(Clone, Debug)]
 pub struct ActivatedProjectPackage {
-    pub project: ActivatedProjectV5,
+    pub project: ActivatedProjectV6,
     pub content_generation: PinnedContentGeneration,
 }
 
 pub fn activate_project(
     store: &ContentStore,
-) -> Result<ActivatedProjectV5, ProjectActivationError> {
+) -> Result<ActivatedProjectV6, ProjectActivationError> {
     Ok(activate_project_package(store)?.project)
 }
 
@@ -59,7 +60,7 @@ pub fn activate_project_package(
 
 fn activate_pinned_project(
     content_generation: &PinnedContentGeneration,
-) -> Result<ActivatedProjectV5, ProjectActivationError> {
+) -> Result<ActivatedProjectV6, ProjectActivationError> {
     let generation = content_generation.load_all_verified()?;
     let limits = CanonicalDecodeLimits::default();
     let project_lock = ProjectLockV3::from_jcs_bytes(
@@ -81,7 +82,7 @@ fn activate_pinned_project(
 
     if generation.generation_id != project_lock.project_lock_sha256
         || project_lock.runtime_determinism_profile_sha256
-            != RuntimeDeterminismBundleV1::core_r4b()
+            != RuntimeDeterminismBundleV1::core_r4c()
                 .expect("the engine-owned determinism bundle is canonical")
                 .runtime_profile_hash()
         || project_lock.launch_profiles_sha256 != launch_profiles_sha256()
@@ -125,6 +126,7 @@ fn activate_pinned_project(
     let mut world_routine_catalog_or_none = None;
     let mut world_navigation_catalog_or_none = None;
     let mut world_population_catalog_or_none = None;
+    let mut agent_cognition_catalog_or_none = None;
     for entry in &content_manifest.body.asset_entries {
         require_schema(&current_schemas, &entry.schema_ref)?;
         let blob_path = format!(
@@ -303,6 +305,33 @@ fn activate_pinned_project(
                 catalog.catalog_asset_id,
                 BTreeSet::from([catalog.navigation_catalog_asset_id]),
             );
+        } else if entry.schema_ref.schema_id.as_str() == AGENT_COGNITION_CATALOG_SCHEMA_ID {
+            let catalog = AgentCognitionCatalogV1::from_canonical_bytes(blob, limits)
+                .map_err(|_| ProjectActivationError::HashMismatch)?;
+            let expected_schema_ref = SchemaRefV1 {
+                schema_id: entry.schema_ref.schema_id.clone(),
+                schema_version: u32::from(catalog.schema_version),
+                descriptor_sha256: domain_hash(
+                    "nextengine.schema-descriptor.v1",
+                    AGENT_COGNITION_CATALOG_SCHEMA_ID.as_bytes(),
+                ),
+                role: SchemaRoleV1::NeutralContent,
+                encoding: SchemaEncodingV1::CanonicalBinaryV1,
+            };
+            if catalog.catalog_asset_id != entry.asset_revision.asset_id
+                || expected_schema_ref != entry.schema_ref
+                || catalog
+                    .revision()
+                    .map_err(|_| ProjectActivationError::HashMismatch)?
+                    != entry.asset_revision.record_sha256
+                || entry.semantic_class != ContentSemanticClassV1::DomainRelevant
+                || agent_cognition_catalog_or_none
+                    .replace(catalog.clone())
+                    .is_some()
+            {
+                return Err(ProjectActivationError::HashMismatch);
+            }
+            record_dependencies.insert(catalog.catalog_asset_id, BTreeSet::new());
         } else if NeutralRenderRecordV1::supports_schema_id(&entry.schema_ref.schema_id) {
             let record = NeutralRenderRecordV1::from_canonical_bytes(blob, limits)?;
             if record.asset_id() != entry.asset_revision.asset_id
@@ -338,6 +367,18 @@ fn activate_pinned_project(
             neutral_records.push(record);
         }
     }
+    let cognition_catalog_asset_id = agent_cognition_catalog_or_none
+        .as_ref()
+        .ok_or(ProjectActivationError::MissingReference)?
+        .catalog_asset_id;
+    let population_catalog_asset_id = world_population_catalog_or_none
+        .as_ref()
+        .ok_or(ProjectActivationError::MissingReference)?
+        .catalog_asset_id;
+    record_dependencies.insert(
+        cognition_catalog_asset_id,
+        BTreeSet::from([population_catalog_asset_id]),
+    );
     for entry in &content_manifest.body.asset_entries {
         let declared: BTreeSet<_> = content_manifest
             .body
@@ -379,6 +420,8 @@ fn activate_pinned_project(
         world_navigation_catalog_or_none.ok_or(ProjectActivationError::MissingReference)?;
     let world_population_catalog =
         world_population_catalog_or_none.ok_or(ProjectActivationError::MissingReference)?;
+    let agent_cognition_catalog =
+        agent_cognition_catalog_or_none.ok_or(ProjectActivationError::MissingReference)?;
     world_population_catalog
         .validate_against_navigation(&world_navigation_catalog)
         .map_err(|_| ProjectActivationError::HashMismatch)?;
@@ -415,7 +458,7 @@ fn activate_pinned_project(
     if generation.files.keys().cloned().collect::<BTreeSet<_>>() != expected_files {
         return Err(ProjectActivationError::UnexpectedArtifact);
     }
-    let activated = ActivatedProjectV5 {
+    let activated = ActivatedProjectV6 {
         project_lock,
         schema_registry,
         content_manifest,
@@ -434,6 +477,7 @@ fn activate_pinned_project(
         world_routine_catalog_or_none,
         world_navigation_catalog,
         world_population_catalog,
+        agent_cognition_catalog,
         render_content_catalog,
     };
     activated.validate()?;

@@ -4,12 +4,13 @@ use super::lock::ProjectLockV3;
 use super::schema::SchemaRegistryManifestV2;
 use super::world_partition::WorldPartitionManifestV1;
 use crate::canonical::CanonicalDecodeLimits;
+use crate::cognition::AgentCognitionCatalogV1;
 use crate::render_content::{NeutralRenderRecordV1, RenderContentCatalogV1};
 use crate::world_population::{WorldNavigationCatalogV1, WorldPopulationCatalogV1};
 use crate::world_routine::WorldRoutineCatalogV1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ActivatedProjectV5 {
+pub struct ActivatedProjectV6 {
     pub project_lock: ProjectLockV3,
     pub schema_registry: SchemaRegistryManifestV2,
     pub content_manifest: ContentManifestV1,
@@ -23,10 +24,11 @@ pub struct ActivatedProjectV5 {
     pub world_routine_catalog_or_none: Option<WorldRoutineCatalogV1>,
     pub world_navigation_catalog: WorldNavigationCatalogV1,
     pub world_population_catalog: WorldPopulationCatalogV1,
+    pub agent_cognition_catalog: AgentCognitionCatalogV1,
     pub render_content_catalog: RenderContentCatalogV1,
 }
 
-impl ActivatedProjectV5 {
+impl ActivatedProjectV6 {
     pub fn validate(&self) -> Result<(), ProjectContractError> {
         self.project_lock.validate()?;
         self.rpg_definitions
@@ -299,6 +301,16 @@ impl ActivatedProjectV5 {
         self.world_population_catalog
             .validate_against_navigation(&self.world_navigation_catalog)
             .map_err(|_| ProjectContractError::HashMismatch)?;
+        self.agent_cognition_catalog
+            .validate()
+            .map_err(|_| ProjectContractError::HashMismatch)?;
+        if self
+            .world_population_catalog
+            .definition(self.agent_cognition_catalog.subject_id)
+            .is_none()
+        {
+            return Err(ProjectContractError::HashMismatch);
+        }
         let navigation_revision = self
             .world_navigation_catalog
             .revision()
@@ -306,6 +318,10 @@ impl ActivatedProjectV5 {
         let population_revision = self
             .world_population_catalog
             .revision(&self.world_navigation_catalog)
+            .map_err(|_| ProjectContractError::HashMismatch)?;
+        let cognition_revision = self
+            .agent_cognition_catalog
+            .revision()
             .map_err(|_| ProjectContractError::HashMismatch)?;
         for (asset_id, revision, schema_id) in [
             (
@@ -317,6 +333,11 @@ impl ActivatedProjectV5 {
                 self.world_population_catalog.catalog_asset_id,
                 population_revision,
                 crate::world_population::WORLD_POPULATION_CATALOG_SCHEMA_ID,
+            ),
+            (
+                self.agent_cognition_catalog.catalog_asset_id,
+                cognition_revision,
+                crate::cognition::AGENT_COGNITION_CATALOG_SCHEMA_ID,
             ),
         ] {
             let matching_entries = self

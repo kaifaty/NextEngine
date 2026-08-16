@@ -1,8 +1,14 @@
+use next_contracts::cognition::{
+    AGENT_MEMORY_SNAPSHOT_OWNER_ID, AGENT_MEMORY_SNAPSHOT_SCHEMA_ID,
+    AGENT_MEMORY_SNAPSHOT_SEGMENT_ID, AGENT_RUNTIME_SNAPSHOT_OWNER_ID,
+    AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID, AGENT_RUNTIME_SNAPSHOT_SEGMENT_ID, AgentCognitionSnapshotV1,
+    AgentMemorySnapshotV1, COGNITION_SCHEMA_VERSION,
+};
 use next_contracts::command::WorldCommand;
 use next_contracts::ids::SchemaId;
 use next_contracts::persistence::{
-    AuthorityGrant, ReplayComparePointV7, ReplayManifestV7, ReplayOwnerSegmentV2,
-    ReplayTickManifestV7, SaveCompatibility, SaveSegmentDescriptor, WorldStreamingReplayInputV1,
+    AuthorityGrant, ReplayComparePointV8, ReplayManifestV8, ReplayOwnerSegmentV2,
+    ReplayTickManifestV8, SaveCompatibility, SaveSegmentDescriptor, WorldStreamingReplayInputV1,
     replay_physics_query_batch_hash, replay_physics_query_results_hash,
     replay_targeting_query_trace_hash,
 };
@@ -77,7 +83,7 @@ pub(super) fn rpg_contact_facts_from_report(
 
 #[allow(
     clippy::too_many_arguments,
-    reason = "the replay manifest constructor binds six initial owners plus the exact recorded tick streams"
+    reason = "the replay manifest constructor binds eight initial owners plus the exact recorded tick streams"
 )]
 pub(super) fn replay_manifest(
     compatibility: SaveCompatibility,
@@ -86,11 +92,13 @@ pub(super) fn replay_manifest(
     initial_world_snapshot: &WorldStreamingSnapshotV1,
     initial_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
     initial_population_snapshot: &WorldPopulationSnapshotV1,
+    initial_agent_snapshot: &AgentCognitionSnapshotV1,
+    initial_memory_snapshot: &AgentMemorySnapshotV1,
     reports: &[TickReport],
     world_services_commits: &[WorldServicesTickCommitV1],
     streaming_inputs: &[WorldStreamingReplayInputV1],
     direct_commands: &[Vec<WorldCommand>],
-) -> Result<ReplayManifestV7, PersistenceReplayCheckError> {
+) -> Result<ReplayManifestV8, PersistenceReplayCheckError> {
     if reports.len() != world_services_commits.len()
         || reports.len() != streaming_inputs.len()
         || reports.len() != direct_commands.len()
@@ -100,13 +108,15 @@ pub(super) fn replay_manifest(
         ));
     }
     let initial_state_root =
-        next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root(
+        next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root(
             &initial_checkpoint.runtime_snapshot,
             &initial_checkpoint.rpg_snapshot,
             &initial_checkpoint.physics_checkpoint,
             initial_world_snapshot,
             initial_routine_snapshot_or_none,
             Some(initial_population_snapshot),
+            initial_agent_snapshot,
+            initial_memory_snapshot,
         )
         .map_err(|error| {
             PersistenceReplayCheckError::new("initial replay root", error.to_string())
@@ -116,6 +126,8 @@ pub(super) fn replay_manifest(
         initial_world_snapshot,
         initial_routine_snapshot_or_none,
         initial_population_snapshot,
+        initial_agent_snapshot,
+        initial_memory_snapshot,
     )?;
     let authority = authority
         .entries()
@@ -148,7 +160,7 @@ pub(super) fn replay_manifest(
             .map_err(|error| {
                 PersistenceReplayCheckError::new("record direct commands", error.to_string())
             })?;
-        ticks.push(ReplayTickManifestV7 {
+        ticks.push(ReplayTickManifestV8 {
             tick: report.tick,
             world_streaming_input: streaming_inputs[index].clone(),
             closed_ingress_batch: report.closed_ingress_batch.clone(),
@@ -168,7 +180,7 @@ pub(super) fn replay_manifest(
             expected_command_results: replay_command_results(&report.results),
             expected_events: report.events.clone(),
         });
-        compare_points.push(ReplayComparePointV7 {
+        compare_points.push(ReplayComparePointV8 {
             tick: report.tick,
             state_root: commit.application_state_root,
             command_ledger_hash: report.snapshot.command_ledger_hash().map_err(|error| {
@@ -219,8 +231,8 @@ pub(super) fn replay_manifest(
             })?,
         });
     }
-    Ok(ReplayManifestV7 {
-        schema_version: next_contracts::persistence::REPLAY_MANIFEST_V7_SCHEMA_VERSION,
+    Ok(ReplayManifestV8 {
+        schema_version: next_contracts::persistence::REPLAY_MANIFEST_V8_SCHEMA_VERSION,
         compatibility,
         initial_owner_segments,
         initial_state_root,
@@ -235,6 +247,8 @@ fn owner_segments(
     world: &WorldStreamingSnapshotV1,
     routine_or_none: Option<&WorldRoutineSnapshotV1>,
     population: &WorldPopulationSnapshotV1,
+    agent: &AgentCognitionSnapshotV1,
+    memory: &AgentMemorySnapshotV1,
 ) -> Result<Vec<ReplayOwnerSegmentV2>, PersistenceReplayCheckError> {
     let mut raw = vec![
         (
@@ -298,6 +312,24 @@ fn owner_segments(
         u32::from(WORLD_POPULATION_SCHEMA_VERSION),
         population.canonical_bytes().map_err(|error| {
             PersistenceReplayCheckError::new("world population segment", error.to_string())
+        })?,
+    ));
+    raw.push((
+        AGENT_RUNTIME_SNAPSHOT_OWNER_ID,
+        AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID,
+        AGENT_RUNTIME_SNAPSHOT_SEGMENT_ID,
+        u32::from(COGNITION_SCHEMA_VERSION),
+        agent.canonical_bytes().map_err(|error| {
+            PersistenceReplayCheckError::new("agent cognition segment", error.to_string())
+        })?,
+    ));
+    raw.push((
+        AGENT_MEMORY_SNAPSHOT_OWNER_ID,
+        AGENT_MEMORY_SNAPSHOT_SCHEMA_ID,
+        AGENT_MEMORY_SNAPSHOT_SEGMENT_ID,
+        u32::from(COGNITION_SCHEMA_VERSION),
+        memory.canonical_bytes().map_err(|error| {
+            PersistenceReplayCheckError::new("agent memory segment", error.to_string())
         })?,
     ));
     let mut segments = raw

@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1};
 #[cfg(test)]
 use next_contracts::ids::PhysicsWorldId;
 use next_contracts::persistence::SaveCompatibility;
@@ -165,6 +166,8 @@ impl SaveStore {
             None,
             None,
             None,
+            None,
+            None,
         )
     }
 
@@ -180,6 +183,8 @@ impl SaveStore {
             checkpoint,
             Some(world_streaming_snapshot),
             Some(world_routine_snapshot),
+            None,
+            None,
             None,
             None,
         )
@@ -199,6 +204,30 @@ impl SaveStore {
             Some(world_streaming_snapshot),
             world_routine_snapshot_or_none,
             Some(world_population_snapshot),
+            None,
+            None,
+            None,
+        )
+    }
+
+    pub fn commit_world_checkpoint_with_cognition(
+        &self,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+        world_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
+        world_population_snapshot: &WorldPopulationSnapshotV1,
+        agent_snapshot: &AgentCognitionSnapshotV1,
+        memory_snapshot: &AgentMemorySnapshotV1,
+    ) -> Result<SaveCommitReceipt, SaveStoreError> {
+        self.commit_world_checkpoint_inner_with_streaming(
+            compatibility,
+            checkpoint,
+            Some(world_streaming_snapshot),
+            world_routine_snapshot_or_none,
+            Some(world_population_snapshot),
+            Some(agent_snapshot),
+            Some(memory_snapshot),
             None,
         )
     }
@@ -281,6 +310,38 @@ impl SaveStore {
         )
     }
 
+    pub fn prepare_world_checkpoint_with_cognition(
+        &self,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+        world_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
+        world_population_snapshot: &WorldPopulationSnapshotV1,
+        agent_snapshot: &AgentCognitionSnapshotV1,
+        memory_snapshot: &AgentMemorySnapshotV1,
+    ) -> Result<SaveImage, SaveStoreError> {
+        let next_generation = self
+            .probe_candidates()
+            .iter()
+            .map(|candidate| candidate.manifest.generation)
+            .max()
+            .map_or(Ok(0), |generation| {
+                generation
+                    .checked_add(1)
+                    .ok_or(SaveStoreError::GenerationExhausted)
+            })?;
+        SaveImage::from_world_checkpoint_with_cognition(
+            next_generation,
+            compatibility,
+            checkpoint,
+            world_streaming_snapshot,
+            world_routine_snapshot_or_none,
+            world_population_snapshot,
+            agent_snapshot,
+            memory_snapshot,
+        )
+    }
+
     /// Publishes an immutable image prepared by the close journal. Repeating
     /// the call after a crash is idempotent when the exact generation already
     /// occupies its canonical slot.
@@ -328,6 +389,8 @@ impl SaveStore {
             None,
             None,
             None,
+            None,
+            None,
             fault,
         )
     }
@@ -339,6 +402,8 @@ impl SaveStore {
         world_streaming_snapshot: Option<&WorldStreamingSnapshotV1>,
         world_routine_snapshot: Option<&WorldRoutineSnapshotV1>,
         world_population_snapshot: Option<&WorldPopulationSnapshotV1>,
+        agent_snapshot: Option<&AgentCognitionSnapshotV1>,
+        memory_snapshot: Option<&AgentMemorySnapshotV1>,
         fault: Option<CommitBoundary>,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
         fs::create_dir_all(&self.root)
@@ -359,8 +424,22 @@ impl SaveStore {
             world_streaming_snapshot,
             world_routine_snapshot,
             world_population_snapshot,
+            agent_snapshot,
+            memory_snapshot,
         ) {
-            (Some(streaming), routine, Some(population)) => {
+            (Some(streaming), routine, Some(population), Some(agent), Some(memory)) => {
+                SaveImage::from_world_checkpoint_with_cognition(
+                    next_generation,
+                    compatibility,
+                    checkpoint,
+                    streaming,
+                    routine,
+                    population,
+                    agent,
+                    memory,
+                )?
+            }
+            (Some(streaming), routine, Some(population), None, None) => {
                 SaveImage::from_world_checkpoint_with_world_services(
                     next_generation,
                     compatibility,
@@ -370,7 +449,7 @@ impl SaveStore {
                     population,
                 )?
             }
-            (Some(streaming), Some(routine), None) => {
+            (Some(streaming), Some(routine), None, None, None) => {
                 SaveImage::from_world_checkpoint_with_streaming_and_routine(
                     next_generation,
                     compatibility,
@@ -379,18 +458,25 @@ impl SaveStore {
                     routine,
                 )?
             }
-            (Some(snapshot), None, None) => SaveImage::from_world_checkpoint_with_streaming(
-                next_generation,
-                compatibility,
-                checkpoint,
-                snapshot,
-            )?,
-            (None, None, None) => {
+            (Some(snapshot), None, None, None, None) => {
+                SaveImage::from_world_checkpoint_with_streaming(
+                    next_generation,
+                    compatibility,
+                    checkpoint,
+                    snapshot,
+                )?
+            }
+            (None, None, None, None, None) => {
                 SaveImage::from_world_checkpoint(next_generation, compatibility, checkpoint)?
             }
-            (None, _, _) => {
+            (None, _, _, _, _) => {
                 return Err(SaveStoreError::InvalidImage(
                     "SAVE_WORLD_ROUTINE_STREAMING_MISSING",
+                ));
+            }
+            _ => {
+                return Err(SaveStoreError::InvalidImage(
+                    "SAVE_COGNITION_SEGMENT_INCOMPLETE",
                 ));
             }
         };

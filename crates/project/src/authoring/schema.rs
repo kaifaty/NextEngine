@@ -1,10 +1,10 @@
 use serde::Deserialize;
 
-pub(super) const AUTHORING_FORMAT_V4: &str = "nextengine.project-authoring.v4";
+pub(super) const AUTHORING_FORMAT_V5: &str = "nextengine.project-authoring.v5";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct ProjectAuthoringManifestV4 {
+pub(super) struct ProjectAuthoringManifestV5 {
     pub format: String,
     pub project: AuthoringProjectV2,
     pub provenance: AuthoringProvenanceV1,
@@ -19,8 +19,42 @@ pub(super) struct ProjectAuthoringManifestV4 {
     pub world_routine_interaction_binding: Option<AuthoringWorldRoutineInteractionBindingV1>,
     pub world_navigation_catalog: AuthoringWorldNavigationCatalogV1,
     pub world_population_catalog: AuthoringWorldPopulationCatalogV1,
+    pub agent_cognition_catalog: AuthoringAgentCognitionCatalogV1,
     pub root_asset_ids: Vec<String>,
     pub allowed_presentation_targets: Vec<AuthoringPresentationTargetV1>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringAgentCognitionCatalogV1 {
+    pub schema_version: u16,
+    pub catalog_asset_id: String,
+    pub population_subject_ordinal: u32,
+    pub evaluation_start_tick: u64,
+    pub evaluation_period_ticks: u64,
+    pub retrieval_limit: u16,
+    pub goal_switch_threshold_q16: i32,
+    pub emergency_health_threshold: i32,
+    pub planner_max_depth: u8,
+    pub planner_max_expanded_nodes: u16,
+    pub ordinary_goal_id: String,
+    pub emergency_goal_id: String,
+    pub navigate_action_id: String,
+    pub hold_action_id: String,
+    pub route_known_fact_id: String,
+    pub travel_needed_fact_id: String,
+    pub emergency_fact_id: String,
+    pub navigate_ready_fact_id: String,
+    pub hold_ready_fact_id: String,
+    pub seed_beliefs: Vec<AuthoringSemanticBeliefV1>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringSemanticBeliefV1 {
+    pub predicate_id: String,
+    pub value_id: String,
+    pub confidence_q16: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]

@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use next_contracts::cognition::{AGENT_COGNITION_CAPABILITY_ID, AGENT_COGNITION_SYSTEM_ID};
 use next_contracts::command::IssuerPrincipal;
 use next_contracts::ids::{
     CapabilityId, CommandStreamId, ContentHash, InputSourceId, PersistentId, PhysicsWorldId,
@@ -17,7 +18,7 @@ use next_contracts::physics::{
     PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     PhysicsWorldCheckpointV1,
 };
-use next_contracts::project::ActivatedProjectV5;
+use next_contracts::project::ActivatedProjectV6;
 use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
 
 use crate::{ReferenceGameError, ReferenceWorldTopologyV1, build_reference_runtime_bootstrap};
@@ -52,11 +53,14 @@ pub struct ReferenceGameSession {
     pub npc_weapon_item_id: PersistentId,
     pub agent_principal: IssuerPrincipal,
     pub agent_stream_id: CommandStreamId,
+    pub cognition_principal: IssuerPrincipal,
+    pub cognition_stream_id: CommandStreamId,
+    pub cognition_subject_id: PersistentId,
     pub action_map: ActionMapManifestV1,
     pub action_map_hash: ContentHash,
     pub context_stack: InputContextStackV1,
     pub context_stack_hash: ContentHash,
-    pub activated_project: ActivatedProjectV5,
+    pub activated_project: ActivatedProjectV6,
     world_topology: ReferenceWorldTopologyV1,
 }
 
@@ -65,16 +69,34 @@ impl ReferenceGameSession {
     pub fn world_topology(&self) -> &ReferenceWorldTopologyV1 {
         &self.world_topology
     }
+
+    pub fn initial_cognition_owners(
+        &self,
+    ) -> Result<next_agent::cognition::StrategicAgentOwnersV1, ReferenceGameError> {
+        let mut seed_preimage = b"nextengine.reference-agent-rng.v1\0".to_vec();
+        seed_preimage.extend_from_slice(&self.bootstrap.world_identity.rng_root_seed);
+        seed_preimage.extend_from_slice(self.cognition_subject_id.as_bytes());
+        let digest = next_contracts::canonical::sha256(&seed_preimage);
+        let decision_rng_state = u64::from_le_bytes(
+            digest[..8]
+                .try_into()
+                .expect("sha256 always has at least eight bytes"),
+        );
+        Ok(next_agent::cognition::StrategicAgentOwnersV1::initial(
+            self.activated_project.agent_cognition_catalog.clone(),
+            decision_rng_state,
+        )?)
+    }
 }
 
 pub fn build_reference_game_session(
-    activated_project: ActivatedProjectV5,
+    activated_project: ActivatedProjectV6,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     build_reference_game_session_with_profile(activated_project, false)
 }
 
 pub fn build_reference_game_session_with_profile(
-    activated_project: ActivatedProjectV5,
+    activated_project: ActivatedProjectV6,
     physx_compatible: bool,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     let world_topology = ReferenceWorldTopologyV1::from_activated_project(&activated_project)?;
@@ -88,6 +110,8 @@ pub fn build_reference_game_session_with_profile(
         IssuerPrincipal::InternalSystem(SystemId::new(PLAYER_INTERACTION_SYSTEM_ID)?);
     let agent_principal =
         IssuerPrincipal::InternalSystem(SystemId::new("nextengine.agent.planner")?);
+    let cognition_principal =
+        IssuerPrincipal::InternalSystem(SystemId::new(AGENT_COGNITION_SYSTEM_ID)?);
     let routine_principal = IssuerPrincipal::InternalSystem(SystemId::new(
         next_contracts::world_routine::WORLD_ROUTINE_SYSTEM_ID,
     )?);
@@ -109,6 +133,10 @@ pub fn build_reference_game_session_with_profile(
         (
             agent_principal.clone(),
             vec![CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?],
+        ),
+        (
+            cognition_principal.clone(),
+            vec![CapabilityId::new(AGENT_COGNITION_CAPABILITY_ID)?],
         ),
     ];
     if activated_project.world_routine_catalog_or_none.is_some() {
@@ -135,6 +163,9 @@ pub fn build_reference_game_session_with_profile(
     let agent_stream_id = base
         .stream_for(&agent_principal)
         .expect("neutral fixture allocates the agent planner stream");
+    let cognition_stream_id = base
+        .stream_for(&cognition_principal)
+        .expect("neutral fixture allocates the cognition boundary stream");
     let mut bootstrap = base.bootstrap;
     if physx_compatible {
         let quantization =
@@ -232,6 +263,7 @@ pub fn build_reference_game_session_with_profile(
         .ok_or(ReferenceGameError::WorldRoutineContentInvalid)?
         .routine
         .subject_id;
+    let cognition_subject_id = activated_project.agent_cognition_catalog.subject_id;
     if [
         controller_id,
         body_id,
@@ -253,7 +285,9 @@ pub fn build_reference_game_session_with_profile(
         PersistentId::from_bytes([0x73; 16]),
         PersistentId::from_bytes([0x74; 16]),
     ]
-    .contains(&quest_giver_character_id)
+    .iter()
+    .any(|identity| *identity == quest_giver_character_id || *identity == cognition_subject_id)
+        || quest_giver_character_id == cognition_subject_id
     {
         return Err(ReferenceGameError::WorldRoutineContentInvalid);
     }
@@ -291,6 +325,9 @@ pub fn build_reference_game_session_with_profile(
         npc_weapon_item_id,
         agent_principal,
         agent_stream_id,
+        cognition_principal,
+        cognition_stream_id,
+        cognition_subject_id,
         action_map,
         action_map_hash,
         context_stack,

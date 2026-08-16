@@ -319,7 +319,7 @@ impl AgentCognitionCatalogV1 {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct AgentMemorySnapshotV1 {
     pub schema_version: u16,
     pub revision: u64,
@@ -915,7 +915,7 @@ impl StrategicAgentIntentV1 {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct AgentCognitionSnapshotV1 {
     pub schema_version: u16,
     pub revision: u64,
@@ -1200,7 +1200,7 @@ impl DecisionTraceV1 {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum AgentCognitionCommandV1 {
     CommitDecision {
         expected_agent_revision: u64,

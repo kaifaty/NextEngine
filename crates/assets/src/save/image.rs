@@ -1,5 +1,11 @@
 use next_contracts::canonical::sha256;
 use next_contracts::canonical::{CanonicalDecodeLimits, CanonicalError};
+use next_contracts::cognition::{
+    AGENT_MEMORY_SNAPSHOT_OWNER_ID, AGENT_MEMORY_SNAPSHOT_SCHEMA_ID,
+    AGENT_MEMORY_SNAPSHOT_SEGMENT_ID, AGENT_RUNTIME_SNAPSHOT_OWNER_ID,
+    AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID, AGENT_RUNTIME_SNAPSHOT_SEGMENT_ID, AgentCognitionSnapshotV1,
+    AgentMemorySnapshotV1, COGNITION_SCHEMA_VERSION,
+};
 use next_contracts::ids::{ContentHash, SchemaId, content_hash_from_bytes};
 use next_contracts::persistence::{
     CommandLedgerDescriptorV2, SaveCompatibility, SaveManifestV2, SaveSegmentDescriptor,
@@ -274,6 +280,89 @@ impl SaveImage {
         Ok(image)
     }
 
+    pub fn from_world_checkpoint_with_cognition(
+        generation: u64,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+        world_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
+        world_population_snapshot: &WorldPopulationSnapshotV1,
+        agent_snapshot: &AgentCognitionSnapshotV1,
+        memory_snapshot: &AgentMemorySnapshotV1,
+    ) -> Result<Self, SaveStoreError> {
+        agent_snapshot
+            .validate()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_AGENT_SNAPSHOT_INVALID"))?;
+        memory_snapshot
+            .validate()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_MEMORY_SNAPSHOT_INVALID"))?;
+        if agent_snapshot.subject_id != memory_snapshot.subject_id
+            || agent_snapshot.revision != memory_snapshot.revision
+        {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_COGNITION_CLOSURE_MISMATCH",
+            ));
+        }
+        let mut image = Self::from_world_checkpoint_with_world_services(
+            generation,
+            compatibility,
+            checkpoint,
+            world_streaming_snapshot,
+            world_routine_snapshot_or_none,
+            world_population_snapshot,
+        )?;
+        let agent_bytes = agent_snapshot
+            .canonical_bytes()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_AGENT_SNAPSHOT_INVALID"))?;
+        let memory_bytes = memory_snapshot
+            .canonical_bytes()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_MEMORY_SNAPSHOT_INVALID"))?;
+        let agent_descriptor = SaveSegmentDescriptor::for_bytes(
+            SchemaId::new(AGENT_RUNTIME_SNAPSHOT_OWNER_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(AGENT_RUNTIME_SNAPSHOT_SEGMENT_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            u32::from(COGNITION_SCHEMA_VERSION),
+            &agent_bytes,
+        )?;
+        let memory_descriptor = SaveSegmentDescriptor::for_bytes(
+            SchemaId::new(AGENT_MEMORY_SNAPSHOT_OWNER_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(AGENT_MEMORY_SNAPSHOT_SCHEMA_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(AGENT_MEMORY_SNAPSHOT_SEGMENT_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            u32::from(COGNITION_SCHEMA_VERSION),
+            &memory_bytes,
+        )?;
+        let mut segments = image
+            .manifest
+            .segments
+            .into_iter()
+            .zip(image.segments)
+            .collect::<Vec<_>>();
+        segments.extend([
+            (agent_descriptor, agent_bytes),
+            (memory_descriptor, memory_bytes),
+        ]);
+        segments.sort_by(|left, right| {
+            (&left.0.owner_id, &left.0.schema_id, &left.0.segment_id).cmp(&(
+                &right.0.owner_id,
+                &right.0.schema_id,
+                &right.0.segment_id,
+            ))
+        });
+        image.manifest.segments = segments
+            .iter()
+            .map(|(descriptor, _)| descriptor.clone())
+            .collect();
+        image.segments = segments.into_iter().map(|(_, bytes)| bytes).collect();
+        image.manifest.validate()?;
+        Ok(image)
+    }
+
     pub fn validate_world(&self) -> Result<ValidatedSaveImage, SaveStoreError> {
         self.manifest.validate()?;
         if self.manifest.segments.len() != self.segments.len() {
@@ -393,6 +482,38 @@ impl SaveImage {
                 )
             })
             .transpose()?;
+        let cognition_indices = cognition_segment_indices(&self.manifest.segments)?;
+        let agent_cognition_snapshot_or_none = cognition_indices
+            .agent
+            .map(|index| {
+                AgentCognitionSnapshotV1::from_canonical_bytes(
+                    &self.segments[index],
+                    CanonicalDecodeLimits::default(),
+                )
+            })
+            .transpose()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_AGENT_SNAPSHOT_INVALID"))?;
+        let agent_memory_snapshot_or_none = cognition_indices
+            .memory
+            .map(|index| {
+                AgentMemorySnapshotV1::from_canonical_bytes(
+                    &self.segments[index],
+                    CanonicalDecodeLimits::default(),
+                )
+            })
+            .transpose()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_MEMORY_SNAPSHOT_INVALID"))?;
+        if agent_cognition_snapshot_or_none
+            .as_ref()
+            .zip(agent_memory_snapshot_or_none.as_ref())
+            .is_some_and(|(agent, memory)| {
+                agent.subject_id != memory.subject_id || agent.revision != memory.revision
+            })
+        {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_COGNITION_CLOSURE_MISMATCH",
+            ));
+        }
         let tick = &self.manifest.compatibility.tick_settings;
         if tick.gameplay_hz != runtime_snapshot.tick_rate_profile.gameplay_hz
             || tick.physics_hz != runtime_snapshot.tick_rate_profile.physics_hz()
@@ -412,6 +533,8 @@ impl SaveImage {
             world_streaming_snapshot,
             world_routine_snapshot_or_none,
             world_population_snapshot_or_none,
+            agent_cognition_snapshot_or_none,
+            agent_memory_snapshot_or_none,
         })
     }
 
@@ -536,6 +659,38 @@ impl SaveImage {
                 CanonicalDecodeLimits::default(),
             )?;
         }
+        let cognition_indices = cognition_segment_indices(&self.manifest.segments)?;
+        let agent_snapshot = cognition_indices
+            .agent
+            .map(|index| {
+                AgentCognitionSnapshotV1::from_canonical_bytes(
+                    &self.segments[index],
+                    CanonicalDecodeLimits::default(),
+                )
+            })
+            .transpose()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_AGENT_SNAPSHOT_INVALID"))?;
+        let memory_snapshot = cognition_indices
+            .memory
+            .map(|index| {
+                AgentMemorySnapshotV1::from_canonical_bytes(
+                    &self.segments[index],
+                    CanonicalDecodeLimits::default(),
+                )
+            })
+            .transpose()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_MEMORY_SNAPSHOT_INVALID"))?;
+        if agent_snapshot
+            .as_ref()
+            .zip(memory_snapshot.as_ref())
+            .is_some_and(|(agent, memory)| {
+                agent.subject_id != memory.subject_id || agent.revision != memory.revision
+            })
+        {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_COGNITION_CLOSURE_MISMATCH",
+            ));
+        }
         let tick = &self.manifest.compatibility.tick_settings;
         if tick.gameplay_hz != runtime_snapshot.tick_rate_profile.gameplay_hz
             || tick.physics_hz != runtime_snapshot.tick_rate_profile.physics_hz()
@@ -560,6 +715,56 @@ pub struct ValidatedSaveImage {
     pub world_streaming_snapshot: Option<WorldStreamingSnapshotV1>,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     pub world_population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+    pub agent_cognition_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
+    pub agent_memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct CognitionSegmentIndices {
+    agent: Option<usize>,
+    memory: Option<usize>,
+}
+
+fn cognition_segment_indices(
+    descriptors: &[SaveSegmentDescriptor],
+) -> Result<CognitionSegmentIndices, SaveStoreError> {
+    let mut agent = None;
+    let mut memory = None;
+    for (index, descriptor) in descriptors.iter().enumerate().filter(|(_, descriptor)| {
+        matches!(
+            descriptor.owner_id.as_str(),
+            AGENT_RUNTIME_SNAPSHOT_OWNER_ID | AGENT_MEMORY_SNAPSHOT_OWNER_ID
+        )
+    }) {
+        let target = if descriptor.owner_id.as_str() == AGENT_RUNTIME_SNAPSHOT_OWNER_ID
+            && descriptor.schema_id.as_str() == AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID
+            && descriptor.segment_id.as_str() == AGENT_RUNTIME_SNAPSHOT_SEGMENT_ID
+            && descriptor.schema_version == u32::from(COGNITION_SCHEMA_VERSION)
+        {
+            &mut agent
+        } else if descriptor.owner_id.as_str() == AGENT_MEMORY_SNAPSHOT_OWNER_ID
+            && descriptor.schema_id.as_str() == AGENT_MEMORY_SNAPSHOT_SCHEMA_ID
+            && descriptor.segment_id.as_str() == AGENT_MEMORY_SNAPSHOT_SEGMENT_ID
+            && descriptor.schema_version == u32::from(COGNITION_SCHEMA_VERSION)
+        {
+            &mut memory
+        } else {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_COGNITION_SCHEMA_UNSUPPORTED",
+            ));
+        };
+        if target.replace(index).is_some() {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_COGNITION_SEGMENT_DUPLICATE",
+            ));
+        }
+    }
+    if agent.is_some() != memory.is_some() {
+        return Err(SaveStoreError::InvalidImage(
+            "SAVE_COGNITION_SEGMENT_INCOMPLETE",
+        ));
+    }
+    Ok(CognitionSegmentIndices { agent, memory })
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

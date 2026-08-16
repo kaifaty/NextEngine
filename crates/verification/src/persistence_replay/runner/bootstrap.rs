@@ -77,6 +77,9 @@ pub(super) fn initialize(
     .map_err(|error| {
         PersistenceReplayCheckError::new("activate world population", error.to_string())
     })?;
+    let cognition = fixture.initial_cognition_owners().map_err(|error| {
+        PersistenceReplayCheckError::new("activate strategic cognition", error.to_string())
+    })?;
     let initial_checkpoint = runtime.world_checkpoint().map_err(|error| {
         PersistenceReplayCheckError::new("initial checkpoint", error.to_string())
     })?;
@@ -85,6 +88,8 @@ pub(super) fn initialize(
     let initial_population_snapshot = population.snapshot_or_none().cloned().ok_or_else(|| {
         PersistenceReplayCheckError::condition("initial population owner segment exists")
     })?;
+    let initial_agent_snapshot = cognition.agent_snapshot().clone();
+    let initial_memory_snapshot = cognition.memory_snapshot().clone();
     let direct_commands = rpg_commands(fixture.rpg_stream_id, fixture.principal.clone())?;
 
     Ok(DirectScenario {
@@ -99,11 +104,14 @@ pub(super) fn initialize(
         world,
         routine,
         population,
+        cognition,
         runtime,
         initial_checkpoint,
         initial_world_snapshot,
         initial_routine_snapshot_or_none,
         initial_population_snapshot,
+        initial_agent_snapshot,
+        initial_memory_snapshot,
         direct_commands,
         reports: Vec::new(),
         world_services_commits: Vec::new(),

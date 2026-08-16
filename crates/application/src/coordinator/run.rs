@@ -1,3 +1,4 @@
+use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1};
 use next_contracts::ids::{ApplicationSessionId, ContentHash};
 use next_contracts::platform::{PlatformEventKindV1, PlatformEventV1};
 use next_contracts::session::{ApplicationSessionStatusV1, PresentationTargetKindV1};
@@ -21,6 +22,8 @@ pub(super) struct PreparedRunV1 {
     pub(super) streaming: WorldStreamingSnapshotV1,
     pub(super) routine: Option<WorldRoutineSnapshotV1>,
     pub(super) population: WorldPopulationSnapshotV1,
+    pub(super) agent: AgentCognitionSnapshotV1,
+    pub(super) memory: AgentMemorySnapshotV1,
     pub(super) summary: ApplicationRunOutcomeV1,
 }
 
@@ -84,6 +87,12 @@ impl ApplicationCoordinator {
                     loaded.world_routine_snapshot_or_none,
                     loaded
                         .world_population_snapshot_or_none
+                        .ok_or(ApplicationError::RecoveryIncompatible)?,
+                    loaded
+                        .agent_cognition_snapshot_or_none
+                        .ok_or(ApplicationError::RecoveryIncompatible)?,
+                    loaded
+                        .agent_memory_snapshot_or_none
                         .ok_or(ApplicationError::RecoveryIncompatible)?,
                 )?;
                 let prepared = prepare_live_state(
@@ -365,6 +374,12 @@ impl ApplicationCoordinator {
                 loaded
                     .world_population_snapshot_or_none
                     .ok_or(ApplicationError::RecoveryIncompatible)?,
+                loaded
+                    .agent_cognition_snapshot_or_none
+                    .ok_or(ApplicationError::RecoveryIncompatible)?,
+                loaded
+                    .agent_memory_snapshot_or_none
+                    .ok_or(ApplicationError::RecoveryIncompatible)?,
             )?;
         let prepared = prepare_live_state(
             self.machine.state().session_id,
@@ -476,6 +491,8 @@ fn prepare_live_state(
         world_streaming_snapshot,
         world_routine_snapshot_or_none,
         world_population_snapshot,
+        agent_cognition_snapshot,
+        agent_memory_snapshot,
         ticks,
         events,
         rpg_events,
@@ -485,11 +502,13 @@ fn prepare_live_state(
         presentation_snapshot,
         driver_recovery: _,
     } = state;
-    let authoritative_state_root = next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root_from_canonical_components(
+    let authoritative_state_root = next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root_from_canonical_components(
         &checkpoint_canonical_components,
         &world_streaming_snapshot,
         world_routine_snapshot_or_none.as_ref(),
         Some(&world_population_snapshot),
+        &agent_cognition_snapshot,
+        &agent_memory_snapshot,
     )?;
     let summary = ApplicationRunOutcomeV1 {
         session_id,
@@ -519,6 +538,8 @@ fn prepare_live_state(
         streaming: world_streaming_snapshot,
         routine: world_routine_snapshot_or_none,
         population: world_population_snapshot,
+        agent: agent_cognition_snapshot,
+        memory: agent_memory_snapshot,
         summary,
     })
 }
@@ -559,11 +580,13 @@ fn prepare_reference_run(
     };
     let presentation_input_count = u64::try_from(run.presentation_bindings.len())
         .map_err(|_| ApplicationError::DurableSnapshotInvalid)?;
-    let authoritative_state_root = next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root_from_canonical_components(
+    let authoritative_state_root = next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root_from_canonical_components(
         &checkpoint_canonical_components,
         &run.world_streaming_snapshot,
         run.world_routine_snapshot_or_none.as_ref(),
         Some(&run.world_population_snapshot),
+        &run.agent_cognition_snapshot,
+        &run.agent_memory_snapshot,
     )?;
     let summary = ApplicationRunOutcomeV1 {
         session_id,
@@ -592,6 +615,8 @@ fn prepare_reference_run(
         streaming: run.world_streaming_snapshot,
         routine: run.world_routine_snapshot_or_none,
         population: run.world_population_snapshot,
+        agent: run.agent_cognition_snapshot,
+        memory: run.agent_memory_snapshot,
         summary,
     })
 }

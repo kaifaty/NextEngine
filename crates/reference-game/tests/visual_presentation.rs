@@ -18,8 +18,8 @@ fn test_root() -> std::path::PathBuf {
 fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
     let root = test_root();
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v4(
-        next_reference_game::project_source_v4().expect("reference source"),
+    let cooked = next_project::cook_project_v5(
+        next_reference_game::project_source_v5().expect("reference source"),
     )
     .expect("cook");
     store

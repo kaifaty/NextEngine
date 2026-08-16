@@ -36,11 +36,14 @@ struct DirectScenario {
     world: WorldStreamerV1,
     routine: WorldRoutineOwnerV1,
     population: WorldPopulationOwnerV1,
+    cognition: next_agent::cognition::StrategicAgentOwnersV1,
     runtime: RuntimeState,
     initial_checkpoint: WorldCheckpointV4,
     initial_world_snapshot: WorldStreamingSnapshotV1,
     initial_routine_snapshot_or_none: Option<next_contracts::world_routine::WorldRoutineSnapshotV1>,
     initial_population_snapshot: next_contracts::world_population::WorldPopulationSnapshotV1,
+    initial_agent_snapshot: next_contracts::cognition::AgentCognitionSnapshotV1,
+    initial_memory_snapshot: next_contracts::cognition::AgentMemorySnapshotV1,
     direct_commands: Vec<WorldCommand>,
     reports: Vec<TickReport>,
     world_services_commits: Vec<WorldServicesTickCommitV1>,
@@ -53,12 +56,15 @@ struct RestoredScenario {
     world: WorldStreamerV1,
     routine: WorldRoutineOwnerV1,
     population: WorldPopulationOwnerV1,
+    cognition: next_agent::cognition::StrategicAgentOwnersV1,
     store: SaveStore,
     compatibility: SaveCompatibility,
     saved_checkpoint: WorldCheckpointV4,
     saved_world_snapshot: WorldStreamingSnapshotV1,
     saved_routine_snapshot_or_none: Option<next_contracts::world_routine::WorldRoutineSnapshotV1>,
     saved_population_snapshot: next_contracts::world_population::WorldPopulationSnapshotV1,
+    saved_agent_snapshot: next_contracts::cognition::AgentCognitionSnapshotV1,
+    saved_memory_snapshot: next_contracts::cognition::AgentMemorySnapshotV1,
     _directory: CheckDirectory,
 }
 
@@ -66,6 +72,7 @@ fn commit_world_services_tick(
     runtime: &mut RuntimeState,
     routine: &mut WorldRoutineOwnerV1,
     population: &mut WorldPopulationOwnerV1,
+    cognition: &mut next_agent::cognition::StrategicAgentOwnersV1,
     world: &mut WorldStreamerV1,
     commands: Vec<WorldCommand>,
     streaming: Option<PreparedWorldStreamingPublicationV1>,
@@ -74,23 +81,30 @@ fn commit_world_services_tick(
     let prepared = match streaming {
         Some(publication) => runtime
             .tick_preparation()
-            .prepare_with_world_services_and_streaming(
+            .prepare_with_world_services_cognition_and_streaming(
                 commands,
                 routine,
                 population,
+                cognition,
                 world,
                 publication,
             ),
         None => runtime
             .tick_preparation()
-            .prepare_with_world_services(commands, routine, population, world),
+            .prepare_with_world_services_and_cognition(
+                commands, routine, population, cognition, world,
+            ),
     }
     .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
     let validated = runtime
-        .validate_prepared_world_services_tick(routine, population, world, prepared)
+        .validate_prepared_world_services_tick_with_cognition(
+            routine, population, cognition, world, prepared,
+        )
         .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
     runtime
-        .commit_validated_world_services_tick(routine, population, world, validated)
+        .commit_validated_world_services_tick_with_cognition(
+            routine, population, cognition, world, validated,
+        )
         .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))
 }
 
@@ -106,6 +120,7 @@ fn record_direct_tick(
         &mut scenario.runtime,
         &mut scenario.routine,
         &mut scenario.population,
+        &mut scenario.cognition,
         &mut scenario.world,
         commands,
         streaming,

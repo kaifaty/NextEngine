@@ -1,4 +1,10 @@
 use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::cognition::{
+    AGENT_MEMORY_SNAPSHOT_OWNER_ID, AGENT_MEMORY_SNAPSHOT_SCHEMA_ID,
+    AGENT_MEMORY_SNAPSHOT_SEGMENT_ID, AGENT_RUNTIME_SNAPSHOT_OWNER_ID,
+    AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID, AGENT_RUNTIME_SNAPSHOT_SEGMENT_ID, AgentCognitionSnapshotV1,
+    AgentMemorySnapshotV1, COGNITION_SCHEMA_VERSION,
+};
 use next_contracts::command::{IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID, WorldCommand};
 use next_contracts::ids::{
     CapabilityId, ContentHash, InputSourceId, PlayerPrincipalId, SchemaId, StateRoot,
@@ -7,9 +13,9 @@ use next_contracts::input::{
     INPUT_MAPPING_RECEIPT_SCHEMA_VERSION, InputMappingCodeV1, InputMappingReceiptV2,
 };
 use next_contracts::persistence::{
-    AuthorityGrant, ManifestCodecError, ManifestValidationError, REPLAY_MANIFEST_V7_SCHEMA_VERSION,
-    ReplayCommandRecord, ReplayComparePointV7, ReplayManifestV7, ReplayOwnerSegmentV2,
-    ReplayTickManifestV7, SaveCompatibility, SaveSegmentDescriptor, TickSettings,
+    AuthorityGrant, ManifestCodecError, ManifestValidationError, REPLAY_MANIFEST_V8_SCHEMA_VERSION,
+    ReplayCommandRecord, ReplayComparePointV8, ReplayManifestV8, ReplayOwnerSegmentV2,
+    ReplayTickManifestV8, SaveCompatibility, SaveSegmentDescriptor, TickSettings,
     WorldStreamingReplayInputV1, replay_physics_query_batch_hash,
     replay_physics_query_results_hash, replay_targeting_query_trace_hash,
 };
@@ -44,7 +50,7 @@ use next_runtime::{AuthorityRegistry, RuntimeReplayDriver, RuntimeReplayError, R
 
 use super::{
     ReplayError, ReplayInput, ReplayOutput, ReplayTickInput, ReplayTickRecord,
-    compare_replay_outputs, replay_command_results, run_replay, run_replay_manifest_v7,
+    compare_replay_outputs, replay_command_results, run_replay, run_replay_manifest_v8,
     verify_replay,
 };
 use crate::player_fixture::prepare_fixture_project_package_with_scratch;
@@ -113,8 +119,8 @@ fn compatibility() -> SaveCompatibility {
     }
 }
 
-fn replay_manifest_v7() -> (
-    ReplayManifestV7,
+fn replay_manifest_v8() -> (
+    ReplayManifestV8,
     ReplayOutput,
     crate::player_fixture::PreparedFixtureProjectPackage,
 ) {
@@ -153,8 +159,12 @@ fn replay_manifest_v7() -> (
             1,
         )],
     ];
-    let mut runtime =
-        RuntimeState::new(session.bootstrap.clone(), authority.clone()).expect("initial runtime");
+    let mut runtime = RuntimeState::with_rpg_snapshot(
+        session.bootstrap.clone(),
+        authority.clone(),
+        next_reference_game::cooked_project_rpg_snapshot(&session),
+    )
+    .expect("initial runtime");
     let mut world = next_world::WorldStreamerV1::activate(
         prepared.package.project.clone(),
         prepared.package.content_generation.clone(),
@@ -172,6 +182,9 @@ fn replay_manifest_v7() -> (
         runtime.next_tick(),
     )
     .expect("initial population owner");
+    let mut cognition = session
+        .initial_cognition_owners()
+        .expect("initial cognition owners");
     let initial_checkpoint = runtime.world_checkpoint().expect("initial checkpoint");
     let initial_world_snapshot = world.snapshot().clone();
     let initial_routine_snapshot = routine
@@ -182,6 +195,8 @@ fn replay_manifest_v7() -> (
         .snapshot_or_none()
         .cloned()
         .expect("reference project has a population owner segment");
+    let initial_agent_snapshot = cognition.agent_snapshot().clone();
+    let initial_memory_snapshot = cognition.memory_snapshot().clone();
     let manifest_authority = authority
         .entries()
         .map(|(principal, capabilities)| AuthorityGrant {
@@ -195,21 +210,34 @@ fn replay_manifest_v7() -> (
     for direct_commands in &commands {
         let prepared_tick = runtime
             .tick_preparation()
-            .prepare_with_world_services(direct_commands.clone(), &routine, &population, &world)
+            .prepare_with_world_services_and_cognition(
+                direct_commands.clone(),
+                &routine,
+                &population,
+                &cognition,
+                &world,
+            )
             .expect("record joint tick");
         let validated = runtime
-            .validate_prepared_world_services_tick(&routine, &population, &world, prepared_tick)
+            .validate_prepared_world_services_tick_with_cognition(
+                &routine,
+                &population,
+                &cognition,
+                &world,
+                prepared_tick,
+            )
             .expect("validate joint tick");
         let commit = runtime
-            .commit_validated_world_services_tick(
+            .commit_validated_world_services_tick_with_cognition(
                 &mut routine,
                 &mut population,
+                &mut cognition,
                 &mut world,
                 validated,
             )
             .expect("commit joint tick");
         let report = &commit.runtime_report;
-        ticks.push(ReplayTickManifestV7 {
+        ticks.push(ReplayTickManifestV8 {
             tick: report.tick,
             world_streaming_input: WorldStreamingReplayInputV1::None,
             closed_ingress_batch: report.closed_ingress_batch.clone(),
@@ -234,7 +262,7 @@ fn replay_manifest_v7() -> (
             expected_command_results: replay_command_results(&report.results),
             expected_events: report.events.clone(),
         });
-        compare_points.push(ReplayComparePointV7 {
+        compare_points.push(ReplayComparePointV8 {
             tick: report.tick,
             state_root: commit.application_state_root,
             command_ledger_hash: report.snapshot.command_ledger_hash().expect("ledger hash"),
@@ -278,23 +306,27 @@ fn replay_manifest_v7() -> (
         final_checkpoint,
     };
     (
-        ReplayManifestV7 {
-            schema_version: REPLAY_MANIFEST_V7_SCHEMA_VERSION,
+        ReplayManifestV8 {
+            schema_version: REPLAY_MANIFEST_V8_SCHEMA_VERSION,
             compatibility: compatibility(),
             initial_owner_segments: replay_owner_segments(
                 &initial_checkpoint,
                 &initial_world_snapshot,
                 &initial_routine_snapshot,
                 &initial_population_snapshot,
+                &initial_agent_snapshot,
+                &initial_memory_snapshot,
             ),
             initial_state_root:
-                next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root(
+                next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root(
                     &initial_checkpoint.runtime_snapshot,
                     &initial_checkpoint.rpg_snapshot,
                     &initial_checkpoint.physics_checkpoint,
                     &initial_world_snapshot,
                     Some(&initial_routine_snapshot),
                     Some(&initial_population_snapshot),
+                    &initial_agent_snapshot,
+                    &initial_memory_snapshot,
                 )
                 .expect("initial root computes"),
             authority: manifest_authority,
@@ -311,6 +343,8 @@ fn replay_owner_segments(
     world: &WorldStreamingSnapshotV1,
     routine: &WorldRoutineSnapshotV1,
     population: &WorldPopulationSnapshotV1,
+    agent: &AgentCognitionSnapshotV1,
+    memory: &AgentMemorySnapshotV1,
 ) -> Vec<ReplayOwnerSegmentV2> {
     let mut segments = vec![
         (
@@ -360,6 +394,20 @@ fn replay_owner_segments(
             WORLD_POPULATION_SNAPSHOT_SEGMENT_ID,
             u32::from(WORLD_POPULATION_SCHEMA_VERSION),
             population.canonical_bytes().expect("world population"),
+        ),
+        (
+            AGENT_RUNTIME_SNAPSHOT_OWNER_ID,
+            AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID,
+            AGENT_RUNTIME_SNAPSHOT_SEGMENT_ID,
+            u32::from(COGNITION_SCHEMA_VERSION),
+            agent.canonical_bytes().expect("agent cognition"),
+        ),
+        (
+            AGENT_MEMORY_SNAPSHOT_OWNER_ID,
+            AGENT_MEMORY_SNAPSHOT_SCHEMA_ID,
+            AGENT_MEMORY_SNAPSHOT_SEGMENT_ID,
+            u32::from(COGNITION_SCHEMA_VERSION),
+            memory.canonical_bytes().expect("agent memory"),
         ),
     ]
     .into_iter()
@@ -478,8 +526,8 @@ fn replay_reports_first_divergent_tick() {
 
 #[test]
 fn versioned_manifest_restores_snapshot_and_checks_every_compare_point() {
-    let (manifest, expected, prepared) = replay_manifest_v7();
-    let actual = run_replay_manifest_v7(&manifest, prepared.package.clone())
+    let (manifest, expected, prepared) = replay_manifest_v8();
+    let actual = run_replay_manifest_v8(&manifest, prepared.package.clone())
         .expect("manifest replay is exact");
     assert_eq!(actual, expected);
 }
@@ -493,6 +541,9 @@ fn replay_v7_rejects_a_calendar_valid_routine_without_its_ledger_receipt() {
     let session =
         next_reference_game::build_reference_game_session(prepared.package.project.clone())
             .expect("reference session");
+    let cognition = session
+        .initial_cognition_owners()
+        .expect("initial cognition owners");
     let mut runtime = RuntimeState::new(session.bootstrap.clone(), session.authority.clone())
         .expect("initial runtime");
     let mut world = next_world::WorldStreamerV1::activate(
@@ -559,23 +610,27 @@ fn replay_v7_rejects_a_calendar_valid_routine_without_its_ledger_receipt() {
         .snapshot_or_none()
         .cloned()
         .expect("population snapshot");
-    let manifest = ReplayManifestV7 {
-        schema_version: REPLAY_MANIFEST_V7_SCHEMA_VERSION,
+    let manifest = ReplayManifestV8 {
+        schema_version: REPLAY_MANIFEST_V8_SCHEMA_VERSION,
         compatibility: compatibility(),
         initial_owner_segments: replay_owner_segments(
             &checkpoint,
             &world_snapshot,
             &routine,
             &population_snapshot,
+            cognition.agent_snapshot(),
+            cognition.memory_snapshot(),
         ),
         initial_state_root:
-            next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root(
+            next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root(
                 &checkpoint.runtime_snapshot,
                 &checkpoint.rpg_snapshot,
                 &checkpoint.physics_checkpoint,
                 &world_snapshot,
                 Some(&routine),
                 Some(&population_snapshot),
+                cognition.agent_snapshot(),
+                cognition.memory_snapshot(),
             )
             .expect("initial root"),
         authority: session
@@ -590,7 +645,7 @@ fn replay_v7_rejects_a_calendar_valid_routine_without_its_ledger_receipt() {
         compare_points: Vec::new(),
     };
 
-    let error = run_replay_manifest_v7(&manifest, prepared.package.clone())
+    let error = run_replay_manifest_v8(&manifest, prepared.package.clone())
         .expect_err("routine/ledger mismatch must fail before replay publication");
     assert!(matches!(
         error,
@@ -606,22 +661,22 @@ fn replay_v7_rejects_a_calendar_valid_routine_without_its_ledger_receipt() {
 }
 
 #[test]
-fn replay_manifest_v7_round_trips_and_replays_query_and_v2_receipt_facts() {
-    let (manifest, expected, prepared) = replay_manifest_v7();
+fn replay_manifest_v8_round_trips_and_replays_query_and_v2_receipt_facts() {
+    let (manifest, expected, prepared) = replay_manifest_v8();
     let bytes = manifest.to_jcs_bytes().expect("manifest encodes");
-    let decoded = ReplayManifestV7::from_jcs_bytes(&bytes, CanonicalDecodeLimits::default())
+    let decoded = ReplayManifestV8::from_jcs_bytes(&bytes, CanonicalDecodeLimits::default())
         .expect("manifest decodes");
     assert_eq!(decoded, manifest);
     assert_eq!(decoded.to_jcs_bytes().expect("manifest re-encodes"), bytes);
     assert_eq!(
-        run_replay_manifest_v7(&decoded, prepared.package.clone()).expect("V7 replay is exact"),
+        run_replay_manifest_v8(&decoded, prepared.package.clone()).expect("V7 replay is exact"),
         expected
     );
 }
 
 #[test]
-fn replay_manifest_v7_rejects_v2_receipt_divergence() {
-    let (mut manifest, _, prepared) = replay_manifest_v7();
+fn replay_manifest_v8_rejects_v2_receipt_divergence() {
+    let (mut manifest, _, prepared) = replay_manifest_v8();
     manifest.ticks[0]
         .expected_mapping_receipts
         .push(InputMappingReceiptV2 {
@@ -635,7 +690,7 @@ fn replay_manifest_v7_rejects_v2_receipt_divergence() {
             derived_commands: Vec::new(),
         });
     let error =
-        run_replay_manifest_v7(&manifest, prepared.package.clone()).expect_err("receipt mismatch");
+        run_replay_manifest_v8(&manifest, prepared.package.clone()).expect_err("receipt mismatch");
     assert!(matches!(
         error,
         ReplayError::RecordedStageMismatch {
@@ -646,8 +701,8 @@ fn replay_manifest_v7_rejects_v2_receipt_divergence() {
 }
 
 #[test]
-fn replay_manifest_v7_rejects_query_batch_divergence_after_valid_rehash() {
-    let (mut manifest, _, prepared) = replay_manifest_v7();
+fn replay_manifest_v8_rejects_query_batch_divergence_after_valid_rehash() {
+    let (mut manifest, _, prepared) = replay_manifest_v8();
     manifest.ticks[0]
         .expected_physics_query_batch
         .snapshot_selector
@@ -656,7 +711,7 @@ fn replay_manifest_v7_rejects_query_batch_divergence_after_valid_rehash() {
         replay_physics_query_batch_hash(&manifest.ticks[0].expected_physics_query_batch)
             .expect("updated query batch hash");
     let error =
-        run_replay_manifest_v7(&manifest, prepared.package.clone()).expect_err("query mismatch");
+        run_replay_manifest_v8(&manifest, prepared.package.clone()).expect_err("query mismatch");
     assert!(matches!(
         error,
         ReplayError::RecordedStageMismatch {
@@ -667,10 +722,10 @@ fn replay_manifest_v7_rejects_query_batch_divergence_after_valid_rehash() {
 }
 
 #[test]
-fn replay_manifest_v7_rejects_targeting_trace_root_mismatch() {
-    let (mut manifest, _, prepared) = replay_manifest_v7();
+fn replay_manifest_v8_rejects_targeting_trace_root_mismatch() {
+    let (mut manifest, _, prepared) = replay_manifest_v8();
     manifest.compare_points[0].targeting_query_trace_hash = ContentHash::from_bytes([0x94; 32]);
-    let error = run_replay_manifest_v7(&manifest, prepared.package.clone())
+    let error = run_replay_manifest_v8(&manifest, prepared.package.clone())
         .expect_err("target trace mismatch");
     assert!(matches!(
         error,
@@ -682,7 +737,7 @@ fn replay_manifest_v7_rejects_targeting_trace_root_mismatch() {
 fn replay_manifest_v4_jcs_is_rejected_before_nested_decoding() {
     let bytes = br#"{"schema_version":4}"#;
     assert!(matches!(
-        ReplayManifestV7::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
+        ReplayManifestV8::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
         Err(ManifestCodecError::Validation(
             ManifestValidationError::UnsupportedReplayVersion(4)
         ))
@@ -693,7 +748,7 @@ fn replay_manifest_v4_jcs_is_rejected_before_nested_decoding() {
 fn retired_replay_manifest_v5_jcs_is_rejected_before_nested_decoding() {
     let bytes = br#"{"schema_version":5}"#;
     assert!(matches!(
-        ReplayManifestV7::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
+        ReplayManifestV8::from_jcs_bytes(bytes, CanonicalDecodeLimits::default()),
         Err(ManifestCodecError::Validation(
             ManifestValidationError::UnsupportedReplayVersion(5)
         ))
@@ -702,9 +757,9 @@ fn retired_replay_manifest_v5_jcs_is_rejected_before_nested_decoding() {
 
 #[test]
 fn manifest_reports_first_ledger_or_state_divergence() {
-    let (mut manifest, _, prepared) = replay_manifest_v7();
+    let (mut manifest, _, prepared) = replay_manifest_v8();
     manifest.compare_points[0].state_root = StateRoot::from_bytes([9; 32]);
-    let error = run_replay_manifest_v7(&manifest, prepared.package.clone())
+    let error = run_replay_manifest_v8(&manifest, prepared.package.clone())
         .expect_err("compare point must fail");
     assert!(matches!(
         error,
@@ -716,11 +771,11 @@ fn manifest_reports_first_ledger_or_state_divergence() {
 
 #[test]
 fn manifest_decodes_entire_command_stream_before_runtime_restore() {
-    let (mut manifest, _, prepared) = replay_manifest_v7();
+    let (mut manifest, _, prepared) = replay_manifest_v8();
     manifest.ticks[1].direct_external_commands[0]
         .canonical_command_bytes
         .push(0);
-    let error = run_replay_manifest_v7(&manifest, prepared.package.clone())
+    let error = run_replay_manifest_v8(&manifest, prepared.package.clone())
         .expect_err("corrupt command must fail closed");
     assert!(matches!(error, ReplayError::Manifest(_)));
     assert_eq!(error.stable_code(), "REPLAY_MANIFEST_INVALID");
@@ -728,7 +783,7 @@ fn manifest_decodes_entire_command_stream_before_runtime_restore() {
 
 #[test]
 fn replay_driver_rejects_command_batch_before_state_mutation() {
-    let (manifest, _, prepared) = replay_manifest_v7();
+    let (manifest, _, prepared) = replay_manifest_v8();
     let (initial, mut ticks) = manifest
         .validate_and_decode(CanonicalDecodeLimits::default())
         .expect("manifest decodes");
@@ -773,10 +828,10 @@ fn replay_driver_rejects_command_batch_before_state_mutation() {
 
 #[test]
 fn v4_replay_is_rejected_before_nested_snapshot_decoding() {
-    let (mut manifest, _, prepared) = replay_manifest_v7();
+    let (mut manifest, _, prepared) = replay_manifest_v8();
     manifest.schema_version = 4;
     manifest.initial_owner_segments.clear();
-    let error = run_replay_manifest_v7(&manifest, prepared.package.clone())
+    let error = run_replay_manifest_v8(&manifest, prepared.package.clone())
         .expect_err("V4 replay fails closed");
     assert!(matches!(
         error,

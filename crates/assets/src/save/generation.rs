@@ -7,6 +7,7 @@ use std::path::Path;
 use std::fs::File;
 
 use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1};
 use next_contracts::persistence::{
     ManifestCodecError, ManifestValidationError, SaveCompatibility, SaveManifestV2,
 };
@@ -34,6 +35,8 @@ pub struct LoadedSave {
     pub world_streaming_snapshot: Option<WorldStreamingSnapshotV1>,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     pub world_population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+    pub agent_cognition_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
+    pub agent_memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     pub slot: u8,
     pub rejected_generations: Vec<RejectedGeneration>,
 }
@@ -100,6 +103,8 @@ pub(super) fn read_generation_directory(
         world_streaming_snapshot: validated.world_streaming_snapshot,
         world_routine_snapshot_or_none: validated.world_routine_snapshot_or_none,
         world_population_snapshot_or_none: validated.world_population_snapshot_or_none,
+        agent_cognition_snapshot_or_none: validated.agent_cognition_snapshot_or_none,
+        agent_memory_snapshot_or_none: validated.agent_memory_snapshot_or_none,
         slot,
         rejected_generations: vec![],
     })

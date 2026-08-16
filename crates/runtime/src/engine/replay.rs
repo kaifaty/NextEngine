@@ -133,10 +133,11 @@ impl RuntimeReplayDriver {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn replay_world_services_tick_v7(
+    pub fn replay_world_services_tick_v8(
         &mut self,
         routine: &mut next_world::WorldRoutineOwnerV1,
         population: &mut next_world::WorldPopulationOwnerV1,
+        cognition: &mut next_agent::cognition::StrategicAgentOwnersV1,
         world: &mut next_world::WorldStreamerV1,
         streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
         closed_ingress_batch: ClosedIngressBatchV1,
@@ -165,17 +166,22 @@ impl RuntimeReplayDriver {
             .map_err(ReferencePhysicsError::from)
             .map_err(PhysicsBackendError::from)
             .map_err(RuntimeFatalError::from)?;
-        let prepared = self.runtime.prepare_replay_world_services_tick(
-            closed_ingress_batch,
-            direct_commands,
-            routine,
-            population,
-            world,
-            streaming,
-        )?;
+        let prepared = self
+            .runtime
+            .prepare_replay_world_services_tick_with_cognition(
+                closed_ingress_batch,
+                direct_commands,
+                routine,
+                population,
+                cognition,
+                world,
+                streaming,
+            )?;
         let validated = self
             .runtime
-            .validate_prepared_world_services_tick(routine, population, world, prepared)?;
+            .validate_prepared_world_services_tick_with_cognition(
+                routine, population, cognition, world, prepared,
+            )?;
         let report = validated.report();
         if &report.physics_step_input != expected_physics_step_input {
             return Err(RuntimeReplayError::PhysicsStepInputMismatch { tick: report.tick });
@@ -206,7 +212,9 @@ impl RuntimeReplayDriver {
         }
         Ok(self
             .runtime
-            .commit_validated_world_services_tick(routine, population, world, validated)?)
+            .commit_validated_world_services_tick_with_cognition(
+                routine, population, cognition, world, validated,
+            )?)
     }
 
     /// Prepares one recorded tick against the live runtime generation without

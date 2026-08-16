@@ -33,3 +33,16 @@ fn r4b_schedule_rejects_registration_order_and_access_ambiguity() {
         Err(IdentityContractError::ScheduleClosureInvalid)
     );
 }
+
+#[test]
+fn r4c_schedule_adds_agent_planning_as_the_third_ordered_system() {
+    let schedule = ScheduleManifestV1::core_r4c().expect("schedule builds");
+    assert_eq!(schedule.stage_order.len(), 12);
+    assert_eq!(schedule.systems.len(), 3);
+    assert_eq!(schedule.shard_plans.len(), 3);
+    let cognition = schedule
+        .systems
+        .get(&SystemId::new(AGENT_COGNITION_SYSTEM_ID).expect("system id"))
+        .expect("cognition system is registered");
+    assert_eq!(cognition.stage_id, RuntimeStageId::AgentPlanning);
+}
