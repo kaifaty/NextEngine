@@ -155,4 +155,3 @@ budget or granting GPU authority requires a new explicit decision.
   universal solver.
 - Vegetation and continuum programs remain independent until an explicit
   root/soil or water/vegetation exchange consumer exists.
-

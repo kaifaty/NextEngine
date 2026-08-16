@@ -44,4 +44,3 @@ does not freeze the last pose while continuing wind ticks.
 gravity equilibrium, no visible/discrete junction discontinuity under the
 numeric metric, and presentation-independent results. V3 may begin only from
 that exact checkpoint.
-

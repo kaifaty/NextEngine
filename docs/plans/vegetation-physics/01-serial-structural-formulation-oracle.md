@@ -64,4 +64,3 @@ same-target root identity across repeats/insertion permutations, no hidden
 continuation state and a bounded report identifying the selected candidate.
 Windows/Linux equality is not yet required for research activation but is
 mandatory at V7.
-

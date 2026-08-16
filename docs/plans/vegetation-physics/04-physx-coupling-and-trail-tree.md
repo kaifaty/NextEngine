@@ -55,4 +55,3 @@ No static/scripted/decorative fallback occurs after activation.
 mass/CoM/momentum and trail outcome thresholds; exact command/registration/
 worker permutations; and one complete owner handoff with PhysX as sole rigid
 writer.
-

@@ -49,4 +49,3 @@ camera/timing independence threshold. Conditional `performance` must pass the
 V0 production budget. After two evidence-backed optimization cycles a miss
 stops the program as `RESEARCH_ONLY`; the workload or budget cannot be changed
 inside V6.
-

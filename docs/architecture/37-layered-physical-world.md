@@ -162,4 +162,3 @@ only when at least two non-rigid production owners exist; it must then prove
 writer exclusivity, batch collision rejection, atomic multi-owner failure and
 presentation independence. Until then, water and vegetation checks remain
 independent and neither proves the other.
-

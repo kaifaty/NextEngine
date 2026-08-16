@@ -40,4 +40,3 @@ must produce the same root and failure tick/direction.
 failure tick/direction and topology thresholds; one complete graph split or no
 publication; exact same-target roots; and no scalar health/fell flag in the
 authority path.
-
