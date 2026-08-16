@@ -1,12 +1,16 @@
 use self::validate::validate_source;
 use crate::cook_rpg::{compile_rpg_definitions_v2, rpg_definitions_v2_manifest_bytes};
-use crate::cook_support::{ensure_unique, schema_ref, validate_text_catalog_closure};
+use crate::cook_support::{
+    ensure_unique, schema_ref, schema_ref_with_version, validate_text_catalog_closure,
+};
 use next_assets::{ContentPublicationV1, PublicationFileV1};
 use next_contracts::animation_content::{
     NEUTRAL_ANIMATION_SCHEMA_ID, NEUTRAL_SKELETON_SCHEMA_ID, NeutralAnimationV1, NeutralSkeletonV1,
 };
 use next_contracts::audio::{NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioV1};
-use next_contracts::cognition::{AGENT_COGNITION_CATALOG_SCHEMA_ID, AgentCognitionCatalogV1};
+use next_contracts::cognition::{
+    AGENT_COGNITION_CATALOG_SCHEMA_ID, AgentCognitionCatalogV1, COGNITION_SCHEMA_VERSION,
+};
 use next_contracts::content::{NeutralRecordKindV1, NeutralRecordV1};
 use next_contracts::identity::RuntimeDeterminismBundleV1;
 use next_contracts::ids::{AssetId, ContentHash, ProjectId, SchemaId};
@@ -253,8 +257,9 @@ pub fn cook_project_v5(
         SchemaEncodingV1::CanonicalBinaryV1,
     )?;
     schema_refs.insert(world_population_catalog_schema_ref.clone());
-    let agent_cognition_catalog_schema_ref = schema_ref(
+    let agent_cognition_catalog_schema_ref = schema_ref_with_version(
         AGENT_COGNITION_CATALOG_SCHEMA_ID,
+        u32::from(COGNITION_SCHEMA_VERSION),
         SchemaRoleV1::NeutralContent,
         SchemaEncodingV1::CanonicalBinaryV1,
     )?;

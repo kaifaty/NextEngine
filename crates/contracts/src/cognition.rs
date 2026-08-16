@@ -10,13 +10,13 @@ use crate::ids::{
     AssetId, ContentHash, IdentifierError, PersistentId, SchemaId, content_hash_from_bytes,
 };
 
-pub const COGNITION_SCHEMA_VERSION: u16 = 1;
-pub const AGENT_COGNITION_COMMAND_SCHEMA_VERSION: u32 = 1;
-pub const AGENT_COGNITION_EVENT_SCHEMA_VERSION: u32 = 1;
+pub const COGNITION_SCHEMA_VERSION: u16 = 2;
+pub const AGENT_COGNITION_COMMAND_SCHEMA_VERSION: u32 = 2;
+pub const AGENT_COGNITION_EVENT_SCHEMA_VERSION: u32 = 2;
 
 pub const AGENT_COGNITION_CATALOG_OWNER_ID: &str = "nextengine.assets";
 pub const AGENT_COGNITION_CATALOG_SCHEMA_ID: &str = "nextengine.content.agent-cognition-catalog";
-pub const AGENT_COGNITION_CATALOG_SEGMENT_ID: &str = "nextengine.agent-cognition-catalog.v1";
+pub const AGENT_COGNITION_CATALOG_SEGMENT_ID: &str = "nextengine.agent-cognition-catalog.v2";
 
 pub const AGENT_MEMORY_SNAPSHOT_OWNER_ID: &str = "nextengine.memory-service";
 pub const AGENT_MEMORY_SNAPSHOT_SCHEMA_ID: &str = "nextengine.agent-memory-snapshot";
@@ -247,6 +247,17 @@ impl<'a> Reader<'a> {
         (0..self.count(limit)?).map(|_| read_belief(self)).collect()
     }
 
+    fn speech_acts(
+        &mut self,
+        limit: usize,
+    ) -> Result<Vec<StructuredSpeechActV1>, CognitionContractError> {
+        (0..self.count(limit)?)
+            .map(|_| {
+                StructuredSpeechActV1::from_canonical_payload_bytes(self.bytes()?, self.limits)
+            })
+            .collect()
+    }
+
     fn optional_active_goal(&mut self) -> Result<Option<ActiveGoalV1>, CognitionContractError> {
         match self.u8()? {
             0 => Ok(None),
@@ -311,6 +322,7 @@ fn write_belief_identity(
     writer.text(belief.value_id.as_str())?;
     writer.u32(belief.confidence_q16);
     writer.u8(belief.source as u8);
+    writer.optional_hash(belief.source_act_id_or_none);
     writer.u64(belief.learned_tick);
     writer.u64(belief.last_verified_revision);
     writer.u8(belief.contradiction as u8);
@@ -334,6 +346,7 @@ fn read_belief(reader: &mut Reader<'_>) -> Result<SemanticBeliefV1, CognitionCon
         value_id: reader.schema_id()?,
         confidence_q16: reader.u32()?,
         source: BeliefSourceV1::from_tag(reader.u8()?)?,
+        source_act_id_or_none: reader.optional_hash()?,
         learned_tick: reader.u64()?,
         last_verified_revision: reader.u64()?,
         contradiction: BeliefContradictionV1::from_tag(reader.u8()?)?,
@@ -518,6 +531,30 @@ fn write_intent_identity(
             writer.hash(*route_plan_hash);
         }
         StrategicAgentIntentKindV1::HoldPosition => writer.u8(2),
+        StrategicAgentIntentKindV1::CommitSocialExchange {
+            exchange_hash,
+            commitment_id,
+        } => {
+            writer.u8(3);
+            writer.hash(*exchange_hash);
+            writer.id(*commitment_id);
+        }
+        StrategicAgentIntentKindV1::AwaitActivity {
+            commitment_id,
+            expected_activity_revision,
+        } => {
+            writer.u8(4);
+            writer.id(*commitment_id);
+            writer.u64(*expected_activity_revision);
+        }
+        StrategicAgentIntentKindV1::SettleSystemicExchange {
+            commitment_id,
+            expected_activity_revision,
+        } => {
+            writer.u8(5);
+            writer.id(*commitment_id);
+            writer.u64(*expected_activity_revision);
+        }
     }
     Ok(())
 }
@@ -546,6 +583,18 @@ fn read_intent(reader: &mut Reader<'_>) -> Result<StrategicAgentIntentV1, Cognit
             route_plan_hash: reader.hash()?,
         },
         2 => StrategicAgentIntentKindV1::HoldPosition,
+        3 => StrategicAgentIntentKindV1::CommitSocialExchange {
+            exchange_hash: reader.hash()?,
+            commitment_id: reader.id()?,
+        },
+        4 => StrategicAgentIntentKindV1::AwaitActivity {
+            commitment_id: reader.id()?,
+            expected_activity_revision: reader.u64()?,
+        },
+        5 => StrategicAgentIntentKindV1::SettleSystemicExchange {
+            commitment_id: reader.id()?,
+            expected_activity_revision: reader.u64()?,
+        },
         value => return Err(CognitionContractError::UnknownTag(value)),
     };
     let value = StrategicAgentIntentV1 {

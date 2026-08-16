@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / CONTRACT_FREEZE` |
+| Status | `ACTIVE / FAILURE_CLOSURE` |
 | Updated | 2026-08-16 |
 | Task key | `r4d-systemic-strategic-agent` |
 | Scope | One owner-safe systemic NPC path from structured information/work agreement through navigation/activity, committed currency, food trade and consumption, plus bounded bulk time and exact 100-NPC tier cadence |
@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R4d is active. Its minimum product cut is one authored `Inform → Offer → Accept` exchange followed by owner-validated work, committed currency, food trade and consumption; the same project must exercise bounded tier cadence and bulk-time boundaries.
-- **Why:** R4c already supplies accepted Agent/Memory cognition owners and proposal-only execution. RPG already supports atomic multi-operation resource and inventory commits, but R4d still needs explicit speech-act and commitment semantics plus a World Services activity/bulk-time consumer.
-- **Next action:** Freeze the smallest current-only contracts and exact owner command sequence, then implement the production happy path before adding failure/restart coverage.
+- **Current conclusion:** The R4d contract freeze and production happy path are complete: authored `Ask → Inform → Offer → Accept`, owner-validated activity, threat interrupt/resume and atomic work → currency → trade → food commits pass through the reference scenario.
+- **Why:** The reference run now closes the exact owner sequence at ticks 1–6 and verifies commitment, activity, currency, inventory, hunger and satiety postconditions without executive-side mutation.
+- **Next action:** Close stale/no-route/no-job/no-money as typed non-mutating production branches, then proceed to restart/replay and 100-NPC tier/bulk evidence.
 - **Current blocker:** None.
 - **Do not retry:** Generic scheduler/economy frameworks, quest-shaped commitments, world-truth cognition input, camera-distance tier authority, hidden currency/item mutation or fabricated abstract outcomes.
 - **Reconsider when:** The production consumer proves that one additional typed operation or owner projection is necessary to preserve atomicity, replay closure or observable boundary semantics.
@@ -66,7 +66,7 @@
 
 ## Handoff
 
-- **Workspace state:** R4c is the accepted baseline; R4d has just opened the single roadmap WIP slot.
-- **Checks:** No R4d promotion checks have run yet.
-- **Remaining risk:** Contract breadth must stay tied to the one systemic consumer, and the unsupported local host cannot support a B-12 claim.
+- **Workspace state:** R4c is the accepted baseline; R4d contract and happy-path owners are implemented in the active WIP slot.
+- **Checks:** Focused Contracts (208), Agent (7), World (12), Runtime (45), reference cognition and reference production-path tests pass.
+- **Remaining risk:** Typed failure atomicity, persistence/replay and exact 100-NPC bulk/tier evidence remain open; the unsupported local host cannot support a B-12 claim.
 - **Promotion needed:** R4d remains active until production, failure, restart/replay and tier/bulk evidence pass and the promoting ADR is accepted.

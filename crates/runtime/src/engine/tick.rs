@@ -699,6 +699,11 @@ impl RuntimeState {
             .map(|cognition| cognition.proposal_for_stage_9(tick, staged.revision))
             .transpose()?
             .flatten();
+        let cognition_rpg_proposal_or_none = agent_cognition
+            .as_deref()
+            .map(|cognition| cognition.systemic_rpg_proposal_for_stage_9(tick, staged.revision))
+            .transpose()?
+            .flatten();
         let proposal_count = count(
             built_in_resolution
                 .outcomes
@@ -715,6 +720,9 @@ impl RuntimeState {
                 })
                 .and_then(|count| {
                     count.checked_add(usize::from(cognition_proposal_or_none.is_some()))
+                })
+                .and_then(|count| {
+                    count.checked_add(usize::from(cognition_rpg_proposal_or_none.is_some()))
                 })
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?,
         )?;
@@ -734,6 +742,9 @@ impl RuntimeState {
                 })
                 .and_then(|count| {
                     count.checked_add(usize::from(cognition_proposal_or_none.is_some()))
+                })
+                .and_then(|count| {
+                    count.checked_add(usize::from(cognition_rpg_proposal_or_none.is_some()))
                 })
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?,
         );
@@ -790,6 +801,9 @@ impl RuntimeState {
             outcome_commands.push(proposal);
         }
         if let Some(proposal) = cognition_proposal_or_none {
+            outcome_commands.push(proposal);
+        }
+        if let Some(proposal) = cognition_rpg_proposal_or_none {
             outcome_commands.push(proposal);
         }
         sort_command_batch(&mut outcome_commands)?;

@@ -197,7 +197,7 @@ impl CommandKindRegistryV1 {
                 AGENT_COGNITION_COMMAND_SCHEMA_VERSION,
                 AGENT_COGNITION_COMMAND_KIND_ID,
                 AGENT_COGNITION_PRIORITY_CLASS,
-                b"nextengine.command-validator.agent-cognition.v1\0",
+                b"nextengine.command-validator.agent-cognition.v2\0",
                 AGENT_COGNITION_CAPABILITY_ID,
             )?;
             entries.insert(key, value);

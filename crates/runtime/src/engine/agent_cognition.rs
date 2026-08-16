@@ -1,17 +1,21 @@
 use next_agent::cognition::{
     StrategicAgentOwnersV1, StrategicEvaluationV1, StrategicObservationV1,
-    evaluate_strategic_decision_v1,
+    SystemicStrategicObservationV1, evaluate_strategic_decision_v1,
+    evaluate_systemic_strategic_decision_v1,
 };
 use next_contracts::cognition::{
     AGENT_COGNITION_SYSTEM_ID, AgentCognitionCommandV1, AgentCognitionSnapshotV1,
     AgentDecisionCommittedV1, AgentMemorySnapshotV1, COGNITION_SCHEMA_VERSION, DecisionTraceV1,
+    SystemicExecutionFailureV1,
 };
-use next_contracts::command::{CommandPayload, DomainEvent, IssuerPrincipal, WorldCommand};
+use next_contracts::command::{
+    CommandPayload, CommandPhase, DomainEvent, IssuerPrincipal, WorldCommand,
+};
 use next_contracts::ids::{CommandStreamId, SchemaId, SystemId};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1};
 use next_contracts::world_population::{
-    NavigationCapabilityV1, NavigationQueryV1, WORLD_POPULATION_SCHEMA_VERSION,
+    NavigationCapabilityV1, NavigationQueryV1, PopulationTierV1, WORLD_POPULATION_SCHEMA_VERSION,
 };
 use next_rpg::RpgState;
 
@@ -21,10 +25,14 @@ use super::state::RuntimeState;
 pub(super) struct AgentCognitionStageContextV1 {
     owners: StrategicAgentOwnersV1,
     population: next_world::WorldPopulationOwnerV1,
+    activity_or_none: Option<next_world::WorldActivityOwnerV1>,
     staged_agent_snapshot: AgentCognitionSnapshotV1,
     staged_memory_snapshot: AgentMemorySnapshotV1,
     route: (SystemId, CommandStreamId),
+    systemic_rpg_route_or_none: Option<(SystemId, CommandStreamId)>,
     proposal_or_none: Option<WorldCommand>,
+    systemic_rpg_proposal_or_none: Option<WorldCommand>,
+    systemic_failure_or_none: Option<SystemicExecutionFailureV1>,
     decision_trace_or_none: Option<DecisionTraceV1>,
     proposal_applied: bool,
 }
@@ -34,6 +42,7 @@ impl AgentCognitionStageContextV1 {
         runtime: &RuntimeState,
         owners: &StrategicAgentOwnersV1,
         population: &next_world::WorldPopulationOwnerV1,
+        activity_or_none: Option<&next_world::WorldActivityOwnerV1>,
     ) -> Result<Self, RuntimeFatalError> {
         owners
             .validate()
@@ -58,6 +67,14 @@ impl AgentCognitionStageContextV1 {
         {
             return Err(RuntimeFatalError::AgentCognitionInternalInvariant);
         }
+        if let Some(activity) = activity_or_none {
+            activity
+                .validate(runtime.next_tick)
+                .map_err(|_| RuntimeFatalError::AgentCognitionInternalInvariant)?;
+            if activity.catalog().worker_subject_id != subject_id {
+                return Err(RuntimeFatalError::AgentCognitionInternalInvariant);
+            }
+        }
         let system_id = SystemId::new(AGENT_COGNITION_SYSTEM_ID)
             .map_err(|_| RuntimeFatalError::AgentCognitionInternalInvariant)?;
         let principal = IssuerPrincipal::InternalSystem(system_id.clone());
@@ -75,13 +92,36 @@ impl AgentCognitionStageContextV1 {
         if matching_streams.next().is_some() {
             return Err(RuntimeFatalError::AgentCognitionInternalInvariant);
         }
+        let systemic_rpg_route_or_none = if activity_or_none.is_some() {
+            let mut matching_streams = runtime
+                .stream_registry
+                .entries
+                .iter()
+                .filter(|(key, _)| {
+                    key.principal == principal && key.stream_slot == 1 && key.stream_epoch == 0
+                })
+                .map(|(_, stream_id)| *stream_id);
+            let stream_id = matching_streams
+                .next()
+                .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?;
+            if matching_streams.next().is_some() {
+                return Err(RuntimeFatalError::AgentCognitionInternalInvariant);
+            }
+            Some((system_id.clone(), stream_id))
+        } else {
+            None
+        };
         Ok(Self {
             owners: owners.clone(),
             population: population.clone(),
+            activity_or_none: activity_or_none.cloned(),
             staged_agent_snapshot: owners.agent_snapshot().clone(),
             staged_memory_snapshot: owners.memory_snapshot().clone(),
             route: (system_id, stream_id),
+            systemic_rpg_route_or_none,
             proposal_or_none: None,
+            systemic_rpg_proposal_or_none: None,
+            systemic_failure_or_none: None,
             decision_trace_or_none: None,
             proposal_applied: false,
         })
@@ -94,15 +134,43 @@ impl AgentCognitionStageContextV1 {
         rpg: &RpgState,
     ) -> Result<(), RuntimeFatalError> {
         if self.proposal_or_none.is_some()
+            || self.systemic_rpg_proposal_or_none.is_some()
+            || self.systemic_failure_or_none.is_some()
             || self.decision_trace_or_none.is_some()
             || self.proposal_applied
         {
             return Err(RuntimeFatalError::AgentCognitionInternalInvariant);
         }
+        if let (Some(activity), Some((system_id, stream_id))) =
+            (&self.activity_or_none, &self.systemic_rpg_route_or_none)
+        {
+            let decision = super::systemic_agent::build_systemic_rpg_decision_v1(
+                self.staged_agent_snapshot.pending_intent_or_none.as_ref(),
+                activity.catalog(),
+                activity.snapshot(),
+                rpg,
+                simulation_tick,
+            );
+            self.systemic_failure_or_none = decision.failure_or_none;
+            if let Some((sequence, payload)) = decision.command_or_none {
+                let mut command = WorldCommand::rpg(
+                    *stream_id,
+                    IssuerPrincipal::InternalSystem(system_id.clone()),
+                    sequence,
+                    simulation_tick,
+                    payload,
+                )?;
+                command.phase = CommandPhase::Outcome;
+                command.set_precondition_revision(Some(authoritative_revision))?;
+                self.systemic_rpg_proposal_or_none = Some(command);
+            }
+        }
         if !self.owners.catalog().is_due(simulation_tick) {
             return Ok(());
         }
-        let evaluation = self.evaluate(simulation_tick, rpg)?;
+        let Some(evaluation) = self.evaluate(simulation_tick, rpg)? else {
+            return Ok(());
+        };
         self.decision_trace_or_none = Some(evaluation.decision_trace.clone());
         let Some(proposal) = evaluation.proposal_or_none else {
             return Ok(());
@@ -142,6 +210,28 @@ impl AgentCognitionStageContextV1 {
             return Err(RuntimeFatalError::AgentCognitionInternalInvariant);
         }
         Ok(self.proposal_or_none.clone())
+    }
+
+    pub(super) fn systemic_rpg_proposal_for_stage_9(
+        &self,
+        simulation_tick: u64,
+        authoritative_revision: u64,
+    ) -> Result<Option<WorldCommand>, RuntimeFatalError> {
+        if self
+            .systemic_rpg_proposal_or_none
+            .as_ref()
+            .is_some_and(|proposal| {
+                proposal.target_tick != simulation_tick
+                    || proposal.precondition_revision() != Some(authoritative_revision)
+            })
+        {
+            return Err(RuntimeFatalError::AgentCognitionInternalInvariant);
+        }
+        Ok(self.systemic_rpg_proposal_or_none.clone())
+    }
+
+    pub(super) const fn systemic_failure_or_none(&self) -> Option<SystemicExecutionFailureV1> {
+        self.systemic_failure_or_none
     }
 
     pub(super) fn apply_stage_9(
@@ -246,7 +336,7 @@ impl AgentCognitionStageContextV1 {
         &self,
         simulation_tick: u64,
         rpg: &RpgState,
-    ) -> Result<StrategicEvaluationV1, RuntimeFatalError> {
+    ) -> Result<Option<StrategicEvaluationV1>, RuntimeFatalError> {
         let catalog = self.owners.catalog();
         let population_catalog = self
             .population
@@ -269,6 +359,44 @@ impl AgentCognitionStageContextV1 {
             .ok()
             .and_then(|index| population_snapshot.records.get(index))
             .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?;
+        let systemic_or_none = self
+            .activity_or_none
+            .as_ref()
+            .map(|activity| {
+                let aggregate = rpg
+                    .aggregate(
+                        RpgAggregateKindV1::Commitment,
+                        activity.catalog().commitment_id,
+                    )
+                    .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?;
+                let commitment = rpg
+                    .commitment(activity.catalog().commitment_id)
+                    .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?;
+                Ok::<_, RuntimeFatalError>(SystemicStrategicObservationV1 {
+                    activity_catalog: activity.catalog(),
+                    activity_snapshot: activity.snapshot(),
+                    commitment_revision: aggregate.revision,
+                    commitment_state: commitment.state,
+                })
+            })
+            .transpose()?;
+        if let Some(systemic) = systemic_or_none {
+            let explicit_wake = systemic
+                .activity_catalog
+                .systemic_work
+                .work_exchange
+                .acts
+                .first()
+                .is_some_and(|act| act.creation_tick == simulation_tick);
+            if !explicit_wake
+                && !matches!(
+                    record.tier,
+                    PopulationTierV1::Simulated | PopulationTierV1::Active
+                )
+            {
+                return Ok(None);
+            }
+        }
         let rpg_snapshot = rpg.snapshot();
         let aggregate = rpg_snapshot
             .aggregates
@@ -314,14 +442,25 @@ impl AgentCognitionStageContextV1 {
             health_current: health.current_value,
             health_maximum: health.maximum_value,
             route_plan_or_none: route.as_ref(),
+            systemic_or_none,
         })
         .map_err(|_| RuntimeFatalError::AgentCognitionInternalInvariant)?;
-        evaluate_strategic_decision_v1(
-            catalog,
-            &self.staged_agent_snapshot,
-            &self.staged_memory_snapshot,
-            epistemic,
-        )
-        .map_err(|_| RuntimeFatalError::AgentCognitionInternalInvariant)
+        let evaluation = match systemic_or_none {
+            Some(systemic) => evaluate_systemic_strategic_decision_v1(
+                catalog,
+                &self.staged_agent_snapshot,
+                &self.staged_memory_snapshot,
+                epistemic,
+                systemic,
+            ),
+            None => evaluate_strategic_decision_v1(
+                catalog,
+                &self.staged_agent_snapshot,
+                &self.staged_memory_snapshot,
+                epistemic,
+            ),
+        }
+        .map_err(|_| RuntimeFatalError::AgentCognitionInternalInvariant)?;
+        Ok(Some(evaluation))
     }
 }

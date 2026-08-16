@@ -59,6 +59,7 @@ pub struct PreparedRuntimeWorldServicesTickV1 {
     agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     decision_trace_or_none: Option<DecisionTraceV1>,
+    systemic_failure_or_none: Option<next_contracts::cognition::SystemicExecutionFailureV1>,
     base_world_state_hash: next_contracts::ids::ContentHash,
     staged_world_snapshot: WorldStreamingSnapshotV1,
     streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
@@ -77,6 +78,7 @@ struct ValidatedWorldServicesGenerationV1 {
     agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     decision_trace_or_none: Option<DecisionTraceV1>,
+    systemic_failure_or_none: Option<next_contracts::cognition::SystemicExecutionFailureV1>,
     base_world_state_hash: next_contracts::ids::ContentHash,
     staged_world_snapshot: WorldStreamingSnapshotV1,
     streaming: Option<next_world::ValidatedWorldStreamingPublicationV1>,
@@ -104,6 +106,7 @@ struct CommittedWorldServicesGenerationV1 {
     agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     decision_trace_or_none: Option<DecisionTraceV1>,
+    systemic_failure_or_none: Option<next_contracts::cognition::SystemicExecutionFailureV1>,
     population_service_report_or_none: Option<next_world::PopulationNavigationServiceReportV1>,
     streaming_transition_or_none: Option<next_world::WorldTransitionCommitV1>,
 }
@@ -119,6 +122,7 @@ pub struct WorldServicesTickCommitV1 {
     pub agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     pub memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     pub decision_trace_or_none: Option<DecisionTraceV1>,
+    pub systemic_failure_or_none: Option<next_contracts::cognition::SystemicExecutionFailureV1>,
     pub population_service_report_or_none: Option<next_world::PopulationNavigationServiceReportV1>,
     pub streaming_transition_or_none: Option<next_world::WorldTransitionCommitV1>,
     pub application_owner_segments: Vec<SaveSegmentDescriptor>,
@@ -284,6 +288,7 @@ impl RuntimeTickPreparation<'_> {
                     self.runtime,
                     owners,
                     population,
+                    activity,
                 )
             })
             .transpose()?;
@@ -357,6 +362,9 @@ impl RuntimeTickPreparation<'_> {
             agent_snapshot_or_none,
             memory_snapshot_or_none,
             decision_trace_or_none,
+            systemic_failure_or_none: cognition_stage
+                .as_ref()
+                .and_then(|stage| stage.systemic_failure_or_none()),
             base_world_state_hash,
             staged_world_snapshot,
             streaming,
@@ -867,6 +875,7 @@ impl RuntimeState {
             agent_snapshot_or_none: prepared.agent_snapshot_or_none,
             memory_snapshot_or_none: prepared.memory_snapshot_or_none,
             decision_trace_or_none: prepared.decision_trace_or_none,
+            systemic_failure_or_none: prepared.systemic_failure_or_none,
             base_world_state_hash: prepared.base_world_state_hash,
             staged_world_snapshot: prepared.staged_world_snapshot,
             streaming,
@@ -899,6 +908,7 @@ impl RuntimeState {
             agent_snapshot_or_none: committed.agent_snapshot_or_none,
             memory_snapshot_or_none: committed.memory_snapshot_or_none,
             decision_trace_or_none: committed.decision_trace_or_none,
+            systemic_failure_or_none: committed.systemic_failure_or_none,
             population_service_report_or_none: committed.population_service_report_or_none,
             streaming_transition_or_none: committed.streaming_transition_or_none,
             application_owner_segments,
@@ -936,6 +946,7 @@ impl RuntimeState {
             agent_snapshot_or_none: committed.agent_snapshot_or_none,
             memory_snapshot_or_none: committed.memory_snapshot_or_none,
             decision_trace_or_none: committed.decision_trace_or_none,
+            systemic_failure_or_none: committed.systemic_failure_or_none,
             population_service_report_or_none: committed.population_service_report_or_none,
             streaming_transition_or_none: committed.streaming_transition_or_none,
             application_owner_segments,
@@ -978,6 +989,7 @@ impl RuntimeState {
             agent_snapshot_or_none: committed.agent_snapshot_or_none,
             memory_snapshot_or_none: committed.memory_snapshot_or_none,
             decision_trace_or_none: committed.decision_trace_or_none,
+            systemic_failure_or_none: committed.systemic_failure_or_none,
             population_service_report_or_none: committed.population_service_report_or_none,
             streaming_transition_or_none: committed.streaming_transition_or_none,
             application_owner_segments,
@@ -1101,6 +1113,7 @@ impl RuntimeState {
             agent_snapshot_or_none,
             memory_snapshot_or_none,
             decision_trace_or_none,
+            systemic_failure_or_none,
             staged_world_snapshot,
             streaming,
             ..
@@ -1127,6 +1140,7 @@ impl RuntimeState {
             agent_snapshot_or_none,
             memory_snapshot_or_none,
             decision_trace_or_none,
+            systemic_failure_or_none,
             population_service_report_or_none,
             streaming_transition_or_none,
         })

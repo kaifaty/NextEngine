@@ -1,11 +1,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_assets::ContentStore;
-use next_contracts::ids::SchemaId;
-use next_contracts::rpg::{
-    RpgAggregateKindV1, RpgAggregateRefV1, RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1,
-};
-
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
@@ -52,75 +47,35 @@ fn production_cognition_interrupts_for_emergency_and_resumes_the_ordinary_goal()
     let mut cognition = session
         .initial_cognition_owners()
         .expect("cognition owners");
-    let health_id = SchemaId::new(next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID)
-        .expect("health resource id");
-    let resource_command =
-        |sequence: u64, tick: u64, revision: u64, expected_value: i32, delta: i32| {
-            let mut targets = vec![
-                RpgAggregateRefV1 {
-                    aggregate_kind: RpgAggregateKindV1::Character,
-                    persistent_id: session.body_id,
-                    expected_revision: 0,
-                },
-                RpgAggregateRefV1 {
-                    aggregate_kind: RpgAggregateKindV1::Character,
-                    persistent_id: session.cognition_subject_id,
-                    expected_revision: revision,
-                },
-            ];
-            targets.sort_unstable();
-            next_contracts::command::WorldCommand::rpg(
-                session.rpg_stream_id,
-                session.principal.clone(),
-                sequence,
-                tick,
-                RpgCommandV1 {
-                    operations: vec![RpgOperationV1 {
-                        operation_slot: 0,
-                        targets,
-                        definition_policy_hashes: Vec::new(),
-                        payload: RpgOperationPayloadV1::AdjustCharacterResource {
-                            source_character_id: session.body_id,
-                            character_id: session.cognition_subject_id,
-                            resource_id: health_id.clone(),
-                            expected_value,
-                            delta,
-                        },
-                    }],
-                },
-            )
-            .expect("resource command")
-        };
+    let mut activity = session.initial_activity_owner().expect("activity owner");
     let mut traces = Vec::new();
-    for tick in 0_u64..=7 {
-        let commands = match tick {
-            2 => vec![resource_command(0, tick, 0, 100, -80)],
-            5 => vec![resource_command(1, tick, 1, 20, 80)],
-            _ => Vec::new(),
-        };
+    for _ in 0_u64..=7 {
         let prepared = runtime
             .tick_preparation()
-            .prepare_with_world_services_and_cognition(
-                commands,
+            .prepare_with_world_services_cognition_and_activity(
+                [],
                 &routine,
                 &population,
+                &activity,
                 &cognition,
                 &world,
             )
             .expect("prepare cognition tick");
         let validated = runtime
-            .validate_prepared_world_services_tick_with_cognition(
+            .validate_prepared_world_services_tick_with_cognition_and_activity(
                 &routine,
                 &population,
+                &activity,
                 &cognition,
                 &world,
                 prepared,
             )
             .expect("validate cognition tick");
         let committed = runtime
-            .commit_validated_world_services_tick_with_cognition(
+            .commit_validated_world_services_tick_with_cognition_and_activity(
                 &mut routine,
                 &mut population,
+                &mut activity,
                 &mut cognition,
                 &mut world,
                 validated,
@@ -136,7 +91,7 @@ fn production_cognition_interrupts_for_emergency_and_resumes_the_ordinary_goal()
             .iter()
             .map(|trace| trace.gameplay_tick)
             .collect::<Vec<_>>(),
-        vec![1, 4, 7]
+        vec![1, 4, 5, 6]
     );
     assert_eq!(
         traces[0].selected_goal_id,
@@ -167,7 +122,12 @@ fn production_cognition_interrupts_for_emergency_and_resumes_the_ordinary_goal()
             .agent_cognition_catalog
             .ordinary_goal_id
     );
-    assert_eq!(cognition.agent_snapshot().revision, 3);
+    assert_eq!(cognition.agent_snapshot().revision, 4);
+    assert_eq!(cognition.memory_snapshot().recorded_speech_acts.len(), 5);
+    assert_eq!(
+        activity.snapshot().state,
+        next_contracts::world_activity::WorldActivityStateV1::Completed
+    );
     assert!(cognition.agent_snapshot().suspended_goals.is_empty());
     std::fs::remove_dir_all(root).expect("cleanup");
 }

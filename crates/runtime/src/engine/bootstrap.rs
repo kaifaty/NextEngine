@@ -25,8 +25,13 @@ use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PhysicsMotionKindV1, PhysicsQuantizationProfileV1,
     PhysicsWorldCheckpointV1,
 };
-use next_contracts::rpg::{CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CoreDialogueQuestClosureError};
+use next_contracts::rpg::{
+    CORE_EQUIPMENT_MAIN_HAND_SLOT_ID, CoreDialogueQuestClosureError, RPG_COMMAND_CAPABILITY_ID,
+};
 use next_contracts::rpg::{RpgRuntimeBindingsV1, RpgSnapshotV2};
+use next_contracts::world_activity::{
+    WORLD_ACTIVITY_CAPABILITY_ID, WORLD_ACTIVITY_CAPABILITY_SUBJECT_ID, WORLD_ACTIVITY_SYSTEM_ID,
+};
 use next_contracts::world_population::{
     WORLD_POPULATION_CAPABILITY_ID, WORLD_POPULATION_CAPABILITY_SUBJECT_ID,
     WORLD_POPULATION_SYSTEM_ID,
@@ -164,7 +169,7 @@ impl RuntimeBootstrapV4 {
     }
 
     pub fn neutral_empty() -> Result<Self, SnapshotRestoreError> {
-        let profile = RuntimeDeterminismBundleV1::core_r4c()?.runtime_profile();
+        let profile = RuntimeDeterminismBundleV1::core_r4d()?.runtime_profile();
         let world_identity = WorldIdentityManifestV1::new(
             ProjectId::new("nextengine.runtime-empty")
                 .expect("built-in neutral project identifier is valid"),
@@ -199,7 +204,7 @@ pub(super) fn validate_bootstrap(
     bootstrap.rpg_bindings.validate()?;
     bootstrap.rpg_definitions.validate()?;
     bootstrap.physics_checkpoint.validate()?;
-    let determinism = RuntimeDeterminismBundleV1::core_r4c()?;
+    let determinism = RuntimeDeterminismBundleV1::core_r4d()?;
     bootstrap
         .physics_checkpoint
         .snapshot
@@ -251,6 +256,7 @@ pub(super) fn validate_bootstrap(
     }
     validate_world_routine_bootstrap_closure(bootstrap, authority)?;
     validate_world_population_bootstrap_closure(bootstrap, authority)?;
+    validate_world_activity_bootstrap_closure(bootstrap, authority)?;
     validate_agent_cognition_bootstrap_closure(bootstrap, authority)?;
     for (principal, _) in authority.entries() {
         if !bootstrap.principal_registry.is_active(principal) {
@@ -410,12 +416,64 @@ fn validate_agent_cognition_bootstrap_closure(
         return Ok(());
     }
     let expected_provenance = content_hash_from_bytes(sha256(
-        b"nextengine.principal.agent-cognition-boundary.v1\0",
+        b"nextengine.principal.agent-cognition-boundary.v2\0",
     ));
-    let expected_capability = CapabilityId::new(AGENT_COGNITION_CAPABILITY_ID)
+    let cognition_capability = CapabilityId::new(AGENT_COGNITION_CAPABILITY_ID)
         .expect("engine-owned cognition capability id is valid");
+    let rpg_capability = CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)
+        .expect("engine-owned RPG capability id is valid");
     let expected_subject = SchemaId::new(AGENT_COGNITION_CAPABILITY_SUBJECT_ID)
         .expect("engine-owned cognition capability subject id is valid");
+    let record = principal_record.expect("presence was checked");
+    let grants = authority
+        .grants(&principal)
+        .ok_or(SnapshotRestoreError::BootstrapClosureMismatch)?;
+    let systemic = grants == &BTreeSet::from([cognition_capability.clone(), rpg_capability]);
+    let cognition_only = grants == &BTreeSet::from([cognition_capability]);
+    let expected_streams = if systemic { 2_usize } else { 1_usize };
+    let expected_next_slot = if systemic { 2_u32 } else { 1_u32 };
+    if record.status != next_contracts::identity::PrincipalStatus::Active
+        || record.provenance_hash != expected_provenance
+        || record.capability_subject_id != expected_subject
+        || !systemic && !cognition_only
+        || stream_entries.len() != expected_streams
+        || stream_entries[0].0.stream_slot != 0
+        || stream_entries[0].0.stream_epoch != 0
+        || systemic
+            && (stream_entries[1].0.stream_slot != 1 || stream_entries[1].0.stream_epoch != 0)
+        || bootstrap.stream_registry.next_stream_slot.get(&principal) != Some(&expected_next_slot)
+    {
+        return Err(SnapshotRestoreError::BootstrapClosureMismatch);
+    }
+    Ok(())
+}
+
+fn validate_world_activity_bootstrap_closure(
+    bootstrap: &RuntimeBootstrapV4,
+    authority: &AuthorityRegistry,
+) -> Result<(), SnapshotRestoreError> {
+    let principal = IssuerPrincipal::InternalSystem(
+        SystemId::new(WORLD_ACTIVITY_SYSTEM_ID).expect("engine-owned activity system id is valid"),
+    );
+    let principal_record = bootstrap.principal_registry.principals.get(&principal);
+    let stream_entries = bootstrap
+        .stream_registry
+        .entries
+        .iter()
+        .filter(|(key, _)| key.principal == principal)
+        .collect::<Vec<_>>();
+    if principal_record.is_none() {
+        if !stream_entries.is_empty() || authority.is_authenticated(&principal) {
+            return Err(SnapshotRestoreError::BootstrapClosureMismatch);
+        }
+        return Ok(());
+    }
+    let expected_provenance =
+        content_hash_from_bytes(sha256(b"nextengine.principal.world-activity-boundary.v1\0"));
+    let expected_capability = CapabilityId::new(WORLD_ACTIVITY_CAPABILITY_ID)
+        .expect("engine-owned activity capability id is valid");
+    let expected_subject = SchemaId::new(WORLD_ACTIVITY_CAPABILITY_SUBJECT_ID)
+        .expect("engine-owned activity capability subject id is valid");
     let record = principal_record.expect("presence was checked");
     if record.status != next_contracts::identity::PrincipalStatus::Active
         || record.provenance_hash != expected_provenance

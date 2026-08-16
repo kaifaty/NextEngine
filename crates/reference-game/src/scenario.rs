@@ -4,6 +4,7 @@ use next_contracts::input::{CORE_MELEE_ACTION_ID, PlayerActionPhaseV1};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::physics::{PhysicsBodyIdV1, PhysicsPoseV1};
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2};
+use next_contracts::world_activity::WorldActivitySnapshotV1;
 use next_contracts::world_population::WorldPopulationSnapshotV1;
 use next_contracts::world_routine::{
     InteractionAvailabilityV1, WorldRoutineActivityV1, WorldRoutineSnapshotV1,
@@ -11,8 +12,8 @@ use next_contracts::world_routine::{
 use next_presentation::PresentationBindingV1;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState, WorldServicesTickCommitV1};
 use next_world::{
-    PreparedWorldStreamingPublicationV1, WorldPopulationOwnerV1, WorldRoutineOwnerV1,
-    WorldStreamerV1,
+    PreparedWorldStreamingPublicationV1, WorldActivityOwnerV1, WorldPopulationOwnerV1,
+    WorldRoutineOwnerV1, WorldStreamerV1,
 };
 
 use crate::ReferenceGameError;
@@ -77,6 +78,7 @@ pub struct ReferenceRunOutcomeV2 {
     pub world_streaming_snapshot: next_contracts::world::WorldStreamingSnapshotV1,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     pub world_population_snapshot: WorldPopulationSnapshotV1,
+    pub world_activity_snapshot_or_none: Option<WorldActivitySnapshotV1>,
     pub agent_cognition_snapshot: AgentCognitionSnapshotV1,
     pub agent_memory_snapshot: AgentMemorySnapshotV1,
     pub decision_traces: Vec<DecisionTraceV1>,
@@ -199,6 +201,9 @@ pub fn run_reference_game_with_backend(
         runtime.next_tick(),
     )?;
     let mut cognition = fixture.initial_cognition_owners()?;
+    let mut activity = include_interaction
+        .then(|| fixture.initial_activity_owner())
+        .transpose()?;
     let mut inputs = Vec::new();
     if include_interaction {
         inputs.extend([
@@ -257,7 +262,7 @@ pub fn run_reference_game_with_backend(
     let mut end_contacts = 0_u64;
     let mut contact_preimage = b"nextengine.physics-collision-check.contacts.v1\0".to_vec();
     let mut tick_reports: Vec<next_runtime::TickReport> = Vec::new();
-    let mut world_services_tick_commits = Vec::new();
+    let mut world_services_tick_commits: Vec<WorldServicesTickCommitV1> = Vec::new();
     let mut sequence = 0_u64;
     let mut agent_intent_id = None;
     let mut agent_projection_hash = None;
@@ -266,7 +271,7 @@ pub fn run_reference_game_with_backend(
     let mut pending_packaged_transition = None;
     for action in inputs {
         if matches!(&action, ScenarioAction::Checkpoint) {
-            let (checkpoint, components) = runtime.world_checkpoint_with_canonical_components()?;
+            let checkpoint = runtime.world_checkpoint()?;
             let expected_root = checkpoint.state_root;
             let routine_snapshot_or_none = world_routine.snapshot_or_none().copied();
             let population_snapshot = world_population
@@ -275,14 +280,11 @@ pub fn run_reference_game_with_backend(
                 .ok_or(ReferenceGameError::RecoveryInvalid)?;
             let agent_snapshot = cognition.agent_snapshot().clone();
             let memory_snapshot = cognition.memory_snapshot().clone();
-            let expected_application_root = next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root_from_canonical_components(
-                &components,
-                world_streamer.snapshot(),
-                routine_snapshot_or_none.as_ref(),
-                Some(&population_snapshot),
-                &agent_snapshot,
-                &memory_snapshot,
-            )?;
+            let activity_snapshot_or_none = activity.as_ref().map(|owner| owner.snapshot().clone());
+            let expected_application_root = world_services_tick_commits
+                .last()
+                .ok_or(ReferenceGameError::RecoveryInvalid)?
+                .application_state_root;
             runtime = RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
                 checkpoint,
                 fixture.authority.clone(),
@@ -305,6 +307,15 @@ pub fn run_reference_game_with_backend(
                 agent_snapshot,
                 memory_snapshot,
             )?;
+            activity = activity_snapshot_or_none
+                .map(|snapshot| {
+                    WorldActivityOwnerV1::restore(
+                        fixture.activated_project.world_activity_catalog.clone(),
+                        snapshot,
+                        runtime.next_tick(),
+                    )
+                })
+                .transpose()?;
             runtime.validate_world_routine_ledger_closure(&world_routine)?;
             runtime.validate_world_population_ledger_closure(&world_population)?;
             let restored_root = runtime.world_checkpoint()?.state_root;
@@ -374,6 +385,7 @@ pub fn run_reference_game_with_backend(
                 ScenarioWorldServices {
                     routine: &mut world_routine,
                     population: &mut world_population,
+                    activity: activity.as_mut(),
                     cognition: &mut cognition,
                     world: &mut world_streamer,
                 },
@@ -429,6 +441,7 @@ pub fn run_reference_game_with_backend(
             ScenarioWorldServices {
                 routine: &mut world_routine,
                 population: &mut world_population,
+                activity: activity.as_mut(),
                 cognition: &mut cognition,
                 world: &mut world_streamer,
             },
@@ -469,6 +482,7 @@ pub fn run_reference_game_with_backend(
         .snapshot_or_none()
         .cloned()
         .ok_or(ReferenceGameError::RecoveryInvalid)?;
+    let world_activity_snapshot_or_none = activity.as_ref().map(|owner| owner.snapshot().clone());
     let agent_cognition_snapshot = cognition.agent_snapshot().clone();
     let agent_memory_snapshot = cognition.memory_snapshot().clone();
     let decision_traces = world_services_tick_commits
@@ -511,6 +525,7 @@ pub fn run_reference_game_with_backend(
         world_streaming_snapshot: world_streaming_snapshot.clone(),
         world_routine_snapshot_or_none,
         world_population_snapshot,
+        world_activity_snapshot_or_none,
         agent_cognition_snapshot,
         agent_memory_snapshot,
         decision_traces,
@@ -620,6 +635,7 @@ fn run_world_routine_rest_branch(
 struct ScenarioWorldServices<'a> {
     routine: &'a mut WorldRoutineOwnerV1,
     population: &'a mut WorldPopulationOwnerV1,
+    activity: Option<&'a mut WorldActivityOwnerV1>,
     cognition: &'a mut next_agent::cognition::StrategicAgentOwnersV1,
     world: &'a mut WorldStreamerV1,
 }
@@ -635,43 +651,82 @@ fn run_scenario_tick(
     let ScenarioWorldServices {
         routine,
         population,
+        activity,
         cognition,
         world,
     } = services;
     let Some(stage) = pending.take() else {
-        let prepared = runtime
-            .tick_preparation()
-            .prepare_with_world_services_and_cognition(
-                commands, routine, population, cognition, world,
+        return if let Some(activity) = activity {
+            let prepared = runtime
+                .tick_preparation()
+                .prepare_with_world_services_cognition_and_activity(
+                    commands, routine, population, activity, cognition, world,
+                )?;
+            let validated = runtime
+                .validate_prepared_world_services_tick_with_cognition_and_activity(
+                    routine, population, activity, cognition, world, prepared,
+                )?;
+            Ok(
+                runtime.commit_validated_world_services_tick_with_cognition_and_activity(
+                    routine, population, activity, cognition, world, validated,
+                )?,
+            )
+        } else {
+            let prepared = runtime
+                .tick_preparation()
+                .prepare_with_world_services_and_cognition(
+                    commands, routine, population, cognition, world,
+                )?;
+            let validated = runtime.validate_prepared_world_services_tick_with_cognition(
+                routine, population, cognition, world, prepared,
             )?;
-        let validated = runtime.validate_prepared_world_services_tick_with_cognition(
-            routine, population, cognition, world, prepared,
-        )?;
-        return Ok(runtime.commit_validated_world_services_tick_with_cognition(
-            routine, population, cognition, world, validated,
-        )?);
+            Ok(runtime.commit_validated_world_services_tick_with_cognition(
+                routine, population, cognition, world, validated,
+            )?)
+        };
     };
     match stage {
         PendingPackagedTransitionV1::Begin {
             publication,
             save_restore,
         } => {
-            let prepared = runtime
-                .tick_preparation()
-                .prepare_with_world_services_cognition_and_streaming(
-                    commands,
-                    routine,
-                    population,
-                    cognition,
-                    world,
-                    publication,
+            let commit = if let Some(activity) = activity {
+                let prepared = runtime
+                    .tick_preparation()
+                    .prepare_with_world_services_cognition_activity_and_streaming(
+                        commands,
+                        routine,
+                        population,
+                        activity,
+                        cognition,
+                        world,
+                        publication,
+                    )?;
+                let validated = runtime
+                    .validate_prepared_world_services_tick_with_cognition_and_activity(
+                        routine, population, activity, cognition, world, prepared,
+                    )?;
+                runtime.commit_validated_world_services_tick_with_cognition_and_activity(
+                    routine, population, activity, cognition, world, validated,
+                )?
+            } else {
+                let prepared = runtime
+                    .tick_preparation()
+                    .prepare_with_world_services_cognition_and_streaming(
+                        commands,
+                        routine,
+                        population,
+                        cognition,
+                        world,
+                        publication,
+                    )?;
+                let validated = runtime.validate_prepared_world_services_tick_with_cognition(
+                    routine, population, cognition, world, prepared,
                 )?;
-            let validated = runtime.validate_prepared_world_services_tick_with_cognition(
-                routine, population, cognition, world, prepared,
-            )?;
-            let commit = runtime.commit_validated_world_services_tick_with_cognition(
-                routine, population, cognition, world, validated,
-            )?;
+                runtime.commit_validated_world_services_tick_with_cognition(
+                    routine, population, cognition, world, validated,
+                )?
+            };
             debug_assert!(commit.streaming_transition_or_none.is_none());
             if save_restore {
                 let saved = world.snapshot().canonical_bytes()?;
@@ -691,22 +746,43 @@ fn run_scenario_tick(
             Ok(commit)
         }
         PendingPackagedTransitionV1::Complete { publication } => {
-            let prepared = runtime
-                .tick_preparation()
-                .prepare_with_world_services_cognition_and_streaming(
-                    commands,
-                    routine,
-                    population,
-                    cognition,
-                    world,
-                    publication,
+            let commit = if let Some(activity) = activity {
+                let prepared = runtime
+                    .tick_preparation()
+                    .prepare_with_world_services_cognition_activity_and_streaming(
+                        commands,
+                        routine,
+                        population,
+                        activity,
+                        cognition,
+                        world,
+                        publication,
+                    )?;
+                let validated = runtime
+                    .validate_prepared_world_services_tick_with_cognition_and_activity(
+                        routine, population, activity, cognition, world, prepared,
+                    )?;
+                runtime.commit_validated_world_services_tick_with_cognition_and_activity(
+                    routine, population, activity, cognition, world, validated,
+                )?
+            } else {
+                let prepared = runtime
+                    .tick_preparation()
+                    .prepare_with_world_services_cognition_and_streaming(
+                        commands,
+                        routine,
+                        population,
+                        cognition,
+                        world,
+                        publication,
+                    )?;
+                let validated = runtime.validate_prepared_world_services_tick_with_cognition(
+                    routine, population, cognition, world, prepared,
                 )?;
-            let validated = runtime.validate_prepared_world_services_tick_with_cognition(
-                routine, population, cognition, world, prepared,
-            )?;
-            let commit = runtime.commit_validated_world_services_tick_with_cognition(
-                routine, population, cognition, world, validated,
-            )?;
+                runtime.commit_validated_world_services_tick_with_cognition(
+                    routine, population, cognition, world, validated,
+                )?
+            };
             if commit.streaming_transition_or_none.is_none() {
                 return Err(ReferenceGameError::WorldStreamingResumeMismatch);
             }

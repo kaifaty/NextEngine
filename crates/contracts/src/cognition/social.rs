@@ -308,6 +308,20 @@ impl StructuredSpeechExchangeV1 {
         }
         Ok(())
     }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, CognitionContractError> {
+        self.validate()?;
+        let mut writer = Writer::with_domain(b"nextengine.structured-speech-exchange.v1\0");
+        writer.count(self.acts.len())?;
+        for act in &self.acts {
+            writer.bytes(&act.canonical_payload_bytes()?)?;
+        }
+        Ok(writer.into_bytes())
+    }
+
+    pub fn canonical_hash(&self) -> Result<ContentHash, CognitionContractError> {
+        Ok(content_hash_from_bytes(sha256(&self.canonical_bytes()?)))
+    }
 }
 
 pub fn received_claim_confidence_q16(

@@ -4,12 +4,17 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap};
 use next_contracts::canonical::sha256;
 use next_contracts::cognition::{
     ActiveGoalV1, AffordanceExecutionV1, AgentCognitionCatalogV1, AgentCognitionSnapshotV1,
-    AgentMemorySnapshotV1, COGNITION_Q16_ONE, DecisionSwitchReasonV1, DecisionTraceV1, DriveViewV1,
-    EpistemicViewV1, GoalCandidateV1, GoalPriorityBandV1, PlanningFailureV1, PrivateTaskStateV1,
-    SemanticAffordanceV1, StrategicAgentIntentV1, StrategicPlanStepV1, StrategicPlanV1,
-    SuspendedGoalV1, TaskLifecycleV1, candidate_order,
+    AgentMemorySnapshotV1, COGNITION_MAX_BELIEFS, COGNITION_MAX_SPEECH_ACTS, COGNITION_Q16_ONE,
+    DecisionSwitchReasonV1, DecisionTraceV1, DriveViewV1, EpistemicViewV1, GoalCandidateV1,
+    GoalPriorityBandV1, PlanningFailureV1, PrivateTaskStateV1, SemanticAffordanceV1,
+    SemanticBeliefV1, StrategicAgentIntentV1, StrategicPlanStepV1, StrategicPlanV1,
+    StructuredSpeechActV1, SuspendedGoalV1, TaskLifecycleV1, candidate_order,
 };
 use next_contracts::ids::{ContentHash, SchemaId, content_hash_from_bytes};
+use next_contracts::rpg::CommitmentStateV1;
+use next_contracts::world_activity::{
+    WorldActivityCatalogV1, WorldActivitySnapshotV1, WorldActivityStateV1,
+};
 use next_contracts::world_population::NavigationRoutePlanV1;
 
 mod error;
@@ -29,6 +34,15 @@ pub struct StrategicObservationV1<'a> {
     pub health_current: i32,
     pub health_maximum: i32,
     pub route_plan_or_none: Option<&'a NavigationRoutePlanV1>,
+    pub systemic_or_none: Option<SystemicStrategicObservationV1<'a>>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SystemicStrategicObservationV1<'a> {
+    pub activity_catalog: &'a WorldActivityCatalogV1,
+    pub activity_snapshot: &'a WorldActivitySnapshotV1,
+    pub commitment_revision: u64,
+    pub commitment_state: CommitmentStateV1,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -219,12 +233,22 @@ pub fn build_epistemic_view_v1(
         return Err(StrategicAgentError::ObservationInvalid);
     }
 
+    if let Some(systemic) = observation.systemic_or_none {
+        validate_systemic_observation(observation, systemic)?;
+    }
+
     let mut known_fact_ids = Vec::new();
     let travel_needed = observation.current_node_id != observation.navigation_goal_node_id;
     if travel_needed {
         known_fact_ids.push(observation.catalog.travel_needed_fact_id.clone());
     }
-    let emergency = observation.health_current <= observation.catalog.emergency_health_threshold;
+    let structured_threat = observation.systemic_or_none.is_some_and(|systemic| {
+        let threat = &systemic.activity_catalog.systemic_work.threat_act;
+        threat.creation_tick <= observation.gameplay_tick
+            && observation.gameplay_tick < threat.expiry_tick
+    });
+    let emergency = observation.health_current <= observation.catalog.emergency_health_threshold
+        || structured_threat;
     if emergency {
         known_fact_ids.push(observation.catalog.emergency_fact_id.clone());
     }
@@ -255,6 +279,9 @@ pub fn build_epistemic_view_v1(
                 target_id_or_none: Some(observation.navigation_goal_node_id.clone()),
             });
         }
+    }
+    if let Some(systemic) = observation.systemic_or_none {
+        extend_systemic_affordances(observation, systemic, &mut affordances)?;
     }
     affordances.push(SemanticAffordanceV1 {
         action_id: observation.catalog.hold_action_id.clone(),
@@ -299,18 +326,25 @@ pub fn derive_drive_view_v1(
     let value = DriveViewV1 {
         schema_version: next_contracts::cognition::COGNITION_SCHEMA_VERSION,
         gameplay_tick: epistemic_view.gameplay_tick,
-        safety_pressure_q16: if epistemic_view.health_current <= catalog.emergency_health_threshold
+        safety_pressure_q16: if epistemic_view
+            .known_fact_ids
+            .binary_search(&catalog.emergency_fact_id)
+            .is_ok()
         {
             COGNITION_Q16_ONE
         } else {
             0
         },
         duty_pressure_q16: if epistemic_view.current_node_id
-            == epistemic_view.navigation_goal_node_id
+            != epistemic_view.navigation_goal_node_id
+            || epistemic_view
+                .affordances
+                .iter()
+                .any(|affordance| affordance.execution != AffordanceExecutionV1::HoldPosition)
         {
-            0
-        } else {
             COGNITION_Q16_ONE
+        } else {
+            0
         },
     };
     value.validate()?;
@@ -322,6 +356,41 @@ pub fn evaluate_strategic_decision_v1(
     agent_snapshot: &AgentCognitionSnapshotV1,
     memory_snapshot: &AgentMemorySnapshotV1,
     epistemic_view: EpistemicViewV1,
+) -> Result<StrategicEvaluationV1, StrategicAgentError> {
+    evaluate_strategic_decision_internal_v1(
+        catalog,
+        agent_snapshot,
+        memory_snapshot,
+        epistemic_view,
+        None,
+    )
+}
+
+pub fn evaluate_systemic_strategic_decision_v1(
+    catalog: &AgentCognitionCatalogV1,
+    agent_snapshot: &AgentCognitionSnapshotV1,
+    memory_snapshot: &AgentMemorySnapshotV1,
+    epistemic_view: EpistemicViewV1,
+    systemic: SystemicStrategicObservationV1<'_>,
+) -> Result<StrategicEvaluationV1, StrategicAgentError> {
+    if systemic.activity_catalog.worker_subject_id != catalog.subject_id {
+        return Err(StrategicAgentError::ObservationInvalid);
+    }
+    evaluate_strategic_decision_internal_v1(
+        catalog,
+        agent_snapshot,
+        memory_snapshot,
+        epistemic_view,
+        Some(systemic),
+    )
+}
+
+fn evaluate_strategic_decision_internal_v1(
+    catalog: &AgentCognitionCatalogV1,
+    agent_snapshot: &AgentCognitionSnapshotV1,
+    memory_snapshot: &AgentMemorySnapshotV1,
+    epistemic_view: EpistemicViewV1,
+    systemic_or_none: Option<SystemicStrategicObservationV1<'_>>,
 ) -> Result<StrategicEvaluationV1, StrategicAgentError> {
     catalog.validate()?;
     agent_snapshot.validate()?;
@@ -350,9 +419,12 @@ pub fn evaluate_strategic_decision_v1(
                 .steps
                 .get(usize::from(plan.cursor))
                 .ok_or(StrategicAgentError::PlannerInvariant)?;
-            let intent = intent_for_step(&epistemic_view, &selected, step)?;
-            let next_memory_snapshot =
-                memory_snapshot.retrieved_at(epistemic_view.gameplay_tick)?;
+            let intent = intent_for_step(&epistemic_view, &selected, step, systemic_or_none)?;
+            let next_memory_snapshot = advance_memory_v1(
+                memory_snapshot,
+                epistemic_view.gameplay_tick,
+                systemic_or_none,
+            )?;
             let next_agent_snapshot = AgentCognitionSnapshotV1 {
                 schema_version: next_contracts::cognition::COGNITION_SCHEMA_VERSION,
                 revision: agent_snapshot
@@ -440,18 +512,30 @@ fn build_goal_candidates(
     } else {
         0
     };
-    let ordinary_cost = view
-        .affordances
-        .iter()
-        .find(|affordance| affordance.action_id == catalog.navigate_action_id)
-        .map_or(COGNITION_Q16_ONE / 2, |affordance| {
-            i32::try_from(affordance.cost_q16).expect("validated affordance cost fits i32")
-        });
+    let ordinary_affordance = [
+        AffordanceExecutionV1::SettleSystemicExchange,
+        AffordanceExecutionV1::CommitSocialExchange,
+        AffordanceExecutionV1::AwaitActivity,
+        AffordanceExecutionV1::RequestLogicalRoute,
+    ]
+    .into_iter()
+    .find_map(|execution| {
+        view.affordances
+            .iter()
+            .find(|affordance| affordance.execution == execution)
+    });
+    let ordinary_cost = ordinary_affordance.map_or(COGNITION_Q16_ONE / 2, |affordance| {
+        i32::try_from(affordance.cost_q16).expect("validated affordance cost fits i32")
+    });
+    let ordinary_desired_fact = ordinary_affordance
+        .and_then(|affordance| affordance.effect_fact_ids.first())
+        .cloned()
+        .unwrap_or_else(|| catalog.navigate_ready_fact_id.clone());
     let mut candidates = vec![goal_candidate(
         catalog.ordinary_goal_id.clone(),
         GoalPriorityBandV1::Ordinary,
         Some(view.navigation_goal_node_id.clone()),
-        catalog.navigate_ready_fact_id.clone(),
+        ordinary_desired_fact,
         drives.duty_pressure_q16,
         COGNITION_Q16_ONE / 4,
         ordinary_inertia,
@@ -606,6 +690,102 @@ fn select_goal(
     ))
 }
 
+fn validate_systemic_observation(
+    observation: &StrategicObservationV1<'_>,
+    systemic: SystemicStrategicObservationV1<'_>,
+) -> Result<(), StrategicAgentError> {
+    systemic
+        .activity_catalog
+        .validate()
+        .map_err(|_| StrategicAgentError::ObservationInvalid)?;
+    systemic
+        .activity_snapshot
+        .validate_against(systemic.activity_catalog, observation.gameplay_tick)
+        .map_err(|_| StrategicAgentError::ObservationInvalid)?;
+    let threat = &systemic.activity_catalog.systemic_work.threat_act;
+    if systemic.activity_catalog.worker_subject_id != observation.catalog.subject_id
+        || systemic.activity_snapshot.worker_subject_id != observation.catalog.subject_id
+        || threat.listener_id != observation.catalog.subject_id
+    {
+        return Err(StrategicAgentError::ObservationInvalid);
+    }
+    Ok(())
+}
+
+fn extend_systemic_affordances(
+    observation: &StrategicObservationV1<'_>,
+    systemic: SystemicStrategicObservationV1<'_>,
+    affordances: &mut Vec<SemanticAffordanceV1>,
+) -> Result<(), StrategicAgentError> {
+    let activity = systemic.activity_snapshot;
+    let catalog = systemic.activity_catalog;
+    let profile = &catalog.systemic_work;
+    let exchange_tick = profile
+        .work_exchange
+        .acts
+        .first()
+        .ok_or(StrategicAgentError::ObservationInvalid)?
+        .creation_tick;
+    let (action_id, effect_fact_id, execution, owner_revision) = if activity.state
+        == WorldActivityStateV1::Unassigned
+        && systemic.commitment_state == CommitmentStateV1::Offered
+        && observation.gameplay_tick == exchange_tick
+    {
+        (
+            &profile.social_action_id,
+            &profile.social_ready_fact_id,
+            AffordanceExecutionV1::CommitSocialExchange,
+            systemic.commitment_revision,
+        )
+    } else if systemic.commitment_state == CommitmentStateV1::Accepted
+        && (activity.state == WorldActivityStateV1::Completed
+            || activity.state == WorldActivityStateV1::Working
+                && activity
+                    .work_started_tick_or_none
+                    .and_then(|tick| tick.checked_add(catalog.work_duration_ticks))
+                    .is_some_and(|due| observation.gameplay_tick >= due))
+    {
+        (
+            &profile.settlement_action_id,
+            &profile.settlement_ready_fact_id,
+            AffordanceExecutionV1::SettleSystemicExchange,
+            if activity.state == WorldActivityStateV1::Completed {
+                activity.record_revision
+            } else {
+                activity
+                    .record_revision
+                    .checked_add(1)
+                    .ok_or(StrategicAgentError::RevisionExhausted)?
+            },
+        )
+    } else if systemic.commitment_state == CommitmentStateV1::Accepted
+        && matches!(
+            activity.state,
+            WorldActivityStateV1::Assigned | WorldActivityStateV1::Working
+        )
+    {
+        (
+            &profile.await_activity_action_id,
+            &profile.activity_ready_fact_id,
+            AffordanceExecutionV1::AwaitActivity,
+            activity.record_revision,
+        )
+    } else {
+        return Ok(());
+    };
+    affordances.push(SemanticAffordanceV1 {
+        action_id: action_id.clone(),
+        owner_revision,
+        precondition_fact_ids: Vec::new(),
+        effect_fact_ids: vec![effect_fact_id.clone()],
+        cost_q16: u32::try_from(COGNITION_Q16_ONE / 16).expect("positive q16 cost"),
+        execution,
+        route_plan_hash_or_none: None,
+        target_id_or_none: None,
+    });
+    Ok(())
+}
+
 fn active_goal(candidate: &GoalCandidateV1, tick: u64) -> ActiveGoalV1 {
     ActiveGoalV1 {
         goal_id: candidate.goal_id.clone(),
@@ -695,13 +875,27 @@ fn bounded_goap_plan(
             }
         }
     }
-    Err(PlanningFailureV1::MissingAffordance)
+    if goal.desired_fact_id == catalog.navigate_ready_fact_id
+        && view
+            .known_fact_ids
+            .binary_search(&catalog.travel_needed_fact_id)
+            .is_ok()
+        && !view
+            .affordances
+            .iter()
+            .any(|affordance| affordance.execution == AffordanceExecutionV1::RequestLogicalRoute)
+    {
+        Err(PlanningFailureV1::RouteUnavailable)
+    } else {
+        Err(PlanningFailureV1::MissingAffordance)
+    }
 }
 
 fn intent_for_step(
     view: &EpistemicViewV1,
     goal: &ActiveGoalV1,
     step: &StrategicPlanStepV1,
+    systemic_or_none: Option<SystemicStrategicObservationV1<'_>>,
 ) -> Result<StrategicAgentIntentV1, StrategicAgentError> {
     match step.execution {
         AffordanceExecutionV1::RequestLogicalRoute => {
@@ -726,7 +920,114 @@ fn intent_for_step(
             view.gameplay_tick,
         )
         .map_err(Into::into),
+        AffordanceExecutionV1::CommitSocialExchange => {
+            let systemic = systemic_or_none.ok_or(StrategicAgentError::PlannerInvariant)?;
+            StrategicAgentIntentV1::commit_social_exchange(
+                view.subject_id,
+                goal.goal_id.clone(),
+                step.action_id.clone(),
+                view.gameplay_tick,
+                systemic
+                    .activity_catalog
+                    .systemic_work
+                    .work_exchange
+                    .canonical_hash()?,
+                systemic.activity_catalog.commitment_id,
+            )
+            .map_err(Into::into)
+        }
+        AffordanceExecutionV1::AwaitActivity => {
+            let systemic = systemic_or_none.ok_or(StrategicAgentError::PlannerInvariant)?;
+            StrategicAgentIntentV1::await_activity(
+                view.subject_id,
+                goal.goal_id.clone(),
+                step.action_id.clone(),
+                view.gameplay_tick,
+                systemic.activity_catalog.commitment_id,
+                step.owner_revision,
+            )
+            .map_err(Into::into)
+        }
+        AffordanceExecutionV1::SettleSystemicExchange => {
+            let systemic = systemic_or_none.ok_or(StrategicAgentError::PlannerInvariant)?;
+            StrategicAgentIntentV1::settle_systemic_exchange(
+                view.subject_id,
+                goal.goal_id.clone(),
+                step.action_id.clone(),
+                view.gameplay_tick,
+                systemic.activity_catalog.commitment_id,
+                step.owner_revision,
+            )
+            .map_err(Into::into)
+        }
     }
+}
+
+fn advance_memory_v1(
+    memory: &AgentMemorySnapshotV1,
+    tick: u64,
+    systemic_or_none: Option<SystemicStrategicObservationV1<'_>>,
+) -> Result<AgentMemorySnapshotV1, StrategicAgentError> {
+    let Some(systemic) = systemic_or_none else {
+        return Ok(memory.retrieved_at(tick)?);
+    };
+    let profile = &systemic.activity_catalog.systemic_work;
+    let mut observed = Vec::<StructuredSpeechActV1>::new();
+    if profile
+        .work_exchange
+        .acts
+        .first()
+        .is_some_and(|act| act.creation_tick == tick)
+    {
+        observed.extend(profile.work_exchange.acts.iter().cloned());
+    }
+    if profile.threat_act.creation_tick == tick {
+        observed.push(profile.threat_act.clone());
+    }
+
+    let mut recorded_speech_acts = memory.recorded_speech_acts.clone();
+    let mut beliefs = memory.beliefs.clone();
+    for act in observed {
+        if recorded_speech_acts
+            .binary_search_by_key(&act.act_id, |recorded| recorded.act_id)
+            .is_ok()
+        {
+            continue;
+        }
+        if act.listener_id == memory.subject_id
+            && let Some(claim) = &act.claim_or_none
+        {
+            beliefs.push(SemanticBeliefV1::from_speech_claim(
+                claim,
+                act.act_id,
+                profile.listener_trust_q16,
+                tick,
+                systemic.commitment_revision,
+            )?);
+        }
+        recorded_speech_acts.push(act);
+    }
+    recorded_speech_acts.sort_by_key(|act| act.act_id);
+    beliefs.sort_by_key(|belief| belief.belief_id);
+    if recorded_speech_acts.len() > COGNITION_MAX_SPEECH_ACTS
+        || beliefs.len() > COGNITION_MAX_BELIEFS
+        || beliefs.windows(2).any(|pair| pair[0] == pair[1])
+    {
+        return Err(StrategicAgentError::OwnerClosureInvalid);
+    }
+    let next = AgentMemorySnapshotV1 {
+        schema_version: memory.schema_version,
+        revision: memory
+            .revision
+            .checked_add(1)
+            .ok_or(StrategicAgentError::RevisionExhausted)?,
+        subject_id: memory.subject_id,
+        last_retrieval_tick: tick,
+        beliefs,
+        recorded_speech_acts,
+    };
+    next.validate()?;
+    Ok(next)
 }
 
 fn route_cost_q16(total_cost: u64) -> u32 {
@@ -839,6 +1140,7 @@ mod tests {
             health_current: health,
             health_maximum: 100,
             route_plan_or_none: route,
+            systemic_or_none: None,
         })
         .expect("view")
     }
@@ -880,7 +1182,7 @@ mod tests {
         assert!(missing.proposal_or_none.is_none());
         assert_eq!(
             missing.decision_trace.planning_failure,
-            PlanningFailureV1::MissingAffordance
+            PlanningFailureV1::RouteUnavailable
         );
 
         catalog.planner_max_expanded_nodes = 1;

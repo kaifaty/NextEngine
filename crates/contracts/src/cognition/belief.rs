@@ -5,6 +5,7 @@ use super::*;
 pub enum BeliefSourceV1 {
     AuthoredSeed = 1,
     OwnerProjection = 2,
+    StructuredSpeech = 3,
 }
 
 impl BeliefSourceV1 {
@@ -12,6 +13,7 @@ impl BeliefSourceV1 {
         match tag {
             1 => Ok(Self::AuthoredSeed),
             2 => Ok(Self::OwnerProjection),
+            3 => Ok(Self::StructuredSpeech),
             value => Err(CognitionContractError::UnknownTag(value)),
         }
     }
@@ -42,6 +44,7 @@ pub struct SemanticBeliefV1 {
     pub value_id: SchemaId,
     pub confidence_q16: u32,
     pub source: BeliefSourceV1,
+    pub source_act_id_or_none: Option<ContentHash>,
     pub learned_tick: u64,
     pub last_verified_revision: u64,
     pub contradiction: BeliefContradictionV1,
@@ -69,6 +72,7 @@ impl SemanticBeliefV1 {
             value_id,
             confidence_q16,
             source,
+            source_act_id_or_none: None,
             learned_tick,
             last_verified_revision,
             contradiction,
@@ -80,11 +84,48 @@ impl SemanticBeliefV1 {
 
     pub fn validate(&self) -> Result<(), CognitionContractError> {
         if self.confidence_q16 > u32::try_from(COGNITION_Q16_ONE).expect("q16 one is positive")
+            || (self.source == BeliefSourceV1::StructuredSpeech)
+                != self.source_act_id_or_none.is_some()
             || self.computed_id()? != self.belief_id
         {
             return Err(CognitionContractError::BeliefInvalid);
         }
         Ok(())
+    }
+
+    pub fn from_speech_claim(
+        claim: &SpeechClaimV1,
+        source_act_id: ContentHash,
+        listener_trust_q16: u32,
+        learned_tick: u64,
+        last_verified_revision: u64,
+    ) -> Result<Self, CognitionContractError> {
+        claim.validate()?;
+        if listener_trust_q16 > COGNITION_Q16_ONE.unsigned_abs() {
+            return Err(CognitionContractError::BeliefInvalid);
+        }
+        let confidence_q16 = u32::try_from(
+            u64::from(claim.confidence_q16)
+                .checked_mul(u64::from(listener_trust_q16))
+                .ok_or(CognitionContractError::BeliefInvalid)?
+                / u64::from(COGNITION_Q16_ONE.unsigned_abs()),
+        )
+        .map_err(|_| CognitionContractError::BeliefInvalid)?;
+        let mut value = Self {
+            belief_id: ContentHash::default(),
+            subject_id: claim.subject_id,
+            predicate_id: claim.predicate_id.clone(),
+            value_id: claim.value_id.clone(),
+            confidence_q16,
+            source: BeliefSourceV1::StructuredSpeech,
+            source_act_id_or_none: Some(source_act_id),
+            learned_tick,
+            last_verified_revision,
+            contradiction: BeliefContradictionV1::Consistent,
+        };
+        value.belief_id = value.computed_id()?;
+        value.validate()?;
+        Ok(value)
     }
 
     fn computed_id(&self) -> Result<ContentHash, CognitionContractError> {
@@ -280,6 +321,7 @@ pub struct AgentMemorySnapshotV1 {
     pub subject_id: PersistentId,
     pub last_retrieval_tick: u64,
     pub beliefs: Vec<SemanticBeliefV1>,
+    pub recorded_speech_acts: Vec<StructuredSpeechActV1>,
 }
 
 impl AgentMemorySnapshotV1 {
@@ -291,6 +333,7 @@ impl AgentMemorySnapshotV1 {
             subject_id: catalog.subject_id,
             last_retrieval_tick: 0,
             beliefs: catalog.seed_beliefs.clone(),
+            recorded_speech_acts: Vec::new(),
         };
         value.validate()?;
         Ok(value)
@@ -309,6 +352,7 @@ impl AgentMemorySnapshotV1 {
             subject_id: self.subject_id,
             last_retrieval_tick: tick,
             beliefs: self.beliefs.clone(),
+            recorded_speech_acts: self.recorded_speech_acts.clone(),
         };
         value.validate()?;
         Ok(value)
@@ -323,6 +367,23 @@ impl AgentMemorySnapshotV1 {
                 .beliefs
                 .iter()
                 .any(|belief| belief.subject_id != self.subject_id || belief.validate().is_err())
+            || self.recorded_speech_acts.len() > COGNITION_MAX_SPEECH_ACTS
+            || self
+                .recorded_speech_acts
+                .windows(2)
+                .any(|pair| pair[0].act_id >= pair[1].act_id)
+            || self.recorded_speech_acts.iter().any(|act| {
+                act.validate().is_err()
+                    || (act.speaker_id != self.subject_id && act.listener_id != self.subject_id)
+            })
+            || self.beliefs.iter().any(|belief| {
+                belief.source_act_id_or_none.is_some_and(|act_id| {
+                    self.recorded_speech_acts
+                        .binary_search_by_key(&act_id, |act| act.act_id)
+                        .is_err()
+                })
+            })
+            || (self.revision == 0 && !self.recorded_speech_acts.is_empty())
             || (self.revision == 0) != (self.last_retrieval_tick == 0)
         {
             return Err(CognitionContractError::SnapshotInvalid);
@@ -361,6 +422,10 @@ impl AgentMemorySnapshotV1 {
         for belief in &self.beliefs {
             write_belief(&mut payload, belief)?;
         }
+        payload.count(self.recorded_speech_acts.len())?;
+        for act in &self.recorded_speech_acts {
+            payload.bytes(&act.canonical_payload_bytes()?)?;
+        }
         Ok(encode_canonical_segment(
             AGENT_MEMORY_SNAPSHOT_OWNER_ID,
             AGENT_MEMORY_SNAPSHOT_SCHEMA_ID,
@@ -395,6 +460,7 @@ impl AgentMemorySnapshotV1 {
             revision: payload.u64()?,
             last_retrieval_tick: payload.u64()?,
             beliefs: payload.beliefs(COGNITION_MAX_BELIEFS)?,
+            recorded_speech_acts: payload.speech_acts(COGNITION_MAX_SPEECH_ACTS)?,
         };
         payload.finish()?;
         value.validate()?;
@@ -476,6 +542,9 @@ impl GoalCandidateV1 {
 pub enum AffordanceExecutionV1 {
     RequestLogicalRoute = 1,
     HoldPosition = 2,
+    CommitSocialExchange = 3,
+    AwaitActivity = 4,
+    SettleSystemicExchange = 5,
 }
 
 impl AffordanceExecutionV1 {
@@ -483,6 +552,9 @@ impl AffordanceExecutionV1 {
         match tag {
             1 => Ok(Self::RequestLogicalRoute),
             2 => Ok(Self::HoldPosition),
+            3 => Ok(Self::CommitSocialExchange),
+            4 => Ok(Self::AwaitActivity),
+            5 => Ok(Self::SettleSystemicExchange),
             value => Err(CognitionContractError::UnknownTag(value)),
         }
     }

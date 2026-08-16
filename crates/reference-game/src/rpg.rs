@@ -3,10 +3,11 @@ use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
 use next_contracts::project::AssetRevisionRefV1;
 use next_contracts::rpg::CORE_INTERACTIVE_OBJECT_READY_STATE_ID;
 use next_contracts::rpg::{
-    CharacterPayloadV1, CharacterResourceEntryV1, DefinitionRefV1, DialoguePayloadV1,
-    EquipmentPayloadV1, InteractiveObjectPayloadV1, InventoryPayloadV1, ItemPayloadV1,
-    ProvenanceBindingV1, QuestPayloadV1, RelationshipDimensionV1, RelationshipPayloadV1,
-    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2,
+    CharacterPayloadV1, CharacterResourceEntryV1, CommitmentPayloadV1, CommitmentStateV1,
+    DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1, InteractiveObjectPayloadV1,
+    InventoryPayloadV1, ItemPayloadV1, ProvenanceBindingV1, QuestPayloadV1,
+    RelationshipDimensionV1, RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1,
+    RpgAggregatePayloadV1, RpgSnapshotV2,
 };
 
 use crate::ReferenceGameSession;
@@ -103,7 +104,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapsho
                 skills: Vec::new(),
             }),
         ),
-        cognition_character_aggregate(fixture),
+        cognition_character_aggregate(fixture, true),
         fixture_aggregate_from_asset(
             fixture.npc_weapon_item_id,
             ability_definition.required_item_definition,
@@ -185,6 +186,7 @@ pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapsho
             }),
         ),
     ];
+    aggregates.extend(systemic_rpg_aggregates(fixture));
     aggregates.sort_by_key(|aggregate| (aggregate.aggregate_kind, aggregate.persistent_id));
     RpgSnapshotV2 { aggregates }
 }
@@ -192,27 +194,137 @@ pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapsho
 #[must_use]
 pub fn cognition_only_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapshotV2 {
     RpgSnapshotV2 {
-        aggregates: vec![cognition_character_aggregate(fixture)],
+        aggregates: vec![cognition_character_aggregate(fixture, false)],
     }
 }
 
-fn cognition_character_aggregate(fixture: &ReferenceGameSession) -> RpgAggregateEnvelopeV1 {
+fn cognition_character_aggregate(
+    fixture: &ReferenceGameSession,
+    systemic: bool,
+) -> RpgAggregateEnvelopeV1 {
+    let profile = &fixture
+        .activated_project
+        .world_activity_catalog
+        .systemic_work;
+    let mut resources = vec![CharacterResourceEntryV1 {
+        resource_id: SchemaId::new(CORE_CHARACTER_HEALTH_RESOURCE_ID)
+            .expect("engine-owned health resource is valid"),
+        current_value: 100,
+        minimum_value: 0,
+        maximum_value: 100,
+    }];
+    if systemic {
+        resources.extend([
+            resource(profile.currency_resource_id.clone(), 0),
+            resource(profile.hunger_resource_id.clone(), 100),
+            resource(profile.satiety_resource_id.clone(), 0),
+        ]);
+        resources.sort_by(|left, right| left.resource_id.cmp(&right.resource_id));
+    }
     reference_aggregate(
         fixture.cognition_subject_id,
         0x97,
         RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
-            inventory_id: None,
+            inventory_id: systemic.then_some(profile.worker_inventory_id),
             equipment_id: None,
-            resources: vec![CharacterResourceEntryV1 {
-                resource_id: SchemaId::new(CORE_CHARACTER_HEALTH_RESOURCE_ID)
-                    .expect("engine-owned health resource is valid"),
-                current_value: 100,
-                minimum_value: 0,
-                maximum_value: 100,
-            }],
+            resources,
             skills: Vec::new(),
         }),
     )
+}
+
+fn systemic_rpg_aggregates(fixture: &ReferenceGameSession) -> Vec<RpgAggregateEnvelopeV1> {
+    let catalog = &fixture.activated_project.world_activity_catalog;
+    let profile = &catalog.systemic_work;
+    let mut employer_resources = vec![
+        resource(
+            SchemaId::new(CORE_CHARACTER_HEALTH_RESOURCE_ID).expect("health resource"),
+            100,
+        ),
+        resource(profile.currency_resource_id.clone(), 100),
+    ];
+    employer_resources.sort_by(|left, right| left.resource_id.cmp(&right.resource_id));
+    let mut seller_resources = vec![
+        resource(
+            SchemaId::new(CORE_CHARACTER_HEALTH_RESOURCE_ID).expect("health resource"),
+            100,
+        ),
+        resource(profile.currency_resource_id.clone(), 0),
+    ];
+    seller_resources.sort_by(|left, right| left.resource_id.cmp(&right.resource_id));
+    vec![
+        reference_aggregate(
+            profile.employer_character_id,
+            0xb4,
+            RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                inventory_id: None,
+                equipment_id: None,
+                resources: employer_resources,
+                skills: Vec::new(),
+            }),
+        ),
+        reference_aggregate(
+            profile.seller_character_id,
+            0xb5,
+            RpgAggregatePayloadV1::Character(CharacterPayloadV1 {
+                inventory_id: Some(profile.seller_inventory_id),
+                equipment_id: None,
+                resources: seller_resources,
+                skills: Vec::new(),
+            }),
+        ),
+        reference_aggregate(
+            profile.worker_inventory_id,
+            0xb6,
+            RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
+                owner_id: catalog.worker_subject_id,
+                capacity: 1,
+                item_ids: Vec::new(),
+                reservations: Vec::new(),
+            }),
+        ),
+        reference_aggregate(
+            profile.seller_inventory_id,
+            0xb7,
+            RpgAggregatePayloadV1::Inventory(InventoryPayloadV1 {
+                owner_id: profile.seller_character_id,
+                capacity: 1,
+                item_ids: vec![profile.food_item_id],
+                reservations: Vec::new(),
+            }),
+        ),
+        reference_aggregate(
+            profile.food_item_id,
+            0xb8,
+            RpgAggregatePayloadV1::Item(ItemPayloadV1 {
+                quantity: 1,
+                durability: 100,
+                custom_state: Vec::new(),
+            }),
+        ),
+        reference_aggregate(
+            catalog.commitment_id,
+            0xb3,
+            RpgAggregatePayloadV1::Commitment(CommitmentPayloadV1 {
+                issuer_character_id: profile.employer_character_id,
+                recipient_character_id: catalog.worker_subject_id,
+                work_id: catalog.work_id.clone(),
+                workplace_node_id: catalog.workplace_node_id.clone(),
+                currency_resource_id: profile.currency_resource_id.clone(),
+                wage_amount: profile.wage_amount,
+                state: CommitmentStateV1::Offered,
+            }),
+        ),
+    ]
+}
+
+fn resource(resource_id: SchemaId, current_value: i32) -> CharacterResourceEntryV1 {
+    CharacterResourceEntryV1 {
+        resource_id,
+        current_value,
+        minimum_value: 0,
+        maximum_value: 100,
+    }
 }
 
 #[must_use]

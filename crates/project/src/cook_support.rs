@@ -56,9 +56,18 @@ pub(crate) fn schema_ref(
     role: SchemaRoleV1,
     encoding: SchemaEncodingV1,
 ) -> Result<SchemaRefV1, next_contracts::ids::IdentifierError> {
+    schema_ref_with_version(schema_id, 1, role, encoding)
+}
+
+pub(crate) fn schema_ref_with_version(
+    schema_id: &str,
+    schema_version: u32,
+    role: SchemaRoleV1,
+    encoding: SchemaEncodingV1,
+) -> Result<SchemaRefV1, next_contracts::ids::IdentifierError> {
     Ok(SchemaRefV1 {
         schema_id: SchemaId::new(schema_id)?,
-        schema_version: 1,
+        schema_version,
         descriptor_sha256: domain_hash("nextengine.schema-descriptor.v1", schema_id.as_bytes()),
         role,
         encoding,

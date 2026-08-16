@@ -55,7 +55,10 @@ pub struct ReferenceGameSession {
     pub agent_stream_id: CommandStreamId,
     pub cognition_principal: IssuerPrincipal,
     pub cognition_stream_id: CommandStreamId,
+    pub cognition_rpg_stream_id: CommandStreamId,
     pub cognition_subject_id: PersistentId,
+    pub activity_principal: IssuerPrincipal,
+    pub activity_stream_id: CommandStreamId,
     pub action_map: ActionMapManifestV1,
     pub action_map_hash: ContentHash,
     pub context_stack: InputContextStackV1,
@@ -87,6 +90,15 @@ impl ReferenceGameSession {
             decision_rng_state,
         )?)
     }
+
+    pub fn initial_activity_owner(
+        &self,
+    ) -> Result<next_world::WorldActivityOwnerV1, ReferenceGameError> {
+        Ok(next_world::WorldActivityOwnerV1::activate(
+            self.activated_project.world_activity_catalog.clone(),
+            0,
+        )?)
+    }
 }
 
 pub fn build_reference_game_session(
@@ -112,6 +124,9 @@ pub fn build_reference_game_session_with_profile(
         IssuerPrincipal::InternalSystem(SystemId::new("nextengine.agent.planner")?);
     let cognition_principal =
         IssuerPrincipal::InternalSystem(SystemId::new(AGENT_COGNITION_SYSTEM_ID)?);
+    let activity_principal = IssuerPrincipal::InternalSystem(SystemId::new(
+        next_contracts::world_activity::WORLD_ACTIVITY_SYSTEM_ID,
+    )?);
     let routine_principal = IssuerPrincipal::InternalSystem(SystemId::new(
         next_contracts::world_routine::WORLD_ROUTINE_SYSTEM_ID,
     )?);
@@ -134,9 +149,19 @@ pub fn build_reference_game_session_with_profile(
             agent_principal.clone(),
             vec![CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?],
         ),
+        (cognition_principal.clone(), {
+            let mut capabilities = vec![
+                CapabilityId::new(AGENT_COGNITION_CAPABILITY_ID)?,
+                CapabilityId::new(RPG_COMMAND_CAPABILITY_ID)?,
+            ];
+            capabilities.sort();
+            capabilities
+        }),
         (
-            cognition_principal.clone(),
-            vec![CapabilityId::new(AGENT_COGNITION_CAPABILITY_ID)?],
+            activity_principal.clone(),
+            vec![CapabilityId::new(
+                next_contracts::world_activity::WORLD_ACTIVITY_CAPABILITY_ID,
+            )?],
         ),
     ];
     if activated_project.world_routine_catalog_or_none.is_some() {
@@ -166,7 +191,13 @@ pub fn build_reference_game_session_with_profile(
     let cognition_stream_id = base
         .stream_for(&cognition_principal)
         .expect("neutral fixture allocates the cognition boundary stream");
+    let activity_stream_id = base
+        .stream_for(&activity_principal)
+        .expect("neutral fixture allocates the activity boundary stream");
     let mut bootstrap = base.bootstrap;
+    let cognition_rpg_stream_id = bootstrap
+        .stream_registry
+        .allocate_stream(cognition_principal.clone())?;
     if physx_compatible {
         let quantization =
             next_contracts::physics::PhysicsQuantizationProfileV1::grounded_capsule_v2()?;
@@ -327,7 +358,10 @@ pub fn build_reference_game_session_with_profile(
         agent_stream_id,
         cognition_principal,
         cognition_stream_id,
+        cognition_rpg_stream_id,
         cognition_subject_id,
+        activity_principal,
+        activity_stream_id,
         action_map,
         action_map_hash,
         context_stack,

@@ -10,6 +10,9 @@ use next_contracts::identity::{
 use next_contracts::ids::{
     CapabilityId, CommandStreamId, ProjectId, SchemaId, SystemId, content_hash_from_bytes,
 };
+use next_contracts::world_activity::{
+    WORLD_ACTIVITY_CAPABILITY_ID, WORLD_ACTIVITY_CAPABILITY_SUBJECT_ID, WORLD_ACTIVITY_SYSTEM_ID,
+};
 use next_contracts::world_population::{
     WORLD_POPULATION_CAPABILITY_ID, WORLD_POPULATION_CAPABILITY_SUBJECT_ID,
     WORLD_POPULATION_SYSTEM_ID,
@@ -38,7 +41,7 @@ pub fn build_reference_runtime_bootstrap(
     project_id: &str,
     grants: impl IntoIterator<Item = (IssuerPrincipal, Vec<CapabilityId>)>,
 ) -> Result<ReferenceRuntimeBootstrap, crate::ReferenceGameError> {
-    let profile = RuntimeDeterminismBundleV1::core_r4c()?.runtime_profile();
+    let profile = RuntimeDeterminismBundleV1::core_r4d()?.runtime_profile();
     let world_identity = WorldIdentityManifestV1::new(
         ProjectId::new(project_id)?,
         sha256(format!("nextengine.fixture.nonce:{project_id}").as_bytes()),
@@ -61,6 +64,8 @@ pub fn build_reference_runtime_bootstrap(
             IssuerPrincipal::InternalSystem(SystemId::new(WORLD_POPULATION_SYSTEM_ID)?);
         let cognition_principal =
             IssuerPrincipal::InternalSystem(SystemId::new(AGENT_COGNITION_SYSTEM_ID)?);
+        let activity_principal =
+            IssuerPrincipal::InternalSystem(SystemId::new(WORLD_ACTIVITY_SYSTEM_ID)?);
         let (provenance_hash, capability_subject_id) = if principal == routine_principal {
             if capabilities.as_slice() != [CapabilityId::new(WORLD_ROUTINE_CAPABILITY_ID)?] {
                 return Err(crate::ReferenceGameError::DuplicatePrincipal);
@@ -81,13 +86,30 @@ pub fn build_reference_runtime_bootstrap(
                 )),
                 SchemaId::new(WORLD_POPULATION_CAPABILITY_SUBJECT_ID)?,
             )
-        } else if principal == cognition_principal {
-            if capabilities.as_slice() != [CapabilityId::new(AGENT_COGNITION_CAPABILITY_ID)?] {
+        } else if principal == activity_principal {
+            if capabilities.as_slice() != [CapabilityId::new(WORLD_ACTIVITY_CAPABILITY_ID)?] {
                 return Err(crate::ReferenceGameError::DuplicatePrincipal);
             }
             (
                 content_hash_from_bytes(sha256(
-                    b"nextengine.principal.agent-cognition-boundary.v1\0",
+                    b"nextengine.principal.world-activity-boundary.v1\0",
+                )),
+                SchemaId::new(WORLD_ACTIVITY_CAPABILITY_SUBJECT_ID)?,
+            )
+        } else if principal == cognition_principal {
+            let cognition_capability = CapabilityId::new(AGENT_COGNITION_CAPABILITY_ID)?;
+            let rpg_capability = CapabilityId::new(next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID)?;
+            let mut expected = vec![cognition_capability];
+            if capabilities.contains(&rpg_capability) {
+                expected.push(rpg_capability);
+                expected.sort();
+            }
+            if capabilities != expected {
+                return Err(crate::ReferenceGameError::DuplicatePrincipal);
+            }
+            (
+                content_hash_from_bytes(sha256(
+                    b"nextengine.principal.agent-cognition-boundary.v2\0",
                 )),
                 SchemaId::new(AGENT_COGNITION_CAPABILITY_SUBJECT_ID)?,
             )

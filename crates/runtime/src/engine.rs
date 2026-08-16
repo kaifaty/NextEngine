@@ -11,6 +11,7 @@ mod policy;
 mod replay;
 mod result;
 mod state;
+mod systemic_agent;
 mod targeting;
 mod tick;
 mod world_activity;

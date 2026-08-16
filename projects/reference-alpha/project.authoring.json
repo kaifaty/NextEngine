@@ -1657,7 +1657,7 @@
     "courier_goal_node_id": "nextengine.reference-alpha.chunk.frontier"
   },
   "agent_cognition_catalog": {
-    "schema_version": 1,
+    "schema_version": 2,
     "catalog_asset_id": "97979797979797979797979797979797",
     "population_subject_ordinal": 99,
     "evaluation_start_tick": 1,

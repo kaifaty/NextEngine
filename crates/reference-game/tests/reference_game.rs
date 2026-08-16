@@ -70,14 +70,31 @@ fn reference_source_recooks_byte_identically_and_runs_through_production_paths()
         .expect("courier definition")
         .navigation_goal_node_id
         .clone();
+    let activity_catalog = activated.project.world_activity_catalog.clone();
     let outcome = next_reference_game::run_reference_game(activated, true).expect("reference run");
     let checkpoint = outcome.runtime.world_checkpoint().expect("checkpoint");
     assert_eq!(outcome.ticks, 32);
-    assert_eq!(outcome.events, 46);
-    assert_eq!(outcome.rpg_events, 13);
-    assert_eq!(outcome.agent_cognition_snapshot.revision, 11);
-    assert_eq!(outcome.agent_memory_snapshot.revision, 11);
-    assert_eq!(outcome.decision_traces.len(), 11);
+    assert_eq!(outcome.events, 52);
+    assert_eq!(outcome.rpg_events, 23);
+    assert_eq!(outcome.agent_cognition_snapshot.revision, 4);
+    assert_eq!(outcome.agent_memory_snapshot.revision, 4);
+    assert_eq!(outcome.decision_traces.len(), 4);
+    assert_eq!(
+        outcome
+            .decision_traces
+            .iter()
+            .map(|trace| trace.gameplay_tick)
+            .collect::<Vec<_>>(),
+        vec![1, 4, 5, 6]
+    );
+    assert_eq!(
+        outcome.decision_traces[1].switch_reason,
+        next_contracts::cognition::DecisionSwitchReasonV1::EmergencyInterrupt
+    );
+    assert_eq!(
+        outcome.decision_traces[2].switch_reason,
+        next_contracts::cognition::DecisionSwitchReasonV1::EmergencyExitResume
+    );
     assert!(outcome.decision_traces.iter().all(|trace| {
         trace.planning_failure == next_contracts::cognition::PlanningFailureV1::None
             && trace.intent_id_or_none.is_some()
@@ -92,8 +109,110 @@ fn reference_source_recooks_byte_identically_and_runs_through_production_paths()
                 next_contracts::command::EventPayload::AgentCognition(_)
             ))
             .count(),
-        11
+        4
     );
+    assert!(
+        outcome
+            .world_services_tick_commits
+            .iter()
+            .all(|commit| commit.systemic_failure_or_none.is_none())
+    );
+    let activity = outcome
+        .world_activity_snapshot_or_none
+        .as_ref()
+        .expect("systemic activity projection");
+    assert_eq!(activity.record_revision, 3);
+    assert_eq!(
+        activity.state,
+        next_contracts::world_activity::WorldActivityStateV1::Completed
+    );
+    assert_eq!(activity.assigned_tick_or_none, Some(3));
+    assert_eq!(activity.work_started_tick_or_none, Some(4));
+    assert_eq!(activity.completed_tick_or_none, Some(5));
+    assert_eq!(outcome.agent_memory_snapshot.recorded_speech_acts.len(), 5);
+    for kind in [
+        next_contracts::cognition::SpeechActKindV1::Ask,
+        next_contracts::cognition::SpeechActKindV1::Inform,
+        next_contracts::cognition::SpeechActKindV1::Offer,
+        next_contracts::cognition::SpeechActKindV1::Accept,
+        next_contracts::cognition::SpeechActKindV1::Threaten,
+    ] {
+        assert!(
+            outcome
+                .agent_memory_snapshot
+                .recorded_speech_acts
+                .iter()
+                .any(|act| act.kind == kind)
+        );
+    }
+    let systemic_rpg = outcome.runtime.rpg_snapshot();
+    assert!(matches!(
+        next_reference_game::aggregate_payload(
+            &systemic_rpg,
+            next_contracts::rpg::RpgAggregateKindV1::Commitment,
+            activity_catalog.commitment_id,
+        ),
+        Some(next_contracts::rpg::RpgAggregatePayloadV1::Commitment(commitment))
+            if commitment.state == next_contracts::rpg::CommitmentStateV1::Fulfilled
+    ));
+    let resource_value = |character_id: PersistentId, resource_id: &SchemaId| {
+        let Some(next_contracts::rpg::RpgAggregatePayloadV1::Character(character)) =
+            next_reference_game::aggregate_payload(
+                &systemic_rpg,
+                next_contracts::rpg::RpgAggregateKindV1::Character,
+                character_id,
+            )
+        else {
+            panic!("systemic character aggregate");
+        };
+        character
+            .resources
+            .iter()
+            .find(|resource| &resource.resource_id == resource_id)
+            .expect("systemic resource")
+            .current_value
+    };
+    let profile = &activity_catalog.systemic_work;
+    assert_eq!(
+        resource_value(
+            activity_catalog.worker_subject_id,
+            &profile.currency_resource_id
+        ),
+        profile.wage_amount - profile.food_price
+    );
+    assert_eq!(
+        resource_value(profile.employer_character_id, &profile.currency_resource_id),
+        100 - profile.wage_amount
+    );
+    assert_eq!(
+        resource_value(profile.seller_character_id, &profile.currency_resource_id),
+        profile.food_price
+    );
+    assert_eq!(
+        resource_value(
+            activity_catalog.worker_subject_id,
+            &profile.hunger_resource_id
+        ),
+        0
+    );
+    assert_eq!(
+        resource_value(
+            activity_catalog.worker_subject_id,
+            &profile.satiety_resource_id
+        ),
+        profile.satiety_gain_amount
+    );
+    for inventory_id in [profile.worker_inventory_id, profile.seller_inventory_id] {
+        assert!(matches!(
+            next_reference_game::aggregate_payload(
+                &systemic_rpg,
+                next_contracts::rpg::RpgAggregateKindV1::Inventory,
+                inventory_id,
+            ),
+            Some(next_contracts::rpg::RpgAggregatePayloadV1::Inventory(inventory))
+                if inventory.item_ids.is_empty()
+        ));
+    }
     assert_eq!(outcome.world_streaming_snapshot.generation, 2);
     let courier = outcome
         .world_population_snapshot

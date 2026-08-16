@@ -99,6 +99,18 @@ pub enum StrategicAgentIntentKindV1 {
         route_plan_hash: ContentHash,
     },
     HoldPosition,
+    CommitSocialExchange {
+        exchange_hash: ContentHash,
+        commitment_id: PersistentId,
+    },
+    AwaitActivity {
+        commitment_id: PersistentId,
+        expected_activity_revision: u64,
+    },
+    SettleSystemicExchange {
+        commitment_id: PersistentId,
+        expected_activity_revision: u64,
+    },
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -171,6 +183,90 @@ impl StrategicAgentIntentV1 {
                 .checked_add(1)
                 .ok_or(CognitionContractError::LimitExceeded)?,
             kind: StrategicAgentIntentKindV1::HoldPosition,
+        };
+        value.intent_id = value.computed_id()?;
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn commit_social_exchange(
+        subject_id: PersistentId,
+        goal_id: SchemaId,
+        action_id: SchemaId,
+        creation_tick: u64,
+        exchange_hash: ContentHash,
+        commitment_id: PersistentId,
+    ) -> Result<Self, CognitionContractError> {
+        Self::new_systemic(
+            subject_id,
+            goal_id,
+            action_id,
+            creation_tick,
+            StrategicAgentIntentKindV1::CommitSocialExchange {
+                exchange_hash,
+                commitment_id,
+            },
+        )
+    }
+
+    pub fn await_activity(
+        subject_id: PersistentId,
+        goal_id: SchemaId,
+        action_id: SchemaId,
+        creation_tick: u64,
+        commitment_id: PersistentId,
+        expected_activity_revision: u64,
+    ) -> Result<Self, CognitionContractError> {
+        Self::new_systemic(
+            subject_id,
+            goal_id,
+            action_id,
+            creation_tick,
+            StrategicAgentIntentKindV1::AwaitActivity {
+                commitment_id,
+                expected_activity_revision,
+            },
+        )
+    }
+
+    pub fn settle_systemic_exchange(
+        subject_id: PersistentId,
+        goal_id: SchemaId,
+        action_id: SchemaId,
+        creation_tick: u64,
+        commitment_id: PersistentId,
+        expected_activity_revision: u64,
+    ) -> Result<Self, CognitionContractError> {
+        Self::new_systemic(
+            subject_id,
+            goal_id,
+            action_id,
+            creation_tick,
+            StrategicAgentIntentKindV1::SettleSystemicExchange {
+                commitment_id,
+                expected_activity_revision,
+            },
+        )
+    }
+
+    fn new_systemic(
+        subject_id: PersistentId,
+        goal_id: SchemaId,
+        action_id: SchemaId,
+        creation_tick: u64,
+        kind: StrategicAgentIntentKindV1,
+    ) -> Result<Self, CognitionContractError> {
+        let mut value = Self {
+            schema_version: COGNITION_SCHEMA_VERSION,
+            intent_id: ContentHash::default(),
+            subject_id,
+            goal_id,
+            action_id,
+            creation_tick,
+            expiry_tick: creation_tick
+                .checked_add(1)
+                .ok_or(CognitionContractError::LimitExceeded)?,
+            kind,
         };
         value.intent_id = value.computed_id()?;
         value.validate()?;
@@ -350,6 +446,9 @@ pub enum PlanningFailureV1 {
     PlanBudgetExhausted = 2,
     RouteUnavailable = 3,
     StaleEpistemicView = 4,
+    JobUnavailable = 5,
+    InsufficientCurrency = 6,
+    ActivityIncomplete = 7,
 }
 
 impl PlanningFailureV1 {
@@ -361,6 +460,32 @@ impl PlanningFailureV1 {
             Self::PlanBudgetExhausted => "STRATEGIC_PLAN_BUDGET_EXHAUSTED",
             Self::RouteUnavailable => "STRATEGIC_ROUTE_UNAVAILABLE",
             Self::StaleEpistemicView => "STRATEGIC_EPISTEMIC_STALE",
+            Self::JobUnavailable => "STRATEGIC_JOB_UNAVAILABLE",
+            Self::InsufficientCurrency => "STRATEGIC_CURRENCY_INSUFFICIENT",
+            Self::ActivityIncomplete => "STRATEGIC_ACTIVITY_INCOMPLETE",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[repr(u8)]
+pub enum SystemicExecutionFailureV1 {
+    IntentStale = 1,
+    JobUnavailable = 2,
+    ActivityIncomplete = 3,
+    InsufficientCurrency = 4,
+    InventoryUnavailable = 5,
+}
+
+impl SystemicExecutionFailureV1 {
+    #[must_use]
+    pub const fn diagnostic_code(self) -> &'static str {
+        match self {
+            Self::IntentStale => "STRATEGIC_INTENT_STALE",
+            Self::JobUnavailable => "STRATEGIC_JOB_UNAVAILABLE",
+            Self::ActivityIncomplete => "STRATEGIC_ACTIVITY_INCOMPLETE",
+            Self::InsufficientCurrency => "STRATEGIC_CURRENCY_INSUFFICIENT",
+            Self::InventoryUnavailable => "STRATEGIC_INVENTORY_UNAVAILABLE",
         }
     }
 }
