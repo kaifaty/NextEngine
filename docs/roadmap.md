@@ -698,10 +698,15 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 
 ## R5 — Physical character, animation and motor integration
 
-**Статус:** `NEXT / PRODUCTION_INTEGRATION`; `R&D_LINEAGE_STOPPED`. R141
-завершился `INVALID / STOP_NO_RETRY` и не возобновляется. Следующий bounded
-package integrates the minimal v1 physics/animation path with a mandatory
-procedural fallback; any learned route still requires its own future gates.
+**Статус:** `IN_PROGRESS / R5A_PHYSICAL_ANIMATION_OWNER`;
+`R&D_LINEAGE_STOPPED`. R141 завершился `INVALID / STOP_NO_RETRY` и не
+возобновляется. Активный bounded package integrates one capsule-driven
+player/NPC animation owner, exact neutral sampling/identity retarget,
+presentation-only basic IK, bind-pose fallback and save/replay continuation.
+Он не закрывает остальной R5 physics/root-motion/skinning/BodySchema scope;
+any learned route still requires its own future gates. Working decisions and
+resume point are recorded in
+[R5a task state](development/task-state/r5a-physical-animation-owner.md).
 
 **Цель:** сделать физическое воплощение персонажа частью production gameplay,
 не пропуская vendor types или model state через engine-owned authority.
