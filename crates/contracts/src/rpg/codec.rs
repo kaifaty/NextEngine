@@ -185,6 +185,15 @@ pub(super) fn validate_payload(payload: &RpgAggregatePayloadV1) -> Result<(), Rp
                 ));
             }
         }
+        RpgAggregatePayloadV1::Commitment(payload) => {
+            if payload.issuer_character_id == payload.recipient_character_id
+                || payload.wage_amount <= 0
+            {
+                return Err(RpgContractErrorV1::PayloadInvariant(
+                    "RPG_COMMITMENT_INVALID",
+                ));
+            }
+        }
         RpgAggregatePayloadV1::Quest(_)
         | RpgAggregatePayloadV1::Dialogue(_)
         | RpgAggregatePayloadV1::InteractiveObject(_) => {}

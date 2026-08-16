@@ -266,6 +266,27 @@ pub(super) fn apply_operation(
                 value: next,
             })
         }
+        RpgOperationPayloadV1::TransitionCommitment {
+            commitment_id,
+            expected_state,
+            next_state,
+        } => {
+            let key = RpgAggregateKeyV1::new(RpgAggregateKindV1::Commitment, *commitment_id);
+            let payload = staged_payload_mut(state, staged_payloads, key)?;
+            let RpgAggregatePayloadV1::Commitment(commitment) = payload else {
+                return Err(RpgPlanBuildError::TransactionAborted);
+            };
+            if commitment.state != *expected_state
+                || !expected_state.permits_transition_to(*next_state)
+            {
+                return Err(RpgPlanBuildError::TransitionInvalid);
+            }
+            commitment.state = *next_state;
+            Ok(RpgEventV1::CommitmentTransitioned {
+                commitment_id: *commitment_id,
+                state: *next_state,
+            })
+        }
     }
 }
 

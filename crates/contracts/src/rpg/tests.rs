@@ -76,6 +76,18 @@ fn aggregate_snapshot_round_trip_is_byte_exact() {
                     }],
                 }),
             ),
+            aggregate(
+                7,
+                RpgAggregatePayloadV1::Commitment(CommitmentPayloadV1 {
+                    issuer_character_id: id(6),
+                    recipient_character_id: id(1),
+                    work_id: schema("nextengine.work.relay-shift"),
+                    workplace_node_id: schema("nextengine.location.relay-station"),
+                    currency_resource_id: schema("nextengine.resource.currency"),
+                    wage_amount: 12,
+                    state: CommitmentStateV1::Offered,
+                }),
+            ),
         ],
     };
 
@@ -203,6 +215,66 @@ fn command_round_trip_is_byte_exact() {
     assert_eq!(
         decoded.canonical_payload_bytes().expect("re-encodes"),
         bytes
+    );
+}
+
+#[test]
+fn commitment_transition_command_and_event_are_byte_exact() {
+    let command = RpgCommandV1 {
+        operations: vec![RpgOperationV1 {
+            operation_slot: 0,
+            targets: vec![RpgAggregateRefV1 {
+                aggregate_kind: RpgAggregateKindV1::Commitment,
+                persistent_id: id(7),
+                expected_revision: 0,
+            }],
+            definition_policy_hashes: vec![],
+            payload: RpgOperationPayloadV1::TransitionCommitment {
+                commitment_id: id(7),
+                expected_state: CommitmentStateV1::Offered,
+                next_state: CommitmentStateV1::Accepted,
+            },
+        }],
+    };
+    let bytes = command.canonical_payload_bytes().expect("command encodes");
+    assert_eq!(
+        RpgCommandV1::from_canonical_payload_bytes(&bytes, CanonicalDecodeLimits::default())
+            .expect("command decodes"),
+        command
+    );
+
+    let event = RpgEventV1::CommitmentTransitioned {
+        commitment_id: id(7),
+        state: CommitmentStateV1::Accepted,
+    };
+    let bytes = event.canonical_payload_bytes().expect("event encodes");
+    assert_eq!(
+        RpgEventV1::from_canonical_payload_bytes(&bytes, CanonicalDecodeLimits::default())
+            .expect("event decodes"),
+        event
+    );
+
+    let invalid = RpgCommandV1 {
+        operations: vec![RpgOperationV1 {
+            operation_slot: 0,
+            targets: vec![RpgAggregateRefV1 {
+                aggregate_kind: RpgAggregateKindV1::Commitment,
+                persistent_id: id(7),
+                expected_revision: 0,
+            }],
+            definition_policy_hashes: vec![],
+            payload: RpgOperationPayloadV1::TransitionCommitment {
+                commitment_id: id(7),
+                expected_state: CommitmentStateV1::Offered,
+                next_state: CommitmentStateV1::Fulfilled,
+            },
+        }],
+    };
+    assert_eq!(
+        invalid.validate(),
+        Err(RpgContractErrorV1::PayloadInvariant(
+            "RPG_COMMITMENT_TRANSITION_INVALID"
+        ))
     );
 }
 

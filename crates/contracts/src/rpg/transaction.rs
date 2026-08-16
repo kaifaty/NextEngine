@@ -41,6 +41,10 @@ pub enum RpgEventV1 {
         resource_id: SchemaId,
         value: i32,
     },
+    CommitmentTransitioned {
+        commitment_id: PersistentId,
+        state: CommitmentStateV1,
+    },
 }
 
 impl RpgEventV1 {
@@ -59,6 +63,7 @@ impl RpgEventV1 {
             Self::CharacterResourceAdjusted { .. } => {
                 RPG_EVENT_CHARACTER_RESOURCE_ADJUSTED_SCHEMA_ID
             }
+            Self::CommitmentTransitioned { .. } => RPG_EVENT_COMMITMENT_TRANSITIONED_SCHEMA_ID,
         }
     }
 
@@ -84,6 +89,9 @@ impl RpgEventV1 {
             }
             Self::CharacterResourceAdjusted { character_id, .. } => {
                 (RpgAggregateKindV1::Character, *character_id)
+            }
+            Self::CommitmentTransitioned { commitment_id, .. } => {
+                (RpgAggregateKindV1::Commitment, *commitment_id)
             }
         }
     }
@@ -164,11 +172,19 @@ impl RpgEventV1 {
                 extend_schema_id(&mut bytes, resource_id)?;
                 bytes.extend_from_slice(&value.to_le_bytes());
             }
+            Self::CommitmentTransitioned {
+                commitment_id,
+                state,
+            } => {
+                bytes.push(9);
+                bytes.extend_from_slice(commitment_id.as_bytes());
+                bytes.push(*state as u8);
+            }
         }
         Ok(bytes)
     }
 
-    fn from_canonical_payload_bytes(
+    pub fn from_canonical_payload_bytes(
         bytes: &[u8],
         limits: CanonicalDecodeLimits,
     ) -> Result<Self, RpgContractErrorV1> {
@@ -213,6 +229,10 @@ impl RpgEventV1 {
                 character_id: read_id(&mut cursor)?,
                 resource_id: read_schema_id(&mut cursor, limits)?,
                 value: read_i32(&mut cursor)?,
+            },
+            9 => Self::CommitmentTransitioned {
+                commitment_id: read_id(&mut cursor)?,
+                state: CommitmentStateV1::from_tag(cursor.read_u8()?)?,
             },
             tag => return Err(RpgContractErrorV1::UnknownEventTag(tag)),
         };

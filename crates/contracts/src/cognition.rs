@@ -42,6 +42,8 @@ pub const COGNITION_MAX_AFFORDANCES: usize = 8;
 pub const COGNITION_MAX_GOALS: usize = 8;
 pub const COGNITION_MAX_PLAN_STEPS: usize = 8;
 pub const COGNITION_MAX_SUSPENDED_GOALS: usize = 4;
+pub const COGNITION_MAX_SPEECH_ACTS: usize = 16;
+pub const COGNITION_MAX_CLAIM_PROVENANCE: usize = 8;
 pub const COGNITION_MAX_TEXT_BYTES: usize = 4 * 1024;
 pub const COGNITION_Q16_ONE: i32 = 1 << 16;
 const COGNITION_MAX_SCORE_Q16: i32 = 256 << 16;
@@ -50,11 +52,13 @@ mod belief;
 mod command;
 mod error;
 mod executive;
+mod social;
 
 pub use belief::*;
 pub use command::*;
 pub use error::*;
 pub use executive::*;
+pub use social::*;
 
 struct Writer {
     bytes: Vec<u8>,

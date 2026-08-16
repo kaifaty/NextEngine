@@ -55,6 +55,11 @@ pub enum RpgOperationPayloadV1 {
         expected_value: i32,
         delta: i32,
     },
+    TransitionCommitment {
+        commitment_id: PersistentId,
+        expected_state: CommitmentStateV1,
+        next_state: CommitmentStateV1,
+    },
 }
 
 impl RpgOperationPayloadV1 {
@@ -108,6 +113,9 @@ impl RpgOperationPayloadV1 {
                 (RpgAggregateKindV1::Character, *source_character_id),
                 (RpgAggregateKindV1::Character, *character_id),
             ],
+            Self::TransitionCommitment { commitment_id, .. } => {
+                vec![(RpgAggregateKindV1::Commitment, *commitment_id)]
+            }
         };
         targets.sort_unstable();
         targets.dedup();
@@ -207,6 +215,16 @@ impl RpgOperationPayloadV1 {
                 bytes.extend_from_slice(&expected_value.to_le_bytes());
                 bytes.extend_from_slice(&delta.to_le_bytes());
             }
+            Self::TransitionCommitment {
+                commitment_id,
+                expected_state,
+                next_state,
+            } => {
+                bytes.push(9);
+                bytes.extend_from_slice(commitment_id.as_bytes());
+                bytes.push(*expected_state as u8);
+                bytes.push(*next_state as u8);
+            }
         }
         Ok(bytes)
     }
@@ -261,6 +279,11 @@ impl RpgOperationPayloadV1 {
                 resource_id: read_schema_id(&mut cursor, limits)?,
                 expected_value: read_i32(&mut cursor)?,
                 delta: read_i32(&mut cursor)?,
+            },
+            9 => Self::TransitionCommitment {
+                commitment_id: read_id(&mut cursor)?,
+                expected_state: CommitmentStateV1::from_tag(cursor.read_u8()?)?,
+                next_state: CommitmentStateV1::from_tag(cursor.read_u8()?)?,
             },
             tag => return Err(RpgContractErrorV1::UnknownOperationTag(tag)),
         };
@@ -338,6 +361,15 @@ impl RpgOperationV1 {
             } if *delta == 0 || source_character_id == character_id => {
                 return Err(RpgContractErrorV1::PayloadInvariant(
                     "RPG_CHARACTER_RESOURCE_INVALID",
+                ));
+            }
+            RpgOperationPayloadV1::TransitionCommitment {
+                expected_state,
+                next_state,
+                ..
+            } if !expected_state.permits_transition_to(*next_state) => {
+                return Err(RpgContractErrorV1::PayloadInvariant(
+                    "RPG_COMMITMENT_TRANSITION_INVALID",
                 ));
             }
             _ => {}

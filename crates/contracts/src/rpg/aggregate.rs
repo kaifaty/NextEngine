@@ -112,6 +112,7 @@ pub enum RpgAggregateKindV1 {
     Relationship = 9,
     DivineStanding = 10,
     InteractiveObject = 11,
+    Commitment = 12,
 }
 
 impl RpgAggregateKindV1 {
@@ -128,6 +129,7 @@ impl RpgAggregateKindV1 {
             9 => Ok(Self::Relationship),
             10 => Ok(Self::DivineStanding),
             11 => Ok(Self::InteractiveObject),
+            12 => Ok(Self::Commitment),
             _ => Err(RpgContractErrorV1::UnknownAggregateKind(tag)),
         }
     }
@@ -261,6 +263,47 @@ pub struct InteractiveObjectPayloadV1 {
     pub linked_item_id: Option<PersistentId>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[repr(u8)]
+pub enum CommitmentStateV1 {
+    Offered = 1,
+    Accepted = 2,
+    Fulfilled = 3,
+    Cancelled = 4,
+}
+
+impl CommitmentStateV1 {
+    pub(super) fn from_tag(tag: u8) -> Result<Self, RpgContractErrorV1> {
+        match tag {
+            1 => Ok(Self::Offered),
+            2 => Ok(Self::Accepted),
+            3 => Ok(Self::Fulfilled),
+            4 => Ok(Self::Cancelled),
+            value => Err(RpgContractErrorV1::InvalidTag(value)),
+        }
+    }
+
+    #[must_use]
+    pub const fn permits_transition_to(self, next: Self) -> bool {
+        matches!(
+            (self, next),
+            (Self::Offered, Self::Accepted | Self::Cancelled)
+                | (Self::Accepted, Self::Fulfilled | Self::Cancelled)
+        )
+    }
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct CommitmentPayloadV1 {
+    pub issuer_character_id: PersistentId,
+    pub recipient_character_id: PersistentId,
+    pub work_id: SchemaId,
+    pub workplace_node_id: SchemaId,
+    pub currency_resource_id: SchemaId,
+    pub wage_amount: i32,
+    pub state: CommitmentStateV1,
+}
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum RpgAggregatePayloadV1 {
     Character(CharacterPayloadV1),
@@ -274,6 +317,7 @@ pub enum RpgAggregatePayloadV1 {
     Relationship(RelationshipPayloadV1),
     DivineStanding(DivineStandingPayloadV1),
     InteractiveObject(InteractiveObjectPayloadV1),
+    Commitment(CommitmentPayloadV1),
 }
 
 impl RpgAggregatePayloadV1 {
@@ -291,6 +335,7 @@ impl RpgAggregatePayloadV1 {
             Self::Relationship(_) => RpgAggregateKindV1::Relationship,
             Self::DivineStanding(_) => RpgAggregateKindV1::DivineStanding,
             Self::InteractiveObject(_) => RpgAggregateKindV1::InteractiveObject,
+            Self::Commitment(_) => RpgAggregateKindV1::Commitment,
         }
     }
 
@@ -380,6 +425,15 @@ impl RpgAggregatePayloadV1 {
                 extend_schema_id(&mut bytes, &payload.state_id)?;
                 extend_optional_id(&mut bytes, payload.linked_item_id);
             }
+            Self::Commitment(payload) => {
+                bytes.extend_from_slice(payload.issuer_character_id.as_bytes());
+                bytes.extend_from_slice(payload.recipient_character_id.as_bytes());
+                extend_schema_id(&mut bytes, &payload.work_id)?;
+                extend_schema_id(&mut bytes, &payload.workplace_node_id)?;
+                extend_schema_id(&mut bytes, &payload.currency_resource_id)?;
+                bytes.extend_from_slice(&payload.wage_amount.to_le_bytes());
+                bytes.push(payload.state as u8);
+            }
         }
         Ok(bytes)
     }
@@ -455,6 +509,15 @@ impl RpgAggregatePayloadV1 {
                     linked_item_id: read_optional_id(&mut cursor)?,
                 })
             }
+            RpgAggregateKindV1::Commitment => Self::Commitment(CommitmentPayloadV1 {
+                issuer_character_id: read_id(&mut cursor)?,
+                recipient_character_id: read_id(&mut cursor)?,
+                work_id: read_schema_id(&mut cursor, limits)?,
+                workplace_node_id: read_schema_id(&mut cursor, limits)?,
+                currency_resource_id: read_schema_id(&mut cursor, limits)?,
+                wage_amount: read_i32(&mut cursor)?,
+                state: CommitmentStateV1::from_tag(cursor.read_u8()?)?,
+            }),
         };
         cursor.finish()?;
         if payload.canonical_bytes()? != bytes {

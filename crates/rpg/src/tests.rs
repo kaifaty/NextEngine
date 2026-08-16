@@ -5,11 +5,12 @@ use next_contracts::rpg::{
     CORE_INTERACTIVE_OBJECT_COLLECTED_STATE_ID, CORE_INTERACTIVE_OBJECT_READY_STATE_ID,
 };
 use next_contracts::rpg::{
-    CharacterPayloadV1, CharacterResourceEntryV1, DefinitionRefV1, DialoguePayloadV1,
-    EquipmentPayloadV1, InteractiveObjectPayloadV1, InventoryPayloadV1, ItemPayloadV1,
-    ProvenanceBindingV1, QuestPayloadV1, RelationshipDimensionV1, RelationshipPayloadV1,
-    RpgAggregateEnvelopeV1, RpgAggregateKindV1, RpgAggregatePayloadV1, RpgAggregateRefV1,
-    RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1, RpgPhysicalContactFactV1, RpgSnapshotV2,
+    CharacterPayloadV1, CharacterResourceEntryV1, CommitmentPayloadV1, CommitmentStateV1,
+    DefinitionRefV1, DialoguePayloadV1, EquipmentPayloadV1, InteractiveObjectPayloadV1,
+    InventoryPayloadV1, ItemPayloadV1, ProvenanceBindingV1, QuestPayloadV1,
+    RelationshipDimensionV1, RelationshipPayloadV1, RpgAggregateEnvelopeV1, RpgAggregateKindV1,
+    RpgAggregatePayloadV1, RpgAggregateRefV1, RpgCommandV1, RpgOperationPayloadV1, RpgOperationV1,
+    RpgPhysicalContactFactV1, RpgSnapshotV2,
 };
 
 use super::{
@@ -131,6 +132,18 @@ fn fixture_with_capacity(capacity: u32) -> RpgState {
             RpgAggregatePayloadV1::InteractiveObject(InteractiveObjectPayloadV1 {
                 state_id: schema(CORE_INTERACTIVE_OBJECT_READY_STATE_ID),
                 linked_item_id: Some(id(9)),
+            }),
+        ),
+        aggregate(
+            11,
+            RpgAggregatePayloadV1::Commitment(CommitmentPayloadV1 {
+                issuer_character_id: id(2),
+                recipient_character_id: id(1),
+                work_id: schema("rpg.work.relay-shift"),
+                workplace_node_id: schema("rpg.location.relay-station"),
+                currency_resource_id: schema("rpg.resource.currency"),
+                wage_amount: 12,
+                state: CommitmentStateV1::Offered,
             }),
         ),
     ];
@@ -361,6 +374,61 @@ fn multiple_operations_increment_one_aggregate_once() {
     assert_eq!(
         next.relationship(id(8)).expect("relationship").dimensions[0].value,
         5
+    );
+}
+
+#[test]
+fn commitment_becomes_authoritative_only_through_a_valid_transition_plan() {
+    let state = fixture();
+    let policy = ContentHash::from_bytes([9; 32]);
+    let active = [policy];
+    let command = RpgCommandV1 {
+        operations: vec![RpgOperationV1 {
+            operation_slot: 0,
+            targets: vec![target(RpgAggregateKindV1::Commitment, 11, 0)],
+            definition_policy_hashes: vec![policy],
+            payload: RpgOperationPayloadV1::TransitionCommitment {
+                commitment_id: id(11),
+                expected_state: CommitmentStateV1::Offered,
+                next_state: CommitmentStateV1::Accepted,
+            },
+        }],
+    };
+
+    let plan = build_transaction_plan_v1(&state, &command, context(&active))
+        .expect("accepted commitment plan builds");
+    assert_eq!(
+        state.commitment(id(11)).expect("commitment").state,
+        CommitmentStateV1::Offered
+    );
+    let next = materialize_transaction_plan_v1(&state, &plan).expect("commitment plan commits");
+    assert_eq!(
+        next.commitment(id(11)).expect("commitment").state,
+        CommitmentStateV1::Accepted
+    );
+    assert_eq!(
+        next.aggregate(RpgAggregateKindV1::Commitment, id(11))
+            .expect("commitment aggregate")
+            .revision,
+        1
+    );
+
+    let invalid = RpgCommandV1 {
+        operations: vec![RpgOperationV1 {
+            operation_slot: 0,
+            targets: vec![target(RpgAggregateKindV1::Commitment, 11, 0)],
+            definition_policy_hashes: vec![policy],
+            payload: RpgOperationPayloadV1::TransitionCommitment {
+                commitment_id: id(11),
+                expected_state: CommitmentStateV1::Offered,
+                next_state: CommitmentStateV1::Fulfilled,
+            },
+        }],
+    };
+    assert!(build_transaction_plan_v1(&state, &invalid, context(&active)).is_err());
+    assert_eq!(
+        state.commitment(id(11)).expect("commitment").state,
+        CommitmentStateV1::Offered
     );
 }
 

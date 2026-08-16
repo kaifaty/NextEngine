@@ -8,8 +8,8 @@ use crate::command::{CommandPhase, DomainEvent, EventPayload};
 use crate::ids::{CommandId, ContentHash, PersistentId, SchemaId};
 use crate::persistence::ManifestValidationError;
 use crate::physics::{PhysicalEventV1, PhysicsPoseV1};
-use crate::rpg::RpgEventV1;
 use crate::rpg::SkillProficiency;
+use crate::rpg::{CommitmentStateV1, RpgEventV1};
 use crate::world_population::{PopulationTierV1, WorldPopulationChangedV1};
 use crate::world_routine::{WorldRoutineActivityChangedV1, WorldRoutineActivityV1};
 
@@ -105,6 +105,14 @@ fn encode_event_payload(payload: &EventPayload) -> JcsValue {
             string(character_id.to_hex()),
             string(resource_id.as_str()),
             string(value.to_string()),
+        ]),
+        EventPayload::Rpg(RpgEventV1::CommitmentTransitioned {
+            commitment_id,
+            state,
+        }) => JcsValue::Array(vec![
+            string("rpg_commitment"),
+            string(commitment_id.to_hex()),
+            JcsValue::Number(u64::from(*state as u8)),
         ]),
         EventPayload::Physical(PhysicalEventV1::CapsuleStepApplied {
             body_id,
@@ -316,6 +324,13 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
                 "event.resource_value",
             )?,
         }),
+        "rpg_commitment" => EventPayload::Rpg(RpgEventV1::CommitmentTransitioned {
+            commitment_id: decode_persistent_id(next(&mut columns, "event.commitment_id")?)?,
+            state: decode_commitment_state(
+                next(&mut columns, "event.commitment_state")?,
+                "event.commitment_state",
+            )?,
+        }),
         "physical_capsule_step" => EventPayload::Physical(PhysicalEventV1::CapsuleStepApplied {
             body_id: decode_persistent_id(next(&mut columns, "event.body_id")?)?,
             physics_tick: decode_u64_string(
@@ -433,6 +448,19 @@ fn decode_population_tier(
         2 => Ok(PopulationTierV1::Abstract),
         3 => Ok(PopulationTierV1::Simulated),
         4 => Ok(PopulationTierV1::Active),
+        _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
+    }
+}
+
+fn decode_commitment_state(
+    value: JcsValue,
+    path: &'static str,
+) -> Result<CommitmentStateV1, ManifestCodecError> {
+    match decode_u32(value, path)? {
+        1 => Ok(CommitmentStateV1::Offered),
+        2 => Ok(CommitmentStateV1::Accepted),
+        3 => Ok(CommitmentStateV1::Fulfilled),
+        4 => Ok(CommitmentStateV1::Cancelled),
         _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
     }
 }

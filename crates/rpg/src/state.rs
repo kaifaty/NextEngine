@@ -120,6 +120,17 @@ impl RpgState {
     }
 
     #[must_use]
+    pub fn commitment(
+        &self,
+        id: PersistentId,
+    ) -> Option<&next_contracts::rpg::CommitmentPayloadV1> {
+        match &self.aggregate(RpgAggregateKindV1::Commitment, id)?.payload {
+            RpgAggregatePayloadV1::Commitment(payload) => Some(payload),
+            _ => None,
+        }
+    }
+
+    #[must_use]
     pub fn interactive_object(
         &self,
         id: PersistentId,
@@ -209,6 +220,18 @@ impl RpgState {
                     {
                         return Err(RpgStateError::DanglingAggregateReference);
                     }
+                }
+                RpgAggregatePayloadV1::Commitment(payload) => {
+                    ensure_kind_exists(
+                        self,
+                        RpgAggregateKindV1::Character,
+                        payload.issuer_character_id,
+                    )?;
+                    ensure_kind_exists(
+                        self,
+                        RpgAggregateKindV1::Character,
+                        payload.recipient_character_id,
+                    )?;
                 }
                 RpgAggregatePayloadV1::DivineStanding(payload) => {
                     ensure_kind_exists(
