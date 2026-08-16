@@ -698,17 +698,20 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 
 ## R5 — Physical character, animation and motor integration
 
-**Статус:** `IN_PROGRESS / R5A_COMPLETE / NEXT_R5B_CAPSULE_WORLD_INTERACTIONS`;
+**Статус:** `IN_PROGRESS / R5A_COMPLETE / R5B_ACTIVE_CAPSULE_WORLD_INTERACTIONS`;
 `R&D_LINEAGE_STOPPED`. R141 завершился `INVALID / STOP_NO_RETRY` и не
 возобновляется. Bounded R5a package принят: один capsule-driven player/NPC
 animation owner выполняет exact neutral sampling/identity retarget,
 presentation-only basic IK, bind-pose fallback и exact save/load/Replay V10
-continuation как десятый owner. Следующий package R5b должен закрыть один
-production capsule/world fixture для slopes, stairs, dynamic push, sensors и
-fall/recovery. R5a не закрывает остальной R5 physics/root-motion/skinning/
+continuation как десятый owner. Активный package R5b должен закрыть один
+production capsule/world fixture для bounded quantized slopes, stairs,
+dynamic push, sensors и fall/recovery. R5a не закрывает остальной R5
+physics/root-motion/skinning/
 BodySchema scope; any learned route still requires its own future gates.
 Решения и evidence R5a записаны в
 [R5a task state](development/task-state/r5a-physical-animation-owner.md).
+Активная граница, решения и evidence R5b записываются в
+[R5b task state](development/task-state/r5b-capsule-world-interactions.md).
 
 **Цель:** сделать физическое воплощение персонажа частью production gameplay,
 не пропуская vendor types или model state через engine-owned authority.
@@ -2423,9 +2426,9 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    trade → food, including threat interruption/replan, failure branches and
    exact tiered/headless/bulk behavior. V6/V7 content and nine-owner Replay V9
    are current under ADR-074; this closes functional R4 without learned models.
-12. **R5 physical character and animation production integration (`IN_PROGRESS`; R5a `COMPLETE`, R5b `NEXT`):**
+12. **R5 physical character and animation production integration (`IN_PROGRESS`; R5a `COMPLETE`, R5b `ACTIVE`):**
    один shared player/NPC skeleton/clip owner, retargeting, fixed IK and
-   ten-owner save/Replay V10 уже закрыты R5a. Следующий bounded cut расширяет
+   ten-owner save/Replay V10 уже закрыты R5a. Активный bounded cut расширяет
    procedural capsule и production physics fixture до slopes, stairs, dynamic
    push, sensors и fall/recovery; root motion, BodySchema projection, real
    skinning и полное R5 promotion остаются последующими cuts. A TRAIN-9 actor
