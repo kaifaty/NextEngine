@@ -35,7 +35,8 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV5) -> Result<(), Pro
             )
             .chain([source.world_navigation_catalog.catalog_asset_id])
             .chain([source.world_population_catalog.catalog_asset_id])
-            .chain([source.agent_cognition_catalog.catalog_asset_id]),
+            .chain([source.agent_cognition_catalog.catalog_asset_id])
+            .chain([source.world_activity_catalog.catalog_asset_id]),
     )?;
     ensure_unique(source.records.iter().map(|record| record.record_id))?;
     for animation in &source.animations {
@@ -86,6 +87,7 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV5) -> Result<(), Pro
         .chain([source.world_navigation_catalog.catalog_asset_id])
         .chain([source.world_population_catalog.catalog_asset_id])
         .chain([source.agent_cognition_catalog.catalog_asset_id])
+        .chain([source.world_activity_catalog.catalog_asset_id])
         .collect();
     let mut revisions = BTreeMap::new();
     for record in &source.records {
@@ -112,6 +114,10 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV5) -> Result<(), Pro
         .agent_cognition_catalog
         .validate()
         .map_err(|_| ProjectCookError::InvalidValue)?;
+    source
+        .world_activity_catalog
+        .validate()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
     if source.world_navigation_catalog.topology_revision != source.project_revision
         || source.world_population_catalog.navigation_catalog_asset_id
             != source.world_navigation_catalog.catalog_asset_id
@@ -119,6 +125,15 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV5) -> Result<(), Pro
             .world_population_catalog
             .definition(source.agent_cognition_catalog.subject_id)
             .is_none()
+        || source.world_activity_catalog.worker_subject_id
+            != source.agent_cognition_catalog.subject_id
+        || source
+            .world_population_catalog
+            .definition(source.world_activity_catalog.worker_subject_id)
+            .is_none_or(|definition| {
+                definition.navigation_goal_node_id
+                    != source.world_activity_catalog.workplace_node_id
+            })
     {
         return Err(ProjectCookError::InvalidValue);
     }
@@ -148,6 +163,16 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV5) -> Result<(), Pro
             asset_id: source.agent_cognition_catalog.catalog_asset_id,
             record_sha256: source
                 .agent_cognition_catalog
+                .revision()
+                .map_err(|_| ProjectCookError::InvalidValue)?,
+        },
+    );
+    revisions.insert(
+        source.world_activity_catalog.catalog_asset_id,
+        AssetRevisionRefV1 {
+            asset_id: source.world_activity_catalog.catalog_asset_id,
+            record_sha256: source
+                .world_activity_catalog
                 .revision()
                 .map_err(|_| ProjectCookError::InvalidValue)?,
         },
@@ -240,6 +265,19 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV5) -> Result<(), Pro
             &record.canonical_bytes()?,
             next_contracts::canonical::CanonicalDecodeLimits::default(),
         )?;
+    }
+    let activity_bytes = source
+        .world_activity_catalog
+        .canonical_bytes()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    if next_contracts::world_activity::WorldActivityCatalogV1::from_canonical_bytes(
+        &activity_bytes,
+        next_contracts::canonical::CanonicalDecodeLimits::default(),
+    )
+    .map_err(|_| ProjectCookError::InvalidValue)?
+        != source.world_activity_catalog
+    {
+        return Err(ProjectCookError::InvalidValue);
     }
     if source
         .root_asset_ids

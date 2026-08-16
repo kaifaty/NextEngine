@@ -1659,9 +1659,9 @@
   "agent_cognition_catalog": {
     "schema_version": 1,
     "catalog_asset_id": "97979797979797979797979797979797",
-    "population_subject_ordinal": 0,
+    "population_subject_ordinal": 99,
     "evaluation_start_tick": 1,
-    "evaluation_period_ticks": 3,
+    "evaluation_period_ticks": 1,
     "retrieval_limit": 4,
     "goal_switch_threshold_q16": 16384,
     "emergency_health_threshold": 30,
@@ -1683,6 +1683,45 @@
         "confidence_q16": 65536
       }
     ]
+  },
+  "world_activity_catalog": {
+    "schema_version": 1,
+    "catalog_asset_id": "a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8",
+    "commitment_id": "b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3",
+    "work_id": "nextengine.work.frontier-relay-shift",
+    "workplace_node_id": "nextengine.reference-alpha.chunk.frontier",
+    "work_duration_ticks": 1,
+    "employer_character_id": "b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4",
+    "seller_character_id": "b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5",
+    "worker_inventory_id": "b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6",
+    "seller_inventory_id": "b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7",
+    "food_item_id": "b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8",
+    "currency_resource_id": "nextengine.resource.currency",
+    "hunger_resource_id": "nextengine.resource.hunger",
+    "satiety_resource_id": "nextengine.resource.satiety",
+    "wage_amount": 10,
+    "food_price": 4,
+    "hunger_restore_amount": 100,
+    "satiety_gain_amount": 100,
+    "listener_trust_q16": 49152,
+    "social_action_id": "nextengine.affordance.commit-work-exchange",
+    "await_activity_action_id": "nextengine.affordance.await-work-boundary",
+    "settlement_action_id": "nextengine.affordance.settle-work-trade-food",
+    "social_ready_fact_id": "nextengine.fact.work-exchange-ready",
+    "activity_ready_fact_id": "nextengine.fact.work-boundary-ready",
+    "settlement_ready_fact_id": "nextengine.fact.systemic-settlement-ready",
+    "work_topic_id": "nextengine.topic.frontier-relay-work",
+    "work_claim_predicate_id": "nextengine.claim.work-available",
+    "work_claim_value_id": "nextengine.claim-value.frontier-relay-shift",
+    "work_claim_cited_belief_id": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+    "work_exchange_tick": 1,
+    "work_exchange_expiry_tick": 8,
+    "threat_topic_id": "nextengine.topic.frontier-market-threat",
+    "threat_claim_predicate_id": "nextengine.claim.immediate-threat",
+    "threat_claim_value_id": "nextengine.claim-value.withdraw-now",
+    "threat_claim_cited_belief_id": "e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2",
+    "threat_tick": 4,
+    "threat_expiry_tick": 5
   },
   "root_asset_ids": [
     "01010101010101010101010101010101",
@@ -1715,7 +1754,8 @@
     "94949494949494949494949494949494",
     "95959595959595959595959595959595",
     "96969696969696969696969696969696",
-    "97979797979797979797979797979797"
+    "97979797979797979797979797979797",
+    "a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8"
   ],
   "allowed_presentation_targets": ["none", "interactive", "displayless-offscreen"]
 }

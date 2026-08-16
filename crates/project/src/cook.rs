@@ -23,6 +23,7 @@ use next_contracts::project::{
 use next_contracts::render_content::{
     NeutralRenderRecordV1, RenderContentCatalogV1, RenderContentContractError,
 };
+use next_contracts::world_activity::{WORLD_ACTIVITY_CATALOG_SCHEMA_ID, WorldActivityCatalogV1};
 use next_contracts::world_population::{
     WORLD_NAVIGATION_CATALOG_SCHEMA_ID, WORLD_POPULATION_CATALOG_SCHEMA_ID,
     WorldNavigationCatalogV1, WorldPopulationCatalogV1,
@@ -87,6 +88,7 @@ pub struct NeutralProjectSourceV5 {
     pub world_navigation_catalog: WorldNavigationCatalogV1,
     pub world_population_catalog: WorldPopulationCatalogV1,
     pub agent_cognition_catalog: AgentCognitionCatalogV1,
+    pub world_activity_catalog: WorldActivityCatalogV1,
     pub root_asset_ids: Vec<AssetId>,
     pub provenance: ContentProvenanceV1,
     pub license_manifest_sha256: ContentHash,
@@ -107,6 +109,7 @@ pub struct CookedProjectV5 {
     pub world_navigation_catalog: WorldNavigationCatalogV1,
     pub world_population_catalog: WorldPopulationCatalogV1,
     pub agent_cognition_catalog: AgentCognitionCatalogV1,
+    pub world_activity_catalog: WorldActivityCatalogV1,
     pub render_content_catalog: RenderContentCatalogV1,
     pub blobs: BTreeMap<ContentHash, Vec<u8>>,
 }
@@ -256,6 +259,12 @@ pub fn cook_project_v5(
         SchemaEncodingV1::CanonicalBinaryV1,
     )?;
     schema_refs.insert(agent_cognition_catalog_schema_ref.clone());
+    let world_activity_catalog_schema_ref = schema_ref(
+        WORLD_ACTIVITY_CATALOG_SCHEMA_ID,
+        SchemaRoleV1::NeutralContent,
+        SchemaEncodingV1::CanonicalBinaryV1,
+    )?;
+    schema_refs.insert(world_activity_catalog_schema_ref.clone());
     let content_schema_ref = schema_ref(
         "nextengine.content.manifest",
         SchemaRoleV1::Manifest,
@@ -570,6 +579,47 @@ pub fn cook_project_v5(
             .expect("engine-owned identifier is valid"),
         required: true,
     });
+    let activity_bytes = source
+        .world_activity_catalog
+        .canonical_bytes()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    let activity_hash = source
+        .world_activity_catalog
+        .revision()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    if blobs.insert(activity_hash, activity_bytes).is_some() {
+        return Err(ProjectCookError::HashCollision);
+    }
+    let activity_revision = AssetRevisionRefV1 {
+        asset_id: source.world_activity_catalog.catalog_asset_id,
+        record_sha256: activity_hash,
+    };
+    if revisions
+        .insert(
+            source.world_activity_catalog.catalog_asset_id,
+            activity_revision,
+        )
+        .is_some()
+    {
+        return Err(ProjectCookError::DuplicateIdentity);
+    }
+    entries.push(ContentAssetEntryV1 {
+        asset_revision: activity_revision,
+        schema_ref: world_activity_catalog_schema_ref,
+        neutral_record_blob_sha256: activity_hash,
+        semantic_class: ContentSemanticClassV1::DomainRelevant,
+        provenance_sha256: source.provenance.provenance_sha256,
+        license_manifest_sha256: source.license_manifest_sha256,
+        owning_bundle_id: SchemaId::new("nextengine.fixture.bundle.v1")
+            .expect("engine-owned identifier is valid"),
+    });
+    edges.push(ContentDependencyEdgeV1 {
+        source_asset_id: source.world_activity_catalog.catalog_asset_id,
+        target_asset_id: source.world_population_catalog.catalog_asset_id,
+        dependency_kind: SchemaId::new("nextengine.content.required")
+            .expect("engine-owned identifier is valid"),
+        required: true,
+    });
     if let Some(catalog) = source.world_routine_catalog_or_none {
         let bytes = catalog
             .canonical_bytes()
@@ -684,7 +734,7 @@ pub fn cook_project_v5(
         content_manifest_sha256: content_manifest.content_manifest_sha256,
         world_partition_manifest_sha256: world_partition.world_partition_manifest_sha256,
         mechanics_lock_sha256: rpg_definitions.mechanics_lock.mechanics_lock_sha256,
-        runtime_determinism_profile_sha256: RuntimeDeterminismBundleV1::core_r4c()
+        runtime_determinism_profile_sha256: RuntimeDeterminismBundleV1::core_r4d()
             .expect("the engine-owned determinism bundle is canonical")
             .runtime_profile_hash(),
         launch_profiles_sha256: launch_profiles_sha256(),
@@ -703,6 +753,7 @@ pub fn cook_project_v5(
         world_navigation_catalog: source.world_navigation_catalog,
         world_population_catalog: source.world_population_catalog,
         agent_cognition_catalog: source.agent_cognition_catalog,
+        world_activity_catalog: source.world_activity_catalog,
         render_content_catalog,
         blobs,
     })

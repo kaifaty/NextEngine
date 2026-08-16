@@ -373,20 +373,134 @@ fn population_snapshot_hash(
 
 #[cfg(test)]
 mod tests {
+    use next_contracts::cognition::{
+        COGNITION_Q16_ONE, SpeechActKindV1, SpeechClaimV1, StructuredSpeechActV1,
+        StructuredSpeechExchangeV1,
+    };
     use next_contracts::ids::{AssetId, PersistentId, SchemaId};
-    use next_contracts::world_activity::WORLD_ACTIVITY_SCHEMA_VERSION;
+    use next_contracts::world_activity::{SystemicWorkProfileV1, WORLD_ACTIVITY_SCHEMA_VERSION};
 
     use super::*;
 
+    fn systemic_work(worker: PersistentId) -> SystemicWorkProfileV1 {
+        let employer = PersistentId::from_bytes([0x12; 16]);
+        let seller = PersistentId::from_bytes([0x13; 16]);
+        let topic = SchemaId::new("nextengine.topic.relay-work").expect("topic");
+        let claim = || {
+            SpeechClaimV1::new(
+                worker,
+                SchemaId::new("nextengine.claim.work-available").expect("predicate"),
+                SchemaId::new("nextengine.claim-value.relay-shift").expect("value"),
+                COGNITION_Q16_ONE.unsigned_abs(),
+                vec![ContentHash::from_bytes([0x41; 32])],
+            )
+            .expect("claim")
+        };
+        let ask = StructuredSpeechActV1::new(
+            worker,
+            employer,
+            SpeechActKindV1::Ask,
+            topic.clone(),
+            0,
+            None,
+            Some(SpeechActKindV1::Inform),
+            None,
+            1,
+            8,
+        )
+        .expect("ask");
+        let inform = StructuredSpeechActV1::new(
+            employer,
+            worker,
+            SpeechActKindV1::Inform,
+            topic.clone(),
+            1,
+            Some(claim()),
+            None,
+            Some(ask.act_id),
+            1,
+            8,
+        )
+        .expect("inform");
+        let offer = StructuredSpeechActV1::new(
+            employer,
+            worker,
+            SpeechActKindV1::Offer,
+            topic.clone(),
+            2,
+            Some(claim()),
+            Some(SpeechActKindV1::Accept),
+            None,
+            1,
+            8,
+        )
+        .expect("offer");
+        let accept = StructuredSpeechActV1::new(
+            worker,
+            employer,
+            SpeechActKindV1::Accept,
+            topic,
+            3,
+            None,
+            None,
+            Some(offer.act_id),
+            1,
+            8,
+        )
+        .expect("accept");
+        let threat_act = StructuredSpeechActV1::new(
+            seller,
+            worker,
+            SpeechActKindV1::Threaten,
+            SchemaId::new("nextengine.topic.market-threat").expect("topic"),
+            0,
+            Some(claim()),
+            None,
+            None,
+            4,
+            5,
+        )
+        .expect("threat");
+        SystemicWorkProfileV1 {
+            employer_character_id: employer,
+            seller_character_id: seller,
+            worker_inventory_id: PersistentId::from_bytes([0x14; 16]),
+            seller_inventory_id: PersistentId::from_bytes([0x15; 16]),
+            food_item_id: PersistentId::from_bytes([0x16; 16]),
+            currency_resource_id: SchemaId::new("nextengine.resource.currency").expect("resource"),
+            hunger_resource_id: SchemaId::new("nextengine.resource.hunger").expect("resource"),
+            satiety_resource_id: SchemaId::new("nextengine.resource.satiety").expect("resource"),
+            wage_amount: 10,
+            food_price: 4,
+            hunger_restore_amount: 100,
+            satiety_gain_amount: 100,
+            listener_trust_q16: COGNITION_Q16_ONE.unsigned_abs(),
+            social_action_id: SchemaId::new("nextengine.action.social-work").expect("action"),
+            await_activity_action_id: SchemaId::new("nextengine.action.await-work")
+                .expect("action"),
+            settlement_action_id: SchemaId::new("nextengine.action.settle-work").expect("action"),
+            social_ready_fact_id: SchemaId::new("nextengine.fact.social-ready").expect("fact"),
+            activity_ready_fact_id: SchemaId::new("nextengine.fact.activity-ready").expect("fact"),
+            settlement_ready_fact_id: SchemaId::new("nextengine.fact.settlement-ready")
+                .expect("fact"),
+            work_exchange: StructuredSpeechExchangeV1 {
+                acts: vec![ask, inform, offer, accept],
+            },
+            threat_act,
+        }
+    }
+
     fn catalog() -> WorldActivityCatalogV1 {
+        let worker_subject_id = PersistentId::from_bytes([0x11; 16]);
         WorldActivityCatalogV1 {
             schema_version: WORLD_ACTIVITY_SCHEMA_VERSION,
             catalog_asset_id: AssetId::from_bytes([0xa1; 16]),
-            worker_subject_id: PersistentId::from_bytes([0x11; 16]),
+            worker_subject_id,
             commitment_id: PersistentId::from_bytes([0x22; 16]),
             work_id: SchemaId::new("nextengine.work.relay-shift").expect("work"),
             workplace_node_id: SchemaId::new("nextengine.location.frontier").expect("place"),
             work_duration_ticks: 1,
+            systemic_work: systemic_work(worker_subject_id),
         }
     }
 

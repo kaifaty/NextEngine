@@ -6,6 +6,10 @@ use crate::canonical::{
     CanonicalCursor, CanonicalDecodeError, CanonicalDecodeLimits, CanonicalError, CanonicalField,
     decode_canonical_segment, encode_canonical_segment, sha256,
 };
+use crate::cognition::{
+    COGNITION_MAX_SPEECH_ACTS, COGNITION_Q16_ONE, SpeechActKindV1, StructuredSpeechActV1,
+    StructuredSpeechExchangeV1,
+};
 use crate::ids::{
     AssetId, ContentHash, IdentifierError, PersistentId, SchemaId, content_hash_from_bytes,
 };
@@ -78,6 +82,112 @@ pub struct WorldActivityCatalogV1 {
     pub work_id: SchemaId,
     pub workplace_node_id: SchemaId,
     pub work_duration_ticks: u64,
+    pub systemic_work: SystemicWorkProfileV1,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SystemicWorkProfileV1 {
+    pub employer_character_id: PersistentId,
+    pub seller_character_id: PersistentId,
+    pub worker_inventory_id: PersistentId,
+    pub seller_inventory_id: PersistentId,
+    pub food_item_id: PersistentId,
+    pub currency_resource_id: SchemaId,
+    pub hunger_resource_id: SchemaId,
+    pub satiety_resource_id: SchemaId,
+    pub wage_amount: i32,
+    pub food_price: i32,
+    pub hunger_restore_amount: i32,
+    pub satiety_gain_amount: i32,
+    pub listener_trust_q16: u32,
+    pub social_action_id: SchemaId,
+    pub await_activity_action_id: SchemaId,
+    pub settlement_action_id: SchemaId,
+    pub social_ready_fact_id: SchemaId,
+    pub activity_ready_fact_id: SchemaId,
+    pub settlement_ready_fact_id: SchemaId,
+    pub work_exchange: StructuredSpeechExchangeV1,
+    pub threat_act: StructuredSpeechActV1,
+}
+
+impl SystemicWorkProfileV1 {
+    pub fn validate(
+        &self,
+        worker_subject_id: PersistentId,
+    ) -> Result<(), WorldActivityContractError> {
+        self.work_exchange
+            .validate_work_exchange()
+            .map_err(|_| WorldActivityContractError::ContentInvalid)?;
+        self.threat_act
+            .validate()
+            .map_err(|_| WorldActivityContractError::ContentInvalid)?;
+        let acts = &self.work_exchange.acts;
+        let participants_valid = acts[0].speaker_id == worker_subject_id
+            && acts[0].listener_id == self.employer_character_id
+            && acts[1].speaker_id == self.employer_character_id
+            && acts[1].listener_id == worker_subject_id
+            && acts[2].speaker_id == self.employer_character_id
+            && acts[2].listener_id == worker_subject_id
+            && acts[3].speaker_id == worker_subject_id
+            && acts[3].listener_id == self.employer_character_id
+            && self.threat_act.kind == SpeechActKindV1::Threaten
+            && self.threat_act.speaker_id == self.seller_character_id
+            && self.threat_act.listener_id == worker_subject_id
+            && self.threat_act.creation_tick > acts[3].creation_tick;
+        let identities = [
+            worker_subject_id,
+            self.employer_character_id,
+            self.seller_character_id,
+            self.worker_inventory_id,
+            self.seller_inventory_id,
+            self.food_item_id,
+        ];
+        let identities_unique = identities.iter().enumerate().all(|(index, value)| {
+            *value != PersistentId::default() && !identities[index + 1..].contains(value)
+        });
+        let resources = [
+            &self.currency_resource_id,
+            &self.hunger_resource_id,
+            &self.satiety_resource_id,
+        ];
+        let resources_unique = resources
+            .iter()
+            .enumerate()
+            .all(|(index, value)| !resources[index + 1..].contains(value));
+        let actions = [
+            &self.social_action_id,
+            &self.await_activity_action_id,
+            &self.settlement_action_id,
+        ];
+        let actions_unique = actions
+            .iter()
+            .enumerate()
+            .all(|(index, value)| !actions[index + 1..].contains(value));
+        let facts = [
+            &self.social_ready_fact_id,
+            &self.activity_ready_fact_id,
+            &self.settlement_ready_fact_id,
+        ];
+        let facts_unique = facts
+            .iter()
+            .enumerate()
+            .all(|(index, value)| !facts[index + 1..].contains(value));
+        if !participants_valid
+            || !identities_unique
+            || !resources_unique
+            || !actions_unique
+            || !facts_unique
+            || self.wage_amount <= 0
+            || self.food_price <= 0
+            || self.wage_amount < self.food_price
+            || self.hunger_restore_amount <= 0
+            || self.satiety_gain_amount <= 0
+            || self.listener_trust_q16 > COGNITION_Q16_ONE.unsigned_abs()
+        {
+            return Err(WorldActivityContractError::ContentInvalid);
+        }
+        Ok(())
+    }
 }
 
 impl WorldActivityCatalogV1 {
@@ -85,6 +195,7 @@ impl WorldActivityCatalogV1 {
         if self.schema_version != WORLD_ACTIVITY_SCHEMA_VERSION || self.work_duration_ticks == 0 {
             return Err(WorldActivityContractError::ContentInvalid);
         }
+        self.systemic_work.validate(self.worker_subject_id)?;
         Ok(())
     }
 
@@ -96,6 +207,7 @@ impl WorldActivityCatalogV1 {
         payload.schema_id(&self.work_id)?;
         payload.schema_id(&self.workplace_node_id)?;
         payload.u64(self.work_duration_ticks);
+        write_systemic_work(&mut payload, &self.systemic_work)?;
         Ok(encode_canonical_segment(
             WORLD_ACTIVITY_CATALOG_OWNER_ID,
             WORLD_ACTIVITY_CATALOG_SCHEMA_ID,
@@ -133,6 +245,7 @@ impl WorldActivityCatalogV1 {
             work_id: payload.schema_id()?,
             workplace_node_id: payload.schema_id()?,
             work_duration_ticks: payload.u64()?,
+            systemic_work: read_systemic_work(&mut payload)?,
         };
         payload.finish()?;
         value.validate()?;
@@ -608,6 +721,109 @@ impl From<IdentifierError> for WorldActivityContractError {
     }
 }
 
+fn write_systemic_work(
+    writer: &mut Writer,
+    value: &SystemicWorkProfileV1,
+) -> Result<(), WorldActivityContractError> {
+    writer.id(value.employer_character_id);
+    writer.id(value.seller_character_id);
+    writer.id(value.worker_inventory_id);
+    writer.id(value.seller_inventory_id);
+    writer.id(value.food_item_id);
+    writer.schema_id(&value.currency_resource_id)?;
+    writer.schema_id(&value.hunger_resource_id)?;
+    writer.schema_id(&value.satiety_resource_id)?;
+    writer.i32(value.wage_amount);
+    writer.i32(value.food_price);
+    writer.i32(value.hunger_restore_amount);
+    writer.i32(value.satiety_gain_amount);
+    writer.u32(value.listener_trust_q16);
+    writer.schema_id(&value.social_action_id)?;
+    writer.schema_id(&value.await_activity_action_id)?;
+    writer.schema_id(&value.settlement_action_id)?;
+    writer.schema_id(&value.social_ready_fact_id)?;
+    writer.schema_id(&value.activity_ready_fact_id)?;
+    writer.schema_id(&value.settlement_ready_fact_id)?;
+    writer.u32(
+        u32::try_from(value.work_exchange.acts.len())
+            .map_err(|_| WorldActivityContractError::ContentInvalid)?,
+    );
+    for act in &value.work_exchange.acts {
+        writer.bytes(
+            &act.canonical_payload_bytes()
+                .map_err(|_| WorldActivityContractError::ContentInvalid)?,
+        )?;
+    }
+    writer.bytes(
+        &value
+            .threat_act
+            .canonical_payload_bytes()
+            .map_err(|_| WorldActivityContractError::ContentInvalid)?,
+    )?;
+    Ok(())
+}
+
+fn read_systemic_work(
+    reader: &mut Reader<'_>,
+) -> Result<SystemicWorkProfileV1, WorldActivityContractError> {
+    let employer_character_id = reader.id()?;
+    let seller_character_id = reader.id()?;
+    let worker_inventory_id = reader.id()?;
+    let seller_inventory_id = reader.id()?;
+    let food_item_id = reader.id()?;
+    let currency_resource_id = reader.schema_id()?;
+    let hunger_resource_id = reader.schema_id()?;
+    let satiety_resource_id = reader.schema_id()?;
+    let wage_amount = reader.i32()?;
+    let food_price = reader.i32()?;
+    let hunger_restore_amount = reader.i32()?;
+    let satiety_gain_amount = reader.i32()?;
+    let listener_trust_q16 = reader.u32()?;
+    let social_action_id = reader.schema_id()?;
+    let await_activity_action_id = reader.schema_id()?;
+    let settlement_action_id = reader.schema_id()?;
+    let social_ready_fact_id = reader.schema_id()?;
+    let activity_ready_fact_id = reader.schema_id()?;
+    let settlement_ready_fact_id = reader.schema_id()?;
+    let act_count =
+        usize::try_from(reader.u32()?).map_err(|_| WorldActivityContractError::ContentInvalid)?;
+    if act_count == 0 || act_count > COGNITION_MAX_SPEECH_ACTS {
+        return Err(WorldActivityContractError::ContentInvalid);
+    }
+    let acts = (0..act_count)
+        .map(|_| {
+            StructuredSpeechActV1::from_canonical_payload_bytes(reader.bytes()?, reader.limits)
+                .map_err(|_| WorldActivityContractError::ContentInvalid)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let threat_act =
+        StructuredSpeechActV1::from_canonical_payload_bytes(reader.bytes()?, reader.limits)
+            .map_err(|_| WorldActivityContractError::ContentInvalid)?;
+    Ok(SystemicWorkProfileV1 {
+        employer_character_id,
+        seller_character_id,
+        worker_inventory_id,
+        seller_inventory_id,
+        food_item_id,
+        currency_resource_id,
+        hunger_resource_id,
+        satiety_resource_id,
+        wage_amount,
+        food_price,
+        hunger_restore_amount,
+        satiety_gain_amount,
+        listener_trust_q16,
+        social_action_id,
+        await_activity_action_id,
+        settlement_action_id,
+        social_ready_fact_id,
+        activity_ready_fact_id,
+        settlement_ready_fact_id,
+        work_exchange: StructuredSpeechExchangeV1 { acts },
+        threat_act,
+    })
+}
+
 #[derive(Default)]
 struct Writer {
     bytes: Vec<u8>,
@@ -622,12 +838,25 @@ impl Writer {
         self.bytes.extend_from_slice(&value.to_le_bytes());
     }
 
+    fn u32(&mut self, value: u32) {
+        self.bytes.extend_from_slice(&value.to_le_bytes());
+    }
+
+    fn i32(&mut self, value: i32) {
+        self.bytes.extend_from_slice(&value.to_le_bytes());
+    }
+
     fn id(&mut self, value: PersistentId) {
         self.bytes.extend_from_slice(value.as_bytes());
     }
 
     fn schema_id(&mut self, value: &SchemaId) -> Result<(), WorldActivityContractError> {
         extend_bytes(&mut self.bytes, value.as_str().as_bytes())?;
+        Ok(())
+    }
+
+    fn bytes(&mut self, value: &[u8]) -> Result<(), WorldActivityContractError> {
+        extend_bytes(&mut self.bytes, value)?;
         Ok(())
     }
 
@@ -667,6 +896,14 @@ impl<'a> Reader<'a> {
         Ok(self.cursor.read_u64()?)
     }
 
+    fn u32(&mut self) -> Result<u32, WorldActivityContractError> {
+        Ok(self.cursor.read_u32()?)
+    }
+
+    fn i32(&mut self) -> Result<i32, WorldActivityContractError> {
+        Ok(i32::from_le_bytes(read_array(&mut self.cursor)?))
+    }
+
     fn id(&mut self) -> Result<PersistentId, WorldActivityContractError> {
         Ok(PersistentId::from_bytes(read_array(&mut self.cursor)?))
     }
@@ -678,6 +915,12 @@ impl<'a> Reader<'a> {
         Ok(SchemaId::new(std::str::from_utf8(bytes).map_err(
             |_| WorldActivityContractError::ContentInvalid,
         )?)?)
+    }
+
+    fn bytes(&mut self) -> Result<&'a [u8], WorldActivityContractError> {
+        Ok(self
+            .cursor
+            .read_u32_length_prefixed(self.limits.max_field_payload_bytes)?)
     }
 
     fn optional_u64(&mut self) -> Result<Option<u64>, WorldActivityContractError> {
@@ -786,15 +1029,125 @@ fn domain_hash(domain: &str, bytes: &[u8]) -> ContentHash {
 mod tests {
     use super::*;
 
+    fn systemic_work(worker: PersistentId) -> SystemicWorkProfileV1 {
+        let employer = PersistentId::from_bytes([0x12; 16]);
+        let seller = PersistentId::from_bytes([0x13; 16]);
+        let topic = SchemaId::new("nextengine.topic.relay-work").expect("topic");
+        let claim = || {
+            crate::cognition::SpeechClaimV1::new(
+                worker,
+                SchemaId::new("nextengine.claim.work-available").expect("predicate"),
+                SchemaId::new("nextengine.claim-value.relay-shift").expect("value"),
+                COGNITION_Q16_ONE.unsigned_abs(),
+                vec![ContentHash::from_bytes([0x41; 32])],
+            )
+            .expect("claim")
+        };
+        let ask = StructuredSpeechActV1::new(
+            worker,
+            employer,
+            SpeechActKindV1::Ask,
+            topic.clone(),
+            0,
+            None,
+            Some(SpeechActKindV1::Inform),
+            None,
+            1,
+            8,
+        )
+        .expect("ask");
+        let inform = StructuredSpeechActV1::new(
+            employer,
+            worker,
+            SpeechActKindV1::Inform,
+            topic.clone(),
+            1,
+            Some(claim()),
+            None,
+            Some(ask.act_id),
+            1,
+            8,
+        )
+        .expect("inform");
+        let offer = StructuredSpeechActV1::new(
+            employer,
+            worker,
+            SpeechActKindV1::Offer,
+            topic.clone(),
+            2,
+            Some(claim()),
+            Some(SpeechActKindV1::Accept),
+            None,
+            1,
+            8,
+        )
+        .expect("offer");
+        let accept = StructuredSpeechActV1::new(
+            worker,
+            employer,
+            SpeechActKindV1::Accept,
+            topic,
+            3,
+            None,
+            None,
+            Some(offer.act_id),
+            1,
+            8,
+        )
+        .expect("accept");
+        let threat_act = StructuredSpeechActV1::new(
+            seller,
+            worker,
+            SpeechActKindV1::Threaten,
+            SchemaId::new("nextengine.topic.market-threat").expect("threat topic"),
+            0,
+            Some(claim()),
+            None,
+            None,
+            4,
+            5,
+        )
+        .expect("threat");
+        SystemicWorkProfileV1 {
+            employer_character_id: employer,
+            seller_character_id: seller,
+            worker_inventory_id: PersistentId::from_bytes([0x14; 16]),
+            seller_inventory_id: PersistentId::from_bytes([0x15; 16]),
+            food_item_id: PersistentId::from_bytes([0x16; 16]),
+            currency_resource_id: SchemaId::new("nextengine.resource.currency").expect("currency"),
+            hunger_resource_id: SchemaId::new("nextengine.resource.hunger").expect("hunger"),
+            satiety_resource_id: SchemaId::new("nextengine.resource.satiety").expect("satiety"),
+            wage_amount: 10,
+            food_price: 4,
+            hunger_restore_amount: 100,
+            satiety_gain_amount: 100,
+            listener_trust_q16: COGNITION_Q16_ONE.unsigned_abs(),
+            social_action_id: SchemaId::new("nextengine.action.social-work").expect("action"),
+            await_activity_action_id: SchemaId::new("nextengine.action.await-work")
+                .expect("action"),
+            settlement_action_id: SchemaId::new("nextengine.action.settle-work").expect("action"),
+            social_ready_fact_id: SchemaId::new("nextengine.fact.social-ready").expect("fact"),
+            activity_ready_fact_id: SchemaId::new("nextengine.fact.activity-ready").expect("fact"),
+            settlement_ready_fact_id: SchemaId::new("nextengine.fact.settlement-ready")
+                .expect("fact"),
+            work_exchange: StructuredSpeechExchangeV1 {
+                acts: vec![ask, inform, offer, accept],
+            },
+            threat_act,
+        }
+    }
+
     fn catalog() -> WorldActivityCatalogV1 {
+        let worker_subject_id = PersistentId::from_bytes([0x11; 16]);
         WorldActivityCatalogV1 {
             schema_version: WORLD_ACTIVITY_SCHEMA_VERSION,
             catalog_asset_id: AssetId::from_bytes([0xa1; 16]),
-            worker_subject_id: PersistentId::from_bytes([0x11; 16]),
+            worker_subject_id,
             commitment_id: PersistentId::from_bytes([0x22; 16]),
             work_id: SchemaId::new("nextengine.work.relay-shift").expect("work"),
             workplace_node_id: SchemaId::new("nextengine.location.frontier").expect("place"),
             work_duration_ticks: 1,
+            systemic_work: systemic_work(worker_subject_id),
         }
     }
 

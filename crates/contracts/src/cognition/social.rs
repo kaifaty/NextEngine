@@ -140,6 +140,7 @@ pub struct StructuredSpeechActV1 {
     pub listener_id: PersistentId,
     pub kind: SpeechActKindV1,
     pub topic_id: SchemaId,
+    pub exchange_ordinal: u16,
     pub claim_or_none: Option<SpeechClaimV1>,
     pub requested_response_or_none: Option<SpeechActKindV1>,
     pub in_reply_to_act_id_or_none: Option<ContentHash>,
@@ -157,6 +158,7 @@ impl StructuredSpeechActV1 {
         listener_id: PersistentId,
         kind: SpeechActKindV1,
         topic_id: SchemaId,
+        exchange_ordinal: u16,
         claim_or_none: Option<SpeechClaimV1>,
         requested_response_or_none: Option<SpeechActKindV1>,
         in_reply_to_act_id_or_none: Option<ContentHash>,
@@ -170,6 +172,7 @@ impl StructuredSpeechActV1 {
             listener_id,
             kind,
             topic_id,
+            exchange_ordinal,
             claim_or_none,
             requested_response_or_none,
             in_reply_to_act_id_or_none,
@@ -225,6 +228,7 @@ impl StructuredSpeechActV1 {
             listener_id: reader.id()?,
             kind: SpeechActKindV1::from_tag(reader.u8()?)?,
             topic_id: reader.schema_id()?,
+            exchange_ordinal: reader.u16()?,
             claim_or_none: read_optional_claim(&mut reader)?,
             requested_response_or_none: read_optional_speech_kind(&mut reader)?,
             in_reply_to_act_id_or_none: reader.optional_hash()?,
@@ -256,8 +260,9 @@ impl StructuredSpeechExchangeV1 {
     pub fn validate(&self) -> Result<(), CognitionContractError> {
         if self.acts.is_empty()
             || self.acts.len() > COGNITION_MAX_SPEECH_ACTS
-            || self.acts.windows(2).any(|pair| {
-                (pair[0].creation_tick, pair[0].act_id) >= (pair[1].creation_tick, pair[1].act_id)
+            || self.acts.iter().enumerate().any(|(index, act)| {
+                usize::from(act.exchange_ordinal) != index
+                    || index > 0 && self.acts[index - 1].creation_tick > act.creation_tick
             })
             || self.acts.iter().any(|act| act.validate().is_err())
         {
@@ -326,6 +331,7 @@ fn write_speech_act_identity(
     writer.id(value.listener_id);
     writer.u8(value.kind as u8);
     writer.text(value.topic_id.as_str())?;
+    writer.u16(value.exchange_ordinal);
     write_optional_claim(writer, value.claim_or_none.as_ref())?;
     write_optional_speech_kind(writer, value.requested_response_or_none);
     writer.optional_hash(value.in_reply_to_act_id_or_none);
@@ -432,6 +438,7 @@ mod tests {
             broker,
             SpeechActKindV1::Ask,
             topic.clone(),
+            0,
             None,
             Some(SpeechActKindV1::Inform),
             None,
@@ -444,6 +451,7 @@ mod tests {
             worker,
             SpeechActKindV1::Inform,
             topic.clone(),
+            1,
             Some(claim(broker)),
             None,
             Some(ask.act_id),
@@ -456,6 +464,7 @@ mod tests {
             worker,
             SpeechActKindV1::Offer,
             topic.clone(),
+            2,
             Some(claim(broker)),
             Some(SpeechActKindV1::Accept),
             None,
@@ -468,6 +477,7 @@ mod tests {
             broker,
             SpeechActKindV1::Accept,
             topic,
+            3,
             None,
             None,
             Some(offer.act_id),
@@ -503,6 +513,7 @@ mod tests {
             id(2),
             SpeechActKindV1::Accept,
             schema("nextengine.topic.work"),
+            0,
             None,
             None,
             None,

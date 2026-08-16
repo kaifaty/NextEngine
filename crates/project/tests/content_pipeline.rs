@@ -77,8 +77,8 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.project_lock.project_lock_sha256,
         first.project_lock.project_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.root_assets.len(), 31);
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 117);
+    assert_eq!(activated.content_manifest.body.root_assets.len(), 32);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 118);
     assert_eq!(activated.neutral_records.len(), 76);
     assert_eq!(activated.world_partition.body.root_region_ids.len(), 4);
     assert_eq!(activated.world_partition.body.chunk_bindings.len(), 64);

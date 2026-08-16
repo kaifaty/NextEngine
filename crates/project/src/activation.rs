@@ -22,6 +22,7 @@ use next_contracts::project::{
 use next_contracts::render_content::{
     B0CookedMeshV1, NeutralRenderRecordV1, RenderContentCatalogV1, RenderContentContractError,
 };
+use next_contracts::world_activity::{WORLD_ACTIVITY_CATALOG_SCHEMA_ID, WorldActivityCatalogV1};
 use next_contracts::world_population::{
     WORLD_NAVIGATION_CATALOG_SCHEMA_ID, WORLD_POPULATION_CATALOG_SCHEMA_ID,
     WorldNavigationCatalogV1, WorldPopulationCatalogV1,
@@ -82,7 +83,7 @@ fn activate_pinned_project(
 
     if generation.generation_id != project_lock.project_lock_sha256
         || project_lock.runtime_determinism_profile_sha256
-            != RuntimeDeterminismBundleV1::core_r4c()
+            != RuntimeDeterminismBundleV1::core_r4d()
                 .expect("the engine-owned determinism bundle is canonical")
                 .runtime_profile_hash()
         || project_lock.launch_profiles_sha256 != launch_profiles_sha256()
@@ -127,6 +128,7 @@ fn activate_pinned_project(
     let mut world_navigation_catalog_or_none = None;
     let mut world_population_catalog_or_none = None;
     let mut agent_cognition_catalog_or_none = None;
+    let mut world_activity_catalog_or_none = None;
     for entry in &content_manifest.body.asset_entries {
         require_schema(&current_schemas, &entry.schema_ref)?;
         let blob_path = format!(
@@ -332,6 +334,33 @@ fn activate_pinned_project(
                 return Err(ProjectActivationError::HashMismatch);
             }
             record_dependencies.insert(catalog.catalog_asset_id, BTreeSet::new());
+        } else if entry.schema_ref.schema_id.as_str() == WORLD_ACTIVITY_CATALOG_SCHEMA_ID {
+            let catalog = WorldActivityCatalogV1::from_canonical_bytes(blob, limits)
+                .map_err(|_| ProjectActivationError::HashMismatch)?;
+            let expected_schema_ref = SchemaRefV1 {
+                schema_id: entry.schema_ref.schema_id.clone(),
+                schema_version: u32::from(catalog.schema_version),
+                descriptor_sha256: domain_hash(
+                    "nextengine.schema-descriptor.v1",
+                    WORLD_ACTIVITY_CATALOG_SCHEMA_ID.as_bytes(),
+                ),
+                role: SchemaRoleV1::NeutralContent,
+                encoding: SchemaEncodingV1::CanonicalBinaryV1,
+            };
+            if catalog.catalog_asset_id != entry.asset_revision.asset_id
+                || expected_schema_ref != entry.schema_ref
+                || catalog
+                    .revision()
+                    .map_err(|_| ProjectActivationError::HashMismatch)?
+                    != entry.asset_revision.record_sha256
+                || entry.semantic_class != ContentSemanticClassV1::DomainRelevant
+                || world_activity_catalog_or_none
+                    .replace(catalog.clone())
+                    .is_some()
+            {
+                return Err(ProjectActivationError::HashMismatch);
+            }
+            record_dependencies.insert(catalog.catalog_asset_id, BTreeSet::new());
         } else if NeutralRenderRecordV1::supports_schema_id(&entry.schema_ref.schema_id) {
             let record = NeutralRenderRecordV1::from_canonical_bytes(blob, limits)?;
             if record.asset_id() != entry.asset_revision.asset_id
@@ -375,8 +404,16 @@ fn activate_pinned_project(
         .as_ref()
         .ok_or(ProjectActivationError::MissingReference)?
         .catalog_asset_id;
+    let activity_catalog_asset_id = world_activity_catalog_or_none
+        .as_ref()
+        .ok_or(ProjectActivationError::MissingReference)?
+        .catalog_asset_id;
     record_dependencies.insert(
         cognition_catalog_asset_id,
+        BTreeSet::from([population_catalog_asset_id]),
+    );
+    record_dependencies.insert(
+        activity_catalog_asset_id,
         BTreeSet::from([population_catalog_asset_id]),
     );
     for entry in &content_manifest.body.asset_entries {
@@ -422,6 +459,8 @@ fn activate_pinned_project(
         world_population_catalog_or_none.ok_or(ProjectActivationError::MissingReference)?;
     let agent_cognition_catalog =
         agent_cognition_catalog_or_none.ok_or(ProjectActivationError::MissingReference)?;
+    let world_activity_catalog =
+        world_activity_catalog_or_none.ok_or(ProjectActivationError::MissingReference)?;
     world_population_catalog
         .validate_against_navigation(&world_navigation_catalog)
         .map_err(|_| ProjectActivationError::HashMismatch)?;
@@ -478,6 +517,7 @@ fn activate_pinned_project(
         world_navigation_catalog,
         world_population_catalog,
         agent_cognition_catalog,
+        world_activity_catalog,
         render_content_catalog,
     };
     activated.validate()?;

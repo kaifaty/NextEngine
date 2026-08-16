@@ -31,8 +31,9 @@ use next_contracts::audio::{
     AudioLoudnessMetadataV1, AudioPcmEncodingV1, NeutralAudioErrorV1, NeutralAudioV1,
 };
 use next_contracts::cognition::{
-    AgentCognitionCatalogV1, BeliefContradictionV1, BeliefSourceV1, COGNITION_SCHEMA_VERSION,
-    SemanticBeliefV1,
+    AgentCognitionCatalogV1, BeliefContradictionV1, BeliefSourceV1, COGNITION_Q16_ONE,
+    COGNITION_SCHEMA_VERSION, SemanticBeliefV1, SpeechActKindV1, SpeechClaimV1,
+    StructuredSpeechActV1, StructuredSpeechExchangeV1,
 };
 use next_contracts::content::{
     NeutralPropertyV1, NeutralRecordError, NeutralRecordKindV1, NeutralRecordV1,
@@ -58,6 +59,7 @@ use next_contracts::render_content::{
     NeutralTextureV1, RenderContentContractError, UvTransformV1,
     b0_shader_interface_manifest_sha256,
 };
+use next_contracts::world_activity::{SystemicWorkProfileV1, WorldActivityCatalogV1};
 use next_contracts::world_population::{
     NavigationCapabilityV1, PopulationCadenceClassV1, PopulationTierV1,
     WORLD_POPULATION_ACTIVE_COUNT_V1, WORLD_POPULATION_BACKGROUND_COUNT_V1,
@@ -240,6 +242,11 @@ fn load_project_authoring_with_override(
         build_world_population_catalog(&manifest, &world_navigation_catalog)?;
     let agent_cognition_catalog =
         build_agent_cognition_catalog(&manifest, &world_population_catalog)?;
+    let world_activity_catalog =
+        build_world_activity_catalog(&manifest, &world_population_catalog)?;
+    if agent_cognition_catalog.subject_id != world_activity_catalog.worker_subject_id {
+        return Err(ProjectAuthoringError::InvalidValue);
+    }
     Ok(NeutralProjectSourceV5 {
         project_id: ProjectId::new(
             project_id_override.unwrap_or(manifest.project.project_id.as_str()),
@@ -257,6 +264,7 @@ fn load_project_authoring_with_override(
         world_navigation_catalog,
         world_population_catalog,
         agent_cognition_catalog,
+        world_activity_catalog,
         root_asset_ids: manifest
             .root_asset_ids
             .iter()
@@ -273,6 +281,138 @@ fn load_project_authoring_with_override(
         chunks,
         allowed_presentation_targets,
     })
+}
+
+fn build_world_activity_catalog(
+    manifest: &ProjectAuthoringManifestV5,
+    population: &WorldPopulationCatalogV1,
+) -> Result<WorldActivityCatalogV1, ProjectAuthoringError> {
+    let authored = &manifest.world_activity_catalog;
+    let worker_subject_id = population.courier_subject_id;
+    let employer_character_id = persistent_id(&authored.employer_character_id)?;
+    let seller_character_id = persistent_id(&authored.seller_character_id)?;
+    let topic = SchemaId::new(&authored.work_topic_id)?;
+    let claim = || {
+        SpeechClaimV1::new(
+            worker_subject_id,
+            SchemaId::new(&authored.work_claim_predicate_id)?,
+            SchemaId::new(&authored.work_claim_value_id)?,
+            COGNITION_Q16_ONE.unsigned_abs(),
+            vec![content_hash(&authored.work_claim_cited_belief_id)?],
+        )
+        .map_err(|_| ProjectAuthoringError::InvalidValue)
+    };
+    let ask = StructuredSpeechActV1::new(
+        worker_subject_id,
+        employer_character_id,
+        SpeechActKindV1::Ask,
+        topic.clone(),
+        0,
+        None,
+        Some(SpeechActKindV1::Inform),
+        None,
+        authored.work_exchange_tick,
+        authored.work_exchange_expiry_tick,
+    )
+    .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    let inform = StructuredSpeechActV1::new(
+        employer_character_id,
+        worker_subject_id,
+        SpeechActKindV1::Inform,
+        topic.clone(),
+        1,
+        Some(claim()?),
+        None,
+        Some(ask.act_id),
+        authored.work_exchange_tick,
+        authored.work_exchange_expiry_tick,
+    )
+    .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    let offer = StructuredSpeechActV1::new(
+        employer_character_id,
+        worker_subject_id,
+        SpeechActKindV1::Offer,
+        topic.clone(),
+        2,
+        Some(claim()?),
+        Some(SpeechActKindV1::Accept),
+        None,
+        authored.work_exchange_tick,
+        authored.work_exchange_expiry_tick,
+    )
+    .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    let accept = StructuredSpeechActV1::new(
+        worker_subject_id,
+        employer_character_id,
+        SpeechActKindV1::Accept,
+        topic,
+        3,
+        None,
+        None,
+        Some(offer.act_id),
+        authored.work_exchange_tick,
+        authored.work_exchange_expiry_tick,
+    )
+    .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    let threat_claim = SpeechClaimV1::new(
+        worker_subject_id,
+        SchemaId::new(&authored.threat_claim_predicate_id)?,
+        SchemaId::new(&authored.threat_claim_value_id)?,
+        COGNITION_Q16_ONE.unsigned_abs(),
+        vec![content_hash(&authored.threat_claim_cited_belief_id)?],
+    )
+    .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    let threat_act = StructuredSpeechActV1::new(
+        seller_character_id,
+        worker_subject_id,
+        SpeechActKindV1::Threaten,
+        SchemaId::new(&authored.threat_topic_id)?,
+        0,
+        Some(threat_claim),
+        None,
+        None,
+        authored.threat_tick,
+        authored.threat_expiry_tick,
+    )
+    .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    let value = WorldActivityCatalogV1 {
+        schema_version: authored.schema_version,
+        catalog_asset_id: asset_id(&authored.catalog_asset_id)?,
+        worker_subject_id,
+        commitment_id: persistent_id(&authored.commitment_id)?,
+        work_id: SchemaId::new(&authored.work_id)?,
+        workplace_node_id: SchemaId::new(&authored.workplace_node_id)?,
+        work_duration_ticks: authored.work_duration_ticks,
+        systemic_work: SystemicWorkProfileV1 {
+            employer_character_id,
+            seller_character_id,
+            worker_inventory_id: persistent_id(&authored.worker_inventory_id)?,
+            seller_inventory_id: persistent_id(&authored.seller_inventory_id)?,
+            food_item_id: persistent_id(&authored.food_item_id)?,
+            currency_resource_id: SchemaId::new(&authored.currency_resource_id)?,
+            hunger_resource_id: SchemaId::new(&authored.hunger_resource_id)?,
+            satiety_resource_id: SchemaId::new(&authored.satiety_resource_id)?,
+            wage_amount: authored.wage_amount,
+            food_price: authored.food_price,
+            hunger_restore_amount: authored.hunger_restore_amount,
+            satiety_gain_amount: authored.satiety_gain_amount,
+            listener_trust_q16: authored.listener_trust_q16,
+            social_action_id: SchemaId::new(&authored.social_action_id)?,
+            await_activity_action_id: SchemaId::new(&authored.await_activity_action_id)?,
+            settlement_action_id: SchemaId::new(&authored.settlement_action_id)?,
+            social_ready_fact_id: SchemaId::new(&authored.social_ready_fact_id)?,
+            activity_ready_fact_id: SchemaId::new(&authored.activity_ready_fact_id)?,
+            settlement_ready_fact_id: SchemaId::new(&authored.settlement_ready_fact_id)?,
+            work_exchange: StructuredSpeechExchangeV1 {
+                acts: vec![ask, inform, offer, accept],
+            },
+            threat_act,
+        },
+    };
+    value
+        .validate()
+        .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    Ok(value)
 }
 
 fn build_world_navigation_catalog(
