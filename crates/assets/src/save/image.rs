@@ -49,6 +49,12 @@ use next_contracts::world_routine::{
 
 use super::error::SaveStoreError;
 
+mod segments;
+
+use segments::{
+    cognition_segment_indices, physical_animation_segment_index, world_services_segment_indices,
+};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SaveImage {
     pub manifest: SaveManifestV2,
@@ -910,140 +916,4 @@ pub struct ValidatedSaveImage {
     pub agent_cognition_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     pub agent_memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     pub physical_animation_snapshot_or_none: Option<PhysicalAnimationSnapshotV1>,
-}
-
-fn physical_animation_segment_index(
-    descriptors: &[SaveSegmentDescriptor],
-) -> Result<Option<usize>, SaveStoreError> {
-    let mut index = None;
-    for (candidate, descriptor) in descriptors.iter().enumerate().filter(|(_, descriptor)| {
-        descriptor.owner_id.as_str() == PHYSICAL_ANIMATION_SNAPSHOT_OWNER_ID
-    }) {
-        if descriptor.schema_id.as_str() != PHYSICAL_ANIMATION_SNAPSHOT_SCHEMA_ID
-            || descriptor.segment_id.as_str() != PHYSICAL_ANIMATION_SNAPSHOT_SEGMENT_ID
-            || descriptor.schema_version != u32::from(PHYSICAL_ANIMATION_SCHEMA_VERSION)
-        {
-            return Err(SaveStoreError::InvalidImage(
-                "SAVE_PHYSICAL_ANIMATION_SCHEMA_UNSUPPORTED",
-            ));
-        }
-        if index.replace(candidate).is_some() {
-            return Err(SaveStoreError::InvalidImage(
-                "SAVE_PHYSICAL_ANIMATION_SEGMENT_DUPLICATE",
-            ));
-        }
-    }
-    Ok(index)
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct CognitionSegmentIndices {
-    agent: Option<usize>,
-    memory: Option<usize>,
-}
-
-fn cognition_segment_indices(
-    descriptors: &[SaveSegmentDescriptor],
-) -> Result<CognitionSegmentIndices, SaveStoreError> {
-    let mut agent = None;
-    let mut memory = None;
-    for (index, descriptor) in descriptors.iter().enumerate().filter(|(_, descriptor)| {
-        matches!(
-            descriptor.owner_id.as_str(),
-            AGENT_RUNTIME_SNAPSHOT_OWNER_ID | AGENT_MEMORY_SNAPSHOT_OWNER_ID
-        )
-    }) {
-        let target = if descriptor.owner_id.as_str() == AGENT_RUNTIME_SNAPSHOT_OWNER_ID
-            && descriptor.schema_id.as_str() == AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID
-            && descriptor.segment_id.as_str() == AGENT_RUNTIME_SNAPSHOT_SEGMENT_ID
-            && descriptor.schema_version == u32::from(COGNITION_SCHEMA_VERSION)
-        {
-            &mut agent
-        } else if descriptor.owner_id.as_str() == AGENT_MEMORY_SNAPSHOT_OWNER_ID
-            && descriptor.schema_id.as_str() == AGENT_MEMORY_SNAPSHOT_SCHEMA_ID
-            && descriptor.segment_id.as_str() == AGENT_MEMORY_SNAPSHOT_SEGMENT_ID
-            && descriptor.schema_version == u32::from(COGNITION_SCHEMA_VERSION)
-        {
-            &mut memory
-        } else {
-            return Err(SaveStoreError::InvalidImage(
-                "SAVE_COGNITION_SCHEMA_UNSUPPORTED",
-            ));
-        };
-        if target.replace(index).is_some() {
-            return Err(SaveStoreError::InvalidImage(
-                "SAVE_COGNITION_SEGMENT_DUPLICATE",
-            ));
-        }
-    }
-    if agent.is_some() != memory.is_some() {
-        return Err(SaveStoreError::InvalidImage(
-            "SAVE_COGNITION_SEGMENT_INCOMPLETE",
-        ));
-    }
-    Ok(CognitionSegmentIndices { agent, memory })
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct WorldServicesSegmentIndices {
-    streaming: Option<usize>,
-    routine: Option<usize>,
-    population: Option<usize>,
-    activity: Option<usize>,
-}
-
-fn world_services_segment_indices(
-    descriptors: &[SaveSegmentDescriptor],
-) -> Result<WorldServicesSegmentIndices, SaveStoreError> {
-    let mut streaming = None;
-    let mut routine = None;
-    let mut population = None;
-    let mut activity = None;
-    for (index, descriptor) in descriptors
-        .iter()
-        .enumerate()
-        .filter(|(_, descriptor)| descriptor.owner_id.as_str() == WORLD_STREAMING_SNAPSHOT_OWNER_ID)
-    {
-        let target = if descriptor.schema_id.as_str() == WORLD_STREAMING_SNAPSHOT_SCHEMA_ID
-            && descriptor.segment_id.as_str() == WORLD_STREAMING_SNAPSHOT_SEGMENT_ID
-            && descriptor.schema_version == WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION
-        {
-            &mut streaming
-        } else if descriptor.schema_id.as_str() == WORLD_ROUTINE_SNAPSHOT_SCHEMA_ID
-            && descriptor.segment_id.as_str() == WORLD_ROUTINE_SNAPSHOT_SEGMENT_ID
-            && descriptor.schema_version == u32::from(WORLD_ROUTINE_SCHEMA_VERSION)
-        {
-            &mut routine
-        } else if descriptor.schema_id.as_str() == WORLD_POPULATION_SNAPSHOT_SCHEMA_ID
-            && descriptor.segment_id.as_str() == WORLD_POPULATION_SNAPSHOT_SEGMENT_ID
-            && descriptor.schema_version == u32::from(WORLD_POPULATION_SCHEMA_VERSION)
-        {
-            &mut population
-        } else if descriptor.schema_id.as_str() == WORLD_ACTIVITY_SNAPSHOT_SCHEMA_ID
-            && descriptor.segment_id.as_str() == WORLD_ACTIVITY_SNAPSHOT_SEGMENT_ID
-            && descriptor.schema_version == u32::from(WORLD_ACTIVITY_SCHEMA_VERSION)
-        {
-            &mut activity
-        } else {
-            return Err(SaveStoreError::InvalidImage(
-                "WORLD_SERVICES_SCHEMA_UNSUPPORTED",
-            ));
-        };
-        if target.replace(index).is_some() {
-            return Err(SaveStoreError::InvalidImage(
-                "SAVE_WORLD_SERVICES_SEGMENT_DUPLICATE",
-            ));
-        }
-    }
-    if (routine.is_some() || population.is_some() || activity.is_some()) && streaming.is_none() {
-        return Err(SaveStoreError::InvalidImage(
-            "SAVE_WORLD_ROUTINE_STREAMING_MISSING",
-        ));
-    }
-    Ok(WorldServicesSegmentIndices {
-        streaming,
-        routine,
-        population,
-        activity,
-    })
 }
