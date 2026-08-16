@@ -4,163 +4,225 @@
 |---|---|
 | ID | SPEC-36 |
 | Status | Proposed |
-| Version | 1.0 |
+| Version | 1.1 |
 | Last verified | 2026-08-16 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-072](adr/072-continuum-material-physics-track.md) |
-| Supersedes | none |
+| Supersedes | SPEC-36 1.0; closes the candidate water authority, canonical-state, coupling, exact-active persistence and first-consumer boundaries without changing the current PhysX baseline |
 
 ## Status and scope
 
-This SPEC defines candidate semantics and promotion gates for local continuum
-materials. It does not authorize runtime schemas, change the PhysX-only current
-baseline or claim that water, mud, soil, snow or off-road coupling is shipped.
-The execution sequence is maintained in
-[the implementation-spec series](../plans/continuum-material-physics/README.md).
+This SPEC defines candidate semantics and promotion gates for bounded local
+continuum materials. It does not authorize runtime schemas, alter the current
+PhysX-only production implementation, or claim that water, sand, mud, soil or
+snow is shipped. The umbrella work-package index is maintained in
+[the continuum specification series](../plans/continuum-material-physics/README.md);
+water execution is maintained independently in
+[the water roadmap](../plans/continuum-water/README.md).
 
-In scope: bounded local free-surface water, rigid coupling, deformable dry
-terrain, wet-soil evolution, active-region persistence and read-only visual
-extraction. Out of scope: global ocean/weather, arbitrary multiphase chemistry,
-erosion of the entire world, ocean-scale waves, network synchronization and a
-generic community solver ABI.
+The first selected consumer is one sealed water basin containing one movable
+PhysX crate and read-only debug-particle presentation. Dry terrain is a
+separate numerical lane. Global ocean/weather, cross-region particle transfer,
+adaptive resolution, broad gameplay queries, generic solver/plugin ABI, full
+vehicle simulation and production sleep conversion are outside the first
+water consumer.
 
-## Candidate authority model
+All `CONTINUUM-*` checks remain `NOT_RUN`. Until a later consumer-backed
+Accepted ADR narrows ADR-058 and promotes exact schemas, the production world,
+save/replay formats and public contracts remain unchanged.
 
-`ContinuumRegionState` is the future Physical Embodiment-owned aggregate. One
-region has a stable identity, material/profile revisions, simulation cadence,
-active/sleep state, conservation totals and a closed representation variant.
-The exact schema is deliberately deferred until the first consumer.
+## Candidate authority and canonical water state
 
-The active representation stores stable material samples and material-specific
-state. Water needs position, velocity, mass, density/pressure state; an MPM
-solid additionally needs deformation gradient and plastic/internal variables.
-One universal per-particle struct is forbidden. Implementations use bounded
-material-specific SoA storage and stable sample keys.
+Physical Embodiment is the future owner of active continuum state. CPU DFSPH
+is the sole candidate canonical water solver for V1. A GPU implementation is
+an optional correspondence mirror and cannot emit authoritative commands,
+events, checkpoints or body impulses.
 
-Spatial hashes, neighbor pairs, MPM grids, pressure matrices, surface meshes,
-wetness textures and GPU buffers are caches. They are rebuilt from owner state
-and exact profile identity.
+One future active water region owns a bounded material-specific SoA. At every
+accepted 240 Hz substep its complete future-affecting sample state is:
 
-## Fixed-stage step candidate
+```text
+WaterSampleCanonicalStateV1 {
+  sample_id: SampleId,
+  position_micrometres: [i64; 3],
+  velocity_micrometres_per_second: [i64; 3],
+}
+```
 
-For each declared continuum substep:
+`SampleId`, region/profile revisions, tick/substep, exact sample count and
+canonical state root are exact. Uniform particle mass belongs to the immutable
+water profile. Density, pressure/divergence factors, neighbor cells/pairs,
+warm-start accumulators and reduction scratch are reconstructed every substep
+and are neither owner state nor continuation state.
 
-1. freeze the prior continuum and rigid projection;
-2. construct canonical active-region and stable sample order;
-3. build reconstructible neighbor/grid structures;
-4. solve internal material forces and boundary constraints;
-5. reduce boundary reactions into one bounded canonical impulse batch;
-6. validate finite values, bounds, conservation and profile identity;
-7. let the Physical/PhysX commit consume the batch and publish the complete
-   next physical generation, or publish nothing;
-8. extract an immutable presentation projection after commit.
+The solver may decode the prior canonical integers and use private `f64`
+within one substep. Publication performs exactly one checked
+round-to-nearest-ties-to-even conversion to the SPEC-21 fixed-point boundary.
+The next substep starts only from that published canonical state. Nonfinite,
+overflow or out-of-range conversion rejects the candidate; private float state
+cannot survive the boundary.
 
-An async/GPU worker receives immutable revision-bound inputs and returns an
-immutable result. Completion timing cannot select the simulation tick. A
-production asynchronous path must reuse SPEC-21 completion admission and can
-only promote reusable job/resource contracts when a second demonstrated
-consumer satisfies SPEC-23.
+Material-specific active state remains separate: a future MPM solid needs
+deformation gradient, affine velocity and plastic/internal variables in its
+own SoA. A universal particle record is forbidden. Spatial hashes, temporary
+MPM grids, matrices, render meshes, wetness textures and GPU buffers remain
+reconstructible caches.
 
-## Solver lanes
+## Fixed water profile V1
 
-### Water reference
+The first profile is a clean, fixed-resolution baseline:
 
-The reference uses fixed-resolution CPU `f64` DFSPH with a compact-support
-kernel, explicit density and divergence tolerances, fixed maximum iterations,
-canonical neighbor order and analytical or sampled boundaries. Failure to
-converge returns a typed whole-step failure; it does not publish a partial
-state or silently increase the time step.
+| Property | V1 value |
+|---|---:|
+| Coordinate system | SPEC-26 right-handed MKS, `+Y` up |
+| Rest density | `1000 kg/m³` |
+| Particle radius / spacing | `0.025 m` / `0.05 m` |
+| Cubic-spline support radius | `0.1 m` |
+| Uniform particle mass | `0.125 kg` |
+| Fixed cadence | `240 Hz` (`1/240 s`) |
+| Gravity magnitude | `9.81 m/s²` toward `-Y` |
+| Density solve | minimum `2`, maximum `20`, mean error `<= 0.01%` |
+| Divergence solve | minimum `1`, maximum `20`, mean error `<= 0.1%` |
+| Hard active capacity | `50,000` samples |
 
-### Accelerated water
+V1 enables no warm start, surface tension, viscosity/vorticity model,
+adaptive split/merge or variable time step. Analytical plane and box
+boundaries are part of the reference solver rather than deferred to rigid
+coupling. A capability/profile mismatch fails before region activation.
 
-The first GPU implementation is a mirror of the reference scenario corpus. It
-records device, driver, compiler, shader/kernel, workgroup, reduction and
-profile identity. It cannot emit authoritative commands/events or replace the
-CPU oracle. Promotion needs a later Accepted decision choosing exact replayed
-results, a device-closed authoritative profile, or a reduced deterministic
-gameplay model.
+## One-pass rigid coupling candidate
 
-### Deformable solids and soils
+Each physical substep has one staged coupling pass:
 
-Dry sand/snow/soil starts with APIC/MLS-MPM and an explicit constitutive law,
-initially Drucker-Prager for sand. The temporary grid transfers momentum and
-computes stress while material identity/history stay on samples. MCC or
-rate-dependent alternatives are comparative spikes, not default profiles.
+1. freeze the prior canonical water state and exact rigid projection;
+2. reconstruct water caches in stable `(cell key, SampleId)` order;
+3. solve water and analytical/moving-boundary constraints;
+4. reduce sample reactions into one canonical body-reaction batch;
+5. validate the complete water candidate and batch;
+6. let PhysX apply the batch and integrate rigid bodies exactly once;
+7. publish water and rigid state as one PhysicalStep transaction, or publish
+   neither;
+8. extract presentation only after the complete physical commit.
 
-Wet mud starts only after dry terrain. Its first bounded model MAY couple a
-saturation field to permeability, cohesion/yield and drag. A true two-phase
-poromechanics implementation is selected only if the simplified profile fails
-declared drainage, shear and wheel/foot scenarios.
+The future reaction record is engine-owned and includes the complete
+`PhysicsBodyIdV1`, expected world/body revisions, physics tick/substep,
+region/profile/prior-state roots, fixed-point linear and angular impulse, and
+the frozen body centre of mass as the explicit torque reference. Records sort
+by complete body identity and reduce to at most one record per body.
 
-## Boundaries and coupling
+Exactly one batch may exist for
+`(world generation, physics tick, substep, region identity)`. An exact
+duplicate or different result under the same key is a result collision and
+rejects the whole uncommitted step. No arrival-order winner, retry, coupling
+iteration selected by wall time or delayed reaction on the next substep is
+permitted in V1.
 
-Analytical SDF boundaries are preferred for simple shapes. Curved or authored
-geometry may use a validated density-map/MLS boundary projection. Sampling
-resolution, normals, transforms and surface-contact material lineage are exact
-profile inputs.
+PhysX remains the only writer of rigid/articulation transforms and velocities.
+The continuum solver writes only its region candidate and reaction proposal.
+A production promotion requires a later Accepted ADR narrowing ADR-058 while
+preserving that rigid-body authority.
 
-Rigid reaction is expressed as force/impulse and torque on stable body IDs.
-The reduction order is fixed. PhysX owns final body/articulation integration;
-the continuum solver owns only its region state. Terrain contact exposes an
-engine-owned patch query/result, never raw particles, MPM nodes or PhysX types.
+## Region, persistence and fallback
 
-## Persistence and streaming
+The first water vertical has exactly one sealed, pinned-active region. Its
+analytical boundary admits no particle crossing. Halo exchange, cross-region
+neighbor pairs, ownership transfer, camera-selected activation and active
+eviction are forbidden.
 
-The future owner segment stores exact active state or a separately versioned
-sleep representation plus profile identity and conservation totals. It never
-stores neighbor lists, grid nodes or render meshes.
+First production persistence stores the exact active water state in the same
+atomic physical owner checkpoint as the PhysX canonical state. A sidecar
+cannot commit, restore or fail independently. Save-at-N/resume-to-M must reach
+the same canonical root as uninterrupted execution. Neighbor structures,
+pressure scratch and render buffers are rebuilt.
 
-Sleep conversion is admitted only at a fixed commit boundary. The transition
-must report mass, linear/angular momentum, volume and material-history error.
-If the profile cannot satisfy the declared threshold, the region stays active
-or the transition fails. Streaming cannot discard dirty authoritative material
-state, use wall time for eviction or reconstruct changed terrain from immutable
-content alone.
+Active-to-sleep conversion is a later optional lossy model transition. It is
+not required by the water roadmap and cannot claim owner-root equality with
+the exact active representation. A future conversion profile must carry a
+receipt for mass, momentum, volume/surface and material-history error and pass
+repeated sleep/wake cycles before streaming can use it.
+
+Before activation, missing or rejected continuum capability selects an
+authored dry basin variant. After activation, the runtime cannot silently
+substitute decorative water, freeze the water while PhysX advances, switch to
+GPU authority or downgrade to the dry variant. An active fatal failure retains
+the last complete checkpoint and stops the affected physical run with a typed
+diagnostic.
+
+`PhysicsMaterialDescriptorV2` remains the solid-contact descriptor. A future
+consumer-backed `ContinuumMaterialProfile` is separate, and an explicit
+coupling-material mapping binds an exact rigid surface/material revision to
+the continuum boundary response. Neither schema is current in this revision.
+
+## Other material lanes
+
+Dry deformable terrain begins only with one calibrated Drucker-Prager sand
+profile implemented through APIC/MLS-MPM. The MPM lane exclusively owns a
+declared deformable wheel/terrain or foot/terrain contact pair; the matching
+PhysX ground contact is disabled, and MPM emits the sole bounded reaction
+batch. The first consumer is an instrumented prescribed single-wheel rig, not
+a complete vehicle.
+
+Exact active terrain persistence follows dry-sand/contact evidence and
+precedes saturation. Wet material then advances through saturation/drainage,
+mechanical response, and only later a closed atomic free-water/terrain flux
+batch. Cross-region transfer, lossy sleep and two-phase poromechanics are
+separately gated later work.
 
 ## Presentation
 
-Presentation extraction publishes bounded stable sample/field records after
-the physical commit. Render backends may reconstruct an anisotropic surface,
-screen-space fluid, spray/foam, terrain mesh and wetness decals. Missing GPU
-capability selects a declared visual fallback only; collision, buoyancy,
-terrain resistance and gameplay queries continue to use committed physical
-state.
-
-## Promotion sequence
-
-1. CPU water reference lab and golden corpus.
-2. Boundary and one rigid-body coupling vertical.
-3. Read-only water presentation.
-4. GPU correspondence mirror.
-5. Dry deformable-terrain lab and tire/foot patch vertical.
-6. Active-region save/unload/reload.
-7. Saturation/wet-mud model.
-8. Production consumer proposal with exact contracts, fallback and budgets.
-
-No step promotes a later step by implication. Adaptivity follows a stable
-fixed-resolution solver and must prove conservation across split/merge.
+V1 extracts bounded immutable sample records after an accepted physical
+commit. Debug points/spheres and diagnostic overlays are the mandatory path.
+Surface reconstruction, screen-space fluid, foam, spray and wetness are
+non-authoritative optional stages and do not block first promotion. Renderer
+cadence, camera state and device/cache loss cannot change a water root,
+reaction batch or gameplay result.
 
 ## Failure semantics
 
-Invalid content/profile, nonfinite value, capacity overflow, non-convergence,
-stale revision, result collision, conservation violation or corrupt owner
-segment rejects the complete candidate. The previous physical generation is
-retained. Optional activation may fall back only to the profile-declared static
-water/rigid-ground representation; an active authoritative region cannot be
-silently replaced mid-run.
+Invalid content/profile, nonfinite value, fixed-point overflow, capacity
+excess, non-convergence, boundary escape, stale revision, missing body,
+reaction collision, conservation violation, PhysX rejection or corrupt owner
+segment rejects the complete candidate. The prior physical generation remains
+the only published state. There is no retry-to-green, partial sample set,
+water-only commit, rigid-only commit or mid-run fallback.
 
-## Product checks before promotion
+A serial research tool stops at the first such failure and emits a bounded
+typed report. It does not keep the prior frame and continue, because that
+would convert a failed trajectory into false evidence.
 
-- water: hydrostatics, dam break, free fall, moving wall and rigid float/impact;
-- conservation: mass, linear/angular momentum and bounded energy drift;
-- determinism: repeat, worker-count, insertion-order and save/restart cases;
-- terrain: angle of repose, column collapse, shear box, sinkage and tire/foot
-  force/deformation curves;
-- wet soil: infiltration, drainage, saturation-dependent shear and hysteresis;
-- boundaries: leak, tunneling, thin feature and fast-body cases;
-- presentation: cadence/device loss changes no authoritative root;
-- security: all sizes, iterations, material parameters and decoded state are
-  bounded before allocation;
-- performance: one declared active region on named Windows/Linux profiles.
+## Product scenario and checks before promotion
 
-Until a production consumer exists, these are specification targets and their
-status is `NOT_RUN`, not evidence of implementation.
+The production fixture is one `4 × 2 × 1 m` sealed basin filled to `0.75 m`,
+nominally `48,000` samples under the V1 spacing, with one `0.5 m` cube of mass
+`50 kg`. Expected equilibrium immersion is `0.20 ± 0.05 m`. Player control
+uses the production command path; deterministic headless consumes the same
+recorded command trace without test-only mutation.
+
+| Check | Required result |
+|---|---|
+| `CONTINUUM-WATER-REF-P1` | Exact sample count/mass; mean solver bounds; no nonfinite/non-convergence; boundary-centre penetration `<= 2.5 mm`; normalized external-work-aware impulse/energy residual `<= 1%`; dam-break/reference normalized RMSE `<= 5%` and maximum error `<= 10%`; repeat/insertion permutations have the same same-target root. |
+| `CONTINUUM-COUPLING-P1` | One-pass reaction closure, crate float/impact and failure cases publish one complete composite result or none; no second rigid writer. |
+| `CONTINUUM-PERSISTENCE-P1` | Exact active save/restart continuation matches uninterrupted roots; corrupt/stale/capacity cases fail before mutation. |
+| `CONTINUUM-MIRROR-P1` | Optional GPU aggregate correspondence passes its predeclared metrics without an authority claim. |
+| `CONTINUUM-TERRAIN-P1` | One calibrated dry-sand profile and prescribed wheel/terrain contact pass declared conservation and reference curves. |
+| conditional `performance` | `50k` water fits existing THOTH physics `4/6 ms` p95/p99 and integrated `8/12 ms` ceilings; `10k` and `100k` remain report profiles, with `100k` not a production promise. |
+
+The CPU oracle also compares published curves with aggregate output from an
+independently executed SPlisHSPlasH revision. External solver code, generated
+trajectories and heavy reports remain outside Git. Same-target exactness is the
+research gate; Windows/Linux canonical-root equality is additionally required
+before production promotion.
+
+## Promotion boundary
+
+No public contract is added for the serial lab. When the basin becomes a real
+runtime consumer, the smallest candidate public set is
+`ContinuumRegionDefinitionV1`, `ContinuumWaterProfileV1`,
+`ContinuumWaterCanonicalStateV1`, `ContinuumBodyReactionBatchV1`,
+`ContinuumPresentationSnapshotV1` and a composite successor to
+`PhysicsWorldCheckpointV2`. Exact schemas require the later Accepted
+promotion ADR and synchronized SPEC-02/03/21/25/26/30, routing, traceability
+and roadmap updates.
+
+Generic solver interfaces, raw particle/grid access for plugins and new broad
+gameplay queries remain out of scope until a separate demonstrated consumer
+requires them under ADR-046.

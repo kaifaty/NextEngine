@@ -4,135 +4,192 @@
 |---|---|
 | ID | ADR-072 |
 | Status | Proposed |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-16 |
 | Last verified | 2026-08-16 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md) |
-| Supersedes | none |
+| Supersedes | ADR-072 1.0 candidate wording; fixes the selected water consumer, CPU authority, one-pass coupling and exact-active persistence while retaining `Proposed` status |
 | Superseded by | none |
 
 ## Context
 
-Next Engine needs local water, deformable ground, sand, mud and snow that can
-interact with characters and vehicles without making renderer state, a global
-voxel volume or an optional GPU path authoritative. The current physics
-baseline owns rigid bodies and articulations through PhysX 5.9.0 and exposes
-only exact engine-owned snapshots. Its `PhysicsMaterialDescriptorV2` describes
-solid contact coefficients; it is not a constitutive law for continuum matter.
+Next Engine needs bounded local water and, later, deformable terrain without
+creating a second rigid-state writer, allowing renderer/GPU state to drive
+gameplay or weakening exact save/replay. The current Accepted baseline uses
+PhysX 5.9.0 as the only production rigid/articulation backend and admits public
+contracts only for demonstrated production consumers.
 
-The research brief proposed one broad particle material world. External
-evidence supports Lagrangian material samples, but not one SPH discretization
-for every material. DFSPH is a strong incompressible free-surface water
-baseline, while APIC/MLS-MPM is better aligned with history-dependent
-elastoplastic sand, snow and deformable terrain. GPU floating-point execution
-cannot be assumed bit-exact across the shipping targets.
+The initial broad research identified different numerical needs for free
+surface water and history-dependent terrain. It did not resolve the canonical
+water state, substep composition, first persistence representation or product
+scale. Those ambiguities would allow implementations with incompatible hidden
+continuation state and partial failure semantics.
 
-ADR-046 also forbids accepting speculative public schemas before a production
-consumer demonstrates them. This decision therefore defines a Proposed track,
-not a shipped backend or current wire format.
+The selected first consumer is now concrete: one sealed `4 × 2 × 1 m` basin,
+`0.75 m` water depth, at most `50,000` fixed-resolution samples, one movable
+PhysX crate and read-only debug-particle presentation. This selection narrows
+the Proposed program but does not promote it into the current runtime.
 
 ## Proposed decision
 
-### One ownership boundary, multiple numerical lanes
+### One owner boundary, separate numerical lanes
 
-Physical Embodiment SHOULD eventually own active continuum state alongside the
-current rigid/articulated world. Durable material identity and constitutive
-history live on bounded Lagrangian samples or region records. Spatial hashes,
-neighbor lists, temporary grids, pressure systems, surface meshes, SDFs and GPU
-buffers are reconstructible compute or presentation structures.
+Physical Embodiment SHOULD eventually own active continuum state alongside
+the rigid/articulated world. CPU `f64` DFSPH is the sole canonical candidate
+for water V1. APIC/MLS-MPM with one calibrated Drucker-Prager profile is the
+separate first dry-sand lane. Wet/saturated terrain follows exact dry-terrain
+persistence. A universal solver or universal particle record is rejected.
 
-The first numerical lanes are:
+GPU DFSPH is optional correspondence-only work. It cannot write canonical
+water, body impulses, saves, commands or events. Final quantization of a GPU
+trajectory does not establish equivalent history and cannot promote it.
 
-1. fixed-resolution CPU `f64` DFSPH as the water reference and oracle;
-2. GPU DFSPH as a non-authoritative correspondence mirror until promoted by a
-   later Accepted decision and cross-target evidence;
-3. APIC/MLS-MPM with an elastoplastic constitutive model for dry sand, snow and
-   deformable soil;
-4. saturation-dependent soil/water coupling only after the dry terrain lane
-   passes its conservation and product checks.
+### Canonical water boundary
 
-This is a family of solvers behind one engine-owned owner boundary, not a
-single generic mega-solver or a public vendor-neutral plugin ABI.
+The private solver may use `f64` during a fixed substep, but the accepted state
+contains only stable sample identity plus position in signed `i64`
+micrometres and velocity in signed `i64` micrometres per second. Publication
+uses one checked ties-to-even conversion, and the next substep reconstructs
+private floats from that accepted state.
 
-### Rigid coupling and authority
+Uniform sample mass is profile state. Density, pressure/divergence factors,
+neighbor/grid structures, warm-start values and render buffers are rebuilt
+caches. V1 disables warm start, adaptivity, surface tension, optional
+viscosity/vorticity models and variable time step so that no unrecorded field
+can affect continuation.
 
-PhysX remains the only current production writer of rigid-body and articulation
-state. A continuum step MAY produce one bounded, canonically ordered impulse
-batch for a declared physical substep. The PhysX step validates and consumes
-that batch; no continuum backend writes PhysX transforms or maintains a second
-rigid-body authority. Reaction state enters the next coupled substep or an
-explicit bounded coupling iteration.
+The exact baseline uses 240 Hz cadence, water density `1000 kg/m³`, particle
+radius `0.025 m`, spacing `0.05 m`, cubic-spline support `0.1 m`, sample mass
+`0.125 kg`, gravity `9.81 m/s²`, density iterations `2..=20` with mean error
+`<= 0.01%`, and divergence iterations `1..=20` with mean error `<= 0.1%`.
 
-Promotion to production MUST resolve the current ADR-058 wording with a new
-Accepted ADR: PhysX can remain the sole rigid/articulation backend while a
-separate continuum solver becomes an owned Physical Embodiment component.
+### One-pass composite PhysicalStep
 
-### Materials, persistence and presentation
+For every substep the runtime freezes the prior rigid projection, solves water,
+reduces one reaction batch, lets PhysX apply it and integrate once, then
+publishes the water and rigid result as one composite PhysicalStep
+transaction. There is no V1 coupling iteration, next-step delayed reaction or
+completion-order-selected result.
 
-`PhysicsMaterialDescriptorV2` MUST remain the solid-contact descriptor.
-Continuum constitutive profiles require a separate consumer-backed schema and
-cannot be added before the first runtime-bearing consumer.
+The future engine-owned reaction record binds full `PhysicsBodyIdV1`, expected
+world/body revisions, tick/substep, region/profile/prior-state roots,
+fixed-point linear/angular impulse and frozen centre of mass as torque
+reference. One canonical record remains per body after stable reduction.
+Exactly one batch key `(world generation, tick, substep, region)` is allowed;
+any duplicate or conflicting result rejects the complete step.
 
-Active-to-sleep conversion is an explicit lossy model transition, not a
-claimed lossless particle round trip. Production persistence requires bounded
-mass/momentum/volume and constitutive-history error, a versioned owner segment,
-and save/replay parity. Until those checks pass, a modified region remains
-active or persistent deformation is disabled.
+PhysX remains the sole writer of rigid/articulation transforms and velocities.
+Production requires a later Accepted ADR narrowly superseding the applicable
+ADR-058 wording while retaining this authority split.
 
-Presentation consumes immutable extracted samples/fields. Surface meshing,
-foam, spray, wetness masks and terrain tessellation are reconstructible and
-cannot feed gameplay queries or state roots.
+### Sealed region, persistence and fallback
 
-### Determinism and fallback
+Water V1 uses one sealed, pinned-active region. Particle transfer, halos,
+cross-region coupling and streaming eviction are absent. First persistence
+serializes exact active samples inside the same composite physics checkpoint;
+an independently committed sidecar is forbidden.
 
-The CPU reference uses stable sample IDs, fixed cadence, canonical neighbor and
-reduction order, finite profiles and explicit failure codes. GPU kernels MAY
-use faster order-dependent reductions only as mirrors. Quantizing their final
-output does not prove deterministic equivalence.
+Sleep conversion is a separate optional lossy transition and is not on the
+water critical path. It requires versioned receipts and repeated-cycle bounds
+before use. Cross-region transfer requires another specification and cannot be
+inferred from this decision.
 
-Every production profile requires a deterministic bounded fallback: static
-water/solid ground, an already accepted previous region generation, or feature
-unavailability before activation. Silent solver substitution is forbidden.
+Missing/rejected capability before activation loads an authored dry basin
+variant. After activation, silent switch to dry/decorative water, GPU authority
+or frozen water while PhysX advances is forbidden. A fatal active failure
+retains the last complete checkpoint and stops the affected physical run.
 
-## Product impact
+### Materials, contracts and presentation
 
-The track aims at player-visible local water and deformable terrain while
-preserving offline correctness and the current v1 critical path. It is an
-optional post-v1 program and does not change the current physics backend,
-save/replay formats, content schemas or public contracts.
+`PhysicsMaterialDescriptorV2` remains the exact solid-contact descriptor.
+Continuum constitutive profiles and rigid-boundary coupling mappings are
+separate future consumer-backed schemas. No public continuum type is added for
+the lab.
+
+Debug points/spheres and diagnostic overlays are sufficient for the first
+water vertical. Surface reconstruction, foam, spray and wetness remain
+reconstructible optional presentation and never feed collision or gameplay.
+
+### Terrain dependency ladder
+
+The first terrain consumer is one prescribed instrumented wheel over dry sand.
+For a declared deformable pair, MPM owns contact exclusively and the matching
+PhysX ground pair is disabled. Exact dry state and contact evidence precede
+exact persistence; saturation/drainage follows; a closed free-water/terrain
+flux batch follows only after both owner lanes pass independently. Full
+vehicle, generic soil, snow, clay, lossy sleep and two-phase poromechanics are
+not implied by the first profile.
+
+## Failure semantics
+
+Invalid profile/content, nonfinite value, conversion overflow, capacity
+excess, non-convergence, boundary escape, stale/missing body revision, result
+collision, conservation violation, PhysX rejection or corrupt checkpoint
+publishes neither water nor rigid state. The previous complete generation
+remains authoritative. Retry-to-green, partial result, mid-run fallback and
+separate sidecar recovery are forbidden.
+
+The offline serial oracle stops at its first failed substep and reports a typed
+bounded failure. It cannot continue a trajectory from a retained prior frame
+and present it as successful evidence.
+
+## Product impact and promotion
+
+The water program has an independent roadmap and remains
+`PLANNED / NOT_ACTIVE` in the main R8 roadmap. `CONTINUUM-WATER-REF-P1` first
+proves the serial oracle; only a PASS permits the main roadmap to activate the
+integration track. A later production proposal must additionally prove:
+
+- exact same-target repeat and insertion-order roots;
+- published/reference and independent-solver aggregate error bounds;
+- `50k` performance inside the existing THOTH physics `4/6 ms` p95/p99 and
+  integrated `8/12 ms` ceilings; `100k` is stress/report-only;
+- one-pass crate float/impact and failure atomicity;
+- exact active save/restart continuation;
+- Windows/Linux canonical-root equality before production promotion;
+- identical `game`/`headless` semantics and the authored dry pre-activation
+  fallback.
+
+If `50k` misses the current budget after two evidence-backed optimization
+cycles, the track remains research-only. GPU authority, a smaller production
+sample gate or a larger total budget requires an explicit new decision.
+
+## Considered alternatives
+
+- One SPH formulation for every material — rejected because elastoplastic
+  terrain requires distinct history and transfer semantics.
+- GPU-first authority — rejected because order-dependent execution is not a
+  cross-target replay contract.
+- Persist density, pressure or warm-start scratch — rejected for V1 because
+  the bounded clean-water profile can reconstruct them and hidden continuation
+  would enlarge determinism and migration scope.
+- Iterative or delayed rigid coupling — rejected for V1 because the selected
+  basin/crate consumer does not yet justify another fixed iteration profile.
+- Decorative water after active failure — rejected because presentation would
+  conceal a missing physical fact.
+- Lossy sleep before exact active persistence — rejected because uninterrupted
+  and restored representations would no longer have an exact compare point.
+- Extend `PhysicsMaterialDescriptorV2` — rejected because solid contact and
+  continuum constitutive state have different owners and lifecycles.
 
 ## Relevant product checks
 
 | Check | Scenario | Expected | Fallback |
 |---|---|---|---|
-| `CONTINUUM-WATER-REF-P1` | Bounded dam break, hydrostatic column and moving-boundary cases on the CPU reference | Conservation, density/divergence, repeatability and failure bounds pass | Keep the track offline and use static water/solid collision |
-| `CONTINUUM-COUPLING-P1` | Water impulse against a dynamic PhysX body | Canonical impulse batch conserves bounded momentum and never creates a second body writer | Disable two-way coupling |
-| `CONTINUUM-MIRROR-P1` | CPU/GPU water trajectory corpus | Declared per-field correspondence thresholds pass without an authority claim | CPU reference remains the oracle |
-| `CONTINUUM-TERRAIN-P1` | Tire/foot shear and dry-sand collapse | Terrain deformation and force curves pass conservation and regression checks | Use accepted rigid terrain |
-| `CONTINUUM-PERSISTENCE-P1` | Modify region, save, unload, restart and reload | Same owner root and bounded wake transition reproduce | Pin region active or reject persistent deformation |
-| conditional `performance` | One declared active region on the target profile | Budgets pass without changing authoritative outcomes | Reduce declared quality before world creation or disable the optional feature |
-
-## Considered alternatives
-
-- One SPH formulation for water, sand, mud and snow — rejected because solid
-  plasticity and constitutive history fit MPM-style transfers better.
-- Permanent Eulerian voxel/heightfield authority — rejected as the universal
-  representation; allowed as a bounded sleep or presentation approximation.
-- GPU-first canonical solver — rejected until device/compiler/profile closure
-  and cross-target evidence exist.
-- Extend `PhysicsMaterialDescriptorV2` — rejected because surface contact and
-  continuum constitutive state have different ownership and lifecycle.
-- Accept all proposed contracts now — rejected by ADR-046; schemas follow the
-  first production consumer.
-- Neural or 2026 variational methods as the baseline — rejected for the first
-  implementation; retained as isolated research comparators.
+| `CONTINUUM-WATER-REF-P1` | Hydrostatics, dam break, free fall, still tank, drain and analytical boundaries | Fixed profile, conservation/reference bounds and exact same-target roots pass | Keep the program offline; load authored dry basin |
+| `CONTINUUM-COUPLING-P1` | One-pass water reaction against the crate plus stale/capacity/failure cases | One composite result or none; PhysX remains the only rigid writer | Do not activate the water region |
+| `CONTINUUM-PERSISTENCE-P1` | Exact active save/restart and corrupt/incompatible inputs | Uninterrupted and restored roots match exactly | Retain prior save; do not activate the water region |
+| `CONTINUUM-MIRROR-P1` | Optional CPU/GPU corpus | Declared aggregate correspondence without authority claim | CPU remains the only candidate authority |
+| `CONTINUUM-TERRAIN-P1` | Calibrated dry-sand collapse/shear/sinkage/single-wheel corpus | Conservation, curves and exclusive contact pass | Use accepted rigid terrain |
+| conditional `performance` | `10k/50k/100k` on exact THOTH profile | `50k` passes current ceilings; `100k` reports only | Stop promotion or revise scope through a later decision |
 
 ## Consequences
 
-- [SPEC-36](../36-continuum-material-physics.md) and the implementation-spec
-  series remain Proposed until a concrete product scenario is selected.
-- First implementation is a CPU water lab, not a general runtime subsystem.
-- Dry terrain follows water coupling; wet mud follows dry terrain.
-- A production promotion must update SPEC-26, persistence, presentation,
-  routing, traceability and the roadmap in one coherent change.
-- No current crate, schema, ProductCheck result or roadmap blocker is changed.
+- SPEC-36 and this ADR remain Proposed; no current crate, schema, save format,
+  ProductCheck result or PhysX contract changes.
+- The first implementation is a private serial Rust oracle with external
+  evidence, not a runtime subsystem.
+- The water roadmap and the umbrella terrain series can progress independently.
+- Public contracts are introduced only with the basin consumer under ADR-046.
+- Production promotion must update SPEC-02/03/21/25/26/30, routing,
+  traceability and the main roadmap in one coherent Accepted change.
