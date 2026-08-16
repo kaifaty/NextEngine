@@ -126,7 +126,7 @@ fn replay_manifest_v8() -> (
 ) {
     let scratch = ScratchContext::new(&std::env::temp_dir()).expect("test scratch root");
     let prepared =
-        prepare_fixture_project_package_with_scratch(&scratch, "nextengine.replay-v7-test")
+        prepare_fixture_project_package_with_scratch(&scratch, "nextengine.replay-v8-test")
             .expect("fixture project package");
     let session =
         next_reference_game::build_reference_game_session(prepared.package.project.clone())
@@ -533,10 +533,10 @@ fn versioned_manifest_restores_snapshot_and_checks_every_compare_point() {
 }
 
 #[test]
-fn replay_v7_rejects_a_calendar_valid_routine_without_its_ledger_receipt() {
+fn replay_v8_rejects_a_calendar_valid_routine_without_its_ledger_receipt() {
     let scratch = ScratchContext::new(&std::env::temp_dir()).expect("test scratch root");
     let prepared =
-        prepare_fixture_project_package_with_scratch(&scratch, "nextengine.replay-v7-ledger-gap")
+        prepare_fixture_project_package_with_scratch(&scratch, "nextengine.replay-v8-ledger-gap")
             .expect("fixture project package");
     let session =
         next_reference_game::build_reference_game_session(prepared.package.project.clone())
@@ -669,7 +669,7 @@ fn replay_manifest_v8_round_trips_and_replays_query_and_v2_receipt_facts() {
     assert_eq!(decoded, manifest);
     assert_eq!(decoded.to_jcs_bytes().expect("manifest re-encodes"), bytes);
     assert_eq!(
-        run_replay_manifest_v8(&decoded, prepared.package.clone()).expect("V7 replay is exact"),
+        run_replay_manifest_v8(&decoded, prepared.package.clone()).expect("V8 replay is exact"),
         expected
     );
 }
