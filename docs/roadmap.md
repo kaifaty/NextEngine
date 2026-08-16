@@ -4,8 +4,8 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-16 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R4a, [R4b tiers + graph navigation + 100 NPC](development/task-state/r4b-population-navigation.md) и [R4c deterministic cognition core](development/task-state/r4c-deterministic-cognition.md) `COMPLETE`. SPEC-32 и ADR-073 принимают bounded one-subject cognition core; R4d social/economy vertical — `NEXT`, но ещё не начат. R141 завершил bounded R5 research lineage как `INVALID / STOP_NO_RETRY` и не имеет R142/downstream authority. `r4-100npc` остаётся population-only report workload; неподдерживаемый host дал `NOT_RUN`, поэтому B-12/Linux/R1/R7/v1 shipping не закрыты. |
-| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04, R3b/B-06 и R4a–R4c increments `COMPLETE`; это не закрывает R1, B-12, Linux, paired cross-target evidence или full R4. Следующий eligible roadmap increment — R4d, но его WIP ещё не открыт; bounded TRAIN-4 lineage остановлена без retry/downstream authority. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R4a, [R4b tiers + graph navigation + 100 NPC](development/task-state/r4b-population-navigation.md) и [R4c deterministic cognition core](development/task-state/r4c-deterministic-cognition.md) `COMPLETE`. [R4d systemic Strategic Agent vertical](development/task-state/r4d-systemic-strategic-agent.md) открыл единственный WIP slot и находится в `ACTIVE / CONTRACT_FREEZE`; full R4 ещё не закрыт. R141 завершил bounded R5 research lineage как `INVALID / STOP_NO_RETRY` и не имеет R142/downstream authority. `r4-100npc` остаётся population-only report workload; неподдерживаемый host дал `NOT_RUN`, поэтому B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04, R3b/B-06 и R4a–R4c increments `COMPLETE`; R4d сейчас `ACTIVE / CONTRACT_FREEZE`. Это не закрывает R1, B-12, Linux, paired cross-target evidence или full R4; bounded TRAIN-4 lineage остановлена без retry/downstream authority. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
@@ -208,7 +208,7 @@ flowchart LR
 | R1. Native developer preview | `IN_PROGRESS` | S–M | Один exact package действительно запускается на обеих shipping targets. |
 | R2. Playable alpha | `COMPLETE / WINDOWS_ACCEPTED` | L | Data-first slice, Windows package, automated checks и зафиксированный 20–30-minute acceptance проходят. Linux/R1 cross-target closure не заявляется. |
 | R3. Scalable content and streaming | `COMPLETE` | XL | Private packaged vertical и bounded 4-region/64-chunk project проходят cook/load/unload/save/restart и report-only workload без hard-coded two-chunk assumptions. |
-| R4. Systemic living world | `IN_PROGRESS / R4d NEXT` | XL | R4a routine, R4b population/navigation и R4c cognition core завершены; systemic R4d breadth ещё не начата. |
+| R4. Systemic living world | `IN_PROGRESS / R4d ACTIVE` | XL | R4a routine, R4b population/navigation и R4c cognition core завершены; systemic R4d breadth находится в contract freeze. |
 | R5. Physical character integration | `PLANNED / R&D_LINEAGE_STOPPED` | XL | Bounded TRAIN-4 lineage остановлена на R141 `INVALID / NO_RETRY`; production integration, procedural fallback and stage closure остаются отдельными gates после R4 substrate. |
 | R6. Creator beta | `PLANNED` | L–XL | Второй проект/пакет создаётся без правки engine internals. |
 | R7. V1 release candidate | `PLANNED` | L | Полный v1 scope стабилизирован и упакован для Windows/Linux. |
@@ -439,8 +439,8 @@ ten-run performance evidence.
 
 Automated production path, lawful content/provenance, отсутствие hidden
 UI/camera mutation и ручной representative loop подтверждены. Архитектурный
-cleanup, R3 и R4a–R4c завершены; следующий eligible increment — R4d systemic
-Strategic Agent vertical, но его WIP ещё не открыт.
+cleanup, R3 и R4a–R4c завершены; R4d systemic Strategic Agent vertical открыл
+единственный WIP slot и находится в contract freeze.
 
 **Scope guard:** editor, advanced renderer, photoreal assets и procedural world
 generation не входят в этот этап.
@@ -517,8 +517,8 @@ intent и не является принятым R3 contract.
 
 ## R4 — Systemic living world
 
-**Статус:** `IN_PROGRESS / R4d NEXT`. R4a–R4c завершены и приняты; R4d
-systemic Strategic Agent vertical ещё не начат. Bounded R5 training lineage
+**Статус:** `IN_PROGRESS / R4d ACTIVE`. R4a–R4c завершены и приняты; R4d
+systemic Strategic Agent vertical находится в `ACTIVE / CONTRACT_FREEZE`. Bounded R5 training lineage
 остановлена на R141 без retry/downstream authority.
 
 **Цель:** перейти от scripted encounter к offline world, где NPC и world state
@@ -582,7 +582,8 @@ systemic Strategic Agent vertical ещё не начат. Bounded R5 training li
    bounded GOAP. Its private task executive emits typed intents only; Decision
    Trace remains reconstructible while separate Agent/Memory owners publish at
    stage 9 and persist in the eight-owner application root under ADR-073.
-4. **R4d — systemic Strategic Agent vertical (`NEXT`):** NPC без еды и денег
+4. **R4d — systemic Strategic Agent vertical (`ACTIVE / CONTRACT_FREEZE`,
+   2026-08-16):** NPC без еды и денег
    получает сведения через structured speech act, принимает реальную работу,
    проходит navigation/activity, получает committed currency, покупает food и
    ест; threat interrupt, resume/replan, stale/no-route/no-job/no-money branches,
@@ -2394,7 +2395,7 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    Epistemic/Drive views, beliefs/memory retrieval, fixed-point goal Utility,
    bounded GOAP, private task executive, Decision Trace and eight-owner
    save/Replay V8 are current under ADR-073.
-11. **R4d systemic Strategic Agent vertical (`NEXT`):** structured
+11. **R4d systemic Strategic Agent vertical (`ACTIVE / CONTRACT_FREEZE`):** structured
    information/work agreement → navigation/activity → committed currency →
    trade → food, including threat interruption/replan, failure branches and
    exact tiered/headless behavior. This closes R4 without learned models.
@@ -2408,9 +2409,9 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    ten-run R2–R5 baselines/hard gates и Windows v1 candidate package; Linux
    остаётся `DEFERRED_LINUX`, v1 shipping не заявляется.
 
-Каждый package должен быть отдельным product increment с focused checks. R4c
-освободил WIP slot; следующий eligible increment — R4d, но его WIP ещё не
-открыт. Bounded R5 lineage остановлена и не идёт параллельно. SPEC-23 остаётся Proposed: завершённый R3/R4b/R4c не
+Каждый package должен быть отдельным product increment с focused checks. R4d
+занимает единственный WIP slot в contract freeze. Bounded R5 lineage остановлена
+и не идёт параллельно. SPEC-23 остаётся Proposed: завершённый R3/R4b/R4c не
 начинает универсальный scheduler design без второго concrete production
 workload.
 
