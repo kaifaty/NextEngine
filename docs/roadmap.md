@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-16 |
-| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R4a и [R4b tiers + graph navigation + 100 NPC](development/task-state/r4b-population-navigation.md) `COMPLETE`, SPEC-08/20/25 и ADR-072 приняты. Production path содержит authoring/cook V4, `ActivatedProjectV5`, отдельные routine/population owners, six-owner joint closure и current-only Replay V7. R4 остаётся `IN_PROGRESS`; следующий eligible increment — R4c deterministic cognition core. R141 завершил bounded R5 research lineage как `INVALID / STOP_NO_RETRY` и не имеет R142/downstream authority. `r4-100npc` реализован только как report-only workload; неподдерживаемый host дал `NOT_RUN`, поэтому B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Текущая точка | R3 и reference-project vertical остаются `COMPLETE`; R4a и [R4b tiers + graph navigation + 100 NPC](development/task-state/r4b-population-navigation.md) `COMPLETE`, SPEC-08/20/25 и ADR-072 приняты. [R4c deterministic cognition core](development/task-state/r4c-deterministic-cognition.md) `ACTIVE` на этом immutable substrate; R4d social/economy vertical ещё не начат. R141 завершил bounded R5 research lineage как `INVALID / STOP_NO_RETRY` и не имеет R142/downstream authority. `r4-100npc` реализован только как report-only workload; неподдерживаемый host дал `NOT_RUN`, поэтому B-12/Linux/R1/R7/v1 shipping не закрыты. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04, R3b/B-06, R4a и R4b increments `COMPLETE`; это не закрывает R1, B-12, Linux, paired cross-target evidence или full R4. Следующий roadmap increment — R4c; bounded TRAIN-4 lineage остановлена без retry/downstream authority. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -207,7 +207,7 @@ flowchart LR
 | R1. Native developer preview | `IN_PROGRESS` | S–M | Один exact package действительно запускается на обеих shipping targets. |
 | R2. Playable alpha | `COMPLETE / WINDOWS_ACCEPTED` | L | Data-first slice, Windows package, automated checks и зафиксированный 20–30-minute acceptance проходят. Linux/R1 cross-target closure не заявляется. |
 | R3. Scalable content and streaming | `COMPLETE` | XL | Private packaged vertical и bounded 4-region/64-chunk project проходят cook/load/unload/save/restart и report-only workload без hard-coded two-chunk assumptions. |
-| R4. Systemic living world | `IN_PROGRESS / R4c NEXT` | XL | R4a routine и R4b population/navigation substrate завершены; cognition/systemic breadth остаётся за R4c–R4d. |
+| R4. Systemic living world | `IN_PROGRESS / R4c ACTIVE` | XL | R4a routine и R4b population/navigation substrate завершены; cognition core выполняется, systemic R4d breadth ещё не начата. |
 | R5. Physical character integration | `PLANNED / R&D_LINEAGE_STOPPED` | XL | Bounded TRAIN-4 lineage остановлена на R141 `INVALID / NO_RETRY`; production integration, procedural fallback and stage closure остаются отдельными gates после R4 substrate. |
 | R6. Creator beta | `PLANNED` | L–XL | Второй проект/пакет создаётся без правки engine internals. |
 | R7. V1 release candidate | `PLANNED` | L | Полный v1 scope стабилизирован и упакован для Windows/Linux. |
@@ -516,8 +516,8 @@ intent и не является принятым R3 contract.
 
 ## R4 — Systemic living world
 
-**Статус:** `IN_PROGRESS / R4c NEXT`. R4a и R4b завершены и приняты; следующий
-eligible increment — R4c. Bounded R5 training lineage остановлена на R141 без
+**Статус:** `IN_PROGRESS / R4c ACTIVE`. R4a и R4b завершены и приняты; R4c
+deterministic cognition core выполняется. Bounded R5 training lineage остановлена на R141 без
 retry/downstream authority.
 
 **Цель:** перейти от scripted encounter к offline world, где NPC и world state
@@ -575,7 +575,7 @@ retry/downstream authority.
    population ledger evidence. `r4-100npc.v1` runs 1,000 warm-up + 10,000
    measured ticks report-only with exact counts/roots and no starvation. The
    unsupported-host outer verdict is `NOT_RUN`; no B-12 claim follows.
-3. **R4c — deterministic cognition core (`PLANNED`):** production consumers
+3. **R4c — deterministic cognition core (`ACTIVE`):** production consumers
    для Epistemic/Drive views, beliefs/retrieval, goal candidates, fixed-point
    Utility/inertia/emergency, bounded GOAP, private task executive,
    Decision Trace и owner-segment save/replay. Exact public schemas появляются
@@ -2372,7 +2372,7 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    tier/placement/abstract-transfer and engine-owned graph/tile navigation
    substrate, six-owner Replay V7 and representative report-only workload are
    current under ADR-072 without a B-12 claim.
-10. **R4c deterministic cognition core (`NEXT`):** production
+10. **R4c deterministic cognition core (`ACTIVE`):** production
    Epistemic/Drive views, beliefs/memory retrieval, fixed-point goal Utility,
    bounded GOAP, private task executive, Decision Trace and save/replay.
 11. **R4d systemic Strategic Agent vertical (`PLANNED`):** structured
@@ -2390,8 +2390,8 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    остаётся `DEFERRED_LINUX`, v1 shipping не заявляется.
 
 Каждый package должен быть отдельным product increment с focused checks. R4b
-освободил WIP slot; следующий eligible package — R4c deterministic cognition
-core. Bounded R5 lineage остановлена и не идёт параллельно. SPEC-23 остаётся Proposed: завершённый R3/R4b не
+освободил WIP slot; этот slot занимает R4c deterministic cognition core.
+Bounded R5 lineage остановлена и не идёт параллельно. SPEC-23 остаётся Proposed: завершённый R3/R4b не
 начинает универсальный scheduler design без второго concrete production
 workload.
 
