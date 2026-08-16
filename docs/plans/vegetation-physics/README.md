@@ -4,7 +4,8 @@ Status: `PLANNED / NOT_ACTIVE`; post-v1 isolated program. Governing candidate
 architecture: [SPEC-37](../../architecture/37-layered-physical-world.md),
 [SPEC-38](../../architecture/38-structural-vegetation-physics.md) and
 [ADR-073](../../architecture/adr/073-layered-physical-world-and-living-structures-track.md).
-Package V0 is open and no `VEGETATION-*` ProductCheck has run.
+V0A product decisions are complete; V0B numerical/profile/corpus calibration
+is open and no `VEGETATION-*` ProductCheck has run.
 
 This directory is the resume and execution surface for a dedicated vegetation
 worktree. The main [Next Engine roadmap](../../roadmap.md) keeps the track
@@ -28,22 +29,24 @@ becomes static, scripted, decorative or GPU-authoritative.
 ## Stage graph
 
 ```text
-V0 Product/profile/evidence closure             OPEN / BLOCKS CODE
- └─ V1 Serial structural formulation oracle     NOT_STARTED
-     ├─ V2 Rooted tree graph + analytical wind  NOT_STARTED
-     │   └─ V3 Section damage + graph fracture  NOT_STARTED
-     │       └─ V4 PhysX coupling + trail tree  NOT_STARTED
-     │           └─ V5 Exact active persistence NOT_STARTED
-     │               └─ V6 Forest LOD + budget  NOT_STARTED
-     │                   └─ V7 Production promotion NOT_STARTED
-     └─ VG Optional GPU correspondence mirror   NOT_STARTED / NON_BLOCKING
+V0A Product/architecture decisions              COMPLETE
+ └─ V0B Numeric/profile/corpus calibration       OPEN / BLOCKS CODE
+     └─ V1 Serial structural formulation oracle NOT_STARTED
+         ├─ V2 Rooted tree graph + analytical wind  NOT_STARTED
+         │   └─ V3 Section damage + graph fracture  NOT_STARTED
+         │       └─ V4 PhysX coupling + trail tree  NOT_STARTED
+         │           └─ V5 Exact active persistence NOT_STARTED
+         │               └─ V6 Forest LOD + budget  NOT_STARTED
+         │                   └─ V7 Production promotion NOT_STARTED
+         └─ VG Optional GPU correspondence mirror   NOT_STARTED / NON_BLOCKING
 
 V5/V7 ── VF future thermal/fire/root/soil lanes NOT_STARTED / OUTSIDE BASE
 ```
 
 | Stage | Specification | Exit evidence | Blocks |
 |---|---|---|---|
-| V0 | [Product, profile and evidence closure](00-product-profile-and-evidence-closure.md) | Geometry, wood, wind, cut, state, corpus, thresholds, capacities and stop rules are exact | every code stage |
+| V0A | [Selected product decisions](00-product-profile-and-evidence-closure.md#v0a-selected-decision-profile) | Answers 1–19 are recorded as the product/authority/evidence profile | V0B |
+| V0B | [Numeric, profile and corpus calibration](00-product-profile-and-evidence-closure.md#v0b-required-exact-tree-definition) | Geometry, wood, wind, cut, state, corpus, remaining thresholds, capacities and stop rules are exact | every code stage |
 | V1 | [Serial structural formulation oracle](01-serial-structural-formulation-oracle.md) | `VEGETATION-BEAM-REF-P1 = PASS`; one formulation/integrator/state is frozen | main-roadmap activation, V2, VG |
 | V2 | [Rooted tree graph and analytical wind](02-rooted-tree-graph-and-wind.md) | `VEGETATION-TREE-P1 = PASS` without collision/fracture | V3 |
 | V3 | [Section damage and graph fracture](03-section-damage-and-graph-fracture.md) | `VEGETATION-FRACTURE-P1 = PASS` under prescribed loads/cuts | V4 |
@@ -78,7 +81,8 @@ V5/V7 ── VF future thermal/fire/root/soil lanes NOT_STARTED / OUTSIDE BASE
 
 ## Worktree and main-roadmap protocol
 
-1. Close V0 in documentation before creating structural solver code.
+1. Keep V0A closed and close V0B in documentation before creating structural
+   solver code.
 2. Create a dedicated worktree from the documentation checkpoint and implement
    only V1. A `Pass` requires curves and roots, not compilation or a visual
    animation.
@@ -87,8 +91,8 @@ V5/V7 ── VF future thermal/fire/root/soil lanes NOT_STARTED / OUTSIDE BASE
 4. Each stage is a coherent commit boundary. A failed run records the first
    discriminator and leaves the stage open; thresholds are not tuned after the
    result.
-5. If the V0 forest workload misses budget after two evidence-backed V6
-   optimization cycles, stop as `RESEARCH_ONLY`. GPU authority, a smaller
+5. If the selected V0A forest workload misses budget after two evidence-backed
+   V6 optimization cycles, stop as `RESEARCH_ONLY`. GPU authority, a smaller
    tree/branch gate or a larger budget requires a new explicit decision.
 
 ## Whole-program non-goals

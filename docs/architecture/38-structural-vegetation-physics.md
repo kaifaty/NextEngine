@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-38 |
 | Status | Proposed |
-| Version | 1.0 |
+| Version | 1.1 |
 | Last verified | 2026-08-16 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-37](37-layered-physical-world.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-073](adr/073-layered-physical-world-and-living-structures-track.md) |
-| Supersedes | none; defines a Proposed living-structures track without changing current runtime, PhysX, content or save contracts |
+| Supersedes | SPEC-38 1.0; records the selected V0A product, authority, evidence and budget decisions without changing current runtime, PhysX, content or save contracts |
 
 ## Status and selected scope
 
@@ -23,12 +23,38 @@ remaining hinge fails from computed section loads; the detached component is
 handed to PhysX and can block the trail. Debug rods, section cells, stress and
 contact overlays are sufficient presentation.
 
-The exact tree geometry, calibrated wood profile, solver formulation,
-discretization, cut-work mapping, collision capacity and numerical/physical
-curve thresholds remain Package V0 blockers. No structural solver code may
-start while those values are implicit. Fire, moisture, decay, growth, foliage
-contact, snow/ice, root failure, continuum-soil coupling, forest streaming and
-GPU authority are not part of the first vertical.
+V0A product and architecture decisions are closed below. Exact graph/taper
+bytes, synthetic material constants, field quantization scales, fixed internal
+candidate cadences, fixture traces and reference-curve hashes remain V0B
+calibration blockers. No structural solver code may start while those values
+are implicit. Fire, moisture, decay, growth, foliage contact, snow/ice, root
+failure, continuum-soil coupling, cross-region forest streaming and GPU
+authority are not part of the first vertical.
+
+### Selected V0A profile
+
+The first profile is `Next Engine Reference Conifer V1`, an explicitly
+synthetic engine test tree with no species-realism claim. It is a 10 m tree
+with 12 major branches, no more than 128 structural segments and no more than
+32 tapered-capsule collision proxies. Its root is a rigid clamp; uprooting is
+excluded. One authored trunk felling zone uses exactly 8 radial rings by 32
+angular sectors, or 256 section cells.
+
+The outer structural cadence is fixed at 240 Hz. The V1 formulation bake-off
+selects one fixed internal substep/iteration profile from the frozen corpus;
+variable time step and result-dependent adaptivity are forbidden. Canonical
+continuation state is fixed-point after every outer step; `f64` exists only
+inside that step. A cut receives bounded canonical impulse, blade direction,
+relative motion and grain coefficient through the production axe command path.
+Derived remaining area, centroid, moments and directional stress/strength
+govern failure, with at most one split per structure per substep.
+
+The selected representation ladder is `AuthoredStatic -> ShaderWind ->
+ModalStructural -> ActiveStructural -> RefinedSection`. The production forest
+fixture contains 1,000 visible, 128 modal, 8 active, one refined and no more
+than two simultaneously falling trees. The incremental vegetation CPU budget
+on THOTH is 2/3 ms p95/p99 within the existing integrated physical 8/12 ms
+p95/p99 budget. Exact memory and transition budgets remain V0B blockers.
 
 ## Candidate authority
 
@@ -72,7 +98,8 @@ friction/restitution/contact roles for structural collision proxies.
 
 ## Canonical active state candidate
 
-After every accepted structural substep, complete future-affecting state is:
+After every accepted 240 Hz structural outer step, complete future-affecting
+state is:
 
 - structure/profile/topology revisions, tick/substep and canonical root;
 - stable node ID, fixed-point position and orientation;
@@ -83,17 +110,17 @@ After every accepted structural substep, complete future-affecting state is:
 - root-anchor state and pending topology-transition disposition;
 - active representation tier and its transition receipt.
 
-Package V0 must assign exact units, integer widths/scales and bounds to every
+V0B must assign exact units, integer widths/scales and bounds to every
 field. Quaternion/rotation rules use a named SPEC-21 quantization profile,
 canonical sign and checked ties-to-even conversion. The private solver may use
-`f64` within a fixed substep, but publication is the only continuation boundary
-and the next substep starts from accepted values. Factorizations, residual
-scratch, broad-phase structures, modal basis caches and GPU/render buffers are
-reconstructed and cannot survive as hidden authority.
+`f64` within a fixed outer step, but publication is the only continuation
+boundary and the next outer step starts from accepted values. Factorizations,
+residual scratch, broad-phase structures, modal basis caches and GPU/render
+buffers are reconstructed and cannot survive as hidden authority.
 
 Warm start, variable time step, adaptive element insertion/removal, fatigue,
 plasticity/creep and arbitrary local fibre refinement are disabled in V1 unless
-Package V0 explicitly adds a future-affecting field and a corpus for it.
+V0B explicitly adds a future-affecting field and a corpus for it.
 
 ## Formulation selection gate
 
@@ -127,12 +154,13 @@ There is no tree HP. A validated cut command binds the production interaction,
 tool/body/contact identity, target felling zone and expected structure/body
 revisions. It contributes bounded fixed-point cut work to an exact section-cell
 update. The mapping from tool geometry, relative velocity/impulse, grain
-direction and material profile to removed/crushed cells is frozen in Package
-V0 and exercised through the same command path in game and headless.
+direction and material profile to removed/crushed cells is frozen in V0B and
+exercised through the same command path in game and headless.
 
-The first cut representation is a bounded polar cross-section lattice at one
-authored felling zone. Cells carry closed states such as intact, crushed and
-severed plus only the history selected by V0. Remaining area, centroid and
+The first cut representation is a polar cross-section lattice of exactly 8
+radial rings by 32 angular sectors at one authored felling zone. Cells carry
+closed states such as intact, crushed and severed plus only the history selected
+by V0B. Remaining area, centroid and
 second moments are derived in canonical cell order. Load capacity follows that
 remaining geometry and directional material strength; a scalar accumulated HP
 or a scripted `fell_now` threshold is forbidden.
@@ -154,7 +182,7 @@ and transition evidence; it cannot silently replace section cells.
 
 ## PhysX coupling and detached handoff
 
-An active standing tree exposes bounded tapered capsule/convex collision
+An active standing tree exposes no more than 32 tapered-capsule collision
 proxies derived from its last accepted graph. During a substep PhysX integrates
 dynamic bodies exactly once against that frozen projection and emits canonical
 contact loads. The living solver consumes the batch plus wind and advances once
@@ -163,7 +191,7 @@ capacity overflow rejects the whole composite step.
 
 At the first trunk sever, the selected detached component becomes one bounded
 PhysX compound rigid body in V1. The handoff preserves declared mass, centre of
-mass, linear momentum and angular momentum within V0 thresholds. After commit,
+mass, linear momentum and angular momentum within V0B thresholds. After commit,
 PhysX alone advances that component. Internal flexible falling-tree dynamics,
 tree-to-tree fracture and re-fracturing detached bodies are later profiles.
 
@@ -215,10 +243,19 @@ retains the last complete checkpoint.
 | `VEGETATION-PERSISTENCE-P1` | Exact active save/restart equals uninterrupted execution; corrupt/incompatible segments fail before mutation. |
 | `VEGETATION-LOD-P1` | Adjacent tier cycles meet frozen discontinuity/history bounds; camera/timing/worker permutations do not change tiers or roots. |
 | `VEGETATION-MIRROR-P1` | Optional GPU aggregate correspondence passes without an authority claim. |
-| conditional `performance` | The V0 active/modal/visible forest fixture fits the existing THOTH integrated budget or the track remains research-only. |
+| conditional `performance` | The selected V0A active/modal/visible forest fixture and V0B memory/transition closure fit the declared THOTH budgets or the track remains research-only. |
 
-Same-target exactness is required for reference work; Windows/Linux canonical
-root equality is additionally required before production promotion. Heavy
+The frozen accuracy thresholds are: static curve error at most 2%, natural
+frequency error at most 5%, aggregate normalized RMSE at most 5%, maximum
+curve error at most 10%, external-work-aware work/impulse residual at most 1%,
+exact mass, detached handoff CoM error at most 1 mm and handoff momentum
+residual at most 1%. Exact collision-penetration and LOD-transition thresholds
+remain V0B blockers.
+
+Same-target exactness is required for V1 reference work; Windows/Linux
+canonical root equality is additionally required before production promotion.
+Exact active save/resume is required before any lossy modal/sleep persistence.
+Heavy
 external trajectories, scans, captures and measurements remain outside Git.
 
 No public contract is added for V0/V1. With the production tree consumer, the

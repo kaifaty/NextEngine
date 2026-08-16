@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `READY_FOR_VEGETATION_PACKAGE_00` |
+| Status | `READY_FOR_VEGETATION_V0B_CALIBRATION` |
 | Updated | `2026-08-16` |
 | Task key | `vegetation-physics` |
 | Scope | Proposed layered physical-world model and evidence-gated structural vegetation specifications |
@@ -11,12 +11,13 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** architecture is ready, implementation is not. Close
-  [V0](../../plans/vegetation-physics/00-product-profile-and-evidence-closure.md)
+- **Current conclusion:** V0A product decisions are complete; implementation is
+  not ready. Close [V0B](../../plans/vegetation-physics/00-product-profile-and-evidence-closure.md#v0b-required-exact-tree-definition)
   before creating solver code.
-- **Selected consumer:** one pinned-active procedural trail-side tree; analytical
-  wind; production-path notch/back cut; section-derived hinge failure; atomic
-  detached-component handoff to one PhysX compound body; debug presentation.
+- **Selected consumer:** `Next Engine Reference Conifer V1`, 10 m, 12 major
+  branches, at most 128 structural segments, rigid root clamp, analytical wind,
+  production-path axe notch/back cut, 8x32 section cells, at most 32 tapered-
+  capsule proxies and atomic handoff to one PhysX compound body.
 - **Authority:** living structures own rooted graph/elastic/damage/topology;
   PhysX alone owns rigid bodies; peer owners publish one composite
   `PhysicalStep` or neither publishes.
@@ -24,8 +25,12 @@
   exact rod and a constrained/implicit discrete-rod or corotational baseline.
 - **Activation gate:** main R8 row remains `PLANNED / NOT_ACTIVE` until
   `VEGETATION-BEAM-REF-P1 = PASS`.
-- **Current blocker:** exact reference tree, wood/anchor profile, cut mapping,
-  numeric scales, curve thresholds, capacities and forest workload are absent.
+- **Selected gate:** 1,000 visible, 128 modal, 8 active, one refined and at most
+  two falling trees; incremental THOTH CPU 2/3 ms p95/p99 inside integrated
+  physical 8/12 ms p95/p99.
+- **Current blocker:** exact graph/taper bytes, synthetic wood constants,
+  numeric scales, candidate cadence ladders, command traces/curve hashes and
+  remaining collision/LOD/memory/transition thresholds are absent.
 - **Do not retry:** GPU-first authority, visual mesh/rigid chain as tree state,
   scalar HP, camera/timing LOD, flexible falling crown V1, fire/root/soil inside
   the base milestone, or public contracts before a production consumer.
@@ -36,7 +41,7 @@
 | --- | --- | --- |
 | [Source research review](../vegetation-physics-research-2026-08-16.md) | `REPORT_ONLY` | Supports sparse graph/section damage and corrects solver/authority/LOD scope; proves no implementation |
 | [SPEC-37](../../architecture/37-layered-physical-world.md), [SPEC-38](../../architecture/38-structural-vegetation-physics.md) and [ADR-073](../../architecture/adr/073-layered-physical-world-and-living-structures-track.md) | `Proposed` | Candidate owner DAG, tree authority, coupling, fracture, persistence and fallback semantics are closed |
-| [Vegetation roadmap](../../plans/vegetation-physics/README.md) | `V0 OPEN / V1 NOT_STARTED` | Code is blocked on profile/evidence closure; later lanes cannot bypass the serial oracle |
+| [Vegetation roadmap](../../plans/vegetation-physics/README.md) | `V0A COMPLETE / V0B OPEN / V1 NOT_STARTED` | Product choices are fixed; code remains blocked on numeric/profile/corpus calibration and later lanes cannot bypass the serial oracle |
 | `VEGETATION-*` ProductChecks | `NOT_RUN` | No solver, tree, fracture, coupling, persistence, LOD, target or performance claim is admissible |
 
 ## Decisions that constrain the next work
@@ -106,16 +111,32 @@
 - **Rejected:** one broad `VegetationSystem` milestone or crate tree that
   implies these capabilities.
 
-## Open V0 decisions
+### D-008 — V0A product and evidence profile
+
+- **Decision:** use the synthetic 10 m `Next Engine Reference Conifer V1`, 12
+  major branches, rigid root, 128-segment/32-proxy capacities, one 8x32 felling
+  section, axe-only production cut and one detached PhysX compound body.
+- **Cadence/state:** 240 Hz outer step, fixed-point continuation and one fixed
+  internal candidate profile selected by the V1 bake-off.
+- **Evidence:** static <=2%, natural frequencies <=5%, normalized RMSE <=5%,
+  maximum curve error <=10%, work/impulse residual <=1%, exact mass, handoff
+  CoM <=1 mm and momentum residual <=1%; same-target exact in V1 and cross-
+  target exact before promotion.
+- **Performance:** 1,000 visible, 128 modal, 8 active, one refined, at most two
+  falling; incremental THOTH CPU 2/3 ms p95/p99 inside integrated 8/12 ms.
+- **Consequence:** V0A is closed, but these bounds do not manufacture the V0B
+  constants, fixture curves or hashes required before code.
+
+## Open V0B calibration
 
 | Decision | Required output |
 | --- | --- |
-| Reference identity | synthetic test wood or named species/condition, with explicit claim boundary |
-| Tree geometry | exact height/taper/branch graph, felling zone, masses, drag and collision capacities |
-| Wood and anchor | reduced orthotropic constants, strengths/fracture, damping and fixed root constraint |
-| Numeric profile | all fixed-point scales/bounds, rotation/state fields, outer/internal cadence and iterations |
-| Cut model | tool/contact trace, ring/sector counts, cut-work mapping, notch/back-cut curve and failure key |
-| Forest gate | exact tier counts/DOFs/proxies/cells, transition schedule and THOTH p95/p99/memory budgets |
+| Exact tree bytes | trunk centreline/taper, 12-branch graph, felling-zone span, segment masses/drag and exact node count within selected capacities |
+| Synthetic material | reduced orthotropic constants, strengths/fracture, damping, moisture reference and provenance for `Next Engine Reference Conifer V1` |
+| Numeric profile | all fixed-point scales/bounds, rotation/state fields, candidate cadence ladders, convergence and failure codes |
+| Fixture corpus | exact calm/steady/gust and pull traces, axe command trace/cut-work coefficients, curve formulas, samples and hashes |
+| Remaining thresholds | metric normalization/applicability, collision penetration and LOD transition discontinuity/history limits |
+| Remaining performance | static/shader split, tier cadence/transition tokens, THOTH memory/transition budgets and report-only stress fixtures |
 
 ## Required context
 
@@ -131,11 +152,12 @@
 
 ## Next action
 
-1. Answer the six V0 decision groups with product/design and material evidence.
-2. Freeze exact fixtures, external curve hashes and thresholds in V0.
+1. Calibrate and freeze the exact tree bytes and synthetic wood constants.
+2. Freeze numeric scales, candidate cadence ladders, fixtures, external curve
+   hashes and the remaining thresholds/budgets in V0B.
 3. Create a dedicated vegetation worktree from that documentation checkpoint.
 4. Implement only the serial V1 oracle and stop at the first failed criterion.
-5. Update this task-state only when V0 closes or evidence changes the approach.
+5. Update this task-state only when V0B closes or evidence changes the approach.
 
 ## Handoff
 

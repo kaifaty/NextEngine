@@ -9,7 +9,8 @@ parallelism, fracture or rendering dependency.
 
 ## Preconditions
 
-- V0 is complete and hash-closes every profile, curve and threshold.
+- V0A and V0B are complete; V0B hash-closes every profile, curve and
+  threshold.
 - The external PyElastica checkout and analytical corpus are independently
   reproducible from recorded revisions.
 - Both candidates consume identical geometry/material/load and publish through
