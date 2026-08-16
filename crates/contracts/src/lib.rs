@@ -29,5 +29,6 @@ pub mod session;
 pub mod snapshot;
 pub mod targeting;
 pub mod world;
+pub mod world_activity;
 pub mod world_population;
 pub mod world_routine;

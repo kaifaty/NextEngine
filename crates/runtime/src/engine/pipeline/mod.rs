@@ -29,6 +29,7 @@ use super::result::{
     CommandOrderKey, CommittedRpgPlanTraceV1, OrderedResult, RejectionCode, StageTraceEntry,
     TransactionStage,
 };
+use super::world_activity::WorldActivityStageContextV1;
 use super::world_population::WorldPopulationStageContextV1;
 use super::world_routine::WorldRoutineStageContextV1;
 
@@ -138,6 +139,10 @@ struct PhysicalStepExecution {
     contact_batch: ClosedPhysicsContactBatchV1,
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "phase execution threads each optional staged authoritative owner explicitly"
+)]
 pub(super) fn process_phase(
     context: PhaseContext<'_>,
     commands: Vec<WorldCommand>,
@@ -145,6 +150,7 @@ pub(super) fn process_phase(
     world_streaming: Option<WorldStreamingStageContext<'_>>,
     mut world_routine: Option<&mut WorldRoutineStageContextV1>,
     mut world_population: Option<&mut WorldPopulationStageContextV1>,
+    mut world_activity: Option<&mut WorldActivityStageContextV1>,
     mut agent_cognition: Option<&mut AgentCognitionStageContextV1>,
 ) -> Result<PhaseExecution, RuntimeFatalError> {
     let mut queued = due_commands(context, staged)?;
@@ -232,6 +238,7 @@ pub(super) fn process_phase(
             &mut physical_bodies,
             world_routine.as_deref_mut(),
             world_population.as_deref_mut(),
+            world_activity.as_deref_mut(),
             agent_cognition.as_deref_mut(),
         )? {
             CandidateExecution::Result(result, trace) => {
@@ -286,6 +293,13 @@ pub(super) fn process_phase(
                 .ok_or(RuntimeFatalError::RevisionExhausted)?;
             agent_cognition.produce_stage_7(context.tick, outcome_phase_revision, &staged.rpg)?;
         }
+        if let Some(world_activity) = world_activity.as_deref_mut() {
+            let outcome_phase_revision = staged
+                .revision
+                .checked_add(1)
+                .ok_or(RuntimeFatalError::RevisionExhausted)?;
+            world_activity.produce_stage_7(context.tick, outcome_phase_revision, &staged.rpg)?;
+        }
         let physical_execution = finish_physical_step(context, physical_pending, staged)?;
         for (result, event) in physical_execution.command_results {
             committed = checked_inc(committed)?;
@@ -330,7 +344,11 @@ pub(super) fn process_phase(
             deduplicated: commit_deduplicated,
         },
     ];
-    if world_streaming.is_some() || world_routine.is_some() || world_population.is_some() {
+    if world_streaming.is_some()
+        || world_routine.is_some()
+        || world_population.is_some()
+        || world_activity.is_some()
+    {
         stage_trace.push(StageTraceEntry {
             stage: TransactionStage::WorldStreamingCommit,
             received: 1,

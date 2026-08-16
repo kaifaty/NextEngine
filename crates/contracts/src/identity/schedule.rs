@@ -15,6 +15,11 @@ use crate::cognition::{
 };
 use crate::command::CommandPhase;
 use crate::ids::{ContentHash, SchemaId, SystemId, content_hash_from_bytes};
+use crate::world_activity::{
+    WORLD_ACTIVITY_CATALOG_OWNER_ID, WORLD_ACTIVITY_CATALOG_SCHEMA_ID,
+    WORLD_ACTIVITY_SHARD_PLAN_ID, WORLD_ACTIVITY_SNAPSHOT_OWNER_ID,
+    WORLD_ACTIVITY_SNAPSHOT_SCHEMA_ID, WORLD_ACTIVITY_SYSTEM_ID,
+};
 use crate::world_population::{
     WORLD_NAVIGATION_CATALOG_OWNER_ID, WORLD_NAVIGATION_CATALOG_SCHEMA_ID,
     WORLD_POPULATION_CATALOG_OWNER_ID, WORLD_POPULATION_CATALOG_SCHEMA_ID,

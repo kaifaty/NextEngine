@@ -25,10 +25,15 @@ use super::{
 use crate::engine::agent_cognition::AgentCognitionStageContextV1;
 use crate::engine::error::RuntimeFatalError;
 use crate::engine::result::{CommittedRpgPlanTraceV1, OrderedResult, RejectionCode};
+use crate::engine::world_activity::WorldActivityStageContextV1;
 use crate::engine::world_population::WorldPopulationStageContextV1;
 use crate::engine::world_routine::WorldRoutineStageContextV1;
 use crate::registry::command_kind_registry_hash;
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "domain execution receives each optional staged authoritative owner explicitly"
+)]
 pub(super) fn execute_candidate(
     context: PhaseContext<'_>,
     candidate: ValidatedCommand,
@@ -36,6 +41,7 @@ pub(super) fn execute_candidate(
     physical_bodies: &mut BTreeSet<next_contracts::ids::PersistentId>,
     world_routine: Option<&mut WorldRoutineStageContextV1>,
     world_population: Option<&mut WorldPopulationStageContextV1>,
+    world_activity: Option<&mut WorldActivityStageContextV1>,
     agent_cognition: Option<&mut AgentCognitionStageContextV1>,
 ) -> Result<CandidateExecution, RuntimeFatalError> {
     let command = &candidate.command;
@@ -210,6 +216,15 @@ pub(super) fn execute_candidate(
                 );
             }
             CommandPayload::WorldPopulation(_) => {}
+            CommandPayload::WorldActivity(_) if command.target.is_none() => {
+                return finalize_rejection(
+                    context,
+                    candidate,
+                    staged,
+                    RejectionCode::TargetNotAllowed,
+                );
+            }
+            CommandPayload::WorldActivity(_) => {}
             CommandPayload::AgentCognition(_) if command.target.is_none() => {
                 return finalize_rejection(
                     context,
@@ -472,6 +487,18 @@ pub(super) fn execute_candidate(
                 context.tick,
                 context.phase_revision,
                 candidate.command_id,
+            )?;
+            (staged.rpg.clone(), vec![event], delta, None)
+        }
+        CommandPayload::WorldActivity(_) => {
+            let activity =
+                world_activity.ok_or(RuntimeFatalError::WorldActivityInternalInvariant)?;
+            let (event, delta) = activity.apply_stage_9(
+                command,
+                context.tick,
+                context.phase_revision,
+                candidate.command_id,
+                &staged.rpg,
             )?;
             (staged.rpg.clone(), vec![event], delta, None)
         }

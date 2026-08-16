@@ -10,6 +10,7 @@ use crate::persistence::ManifestValidationError;
 use crate::physics::{PhysicalEventV1, PhysicsPoseV1};
 use crate::rpg::SkillProficiency;
 use crate::rpg::{CommitmentStateV1, RpgEventV1};
+use crate::world_activity::{WorldActivityChangedV1, WorldActivityStateV1};
 use crate::world_population::{PopulationTierV1, WorldPopulationChangedV1};
 use crate::world_routine::{WorldRoutineActivityChangedV1, WorldRoutineActivityV1};
 
@@ -166,6 +167,15 @@ fn encode_event_payload(payload: &EventPayload) -> JcsValue {
             string(route_plan_hash.to_hex()),
             string(record_revision.to_string()),
         ]),
+        EventPayload::WorldActivity(event) => JcsValue::Array(vec![
+            string("world_activity_changed"),
+            string(event.subject_id.to_hex()),
+            JcsValue::Number(u64::from(event.previous_state as u8)),
+            JcsValue::Number(u64::from(event.current_state as u8)),
+            string(event.boundary_tick.to_string()),
+            string(event.record_revision.to_string()),
+            string(event.evidence_hash.to_hex()),
+        ]),
         EventPayload::AgentCognition(event) => JcsValue::Array(vec![
             string("agent_cognition_decision_committed"),
             string(event.subject_id.to_hex()),
@@ -230,6 +240,9 @@ pub(super) fn decode_domain_events(
                 }
                 EventPayload::WorldPopulation(payload) => {
                     DomainEvent::world_population(tick, phase, command_id, event_slot, payload)?
+                }
+                EventPayload::WorldActivity(payload) => {
+                    DomainEvent::world_activity(tick, phase, command_id, event_slot, payload)?
                 }
                 EventPayload::AgentCognition(payload) => {
                     DomainEvent::agent_cognition(tick, phase, command_id, event_slot, payload)?
@@ -399,6 +412,29 @@ fn decode_event_payload(value: JcsValue) -> Result<EventPayload, ManifestCodecEr
                 )?,
             })
         }
+        "world_activity_changed" => EventPayload::WorldActivity(WorldActivityChangedV1 {
+            subject_id: decode_persistent_id(next(&mut columns, "event.subject_id")?)?,
+            previous_state: decode_world_activity_state(
+                next(&mut columns, "event.previous_state")?,
+                "event.previous_state",
+            )?,
+            current_state: decode_world_activity_state(
+                next(&mut columns, "event.current_state")?,
+                "event.current_state",
+            )?,
+            boundary_tick: decode_u64_string(
+                next(&mut columns, "event.boundary_tick")?,
+                "event.boundary_tick",
+            )?,
+            record_revision: decode_u64_string(
+                next(&mut columns, "event.record_revision")?,
+                "event.record_revision",
+            )?,
+            evidence_hash: ContentHash::from_bytes(decode_fixed_hex::<32>(
+                next(&mut columns, "event.evidence_hash")?,
+                "event.evidence_hash",
+            )?),
+        }),
         "agent_cognition_decision_committed" => {
             EventPayload::AgentCognition(AgentDecisionCommittedV1 {
                 schema_version: COGNITION_SCHEMA_VERSION,
@@ -461,6 +497,19 @@ fn decode_commitment_state(
         2 => Ok(CommitmentStateV1::Accepted),
         3 => Ok(CommitmentStateV1::Fulfilled),
         4 => Ok(CommitmentStateV1::Cancelled),
+        _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
+    }
+}
+
+fn decode_world_activity_state(
+    value: JcsValue,
+    path: &'static str,
+) -> Result<WorldActivityStateV1, ManifestCodecError> {
+    match decode_u32(value, path)? {
+        1 => Ok(WorldActivityStateV1::Unassigned),
+        2 => Ok(WorldActivityStateV1::Assigned),
+        3 => Ok(WorldActivityStateV1::Working),
+        4 => Ok(WorldActivityStateV1::Completed),
         _ => Err(ManifestCodecError::InvalidInteger(path.to_owned())),
     }
 }

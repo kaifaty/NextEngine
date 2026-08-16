@@ -13,6 +13,7 @@ mod result;
 mod state;
 mod targeting;
 mod tick;
+mod world_activity;
 mod world_population;
 mod world_routine;
 

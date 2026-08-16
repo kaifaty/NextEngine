@@ -5,6 +5,7 @@ use crate::canonical::{CanonicalDecodeError, CanonicalError};
 use crate::cognition::CognitionContractError;
 use crate::physics::PhysicsContractError;
 use crate::rpg::RpgContractErrorV1;
+use crate::world_activity::WorldActivityContractError;
 use crate::world_population::WorldPopulationContractError;
 use crate::world_routine::WorldRoutineContractError;
 
@@ -20,6 +21,7 @@ pub enum CommandDecodeError {
     Physics(PhysicsContractError),
     WorldRoutine(WorldRoutineContractError),
     WorldPopulation(WorldPopulationContractError),
+    WorldActivity(WorldActivityContractError),
     AgentCognition(CognitionContractError),
     Identifier(crate::ids::IdentifierError),
     WrongEnvelope,
@@ -76,6 +78,12 @@ impl Display for CommandDecodeError {
                 write!(
                     formatter,
                     "command world population payload is invalid: {error}"
+                )
+            }
+            Self::WorldActivity(error) => {
+                write!(
+                    formatter,
+                    "command world activity payload is invalid: {error}"
                 )
             }
             Self::AgentCognition(error) => {
@@ -186,6 +194,12 @@ impl From<WorldRoutineContractError> for CommandDecodeError {
 impl From<WorldPopulationContractError> for CommandDecodeError {
     fn from(error: WorldPopulationContractError) -> Self {
         Self::WorldPopulation(error)
+    }
+}
+
+impl From<WorldActivityContractError> for CommandDecodeError {
+    fn from(error: WorldActivityContractError) -> Self {
+        Self::WorldActivity(error)
     }
 }
 

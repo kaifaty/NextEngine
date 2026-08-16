@@ -22,6 +22,10 @@ use crate::physics::{
 use crate::rpg::{
     RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID, RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
 };
+use crate::world_activity::{
+    WORLD_ACTIVITY_CAPABILITY_ID, WORLD_ACTIVITY_COMMAND_KIND_ID, WORLD_ACTIVITY_COMMAND_SCHEMA_ID,
+    WORLD_ACTIVITY_COMMAND_SCHEMA_VERSION, WORLD_ACTIVITY_PRIORITY_CLASS,
+};
 use crate::world_population::{
     WORLD_POPULATION_CAPABILITY_ID, WORLD_POPULATION_COMMAND_KIND_ID,
     WORLD_POPULATION_COMMAND_SCHEMA_ID, WORLD_POPULATION_COMMAND_SCHEMA_VERSION,
@@ -106,14 +110,21 @@ pub struct CommandKindRegistryV1 {
 
 impl CommandKindRegistryV1 {
     pub fn core_r4b() -> Result<Self, IdentityContractError> {
-        Self::core(false)
+        Self::core(false, false)
     }
 
     pub fn core_r4c() -> Result<Self, IdentityContractError> {
-        Self::core(true)
+        Self::core(true, false)
     }
 
-    fn core(include_agent_cognition: bool) -> Result<Self, IdentityContractError> {
+    pub fn core_r4d() -> Result<Self, IdentityContractError> {
+        Self::core(true, true)
+    }
+
+    fn core(
+        include_agent_cognition: bool,
+        include_world_activity: bool,
+    ) -> Result<Self, IdentityContractError> {
         let entry = |payload_schema_id: &str,
                      payload_schema_version: u32,
                      command_kind_id: &str,
@@ -152,7 +163,7 @@ impl CommandKindRegistryV1 {
                 RPG_TRANSACTION_COMMAND_SCHEMA_VERSION,
                 RPG_COMMAND_KIND_ID,
                 RPG_PRIORITY_CLASS,
-                b"nextengine.command-validator.rpg.v2\0",
+                b"nextengine.command-validator.rpg.v3\0",
                 RPG_COMMAND_CAPABILITY_ID,
             )?,
             entry(
@@ -188,6 +199,17 @@ impl CommandKindRegistryV1 {
                 AGENT_COGNITION_PRIORITY_CLASS,
                 b"nextengine.command-validator.agent-cognition.v1\0",
                 AGENT_COGNITION_CAPABILITY_ID,
+            )?;
+            entries.insert(key, value);
+        }
+        if include_world_activity {
+            let (key, value) = entry(
+                WORLD_ACTIVITY_COMMAND_SCHEMA_ID,
+                WORLD_ACTIVITY_COMMAND_SCHEMA_VERSION,
+                WORLD_ACTIVITY_COMMAND_KIND_ID,
+                WORLD_ACTIVITY_PRIORITY_CLASS,
+                b"nextengine.command-validator.world-activity.v1\0",
+                WORLD_ACTIVITY_CAPABILITY_ID,
             )?;
             entries.insert(key, value);
         }
@@ -254,6 +276,10 @@ impl CommandKindRegistryV1 {
                     CommandPayload::WorldPopulation(_)
                 )
                 | (
+                    WORLD_ACTIVITY_COMMAND_SCHEMA_ID,
+                    CommandPayload::WorldActivity(_)
+                )
+                | (
                     AGENT_COGNITION_COMMAND_SCHEMA_ID,
                     CommandPayload::AgentCognition(_)
                 )
@@ -267,6 +293,7 @@ impl CommandKindRegistryV1 {
             PHYSICAL_COMMAND_SCHEMA_ID => phase == CommandPhase::Ingress,
             WORLD_ROUTINE_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
             WORLD_POPULATION_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
+            WORLD_ACTIVITY_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
             AGENT_COGNITION_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
             _ => false,
         }

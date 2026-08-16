@@ -293,6 +293,7 @@ fn event_principal_subject(event: &DomainEventEnvelopeV2) -> Option<PersistentId
                 ..
             } => *subject_id,
         }),
+        EventPayload::WorldActivity(event) => Some(event.subject_id),
         EventPayload::AgentCognition(event) => Some(event.subject_id),
     }
 }

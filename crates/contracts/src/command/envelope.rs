@@ -15,6 +15,10 @@ use crate::physics::{
 };
 use crate::rpg::{RPG_COMMAND_CAPABILITY_ID, RPG_COMMAND_SCHEMA_ID};
 use crate::rpg::{RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1};
+use crate::world_activity::{
+    WORLD_ACTIVITY_CAPABILITY_ID, WORLD_ACTIVITY_COMMAND_SCHEMA_ID,
+    WORLD_ACTIVITY_COMMAND_SCHEMA_VERSION, WorldActivityCommandV1,
+};
 use crate::world_population::{
     WORLD_POPULATION_CAPABILITY_ID, WORLD_POPULATION_COMMAND_SCHEMA_ID,
     WORLD_POPULATION_COMMAND_SCHEMA_VERSION, WorldPopulationCommandV1,
@@ -207,6 +211,41 @@ impl WorldCommandEnvelopeV2 {
                     authoritative_revision,
                 )?],
                 payload: CommandPayload::WorldPopulation(payload),
+            },
+        };
+        command.refresh_command_id()?;
+        Ok(command)
+    }
+
+    pub fn world_activity(
+        stream_id: CommandStreamId,
+        system_id: SystemId,
+        sequence: u64,
+        target_tick: u64,
+        authoritative_revision: u64,
+        payload: WorldActivityCommandV1,
+    ) -> Result<Self, CanonicalError> {
+        payload
+            .validate_shape()
+            .map_err(|_| CanonicalError::DuplicateSequenceValue)?;
+        let subject_id = payload.subject_id();
+        let mut command = Self {
+            envelope_schema_version: COMMAND_ENVELOPE_SCHEMA_VERSION,
+            claimed_command_id: None,
+            body: CanonicalCommandBodyV2 {
+                payload_schema_id: SchemaId::new(WORLD_ACTIVITY_COMMAND_SCHEMA_ID)?,
+                payload_schema_version: WORLD_ACTIVITY_COMMAND_SCHEMA_VERSION,
+                issuer: IssuerPrincipal::InternalSystem(system_id),
+                stream_id,
+                sequence,
+                target_tick,
+                phase: CommandPhase::Outcome,
+                target: Some(subject_id),
+                capability_claims: vec![CapabilityRefV1::unscoped(WORLD_ACTIVITY_CAPABILITY_ID)?],
+                preconditions: vec![CommandPreconditionV1::authoritative_revision(
+                    authoritative_revision,
+                )?],
+                payload: CommandPayload::WorldActivity(payload),
             },
         };
         command.refresh_command_id()?;

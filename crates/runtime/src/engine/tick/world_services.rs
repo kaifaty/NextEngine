@@ -22,13 +22,15 @@ use next_contracts::rpg::{
 use next_contracts::snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SCHEMA_VERSION,
     RUNTIME_SNAPSHOT_SEGMENT_ID, WorldCheckpointCanonicalComponentsV1,
-    world_checkpoint_with_cognition_v1_state_root_from_canonical_components,
-    world_checkpoint_with_world_services_v1_state_root_from_canonical_components,
 };
 use next_contracts::world::{
     WORLD_STREAMING_SNAPSHOT_OWNER_ID, WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
     WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION, WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
     WorldStreamingSnapshotV1,
+};
+use next_contracts::world_activity::{
+    WORLD_ACTIVITY_SCHEMA_VERSION, WORLD_ACTIVITY_SNAPSHOT_OWNER_ID,
+    WORLD_ACTIVITY_SNAPSHOT_SCHEMA_ID, WORLD_ACTIVITY_SNAPSHOT_SEGMENT_ID, WorldActivitySnapshotV1,
 };
 use next_contracts::world_population::{
     WORLD_POPULATION_SCHEMA_VERSION, WORLD_POPULATION_SNAPSHOT_OWNER_ID,
@@ -51,7 +53,9 @@ pub struct PreparedRuntimeWorldServicesTickV1 {
     runtime: PreparedRuntimeTick,
     routine: next_world::PreparedWorldRoutinePublicationV1,
     population: next_world::PreparedWorldPopulationPublicationV1,
+    activity: Option<next_world::PreparedWorldActivityPublicationV1>,
     cognition: Option<PreparedStrategicAgentPublicationV1>,
+    activity_snapshot_or_none: Option<WorldActivitySnapshotV1>,
     agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     decision_trace_or_none: Option<DecisionTraceV1>,
@@ -67,7 +71,9 @@ struct ValidatedWorldServicesGenerationV1 {
     runtime: ValidatedRuntimeTick,
     routine: next_world::ValidatedWorldRoutinePublicationV1,
     population: next_world::ValidatedWorldPopulationPublicationV1,
+    activity: Option<next_world::ValidatedWorldActivityPublicationV1>,
     cognition: Option<ValidatedStrategicAgentPublicationV1>,
+    activity_snapshot_or_none: Option<WorldActivitySnapshotV1>,
     agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     decision_trace_or_none: Option<DecisionTraceV1>,
@@ -94,6 +100,7 @@ struct CommittedWorldServicesGenerationV1 {
     world_streaming_snapshot: WorldStreamingSnapshotV1,
     routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+    activity_snapshot_or_none: Option<WorldActivitySnapshotV1>,
     agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     decision_trace_or_none: Option<DecisionTraceV1>,
@@ -108,6 +115,7 @@ pub struct WorldServicesTickCommitV1 {
     pub world_streaming_snapshot: WorldStreamingSnapshotV1,
     pub routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     pub population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+    pub activity_snapshot_or_none: Option<WorldActivitySnapshotV1>,
     pub agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     pub memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     pub decision_trace_or_none: Option<DecisionTraceV1>,
@@ -125,7 +133,9 @@ impl RuntimeTickPreparation<'_> {
         population: &next_world::WorldPopulationOwnerV1,
         world: &next_world::WorldStreamerV1,
     ) -> Result<PreparedRuntimeWorldServicesTickV1, RuntimeFatalError> {
-        self.prepare_world_services_internal(commands, routine, population, None, world, None, None)
+        self.prepare_world_services_internal(
+            commands, routine, population, None, None, world, None, None,
+        )
     }
 
     pub fn prepare_with_world_services_and_cognition(
@@ -140,6 +150,7 @@ impl RuntimeTickPreparation<'_> {
             commands,
             routine,
             population,
+            None,
             Some(cognition),
             world,
             None,
@@ -160,6 +171,7 @@ impl RuntimeTickPreparation<'_> {
             routine,
             population,
             None,
+            None,
             world,
             Some(publication),
             None,
@@ -179,6 +191,54 @@ impl RuntimeTickPreparation<'_> {
             commands,
             routine,
             population,
+            None,
+            Some(cognition),
+            world,
+            Some(publication),
+            None,
+        )
+    }
+
+    pub fn prepare_with_world_services_cognition_and_activity(
+        self,
+        commands: impl IntoIterator<Item = WorldCommand>,
+        routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
+        activity: &next_world::WorldActivityOwnerV1,
+        cognition: &StrategicAgentOwnersV1,
+        world: &next_world::WorldStreamerV1,
+    ) -> Result<PreparedRuntimeWorldServicesTickV1, RuntimeFatalError> {
+        self.prepare_world_services_internal(
+            commands,
+            routine,
+            population,
+            Some(activity),
+            Some(cognition),
+            world,
+            None,
+            None,
+        )
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the R4d joint preparation boundary names every independently owned projection"
+    )]
+    pub fn prepare_with_world_services_cognition_activity_and_streaming(
+        self,
+        commands: impl IntoIterator<Item = WorldCommand>,
+        routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
+        activity: &next_world::WorldActivityOwnerV1,
+        cognition: &StrategicAgentOwnersV1,
+        world: &next_world::WorldStreamerV1,
+        publication: next_world::PreparedWorldStreamingPublicationV1,
+    ) -> Result<PreparedRuntimeWorldServicesTickV1, RuntimeFatalError> {
+        self.prepare_world_services_internal(
+            commands,
+            routine,
+            population,
+            Some(activity),
             Some(cognition),
             world,
             Some(publication),
@@ -195,6 +255,7 @@ impl RuntimeTickPreparation<'_> {
         commands: impl IntoIterator<Item = WorldCommand>,
         routine: &next_world::WorldRoutineOwnerV1,
         population: &next_world::WorldPopulationOwnerV1,
+        activity: Option<&next_world::WorldActivityOwnerV1>,
         cognition: Option<&StrategicAgentOwnersV1>,
         world: &next_world::WorldStreamerV1,
         streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
@@ -208,6 +269,15 @@ impl RuntimeTickPreparation<'_> {
         let mut routine_stage = WorldRoutineStageContextV1::capture(self.runtime, routine)?;
         let mut population_stage =
             WorldPopulationStageContextV1::capture(self.runtime, population)?;
+        let mut activity_stage = activity
+            .map(|owner| {
+                super::super::world_activity::WorldActivityStageContextV1::capture(
+                    self.runtime,
+                    owner,
+                    population,
+                )
+            })
+            .transpose()?;
         let mut cognition_stage = cognition
             .map(|owners| {
                 super::super::agent_cognition::AgentCognitionStageContextV1::capture(
@@ -228,6 +298,7 @@ impl RuntimeTickPreparation<'_> {
                 .map(|publication| WorldStreamingStageContext { world, publication }),
             Some(&mut routine_stage),
             Some(&mut population_stage),
+            activity_stage.as_mut(),
             cognition_stage.as_mut(),
         )?;
         let routine_snapshot_or_none = routine_stage.finish(runtime.next_tick())?;
@@ -243,6 +314,18 @@ impl RuntimeTickPreparation<'_> {
                 runtime.next_tick(),
             )
             .map_err(map_population_owner_error)?;
+        let (activity_publication, activity_snapshot_or_none) =
+            match (activity, activity_stage.as_ref()) {
+                (Some(owner), Some(stage)) => {
+                    let snapshot = stage.finish(runtime.next_tick())?;
+                    let publication = owner
+                        .prepare_publication(snapshot.clone(), runtime.next_tick())
+                        .map_err(map_activity_owner_error)?;
+                    (Some(publication), Some(snapshot))
+                }
+                (None, None) => (None, None),
+                _ => return Err(RuntimeFatalError::WorldActivityInternalInvariant),
+            };
         let (
             cognition_publication,
             agent_snapshot_or_none,
@@ -268,7 +351,9 @@ impl RuntimeTickPreparation<'_> {
             runtime,
             routine,
             population,
+            activity: activity_publication,
             cognition: cognition_publication,
+            activity_snapshot_or_none,
             agent_snapshot_or_none,
             memory_snapshot_or_none,
             decision_trace_or_none,
@@ -313,6 +398,11 @@ impl PreparedRuntimeWorldServicesTickV1 {
     #[must_use]
     pub const fn population_snapshot_or_none(&self) -> Option<&WorldPopulationSnapshotV1> {
         self.population.snapshot_or_none()
+    }
+
+    #[must_use]
+    pub const fn activity_snapshot_or_none(&self) -> Option<&WorldActivitySnapshotV1> {
+        self.activity_snapshot_or_none.as_ref()
     }
 
     #[must_use]
@@ -387,6 +477,11 @@ impl ValidatedRuntimeWorldServicesTickV1 {
     }
 
     #[must_use]
+    pub const fn activity_snapshot_or_none(&self) -> Option<&WorldActivitySnapshotV1> {
+        self.generation.activity_snapshot_or_none.as_ref()
+    }
+
+    #[must_use]
     pub const fn agent_snapshot_or_none(&self) -> Option<&AgentCognitionSnapshotV1> {
         self.generation.agent_snapshot_or_none.as_ref()
     }
@@ -455,6 +550,11 @@ impl ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1 {
     }
 
     #[must_use]
+    pub const fn activity_snapshot_or_none(&self) -> Option<&WorldActivitySnapshotV1> {
+        self.generation.activity_snapshot_or_none.as_ref()
+    }
+
+    #[must_use]
     pub const fn agent_snapshot_or_none(&self) -> Option<&AgentCognitionSnapshotV1> {
         self.generation.agent_snapshot_or_none.as_ref()
     }
@@ -498,6 +598,7 @@ impl RuntimeState {
             commands,
             routine,
             population,
+            None,
             Some(cognition),
             world,
             streaming,
@@ -532,7 +633,7 @@ impl RuntimeState {
         prepared: PreparedRuntimeWorldServicesTickV1,
     ) -> Result<ValidatedRuntimeWorldServicesTickV1, RuntimeFatalError> {
         let generation = self.validate_prepared_world_services_generation(
-            routine, population, None, world, prepared,
+            routine, population, None, None, world, prepared,
         )?;
         let (_, components) = generation
             .runtime
@@ -544,6 +645,7 @@ impl RuntimeState {
             &generation.staged_world_snapshot,
             routine_snapshot_or_none.as_ref(),
             population_snapshot_or_none.as_ref(),
+            generation.activity_snapshot_or_none.as_ref(),
             generation.agent_snapshot_or_none.as_ref(),
             generation.memory_snapshot_or_none.as_ref(),
         )?;
@@ -565,6 +667,7 @@ impl RuntimeState {
         let generation = self.validate_prepared_world_services_generation(
             routine,
             population,
+            None,
             Some(cognition),
             world,
             prepared,
@@ -579,6 +682,49 @@ impl RuntimeState {
             &generation.staged_world_snapshot,
             routine_snapshot_or_none.as_ref(),
             population_snapshot_or_none.as_ref(),
+            generation.activity_snapshot_or_none.as_ref(),
+            generation.agent_snapshot_or_none.as_ref(),
+            generation.memory_snapshot_or_none.as_ref(),
+        )?;
+        Ok(ValidatedRuntimeWorldServicesTickV1 {
+            generation,
+            application_owner_segments,
+            application_state_root,
+        })
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the R4d validation boundary names every independently owned projection"
+    )]
+    pub fn validate_prepared_world_services_tick_with_cognition_and_activity(
+        &self,
+        routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
+        activity: &next_world::WorldActivityOwnerV1,
+        cognition: &StrategicAgentOwnersV1,
+        world: &next_world::WorldStreamerV1,
+        prepared: PreparedRuntimeWorldServicesTickV1,
+    ) -> Result<ValidatedRuntimeWorldServicesTickV1, RuntimeFatalError> {
+        let generation = self.validate_prepared_world_services_generation(
+            routine,
+            population,
+            Some(activity),
+            Some(cognition),
+            world,
+            prepared,
+        )?;
+        let (_, components) = generation
+            .runtime
+            .world_checkpoint_with_canonical_components()?;
+        let routine_snapshot_or_none = generation.routine.snapshot_or_none().copied();
+        let population_snapshot_or_none = generation.population.snapshot_or_none().cloned();
+        let (application_owner_segments, application_state_root) = application_closure(
+            &components,
+            &generation.staged_world_snapshot,
+            routine_snapshot_or_none.as_ref(),
+            population_snapshot_or_none.as_ref(),
+            generation.activity_snapshot_or_none.as_ref(),
             generation.agent_snapshot_or_none.as_ref(),
             generation.memory_snapshot_or_none.as_ref(),
         )?;
@@ -603,7 +749,7 @@ impl RuntimeState {
         Ok(
             ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1 {
                 generation: self.validate_prepared_world_services_generation(
-                    routine, population, None, world, prepared,
+                    routine, population, None, None, world, prepared,
                 )?,
             },
         )
@@ -623,6 +769,35 @@ impl RuntimeState {
                 generation: self.validate_prepared_world_services_generation(
                     routine,
                     population,
+                    None,
+                    Some(cognition),
+                    world,
+                    prepared,
+                )?,
+            },
+        )
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the R4d validation boundary names every independently owned projection"
+    )]
+    pub fn validate_prepared_world_services_tick_with_cognition_and_activity_without_application_evidence(
+        &self,
+        routine: &next_world::WorldRoutineOwnerV1,
+        population: &next_world::WorldPopulationOwnerV1,
+        activity: &next_world::WorldActivityOwnerV1,
+        cognition: &StrategicAgentOwnersV1,
+        world: &next_world::WorldStreamerV1,
+        prepared: PreparedRuntimeWorldServicesTickV1,
+    ) -> Result<ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1, RuntimeFatalError>
+    {
+        Ok(
+            ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1 {
+                generation: self.validate_prepared_world_services_generation(
+                    routine,
+                    population,
+                    Some(activity),
                     Some(cognition),
                     world,
                     prepared,
@@ -635,6 +810,7 @@ impl RuntimeState {
         &self,
         routine: &next_world::WorldRoutineOwnerV1,
         population: &next_world::WorldPopulationOwnerV1,
+        activity: Option<&next_world::WorldActivityOwnerV1>,
         cognition: Option<&StrategicAgentOwnersV1>,
         world: &next_world::WorldStreamerV1,
         prepared: PreparedRuntimeWorldServicesTickV1,
@@ -657,6 +833,15 @@ impl RuntimeState {
         let population = population
             .validate_prepared_publication(prepared.population)
             .map_err(map_population_owner_error)?;
+        let activity = match (activity, prepared.activity) {
+            (Some(owner), Some(publication)) => Some(
+                owner
+                    .validate_prepared_publication(publication)
+                    .map_err(map_activity_owner_error)?,
+            ),
+            (None, None) => None,
+            _ => return Err(RuntimeFatalError::WorldActivityInternalInvariant),
+        };
         let cognition = match (cognition, prepared.cognition) {
             (Some(owner), Some(publication)) => Some(
                 owner
@@ -676,7 +861,9 @@ impl RuntimeState {
             runtime,
             routine,
             population,
+            activity,
             cognition,
+            activity_snapshot_or_none: prepared.activity_snapshot_or_none,
             agent_snapshot_or_none: prepared.agent_snapshot_or_none,
             memory_snapshot_or_none: prepared.memory_snapshot_or_none,
             decision_trace_or_none: prepared.decision_trace_or_none,
@@ -701,13 +888,14 @@ impl RuntimeState {
             application_state_root,
         } = validated;
         let committed = self.commit_validated_world_services_generation(
-            routine, population, None, world, generation,
+            routine, population, None, None, world, generation,
         )?;
         Ok(WorldServicesTickCommitV1 {
             runtime_report: committed.runtime_report,
             world_streaming_snapshot: committed.world_streaming_snapshot,
             routine_snapshot_or_none: committed.routine_snapshot_or_none,
             population_snapshot_or_none: committed.population_snapshot_or_none,
+            activity_snapshot_or_none: committed.activity_snapshot_or_none,
             agent_snapshot_or_none: committed.agent_snapshot_or_none,
             memory_snapshot_or_none: committed.memory_snapshot_or_none,
             decision_trace_or_none: committed.decision_trace_or_none,
@@ -734,6 +922,7 @@ impl RuntimeState {
         let committed = self.commit_validated_world_services_generation(
             routine,
             population,
+            None,
             Some(cognition),
             world,
             generation,
@@ -743,6 +932,49 @@ impl RuntimeState {
             world_streaming_snapshot: committed.world_streaming_snapshot,
             routine_snapshot_or_none: committed.routine_snapshot_or_none,
             population_snapshot_or_none: committed.population_snapshot_or_none,
+            activity_snapshot_or_none: committed.activity_snapshot_or_none,
+            agent_snapshot_or_none: committed.agent_snapshot_or_none,
+            memory_snapshot_or_none: committed.memory_snapshot_or_none,
+            decision_trace_or_none: committed.decision_trace_or_none,
+            population_service_report_or_none: committed.population_service_report_or_none,
+            streaming_transition_or_none: committed.streaming_transition_or_none,
+            application_owner_segments,
+            application_state_root,
+        })
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the R4d commit boundary names every independently owned projection"
+    )]
+    pub fn commit_validated_world_services_tick_with_cognition_and_activity(
+        &mut self,
+        routine: &mut next_world::WorldRoutineOwnerV1,
+        population: &mut next_world::WorldPopulationOwnerV1,
+        activity: &mut next_world::WorldActivityOwnerV1,
+        cognition: &mut StrategicAgentOwnersV1,
+        world: &mut next_world::WorldStreamerV1,
+        validated: ValidatedRuntimeWorldServicesTickV1,
+    ) -> Result<WorldServicesTickCommitV1, RuntimeFatalError> {
+        let ValidatedRuntimeWorldServicesTickV1 {
+            generation,
+            application_owner_segments,
+            application_state_root,
+        } = validated;
+        let committed = self.commit_validated_world_services_generation(
+            routine,
+            population,
+            Some(activity),
+            Some(cognition),
+            world,
+            generation,
+        )?;
+        Ok(WorldServicesTickCommitV1 {
+            runtime_report: committed.runtime_report,
+            world_streaming_snapshot: committed.world_streaming_snapshot,
+            routine_snapshot_or_none: committed.routine_snapshot_or_none,
+            population_snapshot_or_none: committed.population_snapshot_or_none,
+            activity_snapshot_or_none: committed.activity_snapshot_or_none,
             agent_snapshot_or_none: committed.agent_snapshot_or_none,
             memory_snapshot_or_none: committed.memory_snapshot_or_none,
             decision_trace_or_none: committed.decision_trace_or_none,
@@ -767,6 +999,7 @@ impl RuntimeState {
                 routine,
                 population,
                 None,
+                None,
                 world,
                 validated.generation,
             )?
@@ -785,6 +1018,32 @@ impl RuntimeState {
             .commit_validated_world_services_generation(
                 routine,
                 population,
+                None,
+                Some(cognition),
+                world,
+                validated.generation,
+            )?
+            .runtime_report)
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the R4d commit boundary names every independently owned projection"
+    )]
+    pub fn commit_validated_world_services_tick_with_cognition_and_activity_without_application_evidence(
+        &mut self,
+        routine: &mut next_world::WorldRoutineOwnerV1,
+        population: &mut next_world::WorldPopulationOwnerV1,
+        activity: &mut next_world::WorldActivityOwnerV1,
+        cognition: &mut StrategicAgentOwnersV1,
+        world: &mut next_world::WorldStreamerV1,
+        validated: ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1,
+    ) -> Result<TickReport, RuntimeFatalError> {
+        Ok(self
+            .commit_validated_world_services_generation(
+                routine,
+                population,
+                Some(activity),
                 Some(cognition),
                 world,
                 validated.generation,
@@ -796,6 +1055,7 @@ impl RuntimeState {
         &mut self,
         routine: &mut next_world::WorldRoutineOwnerV1,
         population: &mut next_world::WorldPopulationOwnerV1,
+        activity: Option<&mut next_world::WorldActivityOwnerV1>,
         cognition: Option<&mut StrategicAgentOwnersV1>,
         world: &mut next_world::WorldStreamerV1,
         validated: ValidatedWorldServicesGenerationV1,
@@ -808,6 +1068,13 @@ impl RuntimeState {
             || population
                 .preflight_validated_publication(&validated.population)
                 .is_err()
+            || match (activity.as_deref(), validated.activity.as_ref()) {
+                (Some(owner), Some(publication)) => {
+                    owner.preflight_validated_publication(publication).is_err()
+                }
+                (None, None) => false,
+                _ => true,
+            }
             || match (cognition.as_deref(), validated.cognition.as_ref()) {
                 (Some(owner), Some(publication)) => {
                     owner.preflight_validated_publication(publication).is_err()
@@ -828,7 +1095,9 @@ impl RuntimeState {
             runtime: validated_runtime,
             routine: validated_routine,
             population: validated_population,
+            activity: validated_activity,
             cognition: validated_cognition,
+            activity_snapshot_or_none,
             agent_snapshot_or_none,
             memory_snapshot_or_none,
             decision_trace_or_none,
@@ -841,6 +1110,9 @@ impl RuntimeState {
         let population_service_report_or_none =
             validated_population.service_report_or_none().cloned();
         population.commit_validated_publication(validated_population);
+        if let (Some(owner), Some(publication)) = (activity, validated_activity) {
+            owner.commit_validated_publication(publication);
+        }
         if let (Some(owner), Some(publication)) = (cognition, validated_cognition) {
             owner.commit_validated_publication(publication);
         }
@@ -851,6 +1123,7 @@ impl RuntimeState {
             world_streaming_snapshot: staged_world_snapshot,
             routine_snapshot_or_none: routine.snapshot_or_none().copied(),
             population_snapshot_or_none: population.snapshot_or_none().cloned(),
+            activity_snapshot_or_none,
             agent_snapshot_or_none,
             memory_snapshot_or_none,
             decision_trace_or_none,
@@ -876,6 +1149,14 @@ fn map_population_owner_error(error: next_world::WorldPopulationOwnerError) -> R
         RuntimeFatalError::PreparedWorldServicesGenerationStale
     } else {
         RuntimeFatalError::WorldPopulationInternalInvariant
+    }
+}
+
+fn map_activity_owner_error(error: next_world::WorldActivityOwnerError) -> RuntimeFatalError {
+    if matches!(error, next_world::WorldActivityOwnerError::PublicationStale) {
+        RuntimeFatalError::PreparedWorldServicesGenerationStale
+    } else {
+        RuntimeFatalError::WorldActivityInternalInvariant
     }
 }
 

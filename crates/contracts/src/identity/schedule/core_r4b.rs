@@ -267,4 +267,80 @@ impl ScheduleManifestV1 {
         value.validate()?;
         Ok(value)
     }
+
+    pub fn core_r4d() -> Result<Self, IdentityContractError> {
+        let mut value = Self::core_r4c()?;
+        let cognition_system_id = SystemId::new(AGENT_COGNITION_SYSTEM_ID)?;
+        let system_id = SystemId::new(WORLD_ACTIVITY_SYSTEM_ID)?;
+        let shard_plan_id = SchemaId::new(WORLD_ACTIVITY_SHARD_PLAN_ID)?;
+        let access = |owner: &str,
+                      schema: &str,
+                      field_id: u32|
+         -> Result<AccessKeyV1, IdentityContractError> {
+            Ok(AccessKeyV1 {
+                owner_id: SchemaId::new(owner)?,
+                schema_id: SchemaId::new(schema)?,
+                field_id,
+            })
+        };
+        let mut reads = vec![
+            access("nextengine.runtime", "nextengine.runtime-snapshot", 2)?,
+            access(
+                WORLD_ACTIVITY_CATALOG_OWNER_ID,
+                WORLD_ACTIVITY_CATALOG_SCHEMA_ID,
+                3,
+            )?,
+            access(
+                WORLD_ACTIVITY_SNAPSHOT_OWNER_ID,
+                WORLD_ACTIVITY_SNAPSHOT_SCHEMA_ID,
+                4,
+            )?,
+            access("rpg", "nextengine.rpg.snapshot", 2)?,
+            access(
+                WORLD_POPULATION_SNAPSHOT_OWNER_ID,
+                WORLD_POPULATION_SNAPSHOT_SCHEMA_ID,
+                6,
+            )?,
+        ];
+        reads.sort();
+        let writes = vec![access(
+            WORLD_ACTIVITY_SNAPSHOT_OWNER_ID,
+            "nextengine.world-activity-proposal",
+            1,
+        )?];
+        value
+            .systems
+            .get_mut(&cognition_system_id)
+            .ok_or(IdentityContractError::ScheduleClosureInvalid)?
+            .before = vec![system_id.clone()];
+        value.systems.insert(
+            system_id.clone(),
+            SystemDescriptorV1 {
+                schema_version: SCHEDULE_MANIFEST_SCHEMA_VERSION,
+                system_id: system_id.clone(),
+                owner_id: SchemaId::new(WORLD_ACTIVITY_SNAPSHOT_OWNER_ID)?,
+                stage_id: RuntimeStageId::AgentPlanning,
+                before: Vec::new(),
+                after: vec![cognition_system_id],
+                access: AccessSetV1 { reads, writes },
+                query_order: QueryOrderV1::PersistentId,
+                shard_plan_id: shard_plan_id.clone(),
+                reducer_ids: Vec::new(),
+            },
+        );
+        value.shard_plans.insert(
+            shard_plan_id.clone(),
+            LogicalShardPlanV1 {
+                schema_version: SCHEDULE_MANIFEST_SCHEMA_VERSION,
+                shard_plan_id,
+                system_id,
+                logical_shard_count: 1,
+                partition_rule: ShardPartitionRuleV1::Sha256StableKeyFirstU64LeModulo,
+                record_order: ShardRecordOrderV1::CanonicalStableRecordKey,
+                merge_order: DeltaMergeOrderV1::OwnerSchemaRecordFieldSystemShard,
+            },
+        );
+        value.validate()?;
+        Ok(value)
+    }
 }

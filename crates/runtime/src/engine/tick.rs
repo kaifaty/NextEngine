@@ -31,6 +31,7 @@ use super::pipeline::{
 };
 use super::result::{StageTraceEntry, TickReport, TransactionStage};
 use super::state::RuntimeState;
+use super::world_activity::WorldActivityStageContextV1;
 use super::world_population::WorldPopulationStageContextV1;
 use super::world_routine::WorldRoutineStageContextV1;
 
@@ -503,6 +504,7 @@ impl RuntimeState {
         world_streaming: Option<WorldStreamingStageContext<'_>>,
         mut world_routine: Option<&mut WorldRoutineStageContextV1>,
         mut world_population: Option<&mut WorldPopulationStageContextV1>,
+        mut world_activity: Option<&mut WorldActivityStageContextV1>,
         mut agent_cognition: Option<&mut AgentCognitionStageContextV1>,
     ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
         let following_tick = self
@@ -588,6 +590,7 @@ impl RuntimeState {
                 world_streaming,
                 world_routine.as_deref_mut(),
                 world_population.as_deref_mut(),
+                world_activity.as_deref_mut(),
                 agent_cognition.as_deref_mut(),
             )?
         };
@@ -686,6 +689,11 @@ impl RuntimeState {
             .map(|population| population.proposal_for_stage_9(tick, staged.revision))
             .transpose()?
             .flatten();
+        let activity_proposal_or_none = world_activity
+            .as_deref()
+            .map(|activity| activity.proposal_for_stage_9(tick, staged.revision, &staged.rpg))
+            .transpose()?
+            .flatten();
         let cognition_proposal_or_none = agent_cognition
             .as_deref()
             .map(|cognition| cognition.proposal_for_stage_9(tick, staged.revision))
@@ -703,6 +711,9 @@ impl RuntimeState {
                     count.checked_add(usize::from(population_proposal_or_none.is_some()))
                 })
                 .and_then(|count| {
+                    count.checked_add(usize::from(activity_proposal_or_none.is_some()))
+                })
+                .and_then(|count| {
                     count.checked_add(usize::from(cognition_proposal_or_none.is_some()))
                 })
                 .ok_or(RuntimeFatalError::TraceCountExhausted)?,
@@ -717,6 +728,9 @@ impl RuntimeState {
                 })
                 .and_then(|count| {
                     count.checked_add(usize::from(population_proposal_or_none.is_some()))
+                })
+                .and_then(|count| {
+                    count.checked_add(usize::from(activity_proposal_or_none.is_some()))
                 })
                 .and_then(|count| {
                     count.checked_add(usize::from(cognition_proposal_or_none.is_some()))
@@ -772,6 +786,9 @@ impl RuntimeState {
         if let Some(proposal) = population_proposal_or_none {
             outcome_commands.push(proposal);
         }
+        if let Some(proposal) = activity_proposal_or_none {
+            outcome_commands.push(proposal);
+        }
         if let Some(proposal) = cognition_proposal_or_none {
             outcome_commands.push(proposal);
         }
@@ -809,6 +826,7 @@ impl RuntimeState {
                 None,
                 world_routine.as_deref_mut(),
                 world_population.as_deref_mut(),
+                world_activity.as_deref_mut(),
                 agent_cognition.as_deref_mut(),
             )?
         };
@@ -818,6 +836,9 @@ impl RuntimeState {
         }
         if let Some(population) = world_population.as_deref() {
             population.finish(following_tick)?;
+        }
+        if let Some(activity) = world_activity.as_deref() {
+            activity.finish(following_tick)?;
         }
         if let Some(cognition) = agent_cognition.as_deref() {
             cognition.finish()?;

@@ -14,6 +14,9 @@ use crate::physics::{
 };
 use crate::rpg::RPG_COMMAND_SCHEMA_ID;
 use crate::rpg::{RPG_TRANSACTION_COMMAND_SCHEMA_VERSION, RpgCommandV1};
+use crate::world_activity::{
+    WORLD_ACTIVITY_COMMAND_SCHEMA_ID, WORLD_ACTIVITY_COMMAND_SCHEMA_VERSION, WorldActivityCommandV1,
+};
 use crate::world_population::{
     WORLD_POPULATION_COMMAND_SCHEMA_ID, WORLD_POPULATION_COMMAND_SCHEMA_VERSION,
     WorldPopulationCommandV1,
@@ -61,6 +64,7 @@ pub enum CommandPayload {
     Physical(PhysicalCommandV1),
     WorldRoutine(WorldRoutineCommandV1),
     WorldPopulation(WorldPopulationCommandV1),
+    WorldActivity(WorldActivityCommandV1),
     AgentCognition(AgentCognitionCommandV1),
 }
 
@@ -72,6 +76,9 @@ impl CommandPayload {
             Self::Physical(command) => command.canonical_payload_bytes(),
             Self::WorldRoutine(command) => command.canonical_payload_bytes(),
             Self::WorldPopulation(command) => command.canonical_payload_bytes(),
+            Self::WorldActivity(command) => command
+                .canonical_payload_bytes()
+                .map_err(|_| CanonicalError::DuplicateSequenceValue),
             Self::AgentCognition(command) => command.canonical_payload_bytes(),
         }
     }
@@ -375,6 +382,12 @@ impl CanonicalCommandBodyV2 {
                     WorldPopulationCommandV1::from_canonical_payload_bytes(payload_bytes, limits)?,
                 )
             }
+            (WORLD_ACTIVITY_COMMAND_SCHEMA_ID, WORLD_ACTIVITY_COMMAND_SCHEMA_VERSION) => {
+                CommandPayload::WorldActivity(WorldActivityCommandV1::from_canonical_payload_bytes(
+                    payload_bytes,
+                    limits,
+                )?)
+            }
             (AGENT_COGNITION_COMMAND_SCHEMA_ID, AGENT_COGNITION_COMMAND_SCHEMA_VERSION) => {
                 CommandPayload::AgentCognition(
                     AgentCognitionCommandV1::from_canonical_payload_bytes(payload_bytes, limits)?,
@@ -386,6 +399,7 @@ impl CanonicalCommandBodyV2 {
                 | PHYSICAL_COMMAND_SCHEMA_ID
                 | WORLD_ROUTINE_COMMAND_SCHEMA_ID
                 | WORLD_POPULATION_COMMAND_SCHEMA_ID
+                | WORLD_ACTIVITY_COMMAND_SCHEMA_ID
                 | AGENT_COGNITION_COMMAND_SCHEMA_ID,
                 version,
             ) => {

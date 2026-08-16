@@ -908,6 +908,55 @@ fn state_root_from_segment_slices(
     Ok(StateRoot::from_bytes(sha256(&root_preimage)))
 }
 
+/// Computes the canonical application root from validated save-segment
+/// descriptors. Descriptor content hashes use the same state-segment domain
+/// as raw checkpoint bytes, so no owner payload must be decoded a second time.
+pub fn state_root_from_save_segment_descriptors(
+    descriptors: &[crate::persistence::SaveSegmentDescriptor],
+) -> Result<StateRoot, CanonicalError> {
+    if descriptors.is_empty()
+        || !descriptors.windows(2).all(|pair| {
+            (&pair[0].owner_id, &pair[0].schema_id, &pair[0].segment_id)
+                < (&pair[1].owner_id, &pair[1].schema_id, &pair[1].segment_id)
+        })
+    {
+        return Err(CanonicalError::DuplicateSequenceValue);
+    }
+    let leaf_count =
+        u64::try_from(descriptors.len()).map_err(|_| CanonicalError::LengthOverflow)?;
+    let mut nodes = Vec::with_capacity(descriptors.len());
+    for descriptor in descriptors {
+        let mut leaf_preimage = Vec::new();
+        leaf_preimage.extend_from_slice(b"nextengine.state-leaf.v1\0");
+        extend_state_root_identifier(&mut leaf_preimage, descriptor.owner_id.as_str())?;
+        extend_state_root_identifier(&mut leaf_preimage, descriptor.schema_id.as_str())?;
+        extend_state_root_identifier(&mut leaf_preimage, descriptor.segment_id.as_str())?;
+        leaf_preimage.extend_from_slice(descriptor.content_hash.as_bytes());
+        nodes.push(sha256(&leaf_preimage));
+    }
+    while nodes.len() > 1 {
+        let mut parents = Vec::with_capacity(nodes.len().div_ceil(2));
+        for pair in nodes.chunks(2) {
+            let mut preimage = Vec::new();
+            if let [left, right] = pair {
+                preimage.extend_from_slice(b"nextengine.state-node.v1\0");
+                preimage.extend_from_slice(left);
+                preimage.extend_from_slice(right);
+            } else {
+                preimage.extend_from_slice(b"nextengine.state-carry.v1\0");
+                preimage.extend_from_slice(&pair[0]);
+            }
+            parents.push(sha256(&preimage));
+        }
+        nodes = parents;
+    }
+    let mut root_preimage = Vec::new();
+    root_preimage.extend_from_slice(b"nextengine.state-root.v1\0");
+    root_preimage.extend_from_slice(&leaf_count.to_le_bytes());
+    root_preimage.extend_from_slice(&nodes[0]);
+    Ok(StateRoot::from_bytes(sha256(&root_preimage)))
+}
+
 fn extend_state_root_identifier(
     target: &mut Vec<u8>,
     identifier: &str,

@@ -5,6 +5,7 @@ pub(super) fn application_closure(
     streaming: &WorldStreamingSnapshotV1,
     routine_or_none: Option<&WorldRoutineSnapshotV1>,
     population_or_none: Option<&WorldPopulationSnapshotV1>,
+    activity_or_none: Option<&WorldActivitySnapshotV1>,
     agent_or_none: Option<&AgentCognitionSnapshotV1>,
     memory_or_none: Option<&AgentMemorySnapshotV1>,
 ) -> Result<(Vec<SaveSegmentDescriptor>, StateRoot), RuntimeFatalError> {
@@ -61,6 +62,18 @@ pub(super) fn application_closure(
             &population_bytes,
         )?);
     }
+    if let Some(activity) = activity_or_none {
+        let activity_bytes = activity
+            .canonical_bytes()
+            .map_err(|_| RuntimeFatalError::WorldActivityInternalInvariant)?;
+        descriptors.push(segment_descriptor(
+            WORLD_ACTIVITY_SNAPSHOT_OWNER_ID,
+            WORLD_ACTIVITY_SNAPSHOT_SCHEMA_ID,
+            WORLD_ACTIVITY_SNAPSHOT_SEGMENT_ID,
+            u32::from(WORLD_ACTIVITY_SCHEMA_VERSION),
+            &activity_bytes,
+        )?);
+    }
     match (agent_or_none, memory_or_none) {
         (Some(agent), Some(memory)) => {
             let agent_bytes = agent
@@ -87,27 +100,6 @@ pub(super) fn application_closure(
         (None, None) => {}
         _ => return Err(RuntimeFatalError::AgentCognitionInternalInvariant),
     }
-    let application_state_root = match (agent_or_none, memory_or_none) {
-        (Some(agent), Some(memory)) => {
-            world_checkpoint_with_cognition_v1_state_root_from_canonical_components(
-                components,
-                streaming,
-                routine_or_none,
-                population_or_none,
-                agent,
-                memory,
-            )?
-        }
-        (None, None) => {
-            world_checkpoint_with_world_services_v1_state_root_from_canonical_components(
-                components,
-                streaming,
-                routine_or_none,
-                population_or_none,
-            )?
-        }
-        _ => return Err(RuntimeFatalError::AgentCognitionInternalInvariant),
-    };
     descriptors.sort();
     if descriptors.windows(2).any(|pair| {
         (&pair[0].owner_id, &pair[0].schema_id, &pair[0].segment_id)
@@ -115,6 +107,8 @@ pub(super) fn application_closure(
     }) {
         return Err(RuntimeFatalError::WorldRoutineInternalInvariant);
     }
+    let application_state_root =
+        next_contracts::snapshot::state_root_from_save_segment_descriptors(&descriptors)?;
     Ok((descriptors, application_state_root))
 }
 

@@ -29,6 +29,7 @@ const WORLD_CHUNK_RESULT_CHANNEL_CAPACITY: usize = 64;
 const WORLD_CHUNK_MAX_WORKERS: usize = 4;
 pub const WORLD_CHUNK_DEFAULT_WORKERS: usize = 2;
 
+mod activity;
 mod commit;
 mod error;
 mod load;
@@ -37,6 +38,10 @@ mod population;
 mod request;
 mod routine;
 
+pub use activity::{
+    PreparedWorldActivityPublicationV1, ValidatedWorldActivityPublicationV1,
+    WorldActivityObservationV1, WorldActivityOwnerError, WorldActivityOwnerV1,
+};
 pub use commit::WorldTransitionCommitV1;
 pub use error::{WorldAssetLoadErrorCodeV1, WorldStreamingError};
 use load::{

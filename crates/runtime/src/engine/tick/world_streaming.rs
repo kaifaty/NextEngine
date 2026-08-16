@@ -32,6 +32,7 @@ impl RuntimeTickPreparation<'_> {
             None,
             None,
             None,
+            None,
         )?;
         Ok(PreparedRuntimeWorldTick {
             runtime: runtime_tick,
