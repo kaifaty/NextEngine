@@ -40,6 +40,10 @@ pub(crate) fn fixture_presentation_bindings(
     let (relay_mesh, relay_bounds) = mesh(crate::source::REFERENCE_RELAY_MESH_ASSET_ID)?;
     let (relay_approach_mesh, relay_approach_bounds) =
         mesh(crate::source::REFERENCE_RELAY_APPROACH_MESH_ASSET_ID)?;
+    let (r5b_course_mesh, r5b_course_bounds) =
+        mesh(crate::source::REFERENCE_R5B_COURSE_MESH_ASSET_ID)?;
+    let (r5b_push_box_mesh, r5b_push_box_bounds) =
+        mesh(crate::source::REFERENCE_R5B_PUSH_BOX_MESH_ASSET_ID)?;
     let (focus_ring_mesh, focus_ring_bounds) =
         mesh(crate::source::REFERENCE_FOCUS_RING_MESH_ASSET_ID)?;
     let (quest_marker_mesh, quest_marker_bounds) =
@@ -312,6 +316,38 @@ pub(crate) fn fixture_presentation_bindings(
         [0, 0, 0],
         IDENTITY_Q30,
     ));
+    bindings.extend([
+        PresentationBindingV1 {
+            persistent_id: fixture.r5b_course.static_body_id.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Environment,
+            incarnation: 0,
+            presentation_layer: 11,
+            mesh_revision: r5b_course_mesh,
+            material_revision: relay_approach_material,
+            instance_ordinal: 11,
+            local_bounds: r5b_course_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(fixture.r5b_course.static_body_id),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            persistent_id: fixture.r5b_course.dynamic_body_id.subject_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::InteractiveObject,
+            incarnation: 0,
+            presentation_layer: 12,
+            mesh_revision: r5b_push_box_mesh,
+            material_revision: relay_active_material,
+            instance_ordinal: 12,
+            local_bounds: r5b_push_box_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            physics_body_id: Some(fixture.r5b_course.dynamic_body_id),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+    ]);
     if let Some(focus_body_id) = focus_body_id {
         bindings.push(PresentationBindingV1 {
             persistent_id: PersistentId::from_bytes([0x75; 16]),

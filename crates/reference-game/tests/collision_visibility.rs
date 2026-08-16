@@ -245,6 +245,159 @@ fn each_large_rock_has_an_inset_solid_proxy_and_keeps_the_central_route_open() {
     std::fs::remove_dir_all(root).expect("cleanup");
 }
 
+#[test]
+fn production_capsule_course_traverses_and_restores_mid_push() {
+    let (root, activated) = activated_reference_project("r5b-capsule-course");
+    let session = next_reference_game::build_reference_game_session(activated.project.clone())
+        .expect("reference session");
+    let player_body_id = session.physics_body_id;
+    let course = session.r5b_course;
+    let mut driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
+        .expect("live driver");
+    hold_key(
+        &mut driver,
+        next_contracts::input::KEYBOARD_S_CONTROL_PATH_ID,
+        0,
+        60,
+    );
+
+    let mut maximum_height = i64::MIN;
+    let mut recovered_from_fall = false;
+    let mut sensor_seen = false;
+    let mut sensor_exited = false;
+    {
+        let mut sample = |driver: &next_reference_game::ReferenceGameDriverV2| {
+            let state = driver.state().expect("live state");
+            let physics = &state.checkpoint.physics_checkpoint.snapshot;
+            let player = &physics.sorted_body_states[&player_body_id];
+            maximum_height = maximum_height.max(player.pose.translation_micrometres[1]);
+            if maximum_height >= 1_500_000
+                && player.pose.translation_micrometres[1] == 900_000
+                && player.linear_velocity_micrometres_per_second[1] == 0
+            {
+                recovered_from_fall = true;
+            }
+            let sensor_now = physics
+                .sorted_contact_continuity_states
+                .values()
+                .any(|contact| {
+                    contact.participant_low == course.sensor_shape_id
+                        || contact.participant_high == course.sensor_shape_id
+                });
+            sensor_seen |= sensor_now;
+            sensor_exited |= sensor_seen && !sensor_now;
+        };
+
+        driver
+            .advance(&[control_event(
+                next_contracts::input::KEYBOARD_D_CONTROL_PATH_ID,
+                NormalizedControlPhaseV1::Started,
+                i16::MAX,
+                2,
+            )])
+            .expect("start course traversal");
+        sample(&driver);
+        for _ in 1..55 {
+            driver.advance(&[]).expect("continue course traversal");
+            sample(&driver);
+        }
+    }
+
+    let saved = driver.state().expect("mid-push state");
+    assert_eq!(
+        saved
+            .checkpoint
+            .physics_checkpoint
+            .snapshot
+            .sorted_body_states[&course.dynamic_body_id]
+            .linear_velocity_micrometres_per_second[0],
+        3_000_000,
+        "the saved continuation must capture an active committed push"
+    );
+    let mut restored = next_reference_game::ReferenceGameDriverV2::restore(
+        activated.clone(),
+        saved.checkpoint,
+        saved.world_streaming_snapshot,
+        saved.world_routine_snapshot_or_none,
+        saved.world_population_snapshot,
+        saved.world_activity_snapshot,
+        saved.agent_cognition_snapshot,
+        saved.agent_memory_snapshot,
+        saved.physical_animation_snapshot,
+        saved.driver_recovery,
+    )
+    .expect("restore mid-push course state");
+    for _ in 55..80 {
+        driver.advance(&[]).expect("continue original traversal");
+        restored.advance(&[]).expect("continue restored traversal");
+        let original = driver.state().expect("original state");
+        let recovered = restored.state().expect("restored state");
+        assert_eq!(
+            recovered.checkpoint.physics_checkpoint,
+            original.checkpoint.physics_checkpoint
+        );
+        let physics = &original.checkpoint.physics_checkpoint.snapshot;
+        let player = &physics.sorted_body_states[&player_body_id];
+        maximum_height = maximum_height.max(player.pose.translation_micrometres[1]);
+        if maximum_height >= 1_500_000
+            && player.pose.translation_micrometres[1] == 900_000
+            && player.linear_velocity_micrometres_per_second[1] == 0
+        {
+            recovered_from_fall = true;
+        }
+        let sensor_now = physics
+            .sorted_contact_continuity_states
+            .values()
+            .any(|contact| {
+                contact.participant_low == course.sensor_shape_id
+                    || contact.participant_high == course.sensor_shape_id
+            });
+        sensor_seen |= sensor_now;
+        sensor_exited |= sensor_seen && !sensor_now;
+    }
+    let completion = control_event(
+        next_contracts::input::KEYBOARD_D_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Completed,
+        0,
+        3,
+    );
+    driver
+        .advance(std::slice::from_ref(&completion))
+        .expect("complete original traversal");
+    restored
+        .advance(&[completion])
+        .expect("complete restored traversal");
+    let original = driver.state().expect("final original state");
+    let recovered = restored.state().expect("final restored state");
+    assert_eq!(
+        recovered.checkpoint.physics_checkpoint,
+        original.checkpoint.physics_checkpoint
+    );
+    let physics = &original.checkpoint.physics_checkpoint.snapshot;
+    let player = &physics.sorted_body_states[&player_body_id];
+    let dynamic = &physics.sorted_body_states[&course.dynamic_body_id];
+    assert_eq!(maximum_height, 1_500_000);
+    assert!(recovered_from_fall);
+    assert!(sensor_seen && sensor_exited);
+    assert_eq!(
+        player.pose.translation_micrometres,
+        [6_000_000, 900_000, -6_000_000]
+    );
+    assert_eq!(dynamic.pose.translation_micrometres[0], 6_500_000);
+    assert_eq!(dynamic.linear_velocity_micrometres_per_second, [0; 3]);
+    let push_box = driver
+        .presentation_snapshot()
+        .expect("final presentation")
+        .scene_records()
+        .find(|record| record.object_key.persistent_id == course.dynamic_body_id.subject_id)
+        .expect("visible push box");
+    assert_eq!(
+        push_box.current_transform.translation_micrometres,
+        dynamic.pose.translation_micrometres
+    );
+    std::fs::remove_dir_all(root).expect("cleanup");
+}
+
 fn activated_reference_project(
     label: &str,
 ) -> (std::path::PathBuf, next_project::ActivatedProjectPackage) {

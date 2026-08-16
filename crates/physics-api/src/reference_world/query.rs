@@ -244,9 +244,6 @@ fn expanded_axis_interval(
             .checked_sub(perpendicular_squared)
             .ok_or(ReferencePhysicsError::NumericOverflow)?,
     )?;
-    if axis != 1 && radial_reach == 0 {
-        return Ok(None);
-    }
     let axis_reach = if axis == 1 {
         half_segment
             .checked_add(radial_reach)

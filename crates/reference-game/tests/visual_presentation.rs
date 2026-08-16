@@ -41,7 +41,7 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
         .presentation_snapshot
         .scene_records()
         .collect::<Vec<_>>();
-    assert_eq!(initial_scene.len(), 8);
+    assert_eq!(initial_scene.len(), 10);
     assert!(
         initial_scene
             .iter()
@@ -169,6 +169,30 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
         relay_approach.material_revision.asset_id,
         AssetId::from_bytes([0xd9; 16])
     );
+    let capsule_course = initial_scene
+        .iter()
+        .find(|record| record.object_key.persistent_id == PersistentId::from_bytes([0x78; 16]))
+        .expect("R5b capsule course presentation");
+    assert_eq!(
+        capsule_course.mesh_revision.asset_id,
+        AssetId::from_bytes([0xcb; 16])
+    );
+    assert_eq!(
+        capsule_course.current_transform.translation_micrometres,
+        [0; 3]
+    );
+    let push_box = initial_scene
+        .iter()
+        .find(|record| record.object_key.persistent_id == PersistentId::from_bytes([0x79; 16]))
+        .expect("R5b push box presentation");
+    assert_eq!(
+        push_box.mesh_revision.asset_id,
+        AssetId::from_bytes([0xcc; 16])
+    );
+    assert_eq!(
+        push_box.current_transform.translation_micrometres,
+        [5_200_000, 300_000, -6_000_000]
+    );
     let outcome = next_reference_game::run_reference_game(activated, true).expect("reference run");
     let final_pickup = outcome
         .presentation_bindings
@@ -195,7 +219,7 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
         final_relay.material_revision.asset_id,
         AssetId::from_bytes([0xd6; 16])
     );
-    assert_eq!(outcome.presentation_bindings.len(), 7);
+    assert_eq!(outcome.presentation_bindings.len(), 9);
     assert!(outcome.presentation_bindings.iter().all(|binding| {
         binding.persistent_id != PersistentId::from_bytes([0x70; 16])
             || (binding.presentation_role

@@ -51,7 +51,7 @@ pub(crate) fn run_content_package_check_with_scratch(
     scratch: &ScratchContext,
 ) -> Result<ContentPackageCheckReport, ContentPackageCheckError> {
     let source = next_reference_game::project_source_v6()?;
-    if source.root_asset_ids.len() != 33 {
+    if source.root_asset_ids.len() != 35 {
         return Err(ContentPackageCheckError::FixtureClosureMismatch);
     }
     verify_world_routine_source_faults()?;
@@ -73,7 +73,7 @@ pub(crate) fn run_content_package_check_with_scratch(
             run_reference_wasm_plugin(activated.clone())?;
         let catalog = &activated.render_content_catalog;
         let fallback_plan = fallback_material_plan(&prepared)?;
-        if activated.content_manifest.body.asset_entries.len() != 119
+        if activated.content_manifest.body.asset_entries.len() != 121
             || activated.text_catalogs.len() != 2
             || activated.audio_clips.len() != 4
             || activated.neutral_skeletons.len() != 1
@@ -89,10 +89,10 @@ pub(crate) fn run_content_package_check_with_scratch(
                 .first()
                 .and_then(|interaction| interaction.availability_condition_or_none)
                 .is_none()
-            || catalog.meshes().len() != 10
+            || catalog.meshes().len() != 12
             || catalog.materials().len() != 11
             || catalog.textures().len() != 7
-            || catalog.cooked_meshes().len() != 10
+            || catalog.cooked_meshes().len() != 12
             || catalog
                 .meshes()
                 .iter()
@@ -101,8 +101,8 @@ pub(crate) fn run_content_package_check_with_scratch(
                 .cooked_meshes()
                 .iter()
                 .any(|mesh| mesh.meshlets().is_empty())
-            || prepared.check.rendered_object_count != 6
-            || prepared.check.indexed_draw_count != 6
+            || prepared.check.rendered_object_count != 8
+            || prepared.check.indexed_draw_count != 8
             || prepared.check.fallback_material_draw_count != 0
             || fallback_plan.fallback_material_draw_count != 1
             || gameplay.npc_health != 0
@@ -633,7 +633,7 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert_eq!(report.records, 119);
+        assert_eq!(report.records, 121);
         assert_eq!(report.chunks, 64);
         assert_eq!(report.mechanic_packages, 2);
         assert_eq!(report.wasm_plugins, 1);

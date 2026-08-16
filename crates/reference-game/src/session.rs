@@ -25,6 +25,48 @@ use crate::{ReferenceGameError, ReferenceWorldTopologyV1, build_reference_runtim
 
 const WORLD_COLLISION_LAYER: u8 = 0;
 const WORLD_COLLISION_MASK: u64 = 1 << WORLD_COLLISION_LAYER;
+const R5B_COURSE_Z_MICROMETRES: i64 = -6_000_000;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReferenceCapsuleCourseV1 {
+    pub static_body_id: PhysicsBodyIdV1,
+    pub dynamic_body_id: PhysicsBodyIdV1,
+    pub dynamic_shape_id: PhysicsShapeIdV1,
+    pub sensor_body_id: PhysicsBodyIdV1,
+    pub sensor_shape_id: PhysicsShapeIdV1,
+    pub centre_z_micrometres: i64,
+}
+
+impl ReferenceCapsuleCourseV1 {
+    fn production_v1() -> Self {
+        let static_body_id = PhysicsBodyIdV1 {
+            subject_id: PersistentId::from_bytes([0x78; 16]),
+            body_slot: 0,
+        };
+        let dynamic_body_id = PhysicsBodyIdV1 {
+            subject_id: PersistentId::from_bytes([0x79; 16]),
+            body_slot: 0,
+        };
+        let sensor_body_id = PhysicsBodyIdV1 {
+            subject_id: PersistentId::from_bytes([0x7a; 16]),
+            body_slot: 0,
+        };
+        Self {
+            static_body_id,
+            dynamic_body_id,
+            dynamic_shape_id: PhysicsShapeIdV1 {
+                body_id: dynamic_body_id,
+                shape_slot: 0,
+            },
+            sensor_body_id,
+            sensor_shape_id: PhysicsShapeIdV1 {
+                body_id: sensor_body_id,
+                shape_slot: 0,
+            },
+            centre_z_micrometres: R5B_COURSE_Z_MICROMETRES,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct ReferenceGameSession {
@@ -38,6 +80,7 @@ pub struct ReferenceGameSession {
     pub controller_id: PersistentId,
     pub body_id: PersistentId,
     pub physics_body_id: PhysicsBodyIdV1,
+    pub r5b_course: ReferenceCapsuleCourseV1,
     pub interactive_object_id: PersistentId,
     pub npc_character_id: PersistentId,
     pub quest_giver_character_id: PersistentId,
@@ -276,6 +319,7 @@ pub fn build_reference_game_session_with_profile(
         subject_id: body_id,
         body_slot: 0,
     };
+    let r5b_course = ReferenceCapsuleCourseV1::production_v1();
     let interactive_object_id = PersistentId::from_bytes([0x58; 16]);
     let npc_character_id = PersistentId::from_bytes([0x59; 16]);
     let dialogue_id = PersistentId::from_bytes([0x5a; 16]);
@@ -315,6 +359,9 @@ pub fn build_reference_game_session_with_profile(
         PersistentId::from_bytes([0x72; 16]),
         PersistentId::from_bytes([0x73; 16]),
         PersistentId::from_bytes([0x74; 16]),
+        r5b_course.static_body_id.subject_id,
+        r5b_course.dynamic_body_id.subject_id,
+        r5b_course.sensor_body_id.subject_id,
     ]
     .iter()
     .any(|identity| *identity == quest_giver_character_id || *identity == cognition_subject_id)
@@ -341,6 +388,7 @@ pub fn build_reference_game_session_with_profile(
         controller_id,
         body_id,
         physics_body_id,
+        r5b_course,
         interactive_object_id,
         npc_character_id,
         quest_giver_character_id,
@@ -524,6 +572,18 @@ fn grounded_capsule_checkpoint(
             ),
         )
     });
+    let r5b_course = ReferenceCapsuleCourseV1::production_v1();
+    let course_static = r5b_course_static_descriptor(r5b_course.static_body_id, &material_id);
+    let course_dynamic = r5b_course_dynamic_descriptor(
+        r5b_course.dynamic_body_id,
+        r5b_course.dynamic_shape_id,
+        &material_id,
+    );
+    let course_sensor = r5b_course_sensor_descriptor(
+        r5b_course.sensor_body_id,
+        r5b_course.sensor_shape_id,
+        &material_id,
+    );
     let mut bodies = BTreeMap::from([
         (capsule_body_id, capsule),
         (floor_body_id, floor),
@@ -531,6 +591,9 @@ fn grounded_capsule_checkpoint(
         (pickup_proxy_body_id, pickup_proxy),
         (npc_body_id, npc),
         (quest_giver_body_id, quest_giver),
+        (r5b_course.static_body_id, course_static),
+        (r5b_course.dynamic_body_id, course_dynamic),
+        (r5b_course.sensor_body_id, course_sensor),
     ]);
     bodies.extend(rock_boxes);
     let catalog = PhysicsWorldCatalogV1::new(
@@ -582,6 +645,132 @@ fn static_box_descriptor(
                 collision_mask,
             ),
         )]),
+    }
+}
+
+fn r5b_course_static_descriptor(
+    body_id: PhysicsBodyIdV1,
+    material_id: &SchemaId,
+) -> PhysicsBodyDescriptorV1 {
+    let boxes = [
+        (
+            [600_000, 25_000, R5B_COURSE_Z_MICROMETRES],
+            [200_000, 25_000, 500_000],
+        ),
+        (
+            [1_000_000, 50_000, R5B_COURSE_Z_MICROMETRES],
+            [200_000, 50_000, 500_000],
+        ),
+        (
+            [1_400_000, 75_000, R5B_COURSE_Z_MICROMETRES],
+            [200_000, 75_000, 500_000],
+        ),
+        (
+            [1_800_000, 100_000, R5B_COURSE_Z_MICROMETRES],
+            [200_000, 100_000, 500_000],
+        ),
+        (
+            [2_200_000, 200_000, R5B_COURSE_Z_MICROMETRES],
+            [200_000, 200_000, 500_000],
+        ),
+        (
+            [3_000_000, 300_000, R5B_COURSE_Z_MICROMETRES],
+            [600_000, 300_000, 500_000],
+        ),
+        (
+            [6_800_000, 900_000, R5B_COURSE_Z_MICROMETRES],
+            [100_000, 900_000, 500_000],
+        ),
+    ];
+    let shapes = boxes
+        .into_iter()
+        .enumerate()
+        .map(|(shape_slot, (translation, half_extents))| {
+            let shape_id = PhysicsShapeIdV1 {
+                body_id,
+                shape_slot: u32::try_from(shape_slot).expect("bounded R5b shape count"),
+            };
+            (
+                shape_id,
+                box_shape_descriptor(
+                    shape_id,
+                    material_id,
+                    translation,
+                    half_extents,
+                    WORLD_COLLISION_LAYER,
+                    WORLD_COLLISION_MASK,
+                ),
+            )
+        })
+        .collect();
+    PhysicsBodyDescriptorV1 {
+        body_id,
+        descriptor_revision: 1,
+        motion_kind: PhysicsMotionKindV1::Static,
+        initial_pose: PhysicsPoseV1::default(),
+        initial_linear_velocity_micrometres_per_second: [0; 3],
+        initial_angular_velocity_q16: [0; 3],
+        active: true,
+        shapes,
+    }
+}
+
+fn r5b_course_dynamic_descriptor(
+    body_id: PhysicsBodyIdV1,
+    shape_id: PhysicsShapeIdV1,
+    material_id: &SchemaId,
+) -> PhysicsBodyDescriptorV1 {
+    PhysicsBodyDescriptorV1 {
+        body_id,
+        descriptor_revision: 1,
+        motion_kind: PhysicsMotionKindV1::Dynamic,
+        initial_pose: PhysicsPoseV1 {
+            translation_micrometres: [5_200_000, 300_000, R5B_COURSE_Z_MICROMETRES],
+            ..PhysicsPoseV1::default()
+        },
+        initial_linear_velocity_micrometres_per_second: [0; 3],
+        initial_angular_velocity_q16: [0; 3],
+        active: true,
+        shapes: BTreeMap::from([(
+            shape_id,
+            box_shape_descriptor(
+                shape_id,
+                material_id,
+                [0; 3],
+                [200_000, 300_000, 200_000],
+                WORLD_COLLISION_LAYER,
+                WORLD_COLLISION_MASK,
+            ),
+        )]),
+    }
+}
+
+fn r5b_course_sensor_descriptor(
+    body_id: PhysicsBodyIdV1,
+    shape_id: PhysicsShapeIdV1,
+    material_id: &SchemaId,
+) -> PhysicsBodyDescriptorV1 {
+    let mut shape = box_shape_descriptor(
+        shape_id,
+        material_id,
+        [0; 3],
+        [100_000, 900_000, 500_000],
+        WORLD_COLLISION_LAYER,
+        WORLD_COLLISION_MASK,
+    );
+    shape.participation = PhysicsParticipationV1::Sensor;
+    PhysicsBodyDescriptorV1 {
+        body_id,
+        descriptor_revision: 1,
+        motion_kind: PhysicsMotionKindV1::Static,
+        initial_pose: PhysicsPoseV1 {
+            translation_micrometres: [4_300_000, 900_000, R5B_COURSE_Z_MICROMETRES],
+            ..PhysicsPoseV1::default()
+        },
+        initial_linear_velocity_micrometres_per_second: [0; 3],
+        initial_angular_velocity_q16: [0; 3],
+        active: true,
+        shapes: BTreeMap::from([(shape_id, shape)]),
     }
 }
 

@@ -41,7 +41,8 @@ pub use scenario::{
     run_reference_game, run_reference_game_with_backend,
 };
 pub use session::{
-    ReferenceGameSession, build_reference_game_session, build_reference_game_session_with_profile,
+    ReferenceCapsuleCourseV1, ReferenceGameSession, build_reference_game_session,
+    build_reference_game_session_with_profile,
 };
 pub use source::{
     REFERENCE_GAME_PROJECT_ID, project_source_v6, project_source_v6_with_id,

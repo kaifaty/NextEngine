@@ -195,8 +195,16 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         raised[axis] = raised[axis]
             .checked_add(across.applied_delta_micrometres)
             .ok_or(ReferencePhysicsError::NumericOverflow)?;
-        let down =
-            self.sweep_solids_axis(staged, raised, 1, -CAPSULE_MAX_STEP_HEIGHT_MICROMETRES)?;
+        // The sweep contract reports a hit only after crossing a boundary. Probe one
+        // canonical micrometre beyond the raised height so a surface exactly at the
+        // maximum step distance is classified as support instead of a horizontal
+        // blocker at its leading edge. The committed displacement remains the exact
+        // quantized hit distance returned by the sweep.
+        let down_probe = CAPSULE_MAX_STEP_HEIGHT_MICROMETRES
+            .checked_add(1)
+            .and_then(i64::checked_neg)
+            .ok_or(ReferencePhysicsError::NumericOverflow)?;
+        let down = self.sweep_solids_axis(staged, raised, 1, down_probe)?;
         if !down.hit.is_some_and(|hit| hit.normal_box_to_capsule[1] > 0) {
             return Ok(None);
         }
