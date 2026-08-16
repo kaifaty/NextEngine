@@ -228,4 +228,3 @@ successor composite checkpoint. Exact names and versions are assigned only by
 the consumer-backed Accepted promotion ADR. Generic solver API, raw graph/cell
 mutation, arbitrary plugin fracture callback and gameplay access to solver
 nodes remain out of scope.
-

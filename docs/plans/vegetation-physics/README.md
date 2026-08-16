@@ -98,4 +98,3 @@ cutting in the first vertical, flexible falling crowns, secondary fragment
 fracture, tree-to-tree damage, contact leaves, growth, decay, snow/ice, fire,
 embers, root failure, deformable soil, water exchange, general weather/CFD,
 cross-region streaming and generic vegetation/solver plugin APIs.
-

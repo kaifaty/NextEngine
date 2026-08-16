@@ -146,4 +146,3 @@
 - **Remaining risk:** all physical accuracy, material calibration, fixed-point
   trajectory, coupling stability, exact persistence, forest performance and
   cross-target behavior remain unmeasured.
-

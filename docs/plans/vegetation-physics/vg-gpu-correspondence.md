@@ -19,4 +19,3 @@ does not establish equivalent history.
 `VEGETATION-MIRROR-P1` is report-only until a separately accepted authority
 model exists. Failure or unavailable hardware leaves CPU behavior unchanged.
 GPU source, large trajectories and captures remain outside Git.
-

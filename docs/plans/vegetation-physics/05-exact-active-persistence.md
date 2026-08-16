@@ -37,4 +37,3 @@ numeric bounds, topology mapping and exchange disposition independently.
 fixture and fail-closed rejection before publication for every corrupt/stale/
 capacity case. This does not authorize modal/sleep loss or cross-region
 transfer.
-

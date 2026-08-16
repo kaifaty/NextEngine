@@ -116,8 +116,9 @@ Visual plausibility is diagnostic and cannot replace a curve.
 
 - [Discrete Elastic Rods](https://doi.org/10.1145/1360612.1360662) supplies
   buckling, stability and coupled bending/twist validation cases.
-- [PyElastica v0.3.3](https://github.com/GazzolaLab/PyElastica/releases/tag/v0.3.3)
-  at release commit `aef9e24` is the pinned external Cosserat comparator. Its
+- [PyElastica v1.0.0](https://github.com/GazzolaLab/PyElastica/tree/v1.0.0)
+  at tag commit `b087f1399f9be2fdd2fcf3768689f7735a96f7ab` is the pinned external
+  Cosserat comparator. Its
   aggregate curves are evidence, not exact particle/node identity and not
   linked/copied engine code.
 - The [USDA Wood Handbook 2021](https://research.fs.usda.gov/fpl/wood-handbook)
@@ -155,4 +156,3 @@ root failure. A candidate formulation may be rejected, but thresholds and
 fixtures cannot be widened after its result. If neither candidate can meet the
 fixed outer step under a bounded internal cadence, the program remains
 research-only until a new explicit cadence/product decision.
-

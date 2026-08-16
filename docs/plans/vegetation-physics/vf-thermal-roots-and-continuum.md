@@ -32,4 +32,3 @@ Each lane needs one product scenario, exact state/profile/corpus, owner and
 coupling semantics, persistence before lossy lifecycle, stop conditions and a
 consumer-backed promotion decision. No lane may mutate V0–V7 profile bytes or
 reinterpret a prior checkpoint.
-
