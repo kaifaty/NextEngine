@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-25 |
 | Статус | Accepted |
-| Версия | 2.5 |
+| Версия | 2.6 |
 | Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
-| Заменяет | SPEC-25 2.4; updates the current activation/replay closure while retaining the unchanged partition and population binding |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
+| Заменяет | SPEC-25 2.5; updates the current V7 activation/V9 replay closure while retaining the unchanged partition and population binding |
 
 ## Назначение
 
@@ -94,7 +94,7 @@ and binds its hash into `ProjectLockV3`. Package publication includes the
 manifest and every referenced content blob.
 
 Activation reads `ProjectLockV3`, verifies the complete hash closure, decodes
-the partition with current limits and publishes one `ActivatedProjectV6` only
+the partition with current limits and publishes one `ActivatedProjectV7` only
 after all project artifacts agree. It does not resolve versions from a
 catalog, scan ambient files or repair a partial closure.
 
@@ -106,8 +106,8 @@ production bounded path; eager activation не превращается в lazy 
 
 Save/replay bind the already activated project/content/world hashes through
 their current manifests. The separate `WorldPopulationSnapshotV1` serializes
-the 100 durable logical placement/tier records and Replay V8 proves their
-ledger closure alongside the separate Agent/Memory segments. Runtime entity mappings, pending file operations and cache
+the 100 durable logical placement/tier records and Replay V9 proves their
+ledger closure alongside the separate activity/Agent/Memory segments. Runtime entity mappings, pending file operations and cache
 state remain reconstructible and are not serialized.
 
 Load accepts only the current compatible project closure. Missing or changed
@@ -179,11 +179,11 @@ interest/residency admission and eviction remain future concepts.
 | Check | Current evidence |
 |---|---|
 | focused project/contracts tests | canonical four-region/64-chunk ordering, bounds, unknown-field, duplicate ID, wrong class and dependency mismatch failures |
-| `content-package` | cooker/package/activation agree on 4 regions, 64 chunks, typed routine/population/navigation/cognition catalogs and 117 packaged entries |
-| `persistence-replay` | save after `Requested`, process restart, exact pinned reactivation/re-fetch and the separate population/Agent/Memory segments complete with the uninterrupted eight-owner root |
+| `content-package` | cooker/package/activation agree on 4 regions, 64 chunks, typed routine/population/navigation/cognition/activity catalogs and 118 packaged entries |
+| `persistence-replay` | save after `Requested`, process restart, exact pinned reactivation/re-fetch and the separate population/activity/Agent/Memory segments complete with the uninterrupted nine-owner root |
 | `performance --scenario smoke --mode report` | 1,000 transitions perform real packaged I/O and record existing V4 logical staging charges; 30 seconds remains report-only |
 | `performance --scenario r3-multiregion-streaming --mode report` | 1,000 transitions cycle over the canonical 64-chunk route with production default two workers; only `streaming_world` is authoritative and the scenario remains report-only |
-| `performance --scenario r4-100npc --mode report` | 1,000 warm-up plus 10,000 measured joint ticks execute one graph query per due population record with exact roots and no drop/starvation; unsupported-host timing remains `NOT_RUN`, not B-12 evidence |
+| `performance --scenario r4-100npc --mode report` | 1,000 warm-up plus 10,000 measured joint ticks execute one graph query and one exact tier-cognition work item per due population record with exact roots and no drop/starvation/fabrication; unsupported-host timing remains `NOT_RUN`, not B-12 evidence |
 | `host-check` | current workspace contract and structural checks pass |
 
 No generic world-admission, eviction or alpha migration check exists in the

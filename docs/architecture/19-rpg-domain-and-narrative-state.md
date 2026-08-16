@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-19 |
 | Статус | Accepted |
-| Версия | 2.1 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-19 2.0; records future Strategic Agent reciprocal ownership without changing current operations |
+| Версия | 2.2 |
+| Последняя проверка | 2026-08-16 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
+| Заменяет | SPEC-19 2.1; admits the bounded R4d commitment aggregate and atomic systemic settlement operation set |
 
 ## Authority
 
@@ -48,8 +48,8 @@ transaction.
 
 The current closed payload enum contains `Character`, `Item`, `Inventory`,
 `Equipment`, `Quest`, `Dialogue`, `Faction`, `FactionMembership`,
-`Relationship`, `DivineStanding` and `InteractiveObject` records. This list is
-the current serialized envelope surface, not a promise that every high-level
+`Relationship`, `DivineStanding`, `InteractiveObject` and `Commitment` records.
+This list is the current serialized envelope surface, not a promise that every high-level
 feature is implemented. In particular, the small `DivineStandingPayloadV1`
 record does not imply the narrative director, pantheon, offers/covenants or
 atomic divine-judgment feature set removed from current obligations by
@@ -66,6 +66,9 @@ Current payload ownership is simple:
 - Faction, membership and directed relationship records own their declared
   values.
 - InteractiveObject owns its stable state ID and optional linked item.
+- Commitment owns issuer, recipient, work and workplace IDs, currency, wage
+  and the closed `Offered -> Accepted -> Fulfilled` lifecycle with cancellation
+  permitted from Offered or Accepted.
 - Calendar/population, physical pose, mechanics reducer state, AI memory,
   localized text and presentation are not copied into RPG authority.
 
@@ -85,7 +88,8 @@ handle, database row, task/future or OS object.
 5. `TransferItem`;
 6. `AssignEquipment`;
 7. `TransitionInteractiveObject`;
-8. `AdjustCharacterResource`.
+8. `AdjustCharacterResource`;
+9. `TransitionCommitment`.
 
 Each operation binds stable target IDs and exact expected revisions. Operation
 slots are `0..n-1`; target sets and definition/policy hashes are sorted unique.
@@ -131,22 +135,29 @@ definition mismatch, plan stale, event order invalid and transaction aborted.
 Every failure retains the previous state/ledger roots.
 
 `play` exercises the implemented dialogue, quest, relationship, inventory,
-equipment, interactive-object and character-resource operations through the
-reference loop. `persistence-replay` proves current snapshot/save/replay roots,
+equipment, interactive-object, character-resource and commitment operations
+through the reference loop. `persistence-replay` proves current snapshot/save/replay roots,
 typed rejection of retired formats and no partial mutation. Focused RPG tests
-cover all eight operations, canonical order, stale/conflict and atomic-fault
+cover all nine operations, canonical order, stale/conflict and atomic-fault
 cases.
 
 Future autonomous quest/narrative/divine behavior is Proposed in SPEC-31 and
 is not a prerequisite, current check or accepted feature contract here.
 
-## Future Strategic Agent reciprocal ownership
+## Current bounded Strategic Agent reciprocal ownership
 
-ADR-056 assigns future character resources, inventory/currency, relationships,
-faction membership, commitments and debts to RPG Framework. SPEC-32 may read
-immutable revision-bound projections and propose social/trade/work outcomes,
-but only RPG validation and atomic `WorldCommand` commit can create the
-authoritative effect. The current closed aggregate/operation sets above do not
-gain money, debt, commitment or job variants in this documentation change;
-each extension requires its production consumer and current-only schema under
-ADR-046.
+ADR-074 admits one production consumer of ADR-056's reciprocal boundary.
+SPEC-32 reads immutable revision-bound character, inventory and commitment
+projections and proposes social/work outcomes, but only RPG validation and an
+atomic `WorldCommand` commit can create the authoritative effect. Work
+acceptance performs one `TransitionCommitment` from Offered to Accepted.
+Completed activity then permits one nine-operation settlement: employer wage
+debit, worker credit, worker food-price debit, seller credit, seller-to-worker
+item transfer, item consumption, hunger reduction, satiety increase and
+commitment fulfillment. Any stale revision, missing aggregate, insufficient
+currency or unavailable inventory rejects the whole transaction and preserves
+all prior aggregate/event/ledger roots.
+
+Job availability and activity state remain World Services authority; speech
+and Agent state remain proposals. Debt, generic jobs markets, taxes and broad
+economy schemas still require another production consumer under ADR-046.

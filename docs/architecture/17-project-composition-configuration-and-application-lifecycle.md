@@ -4,21 +4,21 @@
 |---|---|
 | ID | SPEC-17 |
 | Статус | Accepted |
-| Версия | 2.3 |
+| Версия | 2.4 |
 | Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
-| Заменяет | SPEC-17 2.2; updates the direct path to authoring V5 and `ActivatedProjectV6` |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
+| Заменяет | SPEC-17 2.3; updates the direct path to authoring V6 and `ActivatedProjectV7` |
 
 ## Назначение
 
 Current project path is deliberately direct:
 
 ```text
-nextengine.project-authoring.v5
+nextengine.project-authoring.v6
   → cook and validate exact artifacts
   → ProjectLockV3
   → validate complete hash closure
-  → ActivatedProjectV6
+  → ActivatedProjectV7
 ```
 
 There is no runtime dependency resolver. `ProjectManifestV1`, requirements,
@@ -30,11 +30,11 @@ resolver profiles, `project.json`, `catalog.json` and
 
 | State | Source of truth | Not authority |
 |---|---|---|
-| Editable project intent | `nextengine.project-authoring.v5` source | cooked cache or runtime defaults |
+| Editable project intent | `nextengine.project-authoring.v6` source | cooked cache or runtime defaults |
 | Exact runnable closure | `ProjectLockV3` | filesystem discovery or catalog selection |
 | Current schema set | `SchemaRegistryManifestV2` referenced by the lock | dynamic registration |
 | Cooked content/world/mechanics | exact manifests and blobs referenced by the lock | source paths or importer records |
-| Published runtime project | atomically validated `ActivatedProjectV6` | partially decoded candidate |
+| Published runtime project | atomically validated `ActivatedProjectV7` | partially decoded candidate |
 | Application session | SPEC-29 session contracts | project authoring or lock policy fields |
 
 Authoring describes only project-owned composition intent. Session recovery,
@@ -98,7 +98,7 @@ Activation accepts `ProjectLockV3` directly and must:
    profile hashes plus all nested references;
 4. validate neutral records, localization fallback closure, animation/skeleton
    relations and render catalog against the content manifest;
-5. build one immutable `ActivatedProjectV6` candidate, including exact world-routine, 100-record population/navigation and required cognition catalog closure;
+5. build one immutable `ActivatedProjectV7` candidate, including exact world-routine, 100-record population/navigation and required cognition/activity catalog closure;
 6. publish it atomically only after the complete closure passes.
 
 No component may substitute a compatible-looking record, resolve a range,
@@ -123,7 +123,7 @@ published project. Diagnostics include stable code plus expected/actual hashes
 or identities.
 
 `content-package` is the governing ProductCheck: cook the reference project,
-reopen the package, validate all 31 roots/117 entries and activate the same
-`ActivatedProjectV6` in required roots. `fast` covers focused contract tests;
+reopen the package, validate all 32 roots/118 entries and activate the same
+`ActivatedProjectV7` in required roots. `fast` covers focused contract tests;
 packaging or host changes additionally run `platform`/`v1-package` as selected
 by SPEC-12.

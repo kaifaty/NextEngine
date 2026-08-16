@@ -4,15 +4,16 @@
 |---|---|
 | ID | SPEC-20 |
 | Status | Accepted |
-| Version | 4.1 |
+| Version | 4.2 |
 | Last verified | 2026-08-16 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
-| Replaces | SPEC-20 4.0; records the accepted R4c cognition consumer of the unchanged R4b population/location/route owner |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-021](adr/021-deterministic-population-residency-and-time-advance.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
+| Replaces | SPEC-20 4.1; admits the bounded R4d activity owner, tier cognition and bulk-time consumer |
 
 ## Status and admission
 
-This document is the current contract for the completed R4a and R4b product
-increments and the reciprocal World Services boundary consumed by R4c.
+This document is the current contract for the completed R4a through R4d
+product increments: calendar/routine, population/navigation, the reciprocal
+cognition view and one owner-validated systemic activity/bulk-time consumer.
 ADR-046 admission was completed with their production consumers:
 
 1. the reference-alpha relay keeper consumes the authored routine through the
@@ -22,14 +23,16 @@ ADR-046 admission was completed with their production consumers:
 3. `fast`, `play`, `persistence-replay`, `content-package` and report-only
    performance paths cover routine plus population/navigation success and
    malformed-input cases;
-4. ADR-052 and ADR-072 are `Accepted` and explicitly supersede their affected
+4. ADR-052, ADR-072 and ADR-074 are `Accepted` and explicitly supersede their affected
    clauses;
 5. affected Accepted SPECs, the architecture index, routing table,
    traceability map and roadmap describe the implemented current formats.
 
-R4c now consumes the accepted population location/route for one subject under
-ADR-073 without changing World Services ownership. This admission does not
-close full R4, B-12, R4d systemic work, B-13 or v1 shipping.
+R4c consumes the accepted population location/route for one subject under
+ADR-073. R4d adds a separate activity owner, exact tier-work dispatch and a
+bounded ordinary-tick bulk-time consumer under ADR-074. This admission closes
+the functional R4 increment, but not B-12, B-13, paired Windows/Linux evidence
+or v1 shipping.
 
 ## R4a product slice (retained)
 
@@ -91,12 +94,13 @@ Every other population record remains a real due/query participant but retains
 revision zero in this bounded scenario.
 
 Current-only project types are
-`ProjectAuthoringManifestV5 -> NeutralProjectSourceV5 -> CookedProjectV5 ->
-ActivatedProjectV6`. R4b's two catalogs changed reference-alpha roots `28 ->
-30` and entries `114 -> 116`; the R4c cognition catalog changes them to `31`
-and `117`. The four-region/64-chunk partition shape is unchanged. Replay is
-current-only V8 and the reference application/save closure has eight
-full-tuple owner segments after adding separate Agent and Memory owners.
+`ProjectAuthoringManifestV6 -> NeutralProjectSourceV6 -> CookedProjectV6 ->
+ActivatedProjectV7`. R4b's two catalogs changed reference-alpha roots `28 ->
+30` and entries `114 -> 116`; R4c cognition changed them to `31` and `117`,
+and R4d activity changes them to `32` and `118`. The four-region/64-chunk
+partition shape is unchanged. Replay is current-only V9 and the reference
+application/save closure has nine full-tuple owner segments after adding the
+activity, Agent and Memory owners.
 
 ## R4c reciprocal cognition consumer
 
@@ -107,17 +111,46 @@ World Services does not expose a mutable record or physical pose, and cognition
 cannot commit a transfer. The resulting route affordance is a proposal input;
 the R4c private executive records a logical-route intent without claiming that
 navigation executed it. Missing/stale route evidence becomes a typed safe
-planning failure. Tier-wide cognition and physical traversal remain R4d/future
-scope.
+planning failure. Physical corridor traversal remains future scope; R4d
+tier-wide scheduling is defined below and does not fabricate physical or RPG
+outcomes.
+
+## R4d activity, tier cognition and bounded bulk time
+
+`WorldActivityCatalogV1` binds the one authored worker, commitment, workplace,
+duration and systemic-work profile. `WorldActivitySnapshotV1` is a separate
+World Services segment with the exact sequence `Unassigned -> Assigned ->
+Working -> Completed`. Assignment requires an accepted RPG commitment;
+starting requires exact workplace presence; completion requires elapsed work.
+Every transition checks the expected activity revision and publishes through
+the ordinary command/event/final-preflight path. Activity never writes RPG
+resources, inventory, currency or physical pose.
+
+Every due population record maps by tier to one closed cognition work kind:
+Active `FullEvaluation`, Simulated `ReducedEvaluation`, Abstract
+`AbstractMaintenanceOnly`, Dormant `DormantWakeCheckOnly`. Results are sorted
+by stable subject ID, bounded to the 100-record catalog and record zero
+fabricated outcomes. Abstract and Dormant entries cannot claim traversal,
+trade, combat or quest effects.
+
+`ReferenceGameDriverV2::advance_bulk_time` accepts `1..=4096` ticks, runs each
+through the normal prepare/validate/commit pipeline and stops after the first
+authoritative or presentation-observable boundary or at budget exhaustion.
+Zero and oversized requests fail before mutation. At every returned boundary,
+stepped and bulk execution exact-match complete state, command/event counts,
+owner revisions, checkpoint root and application root.
 
 ## Ownership
 
 - Runtime owns `SimulationTick`, command admission, the two existing Ingress
   and Outcome phases, ledger identity and fixed-stage order.
 - World Services owns the calendar/routine catalog reference, durable routine
-  membership, committed activity and its revision.
+  membership, committed routine activity and its revision.
 - World Services also owns population membership, logical region/node, tier,
   cadence and record revision through `WorldPopulationSnapshotV1`.
+- World Services separately owns the systemic activity lifecycle and revision
+  through `WorldActivitySnapshotV1`; it consumes evidence from RPG/location
+  projections but does not copy or mutate them.
 - Asset & Persistence owns the immutable population/navigation catalogs and
   exact graph, placement and residency-policy hashes.
 - Asset & Persistence owns immutable typed calendar/routine content and its
@@ -955,7 +988,7 @@ World Services state. With catalog `None`, the routine segment, conditioned
 interaction and dedicated routine principal/stream/grant are all forbidden;
 the schedule's registered producer remains a deterministic no-op.
 
-### R4b population segment retained in Replay V8
+### R4b population and R4d activity segments retained in Replay V9
 
 R4b adds the separate segment:
 
@@ -966,21 +999,31 @@ segment_id = "world-population"
 version    = 1
 ```
 
-The retained world-services root frames Runtime, RPG, Physics, streaming,
-optional routine and optional population using the same full-tuple sort. R4c's
-current application root additionally requires separate Agent and Memory
-segments, so reference alpha requires eight. `SaveManifestV2` and the
-three-owner `WorldCheckpointV4.state_root` retain their wire meanings.
+R4d adds the separate segment:
 
-Current-only `ReplayManifestV8` retains the ordered tick/query/streaming facts,
-requires population plus Agent/Memory segments in its initial closure and
-allows only the routine slot to be absent. Generic Outcome command/event vectors
-carry population and cognition mutations; no owner-specific replay side channel
-or hard-coded courier/cognition tick exists. Every reference compare point
-exact-matches the eight sorted descriptors, application root, command ledger
-and existing batch/query/trace hashes. V7 and earlier
-pre-v1 formats return `UNSUPPORTED_REPLAY_MANIFEST_VERSION` before nested
-decoding; there is no V7-to-V8 migration reader.
+```text
+owner_id   = "nextengine.world-services"
+schema_id  = "nextengine.world-activity-snapshot"
+segment_id = "world-activity"
+version    = 1
+```
+
+The retained world-services root frames Runtime, RPG, Physics, streaming,
+optional routine, population and activity using the same full-tuple sort.
+Agent and Memory remain separate owners, so reference alpha requires nine.
+`SaveManifestV2` and the three-owner `WorldCheckpointV4.state_root` retain
+their wire meanings.
+
+Current-only `ReplayManifestV9` retains the ordered tick/query/streaming facts,
+requires population, activity, Agent and Memory segments in its initial
+closure and allows only the routine slot to be absent. Generic Outcome
+command/event vectors carry population, activity and cognition mutations; no
+owner-specific replay side channel or hard-coded courier/cognition/activity
+tick exists. Every reference compare point exact-matches the nine sorted
+descriptors, application root, command ledger and existing batch/query/trace
+hashes. V8 and earlier pre-v1 formats return
+`UNSUPPORTED_REPLAY_MANIFEST_VERSION` before nested decoding; there is no
+V8-to-V9 migration reader.
 
 Population restore proves both calendar/content closure and ledger closure.
 Each nonzero record revision must correspond to the exact contiguous dedicated
@@ -997,12 +1040,13 @@ population publication.
 |---|---|
 | Invalid/overflowing calendar profile | `WORLD_CALENDAR_PROFILE_INVALID`; reject project/load or stop before the tick, with no partial mutation |
 | Missing/duplicate/oversized catalog, second routine/transition, invalid condition binding or bootstrap subject collision | `WORLD_ROUTINE_CONTENT_INVALID`; reject complete project activation/world bootstrap before the first tick |
-| Invalid population count/cadence/tier, navigation graph/catalog or cognition subject binding | reject complete V5/V6 project before World Services/Agent activation; retain the prior project/world |
+| Invalid population count/cadence/tier, navigation graph/catalog, cognition subject binding or activity/systemic-work closure | reject complete V6/V7 project before World Services/Agent activation; retain the prior project/world |
 | Stale route/record/catalog or `Active` abstract transfer | reject before mutation; `Active` returns `PHYSICAL_TRAVERSAL_REQUIRED` and leaves logical placement/pose unchanged |
 | Impossible stage-6 routine state or non-byte-exact stage-9 dedicated candidate | `WORLD_ROUTINE_INTERNAL_INVARIANT`; abort the prepared joint tick before Outcome admission, command/archive/ledger mutation or owner publication |
 | Impossible population proposal or non-byte-exact stage-9 candidate | `WORLD_POPULATION_INTERNAL_INVARIANT`; abort the same joint tick before partial publication |
+| Stale/invalid activity transition or non-byte-exact stage-9 candidate | reject the complete activity command; abort the joint candidate before any activity/RPG/ledger publication |
 | Wrong principal/capability/stream/sequence, phase, schema or outer Runtime precondition from any other submitted command | retain the existing generic code and that branch's existing no-reservation or terminal-receipt semantics; no routine-specific code masks it |
-| Runtime/routine/population/streaming joint-generation validation fails | publish none of the staged generations and retain every prior live owner |
+| Runtime/routine/population/activity/streaming/Agent/Memory joint-generation validation fails | publish none of the staged generations and retain every prior live owner |
 | Missing/duplicate/corrupt save or replay segment | fail closed before world publication; preserve previous valid generation/source bytes |
 | `ai-host`, learned model or optional nav adapter absent | no effect; the engine-owned graph and deterministic authored path remain complete |
 
@@ -1013,42 +1057,44 @@ hash-visible result code. The private `OutcomeProposal` constructor is not a
 public/direct/script/plugin input. Stale live bases remain the separate
 retryable `PREPARED_WORLD_SERVICES_GENERATION_STALE` final-preflight result,
 before ledger mutation. Corrupt saved closure remains
-`WORLD_ROUTINE_LEDGER_CLOSURE_INVALID`; a mismatched current Replay V8 oracle remains
+`WORLD_ROUTINE_LEDGER_CLOSURE_INVALID`; a mismatched current Replay V9 oracle remains
 `NONDETERMINISTIC_RESULT`. This preserves SPEC-21's terminal receipt for every
 actually admitted deterministic rejection while preserving the
 genesis-or-one-committed-receipt routine load invariant.
 
 ## Current ProductChecks
 
-These checks map the retained R4a behavior and current R4b production consumer
-with their fail-closed variants.
+These checks map retained R4a/R4b behavior and current R4c/R4d consumers with
+their fail-closed variants.
 
 | Check | Scenario | Expected |
 |---|---|---|
 | `WORLD-ROUTINE-P1` through `play` | Fork two isolated production runs from the same `Duty`/quest-available pre-boundary state. In branch A submit `accept-frontier-relay` before the boundary; in branch B cross the boundary without accepting, query and submit the same interaction in `Rest` | Branch A performs dialogue `offer -> accepted`, quest `available -> active` and relationship `0 -> 7`, and the journal shows `Frontier Relay - Active`. Branch B query returns `WORLD_ROUTINE_ACTIVITY_UNAVAILABLE`; the accepted input receipt has zero derived commands, those RPG revisions stay unchanged and the journal shows `Frontier Relay - Available`. No navigation/tier/model path is required |
-| `WORLD-ROUTINE-REPLAY-P1` through `persistence-replay` | Save around the routine boundary, restart and replay the same assigned inputs; inject snapshot/stream receipt mismatches | Exact routine commands/events/delta, interaction availability and eight-owner V8 application root match uninterrupted execution; mismatched routine/ledger closure fails before publication |
+| `WORLD-ROUTINE-REPLAY-P1` through `persistence-replay` | Save around the routine boundary, restart and replay the same assigned inputs; inject snapshot/stream receipt mismatches | Exact routine commands/events/delta, interaction availability and nine-owner V9 application root match uninterrupted execution; mismatched routine/ledger closure fails before publication |
 | `WORLD-POPULATION-P1` through `play` | Run the reference courier from its authored start through all seven revisions and retry an `Active` abstract transfer | One identity crosses both regions and all tiers, ends revision 7 `Dormant` at the goal, and the invalid active transfer returns `PHYSICAL_TRAVERSAL_REQUIRED` without placement/pose mutation |
-| `WORLD-POPULATION-REPLAY-P1` through `persistence-replay` | Save/load and Replay V8 the courier; inject a calendar-valid snapshot without its receipt | Population bytes, commands/events/deltas, eight descriptors, application/ledger roots and continuation are exact; missing ledger evidence returns `WORLD_POPULATION_LEDGER_CLOSURE_INVALID` before publication |
-| `WORLD-CONTENT-P1` through `content-package` | Cook/activate authoring V5 and inject malformed routine, 100-record, graph, cognition, hash, node/chunk, bootstrap and old-profile variants | Valid V5/V6 content produces `31` roots, `117` entries, four tiles/regions, 64 nodes/chunks and canonical six-kind/three-system closure; every invalid candidate fails before partial publication |
-| `fast` | Focused codecs, cadence phases, Dijkstra tie-break, stage-6/stage-9 invariant faults, owner-delta/receipt roots, both ledger closures, joint commit, exact registry/schedule/profile roots and retired-version tests | Exact bytes/diagnostics remain stable; malformed candidates create no partial batch/archive/receipt/owner publication, barriers stay Ingress-2/Outcome-9 and direct mutation/opaque profile/owner-only segment lookup remain absent |
-| conditional `performance --scenario smoke --mode report` | Compare the ordinary fixed-stage path with routine plus population enabled | 900 movement, one routine and seven population command bodies preserve exact roots; debug ceilings are watchdogs only and verdict remains report-only |
-| conditional `performance --scenario r4-100npc --mode report` | 1,000 warm-up plus 10,000 measured production joint ticks over the exact 16/32/52 population | Due/query counts and roots are exact, maximum queue depth is 16 and deferral/drop/starvation are zero. Unsupported-host timing is `NOT_RUN` and does not close B-12 |
+| `WORLD-POPULATION-REPLAY-P1` through `persistence-replay` | Save/load and Replay V9 the courier; inject a calendar-valid snapshot without its receipt | Population bytes, commands/events/deltas, nine descriptors, application/ledger roots and continuation are exact; missing ledger evidence returns `WORLD_POPULATION_LEDGER_CLOSURE_INVALID` before publication |
+| `WORLD-ACTIVITY-P1` through focused tests and `play` | Drive assignment, workplace start and elapsed-work completion; inject stale/no-job/no-route/no-money/inventory failures | Exact `Unassigned -> Assigned -> Working -> Completed` revisions commit only with valid evidence; every rejected branch retains activity/RPG/event/ledger roots |
+| `WORLD-BULK-P1` through focused tests | Compare stepped execution with requests `1..=4096`; inject zero/oversized requests | Each returned observable boundary matches state/counts/revisions/checkpoint/application roots; invalid requests mutate nothing |
+| `WORLD-CONTENT-P1` through `content-package` | Cook/activate authoring V6 and inject malformed routine, 100-record, graph, cognition, activity, hash, node/chunk, bootstrap and old-profile variants | Valid V6/V7 content produces `32` roots, `118` entries, four tiles/regions, 64 nodes/chunks and canonical seven-kind/four-system closure; every invalid candidate fails before partial publication |
+| `fast` | Focused codecs, cadence phases, Dijkstra tie-break, stage-6/stage-9 invariant faults, owner-delta/receipt roots, owner ledger closures, joint commit, exact registry/schedule/profile roots and retired-version tests | Exact bytes/diagnostics remain stable; malformed candidates create no partial batch/archive/receipt/owner publication, barriers stay Ingress-2/Outcome-9 and direct mutation/opaque profile/owner-only segment lookup remain absent |
+| conditional `performance --scenario smoke --mode report` | Compare the ordinary fixed-stage path with routine, population and systemic activity enabled | 900 movement plus the current routine/population/systemic work produce 917 command bodies and preserve exact roots; debug ceilings are watchdogs only and verdict remains report-only |
+| conditional `performance --scenario r4-100npc --mode report` | 1,000 warm-up plus 10,000 measured production joint ticks over the exact 16/32/52 population and four tier-work kinds | Due/query/cognition counts and roots are exact, maximum queue depth is 16 and deferral/drop/starvation/fabricated outcomes are zero. Unsupported-host timing is `NOT_RUN`; local navigation/integrated rows exceed report targets and do not close B-12 |
 
 `r4-100npc` is available only as an honest report-only workload. The recorded
 unsupported-host run is `NOT_RUN`, not a hard performance pass.
 
 ## Future expansion
 
-R4c deterministic SPEC-32 cognition now consumes the current R4b substrate;
-R4d may add the systemic work/currency/trade/food vertical. Learned policy
-documents SPEC-33/34 and ADR-050/053/054 are optional R8 work and do not block
-R4 or v1. A future bulk-time consumer
-must stop at the same observable command boundaries as stepped execution and
-cannot restore the removed ADR-021 migration or generic scheduler by default.
+R4c deterministic cognition and the bounded R4d systemic
+work/currency/trade/food vertical now consume the current R4b substrate.
+Learned policy documents SPEC-33/34 and ADR-050/053/054 are optional R8 work
+and do not block R4 or v1. Broader bulk-time optimization must preserve the
+current first-observable-boundary equivalence and cannot restore the removed
+ADR-021 migration or generic scheduler by default.
 
 The current single-subject cognition cadence uses integer start/period bound
 through the project profile and runs only in the declared AgentPlanning stage.
-Future tier-wide cadence retains this rule. Events enqueue work
+Tier-wide cadence retains this rule. Events enqueue work
 for the next permitted boundary; they do not cause same-tick subscriber
 re-entry. `Active`, `Simulated`, `Abstract` and `Dormant` map the requested
 precision, while physical LOD remains separate. Abstract activity upgrades,

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-08 |
 | Статус | Accepted |
-| Версия | 2.4 |
+| Версия | 2.5 |
 | Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
-| Заменяет | SPEC-08 2.3; admits the bounded R4c consumer of the engine-owned logical route while physical traversal remains Proposed |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
+| Заменяет | SPEC-08 2.4; admits the bounded R4d World Activity and tier-cognition consumers while physical traversal remains Proposed |
 
 ## Source of truth и ownership
 
@@ -15,7 +15,8 @@ World Services currently owns `WorldPartitionManifestV1` logical topology,
 `WorldStreamingSnapshotV1` lifecycle state, the derived
 `WorldRoutineCatalogV1`/`WorldRoutineSnapshotV1` calendar-routine projection,
 `WorldPopulationCatalogV1`/`WorldPopulationSnapshotV1` durable tier and logical
-placement state, `WorldNavigationCatalogV1` graph topology and reconstructible
+placement state, `WorldNavigationCatalogV1` graph topology,
+`WorldActivityCatalogV1`/`WorldActivitySnapshotV1` systemic activity and reconstructible
 streaming caches. The current navigation baseline is one revision-bound graph
 node per authored chunk, one tile per region and the typed
 `NavigationQueryV1`/`NavigationRoutePlanV1` abstract-transfer result. It does
@@ -33,7 +34,7 @@ deterministic acoustic facts, а не звуковую карту устройс
 
 Current public contracts are limited to deterministic acoustic facts,
 `WorldPartitionManifestV1`, `WorldStreamingSnapshotV1`, the bounded
-world-routine and world-population catalog/snapshot/command/event projections,
+world-routine, world-population and world-activity catalog/snapshot/command/event projections,
 `WorldNavigationCatalogV1`, `NavigationQueryV1`, `NavigationRoutePlanV1` and
 typed errors used by their production consumers. Generic tombstones,
 cross-chunk object databases, traversal links, reservations and dynamic
@@ -90,6 +91,7 @@ their own schemas, consumers and promotion checks.
 | Current | Partition/streaming | `WorldPartitionManifestV1` topology plus `WorldStreamingSnapshotV1` lifecycle | immutable content definitions come from Asset & Persistence; Runtime mapping/cache is reconstructible; invalid group never partially activates |
 | Current | Population placement/tier | 100 `WorldPopulationRecordV1` values in `WorldPopulationSnapshotV1` | full catalog/revision/ledger closure; stale or noncanonical state rejects before joint publication |
 | Current | Graph query and abstract transfer | `WorldNavigationCatalogV1`, revision-bound query/plan and one route-hash-bound logical transfer | positive integer graph costs and canonical tie-break; `Active` transfer returns `PHYSICAL_TRAVERSAL_REQUIRED` without mutation |
+| Current | Systemic activity | `WorldActivityCatalogV1` plus separately persisted `WorldActivitySnapshotV1` | exact revision/evidence validates `Unassigned -> Assigned -> Working -> Completed`; no RPG or pose write |
 | Current | Acoustics facts | source, listener, loudness class, occlusion zone, tick | deterministic gameplay perception; independent from output device |
 | Proposed R4c+ | Generic persistent objects | tombstone and cross-chunk reference beyond the current population records | no current schema/API; future invalid groups fail before publication |
 | Proposed R4c+ | Spatial query | index rebuilt from future owned transforms/chunks | stale revision rejected; never replaces an exact physics query |
@@ -141,18 +143,20 @@ physical corridor following remains deferred.
 |---|---|---|
 | NAV-P1 | Engine-owned deterministic graph/tile cook and query baseline | The 64 chunk-bound nodes, four region tiles, catalog/plan hashes and route tie-break are exact across repeats and input permutations. Optional Recast must match the engine contract or remain disabled. |
 | NAV-P2 | **Deferred physical-path recipe; no current gate.** Door, off-mesh, push, stuck and streamed polygon fixtures | Stale paths reject, bounded fixtures either reach the goal or return no-path, and no path teleports an actor; deterministically replan or idle. |
-| NAV-P3 | ADR-016 deterministic `r4-100npc.v1` report-only workload | 1,000 warm-up plus 10,000 measured ticks produce exact 16/32/52 due counts/roots with no starvation/drop. Timing remains report-only; the current unsupported-host result exceeds p95 ≤1,250 us / p99 ≤1,500 us and is not a pass or B-12 evidence. |
+| NAV-P3 | ADR-016 deterministic `r4-100npc.v1` report-only workload | 1,000 warm-up plus 10,000 measured ticks produce exact 16/32/52 due/query/tier-cognition counts and roots with no starvation/drop/fabricated outcomes. Timing remains report-only; the current unsupported-host navigation p95/p99 `4292/4870 us` exceeds `1250/1500 us` and is not a pass or B-12 evidence. |
 | AUDIO-P1 | Engine baseline and optional Steam Audio candidate | Baseline playback always works, device loss recovers without gameplay differences, and optional propagation stays within scenario tolerance; fall back to baseline attenuation/panning/zones. |
 | AUDIO-L1 | Steam Audio version and distribution matrix | The selected version is compatible with target platforms and may be redistributed under the project policy; otherwise do not ship the adapter. |
-| WORLD-02 | Current abstract-transfer ownership branch plus deferred physical corpus | World Services owns tier/logical placement and commits one exact Abstract transfer; Physics alone owns active traversal, so an Active transfer returns `PHYSICAL_TRAVERSAL_REQUIRED`. Save/Replay V8 preserve the result; broader traversal deterministically replans or idles. |
+| WORLD-02 | Current abstract-transfer ownership branch plus deferred physical corpus | World Services owns tier/logical placement and commits one exact Abstract transfer; Physics alone owns active traversal, so an Active transfer returns `PHYSICAL_TRAVERSAL_REQUIRED`. Save/Replay V9 preserve the result; broader traversal deterministically replans or idles. |
 | AUDIO-02 | Displayless canonical PCM and event synchronization | PCM is deterministic on the pinned sink, event alignment is within one sample, acoustic facts are exact, and gameplay hashes do not depend on audio output; retain gameplay and use the baseline audio path on failure. |
 
 ## Strategic Agent reciprocal boundary
 
 Current World Services owns logical location, population tier, authored
-routine/job assignment and `RoutePlan`. The ADR-073 R4c consumer reads only the
+routine/activity and `RoutePlan`. The ADR-073/074 consumer reads only the
 immutable revision-bound population/route projection and may persist a logical-
 route intent; it cannot own route topology, commit a transfer, fabricate
 traversal success or teleport an actor. Tier selection uses simulation-owned
 region/importance/profile facts and never renderer camera, frustum, FPS or wall
-time. Tier-wide cognition and physical task execution remain R4d/future scope.
+time. R4d tier-wide work classification and owner-validated activity are
+current; physical corridor following and fabricated Abstract outcomes remain
+forbidden.

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 3.7 |
+| Версия | 3.8 |
 | Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
-| Заменяет | SPEC-09 3.6; admits the bounded current Decision Trace diagnostic projection |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
+| Заменяет | SPEC-09 3.7; admits the bounded R4d diagnostics and tier-cognition performance evidence |
 
 ## Scope and authority
 
@@ -111,7 +111,7 @@ while retaining but not idle-gating utilization caused by the workload itself.
 Missing boundary evidence, 40% start load or less than 10 GiB free RAM
 invalidates hard evidence under ADR-061/063.
 
-The seven current scenario families are:
+The eight current scenario families are:
 
 1. smoke;
 2. long-session;
@@ -119,7 +119,8 @@ The seven current scenario families are:
 4. production-worker;
 5. `r2-alpha-render`;
 6. `r3-multiregion-streaming`;
-7. `r5-physics-16`.
+7. `r4-100npc`;
+8. `r5-physics-16`.
 
 Each uses its current V5 methodology hash and existing workload semantics.
 `r2-alpha-render` runs exploration, combat and UI/dialogue for primary 1080p
@@ -130,6 +131,13 @@ mode remains `REPORT_ONLY` without clean THOTH preflight/baseline.
 four-region/64-chunk route, reports the `streaming_world` span and logical
 staging charge, and remains `REPORT_ONLY`. It does not imply a generic
 scheduler/resource framework or close B-12.
+
+`r4-100npc.v1` runs 1,000 warm-up and 10,000 measured production ticks over
+the exact 16/32/52 population, one graph query per due record and the four
+tier-cognition work kinds. It publishes due/work counters, queue bounds,
+zero-fabrication evidence and exact activity/Agent/application/ledger roots.
+The recorded unsupported-host report is `NOT_RUN`; cognition dispatch is
+within its report row while navigation and integrated tails exceed theirs.
 
 `r5-physics-16.v1` executes sixteen independent production PhysX 5.9.0
 23-DoF humanoids at 240 Hz physics / 60 Hz motor with fixed standing control.
@@ -155,17 +163,17 @@ without affecting gameplay. A deterministic retry mismatch is
 
 Focused tooling tests cover command parsing, exact report schemas, atomic
 output, current-only rejection and boundary scan. `host-check` covers the
-workspace. The `performance` command covers V4 reports/baselines and all seven
+workspace. The `performance` command covers V5 reports/baselines and all eight
 scenario routes; platform/GPU availability may legitimately yield typed
 `NOT_RUN` without claiming success for that scenario.
 
 ## Strategic Agent explainability
 
-SPEC-32/ADR-073 admits bounded immutable `DecisionTraceV1` containing candidate
+SPEC-32/ADR-073/074 admits bounded immutable `DecisionTraceV1` containing candidate
 goal scores, switch reason, cited belief IDs, selected semantic plan, planning
 failure and intent ID. The production reference scenario exposes it as a
 reproducible diagnostic projection, but it is not persisted, hashed as an
 owner, accepted as gameplay input or promoted to mutable inspector/generic UI
 authority. Prompts, secrets, generated transcripts and unbounded memory
-payloads remain excluded. R4d may extend diagnostic reasons only with its own
-consumer and bounded contract.
+payloads remain excluded. R4d systemic intent/failure reasons are current only
+for the bounded ADR-074 consumer.

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-21 |
 | Статус | Accepted |
-| Версия | 1.7 |
+| Версия | 1.8 |
 | Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
-| Заменяет | SPEC-21 1.6; records the current R4c consumer of the existing deterministic primitives |
+| Нормативные зависимости | [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
+| Заменяет | SPEC-21 1.7; records the current R4d activity and bulk-time consumers of the existing deterministic primitives |
 
 ## Назначение, authority и граница
 
@@ -1542,12 +1542,25 @@ admission, divine judgment batch or generic cross-context transaction wrapper.
 
 ## Current Strategic Agent deterministic primitives
 
-SPEC-32/ADR-073 cognition uses the existing fixed-stage, command-ledger,
-named-RNG and replay rules. `core_r4c` adds one declared single-shard system at
-AgentPlanning and one sixth command kind at the unchanged Outcome barrier.
+SPEC-32/ADR-073 cognition and ADR-074 systemic execution use the existing
+fixed-stage, command-ledger, named-RNG and replay rules. Current `core_r4d`
+retains all twelve stages and has a closed seven-entry command-kind registry
+and four-system schedule. The single-shard World Activity system runs after
+cognition at `AgentPlanning`, stages priority-280 internal work, and commits at
+the unchanged Outcome barrier only after the common final preflight.
 Goal Utility, GOAP cost, confidence and cadence use bounded integer/Q16 values
 with canonical ordering. Event-driven perception or failure may only enqueue a
 future evaluation boundary; same-tick re-entry and wall-time-selected fallback
-are forbidden. Agent, Memory, RPG and World Services persist separate owner
-segments, while planner/retrieval caches, embedding indexes, optional inference
-buffers and Decision Trace remain reconstructible non-authoritative data.
+are forbidden. Runtime, streaming, routine, population, activity, Agent and
+Memory generations publish together or none does; RPG settlement remains one
+atomic RPG transaction inside the same command/receipt rules. Agent, Memory,
+RPG and World Services persist separate owner segments, while planner/retrieval
+caches, embedding indexes, optional inference buffers and Decision Trace
+remain reconstructible non-authoritative data.
+
+Tier dispatch canonically maps due records to four bounded work kinds and
+cannot emit fabricated domain outcomes. Bounded bulk time does not skip the
+schedule: it executes each admitted tick through ordinary
+prepare/validate/commit, then stops at the first observable boundary or its
+declared budget. Stepped and bulk runs therefore compare the same commands,
+events, revisions and roots rather than relying on a second simulation path.
