@@ -1014,8 +1014,9 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
         persisted.presentation_snapshot.snapshot_epoch
     );
 
-    // A non-interactive scenario has no RPG sources and publishes no
-    // semantic UI batches.
+    // R4d always activates the owner-complete systemic RPG closure. The
+    // legacy interaction toggle may suppress host input in callers, but it
+    // cannot remove authoritative sources or their read-only HUD projection.
     let non_interactive = next_reference_game::ReferenceGameDriverV2::new(activated, false)
         .expect("non-interactive driver")
         .state()
@@ -1025,13 +1026,14 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
             .presentation_snapshot
             .semantic_ui_records()
             .count(),
-        0
+        3
     );
-    assert!(
+    assert_eq!(
         non_interactive
             .presentation_snapshot
             .semantic_ui_batches
-            .is_empty()
+            .len(),
+        1
     );
     std::fs::remove_dir_all(root).expect("cleanup");
 }
