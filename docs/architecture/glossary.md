@@ -4,10 +4,10 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 3.7 |
+| Версия | 3.8 |
 | Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Заменяет | GLOSSARY-001 3.6; updates current project, population and navigation terms for R4b |
+| Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
+| Заменяет | GLOSSARY-001 3.7; updates current project, cognition owner and replay terms for R4c |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -23,11 +23,15 @@
 | **PersistentId** | Стабильный 128-bit opaque ID сущности или логического объекта между save/load, chunks и replay. Не кодирует ECS layout или vendor handle. |
 | **AssetId** | Стабильная ссылка на логический asset; конкретная cooked revision определяется manifest и content hash. |
 | **ContentHash** | SHA-256 канонических cooked bytes и параметров cooker, используемый для immutable bundle addressing. |
-| **ProjectAuthoringV4** | Current editable `nextengine.project-authoring.v4` intent consumed only by the cooker; it carries typed routine, 100-record population and navigation catalogs and is not runtime authority. |
+| **ProjectAuthoringV5** | Current editable `nextengine.project-authoring.v5` intent consumed only by the cooker; it carries typed routine, 100-record population/navigation and one cognition catalog and is not runtime authority. |
 | **ProjectLockV3** | Current immutable exact project closure over authoring, schema/content/world/mechanics and runtime/launch/platform profile hashes plus allowed presentation targets; it contains no resolver, recovery or storage policy. |
-| **ActivatedProjectV5** | Complete validated current project closure atomically published from one exact `ProjectLockV3`, all referenced manifests/records and exact routine/population/navigation catalog bindings. |
-| **WorldPopulationSnapshotV1** | Six-owner application segment containing 100 stable logical population records with revision, home/current region/node and tier; it owns no physical pose. |
+| **ActivatedProjectV6** | Complete validated current project closure atomically published from one exact `ProjectLockV3`, all referenced manifests/records and exact routine/population/navigation/cognition catalog bindings. |
+| **WorldPopulationSnapshotV1** | World Services segment containing 100 stable logical population records with revision, home/current region/node and tier; it owns no physical pose. |
 | **NavigationRoutePlanV1** | Revision-bound engine-owned ordered graph path with integer cost and plan hash; advisory for physical traversal and authoritative only for validated abstract transfer. |
+| **AgentCognitionCatalogV1** | Required current content root binding one existing population subject to integer evaluation cadence, bounded retrieval/GOAP limits, stable goal/action/fact IDs and sorted seed beliefs. |
+| **AgentCognitionSnapshotV1** | Separate Agent Runtime owner state for active/suspended goals, plan, private task, pending intent, hysteresis, decision RNG and last epistemic hash. |
+| **AgentMemorySnapshotV1** | Separate Memory Service owner state for the current bounded semantic beliefs, provenance/contradiction, revision and last retrieval tick. |
+| **ReplayManifestV8** | Current-only replay envelope requiring Runtime/RPG/Physics/streaming/population/Agent/Memory and optionally routine; reference alpha compares eight full-tuple descriptors and the application root. |
 | **SchemaDescriptorV1** | Immutable engine-owned schema declaration со stable schema/field IDs, wire shape, encoding, role, compatibility policy and canonical hash; storage/backend layout не является schema. |
 | **SchemaRegistryManifestV2** | Exact current set of bounded schema descriptors/current refs bound by `ProjectLockV3`; it contains no historical window or migration DAG. |
 | **ContentManifestV1** | Immutable catalog root of exact neutral asset revisions, provenance, current dependency closure and domain root; runtime resolves no floating content revision. |
@@ -69,7 +73,7 @@
 | **Belief** | Semantic утверждение NPC с subject/predicate/value, confidence, provenance, learned/verified revision и contradiction state; не является world truth. |
 | **Drive View** | Derived fixed-point pressure для goal selection, вычисленное из authoritative owner resources и agent-owned hysteresis; не отдельная mutable needs authority. |
 | **Aspiration** | Long-horizon authored tendency, создающая medium-horizon goal candidates, но не исполняющая action напрямую. |
-| **Semantic Affordance** | Концептуальная revision-bound planning projection owner-specific возможности с preconditions/effects/cost/time/risk/failures; не executable callback и не mutation right. |
+| **Semantic Affordance** | Revision-bound planning projection owner-specific возможности с preconditions/effects/cost and typed execution; current R4c admits logical-route request and hold-position only. It is not an executable callback or mutation right. |
 | **Speech Act** | Bounded semantic NPC/player communication proposal с participants, topic/claim, provenance, confidence и expiry; generated wording не является gameplay authority. |
 | **Decision Trace** | Bounded immutable non-authoritative diagnostic goal scores, cited beliefs, selected plan, task outcome и replan reason для одного Strategic Agent boundary. |
 | **PhysicalAvatarIntent** | Ограниченный по времени запрос locomotion/posture/manipulation к motor controller; не задаёт physics pose напрямую. |

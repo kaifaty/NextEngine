@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 2.5 |
-| Последняя проверка | 2026-08-10 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-15 2.4; records the ADR-030 documentation-only cheap validation path |
+| Версия | 2.6 |
+| Последняя проверка | 2026-08-16 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
+| Заменяет | SPEC-15 2.5; admits the focused and production R4c cognition scenarios |
 
 ## Назначение
 
@@ -210,10 +210,14 @@ SPEC-31 narrative/divine work is Proposed and has no current scenario schema or
 ProductCheck. A production consumer must first define the smallest observable
 vertical through ordinary actions, immutable probes and replay.
 
-SPEC-32 deterministic Strategic Agent work is likewise Proposed until R4c/R4d
-consumers exist. Its future scenarios must use production perception, memory,
-`AgentIntent` and `WorldCommand` paths and immutable probes. Required coverage
-includes hidden-fact isolation, bounded GOAP failure, emergency resume/replan,
-NPC-to-NPC behavior without `ai-host`, owner-segment save/replay and tiered
-100-NPC no-fabrication behavior. Learned-policy training remains an optional R8
-lane and is not a prerequisite for these deterministic scenarios.
+SPEC-32 R4c scenarios are current under ADR-073. Focused vectors cover hidden-
+fact isolation, bounded retrieval/GOAP failure and canonical repeat; the
+production branch changes health only through RPG commands and observes exact
+emergency interrupt/resume through the ordinary stage-7/stage-9 path. `play`
+and `persistence-replay` expose immutable Decision Traces and paired Agent/
+Memory snapshots without a mutable scenario backdoor.
+
+R4d NPC-to-NPC behavior, systemic owner outcomes and tier-wide 100-NPC no-
+fabrication scenarios remain Proposed until their consumers exist. Learned-
+policy training remains an optional R8 lane and is not a prerequisite for these
+deterministic scenarios.

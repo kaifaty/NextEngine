@@ -4,25 +4,28 @@
 |---|---|
 | ID | SPEC-06 |
 | Статус | Accepted |
-| Версия | 1.16 |
+| Версия | 1.17 |
 | Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Заменяет | SPEC-06 1.15; recognizes the current R4b population substrate without promoting R4c cognition |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
+| Заменяет | SPEC-06 1.16; admits the bounded R4c semantic-belief, Agent/Memory owner and deterministic GOAP consumer |
 
 ## Source of truth и ownership
 
-RPG aggregates остаются authoritative вне AI. Agent Runtime владеет working
-plan, attention, habits и deterministic decision state. Current World Services
-calendar/population state is an immutable input boundary, but no current AI
-contract consumes it; beliefs, perception and bounded GOAP remain Proposed R4c
-scope in SPEC-20/32. Immutable `AgentArchetypeDefinition` принадлежит cooked content;
-Agent Runtime интерпретирует его, но не изменяет. Memory Service владеет durable
-episodic/semantic records и relationship recollections/indexes как versioned
-save segment; текущие relationship dimensions, quest/dialogue states,
-commitments и `SkillProficiency` принадлежат RPG Framework. `ActivePolicyRoute`,
-motor transition и joint actions принадлежат Motor Runtime. `ai-host` caches,
-prompts и vendor sessions не являются source of truth и могут быть
-удалены/rebuilt.
+RPG aggregates остаются authoritative вне AI. Agent Runtime владеет current
+`AgentCognitionSnapshotV1`: active/suspended goals, plan, private task,
+hysteresis, pending intent and decision RNG. Memory Service separately owns
+`AgentMemorySnapshotV1`: semantic beliefs, provenance/contradiction and bounded
+retrieval state. World Services calendar/population/location/route and the
+subject's own RPG health are immutable revision-bound R4c inputs; neither Agent
+nor Memory duplicates those mutable owner fields.
+
+The R4c exact types are admitted by SPEC-32/ADR-073 for one production subject.
+Generic perception frames, episodic/social recollections, tier-wide cognition,
+structured speech and systemic economy remain R4d/future scope. Immutable
+`AgentArchetypeDefinition` remains cooked-content intent; current R4c uses the
+specialized `AgentCognitionCatalogV1`. `ActivePolicyRoute`, motor transition and
+joint actions belong to Motor Runtime. `ai-host` caches, prompts and vendor
+sessions are never source of truth and may be removed/rebuilt.
 
 ## Public boundary и data flow
 
@@ -79,11 +82,11 @@ Optional learned tactical policy остаётся за границей `AgentIn
 [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md)
 предлагают optional R8 specialization: отдельные strategic/tactical learned
 policies, intention/recurrent-state lifecycle и offline training/deployment.
-Все три документа имеют статус `Proposed`, не добавляют current public schema
-или runtime obligation и не заменяют описанные выше perception, memory,
-`AgentIntent`, Utility + bounded GOAP и authored tactical fallback. Их promotion
-возможна только с optional production consumer и проходящими ProductCheck по
-ADR-046; она не является условием R4 или v1.
+R4c deterministic subset SPEC-32 is current; ADR-050 and SPEC-33 learned
+policies remain `Proposed`, add no current runtime obligation and do not replace
+the accepted belief/Utility/GOAP fallback. Their promotion requires an optional
+production consumer and passing ProductChecks under ADR-046; it is not a
+condition of R4 or v1.
 
 ## Perception contract
 
@@ -152,7 +155,7 @@ Process получает минимальный serialized context, не filesys
 | AI-01 | Same 100 scenarios with `ai-host` disabled | Gameplay and quest outcomes remain correct without blocking a tick; use the built-in planner/dialogue fallback. |
 | AI-02 | 1,000 kill/restart/timeout/malformed-result injections | No host crash or duplicate committed command; fallback is selected no later than one gameplay tick after the deadline signal. |
 | AI-03 | Adversarial intents and stale facts | Every forbidden or stale mutation is rejected and no direct state write is possible. |
-| AI-04 | **R4b substrate observation; R4c AI gate remains deferred.** Run current `r4-100npc.v1` for exact population due/query/no-starvation facts; it performs no cognition. | Population cadence and graph queries must retain exact counts and zero defer/drop/starvation. The separate planning p95 ≤1,250 us / p99 ≤1,500 us assertion remains typed `NOT_RUN` until an R4c production cognition consumer exists; R4b timings cannot satisfy it. |
+| AI-04 | **R4c single-consumer correctness; tier-wide cognition performance remains deferred.** Run focused cognition vectors and `play`; retain `r4-100npc.v1` for population due/query/no-starvation only. | One production subject must produce exact beliefs/goals/plans, emergency resume and Agent/Memory roots. The 100-NPC workload still measures population/navigation rather than cognition, so a tier-wide planning timing claim remains `NOT_RUN` and cannot close B-12. |
 | MEMORY-P1 | SQLite candidate crash, compaction and migration corpus | Every committed record is recovered, canonical queries match, and corruption fails closed; fall back to the append-only log with compacted indexes. |
 | AI-05 | Restart/save/load with and without embeddings | Authoritative memory, relationship and narrative state is identical; embeddings may be rebuilt or disabled. |
 | AI-06 | Package affordance discovery | Every granted planner-visible ability is discoverable, new fixture abilities need no AI code change, and invalid/stale affordances are rejected; otherwise mark the ability manual-only. |
@@ -168,9 +171,10 @@ same validated command boundary.
 ## Deterministic Strategic Agent boundary
 
 ADR-056 accepts the architecture-level epistemic boundary and Utility + bounded
-GOAP baseline. Detailed Epistemic View, Drive View, goal/plan/task lifecycle,
-structured NPC speech acts and Decision Trace remain Proposed in SPEC-32 until
-their R4c/R4d production consumers exist. Perception and Memory Service expose
-only immutable revision-bound facts/recollections; they do not expose hidden
-world truth or mutate RPG/World state. Learned strategic/tactical policies are
-optional R8 quality adapters and do not block R4 or v1.
+GOAP baseline. ADR-073 now admits the R4c `EpistemicViewV1`, `DriveViewV1`,
+semantic beliefs, goal/plan/private-task lifecycle, typed intent and Decision
+Trace for one production subject. Structured NPC speech acts, episodic/social
+memory and systemic owner outcomes remain Proposed R4d scope. Perception and
+Memory Service expose only immutable revision-bound facts/recollections; they
+do not expose hidden world truth or mutate RPG/World state. Learned strategic/
+tactical policies are optional R8 quality adapters and do not block R4 or v1.

@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.40 |
+| Версия | 2.41 |
 | Последняя проверка | 2026-08-16 |
-| Заменяет | INDEX-001 2.39; promotes the bounded SPEC-08/20/25 and ADR-072 R4b production consumer |
+| Заменяет | INDEX-001 2.40; promotes the bounded SPEC-32/ADR-073 R4c production consumer and current formats |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -163,7 +163,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
 | SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted |
 | SPEC-19 | [Current RPG domain state](19-rpg-domain-and-narrative-state.md) | Accepted |
-| SPEC-20 | [World calendar, authored routines and bounded population lifecycle](20-world-simulation-and-population-lifecycle.md) | Accepted R4a calendar/routine plus R4b 100-record tier/navigation owner; R4c/R4d cognition/systemic breadth remains Proposed |
+| SPEC-20 | [World calendar, authored routines and bounded population lifecycle](20-world-simulation-and-population-lifecycle.md) | Accepted R4a calendar/routine and R4b 100-record tier/navigation owner; one R4c cognition consumer now reads its immutable location/route projection |
 | SPEC-21 | [Deterministic runtime primitives, command ledger и causal identity](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | Accepted |
 | SPEC-22 | [Current schema registry и format compatibility](22-schema-registry-compatibility-and-migration.md) | Accepted |
 | SPEC-23 | [Future generic jobs and resource work](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
@@ -175,7 +175,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted |
 | SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted |
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
-| SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Proposed R4c/R4d target; ADR-056 invariants are Accepted, exact schemas wait for consumers |
+| SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Accepted R4c cognition core under ADR-073; R4d social/economy and tier-wide breadth remain Proposed |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
 | SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070 |
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
@@ -259,7 +259,8 @@ traceability — навигационная карта, не admission authority
 | ADR-069 | [Biomechanics BodySchema V2 and explicit solver projection](adr/069-biomechanics-body-schema-v2-and-solver-projection.md) | Accepted current-only biomechanics schema with full inertia, explicit solver carriers/projection, collider/contact roles and hard safety closure; V1 unchanged |
 | ADR-070 | [Biomechanics reference-tracking training environment](adr/070-biomechanics-reference-tracking-training-environment.md) | Accepted current-only TRAIN-5 locomotion tracker profile, corpus-bound V3 manifest, fixed 435-channel observation and 23-channel residual action; no quality or runtime-policy claim |
 | ADR-071 | [Canonical physics-material lineage](adr/071-canonical-physics-material-lineage.md) | Accepted successor material/combine contracts, biomechanics compiled/mirror lineage and explicit ABI 4 material input; no PhysX or training claim |
-| ADR-072 | [Deterministic population tiers and graph-navigation vertical](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) | Accepted 100-record World Services owner, engine-owned 64-node graph, six-owner save closure, current-only Replay V7 and report-only R4 workload |
+| ADR-072 | [Deterministic population tiers and graph-navigation vertical](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) | Accepted R4b 100-record World Services owner and 64-node graph; its six-owner/Replay V7 format boundary is superseded by ADR-073 |
+| ADR-073 | [Deterministic cognition owner vertical](adr/073-deterministic-cognition-owner-vertical.md) | Accepted R4c semantic beliefs, fixed-point Utility, bounded GOAP, paired Agent/Memory owners, eight-owner save/Replay V8 and V5/V6 content |
 
 ## Proposed tracks
 
@@ -272,11 +273,11 @@ traceability — навигационная карта, не admission authority
 - SPEC-31 narrative director, generated quest graph and divine-standing intent
   formerly described by ADR-029/ADR-031; they have no current implementation
   obligation and return only with a concrete production consumer.
-- SPEC-32 — deterministic R4c/R4d Strategic Agent target: epistemic beliefs,
-  derived drives, goals, fixed-point Utility, bounded GOAP, private task
-  executive, structured NPC communication, tiered cadence and one
-  work/currency/trade/food vertical. Exact schemas/check mappings wait for
-  production consumers under ADR-046; LLM/audio remain optional.
+- SPEC-32 R4d remainder — structured NPC communication, social/episodic memory,
+  tier-wide cognition and one work/currency/trade/food vertical. The R4c
+  epistemic/Utility/GOAP/private-executive owner core is current under ADR-073;
+  R4d exact schemas/check mappings still wait for production consumers under
+  ADR-046. LLM/audio remain optional.
 - SPEC-33/SPEC-34 and ADR-050/ADR-053/ADR-054 — optional R8 learned
   strategic/tactical and training data-plane track. Per-role promotion requires
   immutable artifacts, multi-seed evidence, target parity and complete ADR-056

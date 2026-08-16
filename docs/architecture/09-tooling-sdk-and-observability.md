@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 3.6 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) |
-| Заменяет | SPEC-09 3.5; adopts Performance V5, explicit run boundaries and fixed hard-gate batches |
+| Версия | 3.7 |
+| Последняя проверка | 2026-08-16 |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
+| Заменяет | SPEC-09 3.6; admits the bounded current Decision Trace diagnostic projection |
 
 ## Scope and authority
 
@@ -159,12 +159,13 @@ workspace. The `performance` command covers V4 reports/baselines and all seven
 scenario routes; platform/GPU availability may legitimately yield typed
 `NOT_RUN` without claiming success for that scenario.
 
-## Future Strategic Agent explainability
+## Strategic Agent explainability
 
-SPEC-32 proposes a bounded immutable Decision Trace containing candidate goal
-scores, switch reason, cited belief/revision IDs, selected semantic plan, task
-outcome and replan reason. It is diagnostic output only: no gameplay input,
-mutable inspector authority or mandatory generic UI is created here. A future
-R4 consumer must make the trace reproducible from the same authoritative state
-while excluding prompts, secrets, full generated transcripts and unbounded
-memory payloads.
+SPEC-32/ADR-073 admits bounded immutable `DecisionTraceV1` containing candidate
+goal scores, switch reason, cited belief IDs, selected semantic plan, planning
+failure and intent ID. The production reference scenario exposes it as a
+reproducible diagnostic projection, but it is not persisted, hashed as an
+owner, accepted as gameplay input or promoted to mutable inspector/generic UI
+authority. Prompts, secrets, generated transcripts and unbounded memory
+payloads remain excluded. R4d may extend diagnostic reasons only with its own
+consumer and bounded contract.

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-21 |
 | Статус | Accepted |
-| Версия | 1.6 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
-| Заменяет | SPEC-21 1.5; records future Strategic Agent use of existing deterministic primitives |
+| Версия | 1.7 |
+| Последняя проверка | 2026-08-16 |
+| Нормативные зависимости | [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
+| Заменяет | SPEC-21 1.6; records the current R4c consumer of the existing deterministic primitives |
 
 ## Назначение, authority и граница
 
@@ -1540,13 +1540,14 @@ Future narrative/divine work remains Proposed under SPEC-31/ADR-046. The
 current Runtime defines no narrative decision-boundary API, generated graph
 admission, divine judgment batch or generic cross-context transaction wrapper.
 
-## Future Strategic Agent deterministic primitives
+## Current Strategic Agent deterministic primitives
 
-SPEC-32 cognition inherits the existing fixed-stage, command-ledger, named-RNG
-and replay rules. Goal utility, GOAP cost, confidence and cadence use bounded
-integer/fixed-point values with canonical ordering. Event-driven perception or
-failure may only enqueue a future evaluation boundary; same-tick re-entry and
-wall-time-selected fallback are forbidden. Agent, Memory, RPG and World
-Services persist separate owner segments, while planner/retrieval caches,
-embeddings indexes, optional inference buffers and Decision Trace remain
-reconstructible non-authoritative data.
+SPEC-32/ADR-073 cognition uses the existing fixed-stage, command-ledger,
+named-RNG and replay rules. `core_r4c` adds one declared single-shard system at
+AgentPlanning and one sixth command kind at the unchanged Outcome barrier.
+Goal Utility, GOAP cost, confidence and cadence use bounded integer/Q16 values
+with canonical ordering. Event-driven perception or failure may only enqueue a
+future evaluation boundary; same-tick re-entry and wall-time-selected fallback
+are forbidden. Agent, Memory, RPG and World Services persist separate owner
+segments, while planner/retrieval caches, embedding indexes, optional inference
+buffers and Decision Trace remain reconstructible non-authoritative data.

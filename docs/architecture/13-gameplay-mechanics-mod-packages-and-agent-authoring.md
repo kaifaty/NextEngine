@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-13 |
 | Статус | Accepted |
-| Версия | 2.3 |
+| Версия | 2.4 |
 | Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Заменяет | SPEC-13 2.2; updates the current atomic activation type after R4b |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
+| Заменяет | SPEC-13 2.3; updates activation to V6 and admits the bounded R4c semantic-affordance subset |
 
 ## Назначение
 
@@ -62,7 +62,7 @@ Definitions и package manifests canonical, bounded и content-addressed.
 2. Direct project cooking binds the exact `MechanicsLockV1` hash into
    `ProjectLockV3`.
 3. Activation validates the package/content/hash closure before publishing
-   `ActivatedProjectV5`.
+   `ActivatedProjectV6`.
 4. Runtime gives a package only declared immutable views and deterministic
    inputs.
 5. The package returns bounded `EffectRequestV1` or command proposal values.
@@ -106,12 +106,13 @@ input, sandbox escape, trap and every declared budget fallback. Gameplay
 changes additionally run `play`; authoritative-state changes additionally run
 `persistence-replay`.
 
-## Future semantic affordance projection
+## Semantic affordance projection
 
-SPEC-32 broadens planning beyond ability-only discovery through a conceptual
-Semantic Affordance projection. Mechanics Runtime remains owner of ability,
+SPEC-32/ADR-073 admits a current bounded `SemanticAffordanceV1` projection for
+logical-route request and hold-position. Mechanics Runtime remains owner of ability,
 work, gather, craft and trade effects and publishes only capability-filtered,
 revision-bound preconditions/effects/cost/time/risk/failure metadata. An
 affordance is data, not executable code or mutation authority; execution always
-revalidates through the existing effect-request and `WorldCommand` path. Exact
-types and registry entries wait for an R4 production consumer under ADR-046.
+revalidates through the existing effect-request and `WorldCommand` path. The
+broader mechanics work/gather/craft/trade affordance shapes remain Proposed
+until the R4d production consumer under ADR-046.

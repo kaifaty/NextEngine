@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-08 |
 | Статус | Accepted |
-| Версия | 2.3 |
+| Версия | 2.4 |
 | Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Заменяет | SPEC-08 2.2; admits the bounded engine-owned graph/query and abstract population-transfer consumer while retaining navmesh and physical path following as Proposed |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
+| Заменяет | SPEC-08 2.3; admits the bounded R4c consumer of the engine-owned logical route while physical traversal remains Proposed |
 
 ## Source of truth и ownership
 
@@ -144,15 +144,15 @@ physical corridor following remains deferred.
 | NAV-P3 | ADR-016 deterministic `r4-100npc.v1` report-only workload | 1,000 warm-up plus 10,000 measured ticks produce exact 16/32/52 due counts/roots with no starvation/drop. Timing remains report-only; the current unsupported-host result exceeds p95 ≤1,250 us / p99 ≤1,500 us and is not a pass or B-12 evidence. |
 | AUDIO-P1 | Engine baseline and optional Steam Audio candidate | Baseline playback always works, device loss recovers without gameplay differences, and optional propagation stays within scenario tolerance; fall back to baseline attenuation/panning/zones. |
 | AUDIO-L1 | Steam Audio version and distribution matrix | The selected version is compatible with target platforms and may be redistributed under the project policy; otherwise do not ship the adapter. |
-| WORLD-02 | Current abstract-transfer ownership branch plus deferred physical corpus | World Services owns tier/logical placement and commits one exact Abstract transfer; Physics alone owns active traversal, so an Active transfer returns `PHYSICAL_TRAVERSAL_REQUIRED`. Save/Replay V7 preserve the result; broader traversal deterministically replans or idles. |
+| WORLD-02 | Current abstract-transfer ownership branch plus deferred physical corpus | World Services owns tier/logical placement and commits one exact Abstract transfer; Physics alone owns active traversal, so an Active transfer returns `PHYSICAL_TRAVERSAL_REQUIRED`. Save/Replay V8 preserve the result; broader traversal deterministically replans or idles. |
 | AUDIO-02 | Displayless canonical PCM and event synchronization | PCM is deterministic on the pinned sink, event alignment is within one sample, acoustic facts are exact, and gameplay hashes do not depend on audio output; retain gameplay and use the baseline audio path on failure. |
 
 ## Strategic Agent reciprocal boundary
 
 Current World Services owns logical location, population tier, authored
-routine/job assignment and `RoutePlan`. SPEC-32 may read only immutable
-revision-bound projections and may request navigation/placement work; it cannot
-own route topology, fabricate traversal success or teleport an actor. Tier
-selection uses simulation-owned region/importance/profile facts and never
-renderer camera, frustum, FPS or wall time. SPEC-32 cognition and task schemas
-remain Proposed even though the R4b substrate is current.
+routine/job assignment and `RoutePlan`. The ADR-073 R4c consumer reads only the
+immutable revision-bound population/route projection and may persist a logical-
+route intent; it cannot own route topology, commit a transfer, fabricate
+traversal success or teleport an actor. Tier selection uses simulation-owned
+region/importance/profile facts and never renderer camera, frustum, FPS or wall
+time. Tier-wide cognition and physical task execution remain R4d/future scope.

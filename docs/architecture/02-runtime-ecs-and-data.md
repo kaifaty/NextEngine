@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-02 |
 | Статус | Accepted |
-| Версия | 2.0 |
+| Версия | 2.1 |
 | Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Заменяет | SPEC-02 1.9; admits the bounded R4b population/navigation consumer without adding a Runtime stage |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
+| Заменяет | SPEC-02 2.0; admits the R4c AgentPlanning consumer and paired Agent/Memory publication without adding a stage |
 
 ## Source of truth и ownership
 
@@ -18,7 +18,10 @@ publication. Exact active project configuration приходит только и
 Player Experience — action/UI/camera presentation state. World Services owns
 the current derived calendar, bounded routine projection, durable
 `PopulationTierV1`, logical placement and graph-navigation service from
-SPEC-20/ADR-072; they use existing stages 6/9 and do not add a Runtime stage.
+SPEC-20/ADR-072; they use existing stages 6/9. Agent Runtime and Memory Service
+own the paired cognition snapshots from SPEC-32/ADR-073; cognition consumes the
+existing AgentPlanning stage 7 and internal Outcome stage 9, without adding a
+Runtime stage.
 Domain component values принадлежат профильному context,
 а ECS storage — только механизм размещения. ECS implementation не определяет
 публичную semantics.
@@ -61,8 +64,8 @@ Tick rates и divisors MUST входить в project/save/replay manifests. Run
 3. validate schema, target, preconditions и RPG rules; multi-aggregate operation строит immutable revision-bound `RpgTransactionPlan`;
 4. пересчитать V2 body hash/command ID, выполнить ADR-022 `CommandLedgerV2` admission/deduplication через соответствующий `CommandStreamLedgerV2` и sort `Ingress` commands по `(target_tick, phase, priority_class, issuer_tag, issuer_payload_bytes, sequence, command_id)`;
 5. атомарно apply `Ingress` transaction и emit ordered DomainEvent; RPG plan либо полностью коммитит stable mutation/event order, либо не меняет state;
-6. применить current deterministic world/streaming commitments and derive the bounded World Services routine proposal for the existing stage-9 Outcome batch;
-7. deterministic agent planning и PhysicalAvatarIntent generation;
+6. применить current deterministic world/streaming commitments and derive the bounded World Services routine/population proposals for the existing stage-9 Outcome batch;
+7. build the revision-bound cognition view, run deterministic Utility + bounded GOAP for a due subject and stage only its typed Agent/Memory decision proposal; other deterministic agent planning and PhysicalAvatarIntent generation retain this stage;
 8. physics/motor substeps, contact normalization и physical outcomes;
 9. сформировать один закрытый `Outcome` batch внутренних commands, пропустить его через тот же validator/order/transaction и запретить same-tick re-entry;
 10. despawn/spawn commit и PersistentId resolver update;
@@ -128,4 +131,5 @@ Facade предоставляет query/system registration, declared read/write
 | RUNTIME-05 | Production and scenario control-plane comparison | Every scenario mutation uses `VirtualInputEvent`, validated command, lifecycle or declared fault adapter; probes preserve the state hash. | Remove the mutable test path. |
 | RUNTIME-06 | V2 body/claim duplicate, collision, gap, retry, exhaustion, priority and Ingress/Outcome permutations | Exact IDs, full body hashes, ledger state, receipts, stage trace and state root; no sequence wrap; re-entry returns `OUTCOME_REENTRY_FORBIDDEN`. | Reject the incompatible validator/order implementation. |
 | RUNTIME-07 | Causal spawn retry, slots, tombstones and provenance collisions | Golden IDs remain exact; collision stops before alternate ID or mutation. | Retain the prior identity state and reject the spawn. |
+| RUNTIME-08 | R4c stage-7 proposal, stage-9 command/event and stale joint-owner publication faults | Cognition runs only on authored boundaries, publishes paired Agent/Memory revisions through the ordinary Outcome barrier and never re-enters the tick or partially commits another owner. | Abort the complete prepared generation and retain every prior owner. |
 | CANON-01 | JCS/CanonicalBinaryV1/path/domain/Merkle vectors on Windows and Linux | Bytes and hashes are exact; invalid Unicode, float, key and path vectors reject. | Reject noncanonical input. |

@@ -4,14 +4,14 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 2.4 |
+| Версия | 2.5 |
 | Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Заменяет | SPEC-03 2.3; adds the R4b population owner and current-only Replay V7 six-owner closure |
+| Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md) |
+| Заменяет | SPEC-03 2.4; adds paired Agent/Memory owner segments and current-only Replay V8 eight-owner closure |
 
 ## Sources of truth
 
-Before cooking, `nextengine.project-authoring.v4` and referenced source files
+Before cooking, `nextengine.project-authoring.v5` and referenced source files
 are editable intent. After cooking, `ProjectLockV3` plus its exact
 `SchemaRegistryManifestV2`, content/mechanics/world/render manifests and blobs
 are the only runtime content source. Runtime never scans source directories,
@@ -108,6 +108,13 @@ Current world checkpoint composition is `RuntimeSnapshotV3` +
 `PhysicsCanonicalSnapshotV2` is the current grounded-capsule physical state;
 physics snapshot V1 is not a fallback.
 
+The current reference application root additionally frames world streaming,
+optional routine, required population and the required separate
+`AgentCognitionSnapshotV1`/`AgentMemorySnapshotV1` segments. Reference alpha has
+all eight full-tuple descriptors. `WorldCheckpointV4` remains the generic
+three-owner checkpoint; the larger application root is validated before any
+joint owner publication.
+
 Save publication is freeze at a logical commit point → snapshot all owners →
 write inactive generation → reopen/validate exact closure → atomically update
 the pointer. The two-slot `SaveStore` always retains a previously complete
@@ -124,14 +131,14 @@ validates the full closure before mutation, then atomically replaces world
 state. It creates a fresh presentation epoch/sequence `0` and waits for Resume.
 Corrupt or incompatible input leaves the current world and source bytes intact.
 
-`ReplayManifestV7` binds the runtime, RPG, physics, world-streaming, optional
-world-routine and current population owner segments, exact
+`ReplayManifestV8` binds the runtime, RPG, physics, world-streaming, optional
+world-routine, required population and required Agent/Memory owner segments, exact
 `InputMappingReceiptV2`, targeting/query facts, closed ingress and command
 admission batches, typed streaming assignments, interaction availability,
 expected receipts/events and per-tick full-tuple descriptors/application roots. Replay
 is read-only production re-execution: it injects recorded authoritative inputs,
 uses the ordinary validators/order and stops at the first divergence. There is
-no branching/counterfactual replay API and no projection through Replay V6.
+no branching/counterfactual replay API and no projection through Replay V7.
 
 `CommandLedgerV2` wire semantics, identity, reservation/receipt window and
 golden roots are unchanged.
@@ -159,14 +166,15 @@ Missing optional content uses only an exact declared fallback.
 ## Product checks
 
 - `content-package`: deterministic cook and activation of the complete
-  four-region/64-chunk, 116-entry closure plus malformed/cyclic/missing content
+  four-region/64-chunk, 117-entry closure plus malformed/cyclic/missing content
   and Luau/Wasm packages.
 - `play`: exact initial-role → frontier-role → initial-role transition through
   the paired production Assets/World/Runtime path without changing the R2
   gameplay and ledger baseline.
 - `persistence-replay`: Save in `Requested`, process restart, exact pinned
   reactivation and re-fetch converge with uninterrupted execution; ordinary
-  Save/Load/Resume, Replay V7, routine/population ledger closure and
+  Save/Load/Resume, Replay V8, routine/population ledger closure, paired
+  Agent/Memory restoration and
   retired-format rejection remain exact.
 - `performance --scenario smoke --mode report`: 1,000 real packaged transitions
   record Performance V5 `required_staging_bytes`; the 30-second limit remains

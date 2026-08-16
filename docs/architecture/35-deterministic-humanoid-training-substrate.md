@@ -52,7 +52,7 @@ Current-only alpha contracts в `crates/contracts`:
   `MotorLocomotionCommandProfileV1`, `MotorResetRecordV2`,
   `MotorStepRecordV2`, `MotorTrajectoryManifestV2` and bounded
   `MotorEnvironmentCheckpointEnvelopeV1`;
-- aggregate `WorldCheckpointV5`, `SaveManifestV3`, `ReplayManifestV7`.
+- aggregate `WorldCheckpointV5`, `SaveManifestV3`, current `ReplayManifestV8`.
 
 Старые alpha versions не мигрируются. Readers проверяют outer discriminator,
 bounds and closure before nested decode и возвращают stable `UNSUPPORTED_*`,
