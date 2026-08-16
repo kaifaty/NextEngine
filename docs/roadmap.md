@@ -698,14 +698,16 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 
 ## R5 — Physical character, animation and motor integration
 
-**Статус:** `IN_PROGRESS / R5A_PHYSICAL_ANIMATION_OWNER`;
+**Статус:** `IN_PROGRESS / R5A_COMPLETE / NEXT_R5B_CAPSULE_WORLD_INTERACTIONS`;
 `R&D_LINEAGE_STOPPED`. R141 завершился `INVALID / STOP_NO_RETRY` и не
-возобновляется. Активный bounded package integrates one capsule-driven
-player/NPC animation owner, exact neutral sampling/identity retarget,
-presentation-only basic IK, bind-pose fallback and save/replay continuation.
-Он не закрывает остальной R5 physics/root-motion/skinning/BodySchema scope;
-any learned route still requires its own future gates. Working decisions and
-resume point are recorded in
+возобновляется. Bounded R5a package принят: один capsule-driven player/NPC
+animation owner выполняет exact neutral sampling/identity retarget,
+presentation-only basic IK, bind-pose fallback и exact save/load/Replay V10
+continuation как десятый owner. Следующий package R5b должен закрыть один
+production capsule/world fixture для slopes, stairs, dynamic push, sensors и
+fall/recovery. R5a не закрывает остальной R5 physics/root-motion/skinning/
+BodySchema scope; any learned route still requires its own future gates.
+Решения и evidence R5a записаны в
 [R5a task state](development/task-state/r5a-physical-animation-owner.md).
 
 **Цель:** сделать физическое воплощение персонажа частью production gameplay,
@@ -2421,10 +2423,14 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    trade → food, including threat interruption/replan, failure branches and
    exact tiered/headless/bulk behavior. V6/V7 content and nine-owner Replay V9
    are current under ADR-074; this closes functional R4 without learned models.
-12. **R5 physical character and animation production integration (`NEXT`):** минимальный v1 physics
-   profile, procedural capsule motor, skeleton/clip graph, retargeting и fixed
-   IK. A TRAIN-9 actor may enter only after its own promotion/parity gates;
-   later policy-family phases remain optional and do not block this package.
+12. **R5 physical character and animation production integration (`IN_PROGRESS`; R5a `COMPLETE`, R5b `NEXT`):**
+   один shared player/NPC skeleton/clip owner, retargeting, fixed IK and
+   ten-owner save/Replay V10 уже закрыты R5a. Следующий bounded cut расширяет
+   procedural capsule и production physics fixture до slopes, stairs, dynamic
+   push, sensors и fall/recovery; root motion, BodySchema projection, real
+   skinning и полное R5 promotion остаются последующими cuts. A TRAIN-9 actor
+   may enter only after its own promotion/parity gates; later policy-family
+   phases remain optional and do not block this package.
 13. **R6 creator CLI and second project (`PLANNED`):** stable non-interactive JSON
    CLI, inspectors, templates и clean-checkout second-project exercise.
 14. **Windows hard performance/release checkpoint (`PLANNED`):** clean-commit

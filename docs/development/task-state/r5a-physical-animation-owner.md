@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / CONTRACT_FREEZE` |
+| Status | `COMPLETE` |
 | Updated | 2026-08-16 |
 | Task key | `r5a-physical-animation-owner` |
 | Scope | One production capsule-driven humanoid animation owner shared by the reference player and NPC, with exact neutral clip sampling, identity retarget, presentation-only foot IK, bind-pose fallback and a separate save/replay segment |
@@ -11,10 +11,10 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R5 starts with a bounded production animation owner over committed capsule poses; the stopped R141 training lineage remains out of scope.
-- **Why:** Neutral skeleton and clip content plus capsule locomotion already exist, but no runtime graph, retarget/IK projection or animation save/replay owner consumes them.
-- **Next action:** Freeze the canonical profile/snapshot, implement the deterministic owner in `next_motor`, then connect it to the reference composition root before changing persisted formats.
-- **Current blocker:** None for R5a. PhysX-only cutover, slopes/stairs/push/fall/recovery, dynamic gameplay bodies, root-motion admission, real skinning and R5 performance evidence remain later work.
+- **Current conclusion:** R5a is complete: one engine-owned physical-animation profile drives the reference player and NPC from committed capsule displacement, publishes deterministic sampled/fallback presentation poses and continues exactly through save/load and Replay V10.
+- **Why:** Focused owner tests, the production reference scenario, application save/load, ten-owner replay and broad workspace gates all pass; animation never mutates Physics, RPG or the command ledger.
+- **Next action:** Start a separate bounded R5b capsule/world-interaction package: freeze one production fixture for slopes, stairs, dynamic push, sensors and fall/recovery before considering root motion or BodySchema expansion.
+- **Current blocker:** None for R5a. PhysX-only production evidence, the R5b physical fixture, root-motion admission, real skinning, BodySchema consumption and R5 performance gates remain open.
 - **Do not retry:** R141, R142, learned control, optimizer/training, vendor/model state as runtime authority, direct animation writes to physics pose or a speculative generic animation framework.
 - **Reconsider when:** The production player/NPC consumer proves that one additional graph state, retarget field or owner fact is required for exact continuation or visible fallback behavior.
 
@@ -56,11 +56,11 @@
 
 ## Sequential implementation order
 
-1. **In progress:** freeze the minimal profile, graph record, snapshot and fallback projection contracts.
-2. **Pending:** implement exact sampling, identity retarget, basic foot IK and owner publication in `next_motor` with negative/canonical tests.
-3. **Pending:** instantiate the same profile for player/NPC and consume the derived root projection in reference presentation.
-4. **Pending:** add the tenth owner segment to live state, save/load and Replay V10; prove corrupt/stale/non-canonical rejection and exact continuation.
-5. **Pending:** run mapped checks, record honest conditional `NotRun` results and promote only the bounded R5a decision.
+1. **Complete:** freeze the minimal profile, graph record, snapshot and fallback projection contracts.
+2. **Complete:** implement exact sampling, identity retarget, basic foot IK and owner publication in `next_motor` with negative/canonical tests.
+3. **Complete:** instantiate the same profile for player/NPC and consume the derived root projection in reference presentation.
+4. **Complete:** add the tenth owner segment to live state, save/load and Replay V10; prove corrupt/stale/non-canonical rejection and exact continuation.
+5. **Complete:** run mapped checks, record honest conditional `NOT_RUN` results and close only the bounded R5a package.
 
 ## Explicitly deferred from R5a
 
@@ -69,3 +69,17 @@
 - Root-motion command admission, layered/blended graphs, non-identity retarget profiles, GPU skinning and full-body physical IK.
 - BodySchema V2 production projection and the procedural 23-DoF safety/recovery controller.
 - Fresh `r5-physics-16.v1` baseline/hard gate, paired Windows/Linux evidence, learned policy training/export and Stage 0/R5 completion claims.
+
+## Handoff
+
+| Evidence | Result | Consequence |
+| --- | --- | --- |
+| `cargo test -p next_motor physical_animation --quiet` and `cargo test -p next_contracts physical_animation --quiet` | `PASS` — 3 + 3 focused tests | Fixed-point sampling, graph transitions, identity retarget, IK/bind fallback, canonical round-trip and stale/profile/order rejection are exact. |
+| `cargo test -p next_reference_game --all-targets --quiet` and `cargo test -p next_application --all-targets --quiet` | `PASS` | The same profile runs player locomotion and NPC idle; atomic live generation, bulk observable boundaries, manual save/load, crash recovery and close publication retain the owner. |
+| `cargo test -p next_verification --all-targets --quiet` | `PASS` — 70 passed / 1 ignored in the library plus 3, 1 and 5 passing integration tests | Replay V10, exact continuation and retained V9 paths pass; the ignored test remains an existing conditional check rather than hidden evidence. |
+| `cargo run -p xtask -- content-package` | `PASS` — 119 records, 64 chunks | Reference alpha publishes two neutral clips and the locomotion clip is closed by the current content/project hashes. |
+| `cargo run -p xtask -- play` | `PASS` — 32 ticks, 52 events, 23 RPG events, application root `bbf7ebc070256afcdf0f8270ec31527e36700e24fc7ca3978ff1c91971d34f45` | Production gameplay and close/save use the ten-owner application root. |
+| `cargo run -p xtask -- persistence-replay` | `PASS` — 19 ticks, 2 generations, final root `17e1c8cc30c8450c4299837783e607b30a845fb5597dbe12f81008cd8e8c6635` | Direct, restored and Replay V10 runs converge with the exact physical-animation snapshot. |
+| Format, strict all-targets Clippy, `boundary-scan`, full `host-check` | `PASS` on `x86_64-unknown-linux-gnu`, Rust 1.97.1 | Workspace, public-contract and source-layout gates are green on commits `6e570e2` and `7e4c2ec`. |
+| `platform`, `performance`, `physics-backend-parity`, fresh `r5-physics-16.v1` and paired Windows/Linux execution | `NOT_RUN` | R5a makes no platform parity, PhysX-only, performance, Stage 0 or full-R5 claim; these remain later conditional gates. |
+| R141/R142 learned lineage | `INVALID / STOP_NO_RETRY` | No training, export or learned runtime route was resumed. |
