@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.42 |
+| Версия | 2.43 |
 | Последняя проверка | 2026-08-16 |
-| Заменяет | INDEX-001 2.41; records the structural-vegetation V0A decisions and open V0B calibration without changing the current physics baseline |
+| Заменяет | INDEX-001 2.42; adds the Proposed world-substrate and bounded arcane-physical tracks without changing the current baseline |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -182,6 +182,8 @@ traceability — навигационная карта, не admission authority
 | SPEC-36 | [Proposed continuum material physics](36-continuum-material-physics.md) | Proposed post-v1 local water/deformable-terrain track; CPU DFSPH reference, GPU correspondence and MLS-MPM terrain are not current runtime contracts |
 | SPEC-37 | [Proposed layered physical-world model](37-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and later energy state without a universal solver or second writer |
 | SPEC-38 | [Proposed structural vegetation physics](38-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; V0A decisions are closed and V0B calibration remains open |
+| SPEC-39 | [Proposed world-substrate composition](39-world-substrate-composition.md) | Proposed cross-owner composition of Runtime, RPG, Mechanics, Physical Embodiment and future substrates without a universal world service or shared mutable state |
+| SPEC-40 | [Proposed arcane substrate and physical magic](40-arcane-substrate-and-physical-magic.md) | Proposed CPU/fixed-point arcane owner, production-path telekinesis, atomic PhysX coupling and exact persistence track; Package A0 remains open |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -264,6 +266,7 @@ traceability — навигационная карта, не admission authority
 | ADR-071 | [Canonical physics-material lineage](adr/071-canonical-physics-material-lineage.md) | Accepted successor material/combine contracts, biomechanics compiled/mirror lineage and explicit ABI 4 material input; no PhysX or training claim |
 | ADR-072 | [Continuum material physics track](adr/072-continuum-material-physics-track.md) | Proposed multi-lane continuum ownership and promotion strategy; no current backend/schema/save claim |
 | ADR-073 | [Layered physical world and living-structures track](adr/073-layered-physical-world-and-living-structures-track.md) | Proposed peer-owner physical DAG and selected V0A destructible-tree profile; V0B remains open and there is no current backend/schema/save claim |
+| ADR-074 | [World substrate and arcane physical-interaction track](adr/074-world-substrate-and-arcane-physical-interaction-track.md) | Proposed world-owner composition and bounded telekinesis-first arcane strategy; A0 remains open and no current schema/runtime claim exists |
 
 ## Proposed tracks
 
@@ -277,6 +280,10 @@ traceability — навигационная карта, не admission authority
 - SPEC-37/SPEC-38/ADR-073 — post-v1 layered physical-world and living-
   structures research; the tree lane starts only after V0B calibration
   and does not change current PhysX, content, persistence or public contracts.
+- SPEC-39/SPEC-40/ADR-074 — post-v1 world-substrate and arcane-physical
+  research; A0 law/profile closure blocks code, the first consumer is one
+  production-path telekinesis ability, and thermal/continuum/vegetation/Vital/
+  Identity lanes remain independent.
 - SPEC-31 narrative director, generated quest graph and divine-standing intent
   formerly described by ADR-029/ADR-031; they have no current implementation
   obligation and return only with a concrete production consumer.

@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-37 |
 | Status | Proposed |
-| Version | 1.0 |
+| Version | 1.1 |
 | Last verified | 2026-08-16 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-36](36-continuum-material-physics.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-073](adr/073-layered-physical-world-and-living-structures-track.md) |
-| Supersedes | none; adds a Proposed composition model without changing current PhysX, runtime, save or public-contract semantics |
+| Related Proposed composition | [SPEC-39](39-world-substrate-composition.md), [SPEC-40](40-arcane-substrate-and-physical-magic.md), [ADR-074](adr/074-world-substrate-and-arcane-physical-interaction-track.md) |
+| Supersedes | SPEC-37 1.0; clarifies the boundary between Physical Embodiment and non-physical world substrates without changing current PhysX, runtime, save or public-contract semantics |
 
 ## Status and purpose
 
@@ -22,6 +23,22 @@ that every layer depends on the one drawn immediately below it, that every
 project instantiates every layer, or that an upper layer may mutate a lower
 one. The physical world is a fixed-stage DAG of peer state owners connected by
 immutable projections and canonical exchange batches.
+
+## Relationship to world substrates
+
+Physical Embodiment is one specialization inside the Proposed SPEC-39
+world-substrate composition, not the owner of every simulated law. A future
+Arcane owner from SPEC-40 owns only its resource/execution state and remains a
+peer outside Physical Embodiment. It can affect rigid, continuum, vegetation or
+later thermal state only through a typed cross-owner exchange profile; it never
+becomes an L2 forcing shortcut or an L3 physical writer.
+
+An arcane/physical transaction freezes both owner revisions, stages one
+canonical exchange batch and publishes the arcane debit plus participating
+physical state atomically. The physical part still follows this SPEC's
+exclusive-writer and `PhysicalStep` rules. Projects that do not activate the
+arcane capability retain the unchanged current physical path and do not create
+empty arcane owner segments.
 
 ## Layer map
 
