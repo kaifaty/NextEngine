@@ -4,11 +4,11 @@
 |---|---|
 | ID | ADR-073 |
 | Status | Proposed |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-16 |
 | Last verified | 2026-08-16 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-36](../36-continuum-material-physics.md), [SPEC-37](../37-layered-physical-world.md), [SPEC-38](../38-structural-vegetation-physics.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-072](072-continuum-material-physics-track.md) |
-| Supersedes | none; proposes a future composition model and vegetation lane without changing Accepted PhysX authority |
+| Supersedes | ADR-073 1.0; records the selected V0A vegetation profile without changing Accepted PhysX authority |
 | Superseded by | none |
 
 ## Context
@@ -60,6 +60,13 @@ graph split and a bounded detached-component handoff to PhysX. The standing
 tree uses structural collision proxies; after handoff PhysX alone advances the
 detached compound body.
 
+V0A selects the synthetic `Next Engine Reference Conifer V1`: 10 m height,
+12 major branches, at most 128 structural segments, a rigid root clamp and at
+most 32 tapered-capsule proxies. One felling zone has an 8 by 32 polar section
+lattice. The fixed outer cadence is 240 Hz, while the serial bake-off selects a
+fixed internal cadence from a predeclared corpus. Canonical continuation state
+is fixed-point at each outer boundary and private `f64` state cannot cross it.
+
 No exact rod formulation is selected by the word *Cosserat*. A serial bake-off
 against a constrained/implicit discrete-rod or corotational baseline must first
 freeze the formulation, integrator, fixed internal cadence and complete
@@ -93,11 +100,12 @@ do not receive completion credit from the base tree.
 
 ### Defer public contracts and exact biomechanical profile
 
-Do not add vegetation types to `crates/contracts` for the lab. Package V0 must
-freeze one tree definition, calibrated orthotropic wood profile, wind/cut
-fixtures, numeric state scales, capacities, reference curves and thresholds
-before solver code. USDA clear-wood tables and graphics papers inform that
-profile but are not themselves a calibrated living-tree corpus.
+Do not add vegetation types to `crates/contracts` for the lab. V0A closes the
+product choices; V0B must freeze the exact tree graph/taper, calibrated
+synthetic orthotropic profile, wind/cut fixtures, numeric state scales,
+capacities, reference curves and remaining thresholds before solver code. USDA
+clear-wood tables and graphics papers inform that profile but are not
+themselves a calibrated living-tree corpus.
 
 The first production tree consumer may introduce only definition/profile,
 canonical state, rigid exchange, topology/handoff, presentation and composite
@@ -119,14 +127,19 @@ last complete checkpoint.
 
 ## Promotion and stop conditions
 
-The vegetation roadmap remains `PLANNED / NOT_ACTIVE` while Package V0 is open.
-After V0 closure, the isolated serial oracle may run; only
+The vegetation roadmap remains `PLANNED / NOT_ACTIVE` while V0B is open. V0A
+is complete and records product scope, authority, cut/section model, LOD gate,
+performance budgets and validation targets. After V0B calibration closure, the
+isolated serial oracle may run; only
 `VEGETATION-BEAM-REF-P1 = PASS` permits an active R8 integration track.
 
 Production promotion additionally requires tree/wind, fracture, rigid coupling,
 exact persistence, LOD and Windows/Linux root gates plus a THOTH performance
-profile fixed before measurement. If the selected active/modal forest workload
-misses its declared budget after two evidence-backed optimization cycles, the
+profile fixed before measurement. Its production gate is 1,000 visible,
+128 modal, 8 active, one refined and at most two falling trees, with an
+incremental THOTH vegetation budget of 2/3 ms p95/p99 inside the existing
+integrated physical 8/12 ms p95/p99 budget. If that workload misses its
+declared budget after two evidence-backed optimization cycles, the
 track remains research-only. Reducing the tree/branch gate, enlarging the
 budget or granting GPU authority requires a new explicit decision.
 
@@ -150,7 +163,7 @@ budget or granting GPU authority requires a new explicit decision.
 
 - SPEC-37, SPEC-38 and this ADR remain Proposed; current runtime/schema/save
   semantics and the PhysX baseline do not change.
-- The next implementation action is Package V0 calibration, not solver code.
+- The next action is V0B numerical/profile/corpus calibration, not solver code.
 - The physical-world model can add phenomena without shared mutable state or a
   universal solver.
 - Vegetation and continuum programs remain independent until an explicit

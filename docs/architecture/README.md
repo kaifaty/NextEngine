@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.41 |
+| Версия | 2.42 |
 | Последняя проверка | 2026-08-16 |
-| Заменяет | INDEX-001 2.40; adds the Proposed layered-physical-world and structural-vegetation tracks without changing the current physics baseline |
+| Заменяет | INDEX-001 2.41; records the structural-vegetation V0A decisions and open V0B calibration without changing the current physics baseline |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -181,7 +181,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
 | SPEC-36 | [Proposed continuum material physics](36-continuum-material-physics.md) | Proposed post-v1 local water/deformable-terrain track; CPU DFSPH reference, GPU correspondence and MLS-MPM terrain are not current runtime contracts |
 | SPEC-37 | [Proposed layered physical-world model](37-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and later energy state without a universal solver or second writer |
-| SPEC-38 | [Proposed structural vegetation physics](38-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; Package V0 remains open |
+| SPEC-38 | [Proposed structural vegetation physics](38-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; V0A decisions are closed and V0B calibration remains open |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -263,7 +263,7 @@ traceability — навигационная карта, не admission authority
 | ADR-070 | [Biomechanics reference-tracking training environment](adr/070-biomechanics-reference-tracking-training-environment.md) | Accepted current-only TRAIN-5 locomotion tracker profile, corpus-bound V3 manifest, fixed 435-channel observation and 23-channel residual action; no quality or runtime-policy claim |
 | ADR-071 | [Canonical physics-material lineage](adr/071-canonical-physics-material-lineage.md) | Accepted successor material/combine contracts, biomechanics compiled/mirror lineage and explicit ABI 4 material input; no PhysX or training claim |
 | ADR-072 | [Continuum material physics track](adr/072-continuum-material-physics-track.md) | Proposed multi-lane continuum ownership and promotion strategy; no current backend/schema/save claim |
-| ADR-073 | [Layered physical world and living-structures track](adr/073-layered-physical-world-and-living-structures-track.md) | Proposed peer-owner physical DAG and destructible-tree promotion strategy; no current backend/schema/save claim |
+| ADR-073 | [Layered physical world and living-structures track](adr/073-layered-physical-world-and-living-structures-track.md) | Proposed peer-owner physical DAG and selected V0A destructible-tree profile; V0B remains open and there is no current backend/schema/save claim |
 
 ## Proposed tracks
 
@@ -275,7 +275,7 @@ traceability — навигационная карта, не admission authority
 - SPEC-36/ADR-072 — post-v1 local water and deformable-material research; CPU
   DFSPH, GPU correspondence and MLS-MPM terrain have no current runtime schema.
 - SPEC-37/SPEC-38/ADR-073 — post-v1 layered physical-world and living-
-  structures research; the tree lane starts only after a calibrated Package V0
+  structures research; the tree lane starts only after V0B calibration
   and does not change current PhysX, content, persistence or public contracts.
 - SPEC-31 narrative director, generated quest graph and divine-standing intent
   formerly described by ADR-029/ADR-031; they have no current implementation
