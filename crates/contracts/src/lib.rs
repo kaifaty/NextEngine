@@ -5,6 +5,7 @@ pub mod animation_content;
 pub mod audio;
 pub mod body;
 pub mod canonical;
+pub mod cognition;
 pub mod command;
 pub mod content;
 pub mod extension;

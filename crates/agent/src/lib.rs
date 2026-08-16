@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+pub mod cognition;
+
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
