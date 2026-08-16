@@ -1,7 +1,7 @@
 use next_agent::cognition::{
     StrategicAgentOwnersV1, StrategicEvaluationV1, StrategicObservationV1,
-    SystemicStrategicObservationV1, evaluate_strategic_decision_v1,
-    evaluate_systemic_strategic_decision_v1,
+    SystemicCommitmentObservationV1, SystemicStrategicObservationV1,
+    evaluate_strategic_decision_v1, evaluate_systemic_strategic_decision_v1,
 };
 use next_contracts::cognition::{
     AGENT_COGNITION_SYSTEM_ID, AgentCognitionCommandV1, AgentCognitionSnapshotV1,
@@ -363,20 +363,23 @@ impl AgentCognitionStageContextV1 {
             .activity_or_none
             .as_ref()
             .map(|activity| {
-                let aggregate = rpg
-                    .aggregate(
-                        RpgAggregateKindV1::Commitment,
-                        activity.catalog().commitment_id,
-                    )
-                    .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?;
-                let commitment = rpg
-                    .commitment(activity.catalog().commitment_id)
-                    .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?;
+                let aggregate = rpg.aggregate(
+                    RpgAggregateKindV1::Commitment,
+                    activity.catalog().commitment_id,
+                );
+                let commitment = rpg.commitment(activity.catalog().commitment_id);
+                let commitment_or_none = match (aggregate, commitment) {
+                    (Some(aggregate), Some(commitment)) => Some(SystemicCommitmentObservationV1 {
+                        revision: aggregate.revision,
+                        state: commitment.state,
+                    }),
+                    (None, None) => None,
+                    _ => return Err(RuntimeFatalError::AgentCognitionInternalInvariant),
+                };
                 Ok::<_, RuntimeFatalError>(SystemicStrategicObservationV1 {
                     activity_catalog: activity.catalog(),
                     activity_snapshot: activity.snapshot(),
-                    commitment_revision: aggregate.revision,
-                    commitment_state: commitment.state,
+                    commitment_or_none,
                 })
             })
             .transpose()?;

@@ -111,7 +111,8 @@ impl WorldActivityStageContextV1 {
             CommandPayload::WorldActivity(payload) => payload.clone(),
             _ => return Err(RuntimeFatalError::WorldActivityInternalInvariant),
         };
-        let observation = observation(&self.owner, &self.population, rpg)?;
+        let observation = observation(&self.owner, &self.population, rpg)?
+            .ok_or(RuntimeFatalError::WorldActivityInternalInvariant)?;
         let event_payload = self
             .owner
             .apply_command_to_snapshot(
@@ -162,7 +163,9 @@ impl WorldActivityStageContextV1 {
         authoritative_revision: u64,
         rpg: &RpgState,
     ) -> Result<Option<WorldCommand>, RuntimeFatalError> {
-        let observation = observation(&self.owner, &self.population, rpg)?;
+        let Some(observation) = observation(&self.owner, &self.population, rpg)? else {
+            return Ok(None);
+        };
         let Some(payload) = self
             .owner
             .expected_command_for_snapshot(&self.staged_snapshot, simulation_tick, observation)
@@ -187,28 +190,45 @@ fn validate_owner_observation_closure(
     owner: &WorldActivityOwnerV1,
     population: &WorldPopulationOwnerV1,
     rpg: &RpgState,
-) -> Result<(), RuntimeFatalError> {
+) -> Result<bool, RuntimeFatalError> {
     let catalog = owner.catalog();
-    let commitment = commitment(catalog.commitment_id, rpg)?;
-    if commitment.recipient_character_id != catalog.worker_subject_id
-        || commitment.work_id != catalog.work_id
-        || commitment.workplace_node_id != catalog.workplace_node_id
-        || population
-            .snapshot_or_none()
-            .and_then(|snapshot| snapshot.record(catalog.worker_subject_id))
-            .is_none()
+    if population
+        .snapshot_or_none()
+        .and_then(|snapshot| snapshot.record(catalog.worker_subject_id))
+        .is_none()
     {
         return Err(RuntimeFatalError::WorldActivityInternalInvariant);
     }
-    Ok(())
+    let Some(aggregate) = rpg.aggregate(RpgAggregateKindV1::Commitment, catalog.commitment_id)
+    else {
+        return Ok(false);
+    };
+    let CommitmentPayloadV1 {
+        recipient_character_id,
+        work_id,
+        workplace_node_id,
+        ..
+    } = match &aggregate.payload {
+        next_contracts::rpg::RpgAggregatePayloadV1::Commitment(commitment) => commitment,
+        _ => return Err(RuntimeFatalError::WorldActivityInternalInvariant),
+    };
+    if *recipient_character_id != catalog.worker_subject_id
+        || *work_id != catalog.work_id
+        || *workplace_node_id != catalog.workplace_node_id
+    {
+        return Err(RuntimeFatalError::WorldActivityInternalInvariant);
+    }
+    Ok(true)
 }
 
 fn observation<'a>(
     owner: &WorldActivityOwnerV1,
     population: &'a WorldPopulationOwnerV1,
     rpg: &RpgState,
-) -> Result<WorldActivityObservationV1<'a>, RuntimeFatalError> {
-    validate_owner_observation_closure(owner, population, rpg)?;
+) -> Result<Option<WorldActivityObservationV1<'a>>, RuntimeFatalError> {
+    if !validate_owner_observation_closure(owner, population, rpg)? {
+        return Ok(None);
+    }
     let catalog = owner.catalog();
     let aggregate = rpg
         .aggregate(RpgAggregateKindV1::Commitment, catalog.commitment_id)
@@ -220,13 +240,13 @@ fn observation<'a>(
     let population_record = population_snapshot
         .record(catalog.worker_subject_id)
         .ok_or(RuntimeFatalError::WorldActivityInternalInvariant)?;
-    Ok(WorldActivityObservationV1 {
+    Ok(Some(WorldActivityObservationV1 {
         commitment_id: catalog.commitment_id,
         commitment_revision: aggregate.revision,
         commitment_state: commitment.state,
         population_record,
         population_snapshot,
-    })
+    }))
 }
 
 fn commitment(

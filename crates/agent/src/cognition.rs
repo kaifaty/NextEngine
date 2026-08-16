@@ -41,8 +41,13 @@ pub struct StrategicObservationV1<'a> {
 pub struct SystemicStrategicObservationV1<'a> {
     pub activity_catalog: &'a WorldActivityCatalogV1,
     pub activity_snapshot: &'a WorldActivitySnapshotV1,
-    pub commitment_revision: u64,
-    pub commitment_state: CommitmentStateV1,
+    pub commitment_or_none: Option<SystemicCommitmentObservationV1>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SystemicCommitmentObservationV1 {
+    pub revision: u64,
+    pub state: CommitmentStateV1,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -411,7 +416,21 @@ fn evaluate_strategic_decision_internal_v1(
     let (selected, switch_reason, suspended_goals) =
         select_goal(catalog, agent_snapshot, &candidates, drive_view)?;
 
-    let planning = bounded_goap_plan(catalog, &epistemic_view, &selected);
+    let planning = if systemic_or_none.is_some_and(|systemic| {
+        systemic.commitment_or_none.is_none()
+            && epistemic_view.gameplay_tick
+                == systemic
+                    .activity_catalog
+                    .systemic_work
+                    .work_exchange
+                    .acts
+                    .first()
+                    .map_or(u64::MAX, |act| act.creation_tick)
+    }) {
+        Err(PlanningFailureV1::JobUnavailable)
+    } else {
+        bounded_goap_plan(catalog, &epistemic_view, &selected)
+    };
     let drive_view_hash = content_hash_from_bytes(sha256(&drive_view.canonical_bytes()?));
     match planning {
         Ok(plan) => {
@@ -720,6 +739,9 @@ fn extend_systemic_affordances(
     let activity = systemic.activity_snapshot;
     let catalog = systemic.activity_catalog;
     let profile = &catalog.systemic_work;
+    let Some(commitment) = systemic.commitment_or_none else {
+        return Ok(());
+    };
     let exchange_tick = profile
         .work_exchange
         .acts
@@ -728,16 +750,16 @@ fn extend_systemic_affordances(
         .creation_tick;
     let (action_id, effect_fact_id, execution, owner_revision) = if activity.state
         == WorldActivityStateV1::Unassigned
-        && systemic.commitment_state == CommitmentStateV1::Offered
+        && commitment.state == CommitmentStateV1::Offered
         && observation.gameplay_tick == exchange_tick
     {
         (
             &profile.social_action_id,
             &profile.social_ready_fact_id,
             AffordanceExecutionV1::CommitSocialExchange,
-            systemic.commitment_revision,
+            commitment.revision,
         )
-    } else if systemic.commitment_state == CommitmentStateV1::Accepted
+    } else if commitment.state == CommitmentStateV1::Accepted
         && (activity.state == WorldActivityStateV1::Completed
             || activity.state == WorldActivityStateV1::Working
                 && activity
@@ -758,7 +780,7 @@ fn extend_systemic_affordances(
                     .ok_or(StrategicAgentError::RevisionExhausted)?
             },
         )
-    } else if systemic.commitment_state == CommitmentStateV1::Accepted
+    } else if commitment.state == CommitmentStateV1::Accepted
         && matches!(
             activity.state,
             WorldActivityStateV1::Assigned | WorldActivityStateV1::Working
@@ -971,6 +993,9 @@ fn advance_memory_v1(
     let Some(systemic) = systemic_or_none else {
         return Ok(memory.retrieved_at(tick)?);
     };
+    let commitment = systemic
+        .commitment_or_none
+        .ok_or(StrategicAgentError::ObservationInvalid)?;
     let profile = &systemic.activity_catalog.systemic_work;
     let mut observed = Vec::<StructuredSpeechActV1>::new();
     if profile
@@ -1002,7 +1027,7 @@ fn advance_memory_v1(
                 act.act_id,
                 profile.listener_trust_q16,
                 tick,
-                systemic.commitment_revision,
+                commitment.revision,
             )?);
         }
         recorded_speech_acts.push(act);
@@ -1174,7 +1199,7 @@ mod tests {
     }
 
     #[test]
-    fn missing_affordance_and_budget_exhaustion_have_no_proposal() {
+    fn no_route_and_budget_exhaustion_are_typed_without_a_proposal() {
         let (mut catalog, memory, agent, route) = fixture();
         let without_route = view(1, 100, &catalog, &memory, None);
         let missing = evaluate_strategic_decision_v1(&catalog, &agent, &memory, without_route)
@@ -1183,6 +1208,10 @@ mod tests {
         assert_eq!(
             missing.decision_trace.planning_failure,
             PlanningFailureV1::RouteUnavailable
+        );
+        assert_eq!(
+            missing.decision_trace.planning_failure.diagnostic_code(),
+            "STRATEGIC_ROUTE_UNAVAILABLE"
         );
 
         catalog.planner_max_expanded_nodes = 1;
