@@ -6,11 +6,12 @@ use next_contracts::input::TickRateProfileV1;
 use next_contracts::physics::{
     AuthoritativeNumericProfileV1, CAPSULE_LOCOMOTION_SPEED_MICROMETRES_PER_SECOND,
     PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2, PhysicsContractError, PhysicsGeometryV1,
-    PhysicsMotionKindV1, PhysicsPoseV1, PhysicsQuantizationProfileV1, PhysicsShapeIdV1,
-    PhysicsWorldCheckpointV1,
+    PhysicsMotionKindV1, PhysicsParticipationV1, PhysicsPoseV1, PhysicsQuantizationProfileV1,
+    PhysicsShapeIdV1, PhysicsWorldCheckpointV1,
 };
 
 use super::error::ReferencePhysicsError;
+use super::interaction::GroundedCapsuleDynamicBox;
 use super::query::{
     GroundedCapsuleQuery, GroundedCapsuleStaticBox, ReferenceGroundedCapsuleQuery,
     validate_reference_shape,
@@ -29,6 +30,8 @@ pub struct GroundedCapsuleWorld<Q> {
     pub(super) capsule_collision_layer: u8,
     pub(super) capsule_collision_mask: u64,
     pub(super) static_boxes: Arc<[GroundedCapsuleStaticBox]>,
+    pub(super) dynamic_boxes: Arc<[GroundedCapsuleDynamicBox]>,
+    pub(super) sensor_boxes: Arc<[GroundedCapsuleStaticBox]>,
     pub(super) locomotion_per_substep: i64,
     pub(super) gravity_velocity_delta: i64,
     pub(super) query: Q,
@@ -51,6 +54,8 @@ impl<Q: PartialEq> PartialEq for GroundedCapsuleWorld<Q> {
             && self.capsule_collision_layer == other.capsule_collision_layer
             && self.capsule_collision_mask == other.capsule_collision_mask
             && self.static_boxes == other.static_boxes
+            && self.dynamic_boxes == other.dynamic_boxes
+            && self.sensor_boxes == other.sensor_boxes
             && self.locomotion_per_substep == other.locomotion_per_substep
             && self.gravity_velocity_delta == other.gravity_velocity_delta
             && self.query == other.query
@@ -129,6 +134,9 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 .next()
                 .ok_or(ReferencePhysicsError::UnsupportedProfile)?;
             validate_reference_shape(capsule_shape)?;
+            if capsule_shape.participation != PhysicsParticipationV1::Solid {
+                return Err(ReferencePhysicsError::UnsupportedProfile);
+            }
             let (capsule_radius, capsule_half_segment) = match capsule_shape.geometry {
                 PhysicsGeometryV1::Capsule {
                     radius_micrometres,
@@ -156,6 +164,8 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         };
 
         let mut static_boxes = Vec::new();
+        let mut dynamic_boxes = Vec::new();
+        let mut sensor_boxes = Vec::new();
         for (body_id, body) in &checkpoint.catalog.bodies {
             let state = checkpoint
                 .snapshot
@@ -165,9 +175,15 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             if Some(*body_id) == capsule_body_id {
                 continue;
             }
-            if body.motion_kind != PhysicsMotionKindV1::Static
-                || !state.active
-                || state.pose.rotation_q1_30 != PhysicsPoseV1::default().rotation_q1_30
+            if !state.active || state.pose.rotation_q1_30 != PhysicsPoseV1::default().rotation_q1_30
+            {
+                return Err(ReferencePhysicsError::UnsupportedProfile);
+            }
+            if body.motion_kind == PhysicsMotionKindV1::Kinematic {
+                return Err(ReferencePhysicsError::UnsupportedProfile);
+            }
+            if body.motion_kind == PhysicsMotionKindV1::Dynamic
+                && (body.shapes.len() != 1 || state.angular_velocity_q16 != [0; 3])
             {
                 return Err(ReferencePhysicsError::UnsupportedProfile);
             }
@@ -182,21 +198,46 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 if shape.local_pose.rotation_q1_30 != PhysicsPoseV1::default().rotation_q1_30 {
                     return Err(ReferencePhysicsError::UnsupportedProfile);
                 }
+                if body.motion_kind == PhysicsMotionKindV1::Dynamic {
+                    if shape.participation != PhysicsParticipationV1::Solid {
+                        return Err(ReferencePhysicsError::UnsupportedProfile);
+                    }
+                    dynamic_boxes.push(GroundedCapsuleDynamicBox {
+                        body_id: *body_id,
+                        shape_id: shape.shape_id,
+                        local_centre_micrometres: shape.local_pose.translation_micrometres,
+                        half_extents_micrometres,
+                        contact_reporting: shape.contact_reporting,
+                        collision_layer: shape.collision_layer,
+                        collision_mask: shape.collision_mask,
+                    });
+                    continue;
+                }
                 let centre = checked_add_vec3(
                     state.pose.translation_micrometres,
                     shape.local_pose.translation_micrometres,
                 )?;
-                static_boxes.push(GroundedCapsuleStaticBox {
+                let world_box = GroundedCapsuleStaticBox {
                     shape_id: shape.shape_id,
                     minimum: checked_sub_vec3(centre, half_extents_micrometres)?,
                     maximum: checked_add_vec3(centre, half_extents_micrometres)?,
                     contact_reporting: shape.contact_reporting,
                     collision_layer: shape.collision_layer,
                     collision_mask: shape.collision_mask,
-                });
+                };
+                match shape.participation {
+                    PhysicsParticipationV1::Solid => static_boxes.push(world_box),
+                    PhysicsParticipationV1::Sensor => sensor_boxes.push(world_box),
+                    PhysicsParticipationV1::QueryOnly => {}
+                }
             }
         }
         static_boxes.sort_by_key(|shape| shape.shape_id);
+        dynamic_boxes.sort_by_key(|shape| shape.shape_id);
+        sensor_boxes.sort_by_key(|shape| shape.shape_id);
+        if dynamic_boxes.len() > 1 {
+            return Err(ReferencePhysicsError::UnsupportedProfile);
+        }
         if checkpoint.catalog.materials.values().any(|material| {
             material.static_friction_q16 != 0
                 || material.dynamic_friction_q16 != 0
@@ -230,6 +271,8 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             capsule_collision_layer,
             capsule_collision_mask,
             static_boxes: Arc::from(static_boxes),
+            dynamic_boxes: Arc::from(dynamic_boxes),
+            sensor_boxes: Arc::from(sensor_boxes),
             locomotion_per_substep: CAPSULE_LOCOMOTION_SPEED_MICROMETRES_PER_SECOND / physics_hz,
             gravity_velocity_delta: gravity / physics_hz,
             query,
@@ -279,6 +322,8 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             capsule_collision_layer: self.capsule_collision_layer,
             capsule_collision_mask: self.capsule_collision_mask,
             static_boxes: self.static_boxes.clone(),
+            dynamic_boxes: self.dynamic_boxes.clone(),
+            sensor_boxes: self.sensor_boxes.clone(),
             locomotion_per_substep: self.locomotion_per_substep,
             gravity_velocity_delta: self.gravity_velocity_delta,
             query,
@@ -342,7 +387,10 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
     }
 }
 
-fn checked_add_vec3(left: [i64; 3], right: [i64; 3]) -> Result<[i64; 3], ReferencePhysicsError> {
+pub(super) fn checked_add_vec3(
+    left: [i64; 3],
+    right: [i64; 3],
+) -> Result<[i64; 3], ReferencePhysicsError> {
     Ok([
         left[0]
             .checked_add(right[0])

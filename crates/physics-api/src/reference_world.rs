@@ -1,4 +1,6 @@
 mod error;
+mod interaction;
+mod locomotion;
 mod query;
 mod step;
 mod world;

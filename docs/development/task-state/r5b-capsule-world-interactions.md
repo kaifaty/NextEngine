@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / CONTRACT_FREEZE` |
+| Status | `ACTIVE / BACKEND_COMPLETE` |
 | Updated | 2026-08-16 |
 | Task key | `r5b-capsule-world-interactions` |
 | Scope | One production grounded-capsule fixture covering a quantized box-profile slope, authored stairs, one pushable dynamic box, non-blocking sensors and deterministic fall-to-support recovery |
@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R5b can reuse the current physical command, body, contact and `PhysicsCanonicalSnapshotV2` schemas. Dynamic-body pose/velocity and sensor-contact continuity already have canonical storage.
-- **Why:** `PhysicsMotionKindV1::Dynamic`, `PhysicsParticipationV1::Sensor`, body state and sorted contact continuation are already public contracts; the missing capability is the bounded grounded-capsule adapter and one production consumer fixture.
-- **Next action:** Add deterministic step-up/ground-snap, current-state dynamic-box collision/push and non-blocking sensor overlap to the grounded-capsule world, then instantiate the course in the reference game.
+- **Current conclusion:** The bounded grounded-capsule backend is complete: exact step-up/ground-snap, one current-state dynamic push body, non-blocking sensor continuity and fall-to-support recovery pass the full existing physics corpus.
+- **Why:** Five focused R5b fixtures plus the prior collision/query suite pass; checkpoint reconstruction reproduces a blocked dynamic push exactly and the public step/snapshot wire versions did not change.
+- **Next action:** Instantiate the same slope/stair/push/sensor/fall course in the production reference session and add a runtime consumer check before broad play/replay validation.
 - **Current blocker:** None. Continuous rotated/mesh slopes, arbitrary rigid-body dynamics, ragdoll/get-up animation, root motion, BodySchema and learned control remain outside this cut.
 - **Do not retry:** R141, R142, training/optimizer work, vendor/model state as authority, direct animation writes to physics pose or a speculative general character controller.
 - **Reconsider when:** The production fixture proves that an exact future-affecting controller fact cannot be reconstructed from the canonical body/contact snapshot.
@@ -59,11 +59,11 @@
 
 ## Sequential implementation order
 
-1. **Active:** freeze constants, supported descriptor subset and negative activation cases.
-2. **Pending:** implement step-up/ground-snap and focused slope/stair/tall-blocker tests.
-3. **Pending:** implement dynamic-box push plus blocked-push and checkpoint-reconstruction tests.
-4. **Pending:** implement non-blocking sensor continuity and fall/landing/resumed-locomotion tests.
-5. **Pending:** add the course to the production reference session and prove play/save/load/Replay V10 continuation.
+1. **Complete:** freeze constants, supported descriptor subset and negative activation cases.
+2. **Complete:** implement step-up/ground-snap and focused slope/stair/tall-blocker tests.
+3. **Complete:** implement dynamic-box push plus blocked-push and checkpoint-reconstruction tests.
+4. **Complete:** implement non-blocking sensor continuity and fall/landing/resumed-locomotion tests.
+5. **Active:** add the course to the production reference session and prove play/save/load/Replay V10 continuation.
 6. **Pending:** run mapped checks, record honest conditional `NOT_RUN` results and close only R5b.
 
 ## Explicitly deferred from R5b
@@ -78,6 +78,7 @@
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| Focused contracts/backend/reference-game tests | `PENDING` | R5b is not yet accepted. |
+| `cargo test -p next_contracts physics --quiet`; `cargo test -p next_physics_api --all-targets --quiet` | `PASS` — 13 contract tests and 30 backend tests, including five R5b fixtures | Constants, supported subset, slope/stair traversal, tall blocking, bounded dynamic push, sensors, fall/recovery and exact reconstruction are green. |
+| Focused reference-game tests | `PENDING` | The backend is complete, but R5b is not yet production-integrated or accepted. |
 | `play`, `persistence-replay`, `content-package`, format, Clippy, `boundary-scan`, `host-check` | `PENDING` | Production integration and broad closure remain open. |
 | `platform`, `performance`, real-SDK backend parity and paired Windows/Linux execution | `NOT_RUN` | No platform, performance, PhysX-only, Stage 0 or full-R5 claim is made by activation. |

@@ -1,6 +1,5 @@
 use next_contracts::physics::{
-    PhysicsContactReportingV1, PhysicsParticipationV1, PhysicsPoseV1, PhysicsShapeDescriptorV1,
-    PhysicsShapeIdV1,
+    PhysicsContactReportingV1, PhysicsPoseV1, PhysicsShapeDescriptorV1, PhysicsShapeIdV1,
 };
 
 use super::error::ReferencePhysicsError;
@@ -203,9 +202,7 @@ pub(super) fn validate_reference_shape(
     shape: &PhysicsShapeDescriptorV1,
 ) -> Result<(), ReferencePhysicsError> {
     shape.validate()?;
-    if shape.participation != PhysicsParticipationV1::Solid
-        || shape.local_pose.rotation_q1_30 != PhysicsPoseV1::default().rotation_q1_30
-    {
+    if shape.local_pose.rotation_q1_30 != PhysicsPoseV1::default().rotation_q1_30 {
         return Err(ReferencePhysicsError::UnsupportedProfile);
     }
     Ok(())
@@ -247,6 +244,9 @@ fn expanded_axis_interval(
             .checked_sub(perpendicular_squared)
             .ok_or(ReferencePhysicsError::NumericOverflow)?,
     )?;
+    if axis != 1 && radial_reach == 0 {
+        return Ok(None);
+    }
     let axis_reach = if axis == 1 {
         half_segment
             .checked_add(radial_reach)

@@ -28,6 +28,13 @@ fn physical_command_accepts_only_axial_q15() {
 }
 
 #[test]
+fn grounded_capsule_r5b_profile_constants_are_exact() {
+    assert_eq!(CAPSULE_LOCOMOTION_SPEED_MICROMETRES_PER_SECOND, 3_000_000);
+    assert_eq!(CAPSULE_MAX_STEP_HEIGHT_MICROMETRES, 300_000);
+    assert_eq!(CAPSULE_GROUND_SNAP_DISTANCE_MICROMETRES, 300_000);
+}
+
+#[test]
 fn profiles_and_snapshot_round_trip() {
     let tick = TickRateProfileV1::at_30_hz();
     let quantization = PhysicsQuantizationProfileV1::capsule_reference_v1().expect("quantization");

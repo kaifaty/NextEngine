@@ -8,10 +8,11 @@ use next_contracts::physics::{
 };
 
 use super::error::ReferencePhysicsError;
+use super::interaction::boxes_penetrate;
 use super::query::{
     GroundedCapsuleQuery, GroundedCapsuleStaticBox, GroundedCapsuleSweepHit,
-    GroundedCapsuleSweepRequest, capsule_box_distance_squared, contact_normal_and_feature,
-    grounded_capsule_collision_filter, square,
+    capsule_box_distance_squared, contact_normal_and_feature, grounded_capsule_collision_filter,
+    square,
 };
 use super::world::{GroundedCapsuleWorld, checked_sub_vec3};
 
@@ -88,41 +89,9 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 .accepted_intents
                 .first()
                 .map_or([0, 0], |intent| intent.direction_q15);
-            let mut body_after = body_before.clone();
-            body_after.linear_velocity_micrometres_per_second[1] = body_after
-                .linear_velocity_micrometres_per_second[1]
-                .checked_add(self.gravity_velocity_delta)
-                .ok_or(ReferencePhysicsError::NumericOverflow)?;
-            let physics_hz = i64::from(self.tick_rate_profile.physics_hz());
-            let vertical_delta = body_after.linear_velocity_micrometres_per_second[1]
-                .checked_div(physics_hz)
-                .ok_or(ReferencePhysicsError::NonIntegralProfile)?;
-            let vertical =
-                self.sweep_axis(body_after.pose.translation_micrometres, 1, vertical_delta)?;
-            body_after.pose.translation_micrometres[1] = body_after.pose.translation_micrometres[1]
-                .checked_add(vertical.0)
-                .ok_or(ReferencePhysicsError::NumericOverflow)?;
-            if vertical.0 != vertical_delta {
-                body_after.linear_velocity_micrometres_per_second[1] = 0;
-            }
-
-            let x_delta = self
-                .locomotion_per_substep
-                .checked_mul(i64::from(direction[0].signum()))
-                .ok_or(ReferencePhysicsError::NumericOverflow)?;
-            let x = self.sweep_axis(body_after.pose.translation_micrometres, 0, x_delta)?;
-            body_after.pose.translation_micrometres[0] = body_after.pose.translation_micrometres[0]
-                .checked_add(x.0)
-                .ok_or(ReferencePhysicsError::NumericOverflow)?;
-
-            let z_delta = self
-                .locomotion_per_substep
-                .checked_mul(i64::from(direction[1].signum()))
-                .ok_or(ReferencePhysicsError::NumericOverflow)?;
-            let z = self.sweep_axis(body_after.pose.translation_micrometres, 2, z_delta)?;
-            body_after.pose.translation_micrometres[2] = body_after.pose.translation_micrometres[2]
-                .checked_add(z.0)
-                .ok_or(ReferencePhysicsError::NumericOverflow)?;
+            let integrated =
+                self.integrate_capsule_substep(&mut staged, &body_before, direction)?;
+            let mut body_after = integrated.body_after;
 
             if body_after.pose != body_before.pose
                 || body_after.linear_velocity_micrometres_per_second
@@ -137,12 +106,11 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 .sorted_body_states
                 .insert(capsule_body_id, body_after.clone());
 
-            let forced_hits = [vertical.1, x.1, z.1]
-                .into_iter()
-                .flatten()
-                .collect::<BTreeSet<_>>();
-            let candidates =
-                self.contact_candidates(body_after.pose.translation_micrometres, &forced_hits)?;
+            let candidates = self.contact_candidates(
+                &staged,
+                body_after.pose.translation_micrometres,
+                &integrated.forced_hits,
+            )?;
             if candidates.len()
                 > usize::try_from(
                     self.checkpoint
@@ -319,38 +287,20 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         })
     }
 
-    fn sweep_axis(
-        &mut self,
-        centre: [i64; 3],
-        axis: usize,
-        delta: i64,
-    ) -> Result<(i64, Option<GroundedCapsuleSweepHit>), ReferencePhysicsError> {
-        let result = self.query.sweep_axis(GroundedCapsuleSweepRequest {
-            centre_micrometres: centre,
-            axis: u8::try_from(axis).map_err(|_| ReferencePhysicsError::BackendFailure)?,
-            delta_micrometres: delta,
-            capsule_radius_micrometres: self.capsule_radius,
-            capsule_half_segment_micrometres: self.capsule_half_segment,
-            capsule_collision_layer: self.capsule_collision_layer,
-            capsule_collision_mask: self.capsule_collision_mask,
-            static_boxes: &self.static_boxes,
-        })?;
-        Ok((result.applied_delta_micrometres, result.hit))
-    }
-
     fn contact_candidates(
         &self,
+        staged: &next_contracts::physics::PhysicsCanonicalSnapshotV2,
         centre: [i64; 3],
         forced_hits: &BTreeSet<GroundedCapsuleSweepHit>,
     ) -> Result<Vec<ContactCandidate>, ReferencePhysicsError> {
         let radius_squared = square(self.capsule_radius)?;
         let mut candidates = Vec::new();
-        for shape in self.static_boxes.iter() {
-            if !self.collides_with(shape) {
+        for shape in self.contact_boxes(staged)? {
+            if !self.collides_with(&shape) {
                 continue;
             }
             let distance_squared =
-                capsule_box_distance_squared(centre, self.capsule_half_segment, shape)?;
+                capsule_box_distance_squared(centre, self.capsule_half_segment, &shape)?;
             let forced = forced_hits
                 .iter()
                 .find(|hit| hit.shape_id == shape.shape_id);
@@ -360,7 +310,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             let (normal, feature) = if let Some(hit) = forced {
                 (hit.normal_box_to_capsule, hit.box_feature)
             } else {
-                contact_normal_and_feature(centre, self.capsule_half_segment, shape)?
+                contact_normal_and_feature(centre, self.capsule_half_segment, &shape)?
             };
             let point = [
                 centre[0].clamp(shape.minimum[0], shape.maximum[0]),
@@ -413,11 +363,21 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         &self,
         state: &PhysicsContactContinuityStateV1,
     ) -> PhysicsContactReportingV1 {
-        self.static_boxes
-            .iter()
-            .find(|shape| {
-                shape.shape_id == state.participant_low || shape.shape_id == state.participant_high
-            })
+        let Some(capsule_shape_id) = self.capsule_shape_id else {
+            return PhysicsContactReportingV1::Disabled;
+        };
+        let other = if state.participant_low == capsule_shape_id {
+            state.participant_high
+        } else if state.participant_high == capsule_shape_id {
+            state.participant_low
+        } else {
+            return PhysicsContactReportingV1::Disabled;
+        };
+        self.checkpoint
+            .catalog
+            .bodies
+            .get(&other.body_id)
+            .and_then(|body| body.shapes.get(&other))
             .map_or(PhysicsContactReportingV1::Disabled, |shape| {
                 shape.contact_reporting
             })
@@ -456,7 +416,8 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             return Err(ReferencePhysicsError::SnapshotMismatch);
         }
         let radius_squared = square(self.capsule_radius)?;
-        for shape in self.static_boxes.iter() {
+        let dynamic_boxes = self.current_dynamic_boxes(&self.checkpoint.snapshot)?;
+        for shape in self.static_boxes.iter().chain(dynamic_boxes.iter()) {
             if self.collides_with(shape)
                 && capsule_box_distance_squared(
                     body.pose.translation_micrometres,
@@ -465,6 +426,19 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 )? < radius_squared
             {
                 return Err(ReferencePhysicsError::SnapshotPenetrating);
+            }
+        }
+        for dynamic in &dynamic_boxes {
+            for fixed in self.static_boxes.iter().filter(|fixed| {
+                grounded_capsule_collision_filter(
+                    dynamic.collision_layer,
+                    dynamic.collision_mask,
+                    fixed,
+                )
+            }) {
+                if boxes_penetrate(dynamic, fixed) {
+                    return Err(ReferencePhysicsError::SnapshotPenetrating);
+                }
             }
         }
 
@@ -477,19 +451,19 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             .sorted_contact_continuity_states
             .values()
         {
-            let static_shape_id = if contact.participant_low == capsule_shape_id {
+            let other_shape_id = if contact.participant_low == capsule_shape_id {
                 contact.participant_high
             } else if contact.participant_high == capsule_shape_id {
                 contact.participant_low
             } else {
                 return Err(ReferencePhysicsError::SnapshotMismatch);
             };
-            let static_shape = self
-                .static_boxes
-                .iter()
-                .find(|shape| shape.shape_id == static_shape_id)
+            let other_shape = self
+                .contact_boxes(&self.checkpoint.snapshot)?
+                .into_iter()
+                .find(|shape| shape.shape_id == other_shape_id)
                 .ok_or(ReferencePhysicsError::SnapshotMismatch)?;
-            if !self.collides_with(static_shape) {
+            if !self.collides_with(&other_shape) {
                 return Err(ReferencePhysicsError::SnapshotMismatch);
             }
         }
