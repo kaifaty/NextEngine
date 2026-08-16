@@ -10,6 +10,10 @@ impl ReferenceGameDriverV2 {
     /// Builds a fully validated candidate driver from a published save world.
     /// The current driver is unchanged until the application coordinator has
     /// atomically published the candidate recovery closure.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the R4d load boundary names every independently owned saved projection"
+    )]
     pub fn load_saved_world_candidate(
         &self,
         checkpoint: WorldCheckpointV4,
