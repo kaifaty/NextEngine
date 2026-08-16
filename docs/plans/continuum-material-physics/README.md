@@ -1,35 +1,73 @@
-# Continuum material physics — implementation specification series
+# Continuum material physics — umbrella specification series
 
-Status: `Proposed`; research/implementation planning only. Governing candidate
-architecture: [SPEC-36](../../architecture/36-continuum-material-physics.md),
-[ADR-072](../../architecture/adr/072-continuum-material-physics-track.md), and
+Status: `Proposed`; architecture and evidence-gated package specifications,
+not one linear implementation roadmap. Governing candidate architecture:
+[SPEC-36](../../architecture/36-continuum-material-physics.md),
+[ADR-072](../../architecture/adr/072-continuum-material-physics-track.md) and
 the [research report](../../development/continuum-material-physics-research-2026-08-16.md).
 
-The files below are ordered work packages, not one large implementation plan.
-Each package must produce its own evidence before the next package relies on
-it. No package adds public contracts or changes the current PhysX production
-baseline unless a later consumer-backed Accepted ADR explicitly says so.
+Water execution has its own
+[standalone roadmap](../continuum-water/README.md) for a dedicated worktree.
+This directory owns shared gates, the independent terrain/wet-material lane
+and later cross-lane lifecycle specifications. No package changes the current
+PhysX baseline or public schemas without a consumer-backed Accepted ADR.
 
-| Order | Specification | Output | Depends on |
-|---:|---|---|---|
-| 01 | [CPU DFSPH water reference](01-cpu-dfsph-water-reference.md) | Deterministic offline water oracle and corpus | none |
-| 02 | [Boundaries and rigid coupling](02-boundaries-and-rigid-coupling.md) | Closed reaction-impulse vertical | 01 |
-| 03 | [Water presentation](03-water-presentation.md) | Read-only visible water | 01; 02 for moving bodies |
-| 04 | [GPU water correspondence](04-gpu-water-correspondence.md) | Accelerated non-authoritative mirror | 01–03 |
-| 05 | [MLS-MPM dry terrain](05-mls-mpm-dry-terrain.md) | Sand/soil deformation and patch coupling | 02 concepts |
-| 06 | [Wet soil and mud](06-wet-soil-and-mud.md) | Saturation-dependent terrain | 05 |
-| 07 | [Streaming and persistence](07-streaming-and-persistence.md) | Active/sleep owner-state lifecycle | the material lane being persisted |
-| 08 | [Validation, performance and promotion](08-validation-performance-and-promotion.md) | Product scenario and promotion dossier | 01–07 as applicable |
+## Dependency graph
 
-Program invariants:
+```text
+00 Shared product/evidence gates
+ ├─ Water: ../continuum-water W0 → W1 → W2 → W3 → W4 → W5 → W6
+ │                                  └──────── optional WG mirror
+ └─ Terrain:
+     10T dry-sand evidence contract
+       → 11T serial MLS-MPM dry-sand reference
+       → 12T exclusive wheel/terrain coupling
+       → 13T exact active terrain persistence
+       → 14T saturation and drainage
+       → 15T closed free-water/terrain flux
+       → 30T production promotion
 
-- one mutable owner per field;
-- fixed cadence and finite memory/iteration profiles;
-- stable sample/body/region identity and canonical reductions;
-- whole-step atomicity with typed failure;
-- CPU reference precedes accelerated mirror;
-- dry terrain precedes wet terrain;
-- fixed resolution precedes adaptivity;
-- renderer and GPU caches never feed authoritative state;
-- production schemas follow a demonstrated consumer under ADR-046;
-- v1 gameplay remains correct when the entire optional track is absent.
+Exact active persistence (water W5 or terrain 13T)
+ ├─ 20X optional lossy sleep/wake conversion
+ └─ 21X optional cross-region transfer
+```
+
+| Package | Specification | Starts only after |
+|---|---|---|
+| 00 | [Shared product and evidence gates](00-product-and-evidence-gates.md) | none |
+| 10T | [Dry-sand product and evidence contract](10-dry-sand-product-and-evidence-contract.md) | 00 |
+| 11T | [Serial MLS-MPM dry-sand reference](11-mls-mpm-dry-sand-reference.md) | 10T profile/curves frozen |
+| 12T | [Exclusive wheel/terrain coupling](12-exclusive-wheel-terrain-coupling.md) | 11T PASS |
+| 13T | [Exact active terrain persistence](13-exact-active-terrain-persistence.md) | 12T PASS |
+| 14T | [Saturation and drainage](14-saturation-and-drainage.md) | 13T PASS |
+| 15T | [Free-water/terrain flux](15-free-water-terrain-flux.md) | water W5 plus 14T PASS |
+| 20X | [Lossy sleep/wake conversion](20-lossy-sleep-wake-conversion.md) | exact active persistence for that material |
+| 21X | [Cross-region transfer](21-cross-region-transfer.md) | one-region production evidence plus explicit consumer |
+| 30T | [Terrain validation and promotion](30-terrain-validation-and-promotion.md) | selected terrain lane packages |
+
+## Program invariants
+
+- one Physical Embodiment ownership umbrella, material-specific numerical
+  state and no solver monoculture;
+- one representative scenario and explicit non-goals per package under B-10;
+- exact profile, corpus, thresholds, capacities and failure codes before code;
+- fixed cadence/resolution and finite memory/iteration profiles before
+  adaptivity or broader materials;
+- CPU reference before parallel/accelerated implementation;
+- no public schema before a demonstrated production consumer under ADR-046;
+- exact active persistence before lossy sleep or cross-region lifecycle;
+- renderer, GPU cache, MPM grid and SPH neighbor state never become authority;
+- whole-owner-step atomicity with no retry-to-green or partial publication;
+- first-party consumers use the same validated public path later available to
+  community content.
+
+## Branch boundaries
+
+Water and terrain do not block one another after Package 00. A passing water
+oracle does not validate MPM, and a passing dry-sand corpus does not authorize
+wet soil. Free-water/terrain flux is the first package that joins both owner
+lanes and therefore requires both exact active persistence gates.
+
+Package 20X and 21X are future optional branches. They are never implicit work
+inside a solver, save or streaming package and receive no roadmap credit from
+an exact pinned-active checkpoint.

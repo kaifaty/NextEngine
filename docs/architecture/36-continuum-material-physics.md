@@ -199,7 +199,7 @@ recorded command trace without test-only mutation.
 
 | Check | Required result |
 |---|---|
-| `CONTINUUM-WATER-REF-P1` | Exact sample count/mass; mean solver bounds; no nonfinite/non-convergence; boundary-centre penetration `<= 2.5 mm`; normalized external-work-aware impulse/energy residual `<= 1%`; dam-break/reference normalized RMSE `<= 5%` and maximum error `<= 10%`; repeat/insertion permutations have the same same-target root. |
+| `CONTINUUM-WATER-REF-P1` | Exact sample count/mass; mean solver bounds; no nonfinite/non-convergence; boundary-centre penetration `<= 2.5 mm`; normalized external-work-aware impulse/energy residual `<= 1%`; dam-break/reference normalized RMSE `<= 5%` and maximum error `<= 10%`; repeat/insertion permutations have the same target-local root. |
 | `CONTINUUM-COUPLING-P1` | One-pass reaction closure, crate float/impact and failure cases publish one complete composite result or none; no second rigid writer. |
 | `CONTINUUM-PERSISTENCE-P1` | Exact active save/restart continuation matches uninterrupted roots; corrupt/stale/capacity cases fail before mutation. |
 | `CONTINUUM-MIRROR-P1` | Optional GPU aggregate correspondence passes its predeclared metrics without an authority claim. |

@@ -22,7 +22,8 @@ its implied solver monoculture: DFSPH is the right first water oracle, but
 APIC/MLS-MPM is the stronger initial substrate for elastoplastic sand, snow and
 deformable soil.
 
-The smallest safe program is:
+The research result originally identified this smallest safe capability
+sequence:
 
 1. fixed-resolution CPU `f64` DFSPH laboratory and golden corpus;
 2. boundaries plus one two-way rigid coupling vertical;
@@ -32,6 +33,18 @@ The smallest safe program is:
 6. active-region persistence;
 7. saturation-coupled wet soil/mud;
 8. only then a production-consumer proposal and public schemas.
+
+The subsequent product decision selected a sealed 50k basin/crate consumer and
+refined execution into the independent
+[water roadmap](../plans/continuum-water/README.md). That roadmap makes the GPU
+mirror non-blocking, requires exact active water persistence before promotion
+and activates the main R8 integration track only after the serial CPU oracle
+passes. The umbrella
+[material series](../plans/continuum-material-physics/README.md) now keeps dry
+sand, exact terrain persistence, saturation, free-water flux, lossy sleep and
+cross-region transfer as explicit separate gates. This refinement supersedes
+the linear execution order above but not the research evidence or solver-family
+conclusion.
 
 ## Evidence matrix
 
