@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / PRODUCTION_INTEGRATED` |
+| Status | `COMPLETE` |
 | Updated | 2026-08-17 |
 | Task key | `r5b-capsule-world-interactions` |
 | Scope | One production grounded-capsule fixture covering a quantized box-profile slope, authored stairs, one pushable dynamic box, non-blocking sensors and deterministic fall-to-support recovery |
@@ -11,10 +11,10 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** R5b is production-integrated: the reference session owns a visible, traversable slope/stair/push/sensor/fall course, and an exact mid-push checkpoint restores through the production driver with identical continuation.
-- **Why:** Five focused backend fixtures pass; the live reference-game course reaches the bounded blocker, enters and exits the sensor, falls back to support, pushes the dynamic box and compares the complete physics checkpoint after every restored tick. The content package now closes with 121 records and 12 cooked meshes without changing public step/snapshot or Replay V10 schemas.
-- **Next action:** Run the mapped broad gameplay, persistence, formatting, static-analysis, boundary and host checks; then record honest conditional results and close only R5b.
-- **Current blocker:** None. Continuous rotated/mesh slopes, arbitrary rigid-body dynamics, ragdoll/get-up animation, root motion, BodySchema and learned control remain outside this cut.
+- **Current conclusion:** R5b is accepted: the production reference session owns a visible, traversable slope/stair/push/sensor/fall course, and an exact mid-push checkpoint restores through the production driver with identical continuation.
+- **Why:** Five focused backend fixtures, the live production course, `play`, `persistence-replay`, `content-package`, `physics-collision` and the full `host-check` all pass without changing public step/snapshot or Replay V10 schemas.
+- **Next action:** Freeze a separate bounded R5c root-motion admission package: sampled root displacement remains an intent that physics may clip or reject, while the physics capsule stays the sole transform writer.
+- **Current blocker:** None for R5b. Continuous rotated/mesh slopes, arbitrary rigid-body dynamics, ragdoll/get-up animation, root motion, BodySchema, real skinning and learned control remain outside this completed cut.
 - **Do not retry:** R141, R142, training/optimizer work, vendor/model state as authority, direct animation writes to physics pose or a speculative general character controller.
 - **Reconsider when:** The production fixture proves that an exact future-affecting controller fact cannot be reconstructed from the canonical body/contact snapshot.
 
@@ -64,7 +64,7 @@
 3. **Complete:** implement dynamic-box push plus blocked-push and checkpoint-reconstruction tests.
 4. **Complete:** implement non-blocking sensor continuity and fall/landing/resumed-locomotion tests.
 5. **Complete:** add the visible course to the production reference session and prove exact play/save/load/Replay V10 continuation from an active dynamic push.
-6. **Active:** run mapped checks, record honest conditional `NOT_RUN` results and close only R5b.
+6. **Complete:** run mapped checks, record conditional `NOT_RUN` results and close only R5b.
 
 ## Explicitly deferred from R5b
 
@@ -81,5 +81,8 @@
 | `cargo test -p next_contracts physics --quiet`; `cargo test -p next_physics_api --all-targets --quiet` | `PASS` — 13 contract tests and 30 backend tests, including five R5b fixtures | Constants, supported subset, slope/stair traversal, tall blocking, bounded dynamic push, sensors, fall/recovery and exact reconstruction are green. |
 | `cargo test -p next_reference_game --test collision_visibility production_capsule_course_traverses_and_restores_mid_push --quiet`; `cargo test -p next_reference_game --test visual_presentation --quiet` | `PASS` — exact restored continuation through tick 80; ten initial scene records and nine physics-owned presentation bindings | The course is reached through production input, and the visible static course/dynamic box consume the same authoritative physics state. |
 | `cargo run -p xtask -- content-package` | `PASS` — 121 records, 64 chunks, 12 meshes/cooked meshes, zero fallback-material draws in the reference frame | Authored visual assets, activation and the production gameplay consumer close together. |
-| `play`, `persistence-replay`, format, Clippy, `boundary-scan`, `host-check` | `PENDING` | Broad closure remains open. |
-| `platform`, `performance`, real-SDK backend parity and paired Windows/Linux execution | `NOT_RUN` | No platform, performance, PhysX-only, Stage 0 or full-R5 claim is made by activation. |
+| `cargo run -p xtask -- play` | `PASS` — 32 ticks, 52 events, authoritative state root `448a94a345526d8dcfb43f2f6bc6bf3940c4cbb1367963d1b136724730253c7d`, ledger root `fc3d05e211a39dcb7953944460abf4dad536230e0eb1551e7b87bd9693457daf` | Existing gameplay outcome remains exact with the R5b bodies present. |
+| `cargo run -p xtask -- persistence-replay` | `PASS` — 19 ticks, two generations, final state root `b337277a3c4b1e95e472923e35eb5ae86f63820e4766ab7852cbba6208188cef`, ledger root `e53e69edf29994ed50d3b7997bcb71e7d7d23c9bad441ffba8b53e8a60f03ad3` | Save/load and Replay V10 reconstruct all existing owners plus R5b physics exactly. |
+| `cargo run -p xtask -- physics-collision` | `PASS` — 6 gameplay ticks, 12 substeps, `3/15/2` begin/persist/end events, checkpoint hash `af11dae48353deb37cba7d9b4dd0201e3d98445f46aadfda9731a1e7639b1425` | The prior collision fixture retains its accepted semantics. |
+| `cargo run -p xtask -- host-check` | `PASS` — format, workspace strict Clippy, full workspace tests and `boundary-scan` on `x86_64-unknown-linux-gnu`, Rust `1.97.1` | R5b closes its broad local regression boundary. |
+| `platform`, `performance`, real-SDK backend parity and paired Windows/Linux execution | `NOT_RUN` | R5b acceptance makes no platform, performance, PhysX-only, Stage 0 or full-R5 claim. |

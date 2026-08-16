@@ -3,8 +3,8 @@
 | Поле | Значение |
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
-| Последнее обновление | 2026-08-16 |
-| Текущая точка | R3, reference-project vertical и functional R4 остаются `COMPLETE`: R4a, [R4b tiers + graph navigation + 100 NPC](development/task-state/r4b-population-navigation.md), [R4c deterministic cognition core](development/task-state/r4c-deterministic-cognition.md) и [R4d systemic Strategic Agent vertical](development/task-state/r4d-systemic-strategic-agent.md) закрыты production evidence under ADR-074. Следующий WIP — R5 minimal physical-character/animation production integration с обязательным procedural fallback. R141 остаётся `INVALID / STOP_NO_RETRY` без R142/downstream authority. `r4-100npc` теперь включает exact tier-cognition evidence; unsupported-host result остаётся `NOT_RUN`, поэтому B-12/Linux/R1/R7/v1 shipping не закрыты. |
+| Последнее обновление | 2026-08-17 |
+| Текущая точка | R3, reference-project vertical и functional R4 остаются `COMPLETE`: R4a, [R4b tiers + graph navigation + 100 NPC](development/task-state/r4b-population-navigation.md), [R4c deterministic cognition core](development/task-state/r4c-deterministic-cognition.md) и [R4d systemic Strategic Agent vertical](development/task-state/r4d-systemic-strategic-agent.md) закрыты production evidence under ADR-074. R5a physical-animation owner и [R5b capsule/world interactions](development/task-state/r5b-capsule-world-interactions.md) теперь `COMPLETE`; следующий bounded WIP — R5c root-motion admission как физически валидируемый intent без второго transform owner. R141 остаётся `INVALID / STOP_NO_RETRY` без R142/downstream authority. `r4-100npc` exact tier-cognition evidence не закрывает B-12/Linux/R1/R7/v1 shipping. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / LOCAL FUNCTIONAL` для R4 на текущем developer host, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04, R3b/B-06 и R4a–R4d increments `COMPLETE`. Это не заявляет Windows/Linux pair для R4 и не закрывает R1, B-12, Linux, paired cross-target evidence или v1 shipping; bounded TRAIN-4 lineage остановлена без retry/downstream authority. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -698,19 +698,21 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 
 ## R5 — Physical character, animation and motor integration
 
-**Статус:** `IN_PROGRESS / R5A_COMPLETE / R5B_ACTIVE_CAPSULE_WORLD_INTERACTIONS`;
+**Статус:** `IN_PROGRESS / R5A_COMPLETE / R5B_COMPLETE / NEXT_R5C_ROOT_MOTION_ADMISSION`;
 `R&D_LINEAGE_STOPPED`. R141 завершился `INVALID / STOP_NO_RETRY` и не
 возобновляется. Bounded R5a package принят: один capsule-driven player/NPC
 animation owner выполняет exact neutral sampling/identity retarget,
 presentation-only basic IK, bind-pose fallback и exact save/load/Replay V10
-continuation как десятый owner. Активный package R5b должен закрыть один
-production capsule/world fixture для bounded quantized slopes, stairs,
-dynamic push, sensors и fall/recovery. R5a не закрывает остальной R5
-physics/root-motion/skinning/
-BodySchema scope; any learned route still requires its own future gates.
+continuation как десятый owner. Bounded R5b package принят: один production
+capsule/world fixture проходит quantized slopes, stairs, dynamic push, sensors
+и fall/recovery с exact mid-push reconstruction. Следующий R5c должен допустить
+root displacement только как intent, который capsule physics валидирует,
+ограничивает или отвергает; animation не получает transform authority.
+R5a/R5b не закрывают остальной R5 BodySchema/skinning/general-physics scope;
+any learned route still requires its own future gates.
 Решения и evidence R5a записаны в
 [R5a task state](development/task-state/r5a-physical-animation-owner.md).
-Активная граница, решения и evidence R5b записываются в
+Принятая граница, решения и evidence R5b записаны в
 [R5b task state](development/task-state/r5b-capsule-world-interactions.md).
 
 **Цель:** сделать физическое воплощение персонажа частью production gameplay,
@@ -2426,14 +2428,15 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    trade → food, including threat interruption/replan, failure branches and
    exact tiered/headless/bulk behavior. V6/V7 content and nine-owner Replay V9
    are current under ADR-074; this closes functional R4 without learned models.
-12. **R5 physical character and animation production integration (`IN_PROGRESS`; R5a `COMPLETE`, R5b `ACTIVE`):**
+12. **R5 physical character and animation production integration (`IN_PROGRESS`; R5a/R5b `COMPLETE`, next R5c root-motion admission):**
    один shared player/NPC skeleton/clip owner, retargeting, fixed IK and
-   ten-owner save/Replay V10 уже закрыты R5a. Активный bounded cut расширяет
-   procedural capsule и production physics fixture до slopes, stairs, dynamic
-   push, sensors и fall/recovery; root motion, BodySchema projection, real
-   skinning и полное R5 promotion остаются последующими cuts. A TRAIN-9 actor
-   may enter only after its own promotion/parity gates; later policy-family
-   phases remain optional and do not block this package.
+   ten-owner save/Replay V10 закрыты R5a; production slopes, stairs, dynamic
+   push, sensors, fall/recovery и exact mid-push continuation закрыты R5b.
+   Следующий bounded cut допускает root motion только через physics-validated
+   intent; BodySchema projection, real skinning и полное R5 promotion остаются
+   последующими cuts. A TRAIN-9 actor may enter only after its own
+   promotion/parity gates; later policy-family phases remain optional and do
+   not block the procedural path.
 13. **R6 creator CLI and second project (`PLANNED`):** stable non-interactive JSON
    CLI, inspectors, templates и clean-checkout second-project exercise.
 14. **Windows hard performance/release checkpoint (`PLANNED`):** clean-commit
