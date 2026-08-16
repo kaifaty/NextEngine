@@ -18,6 +18,7 @@ mod manifest_jcs;
 pub mod mechanics;
 pub mod motor;
 pub mod persistence;
+pub mod physical_animation;
 pub mod physics;
 pub mod platform;
 pub mod preferences;

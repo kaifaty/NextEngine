@@ -15,6 +15,7 @@ mod mirror_v2;
 mod native_safety_scenarios;
 mod observation;
 mod performance;
+mod physical_animation;
 mod procedural_standing;
 #[cfg(test)]
 mod procedural_standing_tests;
@@ -75,6 +76,11 @@ pub use observation::{
 pub use performance::{
     HumanoidPerformanceError, HumanoidPerformanceReportV1, HumanoidWorkerPerformanceV1,
     run_reference_humanoid_performance_v1,
+};
+pub use physical_animation::{
+    PhysicalAnimationJointPoseV1, PhysicalAnimationOwnerErrorV1, PhysicalAnimationOwnerV1,
+    PhysicalAnimationPoseV1, PhysicalAnimationPresentationAvailabilityV1,
+    PhysicalAnimationProjectionModeV1,
 };
 pub use procedural_standing::{
     BiomechanicsProceduralStandingControllerV1, PROCEDURAL_STANDING_ANKLE_BIAS_MICRORADIANS,
