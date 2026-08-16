@@ -30,6 +30,7 @@ const LONG_SESSION_WINDOW_TICKS: u64 = 1_200;
 const LONG_SESSION_CAMERA_INTERVAL_TICKS: u64 = 15;
 const STATE_SAMPLE_INTERVAL_TICKS: u64 = 30;
 const APPLICATION_ONE_TICK_ELAPSED: Duration = Duration::from_nanos(33_333_334);
+const SYSTEMIC_RPG_COMMAND_BODY_COUNT: u64 = 2;
 #[cfg(not(debug_assertions))]
 const LIVE_MOVEMENT_LIMIT: Duration = Duration::from_secs(30);
 // Debug ceilings are watchdogs for semantic tests, not promotion evidence.
@@ -293,7 +294,8 @@ mod tests {
         println!("{report:?}");
         assert_eq!(report.ticks, 900);
         // 900 movement bodies + one routine transition + seven population
-        // transitions + three activity transitions + six cognition decisions.
+        // transitions + three activity transitions + four cognition decisions
+        // + acceptance and atomic settlement RPG transactions.
         assert_eq!(report.command_body_count, 917);
         assert_eq!(report.driver_prepare_microseconds.len(), 900);
         assert_eq!(report.driver_commit_microseconds.len(), 900);

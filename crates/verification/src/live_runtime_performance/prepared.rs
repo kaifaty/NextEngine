@@ -7,6 +7,8 @@ use next_application::{
     ApplicationCoordinator, ApplicationRunOutcomeV1, FixedStepLiveSchedulerV1, LaunchRequestV1,
 };
 use next_assets::ContentStore;
+use next_contracts::canonical::CanonicalDecodeLimits;
+use next_contracts::command::{CommandPayload, WorldCommand};
 use next_contracts::ids::{ContentHash, StateRoot};
 use next_contracts::ledger::command_identity_index_root;
 use next_contracts::platform::PlatformEventV1;
@@ -19,8 +21,8 @@ use super::{
     APPLICATION_ONE_TICK_ELAPSED, LONG_SESSION_CAMERA_INTERVAL_TICKS, LONG_SESSION_TICKS,
     LONG_SESSION_WINDOW_TICKS, LONG_SESSION_WORKLOAD, LiveRuntimePerformanceError,
     LiveRuntimePerformanceReport, LiveRuntimeWorkload, SMOKE_WORKLOAD, STATE_SAMPLE_INTERVAL_TICKS,
-    camera_changed_event, camera_changed_event_for_host, movement_started_event,
-    movement_started_event_for_host,
+    SYSTEMIC_RPG_COMMAND_BODY_COUNT, camera_changed_event, camera_changed_event_for_host,
+    movement_started_event, movement_started_event_for_host,
 };
 
 static NEXT_PREPARATION_ID: AtomicU64 = AtomicU64::new(1);
@@ -270,17 +272,21 @@ impl PreparedLiveRuntimePerformanceCheck {
                     || application.command_archive_root != report.final_command_archive_root
                     || application.command_identity_index_root
                         != report.final_command_identity_index_root
+                    || application.authoritative_state_root.as_bytes()
+                        != report.final_state_root.as_bytes()
                 {
                     return Err(LiveRuntimePerformanceError::new(
                         "application long-session parity",
                         format!(
-                            "driver_ticks={}, application_ticks={}, driver_archive={}, application_archive={}, driver_identity={}, application_identity={}",
+                            "driver_ticks={}, application_ticks={}, driver_archive={}, application_archive={}, driver_identity={}, application_identity={}, driver_state={}, application_state={}",
                             report.ticks,
                             application.ticks,
                             report.final_command_archive_root.to_hex(),
                             application.command_archive_root.to_hex(),
                             report.final_command_identity_index_root.to_hex(),
                             application.command_identity_index_root.to_hex(),
+                            report.final_state_root.to_hex(),
+                            application.authoritative_state_root.to_hex(),
                         ),
                     ));
                 }
@@ -786,6 +792,60 @@ fn probe_checkpoint_roots(
     Ok(())
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+struct LiveCommandBodyCountsV1 {
+    noop: u64,
+    rpg: u64,
+    physical: u64,
+    world_routine: u64,
+    world_population: u64,
+    world_activity: u64,
+    agent_cognition: u64,
+}
+
+impl LiveCommandBodyCountsV1 {
+    fn total(self) -> Option<u64> {
+        self.noop
+            .checked_add(self.rpg)?
+            .checked_add(self.physical)?
+            .checked_add(self.world_routine)?
+            .checked_add(self.world_population)?
+            .checked_add(self.world_activity)?
+            .checked_add(self.agent_cognition)
+    }
+}
+
+fn live_command_body_counts(
+    state: &ReferenceLiveStateV2,
+) -> Result<LiveCommandBodyCountsV1, LiveRuntimePerformanceError> {
+    let mut counts = LiveCommandBodyCountsV1::default();
+    for bytes in state
+        .checkpoint
+        .runtime_snapshot
+        .body_archive
+        .entries()
+        .values()
+    {
+        let command = WorldCommand::from_canonical_bytes(bytes, CanonicalDecodeLimits::default())
+            .map_err(|error| {
+            LiveRuntimePerformanceError::new("command body classification", error.to_string())
+        })?;
+        let count = match &command.body.payload {
+            CommandPayload::Noop => &mut counts.noop,
+            CommandPayload::Rpg(_) => &mut counts.rpg,
+            CommandPayload::Physical(_) => &mut counts.physical,
+            CommandPayload::WorldRoutine(_) => &mut counts.world_routine,
+            CommandPayload::WorldPopulation(_) => &mut counts.world_population,
+            CommandPayload::WorldActivity(_) => &mut counts.world_activity,
+            CommandPayload::AgentCognition(_) => &mut counts.agent_cognition,
+        };
+        *count = count.checked_add(1).ok_or_else(|| {
+            LiveRuntimePerformanceError::new("command body classification", "count overflow")
+        })?;
+    }
+    Ok(counts)
+}
+
 fn finalize_driver_measurement(
     measurement: DriverMeasurement,
     workload: LiveRuntimeWorkload,
@@ -800,6 +860,7 @@ fn finalize_driver_measurement(
             .len(),
     )
     .map_err(|error| LiveRuntimePerformanceError::new("command body count", error.to_string()))?;
+    let command_body_counts = live_command_body_counts(&measurement.state)?;
     // One movement command is authored per measured tick. Each durable
     // World Services or cognition revision is backed by exactly one
     // additional command body in the ledger.
@@ -837,21 +898,49 @@ fn finalize_driver_measurement(
         .and_then(|count| count.checked_add(population_command_body_count))
         .and_then(|count| count.checked_add(activity_command_body_count))
         .and_then(|count| count.checked_add(cognition_command_body_count))
+        .and_then(|count| count.checked_add(SYSTEMIC_RPG_COMMAND_BODY_COUNT))
         .ok_or_else(|| {
             LiveRuntimePerformanceError::new("command body count", "expected count overflow")
         })?;
+    let final_state_root = next_contracts::snapshot::
+        world_checkpoint_with_systemic_cognition_v1_state_root_from_canonical_components(
+            &measurement.state.checkpoint_canonical_components,
+            &measurement.state.world_streaming_snapshot,
+            measurement.state.world_routine_snapshot_or_none.as_ref(),
+            &measurement.state.world_population_snapshot,
+            &measurement.state.world_activity_snapshot,
+            &measurement.state.agent_cognition_snapshot,
+            &measurement.state.agent_memory_snapshot,
+        )
+        .map_err(|error| {
+            LiveRuntimePerformanceError::new("live application state root", error.to_string())
+        })?;
     if measurement.state.ticks != workload.ticks
         || command_body_count != expected_command_body_count
+        || command_body_counts.total() != Some(command_body_count)
+        || command_body_counts.noop != 0
+        || command_body_counts.physical != workload.ticks
+        || command_body_counts.rpg != SYSTEMIC_RPG_COMMAND_BODY_COUNT
+        || command_body_counts.world_routine != routine_command_body_count
+        || command_body_counts.world_population != population_command_body_count
+        || command_body_counts.world_activity != activity_command_body_count
+        || command_body_counts.agent_cognition != cognition_command_body_count
         || measurement.checkpoint_root != measurement.state.checkpoint.state_root
     {
         return Err(LiveRuntimePerformanceError::new(
             "live runtime output",
             format!(
-                "ticks={}, command_bodies={}, checkpoint_root={}, final_root={}",
+                "ticks={}, command_bodies={}, expected_command_bodies={}, classified={command_body_counts:?}, routine_revisions={}, population_revisions={}, activity_revisions={}, cognition_revisions={}, checkpoint_root={}, final_checkpoint_root={}, final_application_root={}",
                 measurement.state.ticks,
                 command_body_count,
+                expected_command_body_count,
+                routine_command_body_count,
+                population_command_body_count,
+                activity_command_body_count,
+                cognition_command_body_count,
                 measurement.checkpoint_root.to_hex(),
-                measurement.state.checkpoint.state_root.to_hex()
+                measurement.state.checkpoint.state_root.to_hex(),
+                final_state_root.to_hex()
             ),
         ));
     }
@@ -899,7 +988,7 @@ fn finalize_driver_measurement(
             .command_ledger
             .identity_index
             .index_root,
-        final_state_root: measurement.state.checkpoint.state_root,
+        final_state_root,
     })
 }
 
