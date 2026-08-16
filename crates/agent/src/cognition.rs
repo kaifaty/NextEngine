@@ -1,18 +1,20 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap};
-use std::error::Error;
-use std::fmt::{Display, Formatter};
 
 use next_contracts::canonical::sha256;
 use next_contracts::cognition::{
     ActiveGoalV1, AffordanceExecutionV1, AgentCognitionCatalogV1, AgentCognitionSnapshotV1,
-    AgentMemorySnapshotV1, COGNITION_Q16_ONE, CognitionContractError, DecisionSwitchReasonV1,
-    DecisionTraceV1, DriveViewV1, EpistemicViewV1, GoalCandidateV1, GoalPriorityBandV1,
-    PlanningFailureV1, PrivateTaskStateV1, SemanticAffordanceV1, StrategicAgentIntentV1,
-    StrategicPlanStepV1, StrategicPlanV1, SuspendedGoalV1, TaskLifecycleV1, candidate_order,
+    AgentMemorySnapshotV1, COGNITION_Q16_ONE, DecisionSwitchReasonV1, DecisionTraceV1, DriveViewV1,
+    EpistemicViewV1, GoalCandidateV1, GoalPriorityBandV1, PlanningFailureV1, PrivateTaskStateV1,
+    SemanticAffordanceV1, StrategicAgentIntentV1, StrategicPlanStepV1, StrategicPlanV1,
+    SuspendedGoalV1, TaskLifecycleV1, candidate_order,
 };
 use next_contracts::ids::{ContentHash, SchemaId, content_hash_from_bytes};
 use next_contracts::world_population::NavigationRoutePlanV1;
+
+mod error;
+
+pub use error::StrategicAgentError;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StrategicObservationV1<'a> {
@@ -739,50 +741,6 @@ fn route_cost_q16(total_cost: u64) -> u32 {
 #[must_use]
 pub const fn advance_decision_rng(state: u64) -> u64 {
     state.wrapping_add(0x9e37_79b9_7f4a_7c15).rotate_left(17) ^ 0xbf58_476d_1ce4_e5b9
-}
-
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum StrategicAgentError {
-    Contract(CognitionContractError),
-    Population(next_contracts::world_population::WorldPopulationContractError),
-    ObservationInvalid,
-    StaleEpistemicView,
-    NoGoalCandidate,
-    SuspendedGoalLimit,
-    UtilityOverflow,
-    PlannerInvariant,
-    RevisionExhausted,
-    OwnerClosureInvalid,
-    PreparedPublicationStale,
-}
-
-impl Display for StrategicAgentError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Contract(error) => write!(formatter, "cognition contract: {error}"),
-            Self::Population(error) => write!(formatter, "world population contract: {error}"),
-            Self::ObservationInvalid => formatter.write_str("strategic observation is invalid"),
-            Self::StaleEpistemicView => formatter.write_str("epistemic view is stale"),
-            Self::NoGoalCandidate => formatter.write_str("no strategic goal candidate exists"),
-            Self::SuspendedGoalLimit => formatter.write_str("suspended goal limit reached"),
-            Self::UtilityOverflow => formatter.write_str("fixed-point utility overflow"),
-            Self::PlannerInvariant => formatter.write_str("strategic planner invariant failed"),
-            Self::RevisionExhausted => formatter.write_str("strategic owner revision exhausted"),
-            Self::OwnerClosureInvalid => formatter.write_str("strategic owner closure is invalid"),
-            Self::PreparedPublicationStale => {
-                formatter.write_str("strategic prepared publication is stale")
-            }
-        }
-    }
-}
-
-impl Error for StrategicAgentError {}
-
-impl From<CognitionContractError> for StrategicAgentError {
-    fn from(error: CognitionContractError) -> Self {
-        Self::Contract(error)
-    }
 }
 
 #[cfg(test)]

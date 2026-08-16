@@ -1,8 +1,14 @@
+use next_contracts::command::{IssuerPrincipal, WorldCommand};
 use next_contracts::ids::{ContentHash, InputSourceId};
-use next_contracts::input::{ActionMapManifestV1, IngressCheckpointV1, InputContextStackV1};
+use next_contracts::input::{
+    ActionMapManifestV1, ClosedIngressBatchV1, IngressCheckpointV1, InputContextStackV1,
+    InputSampleV1,
+};
 
 use super::{PreparedRuntimeTick, RuntimeFatalError, RuntimeState};
 use crate::engine::state::player_controller_registry_generation_hash;
+use crate::engine::state::{IngressQueueV1, enqueue_input_sample_in_checkpoint};
+use crate::outcome::{NoOutcomes, OutcomeProvider};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct RuntimeGenerationV1 {
@@ -31,6 +37,69 @@ impl RuntimeGenerationV1 {
             && self.player_controller_registry_generation
                 == runtime.player_controller_registry_generation
             && self.ingress_checkpoint == runtime.ingress_checkpoint
+    }
+}
+
+/// Opaque staging scope for one runtime tick.
+///
+/// Input ingress is copied into this scope, so admission and tick preparation
+/// cannot mutate the live runtime generation.
+pub struct RuntimeTickPreparation<'a> {
+    pub(super) runtime: &'a RuntimeState,
+    pub(super) base_generation: RuntimeGenerationV1,
+    pub(super) ingress_checkpoint: IngressCheckpointV1,
+}
+
+impl RuntimeTickPreparation<'_> {
+    pub fn enqueue_input_sample(
+        &mut self,
+        principal: &IssuerPrincipal,
+        sample: InputSampleV1,
+    ) -> Result<(), crate::engine::error::InputAdmissionError> {
+        enqueue_input_sample_in_checkpoint(
+            &self.runtime.admission_limits,
+            &self.runtime.principal_registry,
+            &self.runtime.authority,
+            &self.runtime.player_controller_registry,
+            &mut self.ingress_checkpoint,
+            principal,
+            sample,
+            IngressQueueV1::Current,
+        )
+    }
+
+    pub fn prepare(
+        self,
+        commands: impl IntoIterator<Item = WorldCommand>,
+    ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
+        self.prepare_with_outcomes(commands, &mut NoOutcomes)
+    }
+
+    pub fn prepare_with_outcomes(
+        self,
+        commands: impl IntoIterator<Item = WorldCommand>,
+        outcome_provider: &mut impl OutcomeProvider,
+    ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
+        self.prepare_internal(commands, outcome_provider, None)
+    }
+
+    pub(super) fn prepare_internal(
+        self,
+        commands: impl IntoIterator<Item = WorldCommand>,
+        outcome_provider: &mut impl OutcomeProvider,
+        replay_ingress: Option<ClosedIngressBatchV1>,
+    ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
+        self.runtime.prepare_tick_internal(
+            self.base_generation,
+            self.ingress_checkpoint,
+            commands,
+            outcome_provider,
+            replay_ingress,
+            None,
+            None,
+            None,
+            None,
+        )
     }
 }
 

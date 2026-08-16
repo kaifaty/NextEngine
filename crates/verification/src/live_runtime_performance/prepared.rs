@@ -801,8 +801,8 @@ fn finalize_driver_measurement(
     )
     .map_err(|error| LiveRuntimePerformanceError::new("command body count", error.to_string()))?;
     // One movement command is authored per measured tick. Each durable
-    // World Services record revision is backed by exactly one additional
-    // command body in the ledger.
+    // World Services or cognition revision is backed by exactly one
+    // additional command body in the ledger.
     let routine_command_body_count = measurement
         .state
         .world_routine_snapshot_or_none
@@ -821,10 +821,20 @@ fn finalize_driver_measurement(
                 )
             })
         })?;
+    if measurement.state.agent_cognition_snapshot.revision
+        != measurement.state.agent_memory_snapshot.revision
+    {
+        return Err(LiveRuntimePerformanceError::new(
+            "cognition revision closure",
+            "Agent and Memory revisions diverged",
+        ));
+    }
+    let cognition_command_body_count = measurement.state.agent_cognition_snapshot.revision;
     let expected_command_body_count = workload
         .ticks
         .checked_add(routine_command_body_count)
         .and_then(|count| count.checked_add(population_command_body_count))
+        .and_then(|count| count.checked_add(cognition_command_body_count))
         .ok_or_else(|| {
             LiveRuntimePerformanceError::new("command body count", "expected count overflow")
         })?;

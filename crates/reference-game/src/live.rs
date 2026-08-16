@@ -343,6 +343,10 @@ impl ReferenceGameDriverV2 {
         Ok(driver)
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the public recovery boundary accepts each independently owned R4c snapshot"
+    )]
     pub fn restore(
         package: next_project::ActivatedProjectPackage,
         checkpoint: WorldCheckpointV4,

@@ -118,6 +118,10 @@ impl ReferenceGameDriverV2 {
         )
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "recovery materializes the independently hashed R4c checkpoint owner snapshots"
+    )]
     fn state_from_prepared_parts(
         &self,
         (checkpoint, checkpoint_canonical_components): (

@@ -50,6 +50,10 @@ pub enum CommandPhase {
     Outcome = 1,
 }
 
+#[allow(
+    clippy::large_enum_variant,
+    reason = "the closed public payload enum keeps canonical command variants explicit; boxing would change the Rust contract shape"
+)]
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum CommandPayload {
     Noop,

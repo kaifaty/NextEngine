@@ -1,9 +1,9 @@
-use next_contracts::command::{CommandPayload, CommandPhase, IssuerPrincipal, WorldCommand};
+use next_contracts::command::{CommandPayload, CommandPhase, WorldCommand};
 use next_contracts::ids::ContentHash;
 use next_contracts::input::{
     CLOSED_COMMAND_ADMISSION_BATCH_SCHEMA_VERSION, ClosedCommandAdmissionBatchBodyV2,
     ClosedCommandAdmissionBatchV2, ClosedIngressBatchV1, IngressCheckpointV1,
-    InputDerivedCommandRefV2, InputMappingCodeV1, InputMappingReceiptV2, InputSampleV1,
+    InputDerivedCommandRefV2, InputMappingCodeV1, InputMappingReceiptV2,
 };
 use next_contracts::physics::PhysicsQueryBatchV1;
 use next_contracts::snapshot::{
@@ -18,7 +18,7 @@ use crate::outcome::{NoOutcomes, OutcomeContext, OutcomeProvider, OutcomeSink};
 use crate::stage_zone::stage_zone;
 
 use super::agent_cognition::AgentCognitionStageContextV1;
-use super::error::{InputAdmissionError, RuntimeFatalError};
+use super::error::RuntimeFatalError;
 use super::ingress::{accept_closed_ingress, close_ingress, finalize_mapping_receipt_v2};
 use super::interaction::{
     InteractionBuildContext, build_interaction_outcomes, resolve_interaction_outcome_route,
@@ -30,7 +30,7 @@ use super::pipeline::{
     WorldStreamingStageContext, count, process_phase,
 };
 use super::result::{StageTraceEntry, TickReport, TransactionStage};
-use super::state::{IngressQueueV1, RuntimeState, enqueue_input_sample_in_checkpoint};
+use super::state::RuntimeState;
 use super::world_population::WorldPopulationStageContextV1;
 use super::world_routine::WorldRoutineStageContextV1;
 
@@ -40,74 +40,12 @@ mod world_services;
 mod world_streaming;
 
 use preparation::RuntimeGenerationV1;
+pub use preparation::RuntimeTickPreparation;
 pub use world_services::{
     PreparedRuntimeWorldServicesTickV1, ValidatedRuntimeWorldServicesTickV1,
     ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1, WorldServicesTickCommitV1,
 };
 pub use world_streaming::{PreparedRuntimeWorldTick, ValidatedRuntimeWorldTick};
-
-/// Opaque staging scope for one runtime tick.
-///
-/// Input ingress is copied into this scope, so admission and tick preparation
-/// cannot mutate the live runtime generation.
-pub struct RuntimeTickPreparation<'a> {
-    runtime: &'a RuntimeState,
-    base_generation: RuntimeGenerationV1,
-    ingress_checkpoint: IngressCheckpointV1,
-}
-
-impl RuntimeTickPreparation<'_> {
-    pub fn enqueue_input_sample(
-        &mut self,
-        principal: &IssuerPrincipal,
-        sample: InputSampleV1,
-    ) -> Result<(), InputAdmissionError> {
-        enqueue_input_sample_in_checkpoint(
-            &self.runtime.admission_limits,
-            &self.runtime.principal_registry,
-            &self.runtime.authority,
-            &self.runtime.player_controller_registry,
-            &mut self.ingress_checkpoint,
-            principal,
-            sample,
-            IngressQueueV1::Current,
-        )
-    }
-
-    pub fn prepare(
-        self,
-        commands: impl IntoIterator<Item = WorldCommand>,
-    ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
-        self.prepare_with_outcomes(commands, &mut NoOutcomes)
-    }
-
-    pub fn prepare_with_outcomes(
-        self,
-        commands: impl IntoIterator<Item = WorldCommand>,
-        outcome_provider: &mut impl OutcomeProvider,
-    ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
-        self.prepare_internal(commands, outcome_provider, None)
-    }
-
-    fn prepare_internal(
-        self,
-        commands: impl IntoIterator<Item = WorldCommand>,
-        outcome_provider: &mut impl OutcomeProvider,
-        replay_ingress: Option<ClosedIngressBatchV1>,
-    ) -> Result<PreparedRuntimeTick, RuntimeFatalError> {
-        self.runtime.prepare_tick_internal(
-            self.base_generation,
-            self.ingress_checkpoint,
-            commands,
-            outcome_provider,
-            replay_ingress,
-            None,
-            None,
-            None,
-            None,
-        )
-    }
-}
 
 /// A completely staged and checked next tick. The live runtime is unchanged.
 pub struct PreparedRuntimeTick {

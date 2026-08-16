@@ -34,48 +34,14 @@ use super::codec::{
 use super::error::IdentityContractError;
 
 mod core_r4b;
+mod stage;
+
+pub use stage::RuntimeStageId;
 
 pub const SCHEDULE_MANIFEST_SCHEMA_VERSION: u16 = 1;
 pub const SCHEDULE_MANIFEST_OWNER_ID: &str = "nextengine.runtime";
 pub const SCHEDULE_MANIFEST_SCHEMA_ID: &str = "nextengine.schedule-manifest";
 pub const SCHEDULE_MANIFEST_SEGMENT_ID: &str = "v1";
-
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-#[repr(u8)]
-pub enum RuntimeStageId {
-    InputIngest = 1,
-    CandidateAuthentication = 2,
-    IngressValidationAndPlan = 3,
-    IngressAdmission = 4,
-    IngressCommit = 5,
-    WorldStreamingCommit = 6,
-    AgentPlanning = 7,
-    PhysicalStep = 8,
-    OutcomeCommit = 9,
-    ResidencyCommit = 10,
-    StateHash = 11,
-    SnapshotPublication = 12,
-}
-
-impl RuntimeStageId {
-    fn from_tag(tag: u8) -> Result<Self, IdentityContractError> {
-        match tag {
-            1 => Ok(Self::InputIngest),
-            2 => Ok(Self::CandidateAuthentication),
-            3 => Ok(Self::IngressValidationAndPlan),
-            4 => Ok(Self::IngressAdmission),
-            5 => Ok(Self::IngressCommit),
-            6 => Ok(Self::WorldStreamingCommit),
-            7 => Ok(Self::AgentPlanning),
-            8 => Ok(Self::PhysicalStep),
-            9 => Ok(Self::OutcomeCommit),
-            10 => Ok(Self::ResidencyCommit),
-            11 => Ok(Self::StateHash),
-            12 => Ok(Self::SnapshotPublication),
-            value => Err(IdentityContractError::UnknownTag(value)),
-        }
-    }
-}
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct AccessKeyV1 {

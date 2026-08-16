@@ -210,6 +210,10 @@ impl SaveStore {
         )
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "save publication keeps each authoritative owner projection explicit"
+    )]
     pub fn commit_world_checkpoint_with_cognition(
         &self,
         compatibility: SaveCompatibility,
@@ -310,6 +314,10 @@ impl SaveStore {
         )
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "save preparation keeps each authoritative owner projection explicit"
+    )]
     pub fn prepare_world_checkpoint_with_cognition(
         &self,
         compatibility: SaveCompatibility,
@@ -395,6 +403,10 @@ impl SaveStore {
         )
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the private commit path binds optional specialized owners before one atomic publication"
+    )]
     fn commit_world_checkpoint_inner_with_streaming(
         &self,
         compatibility: SaveCompatibility,

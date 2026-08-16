@@ -306,7 +306,7 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
                     && rest_report.rpg_snapshot == branch.initial_rpg_snapshot
                     && commits
                         .iter()
-                        .all(|commit| commit.application_owner_segments.len() == 6)
+                        .all(|commit| commit.application_owner_segments.len() == 8)
             } else {
                 false
             };
@@ -401,15 +401,16 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         world_streaming_generation: scenario.world_streaming_snapshot.generation,
         current_chunk_id: scenario.world_streaming_snapshot.current_chunk_id.clone(),
         final_command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
-        final_state_root:
-            next_contracts::snapshot::world_checkpoint_with_world_services_v1_state_root(
-                &checkpoint.runtime_snapshot,
-                &checkpoint.rpg_snapshot,
-                &checkpoint.physics_checkpoint,
-                &scenario.world_streaming_snapshot,
-                scenario.world_routine_snapshot_or_none.as_ref(),
-                Some(&scenario.world_population_snapshot),
-            )?,
+        final_state_root: next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root(
+            &checkpoint.runtime_snapshot,
+            &checkpoint.rpg_snapshot,
+            &checkpoint.physics_checkpoint,
+            &scenario.world_streaming_snapshot,
+            scenario.world_routine_snapshot_or_none.as_ref(),
+            Some(&scenario.world_population_snapshot),
+            &scenario.agent_cognition_snapshot,
+            &scenario.agent_memory_snapshot,
+        )?,
     };
     let command_archive_root = checkpoint
         .runtime_snapshot
@@ -425,7 +426,7 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         .to_hex();
     if report.ticks != 32
         || report.final_pose.translation_micrometres != [0, 900_000, -200_000]
-        || report.events != 35
+        || report.events != 46
         || report.rpg_events != 13
         || report.interactive_object_state.as_str()
             != next_contracts::rpg::CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
@@ -436,11 +437,11 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         || report.player_health != 50
         || report.world_streaming_generation != 2
         || command_archive_root
-            != "f2686f556f345a79eb021cb6caaf83d4f624b74791e98a71ffcad8c809669040"
+            != "403c49a6f27226edc8b1f568999b96083f30e3285f8bc0dac0672a276a8b2e76"
         || command_identity_index_root
-            != "97a38fe7d903418fd2d40eaf7d794e42cd79c325d5a1e97b48b7c9c364843aa6"
+            != "c20a1dd8d132994a6bdd38fc60153fb9cd5c5794f8a2e6a1a41c3976b6bac9d8"
         || report.final_command_ledger_hash.to_hex()
-            != "5a4cb8d49e1ecdf2723b6bbf3fd3db66c2a3b5fc3d8d9e20786796b609e5e36e"
+            != "0ab8988984c4ad53869e151bee887423cd60dece9ac94cdac1425ff800761651"
         || stage_checkpoint_count != 3
         || !stage_checkpoints_match_acceptance
         || !duty_branch_matches

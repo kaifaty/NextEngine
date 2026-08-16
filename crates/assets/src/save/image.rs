@@ -280,6 +280,10 @@ impl SaveImage {
         Ok(image)
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "save construction keeps each authoritative owner projection explicit"
+    )]
     pub fn from_world_checkpoint_with_cognition(
         generation: u64,
         compatibility: SaveCompatibility,

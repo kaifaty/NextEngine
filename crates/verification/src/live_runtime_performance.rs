@@ -293,8 +293,8 @@ mod tests {
         println!("{report:?}");
         assert_eq!(report.ticks, 900);
         // 900 movement bodies + one routine transition + seven population
-        // transitions from the reference courier lifecycle.
-        assert_eq!(report.command_body_count, 908);
+        // transitions + 300 cognition decisions at the three-tick cadence.
+        assert_eq!(report.command_body_count, 1_208);
         assert_eq!(report.driver_prepare_microseconds.len(), 900);
         assert_eq!(report.driver_commit_microseconds.len(), 900);
         assert_eq!(

@@ -633,7 +633,7 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert_eq!(report.records, 116);
+        assert_eq!(report.records, 117);
         assert_eq!(report.chunks, 64);
         assert_eq!(report.mechanic_packages, 2);
         assert_eq!(report.wasm_plugins, 1);

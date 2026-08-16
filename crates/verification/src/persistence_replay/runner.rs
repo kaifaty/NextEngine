@@ -68,6 +68,10 @@ struct RestoredScenario {
     _directory: CheckDirectory,
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the verification helper exposes every independently committed R4c owner"
+)]
 fn commit_world_services_tick(
     runtime: &mut RuntimeState,
     routine: &mut WorldRoutineOwnerV1,
