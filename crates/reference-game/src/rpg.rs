@@ -191,13 +191,6 @@ pub fn cooked_project_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapsho
     RpgSnapshotV2 { aggregates }
 }
 
-#[must_use]
-pub fn cognition_only_rpg_snapshot(fixture: &ReferenceGameSession) -> RpgSnapshotV2 {
-    RpgSnapshotV2 {
-        aggregates: vec![cognition_character_aggregate(fixture, false)],
-    }
-}
-
 fn cognition_character_aggregate(
     fixture: &ReferenceGameSession,
     systemic: bool,

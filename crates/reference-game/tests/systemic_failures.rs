@@ -140,8 +140,8 @@ impl SystemicHarness {
 
 #[test]
 fn systemic_failure_branches_are_typed_and_never_partially_mutate_rpg() {
-    let cooked = next_project::cook_project_v5(
-        next_reference_game::project_source_v5().expect("reference source"),
+    let cooked = next_project::cook_project_v6(
+        next_reference_game::project_source_v6().expect("reference source"),
     )
     .expect("reference cook");
     let root = std::env::temp_dir().join(format!(

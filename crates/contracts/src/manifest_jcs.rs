@@ -14,7 +14,7 @@ mod save;
 mod tests;
 
 pub(crate) use jcs::{JcsValue, decode_canonical_jcs, encode_canonical_jcs};
-pub(crate) use replay::{decode_replay_manifest_v8, encode_replay_manifest_v8};
+pub(crate) use replay::{decode_replay_manifest_v9, encode_replay_manifest_v9};
 pub(crate) use save::{decode_save_manifest, encode_save_manifest};
 
 #[derive(Clone, Debug, Eq, PartialEq)]

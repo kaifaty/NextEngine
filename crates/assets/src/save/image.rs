@@ -28,6 +28,10 @@ use next_contracts::world::{
     WORLD_STREAMING_SNAPSHOT_SCHEMA_VERSION, WORLD_STREAMING_SNAPSHOT_SEGMENT_ID,
     WorldStreamingSnapshotV1,
 };
+use next_contracts::world_activity::{
+    WORLD_ACTIVITY_SCHEMA_VERSION, WORLD_ACTIVITY_SNAPSHOT_OWNER_ID,
+    WORLD_ACTIVITY_SNAPSHOT_SCHEMA_ID, WORLD_ACTIVITY_SNAPSHOT_SEGMENT_ID, WorldActivitySnapshotV1,
+};
 use next_contracts::world_population::{
     WORLD_POPULATION_SCHEMA_VERSION, WORLD_POPULATION_SNAPSHOT_OWNER_ID,
     WORLD_POPULATION_SNAPSHOT_SCHEMA_ID, WORLD_POPULATION_SNAPSHOT_SEGMENT_ID,
@@ -291,6 +295,7 @@ impl SaveImage {
         world_streaming_snapshot: &WorldStreamingSnapshotV1,
         world_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
         world_population_snapshot: &WorldPopulationSnapshotV1,
+        world_activity_snapshot: &WorldActivitySnapshotV1,
         agent_snapshot: &AgentCognitionSnapshotV1,
         memory_snapshot: &AgentMemorySnapshotV1,
     ) -> Result<Self, SaveStoreError> {
@@ -321,6 +326,19 @@ impl SaveImage {
         let memory_bytes = memory_snapshot
             .canonical_bytes()
             .map_err(|_| SaveStoreError::InvalidImage("SAVE_MEMORY_SNAPSHOT_INVALID"))?;
+        let activity_bytes = world_activity_snapshot
+            .canonical_bytes()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_WORLD_ACTIVITY_SNAPSHOT_INVALID"))?;
+        let activity_descriptor = SaveSegmentDescriptor::for_bytes(
+            SchemaId::new(WORLD_ACTIVITY_SNAPSHOT_OWNER_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(WORLD_ACTIVITY_SNAPSHOT_SCHEMA_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(WORLD_ACTIVITY_SNAPSHOT_SEGMENT_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            u32::from(WORLD_ACTIVITY_SCHEMA_VERSION),
+            &activity_bytes,
+        )?;
         let agent_descriptor = SaveSegmentDescriptor::for_bytes(
             SchemaId::new(AGENT_RUNTIME_SNAPSHOT_OWNER_ID)
                 .map_err(CanonicalError::InvalidIdentifier)?,
@@ -348,6 +366,7 @@ impl SaveImage {
             .zip(image.segments)
             .collect::<Vec<_>>();
         segments.extend([
+            (activity_descriptor, activity_bytes),
             (agent_descriptor, agent_bytes),
             (memory_descriptor, memory_bytes),
         ]);
@@ -462,6 +481,7 @@ impl SaveImage {
         let world_streaming_index = world_services_indices.streaming;
         let world_routine_index = world_services_indices.routine;
         let world_population_index = world_services_indices.population;
+        let world_activity_index = world_services_indices.activity;
         let world_streaming_snapshot = world_streaming_index
             .map(|index| {
                 WorldStreamingSnapshotV1::from_canonical_bytes(
@@ -486,6 +506,15 @@ impl SaveImage {
                 )
             })
             .transpose()?;
+        let world_activity_snapshot_or_none = world_activity_index
+            .map(|index| {
+                WorldActivitySnapshotV1::from_canonical_bytes(
+                    &self.segments[index],
+                    CanonicalDecodeLimits::default(),
+                )
+            })
+            .transpose()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_WORLD_ACTIVITY_SNAPSHOT_INVALID"))?;
         let cognition_indices = cognition_segment_indices(&self.manifest.segments)?;
         let agent_cognition_snapshot_or_none = cognition_indices
             .agent
@@ -518,6 +547,14 @@ impl SaveImage {
                 "SAVE_COGNITION_CLOSURE_MISMATCH",
             ));
         }
+        if agent_cognition_snapshot_or_none.is_some()
+            && (world_population_snapshot_or_none.is_none()
+                || world_activity_snapshot_or_none.is_none())
+        {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_SYSTEMIC_OWNER_CLOSURE_INCOMPLETE",
+            ));
+        }
         let tick = &self.manifest.compatibility.tick_settings;
         if tick.gameplay_hz != runtime_snapshot.tick_rate_profile.gameplay_hz
             || tick.physics_hz != runtime_snapshot.tick_rate_profile.physics_hz()
@@ -537,6 +574,7 @@ impl SaveImage {
             world_streaming_snapshot,
             world_routine_snapshot_or_none,
             world_population_snapshot_or_none,
+            world_activity_snapshot_or_none,
             agent_cognition_snapshot_or_none,
             agent_memory_snapshot_or_none,
         })
@@ -645,6 +683,7 @@ impl SaveImage {
         let world_streaming_index = world_services_indices.streaming;
         let world_routine_index = world_services_indices.routine;
         let world_population_index = world_services_indices.population;
+        let world_activity_index = world_services_indices.activity;
         if let Some(world_index) = world_streaming_index {
             let _ = WorldStreamingSnapshotV1::from_canonical_bytes(
                 &self.segments[world_index],
@@ -662,6 +701,13 @@ impl SaveImage {
                 &self.segments[population_index],
                 CanonicalDecodeLimits::default(),
             )?;
+        }
+        if let Some(activity_index) = world_activity_index {
+            let _ = WorldActivitySnapshotV1::from_canonical_bytes(
+                &self.segments[activity_index],
+                CanonicalDecodeLimits::default(),
+            )
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_WORLD_ACTIVITY_SNAPSHOT_INVALID"))?;
         }
         let cognition_indices = cognition_segment_indices(&self.manifest.segments)?;
         let agent_snapshot = cognition_indices
@@ -695,6 +741,13 @@ impl SaveImage {
                 "SAVE_COGNITION_CLOSURE_MISMATCH",
             ));
         }
+        if agent_snapshot.is_some()
+            && (world_population_index.is_none() || world_activity_index.is_none())
+        {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_SYSTEMIC_OWNER_CLOSURE_INCOMPLETE",
+            ));
+        }
         let tick = &self.manifest.compatibility.tick_settings;
         if tick.gameplay_hz != runtime_snapshot.tick_rate_profile.gameplay_hz
             || tick.physics_hz != runtime_snapshot.tick_rate_profile.physics_hz()
@@ -719,6 +772,7 @@ pub struct ValidatedSaveImage {
     pub world_streaming_snapshot: Option<WorldStreamingSnapshotV1>,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     pub world_population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+    pub world_activity_snapshot_or_none: Option<WorldActivitySnapshotV1>,
     pub agent_cognition_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     pub agent_memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
 }
@@ -776,6 +830,7 @@ struct WorldServicesSegmentIndices {
     streaming: Option<usize>,
     routine: Option<usize>,
     population: Option<usize>,
+    activity: Option<usize>,
 }
 
 fn world_services_segment_indices(
@@ -784,6 +839,7 @@ fn world_services_segment_indices(
     let mut streaming = None;
     let mut routine = None;
     let mut population = None;
+    let mut activity = None;
     for (index, descriptor) in descriptors
         .iter()
         .enumerate()
@@ -804,6 +860,11 @@ fn world_services_segment_indices(
             && descriptor.schema_version == u32::from(WORLD_POPULATION_SCHEMA_VERSION)
         {
             &mut population
+        } else if descriptor.schema_id.as_str() == WORLD_ACTIVITY_SNAPSHOT_SCHEMA_ID
+            && descriptor.segment_id.as_str() == WORLD_ACTIVITY_SNAPSHOT_SEGMENT_ID
+            && descriptor.schema_version == u32::from(WORLD_ACTIVITY_SCHEMA_VERSION)
+        {
+            &mut activity
         } else {
             return Err(SaveStoreError::InvalidImage(
                 "WORLD_SERVICES_SCHEMA_UNSUPPORTED",
@@ -815,7 +876,7 @@ fn world_services_segment_indices(
             ));
         }
     }
-    if (routine.is_some() || population.is_some()) && streaming.is_none() {
+    if (routine.is_some() || population.is_some() || activity.is_some()) && streaming.is_none() {
         return Err(SaveStoreError::InvalidImage(
             "SAVE_WORLD_ROUTINE_STREAMING_MISSING",
         ));
@@ -824,5 +885,6 @@ fn world_services_segment_indices(
         streaming,
         routine,
         population,
+        activity,
     })
 }

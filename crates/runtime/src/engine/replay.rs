@@ -133,10 +133,11 @@ impl RuntimeReplayDriver {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn replay_world_services_tick_v8(
+    pub fn replay_world_services_tick_v9(
         &mut self,
         routine: &mut next_world::WorldRoutineOwnerV1,
         population: &mut next_world::WorldPopulationOwnerV1,
+        activity: &mut next_world::WorldActivityOwnerV1,
         cognition: &mut next_agent::cognition::StrategicAgentOwnersV1,
         world: &mut next_world::WorldStreamerV1,
         streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
@@ -173,14 +174,15 @@ impl RuntimeReplayDriver {
                 direct_commands,
                 routine,
                 population,
+                activity,
                 cognition,
                 world,
                 streaming,
             )?;
         let validated = self
             .runtime
-            .validate_prepared_world_services_tick_with_cognition(
-                routine, population, cognition, world, prepared,
+            .validate_prepared_world_services_tick_with_cognition_and_activity(
+                routine, population, activity, cognition, world, prepared,
             )?;
         let report = validated.report();
         if &report.physics_step_input != expected_physics_step_input {
@@ -212,8 +214,8 @@ impl RuntimeReplayDriver {
         }
         Ok(self
             .runtime
-            .commit_validated_world_services_tick_with_cognition(
-                routine, population, cognition, world, validated,
+            .commit_validated_world_services_tick_with_cognition_and_activity(
+                routine, population, activity, cognition, world, validated,
             )?)
     }
 

@@ -18,10 +18,7 @@ use next_world::{
 
 use crate::ReferenceGameError;
 use crate::input::NormalizedReferenceInputV1;
-use crate::rpg::{
-    aggregate_payload, cognition_only_rpg_snapshot, cooked_interaction_outcome,
-    cooked_project_rpg_snapshot,
-};
+use crate::rpg::{aggregate_payload, cooked_interaction_outcome, cooked_project_rpg_snapshot};
 use crate::session::{
     ReferenceGameSession, build_reference_game_session, build_reference_game_session_with_profile,
 };
@@ -152,11 +149,7 @@ pub fn run_reference_game_with_backend(
     let (_, _, relationship_dimension_id, _) = cooked_interaction_outcome(&fixture);
     let item_display_text_id = crate::ui::reference_item_display_text_id(&fixture)?;
     let quest_display_text_id = crate::ui::reference_quest_display_text_id(&fixture)?;
-    let rpg_snapshot = if include_interaction {
-        cooked_project_rpg_snapshot(&fixture)
-    } else {
-        cognition_only_rpg_snapshot(&fixture)
-    };
+    let rpg_snapshot = cooked_project_rpg_snapshot(&fixture);
     let world_routine_rest_branch_or_none = if include_interaction {
         let first = run_world_routine_rest_branch(
             &fixture,
@@ -201,9 +194,7 @@ pub fn run_reference_game_with_backend(
         runtime.next_tick(),
     )?;
     let mut cognition = fixture.initial_cognition_owners()?;
-    let mut activity = include_interaction
-        .then(|| fixture.initial_activity_owner())
-        .transpose()?;
+    let mut activity = Some(fixture.initial_activity_owner()?);
     let mut inputs = Vec::new();
     if include_interaction {
         inputs.extend([
@@ -271,7 +262,7 @@ pub fn run_reference_game_with_backend(
     let mut pending_packaged_transition = None;
     for action in inputs {
         if matches!(&action, ScenarioAction::Checkpoint) {
-            let checkpoint = runtime.world_checkpoint()?;
+            let (checkpoint, components) = runtime.world_checkpoint_with_canonical_components()?;
             let expected_root = checkpoint.state_root;
             let routine_snapshot_or_none = world_routine.snapshot_or_none().copied();
             let population_snapshot = world_population
@@ -281,10 +272,18 @@ pub fn run_reference_game_with_backend(
             let agent_snapshot = cognition.agent_snapshot().clone();
             let memory_snapshot = cognition.memory_snapshot().clone();
             let activity_snapshot_or_none = activity.as_ref().map(|owner| owner.snapshot().clone());
-            let expected_application_root = world_services_tick_commits
-                .last()
-                .ok_or(ReferenceGameError::RecoveryInvalid)?
-                .application_state_root;
+            let expected_application_root =
+                next_contracts::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root_from_canonical_components(
+                    &components,
+                    world_streamer.snapshot(),
+                    routine_snapshot_or_none.as_ref(),
+                    &population_snapshot,
+                    activity_snapshot_or_none
+                        .as_ref()
+                        .ok_or(ReferenceGameError::RecoveryInvalid)?,
+                    &agent_snapshot,
+                    &memory_snapshot,
+                )?;
             runtime = RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
                 checkpoint,
                 fixture.authority.clone(),
@@ -643,7 +642,7 @@ struct ScenarioWorldServices<'a> {
 fn run_scenario_tick(
     runtime: &mut RuntimeState,
     services: ScenarioWorldServices<'_>,
-    project: &next_contracts::project::ActivatedProjectV6,
+    project: &next_contracts::project::ActivatedProjectV7,
     content_generation: &next_assets::PinnedContentGeneration,
     commands: impl IntoIterator<Item = next_contracts::command::WorldCommand>,
     pending: &mut Option<PendingPackagedTransitionV1>,

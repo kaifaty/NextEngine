@@ -14,13 +14,13 @@ use std::path::{Component, Path};
 
 use self::cognition::build_agent_cognition_catalog;
 use self::schema::{
-    AUTHORING_FORMAT_V5, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
+    AUTHORING_FORMAT_V6, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
     AuthoringHumanoidCatalogV1, AuthoringNeutralRecordKindV1, AuthoringPresentationTargetV1,
     AuthoringRenderRecordV1, AuthoringSourceReferenceV1, AuthoringSourceSpanV1,
     AuthoringTextureAlphaV1, AuthoringTextureColorSpaceV1, AuthoringWorldRoutineActivityV1,
-    ProjectAuthoringManifestV5,
+    ProjectAuthoringManifestV6,
 };
-use crate::cook::{NeutralProjectSourceV5, SourceChunkBindingV1};
+use crate::cook::{NeutralProjectSourceV6, SourceChunkBindingV1};
 use crate::cook_support::schema_ref;
 use next_contracts::animation_content::{
     AnimationInterpolationV1, AnimationPropertyV1, AnimationWrapModeV1, NeutralAnimationChannelV1,
@@ -79,31 +79,31 @@ struct ProjectAuthoringFormatProbe {
     format: String,
 }
 
-pub fn load_project_authoring_v5(
+pub fn load_project_authoring_v6(
     project_directory: impl AsRef<Path>,
-) -> Result<NeutralProjectSourceV5, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV6, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), None)
 }
 
-pub fn load_project_authoring_v5_with_project_id(
+pub fn load_project_authoring_v6_with_project_id(
     project_directory: impl AsRef<Path>,
     project_id: &str,
-) -> Result<NeutralProjectSourceV5, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV6, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), Some(project_id))
 }
 
 fn load_project_authoring_with_override(
     project_directory: &Path,
     project_id_override: Option<&str>,
-) -> Result<NeutralProjectSourceV5, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV6, ProjectAuthoringError> {
     let manifest_path = project_directory.join(PROJECT_AUTHORING_MANIFEST_FILE);
     let bytes = read_file(&manifest_path)?;
     let format: ProjectAuthoringFormatProbe = serde_json::from_slice(&bytes)?;
-    if format.format != AUTHORING_FORMAT_V5 {
+    if format.format != AUTHORING_FORMAT_V6 {
         return Err(ProjectAuthoringError::UnsupportedFormat(format.format));
     }
-    let manifest: ProjectAuthoringManifestV5 = serde_json::from_slice(&bytes)?;
-    if manifest.format != AUTHORING_FORMAT_V5 {
+    let manifest: ProjectAuthoringManifestV6 = serde_json::from_slice(&bytes)?;
+    if manifest.format != AUTHORING_FORMAT_V6 {
         return Err(ProjectAuthoringError::UnsupportedFormat(manifest.format));
     }
     validate_span(project_directory, &manifest.provenance.source_span)?;
@@ -247,12 +247,12 @@ fn load_project_authoring_with_override(
     if agent_cognition_catalog.subject_id != world_activity_catalog.worker_subject_id {
         return Err(ProjectAuthoringError::InvalidValue);
     }
-    Ok(NeutralProjectSourceV5 {
+    Ok(NeutralProjectSourceV6 {
         project_id: ProjectId::new(
             project_id_override.unwrap_or(manifest.project.project_id.as_str()),
         )?,
         project_revision: manifest.project.project_revision,
-        authoring_sha256: domain_hash(AUTHORING_FORMAT_V5, &bytes),
+        authoring_sha256: domain_hash(AUTHORING_FORMAT_V6, &bytes),
         records,
         render_records,
         text_catalogs,
@@ -284,7 +284,7 @@ fn load_project_authoring_with_override(
 }
 
 fn build_world_activity_catalog(
-    manifest: &ProjectAuthoringManifestV5,
+    manifest: &ProjectAuthoringManifestV6,
     population: &WorldPopulationCatalogV1,
 ) -> Result<WorldActivityCatalogV1, ProjectAuthoringError> {
     let authored = &manifest.world_activity_catalog;
@@ -416,7 +416,7 @@ fn build_world_activity_catalog(
 }
 
 fn build_world_navigation_catalog(
-    manifest: &ProjectAuthoringManifestV5,
+    manifest: &ProjectAuthoringManifestV6,
     chunks: &[SourceChunkBindingV1],
 ) -> Result<WorldNavigationCatalogV1, ProjectAuthoringError> {
     let authored = &manifest.world_navigation_catalog;
@@ -497,7 +497,7 @@ fn build_world_navigation_catalog(
 }
 
 fn build_world_population_catalog(
-    manifest: &ProjectAuthoringManifestV5,
+    manifest: &ProjectAuthoringManifestV6,
     navigation: &WorldNavigationCatalogV1,
 ) -> Result<WorldPopulationCatalogV1, ProjectAuthoringError> {
     let authored = &manifest.world_population_catalog;
@@ -871,7 +871,7 @@ fn build_audio_records(
 
 fn build_animation_catalogs(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV5,
+    manifest: &ProjectAuthoringManifestV6,
 ) -> Result<(Vec<NeutralSkeletonV1>, Vec<NeutralAnimationV1>), ProjectAuthoringError> {
     let mut skeletons = Vec::new();
     let mut animations = Vec::new();
@@ -983,7 +983,7 @@ fn build_animation_catalogs(
 
 fn validate_provenance(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV5,
+    manifest: &ProjectAuthoringManifestV6,
 ) -> Result<ContentHash, ProjectAuthoringError> {
     if manifest.provenance.source_identity.is_empty()
         || manifest.provenance.referenced_sources.is_empty()

@@ -20,6 +20,7 @@ impl ReferenceGameDriverV2 {
                 .snapshot_or_none()
                 .cloned()
                 .ok_or(ReferenceGameError::RecoveryInvalid)?,
+            world_activity_snapshot: self.world_activity.snapshot().clone(),
             agent_cognition_snapshot: self.cognition.agent_snapshot().clone(),
             agent_memory_snapshot: self.cognition.memory_snapshot().clone(),
             ticks: self.runtime.next_tick(),
@@ -74,6 +75,11 @@ impl ReferenceGameDriverV2 {
                 .ok_or(ReferenceGameError::RecoveryInvalid)?,
             prepared
                 .runtime
+                .activity_snapshot_or_none()
+                .cloned()
+                .ok_or(ReferenceGameError::RecoveryInvalid)?,
+            prepared
+                .runtime
                 .agent_snapshot_or_none()
                 .cloned()
                 .ok_or(ReferenceGameError::RecoveryInvalid)?,
@@ -105,6 +111,11 @@ impl ReferenceGameDriverV2 {
                 .ok_or(ReferenceGameError::RecoveryInvalid)?,
             validated
                 .runtime
+                .activity_snapshot_or_none()
+                .cloned()
+                .ok_or(ReferenceGameError::RecoveryInvalid)?,
+            validated
+                .runtime
                 .agent_snapshot_or_none()
                 .cloned()
                 .ok_or(ReferenceGameError::RecoveryInvalid)?,
@@ -131,6 +142,7 @@ impl ReferenceGameDriverV2 {
         world_streaming_snapshot: WorldStreamingSnapshotV1,
         world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
         world_population_snapshot: WorldPopulationSnapshotV1,
+        world_activity_snapshot: next_contracts::world_activity::WorldActivitySnapshotV1,
         agent_cognition_snapshot: next_contracts::cognition::AgentCognitionSnapshotV1,
         agent_memory_snapshot: next_contracts::cognition::AgentMemorySnapshotV1,
         ticks: u64,
@@ -146,6 +158,7 @@ impl ReferenceGameDriverV2 {
             world_streaming_snapshot,
             world_routine_snapshot_or_none,
             world_population_snapshot,
+            world_activity_snapshot,
             agent_cognition_snapshot,
             agent_memory_snapshot,
             ticks,

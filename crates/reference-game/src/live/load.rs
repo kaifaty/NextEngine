@@ -16,19 +16,21 @@ impl ReferenceGameDriverV2 {
         world_streaming_snapshot: WorldStreamingSnapshotV1,
         world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
         world_population_snapshot: WorldPopulationSnapshotV1,
+        world_activity_snapshot: WorldActivitySnapshotV1,
         agent_cognition_snapshot: AgentCognitionSnapshotV1,
         agent_memory_snapshot: AgentMemorySnapshotV1,
     ) -> Result<Self, ReferenceGameError> {
         checkpoint.validate()?;
         world_streaming_snapshot.validate()?;
         let loaded_state_root =
-            next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root(
+            next_contracts::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root(
                 &checkpoint.runtime_snapshot,
                 &checkpoint.rpg_snapshot,
                 &checkpoint.physics_checkpoint,
                 &world_streaming_snapshot,
                 world_routine_snapshot_or_none.as_ref(),
-                Some(&world_population_snapshot),
+                &world_population_snapshot,
+                &world_activity_snapshot,
                 &agent_cognition_snapshot,
                 &agent_memory_snapshot,
             )?;
@@ -78,6 +80,11 @@ impl ReferenceGameDriverV2 {
             fixture.activated_project.agent_cognition_catalog.clone(),
             agent_cognition_snapshot,
             agent_memory_snapshot,
+        )?;
+        let world_activity = WorldActivityOwnerV1::restore(
+            fixture.activated_project.world_activity_catalog.clone(),
+            world_activity_snapshot,
+            runtime.next_tick(),
         )?;
         runtime.validate_world_routine_ledger_closure(&world_routine)?;
         runtime.validate_world_population_ledger_closure(&world_population)?;
@@ -129,6 +136,7 @@ impl ReferenceGameDriverV2 {
             runtime,
             world_routine,
             world_population,
+            world_activity,
             cognition,
             world_streamer,
             input,

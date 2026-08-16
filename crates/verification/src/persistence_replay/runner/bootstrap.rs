@@ -2,7 +2,9 @@ use next_contracts::input::PlayerActionPhaseV1;
 use next_contracts::persistence::WorldStreamingReplayInputV1;
 use next_physics_api::PhysicsBackendPolicy;
 use next_runtime::{PhysicsLaunchOptions, RuntimeState};
-use next_world::{WorldPopulationOwnerV1, WorldRoutineOwnerV1, WorldStreamerV1};
+use next_world::{
+    WorldActivityOwnerV1, WorldPopulationOwnerV1, WorldRoutineOwnerV1, WorldStreamerV1,
+};
 
 use crate::player_fixture::prepare_fixture_project_package_with_scratch;
 use crate::scratch::ScratchContext;
@@ -80,6 +82,13 @@ pub(super) fn initialize(
     let cognition = fixture.initial_cognition_owners().map_err(|error| {
         PersistenceReplayCheckError::new("activate strategic cognition", error.to_string())
     })?;
+    let activity = WorldActivityOwnerV1::activate(
+        fixture.activated_project.world_activity_catalog.clone(),
+        runtime.next_tick(),
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("activate world activity", error.to_string())
+    })?;
     let initial_checkpoint = runtime.world_checkpoint().map_err(|error| {
         PersistenceReplayCheckError::new("initial checkpoint", error.to_string())
     })?;
@@ -88,6 +97,7 @@ pub(super) fn initialize(
     let initial_population_snapshot = population.snapshot_or_none().cloned().ok_or_else(|| {
         PersistenceReplayCheckError::condition("initial population owner segment exists")
     })?;
+    let initial_activity_snapshot = activity.snapshot().clone();
     let initial_agent_snapshot = cognition.agent_snapshot().clone();
     let initial_memory_snapshot = cognition.memory_snapshot().clone();
     let direct_commands = rpg_commands(fixture.rpg_stream_id, fixture.principal.clone())?;
@@ -104,12 +114,14 @@ pub(super) fn initialize(
         world,
         routine,
         population,
+        activity,
         cognition,
         runtime,
         initial_checkpoint,
         initial_world_snapshot,
         initial_routine_snapshot_or_none,
         initial_population_snapshot,
+        initial_activity_snapshot,
         initial_agent_snapshot,
         initial_memory_snapshot,
         direct_commands,

@@ -19,6 +19,7 @@ use next_contracts::rpg::RpgSnapshotV2;
 use next_contracts::snapshot::RuntimeSnapshotV3;
 use next_contracts::snapshot::WorldCheckpointV4;
 use next_contracts::world::WorldStreamingSnapshotV1;
+use next_contracts::world_activity::WorldActivitySnapshotV1;
 use next_contracts::world_population::WorldPopulationSnapshotV1;
 use next_contracts::world_routine::WorldRoutineSnapshotV1;
 
@@ -168,6 +169,7 @@ impl SaveStore {
             None,
             None,
             None,
+            None,
         )
     }
 
@@ -183,6 +185,7 @@ impl SaveStore {
             checkpoint,
             Some(world_streaming_snapshot),
             Some(world_routine_snapshot),
+            None,
             None,
             None,
             None,
@@ -207,6 +210,7 @@ impl SaveStore {
             None,
             None,
             None,
+            None,
         )
     }
 
@@ -221,6 +225,7 @@ impl SaveStore {
         world_streaming_snapshot: &WorldStreamingSnapshotV1,
         world_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
         world_population_snapshot: &WorldPopulationSnapshotV1,
+        world_activity_snapshot: &WorldActivitySnapshotV1,
         agent_snapshot: &AgentCognitionSnapshotV1,
         memory_snapshot: &AgentMemorySnapshotV1,
     ) -> Result<SaveCommitReceipt, SaveStoreError> {
@@ -230,6 +235,7 @@ impl SaveStore {
             Some(world_streaming_snapshot),
             world_routine_snapshot_or_none,
             Some(world_population_snapshot),
+            Some(world_activity_snapshot),
             Some(agent_snapshot),
             Some(memory_snapshot),
             None,
@@ -325,6 +331,7 @@ impl SaveStore {
         world_streaming_snapshot: &WorldStreamingSnapshotV1,
         world_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
         world_population_snapshot: &WorldPopulationSnapshotV1,
+        world_activity_snapshot: &WorldActivitySnapshotV1,
         agent_snapshot: &AgentCognitionSnapshotV1,
         memory_snapshot: &AgentMemorySnapshotV1,
     ) -> Result<SaveImage, SaveStoreError> {
@@ -345,6 +352,7 @@ impl SaveStore {
             world_streaming_snapshot,
             world_routine_snapshot_or_none,
             world_population_snapshot,
+            world_activity_snapshot,
             agent_snapshot,
             memory_snapshot,
         )
@@ -399,6 +407,7 @@ impl SaveStore {
             None,
             None,
             None,
+            None,
             fault,
         )
     }
@@ -414,6 +423,7 @@ impl SaveStore {
         world_streaming_snapshot: Option<&WorldStreamingSnapshotV1>,
         world_routine_snapshot: Option<&WorldRoutineSnapshotV1>,
         world_population_snapshot: Option<&WorldPopulationSnapshotV1>,
+        world_activity_snapshot: Option<&WorldActivitySnapshotV1>,
         agent_snapshot: Option<&AgentCognitionSnapshotV1>,
         memory_snapshot: Option<&AgentMemorySnapshotV1>,
         fault: Option<CommitBoundary>,
@@ -436,22 +446,29 @@ impl SaveStore {
             world_streaming_snapshot,
             world_routine_snapshot,
             world_population_snapshot,
+            world_activity_snapshot,
             agent_snapshot,
             memory_snapshot,
         ) {
-            (Some(streaming), routine, Some(population), Some(agent), Some(memory)) => {
-                SaveImage::from_world_checkpoint_with_cognition(
-                    next_generation,
-                    compatibility,
-                    checkpoint,
-                    streaming,
-                    routine,
-                    population,
-                    agent,
-                    memory,
-                )?
-            }
-            (Some(streaming), routine, Some(population), None, None) => {
+            (
+                Some(streaming),
+                routine,
+                Some(population),
+                Some(activity),
+                Some(agent),
+                Some(memory),
+            ) => SaveImage::from_world_checkpoint_with_cognition(
+                next_generation,
+                compatibility,
+                checkpoint,
+                streaming,
+                routine,
+                population,
+                activity,
+                agent,
+                memory,
+            )?,
+            (Some(streaming), routine, Some(population), None, None, None) => {
                 SaveImage::from_world_checkpoint_with_world_services(
                     next_generation,
                     compatibility,
@@ -461,7 +478,7 @@ impl SaveStore {
                     population,
                 )?
             }
-            (Some(streaming), Some(routine), None, None, None) => {
+            (Some(streaming), Some(routine), None, None, None, None) => {
                 SaveImage::from_world_checkpoint_with_streaming_and_routine(
                     next_generation,
                     compatibility,
@@ -470,7 +487,7 @@ impl SaveStore {
                     routine,
                 )?
             }
-            (Some(snapshot), None, None, None, None) => {
+            (Some(snapshot), None, None, None, None, None) => {
                 SaveImage::from_world_checkpoint_with_streaming(
                     next_generation,
                     compatibility,
@@ -478,10 +495,10 @@ impl SaveStore {
                     snapshot,
                 )?
             }
-            (None, None, None, None, None) => {
+            (None, None, None, None, None, None) => {
                 SaveImage::from_world_checkpoint(next_generation, compatibility, checkpoint)?
             }
-            (None, _, _, _, _) => {
+            (None, _, _, _, _, _) => {
                 return Err(SaveStoreError::InvalidImage(
                     "SAVE_WORLD_ROUTINE_STREAMING_MISSING",
                 ));

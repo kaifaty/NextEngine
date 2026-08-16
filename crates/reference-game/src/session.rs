@@ -18,7 +18,7 @@ use next_contracts::physics::{
     PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     PhysicsWorldCheckpointV1,
 };
-use next_contracts::project::ActivatedProjectV6;
+use next_contracts::project::ActivatedProjectV7;
 use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
 
 use crate::{ReferenceGameError, ReferenceWorldTopologyV1, build_reference_runtime_bootstrap};
@@ -63,7 +63,7 @@ pub struct ReferenceGameSession {
     pub action_map_hash: ContentHash,
     pub context_stack: InputContextStackV1,
     pub context_stack_hash: ContentHash,
-    pub activated_project: ActivatedProjectV6,
+    pub activated_project: ActivatedProjectV7,
     world_topology: ReferenceWorldTopologyV1,
 }
 
@@ -102,13 +102,13 @@ impl ReferenceGameSession {
 }
 
 pub fn build_reference_game_session(
-    activated_project: ActivatedProjectV6,
+    activated_project: ActivatedProjectV7,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     build_reference_game_session_with_profile(activated_project, false)
 }
 
 pub fn build_reference_game_session_with_profile(
-    activated_project: ActivatedProjectV6,
+    activated_project: ActivatedProjectV7,
     physx_compatible: bool,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     let world_topology = ReferenceWorldTopologyV1::from_activated_project(&activated_project)?;

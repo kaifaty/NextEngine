@@ -11,7 +11,7 @@ use crate::world_population::{WorldNavigationCatalogV1, WorldPopulationCatalogV1
 use crate::world_routine::WorldRoutineCatalogV1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ActivatedProjectV6 {
+pub struct ActivatedProjectV7 {
     pub project_lock: ProjectLockV3,
     pub schema_registry: SchemaRegistryManifestV2,
     pub content_manifest: ContentManifestV1,
@@ -30,7 +30,7 @@ pub struct ActivatedProjectV6 {
     pub render_content_catalog: RenderContentCatalogV1,
 }
 
-impl ActivatedProjectV6 {
+impl ActivatedProjectV7 {
     pub fn validate(&self) -> Result<(), ProjectContractError> {
         self.project_lock.validate()?;
         self.rpg_definitions

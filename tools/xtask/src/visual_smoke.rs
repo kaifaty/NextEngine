@@ -78,8 +78,8 @@ pub(super) fn run(root: &Path, request: &VisualSmokeRequest) -> Result<(), Strin
         fs::remove_dir_all(&scratch).map_err(|error| error.to_string())?;
     }
     let store = ContentStore::new(&scratch);
-    let cooked = next_project::cook_project_v5(
-        next_reference_game::project_source_v5().map_err(|error| error.to_string())?,
+    let cooked = next_project::cook_project_v6(
+        next_reference_game::project_source_v6().map_err(|error| error.to_string())?,
     )
     .map_err(|error| error.to_string())?;
     store

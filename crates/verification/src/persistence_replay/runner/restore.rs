@@ -1,7 +1,9 @@
 use next_assets::SaveStore;
 use next_contracts::persistence::WorldStreamingReplayInputV1;
 use next_runtime::RuntimeState;
-use next_world::{WorldPopulationOwnerV1, WorldRoutineOwnerV1, WorldStreamerV1};
+use next_world::{
+    WorldActivityOwnerV1, WorldPopulationOwnerV1, WorldRoutineOwnerV1, WorldStreamerV1,
+};
 
 use crate::scratch::ScratchContext;
 
@@ -70,6 +72,7 @@ pub(super) fn save_and_restore(
                     "saved world population owner segment exists",
                 )
             })?;
+    let saved_activity_snapshot = direct.activity.snapshot().clone();
     let saved_agent_snapshot = direct.cognition.agent_snapshot().clone();
     let saved_memory_snapshot = direct.cognition.memory_snapshot().clone();
     let generation_zero = store
@@ -79,6 +82,7 @@ pub(super) fn save_and_restore(
             &saved_world_snapshot,
             Some(&saved_routine_snapshot),
             &saved_population_snapshot,
+            &saved_activity_snapshot,
             &saved_agent_snapshot,
             &saved_memory_snapshot,
         )
@@ -110,6 +114,9 @@ pub(super) fn save_and_restore(
     })?;
     let loaded_population = loaded.world_population_snapshot_or_none.ok_or_else(|| {
         PersistenceReplayCheckError::condition("loaded world population owner segment exists")
+    })?;
+    let loaded_activity = loaded.world_activity_snapshot_or_none.ok_or_else(|| {
+        PersistenceReplayCheckError::condition("loaded world activity owner segment exists")
     })?;
     let loaded_agent = loaded.agent_cognition_snapshot_or_none.ok_or_else(|| {
         PersistenceReplayCheckError::condition("loaded agent cognition owner segment exists")
@@ -165,6 +172,18 @@ pub(super) fn save_and_restore(
     .map_err(|error| {
         PersistenceReplayCheckError::new("restore strategic cognition", error.to_string())
     })?;
+    let activity = WorldActivityOwnerV1::restore(
+        direct
+            .fixture
+            .activated_project
+            .world_activity_catalog
+            .clone(),
+        loaded_activity,
+        runtime.next_tick(),
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("restore world activity", error.to_string())
+    })?;
     runtime
         .validate_world_routine_ledger_closure(&routine)
         .map_err(|error| {
@@ -181,6 +200,7 @@ pub(super) fn save_and_restore(
         world: restored_world,
         routine,
         population,
+        activity,
         cognition,
         store,
         compatibility,
@@ -188,6 +208,7 @@ pub(super) fn save_and_restore(
         saved_world_snapshot,
         saved_routine_snapshot_or_none,
         saved_population_snapshot,
+        saved_activity_snapshot,
         saved_agent_snapshot,
         saved_memory_snapshot,
         _directory: directory,

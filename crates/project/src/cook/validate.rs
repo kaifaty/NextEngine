@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn validate_source(source: &NeutralProjectSourceV5) -> Result<(), ProjectCookError> {
+pub(super) fn validate_source(source: &NeutralProjectSourceV6) -> Result<(), ProjectCookError> {
     if source.project_revision == 0 {
         return Err(ProjectCookError::InvalidRevision);
     }

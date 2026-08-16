@@ -7,6 +7,8 @@ const R4_LOGICAL_ACCOUNTING_PROFILE: &[u8] =
     b"nextengine.performance.r4-100npc-logical-accounting.v1";
 const R4_NAVIGATION_P95_MICROSECONDS_MAX: u64 = 1_250;
 const R4_NAVIGATION_P99_MICROSECONDS_MAX: u64 = 1_500;
+const R4_COGNITION_DISPATCH_P95_MICROSECONDS_MAX: u64 = 1_250;
+const R4_COGNITION_DISPATCH_P99_MICROSECONDS_MAX: u64 = 1_500;
 const R4_INTEGRATED_P95_MICROSECONDS_MAX: u64 = 8_000;
 const R4_INTEGRATED_P99_MICROSECONDS_MAX: u64 = 12_000;
 
@@ -42,6 +44,7 @@ pub(super) fn performance_report(
     };
     let mut dropped_spans = 0_u64;
     let navigation_elapsed = sample_duration(&report.navigation_tick_microseconds)?;
+    let cognition_dispatch_elapsed = sample_duration(&report.cognition_dispatch_tick_microseconds)?;
     let world_services_elapsed = sample_duration(&report.world_services_tick_microseconds)?;
     let mut instrumentation_overhead_nanoseconds = record_performance_span(
         profiling_enabled,
@@ -50,6 +53,14 @@ pub(super) fn performance_report(
         "navigation",
         navigation_elapsed,
     );
+    instrumentation_overhead_nanoseconds =
+        instrumentation_overhead_nanoseconds.saturating_add(record_performance_span(
+            profiling_enabled,
+            &mut recorded_spans,
+            &mut dropped_spans,
+            "tier-cognition",
+            cognition_dispatch_elapsed,
+        ));
     instrumentation_overhead_nanoseconds =
         instrumentation_overhead_nanoseconds.saturating_add(record_performance_span(
             profiling_enabled,
@@ -88,6 +99,8 @@ pub(super) fn performance_report(
     let timing_sample_count = report
         .navigation_tick_microseconds
         .len()
+        .checked_add(report.cognition_dispatch_tick_microseconds.len())
+        .ok_or_else(|| "R4 timing sample count overflow".to_owned())?
         .checked_add(report.world_services_tick_microseconds.len())
         .ok_or_else(|| "R4 timing sample count overflow".to_owned())?;
     let tooling_transient_bytes = u64::try_from(
@@ -127,6 +140,15 @@ pub(super) fn performance_report(
             )),
         )?,
         metric(
+            "r4-100npc.tier-cognition-due-work",
+            "microseconds",
+            report.cognition_dispatch_tick_microseconds.clone(),
+            Some(budget(
+                R4_COGNITION_DISPATCH_P95_MICROSECONDS_MAX,
+                R4_COGNITION_DISPATCH_P99_MICROSECONDS_MAX,
+            )),
+        )?,
+        metric(
             "r4-100npc.integrated-world-services-tick",
             "microseconds",
             report.world_services_tick_microseconds.clone(),
@@ -139,6 +161,12 @@ pub(super) fn performance_report(
             "r4-100npc.maximum-due-queue-depth",
             "queries",
             vec![u64::from(report.maximum_queue_depth)],
+            None,
+        )?,
+        metric(
+            "r4-100npc.maximum-cognition-queue-depth",
+            "work-items",
+            vec![u64::from(report.maximum_cognition_queue_depth)],
             None,
         )?,
         metric(
@@ -159,6 +187,22 @@ pub(super) fn performance_report(
         ),
         ("r4_due_trace".to_owned(), report.due_trace_root.to_hex()),
         (
+            "r4_tier_cognition_trace".to_owned(),
+            report.tier_cognition_trace_root.to_hex(),
+        ),
+        (
+            "r4_activity_state".to_owned(),
+            report.final_activity_state_hash.to_hex(),
+        ),
+        (
+            "r4_agent_state".to_owned(),
+            report.final_agent_state_hash.to_hex(),
+        ),
+        (
+            "r4_memory_state".to_owned(),
+            report.final_memory_state_hash.to_hex(),
+        ),
+        (
             "r4_population_state".to_owned(),
             report.final_population_state_hash.to_hex(),
         ),
@@ -168,6 +212,10 @@ pub(super) fn performance_report(
     if report.deferred_work != 0
         || report.dropped_work != 0
         || report.maximum_starvation_age_ticks != 0
+        || report.fabricated_outcomes != 0
+        || report.abstract_outcome_deferrals
+            != report.tier_cognition_due_counts.abstract_maintenance
+        || report.tier_cognition_due_counts.work_items != report.due_counts.queries
         || report.due_counts.queries
             != report
                 .due_counts
@@ -217,6 +265,14 @@ pub(super) fn performance_report(
         xtask::performance::nearest_rank_percentile(&report.navigation_tick_microseconds, 95)?;
     let navigation_p99_microseconds =
         xtask::performance::nearest_rank_percentile(&report.navigation_tick_microseconds, 99)?;
+    let cognition_dispatch_p95_microseconds = xtask::performance::nearest_rank_percentile(
+        &report.cognition_dispatch_tick_microseconds,
+        95,
+    )?;
+    let cognition_dispatch_p99_microseconds = xtask::performance::nearest_rank_percentile(
+        &report.cognition_dispatch_tick_microseconds,
+        99,
+    )?;
     let world_services_p95_microseconds =
         xtask::performance::nearest_rank_percentile(&report.world_services_tick_microseconds, 95)?;
     let world_services_p99_microseconds =
@@ -243,19 +299,33 @@ pub(super) fn performance_report(
                 near_due: report.due_counts.near,
                 background_due: report.due_counts.background,
                 navigation_queries: report.due_counts.queries,
+                full_evaluation_due: report.tier_cognition_due_counts.full_evaluation,
+                reduced_evaluation_due: report.tier_cognition_due_counts.reduced_evaluation,
+                abstract_maintenance_due: report.tier_cognition_due_counts.abstract_maintenance,
+                dormant_wake_due: report.tier_cognition_due_counts.dormant_wake,
+                cognition_work_items: report.tier_cognition_due_counts.work_items,
                 maximum_queue_depth: report.maximum_queue_depth,
+                maximum_cognition_queue_depth: report.maximum_cognition_queue_depth,
                 deferred_work: report.deferred_work,
                 dropped_work: report.dropped_work,
                 maximum_starvation_age_ticks: report.maximum_starvation_age_ticks,
+                abstract_outcome_deferrals: report.abstract_outcome_deferrals,
+                fabricated_outcomes: report.fabricated_outcomes,
                 navigation_p95_microseconds,
                 navigation_p99_microseconds,
+                cognition_dispatch_p95_microseconds,
+                cognition_dispatch_p99_microseconds,
                 world_services_p95_microseconds,
                 world_services_p99_microseconds,
                 elapsed_microseconds: report.elapsed_microseconds,
                 command_body_count: report.command_body_count,
                 final_population_snapshot_bytes: report.final_population_snapshot_bytes,
                 due_trace_root: report.due_trace_root.to_hex(),
+                tier_cognition_trace_root: report.tier_cognition_trace_root.to_hex(),
                 final_population_state_hash: report.final_population_state_hash.to_hex(),
+                final_activity_state_hash: report.final_activity_state_hash.to_hex(),
+                final_agent_state_hash: report.final_agent_state_hash.to_hex(),
+                final_memory_state_hash: report.final_memory_state_hash.to_hex(),
                 final_application_state_root: report.final_application_state_root.to_hex(),
                 final_command_ledger_hash: report.final_command_ledger_hash.to_hex(),
             }),
@@ -269,9 +339,15 @@ fn authoritative_parity(
     right: &next_verification::PopulationPerformanceReportV1,
 ) -> bool {
     left.due_counts == right.due_counts
+        && left.tier_cognition_due_counts == right.tier_cognition_due_counts
         && left.maximum_queue_depth == right.maximum_queue_depth
+        && left.maximum_cognition_queue_depth == right.maximum_cognition_queue_depth
         && left.due_trace_root == right.due_trace_root
+        && left.tier_cognition_trace_root == right.tier_cognition_trace_root
         && left.final_population_state_hash == right.final_population_state_hash
+        && left.final_activity_state_hash == right.final_activity_state_hash
+        && left.final_agent_state_hash == right.final_agent_state_hash
+        && left.final_memory_state_hash == right.final_memory_state_hash
         && left.final_application_state_root == right.final_application_state_root
         && left.final_command_ledger_hash == right.final_command_ledger_hash
 }
@@ -308,6 +384,8 @@ mod tests {
     fn r4_budgets_bind_navigation_and_integrated_tick_rows() {
         assert_eq!(R4_NAVIGATION_P95_MICROSECONDS_MAX, 1_250);
         assert_eq!(R4_NAVIGATION_P99_MICROSECONDS_MAX, 1_500);
+        assert_eq!(R4_COGNITION_DISPATCH_P95_MICROSECONDS_MAX, 1_250);
+        assert_eq!(R4_COGNITION_DISPATCH_P99_MICROSECONDS_MAX, 1_500);
         assert_eq!(R4_INTEGRATED_P95_MICROSECONDS_MAX, 8_000);
         assert_eq!(R4_INTEGRATED_P99_MICROSECONDS_MAX, 12_000);
     }

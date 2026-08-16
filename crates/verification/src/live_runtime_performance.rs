@@ -293,8 +293,8 @@ mod tests {
         println!("{report:?}");
         assert_eq!(report.ticks, 900);
         // 900 movement bodies + one routine transition + seven population
-        // transitions + 300 cognition decisions at the three-tick cadence.
-        assert_eq!(report.command_body_count, 1_208);
+        // transitions + three activity transitions + six cognition decisions.
+        assert_eq!(report.command_body_count, 917);
         assert_eq!(report.driver_prepare_microseconds.len(), 900);
         assert_eq!(report.driver_commit_microseconds.len(), 900);
         assert_eq!(

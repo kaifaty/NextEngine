@@ -1,10 +1,10 @@
 use serde::Deserialize;
 
-pub(super) const AUTHORING_FORMAT_V5: &str = "nextengine.project-authoring.v5";
+pub(super) const AUTHORING_FORMAT_V6: &str = "nextengine.project-authoring.v6";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct ProjectAuthoringManifestV5 {
+pub(super) struct ProjectAuthoringManifestV6 {
     pub format: String,
     pub project: AuthoringProjectV2,
     pub provenance: AuthoringProvenanceV1,

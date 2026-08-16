@@ -23,7 +23,8 @@ pub use input::{
     player_melee_sample, player_pickup_sample,
 };
 pub use live::{
-    PreparedReferenceGameAdvance, ReferenceGameDriverV2, ReferenceLiveDriverRecoveryV1,
+    PreparedReferenceGameAdvance, REFERENCE_BULK_TIME_MAX_TICKS_V1, ReferenceBulkTimeAdvanceV1,
+    ReferenceBulkTimeStopReasonV1, ReferenceGameDriverV2, ReferenceLiveDriverRecoveryV1,
     ReferenceLiveStateV2, ValidatedReferenceGameAdvance, reference_b0_presentation_profile_hash,
 };
 pub use rpg::{
@@ -39,7 +40,7 @@ pub use session::{
     ReferenceGameSession, build_reference_game_session, build_reference_game_session_with_profile,
 };
 pub use source::{
-    REFERENCE_GAME_PROJECT_ID, project_source_v5, project_source_v5_with_id,
+    REFERENCE_GAME_PROJECT_ID, project_source_v6, project_source_v6_with_id,
     reference_alpha_project_directory,
 };
 pub use topology::{ReferenceChunkRouteEntryV1, ReferenceWorldTopologyV1};

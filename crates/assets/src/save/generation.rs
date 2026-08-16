@@ -15,6 +15,7 @@ use next_contracts::physics::PhysicsWorldCheckpointV1;
 use next_contracts::rpg::RpgSnapshotV2;
 use next_contracts::snapshot::{RuntimeSnapshotV3, WorldCheckpointV4};
 use next_contracts::world::WorldStreamingSnapshotV1;
+use next_contracts::world_activity::WorldActivitySnapshotV1;
 use next_contracts::world_population::WorldPopulationSnapshotV1;
 use next_contracts::world_routine::WorldRoutineSnapshotV1;
 
@@ -35,6 +36,7 @@ pub struct LoadedSave {
     pub world_streaming_snapshot: Option<WorldStreamingSnapshotV1>,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     pub world_population_snapshot_or_none: Option<WorldPopulationSnapshotV1>,
+    pub world_activity_snapshot_or_none: Option<WorldActivitySnapshotV1>,
     pub agent_cognition_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     pub agent_memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     pub slot: u8,
@@ -103,6 +105,7 @@ pub(super) fn read_generation_directory(
         world_streaming_snapshot: validated.world_streaming_snapshot,
         world_routine_snapshot_or_none: validated.world_routine_snapshot_or_none,
         world_population_snapshot_or_none: validated.world_population_snapshot_or_none,
+        world_activity_snapshot_or_none: validated.world_activity_snapshot_or_none,
         agent_cognition_snapshot_or_none: validated.agent_cognition_snapshot_or_none,
         agent_memory_snapshot_or_none: validated.agent_memory_snapshot_or_none,
         slot,

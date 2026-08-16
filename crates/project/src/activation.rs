@@ -15,7 +15,7 @@ use next_contracts::identity::RuntimeDeterminismBundleV1;
 use next_contracts::ids::AssetId;
 use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogErrorV1, TextCatalogV1};
 use next_contracts::project::{
-    ActivatedProjectV6, ContentManifestV1, ContentSemanticClassV1, ProjectContractError,
+    ActivatedProjectV7, ContentManifestV1, ContentSemanticClassV1, ProjectContractError,
     ProjectLockV3, SchemaEncodingV1, SchemaRefV1, SchemaRegistryManifestV2, SchemaRoleV1,
     WorldPartitionManifestV1, domain_hash,
 };
@@ -38,13 +38,13 @@ use crate::cook_rpg::activate_rpg_definitions_v2;
 
 #[derive(Clone, Debug)]
 pub struct ActivatedProjectPackage {
-    pub project: ActivatedProjectV6,
+    pub project: ActivatedProjectV7,
     pub content_generation: PinnedContentGeneration,
 }
 
 pub fn activate_project(
     store: &ContentStore,
-) -> Result<ActivatedProjectV6, ProjectActivationError> {
+) -> Result<ActivatedProjectV7, ProjectActivationError> {
     Ok(activate_project_package(store)?.project)
 }
 
@@ -61,7 +61,7 @@ pub fn activate_project_package(
 
 fn activate_pinned_project(
     content_generation: &PinnedContentGeneration,
-) -> Result<ActivatedProjectV6, ProjectActivationError> {
+) -> Result<ActivatedProjectV7, ProjectActivationError> {
     let generation = content_generation.load_all_verified()?;
     let limits = CanonicalDecodeLimits::default();
     let project_lock = ProjectLockV3::from_jcs_bytes(
@@ -497,7 +497,7 @@ fn activate_pinned_project(
     if generation.files.keys().cloned().collect::<BTreeSet<_>>() != expected_files {
         return Err(ProjectActivationError::UnexpectedArtifact);
     }
-    let activated = ActivatedProjectV6 {
+    let activated = ActivatedProjectV7 {
         project_lock,
         schema_registry,
         content_manifest,

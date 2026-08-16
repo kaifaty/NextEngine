@@ -9,6 +9,7 @@ pub enum WorldCheckpointError {
     Physics(PhysicsContractError),
     WorldStreaming(crate::world::WorldStreamingContractError),
     WorldPopulation(crate::world_population::WorldPopulationContractError),
+    WorldActivity(crate::world_activity::WorldActivityContractError),
     AgentCognition,
     CoreInteractionClosure(CoreDialogueQuestClosureError),
     ClosureMismatch,
@@ -29,6 +30,7 @@ impl WorldCheckpointError {
                 _ => "WORLD_CHECKPOINT_STREAMING_CORRUPT",
             },
             Self::WorldPopulation(error) => error.diagnostic_code(),
+            Self::WorldActivity(error) => error.diagnostic_code(),
             Self::AgentCognition => "AGENT_COGNITION_SNAPSHOT_INVALID",
             Self::CoreInteractionClosure(error) => error.stable_code(),
             Self::Canonicalization(_) => "WORLD_CHECKPOINT_CANONICALIZATION_FAILED",
@@ -77,6 +79,12 @@ impl From<crate::world::WorldStreamingContractError> for WorldCheckpointError {
 impl From<crate::world_population::WorldPopulationContractError> for WorldCheckpointError {
     fn from(error: crate::world_population::WorldPopulationContractError) -> Self {
         Self::WorldPopulation(error)
+    }
+}
+
+impl From<crate::world_activity::WorldActivityContractError> for WorldCheckpointError {
+    fn from(error: crate::world_activity::WorldActivityContractError) -> Self {
+        Self::WorldActivity(error)
     }
 }
 

@@ -336,10 +336,10 @@ impl PreparedDriverWorkload {
         scratch: &ScratchContext,
         workload: LiveRuntimeWorkload,
     ) -> Result<(Self, ScratchDirectory), LiveRuntimePerformanceError> {
-        let source = next_reference_game::project_source_v5().map_err(|error| {
+        let source = next_reference_game::project_source_v6().map_err(|error| {
             LiveRuntimePerformanceError::new("fixture source", error.to_string())
         })?;
-        let cooked = next_project::cook_project_v5(source)
+        let cooked = next_project::cook_project_v6(source)
             .map_err(|error| LiveRuntimePerformanceError::new("cook fixture", error.to_string()))?;
         let directory = scratch
             .create_directory(workload.directory_label)
@@ -830,10 +830,12 @@ fn finalize_driver_measurement(
         ));
     }
     let cognition_command_body_count = measurement.state.agent_cognition_snapshot.revision;
+    let activity_command_body_count = measurement.state.world_activity_snapshot.record_revision;
     let expected_command_body_count = workload
         .ticks
         .checked_add(routine_command_body_count)
         .and_then(|count| count.checked_add(population_command_body_count))
+        .and_then(|count| count.checked_add(activity_command_body_count))
         .and_then(|count| count.checked_add(cognition_command_body_count))
         .ok_or_else(|| {
             LiveRuntimePerformanceError::new("command body count", "expected count overflow")

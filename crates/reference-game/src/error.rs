@@ -75,6 +75,7 @@ pub enum ReferenceGameError {
     PresentationSnapshotMissing,
     AudioAssetMissing,
     RecoveryInvalid,
+    BulkTimeTickBudgetInvalid { requested: u64, maximum: u64 },
 }
 
 impl Display for ReferenceGameError {
@@ -147,6 +148,10 @@ impl Display for ReferenceGameError {
             Self::RecoveryInvalid => {
                 formatter.write_str("reference live recovery state is invalid")
             }
+            Self::BulkTimeTickBudgetInvalid { requested, maximum } => write!(
+                formatter,
+                "reference bulk-time tick budget {requested} is outside 1..={maximum}"
+            ),
         }
     }
 }

@@ -1,6 +1,12 @@
 #![forbid(unsafe_code)]
 
 pub mod cognition;
+mod tier_cadence;
+
+pub use tier_cadence::{
+    TIER_COGNITION_MAX_WORK_ITEMS_V1, TierCognitionServiceReportV1, TierCognitionWorkItemV1,
+    TierCognitionWorkKindV1, dispatch_tier_cognition_v1,
+};
 
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -428,7 +434,7 @@ mod tests {
     }
 
     fn registry() -> next_contracts::mechanics::RpgDefinitionRegistryV2 {
-        next_project::cook_project_v5(next_reference_game::project_source_v5().expect("source"))
+        next_project::cook_project_v6(next_reference_game::project_source_v6().expect("source"))
             .expect("cook")
             .rpg_definitions
     }

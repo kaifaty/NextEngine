@@ -719,6 +719,54 @@ pub fn world_checkpoint_with_cognition_v1_state_root_from_canonical_components(
     agent_snapshot: &crate::cognition::AgentCognitionSnapshotV1,
     memory_snapshot: &crate::cognition::AgentMemorySnapshotV1,
 ) -> Result<StateRoot, WorldCheckpointError> {
+    world_checkpoint_with_cognition_and_activity_v1_state_root_from_canonical_components(
+        components,
+        world_streaming_snapshot,
+        world_routine_snapshot_or_none,
+        world_population_snapshot_or_none,
+        None,
+        agent_snapshot,
+        memory_snapshot,
+    )
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the R4d application root keeps every authoritative owner projection explicit"
+)]
+pub fn world_checkpoint_with_systemic_cognition_v1_state_root_from_canonical_components(
+    components: &WorldCheckpointCanonicalComponentsV1,
+    world_streaming_snapshot: &crate::world::WorldStreamingSnapshotV1,
+    world_routine_snapshot_or_none: Option<&crate::world_routine::WorldRoutineSnapshotV1>,
+    world_population_snapshot: &crate::world_population::WorldPopulationSnapshotV1,
+    world_activity_snapshot: &crate::world_activity::WorldActivitySnapshotV1,
+    agent_snapshot: &crate::cognition::AgentCognitionSnapshotV1,
+    memory_snapshot: &crate::cognition::AgentMemorySnapshotV1,
+) -> Result<StateRoot, WorldCheckpointError> {
+    world_checkpoint_with_cognition_and_activity_v1_state_root_from_canonical_components(
+        components,
+        world_streaming_snapshot,
+        world_routine_snapshot_or_none,
+        Some(world_population_snapshot),
+        Some(world_activity_snapshot),
+        agent_snapshot,
+        memory_snapshot,
+    )
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the owner-complete state-root helper names every independently hashed segment"
+)]
+fn world_checkpoint_with_cognition_and_activity_v1_state_root_from_canonical_components(
+    components: &WorldCheckpointCanonicalComponentsV1,
+    world_streaming_snapshot: &crate::world::WorldStreamingSnapshotV1,
+    world_routine_snapshot_or_none: Option<&crate::world_routine::WorldRoutineSnapshotV1>,
+    world_population_snapshot_or_none: Option<&crate::world_population::WorldPopulationSnapshotV1>,
+    world_activity_snapshot_or_none: Option<&crate::world_activity::WorldActivitySnapshotV1>,
+    agent_snapshot: &crate::cognition::AgentCognitionSnapshotV1,
+    memory_snapshot: &crate::cognition::AgentMemorySnapshotV1,
+) -> Result<StateRoot, WorldCheckpointError> {
     world_streaming_snapshot.validate()?;
     agent_snapshot
         .validate()
@@ -789,6 +837,14 @@ pub fn world_checkpoint_with_cognition_v1_state_root_from_canonical_components(
             population.canonical_bytes()?,
         ));
     }
+    if let Some(activity) = world_activity_snapshot_or_none {
+        segments.push((
+            crate::world_activity::WORLD_ACTIVITY_SNAPSHOT_OWNER_ID,
+            crate::world_activity::WORLD_ACTIVITY_SNAPSHOT_SCHEMA_ID,
+            crate::world_activity::WORLD_ACTIVITY_SNAPSHOT_SEGMENT_ID,
+            activity.canonical_bytes()?,
+        ));
+    }
     segments.sort_by_key(|(owner, schema, segment, _)| (*owner, *schema, *segment));
     let segment_refs = segments
         .iter()
@@ -842,6 +898,37 @@ pub fn world_checkpoint_with_cognition_v1_state_root(
         world_streaming_snapshot,
         world_routine_snapshot_or_none,
         world_population_snapshot_or_none,
+        agent_snapshot,
+        memory_snapshot,
+    )
+}
+
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the R4d application root keeps every authoritative owner projection explicit"
+)]
+pub fn world_checkpoint_with_systemic_cognition_v1_state_root(
+    runtime_snapshot: &RuntimeSnapshotV3,
+    rpg_snapshot: &RpgSnapshotV2,
+    physics_checkpoint: &PhysicsWorldCheckpointV1,
+    world_streaming_snapshot: &crate::world::WorldStreamingSnapshotV1,
+    world_routine_snapshot_or_none: Option<&crate::world_routine::WorldRoutineSnapshotV1>,
+    world_population_snapshot: &crate::world_population::WorldPopulationSnapshotV1,
+    world_activity_snapshot: &crate::world_activity::WorldActivitySnapshotV1,
+    agent_snapshot: &crate::cognition::AgentCognitionSnapshotV1,
+    memory_snapshot: &crate::cognition::AgentMemorySnapshotV1,
+) -> Result<StateRoot, WorldCheckpointError> {
+    let (_, components) = WorldCheckpointV4::new_with_canonical_components(
+        runtime_snapshot.clone(),
+        rpg_snapshot.clone(),
+        physics_checkpoint.clone(),
+    )?;
+    world_checkpoint_with_systemic_cognition_v1_state_root_from_canonical_components(
+        &components,
+        world_streaming_snapshot,
+        world_routine_snapshot_or_none,
+        world_population_snapshot,
+        world_activity_snapshot,
         agent_snapshot,
         memory_snapshot,
     )

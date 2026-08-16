@@ -15,9 +15,9 @@ use crate::canonical::CanonicalDecodeLimits;
 use crate::command::IssuerPrincipal;
 use crate::ids::{CapabilityId, CommandId, CommandLedgerHash, SchemaId, StateRoot};
 use crate::persistence::{
-    AuthorityGrant, ManifestValidationError, REPLAY_MANIFEST_V8_SCHEMA_VERSION,
-    ReplayCommandRecord, ReplayCommandResultV2, ReplayComparePointV8, ReplayManifestV8,
-    ReplayOwnerSegmentV2, ReplayTickManifestV8, WorldStreamingReplayInputV1,
+    AuthorityGrant, ManifestValidationError, REPLAY_MANIFEST_V9_SCHEMA_VERSION,
+    ReplayCommandRecord, ReplayCommandResultV2, ReplayComparePointV9, ReplayManifestV9,
+    ReplayOwnerSegmentV2, ReplayTickManifestV9, WorldStreamingReplayInputV1,
 };
 use crate::snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
@@ -28,8 +28,8 @@ mod ticks_v6;
 
 use ticks_v6::decode_replay_ticks_v6;
 
-pub(crate) fn encode_replay_manifest_v8(
-    manifest: &ReplayManifestV8,
+pub(crate) fn encode_replay_manifest_v9(
+    manifest: &ReplayManifestV9,
 ) -> Result<Vec<u8>, ManifestCodecError> {
     manifest.validate_and_decode(CanonicalDecodeLimits::default())?;
     let mut object = BTreeMap::new();
@@ -88,10 +88,10 @@ pub(crate) fn encode_replay_manifest_v8(
     Ok(encode_value(&JcsValue::Object(object)).into_bytes())
 }
 
-pub(crate) fn decode_replay_manifest_v8(
+pub(crate) fn decode_replay_manifest_v9(
     bytes: &[u8],
     limits: CanonicalDecodeLimits,
-) -> Result<ReplayManifestV8, ManifestCodecError> {
+) -> Result<ReplayManifestV9, ManifestCodecError> {
     if bytes.len() > limits.max_total_bytes {
         return Err(ManifestCodecError::InputTooLarge {
             actual: bytes.len(),
@@ -106,7 +106,7 @@ pub(crate) fn decode_replay_manifest_v8(
     }
     let mut object = into_object(value, "root")?;
     let schema_version = decode_u32(take(&mut object, "schema_version")?, "schema_version")?;
-    if schema_version != REPLAY_MANIFEST_V8_SCHEMA_VERSION {
+    if schema_version != REPLAY_MANIFEST_V9_SCHEMA_VERSION {
         return Err(ManifestValidationError::UnsupportedReplayVersion(schema_version).into());
     }
 
@@ -138,7 +138,7 @@ pub(crate) fn decode_replay_manifest_v8(
     if let Some(field) = object.into_keys().next() {
         return Err(ManifestCodecError::UnknownField(field));
     }
-    let manifest = ReplayManifestV8 {
+    let manifest = ReplayManifestV9 {
         schema_version,
         compatibility,
         initial_owner_segments,
@@ -224,7 +224,7 @@ fn decode_authority(
         .collect()
 }
 
-fn encode_replay_tick_v6(tick: &ReplayTickManifestV8) -> Result<JcsValue, ManifestCodecError> {
+fn encode_replay_tick_v6(tick: &ReplayTickManifestV9) -> Result<JcsValue, ManifestCodecError> {
     let mut object = BTreeMap::new();
     object.insert(
         "expected_interaction_availability".to_owned(),
@@ -542,7 +542,7 @@ fn decode_command_results(
         .collect()
 }
 
-fn encode_compare_point_v6(point: &ReplayComparePointV8) -> JcsValue {
+fn encode_compare_point_v6(point: &ReplayComparePointV9) -> JcsValue {
     JcsValue::Array(vec![
         string(point.tick.to_string()),
         string(point.state_root.to_hex()),
@@ -568,12 +568,12 @@ fn encode_compare_point_v6(point: &ReplayComparePointV8) -> JcsValue {
 
 fn decode_compare_points_v6(
     value: JcsValue,
-) -> Result<Vec<ReplayComparePointV8>, ManifestCodecError> {
+) -> Result<Vec<ReplayComparePointV9>, ManifestCodecError> {
     into_array(value, "compare_points")?
         .into_iter()
         .map(|row| {
             let mut columns = into_array(row, "compare_points[]")?.into_iter();
-            let point = ReplayComparePointV8 {
+            let point = ReplayComparePointV9 {
                 tick: decode_u64_string(
                     next(&mut columns, "compare_points[].tick")?,
                     "compare_points[].tick",

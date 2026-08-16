@@ -34,6 +34,7 @@ pub(super) struct AgentCognitionStageContextV1 {
     systemic_rpg_proposal_or_none: Option<WorldCommand>,
     systemic_failure_or_none: Option<SystemicExecutionFailureV1>,
     decision_trace_or_none: Option<DecisionTraceV1>,
+    tier_cognition_report_or_none: Option<next_agent::TierCognitionServiceReportV1>,
     proposal_applied: bool,
 }
 
@@ -123,6 +124,7 @@ impl AgentCognitionStageContextV1 {
             systemic_rpg_proposal_or_none: None,
             systemic_failure_or_none: None,
             decision_trace_or_none: None,
+            tier_cognition_report_or_none: None,
             proposal_applied: false,
         })
     }
@@ -137,10 +139,32 @@ impl AgentCognitionStageContextV1 {
             || self.systemic_rpg_proposal_or_none.is_some()
             || self.systemic_failure_or_none.is_some()
             || self.decision_trace_or_none.is_some()
+            || self.tier_cognition_report_or_none.is_some()
             || self.proposal_applied
         {
             return Err(RuntimeFatalError::AgentCognitionInternalInvariant);
         }
+        let population_catalog = self
+            .population
+            .population_catalog_or_none()
+            .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?;
+        let navigation_catalog = self
+            .population
+            .navigation_catalog_or_none()
+            .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?;
+        let population_snapshot = self
+            .population
+            .snapshot_or_none()
+            .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?;
+        self.tier_cognition_report_or_none = Some(
+            next_agent::dispatch_tier_cognition_v1(
+                population_catalog,
+                navigation_catalog,
+                population_snapshot,
+                simulation_tick,
+            )
+            .map_err(|_| RuntimeFatalError::AgentCognitionInternalInvariant)?,
+        );
         if let (Some(activity), Some((system_id, stream_id))) =
             (&self.activity_or_none, &self.systemic_rpg_route_or_none)
         {
@@ -232,6 +256,12 @@ impl AgentCognitionStageContextV1 {
 
     pub(super) const fn systemic_failure_or_none(&self) -> Option<SystemicExecutionFailureV1> {
         self.systemic_failure_or_none
+    }
+
+    pub(super) const fn tier_cognition_report_or_none(
+        &self,
+    ) -> Option<&next_agent::TierCognitionServiceReportV1> {
+        self.tier_cognition_report_or_none.as_ref()
     }
 
     pub(super) fn apply_stage_9(

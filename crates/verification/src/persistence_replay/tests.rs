@@ -7,7 +7,7 @@ fn product_check_covers_npc_transition_replay_and_structural_fallbacks() {
     let report = run_persistence_replay_check().expect("product check passes");
     assert_eq!(report.ticks, 19);
     assert_eq!(report.generations, 2);
-    assert_eq!(report.rpg_events, 8);
+    assert_eq!(report.rpg_events, 18);
     assert_eq!(
         report.interactive_object_state.as_str(),
         CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID

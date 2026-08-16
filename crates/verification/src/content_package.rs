@@ -10,7 +10,7 @@ use next_contracts::physics::ContactPhaseV1;
 use next_contracts::project::ProjectLockV3;
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1};
 use next_project::{
-    ProjectActivationError, ProjectCookError, activate_project_package, cook_project_v5,
+    ProjectActivationError, ProjectCookError, activate_project_package, cook_project_v6,
 };
 use next_render::{RenderTargetV1, build_b0_frame_plan};
 
@@ -50,12 +50,12 @@ pub fn run_content_package_check_in(
 pub(crate) fn run_content_package_check_with_scratch(
     scratch: &ScratchContext,
 ) -> Result<ContentPackageCheckReport, ContentPackageCheckError> {
-    let source = next_reference_game::project_source_v5()?;
-    if source.root_asset_ids.len() != 31 {
+    let source = next_reference_game::project_source_v6()?;
+    if source.root_asset_ids.len() != 32 {
         return Err(ContentPackageCheckError::FixtureClosureMismatch);
     }
     verify_world_routine_source_faults()?;
-    let cooked = cook_project_v5(source)?;
+    let cooked = cook_project_v6(source)?;
     verify_world_routine_publication_faults(scratch, &cooked)?;
     let directory = scratch
         .create_directory("content-package")
@@ -73,7 +73,7 @@ pub(crate) fn run_content_package_check_with_scratch(
             run_reference_wasm_plugin(activated.clone())?;
         let catalog = &activated.render_content_catalog;
         let fallback_plan = fallback_material_plan(&prepared)?;
-        if activated.content_manifest.body.asset_entries.len() != 117
+        if activated.content_manifest.body.asset_entries.len() != 118
             || activated.text_catalogs.len() != 2
             || activated.audio_clips.len() != 4
             || activated.neutral_skeletons.len() != 1
@@ -139,9 +139,9 @@ pub(crate) fn run_content_package_check_with_scratch(
 fn verify_world_routine_source_faults() -> Result<(), ContentPackageCheckError> {
     use next_contracts::world_routine::WorldRoutineActivityV1;
 
-    let invalid = |source| matches!(cook_project_v5(source), Err(ProjectCookError::InvalidValue));
+    let invalid = |source| matches!(cook_project_v6(source), Err(ProjectCookError::InvalidValue));
 
-    let mut zero_ratio = next_reference_game::project_source_v5()?;
+    let mut zero_ratio = next_reference_game::project_source_v6()?;
     zero_ratio
         .world_routine_catalog_or_none
         .as_mut()
@@ -149,7 +149,7 @@ fn verify_world_routine_source_faults() -> Result<(), ContentPackageCheckError> 
         .profile
         .world_ticks_per_simulation_tick_num = 0;
 
-    let mut overflow = next_reference_game::project_source_v5()?;
+    let mut overflow = next_reference_game::project_source_v6()?;
     let overflow_catalog = overflow
         .world_routine_catalog_or_none
         .as_mut()
@@ -160,14 +160,14 @@ fn verify_world_routine_source_faults() -> Result<(), ContentPackageCheckError> 
     overflow_catalog.profile.world_ticks_per_simulation_tick_den = 1;
     overflow_catalog.routine.transition_world_tick = 1;
 
-    let mut invalid_boundary = next_reference_game::project_source_v5()?;
+    let mut invalid_boundary = next_reference_game::project_source_v6()?;
     let boundary_catalog = invalid_boundary
         .world_routine_catalog_or_none
         .as_mut()
         .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?;
     boundary_catalog.routine.transition_world_tick = boundary_catalog.profile.anchor_world_tick;
 
-    let mut invalid_activity = next_reference_game::project_source_v5()?;
+    let mut invalid_activity = next_reference_game::project_source_v6()?;
     invalid_activity
         .world_routine_catalog_or_none
         .as_mut()
@@ -175,20 +175,20 @@ fn verify_world_routine_source_faults() -> Result<(), ContentPackageCheckError> 
         .routine
         .next_activity = WorldRoutineActivityV1::Duty;
 
-    let mut invalid_condition = next_reference_game::project_source_v5()?;
+    let mut invalid_condition = next_reference_game::project_source_v6()?;
     invalid_condition
         .world_routine_interaction_binding_or_none
         .as_mut()
         .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?
         .required_activity = WorldRoutineActivityV1::Rest;
 
-    let mut missing_binding = next_reference_game::project_source_v5()?;
+    let mut missing_binding = next_reference_game::project_source_v6()?;
     missing_binding.world_routine_interaction_binding_or_none = None;
 
-    let mut missing_catalog = next_reference_game::project_source_v5()?;
+    let mut missing_catalog = next_reference_game::project_source_v6()?;
     missing_catalog.world_routine_catalog_or_none = None;
 
-    let mut catalog_identity_collision = next_reference_game::project_source_v5()?;
+    let mut catalog_identity_collision = next_reference_game::project_source_v6()?;
     let colliding_asset_id = catalog_identity_collision.records[0].asset_id;
     catalog_identity_collision
         .world_routine_catalog_or_none
@@ -204,7 +204,7 @@ fn verify_world_routine_source_faults() -> Result<(), ContentPackageCheckError> 
         || !invalid(missing_binding)
         || !invalid(missing_catalog)
         || !matches!(
-            cook_project_v5(catalog_identity_collision),
+            cook_project_v6(catalog_identity_collision),
             Err(ProjectCookError::DuplicateIdentity)
         )
     {
@@ -215,7 +215,7 @@ fn verify_world_routine_source_faults() -> Result<(), ContentPackageCheckError> 
 
 fn verify_world_routine_publication_faults(
     scratch: &ScratchContext,
-    cooked: &next_project::CookedProjectV5,
+    cooked: &next_project::CookedProjectV6,
 ) -> Result<(), ContentPackageCheckError> {
     let stale_directory = scratch
         .create_directory("content-package-stale-profile")
@@ -259,7 +259,7 @@ fn verify_world_routine_publication_faults(
         .create_directory("content-package-subject-collision")
         .map_err(ContentPackageCheckError::Cleanup)?;
     let collision_result = (|| {
-        let mut source = next_reference_game::project_source_v5()?;
+        let mut source = next_reference_game::project_source_v6()?;
         let colliding_subject = PersistentId::from_bytes([0x54; 16]);
         source
             .world_routine_catalog_or_none
@@ -272,7 +272,7 @@ fn verify_world_routine_publication_faults(
             .as_mut()
             .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?
             .subject_id = colliding_subject;
-        let collision_cooked = cook_project_v5(source)?;
+        let collision_cooked = cook_project_v6(source)?;
         let store = ContentStore::new(collision_directory.path());
         store.publish(&collision_cooked.publication()?)?;
         let activated = activate_project_package(&store)?;
@@ -344,7 +344,7 @@ fn fallback_material_plan(
 }
 
 fn run_reference_wasm_plugin(
-    activated: next_contracts::project::ActivatedProjectV6,
+    activated: next_contracts::project::ActivatedProjectV7,
 ) -> Result<(i32, ContentHash, u16), ContentPackageCheckError> {
     let fixture = crate::build_neutral_player_fixture_from_activated_project(activated)?;
     let snapshot = crate::cooked_project_rpg_snapshot(&fixture);
@@ -429,7 +429,7 @@ fn run_reference_wasm_plugin(
 }
 
 fn run_reference_luau_package(
-    activated: next_contracts::project::ActivatedProjectV6,
+    activated: next_contracts::project::ActivatedProjectV7,
 ) -> Result<(i32, ContentHash), ContentPackageCheckError> {
     let fixture = crate::build_neutral_player_fixture_from_activated_project(activated)?;
     let snapshot = crate::cooked_project_rpg_snapshot(&fixture);
@@ -633,7 +633,7 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert_eq!(report.records, 117);
+        assert_eq!(report.records, 118);
         assert_eq!(report.chunks, 64);
         assert_eq!(report.mechanic_packages, 2);
         assert_eq!(report.wasm_plugins, 1);

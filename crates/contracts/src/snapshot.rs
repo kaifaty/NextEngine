@@ -11,6 +11,8 @@ pub use checkpoint::{
     world_checkpoint_with_streaming_and_routine_v1_state_root_from_canonical_components,
     world_checkpoint_with_streaming_v1_state_root,
     world_checkpoint_with_streaming_v1_state_root_from_canonical_components,
+    world_checkpoint_with_systemic_cognition_v1_state_root,
+    world_checkpoint_with_systemic_cognition_v1_state_root_from_canonical_components,
     world_checkpoint_with_world_services_v1_state_root,
     world_checkpoint_with_world_services_v1_state_root_from_canonical_components,
 };

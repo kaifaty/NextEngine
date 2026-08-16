@@ -32,6 +32,10 @@ use crate::world::{
     WORLD_STREAMING_SNAPSHOT_OWNER_ID, WORLD_STREAMING_SNAPSHOT_SCHEMA_ID,
     WORLD_STREAMING_SNAPSHOT_SEGMENT_ID, WorldStreamingSnapshotV1,
 };
+use crate::world_activity::{
+    WORLD_ACTIVITY_SNAPSHOT_OWNER_ID, WORLD_ACTIVITY_SNAPSHOT_SCHEMA_ID,
+    WORLD_ACTIVITY_SNAPSHOT_SEGMENT_ID, WorldActivitySnapshotV1,
+};
 use crate::world_population::{
     WORLD_POPULATION_SNAPSHOT_OWNER_ID, WORLD_POPULATION_SNAPSHOT_SCHEMA_ID,
     WORLD_POPULATION_SNAPSHOT_SEGMENT_ID, WorldPopulationSnapshotV1,
@@ -47,8 +51,9 @@ pub const SAVE_MANIFEST_SCHEMA_VERSION: u32 = 2;
 pub const RETIRED_REPLAY_MANIFEST_V5_SCHEMA_VERSION: u32 = 5;
 pub const RETIRED_REPLAY_MANIFEST_V6_SCHEMA_VERSION: u32 = 6;
 pub const RETIRED_REPLAY_MANIFEST_V7_SCHEMA_VERSION: u32 = 7;
+pub const RETIRED_REPLAY_MANIFEST_V8_SCHEMA_VERSION: u32 = 8;
 pub const SAVE_MANIFEST_V3_SCHEMA_VERSION: u32 = 3;
-pub const REPLAY_MANIFEST_V8_SCHEMA_VERSION: u32 = 8;
+pub const REPLAY_MANIFEST_V9_SCHEMA_VERSION: u32 = 9;
 pub const PHYSICAL_TRAINING_REPLAY_MANIFEST_SCHEMA_VERSION: u32 = 6;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -426,7 +431,7 @@ pub enum WorldStreamingReplayInputV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayTickManifestV8 {
+pub struct ReplayTickManifestV9 {
     pub tick: u64,
     pub world_streaming_input: WorldStreamingReplayInputV1,
     pub closed_ingress_batch: ClosedIngressBatchV1,
@@ -446,7 +451,7 @@ pub struct ReplayTickManifestV8 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayComparePointV8 {
+pub struct ReplayComparePointV9 {
     pub tick: u64,
     pub state_root: StateRoot,
     pub command_ledger_hash: CommandLedgerHash,
@@ -463,28 +468,29 @@ pub struct ReplayComparePointV8 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReplayManifestV8 {
+pub struct ReplayManifestV9 {
     pub schema_version: u32,
     pub compatibility: SaveCompatibility,
     pub initial_owner_segments: Vec<ReplayOwnerSegmentV2>,
     pub initial_state_root: StateRoot,
     pub authority: Vec<AuthorityGrant>,
-    pub ticks: Vec<ReplayTickManifestV8>,
-    pub compare_points: Vec<ReplayComparePointV8>,
+    pub ticks: Vec<ReplayTickManifestV9>,
+    pub compare_points: Vec<ReplayComparePointV9>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DecodedReplayInitialStateV8 {
+pub struct DecodedReplayInitialStateV9 {
     pub checkpoint: WorldCheckpointV4,
     pub world_streaming_snapshot: WorldStreamingSnapshotV1,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
     pub world_population_snapshot: WorldPopulationSnapshotV1,
+    pub world_activity_snapshot: WorldActivitySnapshotV1,
     pub agent_cognition_snapshot: AgentCognitionSnapshotV1,
     pub agent_memory_snapshot: AgentMemorySnapshotV1,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DecodedReplayTickV8 {
+pub struct DecodedReplayTickV9 {
     pub tick: u64,
     pub world_streaming_input: WorldStreamingReplayInputV1,
     pub closed_ingress_batch: ClosedIngressBatchV1,
@@ -576,30 +582,30 @@ fn replay_framed_hash(
     Ok(content_hash_from_bytes(sha256(&preimage)))
 }
 
-impl ReplayManifestV8 {
+impl ReplayManifestV9 {
     pub fn to_jcs_bytes(&self) -> Result<Vec<u8>, ManifestCodecError> {
-        crate::manifest_jcs::encode_replay_manifest_v8(self)
+        crate::manifest_jcs::encode_replay_manifest_v9(self)
     }
 
     pub fn from_jcs_bytes(
         bytes: &[u8],
         limits: CanonicalDecodeLimits,
     ) -> Result<Self, ManifestCodecError> {
-        crate::manifest_jcs::decode_replay_manifest_v8(bytes, limits)
+        crate::manifest_jcs::decode_replay_manifest_v9(bytes, limits)
     }
 
     pub fn validate_and_decode(
         &self,
         limits: CanonicalDecodeLimits,
-    ) -> Result<(DecodedReplayInitialStateV8, Vec<DecodedReplayTickV8>), ManifestValidationError>
+    ) -> Result<(DecodedReplayInitialStateV9, Vec<DecodedReplayTickV9>), ManifestValidationError>
     {
-        if self.schema_version != REPLAY_MANIFEST_V8_SCHEMA_VERSION {
+        if self.schema_version != REPLAY_MANIFEST_V9_SCHEMA_VERSION {
             return Err(ManifestValidationError::UnsupportedReplayVersion(
                 self.schema_version,
             ));
         }
         self.compatibility.validate()?;
-        if !matches!(self.initial_owner_segments.len(), 7 | 8)
+        if !matches!(self.initial_owner_segments.len(), 8 | 9)
             || self.initial_owner_segments.windows(2).any(|pair| {
                 (
                     &pair[0].descriptor.owner_id,
@@ -660,6 +666,12 @@ impl ReplayManifestV8 {
             WORLD_POPULATION_SNAPSHOT_SEGMENT_ID,
         )
         .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
+        let activity = segment(
+            WORLD_ACTIVITY_SNAPSHOT_OWNER_ID,
+            WORLD_ACTIVITY_SNAPSHOT_SCHEMA_ID,
+            WORLD_ACTIVITY_SNAPSHOT_SEGMENT_ID,
+        )
+        .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
         let agent = segment(
             AGENT_RUNTIME_SNAPSHOT_OWNER_ID,
             AGENT_RUNTIME_SNAPSHOT_SCHEMA_ID,
@@ -672,7 +684,7 @@ impl ReplayManifestV8 {
             AGENT_MEMORY_SNAPSHOT_SEGMENT_ID,
         )
         .ok_or(ManifestValidationError::ReplayInitialSegmentsInvalid)?;
-        if self.initial_owner_segments.len() != 7 + usize::from(routine_or_none.is_some()) {
+        if self.initial_owner_segments.len() != 8 + usize::from(routine_or_none.is_some()) {
             return Err(ManifestValidationError::ReplayInitialSegmentsInvalid);
         }
         let runtime_snapshot =
@@ -689,6 +701,9 @@ impl ReplayManifestV8 {
             .transpose()?;
         let world_population_snapshot =
             WorldPopulationSnapshotV1::from_canonical_bytes(&population.canonical_bytes, limits)?;
+        let world_activity_snapshot =
+            WorldActivitySnapshotV1::from_canonical_bytes(&activity.canonical_bytes, limits)
+                .map_err(|_| ManifestValidationError::ReplayInitialSegmentsInvalid)?;
         let agent_cognition_snapshot =
             AgentCognitionSnapshotV1::from_canonical_bytes(&agent.canonical_bytes, limits)
                 .map_err(|_| ManifestValidationError::ReplayInitialSegmentsInvalid)?;
@@ -697,16 +712,18 @@ impl ReplayManifestV8 {
                 .map_err(|_| ManifestValidationError::ReplayInitialSegmentsInvalid)?;
         let checkpoint =
             WorldCheckpointV4::new(runtime_snapshot, rpg_snapshot, physics_checkpoint)?;
-        let actual_initial_root = crate::snapshot::world_checkpoint_with_cognition_v1_state_root(
-            &checkpoint.runtime_snapshot,
-            &checkpoint.rpg_snapshot,
-            &checkpoint.physics_checkpoint,
-            &world_streaming_snapshot,
-            world_routine_snapshot_or_none.as_ref(),
-            Some(&world_population_snapshot),
-            &agent_cognition_snapshot,
-            &agent_memory_snapshot,
-        )?;
+        let actual_initial_root =
+            crate::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root(
+                &checkpoint.runtime_snapshot,
+                &checkpoint.rpg_snapshot,
+                &checkpoint.physics_checkpoint,
+                &world_streaming_snapshot,
+                world_routine_snapshot_or_none.as_ref(),
+                &world_population_snapshot,
+                &world_activity_snapshot,
+                &agent_cognition_snapshot,
+                &agent_memory_snapshot,
+            )?;
         if actual_initial_root != self.initial_state_root {
             return Err(ManifestValidationError::ReplayInitialSegmentsInvalid);
         }
@@ -741,7 +758,7 @@ impl ReplayManifestV8 {
             validate_replay_query_facts(tick)?;
             tick.world_streaming_input.validate()?;
             if point.owner_segments.len()
-                != 7 + usize::from(world_routine_snapshot_or_none.is_some())
+                != 8 + usize::from(world_routine_snapshot_or_none.is_some())
                 || point.owner_segments.windows(2).any(|pair| {
                     (&pair[0].owner_id, &pair[0].schema_id, &pair[0].segment_id)
                         >= (&pair[1].owner_id, &pair[1].schema_id, &pair[1].segment_id)
@@ -788,7 +805,7 @@ impl ReplayManifestV8 {
             for record in &tick.direct_external_commands {
                 commands.push(record.decode_command(limits)?);
             }
-            decoded.push(DecodedReplayTickV8 {
+            decoded.push(DecodedReplayTickV9 {
                 tick: tick.tick,
                 world_streaming_input: tick.world_streaming_input.clone(),
                 closed_ingress_batch: tick.closed_ingress_batch.clone(),
@@ -813,11 +830,12 @@ impl ReplayManifestV8 {
                 .ok_or(ManifestValidationError::ReplayTickExhausted)?;
         }
         Ok((
-            DecodedReplayInitialStateV8 {
+            DecodedReplayInitialStateV9 {
                 checkpoint,
                 world_streaming_snapshot,
                 world_routine_snapshot_or_none,
                 world_population_snapshot,
+                world_activity_snapshot,
                 agent_cognition_snapshot,
                 agent_memory_snapshot,
             },
@@ -857,7 +875,7 @@ impl WorldStreamingReplayInputV1 {
     }
 }
 
-fn validate_replay_query_facts(tick: &ReplayTickManifestV8) -> Result<(), ManifestValidationError> {
+fn validate_replay_query_facts(tick: &ReplayTickManifestV9) -> Result<(), ManifestValidationError> {
     tick.expected_physics_query_batch.validate()?;
     for receipt in &tick.expected_mapping_receipts {
         receipt.validate()?;

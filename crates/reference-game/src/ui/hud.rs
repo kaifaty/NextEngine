@@ -304,7 +304,7 @@ mod tests {
         ));
         let store = ContentStore::new(&root);
         let cooked =
-            next_project::cook_project_v5(crate::project_source_v5().expect("reference source"))
+            next_project::cook_project_v6(crate::project_source_v6().expect("reference source"))
                 .expect("cook");
         store
             .publish(&cooked.publication().expect("publication"))

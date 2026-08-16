@@ -12,6 +12,7 @@ use next_contracts::presentation::{
 };
 use next_contracts::snapshot::WorldCheckpointV4;
 use next_contracts::world::WorldStreamingSnapshotV1;
+use next_contracts::world_activity::WorldActivitySnapshotV1;
 use next_contracts::world_population::WorldPopulationSnapshotV1;
 use next_contracts::world_routine::WorldRoutineSnapshotV1;
 use next_player::PlayerInputSessionV1;
@@ -26,7 +27,9 @@ use next_runtime::{
     PhysicsLaunchOptions, PreparedRuntimeWorldServicesTickV1, RuntimeState,
     ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1,
 };
-use next_world::{WorldPopulationOwnerV1, WorldRoutineOwnerV1, WorldStreamerV1};
+use next_world::{
+    WorldActivityOwnerV1, WorldPopulationOwnerV1, WorldRoutineOwnerV1, WorldStreamerV1,
+};
 
 use crate::ReferenceGameError;
 use crate::camera::{
@@ -35,7 +38,7 @@ use crate::camera::{
 };
 use crate::dialogue::{ReferenceDialogueChoiceV1, ReferenceDialogueUiV1};
 use crate::input::ReferenceUiScreenV1;
-use crate::rpg::{cognition_only_rpg_snapshot, cooked_project_rpg_snapshot};
+use crate::rpg::cooked_project_rpg_snapshot;
 use crate::scenario::fixture_presentation_bindings;
 use crate::session::{ReferenceGameSession, build_reference_game_session};
 
@@ -44,10 +47,14 @@ const CAMERA_FOCUS_HEIGHT_MICROMETRES: i64 = 700_000;
 const SEMANTIC_UI_RECORDS_PER_BATCH: usize = 64;
 
 mod audio_ops;
+mod bulk_time;
 mod load;
 mod recovery_state;
 mod state;
 
+pub use bulk_time::{
+    REFERENCE_BULK_TIME_MAX_TICKS_V1, ReferenceBulkTimeAdvanceV1, ReferenceBulkTimeStopReasonV1,
+};
 pub use state::{ReferenceLiveDriverRecoveryV1, ReferenceLiveStateV2};
 
 #[must_use]
@@ -64,6 +71,7 @@ pub struct ReferenceGameDriverV2 {
     runtime: RuntimeState,
     world_routine: WorldRoutineOwnerV1,
     world_population: WorldPopulationOwnerV1,
+    world_activity: WorldActivityOwnerV1,
     cognition: next_agent::cognition::StrategicAgentOwnersV1,
     world_streamer: WorldStreamerV1,
     input: PlayerInputSessionV1,
@@ -241,7 +249,7 @@ impl ReferenceGameDriverV2 {
 
     pub fn new_with_presentation_epoch(
         package: next_project::ActivatedProjectPackage,
-        include_interaction: bool,
+        _include_interaction: bool,
         snapshot_epoch: ContentHash,
     ) -> Result<Self, ReferenceGameError> {
         let next_project::ActivatedProjectPackage {
@@ -249,11 +257,7 @@ impl ReferenceGameDriverV2 {
             content_generation,
         } = package;
         let fixture = build_reference_game_session(activated_project)?;
-        let rpg_snapshot = if include_interaction {
-            cooked_project_rpg_snapshot(&fixture)
-        } else {
-            cognition_only_rpg_snapshot(&fixture)
-        };
+        let rpg_snapshot = cooked_project_rpg_snapshot(&fixture);
         let runtime = RuntimeState::with_rpg_snapshot_and_physics_options(
             fixture.bootstrap.clone(),
             fixture.authority.clone(),
@@ -276,6 +280,7 @@ impl ReferenceGameDriverV2 {
             runtime.next_tick(),
         )?;
         let cognition = fixture.initial_cognition_owners()?;
+        let world_activity = fixture.initial_activity_owner()?;
         let input = PlayerInputSessionV1::new(
             fixture.controller_id,
             fixture.source_id,
@@ -317,6 +322,7 @@ impl ReferenceGameDriverV2 {
             runtime,
             world_routine,
             world_population,
+            world_activity,
             cognition,
             world_streamer,
             input,
@@ -353,6 +359,7 @@ impl ReferenceGameDriverV2 {
         world_streaming_snapshot: WorldStreamingSnapshotV1,
         world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
         world_population_snapshot: WorldPopulationSnapshotV1,
+        world_activity_snapshot: WorldActivitySnapshotV1,
         agent_cognition_snapshot: AgentCognitionSnapshotV1,
         agent_memory_snapshot: AgentMemorySnapshotV1,
         recovery: ReferenceLiveDriverRecoveryV1,
@@ -395,6 +402,11 @@ impl ReferenceGameDriverV2 {
             fixture.activated_project.agent_cognition_catalog.clone(),
             agent_cognition_snapshot,
             agent_memory_snapshot,
+        )?;
+        let world_activity = WorldActivityOwnerV1::restore(
+            fixture.activated_project.world_activity_catalog.clone(),
+            world_activity_snapshot,
+            runtime.next_tick(),
         )?;
         runtime.validate_world_routine_ledger_closure(&world_routine)?;
         runtime.validate_world_population_ledger_closure(&world_population)?;
@@ -459,6 +471,7 @@ impl ReferenceGameDriverV2 {
             runtime,
             world_routine,
             world_population,
+            world_activity,
             cognition,
             world_streamer,
             input,
@@ -631,13 +644,15 @@ impl ReferenceGameDriverV2 {
         )? {
             runtime_preparation.enqueue_input_sample(&self.fixture.principal, sample)?;
         }
-        let mut prepared_runtime = runtime_preparation.prepare_with_world_services_and_cognition(
-            [],
-            &self.world_routine,
-            &self.world_population,
-            &self.cognition,
-            &self.world_streamer,
-        )?;
+        let mut prepared_runtime = runtime_preparation
+            .prepare_with_world_services_cognition_and_activity(
+                [],
+                &self.world_routine,
+                &self.world_population,
+                &self.world_activity,
+                &self.cognition,
+                &self.world_streamer,
+            )?;
         if let Some((action_map, context_stack)) = pending_input_configuration {
             prepared_runtime = self
                 .runtime
@@ -766,9 +781,10 @@ impl ReferenceGameDriverV2 {
         }
         let runtime = self
             .runtime
-            .validate_prepared_world_services_tick_with_cognition_without_application_evidence(
+            .validate_prepared_world_services_tick_with_cognition_and_activity_without_application_evidence(
                 &self.world_routine,
                 &self.world_population,
+                &self.world_activity,
                 &self.cognition,
                 &self.world_streamer,
                 prepared.runtime,
@@ -788,9 +804,10 @@ impl ReferenceGameDriverV2 {
         validated: ValidatedReferenceGameAdvance,
     ) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
         self.runtime
-            .commit_validated_world_services_tick_with_cognition_without_application_evidence(
+            .commit_validated_world_services_tick_with_cognition_and_activity_without_application_evidence(
                 &mut self.world_routine,
                 &mut self.world_population,
+                &mut self.world_activity,
                 &mut self.cognition,
                 &mut self.world_streamer,
                 validated.runtime,

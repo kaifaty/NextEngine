@@ -381,6 +381,14 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
             .map_or(0, |resource| resource.current_value),
         _ => return Err(PlayCheckError::CookedPlayerMissing),
     };
+    let world_activity_snapshot = scenario
+        .world_activity_snapshot_or_none
+        .as_ref()
+        .ok_or_else(|| {
+            PlayCheckError::AcceptanceMismatch(
+                "systemic world activity snapshot is missing".to_owned(),
+            )
+        })?;
     let report = PlayCheckReport {
         ticks: scenario.ticks,
         final_pose: scenario.final_pose,
@@ -401,16 +409,18 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         world_streaming_generation: scenario.world_streaming_snapshot.generation,
         current_chunk_id: scenario.world_streaming_snapshot.current_chunk_id.clone(),
         final_command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
-        final_state_root: next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root(
-            &checkpoint.runtime_snapshot,
-            &checkpoint.rpg_snapshot,
-            &checkpoint.physics_checkpoint,
-            &scenario.world_streaming_snapshot,
-            scenario.world_routine_snapshot_or_none.as_ref(),
-            Some(&scenario.world_population_snapshot),
-            &scenario.agent_cognition_snapshot,
-            &scenario.agent_memory_snapshot,
-        )?,
+        final_state_root:
+            next_contracts::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root(
+                &checkpoint.runtime_snapshot,
+                &checkpoint.rpg_snapshot,
+                &checkpoint.physics_checkpoint,
+                &scenario.world_streaming_snapshot,
+                scenario.world_routine_snapshot_or_none.as_ref(),
+                &scenario.world_population_snapshot,
+                world_activity_snapshot,
+                &scenario.agent_cognition_snapshot,
+                &scenario.agent_memory_snapshot,
+            )?,
     };
     let command_archive_root = checkpoint
         .runtime_snapshot
@@ -426,8 +436,8 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         .to_hex();
     if report.ticks != 32
         || report.final_pose.translation_micrometres != [0, 900_000, -200_000]
-        || report.events != 46
-        || report.rpg_events != 13
+        || report.events != 52
+        || report.rpg_events != 23
         || report.interactive_object_state.as_str()
             != next_contracts::rpg::CORE_INTERACTIVE_OBJECT_ACTIVATED_STATE_ID
         || report.dialogue_node_id.as_str() != "nextengine.reference-alpha.dialogue.completed"
@@ -437,11 +447,11 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         || report.player_health != 50
         || report.world_streaming_generation != 2
         || command_archive_root
-            != "403c49a6f27226edc8b1f568999b96083f30e3285f8bc0dac0672a276a8b2e76"
+            != "3e00c667723be4b1a261ccd62a106a01946d9abedfce435945539eec68a4702f"
         || command_identity_index_root
-            != "c20a1dd8d132994a6bdd38fc60153fb9cd5c5794f8a2e6a1a41c3976b6bac9d8"
+            != "d33375bbd51ddbdc2a607d0b85653bc99583106eacc3255f58f2ac25deb5b202"
         || report.final_command_ledger_hash.to_hex()
-            != "0ab8988984c4ad53869e151bee887423cd60dece9ac94cdac1425ff800761651"
+            != "21d0bd809b6c3287e41fb0aef612e1cd03865a9de8e46f3814bb623475797b98"
         || stage_checkpoint_count != 3
         || !stage_checkpoints_match_acceptance
         || !duty_branch_matches

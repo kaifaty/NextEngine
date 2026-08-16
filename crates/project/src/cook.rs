@@ -77,7 +77,7 @@ pub struct SourceChunkBindingV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NeutralProjectSourceV5 {
+pub struct NeutralProjectSourceV6 {
     pub project_id: ProjectId,
     pub project_revision: u64,
     pub authoring_sha256: ContentHash,
@@ -103,7 +103,7 @@ pub struct NeutralProjectSourceV5 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CookedProjectV5 {
+pub struct CookedProjectV6 {
     pub project_lock: ProjectLockV3,
     pub schema_registry: SchemaRegistryManifestV2,
     pub content_manifest: ContentManifestV1,
@@ -118,7 +118,7 @@ pub struct CookedProjectV5 {
     pub blobs: BTreeMap<ContentHash, Vec<u8>>,
 }
 
-impl CookedProjectV5 {
+impl CookedProjectV6 {
     pub fn publication(&self) -> Result<ContentPublicationV1, ProjectCookError> {
         let mut files = vec![
             PublicationFileV1::new(PROJECT_LOCK_PATH, self.project_lock.to_jcs_bytes())?,
@@ -167,9 +167,9 @@ impl CookedProjectV5 {
     }
 }
 
-pub fn cook_project_v5(
-    mut source: NeutralProjectSourceV5,
-) -> Result<CookedProjectV5, ProjectCookError> {
+pub fn cook_project_v6(
+    mut source: NeutralProjectSourceV6,
+) -> Result<CookedProjectV6, ProjectCookError> {
     source.records.sort_by_key(|record| record.asset_id);
     source
         .render_records
@@ -680,7 +680,7 @@ pub fn cook_project_v5(
         ),
         cooker_contract_sha256: domain_hash(
             "nextengine.cooker-contract.v1",
-            b"next_project::cook_project_v5",
+            b"next_project::cook_project_v6",
         ),
         cooker_options_sha256: canonical_empty_manifest_hash("nextengine.cooker-options.v1"),
         root_assets,
@@ -748,7 +748,7 @@ pub fn cook_project_v5(
         allowed_presentation_targets: source.allowed_presentation_targets,
         project_lock_sha256: ContentHash::default(),
     })?;
-    Ok(CookedProjectV5 {
+    Ok(CookedProjectV6 {
         project_lock,
         schema_registry,
         content_manifest,

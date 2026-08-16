@@ -49,17 +49,19 @@ pub(super) fn complete(
     let final_population_snapshot = direct.population.snapshot_or_none().ok_or_else(|| {
         PersistenceReplayCheckError::condition("final world population owner segment exists")
     })?;
-    let final_state_root = next_contracts::snapshot::world_checkpoint_with_cognition_v1_state_root(
-        &final_checkpoint.runtime_snapshot,
-        &final_checkpoint.rpg_snapshot,
-        &final_checkpoint.physics_checkpoint,
-        direct.world.snapshot(),
-        Some(final_routine_snapshot),
-        Some(final_population_snapshot),
-        direct.cognition.agent_snapshot(),
-        direct.cognition.memory_snapshot(),
-    )
-    .map_err(|error| PersistenceReplayCheckError::new("final state root", error.to_string()))?;
+    let final_state_root =
+        next_contracts::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root(
+            &final_checkpoint.runtime_snapshot,
+            &final_checkpoint.rpg_snapshot,
+            &final_checkpoint.physics_checkpoint,
+            direct.world.snapshot(),
+            Some(final_routine_snapshot),
+            final_population_snapshot,
+            direct.activity.snapshot(),
+            direct.cognition.agent_snapshot(),
+            direct.cognition.memory_snapshot(),
+        )
+        .map_err(|error| PersistenceReplayCheckError::new("final state root", error.to_string()))?;
     let final_command_ledger_hash = final_checkpoint
         .runtime_snapshot
         .command_ledger_hash()
@@ -112,6 +114,7 @@ fn verify_corrupt_fallbacks(
             direct.world.snapshot(),
             Some(final_routine_snapshot),
             final_population_snapshot,
+            direct.activity.snapshot(),
             direct.cognition.agent_snapshot(),
             direct.cognition.memory_snapshot(),
         )
@@ -151,6 +154,8 @@ fn verify_corrupt_fallbacks(
         || fallback.world_routine_snapshot_or_none != restored.saved_routine_snapshot_or_none
         || fallback.world_population_snapshot_or_none
             != Some(restored.saved_population_snapshot.clone())
+        || fallback.world_activity_snapshot_or_none
+            != Some(restored.saved_activity_snapshot.clone())
         || fallback.agent_cognition_snapshot_or_none != Some(restored.saved_agent_snapshot.clone())
         || fallback.agent_memory_snapshot_or_none != Some(restored.saved_memory_snapshot.clone())
         || !preserved_corrupt
@@ -292,13 +297,29 @@ fn read_final_outcome(
         || npc_player_trust != expected_relationship_value
         || npc_health != 50
         || player_health != 50
-        || rpg_events != 8
+        || rpg_events != 18
         || !pickup_is_collected
         || !pickup_is_owned
         || !pickup_is_equipped
     {
-        return Err(PersistenceReplayCheckError::condition(
+        return Err(PersistenceReplayCheckError::new(
             "Rest-gated interaction preserves dialogue, quest, and relationship state",
+            format!(
+                "interactive_object_state={}, dialogue_node_id={}, expected_dialogue_node_id={}, quest_state_id={}, expected_quest_state_id={}, npc_player_trust={}, expected_relationship_value={}, npc_health={}, player_health={}, rpg_events={}, pickup_is_collected={}, pickup_is_owned={}, pickup_is_equipped={}",
+                interactive_object_state,
+                dialogue_node_id,
+                expected_dialogue_node_id,
+                quest_state_id,
+                expected_quest_state_id,
+                npc_player_trust,
+                expected_relationship_value,
+                npc_health,
+                player_health,
+                rpg_events,
+                pickup_is_collected,
+                pickup_is_owned,
+                pickup_is_equipped,
+            ),
         ));
     }
 

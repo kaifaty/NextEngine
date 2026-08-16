@@ -59,6 +59,7 @@ pub struct PreparedRuntimeWorldServicesTickV1 {
     agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     decision_trace_or_none: Option<DecisionTraceV1>,
+    tier_cognition_report_or_none: Option<next_agent::TierCognitionServiceReportV1>,
     systemic_failure_or_none: Option<next_contracts::cognition::SystemicExecutionFailureV1>,
     base_world_state_hash: next_contracts::ids::ContentHash,
     staged_world_snapshot: WorldStreamingSnapshotV1,
@@ -78,6 +79,7 @@ struct ValidatedWorldServicesGenerationV1 {
     agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     decision_trace_or_none: Option<DecisionTraceV1>,
+    tier_cognition_report_or_none: Option<next_agent::TierCognitionServiceReportV1>,
     systemic_failure_or_none: Option<next_contracts::cognition::SystemicExecutionFailureV1>,
     base_world_state_hash: next_contracts::ids::ContentHash,
     staged_world_snapshot: WorldStreamingSnapshotV1,
@@ -106,6 +108,7 @@ struct CommittedWorldServicesGenerationV1 {
     agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     decision_trace_or_none: Option<DecisionTraceV1>,
+    tier_cognition_report_or_none: Option<next_agent::TierCognitionServiceReportV1>,
     systemic_failure_or_none: Option<next_contracts::cognition::SystemicExecutionFailureV1>,
     population_service_report_or_none: Option<next_world::PopulationNavigationServiceReportV1>,
     streaming_transition_or_none: Option<next_world::WorldTransitionCommitV1>,
@@ -122,6 +125,7 @@ pub struct WorldServicesTickCommitV1 {
     pub agent_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     pub memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
     pub decision_trace_or_none: Option<DecisionTraceV1>,
+    pub tier_cognition_report_or_none: Option<next_agent::TierCognitionServiceReportV1>,
     pub systemic_failure_or_none: Option<next_contracts::cognition::SystemicExecutionFailureV1>,
     pub population_service_report_or_none: Option<next_world::PopulationNavigationServiceReportV1>,
     pub streaming_transition_or_none: Option<next_world::WorldTransitionCommitV1>,
@@ -362,6 +366,9 @@ impl RuntimeTickPreparation<'_> {
             agent_snapshot_or_none,
             memory_snapshot_or_none,
             decision_trace_or_none,
+            tier_cognition_report_or_none: cognition_stage
+                .as_ref()
+                .and_then(|stage| stage.tier_cognition_report_or_none().cloned()),
             systemic_failure_or_none: cognition_stage
                 .as_ref()
                 .and_then(|stage| stage.systemic_failure_or_none()),
@@ -426,6 +433,13 @@ impl PreparedRuntimeWorldServicesTickV1 {
     #[must_use]
     pub const fn decision_trace_or_none(&self) -> Option<&DecisionTraceV1> {
         self.decision_trace_or_none.as_ref()
+    }
+
+    #[must_use]
+    pub const fn tier_cognition_report_or_none(
+        &self,
+    ) -> Option<&next_agent::TierCognitionServiceReportV1> {
+        self.tier_cognition_report_or_none.as_ref()
     }
 
     #[must_use]
@@ -502,6 +516,13 @@ impl ValidatedRuntimeWorldServicesTickV1 {
     #[must_use]
     pub const fn decision_trace_or_none(&self) -> Option<&DecisionTraceV1> {
         self.generation.decision_trace_or_none.as_ref()
+    }
+
+    #[must_use]
+    pub const fn tier_cognition_report_or_none(
+        &self,
+    ) -> Option<&next_agent::TierCognitionServiceReportV1> {
+        self.generation.tier_cognition_report_or_none.as_ref()
     }
 
     #[must_use]
@@ -590,7 +611,7 @@ impl ValidatedRuntimeWorldServicesTickWithoutApplicationEvidenceV1 {
 impl RuntimeState {
     #[allow(
         clippy::too_many_arguments,
-        reason = "replay must restore the same independently owned inputs as live R4c preparation"
+        reason = "replay must restore the same independently owned inputs as live R4d preparation"
     )]
     pub(in crate::engine) fn prepare_replay_world_services_tick_with_cognition(
         &self,
@@ -598,6 +619,7 @@ impl RuntimeState {
         commands: impl IntoIterator<Item = WorldCommand>,
         routine: &next_world::WorldRoutineOwnerV1,
         population: &next_world::WorldPopulationOwnerV1,
+        activity: &next_world::WorldActivityOwnerV1,
         cognition: &StrategicAgentOwnersV1,
         world: &next_world::WorldStreamerV1,
         streaming: Option<next_world::PreparedWorldStreamingPublicationV1>,
@@ -606,7 +628,7 @@ impl RuntimeState {
             commands,
             routine,
             population,
-            None,
+            Some(activity),
             Some(cognition),
             world,
             streaming,
@@ -875,6 +897,7 @@ impl RuntimeState {
             agent_snapshot_or_none: prepared.agent_snapshot_or_none,
             memory_snapshot_or_none: prepared.memory_snapshot_or_none,
             decision_trace_or_none: prepared.decision_trace_or_none,
+            tier_cognition_report_or_none: prepared.tier_cognition_report_or_none,
             systemic_failure_or_none: prepared.systemic_failure_or_none,
             base_world_state_hash: prepared.base_world_state_hash,
             staged_world_snapshot: prepared.staged_world_snapshot,
@@ -908,6 +931,7 @@ impl RuntimeState {
             agent_snapshot_or_none: committed.agent_snapshot_or_none,
             memory_snapshot_or_none: committed.memory_snapshot_or_none,
             decision_trace_or_none: committed.decision_trace_or_none,
+            tier_cognition_report_or_none: committed.tier_cognition_report_or_none,
             systemic_failure_or_none: committed.systemic_failure_or_none,
             population_service_report_or_none: committed.population_service_report_or_none,
             streaming_transition_or_none: committed.streaming_transition_or_none,
@@ -946,6 +970,7 @@ impl RuntimeState {
             agent_snapshot_or_none: committed.agent_snapshot_or_none,
             memory_snapshot_or_none: committed.memory_snapshot_or_none,
             decision_trace_or_none: committed.decision_trace_or_none,
+            tier_cognition_report_or_none: committed.tier_cognition_report_or_none,
             systemic_failure_or_none: committed.systemic_failure_or_none,
             population_service_report_or_none: committed.population_service_report_or_none,
             streaming_transition_or_none: committed.streaming_transition_or_none,
@@ -989,6 +1014,7 @@ impl RuntimeState {
             agent_snapshot_or_none: committed.agent_snapshot_or_none,
             memory_snapshot_or_none: committed.memory_snapshot_or_none,
             decision_trace_or_none: committed.decision_trace_or_none,
+            tier_cognition_report_or_none: committed.tier_cognition_report_or_none,
             systemic_failure_or_none: committed.systemic_failure_or_none,
             population_service_report_or_none: committed.population_service_report_or_none,
             streaming_transition_or_none: committed.streaming_transition_or_none,
@@ -1113,6 +1139,7 @@ impl RuntimeState {
             agent_snapshot_or_none,
             memory_snapshot_or_none,
             decision_trace_or_none,
+            tier_cognition_report_or_none,
             systemic_failure_or_none,
             staged_world_snapshot,
             streaming,
@@ -1140,6 +1167,7 @@ impl RuntimeState {
             agent_snapshot_or_none,
             memory_snapshot_or_none,
             decision_trace_or_none,
+            tier_cognition_report_or_none,
             systemic_failure_or_none,
             population_service_report_or_none,
             streaming_transition_or_none,

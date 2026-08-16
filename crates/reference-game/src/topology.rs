@@ -1,6 +1,6 @@
 use next_contracts::content::NeutralRecordKindV1;
 use next_contracts::ids::SchemaId;
-use next_contracts::project::ActivatedProjectV6;
+use next_contracts::project::ActivatedProjectV7;
 
 use crate::ReferenceGameError;
 
@@ -23,7 +23,7 @@ pub struct ReferenceWorldTopologyV1 {
 
 impl ReferenceWorldTopologyV1 {
     pub fn from_activated_project(
-        project: &ActivatedProjectV6,
+        project: &ActivatedProjectV7,
     ) -> Result<Self, ReferenceGameError> {
         if project.world_partition.body.chunk_bindings.is_empty() {
             return Err(ReferenceGameError::WorldPartitionEmpty);
