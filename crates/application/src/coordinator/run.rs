@@ -1,5 +1,6 @@
 use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1};
 use next_contracts::ids::{ApplicationSessionId, ContentHash};
+use next_contracts::physical_animation::PhysicalAnimationSnapshotV1;
 use next_contracts::platform::{PlatformEventKindV1, PlatformEventV1};
 use next_contracts::session::{ApplicationSessionStatusV1, PresentationTargetKindV1};
 use next_contracts::snapshot::WorldCheckpointV4;
@@ -26,6 +27,7 @@ pub(super) struct PreparedRunV1 {
     pub(super) activity: WorldActivitySnapshotV1,
     pub(super) agent: AgentCognitionSnapshotV1,
     pub(super) memory: AgentMemorySnapshotV1,
+    pub(super) physical_animation: PhysicalAnimationSnapshotV1,
     pub(super) summary: ApplicationRunOutcomeV1,
 }
 
@@ -98,6 +100,9 @@ impl ApplicationCoordinator {
                         .ok_or(ApplicationError::RecoveryIncompatible)?,
                     loaded
                         .agent_memory_snapshot_or_none
+                        .ok_or(ApplicationError::RecoveryIncompatible)?,
+                    loaded
+                        .physical_animation_snapshot_or_none
                         .ok_or(ApplicationError::RecoveryIncompatible)?,
                 )?;
                 let prepared = prepare_live_state(
@@ -388,6 +393,9 @@ impl ApplicationCoordinator {
                 loaded
                     .agent_memory_snapshot_or_none
                     .ok_or(ApplicationError::RecoveryIncompatible)?,
+                loaded
+                    .physical_animation_snapshot_or_none
+                    .ok_or(ApplicationError::RecoveryIncompatible)?,
             )?;
         let prepared = prepare_live_state(
             self.machine.state().session_id,
@@ -502,6 +510,7 @@ fn prepare_live_state(
         world_activity_snapshot,
         agent_cognition_snapshot,
         agent_memory_snapshot,
+        physical_animation_snapshot,
         ticks,
         events,
         rpg_events,
@@ -511,7 +520,7 @@ fn prepare_live_state(
         presentation_snapshot,
         driver_recovery: _,
     } = state;
-    let authoritative_state_root = next_contracts::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root_from_canonical_components(
+    let authoritative_state_root = next_contracts::snapshot::world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root_from_canonical_components(
         &checkpoint_canonical_components,
         &world_streaming_snapshot,
         world_routine_snapshot_or_none.as_ref(),
@@ -519,6 +528,7 @@ fn prepare_live_state(
         &world_activity_snapshot,
         &agent_cognition_snapshot,
         &agent_memory_snapshot,
+        &physical_animation_snapshot,
     )?;
     let summary = ApplicationRunOutcomeV1 {
         session_id,
@@ -551,6 +561,7 @@ fn prepare_live_state(
         activity: world_activity_snapshot,
         agent: agent_cognition_snapshot,
         memory: agent_memory_snapshot,
+        physical_animation: physical_animation_snapshot,
         summary,
     })
 }
@@ -594,7 +605,7 @@ fn prepare_reference_run(
     let world_activity_snapshot = run
         .world_activity_snapshot_or_none
         .ok_or(ApplicationError::RecoveryIncompatible)?;
-    let authoritative_state_root = next_contracts::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root_from_canonical_components(
+    let authoritative_state_root = next_contracts::snapshot::world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root_from_canonical_components(
         &checkpoint_canonical_components,
         &run.world_streaming_snapshot,
         run.world_routine_snapshot_or_none.as_ref(),
@@ -602,6 +613,7 @@ fn prepare_reference_run(
         &world_activity_snapshot,
         &run.agent_cognition_snapshot,
         &run.agent_memory_snapshot,
+        &run.physical_animation_snapshot,
     )?;
     let summary = ApplicationRunOutcomeV1 {
         session_id,
@@ -633,6 +645,7 @@ fn prepare_reference_run(
         activity: world_activity_snapshot,
         agent: run.agent_cognition_snapshot,
         memory: run.agent_memory_snapshot,
+        physical_animation: run.physical_animation_snapshot,
         summary,
     })
 }

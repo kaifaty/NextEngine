@@ -7,6 +7,8 @@ pub use checkpoint::{
     state_root_from_save_segment_descriptors, validate_world_checkpoint_component_closures,
     world_checkpoint_v4_state_root, world_checkpoint_with_cognition_v1_state_root,
     world_checkpoint_with_cognition_v1_state_root_from_canonical_components,
+    world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root,
+    world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root_from_canonical_components,
     world_checkpoint_with_streaming_and_routine_v1_state_root,
     world_checkpoint_with_streaming_and_routine_v1_state_root_from_canonical_components,
     world_checkpoint_with_streaming_v1_state_root,

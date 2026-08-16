@@ -10,6 +10,7 @@ publish = false
 next_agent.workspace = true
 next_assets.workspace = true
 next_contracts.workspace = true
+next_motor.workspace = true
 next_player.workspace = true
 next_presentation.workspace = true
 next_project.workspace = true

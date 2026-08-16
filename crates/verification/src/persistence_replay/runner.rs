@@ -38,6 +38,7 @@ struct DirectScenario {
     population: WorldPopulationOwnerV1,
     activity: WorldActivityOwnerV1,
     cognition: next_agent::cognition::StrategicAgentOwnersV1,
+    physical_animation: next_motor::PhysicalAnimationOwnerV1,
     runtime: RuntimeState,
     initial_checkpoint: WorldCheckpointV4,
     initial_world_snapshot: WorldStreamingSnapshotV1,
@@ -46,9 +47,13 @@ struct DirectScenario {
     initial_activity_snapshot: next_contracts::world_activity::WorldActivitySnapshotV1,
     initial_agent_snapshot: next_contracts::cognition::AgentCognitionSnapshotV1,
     initial_memory_snapshot: next_contracts::cognition::AgentMemorySnapshotV1,
+    initial_physical_animation_snapshot:
+        next_contracts::physical_animation::PhysicalAnimationSnapshotV1,
     direct_commands: Vec<WorldCommand>,
     reports: Vec<TickReport>,
     world_services_commits: Vec<WorldServicesTickCommitV1>,
+    physical_animation_snapshots:
+        Vec<next_contracts::physical_animation::PhysicalAnimationSnapshotV1>,
     replay_streaming_inputs: Vec<WorldStreamingReplayInputV1>,
     replay_direct_commands: Vec<Vec<WorldCommand>>,
 }
@@ -60,6 +65,7 @@ struct RestoredScenario {
     population: WorldPopulationOwnerV1,
     activity: WorldActivityOwnerV1,
     cognition: next_agent::cognition::StrategicAgentOwnersV1,
+    physical_animation: next_motor::PhysicalAnimationOwnerV1,
     store: SaveStore,
     compatibility: SaveCompatibility,
     saved_checkpoint: WorldCheckpointV4,
@@ -69,6 +75,8 @@ struct RestoredScenario {
     saved_activity_snapshot: next_contracts::world_activity::WorldActivitySnapshotV1,
     saved_agent_snapshot: next_contracts::cognition::AgentCognitionSnapshotV1,
     saved_memory_snapshot: next_contracts::cognition::AgentMemorySnapshotV1,
+    saved_physical_animation_snapshot:
+        next_contracts::physical_animation::PhysicalAnimationSnapshotV1,
     _directory: CheckDirectory,
 }
 
@@ -82,11 +90,13 @@ fn commit_world_services_tick(
     population: &mut WorldPopulationOwnerV1,
     activity: &mut WorldActivityOwnerV1,
     cognition: &mut next_agent::cognition::StrategicAgentOwnersV1,
+    physical_animation: &mut next_motor::PhysicalAnimationOwnerV1,
     world: &mut WorldStreamerV1,
     commands: Vec<WorldCommand>,
     streaming: Option<PreparedWorldStreamingPublicationV1>,
     context: &'static str,
 ) -> Result<WorldServicesTickCommitV1, PersistenceReplayCheckError> {
+    let previous_physics = runtime.physics_snapshot().clone();
     let prepared = match streaming {
         Some(publication) => runtime
             .tick_preparation()
@@ -111,11 +121,19 @@ fn commit_world_services_tick(
             routine, population, activity, cognition, world, prepared,
         )
         .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
-    runtime
+    let commit = runtime
         .commit_validated_world_services_tick_with_cognition_and_activity(
             routine, population, activity, cognition, world, validated,
         )
-        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))
+        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
+    physical_animation
+        .advance(
+            &previous_physics,
+            runtime.physics_snapshot(),
+            runtime.next_tick(),
+        )
+        .map_err(|error| PersistenceReplayCheckError::new(context, error.to_string()))?;
+    Ok(commit)
 }
 
 fn record_direct_tick(
@@ -132,6 +150,7 @@ fn record_direct_tick(
         &mut scenario.population,
         &mut scenario.activity,
         &mut scenario.cognition,
+        &mut scenario.physical_animation,
         &mut scenario.world,
         commands,
         streaming,
@@ -140,6 +159,9 @@ fn record_direct_tick(
     let report = commit.runtime_report.clone();
     scenario.reports.push(report.clone());
     scenario.world_services_commits.push(commit);
+    scenario
+        .physical_animation_snapshots
+        .push(scenario.physical_animation.snapshot().clone());
     scenario.replay_streaming_inputs.push(streaming_input);
     scenario.replay_direct_commands.push(recorded_commands);
     Ok(report)

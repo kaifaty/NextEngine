@@ -11,6 +11,7 @@ use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1}
 use next_contracts::persistence::{
     ManifestCodecError, ManifestValidationError, SaveCompatibility, SaveManifestV2,
 };
+use next_contracts::physical_animation::PhysicalAnimationSnapshotV1;
 use next_contracts::physics::PhysicsWorldCheckpointV1;
 use next_contracts::rpg::RpgSnapshotV2;
 use next_contracts::snapshot::{RuntimeSnapshotV3, WorldCheckpointV4};
@@ -39,6 +40,7 @@ pub struct LoadedSave {
     pub world_activity_snapshot_or_none: Option<WorldActivitySnapshotV1>,
     pub agent_cognition_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     pub agent_memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
+    pub physical_animation_snapshot_or_none: Option<PhysicalAnimationSnapshotV1>,
     pub slot: u8,
     pub rejected_generations: Vec<RejectedGeneration>,
 }
@@ -108,6 +110,7 @@ pub(super) fn read_generation_directory(
         world_activity_snapshot_or_none: validated.world_activity_snapshot_or_none,
         agent_cognition_snapshot_or_none: validated.agent_cognition_snapshot_or_none,
         agent_memory_snapshot_or_none: validated.agent_memory_snapshot_or_none,
+        physical_animation_snapshot_or_none: validated.physical_animation_snapshot_or_none,
         slot,
         rejected_generations: vec![],
     })

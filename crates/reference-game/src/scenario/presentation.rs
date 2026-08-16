@@ -1,8 +1,12 @@
 use super::*;
+use next_contracts::physics::PhysicsCanonicalSnapshotV2;
+use next_motor::{PhysicalAnimationOwnerV1, PhysicalAnimationPresentationAvailabilityV1};
 
 pub(crate) fn fixture_presentation_bindings(
     fixture: &ReferenceGameSession,
     rpg: &RpgSnapshotV2,
+    physical_animation: &PhysicalAnimationOwnerV1,
+    physics: &PhysicsCanonicalSnapshotV2,
 ) -> Result<Vec<PresentationBindingV1>, ReferenceGameError> {
     let revision = |asset_id| {
         fixture
@@ -88,6 +92,18 @@ pub(crate) fn fixture_presentation_bindings(
     } else {
         defeated_enemy_material
     };
+    let player_animation_pose = physical_animation.pose(
+        fixture.body_id,
+        physics,
+        Some(0),
+        PhysicalAnimationPresentationAvailabilityV1::FULL,
+    )?;
+    let npc_animation_pose = physical_animation.pose(
+        fixture.npc_character_id,
+        physics,
+        Some(0),
+        PhysicalAnimationPresentationAvailabilityV1::FULL,
+    )?;
     let pickup_equipped = matches!(
         aggregate_payload(rpg, RpgAggregateKindV1::Equipment, fixture.player_equipment_id),
         Some(RpgAggregatePayloadV1::Equipment(equipment))
@@ -172,9 +188,13 @@ pub(crate) fn fixture_presentation_bindings(
             instance_ordinal: 0,
             local_bounds: humanoid_bounds,
             feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
-            physics_body_id: Some(fixture.physics_body_id),
-            fallback_transform:
-                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            physics_body_id: None,
+            fallback_transform: next_contracts::presentation::QuantizedPresentationTransformV1 {
+                translation_micrometres: player_animation_pose
+                    .rigid_root_pose
+                    .translation_micrometres,
+                orientation_q30: player_animation_pose.rigid_root_pose.rotation_q1_30,
+            },
             visible: true,
         },
         PresentationBindingV1 {
@@ -223,12 +243,11 @@ pub(crate) fn fixture_presentation_bindings(
             instance_ordinal: 0,
             local_bounds: enemy_bounds,
             feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
-            physics_body_id: Some(PhysicsBodyIdV1 {
-                subject_id: fixture.npc_character_id,
-                body_slot: 0,
-            }),
-            fallback_transform:
-                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            physics_body_id: None,
+            fallback_transform: next_contracts::presentation::QuantizedPresentationTransformV1 {
+                translation_micrometres: npc_animation_pose.rigid_root_pose.translation_micrometres,
+                orientation_q30: npc_animation_pose.rigid_root_pose.rotation_q1_30,
+            },
             // The current grounded-capsule checkpoint keeps this solid body
             // for exact contact/replay continuation. Keep a darkened defeated
             // body visible so its collider never turns into an invisible

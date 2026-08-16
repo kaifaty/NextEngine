@@ -75,8 +75,9 @@ pub(super) fn save_and_restore(
     let saved_activity_snapshot = direct.activity.snapshot().clone();
     let saved_agent_snapshot = direct.cognition.agent_snapshot().clone();
     let saved_memory_snapshot = direct.cognition.memory_snapshot().clone();
+    let saved_physical_animation_snapshot = direct.physical_animation.snapshot().clone();
     let generation_zero = store
-        .commit_world_checkpoint_with_cognition(
+        .commit_world_checkpoint_with_cognition_and_physical_animation(
             compatibility.clone(),
             &saved_checkpoint,
             &saved_world_snapshot,
@@ -85,6 +86,7 @@ pub(super) fn save_and_restore(
             &saved_activity_snapshot,
             &saved_agent_snapshot,
             &saved_memory_snapshot,
+            &saved_physical_animation_snapshot,
         )
         .map_err(|error| {
             PersistenceReplayCheckError::new("commit generation zero", error.to_string())
@@ -124,6 +126,10 @@ pub(super) fn save_and_restore(
     let loaded_memory = loaded.agent_memory_snapshot_or_none.ok_or_else(|| {
         PersistenceReplayCheckError::condition("loaded agent memory owner segment exists")
     })?;
+    let loaded_physical_animation =
+        loaded.physical_animation_snapshot_or_none.ok_or_else(|| {
+            PersistenceReplayCheckError::condition("loaded physical animation owner segment exists")
+        })?;
 
     let runtime = RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
         loaded.checkpoint,
@@ -184,6 +190,15 @@ pub(super) fn save_and_restore(
     .map_err(|error| {
         PersistenceReplayCheckError::new("restore world activity", error.to_string())
     })?;
+    let physical_animation = next_reference_game::restore_reference_physical_animation_owner(
+        &direct.fixture,
+        loaded_physical_animation,
+        runtime.physics_snapshot(),
+        runtime.next_tick(),
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("restore physical animation", error.to_string())
+    })?;
     runtime
         .validate_world_routine_ledger_closure(&routine)
         .map_err(|error| {
@@ -202,6 +217,7 @@ pub(super) fn save_and_restore(
         population,
         activity,
         cognition,
+        physical_animation,
         store,
         compatibility,
         saved_checkpoint,
@@ -211,6 +227,7 @@ pub(super) fn save_and_restore(
         saved_activity_snapshot,
         saved_agent_snapshot,
         saved_memory_snapshot,
+        saved_physical_animation_snapshot,
         _directory: directory,
     })
 }

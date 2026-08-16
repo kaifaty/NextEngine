@@ -179,23 +179,17 @@ fn run_scripted_audio_session_with_package(
         .flat_map(|sample| sample.to_le_bytes())
         .collect();
     let state = driver.state()?;
-    let final_state_root = match state.world_routine_snapshot_or_none.as_ref() {
-        Some(routine) => {
-            next_contracts::snapshot::world_checkpoint_with_streaming_and_routine_v1_state_root(
-                &state.checkpoint.runtime_snapshot,
-                &state.checkpoint.rpg_snapshot,
-                &state.checkpoint.physics_checkpoint,
-                &state.world_streaming_snapshot,
-                routine,
-            )?
-        }
-        None => next_contracts::snapshot::world_checkpoint_with_streaming_v1_state_root(
-            &state.checkpoint.runtime_snapshot,
-            &state.checkpoint.rpg_snapshot,
-            &state.checkpoint.physics_checkpoint,
+    let final_state_root = next_contracts::snapshot::
+        world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root_from_canonical_components(
+            &state.checkpoint_canonical_components,
             &state.world_streaming_snapshot,
-        )?,
-    };
+            state.world_routine_snapshot_or_none.as_ref(),
+            &state.world_population_snapshot,
+            &state.world_activity_snapshot,
+            &state.agent_cognition_snapshot,
+            &state.agent_memory_snapshot,
+            &state.physical_animation_snapshot,
+        )?;
     let subtitle_after_session = driver
         .current_audio_subtitle(driver.next_tick())
         .map(|text_id| text_id.as_str().to_owned());

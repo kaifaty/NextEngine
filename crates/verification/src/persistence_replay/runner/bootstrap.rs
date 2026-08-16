@@ -89,6 +89,13 @@ pub(super) fn initialize(
     .map_err(|error| {
         PersistenceReplayCheckError::new("activate world activity", error.to_string())
     })?;
+    let physical_animation = next_reference_game::reference_physical_animation_owner(
+        &fixture,
+        runtime.physics_snapshot(),
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("activate physical animation", error.to_string())
+    })?;
     let initial_checkpoint = runtime.world_checkpoint().map_err(|error| {
         PersistenceReplayCheckError::new("initial checkpoint", error.to_string())
     })?;
@@ -100,6 +107,7 @@ pub(super) fn initialize(
     let initial_activity_snapshot = activity.snapshot().clone();
     let initial_agent_snapshot = cognition.agent_snapshot().clone();
     let initial_memory_snapshot = cognition.memory_snapshot().clone();
+    let initial_physical_animation_snapshot = physical_animation.snapshot().clone();
     let direct_commands = rpg_commands(fixture.rpg_stream_id, fixture.principal.clone())?;
 
     Ok(DirectScenario {
@@ -116,6 +124,7 @@ pub(super) fn initialize(
         population,
         activity,
         cognition,
+        physical_animation,
         runtime,
         initial_checkpoint,
         initial_world_snapshot,
@@ -124,9 +133,11 @@ pub(super) fn initialize(
         initial_activity_snapshot,
         initial_agent_snapshot,
         initial_memory_snapshot,
+        initial_physical_animation_snapshot,
         direct_commands,
         reports: Vec::new(),
         world_services_commits: Vec::new(),
+        physical_animation_snapshots: Vec::new(),
         replay_streaming_inputs: Vec::new(),
         replay_direct_commands: Vec::new(),
     })

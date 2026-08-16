@@ -386,6 +386,7 @@ fn live_dialogue_leave_then_rest_blocks_reopen_and_survives_recovery() {
         saved.world_activity_snapshot,
         saved.agent_cognition_snapshot,
         saved.agent_memory_snapshot,
+        saved.physical_animation_snapshot,
         saved.driver_recovery.clone(),
     )
     .expect("restore");

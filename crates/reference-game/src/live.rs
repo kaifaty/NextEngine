@@ -4,6 +4,7 @@ use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1}
 use next_contracts::command::EventPayload;
 use next_contracts::ids::{AssetId, ContentHash, PersistentId, SchemaId};
 use next_contracts::input::{CORE_INTERACT_ACTION_ID, PlayerActionPhaseV1, PlayerActionValueV1};
+use next_contracts::physical_animation::PhysicalAnimationSnapshotV1;
 use next_contracts::physics::PhysicsCanonicalSnapshotV2;
 use next_contracts::platform::PlatformEventV1;
 use next_contracts::presentation::{
@@ -69,6 +70,7 @@ pub struct ReferenceGameDriverV2 {
     fixture: ReferenceGameSession,
     content_generation: next_assets::PinnedContentGeneration,
     runtime: RuntimeState,
+    physical_animation: next_motor::PhysicalAnimationOwnerV1,
     world_routine: WorldRoutineOwnerV1,
     world_population: WorldPopulationOwnerV1,
     world_activity: WorldActivityOwnerV1,
@@ -96,7 +98,7 @@ pub struct ReferenceGameDriverV2 {
     dialogue_entry_node_id: SchemaId,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct ReferenceGameGenerationV1 {
     next_logical_frame_sequence: u64,
     events: u64,
@@ -109,6 +111,7 @@ struct ReferenceGameGenerationV1 {
     presentation_simulation_tick: u64,
     ui_screen: ReferenceUiScreenV1,
     dialogue: ReferenceDialogueUiV1,
+    physical_animation_snapshot: PhysicalAnimationSnapshotV1,
 }
 
 impl ReferenceGameGenerationV1 {
@@ -126,6 +129,7 @@ impl ReferenceGameGenerationV1 {
             presentation_simulation_tick: presentation.simulation_tick,
             ui_screen: driver.ui_screen,
             dialogue: driver.dialogue,
+            physical_animation_snapshot: driver.physical_animation.snapshot().clone(),
         })
     }
 
@@ -144,11 +148,13 @@ impl ReferenceGameGenerationV1 {
             && self.presentation_simulation_tick == presentation.simulation_tick
             && self.ui_screen == driver.ui_screen
             && self.dialogue == driver.dialogue
+            && self.physical_animation_snapshot == *driver.physical_animation.snapshot()
     }
 }
 
 struct PreparedReferenceGameState {
     input: PlayerInputSessionV1,
+    physical_animation: next_motor::PhysicalAnimationOwnerV1,
     presentation_bindings: Vec<PresentationBindingV1>,
     presentation_extractor: PresentationExtractorV1,
     audio_mixer: AudioMixerV1,
@@ -287,8 +293,16 @@ impl ReferenceGameDriverV2 {
             fixture.action_map.clone(),
             fixture.context_stack.clone(),
         )?;
-        let presentation_bindings =
-            fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
+        let physical_animation = crate::physical_animation::reference_physical_animation_owner(
+            &fixture,
+            runtime.physics_snapshot(),
+        )?;
+        let presentation_bindings = fixture_presentation_bindings(
+            &fixture,
+            &runtime.rpg_snapshot(),
+            &physical_animation,
+            runtime.physics_snapshot(),
+        )?;
         let presentation_extractor =
             PresentationExtractorV1::new_with_snapshot_epoch_and_ui_batch_limits(
                 snapshot_epoch,
@@ -320,6 +334,7 @@ impl ReferenceGameDriverV2 {
             fixture,
             content_generation,
             runtime,
+            physical_animation,
             world_routine,
             world_population,
             world_activity,
@@ -362,6 +377,7 @@ impl ReferenceGameDriverV2 {
         world_activity_snapshot: WorldActivitySnapshotV1,
         agent_cognition_snapshot: AgentCognitionSnapshotV1,
         agent_memory_snapshot: AgentMemorySnapshotV1,
+        physical_animation_snapshot: PhysicalAnimationSnapshotV1,
         recovery: ReferenceLiveDriverRecoveryV1,
     ) -> Result<Self, ReferenceGameError> {
         checkpoint.validate()?;
@@ -408,6 +424,13 @@ impl ReferenceGameDriverV2 {
             world_activity_snapshot,
             runtime.next_tick(),
         )?;
+        let physical_animation =
+            crate::physical_animation::restore_reference_physical_animation_owner(
+                &fixture,
+                physical_animation_snapshot,
+                runtime.physics_snapshot(),
+                runtime.next_tick(),
+            )?;
         runtime.validate_world_routine_ledger_closure(&world_routine)?;
         runtime.validate_world_population_ledger_closure(&world_population)?;
         let input =
@@ -425,8 +448,12 @@ impl ReferenceGameDriverV2 {
         {
             return Err(ReferenceGameError::RecoveryInvalid);
         }
-        let presentation_bindings =
-            fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
+        let presentation_bindings = fixture_presentation_bindings(
+            &fixture,
+            &runtime.rpg_snapshot(),
+            &physical_animation,
+            runtime.physics_snapshot(),
+        )?;
         let (presentation_extractor, persisted_snapshot) =
             PresentationExtractorV1::begin_authoritative_recovery_from_bytes(
                 &recovery.presentation_snapshot_bytes,
@@ -469,6 +496,7 @@ impl ReferenceGameDriverV2 {
             fixture,
             content_generation,
             runtime,
+            physical_animation,
             world_routine,
             world_population,
             world_activity,
@@ -545,6 +573,7 @@ impl ReferenceGameDriverV2 {
     ) -> Result<PreparedReferenceGameAdvance, ReferenceGameError> {
         let base_generation = ReferenceGameGenerationV1::capture(self)?;
         let mut input_session = self.input.clone();
+        let mut physical_animation = self.physical_animation.clone();
         let mut presentation_extractor = self.presentation_extractor.clone();
         let mut audio_mixer = self.audio_mixer.clone();
         let mut camera_yaw_millidegrees = self.camera_yaw_millidegrees;
@@ -663,6 +692,11 @@ impl ReferenceGameDriverV2 {
                     context_stack,
                 )?;
         }
+        physical_animation.advance(
+            self.runtime.physics_snapshot(),
+            prepared_runtime.physics_snapshot(),
+            prepared_runtime.next_tick(),
+        )?;
         let events = self
             .events
             .checked_add(
@@ -698,8 +732,12 @@ impl ReferenceGameDriverV2 {
             ui_suspend_causal_hash,
             self.current_audio_subtitle(prepared_runtime.next_tick()),
         )?;
-        let presentation_bindings =
-            fixture_presentation_bindings(&self.fixture, &prepared_runtime.rpg_snapshot())?;
+        let presentation_bindings = fixture_presentation_bindings(
+            &self.fixture,
+            &prepared_runtime.rpg_snapshot(),
+            &physical_animation,
+            prepared_runtime.physics_snapshot(),
+        )?;
         presentation_extractor.extract_with_cameras_and_semantic_ui(
             prepared_runtime.next_tick(),
             self.fixture
@@ -752,6 +790,7 @@ impl ReferenceGameDriverV2 {
             runtime: prepared_runtime,
             state: PreparedReferenceGameState {
                 input: input_session,
+                physical_animation,
                 presentation_bindings,
                 presentation_extractor,
                 audio_mixer,
@@ -813,6 +852,7 @@ impl ReferenceGameDriverV2 {
                 validated.runtime,
             )?;
         self.input = validated.state.input;
+        self.physical_animation = validated.state.physical_animation;
         self.presentation_bindings = validated.state.presentation_bindings;
         self.presentation_extractor = validated.state.presentation_extractor;
         self.audio_mixer = validated.state.audio_mixer;

@@ -50,7 +50,7 @@ pub(super) fn complete(
         PersistenceReplayCheckError::condition("final world population owner segment exists")
     })?;
     let final_state_root =
-        next_contracts::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root(
+        next_contracts::snapshot::world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root(
             &final_checkpoint.runtime_snapshot,
             &final_checkpoint.rpg_snapshot,
             &final_checkpoint.physics_checkpoint,
@@ -60,6 +60,7 @@ pub(super) fn complete(
             direct.activity.snapshot(),
             direct.cognition.agent_snapshot(),
             direct.cognition.memory_snapshot(),
+            direct.physical_animation.snapshot(),
         )
         .map_err(|error| PersistenceReplayCheckError::new("final state root", error.to_string()))?;
     let final_command_ledger_hash = final_checkpoint
@@ -108,7 +109,7 @@ fn verify_corrupt_fallbacks(
     })?;
     let generation_one = restored
         .store
-        .commit_world_checkpoint_with_cognition(
+        .commit_world_checkpoint_with_cognition_and_physical_animation(
             restored.compatibility.clone(),
             final_checkpoint,
             direct.world.snapshot(),
@@ -117,6 +118,7 @@ fn verify_corrupt_fallbacks(
             direct.activity.snapshot(),
             direct.cognition.agent_snapshot(),
             direct.cognition.memory_snapshot(),
+            direct.physical_animation.snapshot(),
         )
         .map_err(|error| {
             PersistenceReplayCheckError::new("commit generation one", error.to_string())
@@ -158,6 +160,8 @@ fn verify_corrupt_fallbacks(
             != Some(restored.saved_activity_snapshot.clone())
         || fallback.agent_cognition_snapshot_or_none != Some(restored.saved_agent_snapshot.clone())
         || fallback.agent_memory_snapshot_or_none != Some(restored.saved_memory_snapshot.clone())
+        || fallback.physical_animation_snapshot_or_none
+            != Some(restored.saved_physical_animation_snapshot.clone())
         || !preserved_corrupt
         || !source_unchanged
     {

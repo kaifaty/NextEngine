@@ -45,6 +45,7 @@ struct ReferenceBulkObservableCursorV1 {
     world_activity_snapshot: WorldActivitySnapshotV1,
     agent_cognition_snapshot: AgentCognitionSnapshotV1,
     agent_memory_snapshot: AgentMemorySnapshotV1,
+    physical_animation_snapshot: PhysicalAnimationSnapshotV1,
     camera_yaw_millidegrees: i32,
     camera_pitch_millidegrees: i32,
     ui_screen: ReferenceUiScreenV1,
@@ -85,6 +86,7 @@ impl ReferenceBulkObservableCursorV1 {
             world_activity_snapshot: driver.world_activity.snapshot().clone(),
             agent_cognition_snapshot: driver.cognition.agent_snapshot().clone(),
             agent_memory_snapshot: driver.cognition.memory_snapshot().clone(),
+            physical_animation_snapshot: driver.physical_animation.snapshot().clone(),
             camera_yaw_millidegrees: driver.camera_yaw_millidegrees,
             camera_pitch_millidegrees: driver.camera_pitch_millidegrees,
             ui_screen: driver.ui_screen,
@@ -155,7 +157,7 @@ impl ReferenceGameDriverV2 {
             .snapshot_or_none()
             .ok_or(ReferenceGameError::RecoveryInvalid)?;
         let application = next_contracts::snapshot::
-            world_checkpoint_with_systemic_cognition_v1_state_root_from_canonical_components(
+            world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root_from_canonical_components(
                 &components,
                 self.world_streamer.snapshot(),
                 self.world_routine.snapshot_or_none(),
@@ -163,6 +165,7 @@ impl ReferenceGameDriverV2 {
                 self.world_activity.snapshot(),
                 self.cognition.agent_snapshot(),
                 self.cognition.memory_snapshot(),
+                self.physical_animation.snapshot(),
             )?;
         Ok((checkpoint.state_root, application))
     }

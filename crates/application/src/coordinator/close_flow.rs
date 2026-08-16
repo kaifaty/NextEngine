@@ -43,16 +43,19 @@ impl ApplicationCoordinator {
             .as_ref()
             .ok_or(ApplicationError::NoRunOutcome)?;
         let compatibility = save_compatibility(&self.activated_project, &prepared.checkpoint)?;
-        let receipt = self.save_store.commit_world_checkpoint_with_cognition(
-            compatibility,
-            &prepared.checkpoint,
-            &prepared.streaming,
-            prepared.routine.as_ref(),
-            &prepared.population,
-            &prepared.activity,
-            &prepared.agent,
-            &prepared.memory,
-        )?;
+        let receipt = self
+            .save_store
+            .commit_world_checkpoint_with_cognition_and_physical_animation(
+                compatibility,
+                &prepared.checkpoint,
+                &prepared.streaming,
+                prepared.routine.as_ref(),
+                &prepared.population,
+                &prepared.activity,
+                &prepared.agent,
+                &prepared.memory,
+                &prepared.physical_animation,
+            )?;
         let loaded = self.save_store.load_latest(&save_compatibility(
             &self.activated_project,
             &prepared.checkpoint,
@@ -123,16 +126,19 @@ impl ApplicationCoordinator {
             .as_ref()
             .ok_or(ApplicationError::NoRunOutcome)?;
         let compatibility = save_compatibility(&self.activated_project, &prepared.checkpoint)?;
-        let image = self.save_store.prepare_world_checkpoint_with_cognition(
-            compatibility,
-            &prepared.checkpoint,
-            &prepared.streaming,
-            prepared.routine.as_ref(),
-            &prepared.population,
-            &prepared.activity,
-            &prepared.agent,
-            &prepared.memory,
-        )?;
+        let image = self
+            .save_store
+            .prepare_world_checkpoint_with_cognition_and_physical_animation(
+                compatibility,
+                &prepared.checkpoint,
+                &prepared.streaming,
+                prepared.routine.as_ref(),
+                &prepared.population,
+                &prepared.activity,
+                &prepared.agent,
+                &prepared.memory,
+                &prepared.physical_animation,
+            )?;
         let image_hash = image.content_hash()?;
         self.durable.close_journal = Some(CloseSessionJournalV2::prepared(&request, image_hash));
         self.durable.prepared_save_image = Some(image);

@@ -504,6 +504,17 @@ fn live_normalized_controls_move_the_player_while_camera_input_stays_nonauthorit
     let mut movement = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .expect("movement driver");
     let initial = movement.state().expect("initial state");
+    assert_eq!(initial.physical_animation_snapshot.records.len(), 2);
+    assert!(
+        initial
+            .physical_animation_snapshot
+            .records
+            .iter()
+            .all(|record| {
+                record.graph_state
+                    == next_contracts::physical_animation::PhysicalAnimationGraphStateV1::Idle
+            })
+    );
     let body_id = next_contracts::physics::PhysicsBodyIdV1 {
         subject_id: PersistentId::from_bytes([0x54; 16]),
         body_slot: 0,
@@ -523,6 +534,27 @@ fn live_normalized_controls_move_the_player_while_camera_input_stays_nonauthorit
         )])
         .expect("normalized movement");
     let moved = movement.state().expect("moved state");
+    assert_eq!(moved.physical_animation_snapshot.next_simulation_tick, 1);
+    assert_eq!(
+        moved
+            .physical_animation_snapshot
+            .records
+            .iter()
+            .find(|record| record.subject_id == PersistentId::from_bytes([0x54; 16]))
+            .expect("player animation record")
+            .graph_state,
+        next_contracts::physical_animation::PhysicalAnimationGraphStateV1::Locomotion
+    );
+    assert_eq!(
+        moved
+            .physical_animation_snapshot
+            .records
+            .iter()
+            .find(|record| record.subject_id == PersistentId::from_bytes([0x59; 16]))
+            .expect("NPC animation record")
+            .graph_state,
+        next_contracts::physical_animation::PhysicalAnimationGraphStateV1::Idle
+    );
     assert_eq!(
         moved
             .checkpoint
@@ -763,6 +795,7 @@ fn live_recovery_republishes_sequence_zero_camera_cut_under_a_new_epoch() {
         persisted.world_activity_snapshot,
         persisted.agent_cognition_snapshot,
         persisted.agent_memory_snapshot,
+        persisted.physical_animation_snapshot,
         persisted.driver_recovery.clone(),
     )
     .expect("recovered driver")
@@ -930,6 +963,7 @@ fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
         persisted.world_activity_snapshot,
         persisted.agent_cognition_snapshot,
         persisted.agent_memory_snapshot,
+        persisted.physical_animation_snapshot,
         persisted.driver_recovery.clone(),
     )
     .expect("recovered driver")

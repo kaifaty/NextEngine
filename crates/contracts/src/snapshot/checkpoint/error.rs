@@ -10,6 +10,7 @@ pub enum WorldCheckpointError {
     WorldStreaming(crate::world::WorldStreamingContractError),
     WorldPopulation(crate::world_population::WorldPopulationContractError),
     WorldActivity(crate::world_activity::WorldActivityContractError),
+    PhysicalAnimation(crate::physical_animation::PhysicalAnimationContractErrorV1),
     AgentCognition,
     CoreInteractionClosure(CoreDialogueQuestClosureError),
     ClosureMismatch,
@@ -31,6 +32,7 @@ impl WorldCheckpointError {
             },
             Self::WorldPopulation(error) => error.diagnostic_code(),
             Self::WorldActivity(error) => error.diagnostic_code(),
+            Self::PhysicalAnimation(error) => error.diagnostic_code(),
             Self::AgentCognition => "AGENT_COGNITION_SNAPSHOT_INVALID",
             Self::CoreInteractionClosure(error) => error.stable_code(),
             Self::Canonicalization(_) => "WORLD_CHECKPOINT_CANONICALIZATION_FAILED",
@@ -85,6 +87,12 @@ impl From<crate::world_population::WorldPopulationContractError> for WorldCheckp
 impl From<crate::world_activity::WorldActivityContractError> for WorldCheckpointError {
     fn from(error: crate::world_activity::WorldActivityContractError) -> Self {
         Self::WorldActivity(error)
+    }
+}
+
+impl From<crate::physical_animation::PhysicalAnimationContractErrorV1> for WorldCheckpointError {
+    fn from(error: crate::physical_animation::PhysicalAnimationContractErrorV1) -> Self {
+        Self::PhysicalAnimation(error)
     }
 }
 

@@ -268,6 +268,16 @@ impl RuntimeReplayDriver {
         self.runtime.world_checkpoint()
     }
 
+    #[must_use]
+    pub fn physics_snapshot(&self) -> &next_contracts::physics::PhysicsCanonicalSnapshotV2 {
+        self.runtime.physics_snapshot()
+    }
+
+    #[must_use]
+    pub const fn next_tick(&self) -> u64 {
+        self.runtime.next_tick()
+    }
+
     pub fn validate_world_routine_ledger_closure(
         &self,
         routine: &next_world::WorldRoutineOwnerV1,

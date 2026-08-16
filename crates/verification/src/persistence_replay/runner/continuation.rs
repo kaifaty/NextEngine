@@ -35,6 +35,7 @@ fn run_paired_tick(
         &mut direct.population,
         &mut direct.activity,
         &mut direct.cognition,
+        &mut direct.physical_animation,
         &mut direct.world,
         direct_commands,
         direct_streaming,
@@ -46,17 +47,23 @@ fn run_paired_tick(
         &mut restored.population,
         &mut restored.activity,
         &mut restored.cognition,
+        &mut restored.physical_animation,
         &mut restored.world,
         restored_commands,
         restored_streaming,
         context,
     )?;
-    if direct_commit != restored_commit {
+    if direct_commit != restored_commit
+        || direct.physical_animation.snapshot() != restored.physical_animation.snapshot()
+    {
         return Err(PersistenceReplayCheckError::condition(context));
     }
     let report = direct_commit.runtime_report.clone();
     direct.reports.push(report.clone());
     direct.world_services_commits.push(direct_commit);
+    direct
+        .physical_animation_snapshots
+        .push(direct.physical_animation.snapshot().clone());
     direct.replay_streaming_inputs.push(streaming_input);
     direct.replay_direct_commands.push(replay_commands);
     Ok(report)

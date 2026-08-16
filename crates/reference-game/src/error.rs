@@ -37,6 +37,7 @@ pub enum ReferenceGameError {
     Identity(next_contracts::identity::IdentityContractError),
     Input(next_contracts::input::InputContractError),
     PlayerInput(next_player::PlayerInputError),
+    PhysicalAnimation(next_motor::PhysicalAnimationOwnerErrorV1),
     Platform(next_contracts::platform::PlatformContractError),
     Physics(next_contracts::physics::PhysicsContractError),
     Authority(next_runtime::AuthorityRegistryError),
@@ -86,6 +87,7 @@ impl Display for ReferenceGameError {
             Self::Identity(error) => write!(formatter, "{error}"),
             Self::Input(error) => write!(formatter, "{error}"),
             Self::PlayerInput(error) => write!(formatter, "{error}"),
+            Self::PhysicalAnimation(error) => write!(formatter, "{error}"),
             Self::Platform(error) => write!(formatter, "{error}"),
             Self::Physics(error) => write!(formatter, "{error}"),
             Self::Authority(error) => write!(formatter, "{error}"),
@@ -173,6 +175,7 @@ from_error!(next_contracts::ids::IdentifierError, Identifier);
 from_error!(next_contracts::identity::IdentityContractError, Identity);
 from_error!(next_contracts::input::InputContractError, Input);
 from_error!(next_player::PlayerInputError, PlayerInput);
+from_error!(next_motor::PhysicalAnimationOwnerErrorV1, PhysicalAnimation);
 from_error!(next_contracts::platform::PlatformContractError, Platform);
 from_error!(next_contracts::physics::PhysicsContractError, Physics);
 from_error!(next_runtime::AuthorityRegistryError, Authority);

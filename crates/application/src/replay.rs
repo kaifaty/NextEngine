@@ -5,8 +5,8 @@ use next_contracts::canonical::{CanonicalDecodeLimits, CanonicalError};
 use next_contracts::command::{DomainEvent, WorldCommand};
 use next_contracts::ids::{CommandLedgerHash, SchemaId, StateRoot};
 use next_contracts::persistence::{
-    ManifestValidationError, ReplayCommandResultV2, ReplayManifestV9, SaveSegmentDescriptor,
-    WorldStreamingReplayInputV1, replay_physics_query_batch_hash,
+    ManifestValidationError, ReplayCommandResultV2, ReplayManifestV9, ReplayManifestV10,
+    SaveSegmentDescriptor, WorldStreamingReplayInputV1, replay_physics_query_batch_hash,
     replay_physics_query_results_hash, replay_targeting_query_trace_hash,
 };
 use next_contracts::physics::{
@@ -51,6 +51,13 @@ pub struct ReplayOutput {
     pub ticks: Vec<ReplayTickRecord>,
     pub final_snapshot: RuntimeSnapshotV3,
     pub final_checkpoint: WorldCheckpointV4,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReplayOutputV10 {
+    pub replay: ReplayOutput,
+    pub final_physical_animation_snapshot:
+        next_contracts::physical_animation::PhysicalAnimationSnapshotV1,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -509,6 +516,237 @@ pub fn run_replay_manifest_v9_with_physics_options(
         final_snapshot: final_checkpoint.runtime_snapshot.clone(),
         final_checkpoint,
     })
+}
+
+pub fn run_replay_manifest_v10(
+    manifest: &ReplayManifestV10,
+    package: next_project::ActivatedProjectPackage,
+) -> Result<ReplayOutputV10, ReplayError> {
+    run_replay_manifest_v10_with_physics_options(
+        manifest,
+        package,
+        next_runtime::PhysicsLaunchOptions::default(),
+    )
+}
+
+pub fn run_replay_manifest_v10_with_physics_options(
+    manifest: &ReplayManifestV10,
+    package: next_project::ActivatedProjectPackage,
+    physics_options: next_runtime::PhysicsLaunchOptions,
+) -> Result<ReplayOutputV10, ReplayError> {
+    let limits = CanonicalDecodeLimits::default();
+    let (initial, decoded_ticks) = manifest.validate_and_decode(limits)?;
+    let next_project::ActivatedProjectPackage {
+        project,
+        content_generation,
+    } = package;
+    let fixture = next_reference_game::build_reference_game_session(project.clone())
+        .map_err(|_| ManifestValidationError::ReplayInitialSegmentsInvalid)?;
+    let mut physical_animation = next_reference_game::restore_reference_physical_animation_owner(
+        &fixture,
+        initial.physical_animation_snapshot,
+        &initial.checkpoint.physics_checkpoint.snapshot,
+        initial.checkpoint.runtime_snapshot.next_tick,
+    )
+    .map_err(|_| ManifestValidationError::ReplayInitialSegmentsInvalid)?;
+    let mut world = next_world::WorldStreamerV1::restore(
+        project.clone(),
+        content_generation,
+        initial.world_streaming_snapshot,
+    )?;
+    let mut routine = next_world::WorldRoutineOwnerV1::restore(
+        project.world_routine_catalog_or_none,
+        initial.world_routine_snapshot_or_none,
+        initial.checkpoint.runtime_snapshot.next_tick,
+    )?;
+    let mut population = next_world::WorldPopulationOwnerV1::restore(
+        project.world_population_catalog.clone(),
+        project.world_navigation_catalog.clone(),
+        initial.world_population_snapshot,
+        initial.checkpoint.runtime_snapshot.next_tick,
+    )?;
+    let mut activity = next_world::WorldActivityOwnerV1::restore(
+        project.world_activity_catalog.clone(),
+        initial.world_activity_snapshot,
+        initial.checkpoint.runtime_snapshot.next_tick,
+    )?;
+    let mut cognition = next_agent::cognition::StrategicAgentOwnersV1::restore(
+        project.agent_cognition_catalog.clone(),
+        initial.agent_cognition_snapshot,
+        initial.agent_memory_snapshot,
+    )
+    .map_err(|_| ManifestValidationError::ReplayInitialSegmentsInvalid)?;
+
+    let mut authority = AuthorityRegistry::new();
+    for grant in &manifest.authority {
+        authority
+            .register(grant.principal.clone(), grant.capabilities.clone())
+            .map_err(|_| ManifestValidationError::AuthorityNotStrictlySorted)?;
+    }
+    let mut replay = RuntimeReplayDriver::new_with_definitions_and_physics_options(
+        initial.checkpoint,
+        authority,
+        project.rpg_definitions.clone(),
+        physics_options,
+    )?;
+    replay.validate_world_routine_ledger_closure(&routine)?;
+    replay.validate_world_population_ledger_closure(&population)?;
+    let mut records = Vec::with_capacity(decoded_ticks.len());
+    for ((tick_manifest, tick), compare_point) in manifest
+        .ticks
+        .iter()
+        .zip(decoded_ticks)
+        .zip(&manifest.compare_points)
+    {
+        let streaming = prepare_replay_world_streaming_input(
+            &tick.world_streaming_input,
+            tick_manifest.tick,
+            &mut world,
+        )?;
+        let previous_physics = replay.physics_snapshot().clone();
+        let commit = match replay.replay_world_services_tick_v9(
+            &mut routine,
+            &mut population,
+            &mut activity,
+            &mut cognition,
+            &mut world,
+            streaming,
+            tick.closed_ingress_batch,
+            tick.direct_external_commands,
+            &tick.expected_ingress_command_batch,
+            &tick.expected_physics_step_input,
+            &tick.expected_contact_batch,
+            &tick.expected_targeting_intents,
+            &tick.expected_authoritative_targeting_queries,
+            &tick.expected_physics_query_batch,
+            &tick.expected_physics_query_results,
+            &tick.expected_outcome_command_batch,
+            &tick.expected_interaction_availability,
+        ) {
+            Ok(commit) => commit,
+            Err(RuntimeReplayError::Runtime(error)) => return Err(error.into()),
+            Err(
+                RuntimeReplayError::CommandBatchMismatch { .. }
+                | RuntimeReplayError::PhysicsStepInputMismatch { .. }
+                | RuntimeReplayError::ContactBatchMismatch { .. }
+                | RuntimeReplayError::TargetingIntentMismatch { .. }
+                | RuntimeReplayError::TargetingQueryMismatch { .. }
+                | RuntimeReplayError::PhysicsQueryBatchMismatch { .. }
+                | RuntimeReplayError::PhysicsQueryResultMismatch { .. }
+                | RuntimeReplayError::InteractionAvailabilityMismatch { .. },
+            ) => {
+                return Err(ReplayError::RecordedStageMismatch {
+                    tick: tick_manifest.tick,
+                    stage: "closed-authoritative-query-outcome",
+                });
+            }
+            Err(_) => {
+                return Err(ReplayError::RecordedStageMismatch {
+                    tick: tick_manifest.tick,
+                    stage: "replay-driver",
+                });
+            }
+        };
+        physical_animation
+            .advance(
+                &previous_physics,
+                replay.physics_snapshot(),
+                replay.next_tick(),
+            )
+            .map_err(|_| ReplayError::RecordedStageMismatch {
+                tick: tick_manifest.tick,
+                stage: "physical-animation-owner",
+            })?;
+        let mut owner_segments = commit.application_owner_segments.clone();
+        owner_segments.push(physical_animation_segment_descriptor(
+            physical_animation.snapshot(),
+        )?);
+        owner_segments.sort();
+        let state_root =
+            next_contracts::snapshot::state_root_from_save_segment_descriptors(&owner_segments)?;
+        let report = commit.runtime_report;
+        if report.mapping_receipts != tick.expected_mapping_receipts
+            || report.interaction_availability != tick.expected_interaction_availability
+            || replay_command_results(&report.results) != tick.expected_command_results
+            || report.events != tick.expected_events
+        {
+            return Err(ReplayError::RecordedStageMismatch {
+                tick: tick_manifest.tick,
+                stage: "closed-ingress-command-outcome",
+            });
+        }
+        let command_ledger_hash = report.snapshot.command_ledger_hash()?;
+        if state_root != compare_point.state_root
+            || command_ledger_hash != compare_point.command_ledger_hash
+            || owner_segments != compare_point.owner_segments
+            || report.closed_ingress_batch.batch_hash != compare_point.closed_ingress_batch_hash
+            || report.command_batches[0].batch_hash != compare_point.ingress_command_batch_hash
+            || report.physics_step_input.input_hash()? != compare_point.physics_step_input_hash
+            || report.contact_batch.batch_hash != compare_point.contact_batch_hash
+            || replay_physics_query_batch_hash(&report.physics_query_batch)?
+                != compare_point.physics_query_batch_hash
+            || replay_physics_query_results_hash(&report.physics_query_results)?
+                != compare_point.physics_query_results_hash
+            || replay_targeting_query_trace_hash(
+                &report.targeting_intents,
+                &report.authoritative_targeting_queries,
+            )? != compare_point.targeting_query_trace_hash
+            || report.command_batches[1].batch_hash != compare_point.outcome_command_batch_hash
+            || next_contracts::world_routine::interaction_availability_batch_hash(
+                &report.interaction_availability,
+            )
+            .map_err(ManifestValidationError::from)?
+                != compare_point.interaction_availability_hash
+        {
+            return Err(ReplayError::ComparePointMismatch(Box::new(
+                ReplayComparePointMismatch {
+                    first_divergent_tick: tick_manifest.tick,
+                    expected_state_root: compare_point.state_root,
+                    actual_state_root: state_root,
+                    expected_command_ledger_hash: compare_point.command_ledger_hash,
+                    actual_command_ledger_hash: command_ledger_hash,
+                },
+            )));
+        }
+        records.push(ReplayTickRecord {
+            tick: report.tick,
+            command_results: report.results,
+            events: report.events,
+            state_root,
+            command_ledger_hash,
+        });
+    }
+    let final_checkpoint = replay.world_checkpoint()?;
+    Ok(ReplayOutputV10 {
+        replay: ReplayOutput {
+            ticks: records,
+            final_snapshot: final_checkpoint.runtime_snapshot.clone(),
+            final_checkpoint,
+        },
+        final_physical_animation_snapshot: physical_animation.snapshot().clone(),
+    })
+}
+
+fn physical_animation_segment_descriptor(
+    snapshot: &next_contracts::physical_animation::PhysicalAnimationSnapshotV1,
+) -> Result<SaveSegmentDescriptor, ReplayError> {
+    use next_contracts::physical_animation::{
+        PHYSICAL_ANIMATION_SCHEMA_VERSION, PHYSICAL_ANIMATION_SNAPSHOT_OWNER_ID,
+        PHYSICAL_ANIMATION_SNAPSHOT_SCHEMA_ID, PHYSICAL_ANIMATION_SNAPSHOT_SEGMENT_ID,
+    };
+    let bytes = snapshot
+        .canonical_bytes()
+        .map_err(|_| ManifestValidationError::ReplayOwnerSegmentsInvalid)?;
+    Ok(SaveSegmentDescriptor::for_bytes(
+        SchemaId::new(PHYSICAL_ANIMATION_SNAPSHOT_OWNER_ID)
+            .map_err(CanonicalError::InvalidIdentifier)?,
+        SchemaId::new(PHYSICAL_ANIMATION_SNAPSHOT_SCHEMA_ID)
+            .map_err(CanonicalError::InvalidIdentifier)?,
+        SchemaId::new(PHYSICAL_ANIMATION_SNAPSHOT_SEGMENT_ID)
+            .map_err(CanonicalError::InvalidIdentifier)?,
+        u32::from(PHYSICAL_ANIMATION_SCHEMA_VERSION),
+        &bytes,
+    )?)
 }
 
 fn prepare_replay_world_streaming_input(

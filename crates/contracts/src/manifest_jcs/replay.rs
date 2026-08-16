@@ -16,8 +16,9 @@ use crate::command::IssuerPrincipal;
 use crate::ids::{CapabilityId, CommandId, CommandLedgerHash, SchemaId, StateRoot};
 use crate::persistence::{
     AuthorityGrant, ManifestValidationError, REPLAY_MANIFEST_V9_SCHEMA_VERSION,
-    ReplayCommandRecord, ReplayCommandResultV2, ReplayComparePointV9, ReplayManifestV9,
-    ReplayOwnerSegmentV2, ReplayTickManifestV9, WorldStreamingReplayInputV1,
+    REPLAY_MANIFEST_V10_SCHEMA_VERSION, ReplayCommandRecord, ReplayCommandResultV2,
+    ReplayComparePointV9, ReplayManifestV9, ReplayManifestV10, ReplayOwnerSegmentV2,
+    ReplayTickManifestV9, WorldStreamingReplayInputV1,
 };
 use crate::snapshot::{
     RUNTIME_SNAPSHOT_OWNER_ID, RUNTIME_SNAPSHOT_SCHEMA_ID, RUNTIME_SNAPSHOT_SEGMENT_ID,
@@ -32,6 +33,27 @@ pub(crate) fn encode_replay_manifest_v9(
     manifest: &ReplayManifestV9,
 ) -> Result<Vec<u8>, ManifestCodecError> {
     manifest.validate_and_decode(CanonicalDecodeLimits::default())?;
+    encode_replay_manifest_fields(manifest)
+}
+
+pub(crate) fn encode_replay_manifest_v10(
+    manifest: &ReplayManifestV10,
+) -> Result<Vec<u8>, ManifestCodecError> {
+    manifest.validate_and_decode(CanonicalDecodeLimits::default())?;
+    encode_replay_manifest_fields(&ReplayManifestV9 {
+        schema_version: manifest.schema_version,
+        compatibility: manifest.compatibility.clone(),
+        initial_owner_segments: manifest.initial_owner_segments.clone(),
+        initial_state_root: manifest.initial_state_root,
+        authority: manifest.authority.clone(),
+        ticks: manifest.ticks.clone(),
+        compare_points: manifest.compare_points.clone(),
+    })
+}
+
+fn encode_replay_manifest_fields(
+    manifest: &ReplayManifestV9,
+) -> Result<Vec<u8>, ManifestCodecError> {
     let mut object = BTreeMap::new();
     object.insert(
         "authority".to_owned(),
@@ -92,6 +114,34 @@ pub(crate) fn decode_replay_manifest_v9(
     bytes: &[u8],
     limits: CanonicalDecodeLimits,
 ) -> Result<ReplayManifestV9, ManifestCodecError> {
+    let manifest = decode_replay_manifest_fields(bytes, limits, REPLAY_MANIFEST_V9_SCHEMA_VERSION)?;
+    manifest.validate_and_decode(limits)?;
+    Ok(manifest)
+}
+
+pub(crate) fn decode_replay_manifest_v10(
+    bytes: &[u8],
+    limits: CanonicalDecodeLimits,
+) -> Result<ReplayManifestV10, ManifestCodecError> {
+    let raw = decode_replay_manifest_fields(bytes, limits, REPLAY_MANIFEST_V10_SCHEMA_VERSION)?;
+    let manifest = ReplayManifestV10 {
+        schema_version: raw.schema_version,
+        compatibility: raw.compatibility,
+        initial_owner_segments: raw.initial_owner_segments,
+        initial_state_root: raw.initial_state_root,
+        authority: raw.authority,
+        ticks: raw.ticks,
+        compare_points: raw.compare_points,
+    };
+    manifest.validate_and_decode(limits)?;
+    Ok(manifest)
+}
+
+fn decode_replay_manifest_fields(
+    bytes: &[u8],
+    limits: CanonicalDecodeLimits,
+    expected_schema_version: u32,
+) -> Result<ReplayManifestV9, ManifestCodecError> {
     if bytes.len() > limits.max_total_bytes {
         return Err(ManifestCodecError::InputTooLarge {
             actual: bytes.len(),
@@ -106,7 +156,7 @@ pub(crate) fn decode_replay_manifest_v9(
     }
     let mut object = into_object(value, "root")?;
     let schema_version = decode_u32(take(&mut object, "schema_version")?, "schema_version")?;
-    if schema_version != REPLAY_MANIFEST_V9_SCHEMA_VERSION {
+    if schema_version != expected_schema_version {
         return Err(ManifestValidationError::UnsupportedReplayVersion(schema_version).into());
     }
 
@@ -147,7 +197,6 @@ pub(crate) fn decode_replay_manifest_v9(
         ticks,
         compare_points,
     };
-    manifest.validate_and_decode(limits)?;
     Ok(manifest)
 }
 fn encode_owner_segment(segment: &ReplayOwnerSegmentV2) -> JcsValue {

@@ -1,7 +1,7 @@
 use next_contracts::canonical::CanonicalDecodeLimits;
-use next_contracts::persistence::ReplayManifestV9;
+use next_contracts::persistence::ReplayManifestV10;
 
-use crate::run_replay_manifest_v9_with_physics_options;
+use crate::run_replay_manifest_v10_with_physics_options;
 
 use super::super::PersistenceReplayCheckError;
 use super::super::replay_support::{compare_replay, replay_manifest};
@@ -22,8 +22,10 @@ pub(super) fn verify(
         &direct.initial_activity_snapshot,
         &direct.initial_agent_snapshot,
         &direct.initial_memory_snapshot,
+        &direct.initial_physical_animation_snapshot,
         &direct.reports,
         &direct.world_services_commits,
+        &direct.physical_animation_snapshots,
         &direct.replay_streaming_inputs,
         &direct.replay_direct_commands,
     )?;
@@ -37,19 +39,52 @@ pub(super) fn verify(
             "recorded replay contains the exact planned agent command",
         ));
     }
-    let replay_bytes = replay_manifest
-        .to_jcs_bytes()
-        .map_err(|error| PersistenceReplayCheckError::new("encode replay V9", error.to_string()))?;
+    let replay_bytes = replay_manifest.to_jcs_bytes().map_err(|error| {
+        PersistenceReplayCheckError::new("encode replay V10", error.to_string())
+    })?;
     let decoded_replay_manifest =
-        ReplayManifestV9::from_jcs_bytes(&replay_bytes, CanonicalDecodeLimits::default()).map_err(
-            |error| PersistenceReplayCheckError::new("decode replay V9", error.to_string()),
-        )?;
+        ReplayManifestV10::from_jcs_bytes(&replay_bytes, CanonicalDecodeLimits::default())
+            .map_err(|error| {
+                PersistenceReplayCheckError::new("decode replay V10", error.to_string())
+            })?;
     if decoded_replay_manifest != replay_manifest {
         return Err(PersistenceReplayCheckError::condition(
-            "replay V9 JCS round trip is exact",
+            "replay V10 JCS round trip is exact",
         ));
     }
-    let replay = run_replay_manifest_v9_with_physics_options(
+    let mut missing_initial_animation = decoded_replay_manifest.clone();
+    missing_initial_animation
+        .initial_owner_segments
+        .retain(|segment| {
+            segment.descriptor.owner_id.as_str()
+                != next_contracts::physical_animation::PHYSICAL_ANIMATION_SNAPSHOT_OWNER_ID
+        });
+    if missing_initial_animation
+        .validate_and_decode(CanonicalDecodeLimits::default())
+        .is_ok()
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "replay V10 rejects a missing initial physical-animation owner",
+        ));
+    }
+    let mut missing_compare_animation = decoded_replay_manifest.clone();
+    let first_compare_point = missing_compare_animation
+        .compare_points
+        .first_mut()
+        .ok_or_else(|| PersistenceReplayCheckError::condition("replay V10 has compare points"))?;
+    first_compare_point.owner_segments.retain(|segment| {
+        segment.owner_id.as_str()
+            != next_contracts::physical_animation::PHYSICAL_ANIMATION_SNAPSHOT_OWNER_ID
+    });
+    if missing_compare_animation
+        .validate_and_decode(CanonicalDecodeLimits::default())
+        .is_ok()
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "replay V10 rejects a missing compare-point physical-animation owner",
+        ));
+    }
+    let replay = run_replay_manifest_v10_with_physics_options(
         &decoded_replay_manifest,
         next_project::ActivatedProjectPackage {
             project: direct.fixture.activated_project.clone(),
@@ -62,6 +97,7 @@ pub(super) fn verify(
         &direct.runtime,
         &direct.reports,
         &direct.world_services_commits,
+        &direct.physical_animation_snapshots,
         &replay,
     )?;
 

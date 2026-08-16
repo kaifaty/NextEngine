@@ -2,6 +2,7 @@ use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1,
 use next_contracts::ids::{ContentHash, PersistentId, SchemaId, StateRoot};
 use next_contracts::input::{CORE_MELEE_ACTION_ID, PlayerActionPhaseV1};
 use next_contracts::mechanics::CORE_CHARACTER_HEALTH_RESOURCE_ID;
+use next_contracts::physical_animation::PhysicalAnimationSnapshotV1;
 use next_contracts::physics::{PhysicsBodyIdV1, PhysicsPoseV1};
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgSnapshotV2};
 use next_contracts::world_activity::WorldActivitySnapshotV1;
@@ -78,6 +79,7 @@ pub struct ReferenceRunOutcomeV2 {
     pub world_activity_snapshot_or_none: Option<WorldActivitySnapshotV1>,
     pub agent_cognition_snapshot: AgentCognitionSnapshotV1,
     pub agent_memory_snapshot: AgentMemorySnapshotV1,
+    pub physical_animation_snapshot: PhysicalAnimationSnapshotV1,
     pub decision_traces: Vec<DecisionTraceV1>,
     pub world_services_tick_commits: Vec<WorldServicesTickCommitV1>,
     pub world_routine_rest_branch_or_none: Option<ReferenceWorldRoutineRestBranchV1>,
@@ -176,6 +178,10 @@ pub fn run_reference_game_with_backend(
         rpg_snapshot,
         physics_options,
     )?;
+    let mut physical_animation = crate::physical_animation::reference_physical_animation_owner(
+        &fixture,
+        runtime.physics_snapshot(),
+    )?;
     let mut input_producer = NormalizedReferenceInputV1::new(&fixture)?;
     let initial_chunk_id = fixture.world_topology().initial_chunk_id().clone();
     let transition_chunk_id = fixture.world_topology().gameplay_target_chunk_id().clone();
@@ -271,9 +277,10 @@ pub fn run_reference_game_with_backend(
                 .ok_or(ReferenceGameError::RecoveryInvalid)?;
             let agent_snapshot = cognition.agent_snapshot().clone();
             let memory_snapshot = cognition.memory_snapshot().clone();
+            let physical_animation_snapshot = physical_animation.snapshot().clone();
             let activity_snapshot_or_none = activity.as_ref().map(|owner| owner.snapshot().clone());
             let expected_application_root =
-                next_contracts::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root_from_canonical_components(
+                next_contracts::snapshot::world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root_from_canonical_components(
                     &components,
                     world_streamer.snapshot(),
                     routine_snapshot_or_none.as_ref(),
@@ -283,6 +290,7 @@ pub fn run_reference_game_with_backend(
                         .ok_or(ReferenceGameError::RecoveryInvalid)?,
                     &agent_snapshot,
                     &memory_snapshot,
+                    &physical_animation_snapshot,
                 )?;
             runtime = RuntimeState::restore_world_checkpoint_with_definitions_and_physics_options(
                 checkpoint,
@@ -290,6 +298,13 @@ pub fn run_reference_game_with_backend(
                 fixture.activated_project.rpg_definitions.clone(),
                 physics_options,
             )?;
+            physical_animation =
+                crate::physical_animation::restore_reference_physical_animation_owner(
+                    &fixture,
+                    physical_animation_snapshot,
+                    runtime.physics_snapshot(),
+                    runtime.next_tick(),
+                )?;
             world_routine = WorldRoutineOwnerV1::restore(
                 fixture.activated_project.world_routine_catalog_or_none,
                 routine_snapshot_or_none,
@@ -379,6 +394,7 @@ pub fn run_reference_game_with_backend(
                     target_tick: runtime.next_tick(),
                 },
             )?;
+            let previous_physics = runtime.physics_snapshot().clone();
             let commit = run_scenario_tick(
                 &mut runtime,
                 ScenarioWorldServices {
@@ -392,6 +408,11 @@ pub fn run_reference_game_with_backend(
                 &content_generation,
                 [planned.world_command],
                 &mut pending_packaged_transition,
+            )?;
+            physical_animation.advance(
+                &previous_physics,
+                runtime.physics_snapshot(),
+                runtime.next_tick(),
             )?;
             let report = commit.runtime_report.clone();
             if !report.results.iter().any(|result| {
@@ -435,6 +456,7 @@ pub fn run_reference_game_with_backend(
             ScenarioAction::Checkpoint => unreachable!("handled before input mapping"),
         };
         runtime.enqueue_input_sample(&fixture.principal, sample)?;
+        let previous_physics = runtime.physics_snapshot().clone();
         let commit = run_scenario_tick(
             &mut runtime,
             ScenarioWorldServices {
@@ -448,6 +470,11 @@ pub fn run_reference_game_with_backend(
             &content_generation,
             [],
             &mut pending_packaged_transition,
+        )?;
+        physical_animation.advance(
+            &previous_physics,
+            runtime.physics_snapshot(),
+            runtime.next_tick(),
         )?;
         let report = commit.runtime_report.clone();
         accumulate_report(
@@ -488,7 +515,12 @@ pub fn run_reference_game_with_backend(
         .iter()
         .filter_map(|commit| commit.decision_trace_or_none.clone())
         .collect();
-    let presentation_bindings = fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
+    let presentation_bindings = fixture_presentation_bindings(
+        &fixture,
+        &runtime.rpg_snapshot(),
+        &physical_animation,
+        runtime.physics_snapshot(),
+    )?;
     Ok(ReferenceRunOutcomeV2 {
         ticks,
         final_pose,
@@ -527,6 +559,7 @@ pub fn run_reference_game_with_backend(
         world_activity_snapshot_or_none,
         agent_cognition_snapshot,
         agent_memory_snapshot,
+        physical_animation_snapshot: physical_animation.snapshot().clone(),
         decision_traces,
         world_services_tick_commits,
         world_routine_rest_branch_or_none,

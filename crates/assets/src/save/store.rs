@@ -7,6 +7,7 @@ use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1}
 #[cfg(test)]
 use next_contracts::ids::PhysicsWorldId;
 use next_contracts::persistence::SaveCompatibility;
+use next_contracts::physical_animation::PhysicalAnimationSnapshotV1;
 #[cfg(test)]
 use next_contracts::physics::{
     PhysicsCanonicalSnapshotV2, PhysicsCoordinateProfileV1, PhysicsLimitsProfileV1,
@@ -242,6 +243,36 @@ impl SaveStore {
         )
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "R5a save publication keeps each authoritative owner projection explicit"
+    )]
+    pub fn commit_world_checkpoint_with_cognition_and_physical_animation(
+        &self,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+        world_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
+        world_population_snapshot: &WorldPopulationSnapshotV1,
+        world_activity_snapshot: &WorldActivitySnapshotV1,
+        agent_snapshot: &AgentCognitionSnapshotV1,
+        memory_snapshot: &AgentMemorySnapshotV1,
+        physical_animation_snapshot: &PhysicalAnimationSnapshotV1,
+    ) -> Result<SaveCommitReceipt, SaveStoreError> {
+        let image = self.prepare_world_checkpoint_with_cognition_and_physical_animation(
+            compatibility,
+            checkpoint,
+            world_streaming_snapshot,
+            world_routine_snapshot_or_none,
+            world_population_snapshot,
+            world_activity_snapshot,
+            agent_snapshot,
+            memory_snapshot,
+            physical_animation_snapshot,
+        )?;
+        self.commit_image_inner(&image, None)
+    }
+
     pub fn prepare_world_checkpoint_with_streaming(
         &self,
         compatibility: SaveCompatibility,
@@ -355,6 +386,46 @@ impl SaveStore {
             world_activity_snapshot,
             agent_snapshot,
             memory_snapshot,
+        )
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "R5a save preparation keeps each authoritative owner projection explicit"
+    )]
+    pub fn prepare_world_checkpoint_with_cognition_and_physical_animation(
+        &self,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+        world_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
+        world_population_snapshot: &WorldPopulationSnapshotV1,
+        world_activity_snapshot: &WorldActivitySnapshotV1,
+        agent_snapshot: &AgentCognitionSnapshotV1,
+        memory_snapshot: &AgentMemorySnapshotV1,
+        physical_animation_snapshot: &PhysicalAnimationSnapshotV1,
+    ) -> Result<SaveImage, SaveStoreError> {
+        let next_generation = self
+            .probe_candidates()
+            .iter()
+            .map(|candidate| candidate.manifest.generation)
+            .max()
+            .map_or(Ok(0), |generation| {
+                generation
+                    .checked_add(1)
+                    .ok_or(SaveStoreError::GenerationExhausted)
+            })?;
+        SaveImage::from_world_checkpoint_with_cognition_and_physical_animation(
+            next_generation,
+            compatibility,
+            checkpoint,
+            world_streaming_snapshot,
+            world_routine_snapshot_or_none,
+            world_population_snapshot,
+            world_activity_snapshot,
+            agent_snapshot,
+            memory_snapshot,
+            physical_animation_snapshot,
         )
     }
 

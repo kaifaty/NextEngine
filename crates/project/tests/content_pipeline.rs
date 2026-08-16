@@ -77,8 +77,8 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.project_lock.project_lock_sha256,
         first.project_lock.project_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.root_assets.len(), 32);
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 118);
+    assert_eq!(activated.content_manifest.body.root_assets.len(), 33);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 119);
     assert_eq!(activated.neutral_records.len(), 76);
     assert_eq!(activated.world_partition.body.root_region_ids.len(), 4);
     assert_eq!(activated.world_partition.body.chunk_bindings.len(), 64);
@@ -196,8 +196,9 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
     assert_eq!(activated.text_catalogs[1].locale.as_str(), "qps-ploc");
     assert_eq!(activated.neutral_skeletons.len(), 1);
     assert_eq!(activated.neutral_skeletons[0].joints.len(), 8);
-    assert_eq!(activated.neutral_animations.len(), 1);
+    assert_eq!(activated.neutral_animations.len(), 2);
     assert_eq!(activated.neutral_animations[0].channels.len(), 1);
+    assert_eq!(activated.neutral_animations[1].channels.len(), 3);
     assert!(
         activated
             .content_manifest

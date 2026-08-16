@@ -4,6 +4,7 @@
 
 use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1};
 use next_contracts::ids::ContentHash;
+use next_contracts::physical_animation::PhysicalAnimationSnapshotV1;
 use next_contracts::presentation::PresentationSnapshotV2;
 use next_contracts::snapshot::{WorldCheckpointCanonicalComponentsV1, WorldCheckpointV4};
 use next_contracts::world::WorldStreamingSnapshotV1;
@@ -23,6 +24,7 @@ pub struct ReferenceLiveStateV2 {
     pub world_activity_snapshot: WorldActivitySnapshotV1,
     pub agent_cognition_snapshot: AgentCognitionSnapshotV1,
     pub agent_memory_snapshot: AgentMemorySnapshotV1,
+    pub physical_animation_snapshot: PhysicalAnimationSnapshotV1,
     pub ticks: u64,
     pub events: u64,
     pub rpg_events: u64,

@@ -17,6 +17,7 @@ next_agent.workspace = true
 next_application.workspace = true
 next_assets.workspace = true
 next_contracts.workspace = true
+next_motor.workspace = true
 next_desktop_sdl_ash = { workspace = true, optional = true }
 next_physics_api.workspace = true
 next_physics_physx = { workspace = true, optional = true }

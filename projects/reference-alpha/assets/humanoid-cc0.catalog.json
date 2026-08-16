@@ -35,6 +35,47 @@
           ]
         }
       ]
+    },
+    {
+      "asset_id": "b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9",
+      "record_revision": 1,
+      "clip_id": "nextengine.reference-alpha.animation.locomotion",
+      "duration_microseconds": 1000000,
+      "channels": [
+        {
+          "joint": "hips",
+          "property": "translation",
+          "keys": [
+            { "time_microseconds": 0, "value": [0, 900000, 0] },
+            { "time_microseconds": 250000, "value": [0, 930000, 0] },
+            { "time_microseconds": 500000, "value": [0, 900000, 0] },
+            { "time_microseconds": 750000, "value": [0, 930000, 0] },
+            { "time_microseconds": 1000000, "value": [0, 900000, 0] }
+          ]
+        },
+        {
+          "joint": "foot-l",
+          "property": "translation",
+          "keys": [
+            { "time_microseconds": 0, "value": [-150000, -900000, 0] },
+            { "time_microseconds": 250000, "value": [-150000, -850000, 150000] },
+            { "time_microseconds": 500000, "value": [-150000, -900000, 0] },
+            { "time_microseconds": 750000, "value": [-150000, -850000, -150000] },
+            { "time_microseconds": 1000000, "value": [-150000, -900000, 0] }
+          ]
+        },
+        {
+          "joint": "foot-r",
+          "property": "translation",
+          "keys": [
+            { "time_microseconds": 0, "value": [150000, -900000, 0] },
+            { "time_microseconds": 250000, "value": [150000, -850000, -150000] },
+            { "time_microseconds": 500000, "value": [150000, -900000, 0] },
+            { "time_microseconds": 750000, "value": [150000, -850000, 150000] },
+            { "time_microseconds": 1000000, "value": [150000, -900000, 0] }
+          ]
+        }
+      ]
     }
   ]
 }

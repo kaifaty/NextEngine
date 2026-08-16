@@ -5,6 +5,7 @@ mod dialogue;
 mod error;
 mod input;
 mod live;
+mod physical_animation;
 mod rpg;
 mod runtime_bootstrap;
 mod scenario;
@@ -26,6 +27,9 @@ pub use live::{
     PreparedReferenceGameAdvance, REFERENCE_BULK_TIME_MAX_TICKS_V1, ReferenceBulkTimeAdvanceV1,
     ReferenceBulkTimeStopReasonV1, ReferenceGameDriverV2, ReferenceLiveDriverRecoveryV1,
     ReferenceLiveStateV2, ValidatedReferenceGameAdvance, reference_b0_presentation_profile_hash,
+};
+pub use physical_animation::{
+    reference_physical_animation_owner, restore_reference_physical_animation_owner,
 };
 pub use rpg::{
     aggregate_payload, cooked_initial_interaction_outcome, cooked_interaction_outcome,

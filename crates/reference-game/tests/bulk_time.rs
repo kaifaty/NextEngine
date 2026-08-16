@@ -14,8 +14,6 @@ fn bounded_bulk_time_converges_exactly_with_ordinary_stepped_advances() {
         next_reference_game::ReferenceGameDriverV2::new(package, true).expect("stepped driver");
     let target_tick = 64_u64;
     let mut saw_observable_boundary = false;
-    let mut saw_budget_exhaustion = false;
-    let mut saw_multi_tick_advance = false;
 
     while bulk.next_tick() < target_tick {
         let budget = 5_u64.min(target_tick - bulk.next_tick());
@@ -52,17 +50,19 @@ fn bounded_bulk_time_converges_exactly_with_ordinary_stepped_advances() {
         match report.stop_reason {
             next_reference_game::ReferenceBulkTimeStopReasonV1::ObservableBoundary => {
                 saw_observable_boundary = true;
+                // R5a makes the physical-animation phase part of the exact
+                // application snapshot. The phase advances every committed
+                // tick, so the bounded evaluator must expose that tick as an
+                // observable boundary instead of batching across it.
+                assert_eq!(report.advanced_ticks, 1);
             }
             next_reference_game::ReferenceBulkTimeStopReasonV1::TickBudgetExhausted => {
-                saw_budget_exhaustion = true;
-                assert_eq!(report.advanced_ticks, budget);
+                panic!("physical-animation phase must be an observable boundary");
             }
         }
-        saw_multi_tick_advance |= report.advanced_ticks > 1;
     }
 
     assert!(saw_observable_boundary);
-    assert!(saw_budget_exhaustion || saw_multi_tick_advance);
 
     let before_invalid = bulk.state().expect("state before invalid budgets");
     assert!(matches!(
@@ -108,7 +108,7 @@ fn activated_reference_package() -> (std::path::PathBuf, next_project::Activated
 
 fn application_state_root(state: &next_reference_game::ReferenceLiveStateV2) -> StateRoot {
     next_contracts::snapshot::
-        world_checkpoint_with_systemic_cognition_v1_state_root_from_canonical_components(
+        world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root_from_canonical_components(
             &state.checkpoint_canonical_components,
             &state.world_streaming_snapshot,
             state.world_routine_snapshot_or_none.as_ref(),
@@ -116,6 +116,7 @@ fn application_state_root(state: &next_reference_game::ReferenceLiveStateV2) -> 
             &state.world_activity_snapshot,
             &state.agent_cognition_snapshot,
             &state.agent_memory_snapshot,
+            &state.physical_animation_snapshot,
         )
         .expect("application state root")
 }
@@ -147,6 +148,10 @@ fn assert_live_state_eq(
         right.agent_cognition_snapshot
     );
     assert_eq!(left.agent_memory_snapshot, right.agent_memory_snapshot);
+    assert_eq!(
+        left.physical_animation_snapshot,
+        right.physical_animation_snapshot
+    );
     assert_eq!(left.ticks, right.ticks);
     assert_eq!(left.events, right.events);
     assert_eq!(left.rpg_events, right.rpg_events);

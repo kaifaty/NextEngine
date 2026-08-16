@@ -122,7 +122,7 @@ pub(super) fn finalize_driver_measurement(
             LiveRuntimePerformanceError::new("command body count", "expected count overflow")
         })?;
     let final_state_root = next_contracts::snapshot::
-        world_checkpoint_with_systemic_cognition_v1_state_root_from_canonical_components(
+        world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root_from_canonical_components(
             &measurement.state.checkpoint_canonical_components,
             &measurement.state.world_streaming_snapshot,
             measurement.state.world_routine_snapshot_or_none.as_ref(),
@@ -130,6 +130,7 @@ pub(super) fn finalize_driver_measurement(
             &measurement.state.world_activity_snapshot,
             &measurement.state.agent_cognition_snapshot,
             &measurement.state.agent_memory_snapshot,
+            &measurement.state.physical_animation_snapshot,
         )
         .map_err(|error| {
             LiveRuntimePerformanceError::new("live application state root", error.to_string())

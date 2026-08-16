@@ -23,11 +23,11 @@ impl ReferenceGameDriverV2 {
         world_activity_snapshot: WorldActivitySnapshotV1,
         agent_cognition_snapshot: AgentCognitionSnapshotV1,
         agent_memory_snapshot: AgentMemorySnapshotV1,
+        physical_animation_snapshot: PhysicalAnimationSnapshotV1,
     ) -> Result<Self, ReferenceGameError> {
         checkpoint.validate()?;
         world_streaming_snapshot.validate()?;
-        let loaded_state_root =
-            next_contracts::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root(
+        let loaded_state_root = next_contracts::snapshot::world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root(
                 &checkpoint.runtime_snapshot,
                 &checkpoint.rpg_snapshot,
                 &checkpoint.physics_checkpoint,
@@ -37,6 +37,7 @@ impl ReferenceGameDriverV2 {
                 &world_activity_snapshot,
                 &agent_cognition_snapshot,
                 &agent_memory_snapshot,
+                &physical_animation_snapshot,
             )?;
         let next_logical_frame_sequence = checkpoint.runtime_snapshot.next_tick;
         let events = checkpoint.runtime_snapshot.committed_event_count;
@@ -90,10 +91,21 @@ impl ReferenceGameDriverV2 {
             world_activity_snapshot,
             runtime.next_tick(),
         )?;
+        let physical_animation =
+            crate::physical_animation::restore_reference_physical_animation_owner(
+                &fixture,
+                physical_animation_snapshot,
+                runtime.physics_snapshot(),
+                runtime.next_tick(),
+            )?;
         runtime.validate_world_routine_ledger_closure(&world_routine)?;
         runtime.validate_world_population_ledger_closure(&world_population)?;
-        let presentation_bindings =
-            fixture_presentation_bindings(&fixture, &runtime.rpg_snapshot())?;
+        let presentation_bindings = fixture_presentation_bindings(
+            &fixture,
+            &runtime.rpg_snapshot(),
+            &physical_animation,
+            runtime.physics_snapshot(),
+        )?;
 
         let mut input = self.input.clone();
         input.rebase_for_loaded_world(
@@ -138,6 +150,7 @@ impl ReferenceGameDriverV2 {
             fixture,
             content_generation: self.content_generation.clone(),
             runtime,
+            physical_animation,
             world_routine,
             world_population,
             world_activity,

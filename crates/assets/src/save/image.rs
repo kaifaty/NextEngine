@@ -10,6 +10,11 @@ use next_contracts::ids::{ContentHash, SchemaId, content_hash_from_bytes};
 use next_contracts::persistence::{
     CommandLedgerDescriptorV2, SaveCompatibility, SaveManifestV2, SaveSegmentDescriptor,
 };
+use next_contracts::physical_animation::{
+    PHYSICAL_ANIMATION_SCHEMA_VERSION, PHYSICAL_ANIMATION_SNAPSHOT_OWNER_ID,
+    PHYSICAL_ANIMATION_SNAPSHOT_SCHEMA_ID, PHYSICAL_ANIMATION_SNAPSHOT_SEGMENT_ID,
+    PhysicalAnimationSnapshotV1,
+};
 use next_contracts::physics::{
     PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
     PHYSICS_WORLD_CHECKPOINT_SCHEMA_VERSION, PHYSICS_WORLD_CHECKPOINT_SEGMENT_ID,
@@ -386,6 +391,82 @@ impl SaveImage {
         Ok(image)
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "R5a save construction keeps each authoritative owner projection explicit"
+    )]
+    pub fn from_world_checkpoint_with_cognition_and_physical_animation(
+        generation: u64,
+        compatibility: SaveCompatibility,
+        checkpoint: &WorldCheckpointV4,
+        world_streaming_snapshot: &WorldStreamingSnapshotV1,
+        world_routine_snapshot_or_none: Option<&WorldRoutineSnapshotV1>,
+        world_population_snapshot: &WorldPopulationSnapshotV1,
+        world_activity_snapshot: &WorldActivitySnapshotV1,
+        agent_snapshot: &AgentCognitionSnapshotV1,
+        memory_snapshot: &AgentMemorySnapshotV1,
+        physical_animation_snapshot: &PhysicalAnimationSnapshotV1,
+    ) -> Result<Self, SaveStoreError> {
+        if physical_animation_snapshot.next_simulation_tick != checkpoint.runtime_snapshot.next_tick
+            || physical_animation_snapshot.records.iter().any(|record| {
+                !checkpoint
+                    .physics_checkpoint
+                    .snapshot
+                    .sorted_body_states
+                    .contains_key(&record.body_id)
+            })
+        {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_PHYSICAL_ANIMATION_CLOSURE_MISMATCH",
+            ));
+        }
+        let mut image = Self::from_world_checkpoint_with_cognition(
+            generation,
+            compatibility,
+            checkpoint,
+            world_streaming_snapshot,
+            world_routine_snapshot_or_none,
+            world_population_snapshot,
+            world_activity_snapshot,
+            agent_snapshot,
+            memory_snapshot,
+        )?;
+        let bytes = physical_animation_snapshot
+            .canonical_bytes()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_PHYSICAL_ANIMATION_INVALID"))?;
+        let descriptor = SaveSegmentDescriptor::for_bytes(
+            SchemaId::new(PHYSICAL_ANIMATION_SNAPSHOT_OWNER_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(PHYSICAL_ANIMATION_SNAPSHOT_SCHEMA_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            SchemaId::new(PHYSICAL_ANIMATION_SNAPSHOT_SEGMENT_ID)
+                .map_err(CanonicalError::InvalidIdentifier)?,
+            u32::from(PHYSICAL_ANIMATION_SCHEMA_VERSION),
+            &bytes,
+        )?;
+        let mut segments = image
+            .manifest
+            .segments
+            .into_iter()
+            .zip(image.segments)
+            .collect::<Vec<_>>();
+        segments.push((descriptor, bytes));
+        segments.sort_by(|left, right| {
+            (&left.0.owner_id, &left.0.schema_id, &left.0.segment_id).cmp(&(
+                &right.0.owner_id,
+                &right.0.schema_id,
+                &right.0.segment_id,
+            ))
+        });
+        image.manifest.segments = segments
+            .iter()
+            .map(|(descriptor, _)| descriptor.clone())
+            .collect();
+        image.segments = segments.into_iter().map(|(_, bytes)| bytes).collect();
+        image.manifest.validate()?;
+        Ok(image)
+    }
+
     pub fn validate_world(&self) -> Result<ValidatedSaveImage, SaveStoreError> {
         self.manifest.validate()?;
         if self.manifest.segments.len() != self.segments.len() {
@@ -536,6 +617,16 @@ impl SaveImage {
             })
             .transpose()
             .map_err(|_| SaveStoreError::InvalidImage("SAVE_MEMORY_SNAPSHOT_INVALID"))?;
+        let physical_animation_index = physical_animation_segment_index(&self.manifest.segments)?;
+        let physical_animation_snapshot_or_none = physical_animation_index
+            .map(|index| {
+                PhysicalAnimationSnapshotV1::from_canonical_bytes(
+                    &self.segments[index],
+                    CanonicalDecodeLimits::default(),
+                )
+            })
+            .transpose()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_PHYSICAL_ANIMATION_INVALID"))?;
         if agent_cognition_snapshot_or_none
             .as_ref()
             .zip(agent_memory_snapshot_or_none.as_ref())
@@ -553,6 +644,22 @@ impl SaveImage {
         {
             return Err(SaveStoreError::InvalidImage(
                 "SAVE_SYSTEMIC_OWNER_CLOSURE_INCOMPLETE",
+            ));
+        }
+        if physical_animation_snapshot_or_none
+            .as_ref()
+            .is_some_and(|animation| {
+                animation.next_simulation_tick != runtime_snapshot.next_tick
+                    || animation.records.iter().any(|record| {
+                        !physics_checkpoint
+                            .snapshot
+                            .sorted_body_states
+                            .contains_key(&record.body_id)
+                    })
+            })
+        {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_PHYSICAL_ANIMATION_CLOSURE_MISMATCH",
             ));
         }
         let tick = &self.manifest.compatibility.tick_settings;
@@ -577,6 +684,7 @@ impl SaveImage {
             world_activity_snapshot_or_none,
             agent_cognition_snapshot_or_none,
             agent_memory_snapshot_or_none,
+            physical_animation_snapshot_or_none,
         })
     }
 
@@ -730,6 +838,16 @@ impl SaveImage {
             })
             .transpose()
             .map_err(|_| SaveStoreError::InvalidImage("SAVE_MEMORY_SNAPSHOT_INVALID"))?;
+        let physical_animation_index = physical_animation_segment_index(&self.manifest.segments)?;
+        let physical_animation_snapshot = physical_animation_index
+            .map(|index| {
+                PhysicalAnimationSnapshotV1::from_canonical_bytes(
+                    &self.segments[index],
+                    CanonicalDecodeLimits::default(),
+                )
+            })
+            .transpose()
+            .map_err(|_| SaveStoreError::InvalidImage("SAVE_PHYSICAL_ANIMATION_INVALID"))?;
         if agent_snapshot
             .as_ref()
             .zip(memory_snapshot.as_ref())
@@ -746,6 +864,22 @@ impl SaveImage {
         {
             return Err(SaveStoreError::InvalidImage(
                 "SAVE_SYSTEMIC_OWNER_CLOSURE_INCOMPLETE",
+            ));
+        }
+        if physical_animation_snapshot
+            .as_ref()
+            .is_some_and(|animation| {
+                animation.next_simulation_tick != runtime_snapshot.next_tick
+                    || animation.records.iter().any(|record| {
+                        !physics_checkpoint
+                            .snapshot
+                            .sorted_body_states
+                            .contains_key(&record.body_id)
+                    })
+            })
+        {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_PHYSICAL_ANIMATION_CLOSURE_MISMATCH",
             ));
         }
         let tick = &self.manifest.compatibility.tick_settings;
@@ -775,6 +909,31 @@ pub struct ValidatedSaveImage {
     pub world_activity_snapshot_or_none: Option<WorldActivitySnapshotV1>,
     pub agent_cognition_snapshot_or_none: Option<AgentCognitionSnapshotV1>,
     pub agent_memory_snapshot_or_none: Option<AgentMemorySnapshotV1>,
+    pub physical_animation_snapshot_or_none: Option<PhysicalAnimationSnapshotV1>,
+}
+
+fn physical_animation_segment_index(
+    descriptors: &[SaveSegmentDescriptor],
+) -> Result<Option<usize>, SaveStoreError> {
+    let mut index = None;
+    for (candidate, descriptor) in descriptors.iter().enumerate().filter(|(_, descriptor)| {
+        descriptor.owner_id.as_str() == PHYSICAL_ANIMATION_SNAPSHOT_OWNER_ID
+    }) {
+        if descriptor.schema_id.as_str() != PHYSICAL_ANIMATION_SNAPSHOT_SCHEMA_ID
+            || descriptor.segment_id.as_str() != PHYSICAL_ANIMATION_SNAPSHOT_SEGMENT_ID
+            || descriptor.schema_version != u32::from(PHYSICAL_ANIMATION_SCHEMA_VERSION)
+        {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_PHYSICAL_ANIMATION_SCHEMA_UNSUPPORTED",
+            ));
+        }
+        if index.replace(candidate).is_some() {
+            return Err(SaveStoreError::InvalidImage(
+                "SAVE_PHYSICAL_ANIMATION_SEGMENT_DUPLICATE",
+            ));
+        }
+    }
+    Ok(index)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

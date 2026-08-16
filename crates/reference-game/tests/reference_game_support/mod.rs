@@ -136,6 +136,10 @@ pub(super) fn assert_live_state_eq(
         right.presentation_input_count
     );
     assert_eq!(left.presentation_snapshot, right.presentation_snapshot);
+    assert_eq!(
+        left.physical_animation_snapshot,
+        right.physical_animation_snapshot
+    );
     assert_eq!(left.driver_recovery, right.driver_recovery);
 }
 

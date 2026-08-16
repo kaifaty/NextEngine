@@ -7,10 +7,15 @@ use next_contracts::cognition::{
 use next_contracts::command::WorldCommand;
 use next_contracts::ids::SchemaId;
 use next_contracts::persistence::{
-    AuthorityGrant, ReplayComparePointV9, ReplayManifestV9, ReplayOwnerSegmentV2,
+    AuthorityGrant, ReplayComparePointV9, ReplayManifestV10, ReplayOwnerSegmentV2,
     ReplayTickManifestV9, SaveCompatibility, SaveSegmentDescriptor, WorldStreamingReplayInputV1,
     replay_physics_query_batch_hash, replay_physics_query_results_hash,
     replay_targeting_query_trace_hash,
+};
+use next_contracts::physical_animation::{
+    PHYSICAL_ANIMATION_SCHEMA_VERSION, PHYSICAL_ANIMATION_SNAPSHOT_OWNER_ID,
+    PHYSICAL_ANIMATION_SNAPSHOT_SCHEMA_ID, PHYSICAL_ANIMATION_SNAPSHOT_SEGMENT_ID,
+    PhysicalAnimationSnapshotV1,
 };
 use next_contracts::physics::{
     ContactPhaseV1, PHYSICS_SNAPSHOT_OWNER_ID, PHYSICS_WORLD_CHECKPOINT_SCHEMA_ID,
@@ -46,7 +51,7 @@ use next_contracts::world_routine::{
 };
 use next_runtime::{RuntimeState, TickReport, WorldServicesTickCommitV1};
 
-use crate::{ReplayOutput, replay_command_results};
+use crate::{ReplayOutputV10, replay_command_results};
 
 use super::PersistenceReplayCheckError;
 
@@ -87,7 +92,7 @@ pub(super) fn rpg_contact_facts_from_report(
 
 #[allow(
     clippy::too_many_arguments,
-    reason = "the replay manifest constructor binds nine initial owners plus the exact recorded tick streams"
+    reason = "the replay manifest constructor binds ten initial owners plus the exact recorded tick streams"
 )]
 pub(super) fn replay_manifest(
     compatibility: SaveCompatibility,
@@ -99,21 +104,24 @@ pub(super) fn replay_manifest(
     initial_activity_snapshot: &WorldActivitySnapshotV1,
     initial_agent_snapshot: &AgentCognitionSnapshotV1,
     initial_memory_snapshot: &AgentMemorySnapshotV1,
+    initial_physical_animation_snapshot: &PhysicalAnimationSnapshotV1,
     reports: &[TickReport],
     world_services_commits: &[WorldServicesTickCommitV1],
+    physical_animation_snapshots: &[PhysicalAnimationSnapshotV1],
     streaming_inputs: &[WorldStreamingReplayInputV1],
     direct_commands: &[Vec<WorldCommand>],
-) -> Result<ReplayManifestV9, PersistenceReplayCheckError> {
+) -> Result<ReplayManifestV10, PersistenceReplayCheckError> {
     if reports.len() != world_services_commits.len()
         || reports.len() != streaming_inputs.len()
         || reports.len() != direct_commands.len()
+        || reports.len() != physical_animation_snapshots.len()
     {
         return Err(PersistenceReplayCheckError::condition(
             "recorded replay streams have exact common length",
         ));
     }
     let initial_state_root =
-        next_contracts::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root(
+        next_contracts::snapshot::world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root(
             &initial_checkpoint.runtime_snapshot,
             &initial_checkpoint.rpg_snapshot,
             &initial_checkpoint.physics_checkpoint,
@@ -123,19 +131,21 @@ pub(super) fn replay_manifest(
             initial_activity_snapshot,
             initial_agent_snapshot,
             initial_memory_snapshot,
+            initial_physical_animation_snapshot,
         )
         .map_err(|error| {
             PersistenceReplayCheckError::new("initial replay root", error.to_string())
         })?;
-    let initial_owner_segments = owner_segments(
-        initial_checkpoint,
-        initial_world_snapshot,
-        initial_routine_snapshot_or_none,
-        initial_population_snapshot,
-        initial_activity_snapshot,
-        initial_agent_snapshot,
-        initial_memory_snapshot,
-    )?;
+    let initial_owner_segments = owner_segments(ReplayOwnerSnapshotRefsV1 {
+        checkpoint: initial_checkpoint,
+        world: initial_world_snapshot,
+        routine_or_none: initial_routine_snapshot_or_none,
+        population: initial_population_snapshot,
+        activity: initial_activity_snapshot,
+        agent: initial_agent_snapshot,
+        memory: initial_memory_snapshot,
+        physical_animation: initial_physical_animation_snapshot,
+    })?;
     let authority = authority
         .entries()
         .map(|(principal, capabilities)| AuthorityGrant {
@@ -187,13 +197,26 @@ pub(super) fn replay_manifest(
             expected_command_results: replay_command_results(&report.results),
             expected_events: report.events.clone(),
         });
+        let mut owner_segments = commit.application_owner_segments.clone();
+        owner_segments.push(physical_animation_descriptor(
+            &physical_animation_snapshots[index],
+        )?);
+        owner_segments.sort();
+        let state_root =
+            next_contracts::snapshot::state_root_from_save_segment_descriptors(&owner_segments)
+                .map_err(|error| {
+                    PersistenceReplayCheckError::new(
+                        "record physical animation root",
+                        error.to_string(),
+                    )
+                })?;
         compare_points.push(ReplayComparePointV9 {
             tick: report.tick,
-            state_root: commit.application_state_root,
+            state_root,
             command_ledger_hash: report.snapshot.command_ledger_hash().map_err(|error| {
                 PersistenceReplayCheckError::new("record ledger hash", error.to_string())
             })?,
-            owner_segments: commit.application_owner_segments.clone(),
+            owner_segments,
             closed_ingress_batch_hash: report.closed_ingress_batch.batch_hash,
             ingress_command_batch_hash: report.command_batches[0].batch_hash,
             physics_step_input_hash: report.physics_step_input.input_hash().map_err(|error| {
@@ -238,8 +261,8 @@ pub(super) fn replay_manifest(
             })?,
         });
     }
-    Ok(ReplayManifestV9 {
-        schema_version: next_contracts::persistence::REPLAY_MANIFEST_V9_SCHEMA_VERSION,
+    Ok(ReplayManifestV10 {
+        schema_version: next_contracts::persistence::REPLAY_MANIFEST_V10_SCHEMA_VERSION,
         compatibility,
         initial_owner_segments,
         initial_state_root,
@@ -249,15 +272,30 @@ pub(super) fn replay_manifest(
     })
 }
 
+struct ReplayOwnerSnapshotRefsV1<'a> {
+    checkpoint: &'a WorldCheckpointV4,
+    world: &'a WorldStreamingSnapshotV1,
+    routine_or_none: Option<&'a WorldRoutineSnapshotV1>,
+    population: &'a WorldPopulationSnapshotV1,
+    activity: &'a WorldActivitySnapshotV1,
+    agent: &'a AgentCognitionSnapshotV1,
+    memory: &'a AgentMemorySnapshotV1,
+    physical_animation: &'a PhysicalAnimationSnapshotV1,
+}
+
 fn owner_segments(
-    checkpoint: &WorldCheckpointV4,
-    world: &WorldStreamingSnapshotV1,
-    routine_or_none: Option<&WorldRoutineSnapshotV1>,
-    population: &WorldPopulationSnapshotV1,
-    activity: &WorldActivitySnapshotV1,
-    agent: &AgentCognitionSnapshotV1,
-    memory: &AgentMemorySnapshotV1,
+    snapshots: ReplayOwnerSnapshotRefsV1<'_>,
 ) -> Result<Vec<ReplayOwnerSegmentV2>, PersistenceReplayCheckError> {
+    let ReplayOwnerSnapshotRefsV1 {
+        checkpoint,
+        world,
+        routine_or_none,
+        population,
+        activity,
+        agent,
+        memory,
+        physical_animation,
+    } = snapshots;
     let mut raw = vec![
         (
             RUNTIME_SNAPSHOT_OWNER_ID,
@@ -320,6 +358,15 @@ fn owner_segments(
         u32::from(WORLD_POPULATION_SCHEMA_VERSION),
         population.canonical_bytes().map_err(|error| {
             PersistenceReplayCheckError::new("world population segment", error.to_string())
+        })?,
+    ));
+    raw.push((
+        PHYSICAL_ANIMATION_SNAPSHOT_OWNER_ID,
+        PHYSICAL_ANIMATION_SNAPSHOT_SCHEMA_ID,
+        PHYSICAL_ANIMATION_SNAPSHOT_SEGMENT_ID,
+        u32::from(PHYSICAL_ANIMATION_SCHEMA_VERSION),
+        physical_animation.canonical_bytes().map_err(|error| {
+            PersistenceReplayCheckError::new("physical animation segment", error.to_string())
         })?,
     ));
     raw.push((
@@ -392,26 +439,68 @@ fn owner_segments(
     Ok(segments)
 }
 
+fn physical_animation_descriptor(
+    snapshot: &PhysicalAnimationSnapshotV1,
+) -> Result<SaveSegmentDescriptor, PersistenceReplayCheckError> {
+    let bytes = snapshot.canonical_bytes().map_err(|error| {
+        PersistenceReplayCheckError::new("physical animation segment", error.to_string())
+    })?;
+    SaveSegmentDescriptor::for_bytes(
+        SchemaId::new(PHYSICAL_ANIMATION_SNAPSHOT_OWNER_ID).map_err(|error| {
+            PersistenceReplayCheckError::new("physical animation owner ID", error.to_string())
+        })?,
+        SchemaId::new(PHYSICAL_ANIMATION_SNAPSHOT_SCHEMA_ID).map_err(|error| {
+            PersistenceReplayCheckError::new("physical animation schema ID", error.to_string())
+        })?,
+        SchemaId::new(PHYSICAL_ANIMATION_SNAPSHOT_SEGMENT_ID).map_err(|error| {
+            PersistenceReplayCheckError::new("physical animation segment ID", error.to_string())
+        })?,
+        u32::from(PHYSICAL_ANIMATION_SCHEMA_VERSION),
+        &bytes,
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("physical animation descriptor", error.to_string())
+    })
+}
+
 pub(super) fn compare_replay(
     direct: &RuntimeState,
     reports: &[TickReport],
     world_services_commits: &[WorldServicesTickCommitV1],
-    replay: &ReplayOutput,
+    physical_animation_snapshots: &[PhysicalAnimationSnapshotV1],
+    replay: &ReplayOutputV10,
 ) -> Result<(), PersistenceReplayCheckError> {
-    if reports.len() != replay.ticks.len() || reports.len() != world_services_commits.len() {
+    if reports.len() != replay.replay.ticks.len()
+        || reports.len() != world_services_commits.len()
+        || reports.len() != physical_animation_snapshots.len()
+    {
         return Err(PersistenceReplayCheckError::condition(
             "direct and replay tick counts match",
         ));
     }
-    for ((report, commit), replay_tick) in reports
+    for (index, ((report, commit), replay_tick)) in reports
         .iter()
         .zip(world_services_commits)
-        .zip(&replay.ticks)
+        .zip(&replay.replay.ticks)
+        .enumerate()
     {
+        let mut owner_segments = commit.application_owner_segments.clone();
+        owner_segments.push(physical_animation_descriptor(
+            &physical_animation_snapshots[index],
+        )?);
+        owner_segments.sort();
+        let state_root =
+            next_contracts::snapshot::state_root_from_save_segment_descriptors(&owner_segments)
+                .map_err(|error| {
+                    PersistenceReplayCheckError::new(
+                        "compare physical animation root",
+                        error.to_string(),
+                    )
+                })?;
         if report.tick != replay_tick.tick
             || report.results != replay_tick.command_results
             || report.events != replay_tick.events
-            || commit.application_state_root != replay_tick.state_root
+            || state_root != replay_tick.state_root
             || report.snapshot.command_ledger_hash().map_err(|error| {
                 PersistenceReplayCheckError::new("compare ledger", error.to_string())
             })? != replay_tick.command_ledger_hash
@@ -424,7 +513,9 @@ pub(super) fn compare_replay(
     let direct_checkpoint = direct.world_checkpoint().map_err(|error| {
         PersistenceReplayCheckError::new("direct replay checkpoint", error.to_string())
     })?;
-    if replay.final_checkpoint != direct_checkpoint {
+    if replay.replay.final_checkpoint != direct_checkpoint
+        || physical_animation_snapshots.last() != Some(&replay.final_physical_animation_snapshot)
+    {
         return Err(PersistenceReplayCheckError::condition(
             "direct and replay final checkpoints are exact",
         ));

@@ -389,6 +389,19 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
                 "systemic world activity snapshot is missing".to_owned(),
             )
         })?;
+    let physical_animation_matches = scenario.physical_animation_snapshot.next_simulation_tick
+        == scenario.ticks
+        && scenario.physical_animation_snapshot.records.len() == 2
+        && scenario
+            .physical_animation_snapshot
+            .records
+            .iter()
+            .any(|record| record.subject_id == scenario.player_character_id)
+        && scenario
+            .physical_animation_snapshot
+            .records
+            .iter()
+            .any(|record| record.subject_id == scenario.npc_character_id);
     let report = PlayCheckReport {
         ticks: scenario.ticks,
         final_pose: scenario.final_pose,
@@ -409,8 +422,8 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         world_streaming_generation: scenario.world_streaming_snapshot.generation,
         current_chunk_id: scenario.world_streaming_snapshot.current_chunk_id.clone(),
         final_command_ledger_hash: checkpoint.runtime_snapshot.command_ledger_hash()?,
-        final_state_root:
-            next_contracts::snapshot::world_checkpoint_with_systemic_cognition_v1_state_root(
+        final_state_root: next_contracts::snapshot::
+            world_checkpoint_with_physical_animation_and_systemic_cognition_v1_state_root(
                 &checkpoint.runtime_snapshot,
                 &checkpoint.rpg_snapshot,
                 &checkpoint.physics_checkpoint,
@@ -420,6 +433,7 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
                 world_activity_snapshot,
                 &scenario.agent_cognition_snapshot,
                 &scenario.agent_memory_snapshot,
+                &scenario.physical_animation_snapshot,
             )?,
     };
     let command_archive_root = checkpoint
@@ -447,17 +461,18 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         || report.player_health != 50
         || report.world_streaming_generation != 2
         || command_archive_root
-            != "3e00c667723be4b1a261ccd62a106a01946d9abedfce435945539eec68a4702f"
+            != "96d1a68a3c922c6f099c463dfb8c56cea0fb7bab514957a79b06c3c79047a3dc"
         || command_identity_index_root
-            != "d33375bbd51ddbdc2a607d0b85653bc99583106eacc3255f58f2ac25deb5b202"
+            != "9cbf90bbc13f9279ca614b1aaeb1bd0b5c0bd0d4bcd8f13e9fd4d261e5375607"
         || report.final_command_ledger_hash.to_hex()
-            != "21d0bd809b6c3287e41fb0aef612e1cd03865a9de8e46f3814bb623475797b98"
+            != "11b4d91854d34dedc96c14e8716c340d6eee2cb94e3d9388ef54bdbcbccea843"
         || stage_checkpoint_count != 3
         || !stage_checkpoints_match_acceptance
         || !duty_branch_matches
         || !duty_journal_matches
         || !rest_branch_matches
         || !rest_journal_matches
+        || !physical_animation_matches
     {
         return Err(PlayCheckError::AcceptanceMismatch(format!(
             "ticks={} pose={:?} events={} rpg_events={} object={} dialogue={} quest={} \
