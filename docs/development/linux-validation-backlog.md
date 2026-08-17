@@ -3,7 +3,7 @@
 | Поле | Значение |
 |---|---|
 | Статус | Living operational checklist, не нормативная архитектура |
-| Последнее обновление | 2026-08-01 |
+| Последнее обновление | 2026-08-18 |
 | Основной developer host | Windows x86_64 MSVC/Vulkan |
 | Linux target | Native Linux x86_64 GNU, Ubuntu 22.04 / glibc 2.35 baseline |
 
@@ -50,22 +50,26 @@ Windows x86_64 и Linux x86_64 по-прежнему являются v1 shippin
 
 | Checkpoint | Linux environment | Результат | Оставшееся действие |
 |---|---|---|---|
+| `d15c11a23f9b62a91fa2cc7e400f6ab8409e1766` | Native Linux x86_64, Ubuntu 26.04 LTS / kernel 7.0.0-29, Wayland, NVIDIA RTX 3080, driver 610.43.02, NVIDIA Vulkan ICD; package audited against Ubuntu 22.04 / glibc 2.35 baseline | Full `native-gate-run`: `PASS`; target-report SHA-256 `f22745ba5f9aacf8a3e940c005ddc969e2c1bee9e5a8e63e4dc0c4228f916930`; all eight checks and packaged `game`/`headless` smoke pass; actual maximum GLIBC import is 2.34 | Preserve/transfer the full target bundle; build a matching Windows bundle on this exact commit and run `native-gate-compare`. |
 | `f58b2a5557a59aa0e5735844a9cbe927043b314e` | Native Linux x86_64, Ubuntu 22.04 userspace, Vulkan 1.3 Mesa llvmpipe | `native-gate-run` target report и package: `PASS` | Сохранить и перенести полный `targets/x86_64-unknown-linux-gnu/`; matching Windows report и compare выполняются отдельно на том же commit. |
 
-Этот run доказывает software Vulkan path, но не representative hardware-GPU
-confidence. Он не выставляет `native_gate_ready` без matching Windows report и
-успешного compare.
+Current `d15c11a…` evidence closes the accumulated hardware-GPU, render-content
+and player/session Linux checks; exact decisions and attempts are retained in
+the [Linux catch-up task state](task-state/linux-validation-catch-up.md).
+Historical `f58b2a5…` still proves only the software Vulkan path. Neither
+standalone Linux run sets `native_gate_ready` without a matching Windows report
+and successful compare on the same commit.
 
 ## Накопительная очередь
 
 | ID | Статус | Когда выполнять | Действие на Linux | Закрывает |
 |---|---|---|---|---|
-| `LNX-001` | `DONE` | Выполнено на `f58b2a5` | Полный `native-gate-run` на native Ubuntu 22.04 / Mesa llvmpipe. | Linux half текущего B-01 checkpoint. |
-| `LNX-002` | `PENDING_TRANSFER_CONFIRMATION` | До paired compare для `f58b2a5` | Передать полный target bundle, включая `checks/`, `package/` и `target-report.json`; один report без package недостаточен. | Делает существующий Linux PASS доступным comparator. |
-| `LNX-003` | `PENDING` | Во время ближайшей доступной Linux hardware-GPU сессии | На выбранном актуальном checkpoint выполнить `platform` и package smoke; при накопленных cross-target changes предпочесть полный native gate. | Representative hardware-GPU gap в B-02. |
-| `LNX-004` | `PENDING` | Во время ближайшей доступной Linux validation с актуальным render-content checkpoint | Проверить exact render catalog cook/activation, derived meshlet payloads, checked-in SPIR-V, Vulkan B0 CPU visible-list/indexed-indirect draw, declared fallback material и relevant performance/package paths. Можно асинхронно объединить с `LNX-003` одним полным gate на более новом checkpoint; ожидание этого run не блокирует текущие Windows increments. | Linux side первого R2 render-content increment; Windows counterpart проходит локально. |
-| `LNX-005` | `PENDING` | Во время ближайшей native Linux validation с актуальным player-action/camera checkpoint | Проверить общий live/headless ActionMap/InputContext path, SDL keyboard/relative-mouse normalization, persisted-ingress `ClosestPoint` targeting, V5 receipt/query/tamper replay, complete in-memory 30 Hz snapshots и parity при 30/60/144 Hz render cadence, bounded catch-up, durable same-session checkpoints на tick `0`/каждые `30` ticks и forced atomic suspend/close publication. Platform matrix должна покрыть per-source sequence gap/duplicate/identity collision, `PLATFORM_EVENT_SEQUENCE_GAP`, illegal combined lifecycle batch и retry после failed preflight без сдвига source cursors/tick/state; stale close обязан отклоняться до forced checkpoint без live/durable mutation. Crash должен восстанавливать тот же active session с rollback не более `29` ticks и без wall-time catch-up; recovery отдельно отклоняет missing declared live payload, а publication/pruning faults проверяют failed-third-publication current+previous retention и repair stale generation на следующем успешном publish. Package smoke запускает скопированный `headless --live-ticks 0` и bounded interactive `game`, сверяет их authoritative state/ledger roots и не публикует disposable smoke state. Также проверить typed integer/fixed-point camera и приватное Vulkan float view-projection/depth преобразование. Можно объединить с `LNX-003`/`LNX-004` одним полным gate на более новом clean commit; само ожидание Linux run не блокирует unrelated Windows work. | Linux side Player action and camera increment; не закрывает R1/B-01 без требуемой same-commit пары и compare. |
-| `LNX-006` | `PENDING` | После Windows ADR-043 implementation и единственного candidate-7 `PASS`, на exact clean commit и до любого использования allocator fields в Linux `REPORT_ONLY` profile | На native `x86_64-unknown-linux-gnu` с pinned Rust `1.93.0` сначала подтвердить stable `PERF_ALLOCATOR_COUNTER_TARGET_NOT_ADMITTED`; ADR-043 сам Linux не admits. Выполнить allocator focused tests и boundary scan, затем отдельный locked release source+LLVM IR+assembly/link audit: const no-drop TLS; inactive one-load/no-TLS path; recursion-free owner/foreign shapes при сохранённом ADR-041/040 admission; direct ADR-042 dealloc; bounded frame/state и pointer/null/data/root parity. Отдельно доказать полный Linux `std::alloc::System` → libc → linker chain без allocator interposition, preload/audit/custom hooks или обратного входа в Rust wrapper; одного Windows `HeapAlloc` proof недостаточно. Сохранить full `rustc -Vv`, target/build/linker/libc identity, commands, IR/assembly, diagnostics и hashes в новом неперезаписываемом output. Только если non-reentrancy доказана, выполнить один raw 2+15 overhead candidate и сохранить report/hash независимо от verdict; automatic retry запрещён. Evidence является входом нового Accepted Linux target-extension ADR и само по себе не включает metric. | Основание для отдельного Linux target-extension ADR. До его принятия allocator fields остаются `NOT_RUN`; закрытие требует exact/count/root/source/codegen/backend proof, independently `<=3%` inactive/enabled, state `<=64 MiB` и Accepted extension. Windows candidate-7 не подменяет этот item. |
+| `LNX-001` | `DONE / HISTORICAL` | Выполнено на `f58b2a5` | Полный `native-gate-run` на native Ubuntu 22.04 / Mesa llvmpipe. | Historical software-Vulkan checkpoint; current B-01 candidate is `d15c11a…`. |
+| `LNX-002` | `READY_FOR_TRANSFER / WINDOWS_PAIR_PENDING` | До paired compare для current `d15c11a…` checkpoint | Передать полный target bundle, включая `checks/`, `package/` и `target-report.json`; один report без package недостаточен. | Делает current Linux `PASS` доступным comparator; Windows report всё ещё отсутствует. |
+| `LNX-003` | `DONE` | Выполнено на `d15c11a…` | Full gate прошёл real NVIDIA Vulkan `platform`, current package ABI audit и packaged `game`/`headless` smoke. | Representative hardware-GPU gap в B-02 закрыт; B-01 остаётся отдельным paired gate. |
+| `LNX-004` | `DONE` | Выполнено на `d15c11a…` | Current render catalog cook/activation, derived meshlet/SPIR-V B0 route, fallback, performance smoke и package path прошли в полном native gate. | Linux side первого R2 render-content increment. |
+| `LNX-005` | `DONE` | Выполнено на `d15c11a…` | Current live/headless input, targeting, camera, session/recovery, platform failure matrix, persistence/replay and packaged launch paths прошли workspace tests и mapped full-gate checks. | Linux side Player action/camera/session increment; R1/B-01 всё ещё требует same-commit Windows pair and compare. |
+| `LNX-006` | `CANCELLED / SUPERSEDED_BY_ADR_049` | Не выполнять | ADR-049 удалил allocator-counter subsystem и его target-extension route; retired ADR-043/Rust 1.93 audit больше не является current evidence или future gate. | Ничего не блокирует; новый allocator route потребует отдельного consumer-backed decision, а не возобновления этого item. |
 
 Новый deferred Linux item добавляется сюда в том же changeset, который
 завершает соответствующий Windows work package. Статус `DONE` ставится только
