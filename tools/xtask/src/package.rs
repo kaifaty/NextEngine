@@ -1,15 +1,18 @@
-use std::env;
 use std::fs;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use serde::{Deserialize, Serialize};
 
+mod build;
 mod inventory;
 mod runtime;
 mod smoke;
 
+use build::{
+    LINUX_SDL_CMAKE_TOOLCHAIN_ENV, cargo_target_directory, package_build_target_directory,
+    package_sdl_toolchain_file, release_binary_directory, run_checked_with_environment,
+};
 use inventory::{
     checked_metadata, collect_inventory, hash_file, read_bounded, validate_package_root,
     validate_project_store_layout, validate_relative_package_path,
@@ -29,9 +32,6 @@ pub const PACKAGE_MANIFEST_FILE: &str = "package.manifest.jcs";
 pub const PACKAGE_MANIFEST_SCHEMA_VERSION: u32 = 4;
 
 const MAX_MANIFEST_BYTES: usize = 8 * 1024 * 1024;
-const LINUX_GLIBC_BASELINE_BUILD_CACHE: &str = "nextengine-package-glibc-2.35-v3";
-const LINUX_SDL_CMAKE_TOOLCHAIN: &str = "tools/linux-sdl-glibc-2.35.cmake";
-const LINUX_SDL_CMAKE_TOOLCHAIN_ENV: &str = "CMAKE_TOOLCHAIN_FILE_x86_64_unknown_linux_gnu";
 const REQUIRED_NOTICE_PATHS: [&str; 4] = [
     "LICENSE",
     "MIGRATION_PROVENANCE.md",
@@ -756,68 +756,6 @@ fn copy_binary(source: &Path, destination: &Path) -> Result<(), String> {
         )
     })?;
     Ok(())
-}
-
-fn run_checked_with_environment(
-    root: &Path,
-    program: &str,
-    arguments: &[&str],
-    environment: &[(&str, &Path)],
-) -> Result<(), String> {
-    let mut command = Command::new(program);
-    command.args(arguments).current_dir(root);
-    for (name, value) in environment {
-        command.env(name, value);
-    }
-    let output = command.output().map_err(|error| {
-        format!("NATIVE_GATE_PACKAGE_INVALID: failed to run {program}: {error}")
-    })?;
-    if !output.stdout.is_empty() {
-        eprint!("{}", String::from_utf8_lossy(&output.stdout));
-    }
-    if !output.stderr.is_empty() {
-        eprint!("{}", String::from_utf8_lossy(&output.stderr));
-    }
-    if output.status.success() {
-        Ok(())
-    } else {
-        package_error(format!(
-            "{program} {} failed with {}",
-            arguments.join(" "),
-            output.status
-        ))
-    }
-}
-
-fn cargo_target_directory(repository_root: &Path) -> PathBuf {
-    env::var_os("CARGO_TARGET_DIR").map_or_else(
-        || repository_root.join("target"),
-        |configured| {
-            let configured = PathBuf::from(configured);
-            if configured.is_absolute() {
-                configured
-            } else {
-                repository_root.join(configured)
-            }
-        },
-    )
-}
-
-fn package_build_target_directory(target_directory: &Path, target_triple: &str) -> PathBuf {
-    if target_triple == "x86_64-unknown-linux-gnu" {
-        target_directory.join(LINUX_GLIBC_BASELINE_BUILD_CACHE)
-    } else {
-        target_directory.to_path_buf()
-    }
-}
-
-fn package_sdl_toolchain_file(repository_root: &Path, target_triple: &str) -> Option<PathBuf> {
-    (target_triple == "x86_64-unknown-linux-gnu")
-        .then(|| repository_root.join(LINUX_SDL_CMAKE_TOOLCHAIN))
-}
-
-fn release_binary_directory(target_directory: &Path, target_triple: &str) -> PathBuf {
-    target_directory.join(target_triple).join("release")
 }
 
 fn absolute_from(root: &Path, path: &Path) -> PathBuf {
