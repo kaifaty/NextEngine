@@ -95,3 +95,47 @@ interruptions, and long sessions. Report normalized WER/CER, first-token and
 finalization latency, realtime factor, and peak VRAM. Compare at least 480 ms
 and 960 ms delay because the official Russian FLEURS result improves from
 6.02% to 5.56% for an additional 480 ms.
+
+## Live microphone utility
+
+`lab/scripts/voxtral_microphone.py` is a bounded Linux development tool, not a
+gameplay/runtime integration. It uses `arecord` to capture 16 kHz mono PCM and
+feeds the samples directly to the `transcribe.cpp` Python streaming API. It
+does not persist microphone audio.
+
+Build a CUDA-enabled shared library in the external `transcribe.cpp` checkout:
+
+```bash
+cmake -S /path/to/transcribe.cpp -B /path/to/transcribe.cpp/build \
+  -DTRANSCRIBE_CUDA=ON \
+  -DTRANSCRIBE_BUILD_SHARED=ON \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build /path/to/transcribe.cpp/build -j --target transcribe
+```
+
+Validate the model/runtime without opening the microphone:
+
+```bash
+python lab/scripts/voxtral_microphone.py \
+  /path/to/Voxtral-Mini-4B-Realtime-2602-Q4_K_M.gguf \
+  --transcribe-root /path/to/transcribe.cpp \
+  --check
+```
+
+List inputs and start live Russian transcription:
+
+```bash
+python lab/scripts/voxtral_microphone.py --list-inputs
+
+python lab/scripts/voxtral_microphone.py \
+  /path/to/Voxtral-Mini-4B-Realtime-2602-Q4_K_M.gguf \
+  --transcribe-root /path/to/transcribe.cpp \
+  --device default \
+  --delay-ms 480 \
+  --language ru
+```
+
+Use Ctrl-C to stop and finalize the transcript. `--duration 15` provides a
+bounded capture, and `--delay-ms 960` selects the higher-quality official
+operating point. Raw audio and model weights remain external artifacts and
+must not be committed.
