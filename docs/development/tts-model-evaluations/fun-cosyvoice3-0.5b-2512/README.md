@@ -31,6 +31,29 @@ valid runtime baseline, but the archived voice is not an acceptable adult-voice
 quality sample. Re-evaluate quality only with a clean, authorized adult speaker
 reference; do not try to fix speaker identity by changing the benchmark text.
 
+## Acceleration research
+
+The follow-up [acceleration research](acceleration-research-2026-08-17.md)
+found no separate official quantized fast checkpoint. Official acceleration
+replaces runtime stages with vLLM, TensorRT or the full Triton/TensorRT-LLM
+stack; community options include a hybrid llama.cpp LLM, complete GGML ports
+and a Candle/Rust implementation.
+
+A new five-request local profile measured the warm request at 2.035 s / RTF
+0.553 and preserved the baseline decoded PCM hash. Mean wall-time composition
+was 84.25% autoregressive LLM, 11.51% flow, 1.81% HiFT and 2.42% frontend plus
+other overhead. Consequently, even a perfect flow replacement has only a
+1.13x end-to-end ceiling on the fixed prompt, while LLM acceleration can be
+material.
+
+The smallest next A/B is the open hybrid `llama-cpp-python` path with an F16
+or BF16 LLM GGUF while keeping the official PyTorch flow and HiFT. The PR author
+reports a 2.6x end-to-end T4 result, but that number was not reproduced on this
+RTX 3080. If F16/BF16 preserves listening quality, compare Q8_0 and Q5_K_M.
+Official vLLM is the next alternative; its current initialization order has a
+transient-memory risk on the 10 GiB card. TensorRT-only flow, full Triton,
+vLLM-Omni, full GGML and Rust remain later experiments.
+
 ## Evaluation boundary
 
 | Field | Value |

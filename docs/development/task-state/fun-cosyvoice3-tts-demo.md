@@ -5,18 +5,18 @@
 | Status | `COMPLETE` |
 | Updated | `2026-08-17` |
 | Task key | `fun-cosyvoice3-tts-demo` |
-| Scope | Install and evaluate the official Fun-CosyVoice3-0.5B-2512 CUDA inference path on the available RTX 3080, with Russian listening examples and reproducible cold/warm measurements, without integrating weights or runtime code into NextEngine. |
-| Definition of done | A pinned external installation produces valid Russian WAV through a repository-owned wrapper; source/model identity, license, reference-audio boundary, cold/warm latency, RTF, VRAM and listening examples are recorded. |
+| Scope | Install and evaluate the official Fun-CosyVoice3-0.5B-2512 CUDA inference path on the available RTX 3080, then research faster official and community runtimes without integrating weights or runtime code into NextEngine. |
+| Definition of done | A pinned external installation produces valid Russian WAV through a repository-owned wrapper; source/model identity, license, reference-audio boundary, cold/warm latency, RTF, VRAM and listening examples are recorded; a local stage profile and evidence-backed acceleration order identify the smallest next A/B. |
 | Authority | Working context only; `AGENTS.md`, Accepted architecture, exact upstream source/model revisions and raw external evidence outrank this file. |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The pinned official FP16/PyTorch baseline passes technically on the RTX 3080 at warm RTF 0.582 (1.72x realtime), but the user judged the bundled-reference voice childlike. Retain the speed result; do not treat the archived voice as an acceptable adult-voice quality sample.
-- **Why:** The benchmark did not prompt an age/style: only the mandatory CosyVoice3 marker was added. Speaker timbre came from the official `asset/zero_shot_prompt.wav`, so a clean authorized adult reference is required for a meaningful adult-voice quality comparison.
-- **Next action:** Continue with the next model, or rerun CosyVoice quality only when an authorized adult reference WAV is available.
+- **Current conclusion:** There is no separate official quantized fast checkpoint. Local profiling assigns 84.25% of warm wall to the autoregressive LLM and only 11.51% to flow, so the next useful A/B is an F16/BF16 llama.cpp LLM hybrid or official vLLM, not TensorRT flow alone. The official FP16/PyTorch quality/correctness baseline remains RTF 0.582; its bundled-reference voice is still childlike.
+- **Why:** Five new same-session requests averaged 2.035 s / RTF 0.553 under synchronization instrumentation: LLM 1.715 s, flow 0.234 s, HiFT 0.037 s and other/frontend 0.049 s. An infinitely fast flow has only a calculated 1.13x end-to-end ceiling. An open llama.cpp integration reports 2.6x end-to-end on a T4 while retaining PyTorch token2wav, but is not yet a local result.
+- **Next action:** If CosyVoice acceleration is selected, pin the open llama.cpp integration in a separate external environment, test F16/BF16 first, then Q8_0 and Q5_K_M only after quality passes; otherwise continue with the next model.
 - **Current blocker:** None.
 - **Do not retry:** Do not put model weights, reference speech, generated WAV files, Python environments or raw logs in Git.
-- **Reconsider when:** A pinned official vLLM/TensorRT path is evaluated, a Russian-aware text frontend is needed, or a broader prompt corpus replaces the fixed short benchmark.
+- **Reconsider when:** A pinned llama.cpp, official vLLM or TensorRT path is evaluated, a Russian-aware text frontend is needed, or a broader prompt corpus replaces the fixed short benchmark.
 
 ## Current evidence
 
@@ -33,6 +33,10 @@
 | Determinism probe | `PASS_WITH_NOTE`: three warm requests had identical PCM SHA-256; WAV SHA-256 differed because torchaudio writes a timestamped `PEAK` metadata chunk | Compare decoded PCM, not whole-file bytes, for deterministic regression checks. |
 | External evidence archive | `PASS`: four listening WAVs and canonical/repeat raw summaries/logs under `/home/kaifaty/.local/share/nextengine/tts-model-evaluations/fun-cosyvoice3-0.5b-2512-2026-08-17` | Results are reviewable without adding weights or generated artifacts to Git. |
 | Human listening verdict | `QUALITY_LIMITED`: both Russian examples sound childlike with the bundled official reference; no child/adolescent style instruction was used | Preserve timing as valid, but do not score this voice as an adult-character candidate. |
+| Instrumented warm stage profile | `PASS`: five fixed-seed requests averaged 2.035 s / RTF 0.553 with identical baseline PCM; LLM 84.25%, flow 11.51%, HiFT 1.81%, frontend and other 2.42% | Optimize the AR LLM first; TensorRT flow alone has only a calculated 1.13x perfect-stage ceiling on this prompt. |
+| Official acceleration review | `REPORT_ONLY`: current source supports vLLM and TensorRT; full NVIDIA Triton/TensorRT-LLM reports L20 batch-1 RTF 0.1091 and four-stream mean first chunk 750.42 ms | Treat the server numbers as evidence of potential, not RTX 3080 predictions; GPU, batch, prompt and runtime differ. |
+| Community runtime review | `REPORT_ONLY`: open hybrid llama.cpp PR reports T4 RTF 1.17 to 0.45; full GGML and Candle/Rust paths exist but publish no RTX 3080 result | The hybrid F16/BF16 LLM is the smallest quality-preserving candidate; pin community code and measure locally before claims. |
+| Acceleration research report | `PASS`: detailed evidence, Amdahl bounds, runtime matrix and test order recorded in `docs/development/tts-model-evaluations/fun-cosyvoice3-0.5b-2512/acceleration-research-2026-08-17.md` | Resume from the report instead of repeating discovery. |
 
 ## Decisions that still constrain the work
 
@@ -56,6 +60,16 @@
 - **Uncertainty:** Omitting text normalization may affect numbers and punctuation in a broader corpus; only the fixed plain-text sentence is currently in scope.
 - **Reconsider when:** A Russian-aware pinned frontend is evaluated or the official dependency/runtime closure changes.
 
+### D-003 — Accelerate the autoregressive LLM before flow
+
+- **Observation:** The working baseline is already faster than realtime, but a material single-request reduction requires identifying its dominant stage rather than selecting a backend by headline throughput.
+- **Evidence:** Five synchronized warm profiles averaged 1.715 s in `llm_job`, 0.234 s in flow, 0.037 s in HiFT and 0.049 s elsewhere out of 2.035 s complete wall. The official loader builds a vLLM engine before deleting original transformer layers; the open llama.cpp PR skips loading the PyTorch LLM and reports a 2.6x T4 end-to-end result.
+- **Decision:** Preserve official PyTorch as the comparator. If optimization resumes, test the hybrid F16/BF16 llama.cpp LLM first in a separate pinned environment, then official vLLM; add low-bit LLM quantization only after full-precision listening parity. Defer flow-only TensorRT.
+- **Rejected alternatives:** Do not begin with five flow steps, full-pipeline Q4, full Triton or vLLM-Omni: they add quality, deployment or memory variables before the measured LLM bottleneck is isolated.
+- **Consequences:** The next experiment has a 1.5x complete-warm speedup gate and must record speech-token/PCM divergence, listening quality and peak VRAM.
+- **Uncertainty:** The reported T4 ratio may not transfer to Ampere; official vLLM may hit transient 10 GiB initialization pressure; community runtimes may change sampling or intonation.
+- **Reconsider when:** A local full-precision hybrid or official vLLM result falsifies the stage-based ranking, or concurrency rather than single-request latency becomes the primary requirement.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -63,6 +77,7 @@
 | H1: Official FP16 inference fits in 10 GiB VRAM | Confirmed: complete benchmark peaked at 8,115 MiB total GPU memory | About 2.1 GiB device headroom is not enough to assume safe multi-request concurrency | Treat one resident model/single request as the proven boundary. |
 | H2: Russian zero-shot quality exceeds the rejected Fish audio.cpp example | Russian is officially supported and two valid examples are archived | Not established: user judged the official-reference timbre childlike, while the desired adult reference was not tested | Repeat only with a clean authorized adult reference and compare pronunciation, prosody and artifacts separately. |
 | H3: Warm RTF is competitive with Fish Q4/audio.cpp Q8 | Confirmed technically: 0.582 versus Fish Q4 0.874 and audio.cpp Q8 0.659 | Different runtimes and model/reference packages prevent attributing the difference to parameter count alone | Keep comparison observational and use the same fixed text in later evaluations. |
+| H4: Replacing the LLM backend can materially reduce local warm RTF without harming quality | LLM is 84.25% of measured wall; an open hybrid reports 2.6x end-to-end on T4 with F16 GGUF | No optimized backend has been measured on this RTX 3080; AR sampling changes can alter intonation | Run pinned F16/BF16 hybrid A/B before any quantized or full-runtime test. |
 
 ## Required context
 
@@ -70,13 +85,15 @@ Read these sources before acting:
 
 1. `AGENTS.md`.
 2. `docs/development/tts-model-evaluations/fish-s2-pro/README.md` for the comparison protocol only.
-3. Current official `QwenAudio/CosyVoice` source, `FunAudioLLM/Fun-CosyVoice3-0.5B-2512` model card/files and their licenses.
+3. `docs/development/tts-model-evaluations/fun-cosyvoice3-0.5b-2512/acceleration-research-2026-08-17.md` before selecting an optimized backend.
+4. Current official `QwenAudio/CosyVoice` source, `FunAudioLLM/Fun-CosyVoice3-0.5B-2512` model card/files and their licenses.
 
 ## Next action
 
-1. Continue with the next model using the same fixed timing protocol.
-2. If CosyVoice is reconsidered, obtain a clean authorized adult reference and rerun only the quality comparison first.
-3. Optimize CosyVoice only as a separately pinned A/B task after voice quality is acceptable.
+1. Continue with the next model using the same fixed timing protocol, unless CosyVoice acceleration is explicitly selected.
+2. If CosyVoice speed is selected, test the pinned F16/BF16 llama.cpp LLM hybrid first; require at least 1.5x complete warm speedup and no new listening defect.
+3. If F16/BF16 passes, compare Q8_0 and Q5_K_M. If it fails for non-quantization reasons, test official vLLM in a separate environment.
+4. Use a clean authorized adult reference before interpreting optimized-path timbre as production quality.
 
 ## Do not retry
 
@@ -87,5 +104,5 @@ Read these sources before acting:
 
 - **Workspace state:** Repository-owned wrapper, focused tests, durable report and task-state are tracked; source, model, venv, logs, raw summaries and audio remain under machine-local external roots.
 - **Checks:** All 15 model artifacts, source/submodule revisions, reference hash, CUDA ORT provider, focused unit tests, generated WAV structure, archive copies and same-session offline/streaming benchmarks passed.
-- **Remaining risk:** Adult-reference Russian quality, multi-request concurrency, broader text coverage and optimized backends remain unmeasured.
+- **Remaining risk:** Adult-reference Russian quality, multi-request concurrency, broader text coverage and every optimized backend on the RTX 3080 remain unmeasured; community and L20 results are not local claims.
 - **Promotion needed:** None for a bounded lab experiment.
