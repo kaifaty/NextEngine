@@ -356,7 +356,7 @@ fn row_mismatch(left: &HydroRowTrace, right: &HydroRowTrace) -> String {
     )
 }
 
-fn fluid_input_root(samples: &[AuditFluidInput]) -> String {
+pub(crate) fn fluid_input_root(samples: &[AuditFluidInput]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(b"nextengine.continuum-water.audit-fluid-input.v1\0");
     for sample in samples {
@@ -375,7 +375,7 @@ fn fluid_input_root(samples: &[AuditFluidInput]) -> String {
     hash::hex(&hasher.finalize().into())
 }
 
-fn boundary_input_root(samples: &[AuditBoundaryInput]) -> String {
+pub(crate) fn boundary_input_root(samples: &[AuditBoundaryInput]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(b"nextengine.continuum-water.audit-boundary-input.v1\0");
     for sample in samples {
@@ -449,6 +449,11 @@ pub(crate) fn production_fluid_input(
         });
     }
     Ok(result)
+}
+
+pub(crate) fn independent_hydro_calibration()
+-> Result<crate::calibration::HydroCalibrationTrace, WaterError> {
+    independent::compute_calibration()
 }
 
 #[cfg(test)]

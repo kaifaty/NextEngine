@@ -9,6 +9,10 @@ use crate::error::{AUDIT_INVALID, DENSITY_NONCONVERGENCE, WaterError};
 
 use super::*;
 
+mod calibration;
+
+pub(crate) use calibration::production_hydro_calibration;
+
 pub(super) struct DensityRecorder {
     selected_indices: Vec<usize>,
     rows: Vec<HydroRowTrace>,

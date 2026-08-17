@@ -23,7 +23,7 @@ use crate::scenario::{validate_capacity, validate_sample_identity};
 mod diagnostic;
 mod neighborhood;
 
-pub(crate) use diagnostic::production_hydro_audit;
+pub(crate) use diagnostic::{production_hydro_audit, production_hydro_calibration};
 use neighborhood::{admitted_boundary, admitted_fluid, build_boundary_grid, build_fluid_grid};
 
 const DENSITY_MIN_ITERATIONS: u8 = 2;

@@ -2,6 +2,7 @@
 
 mod audit;
 mod boundary;
+mod calibration;
 mod error;
 mod hash;
 mod kernel;
@@ -25,6 +26,9 @@ pub fn run_xtask(
     let result = match (&material, &command) {
         (Some(material), Some(command)) if material == "water" && command == "audit-hydro" => {
             audit::run_xtask(repository_root, arguments)
+        }
+        (Some(material), Some(command)) if material == "water" && command == "diagnose-hydro" => {
+            calibration::run_xtask(repository_root, arguments)
         }
         _ => oracle::run_xtask(
             repository_root,

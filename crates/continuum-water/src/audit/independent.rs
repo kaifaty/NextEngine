@@ -11,6 +11,10 @@ use super::{
     scalar_bits,
 };
 
+mod calibration;
+
+pub(crate) use calibration::compute as compute_calibration;
+
 const FLUID_COUNT: usize = 6_000;
 const BOUNDARY_COUNT: usize = 2_402;
 const MAX_ROW_NEIGHBORS: usize = 128;
@@ -593,8 +597,15 @@ fn kernel(displacement_um: I3) -> Result<Kernel, WaterError> {
 }
 
 fn quantize_ppb(value: f64) -> Result<i64, WaterError> {
+    quantize_scaled(value, 1_000_000_000)
+}
+
+fn quantize_scaled(value: f64, scale: u64) -> Result<i64, WaterError> {
     if !value.is_finite() {
-        return Err(WaterError::new(AUDIT_INVALID, "nonfinite ppb input"));
+        return Err(WaterError::new(
+            AUDIT_INVALID,
+            "nonfinite independent publication input",
+        ));
     }
     let bits = value.to_bits();
     let negative = (bits >> 63) != 0;
@@ -612,19 +623,19 @@ fn quantize_ppb(value: f64) -> Result<i64, WaterError> {
         )
     };
     let scaled = significand
-        .checked_mul(1_000_000_000_u128)
-        .ok_or_else(|| WaterError::new(AUDIT_INVALID, "ppb multiply overflow"))?;
+        .checked_mul(u128::from(scale))
+        .ok_or_else(|| WaterError::new(AUDIT_INVALID, "publication multiply overflow"))?;
     let magnitude = if exponent >= 0 {
         let shift = exponent as u32;
         if shift >= u128::BITS || scaled > (u128::MAX >> shift) {
-            return Err(WaterError::new(AUDIT_INVALID, "ppb shift overflow"));
+            return Err(WaterError::new(AUDIT_INVALID, "publication shift overflow"));
         }
         scaled << shift
     } else {
         round_power_of_two(scaled, exponent.unsigned_abs())
     };
     let magnitude = i64::try_from(magnitude)
-        .map_err(|_| WaterError::new(AUDIT_INVALID, "ppb result overflow"))?;
+        .map_err(|_| WaterError::new(AUDIT_INVALID, "publication result overflow"))?;
     Ok(if negative { -magnitude } else { magnitude })
 }
 
