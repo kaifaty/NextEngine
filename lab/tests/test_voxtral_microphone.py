@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import array
+from contextlib import redirect_stderr
 import importlib.util
 import io
 from pathlib import Path
+import subprocess
 import sys
 import unittest
 
@@ -50,17 +52,99 @@ class VoxtralMicrophoneTests(unittest.TestCase):
         )
         self.assertEqual([len(chunk) for chunk in chunks], [3])
 
-    def test_arecord_command_has_explicit_audio_contract(self) -> None:
+    def test_alsa_capture_command_has_explicit_audio_contract(self) -> None:
         original = voxtral_microphone.shutil.which
         voxtral_microphone.shutil.which = lambda _: "/usr/bin/arecord"
         try:
-            command = voxtral_microphone.arecord_command("pipewire")
+            command = voxtral_microphone.capture_command("pipewire", sample_count=32000)
         finally:
             voxtral_microphone.shutil.which = original
         self.assertEqual(command[0], "/usr/bin/arecord")
         self.assertIn("S16_LE", command)
         self.assertIn("16000", command)
         self.assertIn("pipewire", command)
+        self.assertIn("32000", command)
+
+    def test_pipewire_capture_command_targets_exact_source(self) -> None:
+        original = voxtral_microphone.shutil.which
+        voxtral_microphone.shutil.which = lambda _: "/usr/bin/pw-record"
+        try:
+            command = voxtral_microphone.capture_command(
+                "pw:bluez_input.example", sample_count=16000
+            )
+        finally:
+            voxtral_microphone.shutil.which = original
+        self.assertEqual(command[0], "/usr/bin/pw-record")
+        self.assertIn("bluez_input.example", command)
+        self.assertIn("16000", command)
+        self.assertEqual(command[-1], "-")
+
+    def test_signal_levels_detect_digital_silence(self) -> None:
+        rms, peak = voxtral_microphone.signal_levels_dbfs(bytes(32000))
+        self.assertEqual(rms, -float("inf"))
+        self.assertEqual(peak, -float("inf"))
+
+    def test_signal_levels_measure_known_peak(self) -> None:
+        source = array.array("h", (0, 16384, -16384, 0))
+        if sys.byteorder == "big":
+            source.byteswap()
+        rms, peak = voxtral_microphone.signal_levels_dbfs(source.tobytes())
+        self.assertAlmostEqual(peak, -6.0206, places=3)
+        self.assertAlmostEqual(rms, -9.0309, places=3)
+
+    def test_hardware_input_parser_emits_selectable_device(self) -> None:
+        output = (
+            "card 1: Generic [HD-Audio Generic], device 0: "
+            "ALC1220 Analog [ALC1220 Analog]\n"
+        )
+        self.assertEqual(
+            voxtral_microphone.alsa_hardware_inputs(output),
+            [("plughw:CARD=Generic,DEV=0", "HD-Audio Generic / ALC1220 Analog")],
+        )
+
+    def test_pipewire_input_reports_inactive_bluetooth_profile(self) -> None:
+        objects = [
+            {
+                "id": 7,
+                "info": {
+                    "props": {
+                        "media.class": "Audio/Device",
+                        "bluez5.profile": "off",
+                    }
+                },
+            },
+            {
+                "id": 8,
+                "info": {
+                    "props": {
+                        "media.class": "Audio/Source",
+                        "device.id": 7,
+                        "node.name": "bluez_input.example",
+                        "node.description": "Example Headset",
+                    }
+                },
+            },
+        ]
+        original_which = voxtral_microphone.shutil.which
+        original_run = voxtral_microphone.subprocess.run
+        voxtral_microphone.shutil.which = lambda _: "/usr/bin/pw-dump"
+        voxtral_microphone.subprocess.run = lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0], 0, stdout=voxtral_microphone.json.dumps(objects), stderr=""
+        )
+        try:
+            inputs = voxtral_microphone.pipewire_inputs()
+        finally:
+            voxtral_microphone.shutil.which = original_which
+            voxtral_microphone.subprocess.run = original_run
+        self.assertEqual(
+            inputs,
+            [("pw:bluez_input.example", "Example Headset", "Bluetooth capture profile is inactive")],
+        )
+
+    def test_repeated_device_is_rejected(self) -> None:
+        parser = voxtral_microphone.build_parser()
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            parser.parse_args(("--device", "default", "--device", "pipewire"))
 
 
 if __name__ == "__main__":

@@ -128,9 +128,13 @@ List inputs and start live Russian transcription:
 python lab/scripts/voxtral_microphone.py --list-inputs
 
 python lab/scripts/voxtral_microphone.py \
+  --probe-microphone \
+  --device 'pw:<exact-node-name-from-list>'
+
+python lab/scripts/voxtral_microphone.py \
   /path/to/Voxtral-Mini-4B-Realtime-2602-Q4_K_M.gguf \
   --transcribe-root /path/to/transcribe.cpp \
-  --device default \
+  --device 'pw:<exact-node-name-from-list>' \
   --delay-ms 480 \
   --language ru
 ```
@@ -138,4 +142,19 @@ python lab/scripts/voxtral_microphone.py \
 Use Ctrl-C to stop and finalize the transcript. `--duration 15` provides a
 bounded capture, and `--delay-ms 960` selects the higher-quality official
 operating point. Raw audio and model weights remain external artifacts and
-must not be committed.
+must not be committed. Every live run performs a two-second microphone
+preflight before loading the model. It fails on missing/short capture or a peak
+below -65 dBFS, warns on sustained clipping, and rejects repeated `--device`
+options instead of silently selecting the last one. Prefer exact `plughw:` or
+`pw:` entries: desktop aliases such as `default` and `pipewire` can resolve to
+an unavailable or silent route.
+
+On the evaluated host, the ALSA card exposes two capture endpoints, but
+PipeWire reports the front and rear analog microphone ports as disconnected.
+CMF Buds Pro 2 is visible as a source while its current A2DP profile provides
+playback only. PipeWire also reports an available HSP/HFP MSBC profile with an
+input channel. Consequently, both `default` and `pipewire` aliases produced
+digital silence; the wrapper now rejects that condition before spending time
+loading the model. Enabling the headset/HFP capture profile or connecting an
+analog microphone is a host setup action, not something the probe changes
+automatically.
