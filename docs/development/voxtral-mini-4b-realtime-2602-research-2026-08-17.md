@@ -158,3 +158,23 @@ digital silence; the wrapper now rejects that condition before spending time
 loading the model. Enabling the headset/HFP capture profile or connecting an
 analog microphone is a host setup action, not something the probe changes
 automatically.
+
+For this workstation, the user selected the opposite tradeoff: keep the
+headset microphone immediately active after every connection. On WirePlumber
+0.5.13 the persistent setup is:
+
+```bash
+wpctl settings --save bluetooth.autoswitch-to-headset-profile false
+wpctl set-profile <current-cmf-device-id> <headset-head-unit-msbc-index>
+wpctl set-default <current-cmf-sink-id>
+wpctl set-default <current-cmf-source-id>
+```
+
+The exact numeric object IDs are session-local and must be taken from `wpctl
+status` and `pw-dump`. An explicit Bluetooth disconnect/reconnect restored the
+MSBC profile and both physical nodes, and a subsequent ten-second capture
+through the default `pipewire` alias measured a non-silent -43.7 dBFS peak.
+This setup deliberately trades A2DP playback quality for an always-present
+mono headset input/output pair. The wrapper's device listing reads the active
+PipeWire `Profile` parameter rather than the misleading BlueZ initialization
+property when reporting capture availability.

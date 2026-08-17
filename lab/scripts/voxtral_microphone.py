@@ -332,8 +332,17 @@ def pipewire_inputs() -> list[tuple[str, str, str | None]]:
         if device is not None:
             device_info = device.get("info", {})
             device_props = device_info.get("props", {})
-            if device_props.get("bluez5.profile") == "off":
-                warning = "Bluetooth capture profile is inactive"
+            if device_props.get("device.api") == "bluez5":
+                current_profiles = device_info.get("params", {}).get("Profile", [])
+                current_profile_has_input = any(
+                    isinstance(profile_class, list)
+                    and bool(profile_class)
+                    and profile_class[0] == "Audio/Source"
+                    for profile in current_profiles
+                    for profile_class in profile.get("classes", [])
+                )
+                if not current_profile_has_input:
+                    warning = "Bluetooth capture profile is inactive"
             input_routes = [
                 route
                 for route in device_info.get("params", {}).get("EnumRoute", [])
