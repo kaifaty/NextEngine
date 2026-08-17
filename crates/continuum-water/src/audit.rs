@@ -16,6 +16,7 @@ use crate::model::{CanonicalSample, StorageOrder, Vec3f, Vec3i};
 use crate::oracle::command::{
     tool_commit, tool_tree_state, validate_output_path, validate_report_capacity,
 };
+use crate::volume_map::VolumeMapBoundary;
 use crate::{boundary, profile, scenario, solver};
 
 mod independent;
@@ -92,6 +93,22 @@ pub(crate) struct AuditComputation {
     pub(crate) fluid: Vec<AuditFluidInput>,
     pub(crate) boundary: Vec<AuditBoundaryInput>,
     pub(crate) trace: HydroAuditTrace,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct VolumeMapObservation {
+    pub(crate) position_um: Vec3i,
+    pub(crate) present: bool,
+    pub(crate) signed_distance_bits: Option<String>,
+    pub(crate) volume_bits: Option<String>,
+    pub(crate) virtual_distance_bits: Option<String>,
+    pub(crate) displacement_bits: Option<[String; 3]>,
+    pub(crate) kernel_value_bits: Option<String>,
+    pub(crate) kernel_gradient_bits: Option<[String; 3]>,
+    pub(crate) volume_gradient_bits: Option<[String; 3]>,
+    pub(crate) density_contribution_bits: Option<String>,
+    pub(crate) density_contribution_ppb: Option<i64>,
+    pub(crate) feature_rank: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -461,6 +478,71 @@ pub(crate) fn independent_ghost_hydro_calibration()
     independent::compute_ghost_calibration()
 }
 
+pub(crate) fn independent_volume_map_hydro_calibration()
+-> Result<crate::calibration::HydroCalibrationTrace, WaterError> {
+    independent::compute_volume_map_calibration()
+}
+
+pub(crate) fn production_volume_map_observation(
+    position_um: Vec3i,
+    geometry: crate::model::Geometry,
+) -> Result<VolumeMapObservation, WaterError> {
+    let position = Vec3f::new(
+        profile::decode_micrometres(position_um.x)?,
+        profile::decode_micrometres(position_um.y)?,
+        profile::decode_micrometres(position_um.z)?,
+    );
+    let sample = VolumeMapBoundary::new(geometry)?.sample(position)?;
+    let Some(sample) = sample else {
+        return Ok(empty_volume_map_observation(position_um));
+    };
+    let contribution = crate::model::checked_scalar(
+        sample.volume * sample.value,
+        "volume-map observed density contribution",
+    )?;
+    let volume_gradient = sample
+        .gradient
+        .scale(sample.volume)
+        .checked("volume-map observed volume gradient")?;
+    Ok(VolumeMapObservation {
+        position_um,
+        present: true,
+        signed_distance_bits: Some(scalar_bits(sample.signed_distance)),
+        volume_bits: Some(scalar_bits(sample.volume)),
+        virtual_distance_bits: Some(scalar_bits(sample.virtual_distance)),
+        displacement_bits: Some(vector_bits(sample.displacement)),
+        kernel_value_bits: Some(scalar_bits(sample.value)),
+        kernel_gradient_bits: Some(vector_bits(sample.gradient)),
+        volume_gradient_bits: Some(vector_bits(volume_gradient)),
+        density_contribution_bits: Some(scalar_bits(contribution)),
+        density_contribution_ppb: Some(profile::quantize_ppb(contribution)?),
+        feature_rank: Some(sample.feature_rank),
+    })
+}
+
+pub(crate) fn independent_volume_map_observation(
+    position_um: Vec3i,
+) -> Result<VolumeMapObservation, WaterError> {
+    independent::observe_volume_map(position_um)
+}
+
+pub(crate) fn empty_volume_map_observation(position_um: Vec3i) -> VolumeMapObservation {
+    VolumeMapObservation {
+        position_um,
+        present: false,
+        signed_distance_bits: None,
+        volume_bits: None,
+        virtual_distance_bits: None,
+        displacement_bits: None,
+        kernel_value_bits: None,
+        kernel_gradient_bits: None,
+        volume_gradient_bits: None,
+        density_contribution_bits: None,
+        density_contribution_ppb: None,
+        feature_rank: None,
+    }
+}
+
 pub(crate) fn independent_zero_velocity_settling()
 -> Result<crate::calibration::SettlingComputation, WaterError> {
     independent::compute_zero_velocity_settling()
@@ -505,6 +587,17 @@ mod tests {
         assert_eq!(production.trace.rows[0].boundary_neighbors.len(), 16);
         assert_eq!(production.trace.rows[3].fluid_neighbor_ids.len(), 32);
         assert!(production.trace.rows[3].boundary_neighbors.is_empty());
+    }
+
+    #[test]
+    fn independent_volume_map_calibration_matches_production_exactly() {
+        let scenario = scenario::find("CW-HYDRO-001").unwrap();
+        let samples = scenario::initial_samples(&scenario, StorageOrder::Reverse).unwrap();
+        let production =
+            solver::production_volume_map_calibration(&samples, scenario.geometry).unwrap();
+        let independent = independent_volume_map_hydro_calibration().unwrap();
+
+        assert_eq!(production, independent);
     }
 
     #[test]

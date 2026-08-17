@@ -138,7 +138,7 @@ fn settle_step(
     let mut multiplier = filled(count, 0.0)?;
     let mut next = filled(count, 0.0)?;
     for index in 0..count {
-        let delta = divergence_source(index, &rows, boundary_volumes, &velocities)?;
+        let delta = divergence_source(index, &rows, &velocities)?;
         rho_adv[index] = finite(rows[index].rho_ratio + (DT * delta), "settling rho adv")?;
         factor[index] = finite(rows[index].alpha * INV_DT2, "settling density factor")?;
         let error = finite(rho_adv[index] - 1.0, "settling initial density error")?;
@@ -150,8 +150,8 @@ fn settle_step(
     let mut accepted_iteration = 0_u8;
     let mut error_ppb = i64::MAX;
     for iteration in 1..=SETTLING_DENSITY_CEILING {
-        let acceleration = pressure_acceleration(&rows, boundary_volumes, &multiplier)?;
-        let matrix = matrix_action(&rows, boundary_volumes, &acceleration)?;
+        let acceleration = pressure_acceleration(&rows, &multiplier)?;
+        let matrix = matrix_action(&rows, &acceleration)?;
         let mut error_sum = 0.0;
         for index in 0..count {
             let source = finite(1.0 - rho_adv[index], "settling density source")?;
@@ -177,8 +177,7 @@ fn settle_step(
         mem::swap(&mut multiplier, &mut next);
         if iteration >= DENSITY_MIN_ITERATIONS && error_ppb <= DENSITY_THRESHOLD_PPB {
             accepted_iteration = iteration;
-            accepted_acceleration =
-                Some(pressure_acceleration(&rows, boundary_volumes, &multiplier)?);
+            accepted_acceleration = Some(pressure_acceleration(&rows, &multiplier)?);
             break;
         }
     }

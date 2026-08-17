@@ -22,10 +22,12 @@ use crate::scenario::{validate_capacity, validate_sample_identity};
 
 mod diagnostic;
 mod neighborhood;
+mod reconstruction;
 mod statistics;
 
 pub(crate) use diagnostic::{
     counterfactual_substep, production_hydro_audit, production_hydro_calibration,
+    production_volume_map_calibration,
 };
 use neighborhood::{admitted_boundary, admitted_fluid, build_boundary_grid, build_fluid_grid};
 use statistics::density_ratio_percentiles;
@@ -47,8 +49,10 @@ struct FluidNeighbor {
 #[derive(Clone, Copy, Debug)]
 struct SolidNeighbor {
     boundary: usize,
+    volume: f64,
     value: f64,
     gradient: Vec3f,
+    feature_rank: usize,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -98,10 +102,47 @@ pub(crate) struct StepOutcome {
     pub(crate) boundary_impulses: [Vec3f; 2],
 }
 
+#[derive(Clone, Copy)]
+enum BoundaryInput<'a> {
+    Particles(&'a [BoundarySample]),
+    VolumeMap(Geometry),
+}
+
 pub(crate) fn initial_frame(
-    mut samples: Vec<CanonicalSample>,
+    samples: Vec<CanonicalSample>,
     geometry: Geometry,
     boundary: &[BoundarySample],
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+) -> Result<(AcceptedFrame, StepSummary), WaterError> {
+    initial_frame_with_boundary(
+        samples,
+        geometry,
+        BoundaryInput::Particles(boundary),
+        execution_profile_root,
+        scenario_root,
+    )
+}
+
+pub(crate) fn initial_frame_volume_map(
+    samples: Vec<CanonicalSample>,
+    geometry: Geometry,
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+) -> Result<(AcceptedFrame, StepSummary), WaterError> {
+    initial_frame_with_boundary(
+        samples,
+        geometry,
+        BoundaryInput::VolumeMap(geometry),
+        execution_profile_root,
+        scenario_root,
+    )
+}
+
+fn initial_frame_with_boundary(
+    mut samples: Vec<CanonicalSample>,
+    geometry: Geometry,
+    boundary: BoundaryInput<'_>,
     execution_profile_root: &[u8; 32],
     scenario_root: &[u8; 32],
 ) -> Result<(AcceptedFrame, StepSummary), WaterError> {
@@ -109,7 +150,7 @@ pub(crate) fn initial_frame(
     validate_sample_identity(&samples)?;
     validate_canonical_bounds(&samples)?;
     let decoded = decode(&samples)?;
-    let reconstruction = reconstruct(&decoded, boundary)?;
+    let reconstruction = reconstruct_boundary(&decoded, boundary)?;
     let density_percentiles = density_ratio_percentiles(&reconstruction.rho_ratio)?;
     let penetration = crate::boundary::validate_centres(geometry, &samples)?;
     let frame_root = hash::frame_root(execution_profile_root, scenario_root, 0, &samples)?;
@@ -155,6 +196,22 @@ pub(crate) fn substep(
     )
 }
 
+pub(crate) fn substep_volume_map(
+    prior: &AcceptedFrame,
+    geometry: Geometry,
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+) -> Result<StepOutcome, WaterError> {
+    substep_with_boundary_limit(
+        prior,
+        geometry,
+        BoundaryInput::VolumeMap(geometry),
+        execution_profile_root,
+        scenario_root,
+        DENSITY_MAX_ITERATIONS,
+    )
+}
+
 fn substep_with_density_limit(
     prior: &AcceptedFrame,
     geometry: Geometry,
@@ -163,21 +220,38 @@ fn substep_with_density_limit(
     scenario_root: &[u8; 32],
     density_maximum_iterations: u8,
 ) -> Result<StepOutcome, WaterError> {
+    substep_with_boundary_limit(
+        prior,
+        geometry,
+        BoundaryInput::Particles(boundary),
+        execution_profile_root,
+        scenario_root,
+        density_maximum_iterations,
+    )
+}
+
+fn substep_with_boundary_limit(
+    prior: &AcceptedFrame,
+    geometry: Geometry,
+    boundary: BoundaryInput<'_>,
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+    density_maximum_iterations: u8,
+) -> Result<StepOutcome, WaterError> {
     let mut state = decode(&prior.samples)?;
     if state.samples.is_empty() {
         return publish_empty(prior.step, execution_profile_root, scenario_root, geometry);
     }
-    let reconstruction = reconstruct(&state, boundary)?;
+    let reconstruction = reconstruct_boundary(&state, boundary)?;
     let density_percentiles = density_ratio_percentiles(&reconstruction.rho_ratio)?;
 
-    let divergence = solve_divergence(&reconstruction, boundary, &mut state.velocities)?;
+    let divergence = solve_divergence(&reconstruction, &mut state.velocities)?;
     for (index, velocity) in state.velocities.iter_mut().enumerate() {
         velocity.y = checked_scalar(velocity.y + (DT * -GRAVITY_MAGNITUDE), "gravity velocity y")?;
         (*velocity).checked(&format!("gravity sample {}", state.samples[index].id))?;
     }
     let density = solve_density_with_limit(
         &reconstruction,
-        boundary,
         &mut state.velocities,
         None,
         density_maximum_iterations,
@@ -309,181 +383,32 @@ fn decode(samples: &[CanonicalSample]) -> Result<DecodedState, WaterError> {
     })
 }
 
+fn reconstruct_boundary(
+    state: &DecodedState,
+    boundary: BoundaryInput<'_>,
+) -> Result<Reconstruction, WaterError> {
+    match boundary {
+        BoundaryInput::Particles(samples) => reconstruct(state, samples),
+        BoundaryInput::VolumeMap(geometry) => reconstruct_volume_map(state, geometry),
+    }
+}
+
 fn reconstruct(
     state: &DecodedState,
     boundary: &[BoundarySample],
 ) -> Result<Reconstruction, WaterError> {
-    let fluid_grid = build_fluid_grid(&state.samples)?;
-    let boundary_grid = build_boundary_grid(boundary)?;
-    let mut fluid_counts = Vec::new();
-    let mut solid_counts = Vec::new();
-    fluid_counts
-        .try_reserve_exact(state.samples.len())
-        .map_err(heap_error)?;
-    solid_counts
-        .try_reserve_exact(state.samples.len())
-        .map_err(heap_error)?;
-    let mut total_fluid = 0_usize;
-    let mut total_solid = 0_usize;
-    let mut total_directed = 0_usize;
-    for sample in &state.samples {
-        let fluid = admitted_fluid(sample, &state.samples, &fluid_grid)?;
-        let solid = admitted_boundary(sample, boundary, &boundary_grid)?;
-        let row_count = fluid.len().checked_add(solid.len()).ok_or_else(|| {
-            WaterError::new(NEIGHBOR_CAPACITY_EXCEEDED, "fluid row count overflow")
-        })?;
-        validate_capacity(
-            row_count,
-            MAXIMUM_NEIGHBORS_PER_FLUID_ROW,
-            NEIGHBOR_CAPACITY_EXCEEDED,
-            "fluid-plus-boundary row",
-        )?;
-        total_fluid = total_fluid.checked_add(fluid.len()).ok_or_else(|| {
-            WaterError::new(
-                NEIGHBOR_CAPACITY_EXCEEDED,
-                "fluid neighbor aggregate overflow",
-            )
-        })?;
-        total_solid = total_solid.checked_add(solid.len()).ok_or_else(|| {
-            WaterError::new(
-                NEIGHBOR_CAPACITY_EXCEEDED,
-                "solid neighbor aggregate overflow",
-            )
-        })?;
-        total_directed = total_directed.checked_add(row_count).ok_or_else(|| {
-            WaterError::new(
-                NEIGHBOR_CAPACITY_EXCEEDED,
-                "directed neighbor aggregate overflow",
-            )
-        })?;
-        validate_capacity(
-            total_directed,
-            MAXIMUM_DIRECTED_FLUID_NEIGHBORS,
-            NEIGHBOR_CAPACITY_EXCEEDED,
-            "directed fluid-row neighbors",
-        )?;
-        fluid_counts.push(fluid.len());
-        solid_counts.push(solid.len());
-    }
-    validate_heap_plan(state.samples.len(), total_fluid, total_solid)?;
+    reconstruction::particles(state, boundary)
+}
 
-    let mut rows = Vec::new();
-    let mut fluid_neighbors = Vec::new();
-    let mut solid_neighbors = Vec::new();
-    rows.try_reserve_exact(state.samples.len())
-        .map_err(heap_error)?;
-    fluid_neighbors
-        .try_reserve_exact(total_fluid)
-        .map_err(heap_error)?;
-    solid_neighbors
-        .try_reserve_exact(total_solid)
-        .map_err(heap_error)?;
-    for (row_index, sample) in state.samples.iter().enumerate() {
-        let fluid_start = fluid_neighbors.len();
-        for other in admitted_fluid(sample, &state.samples, &fluid_grid)? {
-            let displacement = sample
-                .position_um
-                .checked_sub(state.samples[other].position_um)?;
-            let kernel = kernel::sample(displacement)?;
-            fluid_neighbors.push(FluidNeighbor {
-                other,
-                value: kernel.value,
-                gradient: kernel.gradient,
-            });
-        }
-        let fluid_end = fluid_neighbors.len();
-        let solid_start = solid_neighbors.len();
-        for boundary_index in admitted_boundary(sample, boundary, &boundary_grid)? {
-            let displacement = sample
-                .position_um
-                .checked_sub(boundary[boundary_index].position_um)?;
-            let kernel = kernel::sample(displacement)?;
-            solid_neighbors.push(SolidNeighbor {
-                boundary: boundary_index,
-                value: kernel.value,
-                gradient: kernel.gradient,
-            });
-        }
-        let solid_end = solid_neighbors.len();
-        debug_assert_eq!(fluid_end - fluid_start, fluid_counts[row_index]);
-        debug_assert_eq!(solid_end - solid_start, solid_counts[row_index]);
-        rows.push(Row {
-            fluid_start,
-            fluid_end,
-            solid_start,
-            solid_end,
-        });
-    }
-
-    let mut rho_ratio = Vec::new();
-    let mut alpha = Vec::new();
-    rho_ratio
-        .try_reserve_exact(state.samples.len())
-        .map_err(heap_error)?;
-    alpha
-        .try_reserve_exact(state.samples.len())
-        .map_err(heap_error)?;
-    for (index, row) in rows.iter().copied().enumerate() {
-        let mut ratio = checked_scalar(REST_VOLUME * kernel::value_at_zero(), "density self term")?;
-        for neighbor in &fluid_neighbors[row.fluid_start..row.fluid_end] {
-            ratio = checked_scalar(
-                ratio + (REST_VOLUME * neighbor.value),
-                "density fluid reduction",
-            )?;
-        }
-        for neighbor in &solid_neighbors[row.solid_start..row.solid_end] {
-            ratio = checked_scalar(
-                ratio + (boundary[neighbor.boundary].volume * neighbor.value),
-                "density boundary reduction",
-            )?;
-        }
-        let _density = checked_scalar(RHO0 * ratio, "density")?;
-        rho_ratio.push(ratio);
-
-        let mut sum_sq = 0.0;
-        let mut central = Vec3f::ZERO;
-        for neighbor in &fluid_neighbors[row.fluid_start..row.fluid_end] {
-            let volume_gradient = neighbor
-                .gradient
-                .scale(REST_VOLUME)
-                .checked("factor fluid volume gradient")?;
-            let g = Vec3f::new(-volume_gradient.x, -volume_gradient.y, -volume_gradient.z)
-                .checked("factor fluid g")?;
-            sum_sq = checked_scalar(sum_sq + g.dot(g), "factor sum squares")?;
-            central = central.sub(g).checked("factor central fluid")?;
-        }
-        for neighbor in &solid_neighbors[row.solid_start..row.solid_end] {
-            let volume_gradient = neighbor
-                .gradient
-                .scale(boundary[neighbor.boundary].volume)
-                .checked("factor boundary volume gradient")?;
-            let g = Vec3f::new(-volume_gradient.x, -volume_gradient.y, -volume_gradient.z)
-                .checked("factor boundary g")?;
-            central = central.sub(g).checked("factor central boundary")?;
-        }
-        let denominator = checked_scalar(
-            sum_sq + central.dot(central),
-            &format!("factor denominator sample {index}"),
-        )?;
-        let factor = if denominator > 1.0e-5 {
-            checked_scalar(1.0 / denominator, "factor reciprocal")?
-        } else {
-            0.0
-        };
-        alpha.push(factor);
-    }
-    Ok(Reconstruction {
-        rows,
-        fluid: fluid_neighbors,
-        solid: solid_neighbors,
-        rho_ratio,
-        alpha,
-    })
+fn reconstruct_volume_map(
+    state: &DecodedState,
+    geometry: Geometry,
+) -> Result<Reconstruction, WaterError> {
+    reconstruction::volume_map(state, geometry)
 }
 
 fn solve_divergence(
     reconstruction: &Reconstruction,
-    boundary: &[BoundarySample],
     velocities: &mut [Vec3f],
 ) -> Result<SolveResult, WaterError> {
     let count = velocities.len();
@@ -493,7 +418,7 @@ fn solve_divergence(
     let mut next = filled_vec(count, 0.0)?;
     for index in 0..count {
         let row = reconstruction.rows[index];
-        let mut d = divergence_source(index, row, reconstruction, boundary, velocities)?;
+        let mut d = divergence_source(index, row, reconstruction, velocities)?;
         if row.neighbor_count() < 20 {
             d = 0.0;
         }
@@ -506,8 +431,8 @@ fn solve_divergence(
     let mut error_ppb = i64::MAX;
     let mut accepted_iteration = 0_u8;
     for iteration in 1..=DIVERGENCE_MAX_ITERATIONS {
-        let acceleration = pressure_acceleration(reconstruction, boundary, &multiplier)?;
-        let matrix = matrix_action(reconstruction, boundary, &acceleration.total)?;
+        let acceleration = pressure_acceleration(reconstruction, &multiplier)?;
+        let matrix = matrix_action(reconstruction, &acceleration.total)?;
         let mut error_sum = 0.0;
         for index in 0..count {
             let s = checked_scalar(-source[index], "divergence s")?;
@@ -532,11 +457,7 @@ fn solve_divergence(
             DIVERGENCE_THRESHOLD_PPB,
         ) {
             accepted_iteration = iteration;
-            accepted_acceleration = Some(pressure_acceleration(
-                reconstruction,
-                boundary,
-                &multiplier,
-            )?);
+            accepted_acceleration = Some(pressure_acceleration(reconstruction, &multiplier)?);
             break;
         }
     }
@@ -566,22 +487,14 @@ fn solve_divergence(
 
 fn solve_density_with_recorder(
     reconstruction: &Reconstruction,
-    boundary: &[BoundarySample],
     velocities: &mut [Vec3f],
     recorder: Option<&mut diagnostic::DensityRecorder>,
 ) -> Result<SolveResult, WaterError> {
-    solve_density_with_limit(
-        reconstruction,
-        boundary,
-        velocities,
-        recorder,
-        DENSITY_MAX_ITERATIONS,
-    )
+    solve_density_with_limit(reconstruction, velocities, recorder, DENSITY_MAX_ITERATIONS)
 }
 
 fn solve_density_with_limit(
     reconstruction: &Reconstruction,
-    boundary: &[BoundarySample],
     velocities: &mut [Vec3f],
     mut recorder: Option<&mut diagnostic::DensityRecorder>,
     maximum_iterations: u8,
@@ -596,7 +509,6 @@ fn solve_density_with_limit(
             index,
             reconstruction.rows[index],
             reconstruction,
-            boundary,
             velocities,
         )?;
         rho_adv[index] = checked_scalar(
@@ -615,8 +527,8 @@ fn solve_density_with_limit(
     let mut error_ppb = i64::MAX;
     let mut accepted_iteration = 0_u8;
     for iteration in 1..=maximum_iterations {
-        let acceleration = pressure_acceleration(reconstruction, boundary, &multiplier)?;
-        let matrix = matrix_action(reconstruction, boundary, &acceleration.total)?;
+        let acceleration = pressure_acceleration(reconstruction, &multiplier)?;
+        let matrix = matrix_action(reconstruction, &acceleration.total)?;
         let mut error_sum = 0.0;
         for index in 0..count {
             let s = checked_scalar(1.0 - rho_adv[index], "density s")?;
@@ -657,11 +569,7 @@ fn solve_density_with_limit(
             DENSITY_THRESHOLD_PPB,
         ) {
             accepted_iteration = iteration;
-            accepted_acceleration = Some(pressure_acceleration(
-                reconstruction,
-                boundary,
-                &multiplier,
-            )?);
+            accepted_acceleration = Some(pressure_acceleration(reconstruction, &multiplier)?);
             break;
         }
     }
@@ -690,7 +598,6 @@ fn divergence_source(
     index: usize,
     row: Row,
     reconstruction: &Reconstruction,
-    boundary: &[BoundarySample],
     velocities: &[Vec3f],
 ) -> Result<f64, WaterError> {
     let mut result = 0.0;
@@ -706,7 +613,7 @@ fn divergence_source(
     }
     for neighbor in &reconstruction.solid[row.solid_start..row.solid_end] {
         let term = checked_scalar(
-            boundary[neighbor.boundary].volume * velocities[index].dot(neighbor.gradient),
+            neighbor.volume * velocities[index].dot(neighbor.gradient),
             "boundary divergence term",
         )?;
         result = checked_scalar(result + term, "boundary divergence reduction")?;
@@ -716,7 +623,6 @@ fn divergence_source(
 
 fn pressure_acceleration(
     reconstruction: &Reconstruction,
-    boundary: &[BoundarySample],
     multiplier: &[f64],
 ) -> Result<AccelerationBatch, WaterError> {
     let mut total = Vec::new();
@@ -748,7 +654,7 @@ fn pressure_acceleration(
         if multiplier[index].abs() > SOLVER_EPSILON {
             for neighbor in &reconstruction.solid[row.solid_start..row.solid_end] {
                 let scale = checked_scalar(
-                    -(boundary[neighbor.boundary].volume * multiplier[index]),
+                    -(neighbor.volume * multiplier[index]),
                     "boundary pressure acceleration scale",
                 )?;
                 let term = neighbor.gradient.scale(scale);
@@ -771,7 +677,6 @@ fn pressure_acceleration(
 
 fn matrix_action(
     reconstruction: &Reconstruction,
-    boundary: &[BoundarySample],
     acceleration: &[Vec3f],
 ) -> Result<Vec<f64>, WaterError> {
     let mut result = Vec::new();
@@ -792,7 +697,7 @@ fn matrix_action(
         }
         for neighbor in &reconstruction.solid[row.solid_start..row.solid_end] {
             let term = checked_scalar(
-                boundary[neighbor.boundary].volume * acceleration[index].dot(neighbor.gradient),
+                neighbor.volume * acceleration[index].dot(neighbor.gradient),
                 "boundary matrix term",
             )?;
             value = checked_scalar(value + term, "boundary matrix reduction")?;

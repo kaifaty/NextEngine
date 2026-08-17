@@ -12,6 +12,7 @@ mod profile;
 mod reference;
 mod scenario;
 mod solver;
+mod volume_map;
 
 use std::path::Path;
 

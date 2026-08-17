@@ -33,15 +33,28 @@ pub(crate) fn compute_ghost() -> Result<CandidateCalibrationComputation, WaterEr
     Ok(CandidateCalibrationComputation { boundary, trace })
 }
 
+pub(crate) fn compute_volume_map() -> Result<HydroCalibrationTrace, WaterError> {
+    let positions = generate_fluid()?;
+    let rows = reconstruct_volume_map(&positions)?;
+    let contributions = density_contributions(&positions, None, &rows)?;
+    let extended = extended_density_trace(&positions, &rows)?;
+    Ok(HydroCalibrationTrace {
+        contributions,
+        density_error_ppb_by_iteration: extended.errors_ppb,
+        first_original_threshold_iteration: extended.first_original_threshold_iteration,
+        first_original_threshold_checkpoint: extended.first_original_threshold_checkpoint,
+        checkpoints: extended.checkpoints,
+    })
+}
+
 fn compute_trace(
     positions: &[I3],
     boundary_positions: &[I3],
     boundary_volumes: &[f64],
 ) -> Result<HydroCalibrationTrace, WaterError> {
     let rows = reconstruct(positions, boundary_positions, boundary_volumes)?;
-    let contributions =
-        density_contributions(positions, boundary_positions, boundary_volumes, &rows)?;
-    let extended = extended_density_trace(positions, boundary_volumes, &rows)?;
+    let contributions = density_contributions(positions, Some(boundary_positions), &rows)?;
+    let extended = extended_density_trace(positions, &rows)?;
     Ok(HydroCalibrationTrace {
         contributions,
         density_error_ppb_by_iteration: extended.errors_ppb,
@@ -73,8 +86,7 @@ fn generate_ghost_boundary() -> Result<Vec<I3>, WaterError> {
 
 fn density_contributions(
     positions: &[I3],
-    boundary_positions: &[I3],
-    boundary_volumes: &[f64],
+    boundary_positions: Option<&[I3]>,
     rows: &[Row],
 ) -> Result<Vec<DensityContributionRow>, WaterError> {
     let mut result = reserved(SELECTED_ROWS.len())?;
@@ -105,9 +117,27 @@ fn density_contributions(
         let mut feature_counts = [0_usize; 3];
         let mut boundary_total = 0.0;
         for neighbor in &row.boundary {
-            let feature = boundary_feature(boundary_positions[neighbor.boundary])?;
+            let feature = if let Some(boundary_positions) = boundary_positions {
+                boundary_feature(boundary_positions[neighbor.boundary])?
+            } else {
+                neighbor.feature_rank.checked_sub(1).ok_or_else(|| {
+                    WaterError::new(
+                        AUDIT_INVALID,
+                        "independent volume-map feature rank is missing",
+                    )
+                })?
+            };
+            if feature >= feature_sums.len() {
+                return Err(WaterError::new(
+                    AUDIT_INVALID,
+                    format!(
+                        "independent volume-map feature rank {} exceeds corner",
+                        feature + 1
+                    ),
+                ));
+            }
             let term = finite(
-                boundary_volumes[neighbor.boundary] * neighbor.value,
+                neighbor.volume * neighbor.value,
                 "calibration boundary contribution",
             )?;
             feature_counts[feature] += 1;
@@ -198,7 +228,6 @@ fn boundary_feature(position: I3) -> Result<usize, WaterError> {
 
 fn extended_density_trace(
     positions: &[I3],
-    boundary_volumes: &[f64],
     rows: &[Row],
 ) -> Result<ExtendedDensityTrace, WaterError> {
     let count = positions.len();
@@ -209,7 +238,7 @@ fn extended_density_trace(
     let mut multiplier = filled(count, 0.0)?;
     let mut next = filled(count, 0.0)?;
     for index in 0..count {
-        let delta = divergence_source(index, rows, boundary_volumes, &velocities)?;
+        let delta = divergence_source(index, rows, &velocities)?;
         rho_adv[index] = finite(rows[index].rho_ratio + (DT * delta), "calibration rho adv")?;
         factor[index] = finite(rows[index].alpha * INV_DT2, "calibration density factor")?;
         let error = finite(rho_adv[index] - 1.0, "calibration initial density error")?;
@@ -222,8 +251,8 @@ fn extended_density_trace(
     let mut first_threshold = None;
     let mut first_threshold_checkpoint = None;
     for iteration in 1..=DIAGNOSTIC_MAX_ITERATIONS {
-        let acceleration = pressure_acceleration(rows, boundary_volumes, &multiplier)?;
-        let matrix = matrix_action(rows, boundary_volumes, &acceleration)?;
+        let acceleration = pressure_acceleration(rows, &multiplier)?;
+        let matrix = matrix_action(rows, &acceleration)?;
         let mut error_sum = 0.0;
         for index in 0..count {
             let source = finite(1.0 - rho_adv[index], "calibration density source")?;
@@ -254,7 +283,6 @@ fn extended_density_trace(
                 iteration,
                 error_ppb,
                 positions,
-                boundary_volumes,
                 rows,
                 &velocities,
                 &multiplier,
@@ -265,7 +293,6 @@ fn extended_density_trace(
                 iteration,
                 error_ppb,
                 positions,
-                boundary_volumes,
                 rows,
                 &velocities,
                 &multiplier,
@@ -285,12 +312,11 @@ fn prospective_checkpoint(
     iteration: u16,
     density_error_ppb: i64,
     positions: &[I3],
-    boundary_volumes: &[f64],
     rows: &[Row],
     velocities: &[F3],
     multiplier: &[f64],
 ) -> Result<ExtendedDensityCheckpoint, WaterError> {
-    let acceleration = pressure_acceleration(rows, boundary_volumes, multiplier)?;
+    let acceleration = pressure_acceleration(rows, multiplier)?;
     let mut maximum_speed = 0.0;
     let mut minimum_velocity_y = f64::INFINITY;
     let mut maximum_velocity_y = f64::NEG_INFINITY;

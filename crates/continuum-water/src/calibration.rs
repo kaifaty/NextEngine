@@ -23,9 +23,22 @@ use crate::{boundary, profile, scenario, solver};
 
 mod candidate;
 mod initialization;
+mod volume_map_candidate;
 
-pub(crate) use candidate::run_xtask as run_candidate_xtask;
+pub(crate) use candidate::HYDRO_SOAK_STEPS;
 pub(crate) use initialization::run_xtask as run_initialization_xtask;
+
+pub(crate) fn run_candidate_xtask(
+    repository_root: &Path,
+    arguments: impl Iterator<Item = String>,
+) -> Result<String, WaterError> {
+    let arguments: Vec<String> = arguments.collect();
+    if arguments.get(1).map(String::as_str) == Some(volume_map_candidate::CANDIDATE_ID) {
+        volume_map_candidate::run_xtask(repository_root, arguments.into_iter())
+    } else {
+        candidate::run_xtask(repository_root, arguments.into_iter())
+    }
+}
 
 pub(crate) const DIAGNOSTIC_MAX_ITERATIONS: u16 = 320;
 pub(crate) const DIAGNOSTIC_CHECKPOINTS: [u16; 5] = [20, 40, 80, 160, 320];

@@ -29,7 +29,7 @@ use crate::{boundary, profile, scenario, solver};
 use super::{CandidateCalibrationComputation, HydroCalibrationTrace, first_mismatch};
 
 const CANDIDATE_ID: &str = "ghost-cell-shell-v1";
-pub(super) const HYDRO_SOAK_STEPS: u32 = 24;
+pub(crate) const HYDRO_SOAK_STEPS: u32 = 24;
 
 #[derive(Serialize)]
 struct CandidateEnvelope<'a> {

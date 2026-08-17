@@ -8,14 +8,16 @@ use crate::model::Vec3i;
 use super::{
     AuditBoundaryInput, AuditComputation, AuditFluidInput, BoundaryNeighborTrace,
     DensityInitialTrace, DensityIterationRowTrace, HydroAuditTrace, HydroRowTrace, SELECTED_ROWS,
-    scalar_bits,
+    VolumeMapObservation, empty_volume_map_observation, scalar_bits,
 };
 
 mod calibration;
 mod initialization;
+mod volume_map;
 
 pub(crate) use calibration::{
     compute as compute_calibration, compute_ghost as compute_ghost_calibration,
+    compute_volume_map as compute_volume_map_calibration,
 };
 pub(crate) use initialization::compute as compute_zero_velocity_settling;
 
@@ -118,8 +120,10 @@ struct FluidNeighbor {
 #[derive(Clone, Copy)]
 struct BoundaryNeighbor {
     boundary: usize,
+    volume: f64,
     value: f64,
     gradient: F3,
+    feature_rank: usize,
 }
 
 struct Row {
@@ -134,7 +138,7 @@ pub(super) fn compute() -> Result<AuditComputation, WaterError> {
     let boundary_positions = generate_boundary()?;
     let boundary_volumes = boundary_volumes(&boundary_positions)?;
     let rows = reconstruct(&fluid_positions, &boundary_positions, &boundary_volumes)?;
-    let trace = density_trace(&fluid_positions, &boundary_volumes, &rows)?;
+    let trace = density_trace(&fluid_positions, &rows)?;
 
     let mut fluid = reserved(FLUID_COUNT)?;
     for (index, position) in fluid_positions.iter().copied().enumerate() {
@@ -163,6 +167,51 @@ pub(super) fn compute() -> Result<AuditComputation, WaterError> {
         fluid,
         boundary,
         trace,
+    })
+}
+
+pub(super) fn observe_volume_map(position_um: Vec3i) -> Result<VolumeMapObservation, WaterError> {
+    let position = F3::new(
+        (position_um.x as f64) / SCALE,
+        (position_um.y as f64) / SCALE,
+        (position_um.z as f64) / SCALE,
+    );
+    let Some(sample) = volume_map::sample(position)? else {
+        return Ok(empty_volume_map_observation(position_um));
+    };
+    let contribution = finite(
+        sample.volume * sample.value,
+        "independent observed volume-map density contribution",
+    )?;
+    let volume_gradient = finite_vec(
+        sample.gradient.scale(sample.volume),
+        "independent observed volume-map volume gradient",
+    )?;
+    Ok(VolumeMapObservation {
+        position_um,
+        present: true,
+        signed_distance_bits: Some(scalar_bits(sample.signed_distance)),
+        volume_bits: Some(scalar_bits(sample.volume)),
+        virtual_distance_bits: Some(scalar_bits(sample.virtual_distance)),
+        displacement_bits: Some([
+            scalar_bits(sample.displacement.x),
+            scalar_bits(sample.displacement.y),
+            scalar_bits(sample.displacement.z),
+        ]),
+        kernel_value_bits: Some(scalar_bits(sample.value)),
+        kernel_gradient_bits: Some([
+            scalar_bits(sample.gradient.x),
+            scalar_bits(sample.gradient.y),
+            scalar_bits(sample.gradient.z),
+        ]),
+        volume_gradient_bits: Some([
+            scalar_bits(volume_gradient.x),
+            scalar_bits(volume_gradient.y),
+            scalar_bits(volume_gradient.z),
+        ]),
+        density_contribution_bits: Some(scalar_bits(contribution)),
+        density_contribution_ppb: Some(quantize_ppb(contribution)?),
+        feature_rank: Some(sample.feature_rank),
     })
 }
 
@@ -262,8 +311,10 @@ fn reconstruct(
                 let sampled = kernel(displacement)?;
                 boundary.push(BoundaryNeighbor {
                     boundary: boundary_index,
+                    volume: boundary_volumes[boundary_index],
                     value: sampled.value,
                     gradient: sampled.gradient,
+                    feature_rank: 0,
                 });
             }
         }
@@ -282,7 +333,7 @@ fn reconstruct(
         }
         for neighbor in &boundary {
             rho_ratio = finite(
-                rho_ratio + (boundary_volumes[neighbor.boundary] * neighbor.value),
+                rho_ratio + (neighbor.volume * neighbor.value),
                 "density boundary fold",
             )?;
         }
@@ -295,7 +346,7 @@ fn reconstruct(
             central = finite_vec(central.sub(g), "factor central fluid")?;
         }
         for neighbor in &boundary {
-            let volume_gradient = neighbor.gradient.scale(boundary_volumes[neighbor.boundary]);
+            let volume_gradient = neighbor.gradient.scale(neighbor.volume);
             let g = F3::new(-volume_gradient.x, -volume_gradient.y, -volume_gradient.z);
             central = finite_vec(central.sub(g), "factor central boundary")?;
         }
@@ -315,11 +366,91 @@ fn reconstruct(
     Ok(rows)
 }
 
-fn density_trace(
-    positions: &[I3],
-    boundary_volumes: &[f64],
-    rows: &[Row],
-) -> Result<HydroAuditTrace, WaterError> {
+fn reconstruct_volume_map(fluid_positions: &[I3]) -> Result<Vec<Row>, WaterError> {
+    let mut rows = reserved(fluid_positions.len())?;
+    for (index, position) in fluid_positions.iter().copied().enumerate() {
+        let mut fluid = reserved(MAX_ROW_NEIGHBORS)?;
+        let mut boundary = reserved(1)?;
+        for (other, other_position) in fluid_positions.iter().copied().enumerate() {
+            if other == index {
+                continue;
+            }
+            let displacement = position.sub(other_position);
+            if displacement.distance_squared() <= SUPPORT_RADIUS_SQUARED {
+                let sampled = kernel(displacement)?;
+                fluid.push(FluidNeighbor {
+                    other,
+                    value: sampled.value,
+                    gradient: sampled.gradient,
+                });
+            }
+        }
+        let decoded = F3::new(
+            (position.x as f64) / SCALE,
+            (position.y as f64) / SCALE,
+            (position.z as f64) / SCALE,
+        );
+        if let Some(sampled) = volume_map::sample(decoded)? {
+            boundary.push(BoundaryNeighbor {
+                boundary: usize::MAX,
+                volume: sampled.volume,
+                value: sampled.value,
+                gradient: sampled.gradient,
+                feature_rank: sampled.feature_rank,
+            });
+        }
+        if fluid.len() + boundary.len() > MAX_ROW_NEIGHBORS {
+            return Err(WaterError::new(
+                AUDIT_INVALID,
+                format!("independent volume-map row {index} exceeds capacity"),
+            ));
+        }
+        let mut rho_ratio = finite(REST_VOLUME * KERNEL_K, "volume-map density self")?;
+        for neighbor in &fluid {
+            rho_ratio = finite(
+                rho_ratio + (REST_VOLUME * neighbor.value),
+                "volume-map density fluid fold",
+            )?;
+        }
+        for neighbor in &boundary {
+            rho_ratio = finite(
+                rho_ratio + (neighbor.volume * neighbor.value),
+                "volume-map density boundary fold",
+            )?;
+        }
+        let mut sum_sq = 0.0;
+        let mut central = F3::ZERO;
+        for neighbor in &fluid {
+            let volume_gradient = neighbor.gradient.scale(REST_VOLUME);
+            let g = F3::new(-volume_gradient.x, -volume_gradient.y, -volume_gradient.z);
+            sum_sq = finite(sum_sq + g.dot(g), "volume-map factor sum squares")?;
+            central = finite_vec(central.sub(g), "volume-map factor central fluid")?;
+        }
+        for neighbor in &boundary {
+            let volume_gradient = neighbor.gradient.scale(neighbor.volume);
+            let g = F3::new(-volume_gradient.x, -volume_gradient.y, -volume_gradient.z);
+            central = finite_vec(central.sub(g), "volume-map factor central boundary")?;
+        }
+        let denominator = finite(
+            sum_sq + central.dot(central),
+            "volume-map factor denominator",
+        )?;
+        let alpha = if denominator > 1.0e-5 {
+            finite(1.0 / denominator, "volume-map factor reciprocal")?
+        } else {
+            0.0
+        };
+        rows.push(Row {
+            fluid,
+            boundary,
+            rho_ratio,
+            alpha,
+        });
+    }
+    Ok(rows)
+}
+
+fn density_trace(positions: &[I3], rows: &[Row]) -> Result<HydroAuditTrace, WaterError> {
     let count = positions.len();
     let gravity_y = finite(DT * -GRAVITY, "gravity velocity")?;
     let velocities = filled(count, F3::new(0.0, gravity_y, 0.0))?;
@@ -328,7 +459,7 @@ fn density_trace(
     let mut multiplier = filled(count, 0.0)?;
     let mut next = filled(count, 0.0)?;
     for index in 0..count {
-        let delta = divergence_source(index, rows, boundary_volumes, &velocities)?;
+        let delta = divergence_source(index, rows, &velocities)?;
         rho_adv[index] = finite(rows[index].rho_ratio + (DT * delta), "rho adv")?;
         factor[index] = finite(rows[index].alpha * INV_DT2, "density factor")?;
         let error = finite(rho_adv[index] - 1.0, "initial density error")?;
@@ -336,20 +467,13 @@ fn density_trace(
         multiplier[index] = finite(positive * factor[index], "initial multiplier")?;
     }
 
-    let mut selected_rows = selected_row_traces(
-        positions,
-        boundary_volumes,
-        rows,
-        &rho_adv,
-        &factor,
-        &multiplier,
-    )?;
+    let mut selected_rows = selected_row_traces(positions, rows, &rho_adv, &factor, &multiplier)?;
     let mut errors = reserved(usize::from(DENSITY_MAX_ITERATIONS))?;
     let mut terminal_code = DENSITY_NONCONVERGENCE.to_owned();
     let mut terminal_detail = String::new();
     for iteration in 1..=DENSITY_MAX_ITERATIONS {
-        let acceleration = pressure_acceleration(rows, boundary_volumes, &multiplier)?;
-        let matrix = matrix_action(rows, boundary_volumes, &acceleration)?;
+        let acceleration = pressure_acceleration(rows, &multiplier)?;
+        let matrix = matrix_action(rows, &acceleration)?;
         let mut error_sum = 0.0;
         for index in 0..count {
             let s = finite(1.0 - rho_adv[index], "density s")?;
@@ -411,7 +535,6 @@ fn density_trace(
 
 fn selected_row_traces(
     positions: &[I3],
-    boundary_volumes: &[f64],
     rows: &[Row],
     rho_adv: &[f64],
     factor: &[f64],
@@ -439,7 +562,7 @@ fn selected_row_traces(
                 id: u32::try_from(neighbor.boundary).map_err(|_| {
                     WaterError::new(AUDIT_INVALID, "boundary neighbor id conversion overflow")
                 })?,
-                volume_bits: scalar_bits(boundary_volumes[neighbor.boundary]),
+                volume_bits: scalar_bits(neighbor.volume),
             });
         }
         let iterations = reserved(usize::from(DENSITY_MAX_ITERATIONS))?;
@@ -462,12 +585,7 @@ fn selected_row_traces(
     Ok(result)
 }
 
-fn divergence_source(
-    index: usize,
-    rows: &[Row],
-    boundary_volumes: &[f64],
-    velocities: &[F3],
-) -> Result<f64, WaterError> {
+fn divergence_source(index: usize, rows: &[Row], velocities: &[F3]) -> Result<f64, WaterError> {
     let mut result = 0.0;
     for neighbor in &rows[index].fluid {
         let relative = velocities[index].sub(velocities[neighbor.other]);
@@ -479,7 +597,7 @@ fn divergence_source(
     }
     for neighbor in &rows[index].boundary {
         let term = finite(
-            boundary_volumes[neighbor.boundary] * velocities[index].dot(neighbor.gradient),
+            neighbor.volume * velocities[index].dot(neighbor.gradient),
             "boundary divergence term",
         )?;
         result = finite(result + term, "boundary divergence fold")?;
@@ -487,11 +605,7 @@ fn divergence_source(
     Ok(result)
 }
 
-fn pressure_acceleration(
-    rows: &[Row],
-    boundary_volumes: &[f64],
-    multiplier: &[f64],
-) -> Result<Vec<F3>, WaterError> {
+fn pressure_acceleration(rows: &[Row], multiplier: &[f64]) -> Result<Vec<F3>, WaterError> {
     let mut result = reserved(rows.len())?;
     for (index, row) in rows.iter().enumerate() {
         let mut value = F3::ZERO;
@@ -509,7 +623,7 @@ fn pressure_acceleration(
         if multiplier[index].abs() > SOLVER_EPSILON {
             for neighbor in &row.boundary {
                 let scale = finite(
-                    -(boundary_volumes[neighbor.boundary] * multiplier[index]),
+                    -(neighbor.volume * multiplier[index]),
                     "boundary pressure scale",
                 )?;
                 boundary_value = finite_vec(
@@ -523,11 +637,7 @@ fn pressure_acceleration(
     Ok(result)
 }
 
-fn matrix_action(
-    rows: &[Row],
-    boundary_volumes: &[f64],
-    acceleration: &[F3],
-) -> Result<Vec<f64>, WaterError> {
+fn matrix_action(rows: &[Row], acceleration: &[F3]) -> Result<Vec<f64>, WaterError> {
     let mut result = reserved(rows.len())?;
     for (index, row) in rows.iter().enumerate() {
         let mut value = 0.0;
@@ -541,7 +651,7 @@ fn matrix_action(
         }
         for neighbor in &row.boundary {
             let term = finite(
-                boundary_volumes[neighbor.boundary] * acceleration[index].dot(neighbor.gradient),
+                neighbor.volume * acceleration[index].dot(neighbor.gradient),
                 "boundary matrix term",
             )?;
             value = finite(value + term, "boundary matrix fold")?;
@@ -555,6 +665,24 @@ fn kernel(displacement_um: I3) -> Result<Kernel, WaterError> {
     let dx = (displacement_um.x as f64) / SCALE;
     let dy = (displacement_um.y as f64) / SCALE;
     let dz = (displacement_um.z as f64) / SCALE;
+    kernel_components(dx, dy, dz, displacement_um.distance_squared() == 0)
+}
+
+fn kernel_f3(displacement: F3) -> Result<Kernel, WaterError> {
+    kernel_components(
+        displacement.x,
+        displacement.y,
+        displacement.z,
+        displacement.x == 0.0 && displacement.y == 0.0 && displacement.z == 0.0,
+    )
+}
+
+fn kernel_components(
+    dx: f64,
+    dy: f64,
+    dz: f64,
+    displacement_is_zero: bool,
+) -> Result<Kernel, WaterError> {
     let r2_xy = (dx * dx) + (dy * dy);
     let r2 = finite(r2_xy + (dz * dz), "kernel r2")?;
     let r = finite(r2.sqrt(), "kernel r")?;
@@ -578,7 +706,7 @@ fn kernel(displacement_um: I3) -> Result<Kernel, WaterError> {
         let t3 = finite(t2 * t, "kernel t3")?;
         finite(KERNEL_K * (2.0 * t3), "kernel value outer")?
     };
-    let gradient = if displacement_um.distance_squared() == 0 {
+    let gradient = if displacement_is_zero {
         F3::ZERO
     } else {
         let grad_q = F3::new(

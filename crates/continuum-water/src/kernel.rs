@@ -14,6 +14,24 @@ pub(crate) fn sample(displacement_um: Vec3i) -> Result<KernelSample, WaterError>
     let dx = (displacement_um.x as f64) / MICROMETRES_PER_METRE;
     let dy = (displacement_um.y as f64) / MICROMETRES_PER_METRE;
     let dz = (displacement_um.z as f64) / MICROMETRES_PER_METRE;
+    sample_components(dx, dy, dz, displacement_um.squared_length_i128()? == 0)
+}
+
+pub(crate) fn sample_metres(displacement: Vec3f) -> Result<KernelSample, WaterError> {
+    sample_components(
+        displacement.x,
+        displacement.y,
+        displacement.z,
+        displacement.x == 0.0 && displacement.y == 0.0 && displacement.z == 0.0,
+    )
+}
+
+fn sample_components(
+    dx: f64,
+    dy: f64,
+    dz: f64,
+    displacement_is_zero: bool,
+) -> Result<KernelSample, WaterError> {
     let r2_xy = (dx * dx) + (dy * dy);
     let r2 = checked_scalar(r2_xy + (dz * dz), "kernel r2")?;
     let r = checked_scalar(r2.sqrt(), "kernel r")?;
@@ -39,8 +57,7 @@ pub(crate) fn sample(displacement_um: Vec3i) -> Result<KernelSample, WaterError>
         checked_scalar(KERNEL_K * (2.0 * t3), "kernel value outer")?
     };
 
-    let integer_r2 = displacement_um.squared_length_i128()?;
-    let gradient = if integer_r2 == 0 {
+    let gradient = if displacement_is_zero {
         Vec3f::ZERO
     } else {
         let grad_q = Vec3f::new(

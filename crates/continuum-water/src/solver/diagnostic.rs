@@ -11,7 +11,7 @@ use super::*;
 
 mod calibration;
 
-pub(crate) use calibration::production_hydro_calibration;
+pub(crate) use calibration::{production_hydro_calibration, production_volume_map_calibration};
 
 pub(crate) fn counterfactual_substep(
     prior: &AcceptedFrame,
@@ -203,7 +203,7 @@ pub(crate) fn production_hydro_audit(
 ) -> Result<AuditComputation, WaterError> {
     let mut state = decode(samples)?;
     let reconstruction = reconstruct(&state, boundary)?;
-    let divergence = solve_divergence(&reconstruction, boundary, &mut state.velocities)?;
+    let divergence = solve_divergence(&reconstruction, &mut state.velocities)?;
     for velocity in &mut state.velocities {
         velocity.y = checked_scalar(
             velocity.y + (DT * -GRAVITY_MAGNITUDE),
@@ -211,12 +211,8 @@ pub(crate) fn production_hydro_audit(
         )?;
     }
     let mut recorder = DensityRecorder::new(&state, &reconstruction, boundary)?;
-    let density = solve_density_with_recorder(
-        &reconstruction,
-        boundary,
-        &mut state.velocities,
-        Some(&mut recorder),
-    );
+    let density =
+        solve_density_with_recorder(&reconstruction, &mut state.velocities, Some(&mut recorder));
     let (terminal_code, terminal_detail) = match density {
         Ok(result) => (
             "COMPLETED".to_owned(),
