@@ -1,6 +1,6 @@
 # W0C — Hydro calibration reclosure
 
-Status: `READY / NOT_STARTED`.
+Status: `IN_PROGRESS / BOUNDARY_CANDIDATE_REJECTED`.
 
 ## Outcome
 
@@ -21,6 +21,28 @@ roots and unblock W1.
 - [W1-RC1](../../development/continuum-water-w1-rc1-audit-2026-08-17.md)
   independently reproduces all inputs, boundary volumes, the global residual
   curve and four representative row traces bit-for-bit.
+
+## Current W0C result
+
+The first bounded cycle is recorded in the
+[W0C hydro-calibration report](../../development/continuum-water-w0c-hydro-calibration-2026-08-17.md).
+Production and independent calculators exactly match the contribution
+decomposition and the unchanged-profile 320-iteration curve. The original
+boundary overfills corner, edge and face rows by different amounts; its
+prospective state already escapes the analytical box at iteration 20 and still
+misses the density threshold at iteration 320. A larger ceiling and a uniform
+boundary multiplier are rejected.
+
+`ghost-cell-shell-v1` restores the selected initial rows to the interior
+partition error and passes the first hydro step plus exact free-fall control.
+It nevertheless fails the 24-step soak on step 2. Counterfactual ceilings 100
+and 160 only move failure to steps 4 and 5 while accepted-step iteration demand
+and penetration grow. The candidate is `NOT_SELECTED`; no successor roots or
+corpus credit exist.
+
+Steps 1–3 below are therefore complete for this candidate family. The current
+next action is step 4: a deterministic relaxed/pre-equilibrated initialization
+with a canonical generator root. Do not run another ceiling-only variant.
 
 ## Fixed constraints
 

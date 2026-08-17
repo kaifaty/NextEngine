@@ -14,6 +14,10 @@ not satisfied. The clean-tree
 finds no mismatch in the audited production path, so
 [W0C](00c-hydro-calibration-reclosure.md) must re-close the numerical profile
 before W1 resumes.
+The first
+[W0C diagnostic cycle](../../development/continuum-water-w0c-hydro-calibration-2026-08-17.md)
+rejects both a ceiling-only repair and `ghost-cell-shell-v1`; W1 remains
+blocked while W0C moves to a deterministic initialization discriminator.
 
 ## Outcome
 
