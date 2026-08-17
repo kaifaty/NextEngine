@@ -13,13 +13,14 @@ arrived in 149.8 ms and peak total GPU memory was 9,271 MiB.
 The same PyTorch compiled request measured RTF 0.707 at 8,286 MiB. Nano-vLLM
 therefore has 64.8% lower RTF and 2.84x the single-request throughput, but uses
 about 985 MiB more peak total GPU and has 2.63x the streaming TTFA of the
-PyTorch path (149.8 versus 56.9 ms). Human quality is intentionally pending
-user listening; valid side-by-side artifacts are retained.
+PyTorch path (149.8 versus 56.9 ms). In direct listening, the user judged the
+PyTorch output to have noticeably better intonation. PyTorch therefore remains
+the quality baseline; Nano-vLLM is retained as a throughput-only alternative.
 
 | Candidate | Warm RTF | Realtime speed | Peak total GPU | Quality status |
 | --- | ---: | ---: | ---: | --- |
-| VoxCPM2 Nano-vLLM CUDA Graphs, 10 steps | 0.249 | 4.01x | 9,271 MiB | Adult male/female examples ready; human verdict pending |
-| VoxCPM2 compiled, 10 steps | 0.707 | 1.41x | 8,286 MiB | Adult male/female examples ready; human verdict pending |
+| VoxCPM2 Nano-vLLM CUDA Graphs, 10 steps | 0.249 | 4.01x | 9,271 MiB | Noticeably weaker intonation than PyTorch; throughput-only alternative |
+| VoxCPM2 compiled, 10 steps | 0.707 | 1.41x | 8,286 MiB | Noticeably better intonation; preferred quality baseline |
 | VoxCPM2 compiled, 4 steps | 0.647 | 1.55x | 8,347 MiB | Faster candidate; human degradation check pending |
 | CosyVoice3 compiled baseline | 0.582 | 1.72x | 7,981 MiB | Childlike bundled-reference timbre |
 | Fish `audio.cpp` Q8_0 | 0.659 | 1.52x | 8,189 MiB | Rejected: poor quality |
@@ -179,7 +180,8 @@ The first complete request is not a serving latency number: it performs CUDA
 Graph capture and remaining Triton/Torch compilation. A resident process is
 mandatory. Once warm, Nano-vLLM lowers full RTF by 64.8% and provides 2.84x
 the throughput of compiled PyTorch. It adds about 985 MiB peak total GPU and
-increases first-PCM latency from 56.9 to 149.8 ms.
+increases first-PCM latency from 56.9 to 149.8 ms. The speedup does not preserve
+perceived intonation quality: the user preferred PyTorch by a noticeable margin.
 
 ### Nano-vLLM CUDA Graph A/B
 
@@ -288,6 +290,19 @@ has peak 0.896 and RMS 0.139, so the Nano-vLLM sample is about 4.0 dB quieter by
 RMS. The Nano-vLLM female file has peak 0.743 and RMS 0.142. These checks
 establish valid unclipped files, not perceptual quality.
 
+## Human listening verdict
+
+The user directly compared the retained PyTorch and Nano-vLLM examples and
+judged PyTorch to have noticeably better intonation. This is the decisive
+quality result for this bounded evaluation: Nano-vLLM CUDA Graphs wins the
+single-request throughput measurement, but it is not quality-equivalent to the
+PyTorch path and is not the default serving candidate.
+
+Pronunciation, adult-timbre adherence, long-text completeness and broader-corpus
+behavior were not separately scored. In particular, the 6.560 s Nano-vLLM
+female dialogue still needs a word-completeness check against the 8.000 s
+PyTorch result if Nano-vLLM is reconsidered later.
+
 ## Audio archive
 
 ```text
@@ -327,10 +342,10 @@ establish valid unclipped files, not perceptual quality.
 | `adult-male-nanovllm-eager-steps10.wav` | 3.680 s | `df9d0658cabb3b9e5ecc64a20678661ef1745d76cb2726ba1e41a1d4b8ddda66` | Nano-vLLM CUDA Graph/eager numeric comparator |
 | `adult-female-dialogue-nanovllm-cuda-graph-steps10.wav` | 6.560 s | `970d0f5815552d27aa9403023f178df33cf3e15c5d67525605e07c31b08bca29` | Longer Nano-vLLM completeness/prosody check |
 
-The human review should score adult-timbre adherence, Russian pronunciation,
-naturalness/prosody, audible diffusion noise, complete long-text delivery,
-Nano-vLLM versus PyTorch quality and whether 4/6 PyTorch steps materially
-degrade the 10-step result.
+The retained intonation verdict concerns Nano-vLLM versus PyTorch. A broader
+review would still need to score adult-timbre adherence, Russian pronunciation,
+audible diffusion noise, complete long-text delivery and whether 4/6 PyTorch
+steps materially degrade the 10-step result.
 
 ## Reproduction
 
@@ -375,10 +390,11 @@ Repository-owned entry points:
 
 ## Constraints and next experiments
 
-- Keep the 10-step compiled run as the quality/correctness baseline until the
-  user accepts the Nano-vLLM waveform or a lower-step example.
-- Prefer resident Nano-vLLM with CUDA Graphs for throughput if listening quality
-  passes; the measured full RTF is 0.249 versus 0.707 for compiled PyTorch.
+- Keep the 10-step compiled PyTorch run as the quality/correctness baseline; its
+  intonation was judged noticeably better than Nano-vLLM.
+- Do not select Nano-vLLM solely from its RTF 0.249 result. Retain it only for
+  workloads that explicitly accept the observed quality tradeoff for 2.84x
+  throughput.
 - Prefer PyTorch streaming when minimum first-PCM latency matters more than
   completion time: 56.9 ms versus 149.8 ms for Nano-vLLM.
 - Treat one resident model and one active request as the proven 10 GiB boundary;

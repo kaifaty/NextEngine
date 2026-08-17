@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Nano-vLLM 2.0.3 with CUDA Graphs is the fastest measured VoxCPM2 path on the RTX 3080: warm RTF 0.249 (0.917 s wall for 3.680 s audio, 4.01x realtime), first 160 ms PCM in 149.8 ms and 9,271 MiB peak total GPU. It is 2.84x the throughput of compiled PyTorch RTF 0.707, but PyTorch streaming has lower TTFA at 56.9 ms and uses about 985 MiB less peak GPU.
-- **Why:** Three fixed-seed Nano-vLLM graph requests were PCM-identical; eager and graph A/B, a longer female dialogue and a lower KV-cache-utilization probe all passed. The pinned runtime/model/FlashAttention closure and external raw/WAV archive are complete.
-- **Next action:** User compares the Nano-vLLM and PyTorch male/female WAVs for pronunciation, prosody, adult timbre, artifacts and complete delivery of the shorter Nano-vLLM long sample.
+- **Current conclusion:** Nano-vLLM 2.0.3 with CUDA Graphs is the fastest measured VoxCPM2 path on the RTX 3080 at RTF 0.249 and 4.01x realtime, but the user judged PyTorch to have noticeably better intonation. Keep compiled/streaming PyTorch as the quality baseline; retain Nano-vLLM only as a throughput alternative with an explicit quality tradeoff.
+- **Why:** Nano-vLLM is 2.84x the throughput of compiled PyTorch, while PyTorch streaming has lower TTFA (56.9 versus 149.8 ms), uses about 985 MiB less peak GPU and wins the direct listening comparison on intonation.
+- **Next action:** Continue with other TTS models and compare their intonation against the retained 10-step PyTorch examples, while keeping the same timing protocol.
 - **Current blocker:** None.
 - **Do not retry:** Do not use the unqualified `main` branch, mutable model aliases at runtime, community quantizations, unlicensed reference speech or model/generated artifacts inside Git for the correctness baseline.
-- **Reconsider when:** Human quality rejects the Nano-vLLM graph waveform, a later pinned runtime changes quality/speed, or concurrency becomes a requirement.
+- **Reconsider when:** A later pinned Nano-vLLM/model revision materially improves the waveform, the workload explicitly accepts weaker intonation for throughput, or concurrency becomes a requirement.
 
 ## Current evidence
 
@@ -38,6 +38,7 @@
 | Nano-vLLM eager control | `PASS`: warm RTF 0.884, first PCM 157.5 ms, 9,310 MiB peak total GPU | The speedup depends on CUDA Graphs; eager Nano-vLLM is about 5.8% slower than eager PyTorch. |
 | Nano-vLLM longer dialogue | `PASS`: 6.560 s audio, warm RTF 0.236, first PCM 146.2 ms, 9,284 MiB, fixed-seed PCM-identical | Human review must check completeness because PyTorch generated 8.000 s for the same text. |
 | Nano-vLLM external evidence archive | `PASS`: three listening WAVs and four raw run directories added under the existing VoxCPM2 archive | Exact speed and side-by-side quality evidence remain outside Git and reviewable. |
+| Human intonation comparison | `FAIL` for Nano-vLLM quality parity: the user judged PyTorch to have noticeably better intonation in the retained A/B examples | Keep PyTorch as the quality baseline; do not select Nano-vLLM solely by RTF. |
 
 ## Decisions that still constrain the work
 
@@ -48,8 +49,8 @@
 - **Decision:** Use the official BF16/PyTorch path and reference-free English control descriptions for one mature male primary benchmark plus a mature female listening variant. Keep CFG 2.0, 10 LocDiT steps and seed 1234 fixed unless a separately reported quality/speed tradeoff is tested.
 - **Rejected alternatives:** Do not clone an arbitrary online voice or start with GGUF/Nano-vLLM because either introduces consent/provenance risk or confounds runtime parity before a correctness baseline exists.
 - **Consequences:** Voice quality can be judged without third-party reference audio; timing includes the Voice Design prompt path.
-- **Uncertainty:** Human Russian pronunciation, naturalness, adult-timbre adherence and 4/6-step quality remain unjudged; concurrency and broader-corpus behavior remain unmeasured.
-- **Reconsider when:** The user records a listening verdict or a newer pinned model/runtime is evaluated on the same closure.
+- **Uncertainty:** Russian pronunciation, adult-timbre adherence and 4/6-step quality remain unjudged; concurrency and broader-corpus behavior remain unmeasured. Intonation parity is resolved in favor of PyTorch.
+- **Reconsider when:** A newer pinned model/runtime or controlled Voice Design change produces fresh A/B listening evidence.
 
 ### D-002 — Isolated Nano-vLLM comparison
 
@@ -58,8 +59,18 @@
 - **Decision:** Reuse the exact pinned model and Voice Design text, keep Nano-vLLM in a separate external environment, set single-request scheduler bounds, measure first returned PCM plus full wall/audio RTF, and retain one prewarm plus three measured WAVs.
 - **Rejected alternatives:** Do not compare upstream RTX 4090 RTF to the local 3080 baseline; do not replace FlashAttention with a Python shim; do not commit runtime binaries, model weights, logs or WAVs.
 - **Consequences:** The comparison remains attributable and does not disturb the completed PyTorch baseline. The locally retained FlashAttention build is inference-only for BF16/head dimension 128 and cannot be used as a general training wheel.
-- **Uncertainty:** Human-perceived Russian quality and long-text completeness remain unjudged; multi-request concurrency is unmeasured and unsafe to infer from less than 1 GiB peak headroom.
+- **Uncertainty:** Long-text completeness, pronunciation and adult-timbre adherence remain unjudged; multi-request concurrency is unmeasured and unsafe to infer from less than 1 GiB peak headroom.
 - **Reconsider when:** A later doctor/model load exposes a compatibility or OOM boundary, or concurrency becomes required; then change only the smallest scheduler/memory setting and retain the failure evidence.
+
+### D-003 — Preserve PyTorch as the quality baseline
+
+- **Observation:** The optimized and PyTorch paths use the same text, Voice Design control, seed, CFG and diffusion-step count, but their retained waveforms are perceptually different.
+- **Evidence:** Direct user comparison of `adult-male-nanovllm-cuda-graph-steps10.wav` and the retained PyTorch examples on 2026-08-17: PyTorch has noticeably better intonation.
+- **Decision:** Keep 10-step compiled/streaming PyTorch as the VoxCPM2 quality candidate. Treat Nano-vLLM CUDA Graphs as a performance-only alternative whose quality tradeoff must be accepted explicitly.
+- **Rejected alternatives:** Do not promote Nano-vLLM as the default solely because it reaches RTF 0.249 or 4.01x realtime; speed does not compensate for the observed intonation regression.
+- **Consequences:** Future TTS evaluations compare intonation against PyTorch, not Nano-vLLM. Preserve Nano-vLLM measurements as an upper-throughput reference.
+- **Uncertainty:** The verdict does not separately score pronunciation, adult timbre, artifacts or completeness of the shorter Nano-vLLM female dialogue.
+- **Reconsider when:** A pinned backend/model change produces a new A/B sample that the user judges comparable to PyTorch, or a specific workload knowingly prioritizes throughput over intonation.
 
 ## Open hypotheses
 
@@ -67,8 +78,8 @@
 | --- | --- | --- | --- |
 | H1: Official BF16 inference fits in 10 GiB VRAM | Confirmed for one resident request: observed maximum 8,455 MiB total GPU on the long sample | Remaining headroom is insufficient to assume concurrent requests | Keep single-request residency as the proven boundary. |
 | H2: Adult Voice Design avoids a childlike output without reference speech | Adult male/female examples were produced without reference audio and have valid unclipped waveforms | Human timbre judgment is pending | User listens to archived examples. |
-| H3: Warm RTX 3080 RTF is competitive with CosyVoice 0.582 | Confirmed for Nano-vLLM: RTF 0.249 is 57.2% lower than CosyVoice | Quality paths differ and Nano-vLLM uses 1,290 MiB more peak total GPU | Prefer Nano-vLLM only if listening quality passes. |
-| H4: Nano-vLLM fits and materially accelerates one request on 10 GiB | Confirmed: RTF 0.249 at 9,271 MiB versus PyTorch RTF 0.707 at 8,286 MiB | Less than 1 GiB observed peak headroom; concurrency is not established | Keep one resident request as the proven boundary. |
+| H3: Warm RTX 3080 RTF is competitive with CosyVoice 0.582 | Confirmed for Nano-vLLM: RTF 0.249 is 57.2% lower than CosyVoice | Nano-vLLM intonation is noticeably worse than PyTorch and it uses 1,290 MiB more peak total GPU than CosyVoice | Retain only as a throughput comparator, not the quality candidate. |
+| H4: Nano-vLLM fits and materially accelerates one request on 10 GiB | Confirmed: RTF 0.249 at 9,271 MiB versus PyTorch RTF 0.707 at 8,286 MiB | Less than 1 GiB observed peak headroom; concurrency is not established; quality parity failed | Keep one resident request as the proven performance boundary. |
 
 ## Required context
 
@@ -79,9 +90,9 @@
 
 ## Next action
 
-1. Listen to `adult-male-nanovllm-cuda-graph-steps10.wav` beside `adult-male-steps10.wav`.
-2. Listen to both female dialogue files and verify that the 6.560 s Nano-vLLM result omits no words versus the 8.000 s PyTorch result.
-3. Record the quality verdict before selecting Nano-vLLM as the serving candidate.
+1. Continue with other TTS models using `adult-male-steps10.wav` and `adult-female-dialogue-steps10.wav` as the VoxCPM2 quality references.
+2. Preserve the same fixed prompt, warm protocol, RTF, TTFA, VRAM and direct-listening fields.
+3. Revisit Nano-vLLM only after a pinned quality-relevant change or for an explicitly throughput-first workload.
 
 ## Do not retry
 
@@ -94,5 +105,5 @@
 
 - **Workspace state:** PyTorch and Nano-vLLM wrappers, tests, report and task-state are tracked; all model/runtime/generated/raw artifacts remain in external machine-local roots.
 - **Checks:** Nano-vLLM pinned doctor, all 12 focused VoxCPM2 unit tests, Python compile, canonical graph/eager/long-dialogue/0.80-utilization runs, fixed-seed PCM determinism, WAV structure, no-clipping analysis and external archive copies pass. Documentation path/link validation and `git diff --check` pass.
-- **Remaining risk:** Human Russian quality, long-text completeness, broader corpus behavior and multi-request concurrency remain unmeasured.
+- **Remaining risk:** Russian pronunciation, adult-timbre adherence, long-text completeness, broader-corpus behavior and multi-request concurrency remain unmeasured; the direct intonation verdict favors PyTorch.
 - **Promotion needed:** None for a bounded lab experiment.
