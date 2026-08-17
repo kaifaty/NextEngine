@@ -2,8 +2,8 @@
 
 Status: `Proposed`; architecture and evidence-gated package specifications,
 not one linear implementation roadmap. Governing candidate architecture:
-[SPEC-36](../../architecture/36-continuum-material-physics.md),
-[ADR-072](../../architecture/adr/072-continuum-material-physics-track.md) and
+[SPEC-38](../../architecture/38-continuum-material-physics.md),
+[ADR-076](../../architecture/adr/076-continuum-material-physics-track.md) and
 the [research report](../../development/continuum-material-physics-research-2026-08-16.md).
 
 Water execution has its own

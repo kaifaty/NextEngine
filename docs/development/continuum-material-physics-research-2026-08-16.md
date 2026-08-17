@@ -7,8 +7,8 @@ sand, mud, soil, snow and off-road coupling. This report treats the brief as a
 research hypothesis, not as repository instructions. It compares that
 hypothesis with current Next Engine authority/persistence constraints and
 primary technical sources. The resulting architecture is recorded as
-[SPEC-36](../architecture/36-continuum-material-physics.md) and
-[ADR-072](../architecture/adr/072-continuum-material-physics-track.md).
+[SPEC-38](../architecture/38-continuum-material-physics.md) and
+[ADR-076](../architecture/adr/076-continuum-material-physics-track.md).
 
 Input reviewed in full: `/home/kaifaty/Downloads/continuum_physics_water_mud_offroad_research_brief.md`,
 SHA-256 `d2f8bb9a6a41a62a2501841b3897aa35a86f878a6b43d8a9f835b88aec9144d1`.

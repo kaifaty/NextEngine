@@ -1,12 +1,12 @@
-# SPEC-41: Proposed thermochemical material processes
+# SPEC-43: Proposed thermochemical material processes
 
 | Field | Value |
 |---|---|
-| ID | SPEC-41 |
+| ID | SPEC-43 |
 | Status | Proposed |
 | Version | 1.0 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-36](36-continuum-material-physics.md), [SPEC-37](37-layered-physical-world.md), [SPEC-38](38-structural-vegetation-physics.md), [SPEC-39](39-world-substrate-composition.md), [SPEC-40](40-arcane-substrate-and-physical-magic.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-071](adr/071-canonical-physics-material-lineage.md), [ADR-075](adr/075-thermochemical-material-process-track.md) |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-38](38-continuum-material-physics.md), [SPEC-39](39-layered-physical-world.md), [SPEC-40](40-structural-vegetation-physics.md), [SPEC-41](41-world-substrate-composition.md), [SPEC-42](42-arcane-substrate-and-physical-magic.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-071](adr/071-canonical-physics-material-lineage.md), [ADR-079](adr/079-thermochemical-material-process-track.md) |
 | Related research | [Imported world-dynamics source papers](research/world-dynamics-source-papers.md) |
 
 ## Status and bounded purpose
@@ -41,11 +41,11 @@ health or arcane quantity.
 |---|---|---|
 | Tick, schedule, command ledger and composite publication | Runtime | No thermochemical clock, async commit or private retry path. |
 | Rigid/articulated pose, contact and mechanical mass properties | PhysX/SPEC-26 | Thermochemical results become typed revision-bound requests; they never edit a body or native handle. |
-| Continuum sample motion and region topology | SPEC-36 owner | Temperature/phase is not hidden in solver scratch; later coupling uses an explicit parcel-to-region mapping. |
-| Tree graph, section damage and detached-body handoff | SPEC-38 owner | Heat or combustion may propose strength/mass/topology effects only through a separately promoted exchange. |
+| Continuum sample motion and region topology | SPEC-38 owner | Temperature/phase is not hidden in solver scratch; later coupling uses an explicit parcel-to-region mapping. |
+| Tree graph, section damage and detached-body handoff | SPEC-40 owner | Heat or combustion may propose strength/mass/topology effects only through a separately promoted exchange. |
 | Composition, enthalpy, equilibrium phase and reaction progress | Thermochemical owner | One canonical owner segment and one writer for every active parcel. |
 | Ability/policy definitions | Mechanics | Content selects a validated profile; package code cannot inject trusted heat or declare ignition. |
-| Arcane source quantity and conversion loss | Arcane/SPEC-40 | A future arcane edge debits Arcane and credits/debits thermochemical enthalpy atomically. |
+| Arcane source quantity and conversion loss | Arcane/SPEC-42 | A future arcane edge debits Arcane and credits/debits thermochemical enthalpy atomically. |
 | Temperature colors, steam/fire particles and overlays | Presentation | Read-only; visuals never create heat, phase or reaction facts. |
 
 `MaterialParcelId` is an engine-owned stable identity bound to an exact
@@ -161,13 +161,13 @@ interface revision and revalidated in the record.
 ## Physical and world coupling
 
 The base owner can run without changing mechanical representation. Any effect
-on another owner is a separate typed edge under SPEC-37/39:
+on another owner is a separate typed edge under SPEC-39/41:
 
 - water/ice motion, density or collision changes wait for the relevant
-  SPEC-36 owner and `THERMOCHEM-CONTINUUM-P1`;
+  SPEC-38 owner and `THERMOCHEM-CONTINUUM-P1`;
 - thermal expansion, pressure or rigid material change waits for an explicit
   PhysX material/topology consumer and `THERMOCHEM-RIGID-P1`;
-- drying, strength loss or combustion of a tree waits for SPEC-38 exact
+- drying, strength loss or combustion of a tree waits for SPEC-40 exact
   persistence and `THERMOCHEM-VEGETATION-P1`;
 - arcane heat/cooling waits for both base promotions and
   `ARCANE-THERMOCHEMICAL-P1`.

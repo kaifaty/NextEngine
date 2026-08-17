@@ -14,7 +14,7 @@ rigid/articulation state and name the authored dry pre-activation fallback.
 
 In the same coherent change:
 
-- update SPEC-02/03/21/25/26/30 and SPEC-36;
+- update SPEC-02/03/21/25/26/30 and SPEC-38;
 - add only the W4-consumed current-only public records;
 - promote the composite `PhysicsWorldCheckpointV3` closure proven by W5;
 - bind region/profile/content/coupling hashes into project/save/replay closure;

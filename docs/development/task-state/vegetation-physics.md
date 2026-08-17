@@ -6,7 +6,7 @@
 | Updated | `2026-08-17` |
 | Task key | `vegetation-physics` |
 | Scope | Proposed layered physical-world model and evidence-gated structural vegetation specifications |
-| Definition of done | SPEC-37/SPEC-38/ADR-073, standalone V0–V7 vegetation roadmap, research report and main R8 status are coherent; no runtime/public-contract claim |
+| Definition of done | SPEC-39/SPEC-40/ADR-077, standalone V0–V7 vegetation roadmap, research report and main R8 status are coherent; no runtime/public-contract claim |
 | Authority | Working context only; Accepted SPEC/ADR, main roadmap, exact future profiles and ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
@@ -34,8 +34,8 @@
 - **Do not retry:** GPU-first authority, visual mesh/rigid chain as tree state,
   scalar HP, camera/timing LOD, flexible falling crown V1, fire/root/soil inside
   the base milestone, or public contracts before a production consumer.
-- **Independent later branches:** SPEC-41 owns heat/moisture/composition and
-  combustion progress; SPEC-42 model advice starts only after the classical
+- **Independent later branches:** SPEC-43 owns heat/moisture/composition and
+  combustion progress; SPEC-44 model advice starts only after the classical
   tree track promotes. Neither changes V0B/V1 or receives vegetation credit.
 
 ## Current evidence
@@ -43,7 +43,7 @@
 | Evidence | Result | Consequence |
 | --- | --- | --- |
 | [Source research review](../vegetation-physics-research-2026-08-16.md) | `REPORT_ONLY` | Supports sparse graph/section damage and corrects solver/authority/LOD scope; proves no implementation |
-| [SPEC-37](../../architecture/37-layered-physical-world.md), [SPEC-38](../../architecture/38-structural-vegetation-physics.md) and [ADR-073](../../architecture/adr/073-layered-physical-world-and-living-structures-track.md) | `Proposed` | Candidate owner DAG, tree authority, coupling, fracture, persistence and fallback semantics are closed |
+| [SPEC-39](../../architecture/39-layered-physical-world.md), [SPEC-40](../../architecture/40-structural-vegetation-physics.md) and [ADR-077](../../architecture/adr/077-layered-physical-world-and-living-structures-track.md) | `Proposed` | Candidate owner DAG, tree authority, coupling, fracture, persistence and fallback semantics are closed |
 | [Vegetation roadmap](../../plans/vegetation-physics/README.md) | `V0A COMPLETE / V0B OPEN / V1 NOT_STARTED` | Product choices are fixed; code remains blocked on numeric/profile/corpus calibration and later lanes cannot bypass the serial oracle |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `VEGETATION-*` ProductChecks | `NOT_RUN` | No solver, tree, fracture, coupling, persistence, LOD, target or performance claim is admissible |
@@ -146,9 +146,9 @@
 
 1. [Agent routing](../../architecture/agent-routing.md) and current SPEC-26/
    ADR-058 rigid authority.
-2. [SPEC-37](../../architecture/37-layered-physical-world.md),
-   [SPEC-38](../../architecture/38-structural-vegetation-physics.md) and
-   [ADR-073](../../architecture/adr/073-layered-physical-world-and-living-structures-track.md).
+2. [SPEC-39](../../architecture/39-layered-physical-world.md),
+   [SPEC-40](../../architecture/40-structural-vegetation-physics.md) and
+   [ADR-077](../../architecture/adr/077-layered-physical-world-and-living-structures-track.md).
 3. [Vegetation roadmap](../../plans/vegetation-physics/README.md), especially
    V0 and V1.
 4. [Research report](../vegetation-physics-research-2026-08-16.md).

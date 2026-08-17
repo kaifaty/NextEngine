@@ -1,22 +1,22 @@
-# SPEC-37: Proposed layered physical-world model
+# SPEC-39: Proposed layered physical-world model
 
 | Field | Value |
 |---|---|
-| ID | SPEC-37 |
+| ID | SPEC-39 |
 | Status | Proposed |
 | Version | 1.3 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-36](36-continuum-material-physics.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-073](adr/073-layered-physical-world-and-living-structures-track.md) |
-| Related Proposed composition | [SPEC-39](39-world-substrate-composition.md), [SPEC-40](40-arcane-substrate-and-physical-magic.md), [SPEC-41](41-thermochemical-material-processes.md), [SPEC-42](42-neural-assisted-world-simulation.md), [ADR-074](adr/074-world-substrate-and-arcane-physical-interaction-track.md), [ADR-075](adr/075-thermochemical-material-process-track.md), [ADR-076](adr/076-neural-assistance-as-bounded-proposals.md) |
-| Supersedes | SPEC-37 1.2; adds the explicit thermochemical owner and proposal-only neural sidecar without changing current PhysX, runtime, save or public-contract semantics |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-38](38-continuum-material-physics.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-077](adr/077-layered-physical-world-and-living-structures-track.md) |
+| Related Proposed composition | [SPEC-41](41-world-substrate-composition.md), [SPEC-42](42-arcane-substrate-and-physical-magic.md), [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-078](adr/078-world-substrate-and-arcane-physical-interaction-track.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
+| Candidate revision note | Version 1.3 adds the explicit thermochemical owner and proposal-only neural sidecar without changing current PhysX, runtime, save or public-contract semantics; the imported candidate was renumbered to avoid the occupied mainline namespace |
 
 ## Status and purpose
 
 This SPEC defines how future physical phenomena compose without creating a
 single universal solver or several writers of the same state. It is a
 candidate architecture for post-v1 work. The current production world remains
-the Accepted PhysX path from SPEC-26/ADR-058; SPEC-36 continuum state and the
-SPEC-38 living-structure state remain Proposed and unimplemented.
+the Accepted PhysX path from SPEC-26/ADR-058; SPEC-38 continuum state and the
+SPEC-40 living-structure state remain Proposed and unimplemented.
 
 The word *layer* means an ownership and transaction boundary. It does not mean
 that every layer depends on the one drawn immediately below it, that every
@@ -26,9 +26,9 @@ immutable projections and canonical exchange batches.
 
 ## Relationship to world substrates
 
-Physical Embodiment is one specialization inside the Proposed SPEC-39
+Physical Embodiment is one specialization inside the Proposed SPEC-41
 world-substrate composition, not the owner of every simulated law. A future
-Arcane and Thermochemical owners from SPEC-40/41 remain peer substrates outside
+Arcane and Thermochemical owners from SPEC-42/43 remain peer substrates outside
 Physical Embodiment. Arcane can affect rigid, continuum, vegetation or
 Thermochemical state only through a typed cross-owner exchange profile;
 Thermochemical phase/reaction consequences use the same rule. Neither becomes
@@ -58,14 +58,14 @@ current physical path and do not create empty Arcane owner segments.
 L3 is deliberately plural. Inside Physical Embodiment, PhysX remains the
 writer of rigid/articulated pose, velocity and contact; a continuum solver
 writes only its material motion/region state; a living-structure solver writes
-only its graph, elastic/damage and topology state. The adjacent SPEC-41
+only its graph, elastic/damage and topology state. The adjacent SPEC-43
 Thermochemical owner writes only composition, enthalpy, phase and durable
 reaction progress of stable parcels. Mechanical owners retain pose, contact,
 spatial mass and topology. Similar-looking quantities do not permit shared
 ownership; a phase or combustion consequence uses a separate atomic exchange
 profile.
 
-An optional SPEC-42 model is not an L3 owner. It may submit one bounded private
+An optional SPEC-44 model is not an L3 owner. It may submit one bounded private
 proposal to an already selected owner candidate before that owner's classical
 solve. It cannot write an exchange batch, choose a representation, publish a
 root or count toward a multi-owner promotion check.

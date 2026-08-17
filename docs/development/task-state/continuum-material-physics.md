@@ -29,8 +29,8 @@
 - **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
   hidden warm-start/float continuation, iterative coupling, sleep before exact
   persistence, or wet terrain before dry-sand evidence.
-- **Independent later branches:** SPEC-41 owns temperature/composition/phase;
-  SPEC-42 warm-start advice starts only after W1-W6 promotion. Neither changes
+- **Independent later branches:** SPEC-43 owns temperature/composition/phase;
+  SPEC-44 warm-start advice starts only after W1-W6 promotion. Neither changes
   the water worktree's next action or receives water-gate credit.
 
 ## Current evidence
@@ -38,8 +38,8 @@
 | Evidence | Result | Consequence |
 | --- | --- | --- |
 | [Research report](../continuum-material-physics-research-2026-08-16.md) | `REPORT_ONLY` | Supports solver-family separation; proves no implementation |
-| [SPEC-36](../../architecture/36-continuum-material-physics.md) and [ADR-072](../../architecture/adr/072-continuum-material-physics-track.md), checkpoint `63d597a` | `Proposed` | Candidate CPU authority, fixed-point boundary, one-pass coupling and exact-active semantics are closed |
-| [Standalone water roadmap](../../plans/continuum-water/README.md), checkpoint `870fffd` | `W0 COMPLETE / W1 NOT_STARTED` | Separate worktree has a bounded execution and stop path |
+| [SPEC-38](../../architecture/38-continuum-material-physics.md) and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md) | `Proposed` | Candidate CPU authority, fixed-point boundary, one-pass coupling and exact-active semantics are closed |
+| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W0 COMPLETE / W1 NOT_STARTED` | Separate worktree has a bounded execution and stop path |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-*` ProductChecks | `NOT_RUN` | No solver, performance, persistence or production claim is admissible |
@@ -48,7 +48,7 @@
 
 ### D-001 — Solver family, not solver monoculture
 
-- **Evidence:** the research report and SPEC-36.
+- **Evidence:** the research report and SPEC-38.
 - **Decision:** CPU DFSPH for water; APIC/MLS-MPM for one calibrated dry-sand
   profile; separate material-specific SoA.
 - **Rejected:** one SPH solver/particle record for water, sand, mud and snow.
@@ -119,7 +119,7 @@
 1. [Agent routing](../../architecture/agent-routing.md), SPEC-26 and current
    physics ADRs.
 2. [Main roadmap](../../roadmap.md), R8, B-10 and performance boundaries.
-3. [SPEC-36](../../architecture/36-continuum-material-physics.md) and ADR-072.
+3. [SPEC-38](../../architecture/38-continuum-material-physics.md) and ADR-076.
 4. [Water roadmap](../../plans/continuum-water/README.md), especially W0/W1.
 5. [Research report](../continuum-material-physics-research-2026-08-16.md).
 

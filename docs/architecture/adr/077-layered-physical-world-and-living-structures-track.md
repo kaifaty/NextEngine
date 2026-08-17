@@ -1,14 +1,14 @@
-# ADR-073: Layered physical world and living-structures track
+# ADR-077: Layered physical world and living-structures track
 
 | Field | Value |
 |---|---|
-| ID | ADR-073 |
+| ID | ADR-077 |
 | Status | Proposed |
 | Version | 1.1 |
 | Decision date | 2026-08-16 |
 | Last verified | 2026-08-16 |
-| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-36](../36-continuum-material-physics.md), [SPEC-37](../37-layered-physical-world.md), [SPEC-38](../38-structural-vegetation-physics.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-072](072-continuum-material-physics-track.md) |
-| Supersedes | ADR-073 1.0; records the selected V0A vegetation profile without changing Accepted PhysX authority |
+| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-38](../38-continuum-material-physics.md), [SPEC-39](../39-layered-physical-world.md), [SPEC-40](../40-structural-vegetation-physics.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-076](076-continuum-material-physics-track.md) |
+| Candidate revision note | Version 1.1 records the selected V0A vegetation profile without changing Accepted PhysX authority; the imported candidate was renumbered to avoid the occupied mainline namespace |
 | Superseded by | none |
 
 ## Context
@@ -31,7 +31,7 @@ and the current product-first scope.
 
 ### Layer by ownership and commit, not by effect name
 
-Adopt the SPEC-37 layer map: immutable activation/profile closure; canonical
+Adopt the SPEC-39 layer map: immutable activation/profile closure; canonical
 schedule/identity; revision-bound environmental forcings; peer physical state
 owners; canonical coupling/composite commit; committed outcomes/persistence;
 read-only presentation.
@@ -161,7 +161,7 @@ budget or granting GPU authority requires a new explicit decision.
 
 ## Consequences
 
-- SPEC-37, SPEC-38 and this ADR remain Proposed; current runtime/schema/save
+- SPEC-39, SPEC-40 and this ADR remain Proposed; current runtime/schema/save
   semantics and the PhysX baseline do not change.
 - The next action is V0B numerical/profile/corpus calibration, not solver code.
 - The physical-world model can add phenomena without shared mutable state or a

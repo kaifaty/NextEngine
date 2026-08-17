@@ -1,12 +1,12 @@
-# SPEC-42: Proposed neural-assisted world simulation
+# SPEC-44: Proposed neural-assisted world simulation
 
 | Field | Value |
 |---|---|
-| ID | SPEC-42 |
+| ID | SPEC-44 |
 | Status | Proposed |
 | Version | 1.0 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-36](36-continuum-material-physics.md), [SPEC-37](37-layered-physical-world.md), [SPEC-38](38-structural-vegetation-physics.md), [SPEC-39](39-world-substrate-composition.md), [SPEC-41](41-thermochemical-material-processes.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-neural-assistance-as-bounded-proposals.md) |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-38](38-continuum-material-physics.md), [SPEC-39](39-layered-physical-world.md), [SPEC-40](40-structural-vegetation-physics.md), [SPEC-41](41-world-substrate-composition.md), [SPEC-43](43-thermochemical-material-processes.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-053](adr/053-engine-native-model-training-and-immutable-artifact-boundary.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 | Related research | [Imported world-dynamics source papers](research/world-dynamics-source-papers.md) |
 
 ## Status and purpose
@@ -67,7 +67,7 @@ A learned proposal cannot compensate for an unspecified law, unclosed numeric
 profile, failing solver or missing persistence. Generated data from a changing
 teacher lineage is not merged into one dataset generation.
 
-SPEC-36 explicitly excludes warm start from the base water V1 path. Therefore
+SPEC-38 explicitly excludes warm start from the base water V1 path. Therefore
 a water proposal is a separate post-promotion branch and gives no credit to
 `CONTINUUM-WATER-REF-P1` through `W6`. The same rule applies to vegetation and
 thermochemical base roadmaps.

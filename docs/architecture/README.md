@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.43 |
+| Версия | 2.44 |
 | Последняя проверка | 2026-08-17 |
-| Заменяет | INDEX-001 2.42; retains the current ADR-074 R4d boundary and adds the approved product-grounded ADR-075/SPEC-18/36/37 boundary |
+| Заменяет | INDEX-001 2.43; integrates the Proposed continuum, layered-physical, vegetation, world-substrate, arcane, thermochemical and neural-assistance tracks without changing the Accepted baseline |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -182,10 +182,17 @@ traceability — навигационная карта, не admission authority
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Accepted R4c cognition core under ADR-073 plus bounded R4d social/work/economy and tier-cadence vertical under ADR-074 |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
-| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070 |
+| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070; SPEC-44 does not yet add a world-solver lane |
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
 | SPEC-36 | [Functional tissue condition, injury and structural body changes](36-functional-tissue-condition-and-injury.md) | Accepted functional-anatomy product, ownership, treatment, player/NPC parity and fallback semantics; exact contracts/vertical remain Proposed |
 | SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person visual target, severity/LOD/read-only fallback semantics; exact manifests/deformers remain Proposed |
+| SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 local water/deformable-terrain track; CPU DFSPH reference, GPU correspondence and MLS-MPM terrain are not current runtime contracts |
+| SPEC-39 | [Proposed layered physical-world model](39-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and thermochemical state without a universal solver or second writer |
+| SPEC-40 | [Proposed structural vegetation physics](40-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; V0A decisions are closed and V0B calibration remains open |
+| SPEC-41 | [Proposed world-substrate composition](41-world-substrate-composition.md) | Proposed cross-owner composition with a start-command/exchange-receipt split, exact owner identity and no universal world service or shared mutable state |
+| SPEC-42 | [Proposed arcane substrate and physical magic](42-arcane-substrate-and-physical-magic.md) | Proposed fixed-point Arcane owner, production targeting, staged atomic PhysX coupling and exact persistence track; architecture A0A is closed and numeric A0B remains open |
+| SPEC-43 | [Proposed thermochemical material processes](43-thermochemical-material-processes.md) | Proposed parcel composition/enthalpy/phase owner and sealed water/ice calorimetry track; T0A is closed and numeric/profile T0B remains open |
+| SPEC-44 | [Proposed neural-assisted world simulation](44-neural-assisted-world-simulation.md) | Proposed post-promotion diagnostics and bounded solver proposals; model is not an owner/backend and exact classical non-regression is required |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -270,9 +277,29 @@ traceability — навигационная карта, не admission authority
 | ADR-073 | [Deterministic cognition owner vertical](adr/073-deterministic-cognition-owner-vertical.md) | Accepted R4c semantic beliefs, fixed-point Utility, bounded GOAP and paired Agent/Memory owners; its V5/V6/Replay V8 boundary is superseded by ADR-074 |
 | ADR-074 | [Systemic Strategic Agent owner vertical](adr/074-systemic-strategic-agent-owner-vertical.md) | Accepted bounded R4d structured social/work/economy path, activity owner, tier cognition, bulk-time equivalence, V6/V7 content and nine-owner Replay V9 |
 | ADR-075 | [Product-grounded functional anatomy and character embodiment](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) | Accepted functional gameplay abstraction, fixed-PD capability projection, treatment, agency, player/NPC parity, third-person severity/LOD and lower-limb vertical semantics; exact schemas/implementation remain Proposed |
+| ADR-076 | [Continuum material physics track](adr/076-continuum-material-physics-track.md) | Proposed multi-lane continuum ownership and promotion strategy; no current backend/schema/save claim |
+| ADR-077 | [Layered physical world and living-structures track](adr/077-layered-physical-world-and-living-structures-track.md) | Proposed peer-owner physical DAG and selected V0A destructible-tree profile; V0B remains open and there is no current backend/schema/save claim |
+| ADR-078 | [World substrate and arcane physical-interaction track](adr/078-world-substrate-and-arcane-physical-interaction-track.md) | Proposed world-owner composition and selected telekinesis-first architecture; numeric A0B remains open and no current schema/runtime claim exists |
+| ADR-079 | [Thermochemical material-process track](adr/079-thermochemical-material-process-track.md) | Proposed enthalpy-first fixed-point parcel owner and sealed heat/phase promotion path; no current schema/runtime claim |
+| ADR-080 | [Neural assistance as bounded proposals](adr/080-neural-assistance-as-bounded-proposals.md) | Proposed optional proposal-only acceleration after classical promotion; no model authority, retry or current model-lane claim |
 
 ## Proposed tracks
 
+- SPEC-38/ADR-076 — post-v1 local water and deformable-material research; CPU
+  DFSPH is the candidate water authority, GPU remains correspondence-only and
+  the main R8 integration track stays inactive until the serial oracle passes.
+- SPEC-39/SPEC-40/ADR-077 — post-v1 layered physical-world and living-
+  structures research; the selected tree vertical is blocked on V0B numeric,
+  material and corpus calibration before solver code.
+- SPEC-41/SPEC-42/ADR-078 — post-v1 world-substrate and arcane-physical
+  composition; the telekinesis architecture is closed, numeric A0B is open,
+  and thermochemical/continuum/vegetation/Vital/Identity lanes remain independent.
+- SPEC-43/ADR-079 — post-v1 thermochemical material research; a sealed
+  enthalpy/ice calorimetry profile is first, T0B calibration blocks code, and
+  combustion/atmosphere/physical/arcane couplers remain independent.
+- SPEC-44/ADR-080 — optional neural assistance downstream of a promoted
+  classical owner; models own no state, cannot trigger retry-to-green and must
+  preserve exact canonical roots and failure classes.
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
 - Broader navigation sections of SPEC-08 — navmesh cooking, dynamic overlays,
   tactical/physical path following and optional Recast adapter remain Proposed

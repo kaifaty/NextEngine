@@ -6,13 +6,16 @@
 | Updated | `2026-08-17` |
 | Task key | `world-dynamics-architecture` |
 | Scope | Unified owner/coupling architecture for physical, thermochemical, arcane and optional neural-assisted simulation |
-| Definition of done | Source papers preserved as non-normative input; SPEC-39/37/36/38/40 links are coherent; SPEC-41/42 and ADR-075/076 define bounded tracks; roadmaps, routing, traceability and R8 status agree; no runtime/public-contract claim |
+| Definition of done | Source papers preserved as non-normative input; SPEC-41/39/38/40/42 links are coherent; SPEC-43/44 and ADR-079/080 define bounded tracks; roadmaps, routing, traceability and R8 status agree; no runtime/public-contract claim |
 | Authority | Working context only; Accepted SPEC/ADR, main roadmap and exact ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
 
 - **World model:** `WorldDynamics` is fixed-stage owner composition, not a
   state owner or service.
+- **Mainline identity:** the transferred tracks use SPEC-38…44 and
+  ADR-076…080. The source-worktree SPEC-36…42/ADR-072…076 numbers are
+  historical only because mainline already owned SPEC-36/37 and ADR-072…075.
 - **New owner:** Thermochemical owns parcel composition, enthalpy, equilibrium
   phase and reaction progress; physical owners retain motion/topology.
 - **First thermochemical fixture:** sealed water parcel + finite thermal
@@ -35,8 +38,8 @@
 |---|---|---|
 | [Imported source papers](../../architecture/research/world-dynamics-source-papers.md) | `NON_NORMATIVE` | Papers are preserved verbatim; their imperative language is not repository authority. |
 | [Synthesis report](../world-dynamics-unified-architecture-research-2026-08-17.md) | `REPORT_ONLY` | Records adopted/adapted/rejected proposals and remaining uncertainty. |
-| [SPEC-41](../../architecture/41-thermochemical-material-processes.md), [ADR-075](../../architecture/adr/075-thermochemical-material-process-track.md) | `Proposed` | Thermochemical owner and base heat/phase track only. |
-| [SPEC-42](../../architecture/42-neural-assisted-world-simulation.md), [ADR-076](../../architecture/adr/076-neural-assistance-as-bounded-proposals.md) | `Proposed` | Optional proposal/shadow track only; no model authority or current lane. |
+| [SPEC-43](../../architecture/43-thermochemical-material-processes.md), [ADR-079](../../architecture/adr/079-thermochemical-material-process-track.md) | `Proposed` | Thermochemical owner and base heat/phase track only. |
+| [SPEC-44](../../architecture/44-neural-assisted-world-simulation.md), [ADR-080](../../architecture/adr/080-neural-assistance-as-bounded-proposals.md) | `Proposed` | Optional proposal/shadow track only; no model authority or current lane. |
 | `THERMOCHEM-*`, `WORLD-NEURAL-*` checks | `NOT_RUN` | No solver, dataset, model, persistence, target or performance claim. |
 
 ## Decisions
@@ -97,6 +100,16 @@
 - That edge is the first plausible `WORLD-DYNAMICS-P1` consumer; a model does
   not count as an owner.
 
+### D-008 — Mainline identifiers are collision-free
+
+- The primary branch already assigned SPEC-36/37 and ADR-072…075 to Accepted
+  functional-anatomy, population, cognition and systemic-agent decisions.
+- The imported Proposed chain is therefore canonical in mainline only as
+  SPEC-38…44 and ADR-076…080; every roadmap, task-state and architecture link
+  uses those identities.
+- Do not restore the source-worktree numbers or create parallel aliases. Git
+  history and candidate revision notes preserve provenance.
+
 ## Open decisions
 
 | Track | Required closure |
@@ -110,10 +123,10 @@
 
 1. [Architecture routing](../../architecture/agent-routing.md), SPEC-21/26 and
    ADR-022/046/053/058.
-2. [SPEC-37](../../architecture/37-layered-physical-world.md),
-   [SPEC-39](../../architecture/39-world-substrate-composition.md),
-   [SPEC-41](../../architecture/41-thermochemical-material-processes.md) and
-   [SPEC-42](../../architecture/42-neural-assisted-world-simulation.md).
+2. [SPEC-39](../../architecture/39-layered-physical-world.md),
+   [SPEC-41](../../architecture/41-world-substrate-composition.md),
+   [SPEC-43](../../architecture/43-thermochemical-material-processes.md) and
+   [SPEC-44](../../architecture/44-neural-assisted-world-simulation.md).
 3. [Thermochemical roadmap](../../plans/thermochemical-world/README.md) and
    [neural roadmap](../../plans/neural-world-physics/README.md).
 4. [Arcane task state](arcane-world-architecture.md) for independent A0B work.

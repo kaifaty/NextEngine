@@ -14,9 +14,9 @@ SHA-256
 `7e6be975caf83dd096ae84ff8aeacdc12c1bb34f43365ff35755cb95083bef51`.
 
 The candidate architecture is recorded in
-[SPEC-37](../architecture/37-layered-physical-world.md),
-[SPEC-38](../architecture/38-structural-vegetation-physics.md) and
-[ADR-073](../architecture/adr/073-layered-physical-world-and-living-structures-track.md).
+[SPEC-39](../architecture/39-layered-physical-world.md),
+[SPEC-40](../architecture/40-structural-vegetation-physics.md) and
+[ADR-077](../architecture/adr/077-layered-physical-world-and-living-structures-track.md).
 The implementation gates are in the
 [standalone vegetation roadmap](../plans/vegetation-physics/README.md).
 
@@ -144,5 +144,5 @@ pre-activation fallback; once active, failure stops the physical run.
 
 This report proves no solver accuracy, real-time budget, material realism,
 cutting behavior, cross-target determinism, persistence, LOD or production
-support. All `VEGETATION-*` checks are `NOT_RUN`; SPEC-37/SPEC-38/ADR-073 remain
+support. All `VEGETATION-*` checks are `NOT_RUN`; SPEC-39/SPEC-40/ADR-077 remain
 Proposed and current PhysX/runtime/schema/save behavior is unchanged.

@@ -4,7 +4,7 @@
 |---|---|
 | Status | `REPORT_ONLY` working rationale |
 | Inputs | [Imported source-paper manifest](../architecture/research/world-dynamics-source-papers.md) |
-| Normative result | [SPEC-39](../architecture/39-world-substrate-composition.md), [SPEC-41](../architecture/41-thermochemical-material-processes.md), [SPEC-42](../architecture/42-neural-assisted-world-simulation.md), [ADR-075](../architecture/adr/075-thermochemical-material-process-track.md), [ADR-076](../architecture/adr/076-neural-assistance-as-bounded-proposals.md) |
+| Normative result | [SPEC-41](../architecture/41-world-substrate-composition.md), [SPEC-43](../architecture/43-thermochemical-material-processes.md), [SPEC-44](../architecture/44-neural-assisted-world-simulation.md), [ADR-079](../architecture/adr/079-thermochemical-material-process-track.md), [ADR-080](../architecture/adr/080-neural-assistance-as-bounded-proposals.md) |
 | Authority | This report does not override SPEC/ADR status or ProductCheck evidence. |
 
 ## Question
@@ -54,7 +54,7 @@ database, generic coupler or state owner.
 | Neural warm starts | Adopted only as post-promotion report-only proposals to an existing classical owner. |
 | Classical correction and fallback | Narrowed: invalid advice is rejected before solve; after admitted advice there is no retry. Exact roots are required for promotion. |
 | Trust ladder | N0 diagnostics and N1 proposals retained; learned corrections, constitutive surrogates and world evolution are not admitted. |
-| Arcane source/sink accounting | Retained from SPEC-40; future heat/cooling must exchange real enthalpy with Thermochemical state. |
+| Arcane source/sink accounting | Retained from SPEC-42; future heat/cooling must exchange real enthalpy with Thermochemical state. |
 
 ## Rejected architecture shortcuts
 

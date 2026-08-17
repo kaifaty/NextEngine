@@ -1,23 +1,23 @@
-# ADR-074: World substrate and arcane physical-interaction track
+# ADR-078: World substrate and arcane physical-interaction track
 
 | Field | Value |
 |---|---|
-| ID | ADR-074 |
+| ID | ADR-078 |
 | Status | Proposed |
 | Version | 1.2 |
 | Decision date | 2026-08-16 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](../18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-31](../31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-36](../36-continuum-material-physics.md), [SPEC-37](../37-layered-physical-world.md), [SPEC-38](../38-structural-vegetation-physics.md), [SPEC-39](../39-world-substrate-composition.md), [SPEC-40](../40-arcane-substrate-and-physical-magic.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-019](019-canonical-player-actions-and-presentation-authority.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-034](034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-073](073-layered-physical-world-and-living-structures-track.md) |
-| Supersedes | ADR-074 1.1; binds future heat/cooling to SPEC-41 while keeping the base Arcane track Proposed and numeric calibration open |
+| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](../18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-31](../31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-38](../38-continuum-material-physics.md), [SPEC-39](../39-layered-physical-world.md), [SPEC-40](../40-structural-vegetation-physics.md), [SPEC-41](../41-world-substrate-composition.md), [SPEC-42](../42-arcane-substrate-and-physical-magic.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-019](019-canonical-player-actions-and-presentation-authority.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-034](034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-077](077-layered-physical-world-and-living-structures-track.md) |
+| Candidate revision note | Version 1.2 binds future heat/cooling to SPEC-43 while keeping the base Arcane track Proposed and numeric calibration open; the imported candidate was renumbered to avoid the occupied mainline namespace |
 | Superseded by | none |
-| Related Proposed tracks | [SPEC-41](../41-thermochemical-material-processes.md), [SPEC-42](../42-neural-assisted-world-simulation.md), [ADR-075](075-thermochemical-material-process-track.md), [ADR-076](076-neural-assistance-as-bounded-proposals.md) |
+| Related Proposed tracks | [SPEC-43](../43-thermochemical-material-processes.md), [SPEC-44](../44-neural-assisted-world-simulation.md), [ADR-079](079-thermochemical-material-process-track.md), [ADR-080](080-neural-assistance-as-bounded-proposals.md) |
 
 ## Context
 
 The physical-world research paper correctly converges on one causal world with
 specialized owners, typed coupling, representation transitions, persistence
 and semantic queries. Most of that requirement is already captured more
-strictly by SPEC-37. Copying its proposed `PhysicalWorldCore`, generic domain
+strictly by SPEC-39. Copying its proposed `PhysicalWorldCore`, generic domain
 traits, global representation manager, multi-rate scheduler, network layer and
 large crate tree would create infrastructure before a second production owner.
 It also conflicts with current CPU authority, exact active persistence and
@@ -35,7 +35,7 @@ Embodiment authority and violate consumer-driven contracts.
 
 ### Use owner composition, not a universal world service
 
-Adopt SPEC-39 as a conceptual `WorldDynamics` composition only. Runtime remains
+Adopt SPEC-41 as a conceptual `WorldDynamics` composition only. Runtime remains
 the schedule/ledger/commit owner; RPG and Mechanics retain their Accepted
 stores and public paths; Physical Embodiment retains physical state. New
 substrates join as peer owners through revision-bound immutable projections,
@@ -48,7 +48,7 @@ segments when evidence proves the need.
 
 ### Add one bounded Arcane owner
 
-Create the Proposed SPEC-40 arcane lane. It owns only arcane quantity,
+Create the Proposed SPEC-42 arcane lane. It owns only arcane quantity,
 reservations, throughput and active execution state. RPG continues to own
 skills, inventory/equipment and current character resources. Mechanics owns
 ability/package definitions and validates proposals; it owns no mutable V1
@@ -113,7 +113,7 @@ detailed anatomy, artifacts, runes and anti-magic are later packages with
 their own consumers and state/evidence.
 
 Thermochemical, continuum and vegetation coupling can start only after the
-destination owner's relevant gate passes. Arcane heat/cooling uses SPEC-41
+destination owner's relevant gate passes. Arcane heat/cooling uses SPEC-43
 enthalpy and `ARCANE-THERMOCHEMICAL-P1`; it never directly selects
 temperature, phase, ignition or damage. Vital/tissue, soul/identity, divine remote
 sources, teleportation, matter creation, transformation, resurrection and
@@ -196,9 +196,9 @@ decision.
 
 ## Consequences
 
-- SPEC-39, SPEC-40 and this ADR are Proposed; no current schema, crate, save,
+- SPEC-41, SPEC-42 and this ADR are Proposed; no current schema, crate, save,
   command kind, package primitive or ProductCheck is added.
-- SPEC-37 remains the physical owner/coupling specialization; SPEC-39 composes
+- SPEC-39 remains the physical owner/coupling specialization; SPEC-41 composes
   it with non-physical substrates without superseding it.
 - The first Arcane-to-PhysX edge is fully gated by
   `ARCANE-RIGID-COUPLING-P1`; `WORLD-DYNAMICS-P1` waits for one transaction

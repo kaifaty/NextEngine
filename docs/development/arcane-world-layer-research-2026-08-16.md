@@ -35,8 +35,8 @@ take precedence.
 
 | Paper proposal | Current correction | Reason |
 |---|---|---|
-| New `PhysicalWorldCore`, domain traits, scheduler, coupling graph, representation manager and many crates | SPEC-37 already defines the physical owner DAG; SPEC-39 is conceptual composition, not new generic infrastructure | ADR-046 requires production consumers; current fixed schedule and owner boundaries already exist |
-| GPU DFSPH or GPU field as production authority | CPU/fixed-point authority; GPU is optional mirror/presentation | SPEC-21/26/36/37 exactness and current PhysX ownership |
+| New `PhysicalWorldCore`, domain traits, scheduler, coupling graph, representation manager and many crates | SPEC-39 already defines the physical owner DAG; SPEC-41 is conceptual composition, not new generic infrastructure | ADR-046 requires production consumers; current fixed schedule and owner boundaries already exist |
+| GPU DFSPH or GPU field as production authority | CPU/fixed-point authority; GPU is optional mirror/presentation | SPEC-21/26/38/39 exactness and current PhysX ownership |
 | Strong iterative cross-solver loops selected by need/timing | Only a frozen profile with exact order/iterations may iterate; first physical couplings remain staged | Timing-dependent iteration breaks replay and atomic ownership |
 | Camera, visibility or measured performance in representation relevance | Only canonical facts, residency and manifest integer tokens | Presentation cannot choose gameplay state |
 | Compressed sleeping state before full active persistence | Exact active owner segment first; lossy transition later with cycle evidence | Hidden continuation/damage/resource loss would break save/replay |
@@ -48,13 +48,13 @@ take precedence.
 
 ## Selected architecture
 
-1. [SPEC-39](../architecture/39-world-substrate-composition.md) names the
+1. [SPEC-41](../architecture/41-world-substrate-composition.md) names the
    cross-owner composition without creating a new owner or public service.
-2. [SPEC-40](../architecture/40-arcane-substrate-and-physical-magic.md) defines
+2. [SPEC-42](../architecture/42-arcane-substrate-and-physical-magic.md) defines
    the bounded Arcane owner and one telekinesis consumer.
-3. [ADR-074](../architecture/adr/074-world-substrate-and-arcane-physical-interaction-track.md)
+3. [ADR-078](../architecture/adr/078-world-substrate-and-arcane-physical-interaction-track.md)
    records the scope, ownership, fallback and promotion decision.
-4. [SPEC-37](../architecture/37-layered-physical-world.md) remains the physical
+4. [SPEC-39](../architecture/39-layered-physical-world.md) remains the physical
    specialization and is linked to the non-physical substrate boundary.
 5. [The standalone roadmap](../plans/arcane-world/README.md) keeps A0 numeric/
    law closure ahead of code and later couplers independent.

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | `PLANNED / NOT_ACTIVE` |
-| Architecture | [SPEC-42](../../architecture/42-neural-assisted-world-simulation.md), [ADR-076](../../architecture/adr/076-neural-assistance-as-bounded-proposals.md) |
+| Architecture | [SPEC-44](../../architecture/44-neural-assisted-world-simulation.md), [ADR-080](../../architecture/adr/080-neural-assistance-as-bounded-proposals.md) |
 | Model/data authority | [SPEC-34](../../architecture/34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-053](../../architecture/adr/053-engine-native-model-training-and-immutable-artifact-boundary.md) |
 | Current checkpoint | `N0 ARCHITECTURE COMPLETE / N1 TARGET NOT_SELECTED` |
 | Activation gate | One promoted classical owner plus `WORLD-NEURAL-DATAPLANE-P1` and `WORLD-NEURAL-SHADOW-P1` |

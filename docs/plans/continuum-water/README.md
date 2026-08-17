@@ -1,8 +1,8 @@
 # Continuum water — standalone implementation roadmap
 
 Status: `PLANNED / NOT_ACTIVE`; post-v1 isolated program. Governing candidate
-architecture: [SPEC-36](../../architecture/36-continuum-material-physics.md)
-and [ADR-072](../../architecture/adr/072-continuum-material-physics-track.md).
+architecture: [SPEC-38](../../architecture/38-continuum-material-physics.md)
+and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md).
 No `CONTINUUM-*` ProductCheck has run.
 
 This directory is the resume and execution surface for a dedicated water

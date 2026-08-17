@@ -1,14 +1,14 @@
-# SPEC-39: Proposed world-substrate composition
+# SPEC-41: Proposed world-substrate composition
 
 | Field | Value |
 |---|---|
-| ID | SPEC-39 |
+| ID | SPEC-41 |
 | Status | Proposed |
 | Version | 1.2 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-37](37-layered-physical-world.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-074](adr/074-world-substrate-and-arcane-physical-interaction-track.md) |
-| Specializations | [SPEC-40](40-arcane-substrate-and-physical-magic.md), [SPEC-41](41-thermochemical-material-processes.md), [SPEC-42](42-neural-assisted-world-simulation.md) |
-| Supersedes | SPEC-39 1.1; adds the thermochemical owner and neural non-owner boundary while retaining the existing command/step split and current runtime semantics |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-39](39-layered-physical-world.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-078](adr/078-world-substrate-and-arcane-physical-interaction-track.md) |
+| Specializations | [SPEC-42](42-arcane-substrate-and-physical-magic.md), [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md) |
+| Candidate revision note | Version 1.2 adds the thermochemical owner and neural non-owner boundary while retaining the existing command/step split and current runtime semantics; the imported candidate was renumbered to avoid the occupied mainline namespace |
 
 ## Status and purpose
 
@@ -19,9 +19,9 @@ their fixed-stage composition. It is not a new state owner, public service,
 crate requirement or generic plugin bus.
 
 Current Accepted owners and paths remain unchanged. Proposed additions are the
-bounded Arcane owner in SPEC-40 and Thermochemical material owner in SPEC-41.
-Continuum and living structures retain their independent SPEC-36/37/38 gates.
-SPEC-42 is an optional proposal producer, not a substrate owner. Vital, soul,
+bounded Arcane owner in SPEC-42 and Thermochemical material owner in SPEC-43.
+Continuum and living structures retain their independent SPEC-38/39/40 gates.
+SPEC-44 is an optional proposal producer, not a substrate owner. Vital, soul,
 identity, divine, atmosphere and ontological domains have no current authority
 or implementation obligation.
 
@@ -32,10 +32,10 @@ or implementation obligation.
 | Tick, command identity, ledger, schedule and atomic publication | Core Runtime | No substrate creates a private clock, command queue, RNG or receipt path. |
 | Character, inventory, equipment, skill/proficiency and current bounded character resources | RPG Framework | A substrate reads revision-bound views and proposes typed operations; it never copies RPG fields. |
 | Ability definitions, package reducer state and semantic effect proposals | Mechanics Runtime | First-party and community magic use the same package/capability/`EffectRequestV1` path. |
-| Rigid/articulated and promoted non-rigid physical state | Physical Embodiment owners from SPEC-26/37 | External substrates send canonical batches; only the physical owner writes pose, velocity, contact, mechanical sample/structure state or topology. |
-| Future arcane reservoirs, channels, executions and fields | Arcane owner from SPEC-40 | RPG skill and Mechanics definitions are references, not duplicate arcane state. |
-| Future material composition, enthalpy, phase and reaction progress | Thermochemical owner from SPEC-41 | Stable parcel attachments reference physical participants; consequences cross typed atomic batches. |
-| Optional learned solver advice | no state owner; SPEC-42 proposal producer | Advice is revision-bound, stateless and validated by one classical owner; it publishes no world state or exchange. |
+| Rigid/articulated and promoted non-rigid physical state | Physical Embodiment owners from SPEC-26/39 | External substrates send canonical batches; only the physical owner writes pose, velocity, contact, mechanical sample/structure state or topology. |
+| Future arcane reservoirs, channels, executions and fields | Arcane owner from SPEC-42 | RPG skill and Mechanics definitions are references, not duplicate arcane state. |
+| Future material composition, enthalpy, phase and reaction progress | Thermochemical owner from SPEC-43 | Stable parcel attachments reference physical participants; consequences cross typed atomic batches. |
+| Optional learned solver advice | no state owner; SPEC-44 proposal producer | Advice is revision-bound, stateless and validated by one classical owner; it publishes no world state or exchange. |
 | Future tissue, growth and disease | no current owner | A Vital owner requires a concrete production consumer and separate SPEC/ADR. |
 | Future soul, true-name, oath or continuity state | no current owner | Identity is not inferred from mana, RPG identity or `PersistentId`. |
 | Presentation and diagnostics | Presentation | Read-only extraction; VFX, camera and renderer timing never select an outcome. |
@@ -151,7 +151,7 @@ raw field, particle, solver or hidden target state. Planning is a proposal;
 owner validation remains the oracle. Events describe committed facts and never
 replace owner state or permit same-tick mutation.
 
-Optional learned assistance follows SPEC-42. It may advise one existing owner
+Optional learned assistance follows SPEC-44. It may advise one existing owner
 candidate only after that owner's classical gates. It cannot create a new
 layer, own a field, write a trusted exchange batch or use tolerance to change a
 canonical root. Missing advice uses the same classical default; failure after

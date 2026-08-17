@@ -6,7 +6,7 @@
 | Updated | `2026-08-17` |
 | Task key | `arcane-world-architecture` |
 | Scope | Proposed world-substrate composition and bounded physical-magic specifications |
-| Definition of done | SPEC-39/SPEC-40/ADR-074, SPEC-37 linkage, standalone roadmap, routing/traceability and R8 status are coherent; no runtime/public-contract claim |
+| Definition of done | SPEC-41/SPEC-42/ADR-078, SPEC-39 linkage, standalone roadmap, routing/traceability and R8 status are coherent; no runtime/public-contract claim |
 | Authority | Working context only; Accepted SPEC/ADR, main roadmap and future exact profiles/ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
@@ -29,7 +29,7 @@
   maintenance/loss values, fixture force trace, thresholds, capacities and
   budgets are not selected.
 - **Later heat/cooling:** now routes only through independently promoted
-  [SPEC-41](../../architecture/41-thermochemical-material-processes.md) and
+  [SPEC-43](../../architecture/43-thermochemical-material-processes.md) and
   `ARCANE-THERMOCHEMICAL-P1`; it does not expand the A0B telekinesis scope.
 - **Do not retry:** universal world solver/bus, separate first-party magic API,
   scalar mana plus scripted effects, direct transforms/damage, GPU authority,
@@ -41,7 +41,7 @@
 | Evidence | Result | Consequence |
 |---|---|---|
 | [Source-paper review](../arcane-world-layer-research-2026-08-16.md) | `REPORT_ONLY` | Retains owner/coupler/source-accounting ideas and rejects speculative/conflicting infrastructure |
-| [SPEC-39](../../architecture/39-world-substrate-composition.md), [SPEC-40](../../architecture/40-arcane-substrate-and-physical-magic.md), [ADR-074](../../architecture/adr/074-world-substrate-and-arcane-physical-interaction-track.md) | `Proposed` | Candidate ownership, transaction, fallback and promotion boundary only |
+| [SPEC-41](../../architecture/41-world-substrate-composition.md), [SPEC-42](../../architecture/42-arcane-substrate-and-physical-magic.md), [ADR-078](../../architecture/adr/078-world-substrate-and-arcane-physical-interaction-track.md) | `Proposed` | Candidate ownership, transaction, fallback and promotion boundary only |
 | [Gap review and selected resolutions](../arcane-world-architecture-gap-review-2026-08-17.md) | `A0A COMPLETE / A0B OPEN` | All 27 recommended architecture choices are selected; numeric calibration still blocks code |
 | [Arcane roadmap](../../plans/arcane-world/README.md) | `A0A COMPLETE / A0B OPEN / A1 NOT_STARTED` | No code or public schema is authorized |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural branches are independent downstream work; base Arcane decisions remain unchanged |
@@ -147,10 +147,10 @@
 
 1. [Architecture routing](../../architecture/agent-routing.md),
    SPEC-13/18/19/21/26 and ADR-008/019/020/022/034/046.
-2. [SPEC-37](../../architecture/37-layered-physical-world.md),
-   [SPEC-39](../../architecture/39-world-substrate-composition.md),
-   [SPEC-40](../../architecture/40-arcane-substrate-and-physical-magic.md) and
-   [ADR-074](../../architecture/adr/074-world-substrate-and-arcane-physical-interaction-track.md).
+2. [SPEC-39](../../architecture/39-layered-physical-world.md),
+   [SPEC-41](../../architecture/41-world-substrate-composition.md),
+   [SPEC-42](../../architecture/42-arcane-substrate-and-physical-magic.md) and
+   [ADR-078](../../architecture/adr/078-world-substrate-and-arcane-physical-interaction-track.md).
 3. [Arcane roadmap](../../plans/arcane-world/README.md).
 4. [Research report](../arcane-world-layer-research-2026-08-16.md).
 5. [Gap review](../arcane-world-architecture-gap-review-2026-08-17.md).

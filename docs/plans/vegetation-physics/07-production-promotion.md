@@ -42,6 +42,6 @@ internals.
 
 Write a narrow Accepted ADR that preserves PhysX as the sole rigid writer and
 promotes only the proven living-structure owner/coupling profile. Update
-SPEC-02/03/05/21/24/25/26/30/37/38, routing, traceability and the main roadmap
+SPEC-02/03/05/21/24/25/26/30/39/40, routing, traceability and the main roadmap
 in the same coherent change. Status changes require observable PASS evidence;
 missing target/performance evidence remains `NOT_RUN`.

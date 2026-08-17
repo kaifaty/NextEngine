@@ -1,9 +1,9 @@
 # Structural vegetation physics — standalone implementation roadmap
 
 Status: `PLANNED / NOT_ACTIVE`; post-v1 isolated program. Governing candidate
-architecture: [SPEC-37](../../architecture/37-layered-physical-world.md),
-[SPEC-38](../../architecture/38-structural-vegetation-physics.md) and
-[ADR-073](../../architecture/adr/073-layered-physical-world-and-living-structures-track.md).
+architecture: [SPEC-39](../../architecture/39-layered-physical-world.md),
+[SPEC-40](../../architecture/40-structural-vegetation-physics.md) and
+[ADR-077](../../architecture/adr/077-layered-physical-world-and-living-structures-track.md).
 V0A product decisions are complete; V0B numerical/profile/corpus calibration
 is open and no `VEGETATION-*` ProductCheck has run.
 

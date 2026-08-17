@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | `PLANNED / NOT_ACTIVE` |
-| Architecture | [SPEC-41](../../architecture/41-thermochemical-material-processes.md), [ADR-075](../../architecture/adr/075-thermochemical-material-process-track.md) |
+| Architecture | [SPEC-43](../../architecture/43-thermochemical-material-processes.md), [ADR-079](../../architecture/adr/079-thermochemical-material-process-track.md) |
 | Source context | [Research-paper manifest](../../architecture/research/world-dynamics-source-papers.md) |
 | Current checkpoint | `T0A COMPLETE / T0B OPEN / T1 NOT_STARTED` |
 | Activation gate | `THERMOCHEM-ENTHALPY-REF-P1 = PASS` |
@@ -53,7 +53,7 @@ inherits a PASS from base heat/phase evidence.
 
 | Package | Status | Exit |
 |---|---|---|
-| T0A Architecture | `COMPLETE` | Owner, attachment, enthalpy-first authority, fixed-step batch, atomic coupling, persistence and failure semantics are explicit in SPEC-41/ADR-075. |
+| T0A Architecture | `COMPLETE` | Owner, attachment, enthalpy-first authority, fixed-step batch, atomic coupling, persistence and failure semantics are explicit in SPEC-43/ADR-079. |
 | T0B Numeric/profile/corpus | `OPEN` | All blockers below are exact, hash-bound and reviewable. |
 | T1 Serial oracle | `NOT_STARTED` | `THERMOCHEM-ENTHALPY-REF-P1 = PASS`; performance recorded but not blocking. |
 | T2 Heat transfer | `NOT_STARTED` | `THERMOCHEM-HEAT-P1` and `THERMOCHEM-PHASE-P1` pass order/fault corpus. |

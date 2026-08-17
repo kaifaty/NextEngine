@@ -1,14 +1,14 @@
-# ADR-072: Continuum material physics track
+# ADR-076: Continuum material physics track
 
 | Field | Value |
 |---|---|
-| ID | ADR-072 |
+| ID | ADR-076 |
 | Status | Proposed |
 | Version | 1.1 |
 | Decision date | 2026-08-16 |
 | Last verified | 2026-08-16 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md) |
-| Supersedes | ADR-072 1.0 candidate wording; fixes the selected water consumer, CPU authority, one-pass coupling and exact-active persistence while retaining `Proposed` status |
+| Candidate revision note | Version 1.1 fixes the selected water consumer, CPU authority, one-pass coupling and exact-active persistence while retaining `Proposed` status; the imported candidate was renumbered to avoid the occupied mainline namespace |
 | Superseded by | none |
 
 ## Context
@@ -185,7 +185,7 @@ sample gate or a larger total budget requires an explicit new decision.
 
 ## Consequences
 
-- SPEC-36 and this ADR remain Proposed; no current crate, schema, save format,
+- SPEC-38 and this ADR remain Proposed; no current crate, schema, save format,
   ProductCheck result or PhysX contract changes.
 - The first implementation is a private serial Rust oracle with external
   evidence, not a runtime subsystem.

@@ -1,13 +1,13 @@
-# ADR-075: Thermochemical material-process track
+# ADR-079: Thermochemical material-process track
 
 | Field | Value |
 |---|---|
-| ID | ADR-075 |
+| ID | ADR-079 |
 | Status | Proposed |
 | Version | 1.0 |
 | Decision date | 2026-08-17 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-36](../36-continuum-material-physics.md), [SPEC-37](../37-layered-physical-world.md), [SPEC-38](../38-structural-vegetation-physics.md), [SPEC-39](../39-world-substrate-composition.md), [SPEC-40](../40-arcane-substrate-and-physical-magic.md), [SPEC-41](../41-thermochemical-material-processes.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-074](074-world-substrate-and-arcane-physical-interaction-track.md) |
+| Normative dependencies | [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [SPEC-39](../39-layered-physical-world.md), [SPEC-40](../40-structural-vegetation-physics.md), [SPEC-41](../41-world-substrate-composition.md), [SPEC-42](../42-arcane-substrate-and-physical-magic.md), [SPEC-43](../43-thermochemical-material-processes.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-078](078-world-substrate-and-arcane-physical-interaction-track.md) |
 | Supersedes | none |
 | Superseded by | none |
 
@@ -21,15 +21,15 @@ thermochemical consumer. Copying that infrastructure would violate the
 consumer-driven boundary and create ambiguous ownership with continuum,
 vegetation and PhysX.
 
-SPEC-37 already reserves a later heat/moisture/combustion owner but did not
+SPEC-39 already reserves a later heat/moisture/combustion owner but did not
 define its state, first fixture, failure boundary or promotion path. Arcane
-SPEC-40 also names thermal coupling without an actual destination owner.
+SPEC-42 also names thermal coupling without an actual destination owner.
 
 ## Proposed decision
 
 ### Create one bounded Thermochemical owner
 
-Adopt SPEC-41. The owner stores stable material-parcel attachments,
+Adopt SPEC-43. The owner stores stable material-parcel attachments,
 composition, total enthalpy, equilibrium phase and durable reaction progress.
 Physical owners continue to own motion, contact, spatial mass properties and
 topology. RPG, Mechanics and Arcane retain their existing fields.
@@ -110,7 +110,7 @@ omission is forbidden.
 
 ## Consequences
 
-- SPEC-41 and this ADR remain `Proposed`; runtime, contracts, schemas and saves
+- SPEC-43 and this ADR remain `Proposed`; runtime, contracts, schemas and saves
   do not change.
 - The next action is T0B numerical/profile/corpus closure, not implementation.
 - `THERMOCHEM-ENTHALPY-REF-P1 = PASS` is required before active R8 integration.

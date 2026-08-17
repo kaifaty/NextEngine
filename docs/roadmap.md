@@ -1796,6 +1796,11 @@ ADR-001, ADR-030.
 | Learned Motor System policy families and full articulation | ADR-066 no-text contact-centric system shape `Accepted`; exact chunks, graph/adapter/expert, training/distillation/rollout profiles and unconsumed wire schemas remain `Proposed` | R5 reference/procedural baseline and consumer-backed BodySchema exist. Promote each family/profile independently only with exact observation/action/state/chunk replay, runtime/training correspondence, multi-seed quality, retention, target parity and declared animation/procedural fallback. |
 | PhysX deterministic humanoid substrate | ADR-058/059/062/063/064/065/067 `Accepted`; immutable standing/flat-command V1 and curriculum V2 CPU environments exist, Stage 0 evidence remains incomplete | Complete the PhysX-only Windows/Linux platform/replay gates, fresh ten-run V5 R5 baseline, one fixed three-run hard performance PASS and Isaac GPU correspondence; no reference backend fallback exists. |
 | Functional anatomy, treatment and visible character embodiment | PRODUCT-FA-001, SPEC-18/36/37 and ADR-075 product/ownership/treatment/agency/severity/LOD boundary `Accepted`; exact condition, fracture/surface, UI, controller and performance profiles `Proposed` | R5 authored skinned fallback exists; promote one unilateral lower-limb vertical with player/NPC parity, staged treatment, qualitative body UI, retained-vs-detached distinction, exact save/replay and 16/64/distant workload evidence. |
+| Local continuum materials: water, deformable terrain, mud and off-road coupling | `PLANNED / NOT_ACTIVE`; SPEC-38/ADR-076 `Proposed`; [standalone water roadmap](plans/continuum-water/README.md) and umbrella material specifications exist; all `CONTINUUM-*` checks are `NOT_RUN` | Not a v1 blocker. The isolated serial CPU DFSPH oracle may begin from its documentation checkpoint, but this row becomes an active R8 integration track only after `CONTINUUM-WATER-REF-P1 = PASS`. GPU remains correspondence-only; the independent terrain ladder is dry sand → exclusive single-wheel contact → exact persistence → saturation → optional free-water flux. |
+| Layered physical world and living structural vegetation | `PLANNED / NOT_ACTIVE`; SPEC-39/SPEC-40/ADR-077 `Proposed`; [standalone vegetation roadmap](plans/vegetation-physics/README.md) exists; V0A product decisions are `COMPLETE`, V0B calibration is `OPEN`, and every `VEGETATION-*` check is `NOT_RUN` | Not a v1 blocker. The 10 m synthetic reference tree, 12-branch/128-segment and 32-proxy capacities, 8x32 cut lattice, fixed-root/CPU/fixed-point authority, forest gate, budgets and general evidence thresholds are selected. Next freeze exact graph/taper bytes, material constants, numeric scales, fixture/curve hashes and remaining collision/LOD/memory/transition thresholds. Then run only the serial CPU formulation oracle; this becomes an active R8 integration track after `VEGETATION-BEAM-REF-P1 = PASS`. PhysX remains the sole rigid writer; GPU is correspondence-only; fire, roots and continuum-soil coupling are later independent lanes. |
+| World-substrate composition and arcane physical magic | `PLANNED / NOT_ACTIVE`; SPEC-41/SPEC-42/ADR-078 `Proposed`; [standalone arcane roadmap](plans/arcane-world/README.md) exists; architecture Package A0A is `COMPLETE`, numeric/calibration Package A0B is `OPEN`, and every `ARCANE-*` check is `NOT_RUN` | Not a v1 blocker. The stage-5 execution-start receipt, Arcane-owned phase/recast state, fixed-point force/free-torque work law, production targeting, sealed residency, staged Arcane/PhysX publication, failure isolation, exact persistence and promotion sequence are selected. Next freeze numeric scales/bounds, reservoir/throughput and work coefficients, exact crate force trace, thresholds, capacities and budgets. Then run only the serial reservoir/transfer oracle; this becomes active R8 research after `ARCANE-RESERVOIR-REF-P1 = PASS`. General spell graphs, fields/ley/ecology, thermochemical/continuum/vegetation, Vital/Identity and ontological magic remain independent lanes. |
+| Thermochemical material processes | `PLANNED / NOT_ACTIVE`; SPEC-43/ADR-079 `Proposed`; [standalone thermochemical roadmap](plans/thermochemical-world/README.md) exists; architecture T0A is `COMPLETE`, numeric/profile/corpus T0B is `OPEN`, and every `THERMOCHEM-*` check is `NOT_RUN` | Not a v1 blocker. One sealed water parcel, one finite thermal reservoir, enthalpy-first fixed-point authority, derived equilibrium water/ice phase, exact heat receipts, failure isolation and exact persistence are selected. Next freeze scales/bounds, material curve, interface law, fixture hashes, thresholds, capacities and budget. Then run only the serial enthalpy/phase oracle; this becomes active R8 integration after `THERMOCHEM-ENTHALPY-REF-P1 = PASS`. Mechanical ice, atmosphere, reactions/combustion, continuum/vegetation/rigid and Arcane couplers remain independent lanes. |
+| Neural-assisted world simulation | `PLANNED / NOT_ACTIVE`; SPEC-44/ADR-080 `Proposed`; [standalone neural roadmap](plans/neural-world-physics/README.md) exists; N0 architecture is `COMPLETE`, N1 target is `NOT_SELECTED`, and every `WORLD-NEURAL-*` check is `NOT_RUN` | Not a v1 or classical-owner blocker. Start only after one classical owner passes reference, production and exact-persistence gates and exposes a measured iterative bottleneck. N0 diagnostics and N1 bounded proposals are the only initial tiers; the model owns no state, cannot change exact roots or retry a failed admitted solve, and GPU/model authority remains forbidden. Stop after two evidence-backed cycles without exact non-regression and end-to-end THOTH p95/p99 improvement. |
 | Advanced renderer/HDR/RT/VFX/capture | Optional | B0 v1 path стабилен; feature has bounded fallback and target-specific product check. |
 | Gothic importer | Optional separate repository/process | Neutral schemas стабильны, legal/provenance boundary проверен; parent repo остаётся независимым. |
 | Full editor | Outside v1 | Creator beta CLI/JSON workflows показали реальные high-friction authoring operations. |
@@ -1884,6 +1889,26 @@ Physics/animation work может идти параллельно после R1.
 Accepted и не имеет reference fallback; Stage 0/default-readiness claim всё
 ещё ждёт documented cutover gates. Неуспех learned model candidate не блокирует
 deterministic procedural motor через тот же PhysX path.
+
+Continuum and structural-vegetation work are separate post-v1 programs.
+Water may start only as the bounded serial CPU oracle and becomes an active
+integration track after `CONTINUUM-WATER-REF-P1 = PASS`; terrain follows its
+independent dry-sand ladder. Vegetation remains blocked on V0B calibration
+before its serial structural oracle. Neither track changes current PhysX
+authority, and GPU remains correspondence-only.
+
+World-substrate and arcane work is also post-v1 and independent. Architecture
+A0A is closed, but no code starts before numeric A0B closes. The track preserves
+the same PhysX writer and cannot use magic to bypass an unpromoted physical,
+Thermochemical, Vital or Identity owner.
+
+Thermochemical work is a separate post-v1 owner track. T0A ownership and
+transaction semantics are closed, but T0B numeric/profile/corpus calibration
+blocks code. Arcane heat/cooling is downstream of both base owner promotions
+and must use a real enthalpy exchange rather than direct temperature, ignition
+or damage. Optional neural assistance is downstream again: it may accelerate
+one already promoted classical owner, never repair or replace that owner's
+reference, coupling or persistence path.
 
 ## Blocker register
 

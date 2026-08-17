@@ -5,7 +5,7 @@ for V0–V7.
 
 ## Thermochemical moisture/combustion lane
 
-Starts after exact structural persistence, SPEC-41 base promotion and a
+Starts after exact structural persistence, SPEC-43 base promotion and a
 concrete burning-tree product consumer. The Thermochemical owner stores stable
 tree-parcel composition, enthalpy, moisture, phase and reaction/char progress;
 the structural owner retains mechanical mass, strength and topology.
@@ -17,7 +17,7 @@ save/restart and structural failure curves are required before spread.
 ## Root and soil lane
 
 First add a bounded explicit root graph and one calibrated static anchor/failure
-profile. Only after that corpus passes may roots couple to SPEC-36 dry/saturated
+profile. Only after that corpus passes may roots couple to SPEC-38 dry/saturated
 terrain through an atomic force/displacement or flux batch. Root/soil and trunk
 failure compete from shared committed loads; no scripted `uprooted` boolean or
 simultaneous PhysX/continuum contact writer is allowed.

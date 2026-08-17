@@ -1,14 +1,14 @@
-# SPEC-38: Proposed structural vegetation physics
+# SPEC-40: Proposed structural vegetation physics
 
 | Field | Value |
 |---|---|
-| ID | SPEC-38 |
+| ID | SPEC-40 |
 | Status | Proposed |
 | Version | 1.2 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-37](37-layered-physical-world.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-073](adr/073-layered-physical-world-and-living-structures-track.md) |
-| Supersedes | SPEC-38 1.1; separates future thermochemical state and neural advice from the unchanged V0-V7 structural path |
-| Related Proposed tracks | [SPEC-41](41-thermochemical-material-processes.md), [SPEC-42](42-neural-assisted-world-simulation.md), [ADR-075](adr/075-thermochemical-material-process-track.md), [ADR-076](adr/076-neural-assistance-as-bounded-proposals.md) |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-39](39-layered-physical-world.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-077](adr/077-layered-physical-world-and-living-structures-track.md) |
+| Candidate revision note | Version 1.2 separates future thermochemical state and neural advice from the unchanged V0-V7 structural path; the imported candidate was renumbered to avoid the occupied mainline namespace |
+| Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and selected scope
 
@@ -125,12 +125,12 @@ V0B explicitly adds a future-affecting field and a corpus for it.
 
 Temperature, moisture, chemical composition, drying and combustion do not
 become private structural fields by implication. A future profile uses the
-SPEC-41 Thermochemical owner and an exact parcel-to-structure attachment;
+SPEC-43 Thermochemical owner and an exact parcel-to-structure attachment;
 strength/mass/topology consequences cross one atomic typed batch and require
 `THERMOCHEM-VEGETATION-P1`. Fire presentation or an arcane effect cannot
 substitute for that owner.
 
-SPEC-42 neural assistance is also downstream of the complete classical tree
+SPEC-44 neural assistance is also downstream of the complete classical tree
 track. It may begin as report-only diagnostics or bounded initialization
 advice only after formulation, coupling and exact persistence pass; it cannot
 select fracture, topology, representation tier or a structural root.
@@ -153,7 +153,7 @@ linked engine dependency or authority. No runtime tree graph begins before
 
 ## Wind and aerodynamic load
 
-V1 uses the SPEC-37 scenario-bound analytical wind projection. Each structural
+V1 uses the SPEC-39 scenario-bound analytical wind projection. Each structural
 segment or foliage cluster has authored bounded drag area and coefficient; the
 solver evaluates force from canonical relative wind at declared sample points.
 Full atmospheric CFD, tree-to-wind back reaction and presentation leaf motion
@@ -199,7 +199,7 @@ An active standing tree exposes no more than 32 tapered-capsule collision
 proxies derived from its last accepted graph. During a substep PhysX integrates
 dynamic bodies exactly once against that frozen projection and emits canonical
 contact loads. The living solver consumes the batch plus wind and advances once
-according to SPEC-37. Missing contacts, stale revisions, a duplicate batch or a
+according to SPEC-39. Missing contacts, stale revisions, a duplicate batch or a
 capacity overflow rejects the whole composite step.
 
 At the first trunk sever, the selected detached component becomes one bounded

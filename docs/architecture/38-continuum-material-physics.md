@@ -1,14 +1,14 @@
-# SPEC-36: Proposed continuum material physics
+# SPEC-38: Proposed continuum material physics
 
 | Field | Value |
 |---|---|
-| ID | SPEC-36 |
+| ID | SPEC-38 |
 | Status | Proposed |
 | Version | 1.2 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-072](adr/072-continuum-material-physics-track.md) |
-| Supersedes | SPEC-36 1.1; separates future thermochemical state and neural advice from the unchanged W1-W6 water authority path |
-| Related Proposed tracks | [SPEC-41](41-thermochemical-material-processes.md), [SPEC-42](42-neural-assisted-world-simulation.md), [ADR-075](adr/075-thermochemical-material-process-track.md), [ADR-076](adr/076-neural-assistance-as-bounded-proposals.md) |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md) |
+| Candidate revision note | Version 1.2 separates future thermochemical state and neural advice from the unchanged W1-W6 water authority path; the imported candidate was renumbered to avoid the occupied mainline namespace |
+| Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and scope
 
@@ -154,13 +154,13 @@ coupling-material mapping binds an exact rigid surface/material revision to
 the continuum boundary response. Neither schema is current in this revision.
 
 Temperature, composition, water/ice phase and reaction progress are not added
-to the base water particle state. SPEC-41's separately promoted
+to the base water particle state. SPEC-43's separately promoted
 Thermochemical owner owns those fields on stable material-parcel attachments.
 A later water/ice consumer must atomically bind parcel inventory/enthalpy to
 the continuum region and pass `THERMOCHEM-CONTINUUM-P1`; neither owner may
 derive an independently mutable copy.
 
-The V1 water roadmap still forbids warm start. SPEC-42 may evaluate a learned
+The V1 water roadmap still forbids warm start. SPEC-44 may evaluate a learned
 warm-start proposal only as an independent post-promotion branch after the
 classical reference, production and exact-persistence gates pass. It cannot
 change W1-W6, CPU authority, GPU correspondence status, stopping rules or

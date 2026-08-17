@@ -4,7 +4,7 @@ Status: `ARCHITECTURE_DECISIONS_SELECTED / NUMERIC_CALIBRATION_OPEN`.
 
 ## Scope and authority
 
-This review checked SPEC-39/SPEC-40/ADR-074 against the Accepted command
+This review checked SPEC-41/SPEC-42/ADR-078 against the Accepted command
 ledger, fixed schedule, Mechanics/RPG ownership, PhysX fixed-step publication,
 targeting replay, persistence and consumer-driven contract rules. It is
 engineering rationale, not normative authority. The updated SPEC/ADR and

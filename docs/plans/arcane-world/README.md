@@ -1,9 +1,9 @@
 # Arcane world — standalone implementation roadmap
 
 Status: `PLANNED / NOT_ACTIVE`; post-v1 isolated program. Governing candidate
-architecture: [SPEC-39](../../architecture/39-world-substrate-composition.md),
-[SPEC-40](../../architecture/40-arcane-substrate-and-physical-magic.md) and
-[ADR-074](../../architecture/adr/074-world-substrate-and-arcane-physical-interaction-track.md).
+architecture: [SPEC-41](../../architecture/41-world-substrate-composition.md),
+[SPEC-42](../../architecture/42-arcane-substrate-and-physical-magic.md) and
+[ADR-078](../../architecture/adr/078-world-substrate-and-arcane-physical-interaction-track.md).
 Package A0A architecture closure is `COMPLETE`; numeric/calibration Package
 A0B is `OPEN` and every `ARCANE-*` ProductCheck is `NOT_RUN`.
 
@@ -38,8 +38,8 @@ A0A Architecture/schedule/lifecycle closure      COMPLETE
                  └─ A4 Exact active persistence  NOT_STARTED
                      └─ A5 Production promotion  NOT_STARTED
 
-A3 ── AT Future thermochemical coupling          BLOCKED / SPEC-41 GATES
-A3 ── AC Future continuum coupling               BLOCKED / SPEC-36 GATES
+A3 ── AT Future thermochemical coupling          BLOCKED / SPEC-43 GATES
+A3 ── AC Future continuum coupling               BLOCKED / SPEC-38 GATES
 A4 ── AE Regional field + ecology                NOT_STARTED / LATER
 A4 ── AA Artifacts/runes/anti-magic              NOT_STARTED / LATER
 A4 ── AV Vital and Identity lanes                OUTSIDE BASE
@@ -54,8 +54,8 @@ A4 ── AV Vital and Identity lanes                OUTSIDE BASE
 | A3 | `ARCANE-MECHANICS-P1 = PASS` and `ARCANE-RIGID-COUPLING-P1 = PASS`; production targeting/package start path and Arcane/PhysX substeps publish under the selected receipt split | A4, later physical couplers |
 | A4 | `ARCANE-PERSISTENCE-P1 = PASS`; save/restart/replay equal uninterrupted active roots | A5, later lossy/regional representations |
 | A5 | `ARCANE-CROSS-TARGET-P1 = PASS`, `play`, `content-package`, `persistence-replay`, `platform`, declared conditional performance gate and consumer-backed Accepted decision | production claim |
-| AT | `ARCANE-THERMOCHEMICAL-P1` after separately promoted SPEC-41 heat/phase and Arcane base owners; debit and enthalpy publish atomically | no base stage |
-| AC | `ARCANE-CONTINUUM-P1` after the relevant SPEC-36 owner gate | no base stage |
+| AT | `ARCANE-THERMOCHEMICAL-P1` after separately promoted SPEC-43 heat/phase and Arcane base owners; debit and enthalpy publish atomically | no base stage |
+| AC | `ARCANE-CONTINUUM-P1` after the relevant SPEC-38 owner gate | no base stage |
 | AE | Separate regional-law/ecology profile and exact persistence | no base stage |
 | AA | At least two artifact/spell consumers before a shared graph/circuit contract | no base stage |
 | AV | Separate Vital/Identity SPEC/ADR and product consumer | no base stage |
