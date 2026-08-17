@@ -21,6 +21,10 @@ use crate::oracle::command::{
 };
 use crate::{boundary, profile, scenario, solver};
 
+mod candidate;
+
+pub(crate) use candidate::run_xtask as run_candidate_xtask;
+
 pub(crate) const DIAGNOSTIC_MAX_ITERATIONS: u16 = 320;
 pub(crate) const DIAGNOSTIC_CHECKPOINTS: [u16; 5] = [20, 40, 80, 160, 320];
 
@@ -77,13 +81,20 @@ pub(crate) struct HydroCalibrationTrace {
     pub(crate) contributions: Vec<DensityContributionRow>,
     pub(crate) density_error_ppb_by_iteration: Vec<i64>,
     pub(crate) first_original_threshold_iteration: Option<u16>,
+    pub(crate) first_original_threshold_checkpoint: Option<ExtendedDensityCheckpoint>,
     pub(crate) checkpoints: Vec<ExtendedDensityCheckpoint>,
 }
 
 pub(crate) struct ExtendedDensityTrace {
     pub(crate) errors_ppb: Vec<i64>,
     pub(crate) first_original_threshold_iteration: Option<u16>,
+    pub(crate) first_original_threshold_checkpoint: Option<ExtendedDensityCheckpoint>,
     pub(crate) checkpoints: Vec<ExtendedDensityCheckpoint>,
+}
+
+pub(crate) struct CandidateCalibrationComputation {
+    pub(crate) boundary: Vec<AuditBoundaryInput>,
+    pub(crate) trace: HydroCalibrationTrace,
 }
 
 #[derive(Serialize)]
@@ -266,7 +277,7 @@ fn argument_error() -> WaterError {
     )
 }
 
-fn first_mismatch(
+pub(crate) fn first_mismatch(
     production: &HydroCalibrationTrace,
     independent: &HydroCalibrationTrace,
 ) -> Option<String> {
@@ -302,6 +313,11 @@ fn first_mismatch(
         != independent.first_original_threshold_iteration
     {
         return Some("first threshold iteration differs".to_owned());
+    }
+    if production.first_original_threshold_checkpoint
+        != independent.first_original_threshold_checkpoint
+    {
+        return Some("first threshold checkpoint differs".to_owned());
     }
     if production.checkpoints.len() != independent.checkpoints.len() {
         return Some("extended checkpoint count differs".to_owned());
@@ -422,6 +438,7 @@ mod tests {
             [-83_638, -110_060, -138_816, -159_135, -165_233]
         );
         assert_eq!(production.first_original_threshold_iteration, None);
+        assert_eq!(production.first_original_threshold_checkpoint, None);
 
         let mut changed = independent.clone();
         changed.density_error_ppb_by_iteration[39] -= 1;

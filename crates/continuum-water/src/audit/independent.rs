@@ -13,7 +13,9 @@ use super::{
 
 mod calibration;
 
-pub(crate) use calibration::compute as compute_calibration;
+pub(crate) use calibration::{
+    compute as compute_calibration, compute_ghost as compute_ghost_calibration,
+};
 
 const FLUID_COUNT: usize = 6_000;
 const BOUNDARY_COUNT: usize = 2_402;

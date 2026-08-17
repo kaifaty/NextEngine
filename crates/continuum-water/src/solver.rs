@@ -22,9 +22,13 @@ use crate::scenario::{validate_capacity, validate_sample_identity};
 
 mod diagnostic;
 mod neighborhood;
+mod statistics;
 
-pub(crate) use diagnostic::{production_hydro_audit, production_hydro_calibration};
+pub(crate) use diagnostic::{
+    counterfactual_substep, production_hydro_audit, production_hydro_calibration,
+};
 use neighborhood::{admitted_boundary, admitted_fluid, build_boundary_grid, build_fluid_grid};
+use statistics::density_ratio_percentiles;
 
 const DENSITY_MIN_ITERATIONS: u8 = 2;
 const DENSITY_MAX_ITERATIONS: u8 = 20;
@@ -141,6 +145,24 @@ pub(crate) fn substep(
     execution_profile_root: &[u8; 32],
     scenario_root: &[u8; 32],
 ) -> Result<StepOutcome, WaterError> {
+    substep_with_density_limit(
+        prior,
+        geometry,
+        boundary,
+        execution_profile_root,
+        scenario_root,
+        DENSITY_MAX_ITERATIONS,
+    )
+}
+
+fn substep_with_density_limit(
+    prior: &AcceptedFrame,
+    geometry: Geometry,
+    boundary: &[BoundarySample],
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+    density_maximum_iterations: u8,
+) -> Result<StepOutcome, WaterError> {
     let mut state = decode(&prior.samples)?;
     if state.samples.is_empty() {
         return publish_empty(prior.step, execution_profile_root, scenario_root, geometry);
@@ -153,7 +175,13 @@ pub(crate) fn substep(
         velocity.y = checked_scalar(velocity.y + (DT * -GRAVITY_MAGNITUDE), "gravity velocity y")?;
         (*velocity).checked(&format!("gravity sample {}", state.samples[index].id))?;
     }
-    let density = solve_density(&reconstruction, boundary, &mut state.velocities)?;
+    let density = solve_density_with_limit(
+        &reconstruction,
+        boundary,
+        &mut state.velocities,
+        None,
+        density_maximum_iterations,
+    )?;
 
     for index in 0..state.samples.len() {
         let displacement = state.velocities[index]
@@ -536,19 +564,27 @@ fn solve_divergence(
     })
 }
 
-fn solve_density(
-    reconstruction: &Reconstruction,
-    boundary: &[BoundarySample],
-    velocities: &mut [Vec3f],
-) -> Result<SolveResult, WaterError> {
-    solve_density_with_recorder(reconstruction, boundary, velocities, None)
-}
-
 fn solve_density_with_recorder(
     reconstruction: &Reconstruction,
     boundary: &[BoundarySample],
     velocities: &mut [Vec3f],
+    recorder: Option<&mut diagnostic::DensityRecorder>,
+) -> Result<SolveResult, WaterError> {
+    solve_density_with_limit(
+        reconstruction,
+        boundary,
+        velocities,
+        recorder,
+        DENSITY_MAX_ITERATIONS,
+    )
+}
+
+fn solve_density_with_limit(
+    reconstruction: &Reconstruction,
+    boundary: &[BoundarySample],
+    velocities: &mut [Vec3f],
     mut recorder: Option<&mut diagnostic::DensityRecorder>,
+    maximum_iterations: u8,
 ) -> Result<SolveResult, WaterError> {
     let count = velocities.len();
     let mut rho_adv = filled_vec(count, 0.0)?;
@@ -578,7 +614,7 @@ fn solve_density_with_recorder(
     let mut accepted_acceleration = None;
     let mut error_ppb = i64::MAX;
     let mut accepted_iteration = 0_u8;
-    for iteration in 1..=DENSITY_MAX_ITERATIONS {
+    for iteration in 1..=maximum_iterations {
         let acceleration = pressure_acceleration(reconstruction, boundary, &multiplier)?;
         let matrix = matrix_action(reconstruction, boundary, &acceleration.total)?;
         let mut error_sum = 0.0;
@@ -632,7 +668,7 @@ fn solve_density_with_recorder(
     if accepted_iteration == 0 {
         return Err(WaterError::new(
             DENSITY_NONCONVERGENCE,
-            format!("iteration 20 ended at {error_ppb} ppb"),
+            format!("iteration {maximum_iterations} ended at {error_ppb} ppb"),
         ));
     }
     let boundary_impulse = apply_acceleration(
@@ -955,34 +991,6 @@ fn maximum_multiplier_bits(values: &[f64]) -> Result<u64, WaterError> {
         }
     }
     Ok(maximum.to_bits())
-}
-
-fn density_ratio_percentiles(values: &[f64]) -> Result<[i64; 3], WaterError> {
-    if values.is_empty() {
-        return Ok([0; 3]);
-    }
-    let mut sorted = Vec::new();
-    sorted.try_reserve_exact(values.len()).map_err(heap_error)?;
-    for value in values {
-        if !value.is_finite() {
-            return Err(WaterError::new(
-                NONFINITE_VALUE,
-                "nonfinite reconstructed density ratio",
-            ));
-        }
-        sorted.push(*value);
-    }
-    sorted.sort_unstable_by(f64::total_cmp);
-    let percentile = |percent: usize| -> Result<i64, WaterError> {
-        let rank = sorted
-            .len()
-            .checked_mul(percent)
-            .and_then(|value| value.checked_add(99))
-            .ok_or_else(|| WaterError::new(NUMERIC_OVERFLOW, "density percentile overflow"))?
-            / 100;
-        quantize_ppb(sorted[rank - 1])
-    };
-    Ok([percentile(50)?, percentile(95)?, percentile(99)?])
 }
 
 #[cfg(test)]

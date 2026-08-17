@@ -1,9 +1,10 @@
 #![forbid(unsafe_code)]
 
-use crate::audit::{SELECTED_ROWS, scalar_bits};
+use crate::audit::{AuditBoundaryInput, SELECTED_ROWS, scalar_bits};
 use crate::calibration::{
-    BoundaryFeatureContribution, DIAGNOSTIC_CHECKPOINTS, DIAGNOSTIC_MAX_ITERATIONS,
-    DensityContributionRow, ExtendedDensityCheckpoint, ExtendedDensityTrace, HydroCalibrationTrace,
+    BoundaryFeatureContribution, CandidateCalibrationComputation, DIAGNOSTIC_CHECKPOINTS,
+    DIAGNOSTIC_MAX_ITERATIONS, DensityContributionRow, ExtendedDensityCheckpoint,
+    ExtendedDensityTrace, HydroCalibrationTrace,
 };
 
 use super::*;
@@ -12,16 +13,62 @@ pub(crate) fn compute() -> Result<HydroCalibrationTrace, WaterError> {
     let positions = generate_fluid()?;
     let boundary_positions = generate_boundary()?;
     let boundary_volumes = boundary_volumes(&boundary_positions)?;
-    let rows = reconstruct(&positions, &boundary_positions, &boundary_volumes)?;
+    compute_trace(&positions, &boundary_positions, &boundary_volumes)
+}
+
+pub(crate) fn compute_ghost() -> Result<CandidateCalibrationComputation, WaterError> {
+    let positions = generate_fluid()?;
+    let boundary_positions = generate_ghost_boundary()?;
+    let boundary_volumes = filled(boundary_positions.len(), REST_VOLUME)?;
+    let trace = compute_trace(&positions, &boundary_positions, &boundary_volumes)?;
+    let mut boundary = reserved(boundary_positions.len())?;
+    for (index, position) in boundary_positions.iter().copied().enumerate() {
+        boundary.push(AuditBoundaryInput {
+            id: u32::try_from(index)
+                .map_err(|_| WaterError::new(AUDIT_INVALID, "ghost boundary id overflow"))?,
+            position_um: position.common(),
+            volume_bits: scalar_bits(boundary_volumes[index]),
+        });
+    }
+    Ok(CandidateCalibrationComputation { boundary, trace })
+}
+
+fn compute_trace(
+    positions: &[I3],
+    boundary_positions: &[I3],
+    boundary_volumes: &[f64],
+) -> Result<HydroCalibrationTrace, WaterError> {
+    let rows = reconstruct(positions, boundary_positions, boundary_volumes)?;
     let contributions =
-        density_contributions(&positions, &boundary_positions, &boundary_volumes, &rows)?;
-    let extended = extended_density_trace(&positions, &boundary_volumes, &rows)?;
+        density_contributions(positions, boundary_positions, boundary_volumes, &rows)?;
+    let extended = extended_density_trace(positions, boundary_volumes, &rows)?;
     Ok(HydroCalibrationTrace {
         contributions,
         density_error_ppb_by_iteration: extended.errors_ppb,
         first_original_threshold_iteration: extended.first_original_threshold_iteration,
+        first_original_threshold_checkpoint: extended.first_original_threshold_checkpoint,
         checkpoints: extended.checkpoints,
     })
+}
+
+fn generate_ghost_boundary() -> Result<Vec<I3>, WaterError> {
+    const EXPECTED_COUNT: usize = 2_648;
+    let mut result = reserved(EXPECTED_COUNT)?;
+    for ix in -1_i64..=20 {
+        for iy in -1_i64..=20 {
+            for iz in -1_i64..=20 {
+                if ix == -1 || ix == 20 || iy == -1 || iy == 20 || iz == -1 || iz == 20 {
+                    result.push(I3::new(
+                        25_000 + (50_000 * ix),
+                        25_000 + (50_000 * iy),
+                        25_000 + (50_000 * iz),
+                    ));
+                }
+            }
+        }
+    }
+    require_count("ghost boundary", result.len(), EXPECTED_COUNT)?;
+    Ok(result)
 }
 
 fn density_contributions(
@@ -121,6 +168,14 @@ fn density_contributions(
 }
 
 fn boundary_feature(position: I3) -> Result<usize, WaterError> {
+    let outside = [
+        position.x < 0 || position.x > 1_000_000,
+        position.y < 0 || position.y > 1_000_000,
+        position.z < 0 || position.z > 1_000_000,
+    ]
+    .into_iter()
+    .filter(|outside| *outside)
+    .count();
     let on_planes = [
         position.x == 0 || position.x == 1_000_000,
         position.y == 0 || position.y == 1_000_000,
@@ -129,13 +184,14 @@ fn boundary_feature(position: I3) -> Result<usize, WaterError> {
     .into_iter()
     .filter(|on_plane| *on_plane)
     .count();
-    match on_planes {
+    let feature_count = if outside > 0 { outside } else { on_planes };
+    match feature_count {
         1 => Ok(0),
         2 => Ok(1),
         3 => Ok(2),
         _ => Err(WaterError::new(
             AUDIT_INVALID,
-            format!("independent boundary sample {position:?} has {on_planes} outer features"),
+            format!("independent boundary sample {position:?} has {feature_count} outer features"),
         )),
     }
 }
@@ -164,6 +220,7 @@ fn extended_density_trace(
     let mut errors = reserved(usize::from(DIAGNOSTIC_MAX_ITERATIONS))?;
     let mut checkpoints = reserved(DIAGNOSTIC_CHECKPOINTS.len())?;
     let mut first_threshold = None;
+    let mut first_threshold_checkpoint = None;
     for iteration in 1..=DIAGNOSTIC_MAX_ITERATIONS {
         let acceleration = pressure_acceleration(rows, boundary_volumes, &multiplier)?;
         let matrix = matrix_action(rows, boundary_volumes, &acceleration)?;
@@ -193,6 +250,15 @@ fn extended_density_trace(
         mem::swap(&mut multiplier, &mut next);
         if error_ppb <= DENSITY_THRESHOLD_PPB && first_threshold.is_none() {
             first_threshold = Some(iteration);
+            first_threshold_checkpoint = Some(prospective_checkpoint(
+                iteration,
+                error_ppb,
+                positions,
+                boundary_volumes,
+                rows,
+                &velocities,
+                &multiplier,
+            )?);
         }
         if DIAGNOSTIC_CHECKPOINTS.contains(&iteration) {
             checkpoints.push(prospective_checkpoint(
@@ -209,6 +275,7 @@ fn extended_density_trace(
     Ok(ExtendedDensityTrace {
         errors_ppb: errors,
         first_original_threshold_iteration: first_threshold,
+        first_original_threshold_checkpoint: first_threshold_checkpoint,
         checkpoints,
     })
 }

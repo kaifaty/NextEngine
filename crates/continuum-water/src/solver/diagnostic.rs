@@ -13,6 +13,32 @@ mod calibration;
 
 pub(crate) use calibration::production_hydro_calibration;
 
+pub(crate) fn counterfactual_substep(
+    prior: &AcceptedFrame,
+    geometry: Geometry,
+    boundary: &[BoundarySample],
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+    density_maximum_iterations: u8,
+) -> Result<StepOutcome, WaterError> {
+    if density_maximum_iterations < DENSITY_MIN_ITERATIONS {
+        return Err(WaterError::new(
+            AUDIT_INVALID,
+            format!(
+                "counterfactual density ceiling {density_maximum_iterations} is below the minimum"
+            ),
+        ));
+    }
+    substep_with_density_limit(
+        prior,
+        geometry,
+        boundary,
+        execution_profile_root,
+        scenario_root,
+        density_maximum_iterations,
+    )
+}
+
 pub(super) struct DensityRecorder {
     selected_indices: Vec<usize>,
     rows: Vec<HydroRowTrace>,

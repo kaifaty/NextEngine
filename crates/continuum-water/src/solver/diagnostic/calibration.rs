@@ -31,6 +31,7 @@ pub(crate) fn production_hydro_calibration(
         contributions,
         density_error_ppb_by_iteration: extended.errors_ppb,
         first_original_threshold_iteration: extended.first_original_threshold_iteration,
+        first_original_threshold_checkpoint: extended.first_original_threshold_checkpoint,
         checkpoints: extended.checkpoints,
     })
 }
@@ -144,6 +145,14 @@ fn density_contributions(
 }
 
 fn boundary_feature(position: Vec3i, geometry: Geometry) -> Result<usize, WaterError> {
+    let outside = [
+        position.x < geometry.bounds.min.x || position.x > geometry.bounds.max.x,
+        position.y < geometry.bounds.min.y || position.y > geometry.bounds.max.y,
+        position.z < geometry.bounds.min.z || position.z > geometry.bounds.max.z,
+    ]
+    .into_iter()
+    .filter(|outside| *outside)
+    .count();
     let on_planes = [
         position.x == geometry.bounds.min.x || position.x == geometry.bounds.max.x,
         position.y == geometry.bounds.min.y || position.y == geometry.bounds.max.y,
@@ -152,13 +161,14 @@ fn boundary_feature(position: Vec3i, geometry: Geometry) -> Result<usize, WaterE
     .into_iter()
     .filter(|on_plane| *on_plane)
     .count();
-    match on_planes {
+    let feature_count = if outside > 0 { outside } else { on_planes };
+    match feature_count {
         1 => Ok(0),
         2 => Ok(1),
         3 => Ok(2),
         _ => Err(WaterError::new(
             AUDIT_INVALID,
-            format!("boundary sample {position:?} has {on_planes} outer features"),
+            format!("boundary sample {position:?} has {feature_count} outer features"),
         )),
     }
 }
@@ -205,6 +215,7 @@ fn extended_density_trace(
         .try_reserve_exact(DIAGNOSTIC_CHECKPOINTS.len())
         .map_err(super::audit_reserve_error)?;
     let mut first_threshold = None;
+    let mut first_threshold_checkpoint = None;
     for iteration in 1..=DIAGNOSTIC_MAX_ITERATIONS {
         let acceleration = pressure_acceleration(reconstruction, boundary, &multiplier)?;
         let matrix = matrix_action(reconstruction, boundary, &acceleration.total)?;
@@ -235,6 +246,15 @@ fn extended_density_trace(
         std::mem::swap(&mut multiplier, &mut next);
         if error_ppb <= DENSITY_THRESHOLD_PPB && first_threshold.is_none() {
             first_threshold = Some(iteration);
+            first_threshold_checkpoint = Some(prospective_checkpoint(
+                iteration,
+                error_ppb,
+                state,
+                reconstruction,
+                boundary,
+                geometry,
+                &multiplier,
+            )?);
         }
         if DIAGNOSTIC_CHECKPOINTS.contains(&iteration) {
             checkpoints.push(prospective_checkpoint(
@@ -251,6 +271,7 @@ fn extended_density_trace(
     Ok(ExtendedDensityTrace {
         errors_ppb: errors,
         first_original_threshold_iteration: first_threshold,
+        first_original_threshold_checkpoint: first_threshold_checkpoint,
         checkpoints,
     })
 }

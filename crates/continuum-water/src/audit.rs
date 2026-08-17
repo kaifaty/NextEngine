@@ -456,6 +456,11 @@ pub(crate) fn independent_hydro_calibration()
     independent::compute_calibration()
 }
 
+pub(crate) fn independent_ghost_hydro_calibration()
+-> Result<crate::calibration::CandidateCalibrationComputation, WaterError> {
+    independent::compute_ghost_calibration()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

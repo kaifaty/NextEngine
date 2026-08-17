@@ -30,6 +30,11 @@ pub fn run_xtask(
         (Some(material), Some(command)) if material == "water" && command == "diagnose-hydro" => {
             calibration::run_xtask(repository_root, arguments)
         }
+        (Some(material), Some(command))
+            if material == "water" && command == "evaluate-hydro-candidate" =>
+        {
+            calibration::run_candidate_xtask(repository_root, arguments)
+        }
         _ => oracle::run_xtask(
             repository_root,
             material.into_iter().chain(command).chain(arguments),
