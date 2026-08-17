@@ -5,8 +5,9 @@ architecture: [SPEC-38](../../architecture/38-continuum-material-physics.md)
 and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md),
 with [ADR-081](../../architecture/adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md)
 as the promotion guardrail.
-W0B numeric/profile/corpus closure is complete; W1 is ready to start. No
-`CONTINUUM-*` ProductCheck has run.
+W0B numeric/profile/corpus closure is hash-frozen. The W1 serial oracle is
+implemented, but its first interacting nominal discriminator fails at the
+initial `CW-HYDRO-001` density solve. No `CONTINUUM-*` ProductCheck has run.
 
 This directory is the resume and execution surface for a dedicated water
 worktree. The main [Next Engine roadmap](../../roadmap.md) keeps the track
@@ -30,7 +31,7 @@ frozen water.
 ```text
 W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
  └─ W0B Numeric execution and corpus closure      COMPLETE / DOCUMENTATION
-     └─ W1 Serial CPU oracle + external corpus    READY / NOT_STARTED
+     └─ W1 Serial CPU oracle + external corpus    IMPLEMENTED / NUMERIC_GATE_FAILED
          ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
          │   └─ W3 One-pass PhysX coupling            NOT_STARTED
          │       └─ W4 Basin + crate + debug view     NOT_STARTED
@@ -80,6 +81,22 @@ The authoritative W0B document SHA-256 is
 Its machine-facing float-profile and corpus roots are recorded inside
 [W0B](00b-numeric-execution-and-corpus-closure.md). W1 preflight binds all
 three roots; changing the document or either projection reopens W0B.
+
+## Current W1 discriminator
+
+Commit `74730e208cfeb70b05a3ec44b2bb9c2f5002fe97` implements the serial oracle.
+On a clean exact-profile run, `CW-FREEFALL-001` passes all 97 canonical frames
+and two repeats produce the same trajectory root. `CW-HYDRO-001` then stops at
+its first density solve with `WATER_DENSITY_NONCONVERGENCE`: iteration 20 ends
+at `74,482,699 ppb` against the `100,000 ppb` threshold. The bounded
+[evidence report](../../development/continuum-water-w1-evidence-2026-08-17.md)
+records roots and artifact hashes.
+
+W1 remains open and the main roadmap remains inactive. The next work is a
+row-level W0B/W1 audit of hydro density, boundary quadrature, factor and Jacobi
+folds. It must distinguish an implementation mismatch from an incompatible
+frozen profile before any root-changing W0B revision. W2, WG, PhysX and GPU
+work remain blocked.
 
 ## Worktree and main-roadmap protocol
 

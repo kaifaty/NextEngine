@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `READY_FOR_WATER_ORACLE` |
+| Status | `WATER_ORACLE_NUMERIC_GATE_FAILED` |
 | Updated | `2026-08-17` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -11,8 +11,10 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** hash-frozen W0B is complete; start the separate water
-  worktree at W1 with a serial safe-Rust CPU DFSPH oracle. No runtime or public
+- **Current conclusion:** the W1 serial safe-Rust CPU DFSPH oracle is
+  implemented. Its clean exact-profile free-fall control passes, but the first
+  interacting nominal case, `CW-HYDRO-001`, fails its first density solve at
+  iteration 20 with `74,482,699 ppb`; W1 remains open. No runtime or public
   schema is authorized.
 - **Selected consumer:** one sealed `4 × 2 × 1 m` basin, `0.75 m` depth,
   nominal `48k`/hard `50k` samples, one `0.5 m`/`50 kg` PhysX crate and debug
@@ -21,12 +23,15 @@
 - **Authority:** private `f64` solve, ties-to-even canonical sample
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
-- **Next action:** create the water worktree from the documentation checkpoint
-  and implement only [W1](../../plans/continuum-water/01-serial-cpu-dfsph-oracle.md).
+- **Next action:** independently audit initial hydro density, boundary
+  quadrature, factor and representative Jacobi rows. Repair W1 if the audit
+  differs; otherwise explicitly reopen and re-close W0B before another run.
 - **Activation gate:** the main R8 row remains `PLANNED / NOT_ACTIVE` until
   `CONTINUUM-WATER-REF-P1 = PASS`.
-- **Current uncertainty:** numerical correctness and 50k real-time cost are
-  unmeasured; every `CONTINUUM-*` check is `NOT_RUN`.
+- **Current uncertainty:** the first failure may be an implementation mismatch
+  or an incompatibility in the frozen initial-lattice/boundary/iteration
+  profile. Full-corpus correctness and 50k real-time cost remain unmeasured;
+  every `CONTINUUM-*` ProductCheck is `NOT_RUN`.
 - **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
   hidden warm-start/float continuation, iterative coupling, sleep before exact
   persistence, or wet terrain before dry-sand evidence.
@@ -40,7 +45,8 @@
 | --- | --- | --- |
 | [Research report](../continuum-material-physics-research-2026-08-16.md) | `REPORT_ONLY` | Supports solver-family separation; proves no implementation |
 | [SPEC-38](../../architecture/38-continuum-material-physics.md) and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md) | `Proposed` | Candidate CPU authority, fixed-point boundary, one-pass coupling and exact-active semantics are closed |
-| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W0A/W0B COMPLETE / W1 READY / NOT_STARTED` | Exact formulation/profile/corpus closure permits the bounded serial-oracle worktree; it proves no check |
+| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W0A/W0B COMPLETE / W1 IMPLEMENTED / NUMERIC_GATE_FAILED` | The bounded serial oracle exists, but W2 and main-roadmap activation remain blocked |
+| [W1 clean-tree discriminator](../continuum-water-w1-evidence-2026-08-17.md) | Free-fall `SCENARIO_PASS`; hydro `WATER_DENSITY_NONCONVERGENCE` | Reopens the W0B/W1 numerical boundary; `CONTINUUM-WATER-REF-P1` remains `NOT_RUN` |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-*` ProductChecks | `NOT_RUN` | No solver, performance, persistence or production claim is admissible |
@@ -113,7 +119,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: fixed-point-boundary CPU DFSPH passes the clean-water corpus | DFSPH/SPlisHSPlasH prior art and bounded profile | no Next Engine implementation; quantization may alter convergence | W1 serial corpus, same-target repeat and external aggregate comparison |
+| H1: fixed-point-boundary CPU DFSPH passes the clean-water corpus | Exact free-fall and same-target repeat roots pass | First nominal interacting case fails density convergence before step 1 | Independent row-level hydro audit, then W0B revision or W1 repair |
 | H2: 50k CPU water fits the current THOTH budget | bounded sealed region and fixed profile | published prior art does not prove Next Engine 240 Hz cost | W2 exact 10k/50k/100k workload after W1 PASS |
 | H3: one-pass coupling is stable for the basin crate | narrow consumer and fixed cadence | fast impact/added-mass behavior is unmeasured | W3 float/impact corpus and reaction closure |
 | H4: one Drucker-Prager profile covers the first wheel scenario | established dry-sand model | exact source material and curve thresholds are not selected | Package 10T calibration closure |
@@ -129,14 +135,16 @@
 
 ## Next action
 
-1. Create a dedicated water worktree from this coherent documentation
-   checkpoint.
-2. Add only the internal `next_continuum_water` crate and
-   `xtask continuum water oracle` required by W1.
-3. Run the small focused/golden cases, then the external full corpus; preserve
-   exact same-target roots and stop at the first failure.
-4. Update this task-state only when W1 passes/fails materially or evidence
-   changes the approach.
+1. Build an independent row-level diagnostic for `CW-HYDRO-001` covering one
+   interior, face, edge and corner sample at reconstruction and representative
+   Jacobi iterations.
+2. Compare density, factor, multiplier and matrix-action bits against the exact
+   W0B folds without changing a threshold or root.
+3. If W1 differs, repair it and rerun the free-fall non-regression plus hydro.
+   If it matches, revise W0B explicitly, recompute its document/profile/corpus
+   roots and only then rerun W1.
+4. Do not start W2, WG, PhysX coupling or full external corpus work while the
+   smallest nominal interacting case fails.
 
 ## Do not retry
 
@@ -147,14 +155,18 @@
   authority.
 - Hide a non-convergent frame by retaining the previous water state and
   continuing the evidence run.
+- Increase the 20-iteration ceiling, loosen the density tolerance or alter the
+  boundary/lattice under the existing W0B roots.
 - Start terrain code while Package 10T remains profile-unclosed.
 
 ## Handoff
 
-- **Workspace claim:** documentation-only Proposed architecture/specification
-  closure; no runtime, schema or ProductCheck implementation.
-- **Expected checks:** documentation cheap path only; Cargo/host-check and all
-  continuum executable checks remain `NOT_RUN`.
-- **Remaining risk:** solver accuracy, fixed-point trajectory behavior, 50k
-  performance, coupling stability, exact persistence implementation and all
-  terrain constitutive evidence are unmeasured.
+- **Workspace claim:** tool-only W1 serial oracle implementation plus bounded
+  clean-tree discriminator; no runtime/public schema or ProductCheck PASS.
+- **Checks:** workspace `host-check` PASS; exact-profile free-fall
+  `SCENARIO_PASS`; hydro scenario evidence `FAILED`; all `CONTINUUM-*`
+  ProductChecks remain `NOT_RUN`.
+- **Remaining risk:** hydro formulation/profile compatibility, full-corpus and
+  external-reference accuracy, 50k performance, coupling stability, exact
+  persistence implementation and all terrain constitutive evidence remain
+  unmeasured.
