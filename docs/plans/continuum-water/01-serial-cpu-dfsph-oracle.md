@@ -1,6 +1,6 @@
 # W1 — Serial CPU DFSPH oracle
 
-Status: `IMPLEMENTED / NUMERIC_GATE_FAILED`.
+Status: `IMPLEMENTED / BLOCKED_ON_W0C_RECALIBRATION`.
 
 The safe-Rust serial oracle and its tool path were implemented at commit
 `74730e208cfeb70b05a3ec44b2bb9c2f5002fe97`. Clean-tree evidence passes the
@@ -9,7 +9,11 @@ iteration 20 ends at `74,482,699 ppb` against the inclusive `100,000 ppb`
 threshold. See the bounded
 [W1 evidence report](../../development/continuum-water-w1-evidence-2026-08-17.md).
 `CONTINUUM-WATER-REF-P1` remains `NOT_RUN`; this document's exit criterion is
-not satisfied.
+not satisfied. The clean-tree
+[W1-RC1 independent audit](../../development/continuum-water-w1-rc1-audit-2026-08-17.md)
+finds no mismatch in the audited production path, so
+[W0C](00c-hydro-calibration-reclosure.md) must re-close the numerical profile
+before W1 resumes.
 
 ## Outcome
 

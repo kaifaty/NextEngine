@@ -1,6 +1,10 @@
 # Continuum water W1 clean-tree discriminator — 2026-08-17
 
-Status: `NUMERIC_GATE_FAILED / PRODUCT_CHECK_NOT_RUN`.
+Status: `NUMERIC_GATE_FAILED / W0B_REOPEN_REQUIRED / PRODUCT_CHECK_NOT_RUN`.
+
+The follow-up [W1-RC1 independent audit](continuum-water-w1-rc1-audit-2026-08-17.md)
+reproduces this failure across an independent brute-force path and resolves the
+implementation-vs-profile discriminator in favor of W0B recalibration.
 
 ## Scope and provenance
 
@@ -72,15 +76,10 @@ comparison were not run after the first interacting nominal scenario failed.
 `CONTINUUM-WATER-REF-P1` therefore remains `NOT_RUN`; neither `PASS` nor a
 production/integration claim is admissible.
 
-The result reopens the W0B/W1 numerical boundary. The leading possibilities
-are an implementation mismatch in density/boundary reconstruction or a frozen
-profile incompatibility among the initial lattice, Akinci boundary quadrature,
-density tolerance and 20-iteration ceiling. The current evidence does not
-choose between them.
-
-The smallest next discriminator is an independent row-level audit of the
-initial `CW-HYDRO-001` density, factor and first/last Jacobi iterations for
-interior, face, edge and corner samples. If that audit differs, repair W1
-without changing W0B roots. If it matches, revise and re-close W0B explicitly;
-do not tune thresholds inside W1, move to W2, or hide the failure with
-parallelism, PhysX or GPU execution.
+This result reopened the W0B/W1 numerical boundary. RC1 subsequently found no
+discrepancy in the tested production and independent input, boundary,
+neighborhood or Jacobi paths. W1 must remain unchanged while
+[W0C](../plans/continuum-water/00c-hydro-calibration-reclosure.md) evaluates
+explicit counterfactual profiles. Do not tune thresholds under the original
+roots, move to W2, or hide the failure with parallelism, PhysX or GPU
+execution.

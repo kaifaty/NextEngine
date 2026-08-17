@@ -5,9 +5,10 @@ architecture: [SPEC-38](../../architecture/38-continuum-material-physics.md)
 and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md),
 with [ADR-081](../../architecture/adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md)
 as the promotion guardrail.
-W0B numeric/profile/corpus closure is hash-frozen. The W1 serial oracle is
-implemented, but its first interacting nominal discriminator fails at the
-initial `CW-HYDRO-001` density solve. No `CONTINUUM-*` ProductCheck has run.
+The original W0B numeric/profile/corpus closure remains hash-frozen evidence,
+but W1-RC1 independently reproduced its hydro non-convergence and requires a
+W0C calibration reclosure. The W1 serial oracle is implemented and blocked.
+No `CONTINUUM-*` ProductCheck has run.
 
 This directory is the resume and execution surface for a dedicated water
 worktree. The main [Next Engine roadmap](../../roadmap.md) keeps the track
@@ -30,8 +31,9 @@ frozen water.
 
 ```text
 W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
- └─ W0B Numeric execution and corpus closure      COMPLETE / DOCUMENTATION
-     └─ W1 Serial CPU oracle + external corpus    IMPLEMENTED / NUMERIC_GATE_FAILED
+ └─ W0B Original numeric/corpus closure           INVALIDATED_BY_RC1 / ROOTS_RETAINED
+     └─ W0C Hydro calibration reclosure            READY / NOT_STARTED
+         └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / BLOCKED_ON_W0C
          ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
          │   └─ W3 One-pass PhysX coupling            NOT_STARTED
          │       └─ W4 Basin + crate + debug view     NOT_STARTED
@@ -43,7 +45,8 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
 | Stage | Specification | Exit evidence | Blocks |
 |---|---|---|---|
 | W0A | [Product and evidence contract](00-product-and-evidence-contract.md) | Product fixture, evidence categories, authority and non-goals are selected | W0B |
-| W0B | [Numeric execution and corpus closure](00b-numeric-execution-and-corpus-closure.md) | Exact float profile, formulation, geometry, corpus, metrics, roots, limits and failures are frozen | W1 |
+| W0B | [Original numeric execution and corpus closure](00b-numeric-execution-and-corpus-closure.md) | Immutable rejected-profile evidence; RC1 invalidates promotion use | W0C |
+| W0C | [Hydro calibration reclosure](00c-hydro-calibration-reclosure.md) | A justified successor profile, new roots and passing independent hydro discriminator | W1 resume |
 | W1 | [Serial CPU DFSPH oracle](01-serial-cpu-dfsph-oracle.md) | `CONTINUUM-WATER-REF-P1 = PASS` on the same-target reference profile | main-roadmap activation, W2, WG |
 | W2 | [Deterministic parallel CPU and performance](02-deterministic-parallel-and-performance.md) | Worker/order exactness and standalone `50k` THOTH stop-target PASS | W3 |
 | W3 | [One-pass PhysX coupling](03-one-pass-physx-coupling.md) | `CONTINUUM-COUPLING-P1 = PASS` under one composition DAG, exact exchange tuple and one PhysX integration | W4 |
@@ -80,7 +83,8 @@ The authoritative W0B document SHA-256 is
 `d357bca64983fbd2074961a462743a4fb5d3fedc2af09631d32ec178bd299550`.
 Its machine-facing float-profile and corpus roots are recorded inside
 [W0B](00b-numeric-execution-and-corpus-closure.md). W1 preflight binds all
-three roots; changing the document or either projection reopens W0B.
+three roots. W1-RC1 invalidates their promotion use but does not rewrite this
+evidence. W0C must issue successor roots rather than editing history in place.
 
 ## Current W1 discriminator
 
@@ -92,10 +96,13 @@ at `74,482,699 ppb` against the `100,000 ppb` threshold. The bounded
 [evidence report](../../development/continuum-water-w1-evidence-2026-08-17.md)
 records roots and artifact hashes.
 
-W1 remains open and the main roadmap remains inactive. The next work is a
-row-level W0B/W1 audit of hydro density, boundary quadrature, factor and Jacobi
-folds. It must distinguish an implementation mismatch from an incompatible
-frozen profile before any root-changing W0B revision. W2, WG, PhysX and GPU
+Commit `d54e10e55bb20528c4cf485bc3bc6be5a0a6b5c3` adds a clean-tree independent
+brute-force audit. It reports `EXACT_MATCH` for all inputs, boundary volumes,
+the 20-value global residual curve and four representative complete row
+traces. The bounded [RC1 report](../../development/continuum-water-w1-rc1-audit-2026-08-17.md)
+therefore routes the next work to W0C rather than a W1 repair.
+
+W1 remains open and the main roadmap remains inactive. W2, WG, PhysX and GPU
 work remain blocked.
 
 ## Worktree and main-roadmap protocol
