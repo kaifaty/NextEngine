@@ -16,8 +16,8 @@ PhysX baseline or public schemas without a consumer-backed Accepted ADR.
 
 ```text
 00 Shared product/evidence gates
- ├─ Water: ../continuum-water W0 → W1 → W2 → W3 → W4 → W5 → W6
- │                                  └──────── optional WG mirror
+ ├─ Water: ../continuum-water W0A → W0B → W1 → W2 → W3 → W4 → W5 → W6
+ │                                           └──────── optional WG mirror
  └─ Terrain:
      10T dry-sand evidence contract
        → 11T serial MLS-MPM dry-sand reference

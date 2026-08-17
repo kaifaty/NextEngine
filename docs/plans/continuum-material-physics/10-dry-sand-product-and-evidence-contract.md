@@ -4,7 +4,8 @@
 
 Freeze one calibrated Drucker-Prager sand profile and one prescribed
 single-wheel consumer before any MLS-MPM code. This package is the terrain
-equivalent of water W0 and is a hard evidence blocker, not a parameter TODO.
+equivalent of water W0A/W0B and is a hard evidence blocker, not a parameter
+TODO.
 
 ## Selected scope
 

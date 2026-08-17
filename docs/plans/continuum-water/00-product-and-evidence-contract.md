@@ -1,11 +1,12 @@
-# W0 — Product and evidence contract
+# W0A — Product and evidence contract
 
 ## Outcome
 
-Freeze every input that can otherwise move after implementation: product
-fixture, numerical profile, state classification, corpus, metrics, external
-oracle, resource bounds, failure semantics and explicit non-goals. W0 is
-documentation-only and proves no solver behavior.
+Select the product fixture, state classification, evidence categories,
+external oracle and explicit non-goals. The exact numerical formulation,
+corpus, metric formulas, resource bounds and failure strings are frozen by
+[W0B](00b-numeric-execution-and-corpus-closure.md). W0A/W0B are
+documentation-only and prove no solver behavior.
 
 ## Water profile V1
 
@@ -22,7 +23,7 @@ documentation-only and proves no solver behavior.
 | Density solver | minimum `2`, maximum `20`, mean error `<= 0.01%` |
 | Divergence solver | minimum `1`, maximum `20`, mean error `<= 0.1%` |
 | Canonical rounding | one checked `NearestTiesToEven` conversion per substep |
-| Float execution | exact ADR-081 target/toolchain/FMA/rounding/subnormal/math/reduction/convergence profile |
+| Float execution | exact hash-frozen [W0B canonical profile](00b-numeric-execution-and-corpus-closure.md#canonical-float-execution-profile) |
 | Hard capacity | `50,000` active samples for production; `100,000` only in stress report |
 
 V1 has no warm start, surface tension, viscosity/vorticity model, variable
@@ -46,8 +47,9 @@ not survive a substep, choose identity/order or waive a canonical mismatch.
 Uniform mass is profile-owned and sample mass is not duplicated in each state.
 
 The float profile and adversarial Windows/Linux rounding/convergence fixtures
-are frozen before W1 code. Two failed remediation cycles make the selected
-authority research-only unless a separate fixed-point/soft-float decision lands.
+are frozen in W0B before W1 code. Two failed remediation cycles make the
+selected authority research-only unless a separate fixed-point/soft-float
+decision lands.
 
 ## Product fixture
 
@@ -76,12 +78,13 @@ forbidden.
 | Free-fall block | pressure/divergence before impact | no artificial constraint failure or nonfinite value |
 | 3D dam break | normalized front position and height curves | RMSE `<= 5%`; maximum error `<= 10%` |
 | Still tank | long-horizon state root, density and energy trend | finite; solver bounds; no growing external-work residual above `1%` |
-| Drain/orifice | mass flux curve and retained sample count | curve RMSE `<= 5%`; maximum error `<= 10%`; declared outlet accounting exact |
+| Sealed two-chamber orifice | internal transfer curve and chamber sample counts | curve RMSE `<= 5%`; maximum error `<= 10%`; partition and total mass exact |
 | Sealed boundary | sample count/mass and maximum centre penetration | count/mass exact; no leak; penetration `<= 2.5 mm` |
 
-Energy and momentum metrics subtract declared gravity impulse, boundary work,
-prescribed moving-body work and outlet flux. Naive conservation of a driven
-or open scenario is not an admissible metric.
+W0B supplies the exact energy/momentum formulas. Its orifice case is a closed
+two-chamber transfer with no sink; later driven cases must account for gravity,
+boundary work, prescribed moving-body work and true outlet flux rather than
+claim naive conservation.
 
 ## Independent evidence
 
@@ -99,13 +102,19 @@ The primary algorithm source is the
 Any source/corpus change creates a new evidence profile; tolerances cannot be
 widened after observing a failing run.
 
-## Stop conditions
+## Stop conditions and closure
 
 W1 cannot begin if any scenario geometry, horizon, output cadence, reference
 curve source/hash, metric formula, hard capacity or expected failure code is
 still implicit. A missing published curve is recorded as an explicit
 `REFERENCE_NOT_AVAILABLE` case and replaced by the analytical invariant plus
 independent-solver aggregate before implementation, not after a failure.
+
+W0B closes these items and distinguishes frozen source/profile hashes from
+output hashes that can exist only after W1 executes. The dam-break and exact
+two-chamber geometries are explicit `REFERENCE_NOT_AVAILABLE` published-curve
+cases; their numerical reference is the predeclared independent-solver
+aggregate. W1 is therefore ready, but no correctness check has passed.
 
 ## Non-goals
 

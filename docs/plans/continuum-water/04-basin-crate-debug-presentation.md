@@ -29,7 +29,7 @@ promotion change, the exact fields consumed by:
 - `ContinuumRegionDefinitionV1`: stable region identity, sealed analytical
   geometry/content revision, water profile reference, capacity and authored
   dry fallback reference;
-- `ContinuumWaterProfileV1`: W0 numerical constants and exact profile hash;
+- `ContinuumWaterProfileV1`: W0B numerical constants and exact profile hash;
 - `ContinuumWaterCanonicalStateV1`: region/tick/substep/root plus bounded
   sorted canonical sample states;
 - `ContinuumBodyReactionBatchV1`: the W3 complete revision-bound batch;
@@ -64,7 +64,7 @@ must remain identical. Pixel equality is not a physics oracle.
 - the crate reaches immersion `0.20 ± 0.05 m` after the declared stabilization
   interval;
 - player and headless command traces produce the same exact physical roots;
-- no particle crosses the sealed region and all W0/W3 residuals stay bounded;
+- no particle crosses the sealed region and all W0B/W3 residuals stay bounded;
 - the debug view exposes sample distribution, density/error and failure state
   sufficiently to diagnose the corpus;
 - disabling continuum before activation loads the playable dry variant;

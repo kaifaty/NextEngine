@@ -5,7 +5,8 @@ architecture: [SPEC-38](../../architecture/38-continuum-material-physics.md)
 and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md),
 with [ADR-081](../../architecture/adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md)
 as the promotion guardrail.
-No `CONTINUUM-*` ProductCheck has run.
+W0B numeric/profile/corpus closure is complete; W1 is ready to start. No
+`CONTINUUM-*` ProductCheck has run.
 
 This directory is the resume and execution surface for a dedicated water
 worktree. The main [Next Engine roadmap](../../roadmap.md) keeps the track
@@ -27,19 +28,21 @@ frozen water.
 ## Stage graph
 
 ```text
-W0 Specification closure                         COMPLETE / DOCUMENTATION
- └─ W1 Serial CPU oracle + external corpus       NOT_STARTED
-     ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
-     │   └─ W3 One-pass PhysX coupling            NOT_STARTED
-     │       └─ W4 Basin + crate + debug view     NOT_STARTED
-     │           └─ W5 Exact active persistence   NOT_STARTED
-     │               └─ W6 Production promotion   NOT_STARTED
-     └─ WG Optional GPU correspondence mirror     NOT_STARTED / NON_BLOCKING
+W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
+ └─ W0B Numeric execution and corpus closure      COMPLETE / DOCUMENTATION
+     └─ W1 Serial CPU oracle + external corpus    READY / NOT_STARTED
+         ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
+         │   └─ W3 One-pass PhysX coupling            NOT_STARTED
+         │       └─ W4 Basin + crate + debug view     NOT_STARTED
+         │           └─ W5 Exact active persistence   NOT_STARTED
+         │               └─ W6 Production promotion   NOT_STARTED
+         └─ WG Optional GPU correspondence mirror     NOT_STARTED / NON_BLOCKING
 ```
 
 | Stage | Specification | Exit evidence | Blocks |
 |---|---|---|---|
-| W0 | [Product and evidence contract](00-product-and-evidence-contract.md) | Exact scenario, canonical float-execution profile, metrics, limits and non-goals are frozen | W1 |
+| W0A | [Product and evidence contract](00-product-and-evidence-contract.md) | Product fixture, evidence categories, authority and non-goals are selected | W0B |
+| W0B | [Numeric execution and corpus closure](00b-numeric-execution-and-corpus-closure.md) | Exact float profile, formulation, geometry, corpus, metrics, roots, limits and failures are frozen | W1 |
 | W1 | [Serial CPU DFSPH oracle](01-serial-cpu-dfsph-oracle.md) | `CONTINUUM-WATER-REF-P1 = PASS` on the same-target reference profile | main-roadmap activation, W2, WG |
 | W2 | [Deterministic parallel CPU and performance](02-deterministic-parallel-and-performance.md) | Worker/order exactness and standalone `50k` THOTH stop-target PASS | W3 |
 | W3 | [One-pass PhysX coupling](03-one-pass-physx-coupling.md) | `CONTINUUM-COUPLING-P1 = PASS` under one composition DAG, exact exchange tuple and one PhysX integration | W4 |
@@ -70,9 +73,18 @@ W0 Specification closure                         COMPLETE / DOCUMENTATION
 - Heavy corpora, comparison trajectories, captures and performance reports
   stay outside Git; checked-in evidence is bounded hashes/summaries only.
 
+## Frozen W0B inputs
+
+The authoritative W0B document SHA-256 is
+`d357bca64983fbd2074961a462743a4fb5d3fedc2af09631d32ec178bd299550`.
+Its machine-facing float-profile and corpus roots are recorded inside
+[W0B](00b-numeric-execution-and-corpus-closure.md). W1 preflight binds all
+three roots; changing the document or either projection reopens W0B.
+
 ## Worktree and main-roadmap protocol
 
-1. Create the water worktree from the documentation checkpoint containing W0.
+1. Create the water worktree from the documentation checkpoint containing W0A
+   and the hash-frozen W0B closure.
 2. Record stage state and exact evidence links in this roadmap/task-state;
    never mark a PASS from a type, fixture, compilation or report-only run.
 3. After W1 PASS, merge the evidence checkpoint and change the main R8 row from

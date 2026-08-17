@@ -6,13 +6,14 @@
 | Updated | `2026-08-17` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
-| Definition of done | Decision-complete water W0–W6 roadmap plus independent terrain/wet/lifecycle DAG; documentation checks pass; no runtime/public-contract claim |
+| Definition of done | Decision-complete water W0A/W0B–W6 roadmap plus independent terrain/wet/lifecycle DAG; documentation checks pass; no runtime/public-contract claim |
 | Authority | Working context only; Accepted SPEC/ADR, main roadmap, exact profiles and future ProductCheck evidence outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** start the separate water worktree at W1 with a serial
-  safe-Rust CPU DFSPH oracle; no runtime or public schema is authorized.
+- **Current conclusion:** hash-frozen W0B is complete; start the separate water
+  worktree at W1 with a serial safe-Rust CPU DFSPH oracle. No runtime or public
+  schema is authorized.
 - **Selected consumer:** one sealed `4 × 2 × 1 m` basin, `0.75 m` depth,
   nominal `48k`/hard `50k` samples, one `0.5 m`/`50 kg` PhysX crate and debug
   particles; unavailable capability selects an authored dry variant before
@@ -39,7 +40,7 @@
 | --- | --- | --- |
 | [Research report](../continuum-material-physics-research-2026-08-16.md) | `REPORT_ONLY` | Supports solver-family separation; proves no implementation |
 | [SPEC-38](../../architecture/38-continuum-material-physics.md) and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md) | `Proposed` | Candidate CPU authority, fixed-point boundary, one-pass coupling and exact-active semantics are closed |
-| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W0 COMPLETE / W1 NOT_STARTED` | Separate worktree has a bounded execution and stop path |
+| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W0A/W0B COMPLETE / W1 READY / NOT_STARTED` | Exact formulation/profile/corpus closure permits the bounded serial-oracle worktree; it proves no check |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-*` ProductChecks | `NOT_RUN` | No solver, performance, persistence or production claim is admissible |
@@ -62,6 +63,9 @@
 - **Decision:** after each water substep publish only stable sample ID,
   micrometre position and micrometre-per-second velocity; uniform mass is in
   the profile, other solve fields are rebuilt, and warm start is disabled.
+- **Closure:** W0B fixes the Rust/LLVM targets and flags, float-environment
+  probes, exact DFSPH operations/order, integer neighbor membership,
+  convergence branches, corpus roots, capacities and typed failures.
 - **Rejected:** float owner state, final-output-only quantization and GPU-first
   canonical execution.
 - **Reconsider when:** a later consumer and exact cross-target evidence require
@@ -120,7 +124,7 @@
    physics ADRs.
 2. [Main roadmap](../../roadmap.md), R8, B-10 and performance boundaries.
 3. [SPEC-38](../../architecture/38-continuum-material-physics.md) and ADR-076.
-4. [Water roadmap](../../plans/continuum-water/README.md), especially W0/W1.
+4. [Water roadmap](../../plans/continuum-water/README.md), especially W0B/W1.
 5. [Research report](../continuum-material-physics-research-2026-08-16.md).
 
 ## Next action

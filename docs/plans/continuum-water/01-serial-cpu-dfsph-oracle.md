@@ -1,9 +1,12 @@
 # W1 — Serial CPU DFSPH oracle
 
+Status: `READY / NOT_STARTED`.
+
 ## Outcome
 
 Implement a safe-Rust, serial, runtime-independent DFSPH oracle that executes
-the W0 corpus, publishes a canonical fixed-point frame after every substep and
+the hash-frozen [W0B](00b-numeric-execution-and-corpus-closure.md) formulation
+and corpus, publishes a canonical fixed-point frame after every substep and
 produces bounded typed evidence. It is not a production physics backend.
 
 ## Placement and interfaces
@@ -20,7 +23,8 @@ Private logical records:
 
 ```text
 WaterLabProfileV1 {
-  exact W0 constants,
+  W0B document, float-profile and corpus roots,
+  exact W0B constants,
   maximum_samples,
   maximum_steps,
   maximum_neighbors_per_sample,
@@ -56,12 +60,14 @@ style and write only to an explicit output path outside Git by default.
 
 - Material SoA: stable `SampleId`, decoded `f64` position/velocity, density,
   DFSPH factor and pressure/divergence scratch.
-- Rebuild a sorted uniform grid each substep as `(cell_key, SampleId)` entries
-  plus contiguous cell ranges. Do not use hash-map iteration in a reduction.
-- Traverse neighbor cells in fixed lexicographic offsets and neighbors by
-  `SampleId`; use the same cubic-spline kernel family for value and gradient.
-- Apply gravity, divergence solve, non-pressure baseline, density solve and
-  position update in one documented fixed order.
+- Rebuild the exact W0B sorted integer-cell grid each substep as
+  `(cell_key, SampleId)` entries plus contiguous cell ranges. Do not use
+  hash-map iteration in membership or a reduction.
+- Use the W0B inclusive integer neighbor test, boundary quadrature, cubic
+  kernel, equations, folds, Jacobi buffers and quantized convergence branches
+  exactly; no solver choice remains in W1.
+- Apply divergence, gravity, density solve, position update, validation and
+  publication in the frozen order.
 - Disable warm start and every non-pressure optional model in V1.
 - Quantize each accepted sample once with checked ties-to-even; discard the
   private float frame and decode the next step from canonical integers.
@@ -72,10 +78,12 @@ same canonical trajectory root.
 
 ## Boundary and failure behavior
 
-Analytical planes/box are part of W1. Boundary evaluation and reaction
-diagnostics use fixed feature keys. A centre beyond the hard analytical wall,
-nonfinite intermediate/result, checked overflow, neighbor/capacity excess or
-solver non-convergence terminates the run at that first substep.
+Analytical planes/box and their reconstructible W0B quadrature are part of W1.
+Boundary evaluation and reaction diagnostics use fixed feature keys. An outer
+centre escape, clearance penetration above `2.5 mm`, nonfinite
+intermediate/result, checked overflow, neighbor/capacity excess or solver
+non-convergence terminates the run at that first substep with the frozen
+failure string.
 
 The report contains the stable first cause and last accepted root. The tool
 does not retry, loosen a tolerance, retain the old frame and continue, or emit
@@ -86,16 +94,19 @@ a successful corpus after any terminal failure.
 - unit/golden tests for cubic-spline value/gradient and analytical boundaries;
 - exact ties-to-even vectors, negative zero normalization, overflow and
   nonfinite rejection;
-- `N-1/N/N+1` capacity tests for samples, neighbors, steps and report bytes;
+- `N-1/N/N+1` capacity tests for samples, boundaries, both neighbor rows,
+  steps, report bytes and reference-input bytes;
 - zero/one-particle, duplicate-ID and input-order permutation cases;
-- every W0 scenario at a small checked-in fixture size;
-- full external W0 corpus at nominal scale with output artifacts outside Git;
+- one checked-in `SMOKE_ONLY` small analogue of each W0B geometry, with a
+  distinct scenario root and no corpus-credit claim;
+- full external W0B corpus at nominal scale with output artifacts outside Git;
 - repeat runs on the same target/toolchain with identical canonical roots;
-- published and SPlisHSPlasH aggregate comparison under the frozen metrics.
+- analytical and SPlisHSPlasH aggregate comparison under the frozen metrics;
+- preflight rejection when any W0B document/profile/corpus root differs.
 
 ## Exit and stop rule
 
-`CONTINUUM-WATER-REF-P1 = PASS` requires every W0 correctness threshold and
+`CONTINUUM-WATER-REF-P1 = PASS` requires every W0B correctness threshold and
 same-target repeat/insertion equality. Timing at `10k/50k/100k` is recorded but
 cannot fail W1 or be called a production budget result.
 

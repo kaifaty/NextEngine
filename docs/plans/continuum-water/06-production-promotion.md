@@ -31,7 +31,7 @@ outer current version rejects anything else before nested decode or mutation.
 
 ## Promotion evidence set
 
-- `CONTINUUM-WATER-REF-P1 = PASS` for W0/W1;
+- hash-frozen W0A/W0B inputs and `CONTINUUM-WATER-REF-P1 = PASS` for W1;
 - W2 worker/order exactness and standalone 50k THOTH stop-target PASS;
 - `CONTINUUM-COUPLING-P1 = PASS` for one-pass reaction and failures;
 - W4 `play`/headless production-command and presentation-independence PASS;

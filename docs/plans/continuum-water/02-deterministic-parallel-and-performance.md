@@ -23,7 +23,7 @@ product fixture can fit its standalone THOTH stop target.
 Exact requirements:
 
 - serial and worker counts `1/2/4/8` produce identical frame and trajectory
-  roots for every W0 scenario;
+  roots for every W0B scenario;
 - insertion order, chunk size and worker completion permutations do not alter
   roots, iterations or terminal diagnostics;
 - an allocation, worker panic or fragment-capacity fault rejects the complete
@@ -33,7 +33,7 @@ Exact requirements:
 
 Define `continuum-water-50k.v1` for `ref-win-thoth-v1`:
 
-- the W0 clean-water profile at 240 Hz;
+- the W0B clean-water profile at 240 Hz;
 - the sealed production basin with nominal `48,000`, hard `50,000` samples;
 - fixed warm-up/measured substep counts and exact scenario/root hashes;
 - release build and declared worker count chosen from the exact scaling run;
@@ -86,4 +86,4 @@ combined budget.
 ## Non-goals
 
 PhysX coupling, renderer, public contracts, save schema, GPU, adaptivity and
-changing the W0 numerical profile.
+changing the W0B numerical profile.

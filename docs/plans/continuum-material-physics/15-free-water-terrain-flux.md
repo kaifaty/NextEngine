@@ -36,7 +36,7 @@ sample:
   publication.
 
 This is a new water-profile/state version and cannot reinterpret the sealed
-W0/W5 bytes. It requires its own consumer-backed promotion boundary.
+W0B/W5 bytes. It requires its own consumer-backed promotion boundary.
 
 ## Atomic commit and failures
 
