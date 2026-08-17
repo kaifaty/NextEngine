@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | `READY_FOR_WATER_ORACLE` |
-| Updated | `2026-08-16` |
+| Updated | `2026-08-17` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
 | Definition of done | Decision-complete water W0–W6 roadmap plus independent terrain/wet/lifecycle DAG; documentation checks pass; no runtime/public-contract claim |
@@ -29,6 +29,9 @@
 - **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
   hidden warm-start/float continuation, iterative coupling, sleep before exact
   persistence, or wet terrain before dry-sand evidence.
+- **Independent later branches:** SPEC-41 owns temperature/composition/phase;
+  SPEC-42 warm-start advice starts only after W1-W6 promotion. Neither changes
+  the water worktree's next action or receives water-gate credit.
 
 ## Current evidence
 
@@ -38,6 +41,7 @@
 | [SPEC-36](../../architecture/36-continuum-material-physics.md) and [ADR-072](../../architecture/adr/072-continuum-material-physics-track.md), checkpoint `63d597a` | `Proposed` | Candidate CPU authority, fixed-point boundary, one-pass coupling and exact-active semantics are closed |
 | [Standalone water roadmap](../../plans/continuum-water/README.md), checkpoint `870fffd` | `W0 COMPLETE / W1 NOT_STARTED` | Separate worktree has a bounded execution and stop path |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
+| [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-*` ProductChecks | `NOT_RUN` | No solver, performance, persistence or production claim is admissible |
 
 ## Decisions that constrain the next work

@@ -1,15 +1,17 @@
-# VF — Future thermal, root and continuum lanes
+# VF — Future thermochemical, root and continuum lanes
 
 These lanes are explicit future programs, not hidden work or completion credit
 for V0–V7.
 
-## Thermal/moisture/combustion lane
+## Thermochemical moisture/combustion lane
 
-Starts after exact structural persistence and a concrete burning-tree product
-consumer. A new owner/profile must freeze radial temperature, moisture, char,
-mass and heat-transfer state; thermal-to-structure weakening crosses a
-canonical batch. Fire VFX, smoke and embers remain presentation/process outputs
-unless separately promoted. Wet/dry ignition, mass/energy accounting,
+Starts after exact structural persistence, SPEC-41 base promotion and a
+concrete burning-tree product consumer. The Thermochemical owner stores stable
+tree-parcel composition, enthalpy, moisture, phase and reaction/char progress;
+the structural owner retains mechanical mass, strength and topology.
+Weakening, mass-property change and fracture consequences cross one canonical
+atomic batch and require `THERMOCHEM-VEGETATION-P1`. Fire VFX, smoke and embers
+remain presentation outputs. Wet/dry ignition, mass/energy accounting, exact
 save/restart and structural failure curves are required before spread.
 
 ## Root and soil lane

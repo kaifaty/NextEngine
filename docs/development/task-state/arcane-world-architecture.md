@@ -28,6 +28,9 @@
 - **Current blocker:** exact fixed-point raws/scales, reservoir/throughput and
   maintenance/loss values, fixture force trace, thresholds, capacities and
   budgets are not selected.
+- **Later heat/cooling:** now routes only through independently promoted
+  [SPEC-41](../../architecture/41-thermochemical-material-processes.md) and
+  `ARCANE-THERMOCHEMICAL-P1`; it does not expand the A0B telekinesis scope.
 - **Do not retry:** universal world solver/bus, separate first-party magic API,
   scalar mana plus scripted effects, direct transforms/damage, GPU authority,
   camera/timing LOD, lossy state before exact persistence, or Vital/Identity/
@@ -41,6 +44,7 @@
 | [SPEC-39](../../architecture/39-world-substrate-composition.md), [SPEC-40](../../architecture/40-arcane-substrate-and-physical-magic.md), [ADR-074](../../architecture/adr/074-world-substrate-and-arcane-physical-interaction-track.md) | `Proposed` | Candidate ownership, transaction, fallback and promotion boundary only |
 | [Gap review and selected resolutions](../arcane-world-architecture-gap-review-2026-08-17.md) | `A0A COMPLETE / A0B OPEN` | All 27 recommended architecture choices are selected; numeric calibration still blocks code |
 | [Arcane roadmap](../../plans/arcane-world/README.md) | `A0A COMPLETE / A0B OPEN / A1 NOT_STARTED` | No code or public schema is authorized |
+| [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural branches are independent downstream work; base Arcane decisions remain unchanged |
 | `ARCANE-*` ProductChecks | `NOT_RUN` | No reservoir, mechanics, coupling, persistence, target or performance claim is admissible |
 
 ## Decisions that constrain next work

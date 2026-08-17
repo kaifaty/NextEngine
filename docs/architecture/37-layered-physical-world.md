@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-37 |
 | Status | Proposed |
-| Version | 1.2 |
+| Version | 1.3 |
 | Last verified | 2026-08-17 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-36](36-continuum-material-physics.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-073](adr/073-layered-physical-world-and-living-structures-track.md) |
-| Related Proposed composition | [SPEC-39](39-world-substrate-composition.md), [SPEC-40](40-arcane-substrate-and-physical-magic.md), [ADR-074](adr/074-world-substrate-and-arcane-physical-interaction-track.md) |
-| Supersedes | SPEC-37 1.1; closes the Arcane start-receipt/exchange-receipt and exact exchange-identity relationship without changing current PhysX, runtime, save or public-contract semantics |
+| Related Proposed composition | [SPEC-39](39-world-substrate-composition.md), [SPEC-40](40-arcane-substrate-and-physical-magic.md), [SPEC-41](41-thermochemical-material-processes.md), [SPEC-42](42-neural-assisted-world-simulation.md), [ADR-074](adr/074-world-substrate-and-arcane-physical-interaction-track.md), [ADR-075](adr/075-thermochemical-material-process-track.md), [ADR-076](adr/076-neural-assistance-as-bounded-proposals.md) |
+| Supersedes | SPEC-37 1.2; adds the explicit thermochemical owner and proposal-only neural sidecar without changing current PhysX, runtime, save or public-contract semantics |
 
 ## Status and purpose
 
@@ -28,10 +28,11 @@ immutable projections and canonical exchange batches.
 
 Physical Embodiment is one specialization inside the Proposed SPEC-39
 world-substrate composition, not the owner of every simulated law. A future
-Arcane owner from SPEC-40 owns only its resource/execution state and remains a
-peer outside Physical Embodiment. It can affect rigid, continuum, vegetation or
-later thermal state only through a typed cross-owner exchange profile; it never
-becomes an L2 forcing shortcut or an L3 physical writer.
+Arcane and Thermochemical owners from SPEC-40/41 remain peer substrates outside
+Physical Embodiment. Arcane can affect rigid, continuum, vegetation or
+Thermochemical state only through a typed cross-owner exchange profile;
+Thermochemical phase/reaction consequences use the same rule. Neither becomes
+an L2 forcing shortcut or a physical-state writer.
 
 An Arcane start command commits its own stage-5 execution-start receipt and
 does not remain pending through physics. Each later arcane/physical substep
@@ -49,17 +50,25 @@ current physical path and do not create empty Arcane owner segments.
 | L0 Activation and profile closure | Exact content, coordinate, numeric, cadence, capacity and capability identities | Immutable input; missing required closure fails before world activation |
 | L1 Canonical schedule and identity | Runtime tick/substep, stable IDs, revisions, ordering, fixed-point publication and roots | Runtime/SPEC-21 chooses boundaries; wall time, worker or GPU completion never chooses a result |
 | L2 Environmental forcing projections | Gravity and future bounded wind, temperature, precipitation or field samples for one step | Revision-bound immutable inputs; a forcing source cannot write a simulated owner state |
-| L3 Physical state owners | Rigid/articulated bodies, continuum regions, living structures and later thermal/chemical state | Exactly one writer per field and representation; solver-private caches are reconstructible |
+| L3 Peer state owners | Physical rigid/articulated bodies, continuum regions and living structures; adjacent Thermochemical material parcels | Exactly one writer per field and representation; solver-private caches are reconstructible |
 | L4 Coupling and composite commit | Frozen projections, canonical load/reaction/flux batches and one all-or-nothing `PhysicalStep` | No peer mutation, arrival-order winner, duplicate writer or partial publication |
 | L5 Physical outcomes and persistence | Committed contact/topology facts, gameplay proposals and composite owner checkpoints | Outcomes are derived only after physical commit; all required owner segments restore together |
 | L6 Presentation | Mesh/pose/particles/foliage/VFX extraction | Read-only projection; camera, renderer cadence and device state never feed authority |
 
-L3 is deliberately plural. PhysX remains the writer of rigid and articulated
-pose/velocity/contact state. A continuum solver writes only its material
-state. A living-structure solver writes only its graph, elastic/damage and
-topology state. A later heat/moisture/combustion owner writes only its declared
-energy/material variables. Similar-looking quantities do not permit shared
-ownership.
+L3 is deliberately plural. Inside Physical Embodiment, PhysX remains the
+writer of rigid/articulated pose, velocity and contact; a continuum solver
+writes only its material motion/region state; a living-structure solver writes
+only its graph, elastic/damage and topology state. The adjacent SPEC-41
+Thermochemical owner writes only composition, enthalpy, phase and durable
+reaction progress of stable parcels. Mechanical owners retain pose, contact,
+spatial mass and topology. Similar-looking quantities do not permit shared
+ownership; a phase or combustion consequence uses a separate atomic exchange
+profile.
+
+An optional SPEC-42 model is not an L3 owner. It may submit one bounded private
+proposal to an already selected owner candidate before that owner's classical
+solve. It cannot write an exchange batch, choose a representation, publish a
+root or count toward a multi-owner promotion check.
 
 ## First forcing boundary
 
@@ -179,7 +188,11 @@ peers advance, mid-run backend switch, partial result or retry-to-green.
 This model has no standalone implementation check. Each concrete owner must
 pass its own reference, coupling, persistence, cross-target and conditional
 performance gates. A future composition check `PHYSICAL-LAYERS-P1` is created
-only when at least two non-rigid production owners exist; it must then prove
+only when at least two non-rigid Physical Embodiment production owners exist;
+it must then prove
 writer exclusivity, batch collision rejection, atomic multi-owner failure and
-presentation independence. Until then, water and vegetation checks remain
-independent and neither proves the other.
+presentation independence. Until then, water, vegetation and thermochemical
+checks remain independent and none proves another. A Thermochemical coupling
+check does not count as a second Physical Embodiment owner by itself. Neural
+checks can prove an optional accelerator only and never close this composition
+gate.

@@ -40,7 +40,7 @@ V0A Product/architecture decisions              COMPLETE
          │                   └─ V7 Production promotion NOT_STARTED
          └─ VG Optional GPU correspondence mirror   NOT_STARTED / NON_BLOCKING
 
-V5/V7 ── VF future thermal/fire/root/soil lanes NOT_STARTED / OUTSIDE BASE
+V5/V7 ── VF future thermochemical/fire/root/soil lanes NOT_STARTED / OUTSIDE BASE
 ```
 
 | Stage | Specification | Exit evidence | Blocks |
@@ -55,7 +55,7 @@ V5/V7 ── VF future thermal/fire/root/soil lanes NOT_STARTED / OUTSIDE BASE
 | V6 | [Forest LOD and performance](06-forest-lod-and-performance.md) | `VEGETATION-LOD-P1` plus the V0 THOTH workload pass | V7 |
 | V7 | [Production promotion](07-production-promotion.md) | Consumer-backed Accepted decision and all declared checks | shipped claim |
 | VG | [GPU correspondence mirror](vg-gpu-correspondence.md) | Aggregate report for pinned devices | no authority or promotion stage |
-| VF | [Future thermal, root and continuum lanes](vf-thermal-roots-and-continuum.md) | Independent lane-specific profiles and checks | no base-tree stage |
+| VF | [Future thermochemical, root and continuum lanes](vf-thermal-roots-and-continuum.md) | Independent lane-specific profiles and checks | no base-tree stage |
 
 ## Program invariants
 
