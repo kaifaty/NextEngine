@@ -11,10 +11,10 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Use GGUF Q4_K_M through transcribe.cpp on the 10 GB RTX 3080. The bounded `lab/scripts/voxtral_microphone.py` client now validates an exact ALSA or PipeWire input before loading the model, but this host currently has no usable microphone route.
-- **Why:** Local CUDA runs and the Python streaming binding passed, including an exact incremental Russian transcript. On the current host both analog microphone jacks report disconnected, CMF Buds Pro 2 is using playback-only A2DP despite an available HSP/HFP MSBC profile, and the generic `pipewire` alias records digital silence.
-- **Next action:** Connect an analog microphone or enable a Bluetooth HFP/HSP capture profile, then select the exact source reported by `--list-inputs` and run `--probe-microphone` before live transcription.
-- **Current blocker:** No physical/capture microphone route is currently active; no representative NextEngine Russian speech corpus was in scope for quality evaluation.
+- **Current conclusion:** Use GGUF Q4_K_M through transcribe.cpp on the 10 GB RTX 3080. CMF Buds Pro 2 now reconnects directly in HSP/HFP MSBC mode as both the default sink and default source, and the bounded microphone client validates the live route before loading the model.
+- **Why:** Local CUDA and streaming runs passed. On Ubuntu 26.04 with WirePlumber 0.5.13, saving `bluetooth.autoswitch-to-headset-profile=false`, retaining the `headset-head-unit` device profile, and selecting both CMF nodes as defaults survived a Bluetooth disconnect/reconnect; a ten-second `pipewire` probe then measured a non-silent -43.7 dBFS peak.
+- **Next action:** Run one live Voxtral session with spoken Russian to evaluate headset gain and transcription quality.
+- **Current blocker:** No representative NextEngine Russian speech corpus was in scope for quality evaluation.
 - **Do not retry:** Official BF16 vLLM on this 10 GB card; Mistral requires at least 16 GB.
 - **Reconsider when:** vLLM gains verified Voxtral quantization support or representative Russian evaluation contradicts Q4 neutrality.
 
@@ -26,8 +26,9 @@
 | Local Q4_K_M CUDA run on RTX 3080 10 GB | `PASS` | Q4_K_M fits and exceeds realtime for tested clips |
 | `lab/scripts/voxtral_microphone.py --check` with shared CUDA library | `PASS` | The bounded microphone client loads the model and resolves CUDA on this host |
 | Python binding incremental stream over `samples/ru.wav` | `PASS` | The same stream surface used by the microphone client produced the exact Russian reference |
-| `--list-inputs` plus ALSA/PipeWire route inspection | `PASS` | Analog front/rear mic jacks are unavailable; CMF Buds Pro 2 uses playback-only A2DP and offers an inactive HSP/HFP MSBC capture profile |
-| Two-second signal probes | `PASS` | `default`/`pipewire` and the inactive Bluetooth source are silent; the bare analog endpoint produces near-clipping jack noise rather than usable speech |
+| Initial `--list-inputs` plus ALSA/PipeWire route inspection | `PASS` | Analog front/rear mic jacks were unavailable; CMF Buds Pro 2 initially used playback-only A2DP despite an available HSP/HFP MSBC profile |
+| Persistent CMF Buds profile and default-route setup | `PASS` | HSP/HFP MSBC plus default CMF input/output survived an explicit Bluetooth disconnect/reconnect |
+| Post-reconnect ten-second `pipewire` probe | `PASS` | Default capture returned a non-silent -43.7 dBFS peak without persisting audio |
 | Live run through the exact built-in PipeWire source | `PASS` with expected empty transcript | Capture, CUDA inference, finalization, and the no-speech warning execute end to end; no microphone was connected for speech input |
 | Published LibriSpeech test-clean quant ladder | `REPORT_ONLY` | English WER is neutral from BF16 through Q4_K_M within reported confidence interval |
 
@@ -63,6 +64,16 @@
 - **Uncertainty:** A level probe proves signal presence, not speech intelligibility; unusual very quiet microphones may require a lower `--silence-threshold-dbfs` after gain and route checks.
 - **Reconsider when:** The wrapper gains a portable device API that can expose route availability without sampling audio.
 
+### D-004 — Keep this headset in HSP/HFP mode on this host
+
+- **Observation:** WirePlumber's default Bluetooth autoswitch exposes a virtual source while leaving the headset in A2DP until a capture link appears, then returns to A2DP when capture ends. The user requires the microphone to be immediately active after every connection.
+- **Evidence:** Installed WirePlumber 0.5.13 policy and official 0.5 documentation; live `pw-dump`; saved profile state; explicit disconnect/reconnect; post-reconnect `wpctl status`; ten-second signal probe.
+- **Decision:** Persist `bluetooth.autoswitch-to-headset-profile=false`, restore the CMF Buds `headset-head-unit` MSBC profile, and save its physical source and sink as defaults.
+- **Rejected alternatives:** Default autoswitch preserves A2DP quality but does not satisfy the requirement for an immediately active physical microphone; a repository-level WirePlumber fragment is unnecessary because the supported persistent settings/state mechanisms work.
+- **Consequences:** Both headset directions are present immediately, while Bluetooth playback is mono/voice quality instead of A2DP high fidelity.
+- **Uncertainty:** Speech intelligibility and effective gain still need evaluation through a spoken Voxtral session.
+- **Reconsider when:** The user prefers A2DP quality outside capture sessions or the headset/system gains a bidirectional high-quality Bluetooth profile.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -91,5 +102,5 @@ Read these sources in precedence order before acting:
 
 - **Workspace state:** Research/task-state documentation plus a bounded lab microphone script and focused tests; downloaded model and external runtime build remain only under `/tmp/codex-voxtral-research`.
 - **Checks:** Local CUDA Q4_K_M runs, shared-library `--check`, incremental Russian stream, focused Python tests, exact input listing/probes, a full bounded live path, `git diff --check`, and `cargo run -p xtask -- host-check` passed.
-- **Remaining risk:** No connected microphone was available for a real speech capture; no representative Russian corpus evaluation and no local Q8/Q6/Q5 comparison.
+- **Remaining risk:** A non-silent microphone signal is confirmed, but spoken headset gain and transcription quality remain unevaluated; no representative Russian corpus evaluation and no local Q8/Q6/Q5 comparison.
 - **Promotion needed:** None.

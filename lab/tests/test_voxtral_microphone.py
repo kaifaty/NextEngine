@@ -109,8 +109,16 @@ class VoxtralMicrophoneTests(unittest.TestCase):
                 "info": {
                     "props": {
                         "media.class": "Audio/Device",
-                        "bluez5.profile": "off",
-                    }
+                        "device.api": "bluez5",
+                    },
+                    "params": {
+                        "Profile": [
+                            {
+                                "name": "a2dp-sink",
+                                "classes": [["Audio/Sink", 1]],
+                            }
+                        ]
+                    },
                 },
             },
             {
@@ -140,6 +148,50 @@ class VoxtralMicrophoneTests(unittest.TestCase):
             inputs,
             [("pw:bluez_input.example", "Example Headset", "Bluetooth capture profile is inactive")],
         )
+
+    def test_pipewire_input_accepts_active_bluetooth_capture_profile(self) -> None:
+        objects = [
+            {
+                "id": 7,
+                "info": {
+                    "props": {
+                        "media.class": "Audio/Device",
+                        "device.api": "bluez5",
+                    },
+                    "params": {
+                        "Profile": [
+                            {
+                                "name": "headset-head-unit",
+                                "classes": [["Audio/Source", 1], ["Audio/Sink", 1]],
+                            }
+                        ]
+                    },
+                },
+            },
+            {
+                "id": 8,
+                "info": {
+                    "props": {
+                        "media.class": "Audio/Source",
+                        "device.id": 7,
+                        "node.name": "bluez_input.example",
+                        "node.description": "Example Headset",
+                    }
+                },
+            },
+        ]
+        original_which = voxtral_microphone.shutil.which
+        original_run = voxtral_microphone.subprocess.run
+        voxtral_microphone.shutil.which = lambda _: "/usr/bin/pw-dump"
+        voxtral_microphone.subprocess.run = lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0], 0, stdout=voxtral_microphone.json.dumps(objects), stderr=""
+        )
+        try:
+            inputs = voxtral_microphone.pipewire_inputs()
+        finally:
+            voxtral_microphone.shutil.which = original_which
+            voxtral_microphone.subprocess.run = original_run
+        self.assertEqual(inputs, [("pw:bluez_input.example", "Example Headset", None)])
 
     def test_repeated_device_is_rejected(self) -> None:
         parser = voxtral_microphone.build_parser()
