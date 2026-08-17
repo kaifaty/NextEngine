@@ -1,6 +1,6 @@
 # W0C — Hydro calibration reclosure
 
-Status: `IN_PROGRESS / BOUNDARY_CANDIDATE_REJECTED`.
+Status: `IN_PROGRESS / INITIALIZATION_CANDIDATE_REJECTED`.
 
 ## Outcome
 
@@ -40,9 +40,20 @@ and 160 only move failure to steps 4 and 5 while accepted-step iteration demand
 and penetration grow. The candidate is `NOT_SELECTED`; no successor roots or
 corpus credit exist.
 
-Steps 1–3 below are therefore complete for this candidate family. The current
-next action is step 4: a deterministic relaxed/pre-equilibrated initialization
-with a canonical generator root. Do not run another ceiling-only variant.
+`zero-velocity-settle-v1` then tests step 4 with a deterministic, independently
+reproduced generator. Full damping does not contract the transient: density
+iteration demand grows `2 → 33 → 40 → 47` while penetration grows
+`171 → 340 → 521 → 710 µm`. The adverse-trend guard rejects the generator on
+pass 4, and its last diagnostic state fails the first unchanged-ceiling hydro
+step at `162,015 ppb`. It defines no canonical successor initial state.
+
+Steps 1–5 have now rejected an unchanged-profile ceiling extension, one
+particle-boundary replacement and one position-only initialization family.
+Under the persistent-problem rule, do not run a similar variant. The current
+next action returns to step 3 at an adjacent layer: a bounded analytically
+specified non-particle boundary representation, starting with a volume-map
+candidate. If it also fails the independent local discriminator, reassess W0C
+for `RESEARCH_ONLY` instead of weakening the fixed constraints.
 
 ## Fixed constraints
 

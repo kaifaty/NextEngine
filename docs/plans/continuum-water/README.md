@@ -8,9 +8,11 @@ as the promotion guardrail.
 The original W0B numeric/profile/corpus closure remains hash-frozen evidence,
 but W1-RC1 independently reproduced its hydro non-convergence and requires a
 W0C calibration reclosure. W0C diagnostics reject both a ceiling-only repair
-and the first cell-centred ghost-boundary candidate; deterministic
-pre-equilibrated initialization is next. The W1 serial oracle is implemented
-and blocked. No `CONTINUUM-*` ProductCheck has run.
+and the first cell-centred ghost-boundary candidate. Its independently
+reproduced zero-velocity settling initialization also diverges, so the next
+bounded research discriminator moves to a non-particle boundary
+representation. The W1 serial oracle is implemented and blocked. No
+`CONTINUUM-*` ProductCheck has run.
 
 This directory is the resume and execution surface for a dedicated water
 worktree. The main [Next Engine roadmap](../../roadmap.md) keeps the track
@@ -34,7 +36,7 @@ frozen water.
 ```text
 W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
  └─ W0B Original numeric/corpus closure           INVALIDATED_BY_RC1 / ROOTS_RETAINED
-     └─ W0C Hydro calibration reclosure            IN_PROGRESS / GHOST_CANDIDATE_REJECTED
+     └─ W0C Hydro calibration reclosure            IN_PROGRESS / INITIALIZATION_CANDIDATE_REJECTED
          └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / BLOCKED_ON_W0C
          ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
          │   └─ W3 One-pass PhysX coupling            NOT_STARTED
@@ -109,9 +111,17 @@ extended-curve and boundary-candidate diagnostics. The bounded
 [W0C report](../../development/continuum-water-w0c-hydro-calibration-2026-08-17.md)
 rejects a larger iteration ceiling and `ghost-cell-shell-v1`: the candidate
 fixes the initial partition and passes step 1, but fails the unchanged-ceiling
-soak on step 2; ceilings 100 and 160 only defer failure. The next discriminator
-is deterministic pre-equilibrated initialization, not another ceiling or
-boundary-scale variant.
+soak on step 2; ceilings 100 and 160 only defer failure. That result routed the
+next cycle to deterministic pre-equilibrated initialization rather than
+another ceiling or boundary-scale variant.
+
+Commit `0c3acb4969f32cac1bbe1205a6e07307a10cc2c0` adds the independently
+reproduced `zero-velocity-settle-v1` generator. Its iteration demand and
+penetration increase through four passes, triggering the adverse-trend guard;
+the last diagnostic state then fails the first unchanged-ceiling hydro step at
+`162,015 ppb`. No generator output or successor root is selected. Persistent
+failure now routes W0C to an analytically specified non-particle boundary
+candidate, not another settling or ceiling variant.
 
 W1 remains open and the main roadmap remains inactive. W2, WG, PhysX and GPU
 work remain blocked.

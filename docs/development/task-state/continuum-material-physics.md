@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W0C_INITIALIZATION_DISCRIMINATOR_NEXT` |
+| Status | `W0C_NONPARTICLE_BOUNDARY_DISCRIMINATOR_NEXT` |
 | Updated | `2026-08-17` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -11,13 +11,13 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** exact W0C diagnostics reject a ceiling-only repair
-  and the first boundary candidate. The original profile misses the density
-  threshold through iteration 320 and its prospective state escapes the box.
-  `ghost-cell-shell-v1` fixes the initial partition and passes step 1/free-fall,
-  but fails the hydro soak on step 2; ceilings 100/160 only defer failure. W0C
-  now moves to deterministic pre-equilibrated initialization. No successor
-  roots, runtime or public schema are authorized.
+- **Current conclusion:** exact W0C diagnostics reject a ceiling-only repair,
+  `ghost-cell-shell-v1` and `zero-velocity-settle-v1`. The settling generator
+  exactly matches an independent brute-force implementation, but iteration
+  demand grows `2 → 33 → 40 → 47`, penetration grows
+  `171 → 340 → 521 → 710 µm`, and its last diagnostic state fails the first
+  production-ceiling step. No successor roots, runtime or public schema are
+  authorized.
 - **Selected consumer:** one sealed `4 × 2 × 1 m` basin, `0.75 m` depth,
   nominal `48k`/hard `50k` samples, one `0.5 m`/`50 kg` PhysX crate and debug
   particles; unavailable capability selects an authored dry variant before
@@ -25,17 +25,18 @@
 - **Authority:** private `f64` solve, ties-to-even canonical sample
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
-- **Next action:** implement the W0C relaxed/pre-equilibrated initialization
-  discriminator with a deterministic generator, bounded termination rule and
-  canonical initial-state root; compare it independently before the unchanged
-  20-iteration hydro soak.
+- **Next action:** apply persistent-problem escalation and specify the smallest
+  non-particle boundary discriminator, beginning with an analytical volume-map
+  candidate. Preserve fixed-point position/velocity authority and the
+  unchanged 20-iteration hydro gate.
 - **Activation gate:** the main R8 row remains `PLANNED / NOT_ACTIVE` until
   `CONTINUUM-WATER-REF-P1 = PASS`.
-- **Current uncertainty:** neither the original boundary nor the tested ghost
-  shell yields a stable dynamic trajectory. It is unknown whether a canonical
-  pre-equilibrated state can preserve the selected lattice, clearance and
-  no-hidden-state authority. Full-corpus correctness and 50k real-time cost
-  remain unmeasured; every `CONTINUUM-*` ProductCheck is `NOT_RUN`.
+- **Current uncertainty:** particle-shell boundary formulations may be the
+  wrong adjacent layer for the selected no-warm-start/fixed-point authority.
+  It is unknown whether an analytical volume or density map can preserve
+  partition, clearance and exact independent reconstruction without hidden
+  state. Full-corpus correctness and 50k real-time cost remain unmeasured;
+  every `CONTINUUM-*` ProductCheck is `NOT_RUN`.
 - **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
   hidden warm-start/float continuation, iterative coupling, sleep before exact
   persistence, or wet terrain before dry-sand evidence.
@@ -49,10 +50,10 @@
 | --- | --- | --- |
 | [Research report](../continuum-material-physics-research-2026-08-16.md) | `REPORT_ONLY` | Supports solver-family separation; proves no implementation |
 | [SPEC-38](../../architecture/38-continuum-material-physics.md) and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md) | `Proposed` | Candidate CPU authority, fixed-point boundary, one-pass coupling and exact-active semantics are closed |
-| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W0B INVALIDATED_BY_RC1 / W0C IN_PROGRESS / W1 BLOCKED` | Boundary and ceiling candidates are rejected; deterministic initialization is the next discriminator before W1 can resume |
+| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W0B INVALIDATED_BY_RC1 / W0C IN_PROGRESS / W1 BLOCKED` | Boundary, ceiling and settling candidates are rejected; an adjacent non-particle boundary discriminator is next |
 | [W1 clean-tree discriminator](../continuum-water-w1-evidence-2026-08-17.md) | Free-fall `SCENARIO_PASS`; hydro `WATER_DENSITY_NONCONVERGENCE` | Reopens the W0B/W1 numerical boundary; `CONTINUUM-WATER-REF-P1` remains `NOT_RUN` |
 | [W1-RC1 independent audit](../continuum-water-w1-rc1-audit-2026-08-17.md) | `EXACT_MATCH / REPORT_ONLY` | Rejects a production-vs-W0B mismatch for the audited projection and requires W0C recalibration |
-| [W0C hydro-calibration cycle](../continuum-water-w0c-hydro-calibration-2026-08-17.md) | `EXACT_MATCH / BOUNDARY_CANDIDATE_REJECTED / REPORT_ONLY` | Rejects uniform scaling, ceiling-only repair and `ghost-cell-shell-v1`; routes the next discriminator to deterministic initialization |
+| [W0C hydro-calibration cycles](../continuum-water-w0c-hydro-calibration-2026-08-17.md) | `EXACT_MATCH / BOUNDARY_AND_INITIALIZATION_CANDIDATES_REJECTED / REPORT_ONLY` | Rejects uniform scaling, ceiling-only repair, `ghost-cell-shell-v1` and zero-velocity settling; triggers adjacent-layer research escalation |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-*` ProductChecks | `NOT_RUN` | No solver, performance, persistence or production claim is admissible |
@@ -127,7 +128,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: fixed-point-boundary CPU DFSPH passes the clean-water corpus | Exact free-fall and same-target repeat roots pass; ghost shell restores the initial partition | Original W0B and ghost-shell dynamic discriminators both fail; larger ceilings only defer failure | Deterministic pre-equilibrated initialization under the unchanged-ceiling hydro soak |
+| H1: fixed-point-boundary CPU DFSPH passes the clean-water corpus | Exact free-fall/repeat roots pass; ghost shell restores the initial partition; settling is independently reproducible | Original W0B, ghost-shell dynamics and zero-velocity settling fail; larger ceilings only defer failure | Analytical non-particle volume-map boundary under exact local partition and unchanged-ceiling soak |
 | H2: 50k CPU water fits the current THOTH budget | bounded sealed region and fixed profile | published prior art does not prove Next Engine 240 Hz cost | W2 exact 10k/50k/100k workload after W1 PASS |
 | H3: one-pass coupling is stable for the basin crate | narrow consumer and fixed cadence | fast impact/added-mass behavior is unmeasured | W3 float/impact corpus and reaction closure |
 | H4: one Drucker-Prager profile covers the first wheel scenario | established dry-sand model | exact source material and curve thresholds are not selected | Package 10T calibration closure |
@@ -144,14 +145,15 @@
 
 ## Next action
 
-1. Define the smallest deterministic hydrostatic relaxation generator: fixed
-   inputs/order, bounded convergence/termination and canonical output root.
-2. Implement production and independent generators, then require exact initial
-   sample/root equality and preserve the 97-frame free-fall control.
-3. Run the unchanged 20-iteration 24-step hydro soak. Reject the candidate on
-   non-convergence, clearance/penetration failure or hidden continuation state.
-4. Only a surviving initialization candidate may proceed to external aggregate
-   comparison, successor roots and the full W1 corpus. Do not start W2, WG or
+1. Freeze one analytical volume-map boundary candidate from current primary
+   method semantics: exact fields, sampling domain, quadrature, capacities and
+   no hidden mutable continuation.
+2. Implement production and independent local reconstruction, then require
+   exact partition/convergence traces and the unchanged free-fall root.
+3. Run the unchanged 20-iteration 24-step hydro soak. Reject on
+   non-convergence, clearance/penetration or canonical-root mismatch.
+4. If this adjacent-layer candidate also fails, stop W0C as `RESEARCH_ONLY`
+   pending a new explicit authority/profile decision. Do not start W2, WG or
    PhysX coupling.
 
 ## Do not retry
@@ -167,19 +169,21 @@
   boundary/lattice under the existing W0B roots.
 - Retry `ghost-cell-shell-v1`, a uniform boundary multiplier, or another
   ceiling-only variant; the bounded W0C cycle has already rejected them.
+- Retry `zero-velocity-settle-v1` or a position-only damping coefficient; its
+  exact transcript shows growing solver demand and wall penetration.
 - Start terrain code while Package 10T remains profile-unclosed.
 
 ## Handoff
 
 - **Workspace claim:** tool-only W1 serial oracle plus bounded clean-tree RC1
-  and W0C diagnostics. The first W0C boundary candidate is explicitly
+  and W0C diagnostics. Boundary and initialization candidates are explicitly
   `NOT_SELECTED`; no runtime/public schema or ProductCheck PASS exists.
 - **Checks:** current localized change passes format, strict all-target Clippy
-  for water/xtask, 37/37 water tests, 99/99 + 44/44 xtask tests and all six
+  for water/xtask, 39/39 water tests, 99/99 + 44/44 xtask tests and all six
   `boundary-scan` checks. Clean exact-profile W0C reports are independently
   `EXACT_MATCH`; all `CONTINUUM-*` ProductChecks remain `NOT_RUN`. Broad
   `host-check` was not rerun for this diagnostic change.
-- **Remaining risk:** deterministic initialization, successor hydro
+- **Remaining risk:** non-particle boundary semantics, successor hydro
   calibration, external/full-corpus accuracy, 50k performance, coupling
   stability, exact persistence implementation and all terrain constitutive
   evidence remain unmeasured.

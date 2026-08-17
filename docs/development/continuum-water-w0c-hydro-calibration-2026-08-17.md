@@ -1,37 +1,41 @@
 # Continuum water W0C hydro-calibration evidence — 2026-08-17
 
-Status: `REPORT_ONLY / BOUNDARY_CANDIDATE_REJECTED`.
+Status: `REPORT_ONLY / BOUNDARY_AND_INITIALIZATION_CANDIDATES_REJECTED`.
 
 ## Scope and claim
 
-This report records the first W0C counterfactual cycle. It adds diagnostics,
-not a successor water profile: the original W0B roots, W1 production path,
-20-iteration ceiling and failure semantics remain unchanged. Both generated
-artifacts declare `NO_CORPUS_CREDIT`; `CONTINUUM-WATER-REF-P1` remains
-`NOT_RUN`.
+This report records the first two W0C counterfactual cycles. They add
+diagnostics, not a successor water profile: the original W0B roots, W1
+production path, 20-iteration ceiling and failure semantics remain unchanged.
+All generated artifacts declare `NO_CORPUS_CREDIT`;
+`CONTINUUM-WATER-REF-P1` remains `NOT_RUN`.
 
-The cycle answers two questions:
+The cycles answer three questions:
 
 1. Is the original hydro failure plausibly fixed by a larger iteration
    ceiling?
 2. Does a deterministic one-cell layer of cell-centred ghost volumes provide
    a viable boundary replacement?
+3. Can bounded zero-velocity settling turn that corrected initial partition
+   into a stable canonical hydro state?
 
-The answer to both is no. The next materially different discriminator is a
-deterministic relaxed/pre-equilibrated hydro initialization with a canonical
-root.
+The answer to all three is no. Persistent failure now requires an
+adjacent-layer boundary-formulation discriminator, not another ceiling, fitted
+scale or position-only settling variant.
 
 ## Reproducible artifacts
 
-Both reports were produced from clean commit
-`328d01c70004bd0c9572ca4dc49891d141f6ba7f` on
-`x86_64-unknown-linux-gnu`, Cargo profile `water-oracle`, with the exact W0B
-Rust flags. The bounded JSON files remain outside Git.
+The first two reports were produced from clean commit
+`328d01c70004bd0c9572ca4dc49891d141f6ba7f`; the initialization report was
+produced from clean commit `0c3acb4969f32cac1bbe1205a6e07307a10cc2c0`.
+All use `x86_64-unknown-linux-gnu`, Cargo profile `water-oracle` and the exact
+W0B Rust flags. The bounded JSON files remain outside Git.
 
 | Report | Schema and result | SHA-256 |
 | --- | --- | --- |
 | Original-profile diagnosis | `nextengine.continuum-water.hydro-calibration-diagnostic.v1`; `EXACT_MATCH / REPORT_ONLY` | `6e8a6c29772083fbba3b8176ac3b3fb2a00528b3883093714b6e66f2b462e784` |
 | `ghost-cell-shell-v1` evaluation | `nextengine.continuum-water.hydro-boundary-candidate.v1`; `EXACT_MATCH / CANDIDATE_REJECTED / NOT_SELECTED` | `f3cb823fb8d44018188d08963b45ba4bb50a13f4bf1071673dbddc8994c131aa` |
+| `zero-velocity-settle-v1` evaluation | `nextengine.continuum-water.hydro-initialization-candidate.v1`; `EXACT_MATCH / CANDIDATE_REJECTED / NOT_SELECTED` | `842f1a92fe04ac578bd99e9351c9b20b46fecbbe30213d583db2175c570ce1ab` |
 
 The shared fluid-input root is
 `bd18fe6e6a305ccc875ba12014e90f0cbca74a05068c7bd573ef95d3f3f51dbc`.
@@ -55,6 +59,13 @@ cargo run --locked --profile water-oracle \
   continuum water evaluate-hydro-candidate \
   --candidate ghost-cell-shell-v1 \
   --output <absolute-path-outside-Git>
+
+CARGO_ENCODED_RUSTFLAGS=<exact W0B flags> \
+cargo run --locked --profile water-oracle \
+  --target x86_64-unknown-linux-gnu -p xtask -- \
+  continuum water evaluate-hydro-initialization \
+  --candidate zero-velocity-settle-v1 \
+  --output <absolute-path-outside-Git>
 ```
 
 ## Primary-source review
@@ -70,6 +81,12 @@ cargo run --locked --profile water-oracle \
   [`TimeStepDFSPH.cpp`](https://github.com/InteractiveComputerGraphics/SPlisHSPlasH/blob/eccce86155776f6ac52d5080b1f720a52bf29450/SPlisHSPlasH/DFSPH/TimeStepDFSPH.cpp).
   This motivates the bounded `max100` counterfactual; it does not make that
   setting a Next Engine selection.
+- The pinned
+  [scene format](https://github.com/InteractiveComputerGraphics/SPlisHSPlasH/blob/eccce86155776f6ac52d5080b1f720a52bf29450/doc/file_format.md)
+  identifies volume maps as the current default boundary method. This does not
+  validate a Next Engine formula, but makes a non-particle boundary
+  representation the next distinct hypothesis after two particle-shell
+  failures.
 - The same commit's
   [`BoundaryModel_Akinci2012.cpp`](https://github.com/InteractiveComputerGraphics/SPlisHSPlasH/blob/eccce86155776f6ac52d5080b1f720a52bf29450/SPlisHSPlasH/BoundaryModel_Akinci2012.cpp)
   computes a boundary pseudo-volume as the reciprocal of self-kernel plus
@@ -79,6 +96,12 @@ cargo run --locked --profile water-oracle \
   motivates a narrow ghost-particle layer around solids. It supports testing
   this candidate family, but supplies no evidence for the exact lattice or
   dynamic stability used here.
+- A primary SPH
+  [hydrostatic-settling study](https://link.springer.com/article/10.1007/s00158-017-1729-x)
+  describes hydrostatic initialization as marching an unsteady calculation to
+  a damped steady state. This supports testing an explicitly bounded settling
+  generator; it does not excuse a generator whose iteration demand and wall
+  penetration grow.
 
 ## Original W0B diagnosis
 
@@ -120,9 +143,9 @@ and matches production exactly for boundary positions, volume bits,
 contribution rows and the complete 320-iteration trace.
 
 All four selected rows reconstruct to `999,972,466 ppb`, the same
-`-27,534 ppb` lattice partition error as the interior. The initial density solve reaches
-`95,755 ppb` at iteration 2, keeps `24,829 µm` minimum outer clearance and does
-not escape. The normal first hydro step therefore passes.
+`-27,534 ppb` lattice partition error as the interior. The initial density solve
+reaches `95,755 ppb` at iteration 2, keeps `24,829 µm` minimum outer clearance
+and does not escape. The normal first hydro step therefore passes.
 
 The dynamic discriminator rejects the candidate:
 
@@ -137,18 +160,53 @@ The 97-frame free-fall control remains exact with final root
 That successful control shows the candidate path is isolated, but cannot
 override the interacting hydro failure.
 
+## `zero-velocity-settle-v1`
+
+The initialization candidate starts from the regular hydro lattice and
+`ghost-cell-shell-v1`. Before every relaxation pass it sets all canonical
+velocities to zero, runs one serial DFSPH step with diagnostic ceiling 160,
+publishes canonical positions and discards the accepted velocity. It allows at
+most 24 passes. Success requires two consecutive passes within the production
+20-iteration ceiling and no more than `1 µm` maximum displacement. A fail-closed
+guard rejects three consecutive transitions with increasing iteration demand
+and increasing wall penetration.
+
+Production and the separate brute-force generator agree exactly on every pass
+and all 6,000 final diagnostic samples:
+
+| Pass | Density iterations | Residual (ppb) | Maximum displacement | Penetration | Centre-of-mass y |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 2 | 95,755 | 171 µm | 171 µm | 374,840 µm |
+| 2 | 33 | 98,983 | 231 µm | 340 µm | 374,723 µm |
+| 3 | 40 | 99,961 | 201 µm | 521 µm | 374,610 µm |
+| 4 | 47 | 98,517 | 189 µm | 710 µm | 374,506 µm |
+
+The generator terminates at pass 4 with `SETTLING_ADVERSE_TREND`; it produces
+no selectable initial state. The last accepted diagnostic state has exact
+production/independent root
+`373af3e7270c46741078b08335629821a50853b7e3bb1fca3c8c462748af1df9`,
+but is explicitly `NOT_A_GENERATOR_OUTPUT / NO_CORPUS_CREDIT`. When probed with
+the unchanged ceiling, it completes zero hydro steps and reaches
+`162,015 ppb` at iteration 20. The free-fall control remains exact across all
+97 frames.
+
 ## Decision and next discriminator
 
 - Reject `ghost-cell-shell-v1`; do not issue successor roots and do not run the
   full corpus or external aggregate comparison for it.
+- Reject `zero-velocity-settle-v1`; its full damping does not contract the
+  hydro transient, and its last diagnostic state fails the first production
+  step.
 - Reject further ceiling-only variants. The `20 → 100 → 160` sequence moves
   the failure while accepted-step iteration demand and penetration grow.
 - Preserve the original W0B and W1 production profiles unchanged.
-- Next, implement a deterministic relaxed/pre-equilibrated initialization
-  experiment. It must publish its generator inputs, convergence/termination
-  rule and canonical initial-state root, then pass exact independent
-  generation, the unchanged-ceiling hydro soak and free-fall control before
-  any successor profile can be considered.
+- Apply the repository's persistent-problem escalation rule. The next bounded
+  research discriminator must move to a non-particle boundary representation,
+  beginning with an analytically specified volume-map candidate while keeping
+  canonical position/velocity authority and the unchanged production ceiling.
+- If that adjacent-layer candidate cannot pass the local partition, hydro soak
+  and independent calculator without hidden continuation state, stop W0C as
+  `RESEARCH_ONLY` rather than tuning another settling or iteration variant.
 
 ## Verification
 
@@ -156,11 +214,11 @@ override the interacting hydro failure.
 | --- | --- |
 | `cargo fmt --all -- --check` | `PASS` |
 | Strict all-target Clippy for `next_continuum_water` | `PASS` |
-| `next_continuum_water` all-target tests | `PASS` — 37/37 |
+| `next_continuum_water` all-target tests | `PASS` — 39/39 |
 | `xtask` tests | `PASS` — 99/99 library and 44/44 binary |
 | Strict all-target Clippy for `xtask` | `PASS` |
 | `cargo run --locked -p xtask -- boundary-scan` | `PASS` — all six checks |
-| Clean exact-profile diagnostic reports | `PASS` as report generation and independent equality; candidate disposition remains rejected |
+| Clean exact-profile diagnostic reports | `PASS` as report generation and independent equality; both candidate dispositions remain rejected |
 | `CONTINUUM-WATER-REF-P1` | `NOT_RUN` |
 
 The broad workspace `host-check` was not rerun for this localized diagnostic

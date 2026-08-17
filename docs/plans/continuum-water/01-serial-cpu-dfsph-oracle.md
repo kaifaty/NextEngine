@@ -17,7 +17,10 @@ before W1 resumes.
 The first
 [W0C diagnostic cycle](../../development/continuum-water-w0c-hydro-calibration-2026-08-17.md)
 rejects both a ceiling-only repair and `ghost-cell-shell-v1`; W1 remains
-blocked while W0C moves to a deterministic initialization discriminator.
+blocked. Its independently reproduced `zero-velocity-settle-v1`
+initialization candidate also diverges and fails the first unchanged-ceiling
+probe, so W0C has escalated to a distinct non-particle boundary-formulation
+discriminator.
 
 ## Outcome
 
