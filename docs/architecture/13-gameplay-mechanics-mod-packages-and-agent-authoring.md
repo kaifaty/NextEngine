@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-13 |
 | Статус | Accepted |
-| Версия | 2.5 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 2.6 |
+| Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-13 2.4; updates activation to V7 and admits the bounded R4d semantic-affordance executions |
+| Дополнительные зависимости V2.6 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
+| Заменяет | SPEC-13 2.5; retains the current R4d semantic-affordance consumer and adds the future product-grounded damage/treatment package boundary without changing current package schemas |
 
 ## Назначение
 
@@ -118,3 +119,16 @@ revalidates through the existing effect-request and `WorldCommand` path.
 The production systemic executions are current only for ADR-074's authored
 work/currency/trade/food closure. Broader work/gather/craft/trade affordance
 shapes remain Proposed until another consumer qualifies under ADR-046.
+
+## Future functional-injury extension
+
+SPEC-36/ADR-075 reserve one future package-parity path for tissue damage,
+treatment and recovery. First-party and community mechanics will consume the
+same immutable contact/body-condition views and submit the same bounded damage
+or treatment proposal through `WorldCommand`; packages will not mutate a body
+condition, actuator envelope, Physics topology or wound mesh directly.
+
+This paragraph adds no current definition, capability, operation or authoring
+format. Exact injury mechanics enter this current-only SPEC only with the first
+production consumer and `content-package`/`play`/`persistence-replay` coverage
+under ADR-046.

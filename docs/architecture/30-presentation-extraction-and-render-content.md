@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-30 |
 | Статус | Accepted |
-| Версия | 3.4 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 3.5 |
+| Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-30 3.3; updates the current atomic project activation type after R4d |
+| Дополнительные зависимости V3.5 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
+| Заменяет | SPEC-30 3.4; retains the current atomic project activation boundary and adds the product-grounded embodiment/UI projection without changing PresentationSnapshotV2 |
 
 ## Authority boundary
 
@@ -81,6 +82,14 @@ candidate; publication failure retains the prior snapshot.
 UI menus may compose a new immutable presentation snapshot while simulation is
 suspended, but cannot mutate world state. Gameplay actions still enter through
 the normalized action/command path.
+
+SPEC-37 defines a future character-embodiment subprojection built from the
+committed `RenderPose`, exact surface profile and immutable SPEC-36 condition/
+applied-effort views. Base skinning, pose/load/injury deformation, visual
+secondary motion and severity/accessibility variants are renderer-owned
+reconstructible data. They do not add current `PresentationSnapshotV2` fields
+in this change and can be disabled in headless/null presentation without
+changing condition, command, physics or gameplay roots.
 
 ## Neutral render content
 

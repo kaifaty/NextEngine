@@ -1,8 +1,16 @@
 # Physical Avatar Research Specification
 
-Status: Draft 0.2
+Status: Historical research context; not normative NextEngine architecture
 
-Last updated: 2026-07-20
+Last updated: 2026-08-16
+
+> Current authority is [SPEC-05](../05-physics-animation-and-motor-control.md),
+> [SPEC-36](../36-functional-tissue-condition-and-injury.md),
+> [SPEC-37](../37-character-embodiment-and-surface-deformation.md) and
+> [ADR-075](../adr/075-product-grounded-functional-anatomy-and-character-embodiment.md).
+> The OpenGothic/Bullet assumptions below are retained only as historical
+> research provenance and cannot define NextEngine requirements, backends,
+> phases, public types or support claims.
 
 ## 1. Purpose
 

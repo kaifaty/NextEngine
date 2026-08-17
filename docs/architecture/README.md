@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.42 |
-| Последняя проверка | 2026-08-16 |
-| Заменяет | INDEX-001 2.41; promotes the bounded SPEC-32/ADR-074 R4d production consumer and current formats |
+| Версия | 2.43 |
+| Последняя проверка | 2026-08-17 |
+| Заменяет | INDEX-001 2.42; retains the current ADR-074 R4d boundary and adds the approved product-grounded ADR-075/SPEC-18/36/37 boundary |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -135,6 +135,11 @@ engine-owned API; для него SHOULD быть указан bounded evaluatio
    и
    [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md).
 
+Product intent for functional anatomy and final visible characters is recorded
+in the non-contractual but approved
+[PRODUCT-FA-001 brief](../product/functional-anatomy-and-character-embodiment.md).
+ADR-075 and SPEC-18/36/37 translate that intent into normative architecture.
+
 ADR-009, ADR-010, ADR-015, ADR-023, ADR-024, ADR-033, ADR-039–043 and ADR-055, retired evidence
 register и старые review packets являются historical-only. Lightweight
 traceability — навигационная карта, не admission authority.
@@ -161,7 +166,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted |
 | SPEC-16 | [Text-canonical multimodal dialogue и model packs](16-text-canonical-multimodal-dialogue-and-model-packs.md) | Proposed |
 | SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
-| SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted |
+| SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted; future qualitative body-status projection remains consumer-driven |
 | SPEC-19 | [Current RPG domain state](19-rpg-domain-and-narrative-state.md) | Accepted |
 | SPEC-20 | [World calendar, authored routines and bounded population lifecycle](20-world-simulation-and-population-lifecycle.md) | Accepted R4a calendar/routine, R4b population/navigation, R4c cognition consumer and bounded R4d activity/tier/bulk-time vertical |
 | SPEC-21 | [Deterministic runtime primitives, command ledger и causal identity](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md) | Accepted |
@@ -179,6 +184,8 @@ traceability — навигационная карта, не admission authority
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
 | SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070 |
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
+| SPEC-36 | [Functional tissue condition, injury and structural body changes](36-functional-tissue-condition-and-injury.md) | Accepted functional-anatomy product, ownership, treatment, player/NPC parity and fallback semantics; exact contracts/vertical remain Proposed |
+| SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person visual target, severity/LOD/read-only fallback semantics; exact manifests/deformers remain Proposed |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -262,6 +269,7 @@ traceability — навигационная карта, не admission authority
 | ADR-072 | [Deterministic population tiers and graph-navigation vertical](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) | Accepted R4b 100-record World Services owner and 64-node graph; its six-owner/Replay V7 format boundary is superseded by ADR-073 |
 | ADR-073 | [Deterministic cognition owner vertical](adr/073-deterministic-cognition-owner-vertical.md) | Accepted R4c semantic beliefs, fixed-point Utility, bounded GOAP and paired Agent/Memory owners; its V5/V6/Replay V8 boundary is superseded by ADR-074 |
 | ADR-074 | [Systemic Strategic Agent owner vertical](adr/074-systemic-strategic-agent-owner-vertical.md) | Accepted bounded R4d structured social/work/economy path, activity owner, tier cognition, bulk-time equivalence, V6/V7 content and nine-owner Replay V9 |
+| ADR-075 | [Product-grounded functional anatomy and character embodiment](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) | Accepted functional gameplay abstraction, fixed-PD capability projection, treatment, agency, player/NPC parity, third-person severity/LOD and lower-limb vertical semantics; exact schemas/implementation remain Proposed |
 
 ## Proposed tracks
 
@@ -291,6 +299,15 @@ traceability — навигационная карта, не admission authority
   distillation/compiled students and optional candidate rollouts. GRU is the
   first recurrent baseline; Mamba remains an equal-budget experiment. The
   procedural/animation R5 path stays current and independently shippable.
+- PRODUCT-FA-001, SPEC-18/SPEC-36/SPEC-37 and ADR-075 — functional anatomy,
+  staged treatment, preserved agency, player/NPC parity, qualitative body UI,
+  third-person `Reduced`/`Realistic`/`Graphic` presentation and complete
+  fallback semantics are Accepted. Exact commands/manifests/controllers and
+  the 16/64/distant workload profile remain Proposed until the bounded
+  unilateral lower-limb production consumer closes `play`,
+  `persistence-replay`, `content-package` and applicable platform/performance
+  checks. Joint-target plus fixed safety/PD and an authored skinned surface
+  remain required fallbacks.
 
 ADR-058/SPEC-35 are an Accepted parallel R&D implementation track. PhysX-only
 default and Stage 0 readiness are facts only after the documented atomic

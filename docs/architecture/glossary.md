@@ -4,10 +4,11 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 3.9 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 3.10 |
+| Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | GLOSSARY-001 3.8; updates current project, systemic activity and replay terms for R4d |
+| Дополнительные зависимости V3.10 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
+| Заменяет | GLOSSARY-001 3.9; retains current R4d terms and adds product-grounded systemic condition, treatment and visual-profile terms without creating current wire schemas |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -83,6 +84,13 @@
 | **PhysicalAvatarIntent** | Ограниченный по времени запрос locomotion/posture/manipulation к motor controller; не задаёт physics pose напрямую. |
 | **BodySchema** | Immutable versioned heterogeneous Physical Interaction Graph со stable schema-scoped body-node/joint-edge/actuator/effector/attachment identities and semantic roles; из одной exact revision выводятся physics descriptors, motor layouts, cached static morphology input, safety limits и replay compatibility. Не содержит current pose или mutable overlays. |
 | **BodyInstanceProjection** | Immutable revision-bound effective projection exact BodySchema plus morphology/equipment/stats/damage/fatigue/attachment owners; Physical Embodiment компилирует mass/inertia/ROM/actuator/sensor facts, но не получает ownership исходных mutable fields. |
+| **BodyTissueSchema** | Future immutable content-addressed functional anatomy bound to one exact BodySchema: stable tissue/group/break-site identities, sparse capability dependencies, allowed structural variants and presentation bindings. Exact V1 wire remains Proposed. |
+| **BodyConditionState** | Future RPG-owned durable typed tissue integrity/continuity/structural/recovery state. Mechanics, Physics, Motor and presentation may consume immutable views or submit proposals but cannot own or mutate it directly. Exact aggregate remains Proposed. |
+| **SystemicCondition** | Future RPG-owned bounded whole-body ladder for the first functional-anatomy profile: stable, impaired, critical, unconscious and dead semantics. It deliberately replaces separate player-facing pain/shock/blood pools in the first vertical; exact wire remains Proposed. |
+| **FunctionalMuscleGroup** | Bounded gameplay/control abstraction that contributes directionally to one or more actuator axes; it constrains capability in the joint-actuated profile and is not automatically a physical muscle actuator. |
+| **BodyCapabilityEnvelope** | Reconstructible immutable Physical Embodiment projection intersecting BodySchema safety with committed condition/stats/equipment/fatigue/structural facts; consumed by Motor observation and fixed safety/PD, never a second durable owner. Exact wire remains Proposed. |
+| **BodyTreatmentStage** | Future semantic stabilization, repair or rehabilitation transition over RPG-owned body condition. Medicine and magic use the same validated proposal/command path; exact treatment contracts remain Proposed. |
+| **BodyStatusProjection** | Future qualitative read-only UI view of region, function, attachment/structure, systemic band and next treatment stage. It cannot diagnose from presentation or reveal hidden NPC truth. Exact wire remains Proposed. |
 | **CanonicalEnvironmentReplay** | Byte-exact engine-owned reset/step/action/observation/snapshot/root continuation для locked CPU PhysX build profile. Worker/slot completion order и vendor caches не входят в result. |
 | **MotorReplayPrefix** | Bounded ordered episode-origin reset plus every canonical post-safety 240 Hz effort and per-motor-tick physics witness used to reconstruct hidden PhysX continuation in a fresh scene; policy/PD re-execution is separate parity evidence. |
 | **EvaluatorCorrespondence** | Bounded comparison canonical CPU execution с accelerated GPU/trainer mirror. Это проверка близости trajectories/contact/done, а не разрешение GPU быть replay authority. |
@@ -108,6 +116,9 @@
 | **PresentationIkRequestV1** | Presentation-only IK request that may alter render pose but cannot change contacts, gameplay or physics snapshot. |
 | **CrossTargetProjectionRoot** | Exact root canonical quantized physical projection для cross-target replay comparison. Raw backend samples могут иметь отдельно declared tolerance, но IDs, event classes, gameplay outcomes и projection root остаются exact. |
 | **RenderPose** | Read-only presentation pose, построенная из authoritative physics pose либо animation pose согласно physics LOD. |
+| **EstimatedMuscleRecruitment** | Presentation-only allocation of applied joint effort to functional groups under a declared visual objective. It is not actual muscle activation and cannot drive damage, fatigue, healing, strength, Motor state or replay authority. |
+| **CharacterEmbodimentManifest** | Future immutable content closure for render rig mapping, skinned surfaces, pose/load correctives, tissue/wound variants, secondary motion, LOD and complete presentation fallback. Exact V1 wire remains Proposed. |
+| **InjuryPresentationProfile** | Project/local presentation selection `Reduced`, `Realistic` or `Graphic` over the same committed condition and topology; it changes no gameplay, physical or replay authority. |
 | **Physics LOD** | Разрешённый уровень embodied simulation: full articulation, simplified active ragdoll, capsule/animation или abstract simulation. |
 | **CreatureArchetypeManifest** | Public immutable manifest, связывающий generic Character, physical archetype, AgentArchetypeDefinition, mechanic packages, provenance и validation metadata без package-specific runtime type. |
 | **PhysicalArchetypeBundle** | Cooked BodySchema/compiled descriptor/LOD/capability/policy package одной physical morphology revision с exact fallbacks и validation references. |

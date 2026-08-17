@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 2.7 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 2.9 |
+| Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Заменяет | SPEC-05 2.6; consumes the committed R4b population view without merging it with physical LOD or pose authority |
+| Дополнительные зависимости V2.9 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
+| Заменяет | SPEC-05 2.8; follows the product-grounded injury/embodiment decision without changing current physical formats |
 
 ## Source of truth и ownership
 
@@ -20,6 +21,12 @@ LOD coordinator и physical support checks. RPG skill proficiency и Agent
 habits остаются за пределами этого ownership. Equipment/stats/damage/fatigue
 sources remain with their owning RPG/Mechanics domains; Physical Embodiment
 consumes only an immutable revision-bound effective projection.
+
+SPEC-36 specializes that projection for functional muscle groups, tissue
+condition, fracture and retained/detached topology. SPEC-37 specializes the
+one-way `RenderPose` to skinned/deformed surface path. Neither document makes a
+renderer deformer or inferred muscle recruitment a physical or gameplay owner;
+the current joint-target plus fixed safety/PD route remains unchanged.
 
 Boundary является self-contained по ADR-013: внешние research документы не задают requirements, phases, public types или support semantics. Frozen annex сохраняется только как ненормативная provenance. ADR-058 выбирает PhysX 5.9.0 как единственный production backend; Jolt/Bullet не являются runtime fallback.
 
@@ -173,7 +180,7 @@ Transition MUST быть explicit state machine `Prepare → Validate → Commit
 
 ## Topology changes
 
-Dismemberment/breakable constraints выполняются как physics transaction: validate allowed joint and gameplay command → snapshot → backend mutation → remap body slots/topology revision → contact/render/observation schema update → commit. Policy, не поддерживающая topology mask, немедленно заменяется compatible recovery controller. Удалённые части получают отдельный PersistentId только если становятся durable gameplay objects.
+Dismemberment/breakable constraints выполняются как physics transaction: validate allowed joint and gameplay command → snapshot → backend mutation → remap body slots/topology revision → contact/render/observation schema update → commit. SPEC-36 additionally distinguishes a stable fracture, an authored unstable break-site retained by a bounded soft-tissue constraint, and complete detachment; runtime arbitrary splitting and presentation-driven topology are forbidden. Policy, не поддерживающая topology mask, немедленно заменяется compatible recovery/passive controller. Удалённые части получают отдельный PersistentId только если становятся durable gameplay objects.
 
 ## Failure semantics
 

@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-18 |
 | Статус | Accepted |
-| Версия | 2.8 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 2.9 |
+| Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-002](adr/002-rust-first-ffi-and-ecs-facade.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-18 2.7; advances the current replay envelope after the R4d activity owner addition |
+| Дополнительные зависимости V2.9 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
+| Заменяет | SPEC-18 2.8; retains the current replay envelope and adds the future qualitative body-status UI boundary without changing current UI schemas |
 
 ## История принятия
 
@@ -117,6 +118,36 @@ Pause/menu policy in the admitted project composition MUST declare whether simul
 
 Luau/Wasm `ui.panel.register` creates a capability-scoped declarative panel over semantic controls under ADR-014. Extension code reads allowed projections and publishes allowed actions/proposals only. Registration grants no arbitrary native view, filesystem/network access or direct domain mutation. Trap, denial or deterministic budget overrun discards uncommitted panel proposals and disables only the optional panel; wall-clock completion never creates gameplay authority.
 
+### Future qualitative body-status UI
+
+The SPEC-36 lower-limb consumer adds one immutable qualitative body projection;
+exact schema remains Proposed until that consumer exists. The player-facing
+panel contains only:
+
+- stable body-region identity and localized display text ID;
+- qualitative functional severity such as normal, reduced or unavailable;
+- structural/attachment category such as intact, stable fracture, retained
+  unstable fracture or detached;
+- the simplified systemic band;
+- current treatment stage and the next valid stabilization/repair/
+  rehabilitation affordance when known to the player.
+
+The default player UI does not expose exact capacity, reducer coefficients,
+hidden vascular state, RNG values or a medically certain diagnosis. Those
+belong to capability-scoped developer diagnostics. The UI reads the same
+committed condition revision as SPEC-37 presentation and cannot infer injury
+from mesh visibility, blood decals, camera view or gait.
+
+Clothing, armor, the `Reduced` visual profile or camera occlusion may hide a
+wound without hiding the already known qualitative status. Conversely, the UI
+must not reveal an unobserved NPC condition through a hidden authoritative
+world read; NPC knowledge follows existing epistemic/perception boundaries.
+
+Treatment buttons publish ordinary semantic actions/proposals through the same
+Mechanics/RPG validation as any other source. They cannot set a stage, restore
+capacity or skip rehabilitation directly. Missing body-panel assets fall back
+to localized text/list presentation; gameplay and body condition remain intact.
+
 ## Localization
 
 - Public and durable content references use stable text/voice/subtitle `AssetId` or namespaced text ID, never rendered text.
@@ -163,6 +194,7 @@ Accessibility alternative MUST invoke the same action ID and validation path as 
 | `UI-P1` | Exercise inventory, dialogue, quest and menu flows through semantic projections and production actions/commands, including optional-panel faults. | No direct gameplay mutation, lost/duplicate commit or capability escape occurs; widget timing cannot select an authoritative outcome. | Disable the optional panel; reject an incompatible required UI schema before world activation. |
 | `CAMERA-P1` | Replay targeting while varying presentation FPS, interpolation, shake, FOV and aspect; optional developer captures may be enabled. | `TargetingIntent`, authoritative query, command outcome and gameplay hash remain independent of camera/render state; stale targets are rejected. | Use a stable authored presentation profile and never accept rendered targeting data. |
 | `ACCESS-P1` | Run default, remapped, reduced-motion and subtitle profiles across source, missing and pseudo locales. | Required semantic actions use the same IDs/validation and equivalent inputs produce the same accepted commands/gameplay hashes; invalid resources use bounded defaults. | Use safe preferences, the project source locale and a readable placeholder. |
+| `BODY-UI-P1` (future) | Identify and treat every lower-limb matrix state with wounds visible, armored/covered and under all severity profiles. | Region/function/attachment/systemic/treatment stage remains qualitatively readable; UI actions use the common command path; UI/visibility permutations change zero authoritative roots. | Localized text/list body status and ordinary semantic treatment actions. |
 
 ## Requirements
 

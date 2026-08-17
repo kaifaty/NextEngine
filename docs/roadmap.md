@@ -733,6 +733,9 @@ any learned route still requires its own future gates.
   bounded queries, sensors и dynamic/kinematic interactions;
 - устойчивый capsule locomotion profile: slopes, stairs, push, fall/recovery;
 - neutral skeleton/clip/graph schemas, retargeting и basic IK;
+- one authored skinned humanoid surface profile with exact body/animation-to-
+  render-rig mapping and a complete base-skinning fallback; load-aware muscle,
+  wound and neural deformation are not required for this baseline;
 - root motion остаётся intent и проходит physical validation;
 - consumer-backed `BodySchema`/`BodyInstanceProjection` deterministically
   компилируются в physics descriptors, tensor layouts и actuator/safety limits
@@ -1627,6 +1630,22 @@ Stage 0/R5. Каждый следующий TRAIN gate остаётся `NOT_RUN
   path, and replay records canonical action/full policy state/snapshot chain;
 - дополнительные articulation/topology profiles сверх fixed Stage 0 humanoid.
 
+**Approved post-baseline functional-anatomy/embodiment scope:**
+[PRODUCT-FA-001](product/functional-anatomy-and-character-embodiment.md),
+SPEC-18/36/37 and ADR-075 accept functional gameplay anatomy over the current
+fixed-PD route, one simplified systemic condition, staged
+stabilization→repair→rehabilitation, shared player/NPC rules, qualitative body
+UI and `Reduced`/`Realistic`/`Graphic` third-person presentation. The first
+production vertical is one unilateral lower limb: partial weakness,
+tendon/nerve zero function, stable fracture, attached passive retained fracture
+and detachment, with limp/load-transfer/fall/crawl/drag behavior. Target
+workload is 16 nearby detailed, 64 active simplified and distant state-only
+actors, but exact timing budgets and implementation remain Proposed until the
+vertical passes `play`, `persistence-replay`, `content-package` and applicable
+platform/performance checks. This approved signature direction remains
+post-baseline/non-blocking for current v1, does not reopen stopped TRAIN-4 and
+does not block the authored skinned R5 fallback.
+
 **Критерии успеха:**
 
 - player/NPC проходят push, slope, stair, trip, carry, fall/recovery и melee
@@ -1658,8 +1677,8 @@ adaptation, adaptive gains, direct-torque research route или full articulatio
 procedural R5 closure не зависит от learned profile или proposed toolchain.
 
 **Основные источники:** SPEC-05, SPEC-14, SPEC-26, SPEC-27, SPEC-28, SPEC-34,
-SPEC-35, ADR-013, ADR-027, ADR-030, ADR-032, ADR-046, ADR-053, ADR-058,
-ADR-059, ADR-062..068.
+SPEC-35, SPEC-36, SPEC-37, ADR-013, ADR-027, ADR-030, ADR-032, ADR-046,
+ADR-053, ADR-058, ADR-059, ADR-062..068, ADR-075.
 
 ## R6 — Creator beta and SDK
 
@@ -1766,6 +1785,7 @@ ADR-001, ADR-030.
 | External `ai-host` | Optional | Stable bounded process protocol, recorded-input replay and complete in-process fallback. |
 | Learned Motor System policy families and full articulation | ADR-066 no-text contact-centric system shape `Accepted`; exact chunks, graph/adapter/expert, training/distillation/rollout profiles and unconsumed wire schemas remain `Proposed` | R5 reference/procedural baseline and consumer-backed BodySchema exist. Promote each family/profile independently only with exact observation/action/state/chunk replay, runtime/training correspondence, multi-seed quality, retention, target parity and declared animation/procedural fallback. |
 | PhysX deterministic humanoid substrate | ADR-058/059/062/063/064/065/067 `Accepted`; immutable standing/flat-command V1 and curriculum V2 CPU environments exist, Stage 0 evidence remains incomplete | Complete the PhysX-only Windows/Linux platform/replay gates, fresh ten-run V5 R5 baseline, one fixed three-run hard performance PASS and Isaac GPU correspondence; no reference backend fallback exists. |
+| Functional anatomy, treatment and visible character embodiment | PRODUCT-FA-001, SPEC-18/36/37 and ADR-075 product/ownership/treatment/agency/severity/LOD boundary `Accepted`; exact condition, fracture/surface, UI, controller and performance profiles `Proposed` | R5 authored skinned fallback exists; promote one unilateral lower-limb vertical with player/NPC parity, staged treatment, qualitative body UI, retained-vs-detached distinction, exact save/replay and 16/64/distant workload evidence. |
 | Advanced renderer/HDR/RT/VFX/capture | Optional | B0 v1 path стабилен; feature has bounded fallback and target-specific product check. |
 | Gothic importer | Optional separate repository/process | Neutral schemas стабильны, legal/provenance boundary проверен; parent repo остаётся независимым. |
 | Full editor | Outside v1 | Creator beta CLI/JSON workflows показали реальные high-friction authoring operations. |
@@ -1781,7 +1801,8 @@ Learned Motor program развивается отдельными independently 
    `PhysicalActionChunk` without natural-language runtime inputs;
 3. humanoid morphology variations, cached graph encoder, GRU/shared-joint head
    and within-family transfer ablations;
-4. equipment, carried loads, fatigue, injuries and explicit damage recovery;
+4. equipment, carried loads, fatigue, SPEC-36 functional injuries and explicit
+   damage recovery; SPEC-37 presentation remains a read-only consumer;
 5. manipulation, weapon classes and contact-planned parkour specialists;
 6. specialist-teacher distillation, structured motion inpainting and retention;
 7. optional morphology-compiled small students and bounded candidate-physics
@@ -1884,6 +1905,7 @@ deterministic procedural motor через тот же PhysX path.
 | Baseline navigation | `RESOLVED R4b` | Engine-owned deterministic 64-node/four-tile graph and query are current under ADR-072; Recast remains a replaceable future adapter. |
 | Optional behavior evaluator и learned bundles | до первого R8 production promotion | Engine-owned vendor-neutral boundary, per-role immutable bundles, exact applied-decision parity and deterministic fallback; concrete CUDA/DirectML/provider type остаётся private. |
 | V1 physical scope | до R5 content production | Capsule/procedural + skeletal/IK mandatory; learned/full articulation optional. |
+| Functional-anatomy release gate | after R5 authored baseline, before scheduling its production vertical | Approved post-baseline signature direction; keep non-blocking for current v1 unless a later explicit scope decision promotes the measured lower-limb vertical. |
 | PhysX cutover evidence | до Stage 0/default-readiness claim | Backend choice resolved by ADR-058: PhysX 5.9.0 only. Complete Windows/Linux platform/replay, R5 hard performance and correspondence gates before readiness claim; missing SDK fails typed before activation. |
 | Creator surface | до R6 | Stable CLI/JSON first; graphical editor after real creator workflow data. |
 | Narrative/LLM priority | после R7 scope freeze | Template/deterministic behavior first; external model only as optional candidate source. |
@@ -2450,9 +2472,16 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    TRAIN-9 actor may enter only after its own
    promotion/parity gates; later policy-family phases remain optional and do
    not block the procedural path.
-13. **R6 creator CLI and second project (`PLANNED`):** stable non-interactive JSON
+13. **Functional anatomy and embodiment vertical (`PLANNED / POST-BASELINE / NON-BLOCKING`):**
+   one unilateral lower limb implements the PRODUCT-FA-001 state/treatment
+   matrix through production commands, fixed-PD capability projection,
+   player/NPC physical adaptation, qualitative body UI and three visual
+   severity profiles. It measures 16 detailed/64 simplified/distant tiers and
+   retains complete procedural/base-skinning fallbacks. It cannot start by
+   reopening the stopped TRAIN-4 lineage and is not a current v1 gate.
+14. **R6 creator CLI and second project (`PLANNED`):** stable non-interactive JSON
    CLI, inspectors, templates и clean-checkout second-project exercise.
-14. **Windows hard performance/release checkpoint (`PLANNED`):** clean-commit
+15. **Windows hard performance/release checkpoint (`PLANNED`):** clean-commit
    ten-run R2–R5 baselines/hard gates и Windows v1 candidate package; Linux
    остаётся `DEFERRED_LINUX`, v1 shipping не заявляется.
 

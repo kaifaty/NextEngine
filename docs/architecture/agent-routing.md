@@ -4,8 +4,8 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.19 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 2.20 |
+| Последняя проверка | 2026-08-17 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
 Назначение — не дать агенту (или человеку) начать изменение, не прочитав
@@ -54,6 +54,8 @@ Check column применяется перед final handoff/readiness claim, н
 | Physics world, collision, constraints, queries, canonical snapshots and PhysX SDK/FFI/backend | [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [SPEC-05](05-physics-animation-and-motor-control.md) | ADR-027, ADR-032, ADR-058, ADR-059, ADR-062, ADR-063, ADR-064, ADR-065, ADR-067, ADR-069 for biomechanics V2; ADR-070 for its tracker consumer; ADR-071 for material/ABI lineage | fast, play, persistence-replay, platform; conditional performance |
 | Skeletal animation, retargeting, IK | [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-05](05-physics-animation-and-motor-control.md) | ADR-027, ADR-066, ADR-068 for future action chunks | play |
 | Motor control, no-text physical skill contract, BodySchema/instance overlays, contact/action chunks, policy families, deterministic inference and replay | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md) | ADR-013, ADR-027, ADR-058, ADR-059, ADR-062, ADR-063, ADR-064, ADR-065, ADR-066, ADR-067, ADR-068, ADR-069 for biomechanics V2, ADR-070 for the training tracker, ADR-071 for the material successor | play, persistence-replay; content-package for BodySchema/content change; conditional performance for motor/physics hot path |
+| Functional anatomy, tissue condition, systemic band, muscle groups, tendon/nerve loss, fractures, attached-disabled limbs, treatment, player/NPC parity and recovery | [PRODUCT-FA-001](../product/functional-anatomy-and-character-embodiment.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-36](36-functional-tissue-condition-and-injury.md) | ADR-008, ADR-020, ADR-022, ADR-027, ADR-046, ADR-066, ADR-075 | exact schemas/vertical remain Proposed; when consumed: play, persistence-replay, content-package and conditional performance/platform |
+| Character embodiment, render rig, skinned surface, third-person readability, pose/load deformation, wounds, retained tissue, visual severity, body UI and neural deformer | [PRODUCT-FA-001](../product/functional-anatomy-and-character-embodiment.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md) | ADR-003, ADR-027, ADR-028, ADR-046, ADR-075 | exact schemas/vertical remain Proposed; when consumed: content-package, play and conditional platform/performance |
 | Deterministic humanoid training substrate, vector environments, motor-lab and Isaac correspondence | [SPEC-35](35-deterministic-humanoid-training-substrate.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md) | ADR-058, ADR-059, ADR-053, ADR-062, ADR-063, ADR-064, ADR-065, ADR-066, ADR-067, ADR-069, ADR-070, ADR-071 | fast, host-check, persistence-replay, platform, conditional performance, BODY-SCHEMA-P1/P2, PHYS-JOINT-P1/P2, PHYS-SNAPSHOT-P1, MOTOR-SCHEDULE/SAFETY/STATE/ENV-P1, MOTOR-LOCOMOTION-ENV-P1, MOTOR-REFERENCE-ENV-P1, MODEL-DATAPLANE, MODEL-MIRROR-P1/P2 |
 | AI agents, perception, memory, deterministic Strategic Agent and LLM/process boundary | [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | ADR-005, ADR-056, ADR-046, ADR-073, ADR-074 | play; persistence-replay for state, content-package for authored seeds/affordances/activity, conditional performance for 100-NPC work |
 | First-party model-training environments, trajectories, datasets, runs, export, consolidation and accelerated mirrors | [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), plus the lane SPEC | ADR-053, ADR-030, ADR-046, plus the lane ADR; ADR-067/ADR-070/ADR-071 for current humanoid profile identity | SPEC-35 standing/flat-command/curriculum and biomechanics reference-tracker reset-step-recorder/mirror use current MOTOR-LOCOMOTION-ENV/MOTOR-REFERENCE-ENV/MODEL-DATAPLANE/MIRROR gates; all other lanes remain Proposed until a consumer |
@@ -99,6 +101,12 @@ SPEC-33/SPEC-34 and ADR-050/ADR-053/ADR-054 (optional R8 learned
 strategic/tactical NPC behavior and training data plane), exact unconsumed
 learned-Motor profiles beyond the SPEC-35/ADR-069/ADR-070 biomechanics tracker substrate under
 ADR-066/ADR-068/SPEC-14/26/27/28/34 — Proposed.
+PRODUCT-FA-001, SPEC-18/36/37 and ADR-075 accept the functional-anatomy product
+semantics, one-way ownership, treatment, player/NPC parity, qualitative body UI,
+third-person severity/LOD and fallback boundary. Exact condition/treatment
+commands, fracture/surface manifests, injury-conditioned routes, 16/64 workload
+budgets and advanced deformers remain Proposed until a production consumer
+under ADR-046.
 Не представлять как реализованное; при работе рядом указывать fallback и
 bounded evaluation path. `docs/plans/` и `docs/development/` — рабочие
 материалы и research notes, не normative architecture.

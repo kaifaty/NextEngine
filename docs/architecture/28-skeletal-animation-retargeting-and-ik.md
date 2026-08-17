@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-28 |
 | Статус | Accepted |
-| Версия | 2.0 |
+| Версия | 2.1 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Заменяет | SPEC-28 1.9; records the bounded R5a–R5c production consumer without widening the accepted authority split |
+| Дополнительные зависимости V2.1 | [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
+| Заменяет | SPEC-28 2.0; retains the bounded R5a–R5c production consumer and adds the product-grounded third-person embodiment boundary without changing current animation schemas |
 
 ## История принятия
 
@@ -486,6 +487,12 @@ existing `RenderPose`, not a second physical-pose owner. `PresentationCue` from
 a marker is non-authoritative; a mechanic that needs gameplay timing schedules
 that timing in its owning command/state machine rather than consuming an
 animation marker.
+
+SPEC-37 begins only after this `RenderPose`: explicit render-rig mapping, base
+skinning, pose correctives, load/injury deformation and secondary tissue motion
+remain presentation. Their absence or failure uses the declared skinned/held/
+bind fallback and cannot alter root intent, physical IK, contacts, topology or
+gameplay hashes.
 
 `AnimationLodProfileV1` declares the closed levels:
 

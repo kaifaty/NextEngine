@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 2.9 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 3.1 |
+| Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Заменяет | SPEC-14 2.8; consumes the committed population-tier view while preserving independent physical authority |
+| Дополнительные зависимости V3.1 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
+| Заменяет | SPEC-14 3.0; follows the product-grounded capability/agency boundary while keeping exact advanced schemas consumer-driven |
 
 ## Назначение и invariants
 
@@ -42,6 +43,7 @@ animation graph или inference route.
 | Active policy route, transition и complete `PolicyStateRecordV1` | Motor Runtime `PolicySupervisor` | deterministic resolver + accepted transition/state commit |
 | Habits, working plan и tactical preferences | Agent Runtime | `AgentArchetypeDefinition`, perception, memory, planner |
 | Damage, stamina, cooldown, inventory и quest effects | RPG/Mechanics Runtime | EffectRequest/WorldCommand transaction |
+| Functional tissue condition and structural injury | Future RPG owner under SPEC-36; exact current aggregate absent | committed immutable view projected by Physical Embodiment; Mechanics proposal only |
 | Durable population identity, cadence и `PopulationTierV1` | World Services under SPEC-20/ADR-072 | committed immutable view only; never a physical-policy output or pose authority |
 | Physical simulation LOD и pose fidelity | Physical Embodiment LOD coordinator | deterministic selection constrained by committed residency view and physical profile |
 | Physical support status | Immutable bundle revision and deterministic product-check results | `Prototype` or `Supported` |
@@ -60,6 +62,12 @@ support-check/run manifests. SPEC-35 accepts `BodySchemaV1` and
 `MotorSkillCommandV1`, `ContactPlanV1`, `PhysicalActionChunkV1`,
 `MotorAdaptationProfileV1` and advanced overlay/family shapes below remain
 Proposed targets, not current registry entries.
+
+SPEC-36 defines how a future immutable tissue schema and committed condition
+view contribute directional actuator capability and structural topology masks;
+SPEC-37 defines the independent render-rig/surface binding. Neither becomes a
+policy weight, hidden `BodyInstanceProjection` owner or reason to reinterpret
+the current Stage 0 body/action identities.
 
 ```text
 authoring sources + model artifacts + provenance

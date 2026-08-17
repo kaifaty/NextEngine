@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-19 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 2.3 |
+| Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-19 2.1; admits the bounded R4d commitment aggregate and atomic systemic settlement operation set |
+| Дополнительные зависимости V2.3 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
+| Заменяет | SPEC-19 2.2; retains the current R4d commitment/settlement owner and records future local/systemic condition and treatment ownership without changing current aggregate or operation sets |
 
 ## Authority
 
@@ -143,6 +144,22 @@ cases.
 
 Future autonomous quest/narrative/divine behavior is Proposed in SPEC-31 and
 is not a prerequisite, current check or accepted feature contract here.
+
+## Future body-condition ownership
+
+SPEC-36/ADR-075 assign a future durable `BodyConditionState`-equivalent and its
+simplified systemic band to the RPG transaction boundary so tissue integrity,
+continuity, fracture, consciousness/death semantics and recovery cannot be
+owned by Physics, Motor, animation, renderer or a package. Mechanics may
+propose damage/treatment; only RPG validation may commit the typed owner
+replacement and ordered events, atomically with a required staged physics
+topology transaction.
+
+The current closed `RpgAggregateEnvelopeV1` payload enum and nine operation
+variants above do not gain a body-condition kind or operation in this
+documentation change. Exact records are admitted only with the first
+production injury consumer, a current-only schema/save/replay update and
+focused failure coverage under ADR-046.
 
 ## Current bounded Strategic Agent reciprocal ownership
 

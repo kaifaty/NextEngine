@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-27 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-08-12 |
+| Версия | 2.2 |
+| Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
-| Заменяет | SPEC-27 1.9; makes the graph-policy static cache key independent from dynamic effective-instance revisions |
+| Дополнительные зависимости V2.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
+| Заменяет | SPEC-27 2.1; follows the product-grounded injury capability/agency semantics without changing current tensor layouts |
 
 ## История принятия
 
@@ -310,6 +311,20 @@ profile; the model cannot rewrite them. A separately bounded small residual
 torque MAY be evaluated only after the position-target baseline. Learned
 stiffness/damping, direct torque and muscle activation require separate
 quality/safety profiles and gates; they are not the default route.
+
+SPEC-36/ADR-075 keep functional muscle groups on the capability side of this
+boundary: their committed condition deterministically narrows directional
+effort/rate/power/work and supported topology masks before fixed safety/PD.
+Current Stage 0 observation/action layouts do not change. A future
+injury-capable route must bind an exact condition/capability observation schema
+and fallback in `PolicyCompatibilityKey`; unsupported masks never route through
+an intact policy by approximation.
+
+For a joint-actuated profile, any inverse allocation of applied joint effort to
+muscle groups is `EstimatedMuscleRecruitment`, presentation-only and excluded
+from fatigue, damage, healing, Motor state and replay authority. Actual muscle
+activation requires the separately gated muscle-actuated profile described by
+SPEC-36.
 
 The current records are `MotorObservationLayoutV1`, `MotorActionLayoutV1`,
 `MotorWorldCheckpointV1` and `PolicyStateRecordV1`; Stage 0 populates empty but
