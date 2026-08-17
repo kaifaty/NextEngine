@@ -3,14 +3,15 @@
 
 The tool captures 16 kHz mono S16_LE PCM from ALSA ``arecord`` or an exact
 PipeWire source through ``pw-record`` and feeds it directly into the
-transcribe.cpp streaming API. Audio is kept in memory and is not written to
-the repository or a temporary file.
+transcribe.cpp streaming API. Audio stays in memory unless the user explicitly
+requests a debug WAV outside the repository with ``--save-wav``.
 """
 
 from __future__ import annotations
 
 import argparse
 import array
+from contextlib import contextmanager
 import importlib
 import json
 import math
@@ -22,13 +23,15 @@ import subprocess
 import sys
 import time
 from types import ModuleType
-from typing import BinaryIO, Iterator, Sequence
+from typing import BinaryIO, Callable, Iterator, Sequence
+import wave
 
 
 SAMPLE_RATE = 16_000
 SAMPLE_WIDTH_BYTES = 2
 VALID_DELAYS_MS = tuple(range(80, 1_201, 80)) + (2_400,)
 DEFAULT_SILENCE_THRESHOLD_DBFS = -65.0
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
 class SingleUseAction(argparse.Action):
@@ -108,6 +111,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=DEFAULT_SILENCE_THRESHOLD_DBFS,
         help="fail when preflight peak is below this level (default: -65)",
+    )
+    parser.add_argument(
+        "--save-wav",
+        type=Path,
+        default=None,
+        help="explicitly save captured 16 kHz mono audio outside the repository",
     )
     parser.add_argument(
         "--check",
@@ -232,10 +241,37 @@ def signal_levels_dbfs(data: bytes) -> tuple[float, float]:
     return rms_dbfs, peak_dbfs
 
 
+@contextmanager
+def debug_wav_writer(path: Path | None) -> Iterator[wave.Wave_write | None]:
+    if path is None:
+        yield None
+        return
+    try:
+        destination = path.open("xb")
+    except FileExistsError as error:
+        raise SystemExit(f"refusing to overwrite existing debug WAV: {path}") from error
+    except OSError as error:
+        raise SystemExit(f"failed to write debug WAV {path}: {error}") from error
+    try:
+        writer = wave.open(destination, "wb")
+        writer.setnchannels(1)
+        writer.setsampwidth(SAMPLE_WIDTH_BYTES)
+        writer.setframerate(SAMPLE_RATE)
+    except (OSError, wave.Error) as error:
+        destination.close()
+        raise SystemExit(f"failed to initialize debug WAV {path}: {error}") from error
+    try:
+        yield writer
+    finally:
+        writer.close()
+        destination.close()
+
+
 def pcm_chunks(
     source: BinaryIO,
     chunk_samples: int,
     max_samples: int | None,
+    raw_sink: Callable[[bytes], object] | None = None,
 ) -> Iterator[array.array]:
     pending = bytearray()
     yielded = 0
@@ -248,17 +284,22 @@ def pcm_chunks(
                 if usable:
                     remaining = None if max_samples is None else max_samples - yielded
                     raw = bytes(pending[:usable])
-                    pcm = pcm16le_to_float32(raw)
-                    yield pcm if remaining is None else pcm[:remaining]
+                    if remaining is not None:
+                        raw = raw[: remaining * SAMPLE_WIDTH_BYTES]
+                    if raw_sink is not None:
+                        raw_sink(raw)
+                    yield pcm16le_to_float32(raw)
             return
         pending.extend(data)
         if len(pending) < chunk_bytes:
             continue
         raw = bytes(pending[:chunk_bytes])
         del pending[:chunk_bytes]
-        pcm = pcm16le_to_float32(raw)
         if max_samples is not None:
-            pcm = pcm[: max_samples - yielded]
+            raw = raw[: (max_samples - yielded) * SAMPLE_WIDTH_BYTES]
+        if raw_sink is not None:
+            raw_sink(raw)
+        pcm = pcm16le_to_float32(raw)
         yielded += len(pcm)
         if pcm:
             yield pcm
@@ -385,7 +426,14 @@ def list_inputs() -> int:
     return result.returncode
 
 
-def probe_microphone(device: str, *, seconds: int, threshold_dbfs: float) -> None:
+def probe_microphone(
+    device: str,
+    *,
+    seconds: int,
+    threshold_dbfs: float,
+    save_wav: Path | None = None,
+    probe_only: bool = False,
+) -> None:
     sample_count = SAMPLE_RATE * seconds
     command = capture_command(device, sample_count=sample_count)
     print(f"microphone preflight: device={device}; speak for {seconds}s ...", flush=True)
@@ -409,6 +457,11 @@ def probe_microphone(device: str, *, seconds: int, threshold_dbfs: float) -> Non
             f"microphone {device!r} returned only {len(result.stdout)} of "
             f"{expected_bytes} expected PCM bytes"
         )
+    if save_wav is not None:
+        with debug_wav_writer(save_wav) as writer:
+            assert writer is not None
+            writer.writeframes(result.stdout)
+        print(f"saved debug WAV: {save_wav}")
     rms_dbfs, peak_dbfs = signal_levels_dbfs(result.stdout)
     print(f"microphone level: rms={rms_dbfs:.1f} dBFS peak={peak_dbfs:.1f} dBFS")
     if peak_dbfs < threshold_dbfs:
@@ -424,6 +477,13 @@ def probe_microphone(device: str, *, seconds: int, threshold_dbfs: float) -> Non
             file=sys.stderr,
             flush=True,
         )
+    if probe_only:
+        print(
+            "probe result: usable microphone signal detected; "
+            "--probe-microphone does not run transcription"
+        )
+    else:
+        print("microphone preflight passed")
 
 
 def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
@@ -433,6 +493,17 @@ def validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         -120.0 <= args.silence_threshold_dbfs <= 0.0
     ):
         parser.error("--silence-threshold-dbfs must be finite and between -120 and 0")
+    if args.save_wav is not None:
+        save_wav = args.save_wav.expanduser().resolve()
+        if save_wav.is_relative_to(REPOSITORY_ROOT):
+            parser.error("--save-wav must point outside the repository")
+        if not save_wav.parent.is_dir():
+            parser.error(f"--save-wav parent directory does not exist: {save_wav.parent}")
+        if save_wav.exists():
+            parser.error(f"refusing to overwrite existing debug WAV: {save_wav}")
+        if args.list_inputs or args.check:
+            parser.error("--save-wav requires microphone capture")
+        args.save_wav = save_wav
     if args.list_inputs or args.probe_microphone:
         return
     if not args.model:
@@ -474,7 +545,8 @@ def run(args: argparse.Namespace) -> int:
         )
         print(
             f"microphone={args.device}, chunk={args.chunk_ms} ms, "
-            f"delay={args.delay_ms} ms; speak now (Ctrl-C to stop)"
+            f"delay={args.delay_ms} ms; speak now (Ctrl-C to stop)",
+            flush=True,
         )
 
         capture = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -487,33 +559,40 @@ def run(args: argparse.Namespace) -> int:
         captured = 0
         started = time.monotonic()
         try:
-            with model.session() as session:
-                with session.stream(language=args.language, family=family) as stream:
-                    try:
-                        for chunk in pcm_chunks(capture.stdout, chunk_samples, max_samples):
-                            captured += len(chunk)
-                            update = stream.feed(chunk)
-                            if update.committed_changed or update.tentative_changed:
-                                previous = render(
-                                    stream.text(), interactive=interactive, previous=previous
+            with debug_wav_writer(args.save_wav) as wav_writer:
+                raw_sink = None if wav_writer is None else wav_writer.writeframesraw
+                with model.session() as session:
+                    with session.stream(language=args.language, family=family) as stream:
+                        try:
+                            for chunk in pcm_chunks(
+                                capture.stdout,
+                                chunk_samples,
+                                max_samples,
+                                raw_sink=raw_sink,
+                            ):
+                                captured += len(chunk)
+                                update = stream.feed(chunk)
+                                if update.committed_changed or update.tentative_changed:
+                                    previous = render(
+                                        stream.text(), interactive=interactive, previous=previous
+                                    )
+                        except KeyboardInterrupt:
+                            pass
+                        finally:
+                            stop_capture(capture)
+                        if captured:
+                            stream.finalize()
+                            final = stream.text()
+                            render(final, interactive=interactive, previous=previous)
+                            if interactive:
+                                print()
+                            print(f"\nfinal:\n{final.committed.strip()}")
+                            if not final.committed.strip():
+                                print(
+                                    "warning: microphone had a usable signal, but the model "
+                                    "returned no speech; check gain, distance, and language",
+                                    file=sys.stderr,
                                 )
-                    except KeyboardInterrupt:
-                        pass
-                    finally:
-                        stop_capture(capture)
-                    if captured:
-                        stream.finalize()
-                        final = stream.text()
-                        render(final, interactive=interactive, previous=previous)
-                        if interactive:
-                            print()
-                        print(f"\nfinal:\n{final.committed.strip()}")
-                        if not final.committed.strip():
-                            print(
-                                "warning: microphone had a usable signal, but the model "
-                                "returned no speech; check gain, distance, and language",
-                                file=sys.stderr,
-                            )
         finally:
             stop_capture(capture)
 
@@ -526,6 +605,8 @@ def run(args: argparse.Namespace) -> int:
 
         audio_seconds = captured / SAMPLE_RATE
         wall_seconds = time.monotonic() - started
+        if args.save_wav is not None:
+            print(f"saved debug WAV: {args.save_wav}")
         print(f"audio={audio_seconds:.2f}s wall={wall_seconds:.2f}s")
     return 0
 
@@ -541,6 +622,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.device,
             seconds=args.probe_seconds,
             threshold_dbfs=args.silence_threshold_dbfs,
+            save_wav=args.save_wav,
+            probe_only=True,
         )
         return 0
     return run(args)

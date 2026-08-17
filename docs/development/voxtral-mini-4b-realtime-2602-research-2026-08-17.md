@@ -99,9 +99,9 @@ and 960 ms delay because the official Russian FLEURS result improves from
 ## Live microphone utility
 
 `lab/scripts/voxtral_microphone.py` is a bounded Linux development tool, not a
-gameplay/runtime integration. It uses `arecord` to capture 16 kHz mono PCM and
-feeds the samples directly to the `transcribe.cpp` Python streaming API. It
-does not persist microphone audio.
+gameplay/runtime integration. It uses `arecord` or `pw-record` to capture 16
+kHz mono PCM and feeds the samples directly to the `transcribe.cpp` Python
+streaming API. It does not persist microphone audio by default.
 
 Build a CUDA-enabled shared library in the external `transcribe.cpp` checkout:
 
@@ -129,7 +129,8 @@ python lab/scripts/voxtral_microphone.py --list-inputs
 
 python lab/scripts/voxtral_microphone.py \
   --probe-microphone \
-  --device 'pw:<exact-node-name-from-list>'
+  --device 'pw:<exact-node-name-from-list>' \
+  --save-wav /tmp/voxtral-probe.wav
 
 python lab/scripts/voxtral_microphone.py \
   /path/to/Voxtral-Mini-4B-Realtime-2602-Q4_K_M.gguf \
@@ -147,7 +148,11 @@ preflight before loading the model. It fails on missing/short capture or a peak
 below -65 dBFS, warns on sustained clipping, and rejects repeated `--device`
 options instead of silently selecting the last one. Prefer exact `plughw:` or
 `pw:` entries: desktop aliases such as `default` and `pipewire` can resolve to
-an unavailable or silent route.
+an unavailable or silent route. `--probe-microphone` only measures input and
+does not load or run the model; its success message states this explicitly.
+`--save-wav PATH` is an opt-in diagnostic exception: probe mode saves the
+measured sample, while live mode saves the exact PCM fed to the model. The path
+must be outside the repository and must not already exist.
 
 On the evaluated host, the ALSA card exposes two capture endpoints, but
 PipeWire reports the front and rear analog microphone ports as disconnected.

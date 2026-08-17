@@ -6,14 +6,14 @@
 | Updated | `2026-08-17` |
 | Task key | `voxtral-mini-4b-realtime-2602` |
 | Scope | Determine whether useful quantizations run on the workstation RTX 3080, assess quality evidence, and provide a bounded live-microphone probe |
-| Definition of done | Verify one recommended quant locally, distinguish measured quality from inference, and validate a non-persisting microphone streaming client |
+| Definition of done | Verify one recommended quant locally, distinguish measured quality from inference, and validate a microphone streaming client that persists audio only by explicit debug opt-in |
 | Authority | Working context only; upstream model card, technical report, runtime documentation, and exact local evidence outrank this file |
 
 ## Resume in 60 seconds
 
 - **Current conclusion:** Use GGUF Q4_K_M through transcribe.cpp on the 10 GB RTX 3080. CMF Buds Pro 2 now reconnects directly in HSP/HFP MSBC mode as both the default sink and default source, and the bounded microphone client validates the live route before loading the model.
 - **Why:** Local CUDA and streaming runs passed. On Ubuntu 26.04 with WirePlumber 0.5.13, saving `bluetooth.autoswitch-to-headset-profile=false`, retaining the `headset-head-unit` device profile, and selecting both CMF nodes as defaults survived a Bluetooth disconnect/reconnect; a ten-second `pipewire` probe then measured a non-silent -43.7 dBFS peak.
-- **Next action:** Run one live Voxtral session with spoken Russian to evaluate headset gain and transcription quality.
+- **Next action:** Run one live Voxtral session with spoken Russian and `--save-wav` to compare the transcript against the exact captured audio.
 - **Current blocker:** No representative NextEngine Russian speech corpus was in scope for quality evaluation.
 - **Do not retry:** Official BF16 vLLM on this 10 GB card; Mistral requires at least 16 GB.
 - **Reconsider when:** vLLM gains verified Voxtral quantization support or representative Russian evaluation contradicts Q4 neutrality.
@@ -29,6 +29,7 @@
 | Initial `--list-inputs` plus ALSA/PipeWire route inspection | `PASS` | Analog front/rear mic jacks were unavailable; CMF Buds Pro 2 initially used playback-only A2DP despite an available HSP/HFP MSBC profile |
 | Persistent CMF Buds profile and default-route setup | `PASS` | HSP/HFP MSBC plus default CMF input/output survived an explicit Bluetooth disconnect/reconnect |
 | Post-reconnect ten-second `pipewire` probe | `PASS` | Default capture returned a non-silent -43.7 dBFS peak without persisting audio |
+| Opt-in debug capture `/tmp/voxtral-microphone-probe-2026-08-17.wav` | `PASS` | Probe wrote exactly 5.0 s of mono 16-bit 16 kHz PCM outside the repository; the sampled interval was below the usable-signal threshold |
 | Live run through the exact built-in PipeWire source | `PASS` with expected empty transcript | Capture, CUDA inference, finalization, and the no-speech warning execute end to end; no microphone was connected for speech input |
 | Published LibriSpeech test-clean quant ladder | `REPORT_ONLY` | English WER is neutral from BF16 through Q4_K_M within reported confidence interval |
 
@@ -48,9 +49,9 @@
 
 - **Observation:** The research need is interactive human evaluation, while captured speech and transcripts are diagnostic evidence rather than authoritative gameplay input.
 - **Evidence:** SPEC-09 tooling/observability boundary and the validated external transcribe.cpp streaming binding.
-- **Decision:** Keep the probe under `lab/scripts`; capture raw PCM through `arecord`, feed it in memory, and write no audio files.
+- **Decision:** Keep the probe under `lab/scripts`; capture raw PCM through `arecord` or `pw-record` and feed it in memory by default. Permit an explicit `--save-wav` debug artifact only outside the repository, never overwrite an existing path, and save the exact PCM passed to the model (or measured by probe mode).
 - **Rejected alternatives:** Runtime integration would create an unjustified product contract; repeated short CLI invocations reload the model and do not provide true live streaming.
-- **Consequences:** The tool requires an external transcribe.cpp checkout/shared library and remains Linux-only development tooling.
+- **Consequences:** The tool requires an external transcribe.cpp checkout/shared library and remains Linux-only development tooling. Audio persistence is visible, opt-in, and the resulting artifact remains user-owned external evidence.
 - **Uncertainty:** Real microphone quality depends on the selected ALSA device, room, gain, and noise conditions.
 - **Reconsider when:** A production voice-input consumer and its deterministic fallback are explicitly scoped.
 
@@ -101,6 +102,6 @@ Read these sources in precedence order before acting:
 ## Handoff
 
 - **Workspace state:** Research/task-state documentation plus a bounded lab microphone script and focused tests; downloaded model and external runtime build remain only under `/tmp/codex-voxtral-research`.
-- **Checks:** Local CUDA Q4_K_M runs, shared-library `--check`, incremental Russian stream, focused Python tests, exact input listing/probes, a full bounded live path, `git diff --check`, and `cargo run -p xtask -- host-check` passed.
-- **Remaining risk:** A non-silent microphone signal is confirmed, but spoken headset gain and transcription quality remain unevaluated; no representative Russian corpus evaluation and no local Q8/Q6/Q5 comparison.
+- **Checks:** Local CUDA Q4_K_M runs, shared-library `--check`, incremental Russian stream, exact input listing/probes, a full bounded live path, and the earlier broad `cargo run -p xtask -- host-check` passed. The later WAV follow-up passed 13 focused Python tests, probe/live format checks, and `git diff --check`; broad host-check was not rerun for that localized Python change.
+- **Remaining risk:** A non-silent microphone signal is confirmed, but spoken headset gain and transcription quality remain unevaluated; debug WAV files may contain sensitive speech and must remain external; no representative Russian corpus evaluation and no local Q8/Q6/Q5 comparison.
 - **Promotion needed:** None.

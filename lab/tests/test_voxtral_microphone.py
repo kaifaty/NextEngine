@@ -7,7 +7,9 @@ import io
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
+import wave
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "voxtral_microphone.py"
@@ -33,13 +35,18 @@ class VoxtralMicrophoneTests(unittest.TestCase):
         source = array.array("h", range(10))
         if sys.byteorder == "big":
             source.byteswap()
+        captured = io.BytesIO()
         chunks = list(
             voxtral_microphone.pcm_chunks(
-                io.BytesIO(source.tobytes()), chunk_samples=4, max_samples=6
+                io.BytesIO(source.tobytes()),
+                chunk_samples=4,
+                max_samples=6,
+                raw_sink=captured.write,
             )
         )
         self.assertEqual([len(chunk) for chunk in chunks], [4, 2])
         self.assertEqual(sum(map(len, chunks)), 6)
+        self.assertEqual(captured.getvalue(), source.tobytes()[:12])
 
     def test_pcm_chunks_flushes_aligned_tail(self) -> None:
         source = array.array("h", (1, 2, 3))
@@ -91,6 +98,30 @@ class VoxtralMicrophoneTests(unittest.TestCase):
         rms, peak = voxtral_microphone.signal_levels_dbfs(source.tobytes())
         self.assertAlmostEqual(peak, -6.0206, places=3)
         self.assertAlmostEqual(rms, -9.0309, places=3)
+
+    def test_debug_wav_has_explicit_capture_format(self) -> None:
+        source = array.array("h", (1, -2, 3))
+        if sys.byteorder == "big":
+            source.byteswap()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "probe.wav"
+            with voxtral_microphone.debug_wav_writer(path) as writer:
+                assert writer is not None
+                writer.writeframes(source.tobytes())
+            with wave.open(str(path), "rb") as saved:
+                self.assertEqual(saved.getnchannels(), 1)
+                self.assertEqual(saved.getsampwidth(), 2)
+                self.assertEqual(saved.getframerate(), 16000)
+                self.assertEqual(saved.readframes(3), source.tobytes())
+
+    def test_debug_wav_refuses_to_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "existing.wav"
+            path.write_bytes(b"keep")
+            with self.assertRaises(SystemExit):
+                with voxtral_microphone.debug_wav_writer(path):
+                    pass
+            self.assertEqual(path.read_bytes(), b"keep")
 
     def test_hardware_input_parser_emits_selectable_device(self) -> None:
         output = (
