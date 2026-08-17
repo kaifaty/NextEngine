@@ -102,7 +102,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
+        "expected boundary-scan, content-package, continuum, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "boundary-scan" => {
@@ -126,6 +126,11 @@ fn run() -> Result<(), String> {
         "content-package" => {
             reject_extra_arguments(arguments)?;
             content_package()
+        }
+        "continuum" => {
+            let report = next_continuum_water::run_xtask(&root, arguments)?;
+            println!("{report}");
+            Ok(())
         }
         "host-check" => {
             reject_extra_arguments(arguments)?;
@@ -888,6 +893,8 @@ fn diagnostic_code(error: &str) -> &'static str {
         "NATIVE_GATE_PACKAGE_INVALID"
     } else if error.starts_with("NATIVE_GATE_OUTPUT_EXISTS") {
         "NATIVE_GATE_OUTPUT_EXISTS"
+    } else if error.starts_with("WATER_") {
+        "CONTINUUM_WATER_ORACLE_FAILED"
     } else if error.contains("argument")
         || error.contains("requires")
         || error.contains("unknown command")
