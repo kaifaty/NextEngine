@@ -1,10 +1,10 @@
 # Arcane World Layer
 ## Magic as a Simulated Substrate of the Physical World
 
-**Document type:** architecture and research paper  
-**Status:** working foundation for ADRs, specifications, research spikes, and gameplay-system design  
-**Context date:** August 2026  
-**Target:** custom Rust game engine with a unified `PhysicalWorld / WorldDynamics` layer  
+**Document type:** architecture and research paper
+**Status:** working foundation for ADRs, specifications, research spikes, and gameplay-system design
+**Context date:** August 2026
+**Target:** custom Rust game engine with a unified `PhysicalWorld / WorldDynamics` layer
 **Related documents:**
 - `physical_world_layer_architecture_for_specs.md`
 - `continuum_physics_water_mud_offroad_research_brief.md`

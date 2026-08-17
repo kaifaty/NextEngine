@@ -1,10 +1,10 @@
 # World Dynamics Follow-up
 ## Unified Physical, Thermochemical, Biological, and Arcane World Architecture
 
-**Document type:** umbrella architecture and research paper  
-**Status:** follow-up and correction paper for specification generation  
-**Context date:** August 2026  
-**Target:** custom Rust game engine with a systemic simulated world  
+**Document type:** umbrella architecture and research paper
+**Status:** follow-up and correction paper for specification generation
+**Context date:** August 2026
+**Target:** custom Rust game engine with a systemic simulated world
 **Primary consumers:** architecture agent, specification agent, engine developers, physics/ML research agents
 
 **Related documents:**

@@ -1,10 +1,10 @@
 # Neural-Assisted World Physics
 ## Architecture Paper for Integrating Neural Networks into a Deterministic Physical World
 
-**Document type:** architecture and research paper  
-**Status:** working foundation for ADRs, implementation specifications, experiments, and validation plans  
-**Context date:** August 2026  
-**Target:** custom Rust game engine with a unified `PhysicalWorld / WorldDynamics` layer  
+**Document type:** architecture and research paper
+**Status:** working foundation for ADRs, implementation specifications, experiments, and validation plans
+**Context date:** August 2026
+**Target:** custom Rust game engine with a unified `PhysicalWorld / WorldDynamics` layer
 **Primary thesis:** deterministic physics remains the source of truth; neural models accelerate, approximate, prioritize, or initialize physical computation under explicit validation and automatic classical fallback.
 
 **Related documents:**
@@ -3115,113 +3115,113 @@ It is a physical engine whose expensive computations are increasingly anticipate
 
 ## [R1] Graph Network-based Simulators
 
-A. Sanchez-Gonzalez, J. Godwin, T. Pfaff, R. Ying, J. Leskovec, P. W. Battaglia.  
-**Learning to Simulate Complex Physics with Graph Networks.** 2020.  
+A. Sanchez-Gonzalez, J. Godwin, T. Pfaff, R. Ying, J. Leskovec, P. W. Battaglia.
+**Learning to Simulate Complex Physics with Graph Networks.** 2020.
 https://arxiv.org/abs/2002.09405
 
 ## [R2] MeshGraphNets
 
-T. Pfaff, M. Fortunato, A. Sanchez-Gonzalez, P. W. Battaglia.  
-**Learning Mesh-Based Simulation with Graph Networks.** 2020.  
+T. Pfaff, M. Fortunato, A. Sanchez-Gonzalez, P. W. Battaglia.
+**Learning Mesh-Based Simulation with Graph Networks.** 2020.
 https://arxiv.org/abs/2010.03409
 
 ## [R3] Solver-in-the-Loop
 
-K. Um, R. Brand, Y. Fei, P. Holl, N. Thuerey.  
-**Solver-in-the-Loop: Learning from Differentiable Physics to Interact with Iterative PDE-Solvers.** 2020.  
+K. Um, R. Brand, Y. Fei, P. Holl, N. Thuerey.
+**Solver-in-the-Loop: Learning from Differentiable Physics to Interact with Iterative PDE-Solvers.** 2020.
 https://arxiv.org/abs/2007.00016
 
 ## [R4] NeuralMPM
 
-**A Neural Material Point Method for Particle-based Emulation.** 2024.  
+**A Neural Material Point Method for Particle-based Emulation.** 2024.
 https://arxiv.org/abs/2408.15753
 
 ## [R5] JAX-SPH
 
-**JAX-SPH: A Differentiable Smoothed Particle Hydrodynamics Framework.** 2024.  
+**JAX-SPH: A Differentiable Smoothed Particle Hydrodynamics Framework.** 2024.
 https://arxiv.org/abs/2403.04750
 
 ## [R6] Neural SPH
 
-A. P. Toshev, J. A. Erbesdobler, N. A. Adams, J. Brandstetter.  
-**Neural SPH: Improved Neural Modeling of Lagrangian Fluid Dynamics.** 2024.  
+A. P. Toshev, J. A. Erbesdobler, N. A. Adams, J. Brandstetter.
+**Neural SPH: Improved Neural Modeling of Lagrangian Fluid Dynamics.** 2024.
 https://arxiv.org/abs/2402.06275
 
 ## [R7] GIOROM
 
-H. Viswanath, Y. Chang, J. Berner, P. Y. Chen, A. Bera.  
-**Reduced-Order Neural Operators: Learning Lagrangian Dynamics on Highly Sparse Graphs.** 2024–2026 revisions.  
+H. Viswanath, Y. Chang, J. Berner, P. Y. Chen, A. Bera.
+**Reduced-Order Neural Operators: Learning Lagrangian Dynamics on Highly Sparse Graphs.** 2024–2026 revisions.
 https://arxiv.org/abs/2407.03925
 
 ## [R8] Weak Baselines in ML-for-PDE
 
-C. McGreivy, A. Hakim.  
-**Weak baselines and reporting biases lead to overoptimism in machine learning for fluid-related partial differential equations.** 2024.  
+C. McGreivy, A. Hakim.
+**Weak baselines and reporting biases lead to overoptimism in machine learning for fluid-related partial differential equations.** 2024.
 https://arxiv.org/abs/2407.07218
 
 ## [R9] Hybrid Neural-MPM
 
-J. Xu, H. Huang, C. Zou, M. Savva, Y. Wei, W. Chen.  
-**Hybrid Neural-MPM for Interactive Fluid Simulations in Real-Time.** 2025.  
+J. Xu, H. Huang, C. Zou, M. Savva, Y. Wei, W. Chen.
+**Hybrid Neural-MPM for Interactive Fluid Simulations in Real-Time.** 2025.
 https://arxiv.org/abs/2505.18926
 
 ## [R10] diffSPH
 
-R. Winchenbach, N. Thuerey.  
-**diffSPH: Differentiable Smoothed Particle Hydrodynamics for Adjoint Optimization and Machine Learning.** 2025.  
+R. Winchenbach, N. Thuerey.
+**diffSPH: Differentiable Smoothed Particle Hydrodynamics for Adjoint Optimization and Machine Learning.** 2025.
 https://arxiv.org/abs/2507.21684
 
 ## [R11] NOWS
 
-M. S. Eshaghi et al.  
-**Neural Operator Warm Starts for Accelerating Iterative Solvers.** 2025.  
+M. S. Eshaghi et al.
+**Neural Operator Warm Starts for Accelerating Iterative Solvers.** 2025.
 https://arxiv.org/abs/2511.02481
 
 ## [R12] UniPhy
 
-H. Mittal et al.  
-**UniPhy: Learning a Unified Constitutive Model for Inverse Physics Simulation.** 2025.  
+H. Mittal et al.
+**UniPhy: Learning a Unified Constitutive Model for Inverse Physics Simulation.** 2025.
 https://arxiv.org/abs/2505.16971
 
 ## [R13] Spectrally Safe Warm Starts
 
-J. Oh, Y. Lee, J. Darbon, G. E. Karniadakis.  
-**Spectrally Safe Neural Operator Warm-Starts for Large-Scale Newton Solvers.** 2026.  
+J. Oh, Y. Lee, J. Darbon, G. E. Karniadakis.
+**Spectrally Safe Neural Operator Warm-Starts for Large-Scale Newton Solvers.** 2026.
 https://arxiv.org/abs/2606.21828
 
 ## [R14] SIMSHIFT
 
-P. Setinek et al.  
-**SIMSHIFT: A Benchmark for Adapting Neural Surrogates to Distribution Shifts.** 2025.  
+P. Setinek et al.
+**SIMSHIFT: A Benchmark for Adapting Neural Surrogates to Distribution Shifts.** 2025.
 https://arxiv.org/abs/2506.12007
 
 ## [R15] Thermodynamics-Constrained Constitutive Learning
 
-**Learning inelastic constitutive models from stress-strain data using thermodynamics-constrained neural networks.** 2026.  
+**Learning inelastic constitutive models from stress-strain data using thermodynamics-constrained neural networks.** 2026.
 https://arxiv.org/abs/2605.16837
 
 ## [R16] Review of ML-for-PDE Evaluation
 
-See [R8], and the 2026 review:  
-**Partial Differential Equations in the Age of Machine Learning.**  
+See [R8], and the 2026 review:
+**Partial Differential Equations in the Age of Machine Learning.**
 https://arxiv.org/abs/2603.07655
 
 ## [R17] JAX-MPM
 
-**JAX-MPM: A Learning-Augmented Differentiable Meshfree Simulator.** 2025.  
+**JAX-MPM: A Learning-Augmented Differentiable Meshfree Simulator.** 2025.
 https://arxiv.org/abs/2507.04192
 
 ## [R18] Graph Mamba Operator
 
-**Graph Mamba Operator: A Latent Simulator for Interacting Dynamical Systems.** 2026.  
+**Graph Mamba Operator: A Latent Simulator for Interacting Dynamical Systems.** 2026.
 https://arxiv.org/abs/2606.09432
 
 ## [R19] Unified Particle Transformer
 
-**Unified Simulation of Lagrangian Particle Dynamics via a Single Transformer Architecture.** 2026.  
+**Unified Simulation of Lagrangian Particle Dynamics via a Single Transformer Architecture.** 2026.
 https://arxiv.org/abs/2605.15305
 
 ## [R20] Flow Surrogate Evaluation
 
-**No Free Lunch in Flow Surrogates under Time-Varying Operating Conditions.** 2026.  
+**No Free Lunch in Flow Surrogates under Time-Varying Operating Conditions.** 2026.
 https://arxiv.org/abs/2607.23667
