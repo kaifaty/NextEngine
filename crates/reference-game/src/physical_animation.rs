@@ -70,51 +70,79 @@ pub fn restore_reference_physical_animation_owner(
     )?)
 }
 
-pub(crate) fn reference_root_motion_command(
+pub(crate) struct ReferenceMotorFrameV1 {
+    pub root_motion_command: Option<next_contracts::command::WorldCommand>,
+    pub strip_movement: bool,
+}
+
+pub(crate) fn reference_motor_frame(
     fixture: &ReferenceGameSession,
     owner: &PhysicalAnimationOwnerV1,
     resolved: Option<&ResolvedPlayerInputFrameV1>,
     suppress_movement: bool,
     target_tick: u64,
     physics: &PhysicsCanonicalSnapshotV2,
-) -> Result<Option<next_contracts::command::WorldCommand>, ReferenceGameError> {
-    let Some((sequence, phase, direction_q15)) =
+) -> Result<ReferenceMotorFrameV1, ReferenceGameError> {
+    if suppress_movement {
+        return Ok(ReferenceMotorFrameV1 {
+            root_motion_command: None,
+            strip_movement: true,
+        });
+    }
+    let Some((sequence, phase, direction_q15)) = resolved.and_then(|resolved| {
         resolved
-            .filter(|_| !suppress_movement)
-            .and_then(|resolved| {
-                resolved
-                    .frame
-                    .actions
-                    .iter()
-                    .find(|action| action.action_id.as_str() == CORE_MOVE_ACTION_ID)
-                    .and_then(|action| match action.value {
-                        PlayerActionValueV1::Vector2Q15(direction) => {
-                            Some((resolved.sample.source_sequence, action.phase, direction))
-                        }
-                        _ => None,
-                    })
+            .frame
+            .actions
+            .iter()
+            .find(|action| action.action_id.as_str() == CORE_MOVE_ACTION_ID)
+            .and_then(|action| match action.value {
+                PlayerActionValueV1::Vector2Q15(direction) => {
+                    Some((resolved.sample.source_sequence, action.phase, direction))
+                }
+                _ => None,
             })
-    else {
-        return Ok(None);
+    }) else {
+        return Ok(ReferenceMotorFrameV1 {
+            root_motion_command: None,
+            strip_movement: false,
+        });
     };
-    if direction_q15 != [0, 32_767] {
-        return Ok(None);
+    let decision = fixture.procedural_motor.evaluate(physics, direction_q15)?;
+    if decision.applied_direction_q15 != direction_q15 {
+        return Ok(ReferenceMotorFrameV1 {
+            root_motion_command: None,
+            strip_movement: true,
+        });
+    }
+    if decision.applied_direction_q15 != [0, 32_767] {
+        return Ok(ReferenceMotorFrameV1 {
+            root_motion_command: None,
+            strip_movement: false,
+        });
     }
     let phase_id = match phase {
         PlayerActionPhaseV1::Started => ROOT_MOTION_MOVE_STARTED_PHASE_ID,
         PlayerActionPhaseV1::Performed => ROOT_MOTION_MOVE_PERFORMED_PHASE_ID,
-        _ => return Ok(None),
+        _ => {
+            return Ok(ReferenceMotorFrameV1 {
+                root_motion_command: None,
+                strip_movement: false,
+            });
+        }
     };
     let intent =
         owner.root_motion_intent(fixture.body_id, sequence, SchemaId::new(phase_id)?, physics)?;
-    Ok(Some(next_contracts::command::WorldCommand::root_motion(
-        fixture.movement_stream_id,
-        fixture.principal.clone(),
-        sequence,
-        target_tick,
-        fixture.body_id,
-        intent,
-    )?))
+    Ok(ReferenceMotorFrameV1 {
+        root_motion_command: Some(next_contracts::command::WorldCommand::root_motion(
+            fixture.movement_stream_id,
+            fixture.principal.clone(),
+            sequence,
+            target_tick,
+            fixture.body_id,
+            intent,
+        )?),
+        strip_movement: true,
+    })
 }
 
 fn reference_physical_animation_content(

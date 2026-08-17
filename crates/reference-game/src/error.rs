@@ -38,6 +38,7 @@ pub enum ReferenceGameError {
     Input(next_contracts::input::InputContractError),
     PlayerInput(next_player::PlayerInputError),
     PhysicalAnimation(next_motor::PhysicalAnimationOwnerErrorV1),
+    ProceduralMotor(next_motor::CapsuleProceduralMotorError),
     Body(next_contracts::body::BodyContractError),
     MotorCompile(next_motor::MotorCompileError),
     Platform(next_contracts::platform::PlatformContractError),
@@ -91,6 +92,7 @@ impl Display for ReferenceGameError {
             Self::Input(error) => write!(formatter, "{error}"),
             Self::PlayerInput(error) => write!(formatter, "{error}"),
             Self::PhysicalAnimation(error) => write!(formatter, "{error}"),
+            Self::ProceduralMotor(error) => write!(formatter, "{error}"),
             Self::Body(error) => write!(formatter, "{error}"),
             Self::MotorCompile(error) => write!(formatter, "{error}"),
             Self::Platform(error) => write!(formatter, "{error}"),
@@ -182,6 +184,7 @@ from_error!(next_contracts::identity::IdentityContractError, Identity);
 from_error!(next_contracts::input::InputContractError, Input);
 from_error!(next_player::PlayerInputError, PlayerInput);
 from_error!(next_motor::PhysicalAnimationOwnerErrorV1, PhysicalAnimation);
+from_error!(next_motor::CapsuleProceduralMotorError, ProceduralMotor);
 from_error!(next_contracts::body::BodyContractError, Body);
 from_error!(next_motor::MotorCompileError, MotorCompile);
 from_error!(next_contracts::platform::PlatformContractError, Platform);

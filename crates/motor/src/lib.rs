@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
 
 mod biomechanics;
+mod capsule_procedural;
+#[cfg(test)]
+mod capsule_procedural_tests;
 mod compiler;
 mod compiler_v2;
 mod compiler_v3;
@@ -39,6 +42,10 @@ pub use biomechanics::{
     BIOMECHANICS_HUMANOID_BODY_COUNT, BIOMECHANICS_HUMANOID_COLLIDER_COUNT,
     BIOMECHANICS_HUMANOID_DOF, BIOMECHANICS_HUMANOID_ROOT_HEIGHT_MICROMETRES,
     BIOMECHANICS_HUMANOID_TOTAL_MASS_MICROKILOGRAMS, biomechanics_humanoid_body_schema_v2,
+};
+pub use capsule_procedural::{
+    CAPSULE_PROCEDURAL_MOTOR_PROFILE_VERSION_V1, CapsuleMotorDecisionV1, CapsuleMotorRouteV1,
+    CapsuleProceduralMotorControllerV1, CapsuleProceduralMotorError,
 };
 pub use compiler::{
     CompiledBodySchemaV1, CompiledPhysicsDescriptorsV1, MotorCompileError,

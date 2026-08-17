@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-27 |
 | Статус | Accepted |
-| Версия | 2.2 |
+| Версия | 2.3 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-016](adr/016-compositional-gameplay-budgets.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
 | Дополнительные зависимости V2.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-27 2.1; follows the product-grounded injury capability/agency semantics without changing current tensor layouts |
+| Заменяет | SPEC-27 2.2; records the bounded R5e CapsuleAnimation procedural route without changing the general MotorAction, tensor or PolicyState contracts |
 
 ## История принятия
 
@@ -844,6 +844,33 @@ Fallback action, fallback phase and recurrent-state disposition commit
 atomically. A fallback controller failure preserves the last committed
 authoritative state, emits `MOTOR_FALLBACK_UNAVAILABLE` and stops the
 motor commit; it cannot fabricate an unsafe action.
+
+### Current bounded R5e capsule route
+
+R5e implements a narrower current `CapsuleAnimation` consumer without
+pretending that the generic learned-policy lifecycle is active. The immutable,
+stateless `CapsuleProceduralMotorControllerV1` recompiles and exact-compares
+the R5d `BodyInstanceProjectionV1`/`BodyProjectionRootsV1` closure, including
+the action-layout and actuator-safety roots, and binds it to the existing
+capsule locomotion profile. Its input is the closed cardinal Q15 movement
+candidate plus the committed `PhysicsCanonicalSnapshotV2`; diagonal or
+otherwise out-of-profile input rejects atomically.
+
+When the capsule has zero vertical velocity, the controller preserves the
+cardinal candidate and the existing R5c/root-motion or direct physical command
+path performs normal admission. A non-zero committed vertical velocity selects
+`ProceduralRecovery` and clamps horizontal movement to `[0, 0]`; Physics alone
+continues gravity, contact and landing. The next stable snapshot resumes the
+held command without a motor phase field. `CapsuleMotorDecisionV1` binds source
+physics tick/body revision, requested/applied direction, clamp mask, controller
+profile, projection and actuator-safety roots into reconstructible decision
+evidence. It is not serialized owner state and cannot write pose.
+
+Save/load during the production fall fixture derives the same decision from
+the existing Physics checkpoint, so Replay V10 and its ten-owner closure need
+no successor. This checkpoint closes only bounded R5e behavior; it does not
+claim the full `MotorActionV1`, `PolicyStateRecordV1`, learned/two-hold route,
+active articulation or `MOTOR-SAFETY/STATE/ROUTE-P1` corpora.
 
 Measured elapsed time or a wall-clock timeout MUST NOT create any of these
 logical route facts. A wall deadline miss fails the conditional `performance`

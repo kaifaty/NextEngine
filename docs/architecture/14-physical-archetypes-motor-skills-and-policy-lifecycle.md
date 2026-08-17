@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 3.2 |
+| Версия | 3.3 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
 | Дополнительные зависимости V3.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-14 3.1; admits the bounded R5d production BodySchema projection while retaining the product-grounded capability/agency boundary, without admitting mutable overlays or a learned route |
+| Заменяет | SPEC-14 3.2; records the bounded R5e production capsule procedural/safety/recovery consumer without admitting active articulation, mutable overlays or a learned route |
 
 ## Назначение и invariants
 
@@ -238,6 +238,23 @@ The active gameplay transform remains owned by the existing capsule Physics
 route; R5d does not publish the full articulation into that active scene and
 does not claim a complete `PhysicalArchetypeBundle`, non-default overlays,
 topology remap, learned policy, real skinning or full R5 completion.
+
+R5e consumes that exact projection in the current `CapsuleAnimation` tier.
+`CapsuleProceduralMotorControllerV1` is immutable and stateless: activation
+recompiles and exact-compares the instance `BodyProjectionRootsV1`, then binds
+the action-layout and actuator-safety roots together with the existing capsule
+locomotion profile. Per tick it admits only the closed cardinal Q15 command;
+while committed Physics reports non-zero vertical capsule velocity it emits a
+zero horizontal `ProceduralRecovery` proposal, and stable landing resumes the
+original held command. The reconstructible `CapsuleMotorDecisionV1` is
+diagnostic evidence, not a saved owner or transform write. Invalid projection,
+non-cardinal candidate, missing/inactive body or invalid capsule orientation
+fails before command publication. Physics remains the sole pose/landing owner,
+and save/load reproduces the route from its existing canonical velocity.
+
+This bounded Prototype checkpoint does not implement or promote the general
+SPEC-27 learned/hold/recovery supervisor, full `MotorActionV1` lifecycle,
+active articulation, real skinning or `MOTOR-SAFETY/ROUTE-P1` corpora.
 
 ADR-069 additionally accepts a distinct current-only `BodySchemaV2` for the
 concrete biomechanics training generation. V2 closes full source inertia plus

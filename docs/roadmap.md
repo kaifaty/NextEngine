@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-17 |
-| Текущая точка | R3, reference-project vertical и functional R4 остаются `COMPLETE`: R4a, [R4b tiers + graph navigation + 100 NPC](development/task-state/r4b-population-navigation.md), [R4c deterministic cognition core](development/task-state/r4c-deterministic-cognition.md) и [R4d systemic Strategic Agent vertical](development/task-state/r4d-systemic-strategic-agent.md) закрыты production evidence under ADR-074. R5a physical-animation owner, [R5b capsule/world interactions](development/task-state/r5b-capsule-world-interactions.md), [R5c root-motion admission](development/task-state/r5c-root-motion-admission.md) и [R5d BodySchema projection](development/task-state/r5d-body-schema-projection.md) теперь `COMPLETE`; следующий bounded WIP — R5e production procedural motor/safety/recovery route без learned route или второго mutable owner. R141 остаётся `INVALID / STOP_NO_RETRY` без R142/downstream authority. `r4-100npc` exact tier-cognition evidence не закрывает B-12/Linux/R1/R7/v1 shipping. |
+| Текущая точка | R3, reference-project vertical и functional R4 остаются `COMPLETE`: R4a, [R4b tiers + graph navigation + 100 NPC](development/task-state/r4b-population-navigation.md), [R4c deterministic cognition core](development/task-state/r4c-deterministic-cognition.md) и [R4d systemic Strategic Agent vertical](development/task-state/r4d-systemic-strategic-agent.md) закрыты production evidence under ADR-074. R5a physical-animation owner, [R5b capsule/world interactions](development/task-state/r5b-capsule-world-interactions.md), [R5c root-motion admission](development/task-state/r5c-root-motion-admission.md), [R5d BodySchema projection](development/task-state/r5d-body-schema-projection.md) и [R5e procedural motor/safety/recovery](development/task-state/r5e-procedural-motor-safety-recovery.md) теперь `COMPLETE`; следующий bounded WIP — R5f production base-skinning/render-rig route без active articulation или learned route. R141 остаётся `INVALID / STOP_NO_RETRY` без R142/downstream authority. `r4-100npc` exact tier-cognition evidence не закрывает B-12/Linux/R1/R7/v1 shipping. |
 | Windows blocker-plan checkpoint | `WINDOWS_COMPLETE / DEFERRED_LINUX` для B-02, `COMPLETE` для Windows R2 и R3, `COMPLETE / LOCAL FUNCTIONAL` для R4 на текущем developer host, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04, R3b/B-06 и R4a–R4d increments `COMPLETE`. Это не заявляет Windows/Linux pair для R4 и не закрывает R1, B-12, Linux, paired cross-target evidence или v1 shipping; bounded TRAIN-4 lineage остановлена без retry/downstream authority. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -140,7 +140,7 @@ animation и reusable systemic quest conditions относятся к R3–R5.
 | World/streaming | R3 partition and R4a–R4d world consumers реализованы: exact pinned generation, 4 regions/64 chunks, derived calendar, separate routine/population/activity/Agent/Memory owners, 16/32/52 cadence, 64-node graph, bounded bulk time and joint publication | Нет generic interest/eviction, physical corridor following or broad jobs/economy framework; эти gaps не входят в bounded R4 closure. |
 | Jobs/resources | R3 использует private bounded workers (default 2, max 4), immutable revision-bound request/result и channel 64; generic subsystem не принят | Shared scheduler/resource contract появляется только при доказанной второй production потребности; SPEC-23 остаётся Proposed. |
 | Physics | PhysX 5.9.0 является единственным production backend; upright capsule, static Box, exact B0 `ClosestPoint`, reduced articulation и fixed-humanoid scene/restore path реализованы | Не закрыты полный cutover/platform/replay matrix, general gameplay shape/query breadth и Windows/Linux Stage 0 evidence. |
-| Animation/motor | Bounded R5a–R5d production path активирует shared player/NPC skeleton/clip owner, exact neutral sampling, identity retarget, presentation-only foot IK, fixed-tick root proposal, physics-validated capsule application и exact project-backed `BodySchemaV1` projections with shared tensor/safety roots and distinct subject/physics roots. Replay V10 owner arity не меняется. Отдельный deterministic 23-DoF standing/flat-command substrate и current curriculum V2 CPU environments сохраняются; R141 learned lineage остановлен. | Нет production procedural motor/safety/recovery route from the new projection, real skinning, general graph/non-identity retarget/physical IK, полного `ANIM-ROOT-MOTION-P1`, Isaac GPU correspondence и Windows/Linux performance/parity evidence. |
+| Animation/motor | Bounded R5a–R5e production path активирует shared player/NPC skeleton/clip owner, exact neutral sampling, identity retarget, presentation-only foot IK, fixed-tick root proposal, physics-validated capsule application, exact project-backed `BodySchemaV1` projections and a stateless player capsule controller bound to the action/actuator-safety roots. During Physics-owned fall it clamps horizontal intent to zero and resumes the held cardinal command after landing. Replay V10 owner arity не меняется. Отдельный deterministic 23-DoF standing/flat-command substrate и current curriculum V2 CPU environments сохраняются; R141 learned lineage остановлен. | Нет real skinning/base render-rig route, general graph/non-identity retarget/physical IK, active articulation cutover, полного `ANIM-ROOT-MOTION-P1`/general SPEC-27 route corpora, Isaac GPU correspondence и Windows/Linux performance/parity evidence. |
 | Agent AI | Bounded R4c/R4d core current: one production subject uses revision-bound Epistemic/Drive views, semantic beliefs/speech, Q16 Utility/emergency, bounded GOAP, private tasks, commitment/activity/systemic settlement and separate Agent/Memory owners; 100 records produce exact four-kind tier work | Нет broad episodic/social memory, bargaining or macro-economy. SPEC-33/34 и ADR-050/053/054 остаются optional R8 research. |
 | Navigation/audio | Baseline audio vertical и R4b engine-owned graph/query current: 64 chunk-bound nodes, four region tiles, deterministic Dijkstra and route-hash-bound abstract transfer | Gaps: chunked long-clip streaming payload, zone reverb fallback, polygon navmesh cooker, dynamic overlays and physical path-following adapter. |
 | Player experience | Keyboard/mouse и generic controller используют одинаковые action IDs с keyboard fallback; persisted targeting, third-person camera, semantic HUD/inventory/journal/dialogue/pause flow, localization, subtitles и preferences проходят automated Windows checks. HUD получил цветовой health meter, objective и отдельный presentation-only next-action panel, который выводится из immutable RPG snapshot для accept/pickup/equip/combat/relay/return/complete; Save показывает `Saved`, а Load оставляет восстановленный world на паузе с `Loaded - press Resume`. | Worker-to-desktop regression покрывает quest accept, explicit Save, визуально различимое изменение, sequence-zero Load cut, Load confirmation, продолжение новой epoch после явного Resume и реальное authoritative WASD movement с exact загруженной input-context revision. Свежий 20–30-minute run зафиксирован как `PASS`. Accessibility profiles и capability-scoped extension panels остаются вне R2 gate. |
@@ -212,7 +212,7 @@ flowchart LR
 | R2. Playable alpha | `COMPLETE / WINDOWS_ACCEPTED` | L | Data-first slice, Windows package, automated checks и зафиксированный 20–30-minute acceptance проходят. Linux/R1 cross-target closure не заявляется. |
 | R3. Scalable content and streaming | `COMPLETE` | XL | Private packaged vertical и bounded 4-region/64-chunk project проходят cook/load/unload/save/restart и report-only workload без hard-coded two-chunk assumptions. |
 | R4. Systemic living world | `COMPLETE / LOCAL FUNCTIONAL` | XL | R4a routine, R4b population/navigation, R4c cognition and bounded R4d systemic owners pass production/failure/persistence/tier/bulk checks; B-12 and cross-target gates remain separate. |
-| R5. Physical character integration | `IN_PROGRESS / R5A–R5D_COMPLETE / R&D_LINEAGE_STOPPED` | XL | R5a owner, R5b capsule interactions, R5c physics-validated root motion and R5d project-backed `BodySchema` projection are complete. Next WIP is bounded R5e production procedural motor/safety/recovery route. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
+| R5. Physical character integration | `IN_PROGRESS / R5A–R5E_COMPLETE / R&D_LINEAGE_STOPPED` | XL | R5a owner, R5b capsule interactions, R5c physics-validated root motion, R5d project-backed `BodySchema` projection and R5e stateless capsule procedural/safety/recovery route are complete. Next WIP is bounded R5f production base-skinning/render-rig route. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
 | R6. Creator beta | `PLANNED` | L–XL | Второй проект/пакет создаётся без правки engine internals. |
 | R7. V1 release candidate | `PLANNED` | L | Полный v1 scope стабилизирован и упакован для Windows/Linux. |
 | R8. Post-v1 tracks | `DEFERRED` | отдельные программы | Optional AI/narrative/importer/advanced rendering не размывают v1. |
@@ -700,7 +700,7 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 
 ## R5 — Physical character, animation and motor integration
 
-**Статус:** `IN_PROGRESS / R5A_COMPLETE / R5B_COMPLETE / R5C_COMPLETE / R5D_COMPLETE / NEXT_R5E_PROCEDURAL_MOTOR_ROUTE`;
+**Статус:** `IN_PROGRESS / R5A_COMPLETE / R5B_COMPLETE / R5C_COMPLETE / R5D_COMPLETE / R5E_COMPLETE / NEXT_R5F_BASE_SKINNING_ROUTE`;
 `R&D_LINEAGE_STOPPED`. R141 завершился `INVALID / STOP_NO_RETRY` и не
 возобновляется. Bounded R5a package принят: один capsule-driven player/NPC
 animation owner выполняет exact neutral sampling/identity retarget,
@@ -721,10 +721,18 @@ dependency или root отклоняет весь candidate. Compiled projectio
 reconstructible witness для shared physical-animation binding: активный
 gameplay transform по-прежнему принадлежит capsule Physics, а
 `PhysicalAnimationSnapshotV1`, physics step/result schemas и ten-owner Replay
-V10 остаются без successor. Полный 10 000-cycle `ANIM-ROOT-MOTION-P1`, active
+V10 остаются без successor. Bounded R5e package принят: immutable/stateless
+`CapsuleProceduralMotorControllerV1` recompiles и exact-compares player
+projection, binds action-layout/actuator-safety/capsule-profile roots, rejects
+non-cardinal or invalid body candidates and removes horizontal intent while
+committed Physics vertical velocity is non-zero. Physics alone performs
+fall/landing; save/load during recovery reproduces the same decision from the
+existing checkpoint, then held movement resumes on stable landing. No command,
+physics, PolicyState or Replay schema changes. Полный 10 000-cycle
+`ANIM-ROOT-MOTION-P1`, general `MOTOR-SAFETY/STATE/ROUTE-P1`, active
 articulation cutover, real skinning и остальной R5 scope не закрыты. Следующий
-bounded cut — R5e production procedural motor/safety/recovery route; any
-learned route still requires its own future gates.
+bounded cut — R5f production base-skinning/render-rig route; any learned route
+still requires its own future gates.
 Решения и evidence R5a записаны в
 [R5a task state](development/task-state/r5a-physical-animation-owner.md).
 Принятая граница, решения и evidence R5b записаны в
@@ -733,6 +741,8 @@ learned route still requires its own future gates.
 [R5c task state](development/task-state/r5c-root-motion-admission.md).
 Project/compiler граница и evidence R5d записаны в
 [R5d task state](development/task-state/r5d-body-schema-projection.md).
+Procedural/safety/recovery граница и evidence R5e записаны в
+[R5e task state](development/task-state/r5e-procedural-motor-safety-recovery.md).
 
 **Цель:** сделать физическое воплощение персонажа частью production gameplay,
 не пропуская vendor types или model state через engine-owned authority.
@@ -2495,7 +2505,7 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    trade → food, including threat interruption/replan, failure branches and
    exact tiered/headless/bulk behavior. V6/V7 content and nine-owner Replay V9
    formed the historical ADR-074 boundary; this closes functional R4 without learned models.
-12. **R5 physical character and animation production integration (`IN_PROGRESS`; R5a/R5b/R5c/R5d `COMPLETE`, next R5e procedural motor route):**
+12. **R5 physical character and animation production integration (`IN_PROGRESS`; R5a/R5b/R5c/R5d/R5e `COMPLETE`, next R5f base-skinning route):**
    один shared player/NPC skeleton/clip owner, retargeting, fixed IK and
    ten-owner save/Replay V10 закрыты R5a; production slopes, stairs, dynamic
    push, sensors, fall/recovery и exact mid-push continuation закрыты R5b.
@@ -2505,10 +2515,14 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    ветви закрыты без второго transform owner или Replay successor. R5d добавляет
    exact `BodySchemaAssetV1` root и rehydrates distinct player/NPC instance and
    physics roots при shared schema/tensor/safety roots; malformed profile,
-   dependency или schema closure fails before publication. Следующий bounded
-   cut — production procedural motor/safety/recovery route; real skinning,
-   полный `ANIM-ROOT-MOTION-P1`, active articulation cutover и полное R5
-   promotion остаются последующими cuts. A
+   dependency или schema closure fails before publication. R5e exact-binds one
+   stateless player capsule controller to the projection/action/safety roots;
+   non-cardinal candidates reject, vertical instability selects zero
+   horizontal recovery, save/load reproduces the branch from Physics and held
+   cardinal input resumes after landing without a new owner or schema.
+   Следующий bounded cut — production base-skinning/render-rig route; полный
+   `ANIM-ROOT-MOTION-P1`, general SPEC-27 route corpora, active articulation
+   cutover и полное R5 promotion остаются последующими cuts. A
    TRAIN-9 actor may enter only after its own
    promotion/parity gates; later policy-family phases remain optional and do
    not block the procedural path.

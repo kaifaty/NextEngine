@@ -398,6 +398,158 @@ fn production_capsule_course_traverses_and_restores_mid_push() {
     std::fs::remove_dir_all(root).expect("cleanup");
 }
 
+#[test]
+fn production_procedural_motor_restores_inside_fall_recovery() {
+    let (root, activated) = activated_reference_project("r5e-procedural-recovery");
+    let session = next_reference_game::build_reference_game_session(activated.project.clone())
+        .expect("reference session");
+    let player_body_id = session.physics_body_id;
+    assert_eq!(
+        session.procedural_motor.body_projection_root(),
+        session
+            .body_projections
+            .player
+            .roots
+            .projection_root()
+            .expect("player projection root")
+    );
+    assert_eq!(
+        session.procedural_motor.actuator_safety_root(),
+        session.body_projections.player.roots.actuator_safety_root
+    );
+
+    let mut driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
+        .expect("live driver");
+    hold_key(
+        &mut driver,
+        next_contracts::input::KEYBOARD_S_CONTROL_PATH_ID,
+        0,
+        60,
+    );
+    driver
+        .advance(&[control_event(
+            next_contracts::input::KEYBOARD_D_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Started,
+            i16::MAX,
+            2,
+        )])
+        .expect("start traversal");
+    let saved = (0..60)
+        .find_map(|_| {
+            let state = driver.state().expect("candidate recovery state");
+            let body = &state
+                .checkpoint
+                .physics_checkpoint
+                .snapshot
+                .sorted_body_states[&player_body_id];
+            if body.linear_velocity_micrometres_per_second[1] != 0 {
+                Some(state)
+            } else {
+                driver.advance(&[]).expect("seek fall recovery");
+                None
+            }
+        })
+        .expect("production course must enter fall recovery");
+    let saved_body = &saved
+        .checkpoint
+        .physics_checkpoint
+        .snapshot
+        .sorted_body_states[&player_body_id];
+    let recovery = session
+        .procedural_motor
+        .evaluate(&saved.checkpoint.physics_checkpoint.snapshot, [i16::MAX, 0])
+        .expect("recovery decision");
+    assert_eq!(
+        recovery.route,
+        next_motor::CapsuleMotorRouteV1::ProceduralRecovery
+    );
+    assert_eq!(recovery.applied_direction_q15, [0, 0]);
+    assert_eq!(recovery.clamp_mask, 0b01);
+    assert_eq!(recovery.source_body_revision, saved_body.body_revision);
+    let saved_x = saved_body.pose.translation_micrometres[0];
+
+    let mut restored = next_reference_game::ReferenceGameDriverV2::restore(
+        activated,
+        saved.checkpoint,
+        saved.world_streaming_snapshot,
+        saved.world_routine_snapshot_or_none,
+        saved.world_population_snapshot,
+        saved.world_activity_snapshot,
+        saved.agent_cognition_snapshot,
+        saved.agent_memory_snapshot,
+        saved.physical_animation_snapshot,
+        saved.driver_recovery,
+    )
+    .expect("restore during procedural recovery");
+    driver.advance(&[]).expect("continue original recovery");
+    restored.advance(&[]).expect("continue restored recovery");
+    let original = driver.state().expect("original recovery state");
+    let recovered = restored.state().expect("restored recovery state");
+    assert_eq!(recovered.checkpoint, original.checkpoint);
+    assert_eq!(
+        original
+            .checkpoint
+            .physics_checkpoint
+            .snapshot
+            .sorted_body_states[&player_body_id]
+            .pose
+            .translation_micrometres[0],
+        saved_x,
+        "procedural recovery must remove horizontal air steering"
+    );
+
+    let mut resumed = false;
+    for _ in 0..40 {
+        let before = driver.state().expect("before recovery continuation");
+        let before_body = &before
+            .checkpoint
+            .physics_checkpoint
+            .snapshot
+            .sorted_body_states[&player_body_id];
+        let before_x = before_body.pose.translation_micrometres[0];
+        let before_vertical = before_body.linear_velocity_micrometres_per_second[1];
+        driver.advance(&[]).expect("continue original traversal");
+        restored.advance(&[]).expect("continue restored traversal");
+        let original = driver.state().expect("original continuation");
+        let recovered = restored.state().expect("restored continuation");
+        assert_eq!(recovered.checkpoint, original.checkpoint);
+        let after_x = original
+            .checkpoint
+            .physics_checkpoint
+            .snapshot
+            .sorted_body_states[&player_body_id]
+            .pose
+            .translation_micrometres[0];
+        if before_vertical != 0 {
+            assert_eq!(after_x, before_x);
+        } else if after_x > before_x {
+            resumed = true;
+            break;
+        }
+    }
+    assert!(
+        resumed,
+        "stable landing must resume the held cardinal command"
+    );
+    let completion = control_event(
+        next_contracts::input::KEYBOARD_D_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Completed,
+        0,
+        3,
+    );
+    driver
+        .advance(std::slice::from_ref(&completion))
+        .expect("complete original traversal");
+    restored
+        .advance(&[completion])
+        .expect("complete restored traversal");
+    assert_eq!(
+        restored.state().expect("restored final").checkpoint,
+        driver.state().expect("original final").checkpoint
+    );
+    std::fs::remove_dir_all(root).expect("cleanup");
+}
+
 fn activated_reference_project(
     label: &str,
 ) -> (std::path::PathBuf, next_project::ActivatedProjectPackage) {

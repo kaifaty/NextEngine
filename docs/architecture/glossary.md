@@ -4,11 +4,11 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 4.0 |
+| Версия | 4.1 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
 | Дополнительные зависимости V4.0 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | GLOSSARY-001 3.10; updates the current project formats and bounded R5d body-projection terms while retaining functional-anatomy, treatment and visual-profile terms |
+| Заменяет | GLOSSARY-001 4.0; adds the bounded R5e capsule procedural decision terms without changing public save/replay schemas |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -93,6 +93,8 @@
 | **BodyTreatmentStage** | Future semantic stabilization, repair or rehabilitation transition over RPG-owned body condition. Medicine and magic use the same validated proposal/command path; exact treatment contracts remain Proposed. |
 | **BodyStatusProjection** | Future qualitative read-only UI view of region, function, attachment/structure, systemic band and next treatment stage. It cannot diagnose from presentation or reveal hidden NPC truth. Exact wire remains Proposed. |
 | **BodyProjectionRoots** | Reconstructible canonical witness binding exact schema/instance/compiler inputs to emitted physics descriptors, observation/action layouts and actuator-safety limits. It is rederived at activation/restore and is not a mutable save owner. |
+| **CapsuleProceduralMotorControllerV1** | Current immutable/stateless R5e `CapsuleAnimation` controller bound to exact body projection, action-layout, actuator-safety and capsule-locomotion roots. It admits a closed cardinal command or emits zero horizontal recovery while Physics reports vertical instability; it never owns pose or saved phase. |
+| **CapsuleMotorDecisionV1** | Reconstructible per-tick R5e evidence binding source Physics tick/body revision, requested/applied cardinal direction, clamp bits and exact controller/projection/safety roots. It is not a canonical save owner or a replacement for the general SPEC-27 `MotorActionV1`. |
 | **CanonicalEnvironmentReplay** | Byte-exact engine-owned reset/step/action/observation/snapshot/root continuation для locked CPU PhysX build profile. Worker/slot completion order и vendor caches не входят в result. |
 | **MotorReplayPrefix** | Bounded ordered episode-origin reset plus every canonical post-safety 240 Hz effort and per-motor-tick physics witness used to reconstruct hidden PhysX continuation in a fresh scene; policy/PD re-execution is separate parity evidence. |
 | **EvaluatorCorrespondence** | Bounded comparison canonical CPU execution с accelerated GPU/trainer mirror. Это проверка близости trajectories/contact/done, а не разрешение GPU быть replay authority. |

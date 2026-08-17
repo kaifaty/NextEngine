@@ -87,6 +87,7 @@ pub struct ReferenceGameSession {
     pub interactive_object_id: PersistentId,
     pub npc_character_id: PersistentId,
     pub body_projections: ReferenceBodyProjectionSetV1,
+    pub procedural_motor: next_motor::CapsuleProceduralMotorControllerV1,
     pub quest_giver_character_id: PersistentId,
     pub dialogue_id: PersistentId,
     pub quest_id: PersistentId,
@@ -329,6 +330,13 @@ pub fn build_reference_game_session_with_profile(
     let npc_character_id = PersistentId::from_bytes([0x59; 16]);
     let body_projections =
         ReferenceBodyProjectionSetV1::compile(&activated_project, body_id, npc_character_id)?;
+    let procedural_motor = next_motor::CapsuleProceduralMotorControllerV1::activate(
+        &activated_project.body_schema_asset.body_schema,
+        &body_projections.player.instance,
+        &body_projections.player.roots,
+        physics_body_id,
+        bootstrap.tick_rate_profile.gameplay_hz,
+    )?;
     let dialogue_id = PersistentId::from_bytes([0x5a; 16]);
     let quest_id = PersistentId::from_bytes([0x5b; 16]);
     let relationship_id = PersistentId::from_bytes([0x5c; 16]);
@@ -410,6 +418,7 @@ pub fn build_reference_game_session_with_profile(
         interactive_object_id,
         npc_character_id,
         body_projections,
+        procedural_motor,
         quest_giver_character_id,
         dialogue_id,
         quest_id,

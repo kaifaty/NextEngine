@@ -618,7 +618,7 @@ impl ReferenceGameDriverV2 {
             dialogue = ReferenceDialogueUiV1::Closed;
             inject_interact = true;
         }
-        let root_motion_command = crate::physical_animation::reference_root_motion_command(
+        let motor_frame = crate::physical_animation::reference_motor_frame(
             &self.fixture,
             &physical_animation,
             input.resolved.as_ref(),
@@ -626,12 +626,13 @@ impl ReferenceGameDriverV2 {
             self.runtime.next_tick(),
             self.runtime.physics_snapshot(),
         )?;
+        let root_motion_command = motor_frame.root_motion_command;
         if let Some(sample) = crate::dialogue::dialogue_runtime_sample(
             input.resolved.as_ref(),
             &self.input,
             self.next_logical_frame_sequence,
             strip_interaction_movement,
-            strip_interaction_movement || root_motion_command.is_some(),
+            strip_interaction_movement || motor_frame.strip_movement,
             inject_interact,
         )? {
             runtime_preparation.enqueue_input_sample(&self.fixture.principal, sample)?;
