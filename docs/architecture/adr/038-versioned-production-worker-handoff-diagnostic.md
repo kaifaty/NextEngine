@@ -41,7 +41,7 @@ cargo run --release -p xtask -- performance \
 `production-worker-soak.v1` выполняет не менее `240` FIFO main callbacks при
 declared `60 Hz` cadence через production-owned bounded queue,
 `next-simulation`, `FixedStepLiveSchedulerV1`, application coordinator и shared
-immutable `PresentationSnapshotV2` handoff. Scenario имеет собственный
+immutable `PresentationSnapshotV3` handoff. Scenario имеет собственный
 versioned scenario hash, machine-readable methodology version и
 scenario-specific details schema.
 

@@ -12,10 +12,11 @@ use super::codec::{
 use super::profile::{B0_MAX_MESHLET_TRIANGLES, B0_MAX_MESHLET_VERTICES};
 use super::{
     B0RenderContentProfileV1, MaterialAlphaModeV1, MaterialColorSpaceV1, MaterialTextureSlotV1,
-    MeshPrimitiveTopologyV1, NeutralMaterialV1, NeutralMeshV1, NeutralTexelEncodingV1,
-    NeutralTextureColorSpaceV1, NeutralTextureDimensionV1, NeutralTextureV1,
-    RENDER_CONTENT_CATALOG_SCHEMA_ID, RENDER_CONTENT_OWNER_ID, RENDER_CONTENT_SCHEMA_VERSION,
-    RENDER_CONTENT_SEGMENT_ID, RenderContentContractError, UvTransformV1,
+    MeshPrimitiveTopologyV1, NeutralBaseSkinningProfileV1, NeutralMaterialV1, NeutralMeshV1,
+    NeutralTexelEncodingV1, NeutralTextureColorSpaceV1, NeutralTextureDimensionV1,
+    NeutralTextureV1, RENDER_CONTENT_CATALOG_SCHEMA_ID, RENDER_CONTENT_OWNER_ID,
+    RENDER_CONTENT_SCHEMA_VERSION, RENDER_CONTENT_SEGMENT_ID, RenderContentContractError,
+    UvTransformV1,
 };
 
 const COOKED_MESH_SCHEMA_ID: &str = "nextengine.render-content.meshlets";
@@ -266,6 +267,8 @@ pub struct RenderContentCatalogV1 {
     material_revisions: Vec<AssetRevisionRefV1>,
     textures: Vec<NeutralTextureV1>,
     texture_revisions: Vec<AssetRevisionRefV1>,
+    base_skinning_profiles: Vec<NeutralBaseSkinningProfileV1>,
+    base_skinning_profile_revisions: Vec<AssetRevisionRefV1>,
     catalog_sha256: ContentHash,
 }
 
@@ -275,21 +278,28 @@ impl RenderContentCatalogV1 {
         meshes: Vec<NeutralMeshV1>,
         materials: Vec<NeutralMaterialV1>,
         textures: Vec<NeutralTextureV1>,
+        base_skinning_profiles: Vec<NeutralBaseSkinningProfileV1>,
     ) -> Result<Self, RenderContentContractError> {
         ensure_limit(meshes.len(), MAX_CATALOG_ASSETS)?;
         ensure_limit(materials.len(), MAX_CATALOG_ASSETS)?;
         ensure_limit(textures.len(), MAX_CATALOG_ASSETS)?;
+        ensure_limit(base_skinning_profiles.len(), MAX_CATALOG_ASSETS)?;
         let profile_revision = profile.asset_revision()?;
         let (mesh_revisions, meshes) = sort_records(meshes, NeutralMeshV1::asset_revision)?;
         let (material_revisions, materials) =
             sort_records(materials, NeutralMaterialV1::asset_revision)?;
         let (texture_revisions, textures) =
             sort_records(textures, NeutralTextureV1::asset_revision)?;
+        let (base_skinning_profile_revisions, base_skinning_profiles) = sort_records(
+            base_skinning_profiles,
+            NeutralBaseSkinningProfileV1::asset_revision,
+        )?;
         ensure_unique_asset_ids(
             profile_revision,
             &mesh_revisions,
             &material_revisions,
             &texture_revisions,
+            &base_skinning_profile_revisions,
         )?;
         let cooked_meshes = meshes
             .iter()
@@ -305,6 +315,8 @@ impl RenderContentCatalogV1 {
             material_revisions,
             textures,
             texture_revisions,
+            base_skinning_profiles,
+            base_skinning_profile_revisions,
             catalog_sha256: ContentHash::default(),
         };
         value.validate_b0()?;
@@ -341,6 +353,11 @@ impl RenderContentCatalogV1 {
     }
 
     #[must_use]
+    pub fn base_skinning_profiles(&self) -> &[NeutralBaseSkinningProfileV1] {
+        &self.base_skinning_profiles
+    }
+
+    #[must_use]
     pub fn cooked_meshes(&self) -> &[B0CookedMeshV1] {
         &self.cooked_meshes
     }
@@ -366,6 +383,28 @@ impl RenderContentCatalogV1 {
     }
 
     #[must_use]
+    pub fn base_skinning_profile(
+        &self,
+        revision: AssetRevisionRefV1,
+    ) -> Option<&NeutralBaseSkinningProfileV1> {
+        exact_lookup(
+            &self.base_skinning_profile_revisions,
+            &self.base_skinning_profiles,
+            revision,
+        )
+    }
+
+    #[must_use]
+    pub fn base_skinning_profile_for_mesh(
+        &self,
+        revision: AssetRevisionRefV1,
+    ) -> Option<&NeutralBaseSkinningProfileV1> {
+        self.base_skinning_profiles
+            .iter()
+            .find(|profile| profile.mesh_revision() == revision)
+    }
+
+    #[must_use]
     pub fn cooked_mesh(&self, revision: AssetRevisionRefV1) -> Option<&B0CookedMeshV1> {
         self.cooked_meshes
             .binary_search_by_key(&revision, B0CookedMeshV1::source_revision)
@@ -382,7 +421,7 @@ impl RenderContentCatalogV1 {
         limits: CanonicalDecodeLimits,
     ) -> Result<Self, RenderContentContractError> {
         let segment = decode_canonical_segment(bytes, limits)?;
-        validate_envelope(&segment, RENDER_CONTENT_CATALOG_SCHEMA_ID, 6)?;
+        validate_envelope(&segment, RENDER_CONTENT_CATALOG_SCHEMA_ID, 7)?;
         let profile = B0RenderContentProfileV1::from_canonical_bytes(
             field(&segment, 2, CANONICAL_TYPE_STRUCT)?,
             limits,
@@ -407,7 +446,12 @@ impl RenderContentCatalogV1 {
             limits,
             B0CookedMeshV1::from_canonical_bytes,
         )?;
-        let value = Self::new(profile, meshes, materials, textures)?;
+        let base_skinning_profiles = decode_records(
+            field(&segment, 7, CANONICAL_TYPE_SEQUENCE)?,
+            limits,
+            NeutralBaseSkinningProfileV1::from_canonical_bytes,
+        )?;
+        let value = Self::new(profile, meshes, materials, textures, base_skinning_profiles)?;
         if value.cooked_meshes != cooked || value.canonical_bytes()? != bytes {
             return Err(RenderContentContractError::NonCanonical);
         }
@@ -445,6 +489,14 @@ impl RenderContentCatalogV1 {
                     6,
                     CANONICAL_TYPE_SEQUENCE,
                     encode_records(&self.cooked_meshes, B0CookedMeshV1::canonical_bytes)?,
+                ),
+                CanonicalField::new(
+                    7,
+                    CANONICAL_TYPE_SEQUENCE,
+                    encode_records(
+                        &self.base_skinning_profiles,
+                        NeutralBaseSkinningProfileV1::canonical_bytes,
+                    )?,
                 ),
             ],
         )?)
@@ -492,6 +544,18 @@ impl RenderContentCatalogV1 {
                 return Err(RenderContentContractError::UnsupportedB0Feature);
             }
         }
+        let mut mesh_revisions = Vec::with_capacity(self.base_skinning_profiles.len());
+        for skinning in &self.base_skinning_profiles {
+            let mesh = self
+                .mesh(skinning.mesh_revision())
+                .ok_or(RenderContentContractError::MissingReference)?;
+            if mesh.positions_micrometres().len() != skinning.vertices().len() {
+                return Err(RenderContentContractError::InvalidSkinningProfile);
+            }
+            mesh_revisions.push(skinning.mesh_revision());
+        }
+        mesh_revisions.sort();
+        ensure_unique(&mesh_revisions)?;
         Ok(())
     }
 }
@@ -520,12 +584,16 @@ fn ensure_unique_asset_ids(
     meshes: &[AssetRevisionRefV1],
     materials: &[AssetRevisionRefV1],
     textures: &[AssetRevisionRefV1],
+    base_skinning_profiles: &[AssetRevisionRefV1],
 ) -> Result<(), RenderContentContractError> {
-    let mut ids = Vec::with_capacity(1 + meshes.len() + materials.len() + textures.len());
+    let mut ids = Vec::with_capacity(
+        1 + meshes.len() + materials.len() + textures.len() + base_skinning_profiles.len(),
+    );
     ids.push(profile.asset_id);
     ids.extend(meshes.iter().map(|value| value.asset_id));
     ids.extend(materials.iter().map(|value| value.asset_id));
     ids.extend(textures.iter().map(|value| value.asset_id));
+    ids.extend(base_skinning_profiles.iter().map(|value| value.asset_id));
     ids.sort();
     ensure_unique(&ids)
 }

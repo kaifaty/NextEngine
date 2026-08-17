@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 2.7 |
+| Версия | 2.8 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-03 2.6; aligns immutable content with authoring V7/body-schema activation and the Replay V10 ten-owner closure |
+| Заменяет | SPEC-03 2.7; updates the exact current content closure after the presentation-only R5f profile without changing world partition or persistence owners |
 
 ## Sources of truth
 
@@ -170,7 +170,7 @@ Missing optional content uses only an exact declared fallback.
 ## Product checks
 
 - `content-package`: deterministic cook and activation of the complete
-  four-region/64-chunk, 122-entry/36-root closure plus malformed/cyclic/missing content
+  four-region/64-chunk, 123-entry/37-root closure plus malformed/cyclic/missing content
   and Luau/Wasm packages.
 - `play`: exact initial-role → frontier-role → initial-role transition through
   the paired production Assets/World/Runtime path without changing the R2

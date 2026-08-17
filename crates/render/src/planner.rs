@@ -14,7 +14,7 @@ pub struct B0FramePlannerMetricsV1 {
 
 #[derive(Clone, Debug)]
 struct CachedB0FramePlanV1 {
-    snapshot: PresentationSnapshotV2,
+    snapshot: PresentationSnapshotV3,
     catalog_hash: ContentHash,
     target: RenderTargetV1,
     plan: B0FramePlanV1,
@@ -23,7 +23,7 @@ struct CachedB0FramePlanV1 {
 impl CachedB0FramePlanV1 {
     fn matches(
         &self,
-        snapshot: &PresentationSnapshotV2,
+        snapshot: &PresentationSnapshotV3,
         catalog_hash: ContentHash,
         target: RenderTargetV1,
     ) -> bool {
@@ -41,6 +41,7 @@ impl CachedB0FramePlanV1 {
 pub struct B0FramePlannerV1 {
     cached: Option<CachedB0FramePlanV1>,
     staged_draws: Vec<B0IndexedDrawV1>,
+    staged_skinned_vertex_streams: Vec<B0SkinnedVertexStreamV1>,
     hash_preimage: Vec<u8>,
     metrics: B0FramePlannerMetricsV1,
 }
@@ -51,6 +52,7 @@ impl B0FramePlannerV1 {
         Self {
             cached: None,
             staged_draws: Vec::new(),
+            staged_skinned_vertex_streams: Vec::new(),
             hash_preimage: Vec::new(),
             metrics: B0FramePlannerMetricsV1 {
                 cache_hits: 0,
@@ -73,7 +75,7 @@ impl B0FramePlannerV1 {
 
     pub fn build_or_reuse(
         &mut self,
-        snapshot: &PresentationSnapshotV2,
+        snapshot: &PresentationSnapshotV3,
         catalog: &RenderContentCatalogV1,
         target: RenderTargetV1,
     ) -> Result<&B0FramePlanV1, RenderDeviceError> {
@@ -93,6 +95,7 @@ impl B0FramePlannerV1 {
             catalog,
             target,
             &mut self.staged_draws,
+            &mut self.staged_skinned_vertex_streams,
             &mut self.hash_preimage,
         ) {
             Ok(parts) => parts,
@@ -101,7 +104,10 @@ impl B0FramePlannerV1 {
                 return Err(error);
             }
         };
-        let candidate = parts.finish(std::mem::take(&mut self.staged_draws));
+        let candidate = parts.finish(
+            std::mem::take(&mut self.staged_draws),
+            std::mem::take(&mut self.staged_skinned_vertex_streams),
+        );
 
         let cached_snapshot = if let Some(CachedB0FramePlanV1 {
             snapshot: mut prior_snapshot,
@@ -111,6 +117,7 @@ impl B0FramePlannerV1 {
         {
             prior_snapshot.clone_from(snapshot);
             self.staged_draws = prior_plan.draws;
+            self.staged_skinned_vertex_streams = prior_plan.skinned_vertex_streams;
             prior_snapshot
         } else {
             snapshot.clone()
@@ -129,6 +136,7 @@ impl B0FramePlannerV1 {
             return;
         };
         self.staged_draws = cached.plan.draws;
+        self.staged_skinned_vertex_streams = cached.plan.skinned_vertex_streams;
         self.metrics.explicit_invalidations = self.metrics.explicit_invalidations.saturating_add(1);
     }
 

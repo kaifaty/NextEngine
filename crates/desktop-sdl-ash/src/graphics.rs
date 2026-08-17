@@ -372,7 +372,7 @@ impl GraphicsContext {
 
     pub(super) fn render(
         &mut self,
-        snapshot: &PresentationSnapshotV2,
+        snapshot: &PresentationSnapshotV3,
         window: &Window,
         event_and_frame_source_update_microseconds: u64,
     ) -> Result<Option<SubmittedB0Frame>, DesktopAdapterError> {
@@ -494,7 +494,7 @@ impl GraphicsContext {
         let command_record_started = profiling_enabled.then(Instant::now);
         let b0_content = self
             .b0_content
-            .as_ref()
+            .as_mut()
             .ok_or(DesktopAdapterError::GraphicsContextMissing)?;
         b0_content.record_shadow(
             frame_slot.command_buffer,

@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use next_contracts::ids::ContentHash;
 use next_contracts::platform::{PlatformEventKindV1, PlatformEventV1};
-use next_contracts::presentation::PresentationSnapshotV2;
+use next_contracts::presentation::PresentationSnapshotV3;
 use next_contracts::session::ApplicationSessionStatusV1;
 
 use crate::{ApplicationCoordinator, ApplicationError, ApplicationRunOutcomeV1};
@@ -85,7 +85,7 @@ impl FixedStepLiveSchedulerV1 {
         application: &mut ApplicationCoordinator,
         elapsed: Duration,
         events: &[PlatformEventV1],
-    ) -> Result<Option<PresentationSnapshotV2>, ApplicationError> {
+    ) -> Result<Option<PresentationSnapshotV3>, ApplicationError> {
         self.advance_reference_game_presentation_shared(application, elapsed, events)
             .map(|presentation| presentation.map(Arc::unwrap_or_clone))
     }
@@ -97,7 +97,7 @@ impl FixedStepLiveSchedulerV1 {
         application: &mut ApplicationCoordinator,
         elapsed: Duration,
         events: &[PlatformEventV1],
-    ) -> Result<Option<Arc<PresentationSnapshotV2>>, ApplicationError> {
+    ) -> Result<Option<Arc<PresentationSnapshotV3>>, ApplicationError> {
         self.advance_reference_game_presentation_with(
             application,
             elapsed,
@@ -112,7 +112,7 @@ impl FixedStepLiveSchedulerV1 {
         elapsed: Duration,
         events: &[PlatformEventV1],
         observe_fixed_step: impl FnMut(u64, bool, Duration),
-    ) -> Result<Option<Arc<PresentationSnapshotV2>>, ApplicationError> {
+    ) -> Result<Option<Arc<PresentationSnapshotV3>>, ApplicationError> {
         self.advance_reference_game_presentation_shared_observed_admitting(
             application,
             elapsed,
@@ -134,7 +134,7 @@ impl FixedStepLiveSchedulerV1 {
         admitted_events: &[PlatformEventV1],
         events: &[PlatformEventV1],
         mut observe_fixed_step: impl FnMut(u64, bool, Duration),
-    ) -> Result<Option<Arc<PresentationSnapshotV2>>, ApplicationError> {
+    ) -> Result<Option<Arc<PresentationSnapshotV3>>, ApplicationError> {
         self.advance_reference_game_presentation_with_admission(
             application,
             elapsed,

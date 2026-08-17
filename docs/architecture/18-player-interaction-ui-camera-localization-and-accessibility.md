@@ -87,7 +87,7 @@ The frame is production input, not committed gameplay. Input gateway maps assign
 
 ## Camera, aiming и targeting
 
-`CameraIntent` contains presentation mode, focus subject/point, framing constraints, zoom/orbit deltas, collision policy ID and blend request. Camera controller reads immutable [SPEC-30](30-presentation-extraction-and-render-content.md) `PresentationSnapshotV2` and cooked camera profiles; it never writes character/physics transforms.
+`CameraIntent` contains presentation mode, focus subject/point, framing constraints, zoom/orbit deltas, collision policy ID and blend request. Camera controller reads immutable [SPEC-30](30-presentation-extraction-and-render-content.md) `PresentationSnapshotV3` and cooked camera profiles; it never writes character/physics transforms.
 
 An assigned action requiring gameplay targeting creates a `TargetingIntent` with `IngressAssignmentV1` tick, player/ability/action IDs, quantized aim values, declared query kind, `TargetingQueryProfile` ID/hash and optional proposed target `PersistentId`. It MUST NOT contain a camera transform/profile, rendered depth, interpolated pose, display extent or post-processing result.
 
@@ -112,7 +112,7 @@ gameplay hash.
 
 UI flow:
 
-`PresentationSnapshotV2/immutable query → UiSemanticSnapshot → rendered widgets → PlayerActionFrame → command candidate → WorldCommand validation → DomainEvent → new projection`.
+`PresentationSnapshotV3/immutable query → UiSemanticSnapshot → rendered widgets → PlayerActionFrame → command candidate → WorldCommand validation → DomainEvent → new projection`.
 
 Pause/menu policy in the admitted project composition MUST declare whether simulation continues, requests SPEC-29 `Suspended` at a fixed lifecycle boundary or runs a separate non-authoritative menu timeline. UI emits the declared action/request; a widget or platform callback cannot pause/resume/close authoritative state directly. UI animation or async asset load cannot delay authoritative command commit. Failed optional panel is removed with diagnostic; required project UI schema incompatibility fails before world activation.
 

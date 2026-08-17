@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use next_contracts::ids::{CommandLedgerHash, ContentHash, StateRoot};
 use next_contracts::localization::TextCatalogV1;
-use next_contracts::presentation::PresentationSnapshotV2;
+use next_contracts::presentation::PresentationSnapshotV3;
 use next_contracts::project::domain_hash;
 use next_contracts::render_content::RenderContentCatalogV1;
 use next_presentation::PresentationExtractorV1;
@@ -25,6 +25,7 @@ pub const R2_ALPHA_RENDER_PROFILE_COUNT: usize = 2;
 const LOGICAL_SCENE_RECORD_BYTES: u64 = 256;
 const LOGICAL_CAMERA_RECORD_BYTES: u64 = 256;
 const LOGICAL_UI_RECORD_BYTES: u64 = 512;
+const LOGICAL_SKINNING_RECORD_BYTES: u64 = 1_024;
 const LOGICAL_BATCH_BYTES: u64 = 64;
 const LOGICAL_SNAPSHOT_BYTES: u64 = 256;
 const LOGICAL_TIMING_SAMPLE_BYTES: u64 = 80;
@@ -153,7 +154,7 @@ pub struct PreparedR2AlphaRenderPerformanceCheckV1 {
 struct PreparedWindowV1 {
     window: R2AlphaRenderWindowV1,
     profile: R2AlphaRenderProfileV1,
-    snapshot: PresentationSnapshotV2,
+    snapshot: PresentationSnapshotV3,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -386,7 +387,7 @@ fn extract_window_snapshot(
     scenario: &ReferenceRunOutcomeV2,
     profile: R2AlphaRenderProfileV1,
     dialogue: bool,
-) -> Result<PresentationSnapshotV2, R2AlphaRenderPerformanceErrorV1> {
+) -> Result<PresentationSnapshotV3, R2AlphaRenderPerformanceErrorV1> {
     let mut extractor = PresentationExtractorV1::new(
         scenario.project_composition_lock_hash,
         profile.presentation_profile_hash(),
@@ -416,7 +417,7 @@ fn extract_window_snapshot(
         );
     }
     extractor
-        .extract_with_cameras_and_semantic_ui(
+        .extract_with_character_skinning(
             scenario.ticks,
             scenario.project_composition_lock_hash,
             scenario.content_manifest_hash,
@@ -424,13 +425,14 @@ fn extract_window_snapshot(
             &scenario.presentation_bindings,
             &[],
             ui_records,
+            scenario.character_skinning_records.clone(),
         )
         .cloned()
         .map_err(|error| workload_error("presentation-extraction", error))
 }
 
 fn logical_snapshot_charge(
-    snapshot: &PresentationSnapshotV2,
+    snapshot: &PresentationSnapshotV3,
 ) -> Result<u64, R2AlphaRenderPerformanceErrorV1> {
     let scene_records = snapshot
         .scene_batches
@@ -447,19 +449,27 @@ fn logical_snapshot_charge(
         .iter()
         .map(|batch| batch.records.len())
         .sum::<usize>();
+    let skinning_records = snapshot
+        .character_skinning_batches
+        .iter()
+        .map(|batch| batch.records.len())
+        .sum::<usize>();
     let batches = snapshot
         .scene_batches
         .len()
         .checked_add(snapshot.camera_batches.len())
         .and_then(|value| value.checked_add(snapshot.semantic_ui_batches.len()))
+        .and_then(|value| value.checked_add(snapshot.character_skinning_batches.len()))
         .ok_or_else(|| invalid_workload("presentation batch count overflow"))?;
     let scene_charge = checked_charge(scene_records, LOGICAL_SCENE_RECORD_BYTES)?;
     let camera_charge = checked_charge(camera_records, LOGICAL_CAMERA_RECORD_BYTES)?;
     let ui_charge = checked_charge(ui_records, LOGICAL_UI_RECORD_BYTES)?;
+    let skinning_charge = checked_charge(skinning_records, LOGICAL_SKINNING_RECORD_BYTES)?;
     let batch_charge = checked_charge(batches, LOGICAL_BATCH_BYTES)?;
     scene_charge
         .checked_add(camera_charge)
         .and_then(|bytes| bytes.checked_add(ui_charge))
+        .and_then(|bytes| bytes.checked_add(skinning_charge))
         .and_then(|bytes| bytes.checked_add(batch_charge))
         .and_then(|bytes| bytes.checked_add(LOGICAL_SNAPSHOT_BYTES))
         .ok_or_else(|| invalid_workload("presentation charge overflow"))

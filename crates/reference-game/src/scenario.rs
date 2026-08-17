@@ -28,7 +28,7 @@ mod evidence;
 mod presentation;
 
 use evidence::{accumulate_report, reference_stage_checkpoint, rpg_contact_facts_from_report};
-pub(super) use presentation::fixture_presentation_bindings;
+pub(super) use presentation::{fixture_character_skinning_records, fixture_presentation_bindings};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReferenceStageCheckpointV2 {
@@ -72,6 +72,8 @@ pub struct ReferenceRunOutcomeV2 {
     pub content_manifest_hash: ContentHash,
     pub render_content_catalog: next_contracts::render_content::RenderContentCatalogV1,
     pub presentation_bindings: Vec<PresentationBindingV1>,
+    pub character_skinning_records:
+        Vec<next_contracts::presentation::CharacterSkinningPresentationRecordV1>,
     pub tick_reports: Vec<next_runtime::TickReport>,
     pub world_streaming_snapshot: next_contracts::world::WorldStreamingSnapshotV1,
     pub world_routine_snapshot_or_none: Option<WorldRoutineSnapshotV1>,
@@ -521,6 +523,20 @@ pub fn run_reference_game_with_backend(
         &physical_animation,
         runtime.physics_snapshot(),
     )?;
+    let presentation_epoch = next_contracts::project::domain_hash(
+        "nextengine.presentation-snapshot-epoch.v1",
+        fixture
+            .activated_project
+            .project_lock
+            .project_lock_sha256
+            .as_bytes(),
+    );
+    let character_skinning_records = fixture_character_skinning_records(
+        &fixture,
+        &physical_animation,
+        runtime.physics_snapshot(),
+        presentation_epoch,
+    )?;
     Ok(ReferenceRunOutcomeV2 {
         ticks,
         final_pose,
@@ -552,6 +568,7 @@ pub fn run_reference_game_with_backend(
             .content_manifest_sha256,
         render_content_catalog: fixture.activated_project.render_content_catalog.clone(),
         presentation_bindings,
+        character_skinning_records,
         tick_reports,
         world_streaming_snapshot: world_streaming_snapshot.clone(),
         world_routine_snapshot_or_none,

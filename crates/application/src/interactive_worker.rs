@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use next_contracts::ids::{ContentHash, PersistentId};
 use next_contracts::platform::{PlatformCapabilitySetV1, PlatformEventV1};
-use next_contracts::presentation::PresentationSnapshotV2;
+use next_contracts::presentation::PresentationSnapshotV3;
 use next_contracts::render_content::RenderContentCatalogV1;
 use next_contracts::session::{
     ApplicationSessionStatusV1, CompositionRootV1, PresentationTargetKindV1,
@@ -166,7 +166,7 @@ pub struct InteractiveWorkerDiagnosticReportV1 {
 
 #[derive(Clone, Debug)]
 pub struct InteractiveWorkerReadyV1 {
-    pub initial_snapshot: Arc<PresentationSnapshotV2>,
+    pub initial_snapshot: Arc<PresentationSnapshotV3>,
     pub render_content_catalog: RenderContentCatalogV1,
     pub text_catalogs: Vec<next_contracts::localization::TextCatalogV1>,
     pub host_instance_id: PersistentId,
@@ -181,7 +181,7 @@ pub struct InteractiveMainSubmitV1 {
 
 #[derive(Clone, Debug)]
 pub struct InteractiveMainSnapshotReadV1 {
-    pub snapshot: Arc<PresentationSnapshotV2>,
+    pub snapshot: Arc<PresentationSnapshotV3>,
     pub lock_wait: Duration,
     pub processed_callbacks: u64,
     pub publication_callback_sequence: Option<u64>,
@@ -198,7 +198,7 @@ pub enum InteractiveWorkerFinalizationV1 {
 
 #[derive(Clone)]
 struct InteractivePublishedSnapshotV1 {
-    snapshot: Arc<PresentationSnapshotV2>,
+    snapshot: Arc<PresentationSnapshotV3>,
     callback_sequence: Option<u64>,
 }
 

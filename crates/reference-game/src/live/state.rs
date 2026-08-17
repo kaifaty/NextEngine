@@ -5,7 +5,7 @@
 use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1};
 use next_contracts::ids::ContentHash;
 use next_contracts::physical_animation::PhysicalAnimationSnapshotV1;
-use next_contracts::presentation::PresentationSnapshotV2;
+use next_contracts::presentation::PresentationSnapshotV3;
 use next_contracts::snapshot::{WorldCheckpointCanonicalComponentsV1, WorldCheckpointV4};
 use next_contracts::world::WorldStreamingSnapshotV1;
 use next_contracts::world_activity::WorldActivitySnapshotV1;
@@ -31,7 +31,7 @@ pub struct ReferenceLiveStateV2 {
     pub project_composition_lock_hash: ContentHash,
     pub content_manifest_hash: ContentHash,
     pub presentation_input_count: u64,
-    pub presentation_snapshot: PresentationSnapshotV2,
+    pub presentation_snapshot: PresentationSnapshotV3,
     pub driver_recovery: ReferenceLiveDriverRecoveryV1,
 }
 

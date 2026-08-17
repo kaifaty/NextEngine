@@ -373,6 +373,36 @@ pub(super) enum AuthoringRenderRecordV1 {
         fallback_texture_asset_id: String,
         source_span: AuthoringSourceSpanV1,
     },
+    BaseSkinningProfile {
+        asset_id: String,
+        record_revision: u64,
+        mesh_asset_id: String,
+        skeleton_asset_id: String,
+        body_schema_asset_id: String,
+        mesh_origin_in_skeleton_micrometres: [i64; 3],
+        max_instances_per_frame: u32,
+        render_joints: Vec<AuthoringRenderJointV1>,
+        vertex_joint_ranges: Vec<AuthoringVertexJointRangeV1>,
+        source_span: AuthoringSourceSpanV1,
+    },
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringRenderJointV1 {
+    pub render_joint_id: String,
+    pub parent_render_joint_id: Option<String>,
+    pub animation_joint_id: String,
+    pub body_semantic_id: String,
+    pub bind_translation_micrometres: [i64; 3],
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringVertexJointRangeV1 {
+    pub render_joint_id: String,
+    pub first_vertex: u32,
+    pub vertex_count: u32,
 }
 
 impl AuthoringRenderRecordV1 {
@@ -381,7 +411,8 @@ impl AuthoringRenderRecordV1 {
             Self::Mesh { source_span, .. }
             | Self::TextureRgba8 { source_span, .. }
             | Self::Material { source_span, .. }
-            | Self::B0Profile { source_span, .. } => source_span,
+            | Self::B0Profile { source_span, .. }
+            | Self::BaseSkinningProfile { source_span, .. } => source_span,
         }
     }
 }

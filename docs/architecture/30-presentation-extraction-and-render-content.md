@@ -4,16 +4,16 @@
 |---|---|
 | ID | SPEC-30 |
 | Статус | Accepted |
-| Версия | 3.5 |
+| Версия | 3.6 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
 | Дополнительные зависимости V3.5 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-30 3.4; retains the current atomic project activation boundary and adds the product-grounded embodiment/UI projection without changing PresentationSnapshotV2 |
+| Заменяет | SPEC-30 3.5; adds the current exact R5f character-skinning subprojection and B0 base-deformation route |
 
 ## Authority boundary
 
 Presentation is a read-only projection of committed simulation state. Runtime
-stages and atomically publishes one immutable `PresentationSnapshotV2` at the
+stages and atomically publishes one immutable `PresentationSnapshotV3` at the
 fixed extraction boundary. Renderer and UI consume the newest complete
 snapshot; they never write camera, visibility, widget or GPU state back into
 gameplay.
@@ -23,12 +23,12 @@ Vulkan timestamps and shader compilation are excluded from gameplay/replay
 roots. Authoritative targeting uses SPEC-18/26 queries, not screen coordinates,
 depth buffers or camera matrices.
 
-## `PresentationSnapshotV2`
+## `PresentationSnapshotV3`
 
 The implemented snapshot is:
 
 ```text
-PresentationSnapshotV2 {
+PresentationSnapshotV3 {
   schema_version,
   snapshot_epoch,
   snapshot_sequence,
@@ -39,6 +39,7 @@ PresentationSnapshotV2 {
   scene_batches[],
   camera_batches[],
   semantic_ui_batches[],
+  character_skinning_batches[],
   cue_batches[],
   environment_batch,
   canonical_hash
@@ -68,6 +69,11 @@ candidate; publication failure retains the prior snapshot.
   quantized current/previous transform samples, exact mesh/material references,
   bounds and presentation flags. `RuntimeEntityId`, ECS row and draw index are
   not durable identity.
+- `CharacterSkinningPresentationRecordV1` binds that same stable object key to
+  exact mesh/profile/skeleton/body-schema revisions, source animation-profile
+  hash, `Sampled | BindPoseFallback` mode and a complete sorted render-joint
+  local pose. A skinned scene record must have exactly one matching record in
+  the same snapshot; mesh/object mismatch rejects the candidate.
 - `CameraPresentationRecordV2` carries typed integer/fixed-point camera intent
   and result, viewport, projection and cut/interpolation policy. Private
   renderer float matrices are derived caches.
@@ -83,13 +89,14 @@ UI menus may compose a new immutable presentation snapshot while simulation is
 suspended, but cannot mutate world state. Gameplay actions still enter through
 the normalized action/command path.
 
-SPEC-37 defines a future character-embodiment subprojection built from the
-committed `RenderPose`, exact surface profile and immutable SPEC-36 condition/
-applied-effort views. Base skinning, pose/load/injury deformation, visual
-secondary motion and severity/accessibility variants are renderer-owned
-reconstructible data. They do not add current `PresentationSnapshotV2` fields
-in this change and can be disabled in headless/null presentation without
-changing condition, command, physics or gameplay roots.
+R5f implements only the base SPEC-37 subprojection. It maps the existing
+committed `PhysicalAnimationPoseV1` through one exact surface profile into the
+current `PresentationSnapshotV3`; both reference player and NPC use the same
+profile and retain distinct materials/body transforms. Joint palettes, CPU/GPU
+buffers and deformed vertices remain renderer-owned reconstructible data.
+Pose/load/injury correctives, secondary motion and severity/accessibility
+variants remain later cuts. Headless/null presentation may omit all of this
+without changing command, physics, save, Replay or gameplay roots.
 
 ## Neutral render content
 
@@ -99,17 +106,29 @@ canonical payloads, references, bounds, index/attribute consistency, color
 interpretation and profile support before `ActivatedProjectV8` publication.
 
 The implemented renderer consumes the locked B0 shader interface and derived
-meshlet/indexed-indirect content. Backend handles, descriptor sets, command
-buffers, SPIR-V compiler objects and Vulkan structs remain private. Stable
-pipeline/cache keys derive only from exact content/profile/interface inputs;
-cache state is reconstructible.
+meshlet/indexed-indirect content. R5f performs bounded fixed-point linear blend
+skinning from the exact profile and complete joint record, hashes the resulting
+vertex stream and uploads position plus the locked UV/normal template through a
+per-frame-slot host-visible Vulkan vertex ring. Static draws keep the existing
+indexed-indirect path; skinned draws bind their exact dynamic stream. Backend
+handles, descriptor sets, command buffers, SPIR-V compiler objects and Vulkan
+structs remain private. Stable pipeline/cache keys derive only from exact
+content/profile/interface inputs; cache state is reconstructible.
 
-Missing optional normals select the declared authored/flat-normal path. Missing
-material or unavailable optional shadow allocation selects only the declared
-presentation fallback. These paths do not replace content identity or change
-world/ledger roots. SDR color/alpha behavior and optional HDR fallback remain
-profile-owned presentation behavior; exact pixels are required only by an
-explicit pinned developer capture profile.
+Missing/invalid sampled skinning output selects the complete authored bind
+mesh. Missing optional normals select the declared authored/flat-normal path.
+Missing material or unavailable optional shadow allocation selects only the
+declared presentation fallback; the current R5f skinned draw intentionally
+uses the optional no-shadow branch while the static shadow path remains
+unchanged. These paths do not replace content identity or change world/ledger
+roots. SDR color/alpha behavior and optional HDR fallback remain profile-owned
+presentation behavior; exact pixels are required only by an explicit pinned
+developer capture profile.
+
+`RenderContentCatalogV1` and `PresentationSnapshotV3` are exact current-only
+alpha contracts under ADR-046. R5f replaces their prior in-tree shapes; it does
+not introduce compatibility aliases, persisted migrations or a second runtime
+catalog/snapshot family.
 
 ## Device loss and failure semantics
 
@@ -129,8 +148,8 @@ correctness oracle.
 
 - `play` proves snapshot cadence independence, camera/UI behavior and no
   reverse authority into gameplay.
-- `content-package` proves neutral render records, catalog closure and declared
-  fallbacks.
+- `content-package` proves neutral render records, exact base-profile closure,
+  shared player/NPC consumption, sampled deformation and bind-pose fallback.
 - `platform` is conditional for Vulkan/host/device changes.
 - `visual-smoke` and captures are bounded human evidence, not architecture
   admission artifacts.

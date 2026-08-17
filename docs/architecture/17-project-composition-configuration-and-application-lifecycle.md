@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-17 |
 | Статус | Accepted |
-| Версия | 2.5 |
+| Версия | 2.6 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-17 2.4; admits the exact body-schema asset through authoring V7 and `ActivatedProjectV8` |
+| Заменяет | SPEC-17 2.5; admits the exact R5f base-skinning root through authoring V7 and `ActivatedProjectV8` |
 
 ## Назначение
 
@@ -126,7 +126,7 @@ published project. Diagnostics include stable code plus expected/actual hashes
 or identities.
 
 `content-package` is the governing ProductCheck: cook the reference project,
-reopen the package, validate all 36 roots/122 entries and activate the same
+reopen the package, validate all 37 roots/123 entries and activate the same
 `ActivatedProjectV8` in required roots. `fast` covers focused contract tests;
 packaging or host changes additionally run `platform`/`v1-package` as selected
 by SPEC-12.

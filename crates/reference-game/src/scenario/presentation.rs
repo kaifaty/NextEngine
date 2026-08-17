@@ -1,12 +1,19 @@
 use super::*;
 use next_contracts::physics::PhysicsCanonicalSnapshotV2;
-use next_motor::{PhysicalAnimationOwnerV1, PhysicalAnimationPresentationAvailabilityV1};
+use next_contracts::presentation::{
+    BaseSkinningProjectionModeV1, CharacterSkinningPresentationRecordV1, PresentationObjectKeyV1,
+    PresentationRoleV1, RenderJointPoseV1,
+};
+use next_motor::{
+    PhysicalAnimationOwnerV1, PhysicalAnimationPresentationAvailabilityV1,
+    PhysicalAnimationProjectionModeV1,
+};
 
 pub(crate) fn fixture_presentation_bindings(
     fixture: &ReferenceGameSession,
     rpg: &RpgSnapshotV2,
-    physical_animation: &PhysicalAnimationOwnerV1,
-    physics: &PhysicsCanonicalSnapshotV2,
+    _physical_animation: &PhysicalAnimationOwnerV1,
+    _physics: &PhysicsCanonicalSnapshotV2,
 ) -> Result<Vec<PresentationBindingV1>, ReferenceGameError> {
     let revision = |asset_id| {
         fixture
@@ -33,7 +40,6 @@ pub(crate) fn fixture_presentation_bindings(
     };
     let (floor_mesh, floor_bounds) = mesh(crate::source::REFERENCE_FLOOR_MESH_ASSET_ID)?;
     let (humanoid_mesh, humanoid_bounds) = mesh(crate::source::REFERENCE_HUMANOID_MESH_ASSET_ID)?;
-    let (enemy_mesh, enemy_bounds) = mesh(crate::source::REFERENCE_ENEMY_MESH_ASSET_ID)?;
     let (quest_giver_mesh, quest_giver_bounds) =
         mesh(crate::source::REFERENCE_QUEST_GIVER_MESH_ASSET_ID)?;
     let (blade_mesh, blade_bounds) = mesh(crate::source::REFERENCE_BLADE_MESH_ASSET_ID)?;
@@ -96,18 +102,6 @@ pub(crate) fn fixture_presentation_bindings(
     } else {
         defeated_enemy_material
     };
-    let player_animation_pose = physical_animation.pose(
-        fixture.body_id,
-        physics,
-        Some(0),
-        PhysicalAnimationPresentationAvailabilityV1::FULL,
-    )?;
-    let npc_animation_pose = physical_animation.pose(
-        fixture.npc_character_id,
-        physics,
-        Some(0),
-        PhysicalAnimationPresentationAvailabilityV1::FULL,
-    )?;
     let pickup_equipped = matches!(
         aggregate_payload(rpg, RpgAggregateKindV1::Equipment, fixture.player_equipment_id),
         Some(RpgAggregatePayloadV1::Equipment(equipment))
@@ -191,14 +185,10 @@ pub(crate) fn fixture_presentation_bindings(
             material_revision: player_material,
             instance_ordinal: 0,
             local_bounds: humanoid_bounds,
-            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
-            physics_body_id: None,
-            fallback_transform: next_contracts::presentation::QuantizedPresentationTransformV1 {
-                translation_micrometres: player_animation_pose
-                    .rigid_root_pose
-                    .translation_micrometres,
-                orientation_q30: player_animation_pose.rigid_root_pose.rotation_q1_30,
-            },
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::SKINNED,
+            physics_body_id: Some(fixture.physics_body_id),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
             visible: true,
         },
         PresentationBindingV1 {
@@ -242,16 +232,17 @@ pub(crate) fn fixture_presentation_bindings(
             presentation_role: next_contracts::presentation::PresentationRoleV1::Character,
             incarnation: 0,
             presentation_layer: 4,
-            mesh_revision: enemy_mesh,
+            mesh_revision: humanoid_mesh,
             material_revision: enemy_material,
             instance_ordinal: 0,
-            local_bounds: enemy_bounds,
-            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
-            physics_body_id: None,
-            fallback_transform: next_contracts::presentation::QuantizedPresentationTransformV1 {
-                translation_micrometres: npc_animation_pose.rigid_root_pose.translation_micrometres,
-                orientation_q30: npc_animation_pose.rigid_root_pose.rotation_q1_30,
-            },
+            local_bounds: humanoid_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::SKINNED,
+            physics_body_id: Some(PhysicsBodyIdV1 {
+                subject_id: fixture.npc_character_id,
+                body_slot: 0,
+            }),
+            fallback_transform:
+                next_contracts::presentation::QuantizedPresentationTransformV1::default(),
             // The current grounded-capsule checkpoint keeps this solid body
             // for exact contact/replay continuation. Keep a darkened defeated
             // body visible so its collider never turns into an invisible
@@ -383,4 +374,88 @@ pub(crate) fn fixture_presentation_bindings(
         }
     }
     Ok(bindings)
+}
+
+pub(crate) fn fixture_character_skinning_records(
+    fixture: &ReferenceGameSession,
+    physical_animation: &PhysicalAnimationOwnerV1,
+    physics: &PhysicsCanonicalSnapshotV2,
+    snapshot_epoch: ContentHash,
+) -> Result<Vec<CharacterSkinningPresentationRecordV1>, ReferenceGameError> {
+    let profile = fixture
+        .activated_project
+        .render_content_catalog
+        .base_skinning_profile_for_mesh(
+            fixture
+                .activated_project
+                .render_content_catalog
+                .meshes()
+                .iter()
+                .find(|mesh| mesh.asset_id() == crate::source::REFERENCE_HUMANOID_MESH_ASSET_ID)
+                .and_then(|mesh| mesh.asset_revision().ok())
+                .ok_or(ReferenceGameError::PresentationAssetMissing)?,
+        )
+        .ok_or(ReferenceGameError::PresentationAssetMissing)?;
+    let profile_revision = profile
+        .asset_revision()
+        .map_err(|_| ReferenceGameError::PresentationAssetMissing)?;
+    let source_animation_profile_hash = physical_animation
+        .profile()
+        .revision()
+        .map_err(next_motor::PhysicalAnimationOwnerErrorV1::from)?;
+    let subjects = [
+        (fixture.body_id, PresentationRoleV1::PlayerAvatar),
+        (fixture.npc_character_id, PresentationRoleV1::Character),
+    ];
+    subjects
+        .into_iter()
+        .map(|(subject_id, role)| {
+            let pose = physical_animation.pose(
+                subject_id,
+                physics,
+                Some(0),
+                PhysicalAnimationPresentationAvailabilityV1::FULL,
+            )?;
+            let projection_mode = match pose.projection_mode {
+                PhysicalAnimationProjectionModeV1::BindPoseFallback => {
+                    BaseSkinningProjectionModeV1::BindPoseFallback
+                }
+                PhysicalAnimationProjectionModeV1::SampledWithFootIk
+                | PhysicalAnimationProjectionModeV1::SampledWithoutFootIk => {
+                    BaseSkinningProjectionModeV1::Sampled
+                }
+            };
+            let joints = profile
+                .render_joints()
+                .iter()
+                .map(|joint| {
+                    let local_transform = pose
+                        .joint_poses
+                        .iter()
+                        .find(|pose| pose.joint_key == joint.animation_joint_id)
+                        .map(|pose| pose.local_transform)
+                        .ok_or(ReferenceGameError::PresentationAssetMissing)?;
+                    Ok(RenderJointPoseV1 {
+                        render_joint_id: joint.render_joint_id.clone(),
+                        local_transform,
+                    })
+                })
+                .collect::<Result<Vec<_>, ReferenceGameError>>()?;
+            Ok(CharacterSkinningPresentationRecordV1::new(
+                PresentationObjectKeyV1 {
+                    snapshot_epoch,
+                    persistent_id: subject_id,
+                    presentation_role: role,
+                    incarnation: 0,
+                },
+                profile.mesh_revision(),
+                profile_revision,
+                profile.skeleton_revision(),
+                profile.body_schema_revision(),
+                source_animation_profile_hash,
+                projection_mode,
+                joints,
+            )?)
+        })
+        .collect()
 }

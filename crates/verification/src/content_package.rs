@@ -51,7 +51,7 @@ pub(crate) fn run_content_package_check_with_scratch(
     scratch: &ScratchContext,
 ) -> Result<ContentPackageCheckReport, ContentPackageCheckError> {
     let source = next_reference_game::project_source_v7()?;
-    if source.root_asset_ids.len() != 36 {
+    if source.root_asset_ids.len() != 37 {
         return Err(ContentPackageCheckError::FixtureClosureMismatch);
     }
     verify_world_routine_source_faults()?;
@@ -72,8 +72,32 @@ pub(crate) fn run_content_package_check_with_scratch(
         let (wasm_player_health, wasm_plugin_state_hash, wasm_host_api_major) =
             run_reference_wasm_plugin(activated.clone())?;
         let catalog = &activated.render_content_catalog;
+        let sampled_skinning_plan = build_b0_frame_plan(
+            &prepared.snapshot,
+            &prepared.render_content_catalog,
+            RenderTargetV1 {
+                extent: [960, 540],
+                target_revision: 1,
+            },
+        )
+        .map_err(crate::PlayCheckError::from)?;
+        let bind_pose_plan = bind_pose_fallback_plan(&prepared)?;
         let fallback_plan = fallback_material_plan(&prepared)?;
-        if activated.content_manifest.body.asset_entries.len() != 122
+        let skinning_records = prepared
+            .snapshot
+            .character_skinning_records()
+            .collect::<Vec<_>>();
+        let skinning_profile = catalog
+            .base_skinning_profiles()
+            .first()
+            .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?;
+        let skinning_profile_revision = skinning_profile
+            .asset_revision()
+            .map_err(|_| ContentPackageCheckError::FixtureClosureMismatch)?;
+        let humanoid_mesh = catalog
+            .mesh(skinning_profile.mesh_revision())
+            .ok_or(ContentPackageCheckError::FixtureClosureMismatch)?;
+        if activated.content_manifest.body.asset_entries.len() != 123
             || activated.text_catalogs.len() != 2
             || activated.audio_clips.len() != 4
             || activated.neutral_skeletons.len() != 1
@@ -92,6 +116,7 @@ pub(crate) fn run_content_package_check_with_scratch(
             || catalog.meshes().len() != 12
             || catalog.materials().len() != 11
             || catalog.textures().len() != 7
+            || catalog.base_skinning_profiles().len() != 1
             || catalog.cooked_meshes().len() != 12
             || catalog
                 .meshes()
@@ -105,6 +130,35 @@ pub(crate) fn run_content_package_check_with_scratch(
             || prepared.check.indexed_draw_count != 8
             || prepared.check.fallback_material_draw_count != 0
             || fallback_plan.fallback_material_draw_count != 1
+            || skinning_records.len() != 2
+            || skinning_records
+                .iter()
+                .any(|record| record.skinning_profile_revision != skinning_profile_revision)
+            || !skinning_records.iter().any(|record| {
+                record.object_key.presentation_role
+                    == next_contracts::presentation::PresentationRoleV1::PlayerAvatar
+            })
+            || !skinning_records.iter().any(|record| {
+                record.object_key.presentation_role
+                    == next_contracts::presentation::PresentationRoleV1::Character
+            })
+            || sampled_skinning_plan.skinned_vertex_streams.len() != 2
+            || sampled_skinning_plan
+                .skinned_vertex_streams
+                .iter()
+                .any(|stream| stream.used_bind_pose_fallback)
+            || sampled_skinning_plan
+                .skinned_vertex_streams
+                .iter()
+                .all(|stream| {
+                    stream.positions_micrometres.as_slice() == humanoid_mesh.positions_micrometres()
+                })
+            || bind_pose_plan.skinned_vertex_streams.len() != 2
+            || bind_pose_plan.skinned_vertex_streams.iter().any(|stream| {
+                !stream.used_bind_pose_fallback
+                    || stream.positions_micrometres.as_slice()
+                        != humanoid_mesh.positions_micrometres()
+            })
             || gameplay.npc_health != 0
             || scripted_player_health != 50
             || wasm_player_health != 50
@@ -319,18 +373,74 @@ fn fallback_material_plan(
             )
         })
         .collect();
-    let fallback_snapshot = next_contracts::presentation::PresentationSnapshotV2::new(
-        snapshot.snapshot_epoch,
-        snapshot.snapshot_sequence,
-        snapshot.simulation_tick,
-        snapshot.project_composition_lock_hash,
-        snapshot.content_manifest_hash,
-        snapshot.presentation_profile_hash,
-        records,
-        8,
-        snapshot.environment_batch,
+    let fallback_snapshot =
+        next_contracts::presentation::PresentationSnapshotV3::new_with_character_skinning_records(
+            snapshot.snapshot_epoch,
+            snapshot.snapshot_sequence,
+            snapshot.simulation_tick,
+            snapshot.project_composition_lock_hash,
+            snapshot.content_manifest_hash,
+            snapshot.presentation_profile_hash,
+            records,
+            snapshot.camera_records().cloned().collect(),
+            snapshot.semantic_ui_records().cloned().collect(),
+            snapshot.character_skinning_records().cloned().collect(),
+            8,
+            8,
+            next_contracts::presentation::PRESENTATION_DEFAULT_SEMANTIC_UI_RECORDS_PER_BATCH,
+            snapshot.environment_batch,
+        )
+        .map_err(ContentPackageCheckError::Presentation)?;
+    build_b0_frame_plan(
+        &fallback_snapshot,
+        &prepared.render_content_catalog,
+        RenderTargetV1 {
+            extent: [960, 540],
+            target_revision: 1,
+        },
     )
-    .map_err(ContentPackageCheckError::Presentation)?;
+    .map_err(crate::PlayCheckError::from)
+    .map_err(ContentPackageCheckError::from)
+}
+
+fn bind_pose_fallback_plan(
+    prepared: &crate::PreparedGameFrameV1,
+) -> Result<next_render::B0FramePlanV1, ContentPackageCheckError> {
+    let snapshot = &prepared.snapshot;
+    let skinning_records = snapshot
+        .character_skinning_records()
+        .map(|record| {
+            next_contracts::presentation::CharacterSkinningPresentationRecordV1::new(
+                record.object_key,
+                record.mesh_revision,
+                record.skinning_profile_revision,
+                record.source_skeleton_revision,
+                record.source_body_schema_revision,
+                record.source_animation_profile_hash,
+                next_contracts::presentation::BaseSkinningProjectionModeV1::BindPoseFallback,
+                record.ordered_local_joint_poses.clone(),
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(ContentPackageCheckError::Presentation)?;
+    let fallback_snapshot =
+        next_contracts::presentation::PresentationSnapshotV3::new_with_character_skinning_records(
+            snapshot.snapshot_epoch,
+            snapshot.snapshot_sequence,
+            snapshot.simulation_tick,
+            snapshot.project_composition_lock_hash,
+            snapshot.content_manifest_hash,
+            snapshot.presentation_profile_hash,
+            snapshot.scene_records().cloned().collect(),
+            snapshot.camera_records().cloned().collect(),
+            snapshot.semantic_ui_records().cloned().collect(),
+            skinning_records,
+            8,
+            8,
+            next_contracts::presentation::PRESENTATION_DEFAULT_SEMANTIC_UI_RECORDS_PER_BATCH,
+            snapshot.environment_batch,
+        )
+        .map_err(ContentPackageCheckError::Presentation)?;
     build_b0_frame_plan(
         &fallback_snapshot,
         &prepared.render_content_catalog,
@@ -633,7 +743,7 @@ mod tests {
     #[test]
     fn content_package_uses_cooker_publisher_and_production_loader() {
         let report = run_content_package_check().expect("content-package passes");
-        assert_eq!(report.records, 122);
+        assert_eq!(report.records, 123);
         assert_eq!(report.chunks, 64);
         assert_eq!(report.mechanic_packages, 2);
         assert_eq!(report.wasm_plugins, 1);

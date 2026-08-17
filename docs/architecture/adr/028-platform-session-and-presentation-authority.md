@@ -159,7 +159,7 @@ world activation; optional capability uses its manifest-declared fallback.
 ### Presentation authority
 
 Presentation extraction copies a bounded immutable projection at a declared
-simulation boundary into `PresentationSnapshotV2`. Snapshot epoch/object keys
+simulation boundary into `PresentationSnapshotV3`. Snapshot epoch/object keys
 are engine-owned nominal values. Rendering, UI, audio and VFX may interpolate
 or cache this snapshot, but cannot mutate it or return derived state to
 simulation.

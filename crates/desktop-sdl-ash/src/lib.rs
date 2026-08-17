@@ -15,7 +15,7 @@ use next_contracts::localization::TextCatalogV1;
 use next_contracts::platform::{
     NormalizedControlPhaseV1, PlatformCapabilitySetV1, PlatformEventKindV1, PlatformEventV1,
 };
-use next_contracts::presentation::PresentationSnapshotV2;
+use next_contracts::presentation::PresentationSnapshotV3;
 use next_contracts::render_content::RenderContentCatalogV1;
 use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::{Mod, Scancode};
@@ -50,7 +50,7 @@ pub fn desktop_capability_set_hash() -> Result<ContentHash, DesktopAdapterError>
 }
 
 pub fn run_interactive(
-    snapshot: &PresentationSnapshotV2,
+    snapshot: &PresentationSnapshotV3,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
@@ -58,7 +58,7 @@ pub fn run_interactive(
 }
 
 pub fn run_interactive_with_event_sink(
-    snapshot: &PresentationSnapshotV2,
+    snapshot: &PresentationSnapshotV3,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
     mut event_sink: impl FnMut(&[PlatformEventV1]) -> Result<(), DesktopAdapterError>,
@@ -75,12 +75,12 @@ pub fn run_interactive_with_event_sink(
 /// simulation and atomically replace the immutable presentation snapshot once
 /// per event-loop iteration.
 pub fn run_interactive_with_frame_source(
-    snapshot: &PresentationSnapshotV2,
+    snapshot: &PresentationSnapshotV3,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
     mut frame_source: impl FnMut(
         &[PlatformEventV1],
-    ) -> Result<Option<PresentationSnapshotV2>, DesktopAdapterError>,
+    ) -> Result<Option<PresentationSnapshotV3>, DesktopAdapterError>,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
     run_interactive_with_timed_frame_source(
         snapshot,
@@ -97,13 +97,13 @@ pub fn run_interactive_with_frame_source(
 /// publish no new snapshot, allowing rendering to repeat the latest immutable
 /// projection.
 pub fn run_interactive_with_timed_frame_source(
-    snapshot: &PresentationSnapshotV2,
+    snapshot: &PresentationSnapshotV3,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
     frame_source: impl FnMut(
         &[PlatformEventV1],
         Duration,
-    ) -> Result<Option<PresentationSnapshotV2>, DesktopAdapterError>,
+    ) -> Result<Option<PresentationSnapshotV3>, DesktopAdapterError>,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
     run_interactive_with_timed_frame_source_and_finalize(
         snapshot,
@@ -124,13 +124,13 @@ pub fn run_interactive_with_timed_frame_source(
 /// alive and repeats the hook after a short non-authoritative host delay. The
 /// hook must be exact-retry safe and must not call back into this adapter.
 pub fn run_interactive_with_timed_frame_source_and_finalize(
-    snapshot: &PresentationSnapshotV2,
+    snapshot: &PresentationSnapshotV3,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
     mut frame_source: impl FnMut(
         &[PlatformEventV1],
         Duration,
-    ) -> Result<Option<PresentationSnapshotV2>, DesktopAdapterError>,
+    ) -> Result<Option<PresentationSnapshotV3>, DesktopAdapterError>,
     finalize_application: impl FnMut() -> DesktopApplicationFinalization,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
     run_interactive_with_shared_timed_frame_source_and_finalize(
@@ -150,13 +150,13 @@ pub fn run_interactive_with_timed_frame_source_and_finalize(
 /// the render thread. Snapshot validation and monotonic transition checks are
 /// identical to [`run_interactive_with_timed_frame_source_and_finalize`].
 pub fn run_interactive_with_shared_timed_frame_source_and_finalize(
-    snapshot: Arc<PresentationSnapshotV2>,
+    snapshot: Arc<PresentationSnapshotV3>,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
     frame_source: impl FnMut(
         &[PlatformEventV1],
         Duration,
-    ) -> Result<Option<Arc<PresentationSnapshotV2>>, DesktopAdapterError>,
+    ) -> Result<Option<Arc<PresentationSnapshotV3>>, DesktopAdapterError>,
     finalize_application: impl FnMut() -> DesktopApplicationFinalization,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
     prepared_run::run_interactive_with_shared_timed_frame_source_and_finalize(
@@ -172,14 +172,14 @@ pub fn run_interactive_with_shared_timed_frame_source_and_finalize(
 /// receives the adapter-owned bounded audio sink on every pump and may queue
 /// canonical PCM windows produced by the simulation worker (A4, AUDIO-P1).
 pub fn run_interactive_with_shared_timed_frame_source_audio_and_finalize(
-    snapshot: Arc<PresentationSnapshotV2>,
+    snapshot: Arc<PresentationSnapshotV3>,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
     frame_source: impl FnMut(
         &[PlatformEventV1],
         Duration,
         &mut DesktopAudioOutputV1,
-    ) -> Result<Option<Arc<PresentationSnapshotV2>>, DesktopAdapterError>,
+    ) -> Result<Option<Arc<PresentationSnapshotV3>>, DesktopAdapterError>,
     finalize_application: impl FnMut() -> DesktopApplicationFinalization,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
     prepared_run::run_interactive_with_shared_timed_frame_source_audio_and_finalize(
@@ -195,8 +195,8 @@ pub fn run_interactive_with_shared_timed_frame_source_audio_and_finalize(
 /// adapter. Kept public so composition-level regression tests can exercise
 /// the exact worker-to-adapter boundary without starting a native window.
 pub fn validate_presentation_snapshot_transition(
-    current: &PresentationSnapshotV2,
-    next: &PresentationSnapshotV2,
+    current: &PresentationSnapshotV3,
+    next: &PresentationSnapshotV3,
 ) -> Result<(), DesktopAdapterError> {
     next.validate()?;
     if next.project_composition_lock_hash != current.project_composition_lock_hash
@@ -218,13 +218,13 @@ pub fn validate_presentation_snapshot_transition(
 }
 
 fn apply_frame_source_result(
-    current_snapshot: &RefCell<Arc<PresentationSnapshotV2>>,
+    current_snapshot: &RefCell<Arc<PresentationSnapshotV3>>,
     frame_source: &mut impl FnMut(
         &[PlatformEventV1],
         Duration,
         &mut DesktopAudioOutputV1,
     )
-        -> Result<Option<Arc<PresentationSnapshotV2>>, DesktopAdapterError>,
+        -> Result<Option<Arc<PresentationSnapshotV3>>, DesktopAdapterError>,
     events: &[PlatformEventV1],
     elapsed: Duration,
     audio: &mut DesktopAudioOutputV1,

@@ -10,7 +10,7 @@ impl GraphicsContext {
     /// Re-rasterizes and re-uploads the optional overlay for the current
     /// publication. Called after the frame-slot fence proves the slot's prior
     /// overlay sample completed; overlay failures never fail the frame.
-    pub(super) fn update_ui_overlay(&mut self, snapshot: &PresentationSnapshotV2) {
+    pub(super) fn update_ui_overlay(&mut self, snapshot: &PresentationSnapshotV3) {
         let Some(extent) = self.swapchain.as_ref().map(|swapchain| swapchain.extent) else {
             return;
         };

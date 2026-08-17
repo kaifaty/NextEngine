@@ -86,8 +86,20 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
         .expect("enemy presentation");
     assert_eq!(
         enemy.mesh_revision.asset_id,
-        AssetId::from_bytes([0xc9; 16])
+        AssetId::from_bytes([0xc1; 16])
     );
+    assert_eq!(
+        initial
+            .presentation_snapshot
+            .character_skinning_records()
+            .count(),
+        2
+    );
+    assert!([player, enemy].iter().all(|record| {
+        record
+            .feature_flags
+            .contains(next_contracts::presentation::ScenePresentationFlagsV1::SKINNED)
+    }));
     let quest_giver = initial_scene
         .iter()
         .find(|record| record.object_key.persistent_id == quest_giver_character_id)
@@ -117,11 +129,20 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
         },
     )
     .expect("initial visual plan");
+    assert_eq!(initial_plan.skinned_vertex_streams.len(), 2);
+    assert!(
+        initial_plan
+            .skinned_vertex_streams
+            .iter()
+            .all(|stream| !stream.used_bind_pose_fallback)
+    );
     assert!(initial_plan.draws.iter().any(|draw| {
         draw.material_revision.asset_id == AssetId::from_bytes([0xd7; 16]) && !draw.casts_shadow
     }));
     assert!(initial_plan.draws.iter().all(|draw| {
-        draw.material_revision.asset_id == AssetId::from_bytes([0xd7; 16]) || draw.casts_shadow
+        draw.material_revision.asset_id == AssetId::from_bytes([0xd7; 16])
+            || draw.skinning_vertex_stream_index.is_some()
+            || draw.casts_shadow
     }));
 
     let initial_pickup = initial_scene

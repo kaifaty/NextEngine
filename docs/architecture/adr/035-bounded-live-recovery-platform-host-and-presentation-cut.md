@@ -148,7 +148,7 @@ transition; исключение — полный exact platform event, уже �
 
 ### 5. Authoritative presentation recovery cut
 
-Persisted `PresentationSnapshotV2` при same-session active restart сначала
+Persisted `PresentationSnapshotV3` при same-session active restart сначала
 декодируется и проверяется как evidence: exact profile, project/content
 bindings, authoritative tick и current camera state должны совпасть с
 восстановленным closure.
@@ -174,7 +174,7 @@ host, поэтому старый adapter lifetime не продолжает н�
 
 Решение не добавляет новый engine-owned public contract. Existing
 `PlatformCapabilitySetV1`, `PlatformEventV1`, lifecycle/close contracts,
-`RecoverySessionLinkV1` и `PresentationSnapshotV2` сохраняют wire semantics.
+`RecoverySessionLinkV1` и `PresentationSnapshotV3` сохраняют wire semantics.
 
 Private application durable snapshot получает current schema с full lifecycle
 archive и recovery-evidence archive. Legacy private generations MAY

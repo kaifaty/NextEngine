@@ -59,13 +59,15 @@ use next_contracts::project::{
     domain_hash,
 };
 use next_contracts::render_content::{
-    AabbI64V1, B0_RENDER_CONTENT_PROFILE_SCHEMA_ID, B0RenderContentProfileV1, MaterialAlphaModeV1,
-    MaterialColorSpaceV1, MaterialTextureSlotV1, MeshPrimitiveTopologyV1,
+    AabbI64V1, B0_RENDER_CONTENT_PROFILE_SCHEMA_ID, B0RenderContentProfileV1,
+    BaseSkinningFallbackV1, BaseSkinningMethodV1, MaterialAlphaModeV1, MaterialColorSpaceV1,
+    MaterialTextureSlotV1, MeshPrimitiveTopologyV1, NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID,
     NEUTRAL_MATERIAL_SCHEMA_ID, NEUTRAL_MESH_SCHEMA_ID, NEUTRAL_TEXTURE_SCHEMA_ID,
-    NeutralMaterialTextureBindingV1, NeutralMaterialV1, NeutralMeshPrimitiveV1, NeutralMeshV1,
-    NeutralRenderRecordV1, NeutralTexelEncodingV1, NeutralTextureAlphaSemanticsV1,
-    NeutralTextureColorSpaceV1, NeutralTextureDimensionV1, NeutralTextureMipLevelV1,
-    NeutralTextureV1, RenderContentContractError, UvTransformV1,
+    NeutralBaseSkinningProfileV1, NeutralMaterialTextureBindingV1, NeutralMaterialV1,
+    NeutralMeshPrimitiveV1, NeutralMeshV1, NeutralRenderJointV1, NeutralRenderRecordV1,
+    NeutralSkinInfluenceV1, NeutralSkinVertexV1, NeutralTexelEncodingV1,
+    NeutralTextureAlphaSemanticsV1, NeutralTextureColorSpaceV1, NeutralTextureDimensionV1,
+    NeutralTextureMipLevelV1, NeutralTextureV1, RenderContentContractError, UvTransformV1,
     b0_shader_interface_manifest_sha256,
 };
 use next_contracts::world_activity::{SystemicWorkProfileV1, WorldActivityCatalogV1};
@@ -156,7 +158,6 @@ fn load_project_authoring_with_override(
             .map_err(ProjectAuthoringError::from)
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let render_records = build_render_records(project_directory, &manifest.render_records)?;
     let text_catalogs = build_text_catalogs(project_directory, &manifest.text_catalogs)?;
     let audio_records = build_audio_records(project_directory, &manifest.audio_records)?;
     let (skeletons, animations) = build_animation_catalogs(project_directory, &manifest)?;
@@ -177,6 +178,12 @@ fn load_project_authoring_with_override(
     body_schema_asset
         .validate()
         .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+    let render_records = build_render_records(
+        project_directory,
+        &manifest.render_records,
+        &skeletons,
+        &body_schema_asset,
+    )?;
     let chunks = manifest
         .partition
         .chunks
@@ -313,6 +320,8 @@ fn load_project_authoring_with_override(
 fn build_render_records(
     project_directory: &Path,
     authored: &[AuthoringRenderRecordV1],
+    skeletons: &[NeutralSkeletonV1],
+    body_schema_asset: &BodySchemaAssetV1,
 ) -> Result<Vec<NeutralRenderRecordV1>, ProjectAuthoringError> {
     let mut records = Vec::new();
     let mut revisions = BTreeMap::<AssetId, AssetRevisionRefV1>::new();
@@ -397,7 +406,8 @@ fn build_render_records(
                 records.push(texture.into());
             }
             AuthoringRenderRecordV1::Material { .. }
-            | AuthoringRenderRecordV1::B0Profile { .. } => {}
+            | AuthoringRenderRecordV1::B0Profile { .. }
+            | AuthoringRenderRecordV1::BaseSkinningProfile { .. } => {}
         }
     }
     for record in authored {
@@ -444,6 +454,111 @@ fn build_render_records(
             )?;
             insert_revision(&mut revisions, material.asset_revision()?)?;
             records.push(material.into());
+        }
+    }
+    for record in authored {
+        if let AuthoringRenderRecordV1::BaseSkinningProfile {
+            asset_id: id,
+            record_revision,
+            mesh_asset_id,
+            skeleton_asset_id,
+            body_schema_asset_id,
+            mesh_origin_in_skeleton_micrometres,
+            max_instances_per_frame,
+            render_joints,
+            vertex_joint_ranges,
+            ..
+        } = record
+        {
+            let mesh_revision = revision(&revisions, mesh_asset_id)?;
+            let mesh = records
+                .iter()
+                .find_map(|record| match record {
+                    NeutralRenderRecordV1::Mesh(mesh)
+                        if mesh.asset_id() == mesh_revision.asset_id =>
+                    {
+                        Some(mesh)
+                    }
+                    _ => None,
+                })
+                .ok_or(ProjectAuthoringError::InvalidValue)?;
+            let skeleton_id = asset_id(skeleton_asset_id)?;
+            let skeleton = skeletons
+                .iter()
+                .find(|skeleton| skeleton.asset_id == skeleton_id)
+                .ok_or(ProjectAuthoringError::InvalidValue)?;
+            if asset_id(body_schema_asset_id)? != body_schema_asset.asset_id {
+                return Err(ProjectAuthoringError::InvalidValue);
+            }
+            let mut vertices = vec![None; mesh.positions_micrometres().len()];
+            for range in vertex_joint_ranges {
+                let start = usize::try_from(range.first_vertex)
+                    .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+                let count = usize::try_from(range.vertex_count)
+                    .map_err(|_| ProjectAuthoringError::InvalidValue)?;
+                let end = start
+                    .checked_add(count)
+                    .ok_or(ProjectAuthoringError::InvalidValue)?;
+                if count == 0 || end > vertices.len() {
+                    return Err(ProjectAuthoringError::InvalidValue);
+                }
+                let vertex = NeutralSkinVertexV1::new(vec![NeutralSkinInfluenceV1 {
+                    render_joint_id: SchemaId::new(&range.render_joint_id)?,
+                    weight_unorm16: u16::MAX,
+                }])?;
+                for slot in &mut vertices[start..end] {
+                    if slot.replace(vertex.clone()).is_some() {
+                        return Err(ProjectAuthoringError::InvalidValue);
+                    }
+                }
+            }
+            let vertices = vertices
+                .into_iter()
+                .collect::<Option<Vec<_>>>()
+                .ok_or(ProjectAuthoringError::InvalidValue)?;
+            let profile = NeutralBaseSkinningProfileV1::new(
+                schema_ref(
+                    NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID,
+                    SchemaRoleV1::NeutralContent,
+                    SchemaEncodingV1::CanonicalBinaryV1,
+                )?,
+                asset_id(id)?,
+                *record_revision,
+                mesh_revision,
+                skeleton.asset_revision()?,
+                AssetRevisionRefV1 {
+                    asset_id: body_schema_asset.asset_id,
+                    record_sha256: body_schema_asset
+                        .record_sha256()
+                        .map_err(|_| ProjectAuthoringError::InvalidValue)?,
+                },
+                *mesh_origin_in_skeleton_micrometres,
+                BaseSkinningMethodV1::LinearBlend,
+                BaseSkinningFallbackV1::BindPose,
+                *max_instances_per_frame,
+                render_joints
+                    .iter()
+                    .map(|joint| {
+                        Ok(NeutralRenderJointV1 {
+                            render_joint_id: SchemaId::new(&joint.render_joint_id)?,
+                            parent_render_joint_id: joint
+                                .parent_render_joint_id
+                                .as_deref()
+                                .map(SchemaId::new)
+                                .transpose()?,
+                            animation_joint_id: SchemaId::new(&joint.animation_joint_id)?,
+                            body_semantic_id: SchemaId::new(&joint.body_semantic_id)?,
+                            bind_transform: NeutralTransformV1::translated(
+                                joint.bind_translation_micrometres,
+                            ),
+                        })
+                    })
+                    .collect::<Result<Vec<_>, ProjectAuthoringError>>()?,
+                vertices,
+            )?;
+            profile.validate_against(mesh, skeleton, body_schema_asset)?;
+            insert_revision(&mut revisions, profile.asset_revision()?)?;
+            records.push(profile.into());
         }
     }
     for record in authored {

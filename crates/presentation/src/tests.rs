@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use super::*;
+use next_contracts::animation_content::NeutralTransformV1;
 use next_contracts::ids::{AssetId, PhysicsWorldId, SchemaId};
 use next_contracts::input::TickRateProfileV1;
 use next_contracts::physics::{
@@ -9,8 +10,9 @@ use next_contracts::physics::{
     PhysicsWorldCatalogV1,
 };
 use next_contracts::presentation::{
-    UiAccessibilityRoleV1, UiActionAffordanceV1, UiElementRoleV1, UiElementValueV1,
-    UiSemanticElementV1, UiStyleRoleV1, UiTextArgumentV1, UiTextRefV1,
+    BaseSkinningProjectionModeV1, RenderJointPoseV1, UiAccessibilityRoleV1, UiActionAffordanceV1,
+    UiElementRoleV1, UiElementValueV1, UiSemanticElementV1, UiStyleRoleV1, UiTextArgumentV1,
+    UiTextRefV1,
 };
 
 #[test]
@@ -196,6 +198,73 @@ fn recovery_round_trip_preserves_snapshot_sequence_and_interpolation_history() {
         PresentationExtractorV1::resume_from_recovery_bytes(&trailing),
         Err(PresentationExtractionError::RecoverySnapshotInvalid)
     ));
+}
+
+#[test]
+fn recovery_round_trip_preserves_exact_character_skinning_records() {
+    let lock = domain_hash("test.skinning-recovery.lock", b"lock");
+    let content = domain_hash("test.skinning-recovery.content", b"content");
+    let epoch = domain_hash("test.skinning-recovery.epoch", b"epoch");
+    let mut extractor = PresentationExtractorV1::new_with_snapshot_epoch_and_batch_limits(
+        epoch,
+        domain_hash("test.skinning-recovery.profile", b"profile"),
+        2,
+        1,
+    )
+    .expect("extractor");
+    let mut scene = binding(11);
+    scene.presentation_role = PresentationRoleV1::PlayerAvatar;
+    scene.feature_flags = ScenePresentationFlagsV1::SKINNED;
+    let skinning = CharacterSkinningPresentationRecordV1::new(
+        PresentationObjectKeyV1 {
+            snapshot_epoch: epoch,
+            persistent_id: scene.persistent_id,
+            presentation_role: scene.presentation_role,
+            incarnation: scene.incarnation,
+        },
+        scene.mesh_revision,
+        AssetRevisionRefV1 {
+            asset_id: AssetId::from_bytes([0x51; 16]),
+            record_sha256: domain_hash("test.skinning-profile", b"profile"),
+        },
+        AssetRevisionRefV1 {
+            asset_id: AssetId::from_bytes([0x52; 16]),
+            record_sha256: domain_hash("test.skinning-skeleton", b"skeleton"),
+        },
+        AssetRevisionRefV1 {
+            asset_id: AssetId::from_bytes([0x53; 16]),
+            record_sha256: domain_hash("test.skinning-body", b"body"),
+        },
+        domain_hash("test.skinning-animation-profile", b"animation"),
+        BaseSkinningProjectionModeV1::Sampled,
+        vec![RenderJointPoseV1 {
+            render_joint_id: SchemaId::new("test.render-joint.root").expect("joint id"),
+            local_transform: NeutralTransformV1::translated([0, 5_000, 0]),
+        }],
+    )
+    .expect("skinning record");
+    let snapshot = extractor
+        .extract_with_character_skinning(
+            7,
+            lock,
+            content,
+            &empty_physics(),
+            &[scene],
+            &[],
+            Vec::new(),
+            vec![skinning],
+        )
+        .expect("skinned snapshot")
+        .clone();
+    let bytes = extractor.recovery_bytes().expect("recovery bytes");
+    let resumed =
+        PresentationExtractorV1::resume_from_recovery_bytes(&bytes).expect("resume extractor");
+    assert_eq!(resumed.accepted_snapshot(), Some(&snapshot));
+    assert_eq!(snapshot.character_skinning_records().count(), 1);
+    assert_eq!(
+        resumed.recovery_bytes().expect("canonical recovery bytes"),
+        bytes
+    );
 }
 
 #[test]

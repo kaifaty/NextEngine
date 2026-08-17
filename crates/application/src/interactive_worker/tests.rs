@@ -492,7 +492,7 @@ fn wait_processed_callbacks(worker: &InteractiveSimulationWorkerV1, expected: u6
 }
 
 fn selected_pause_menu_element(
-    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    snapshot: &next_contracts::presentation::PresentationSnapshotV3,
 ) -> Option<String> {
     snapshot.semantic_ui_records().find_map(|record| {
         (record.element.selected
@@ -501,14 +501,14 @@ fn selected_pause_menu_element(
     })
 }
 
-fn pause_menu_visible(snapshot: &next_contracts::presentation::PresentationSnapshotV2) -> bool {
+fn pause_menu_visible(snapshot: &next_contracts::presentation::PresentationSnapshotV3) -> bool {
     snapshot
         .semantic_ui_records()
         .any(|record| record.surface_id.as_str() == next_reference_game::PAUSE_MENU_SURFACE_ID)
 }
 
 fn pause_menu_text_id(
-    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    snapshot: &next_contracts::presentation::PresentationSnapshotV3,
     element_id: &str,
 ) -> Option<String> {
     snapshot.semantic_ui_records().find_map(|record| {
@@ -524,7 +524,7 @@ fn pause_menu_text_id(
     })
 }
 
-fn player_translation(snapshot: &next_contracts::presentation::PresentationSnapshotV2) -> [i64; 3] {
+fn player_translation(snapshot: &next_contracts::presentation::PresentationSnapshotV3) -> [i64; 3] {
     let player_id = next_contracts::ids::PersistentId::from_bytes([0x54; 16]);
     snapshot
         .scene_records()
@@ -535,7 +535,7 @@ fn player_translation(snapshot: &next_contracts::presentation::PresentationSnaps
 }
 
 fn ui_text_argument_id(
-    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    snapshot: &next_contracts::presentation::PresentationSnapshotV3,
     element_id: &str,
     argument_index: usize,
 ) -> Option<String> {

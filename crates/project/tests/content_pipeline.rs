@@ -10,7 +10,8 @@ use next_contracts::ids::{AssetId, ContentHash, SchemaId, content_hash_from_byte
 use next_contracts::mechanics::interaction_definition_hash_v2;
 use next_contracts::project::ProjectLockV3;
 use next_contracts::render_content::{
-    B0RenderContentProfileV1, NeutralRenderRecordV1, RenderContentContractError,
+    B0RenderContentProfileV1, NeutralBaseSkinningProfileV1, NeutralRenderRecordV1,
+    RenderContentContractError,
 };
 use next_project::{ProjectActivationError, ProjectCookError, activate_project, cook_project_v7};
 
@@ -78,8 +79,8 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         activated.project_lock.project_lock_sha256,
         first.project_lock.project_lock_sha256
     );
-    assert_eq!(activated.content_manifest.body.root_assets.len(), 36);
-    assert_eq!(activated.content_manifest.body.asset_entries.len(), 122);
+    assert_eq!(activated.content_manifest.body.root_assets.len(), 37);
+    assert_eq!(activated.content_manifest.body.asset_entries.len(), 123);
     assert_eq!(activated.body_schema_asset, first.body_schema_asset);
     assert_eq!(activated.neutral_records.len(), 76);
     assert_eq!(activated.world_partition.body.root_region_ids.len(), 4);
@@ -176,6 +177,21 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
     assert_eq!(activated.render_content_catalog.meshes().len(), 12);
     assert_eq!(activated.render_content_catalog.materials().len(), 11);
     assert_eq!(activated.render_content_catalog.textures().len(), 7);
+    assert_eq!(
+        activated
+            .render_content_catalog
+            .base_skinning_profiles()
+            .len(),
+        1
+    );
+    let skinning = &activated.render_content_catalog.base_skinning_profiles()[0];
+    assert_eq!(
+        skinning.mesh_revision().asset_id,
+        AssetId::from_bytes([0xc1; 16])
+    );
+    assert_eq!(skinning.render_joints().len(), 8);
+    assert_eq!(skinning.vertices().len(), 48);
+    assert_eq!(skinning.max_instances_per_frame(), 2);
     let floor = activated
         .render_content_catalog
         .meshes()
@@ -717,6 +733,43 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
         cook_project_v7(duplicate_profile),
         Err(ProjectCookError::Render(
             RenderContentContractError::DuplicateIdentity
+        ))
+    ));
+
+    let mut invalid_skinning_mapping = next_reference_game::project_source_v7().expect("fixture");
+    let skinning_index = invalid_skinning_mapping
+        .render_records
+        .iter()
+        .position(|record| matches!(record, NeutralRenderRecordV1::BaseSkinningProfile(_)))
+        .expect("base skinning profile");
+    let NeutralRenderRecordV1::BaseSkinningProfile(skinning) =
+        &invalid_skinning_mapping.render_records[skinning_index]
+    else {
+        unreachable!("profile index was selected above")
+    };
+    let mut render_joints = skinning.render_joints().to_vec();
+    render_joints[0].animation_joint_id =
+        SchemaId::new("nextengine.missing.animation-joint").expect("joint id");
+    let invalid_skinning = NeutralBaseSkinningProfileV1::new(
+        skinning.schema_ref().clone(),
+        skinning.asset_id(),
+        skinning.record_revision(),
+        skinning.mesh_revision(),
+        skinning.skeleton_revision(),
+        skinning.body_schema_revision(),
+        skinning.mesh_origin_in_skeleton_micrometres(),
+        skinning.method(),
+        skinning.fallback(),
+        skinning.max_instances_per_frame(),
+        render_joints,
+        skinning.vertices().to_vec(),
+    )
+    .expect("mapping is structurally valid before exact skeleton closure");
+    invalid_skinning_mapping.render_records[skinning_index] = invalid_skinning.into();
+    assert!(matches!(
+        cook_project_v7(invalid_skinning_mapping),
+        Err(ProjectCookError::Render(
+            RenderContentContractError::InvalidSkinningProfile
         ))
     ));
 

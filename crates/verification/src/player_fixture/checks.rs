@@ -53,7 +53,7 @@ pub struct GameCheckReport {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PreparedGameFrameV1 {
     pub check: GameCheckReport,
-    pub snapshot: next_contracts::presentation::PresentationSnapshotV2,
+    pub snapshot: next_contracts::presentation::PresentationSnapshotV3,
     pub render_content_catalog: next_contracts::render_content::RenderContentCatalogV1,
     pub text_catalogs: Vec<TextCatalogV1>,
 }
@@ -138,7 +138,7 @@ fn prepare_game_frame_from_scenario(
         &scenario.runtime.rpg_snapshot(),
     )?;
     let snapshot = extractor
-        .extract_with_cameras_and_semantic_ui(
+        .extract_with_character_skinning(
             scenario.ticks,
             scenario.project_composition_lock_hash,
             scenario.content_manifest_hash,
@@ -146,6 +146,7 @@ fn prepare_game_frame_from_scenario(
             &scenario.presentation_bindings,
             &[],
             ui_records,
+            scenario.character_skinning_records.clone(),
         )?
         .clone();
     let render_content_catalog = scenario.render_content_catalog.clone();

@@ -4,11 +4,11 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 4.2 |
+| Версия | 4.3 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
 | Дополнительные зависимости V4.0 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | GLOSSARY-001 4.1; adds ADR-081 Proposed world-dynamics promotion terms without changing current public schemas or runtime behavior |
+| Заменяет | GLOSSARY-001 4.2; adds the current R5f base-skinning and presentation terms |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -60,7 +60,9 @@
 | **StructuralContactLoadBatch** | Proposed consumer-specific exact quantized impulse/moment batch with explicit reference point, stable one-use load identity and equal-and-opposite reaction receipt; generic contact events do not substitute for it. |
 | **MaterialParcelTopologyTransaction** | Proposed atomic thermochemical/mechanical split, merge or attachment-handoff operation with causally derived child IDs, parent tombstones and one conservation closure. |
 | **DomainEvent** | Неизменяемый факт об уже принятом изменении domain state. Не является альтернативным mutable API. |
-| **PresentationSnapshotV2** | Atomically published immutable scene/camera/semantic-UI plus bounded cue/environment-hash projection with snapshot epoch, sequence and stable object keys. Renderer/UI consume it read-only; it never writes back or enters gameplay hashes. |
+| **PresentationSnapshotV3** | Atomically published immutable scene/character-skinning/camera/semantic-UI plus bounded cue/environment-hash projection with snapshot epoch, sequence and stable object keys. Renderer/UI consume it read-only; it never writes back or enters gameplay hashes. |
+| **NeutralBaseSkinningProfileV1** | Current immutable content record binding one exact mesh, skeleton and BodySchema to stable render joints, explicit animation/body mapping, complete bounded LBS weights, instance limit and mandatory bind-pose fallback. |
+| **CharacterSkinningPresentationRecordV1** | Current reconstructible per-object projection binding exact skinning content/source revisions and one complete sorted sampled-or-bind-fallback local render-joint pose inside `PresentationSnapshotV3`. |
 | **PlatformCapabilitySetV1** | Canonical normalized engine-owned host capability/limit set selected before runtime staging; it contains no native device, extension or backend type. |
 | **PlatformTimebaseV1** | Checked monotonic native-sample normalization profile for platform diagnostics/order; it cannot compute simulation/world tick. |
 | **PlatformEventV1** | Bounded typed normalized platform fact with stable host/source sequence and identity; callback order is not authority. |

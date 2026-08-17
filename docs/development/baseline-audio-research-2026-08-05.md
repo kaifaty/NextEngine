@@ -74,7 +74,7 @@ class, occlusion zone, tick), не device output. Audio device loss → gameplay
 ### 3.3. Presentation cue boundary (SPEC-30)
 
 `PresentationCueEnvelopeV1` уже резервирует closed rank `Audio = 0`; audio cue
-ID — engine-owned `kind_local_key`. В коде `PresentationSnapshotV2.cue_batches`
+ID — engine-owned `kind_local_key`. В коде `PresentationSnapshotV3.cue_batches`
 — stub (`Vec<ContentHash>`, всегда пустой): вся cue machinery SPEC-30
 (typed envelopes, consumption state, realization outcomes) ещё не
 реализована ни для одного family. Audio будет первым real cue family;

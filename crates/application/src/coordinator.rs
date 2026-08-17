@@ -37,7 +37,7 @@ pub struct ApplicationRunOutcomeV1 {
     pub command_identity_index_root: ContentHash,
     pub command_ledger_hash: CommandLedgerHash,
     pub presentation_input_count: u64,
-    pub presentation_snapshot: Option<next_contracts::presentation::PresentationSnapshotV2>,
+    pub presentation_snapshot: Option<next_contracts::presentation::PresentationSnapshotV3>,
 }
 
 pub struct ApplicationCoordinator {

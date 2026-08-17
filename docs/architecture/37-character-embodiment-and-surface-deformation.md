@@ -4,12 +4,12 @@
 |---|---|
 | ID | SPEC-37 |
 | Статус | Accepted |
-| Scope status | Third-person visual target, read-only authority, content/LOD/fallback and first-vertical semantics are Accepted; exact schemas and advanced deformers remain Proposed |
-| Версия | 1.1 |
+| Scope status | Third-person visual target and the R5f exact base-rig/skinning route are Accepted/current; pose/load/injury deformation, severity/LOD matrix and advanced deformers remain Proposed |
+| Версия | 1.2 |
 | Последняя проверка | 2026-08-17 |
 | Product decision | [PRODUCT-FA-001](../product/functional-anatomy-and-character-embodiment.md) |
 | Нормативные зависимости | [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-37 1.0; adds the approved third-person visual target, severity profiles, readability contract and 16/64/distant presentation workload |
+| Заменяет | SPEC-37 1.1; records the production R5f base-rig, exact mapping, LBS and bind-pose fallback route |
 
 ## Назначение и status boundary
 
@@ -21,9 +21,11 @@ movement or injury authority.
 
 Accepted here are the one-way data flow, anatomically plausible visual target,
 `Reduced`/`Realistic`/`Graphic` severity semantics, mandatory base fallback,
-third-person readability, LOD behavior and first vertical. Exact
-`CharacterEmbodimentManifestV1`, GPU layouts, wound catalog, deformer model and
-renderer implementation remain Proposed until a production consumer exists.
+third-person readability, LOD behavior and first vertical. The current
+`NeutralBaseSkinningProfileV1`, exact presentation subprojection
+and B0 LBS consumer are admitted because R5f provides a production consumer.
+The broader `CharacterEmbodimentManifestV1`, pose/load/injury correctives,
+severity/LOD matrix, wound catalog and advanced deformer models remain Proposed.
 
 ## Product visual target
 
@@ -109,6 +111,20 @@ activation.
 The manifest contains no current pose, condition, effort, temporal deformer
 state or renderer device object.
 
+### Current R5f base profile
+
+R5f does not introduce the future all-features manifest. Its exact current
+`NeutralBaseSkinningProfileV1` binds one mesh, source skeleton and
+`BodySchemaAssetV1` revision; stable render-joint IDs with explicit animation-
+joint/body-semantic mappings; bind transforms; one-to-four positive LBS
+influences per vertex summing exactly to `u16::MAX`; a positive instance bound;
+and mandatory `BindPose` fallback. Cook and activation validate the complete
+closure before atomic publication.
+
+The reference player and NPC share this profile and mesh while retaining their
+distinct material and committed body-transform projections. Runtime name,
+nearest-bone or raw-index matching is absent.
+
 ## Required baseline and optional refinement
 
 Every admitted visible character has this complete baseline:
@@ -139,6 +155,10 @@ The first product vertical does not require a neural deformer or live soft-body
 solver. The production priority is a correct authored character and injury
 matrix. Advanced deformation must improve measured appearance while retaining
 the baseline on all target hardware.
+
+R5f implements the prefix through `base skinning` only. The following authored
+corrective and injury/topology stages remain mandatory for the complete future
+vertical and begin in later bounded cuts; R5f does not claim them.
 
 ## Pose, effort and muscle semantics
 
@@ -217,7 +237,14 @@ quality rule, not permission for a learned model to own gameplay.
 
 ## Snapshot and temporal state
 
-The future embodiment projection conceptually contains:
+The current base projection is
+`CharacterSkinningPresentationRecordV1` inside `PresentationSnapshotV3`. It
+binds stable object key, exact mesh/profile/skeleton/body-schema revisions,
+source animation-profile hash, sampled-or-bind-fallback mode and one complete
+sorted local render-joint pose. Scene and skinning records form an exact
+one-to-one closure for every skinned object.
+
+The future extended embodiment projection additionally contains:
 
 - subject `PersistentId`, presentation epoch and sequence;
 - embodiment/content profile hash;
@@ -227,8 +254,8 @@ The future embodiment projection conceptually contains:
 - applied-actuation source and optional visual recruitment;
 - presentation-only temporal state or explicit reset marker.
 
-Exact wire shape remains Proposed. Vendor tensors, GPU handles, descriptor
-objects and mutable ECS references are private.
+Its extended wire shape remains Proposed. Vendor tensors, GPU handles,
+descriptor objects and mutable ECS references are private.
 
 Temporal filters reset on subject/profile/topology/severity change,
 authoritative restart/cut, missing sequence or declared LOD transition. They use
@@ -293,10 +320,13 @@ deformer and capture availability change zero authoritative roots.
 
 ## First bounded product vertical
 
-One neutral humanoid and unilateral lower-limb set include:
+The bounded R5f prefix now includes:
 
 - authored render skeleton, one skinned surface and explicit physical/animation
   mapping;
+
+The remaining first-vertical work includes:
+
 - pose correctives sufficient for normal, limp, guarded, fall, crawl and drag
   poses;
 - intact, partial-damage, stable-fracture, retained-fracture and detached
@@ -321,9 +351,11 @@ The future `CHARACTER-EMBODIMENT-P1` requires:
 - 16/64/distant workload reports measured result or deterministic fallback;
 - optional captures support human review but are not gameplay oracles.
 
-It combines `content-package` and `play` with conditional `platform` and
-`performance`. Until a consumer exists, checks are
-`NotRun(NoProductionConsumer)` and no implementation claim follows.
+R5f combines focused contracts/recovery/render tests with `content-package`,
+`play`, `persistence-replay` and conditional `platform`; those checks admit
+only the base route. The broader `CHARACTER-EMBODIMENT-P1`, injury matrix and
+16/64/distant performance claim remain `NotRun(NoProductionConsumer)` until
+their own consumers exist.
 
 ## Failure semantics and fallback chain
 
@@ -339,9 +371,10 @@ It combines `content-package` and `play` with conditional `platform` and
 
 ## Implementation order
 
-1. Author the complete base rig, physical/render mapping, skinned surface and
-   third-person pose range.
-2. Add pose correctives and prove cadence/LOD authority isolation.
+1. **Implemented by R5f:** author the complete base rig, physical/render
+   mapping, skinned surface and normal third-person sampled/bind pose range.
+2. **Next bounded cut (R5g):** add pose correctives and prove cadence/LOD
+   authority isolation.
 3. Create all three severity profiles and the intact/partial/stable/retained/
    detached asset matrix with static fallbacks.
 4. Bind committed SPEC-36 state and SPEC-18 qualitative body UI.

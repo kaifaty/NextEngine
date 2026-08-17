@@ -11,7 +11,7 @@
 
 ## Technical authority boundary
 
-Authoritative visual inputs — immutable `PresentationSnapshotV2` и cooked
+Authoritative visual inputs — immutable `PresentationSnapshotV3` и cooked
 render assets по
 [SPEC-30](30-presentation-extraction-and-render-content.md). Presentation
 extraction publishes the canonical snapshot at the Runtime-declared boundary.
@@ -85,7 +85,7 @@ Slang и ash остаются `Proposed`. Slang mesh/task path не требуе
 ## Frame flow
 
 1. Platform adapter publishes a bounded canonical `PlatformEventV1` batch containing `NormalizedControlEventV1`; SPEC-18 resolves it into immutable `PlayerActionFrame`, а только ADR-022 assigns current/next tick.
-2. Renderer получает latest two atomically published `PresentationSnapshotV2` values и presentation-only interpolation alpha.
+2. Renderer получает latest two atomically published `PresentationSnapshotV3` values и presentation-only interpolation alpha.
 3. Streaming делает validated render resources resident, иначе declared placeholder.
 4. RenderGraph instance выбирает paths по immutable CapabilitySet.
 5. Backend records/submits and presents; GPU timestamps are collected only when
@@ -102,7 +102,7 @@ completion order do not determine output order.
 При out-of-date interactive target пересоздаётся только presentation chain. При
 device loss renderer прекращает submissions, сохраняет typed diagnostic,
 invalidates affected private cache generations и atomically rebuilds only from
-exact content/interface/profile/`PresentationSnapshotV2` inputs.
+exact content/interface/profile/`PresentationSnapshotV3` inputs.
 Simulation/session/snapshot roots
 остаются неизменны; policy MAY request typed `Suspended`, но device timing не
 выбирает gameplay outcome. CPU headless не загружает renderer. Capture-worker

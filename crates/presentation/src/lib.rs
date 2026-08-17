@@ -8,9 +8,9 @@ use next_contracts::ids::{ContentHash, PersistentId};
 use next_contracts::physics::{PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2};
 use next_contracts::presentation::{
     CameraInterpolationPolicyV1, CameraPresentationRecordV2, CameraProjectionProfileV1,
-    CameraResultSampleV1, CameraRoleV1, CameraViewportV1,
+    CameraResultSampleV1, CameraRoleV1, CameraViewportV1, CharacterSkinningPresentationRecordV1,
     PRESENTATION_DEFAULT_SEMANTIC_UI_RECORDS_PER_BATCH, PresentationContractError,
-    PresentationObjectKeyV1, PresentationRoleV1, PresentationSnapshotV2,
+    PresentationObjectKeyV1, PresentationRoleV1, PresentationSnapshotV3,
     QuantizedPresentationTransformV1, ScenePresentationFlagsV1, ScenePresentationRecordV2,
     SemanticUiPresentationRecordV1, ThirdPersonCameraIntentSampleV1,
 };
@@ -101,7 +101,7 @@ pub struct PresentationExtractorV1 {
     max_scene_records_per_batch: usize,
     max_camera_records_per_batch: usize,
     max_semantic_ui_records_per_batch: usize,
-    accepted_snapshot: Option<Arc<PresentationSnapshotV2>>,
+    accepted_snapshot: Option<Arc<PresentationSnapshotV3>>,
 }
 
 impl PresentationExtractorV1 {
@@ -214,7 +214,7 @@ impl PresentationExtractorV1 {
     pub fn begin_authoritative_recovery_from_bytes(
         bytes: &[u8],
         expected_presentation_profile_hash: ContentHash,
-    ) -> Result<(Self, PresentationSnapshotV2), PresentationExtractionError> {
+    ) -> Result<(Self, PresentationSnapshotV3), PresentationExtractionError> {
         let (
             persisted,
             max_scene_records_per_batch,
@@ -270,7 +270,7 @@ impl PresentationExtractorV1 {
         content_manifest_hash: ContentHash,
         physics: &PhysicsCanonicalSnapshotV2,
         bindings: &[PresentationBindingV1],
-    ) -> Result<&PresentationSnapshotV2, PresentationExtractionError> {
+    ) -> Result<&PresentationSnapshotV3, PresentationExtractionError> {
         self.extract_with_cameras(
             simulation_tick,
             project_composition_lock_hash,
@@ -293,7 +293,7 @@ impl PresentationExtractorV1 {
         physics: &PhysicsCanonicalSnapshotV2,
         bindings: &[PresentationBindingV1],
         camera_bindings: &[CameraPresentationBindingV1],
-    ) -> Result<&PresentationSnapshotV2, PresentationExtractionError> {
+    ) -> Result<&PresentationSnapshotV3, PresentationExtractionError> {
         self.extract_with_cameras_and_semantic_ui(
             simulation_tick,
             project_composition_lock_hash,
@@ -318,7 +318,34 @@ impl PresentationExtractorV1 {
         bindings: &[PresentationBindingV1],
         camera_bindings: &[CameraPresentationBindingV1],
         semantic_ui_records: Vec<SemanticUiPresentationRecordV1>,
-    ) -> Result<&PresentationSnapshotV2, PresentationExtractionError> {
+    ) -> Result<&PresentationSnapshotV3, PresentationExtractionError> {
+        self.extract_with_character_skinning(
+            simulation_tick,
+            project_composition_lock_hash,
+            content_manifest_hash,
+            physics,
+            bindings,
+            camera_bindings,
+            semantic_ui_records,
+            Vec::new(),
+        )
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "all immutable presentation families meet at one atomic successor boundary"
+    )]
+    pub fn extract_with_character_skinning(
+        &mut self,
+        simulation_tick: u64,
+        project_composition_lock_hash: ContentHash,
+        content_manifest_hash: ContentHash,
+        physics: &PhysicsCanonicalSnapshotV2,
+        bindings: &[PresentationBindingV1],
+        camera_bindings: &[CameraPresentationBindingV1],
+        semantic_ui_records: Vec<SemanticUiPresentationRecordV1>,
+        character_skinning_records: Vec<CharacterSkinningPresentationRecordV1>,
+    ) -> Result<&PresentationSnapshotV3, PresentationExtractionError> {
         let mut canonical_bindings = bindings.to_vec();
         canonical_bindings.sort();
         if canonical_bindings.windows(2).any(|pair| pair[0] == pair[1]) {
@@ -421,7 +448,7 @@ impl PresentationExtractorV1 {
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let candidate = PresentationSnapshotV2::new_with_camera_and_semantic_ui_records(
+        let candidate = PresentationSnapshotV3::new_with_character_skinning_records(
             self.snapshot_epoch,
             self.next_snapshot_sequence,
             simulation_tick,
@@ -431,6 +458,7 @@ impl PresentationExtractorV1 {
             records,
             camera_records,
             semantic_ui_records,
+            character_skinning_records,
             self.max_scene_records_per_batch,
             self.max_camera_records_per_batch,
             self.max_semantic_ui_records_per_batch,
@@ -469,7 +497,7 @@ impl PresentationExtractorV1 {
     }
 
     #[must_use]
-    pub fn accepted_snapshot(&self) -> Option<&PresentationSnapshotV2> {
+    pub fn accepted_snapshot(&self) -> Option<&PresentationSnapshotV3> {
         self.accepted_snapshot.as_deref()
     }
 
@@ -478,7 +506,7 @@ impl PresentationExtractorV1 {
     /// Callers that retain a snapshot across a staged commit can use this
     /// projection without cloning its scene and camera records.
     #[must_use]
-    pub fn accepted_snapshot_shared(&self) -> Option<Arc<PresentationSnapshotV2>> {
+    pub fn accepted_snapshot_shared(&self) -> Option<Arc<PresentationSnapshotV3>> {
         self.accepted_snapshot.clone()
     }
 }

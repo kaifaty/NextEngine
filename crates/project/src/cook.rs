@@ -374,6 +374,17 @@ pub fn cook_project_v7(
         }
     }
     let render_content_catalog = compile_render_content_catalog_v1(&source.render_records)?;
+    for profile in render_content_catalog.base_skinning_profiles() {
+        let mesh = render_content_catalog
+            .mesh(profile.mesh_revision())
+            .ok_or(RenderContentContractError::MissingReference)?;
+        let skeleton = source
+            .skeletons
+            .iter()
+            .find(|skeleton| skeleton.asset_revision().ok() == Some(profile.skeleton_revision()))
+            .ok_or(RenderContentContractError::MissingReference)?;
+        profile.validate_against(mesh, skeleton, &source.body_schema_asset)?;
+    }
     for catalog in &source.text_catalogs {
         let bytes = catalog
             .canonical_bytes()
@@ -812,6 +823,7 @@ pub(crate) fn compile_render_content_catalog_v1(
     let mut meshes = Vec::new();
     let mut materials = Vec::new();
     let mut textures = Vec::new();
+    let mut base_skinning_profiles = Vec::new();
     for record in records {
         match record {
             NeutralRenderRecordV1::Mesh(value) => meshes.push(value.clone()),
@@ -822,10 +834,13 @@ pub(crate) fn compile_render_content_catalog_v1(
                     return Err(RenderContentContractError::DuplicateIdentity);
                 }
             }
+            NeutralRenderRecordV1::BaseSkinningProfile(value) => {
+                base_skinning_profiles.push(value.clone());
+            }
         }
     }
     let profile = profile.ok_or(RenderContentContractError::MissingReference)?;
-    RenderContentCatalogV1::new(profile, meshes, materials, textures)
+    RenderContentCatalogV1::new(profile, meshes, materials, textures, base_skinning_profiles)
 }
 
 pub(crate) fn asset_revision(

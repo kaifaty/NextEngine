@@ -175,7 +175,7 @@ pub fn prepare_desktop_frame_timing_workload_in(
 )]
 pub(crate) fn prepare_desktop_frame_timing_workload_for_inputs_in(
     scratch_root: &Path,
-    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    snapshot: &next_contracts::presentation::PresentationSnapshotV3,
     render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
     text_catalogs: &[next_contracts::localization::TextCatalogV1],
     warmup_frames: u32,
@@ -478,7 +478,7 @@ fn prepare_desktop_frame_timing_smoke_scoped(
 
 #[cfg(feature = "desktop-sdl-ash")]
 fn prepare_desktop_frame_timing_inputs(
-    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    snapshot: &next_contracts::presentation::PresentationSnapshotV3,
     render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
     text_catalogs: &[next_contracts::localization::TextCatalogV1],
     total_frames: u32,
@@ -634,7 +634,7 @@ fn finish_desktop_frame_timing_measurement(
 
 #[cfg(feature = "desktop-sdl-ash")]
 fn run_desktop_candidate(
-    snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    snapshot: &next_contracts::presentation::PresentationSnapshotV3,
     render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
     text_catalogs: &[next_contracts::localization::TextCatalogV1],
 ) -> Result<PlatformCandidateStatus, PlatformCheckError> {
@@ -699,7 +699,7 @@ fn run_desktop_candidate(
 
 #[cfg(not(feature = "desktop-sdl-ash"))]
 fn run_desktop_candidate(
-    _snapshot: &next_contracts::presentation::PresentationSnapshotV2,
+    _snapshot: &next_contracts::presentation::PresentationSnapshotV3,
     _render_content_catalog: &next_contracts::render_content::RenderContentCatalogV1,
     _text_catalogs: &[next_contracts::localization::TextCatalogV1],
 ) -> Result<PlatformCandidateStatus, PlatformCheckError> {

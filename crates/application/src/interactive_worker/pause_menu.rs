@@ -23,7 +23,7 @@ use next_contracts::platform::{
     PlatformEventV1,
 };
 use next_contracts::presentation::{
-    PresentationSnapshotV2, SemanticUiPresentationRecordV1, UiSemanticElementV1, UiStyleRoleV1,
+    PresentationSnapshotV3, SemanticUiPresentationRecordV1, UiSemanticElementV1, UiStyleRoleV1,
     UiTextRefV1,
 };
 use next_contracts::session::ApplicationSessionStatusV1;
@@ -249,7 +249,7 @@ fn menu_key(event: &PlatformEventV1) -> Option<(PauseMenuKeyV1, NormalizedContro
 /// True when the published snapshot carries the pause-menu surface, i.e. the
 /// suspension came from the declared ui-back pause path (a platform suspend,
 /// e.g. window minimize, publishes no menu and stays non-interactive).
-pub(super) fn snapshot_has_pause_menu(snapshot: &PresentationSnapshotV2) -> bool {
+pub(super) fn snapshot_has_pause_menu(snapshot: &PresentationSnapshotV3) -> bool {
     snapshot
         .semantic_ui_records()
         .any(|record| record.surface_id.as_str() == PAUSE_MENU_SURFACE_ID)
@@ -259,20 +259,20 @@ pub(super) fn snapshot_has_pause_menu(snapshot: &PresentationSnapshotV2) -> bool
 /// menu selection applied (`selected` flag + accent style, mirroring the
 /// canonical pause-menu publication) under the next publication sequence.
 pub(super) fn pause_menu_snapshot_with_selection(
-    current: &PresentationSnapshotV2,
+    current: &PresentationSnapshotV3,
     selection: PauseMenuItemV1,
     next_sequence: u64,
-) -> Result<PresentationSnapshotV2, InteractiveWorkerFailureV1> {
+) -> Result<PresentationSnapshotV3, InteractiveWorkerFailureV1> {
     rebuild_snapshot(current, next_sequence, Some(selection), None, None)
 }
 
 /// Rebuilds the selected pause-menu publication with an explicit successful
 /// save label. The clone is presentation-only and does not enter save state.
 pub(super) fn pause_menu_snapshot_with_save_confirmation(
-    current: &PresentationSnapshotV2,
+    current: &PresentationSnapshotV3,
     selection: PauseMenuItemV1,
     next_sequence: u64,
-) -> Result<PresentationSnapshotV2, InteractiveWorkerFailureV1> {
+) -> Result<PresentationSnapshotV3, InteractiveWorkerFailureV1> {
     rebuild_snapshot(
         current,
         next_sequence,
@@ -286,11 +286,11 @@ pub(super) fn pause_menu_snapshot_with_save_confirmation(
 /// load label. Keeping the menu open lets the player acknowledge the restored
 /// state before resuming simulation.
 pub(super) fn pause_menu_snapshot_with_load_confirmation(
-    current: &PresentationSnapshotV2,
-    menu_template: &PresentationSnapshotV2,
+    current: &PresentationSnapshotV3,
+    menu_template: &PresentationSnapshotV3,
     selection: PauseMenuItemV1,
     next_sequence: u64,
-) -> Result<PresentationSnapshotV2, InteractiveWorkerFailureV1> {
+) -> Result<PresentationSnapshotV3, InteractiveWorkerFailureV1> {
     rebuild_snapshot(
         current,
         next_sequence,
@@ -304,9 +304,9 @@ pub(super) fn pause_menu_snapshot_with_load_confirmation(
 /// collides with menu-republished clones, continuing the strictly increasing
 /// per-epoch order the desktop adapter enforces. Content is unchanged.
 pub(super) fn resequenced_snapshot(
-    current: &PresentationSnapshotV2,
+    current: &PresentationSnapshotV3,
     next_sequence: u64,
-) -> Result<PresentationSnapshotV2, InteractiveWorkerFailureV1> {
+) -> Result<PresentationSnapshotV3, InteractiveWorkerFailureV1> {
     rebuild_snapshot(current, next_sequence, None, None, None)
 }
 
@@ -316,12 +316,12 @@ pub(super) fn resequenced_snapshot(
 /// batches would be lossy, so their presence is refused and the reference
 /// publication never carries them.
 fn rebuild_snapshot(
-    current: &PresentationSnapshotV2,
+    current: &PresentationSnapshotV3,
     next_sequence: u64,
     selection: Option<PauseMenuItemV1>,
     confirmed_item: Option<PauseMenuItemV1>,
-    menu_template: Option<&PresentationSnapshotV2>,
-) -> Result<PresentationSnapshotV2, InteractiveWorkerFailureV1> {
+    menu_template: Option<&PresentationSnapshotV3>,
+) -> Result<PresentationSnapshotV3, InteractiveWorkerFailureV1> {
     fn rebuild_failure() -> InteractiveWorkerFailureV1 {
         InteractiveWorkerFailureV1::runtime(
             "PLATFORM_PRESENTATION_SNAPSHOT_REBUILD_FAILED",
@@ -404,10 +404,11 @@ fn rebuild_snapshot(
     }
     let scene_records: Vec<_> = current.scene_records().cloned().collect::<Vec<_>>();
     let camera_records: Vec<_> = current.camera_records().cloned().collect::<Vec<_>>();
+    let character_skinning_records = current.character_skinning_records().cloned().collect();
     let max_scene = scene_records.len().max(1);
     let max_camera = camera_records.len().max(1);
     let max_ui = ui_records.len().max(1);
-    PresentationSnapshotV2::new_with_camera_and_semantic_ui_records(
+    PresentationSnapshotV3::new_with_character_skinning_records(
         current.snapshot_epoch,
         next_sequence,
         current.simulation_tick,
@@ -417,6 +418,7 @@ fn rebuild_snapshot(
         scene_records,
         camera_records,
         ui_records,
+        character_skinning_records,
         max_scene,
         max_camera,
         max_ui,
@@ -764,7 +766,7 @@ mod tests {
         processing
     }
 
-    fn menu_snapshot(sequence: u64) -> PresentationSnapshotV2 {
+    fn menu_snapshot(sequence: u64) -> PresentationSnapshotV3 {
         let epoch = ContentHash::from_bytes(next_contracts::canonical::sha256(
             b"nextengine.pause-menu-test.epoch.v1",
         ));
@@ -779,7 +781,7 @@ mod tests {
             )),
         )
         .expect("pause-menu records");
-        PresentationSnapshotV2::new_with_camera_and_semantic_ui_records(
+        PresentationSnapshotV3::new_with_camera_and_semantic_ui_records(
             epoch,
             sequence,
             7,
@@ -797,7 +799,7 @@ mod tests {
         .expect("menu snapshot")
     }
 
-    fn selected_menu_element(snapshot: &PresentationSnapshotV2) -> Option<String> {
+    fn selected_menu_element(snapshot: &PresentationSnapshotV3) -> Option<String> {
         snapshot.semantic_ui_records().find_map(|record| {
             (record.element.selected && record.surface_id.as_str() == PAUSE_MENU_SURFACE_ID)
                 .then(|| record.element.element_id.as_str().to_owned())

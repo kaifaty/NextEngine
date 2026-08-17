@@ -1,4 +1,5 @@
 use super::*;
+use crate::animation_content::NeutralTransformV1;
 use crate::ids::{AssetId, SchemaId};
 
 #[test]
@@ -8,7 +9,7 @@ fn extraction_order_and_batch_profile_produce_canonical_records() {
         record(epoch, 2, PresentationRoleV1::Item),
         record(epoch, 1, PresentationRoleV1::PlayerAvatar),
     ];
-    let forward = PresentationSnapshotV2::new(
+    let forward = PresentationSnapshotV3::new(
         epoch,
         0,
         3,
@@ -21,7 +22,7 @@ fn extraction_order_and_batch_profile_produce_canonical_records() {
     )
     .expect("snapshot");
     records.reverse();
-    let reverse = PresentationSnapshotV2::new(
+    let reverse = PresentationSnapshotV3::new(
         epoch,
         0,
         3,
@@ -42,7 +43,7 @@ fn duplicate_object_key_rejects_whole_snapshot() {
     let epoch = domain_hash("test.presentation.epoch", b"epoch");
     let duplicate = record(epoch, 1, PresentationRoleV1::Item);
     assert_eq!(
-        PresentationSnapshotV2::new(
+        PresentationSnapshotV3::new(
             epoch,
             0,
             0,
@@ -74,7 +75,7 @@ fn duplicate_object_key_with_different_asset_is_rejected() {
         first.visible,
     );
     assert_eq!(
-        PresentationSnapshotV2::new(
+        PresentationSnapshotV3::new(
             epoch,
             0,
             0,
@@ -123,7 +124,7 @@ fn snapshot_rejects_record_from_another_epoch() {
     let snapshot_epoch = domain_hash("test.presentation.epoch", b"snapshot");
     let record_epoch = domain_hash("test.presentation.epoch", b"record");
     assert_eq!(
-        PresentationSnapshotV2::new(
+        PresentationSnapshotV3::new(
             snapshot_epoch,
             0,
             0,
@@ -136,6 +137,69 @@ fn snapshot_rejects_record_from_another_epoch() {
         ),
         Err(PresentationContractError::SnapshotEpochMismatch)
     );
+}
+
+#[test]
+fn skinned_scene_requires_one_exact_pose_record_and_mesh_revision() {
+    let epoch = domain_hash("test.presentation.skinning.epoch", b"epoch");
+    let mut scene = record(epoch, 1, PresentationRoleV1::PlayerAvatar);
+    scene = ScenePresentationRecordV2::new(
+        scene.presentation_layer,
+        scene.object_key,
+        scene.mesh_revision,
+        scene.material_revision,
+        scene.instance_ordinal,
+        scene.local_bounds,
+        ScenePresentationFlagsV1::SKINNED,
+        scene.previous_transform,
+        scene.current_transform,
+        scene.visible,
+    );
+    let build = |skinning_records| {
+        PresentationSnapshotV3::new_with_character_skinning_records(
+            epoch,
+            0,
+            0,
+            domain_hash("test.lock", b"lock"),
+            domain_hash("test.content", b"content"),
+            domain_hash("test.profile", b"profile"),
+            vec![scene.clone()],
+            Vec::new(),
+            Vec::new(),
+            skinning_records,
+            8,
+            8,
+            8,
+            domain_hash("test.environment", b"environment"),
+        )
+    };
+    assert_eq!(
+        build(Vec::new()),
+        Err(PresentationContractError::SkinningClosureInvalid)
+    );
+    let skinning_record = |mesh_revision| {
+        CharacterSkinningPresentationRecordV1::new(
+            scene.object_key,
+            mesh_revision,
+            asset_revision(41, "test.skinning-profile"),
+            asset_revision(42, "test.skeleton"),
+            asset_revision(43, "test.body-schema"),
+            domain_hash("test.animation-profile", b"profile"),
+            BaseSkinningProjectionModeV1::Sampled,
+            vec![RenderJointPoseV1 {
+                render_joint_id: SchemaId::new("test.render-joint.root").expect("joint id"),
+                local_transform: NeutralTransformV1::translated([0, 0, 0]),
+            }],
+        )
+        .expect("skinning record")
+    };
+    assert_eq!(
+        build(vec![skinning_record(asset_revision(44, "test.other-mesh"))]),
+        Err(PresentationContractError::SkinningClosureInvalid)
+    );
+    let valid = build(vec![skinning_record(scene.mesh_revision)]).expect("exact closure");
+    valid.validate().expect("snapshot validates");
+    assert_eq!(valid.character_skinning_records().count(), 1);
 }
 
 #[test]
@@ -161,7 +225,7 @@ fn semantic_ui_records_publish_typed_canonical_batches() {
             90,
         ),
     ];
-    let forward = PresentationSnapshotV2::new_with_camera_and_semantic_ui_records(
+    let forward = PresentationSnapshotV3::new_with_camera_and_semantic_ui_records(
         epoch,
         0,
         3,
@@ -178,7 +242,7 @@ fn semantic_ui_records_publish_typed_canonical_batches() {
     )
     .expect("snapshot");
     ui_records.reverse();
-    let reverse = PresentationSnapshotV2::new_with_camera_and_semantic_ui_records(
+    let reverse = PresentationSnapshotV3::new_with_camera_and_semantic_ui_records(
         epoch,
         0,
         3,
@@ -216,7 +280,7 @@ fn duplicate_semantic_ui_element_key_rejects_snapshot() {
         90,
     );
     assert_eq!(
-        PresentationSnapshotV2::new_with_camera_and_semantic_ui_records(
+        PresentationSnapshotV3::new_with_camera_and_semantic_ui_records(
             epoch,
             0,
             0,
@@ -240,7 +304,7 @@ fn semantic_ui_record_from_another_epoch_rejects_snapshot() {
     let snapshot_epoch = domain_hash("test.presentation.epoch", b"snapshot");
     let record_epoch = domain_hash("test.presentation.epoch", b"record");
     assert_eq!(
-        PresentationSnapshotV2::new_with_camera_and_semantic_ui_records(
+        PresentationSnapshotV3::new_with_camera_and_semantic_ui_records(
             snapshot_epoch,
             0,
             0,
@@ -268,7 +332,7 @@ fn semantic_ui_record_from_another_epoch_rejects_snapshot() {
 #[test]
 fn tampered_semantic_ui_batch_fails_validation() {
     let epoch = domain_hash("test.presentation.epoch", b"epoch");
-    let mut snapshot = PresentationSnapshotV2::new_with_camera_and_semantic_ui_records(
+    let mut snapshot = PresentationSnapshotV3::new_with_camera_and_semantic_ui_records(
         epoch,
         0,
         0,

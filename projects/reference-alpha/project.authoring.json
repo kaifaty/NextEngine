@@ -1189,8 +1189,8 @@
       "kind": "mesh",
       "asset_id": "c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
       "record_revision": 1,
-      "bounds_min": [-400000, -900000, -140000],
-      "bounds_max": [400001, 850001, 140001],
+      "bounds_min": [-400000, -900000, -300000],
+      "bounds_max": [400001, 950001, 300001],
       "positions_micrometres": [
         [-240000, -280000, -120000], [240000, -280000, -120000], [240000, 350000, -120000], [-240000, 350000, -120000], [-240000, -280000, 120000], [240000, -280000, 120000], [240000, 350000, 120000], [-240000, 350000, 120000],
         [-160000, 420000, -140000], [160000, 420000, -140000], [160000, 850000, -140000], [-160000, 850000, -140000], [-160000, 420000, 140000], [160000, 420000, 140000], [160000, 850000, 140000], [-160000, 850000, 140000],
@@ -1221,6 +1221,83 @@
       "uv0_q16": [[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768],[32768,32768]],
       "indices": [0,2,1,0,3,2,4,5,6,4,6,7,0,1,5,0,5,4,3,7,6,3,6,2,0,4,7,0,7,3,1,2,6,1,6,5,8,10,9,8,11,10,12,13,14,12,14,15,8,9,13,8,13,12,11,15,14,11,14,10,8,12,15,8,15,11,9,10,14,9,14,13,16,18,17,16,19,18,20,21,22,20,22,23,16,17,21,16,21,20,19,23,22,19,22,18,16,20,23,16,23,19,17,18,22,17,22,21,24,26,25,24,27,26,28,29,30,28,30,31,24,25,29,24,29,28,27,31,30,27,30,26,24,28,31,24,31,27,25,26,30,25,30,29,32,34,33,32,35,34,36,37,38,36,38,39,32,33,37,32,37,36,35,39,38,35,38,34,32,36,39,32,39,35,33,34,38,33,38,37,40,42,41,40,43,42,44,45,46,44,46,47,40,41,45,40,45,44,43,47,46,43,46,42,40,44,47,40,47,43,41,42,46,41,46,45],
       "double_sided": false,
+      "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+    },
+    {
+      "kind": "base-skinning-profile",
+      "asset_id": "dededededededededededededededede",
+      "record_revision": 1,
+      "mesh_asset_id": "c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+      "skeleton_asset_id": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
+      "body_schema_asset_id": "bdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbd",
+      "mesh_origin_in_skeleton_micrometres": [0, 900000, 0],
+      "max_instances_per_frame": 2,
+      "render_joints": [
+        {
+          "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.root",
+          "parent_render_joint_id": null,
+          "animation_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.joint.root",
+          "body_semantic_id": "body.pelvis",
+          "bind_translation_micrometres": [0, 0, 0]
+        },
+        {
+          "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.hips",
+          "parent_render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.root",
+          "animation_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.joint.hips",
+          "body_semantic_id": "body.pelvis",
+          "bind_translation_micrometres": [0, 900000, 0]
+        },
+        {
+          "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.spine",
+          "parent_render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.hips",
+          "animation_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.joint.spine",
+          "body_semantic_id": "body.torso-roll",
+          "bind_translation_micrometres": [0, 350000, 0]
+        },
+        {
+          "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.head",
+          "parent_render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.spine",
+          "animation_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.joint.head",
+          "body_semantic_id": "body.torso-roll",
+          "bind_translation_micrometres": [0, 450000, 0]
+        },
+        {
+          "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.hand-l",
+          "parent_render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.spine",
+          "animation_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.joint.hand-l",
+          "body_semantic_id": "body.left-elbow",
+          "bind_translation_micrometres": [-350000, 250000, 0]
+        },
+        {
+          "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.hand-r",
+          "parent_render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.spine",
+          "animation_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.joint.hand-r",
+          "body_semantic_id": "body.right-elbow",
+          "bind_translation_micrometres": [350000, 250000, 0]
+        },
+        {
+          "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.foot-l",
+          "parent_render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.hips",
+          "animation_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.joint.foot-l",
+          "body_semantic_id": "body.left-ankle-roll",
+          "bind_translation_micrometres": [-150000, -900000, 0]
+        },
+        {
+          "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.foot-r",
+          "parent_render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.hips",
+          "animation_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.joint.foot-r",
+          "body_semantic_id": "body.right-ankle-roll",
+          "bind_translation_micrometres": [150000, -900000, 0]
+        }
+      ],
+      "vertex_joint_ranges": [
+        { "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.hips", "first_vertex": 0, "vertex_count": 8 },
+        { "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.head", "first_vertex": 8, "vertex_count": 8 },
+        { "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.hand-l", "first_vertex": 16, "vertex_count": 8 },
+        { "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.hand-r", "first_vertex": 24, "vertex_count": 8 },
+        { "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.foot-l", "first_vertex": 32, "vertex_count": 8 },
+        { "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.foot-r", "first_vertex": 40, "vertex_count": 8 }
+      ],
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
     },
     {
@@ -1778,6 +1855,7 @@
     "d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7",
     "d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8",
     "d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9",
+    "dededededededededededededededede",
     "87878787878787878787878787878787",
     "8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a",
     "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b",

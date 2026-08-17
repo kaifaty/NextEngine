@@ -52,13 +52,13 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
   arguments**, focus graph, action/command affordances.
 - Исключает: mutable aggregate references, widget/backend objects, localized
   strings как identity.
-- Data flow: `PresentationSnapshotV2 / immutable query → UiSemanticSnapshot →
+- Data flow: `PresentationSnapshotV3 / immutable query → UiSemanticSnapshot →
   rendered widgets → PlayerActionFrame → command candidate → WorldCommand
   validation → DomainEvent → new projection`. Обратного потока нет.
 - UI projection — presentation work: задержка/отказ не меняет ingress,
   command order или authoritative state (REQ-093).
 
-### 3.2. Место в `PresentationSnapshotV2` (SPEC-30)
+### 3.2. Место в `PresentationSnapshotV3` (SPEC-30)
 
 - Snapshot уже содержит поле `semantic_ui_batches`; `SemanticUiPresentationRecordV1`
   ссылается на `UiSemanticSnapshot` values, localized text IDs и
@@ -131,7 +131,7 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
   `camera-orbit` (`input/constants.rs`). Resolver production-общий для live и
   headless (`crates/player/`).
 - **Snapshot schema** (`crates/contracts/src/presentation.rs`):
-  `PresentationSnapshotV2.semantic_ui_batches: Vec<ContentHash>` — поле
+  `PresentationSnapshotV3.semantic_ui_batches: Vec<ContentHash>` — поле
   существует, canonical hash учитывает, **всегда пустое**
   (`Vec::new()` в constructor).
 - **Camera** (`crates/contracts/src/presentation/camera.rs`): полный typed
@@ -283,14 +283,14 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
   (batch kind `"SemanticUi"`, domain `nextengine.presentation-batch.v1`,
   limit 4096). Checks: `host-check` PASS.
 - **Sub-increment 2 (semantic UI extraction) — DONE (2026-08-03).**
-  - `PresentationSnapshotV2.semantic_ui_batches`:
+  - `PresentationSnapshotV3.semantic_ui_batches`:
     `Vec<ContentHash>` (placeholder) → typed
     `Vec<SemanticUiPresentationBatchV1>`; новый конструктор
     `new_with_camera_and_semantic_ui_records` (старые конструкторы
     делегируют с пустым UI набором — canonical hash пустого случая не
     изменился); `validate()` вызывает `validate_semantic_ui_batches`;
     accessor `semantic_ui_records()`.
-  - Recovery codec v2 (`nextengine.presentation-snapshot-recovery.v2`):
+  - Recovery codec v2 (`nextengine.presentation-snapshot-recovery.v3`):
     field 12 — полный typed record codec
     (`nextengine.semantic-ui-presentation-recovery-record.v1`, nested
     `nextengine.ui-text-ref-recovery.v1`), field 16 —

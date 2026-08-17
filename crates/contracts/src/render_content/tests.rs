@@ -1,3 +1,4 @@
+use crate::animation_content::NeutralTransformV1;
 use crate::canonical::{CanonicalDecodeLimits, sha256};
 use crate::content::{NeutralRecordKindV1, NeutralRecordV1};
 use crate::ids::{AssetId, ContentHash, PersistentId, SchemaId, content_hash_from_bytes};
@@ -6,17 +7,18 @@ use crate::project::{
 };
 
 use super::{
-    AabbI64V1, B0CookedMeshV1, B0RenderContentProfileV1, MaterialAlphaModeV1, MaterialColorSpaceV1,
-    MaterialTextureSlotV1, MeshPrimitiveTopologyV1, NeutralMaterialTextureBindingV1,
-    NeutralMaterialV1, NeutralMeshPrimitiveV1, NeutralMeshV1, NeutralRenderRecordV1,
-    NeutralTangentV1, NeutralTexelEncodingV1, NeutralTextureAlphaSemanticsV1,
-    NeutralTextureColorSpaceV1, NeutralTextureDimensionV1, NeutralTextureMipLevelV1,
-    NeutralTextureV1, RenderContentCatalogV1, RenderContentContractError, UvTransformV1,
-    b0_shader_interface_manifest_sha256,
+    AabbI64V1, B0CookedMeshV1, B0RenderContentProfileV1, BaseSkinningFallbackV1,
+    BaseSkinningMethodV1, MaterialAlphaModeV1, MaterialColorSpaceV1, MaterialTextureSlotV1,
+    MeshPrimitiveTopologyV1, NeutralBaseSkinningProfileV1, NeutralMaterialTextureBindingV1,
+    NeutralMaterialV1, NeutralMeshPrimitiveV1, NeutralMeshV1, NeutralRenderJointV1,
+    NeutralRenderRecordV1, NeutralSkinInfluenceV1, NeutralSkinVertexV1, NeutralTangentV1,
+    NeutralTexelEncodingV1, NeutralTextureAlphaSemanticsV1, NeutralTextureColorSpaceV1,
+    NeutralTextureDimensionV1, NeutralTextureMipLevelV1, NeutralTextureV1, RenderContentCatalogV1,
+    RenderContentContractError, UvTransformV1, b0_shader_interface_manifest_sha256,
 };
 use super::{
-    B0_RENDER_CONTENT_PROFILE_SCHEMA_ID, NEUTRAL_MATERIAL_SCHEMA_ID, NEUTRAL_MESH_SCHEMA_ID,
-    NEUTRAL_TEXTURE_SCHEMA_ID,
+    B0_RENDER_CONTENT_PROFILE_SCHEMA_ID, NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID,
+    NEUTRAL_MATERIAL_SCHEMA_ID, NEUTRAL_MESH_SCHEMA_ID, NEUTRAL_TEXTURE_SCHEMA_ID,
 };
 
 #[test]
@@ -40,8 +42,14 @@ fn typed_records_and_catalog_round_trip_canonically() {
         );
     }
 
-    let catalog = RenderContentCatalogV1::new(profile, vec![mesh], vec![material], vec![texture])
-        .expect("catalog validates");
+    let catalog = RenderContentCatalogV1::new(
+        profile,
+        vec![mesh],
+        vec![material],
+        vec![texture],
+        Vec::new(),
+    )
+    .expect("catalog validates");
     let bytes = catalog.canonical_bytes().expect("catalog encodes");
     let decoded =
         RenderContentCatalogV1::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
@@ -73,6 +81,7 @@ fn catalog_sorting_and_exact_lookup_are_order_independent() {
         vec![second_mesh.clone(), first_mesh.clone()],
         vec![material.clone()],
         vec![texture.clone()],
+        Vec::new(),
     )
     .expect("first catalog");
     let second = RenderContentCatalogV1::new(
@@ -80,6 +89,7 @@ fn catalog_sorting_and_exact_lookup_are_order_independent() {
         vec![first_mesh.clone(), second_mesh],
         vec![material],
         vec![texture],
+        Vec::new(),
     )
     .expect("second catalog");
 
@@ -96,6 +106,72 @@ fn catalog_sorting_and_exact_lookup_are_order_independent() {
         ..revision
     };
     assert!(first.mesh(stale).is_none());
+}
+
+#[test]
+fn base_skinning_profile_round_trips_and_rejects_incomplete_weights() {
+    let (render_profile, mesh, material, texture) = fixture();
+    let mesh_revision = mesh.asset_revision().expect("mesh revision");
+    let joint_id = SchemaId::new("test.render-joint.root").expect("joint id");
+    let joint = NeutralRenderJointV1 {
+        render_joint_id: joint_id.clone(),
+        parent_render_joint_id: None,
+        animation_joint_id: SchemaId::new("test.animation-joint.root").expect("animation joint"),
+        body_semantic_id: SchemaId::new("test.body.root").expect("body semantic"),
+        bind_transform: NeutralTransformV1::translated([0, 0, 0]),
+    };
+    let vertex = NeutralSkinVertexV1::new(vec![NeutralSkinInfluenceV1 {
+        render_joint_id: joint_id.clone(),
+        weight_unorm16: u16::MAX,
+    }])
+    .expect("complete weight");
+    let profile = NeutralBaseSkinningProfileV1::new(
+        schema_ref(NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID),
+        asset(9),
+        1,
+        mesh_revision,
+        AssetRevisionRefV1 {
+            asset_id: asset(10),
+            record_sha256: hash(10),
+        },
+        AssetRevisionRefV1 {
+            asset_id: asset(11),
+            record_sha256: hash(11),
+        },
+        [0, 0, 0],
+        BaseSkinningMethodV1::LinearBlend,
+        BaseSkinningFallbackV1::BindPose,
+        2,
+        vec![joint],
+        vec![vertex; mesh.positions_micrometres().len()],
+    )
+    .expect("base skinning profile");
+    let record = NeutralRenderRecordV1::BaseSkinningProfile(profile.clone());
+    let bytes = record.canonical_bytes().expect("profile encodes");
+    assert_eq!(
+        NeutralRenderRecordV1::from_canonical_bytes(&bytes, CanonicalDecodeLimits::default())
+            .expect("profile decodes"),
+        record
+    );
+    let catalog = RenderContentCatalogV1::new(
+        render_profile,
+        vec![mesh],
+        vec![material],
+        vec![texture],
+        vec![profile.clone()],
+    )
+    .expect("profile closes over exact mesh");
+    assert_eq!(
+        catalog.base_skinning_profile(profile.asset_revision().expect("profile revision")),
+        Some(&profile)
+    );
+    assert_eq!(
+        NeutralSkinVertexV1::new(vec![NeutralSkinInfluenceV1 {
+            render_joint_id: joint_id,
+            weight_unorm16: u16::MAX - 1,
+        }]),
+        Err(RenderContentContractError::InvalidSkinWeights)
+    );
 }
 
 #[test]
@@ -245,6 +321,7 @@ fn catalog_requires_exact_declared_fallback_and_b0_material_profile() {
         vec![mesh.clone()],
         vec![material],
         Vec::new(),
+        Vec::new(),
     )
     .expect_err("fallback texture must be present");
     assert_eq!(
@@ -295,6 +372,7 @@ fn catalog_requires_exact_declared_fallback_and_b0_material_profile() {
         vec![mesh],
         vec![blend_material],
         vec![texture],
+        Vec::new(),
     )
     .expect_err("blend is outside B0");
     assert_eq!(
@@ -365,6 +443,7 @@ fn b0_admission_rejects_semantics_the_backend_does_not_represent() {
                 )],
                 vec![material],
                 vec![texture.clone()],
+                Vec::new(),
             ),
             Err(RenderContentContractError::UnsupportedB0Feature)
         );

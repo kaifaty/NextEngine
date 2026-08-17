@@ -99,9 +99,14 @@ pub(super) struct B0GpuContent {
     shadow_map: Option<ShadowMap>,
     indirect: BufferAllocation,
     frame_uniforms: Vec<BufferAllocation>,
+    dynamic_vertices: Vec<BufferAllocation>,
     geometry: BufferAllocation,
     index_buffer_offset: vk::DeviceSize,
     draw_offsets: BTreeMap<DrawKey, vk::DeviceSize>,
+    draw_commands: BTreeMap<DrawKey, PreparedDrawCommand>,
+    vertex_templates: BTreeMap<AssetRevisionRefV1, Vec<[u8; 16]>>,
+    dynamic_vertex_scratch: Vec<u8>,
+    dynamic_vertex_offsets: Vec<i32>,
     catalog_hash: ContentHash,
 }
 
@@ -146,6 +151,7 @@ impl B0GpuContent {
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )?;
         let mut frame_uniforms = Vec::with_capacity(frame_slot_count);
+        let mut dynamic_vertices = Vec::with_capacity(frame_slot_count);
         for _ in 0..frame_slot_count {
             let frame_uniform = BufferAllocation::new(
                 instance,
@@ -157,6 +163,14 @@ impl B0GpuContent {
             )?;
             frame_uniform.write(0, &identity_matrix_bytes())?;
             frame_uniforms.push(frame_uniform);
+            dynamic_vertices.push(BufferAllocation::new(
+                instance,
+                physical_device,
+                device,
+                prepared.dynamic_vertex_capacity_size(),
+                vk::BufferUsageFlags::VERTEX_BUFFER,
+                vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            )?);
         }
 
         let mut textures = BTreeMap::new();
@@ -238,17 +252,23 @@ impl B0GpuContent {
             shadow_map,
             indirect,
             frame_uniforms,
+            dynamic_vertices,
             geometry,
             index_buffer_offset: prepared.index_buffer_offset,
             draw_offsets: prepared.draw_offsets,
+            draw_commands: prepared.draw_commands,
+            vertex_templates: prepared.vertex_templates,
+            dynamic_vertex_scratch: Vec::new(),
+            dynamic_vertex_offsets: Vec::new(),
             catalog_hash: catalog.catalog_sha256(),
         })
     }
 
-    /// Records the CPU-selected visible list as one indexed-indirect command
-    /// per draw. Dynamic rendering must already be active for `color_format`.
+    /// Records the CPU-selected visible list. Static draws use the immutable
+    /// indexed-indirect stream; skinned draws use the frame-slot vertex ring.
+    /// Dynamic rendering must already be active for `color_format`.
     pub(super) fn record(
-        &self,
+        &mut self,
         command_buffer: vk::CommandBuffer,
         plan: &B0FramePlanV1,
         extent: vk::Extent2D,
@@ -276,6 +296,7 @@ impl B0GpuContent {
                 "indexed draw count does not match ordered draws",
             ));
         }
+        self.prepare_dynamic_vertices(plan, frame_slot_index)?;
 
         let frame_uniform = self.frame_uniforms.get(frame_slot_index).ok_or(
             B0GpuContentError::InvalidFramePlan(
@@ -346,6 +367,36 @@ impl B0GpuContent {
         }
 
         for draw in &plan.draws {
+            match (
+                draw.skinning_vertex_stream_index,
+                draw.skinning_vertex_stream_hash,
+            ) {
+                (Some(stream_index), Some(stream_hash)) => {
+                    let stream = plan
+                        .skinned_vertex_streams
+                        .get(
+                            usize::try_from(stream_index)
+                                .map_err(|_| B0GpuContentError::CountOverflow)?,
+                        )
+                        .ok_or(B0GpuContentError::InvalidFramePlan(
+                            "skinning vertex-stream index is outside the frame plan",
+                        ))?;
+                    if stream.mesh_revision != draw.mesh_revision
+                        || stream.vertex_stream_hash != stream_hash
+                        || stream.used_bind_pose_fallback != draw.base_skinning_fallback
+                    {
+                        return Err(B0GpuContentError::InvalidFramePlan(
+                            "skinned draw does not match its exact vertex stream",
+                        ));
+                    }
+                }
+                (None, None) if !draw.base_skinning_fallback => {}
+                _ => {
+                    return Err(B0GpuContentError::InvalidFramePlan(
+                        "skinned draw binding is incomplete",
+                    ));
+                }
+            }
             let texture_set = self
                 .descriptors
                 .texture_sets
@@ -366,6 +417,9 @@ impl B0GpuContent {
             };
             let indirect_offset = self.draw_offsets.get(&draw_key).copied().ok_or(
                 B0GpuContentError::ResourceMissing("exact indexed-indirect command"),
+            )?;
+            let draw_command = self.draw_commands.get(&draw_key).copied().ok_or(
+                B0GpuContentError::ResourceMissing("exact indexed draw command"),
             )?;
             let texture_sets = [texture_set];
             let push_constants =
@@ -390,16 +444,101 @@ impl B0GpuContent {
                     0,
                     &push_constants,
                 );
-                self.geometry.device.cmd_draw_indexed_indirect(
-                    command_buffer,
-                    self.indirect.buffer,
-                    indirect_offset,
-                    1,
-                    INDIRECT_COMMAND_STRIDE,
-                );
+                if let Some(stream_index) = draw.skinning_vertex_stream_index {
+                    let stream_index = usize::try_from(stream_index)
+                        .map_err(|_| B0GpuContentError::CountOverflow)?;
+                    let vertex_offset = *self.dynamic_vertex_offsets.get(stream_index).ok_or(
+                        B0GpuContentError::InvalidFramePlan(
+                            "skinning vertex-stream index is outside the uploaded frame stream",
+                        ),
+                    )?;
+                    let dynamic_buffer = self
+                        .dynamic_vertices
+                        .get(frame_slot_index)
+                        .ok_or(B0GpuContentError::InvalidFramePlan(
+                            "frame slot index is outside the dynamic vertex ring",
+                        ))?
+                        .buffer;
+                    self.geometry.device.cmd_bind_vertex_buffers(
+                        command_buffer,
+                        0,
+                        &[dynamic_buffer],
+                        &[0],
+                    );
+                    self.geometry.device.cmd_draw_indexed(
+                        command_buffer,
+                        draw_command.index_count,
+                        1,
+                        draw_command.first_index,
+                        vertex_offset,
+                        0,
+                    );
+                } else {
+                    self.geometry.device.cmd_bind_vertex_buffers(
+                        command_buffer,
+                        0,
+                        &[self.geometry.buffer],
+                        &[0],
+                    );
+                    self.geometry.device.cmd_draw_indexed_indirect(
+                        command_buffer,
+                        self.indirect.buffer,
+                        indirect_offset,
+                        1,
+                        INDIRECT_COMMAND_STRIDE,
+                    );
+                }
             }
         }
         Ok(())
+    }
+
+    fn prepare_dynamic_vertices(
+        &mut self,
+        plan: &B0FramePlanV1,
+        frame_slot_index: usize,
+    ) -> Result<(), B0GpuContentError> {
+        self.dynamic_vertex_scratch.clear();
+        self.dynamic_vertex_offsets.clear();
+        self.dynamic_vertex_offsets
+            .try_reserve(plan.skinned_vertex_streams.len())
+            .map_err(|_| B0GpuContentError::CountOverflow)?;
+        for stream in &plan.skinned_vertex_streams {
+            let template = self.vertex_templates.get(&stream.mesh_revision).ok_or(
+                B0GpuContentError::ResourceMissing("exact skinned mesh vertex template"),
+            )?;
+            if template.len() != stream.positions_micrometres.len() {
+                return Err(B0GpuContentError::InvalidFramePlan(
+                    "skinned position count does not match the exact mesh",
+                ));
+            }
+            let base_vertex =
+                i32::try_from(self.dynamic_vertex_scratch.len() / VERTEX_STRIDE as usize)
+                    .map_err(|_| B0GpuContentError::CountOverflow)?;
+            self.dynamic_vertex_offsets.push(base_vertex);
+            let added_bytes = template
+                .len()
+                .checked_mul(VERTEX_STRIDE as usize)
+                .ok_or(B0GpuContentError::CountOverflow)?;
+            self.dynamic_vertex_scratch
+                .try_reserve(added_bytes)
+                .map_err(|_| B0GpuContentError::CountOverflow)?;
+            for (position, attributes) in stream.positions_micrometres.iter().zip(template) {
+                for component in position {
+                    push_f32(
+                        &mut self.dynamic_vertex_scratch,
+                        *component as f32 / 1_000_000.0,
+                    );
+                }
+                self.dynamic_vertex_scratch.extend_from_slice(attributes);
+            }
+        }
+        self.dynamic_vertices
+            .get(frame_slot_index)
+            .ok_or(B0GpuContentError::InvalidFramePlan(
+                "frame slot index is outside the dynamic vertex ring",
+            ))?
+            .write(0, &self.dynamic_vertex_scratch)
     }
 
     /// Records a presentation-only fullscreen sky before opaque world draws.
@@ -456,6 +595,11 @@ impl B0GpuContent {
                 .checked_add(frame_uniform.allocation_size())
                 .ok_or(B0GpuContentError::CountOverflow)?;
         }
+        for dynamic_vertices in &self.dynamic_vertices {
+            bytes = bytes
+                .checked_add(dynamic_vertices.allocation_size())
+                .ok_or(B0GpuContentError::CountOverflow)?;
+        }
         for texture in self.textures.values() {
             bytes = bytes
                 .checked_add(texture.allocation_size())
@@ -470,8 +614,11 @@ impl B0GpuContent {
             u64::try_from(self.textures.len()).map_err(|_| B0GpuContentError::CountOverflow)?;
         let frame_uniform_count = u64::try_from(self.frame_uniforms.len())
             .map_err(|_| B0GpuContentError::CountOverflow)?;
+        let dynamic_vertex_count = u64::try_from(self.dynamic_vertices.len())
+            .map_err(|_| B0GpuContentError::CountOverflow)?;
         let allocation_count = 2_u64
             .checked_add(frame_uniform_count)
+            .and_then(|value| value.checked_add(dynamic_vertex_count))
             .and_then(|value| value.checked_add(texture_count))
             .and_then(|value| value.checked_add(u64::from(self.shadow_map.is_some())))
             .ok_or(B0GpuContentError::CountOverflow)?;
@@ -484,6 +631,12 @@ struct DrawKey {
     mesh_revision: AssetRevisionRefV1,
     first_index: u32,
     index_count: u32,
+}
+
+#[derive(Clone, Copy)]
+struct PreparedDrawCommand {
+    index_count: u32,
+    first_index: u32,
 }
 
 struct PreparedTexture {
@@ -500,6 +653,9 @@ struct PreparedContent {
     indirect_payload_size: vk::DeviceSize,
     index_buffer_offset: vk::DeviceSize,
     draw_offsets: BTreeMap<DrawKey, vk::DeviceSize>,
+    draw_commands: BTreeMap<DrawKey, PreparedDrawCommand>,
+    vertex_templates: BTreeMap<AssetRevisionRefV1, Vec<[u8; 16]>>,
+    dynamic_vertex_capacity: vk::DeviceSize,
     textures: Vec<PreparedTexture>,
 }
 
@@ -509,6 +665,8 @@ impl PreparedContent {
         let mut index_bytes = Vec::new();
         let mut indirect_bytes = Vec::new();
         let mut draw_offsets = BTreeMap::new();
+        let mut draw_commands = BTreeMap::new();
+        let mut vertex_templates = BTreeMap::new();
 
         for mesh in catalog.meshes() {
             let revision = mesh.asset_revision()?;
@@ -533,20 +691,38 @@ impl PreparedContent {
                     "position and normal counts differ",
                 ));
             }
+            let mut mesh_vertex_templates = Vec::with_capacity(mesh.positions_micrometres().len());
             for (vertex_index, (position, uv)) in
                 mesh.positions_micrometres().iter().zip(uv0).enumerate()
             {
                 for component in position {
                     push_f32(&mut vertex_bytes, *component as f32 / 1_000_000.0);
                 }
+                let mut attributes = Vec::with_capacity(16);
                 for component in uv {
-                    push_f32(&mut vertex_bytes, *component as f32 / 65_536.0);
+                    let value = *component as f32 / 65_536.0;
+                    push_f32(&mut vertex_bytes, value);
+                    push_f32(&mut attributes, value);
                 }
                 let normal = normals
                     .and_then(|values| values.get(vertex_index))
                     .copied()
                     .unwrap_or([0, 0, 0]);
                 push_normal_snorm16(&mut vertex_bytes, normal);
+                push_normal_snorm16(&mut attributes, normal);
+                mesh_vertex_templates.push(
+                    attributes
+                        .try_into()
+                        .map_err(|_| B0GpuContentError::InvalidCatalog("vertex stride mismatch"))?,
+                );
+            }
+            if vertex_templates
+                .insert(revision, mesh_vertex_templates)
+                .is_some()
+            {
+                return Err(B0GpuContentError::InvalidCatalog(
+                    "duplicate exact mesh revision",
+                ));
             }
             for index in mesh.indices() {
                 index_bytes.extend_from_slice(&index.to_le_bytes());
@@ -572,8 +748,38 @@ impl PreparedContent {
                         "duplicate mesh primitive draw key",
                     ));
                 }
+                if draw_commands
+                    .insert(
+                        key,
+                        PreparedDrawCommand {
+                            index_count: primitive.index_count(),
+                            first_index: global_first_index,
+                        },
+                    )
+                    .is_some()
+                {
+                    return Err(B0GpuContentError::InvalidCatalog(
+                        "duplicate mesh primitive draw command",
+                    ));
+                }
             }
         }
+
+        let dynamic_vertex_capacity =
+            catalog
+                .base_skinning_profiles()
+                .iter()
+                .try_fold(0_u64, |total, profile| {
+                    let vertex_count = u64::try_from(profile.vertices().len())
+                        .map_err(|_| B0GpuContentError::CountOverflow)?;
+                    let profile_bytes = vertex_count
+                        .checked_mul(u64::from(profile.max_instances_per_frame()))
+                        .and_then(|value| value.checked_mul(u64::from(VERTEX_STRIDE)))
+                        .ok_or(B0GpuContentError::CountOverflow)?;
+                    total
+                        .checked_add(profile_bytes)
+                        .ok_or(B0GpuContentError::CountOverflow)
+                })?;
 
         let index_buffer_offset = vertex_bytes.len() as vk::DeviceSize;
         let mut geometry_bytes = vertex_bytes;
@@ -624,6 +830,9 @@ impl PreparedContent {
             indirect_payload_size: indirect_bytes.len() as vk::DeviceSize,
             index_buffer_offset,
             draw_offsets,
+            draw_commands,
+            vertex_templates,
+            dynamic_vertex_capacity,
             textures,
         })
     }
@@ -634,6 +843,10 @@ impl PreparedContent {
 
     fn indirect_size(&self) -> vk::DeviceSize {
         self.indirect_payload_size.max(MINIMUM_BUFFER_SIZE)
+    }
+
+    fn dynamic_vertex_capacity_size(&self) -> vk::DeviceSize {
+        self.dynamic_vertex_capacity.max(MINIMUM_BUFFER_SIZE)
     }
 }
 

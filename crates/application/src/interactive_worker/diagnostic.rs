@@ -22,7 +22,7 @@ pub struct ProductionWorkerDiagnosticMeasurementV1 {
     preparation_id: u64,
     run_report: RunReportV1,
     metrics: InteractiveWorkerDiagnosticMetricsV1,
-    final_snapshot: Arc<PresentationSnapshotV2>,
+    final_snapshot: Arc<PresentationSnapshotV3>,
 }
 
 pub fn prepare_production_worker_diagnostic(
@@ -205,7 +205,7 @@ pub(super) fn finalize_diagnostic_worker(
     (
         RunReportV1,
         InteractiveWorkerDiagnosticMetricsV1,
-        Arc<PresentationSnapshotV2>,
+        Arc<PresentationSnapshotV3>,
     ),
     InteractiveWorkerFailureV1,
 > {
@@ -219,7 +219,7 @@ pub(super) fn finalize_diagnostic_worker_with_attempt_limit(
     (
         RunReportV1,
         InteractiveWorkerDiagnosticMetricsV1,
-        Arc<PresentationSnapshotV2>,
+        Arc<PresentationSnapshotV3>,
     ),
     InteractiveWorkerFailureV1,
 > {

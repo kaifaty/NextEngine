@@ -32,7 +32,7 @@ pub(super) struct PreparedRunV1 {
 }
 
 pub(crate) struct InteractivePresentationAdvanceV1 {
-    pub(crate) presentation: Arc<next_contracts::presentation::PresentationSnapshotV2>,
+    pub(crate) presentation: Arc<next_contracts::presentation::PresentationSnapshotV3>,
     pub(crate) materialized_lifecycle_boundary: bool,
 }
 
@@ -250,7 +250,7 @@ impl ApplicationCoordinator {
     pub(crate) fn advance_reference_game_live_presentation_shared_admitted(
         &mut self,
         platform_events: &[PlatformEventV1],
-    ) -> Result<Arc<next_contracts::presentation::PresentationSnapshotV2>, ApplicationError> {
+    ) -> Result<Arc<next_contracts::presentation::PresentationSnapshotV3>, ApplicationError> {
         self.advance_reference_game_live_presentation_shared_observed_admitted(platform_events)
             .map(|advance| advance.presentation)
     }

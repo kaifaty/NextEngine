@@ -233,7 +233,8 @@ impl ActivatedProjectV8 {
         let mut catalog_revisions = Vec::with_capacity(
             1 + self.render_content_catalog.meshes().len()
                 + self.render_content_catalog.materials().len()
-                + self.render_content_catalog.textures().len(),
+                + self.render_content_catalog.textures().len()
+                + self.render_content_catalog.base_skinning_profiles().len(),
         );
         catalog_revisions.push(self.render_content_catalog.profile_revision());
         catalog_revisions.extend(
@@ -263,6 +264,31 @@ impl ActivatedProjectV8 {
                 .iter()
                 .map(|texture| {
                     texture
+                        .asset_revision()
+                        .map_err(|_| ProjectContractError::HashMismatch)
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+        );
+        catalog_revisions.extend(
+            self.render_content_catalog
+                .base_skinning_profiles()
+                .iter()
+                .map(|profile| {
+                    let mesh = self
+                        .render_content_catalog
+                        .mesh(profile.mesh_revision())
+                        .ok_or(ProjectContractError::HashMismatch)?;
+                    let skeleton = self
+                        .neutral_skeletons
+                        .iter()
+                        .find(|skeleton| {
+                            skeleton.asset_revision().ok() == Some(profile.skeleton_revision())
+                        })
+                        .ok_or(ProjectContractError::HashMismatch)?;
+                    profile
+                        .validate_against(mesh, skeleton, &self.body_schema_asset)
+                        .map_err(|_| ProjectContractError::HashMismatch)?;
+                    profile
                         .asset_revision()
                         .map_err(|_| ProjectContractError::HashMismatch)
                 })

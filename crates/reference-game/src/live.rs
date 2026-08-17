@@ -8,7 +8,7 @@ use next_contracts::physical_animation::PhysicalAnimationSnapshotV1;
 use next_contracts::physics::PhysicsCanonicalSnapshotV2;
 use next_contracts::platform::PlatformEventV1;
 use next_contracts::presentation::{
-    CameraProjectionProfileV1, CameraResultSampleV1, CameraRoleV1, PresentationSnapshotV2,
+    CameraProjectionProfileV1, CameraResultSampleV1, CameraRoleV1, PresentationSnapshotV3,
     QuantizedPresentationTransformV1, ThirdPersonCameraIntentSampleV1,
 };
 use next_contracts::snapshot::WorldCheckpointV4;
@@ -40,7 +40,7 @@ use crate::camera::{
 use crate::dialogue::{ReferenceDialogueChoiceV1, ReferenceDialogueUiV1};
 use crate::input::ReferenceUiScreenV1;
 use crate::rpg::cooked_project_rpg_snapshot;
-use crate::scenario::fixture_presentation_bindings;
+use crate::scenario::{fixture_character_skinning_records, fixture_presentation_bindings};
 use crate::session::{ReferenceGameSession, build_reference_game_session};
 
 const CAMERA_ID_BYTES: [u8; 16] = [0xc0; 16];
@@ -136,7 +136,7 @@ impl PreparedReferenceGameAdvance {
         self.runtime.next_tick()
     }
 
-    pub fn presentation_snapshot(&self) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
+    pub fn presentation_snapshot(&self) -> Result<&PresentationSnapshotV3, ReferenceGameError> {
         self.state
             .presentation_extractor
             .accepted_snapshot()
@@ -145,7 +145,7 @@ impl PreparedReferenceGameAdvance {
 
     pub fn presentation_snapshot_shared(
         &self,
-    ) -> Result<Arc<PresentationSnapshotV2>, ReferenceGameError> {
+    ) -> Result<Arc<PresentationSnapshotV3>, ReferenceGameError> {
         self.state
             .presentation_extractor
             .accepted_snapshot_shared()
@@ -173,7 +173,7 @@ impl ValidatedReferenceGameAdvance {
         self.state.ui_suspend_causal_hash
     }
 
-    pub fn presentation_snapshot(&self) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
+    pub fn presentation_snapshot(&self) -> Result<&PresentationSnapshotV3, ReferenceGameError> {
         self.state
             .presentation_extractor
             .accepted_snapshot()
@@ -182,7 +182,7 @@ impl ValidatedReferenceGameAdvance {
 
     pub fn presentation_snapshot_shared(
         &self,
-    ) -> Result<Arc<PresentationSnapshotV2>, ReferenceGameError> {
+    ) -> Result<Arc<PresentationSnapshotV3>, ReferenceGameError> {
         self.state
             .presentation_extractor
             .accepted_snapshot_shared()
@@ -496,7 +496,7 @@ impl ReferenceGameDriverV2 {
     pub fn advance(
         &mut self,
         platform_events: &[PlatformEventV1],
-    ) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
+    ) -> Result<&PresentationSnapshotV3, ReferenceGameError> {
         let prepared = self.stage_advance(platform_events)?;
         let validated = self.validate_prepared_advance(prepared)?;
         self.commit_validated_advance(validated)
@@ -512,7 +512,7 @@ impl ReferenceGameDriverV2 {
         self.runtime.last_command_batches()
     }
 
-    pub fn presentation_snapshot(&self) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
+    pub fn presentation_snapshot(&self) -> Result<&PresentationSnapshotV3, ReferenceGameError> {
         self.presentation_extractor
             .accepted_snapshot()
             .ok_or(ReferenceGameError::PresentationSnapshotMissing)
@@ -702,7 +702,13 @@ impl ReferenceGameDriverV2 {
             &physical_animation,
             prepared_runtime.physics_snapshot(),
         )?;
-        presentation_extractor.extract_with_cameras_and_semantic_ui(
+        let skinning_records = fixture_character_skinning_records(
+            &self.fixture,
+            &physical_animation,
+            prepared_runtime.physics_snapshot(),
+            presentation_extractor.snapshot_epoch(),
+        )?;
+        presentation_extractor.extract_with_character_skinning(
             prepared_runtime.next_tick(),
             self.fixture
                 .activated_project
@@ -716,6 +722,7 @@ impl ReferenceGameDriverV2 {
             &presentation_bindings,
             &[camera],
             ui_records,
+            skinning_records,
         )?;
         let audio_scene = extract_audio_scene(
             presentation_extractor.snapshot_epoch(),
@@ -805,7 +812,7 @@ impl ReferenceGameDriverV2 {
     pub fn commit_validated_advance(
         &mut self,
         validated: ValidatedReferenceGameAdvance,
-    ) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
+    ) -> Result<&PresentationSnapshotV3, ReferenceGameError> {
         self.runtime
             .commit_validated_world_services_tick_with_cognition_and_activity_without_application_evidence(
                 &mut self.world_routine,
@@ -857,7 +864,7 @@ impl ReferenceGameDriverV2 {
 
     fn validate_recovered_camera(
         &self,
-        persisted_snapshot: &PresentationSnapshotV2,
+        persisted_snapshot: &PresentationSnapshotV3,
     ) -> Result<(), ReferenceGameError> {
         let persisted = {
             let mut cameras = persisted_snapshot.camera_records();
@@ -882,7 +889,7 @@ impl ReferenceGameDriverV2 {
         Ok(())
     }
 
-    fn publish_presentation(&mut self) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
+    fn publish_presentation(&mut self) -> Result<&PresentationSnapshotV3, ReferenceGameError> {
         let camera = self.camera_binding()?;
         let ui_records = crate::ui::live_semantic_ui_records(
             self.presentation_extractor.snapshot_epoch(),
@@ -893,8 +900,14 @@ impl ReferenceGameDriverV2 {
             None,
             self.current_audio_subtitle(self.runtime.next_tick()),
         )?;
+        let skinning_records = fixture_character_skinning_records(
+            &self.fixture,
+            &self.physical_animation,
+            self.runtime.physics_snapshot(),
+            self.presentation_extractor.snapshot_epoch(),
+        )?;
         self.presentation_extractor
-            .extract_with_cameras_and_semantic_ui(
+            .extract_with_character_skinning(
                 self.runtime.next_tick(),
                 self.fixture
                     .activated_project
@@ -908,6 +921,7 @@ impl ReferenceGameDriverV2 {
                 &self.presentation_bindings,
                 &[camera],
                 ui_records,
+                skinning_records,
             )?;
         self.publish_audio(&[], self.runtime.next_tick())?;
         self.camera_cut = false;

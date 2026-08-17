@@ -394,8 +394,8 @@ fn test_snapshot(
     sequence: u64,
     simulation_tick: u64,
     project: u8,
-) -> PresentationSnapshotV2 {
-    PresentationSnapshotV2::new(
+) -> PresentationSnapshotV3 {
+    PresentationSnapshotV3::new(
         ContentHash::from_bytes([epoch; 32]),
         sequence,
         simulation_tick,

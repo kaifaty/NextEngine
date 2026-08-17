@@ -8,6 +8,7 @@ mod codec;
 mod error;
 mod neutral;
 mod profile;
+mod skinning;
 
 pub use catalog::{B0CookedMeshV1, B0MeshletV1, RenderContentCatalogV1};
 pub use error::RenderContentContractError;
@@ -22,10 +23,17 @@ pub use profile::{
     B0_SHADER_INTERFACE_MANIFEST_CANONICAL_BYTES, B0RenderContentProfileV1,
     b0_shader_interface_manifest_sha256,
 };
+pub use skinning::{
+    BASE_SKINNING_MAX_INFLUENCES_PER_VERTEX_V1, BASE_SKINNING_MAX_RENDER_JOINTS_V1,
+    BaseSkinningFallbackV1, BaseSkinningMethodV1, NeutralBaseSkinningProfileV1,
+    NeutralRenderJointV1, NeutralSkinInfluenceV1, NeutralSkinVertexV1,
+};
 
 pub const NEUTRAL_MESH_SCHEMA_ID: &str = "nextengine.content.mesh";
 pub const NEUTRAL_MATERIAL_SCHEMA_ID: &str = "nextengine.content.material";
 pub const NEUTRAL_TEXTURE_SCHEMA_ID: &str = "nextengine.content.texture";
+pub const NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID: &str =
+    "nextengine.content.base-skinning-profile";
 pub const B0_RENDER_CONTENT_PROFILE_SCHEMA_ID: &str = "nextengine.content.render-profile-b0";
 pub const RENDER_CONTENT_CATALOG_SCHEMA_ID: &str = "nextengine.render-content.catalog";
 

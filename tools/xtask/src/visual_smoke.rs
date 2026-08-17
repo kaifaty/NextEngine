@@ -14,7 +14,7 @@ use next_contracts::platform::{
     NormalizedControlEventV1, NormalizedControlPhaseV1, PlatformEventKindV1,
     PlatformEventPayloadV1, PlatformEventV1,
 };
-use next_contracts::presentation::{PresentationRoleV1, PresentationSnapshotV2};
+use next_contracts::presentation::{PresentationRoleV1, PresentationSnapshotV3};
 use next_presentation::{TextCatalogResolverV1, rasterize_semantic_ui};
 use next_render::{RenderTargetV1, build_b0_frame_plan};
 use serde::Serialize;
@@ -153,7 +153,7 @@ pub(super) fn run(root: &Path, request: &VisualSmokeRequest) -> Result<(), Strin
 
 fn fixed_snapshots(
     activated: &next_project::ActivatedProjectPackage,
-) -> Result<Vec<(&'static str, PresentationSnapshotV2)>, String> {
+) -> Result<Vec<(&'static str, PresentationSnapshotV3)>, String> {
     let spawn_driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .map_err(|error| error.to_string())?;
     let spawn = spawn_driver
@@ -343,7 +343,7 @@ impl Canvas {
 
     fn draw_scene(
         &mut self,
-        snapshot: &PresentationSnapshotV2,
+        snapshot: &PresentationSnapshotV3,
         catalog: &next_contracts::render_content::RenderContentCatalogV1,
     ) {
         for record in snapshot.scene_records().filter(|record| record.visible) {

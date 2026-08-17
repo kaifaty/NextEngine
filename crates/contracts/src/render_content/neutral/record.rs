@@ -3,8 +3,9 @@ use crate::ids::{AssetId, ContentHash, SchemaId};
 use crate::project::{AssetRevisionRefV1, ContentSemanticClassV1, SchemaRefV1};
 
 use super::super::{
-    B0_RENDER_CONTENT_PROFILE_SCHEMA_ID, B0RenderContentProfileV1, NEUTRAL_MATERIAL_SCHEMA_ID,
-    NEUTRAL_MESH_SCHEMA_ID, NEUTRAL_TEXTURE_SCHEMA_ID, RenderContentContractError,
+    B0_RENDER_CONTENT_PROFILE_SCHEMA_ID, B0RenderContentProfileV1,
+    NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID, NEUTRAL_MATERIAL_SCHEMA_ID, NEUTRAL_MESH_SCHEMA_ID,
+    NEUTRAL_TEXTURE_SCHEMA_ID, NeutralBaseSkinningProfileV1, RenderContentContractError,
 };
 use super::{NeutralMaterialV1, NeutralMeshV1, NeutralTextureV1};
 
@@ -14,6 +15,7 @@ pub enum NeutralRenderRecordV1 {
     Material(NeutralMaterialV1),
     Texture(NeutralTextureV1),
     Profile(B0RenderContentProfileV1),
+    BaseSkinningProfile(NeutralBaseSkinningProfileV1),
 }
 
 impl NeutralRenderRecordV1 {
@@ -30,6 +32,7 @@ impl NeutralRenderRecordV1 {
                 | NEUTRAL_MATERIAL_SCHEMA_ID
                 | NEUTRAL_TEXTURE_SCHEMA_ID
                 | B0_RENDER_CONTENT_PROFILE_SCHEMA_ID
+                | NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID
         )
     }
 
@@ -40,6 +43,7 @@ impl NeutralRenderRecordV1 {
             Self::Material(value) => value.schema_ref(),
             Self::Texture(value) => value.schema_ref(),
             Self::Profile(value) => value.schema_ref(),
+            Self::BaseSkinningProfile(value) => value.schema_ref(),
         }
     }
 
@@ -50,6 +54,7 @@ impl NeutralRenderRecordV1 {
             Self::Material(value) => value.asset_id(),
             Self::Texture(value) => value.asset_id(),
             Self::Profile(value) => value.asset_id(),
+            Self::BaseSkinningProfile(value) => value.asset_id(),
         }
     }
 
@@ -60,6 +65,7 @@ impl NeutralRenderRecordV1 {
             Self::Material(value) => value.record_revision(),
             Self::Texture(value) => value.record_revision(),
             Self::Profile(value) => value.record_revision(),
+            Self::BaseSkinningProfile(value) => value.record_revision(),
         }
     }
 
@@ -77,6 +83,7 @@ impl NeutralRenderRecordV1 {
                 .map(|binding| binding.texture())
                 .collect(),
             Self::Profile(value) => value.dependencies(),
+            Self::BaseSkinningProfile(value) => value.dependencies(),
             Self::Mesh(_) | Self::Texture(_) => Vec::new(),
         };
         values.sort();
@@ -90,6 +97,7 @@ impl NeutralRenderRecordV1 {
             Self::Material(value) => value.canonical_bytes(),
             Self::Texture(value) => value.canonical_bytes(),
             Self::Profile(value) => value.canonical_bytes(),
+            Self::BaseSkinningProfile(value) => value.canonical_bytes(),
         }
     }
 
@@ -99,6 +107,7 @@ impl NeutralRenderRecordV1 {
             Self::Material(value) => value.record_sha256(),
             Self::Texture(value) => value.record_sha256(),
             Self::Profile(value) => value.record_sha256(),
+            Self::BaseSkinningProfile(value) => value.record_sha256(),
         }
     }
 
@@ -127,6 +136,10 @@ impl NeutralRenderRecordV1 {
             B0_RENDER_CONTENT_PROFILE_SCHEMA_ID => {
                 B0RenderContentProfileV1::from_canonical_bytes(bytes, limits).map(Self::Profile)
             }
+            NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID => {
+                NeutralBaseSkinningProfileV1::from_canonical_bytes(bytes, limits)
+                    .map(Self::BaseSkinningProfile)
+            }
             _ => Err(RenderContentContractError::UnknownRecordSchema),
         }
     }
@@ -153,5 +166,11 @@ impl From<NeutralTextureV1> for NeutralRenderRecordV1 {
 impl From<B0RenderContentProfileV1> for NeutralRenderRecordV1 {
     fn from(value: B0RenderContentProfileV1) -> Self {
         Self::Profile(value)
+    }
+}
+
+impl From<NeutralBaseSkinningProfileV1> for NeutralRenderRecordV1 {
+    fn from(value: NeutralBaseSkinningProfileV1) -> Self {
+        Self::BaseSkinningProfile(value)
     }
 }

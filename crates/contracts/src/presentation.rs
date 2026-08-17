@@ -8,6 +8,7 @@ use crate::project::{AssetRevisionRefV1, domain_hash};
 use crate::render_content::AabbI64V1;
 
 mod camera;
+mod skinning;
 mod ui;
 
 pub mod audio_scene;
@@ -17,6 +18,12 @@ pub use camera::{
     CameraPresentationBatchV1, CameraPresentationRecordV2, CameraProjectionProfileV1,
     CameraResultSampleV1, CameraRoleV1, CameraViewportV1, PRESENTATION_MAX_CAMERA_RECORDS,
     ThirdPersonCameraIntentSampleV1,
+};
+pub use skinning::{
+    BaseSkinningProjectionModeV1, CHARACTER_SKINNING_PRESENTATION_RECORD_SCHEMA_VERSION,
+    CharacterSkinningPresentationBatchV1, CharacterSkinningPresentationRecordV1,
+    PRESENTATION_MAX_CHARACTER_SKINNING_RECORDS, PRESENTATION_MAX_RENDER_JOINT_POSES,
+    RenderJointPoseV1,
 };
 pub use ui::{
     PRESENTATION_DEFAULT_SEMANTIC_UI_RECORDS_PER_BATCH, PRESENTATION_MAX_SEMANTIC_UI_RECORDS,
@@ -30,9 +37,13 @@ pub use ui::{
 };
 
 use camera::{build_camera_batches, camera_batches_value, validate_camera_batches};
+use skinning::{
+    build_character_skinning_batches, character_skinning_batches_value,
+    validate_character_skinning_batches,
+};
 use ui::semantic_ui_batches_value;
 
-pub const PRESENTATION_SNAPSHOT_SCHEMA_VERSION: u32 = 2;
+pub const PRESENTATION_SNAPSHOT_SCHEMA_VERSION: u32 = 3;
 pub const PRESENTATION_SCENE_RECORD_SCHEMA_VERSION: u32 = 2;
 pub const PRESENTATION_MAX_SCENE_RECORDS: usize = 16_384;
 
@@ -78,6 +89,11 @@ impl ScenePresentationFlagsV1 {
     #[must_use]
     pub const fn bits(self) -> u32 {
         self.0
+    }
+
+    #[must_use]
+    pub const fn contains(self, flag: Self) -> bool {
+        self.0 & flag.0 == flag.0
     }
 }
 
@@ -271,7 +287,7 @@ impl ScenePresentationBatchV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PresentationSnapshotV2 {
+pub struct PresentationSnapshotV3 {
     pub schema_version: u32,
     pub snapshot_epoch: ContentHash,
     pub snapshot_sequence: u64,
@@ -282,12 +298,13 @@ pub struct PresentationSnapshotV2 {
     pub scene_batches: Vec<ScenePresentationBatchV1>,
     pub camera_batches: Vec<CameraPresentationBatchV1>,
     pub semantic_ui_batches: Vec<SemanticUiPresentationBatchV1>,
+    pub character_skinning_batches: Vec<CharacterSkinningPresentationBatchV1>,
     pub cue_batches: Vec<ContentHash>,
     pub environment_batch: ContentHash,
     pub canonical_hash: ContentHash,
 }
 
-impl PresentationSnapshotV2 {
+impl PresentationSnapshotV3 {
     #[allow(
         clippy::too_many_arguments,
         reason = "the snapshot publication boundary keeps all content and profile bindings explicit"
@@ -363,9 +380,47 @@ impl PresentationSnapshotV2 {
         project_composition_lock_hash: ContentHash,
         content_manifest_hash: ContentHash,
         presentation_profile_hash: ContentHash,
+        scene_records: Vec<ScenePresentationRecordV2>,
+        camera_records: Vec<CameraPresentationRecordV2>,
+        semantic_ui_records: Vec<SemanticUiPresentationRecordV1>,
+        max_scene_records_per_batch: usize,
+        max_camera_records_per_batch: usize,
+        max_semantic_ui_records_per_batch: usize,
+        environment_batch: ContentHash,
+    ) -> Result<Self, PresentationContractError> {
+        Self::new_with_character_skinning_records(
+            snapshot_epoch,
+            snapshot_sequence,
+            simulation_tick,
+            project_composition_lock_hash,
+            content_manifest_hash,
+            presentation_profile_hash,
+            scene_records,
+            camera_records,
+            semantic_ui_records,
+            Vec::new(),
+            max_scene_records_per_batch,
+            max_camera_records_per_batch,
+            max_semantic_ui_records_per_batch,
+            environment_batch,
+        )
+    }
+
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "all presentation families meet at one exact successor publication boundary"
+    )]
+    pub fn new_with_character_skinning_records(
+        snapshot_epoch: ContentHash,
+        snapshot_sequence: u64,
+        simulation_tick: u64,
+        project_composition_lock_hash: ContentHash,
+        content_manifest_hash: ContentHash,
+        presentation_profile_hash: ContentHash,
         mut scene_records: Vec<ScenePresentationRecordV2>,
         camera_records: Vec<CameraPresentationRecordV2>,
         semantic_ui_records: Vec<SemanticUiPresentationRecordV1>,
+        character_skinning_records: Vec<CharacterSkinningPresentationRecordV1>,
         max_scene_records_per_batch: usize,
         max_camera_records_per_batch: usize,
         max_semantic_ui_records_per_batch: usize,
@@ -411,6 +466,17 @@ impl PresentationSnapshotV2 {
             semantic_ui_records,
             max_semantic_ui_records_per_batch,
         )?;
+        let character_skinning_batches = build_character_skinning_batches(
+            snapshot_epoch,
+            character_skinning_records,
+            max_scene_records_per_batch,
+        )?;
+        validate_skinning_scene_closure(
+            scene_batches.iter().flat_map(|batch| batch.records.iter()),
+            character_skinning_batches
+                .iter()
+                .flat_map(|batch| batch.records.iter()),
+        )?;
         let mut value = Self {
             schema_version: PRESENTATION_SNAPSHOT_SCHEMA_VERSION,
             snapshot_epoch,
@@ -422,6 +488,7 @@ impl PresentationSnapshotV2 {
             scene_batches,
             camera_batches,
             semantic_ui_batches,
+            character_skinning_batches,
             cue_batches: Vec::new(),
             environment_batch,
             canonical_hash: ContentHash::default(),
@@ -472,6 +539,8 @@ impl PresentationSnapshotV2 {
         ensure_record_refs_unique(&records)?;
         validate_camera_batches(self.snapshot_epoch, &self.camera_batches)?;
         validate_semantic_ui_batches(self.snapshot_epoch, &self.semantic_ui_batches)?;
+        validate_character_skinning_batches(self.snapshot_epoch, &self.character_skinning_batches)?;
+        validate_skinning_scene_closure(self.scene_records(), self.character_skinning_records())?;
         if self.computed_hash() != self.canonical_hash {
             return Err(PresentationContractError::HashMismatch);
         }
@@ -496,11 +565,23 @@ impl PresentationSnapshotV2 {
             .flat_map(|batch| batch.records.iter())
     }
 
+    pub fn character_skinning_records(
+        &self,
+    ) -> impl Iterator<Item = &CharacterSkinningPresentationRecordV1> {
+        self.character_skinning_batches
+            .iter()
+            .flat_map(|batch| batch.records.iter())
+    }
+
     fn computed_hash(&self) -> ContentHash {
         domain_hash(
-            "nextengine.presentation-snapshot.v2",
+            "nextengine.presentation-snapshot.v3",
             &encode_canonical_jcs(&object([
                 ("camera_batches", camera_batches_value(&self.camera_batches)),
+                (
+                    "character_skinning_batches",
+                    character_skinning_batches_value(&self.character_skinning_batches),
+                ),
                 (
                     "content_manifest_hash",
                     string(self.content_manifest_hash.to_hex()),
@@ -557,6 +638,9 @@ pub enum PresentationContractError {
     HashMismatch,
     DuplicateObjectKey,
     DuplicateCameraKey,
+    DuplicateSkinningKey,
+    InvalidSkinningPose,
+    SkinningClosureInvalid,
     NonCanonicalOrder,
     InvalidBatchProfile,
     InvalidBatchBoundary,
@@ -588,6 +672,9 @@ impl Display for PresentationContractError {
             Self::HashMismatch => "presentation canonical hash mismatch",
             Self::DuplicateObjectKey => "presentation object key is duplicated",
             Self::DuplicateCameraKey => "presentation camera key is duplicated",
+            Self::DuplicateSkinningKey => "presentation skinning key is duplicated",
+            Self::InvalidSkinningPose => "presentation skinning pose is invalid",
+            Self::SkinningClosureInvalid => "presentation skinning closure is invalid",
             Self::NonCanonicalOrder => "presentation records are not canonically ordered",
             Self::InvalidBatchProfile => "presentation batch profile is invalid",
             Self::InvalidBatchBoundary => "presentation batch boundary is invalid",
@@ -611,6 +698,32 @@ impl Display for PresentationContractError {
 }
 
 impl Error for PresentationContractError {}
+
+fn validate_skinning_scene_closure<'a>(
+    scene_records: impl Iterator<Item = &'a ScenePresentationRecordV2>,
+    skinning_records: impl Iterator<Item = &'a CharacterSkinningPresentationRecordV1>,
+) -> Result<(), PresentationContractError> {
+    let scenes = scene_records
+        .map(|record| (record.object_key, record))
+        .collect::<BTreeMap<_, _>>();
+    let skinning = skinning_records
+        .map(|record| (record.object_key, record))
+        .collect::<BTreeMap<_, _>>();
+    for scene in scenes.values() {
+        let uses_skinning = scene
+            .feature_flags
+            .contains(ScenePresentationFlagsV1::SKINNED);
+        match skinning.get(&scene.object_key) {
+            Some(record) if uses_skinning && record.mesh_revision == scene.mesh_revision => {}
+            None if !uses_skinning => {}
+            _ => return Err(PresentationContractError::SkinningClosureInvalid),
+        }
+    }
+    if skinning.keys().any(|key| !scenes.contains_key(key)) {
+        return Err(PresentationContractError::SkinningClosureInvalid);
+    }
+    Ok(())
+}
 
 fn validate_orientation(orientation: [i32; 4]) -> Result<(), PresentationContractError> {
     let norm = orientation.iter().try_fold(0_i128, |sum, value| {

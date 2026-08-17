@@ -13,7 +13,7 @@
 use ash::vk;
 use next_contracts::ids::ContentHash;
 use next_contracts::localization::TextCatalogV1;
-use next_contracts::presentation::{PresentationSnapshotV2, QuantizedPresentationTransformV1};
+use next_contracts::presentation::{PresentationSnapshotV3, QuantizedPresentationTransformV1};
 use next_contracts::project::domain_hash;
 use next_presentation::{TextCatalogResolverV1, UiOverlayImageV1, rasterize_semantic_ui};
 
@@ -171,7 +171,7 @@ impl UiOverlayState {
     /// the target extent changed since the last accepted upload.
     pub(crate) fn update(
         &mut self,
-        snapshot: &PresentationSnapshotV2,
+        snapshot: &PresentationSnapshotV3,
         extent: vk::Extent2D,
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,

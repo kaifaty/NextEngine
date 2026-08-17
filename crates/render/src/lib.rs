@@ -1,13 +1,13 @@
 #![forbid(unsafe_code)]
 
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use next_contracts::canonical::sha256;
-use next_contracts::ids::{ContentHash, PersistentId, content_hash_from_bytes};
+use next_contracts::ids::{ContentHash, PersistentId};
 use next_contracts::presentation::{
     CameraInterpolationPolicyV1, CameraProjectionProfileV1, CameraResultSampleV1, CameraRoleV1,
-    CameraViewportV1, PresentationSnapshotV2, QuantizedPresentationTransformV1,
+    CameraViewportV1, PresentationSnapshotV3, QuantizedPresentationTransformV1,
     ScenePresentationFlagsV1,
 };
 use next_contracts::project::AssetRevisionRefV1;
@@ -18,10 +18,6 @@ use next_contracts::render_content::{
 
 pub const B0_MAX_INDEXED_DRAWS_PER_FRAME: u32 = 65_536;
 
-const B0_FRAME_PLAN_HASH_DOMAIN: &str = "nextengine.render-frame-plan.b0.v1";
-const B0_FRAME_PLAN_HASH_BASE_HEADER_BYTES: usize = 89;
-const B0_FRAME_PLAN_HASH_CAMERA_BYTES: usize = 257;
-const B0_FRAME_PLAN_HASH_DRAW_BYTES: usize = 186;
 const B0_PRESENTATION_INDICATOR_LAYER_START: u16 = 240;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -56,6 +52,18 @@ pub struct B0IndexedDrawV1 {
     pub base_color_rgba_unorm16: [u16; 4],
     pub fallback_material: bool,
     pub casts_shadow: bool,
+    pub skinning_vertex_stream_index: Option<u32>,
+    pub skinning_vertex_stream_hash: Option<ContentHash>,
+    pub base_skinning_fallback: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct B0SkinnedVertexStreamV1 {
+    pub skinning_record_hash: ContentHash,
+    pub mesh_revision: AssetRevisionRefV1,
+    pub positions_micrometres: Vec<[i64; 3]>,
+    pub used_bind_pose_fallback: bool,
+    pub vertex_stream_hash: ContentHash,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -68,11 +76,15 @@ pub struct B0FramePlanV1 {
     pub indexed_draw_count: u32,
     pub fallback_material_draw_count: u32,
     pub draws: Vec<B0IndexedDrawV1>,
+    pub skinned_vertex_streams: Vec<B0SkinnedVertexStreamV1>,
     pub frame_plan_hash: ContentHash,
 }
 
+mod frame_hash;
 mod planner;
+mod skinning;
 
+use frame_hash::{B0FramePlanHashInputV1, frame_plan_hash};
 pub use planner::{B0FramePlannerMetricsV1, B0FramePlannerV1};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -89,7 +101,7 @@ pub struct RenderFrameReportV1 {
 pub trait RenderDevice {
     fn render(
         &mut self,
-        snapshot: &PresentationSnapshotV2,
+        snapshot: &PresentationSnapshotV3,
         target: RenderTargetV1,
     ) -> Result<RenderFrameReportV1, RenderDeviceError>;
 
@@ -129,7 +141,7 @@ impl ReferenceB0Renderer {
 impl RenderDevice for ReferenceB0Renderer {
     fn render(
         &mut self,
-        snapshot: &PresentationSnapshotV2,
+        snapshot: &PresentationSnapshotV3,
         target: RenderTargetV1,
     ) -> Result<RenderFrameReportV1, RenderDeviceError> {
         if !self.device_available {
@@ -159,15 +171,22 @@ impl RenderDevice for ReferenceB0Renderer {
 }
 
 pub fn build_b0_frame_plan(
-    snapshot: &PresentationSnapshotV2,
+    snapshot: &PresentationSnapshotV3,
     catalog: &RenderContentCatalogV1,
     target: RenderTargetV1,
 ) -> Result<B0FramePlanV1, RenderDeviceError> {
     let mut draws = Vec::new();
+    let mut skinned_vertex_streams = Vec::new();
     let mut hash_preimage = Vec::new();
-    let parts =
-        build_b0_frame_plan_parts(snapshot, catalog, target, &mut draws, &mut hash_preimage)?;
-    Ok(parts.finish(draws))
+    let parts = build_b0_frame_plan_parts(
+        snapshot,
+        catalog,
+        target,
+        &mut draws,
+        &mut skinned_vertex_streams,
+        &mut hash_preimage,
+    )?;
+    Ok(parts.finish(draws, skinned_vertex_streams))
 }
 
 struct B0FramePlanPartsV1 {
@@ -182,7 +201,11 @@ struct B0FramePlanPartsV1 {
 }
 
 impl B0FramePlanPartsV1 {
-    fn finish(self, draws: Vec<B0IndexedDrawV1>) -> B0FramePlanV1 {
+    fn finish(
+        self,
+        draws: Vec<B0IndexedDrawV1>,
+        skinned_vertex_streams: Vec<B0SkinnedVertexStreamV1>,
+    ) -> B0FramePlanV1 {
         B0FramePlanV1 {
             snapshot_hash: self.snapshot_hash,
             catalog_hash: self.catalog_hash,
@@ -192,16 +215,18 @@ impl B0FramePlanPartsV1 {
             indexed_draw_count: self.indexed_draw_count,
             fallback_material_draw_count: self.fallback_material_draw_count,
             draws,
+            skinned_vertex_streams,
             frame_plan_hash: self.frame_plan_hash,
         }
     }
 }
 
 fn build_b0_frame_plan_parts(
-    snapshot: &PresentationSnapshotV2,
+    snapshot: &PresentationSnapshotV3,
     catalog: &RenderContentCatalogV1,
     target: RenderTargetV1,
     draws: &mut Vec<B0IndexedDrawV1>,
+    skinned_vertex_streams: &mut Vec<B0SkinnedVertexStreamV1>,
     hash_preimage: &mut Vec<u8>,
 ) -> Result<B0FramePlanPartsV1, RenderDeviceError> {
     if target.extent[0] == 0 || target.extent[1] == 0 {
@@ -216,6 +241,7 @@ fn build_b0_frame_plan_parts(
         .material(fallback_revision)
         .ok_or(RenderDeviceError::FallbackMaterialMissing)?;
     draws.clear();
+    skinned_vertex_streams.clear();
     let scene_record_capacity = snapshot.scene_records().count();
     draws
         .try_reserve_exact(scene_record_capacity)
@@ -223,9 +249,15 @@ fn build_b0_frame_plan_parts(
     let mut visible_object_count = 0_u32;
     let mut indexed_draw_count = 0_u32;
     let mut fallback_material_draw_count = 0_u32;
+    let skinning_records = snapshot
+        .character_skinning_records()
+        .map(|record| (record.object_key, record))
+        .collect::<BTreeMap<_, _>>();
+    let mut skinning_instance_counts = BTreeMap::<AssetRevisionRefV1, u32>::new();
 
     for record in snapshot.scene_records().filter(|record| record.visible) {
-        if record.feature_flags != ScenePresentationFlagsV1::NONE {
+        let is_skinned = record.feature_flags == ScenePresentationFlagsV1::SKINNED;
+        if record.feature_flags != ScenePresentationFlagsV1::NONE && !is_skinned {
             return Err(RenderDeviceError::UnsupportedSceneFeature);
         }
         let mesh = catalog
@@ -234,6 +266,39 @@ fn build_b0_frame_plan_parts(
         if mesh.bounds() != record.local_bounds {
             return Err(RenderDeviceError::PresentationBoundsMismatch);
         }
+        let skinning_stream = if is_skinned {
+            let skinning_record = skinning_records
+                .get(&record.object_key)
+                .copied()
+                .ok_or(RenderDeviceError::SkinningRecordMissing)?;
+            let profile = catalog
+                .base_skinning_profile(skinning_record.skinning_profile_revision)
+                .ok_or(RenderDeviceError::SkinningProfileMissing)?;
+            let instance_count = skinning_instance_counts
+                .entry(skinning_record.skinning_profile_revision)
+                .or_default();
+            *instance_count = instance_count
+                .checked_add(1)
+                .ok_or(RenderDeviceError::CountOverflow)?;
+            if *instance_count > profile.max_instances_per_frame() {
+                return Err(RenderDeviceError::SkinningInstanceBudgetExceeded {
+                    requested: *instance_count,
+                    limit: profile.max_instances_per_frame(),
+                });
+            }
+            let stream = skinning::build_skinning_stream(skinning_record, profile, mesh)?;
+            let index = u32::try_from(skinned_vertex_streams.len())
+                .map_err(|_| RenderDeviceError::CountOverflow)?;
+            let hash = stream.vertex_stream_hash;
+            let fallback = stream.used_bind_pose_fallback;
+            skinned_vertex_streams
+                .try_reserve(1)
+                .map_err(|_| RenderDeviceError::FramePlanAllocationFailed)?;
+            skinned_vertex_streams.push(stream);
+            Some((index, hash, fallback))
+        } else {
+            None
+        };
         let primitive_count =
             u64::try_from(mesh.primitives().len()).map_err(|_| RenderDeviceError::CountOverflow)?;
         indexed_draw_count = validate_b0_indexed_draw_budget(
@@ -286,7 +351,11 @@ fn build_b0_frame_plan_parts(
                 transform: record.current_transform,
                 base_color_rgba_unorm16: material.base_color_rgba_unorm16(),
                 fallback_material: used_fallback,
-                casts_shadow: record.presentation_layer < B0_PRESENTATION_INDICATOR_LAYER_START,
+                casts_shadow: !is_skinned
+                    && record.presentation_layer < B0_PRESENTATION_INDICATOR_LAYER_START,
+                skinning_vertex_stream_index: skinning_stream.map(|value| value.0),
+                skinning_vertex_stream_hash: skinning_stream.map(|value| value.1),
+                base_skinning_fallback: skinning_stream.is_some_and(|value| value.2),
             });
         }
     }
@@ -301,6 +370,7 @@ fn build_b0_frame_plan_parts(
             visible_object_count,
             fallback_material_draw_count,
             draws,
+            skinned_vertex_streams,
         },
         hash_preimage,
     )?;
@@ -317,7 +387,7 @@ fn build_b0_frame_plan_parts(
 }
 
 fn select_b0_camera(
-    snapshot: &PresentationSnapshotV2,
+    snapshot: &PresentationSnapshotV3,
     expected_exposure_profile_revision: AssetRevisionRefV1,
 ) -> Result<Option<B0CameraFrameV1>, RenderDeviceError> {
     let mut cameras = snapshot.camera_records();
@@ -363,131 +433,6 @@ fn validate_shader_interface(catalog: &RenderContentCatalogV1) -> Result<(), Ren
     }
 }
 
-struct B0FramePlanHashInputV1<'a> {
-    snapshot_hash: ContentHash,
-    catalog_hash: ContentHash,
-    target: RenderTargetV1,
-    camera: Option<&'a B0CameraFrameV1>,
-    visible_object_count: u32,
-    fallback_material_draw_count: u32,
-    draws: &'a [B0IndexedDrawV1],
-}
-
-fn frame_plan_hash(
-    input: B0FramePlanHashInputV1<'_>,
-    preimage: &mut Vec<u8>,
-) -> Result<ContentHash, RenderDeviceError> {
-    let draw_count =
-        u64::try_from(input.draws.len()).map_err(|_| RenderDeviceError::CountOverflow)?;
-    let _ = validate_b0_indexed_draw_budget(draw_count)?;
-    let draw_bytes = B0_FRAME_PLAN_HASH_DRAW_BYTES
-        .checked_mul(input.draws.len())
-        .ok_or(RenderDeviceError::CountOverflow)?;
-    let camera_bytes = if input.camera.is_some() {
-        B0_FRAME_PLAN_HASH_CAMERA_BYTES
-    } else {
-        0
-    };
-    let body_len = B0_FRAME_PLAN_HASH_BASE_HEADER_BYTES
-        .checked_add(camera_bytes)
-        .ok_or(RenderDeviceError::CountOverflow)?
-        .checked_add(draw_bytes)
-        .ok_or(RenderDeviceError::CountOverflow)?;
-    let body_len_u64 = u64::try_from(body_len).map_err(|_| RenderDeviceError::CountOverflow)?;
-    let preimage_len = B0_FRAME_PLAN_HASH_DOMAIN
-        .len()
-        .checked_add(1)
-        .and_then(|length| length.checked_add(std::mem::size_of::<u64>()))
-        .and_then(|length| length.checked_add(body_len))
-        .ok_or(RenderDeviceError::CountOverflow)?;
-    preimage.clear();
-    preimage
-        .try_reserve_exact(preimage_len)
-        .map_err(|_| RenderDeviceError::FramePlanAllocationFailed)?;
-    preimage.extend_from_slice(B0_FRAME_PLAN_HASH_DOMAIN.as_bytes());
-    preimage.push(0);
-    preimage.extend_from_slice(&body_len_u64.to_le_bytes());
-    preimage.extend_from_slice(input.snapshot_hash.as_bytes());
-    preimage.extend_from_slice(input.catalog_hash.as_bytes());
-    preimage.extend_from_slice(&input.target.extent[0].to_le_bytes());
-    preimage.extend_from_slice(&input.target.extent[1].to_le_bytes());
-    preimage.extend_from_slice(&input.target.target_revision.to_le_bytes());
-    preimage.extend_from_slice(&input.visible_object_count.to_le_bytes());
-    preimage.extend_from_slice(&input.fallback_material_draw_count.to_le_bytes());
-    match input.camera {
-        Some(camera) => {
-            preimage.push(1);
-            extend_camera_frame(preimage, camera);
-        }
-        None => preimage.push(0),
-    }
-    for draw in input.draws {
-        preimage.extend_from_slice(draw.scene_record_hash.as_bytes());
-        extend_revision(preimage, draw.mesh_revision);
-        extend_revision(preimage, draw.material_revision);
-        extend_revision(preimage, draw.texture_revision);
-        preimage.extend_from_slice(&draw.first_index.to_le_bytes());
-        preimage.extend_from_slice(&draw.index_count.to_le_bytes());
-        preimage.push(u8::from(draw.fallback_material));
-        preimage.push(u8::from(draw.casts_shadow));
-    }
-    debug_assert_eq!(preimage.len(), preimage_len);
-    Ok(content_hash_from_bytes(sha256(preimage)))
-}
-
-fn extend_camera_frame(bytes: &mut Vec<u8>, camera: &B0CameraFrameV1) {
-    bytes.extend_from_slice(camera.camera_record_hash.as_bytes());
-    bytes.extend_from_slice(camera.camera_id.as_bytes());
-    bytes.push(camera.camera_role as u8);
-    bytes.extend_from_slice(&camera.viewport.viewport_id.to_le_bytes());
-    for value in camera.viewport.origin_unorm16 {
-        bytes.extend_from_slice(&value.to_le_bytes());
-    }
-    for value in camera.viewport.extent_unorm16 {
-        bytes.extend_from_slice(&value.to_le_bytes());
-    }
-    bytes.extend_from_slice(
-        &camera
-            .projection_profile
-            .vertical_fov_millidegrees
-            .to_le_bytes(),
-    );
-    bytes.extend_from_slice(
-        &camera
-            .projection_profile
-            .near_plane_micrometres
-            .to_le_bytes(),
-    );
-    bytes.extend_from_slice(
-        &camera
-            .projection_profile
-            .far_plane_micrometres
-            .to_le_bytes(),
-    );
-    extend_revision(bytes, camera.exposure_profile_revision);
-    extend_camera_result(bytes, camera.previous_result_sample);
-    extend_camera_result(bytes, camera.current_result_sample);
-    bytes.push(u8::from(camera.cut));
-    bytes.push(camera.interpolation_policy as u8);
-}
-
-fn extend_camera_result(bytes: &mut Vec<u8>, result: CameraResultSampleV1) {
-    for value in result.pose.translation_micrometres {
-        bytes.extend_from_slice(&value.to_le_bytes());
-    }
-    for value in result.pose.orientation_q30 {
-        bytes.extend_from_slice(&value.to_le_bytes());
-    }
-    for value in result.focus_point_micrometres {
-        bytes.extend_from_slice(&value.to_le_bytes());
-    }
-}
-
-fn extend_revision(bytes: &mut Vec<u8>, revision: AssetRevisionRefV1) {
-    bytes.extend_from_slice(revision.asset_id.as_bytes());
-    bytes.extend_from_slice(revision.record_sha256.as_bytes());
-}
-
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum RenderDeviceError {
@@ -504,6 +449,10 @@ pub enum RenderDeviceError {
     UnsupportedCameraConfiguration,
     CameraExposureProfileMismatch,
     UnsupportedSceneFeature,
+    SkinningRecordMissing,
+    SkinningProfileMissing,
+    SkinningBindingInvalid,
+    SkinningInstanceBudgetExceeded { requested: u32, limit: u32 },
     UnsupportedTopology,
     UnsupportedMaterialSlot,
     DrawBudgetExceeded { requested: u64, limit: u32 },
@@ -541,6 +490,19 @@ impl Display for RenderDeviceError {
             Self::UnsupportedSceneFeature => {
                 formatter.write_str("scene feature is unsupported by B0")
             }
+            Self::SkinningRecordMissing => {
+                formatter.write_str("skinned scene has no exact presentation skinning record")
+            }
+            Self::SkinningProfileMissing => {
+                formatter.write_str("exact base-skinning content profile missing")
+            }
+            Self::SkinningBindingInvalid => {
+                formatter.write_str("base-skinning presentation/content binding invalid")
+            }
+            Self::SkinningInstanceBudgetExceeded { requested, limit } => write!(
+                formatter,
+                "base-skinning instance count {requested} exceeds profile limit {limit}"
+            ),
             Self::UnsupportedTopology => formatter.write_str("mesh topology is unsupported by B0"),
             Self::UnsupportedMaterialSlot => {
                 formatter.write_str("mesh material slot is unsupported by B0")
@@ -802,7 +764,7 @@ mod tests {
             CameraInterpolationPolicyV1::LinearPose,
         )
         .expect("camera");
-        let with_camera = PresentationSnapshotV2::new_with_camera_records(
+        let with_camera = PresentationSnapshotV3::new_with_camera_records(
             without_camera.snapshot_epoch,
             without_camera.snapshot_sequence,
             without_camera.simulation_tick,
@@ -851,7 +813,7 @@ mod tests {
             camera_record.interpolation_policy,
         )
         .expect("well-formed camera with unavailable profile");
-        let wrong_profile_snapshot = PresentationSnapshotV2::new_with_camera_records(
+        let wrong_profile_snapshot = PresentationSnapshotV3::new_with_camera_records(
             without_camera.snapshot_epoch,
             without_camera.snapshot_sequence,
             without_camera.simulation_tick,
@@ -906,7 +868,7 @@ mod tests {
     fn snapshot(
         catalog: &RenderContentCatalogV1,
         missing_first_material: bool,
-    ) -> PresentationSnapshotV2 {
+    ) -> PresentationSnapshotV3 {
         snapshot_at(catalog, missing_first_material, 0, 0)
     }
 
@@ -915,7 +877,7 @@ mod tests {
         missing_first_material: bool,
         snapshot_sequence: u64,
         simulation_tick: u64,
-    ) -> PresentationSnapshotV2 {
+    ) -> PresentationSnapshotV3 {
         let epoch = domain_hash("test.epoch", b"epoch");
         let floor = &catalog.meshes()[0];
         let marker = &catalog.meshes()[1];
@@ -967,7 +929,7 @@ mod tests {
                 )
             })
             .collect();
-        PresentationSnapshotV2::new(
+        PresentationSnapshotV3::new(
             epoch,
             snapshot_sequence,
             simulation_tick,

@@ -12,7 +12,7 @@ use next_contracts::platform::{
     NormalizedControlEventV1, NormalizedControlPhaseV1, PlatformEventKindV1,
     PlatformEventPayloadV1, PlatformEventV1,
 };
-use next_contracts::presentation::PresentationSnapshotV2;
+use next_contracts::presentation::PresentationSnapshotV3;
 use next_contracts::rpg::RpgAggregatePayloadV1;
 use next_reference_game::ReferenceGameDriverV2;
 
@@ -100,7 +100,7 @@ fn tap_key(driver: &mut ReferenceGameDriverV2, sequence: &mut u64, control_path:
     driver.advance(&[release]).expect("key release frame");
 }
 
-fn record_ids(snapshot: &PresentationSnapshotV2) -> Vec<String> {
+fn record_ids(snapshot: &PresentationSnapshotV3) -> Vec<String> {
     snapshot
         .semantic_ui_records()
         .map(|record| record.element.element_id.as_str().to_owned())
@@ -123,7 +123,7 @@ fn expected_records_with_subtitle(dialogue_open: bool, subtitle: bool) -> Vec<St
     records
 }
 
-fn dialogue_selected_choice(snapshot: &PresentationSnapshotV2) -> Option<String> {
+fn dialogue_selected_choice(snapshot: &PresentationSnapshotV3) -> Option<String> {
     snapshot.semantic_ui_records().find_map(|record| {
         let element_id = record.element.element_id.as_str();
         if record.element.selected

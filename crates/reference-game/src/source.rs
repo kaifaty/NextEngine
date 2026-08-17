@@ -10,7 +10,6 @@ pub const REFERENCE_GAME_PROJECT_ID: &str = "org.nextengine.reference-alpha";
 
 pub const REFERENCE_FLOOR_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0x81; 16]);
 pub const REFERENCE_HUMANOID_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xc1; 16]);
-pub const REFERENCE_ENEMY_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xc9; 16]);
 pub const REFERENCE_QUEST_GIVER_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xca; 16]);
 pub const REFERENCE_BLADE_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xc2; 16]);
 pub const REFERENCE_RELAY_MESH_ASSET_ID: AssetId = AssetId::from_bytes([0xc3; 16]);

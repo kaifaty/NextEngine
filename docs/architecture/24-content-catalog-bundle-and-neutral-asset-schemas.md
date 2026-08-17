@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 2.5 |
+| Версия | 2.6 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-24 2.4; admits the exact Stage 0 body-schema asset in the current content closure |
+| Заменяет | SPEC-24 2.5; admits the exact R5f base-skinning profile in the current content closure |
 
 ## Scope
 
@@ -101,6 +101,10 @@ The implemented specialized neutral records are:
 
 - `NeutralMeshV1`, `NeutralMaterialV1`, `NeutralTextureV1` and
   `B0RenderContentProfileV1`, cooked into `RenderContentCatalogV1`;
+- `NeutralBaseSkinningProfileV1`, binding one exact mesh, source skeleton and
+  `BodySchemaAssetV1` revision to stable render-joint IDs, explicit animation-
+  joint/body-semantic mappings, bounded LBS influences and a mandatory bind-
+  pose fallback;
 - `NeutralSkeletonV1` and `NeutralAnimationV1` with exact clip-to-skeleton
   binding;
 - `NeutralAudioV1` with canonical bounded PCM/audio metadata;
@@ -119,7 +123,11 @@ These contracts use engine-owned fixed-width/canonical values, exact asset
 revisions and checked bounds. Render records validate index/attribute lengths,
 primitive support, texture extent/data/color semantics and material bindings.
 Animation validates stable joint keys, hierarchy, channel/key order and exact
-skeleton revision. Audio validates sample format/rate/channels/frame bounds.
+skeleton revision. Base-skinning validation requires an acyclic complete render
+hierarchy, one-to-one source-joint/body-semantic mappings, exactly one to four
+positive influences per mesh vertex, exact `u16::MAX` weight sums and a
+positive per-frame instance bound. Audio validates sample format/rate/channels/
+frame bounds.
 
 The reference alpha's scene/collider/RPG/world definitions use the generic
 `NeutralRecordV1`; this SPEC does not promise the detailed future neutral
@@ -153,6 +161,9 @@ no public bundle archive ABI or runtime catalog resolver.
 - localization fallback closure;
 - audio and animation/skeleton exact references;
 - render catalog canonical round-trip and equality to manifest render entries;
+- every base-skinning profile against its exact mesh vertex closure, source
+  skeleton joints, body semantics, required root/dependency revisions and
+  canonical profile hash;
 - exact population/navigation catalog revisions, 100-record closure and graph
   references against the 64 world chunks;
 - exact cognition catalog revision, sorted seed beliefs, bounded cadence/
@@ -174,6 +185,11 @@ formats return typed `UNSUPPORTED_*` before nested activation; no defaults,
 catalog selection, automatic migration or in-place rewrite occurs. Rejected
 source bytes are preserved.
 
+Under ADR-046 the current alpha `RenderContentCatalogV1` payload is not a
+public persisted ABI. R5f adds the base-skinning family to that exact current
+shape; an older catalog must be recooked by its matching toolchain and is never
+silently decoded or migrated as the new shape.
+
 ## Public boundary and checks
 
 Public content contains only engine-owned IDs, schema refs, hashes, bounded
@@ -181,9 +197,10 @@ canonical values, manifests and immutable records. ECS/storage, OS/window,
 task/thread, vendor/compiler, database, importer and filesystem types are
 forbidden.
 
-`content-package` is the governing check: cook and reopen the 36-root/122-entry
-reference project, validate the direct-lock closure, Luau/Wasm content, provenance/NOTICE,
-localization, audio/animation, body schema and render catalog; malformed version/hash/bounds,
+`content-package` is the governing check: cook and reopen the 37-root/123-entry
+reference project, validate the direct-lock closure, Luau/Wasm content,
+provenance/NOTICE, localization, audio/animation, body schema, base-skinning
+profile and render catalog; malformed version/hash/bounds, mapping/weights,
 duplicate, cycle, missing dependency and forbidden-type cases publish nothing.
 Renderer-facing changes additionally run `platform`/`visual-smoke`; gameplay
 content changes additionally run `play` and state-bearing changes run

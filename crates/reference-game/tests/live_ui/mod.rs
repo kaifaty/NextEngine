@@ -32,7 +32,7 @@ fn live_ui_screen_toggles_are_deterministic_and_back_closes_before_pause() {
             sequence,
         )
     };
-    fn record_ids(snapshot: &next_contracts::presentation::PresentationSnapshotV2) -> Vec<String> {
+    fn record_ids(snapshot: &next_contracts::presentation::PresentationSnapshotV3) -> Vec<String> {
         snapshot
             .semantic_ui_records()
             .map(|record| record.element.element_id.as_str().to_owned())

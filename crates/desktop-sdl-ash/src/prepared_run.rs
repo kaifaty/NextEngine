@@ -26,7 +26,7 @@ pub struct DesktopRunMeasurement {
 /// Initializes SDL, the native window, and Vulkan before a caller-controlled
 /// measurement window begins.
 pub fn prepare_interactive(
-    snapshot: &PresentationSnapshotV2,
+    snapshot: &PresentationSnapshotV3,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
 ) -> Result<PreparedDesktopRun, DesktopAdapterError> {
@@ -78,14 +78,14 @@ impl PreparedDesktopRun {
 }
 
 pub(super) fn run_interactive_with_shared_timed_frame_source_and_finalize(
-    snapshot: Arc<PresentationSnapshotV2>,
+    snapshot: Arc<PresentationSnapshotV3>,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
     mut frame_source: impl FnMut(
         &[PlatformEventV1],
         Duration,
     )
-        -> Result<Option<Arc<PresentationSnapshotV2>>, DesktopAdapterError>,
+        -> Result<Option<Arc<PresentationSnapshotV3>>, DesktopAdapterError>,
     finalize_application: impl FnMut() -> DesktopApplicationFinalization,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
     run_interactive_with_shared_timed_frame_source_audio_and_finalize(
@@ -104,7 +104,7 @@ pub(super) fn run_interactive_with_shared_timed_frame_source_and_finalize(
     reason = "the audio-aware entry point keeps the shared snapshot and sink boundary explicit"
 )]
 pub(super) fn run_interactive_with_shared_timed_frame_source_audio_and_finalize(
-    snapshot: Arc<PresentationSnapshotV2>,
+    snapshot: Arc<PresentationSnapshotV3>,
     render_content_catalog: &RenderContentCatalogV1,
     options: &DesktopRunOptions,
     mut frame_source: impl FnMut(
@@ -112,7 +112,7 @@ pub(super) fn run_interactive_with_shared_timed_frame_source_audio_and_finalize(
         Duration,
         &mut audio_output::DesktopAudioOutputV1,
     )
-        -> Result<Option<Arc<PresentationSnapshotV2>>, DesktopAdapterError>,
+        -> Result<Option<Arc<PresentationSnapshotV3>>, DesktopAdapterError>,
     finalize_application: impl FnMut() -> DesktopApplicationFinalization,
 ) -> Result<DesktopRunReport, DesktopAdapterError> {
     let mut core = InteractiveRunCore::prepare(
@@ -156,7 +156,7 @@ fn invalid_prepared_run(message: &'static str) -> DesktopAdapterError {
 }
 
 struct InteractiveRunCore<F: FnMut() -> DesktopApplicationFinalization> {
-    current_snapshot: RefCell<Arc<PresentationSnapshotV2>>,
+    current_snapshot: RefCell<Arc<PresentationSnapshotV3>>,
     render_content_catalog: RenderContentCatalogV1,
     options: DesktopRunOptions,
     normalizer: Option<lifecycle::DesktopEventNormalizer>,
@@ -193,7 +193,7 @@ struct InteractiveRunCompletion {
 
 impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
     fn prepare(
-        snapshot: Arc<PresentationSnapshotV2>,
+        snapshot: Arc<PresentationSnapshotV3>,
         render_content_catalog: RenderContentCatalogV1,
         options: DesktopRunOptions,
         finalize_application: F,
@@ -202,7 +202,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             Duration,
             &mut audio_output::DesktopAudioOutputV1,
         ) -> Result<
-            Option<Arc<PresentationSnapshotV2>>,
+            Option<Arc<PresentationSnapshotV3>>,
             DesktopAdapterError,
         >,
     ) -> Result<Self, DesktopAdapterError> {
@@ -303,7 +303,7 @@ impl<F: FnMut() -> DesktopApplicationFinalization> InteractiveRunCore<F> {
             Duration,
             &mut audio_output::DesktopAudioOutputV1,
         ) -> Result<
-            Option<Arc<PresentationSnapshotV2>>,
+            Option<Arc<PresentationSnapshotV3>>,
             DesktopAdapterError,
         >,
     ) -> Result<(), DesktopAdapterError> {

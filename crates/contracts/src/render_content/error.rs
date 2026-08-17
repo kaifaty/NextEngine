@@ -30,6 +30,8 @@ pub enum RenderContentContractError {
     InvalidTextureData,
     InvalidHalfFloat,
     InvalidMaterial,
+    InvalidSkinningProfile,
+    InvalidSkinWeights,
     ZeroHash,
     ZeroRevision,
     DuplicateIdentity,
@@ -52,6 +54,7 @@ impl RenderContentContractError {
             Self::MissingReference => "CONTENT_DEPENDENCY_MISSING",
             Self::HashMismatch | Self::ZeroHash => "CONTENT_MANIFEST_INVALID",
             Self::InvalidMaterial | Self::UnsupportedB0Feature => "MATERIAL_SCHEMA_INVALID",
+            Self::InvalidSkinningProfile | Self::InvalidSkinWeights => "CONTENT_SKINNING_INVALID",
             _ => "CONTENT_MANIFEST_INVALID",
         }
     }
@@ -97,6 +100,8 @@ impl Display for RenderContentContractError {
                 formatter.write_str("texture contains noncanonical binary16 data")
             }
             Self::InvalidMaterial => formatter.write_str("material definition is invalid"),
+            Self::InvalidSkinningProfile => formatter.write_str("base-skinning profile is invalid"),
+            Self::InvalidSkinWeights => formatter.write_str("base-skinning weights are invalid"),
             Self::ZeroHash => formatter.write_str("render content hash must not be zero"),
             Self::ZeroRevision => formatter.write_str("render content revision must be positive"),
             Self::DuplicateIdentity => formatter.write_str("render content identity is duplicated"),
