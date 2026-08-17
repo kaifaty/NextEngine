@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-37 |
 | Status | Proposed |
-| Version | 1.1 |
-| Last verified | 2026-08-16 |
+| Version | 1.2 |
+| Last verified | 2026-08-17 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-36](36-continuum-material-physics.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-073](adr/073-layered-physical-world-and-living-structures-track.md) |
 | Related Proposed composition | [SPEC-39](39-world-substrate-composition.md), [SPEC-40](40-arcane-substrate-and-physical-magic.md), [ADR-074](adr/074-world-substrate-and-arcane-physical-interaction-track.md) |
-| Supersedes | SPEC-37 1.0; clarifies the boundary between Physical Embodiment and non-physical world substrates without changing current PhysX, runtime, save or public-contract semantics |
+| Supersedes | SPEC-37 1.1; closes the Arcane start-receipt/exchange-receipt and exact exchange-identity relationship without changing current PhysX, runtime, save or public-contract semantics |
 
 ## Status and purpose
 
@@ -33,12 +33,14 @@ peer outside Physical Embodiment. It can affect rigid, continuum, vegetation or
 later thermal state only through a typed cross-owner exchange profile; it never
 becomes an L2 forcing shortcut or an L3 physical writer.
 
-An arcane/physical transaction freezes both owner revisions, stages one
-canonical exchange batch and publishes the arcane debit plus participating
-physical state atomically. The physical part still follows this SPEC's
-exclusive-writer and `PhysicalStep` rules. Projects that do not activate the
-arcane capability retain the unchanged current physical path and do not create
-empty arcane owner segments.
+An Arcane start command commits its own stage-5 execution-start receipt and
+does not remain pending through physics. Each later arcane/physical substep
+freezes both owner revisions, stages one canonical exchange batch and publishes
+the Arcane debit plus participating physical state and exchange receipt
+atomically at `PhysicalStep`. Completion facts use the one existing stage-9
+Outcome boundary. The physical part still follows this SPEC's exclusive-writer
+rules. Projects that do not activate the arcane capability retain the unchanged
+current physical path and do not create empty Arcane owner segments.
 
 ## Layer map
 
@@ -88,11 +90,13 @@ Every L3 owner declares:
 7. persistence classification and presentation extraction.
 
 Exchange records use full stable participant identity, source/destination
-owner and state revisions, world generation, tick/substep, profile and prior
-state roots, fixed-point quantities, units and explicit reference points for
-moments. Records have a complete total order. An exact duplicate or a different
-hash under the same unique batch key rejects the uncommitted composite step;
-the runtime never selects whichever result arrived first.
+owner and state revisions, exact `world_namespace` plus destination `world_id`/
+prior `world_revision`, tick/substep, profile and prior state roots, fixed-point
+quantities, units and explicit reference points for moments. Records have a
+complete total order. Command retries are intercepted by the ledger. Within a
+new closed owner batch, an exact duplicate or a different hash under the same
+unique key is an internal invariant that rejects the uncommitted composite
+step; the runtime never selects whichever result arrived first.
 
 Broad `PhysicalLayer`, generic solver, arbitrary field map or plugin-owned raw
 particle/node API is not a V1 public contract. Exact exchange schemas are
