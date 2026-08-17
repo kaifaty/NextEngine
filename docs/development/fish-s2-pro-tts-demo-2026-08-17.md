@@ -18,6 +18,8 @@ The machine-local root is:
 | `rodrigomatta/s2.cpp` | commit `2c33261938da1a41d713768b1b391b4d368d7d2c` |
 | bundled `ggml` submodule | commit `57ea0bc119d722d74594196cc5b494a34dd87be4` |
 | `rodrigomt/s2-pro-gguf` | revision `a7320690b5585b03b20ed6484b55926f3015f48d` |
+| Q4_K_M | 3,566,165,088 bytes; SHA-256 `83963e1b7cec980b41eb2163d617e2b6241bfd1564dd880e5b43fc4834807bd9` |
+| Q5_K_M | 4,031,183,968 bytes; SHA-256 `e445b0c8f32ed0ff584b906098f0fe53a67c0691249bfcccde569544f7d72cb9` |
 | Q6_K | 4,525,266,528 bytes; SHA-256 `84ac904172a2cadb84e8f7f14ea3f1acef0584987635e85f7207fd254eafa235` |
 | Q8_0 | 5,630,037,088 bytes; SHA-256 `e2043182234786e7b975547d3bbcb23ff02e4ff684b82f7fa851287e4cb4f267` |
 | tokenizer | 12,217,872 bytes; SHA-256 `f24e08099d45a8adf3f52f5f0b03276e433bb9d689bb15fcbcc48ce58744588b` |
@@ -44,6 +46,20 @@ CUDA. The generated file is placed outside the repository at:
 ```text
 /home/kaifaty/.local/share/nextengine/fish-s2-pro/outputs/fish-s2-pro-q6-demo.wav
 ```
+
+Select either lower-bit comparator explicitly:
+
+```bash
+python3 lab/scripts/fish_s2_pro_demo.py generate --force --quality q4 \
+  --text 'Привет! Сервер синтеза речи работает локально.'
+
+python3 lab/scripts/fish_s2_pro_demo.py generate --force --quality q5 \
+  --text 'Привет! Сервер синтеза речи работает локально.'
+```
+
+Q4_K_M and Q5_K_M keep the codec on CUDA on this host. Q6_K remains the
+wrapper default until a human listening comparison decides whether the Q4
+quality trade-off is acceptable.
 
 Use the quality-first Q8_0 comparator with its codec on CPU:
 
@@ -88,7 +104,7 @@ curl --fail --silent --show-error --no-buffer \
 Do not expose the alpha server beyond loopback without reviewing its network
 boundary. The wrapper requires `--allow-non-loopback` for such a bind.
 
-## Measured first probe
+## Measured probes
 
 Hardware: NVIDIA GeForce RTX 3080 10 GiB, driver 610.43.02, CUDA 13.3. The
 wrapper validation runs used short Russian prompts and `max_tokens=384`;
@@ -100,16 +116,35 @@ are local setup observations rather than a quality comparison or product gate.
 | Q6_K | CUDA | 5.155 s | 6,205 MiB | 3.035 | 18.14 s |
 | Q8_0 | CPU | 6.130 s | 5,701 MiB | 5.650 | 37.88 s |
 
-Q6_K is the practical default on this host. Q8_0 remains useful for listening
-comparisons, but neither result satisfies the Proposed SPEC-16 target of
-real-time factor at most 0.5. No production-readiness claim is made.
+Q8_0 remains useful only as a listening comparator on this host. The lower-bit
+profiles were then compared with the exact text `Привет! Сервер синтеза речи
+работает локально.` and finalized, non-streaming WAV output. Each server was
+started fresh, request 0 was used to construct/cache the single-token step
+graphs, and requests 1–3 were measured as steady warm runs:
 
-The local Q6 server smoke returned HTTP 200 and a valid mono float32 44.1 kHz
-WAV (3.947 s of audio) in 12.43 s. The chunked low-latency request also returned
-HTTP 200 and valid mono PCM16 44.1 kHz WAV (2.833 s), but upstream metrics
-reported RTF 6.24 because the alpha streaming path repeatedly decodes its
-prefix. HTTP header arrival is not a first-audio measurement, so no TTFA claim
-is made.
+| Profile | Codec | First request after init | Warm wall time, mean | Warm audio, mean | Warm upstream RTF, mean |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Q4_K_M | CUDA | 9.864 s | 2.910 s | 3.297 s | 0.874 |
+| Q5_K_M | CUDA | 10.417 s | 3.254 s | 3.514 s | 0.918 |
+| Q6_K | CUDA | 11.007 s | 3.299 s | 3.142 s | 1.040 |
+
+The first synthesis after model initialization is not representative of a
+steady warm server: it remains roughly three times slower even though model
+loading is already complete. A service intended for interactive use must run
+one disposable synthesis during prewarm. Under this small fixed-text probe,
+Q4_K_M is about 16% faster than Q6_K by upstream warm RTF and uses less VRAM;
+Q5_K_M is about 12% faster. These three-sample observations are not latency
+percentiles or a corpus quality result, and none satisfies the Proposed
+SPEC-16 target of RTF at most 0.5.
+
+The exact per-request rows and external WAV files are retained outside Git at
+`/home/kaifaty/.local/share/nextengine/fish-s2-pro/outputs/`, including
+`q456-warm-benchmark.csv`.
+
+The chunked low-latency request returned HTTP 200 and valid mono PCM16 44.1 kHz
+WAV (2.833 s), but upstream metrics reported RTF 6.24 because the alpha
+streaming path repeatedly decodes its prefix. HTTP header arrival is not a
+first-audio measurement, so no TTFA claim is made.
 
 ## Voice cloning boundary
 

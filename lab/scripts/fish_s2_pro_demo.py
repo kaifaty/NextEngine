@@ -31,6 +31,18 @@ class ModelProfile:
 
 
 MODEL_PROFILES = {
+    "q4": ModelProfile(
+        filename="s2-pro-q4_k_m.gguf",
+        size=3_566_165_088,
+        sha256="83963e1b7cec980b41eb2163d617e2b6241bfd1564dd880e5b43fc4834807bd9",
+        default_codec="gpu",
+    ),
+    "q5": ModelProfile(
+        filename="s2-pro-q5_k_m.gguf",
+        size=4_031_183_968,
+        sha256="e445b0c8f32ed0ff584b906098f0fe53a67c0691249bfcccde569544f7d72cb9",
+        default_codec="gpu",
+    ),
     "q6": ModelProfile(
         filename="s2-pro-q6_k.gguf",
         size=4_525_266_528,
@@ -98,7 +110,10 @@ def _add_install_options(parser: argparse.ArgumentParser) -> None:
         "--codec",
         choices=("profile", "auto", "cpu", "gpu"),
         default="profile",
-        help="profile uses GPU for Q6 and CPU for Q8 on the tested 10 GiB RTX 3080.",
+        help=(
+            "profile uses GPU for Q4/Q5/Q6 and CPU for Q8 on the tested "
+            "10 GiB RTX 3080."
+        ),
     )
     parser.add_argument(
         "--skip-model-hash-check",

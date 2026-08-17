@@ -19,6 +19,14 @@ SPEC.loader.exec_module(MODULE)
 class FishS2ProDemoTests(unittest.TestCase):
     def test_profile_codec_routes_are_explicit(self) -> None:
         self.assertEqual(
+            MODULE.codec_arguments("profile", MODULE.MODEL_PROFILES["q4"]),
+            ["--codec-follow-backend"],
+        )
+        self.assertEqual(
+            MODULE.codec_arguments("profile", MODULE.MODEL_PROFILES["q5"]),
+            ["--codec-follow-backend"],
+        )
+        self.assertEqual(
             MODULE.codec_arguments("profile", MODULE.MODEL_PROFILES["q6"]),
             ["--codec-follow-backend"],
         )

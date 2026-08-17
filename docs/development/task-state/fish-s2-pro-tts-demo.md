@@ -5,17 +5,18 @@
 | Status | `COMPLETE` |
 | Updated | `2026-08-17` |
 | Task key | `fish-s2-pro-tts-demo` |
-| Scope | Install and validate one local Fish S2 Pro GGUF/CUDA demo on the available RTX 3080 without integrating model code or weights into the engine runtime. |
-| Definition of done | A pinned external `s2.cpp` build and GGUF file produce a Russian WAV through a repository-owned demo entry point; exact revisions, hashes, license constraint and measured local runtime are recorded. |
+| Scope | Install and compare local Fish S2 Pro GGUF/CUDA profiles on the available RTX 3080 without integrating model code or weights into the engine runtime. |
+| Definition of done | A pinned external `s2.cpp` build and Q4/Q5/Q6/Q8 GGUF files produce Russian WAV through a repository-owned demo entry point; exact revisions, hashes, license constraint and measured local runtime are recorded. |
 | Authority | Working context only; `AGENTS.md`, Accepted architecture and exact upstream repositories/model artifacts outrank this file. |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Use Q6_K with all 36 transformer layers and codec on CUDA as this RTX 3080 demo default; keep Q8_0 as a quality comparator with codec on CPU.
-- **Why:** Both pinned GGUF files synthesize valid Russian WAV, but Q6_K direct GPU codec used 6,205 MiB peak total VRAM and synthesis RTF 3.035, while Q8_0 cannot allocate its codec on GPU and CPU-codec synthesis measured RTF 5.650.
-- **Next action:** Optional human listening comparison of the delivered Q6/Q8 WAV files; no further implementation is required for the bounded setup task.
+- **Current conclusion:** Use a prewarmed Q4_K_M server as the latency candidate and keep Q6_K as the wrapper default until the delivered Q4/Q5/Q6 WAV files receive a human quality comparison; keep Q8_0 only as a quality comparator with codec on CPU.
+- **Why:** After one disposable post-init synthesis, three fixed-text requests measured mean upstream RTF 0.874 for Q4_K_M, 0.918 for Q5_K_M and 1.040 for Q6_K. Q4 was about 16% faster than Q6 and used less VRAM, but subjective Russian quality is not machine-validated.
+- **Next action:** Listen to the delivered Q4/Q5/Q6 examples and decide whether the Q4 quality trade-off is acceptable enough to make it the demo default.
 - **Current blocker:** None.
 - **Do not retry:** Do not install the official BF16/PyTorch S2 Pro stack on this 10 GiB card for this task; upstream declares a 24 GiB inference recommendation and the requested bounded experiment has a smaller GGUF path.
+- **Do not retry:** Do not report the first synthesis after server initialization as steady warm latency; the cached step graph becomes fast only after one complete synthesis request.
 - **Reconsider when:** A newer pinned runtime materially changes RTX 3080 codec residency/RTF or an accepted `ai-host` consumer defines a production adapter.
 
 ## Current evidence
@@ -28,10 +29,13 @@
 | `rodrigomatta/s2.cpp` README | `REPORT_ONLY`: alpha C++/GGML CUDA engine, Q8/Q6/Q4 variants and partial offload | Candidate is suitable only for a local prototype until measured. |
 | Fish Audio S2 Pro license | `REPORT_ONLY`: research/non-commercial use; commercial use requires a separate license | Never represent this artifact as a distributable or commercial-ready NextEngine dependency. |
 | external `s2.cpp` build at `2c332619…` | `PASS`: CUDA 13 build targets `sm_86`; bundled ggml `57ea0bc1…` | No Python/PyTorch runtime is required after build. |
+| Q4_K_M `83963e1b…` | `PASS`: Russian float32 44.1 kHz WAV; codec CUDA; 5,124 MiB cold peak total GPU; steady-warm mean RTF 0.874 | Fastest tested profile; latency candidate pending listening quality. |
+| Q5_K_M `e445b0c8…` | `PASS`: Russian float32 44.1 kHz WAV; codec CUDA; 5,499 MiB cold peak total GPU; steady-warm mean RTF 0.918 | Valid middle comparator, but slower than Q4 in the fixed-text probe. |
 | Q6_K `84ac9041…` | `PASS`: Russian float32 44.1 kHz WAV; codec CUDA; synthesis RTF 3.035; cold 18.14 s; peak total GPU 6,205 MiB | Selected local demo default; result does not pass `MODEL-TTS-P1`. |
 | Q8_0 `e2043182…` | `PASS`: Russian float32 44.1 kHz WAV; codec CPU; synthesis RTF 5.650; cold 37.88 s; peak total GPU 5,701 MiB | Retained only as quality comparator on this host. |
 | Q6 HTTP `/generate` | `PASS`: HTTP 200 and valid 3.947 s float32 44.1 kHz WAV | Local finalized-WAV server example is operational. |
 | Q6 chunked streaming | `PASS` transport, `REPORT_ONLY` latency: valid 2.833 s PCM16 WAV; upstream RTF 6.24 | Streaming API works but is not real-time; no TTFA claim. |
+| Q4/Q5/Q6 finalized HTTP after one prewarm request | `PASS`: three measured requests each; mean warm RTF 0.874/0.918/1.040 | Model init alone is insufficient prewarm; run one disposable synthesis before interactive traffic. |
 
 ## Decisions that still constrain the work
 
@@ -42,16 +46,16 @@
 - **Decision:** Add only a lab/demo entry point and documentation; install third-party source/model/output in a machine-local external root.
 - **Rejected alternatives:** Vendoring weights or linking `s2.cpp` into a production crate would violate repository/model hygiene and prematurely implement a Proposed boundary.
 - **Consequences:** The demo must remain replaceable, optional and absent from gameplay/product checks.
-- **Uncertainty:** `s2.cpp` is alpha and its exact Russian quality/latency on RTX 3080 is not yet measured.
+- **Uncertainty:** `s2.cpp` is alpha; only one fixed Russian text has steady-warm timing, while corpus-level pronunciation, quality and latency percentiles remain unmeasured.
 - **Reconsider when:** A production `ai-host` consumer and promoting ADR define an accepted adapter/model-pack contract.
 
-### D-002 — Q6_K operational default with Q8_0 comparator
+### D-002 — Q4_K_M latency candidate with Q6_K operational default
 
-- **Observation:** Q8_0 transformer offload fits, but CUDA codec allocation fails and falls back to CPU; Q6_K keeps transformer and codec on CUDA with better local latency and headroom when codec auto-benchmarking is disabled.
+- **Observation:** Q8_0 transformer offload fits, but CUDA codec allocation fails and falls back to CPU. Q4/Q5/Q6 keep transformer and codec on CUDA. After one disposable synthesis, Q4 steady-warm RTF is lower than Q5 and Q6 on the fixed text.
 - **Evidence:** External logs under `/home/kaifaty/.local/share/nextengine/fish-s2-pro/outputs/` and the measured rows above.
-- **Decision:** The wrapper maps `q6/profile` to `--codec-follow-backend` and `q8/profile` to `--codec-cpu`.
-- **Rejected alternatives:** Do not retry Q8 CUDA codec on this exact 10 GiB profile; the measured allocation failed. Q4_K_M is unnecessary until Q6 quality/headroom is rejected.
-- **Consequences:** The demo avoids a known OOM probe, loads faster, and reports Q8 only as a listening comparator.
+- **Decision:** The wrapper maps `q4/q5/q6/profile` to `--codec-follow-backend` and `q8/profile` to `--codec-cpu`. Keep Q6 as the default pending human listening; use Q4 explicitly for the current latency experiment.
+- **Rejected alternatives:** Do not retry Q8 CUDA codec on this exact 10 GiB profile; the measured allocation failed. Do not make Q5 the speed default from this evidence because it was slower than Q4 while its quality advantage remains unmeasured.
+- **Consequences:** The demo avoids a known OOM probe, exposes all measured quantization profiles, and distinguishes model init, first-synthesis prewarm and steady-warm latency.
 - **Uncertainty:** Subjective Russian quality and warm long-form behavior still require human listening and a bounded corpus.
 - **Reconsider when:** A pinned upstream revision reduces codec residency enough to pass an explicit Q8 CUDA allocation probe.
 
@@ -60,7 +64,8 @@
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: Q8_0 transformer plus codec fits fully on RTX 3080 10 GiB | Transformer alone offloads successfully | Local codec CUDA allocation failed with OOM | Resolved false for code `2c332619…`, GGUF `a7320690…`, driver 610.43.02. |
-| H2: Current `s2.cpp` produces usable Russian speech without a reference voice | Multiple valid non-silent Russian WAV files were generated | Subjective pronunciation/voice quality is not machine-validated | Human listening comparison of the delivered Q6/Q8 WAV files. |
+| H2: Current `s2.cpp` produces usable Russian speech without a reference voice | Multiple valid non-silent Russian WAV files were generated for Q4/Q5/Q6/Q8 | Subjective pronunciation/voice quality is not machine-validated | Human listening comparison of the delivered quantization profiles. |
+| H3: Q4 quality is sufficient to trade for its 16% warm RTF improvement over Q6 | Q4 generated a valid Russian WAV and is the fastest local profile | One fixed text and waveform validity do not establish pronunciation or voice quality | Blind or at least level-matched listening on a small fixed Russian gameplay corpus. |
 
 ## Required context
 
@@ -73,7 +78,7 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Listen to the generated Q6/Q8 examples and decide whether Fish S2 Pro merits a later corpus benchmark.
+1. Listen to the generated Q4/Q5/Q6 examples and decide whether Q4_K_M should replace Q6_K as the demo default.
 2. If continued, measure first audio correctly at the PCM-byte boundary and compare pronunciation/quality against other TTS candidates on one fixed corpus.
 3. Non-regression condition: keep weights, reference voices, generated audio and logs external, and preserve `TextOnlyFallback` for any future integration.
 
@@ -82,10 +87,11 @@ Read these sources in precedence order before acting:
 - Official BF16/PyTorch S2 Pro on this 10 GiB GPU — upstream recommends 24 GiB; reconsider only if a supported low-memory official path is published and requested.
 - Vendoring model weights/source/output into NextEngine — prohibited by repository hygiene; reconsider only through a separate accepted distribution/model-pack decision.
 - Q8_0 codec on CUDA for the exact pinned 10 GiB profile — local allocation failed; reconsider only after a pinned runtime/model change with a fresh allocation probe.
+- Treating model initialization alone as warm-up — the first synthesis still measured RTF 3.07–3.28; reconsider only after a pinned runtime changes first-request graph construction behavior.
 
 ## Handoff
 
-- **Workspace state:** External pinned build, Q6/Q8 files and generated outputs exist outside Git; the coherent repository change contains the wrapper, four focused tests, user guide and this task-state update.
-- **Checks:** CUDA build, both CLI profiles, finalized HTTP and chunked HTTP transport passed; Ruff format/check, Python 3.12 unit tests, `git diff --check`, external path validation and the repository GGUF/WAV/MP3/S2VOICE scan passed.
-- **Remaining risk:** Alpha inference engine, non-commercial model/source license, subjective Russian quality, RTF above real-time and structurally slow streaming.
+- **Workspace state:** External pinned build, Q4/Q5/Q6/Q8 files and generated outputs exist outside Git; the coherent repository change contains the wrapper profiles/tests, user guide and this task-state update.
+- **Checks:** Q4/Q5 exact size/SHA validation, Q4/Q5 CLI generation, Q4/Q5/Q6 repeated finalized HTTP and WAV inspection, Ruff 0.16.3 format/check, Python 3.12 unit tests, `git diff --check`, external path validation and the repository GGUF/WAV/MP3/S2VOICE scan passed.
+- **Remaining risk:** Alpha inference engine, non-commercial model/source license, subjective Russian quality, RTF above the Proposed 0.5 target, unmeasured first PCM and structurally slow streaming.
 - **Promotion needed:** None for a bounded lab demo; production integration would require the normal SPEC-16/ADR workflow.
