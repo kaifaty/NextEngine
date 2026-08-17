@@ -29,6 +29,9 @@ pub const PACKAGE_MANIFEST_FILE: &str = "package.manifest.jcs";
 pub const PACKAGE_MANIFEST_SCHEMA_VERSION: u32 = 4;
 
 const MAX_MANIFEST_BYTES: usize = 8 * 1024 * 1024;
+const LINUX_GLIBC_BASELINE_BUILD_CACHE: &str = "nextengine-package-glibc-2.35-v3";
+const LINUX_SDL_CMAKE_TOOLCHAIN: &str = "tools/linux-sdl-glibc-2.35.cmake";
+const LINUX_SDL_CMAKE_TOOLCHAIN_ENV: &str = "CMAKE_TOOLCHAIN_FILE_x86_64_unknown_linux_gnu";
 const REQUIRED_NOTICE_PATHS: [&str; 4] = [
     "LICENSE",
     "MIGRATION_PROVENANCE.md",
@@ -436,7 +439,23 @@ fn prepare_release_binary_sources(
     repository_root: &Path,
     target_triple: &str,
 ) -> Result<PackageBinarySources, String> {
-    run_checked(
+    let configured_target_directory = cargo_target_directory(repository_root);
+    let build_target_directory =
+        package_build_target_directory(&configured_target_directory, target_triple);
+    let toolchain = package_sdl_toolchain_file(repository_root, target_triple);
+    if let Some(path) = &toolchain
+        && !path.is_file()
+    {
+        return package_error(format!(
+            "Linux SDL compatibility toolchain is missing: {}",
+            path.display()
+        ));
+    }
+    let mut environment = vec![("CARGO_TARGET_DIR", build_target_directory.as_path())];
+    if let Some(toolchain) = &toolchain {
+        environment.push((LINUX_SDL_CMAKE_TOOLCHAIN_ENV, toolchain.as_path()));
+    }
+    run_checked_with_environment(
         repository_root,
         "cargo",
         &[
@@ -452,6 +471,7 @@ fn prepare_release_binary_sources(
             "--features",
             "next_game/desktop-sdl-ash",
         ],
+        &environment,
     )?;
 
     let executable_suffix = if target_triple == "x86_64-pc-windows-msvc" {
@@ -461,8 +481,7 @@ fn prepare_release_binary_sources(
     };
     let game_name = format!("next_game{executable_suffix}");
     let headless_name = format!("next_headless{executable_suffix}");
-    let release_directory =
-        release_binary_directory(&cargo_target_directory(repository_root), target_triple);
+    let release_directory = release_binary_directory(&build_target_directory, target_triple);
     Ok(PackageBinarySources {
         game: release_directory.join(game_name),
         headless: release_directory.join(headless_name),
@@ -739,14 +758,20 @@ fn copy_binary(source: &Path, destination: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn run_checked(root: &Path, program: &str, arguments: &[&str]) -> Result<(), String> {
-    let output = Command::new(program)
-        .args(arguments)
-        .current_dir(root)
-        .output()
-        .map_err(|error| {
-            format!("NATIVE_GATE_PACKAGE_INVALID: failed to run {program}: {error}")
-        })?;
+fn run_checked_with_environment(
+    root: &Path,
+    program: &str,
+    arguments: &[&str],
+    environment: &[(&str, &Path)],
+) -> Result<(), String> {
+    let mut command = Command::new(program);
+    command.args(arguments).current_dir(root);
+    for (name, value) in environment {
+        command.env(name, value);
+    }
+    let output = command.output().map_err(|error| {
+        format!("NATIVE_GATE_PACKAGE_INVALID: failed to run {program}: {error}")
+    })?;
     if !output.stdout.is_empty() {
         eprint!("{}", String::from_utf8_lossy(&output.stdout));
     }
@@ -776,6 +801,19 @@ fn cargo_target_directory(repository_root: &Path) -> PathBuf {
             }
         },
     )
+}
+
+fn package_build_target_directory(target_directory: &Path, target_triple: &str) -> PathBuf {
+    if target_triple == "x86_64-unknown-linux-gnu" {
+        target_directory.join(LINUX_GLIBC_BASELINE_BUILD_CACHE)
+    } else {
+        target_directory.to_path_buf()
+    }
+}
+
+fn package_sdl_toolchain_file(repository_root: &Path, target_triple: &str) -> Option<PathBuf> {
+    (target_triple == "x86_64-unknown-linux-gnu")
+        .then(|| repository_root.join(LINUX_SDL_CMAKE_TOOLCHAIN))
 }
 
 fn release_binary_directory(target_directory: &Path, target_triple: &str) -> PathBuf {

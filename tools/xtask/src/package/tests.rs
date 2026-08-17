@@ -189,6 +189,28 @@ fn manifest_encoding_is_canonical_and_round_trips() {
 }
 
 #[test]
+fn linux_package_build_isolates_the_glibc_baseline_configuration() {
+    let repository = Path::new("repository");
+    let target_directory = Path::new("cargo-target");
+    assert_eq!(
+        package_build_target_directory(target_directory, "x86_64-unknown-linux-gnu"),
+        target_directory.join(LINUX_GLIBC_BASELINE_BUILD_CACHE)
+    );
+    assert_eq!(
+        package_sdl_toolchain_file(repository, "x86_64-unknown-linux-gnu"),
+        Some(repository.join(LINUX_SDL_CMAKE_TOOLCHAIN))
+    );
+    assert_eq!(
+        package_build_target_directory(target_directory, "x86_64-pc-windows-msvc"),
+        target_directory
+    );
+    assert_eq!(
+        package_sdl_toolchain_file(repository, "x86_64-pc-windows-msvc"),
+        None
+    );
+}
+
+#[test]
 fn retired_manifest_and_unknown_fields_are_rejected_without_migration() {
     let manifest = fixture_manifest();
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
