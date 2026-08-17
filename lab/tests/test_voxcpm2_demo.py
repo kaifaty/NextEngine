@@ -80,6 +80,38 @@ class VoxCPM2DemoTests(unittest.TestCase):
         )
         self.assertEqual(DEMO._parse_worker_result(output)["value"], 7)
 
+    def test_emotion_suite_cases_are_unique_and_complete(self) -> None:
+        names = [case[0] for case in DEMO.EMOTION_SUITE_CASES]
+        self.assertEqual(len(names), 7)
+        self.assertEqual(len(names), len(set(names)))
+        for name, control, _ in DEMO.EMOTION_SUITE_CASES:
+            self.assertTrue(name)
+            self.assertIn("mature adult man", control)
+
+    def test_emotion_suite_worker_command_has_shared_parameters(self) -> None:
+        root = Path("/external/voxcpm2")
+        output_dir = Path("/external/results/emotions")
+        args = DEMO.argparse.Namespace(
+            text="Тест",
+            seed=7,
+            cfg=2.5,
+            steps=12,
+            stream=True,
+            no_optimize=False,
+            output_dir=output_dir,
+        )
+        command = DEMO._worker_command(root, "emotion-suite", args)
+        self.assertIn("emotion-suite", command)
+        self.assertIn("--stream", command)
+        self.assertNotIn("--control", command)
+        self.assertEqual(command[-2:], ["--output-dir", str(output_dir)])
+
+    def test_emotion_suite_cli_defaults_to_comparison_text(self) -> None:
+        args = DEMO.parse_args(["emotion-suite"])
+        self.assertEqual(args.text, DEMO.DEFAULT_EMOTION_TEXT)
+        self.assertEqual(args.steps, DEMO.DEFAULT_STEPS)
+        self.assertFalse(args.stream)
+
 
 if __name__ == "__main__":
     unittest.main()

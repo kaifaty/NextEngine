@@ -22,6 +22,10 @@ DEFAULT_TEXT = "Привет! Сервер синтеза речи работа�
 DEFAULT_CFG = 2.0
 DEFAULT_STEPS = 10
 DEFAULT_SEED = 1234
+DEFAULT_EMOTION_TEXT = (
+    "Капитан, западные ворота снова открыты. Если мы выйдем до рассвета, "
+    "стража не успеет перекрыть старую дорогу."
+)
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RESULT_PREFIX = "NEXTENGINE_VOXCPM2_RESULT="
 
@@ -34,6 +38,56 @@ VOICE_CONTROLS = {
     ),
     "none": "",
 }
+
+EMOTION_SUITE_CASES = (
+    (
+        "neutral",
+        "A mature adult man with a low, calm, natural voice and clear "
+        "articulation. He speaks evenly, confidently, and without strong emotion",
+        None,
+    ),
+    (
+        "restrained-anger",
+        "A mature adult man with a low natural voice, speaking with "
+        "restrained anger, controlled intensity, clipped articulation, and urgency",
+        None,
+    ),
+    (
+        "sad-tired",
+        "A mature adult man with a low natural voice, sounding deeply "
+        "sad, tired, and disappointed, with slower speech and subdued energy",
+        None,
+    ),
+    (
+        "joyful-excited",
+        "A mature adult man with a warm natural voice, sounding genuinely "
+        "joyful and excited, smiling while speaking with lively energy",
+        None,
+    ),
+    (
+        "tense-whisper",
+        "A mature adult man speaking in a quiet, tense, breathy whisper, "
+        "as if sharing urgent information without being overheard",
+        None,
+    ),
+    (
+        "dry-sarcasm",
+        "A mature adult man with a low natural voice and dry sarcastic amusement, "
+        "subtle irony, "
+        "a restrained smile, and deliberately pointed phrasing",
+        None,
+    ),
+    (
+        "amused-chuckle",
+        "A mature adult man with a low natural voice, amused and relieved, "
+        "beginning with a brief "
+        "natural chuckle and then speaking warmly with a smile",
+        (
+            "Ну надо же, ты всё-таки выбрался оттуда живым. "
+            "Видел бы ты сейчас своё лицо!"
+        ),
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -143,6 +197,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     _add_synthesis_options(benchmark)
     benchmark.add_argument("--iterations", type=int, default=3)
     benchmark.add_argument("--output-dir", type=Path)
+
+    emotion_suite = commands.add_parser(
+        "emotion-suite",
+        help="Generate a fixed Russian Voice Design emotion comparison in one session.",
+    )
+    _add_install_options(emotion_suite)
+    emotion_suite.add_argument("--text", default=DEFAULT_EMOTION_TEXT)
+    emotion_suite.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    emotion_suite.add_argument("--cfg", type=float, default=DEFAULT_CFG)
+    emotion_suite.add_argument("--steps", type=int, default=DEFAULT_STEPS)
+    emotion_suite.add_argument("--stream", action="store_true")
+    emotion_suite.add_argument("--no-optimize", action="store_true")
+    emotion_suite.add_argument("--output-dir", type=Path)
     return parser.parse_args(effective_argv)
 
 
@@ -150,7 +217,9 @@ def _parse_worker_args(argv: list[str]) -> argparse.Namespace:
     worker = argparse.ArgumentParser(add_help=False)
     worker.set_defaults(command="_worker")
     worker.add_argument(
-        "--operation", choices=("doctor", "generate", "benchmark"), required=True
+        "--operation",
+        choices=("doctor", "generate", "benchmark", "emotion-suite"),
+        required=True,
     )
     worker.add_argument("--install-root", type=Path, required=True)
     worker.add_argument("--text", default=DEFAULT_TEXT)
@@ -359,13 +428,30 @@ def _worker_command(root: Path, operation: str, args: argparse.Namespace) -> lis
         "--install-root",
         str(root),
     ]
-    if operation != "doctor":
+    if operation in ("generate", "benchmark"):
         command.extend(
             [
                 "--text",
                 args.text,
                 "--control",
                 _control_for(args),
+                "--seed",
+                str(args.seed),
+                "--cfg",
+                str(args.cfg),
+                "--steps",
+                str(args.steps),
+            ]
+        )
+        if args.stream:
+            command.append("--stream")
+        if args.no_optimize:
+            command.append("--no-optimize")
+    elif operation == "emotion-suite":
+        command.extend(
+            [
+                "--text",
+                args.text,
                 "--seed",
                 str(args.seed),
                 "--cfg",
@@ -389,6 +475,8 @@ def _worker_command(root: Path, operation: str, args: argparse.Namespace) -> lis
                 str(args.output_dir),
             ]
         )
+    elif operation == "emotion-suite":
+        command.extend(["--output-dir", str(args.output_dir)])
     return command
 
 
@@ -474,6 +562,40 @@ def benchmark(args: argparse.Namespace) -> int:
     output_dir.mkdir(parents=True)
     args.output_dir = output_dir
     result, runtime_log = _execute_worker(root, "benchmark", args)
+    result = {**installation, **result}
+    log_path = output_dir / "runtime.log"
+    summary_path = output_dir / "summary.json"
+    log_path.write_text(runtime_log, encoding="utf-8")
+    result["runtime_log"] = str(log_path)
+    summary_path.write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+def emotion_suite(args: argparse.Namespace) -> int:
+    _validate_synthesis_args(args)
+    installation = validate_installation(
+        args.install_root, verify_model_hash=not args.skip_model_hash_check
+    )
+    root = Path(installation["install_root"])
+    mode = "stream" if args.stream else "offline"
+    default_output = (
+        root
+        / "outputs"
+        / f"emotion-suite-{mode}-steps{args.steps}-"
+        f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+    )
+    output_dir = _external_path(
+        args.output_dir if args.output_dir is not None else default_output,
+        "emotion-suite output directory",
+    )
+    if output_dir.exists():
+        raise DemoError(f"emotion-suite output directory already exists: {output_dir}")
+    output_dir.mkdir(parents=True)
+    args.output_dir = output_dir
+    result, runtime_log = _execute_worker(root, "emotion-suite", args)
     result = {**installation, **result}
     log_path = output_dir / "runtime.log"
     summary_path = output_dir / "summary.json"
@@ -745,6 +867,67 @@ def _worker_benchmark(args: argparse.Namespace, modules: dict[str, Any]) -> dict
     }
 
 
+def _worker_emotion_suite(
+    args: argparse.Namespace, modules: dict[str, Any]
+) -> dict[str, Any]:
+    if args.output_dir is None:
+        raise DemoError("worker emotion-suite requires --output-dir")
+    root = args.install_root.resolve()
+    output_dir = args.output_dir.resolve()
+    torch = modules["torch"]
+    model, load_seconds = _worker_load_model(root, not args.no_optimize, modules)
+    prewarm = _worker_synthesize(
+        model=model,
+        modules=modules,
+        text=DEFAULT_TEXT,
+        control=VOICE_CONTROLS["adult-male"],
+        seed=args.seed,
+        cfg=args.cfg,
+        steps=args.steps,
+        stream=args.stream,
+        output=output_dir / "_prewarm.wav",
+    )
+    cases = []
+    for name, control, text_override in EMOTION_SUITE_CASES:
+        text = text_override or args.text
+        request = _worker_synthesize(
+            model=model,
+            modules=modules,
+            text=text,
+            control=control,
+            seed=args.seed,
+            cfg=args.cfg,
+            steps=args.steps,
+            stream=args.stream,
+            output=output_dir / f"{name}.wav",
+        )
+        cases.append(
+            {
+                "name": name,
+                "text": text,
+                "control": control,
+                "request": request,
+            }
+        )
+    return {
+        "status": "PASS",
+        "operation": "emotion-suite",
+        "output_dir": str(output_dir),
+        "optimized": not args.no_optimize,
+        "precision": "bfloat16-lm/float32-audiovae",
+        "model_load_seconds": load_seconds,
+        "seed": args.seed,
+        "cfg": args.cfg,
+        "inference_timesteps": args.steps,
+        "stream": args.stream,
+        "prewarm": prewarm,
+        "cases": cases,
+        "case_count": len(cases),
+        "torch_peak_allocated_mib": torch.cuda.max_memory_allocated() / 1024**2,
+        "torch_peak_reserved_mib": torch.cuda.max_memory_reserved() / 1024**2,
+    }
+
+
 def worker(args: argparse.Namespace) -> int:
     root = args.install_root.expanduser().resolve()
     import_started = time.perf_counter()
@@ -754,8 +937,10 @@ def worker(args: argparse.Namespace) -> int:
         result = _worker_doctor(modules)
     elif args.operation == "generate":
         result = _worker_generate(args, modules)
-    else:
+    elif args.operation == "benchmark":
         result = _worker_benchmark(args, modules)
+    else:
+        result = _worker_emotion_suite(args, modules)
     result["process_import_seconds"] = import_seconds
     print(RESULT_PREFIX + json.dumps(result, sort_keys=True))
     return 0
@@ -770,7 +955,9 @@ def main(argv: list[str] | None = None) -> int:
             return doctor(args)
         if args.command == "generate":
             return generate(args)
-        return benchmark(args)
+        if args.command == "benchmark":
+            return benchmark(args)
+        return emotion_suite(args)
     except DemoError as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

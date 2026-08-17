@@ -303,6 +303,40 @@ behavior were not separately scored. In particular, the 6.560 s Nano-vLLM
 female dialogue still needs a word-completeness check against the 8.000 s
 PyTorch result if Nano-vLLM is reconsidered later.
 
+## Emotion and delivery comparison
+
+A reproducible PyTorch `emotion-suite` command now exercises seven
+natural-language Voice Design descriptions in one resident compiled streaming
+session. The first six use the same Russian line, seed 1234, CFG 2.0 and 10
+LocDiT steps; `amused-chuckle` uses a separate line whose wording suits the
+requested delivery. These are prompt-controlled attempts, not Fish-style
+canonical emotion tags.
+
+Common text:
+
+```text
+Капитан, западные ворота снова открыты. Если мы выйдем до рассвета, стража не успеет перекрыть старую дорогу.
+```
+
+| Variant | Audio | Wall | RTF | First PCM |
+| --- | ---: | ---: | ---: | ---: |
+| Neutral | 6.400 s | 5.034 s | 0.787 | 58.6 ms |
+| Restrained anger | 6.400 s | 5.044 s | 0.788 | 59.1 ms |
+| Sad / tired | 6.880 s | 5.513 s | 0.801 | 59.0 ms |
+| Joyful / excited | 7.040 s | 5.534 s | 0.786 | 64.0 ms |
+| Tense whisper | 8.160 s | 6.415 s | 0.786 | 59.2 ms |
+| Dry sarcasm | 6.880 s | 5.374 s | 0.781 | 61.5 ms |
+| Amused / requested chuckle | 4.800 s | 3.728 s | 0.777 | 58.9 ms |
+| **Mean / range** | **4.800-8.160 s** | — | **0.787 mean** | **60.0 ms mean** |
+
+The complete process took 71.663 s including 3.620 s of imports, 25.848 s of
+model load/cached compilation and one disposable prewarm. Peak total GPU memory
+was 7,491 MiB; PyTorch peak allocated/reserved was 5,761/6,298 MiB. All seven
+outputs are mono float32 48 kHz, finite and unclipped. Their peaks range from
+0.737 to 0.980 and RMS from 0.115 to 0.195. These checks establish usable audio
+files and timing only. Whether each prompt preserves the intended adult voice
+and conveys the named emotion remains a human-listening decision.
+
 ## Audio archive
 
 ```text
@@ -316,7 +350,18 @@ PyTorch result if Nano-vLLM is reconsidered later.
 │   ├── adult-male-steps10.wav
 │   ├── adult-male-steps4.wav
 │   ├── adult-male-steps6.wav
-│   └── adult-male-stream-steps10.wav
+│   ├── adult-male-stream-steps10.wav
+│   └── emotion-suite-stream-steps10/
+│       ├── _prewarm.wav
+│       ├── amused-chuckle.wav
+│       ├── dry-sarcasm.wav
+│       ├── joyful-excited.wav
+│       ├── neutral.wav
+│       ├── restrained-anger.wav
+│       ├── runtime.log
+│       ├── sad-tired.wav
+│       ├── summary.json
+│       └── tense-whisper.wav
 └── raw/
     ├── compiled-steps10/
     ├── compiled-steps4/
@@ -368,6 +413,10 @@ python3 lab/scripts/voxcpm2_demo.py benchmark \
 python3 lab/scripts/voxcpm2_demo.py benchmark \
   --skip-model-hash-check --iterations 3 --stream
 
+python3 lab/scripts/voxcpm2_demo.py emotion-suite \
+  --skip-model-hash-check --stream --steps 10 \
+  --output-dir /path/outside/repository/emotion-suite
+
 python3 lab/scripts/voxcpm2_nanovllm_demo.py doctor
 
 python3 lab/scripts/voxcpm2_nanovllm_demo.py benchmark \
@@ -401,6 +450,9 @@ Repository-owned entry points:
   Nano-vLLM leaves less than 1 GiB at the observed 9,271 MiB peak.
 - Use a resident process; do not pay model load, graph capture or compilation per
   line.
+- Treat natural-language emotion descriptions as content data and retain the
+  exact control string with each request. Human-review the emotion and speaker
+  consistency before promoting any description to a gameplay preset.
 - Voice cloning needs a clean authorized reference and a separate consent-aware
   evaluation.
 - Keep model/runtime/generated artifacts outside Git.
