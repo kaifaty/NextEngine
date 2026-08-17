@@ -14,7 +14,7 @@ quality decision remains a human listening task:
 
 | Candidate | Warm RTF | Approx. realtime speed | Peak total GPU | Human result |
 | --- | ---: | ---: | ---: | --- |
-| Fun-CosyVoice3 official FP16 | 0.582 | 1.72x | 7,981 MiB | Pending user listening |
+| Fun-CosyVoice3 official FP16 | 0.582 | 1.72x | 7,981 MiB | Childlike timbre with the bundled reference; unsuitable as the target adult voice without a new reference |
 | Fish `audio.cpp` Q8_0 | 0.659 | 1.52x | 8,189 MiB | Rejected: poor quality |
 | Fish `s2.cpp` Q4_K_M | 0.874 | 1.14x | 5,124 MiB | Generally acceptable |
 
@@ -22,6 +22,14 @@ Relative to those fixed-prompt results, CosyVoice had about 11.7% lower RTF
 than Fish `audio.cpp` Q8_0 and 33.4% lower RTF than Fish `s2.cpp` Q4_K_M. This
 is an observational local comparison, not a model-only attribution: runtimes,
 reference-voice paths and output models differ.
+
+The user listening verdict is that both generated examples sound childlike.
+No child/adolescent style was requested: the only text prefix was the mandatory
+`You are a helpful assistant.<|endofprompt|>`. Speaker timbre came from the
+bundled `asset/zero_shot_prompt.wav`. Therefore the measured speed remains a
+valid runtime baseline, but the archived voice is not an acceptable adult-voice
+quality sample. Re-evaluate quality only with a clean, authorized adult speaker
+reference; do not try to fix speaker identity by changing the benchmark text.
 
 ## Evaluation boundary
 
@@ -200,14 +208,14 @@ third-party source:
 
 | Example | Format/duration | WAV SHA-256 | Purpose |
 | --- | --- | --- | --- |
-| `fixed-russian-demo.wav` | mono float32, 24 kHz, 3.680 s | `444e3248f061ad140c9af45f0f08536f90cfc11246e4407897b0372320abf7e4` | Primary listening example |
-| `russian-dialogue.wav` | mono float32, 24 kHz, 5.960 s | `e884e3a100e4004decce218c8a1ae999cfaabb13988045c399c41ff688764a19` | Longer RPG-style phrase |
+| `fixed-russian-demo.wav` | mono float32, 24 kHz, 3.680 s | `444e3248f061ad140c9af45f0f08536f90cfc11246e4407897b0372320abf7e4` | Childlike timbre with official reference |
+| `russian-dialogue.wav` | mono float32, 24 kHz, 5.960 s | `e884e3a100e4004decce218c8a1ae999cfaabb13988045c399c41ff688764a19` | Same childlike timbre on a longer RPG-style phrase |
 | `offline-warm-fixed-prompt.wav` | mono float32, 24 kHz, 3.680 s | `7cc90aa0d16eac0ca56aad68e4943dc8c477a7fcef2eabbe064f8158672e3537` | Canonical warm request |
 | `streaming-first-session-fixed-prompt.wav` | mono float32, 24 kHz, 3.680 s | `2da217662e91d0631522cc2da2623c462d8e88ada9b657e8212a77deda0055f1` | First-session three-chunk stream reassembled as WAV |
 
-Human Russian quality is intentionally not inferred from metrics. The user
-should listen to the fixed and dialogue examples and record whether pronunciation,
-prosody, speaker similarity and artifacts are acceptable.
+The recorded human verdict concerns the speaker timbre. Pronunciation, prosody,
+speaker similarity to an adult reference and artifacts remain untested because
+the bundled reference is not the desired voice.
 
 ## Reproduction
 

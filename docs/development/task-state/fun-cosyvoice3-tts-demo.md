@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The pinned official FP16/PyTorch baseline passes on the RTX 3080. Its conservative warm result is RTF 0.582 (2.142 s wall for 3.680 s audio, 1.72x realtime) at 7,981 MiB peak total GPU memory. Keep it as the current technical baseline; human Russian-quality judgment remains with the user.
-- **Why:** A repeat measured RTF 0.571, PCM is deterministic at fixed seed, the longer 5.96 s dialogue completed at RTF 0.631, and all pinned model hashes plus the CUDA speech-tokenizer provider passed validation.
-- **Next action:** Listen to the two archived Russian examples and record the human quality verdict before choosing the next model or an optimized CosyVoice backend.
+- **Current conclusion:** The pinned official FP16/PyTorch baseline passes technically on the RTX 3080 at warm RTF 0.582 (1.72x realtime), but the user judged the bundled-reference voice childlike. Retain the speed result; do not treat the archived voice as an acceptable adult-voice quality sample.
+- **Why:** The benchmark did not prompt an age/style: only the mandatory CosyVoice3 marker was added. Speaker timbre came from the official `asset/zero_shot_prompt.wav`, so a clean authorized adult reference is required for a meaningful adult-voice quality comparison.
+- **Next action:** Continue with the next model, or rerun CosyVoice quality only when an authorized adult reference WAV is available.
 - **Current blocker:** None.
 - **Do not retry:** Do not put model weights, reference speech, generated WAV files, Python environments or raw logs in Git.
 - **Reconsider when:** A pinned official vLLM/TensorRT path is evaluated, a Russian-aware text frontend is needed, or a broader prompt corpus replaces the fixed short benchmark.
@@ -32,6 +32,7 @@
 | Streaming probe | `REPORT_ONLY`: first session emitted 1.36 s PCM after 1.825 s, then mutated upstream `token_hop_len` from 25 to 100; later same-session calls emitted one complete chunk after mean 2.076 s | The published 150 ms headline was not reproduced by this local short-prompt path; do not generalize the stateful result to every serving configuration. |
 | Determinism probe | `PASS_WITH_NOTE`: three warm requests had identical PCM SHA-256; WAV SHA-256 differed because torchaudio writes a timestamped `PEAK` metadata chunk | Compare decoded PCM, not whole-file bytes, for deterministic regression checks. |
 | External evidence archive | `PASS`: four listening WAVs and canonical/repeat raw summaries/logs under `/home/kaifaty/.local/share/nextengine/tts-model-evaluations/fun-cosyvoice3-0.5b-2512-2026-08-17` | Results are reviewable without adding weights or generated artifacts to Git. |
+| Human listening verdict | `QUALITY_LIMITED`: both Russian examples sound childlike with the bundled official reference; no child/adolescent style instruction was used | Preserve timing as valid, but do not score this voice as an adult-character candidate. |
 
 ## Decisions that still constrain the work
 
@@ -60,7 +61,7 @@
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: Official FP16 inference fits in 10 GiB VRAM | Confirmed: complete benchmark peaked at 8,115 MiB total GPU memory | About 2.1 GiB device headroom is not enough to assume safe multi-request concurrency | Treat one resident model/single request as the proven boundary. |
-| H2: Russian zero-shot quality exceeds the rejected Fish audio.cpp example | Two valid Russian listening examples are archived; Russian is officially supported | Human listening verdict is not recorded yet | User listens to fixed and dialogue examples. |
+| H2: Russian zero-shot quality exceeds the rejected Fish audio.cpp example | Russian is officially supported and two valid examples are archived | Not established: user judged the official-reference timbre childlike, while the desired adult reference was not tested | Repeat only with a clean authorized adult reference and compare pronunciation, prosody and artifacts separately. |
 | H3: Warm RTF is competitive with Fish Q4/audio.cpp Q8 | Confirmed technically: 0.582 versus Fish Q4 0.874 and audio.cpp Q8 0.659 | Different runtimes and model/reference packages prevent attributing the difference to parameter count alone | Keep comparison observational and use the same fixed text in later evaluations. |
 
 ## Required context
@@ -73,9 +74,9 @@ Read these sources before acting:
 
 ## Next action
 
-1. User listens to `fixed-russian-demo.wav` and `russian-dialogue.wav` in the external archive.
-2. Record the human quality verdict in the durable evaluation report if this model becomes a future comparator.
-3. Continue with the next model; optimize CosyVoice only as a separately pinned A/B task.
+1. Continue with the next model using the same fixed timing protocol.
+2. If CosyVoice is reconsidered, obtain a clean authorized adult reference and rerun only the quality comparison first.
+3. Optimize CosyVoice only as a separately pinned A/B task after voice quality is acceptable.
 
 ## Do not retry
 
@@ -86,5 +87,5 @@ Read these sources before acting:
 
 - **Workspace state:** Repository-owned wrapper, focused tests, durable report and task-state are tracked; source, model, venv, logs, raw summaries and audio remain under machine-local external roots.
 - **Checks:** All 15 model artifacts, source/submodule revisions, reference hash, CUDA ORT provider, focused unit tests, generated WAV structure, archive copies and same-session offline/streaming benchmarks passed.
-- **Remaining risk:** Human Russian quality, multi-request concurrency, broader text coverage and optimized backends remain unmeasured.
+- **Remaining risk:** Adult-reference Russian quality, multi-request concurrency, broader text coverage and optimized backends remain unmeasured.
 - **Promotion needed:** None for a bounded lab experiment.
