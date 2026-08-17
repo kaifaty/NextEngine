@@ -1,6 +1,6 @@
 # W1 — Serial CPU DFSPH oracle
 
-Status: `IMPLEMENTED / BLOCKED_ON_W0C_RECALIBRATION`.
+Status: `IMPLEMENTED / BLOCKED_ON_PROFILE_DECISION / W0C_RESEARCH_ONLY`.
 
 The safe-Rust serial oracle and its tool path were implemented at commit
 `74730e208cfeb70b05a3ec44b2bb9c2f5002fe97`. Clean-tree evidence passes the
@@ -12,15 +12,18 @@ threshold. See the bounded
 not satisfied. The clean-tree
 [W1-RC1 independent audit](../../development/continuum-water-w1-rc1-audit-2026-08-17.md)
 finds no mismatch in the audited production path, so
-[W0C](00c-hydro-calibration-reclosure.md) must re-close the numerical profile
-before W1 resumes.
+[W0C](00c-hydro-calibration-reclosure.md) had to re-close the numerical profile
+before W1 could resume.
 The first
 [W0C diagnostic cycle](../../development/continuum-water-w0c-hydro-calibration-2026-08-17.md)
 rejects both a ceiling-only repair and `ghost-cell-shell-v1`; W1 remains
 blocked. Its independently reproduced `zero-velocity-settle-v1`
 initialization candidate also diverges and fails the first unchanged-ceiling
-probe, so W0C has escalated to a distinct non-particle boundary-formulation
-discriminator.
+probe. The final
+[analytical volume-map discriminator](../../development/continuum-water-w0c-volume-map-2026-08-18.md)
+then matches its independent calculator but fails local partition and the
+first hydro step. W0C is closed `RESEARCH_ONLY`; W1 cannot resume without a
+new explicit density-map or lattice-clearance/profile decision.
 
 ## Outcome
 

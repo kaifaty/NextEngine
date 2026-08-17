@@ -1,18 +1,19 @@
 # Continuum water — standalone implementation roadmap
 
-Status: `PLANNED / NOT_ACTIVE`; post-v1 isolated program. Governing candidate
+Status: `RESEARCH_ONLY / NOT_ACTIVE`; post-v1 isolated program. Governing candidate
 architecture: [SPEC-38](../../architecture/38-continuum-material-physics.md)
 and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md),
 with [ADR-081](../../architecture/adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md)
 as the promotion guardrail.
 The original W0B numeric/profile/corpus closure remains hash-frozen evidence,
 but W1-RC1 independently reproduced its hydro non-convergence and requires a
-W0C calibration reclosure. W0C diagnostics reject both a ceiling-only repair
-and the first cell-centred ghost-boundary candidate. Its independently
-reproduced zero-velocity settling initialization also diverges, so the next
-bounded research discriminator moves to a non-particle boundary
-representation. The W1 serial oracle is implemented and blocked. No
-`CONTINUUM-*` ProductCheck has run.
+W0C calibration reclosure. W0C diagnostics reject the ceiling-only repair,
+cell-centred ghost boundary and independently reproduced settling generator.
+The final analytical volume-map discriminator also fails local partition and
+the first hydro step while matching its independent calculator exactly. W0C
+is closed `RESEARCH_ONLY`; the W1 serial oracle is implemented and blocked on
+a new explicit architecture/profile decision. No `CONTINUUM-*` ProductCheck
+has run.
 
 This directory is the resume and execution surface for a dedicated water
 worktree. The main [Next Engine roadmap](../../roadmap.md) keeps the track
@@ -36,8 +37,8 @@ frozen water.
 ```text
 W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
  └─ W0B Original numeric/corpus closure           INVALIDATED_BY_RC1 / ROOTS_RETAINED
-     └─ W0C Hydro calibration reclosure            IN_PROGRESS / INITIALIZATION_CANDIDATE_REJECTED
-         └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / BLOCKED_ON_W0C
+     └─ W0C Hydro calibration reclosure            CLOSED / RESEARCH_ONLY
+         └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / BLOCKED_ON_PROFILE_DECISION
          ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
          │   └─ W3 One-pass PhysX coupling            NOT_STARTED
          │       └─ W4 Basin + crate + debug view     NOT_STARTED
@@ -50,7 +51,7 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
 |---|---|---|---|
 | W0A | [Product and evidence contract](00-product-and-evidence-contract.md) | Product fixture, evidence categories, authority and non-goals are selected | W0B |
 | W0B | [Original numeric execution and corpus closure](00b-numeric-execution-and-corpus-closure.md) | Immutable rejected-profile evidence; RC1 invalidates promotion use | W0C |
-| W0C | [Hydro calibration reclosure](00c-hydro-calibration-reclosure.md) | A justified successor profile, new roots and passing independent hydro discriminator | W1 resume |
+| W0C | [Hydro calibration reclosure](00c-hydro-calibration-reclosure.md) | Exit not achieved; candidate ladder exhausted and explicit successor decision required | W1 resume |
 | W1 | [Serial CPU DFSPH oracle](01-serial-cpu-dfsph-oracle.md) | `CONTINUUM-WATER-REF-P1 = PASS` on the same-target reference profile | main-roadmap activation, W2, WG |
 | W2 | [Deterministic parallel CPU and performance](02-deterministic-parallel-and-performance.md) | Worker/order exactness and standalone `50k` THOTH stop-target PASS | W3 |
 | W3 | [One-pass PhysX coupling](03-one-pass-physx-coupling.md) | `CONTINUUM-COUPLING-P1 = PASS` under one composition DAG, exact exchange tuple and one PhysX integration | W4 |
@@ -88,7 +89,8 @@ The authoritative W0B document SHA-256 is
 Its machine-facing float-profile and corpus roots are recorded inside
 [W0B](00b-numeric-execution-and-corpus-closure.md). W1 preflight binds all
 three roots. W1-RC1 invalidates their promotion use but does not rewrite this
-evidence. W0C must issue successor roots rather than editing history in place.
+evidence. W0C closed without successor roots; any newly authorized profile
+must issue its own roots rather than editing history in place.
 
 ## Current W1 discriminator
 
@@ -123,8 +125,20 @@ the last diagnostic state then fails the first unchanged-ceiling hydro step at
 failure now routes W0C to an analytically specified non-particle boundary
 candidate, not another settling or ceiling variant.
 
-W1 remains open and the main roadmap remains inactive. W2, WG, PhysX and GPU
-work remain blocked.
+Commit `ea122208ca102c5fd63febc229f7d14b72de5b19` implements the final
+analytical volume-map discriminator from pinned paper/reference semantics.
+Production and an independent calculator match exactly, including field
+probes and the 320-iteration trace; free-fall remains exact. The candidate
+nevertheless reconstructs face/corner density as `2.139 / 2.600`, fails the
+first hydro step at `70,690,915 ppb` and accepts zero of 24 soak steps. The
+bounded [volume-map evidence](../../development/continuum-water-w0c-volume-map-2026-08-18.md)
+therefore closes W0C `RESEARCH_ONLY`. No fitted scale, larger ceiling or
+successor roots are authorized.
+
+W1 remains blocked and the main roadmap remains inactive. Continuing water
+work requires an explicit decision authorizing a density-map discriminator
+(recommended) or a revised lattice-clearance/product profile. W2, WG, PhysX
+and GPU work remain blocked.
 
 ## Worktree and main-roadmap protocol
 

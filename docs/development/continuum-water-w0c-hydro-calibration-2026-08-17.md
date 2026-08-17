@@ -1,6 +1,6 @@
 # Continuum water W0C hydro-calibration evidence — 2026-08-17
 
-Status: `REPORT_ONLY / BOUNDARY_AND_INITIALIZATION_CANDIDATES_REJECTED`.
+Status: `REPORT_ONLY / BOUNDARY_AND_INITIALIZATION_CANDIDATES_REJECTED / SUPERSEDED_BY_W0C_CLOSURE`.
 
 ## Scope and claim
 
@@ -22,6 +22,12 @@ The cycles answer three questions:
 The answer to all three is no. Persistent failure now requires an
 adjacent-layer boundary-formulation discriminator, not another ceiling, fitted
 scale or position-only settling variant.
+
+That follow-up discriminator is complete. The
+[analytical volume-map report](continuum-water-w0c-volume-map-2026-08-18.md)
+rejects the adjacent-layer candidate and closes W0C `RESEARCH_ONLY`. The
+historical conclusions below remain evidence for the earlier cycles, not a
+current authorization to implement another candidate.
 
 ## Reproducible artifacts
 
@@ -200,13 +206,14 @@ the unchanged ceiling, it completes zero hydro steps and reaches
 - Reject further ceiling-only variants. The `20 → 100 → 160` sequence moves
   the failure while accepted-step iteration demand and penetration grow.
 - Preserve the original W0B and W1 production profiles unchanged.
-- Apply the repository's persistent-problem escalation rule. The next bounded
-  research discriminator must move to a non-particle boundary representation,
-  beginning with an analytically specified volume-map candidate while keeping
-  canonical position/velocity authority and the unchanged production ceiling.
-- If that adjacent-layer candidate cannot pass the local partition, hydro soak
-  and independent calculator without hidden continuation state, stop W0C as
-  `RESEARCH_ONLY` rather than tuning another settling or iteration variant.
+- Apply the repository's persistent-problem escalation rule. The subsequent
+  bounded discriminator moved to an analytical non-particle volume map while
+  keeping canonical position/velocity authority and the unchanged production
+  ceiling.
+- The linked 2026-08-18 report shows that it fails local partition and the
+  first hydro step despite exact independent equality. The predeclared stop
+  rule is therefore satisfied: W0C is `RESEARCH_ONLY`, not open for another
+  settling, boundary-scale or iteration variant.
 
 ## Verification
 

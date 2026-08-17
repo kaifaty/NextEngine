@@ -1,6 +1,6 @@
 # W0C — Hydro calibration reclosure
 
-Status: `IN_PROGRESS / INITIALIZATION_CANDIDATE_REJECTED`.
+Status: `CLOSED / RESEARCH_ONLY / PROFILE_DECISION_REQUIRED`.
 
 ## Outcome
 
@@ -8,6 +8,10 @@ Replace the numerically rejected W0B water profile with the smallest
 scientifically defensible revision that passes the serial hydro discriminator
 without weakening deterministic authority, failure semantics or the existing
 free-fall control. W0C is calibration/research, not production implementation.
+
+This outcome was not achieved. The bounded candidate ladder is exhausted and
+W0C is closed `RESEARCH_ONLY`; resumption requires a new explicit
+architecture/profile decision rather than another in-place candidate.
 
 The original W0B document and its roots stay unchanged as historical evidence.
 Only a selected W0C candidate may define successor document/profile/corpus
@@ -49,11 +53,14 @@ step at `162,015 ppb`. It defines no canonical successor initial state.
 
 Steps 1–5 have now rejected an unchanged-profile ceiling extension, one
 particle-boundary replacement and one position-only initialization family.
-Under the persistent-problem rule, do not run a similar variant. The current
-next action returns to step 3 at an adjacent layer: a bounded analytically
-specified non-particle boundary representation, starting with a volume-map
-candidate. If it also fails the independent local discriminator, reassess W0C
-for `RESEARCH_ONLY` instead of weakening the fixed constraints.
+Under the persistent-problem rule, the final adjacent-layer discriminator was
+`volume-map-box-bender2019-ref-v1`. It duplicates the primary cubic extension,
+degree-30 Gauss-Legendre quadrature, reference `0.8` factor and virtual-point
+offset over an exact analytical box SDF. Production and independent
+calculators match exactly, and free-fall remains exact, but face/corner density
+reconstructs to `2.139 / 2.600`; the first step ends at `70,690,915 ppb`, and
+the 24-step soak accepts zero steps. The candidate is `NOT_SELECTED` and the
+predeclared stop rule is now active.
 
 ## Fixed constraints
 
@@ -108,14 +115,15 @@ One candidate may be selected only when:
 - the candidate declares every changed constant, operation, scenario field,
   capacity and expected consequence.
 
-If no candidate passes without weakening the selected product or authority
-boundary, stop the water program as `RESEARCH_ONLY` and record the failed
-families. Do not advance to W2.
+No candidate passed without weakening the selected product or authority
+boundary. The water program is therefore `RESEARCH_ONLY`; all failed families
+are recorded in the W0C evidence reports. Do not advance to W1 continuation or
+W2.
 
 ## Reclosure output
 
-After selection, produce one successor numeric document with new document,
-float-profile, corpus and execution roots; update implementation preflight and
-goldens in the same coherent change. Then rerun W1 from free-fall through the
-full nominal/external corpus. `CONTINUUM-WATER-REF-P1` remains `NOT_RUN` until
-that entire successor corpus passes.
+No W0C selection or reclosure output exists. Do not produce successor roots
+from these candidates. A future decision may authorize either a separately
+specified density-map discriminator (recommended) or a revised
+lattice-clearance/product profile. Only that new decision can define its own
+closure and eventual W1 rerun. `CONTINUUM-WATER-REF-P1` remains `NOT_RUN`.
