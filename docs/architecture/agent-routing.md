@@ -4,8 +4,8 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.19 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 2.20 |
+| Последняя проверка | 2026-08-17 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
 Назначение — не дать агенту (или человеку) начать изменение, не прочитав
@@ -62,6 +62,7 @@ Check column применяется перед final handoff/readiness claim, н
 | Future learned NPC strategic/tactical behavior policy, Hope-inspired state and training (optional R8 Proposed track) | [SPEC-33](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-06](06-ai-agents-perception-and-memory.md) | ADR-050, ADR-053, ADR-054, ADR-056, ADR-046 | none until an optional R8 production consumer exists; future per-role BEHAVIOR-* plus applicable MODEL-* checks |
 | Future learned Motor System profiles: learned humanoid MVP, contact/action chunks, graph/shared-joint transfer, adaptation, equipment/injury/weapon/parkour, distillation and bounded candidate rollouts (Proposed track) | [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | ADR-053, ADR-058, ADR-066, ADR-068, ADR-069 for the current biomechanics table, ADR-070 for the current tracker environment only | biomechanics BodySchema V2 and TRAIN-5 reference-tracker environment are current under ADR-069/070/SPEC-35; learned quality/export and advanced profiles remain future `MOTOR-SKILL-CHUNK-P1`, `MOTOR-MORPHOLOGY-TRANSFER-P1`, `MOTOR-ROLLOUT-P1`, `MOTOR-DISTILL-P1`, existing motor/policy/`ANIM-HYBRID-P1` and applicable `MODEL-*` gates |
 | Dialogue, model packs (Proposed track) | [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md) | ADR-017 | play |
+| Streaming TTS, voice/model binding, `ai-host` speech IPC, PCM buffering, spatial voice, room/portal propagation and audio callback (Proposed track) | [SPEC-36](36-streaming-tts-and-spatial-speech-presentation.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-16](16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-11](11-security-licensing-and-governance.md) | ADR-075, ADR-005, ADR-017, ADR-028, ADR-046 | none for documentation-only design; implementation uses focused fast, play, persistence-replay and content-package plus conditional platform/performance as mapped by SPEC-36 |
 | Current RPG domain, quests and bounded commitment settlement | [SPEC-19](19-rpg-domain-and-narrative-state.md) | ADR-020, ADR-046, ADR-074 | play |
 | Current bounded four-region/64-chunk partition, pinned generation and paired fixed-stage commit | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | ADR-026, ADR-048, ADR-051, ADR-072 when population bindings change | play, content-package, persistence-replay, performance smoke + r3-multiregion-streaming |
 | Current R4a derived calendar and authored relay-keeper routine | [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-29](29-platform-host-and-application-session.md) | ADR-008, ADR-016, ADR-019, ADR-021 (retained ownership/determinism invariants), ADR-022, ADR-025, ADR-030, ADR-034, ADR-046, ADR-047, ADR-048, ADR-051, ADR-052 | fast, play, persistence-replay, content-package, host-check and conditional performance smoke/report-only |
@@ -92,7 +93,8 @@ packets 1.0–1.9 (`docs/reviews/`) — historical snapshots. Их MAY чита�
 
 ## Proposed — не shipped
 
-SPEC-16/ADR-017 (dialogue model packs), the broader navigation candidate in SPEC-08, SPEC-23
+SPEC-16/ADR-017 (dialogue model packs), SPEC-36/ADR-075 (bounded streaming TTS
+and spatial speech presentation), the broader navigation candidate in SPEC-08, SPEC-23
 (future generic jobs/resource work after bounded R3), SPEC-31 (narrative/divine intent formerly in
 ADR-029/ADR-031), SPEC-32 breadth beyond the bounded ADR-074 social/work/economy consumer,
 SPEC-33/SPEC-34 and ADR-050/ADR-053/ADR-054 (optional R8 learned

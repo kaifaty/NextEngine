@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.42 |
-| Последняя проверка | 2026-08-16 |
-| Заменяет | INDEX-001 2.41; promotes the bounded SPEC-32/ADR-074 R4d production consumer and current formats |
+| Версия | 2.43 |
+| Последняя проверка | 2026-08-17 |
+| Заменяет | INDEX-001 2.42; indexes the bounded Proposed SPEC-36/ADR-075 streaming-TTS vertical |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -179,6 +179,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
 | SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070 |
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
+| SPEC-36 | [Streaming TTS and spatial speech presentation](36-streaming-tts-and-spatial-speech-presentation.md) | Proposed bounded local `ai-host → SpeechStream → AudioScene` vertical with authored/subtitle fallback; no shipping model selected |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -262,10 +263,16 @@ traceability — навигационная карта, не admission authority
 | ADR-072 | [Deterministic population tiers and graph-navigation vertical](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) | Accepted R4b 100-record World Services owner and 64-node graph; its six-owner/Replay V7 format boundary is superseded by ADR-073 |
 | ADR-073 | [Deterministic cognition owner vertical](adr/073-deterministic-cognition-owner-vertical.md) | Accepted R4c semantic beliefs, fixed-point Utility, bounded GOAP and paired Agent/Memory owners; its V5/V6/Replay V8 boundary is superseded by ADR-074 |
 | ADR-074 | [Systemic Strategic Agent owner vertical](adr/074-systemic-strategic-agent-owner-vertical.md) | Accepted bounded R4d structured social/work/economy path, activity owner, tier cognition, bulk-time equivalence, V6/V7 content and nine-owner Replay V9 |
+| ADR-075 | [Bounded streaming TTS through `ai-host` and `AudioScene`](adr/075-bounded-streaming-tts-through-ai-host-and-audio-scene.md) | Proposed; generated dry PCM is a bounded spatial `AudioScene` source, not gameplay authority or a direct device path |
 
 ## Proposed tracks
 
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
+- SPEC-36/ADR-075 — bounded local streaming-TTS specialization: isolated
+  resident host, immutable voice/model bindings, spatial `AudioScene` source,
+  engine-owned room fallback and joint renderer/TTS resource admission. It
+  does not accept the broader SPEC-16 stack or select VoxCPM2 as shipping
+  default.
 - Broader navigation sections of SPEC-08 — navmesh cooking, dynamic overlays,
   tactical/physical path following and optional Recast adapter remain Proposed
   beyond the current ADR-072 graph/query and abstract-transfer baseline.

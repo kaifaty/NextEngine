@@ -4,10 +4,10 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 3.9 |
-| Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | GLOSSARY-001 3.8; updates current project, systemic activity and replay terms for R4d |
+| Версия | 4.0 |
+| Последняя проверка | 2026-08-17 |
+| Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-36](36-streaming-tts-and-spatial-speech-presentation.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-075](adr/075-bounded-streaming-tts-through-ai-host-and-audio-scene.md) |
+| Заменяет | GLOSSARY-001 3.9; adds explicitly Proposed streaming-TTS presentation terms |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -52,6 +52,10 @@
 | **ScheduleManifestV1** | Immutable system DAG с stable `SystemId`, declared reads/writes/stage, logical shard plans, reducer bindings и canonical topological tie-break; worker completion order не является execution/commit order. |
 | **DomainEvent** | Неизменяемый факт об уже принятом изменении domain state. Не является альтернативным mutable API. |
 | **PresentationSnapshotV2** | Atomically published immutable scene/camera/semantic-UI plus bounded cue/environment-hash projection with snapshot epoch, sequence and stable object keys. Renderer/UI consume it read-only; it never writes back or enters gameplay hashes. |
+| **SpeechStream** | Proposed bounded PresentationOnly ordered PCM source produced by optional `ai-host` for one validated sentence and consumed only through `AudioScene`; its buffer position, timing and waveform are not dialogue/gameplay authority. |
+| **SpeechVoiceProfile** | Proposed model-neutral authored character-voice and spatial-presentation intent; model conditioning and runtime parameters belong to a separate exact `TtsVoiceBinding`. |
+| **TtsVoiceBinding** | Proposed immutable content-addressed binding of one `SpeechVoiceProfile` to exact TTS pack/runtime/conditioning/provenance/license/consent and generation parameters. |
+| **AcousticSceneManifest** | Proposed immutable neutral presentation content for acoustic zones, portals, materials, fallback room response and optional static propagation geometry; backend scene/handles remain reconstructible private caches. |
 | **PlatformCapabilitySetV1** | Canonical normalized engine-owned host capability/limit set selected before runtime staging; it contains no native device, extension or backend type. |
 | **PlatformTimebaseV1** | Checked monotonic native-sample normalization profile for platform diagnostics/order; it cannot compute simulation/world tick. |
 | **PlatformEventV1** | Bounded typed normalized platform fact with stable host/source sequence and identity; callback order is not authority. |

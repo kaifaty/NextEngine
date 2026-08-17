@@ -5,10 +5,10 @@
 | ID | ADR-017 |
 | Статус | Proposed |
 | Lifecycle | Deferred Proposed |
-| Версия | 0.3 |
+| Версия | 0.4 |
 | Дата предложения | 2026-07-22 |
-| Последняя проверка | 2026-07-25 |
-| Нормативные зависимости | [SPEC-16](../16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-01](../01-system-architecture.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-11](../11-security-licensing-and-governance.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md) |
+| Последняя проверка | 2026-08-17 |
+| Нормативные зависимости | [SPEC-16](../16-text-canonical-multimodal-dialogue-and-model-packs.md), [SPEC-36](../36-streaming-tts-and-spatial-speech-presentation.md), [SPEC-01](../01-system-architecture.md), [SPEC-06](../06-ai-agents-perception-and-memory.md), [SPEC-07](../07-rpg-scripting-and-plugins.md), [SPEC-08](../08-audio-navigation-and-world-services.md), [SPEC-11](../11-security-licensing-and-governance.md), [ADR-005](005-offline-first-ai-process-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-075](075-bounded-streaming-tts-through-ai-host-and-audio-scene.md) |
 | Заменяет | отсутствует |
 | Заменён | не заменён |
 
@@ -25,6 +25,12 @@ ADR остаётся `Deferred Proposed`. [ADR-005](005-offline-first-ai-process
 остаётся текущей authority для optional `ai-host`, process isolation и
 deterministic in-process fallback. SPEC-16 подробно описывает candidate
 contracts, но пока не превращает их в shipped baseline.
+
+[ADR-075](075-bounded-streaming-tts-through-ai-host-and-audio-scene.md) и
+[SPEC-36](../36-streaming-tts-and-spatial-speech-presentation.md) выделяют
+implementation-ready bounded local TTS specialization. Они не меняют статус
+этого ADR и не принимают ASR, LLM dialogue, remote providers либо весь
+model-pack stack.
 
 ## Контекст
 
@@ -121,7 +127,7 @@ mutation boundaries.
 
 ## Supersession
 
-ADR-017 не заменяет ADR-005, ADR-022 или ADR-030. Принятие proposal требует
+ADR-017 не заменяет ADR-005, ADR-022, ADR-030 или ADR-075. Принятие широкого proposal требует
 короткого нового решения либо смены статуса с синхронным обновлением SPEC-16 и
 lightweight traceability. Mandatory cloud, in-process generative dialogue,
 direct model mutation, non-text authoritative dialogue или regeneration during

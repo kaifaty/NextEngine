@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-30 |
 | Статус | Accepted |
-| Версия | 3.4 |
-| Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-30 3.3; updates the current atomic project activation type after R4d |
+| Версия | 3.5 |
+| Последняя проверка | 2026-08-17 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
+| Заменяет | SPEC-30 3.4; clarifies the current audio companion projection and bounded Proposed spatial-speech extension |
 
 ## Authority boundary
 
@@ -81,6 +81,24 @@ candidate; publication failure retains the prior snapshot.
 UI menus may compose a new immutable presentation snapshot while simulation is
 suspended, but cannot mutate world state. Gameplay actions still enter through
 the normalized action/command path.
+
+### Audio companion projection and Proposed speech streams
+
+Current `AudioSceneSnapshotV1` from SPEC-08 is a separate immutable
+presentation companion derived at the same committed boundary. It owns one
+listener, clip-backed emitters/cues and deterministic acoustic-fact projection;
+it does not enlarge `PresentationSnapshotV2` or write mixer/device state back
+to simulation.
+
+[SPEC-36](36-streaming-tts-and-spatial-speech-presentation.md) proposes a
+current-only V2 audio-source successor for generated `SpeechStream` plus
+acoustic scene/frame/result values. Presentation extraction resolves the
+model-neutral mouth/head attachment into an ordinary quantized emitter
+transform. PCM bytes, stream cursor, propagation cache, lip timing and device
+counters remain outside `PresentationSnapshotV2`, save and gameplay roots.
+Missing attachment falls back to the subject/root transform; missing TTS or
+propagation falls back to authored text/voice and engine-native audio without
+changing the accepted snapshot.
 
 ## Neutral render content
 

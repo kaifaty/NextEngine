@@ -5,14 +5,20 @@
 | ID | SPEC-16 |
 | Статус | Proposed |
 | Lifecycle | Deferred Proposed |
-| Версия | 0.7 |
-| Последняя проверка | 2026-08-09 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) |
-| Заменяет | SPEC-16 0.6; removes premature behavior wire shapes and defers to deterministic SPEC-32 semantics |
+| Версия | 0.8 |
+| Последняя проверка | 2026-08-17 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [SPEC-36](36-streaming-tts-and-spatial-speech-presentation.md), [ADR-005](adr/005-offline-first-ai-process-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-075](adr/075-bounded-streaming-tts-through-ai-host-and-audio-scene.md) |
+| Заменяет | SPEC-16 0.7; delegates the bounded local TTS/audio vertical to SPEC-36/ADR-075 without promoting the broader stack |
 
 ## Статус предложения: Deferred Proposed
 
 Этот документ имеет lifecycle `Deferred Proposed`: contracts ниже доступны для обсуждения и прототипирования, но не меняют Accepted runtime. Ни одна модель из [RESEARCH-002](research/npc-dialogue-model-landscape.md) не является shipping default.
+
+The narrower [SPEC-36](36-streaming-tts-and-spatial-speech-presentation.md)
+and [ADR-075](adr/075-bounded-streaming-tts-through-ai-host-and-audio-scene.md)
+close an implementation-ready Proposed local TTS vertical. They do not promote
+ASR, LLM dialogue, remote-provider or broad model-pack semantics in this
+document.
 
 ## Назначение и invariants
 
@@ -35,11 +41,11 @@ SPEC-16 задаёт один dialogue-turn contract для typed text и microp
 | Canonical player/NPC utterance admitted into session | RPG Framework after turn validation | Partial ASR, token stream, waveform |
 | Perception, memory projection, high-level proposal | Agent Intelligence / Memory Service per SPEC-06 | Vendor cache/session |
 | Model catalog and installed immutable model resolution | Asset & Tool chain model-pack registry | Downloader temp path, provider model list |
-| Generated PCM/playback progress | World Services presentation/audio runtime | Dialogue state or replay gameplay hash |
+| Generated PCM/playback progress | Presentation audio runtime; World Services retains deterministic gameplay acoustic facts | Dialogue state or replay gameplay hash |
 | Pack/provider grants, voice consent and licensing | Versioned project security policy | Model card claim, local UI toggle alone |
 | Gameplay mutation | Owning domain after committed WorldCommand | Dialogue text, function/tool call, speech segment |
 
-Agent Intelligence subsystem владеет turn protocol и deterministic routing policy. RPG Framework владеет authoritative dialogue state. World Services владеет audio capture/playback streams. Asset & Tool chain владеет pack manifests, installation transaction и replay references. Security policy владеет network, data, license и voice-consent rules.
+Agent Intelligence subsystem владеет turn protocol и deterministic routing policy. RPG Framework владеет authoritative dialogue state. Presentation владеет ephemeral audio capture/playback streams, while World Services owns deterministic gameplay acoustic facts. Asset & Tool chain владеет pack manifests, installation transaction и replay references. Security policy владеет network, data, license и voice-consent rules.
 
 ## Public contracts
 
@@ -127,6 +133,12 @@ authored text and `TextOnlyFallback`.
 
 Unknown, duplicate-with-different-bytes, skipped or post-final sequence MUST be rejected. Exact duplicate chunk MAY be deduplicated. PCM/encoded bytes never enter authoritative state hash.
 
+For the first local TTS implementation, SPEC-36 specializes this concept as
+`SpeechSegmentCandidateV1`: length-prefixed host framing, exact request/stream
+identity, 48 kHz mono F32 profile, finite-sample validation, whole-stream hash,
+bounded timing marks and `AudioSourceRefV2` integration. Those TTS-specific
+details override any ambiguity in this broader Deferred Proposed section.
+
 ### AiModelPackManifest
 
 `AiModelPackManifest` is an immutable public manifest:
@@ -144,6 +156,10 @@ Unknown, duplicate-with-different-bytes, skipped or post-final sequence MUST be 
 | Fallback | next compatible pack role or `TextOnlyFallback`; model cannot select it |
 
 Pack MUST NOT contain credentials, provider account, absolute path, mutable cache, raw dataset, training run or voice reference recording. Voice-clone capable pack remains disabled until exact `VoiceConsentRecord` passes `VOICE-L1`.
+
+An installed TTS role additionally carries the `TtsPackProfileV1` and exact
+`TtsVoiceBindingV1` closure from SPEC-36. Model-neutral character voice intent
+remains separate from model conditioning/runtime parameters.
 
 ### AiProviderProfile
 
@@ -262,7 +278,7 @@ Wall timings are measurements on declared hardware, never simulation decisions.
 | `BEHAVIOR-COMMS-P1` | Future SPEC-32 production scenario for player↔NPC and NPC↔NPC speech acts, goal suggestions and prosody faults | One bounded speech-act protocol, next-boundary-only goal admission, validated uncertainty facts, authored fallback and zero direct mutation. `NOT_RUN` until the R4 consumer exists. |
 | `MODEL-ASR-P1` | `next ai benchmark dialogue --role asr --corpus russian-gameplay-v1 --profile $PROFILE` | Clean Russian WER ≤10%, noisy mix WER ≤20%, final result p95 ≤600 ms, and invalid audio is bounded/rejected; use the next ASR route or typed input. |
 | `MODEL-DIALOGUE-P1` | `next ai benchmark dialogue --role dialogue --corpus npc-dialogue-v1 --profile $PROFILE` | First valid sentence p95 ≤1,000 ms, complete candidate p95 ≤2,000 ms, schema validity ≥99%, and stale/forbidden mutations always reject; use the next route or authored dialogue. |
-| `MODEL-TTS-P1` | `next ai benchmark dialogue --role tts --corpus russian-voice-v1 --profile $PROFILE` | First PCM p95 ≤500 ms, real-time factor ≤0.5, continuation is bounded, and audio schema limits hold; use the next TTS route, authored voice or subtitles. |
+| `MODEL-TTS-P1` | `next ai benchmark dialogue --role tts --corpus russian-voice-v1 --profile $PROFILE` | First PCM p95 ≤500 ms, real-time factor ≤0.5, continuation is bounded, and audio schema limits hold; use the next TTS route, authored voice or subtitles. SPEC-36 separately requires protocol, streaming, spatial, replay and co-resident resource checks, so this model gate cannot prove engine integration by itself. |
 | `MODEL-E2E-P1` | `next ai benchmark dialogue --pack <manifest> --profile $PROFILE --corpus npc-dialogue-v1` | At concurrency 4, first subtitle p95 ≤1,500 ms, first PCM p95 ≤2,500 ms, and gameplay hashes match text-only; use a lower profile or `TextOnlyFallback`. |
 | `MODEL-L1` | `next check MODEL-L1 --manifest <pack> --corpus model-license-provenance` | Files, sources, conversions, licenses and redistribution terms are classified and hash-closed; otherwise do not install or distribute the pack. |
 | `VOICE-L1` | `next check VOICE-L1 --manifest <pack> --corpus voice-consent-revocation` | Unauthorized, expired, revoked or scope-mismatched cloning is rejected and raw reference voice never enters default logs; use a licensed voice or subtitles. |
@@ -306,7 +322,7 @@ fallback remain engine-owned. One pack call
 cannot return an authoritative multi-god council verdict or bypass atomic
 pantheon resolution.
 
-Lifecycle остаётся `Deferred Proposed`; эти contracts не выбирают shipping model и не меняют Accepted runtime.
+Lifecycle остаётся `Deferred Proposed`; эти contracts не выбирают shipping model и не меняют Accepted runtime. A future SPEC-36/ADR-075 promotion accepts only its bounded TTS consumer unless a separate decision explicitly promotes more of this document.
 
 ## Deterministic NPC communication authority
 
