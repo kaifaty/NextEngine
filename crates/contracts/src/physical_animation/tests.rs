@@ -143,20 +143,33 @@ fn profile_and_snapshot_round_trip_canonically() {
 }
 
 #[test]
-fn profile_rejects_root_motion_and_non_identity_retarget() {
+fn profile_admits_forward_locomotion_root_but_keeps_retarget_bounded() {
     let (mut profile, skeleton, idle, locomotion, _) = fixture();
-    let mut root_motion = locomotion.clone();
-    root_motion.root_motion_intent = vec![NeutralAnimationKeyV1 {
-        time_microseconds: 0,
-        value: NeutralAnimationValueV1::Translation([1, 0, 0]),
-    }];
-    assert_eq!(
-        profile
-            .validate_against_content(&skeleton, &idle, &root_motion)
-            .expect_err("root motion is not admitted")
-            .diagnostic_code(),
-        "PHYSICAL_ANIMATION_CONTENT_CLOSURE_INVALID",
-    );
+    let rooted_locomotion = NeutralAnimationV1::new(
+        locomotion.asset_id,
+        2,
+        locomotion.clip_id.clone(),
+        locomotion.skeleton_revision,
+        locomotion.duration_microseconds,
+        locomotion.wrap_mode,
+        locomotion.channels.clone(),
+        locomotion.markers.clone(),
+        vec![
+            NeutralAnimationKeyV1 {
+                time_microseconds: 0,
+                value: NeutralAnimationValueV1::Translation([0, 0, 0]),
+            },
+            NeutralAnimationKeyV1 {
+                time_microseconds: locomotion.duration_microseconds,
+                value: NeutralAnimationValueV1::Translation([0, 0, 3_000_000]),
+            },
+        ],
+    )
+    .expect("rooted locomotion");
+    profile.locomotion_clip_revision = rooted_locomotion.asset_revision().expect("rooted revision");
+    profile
+        .validate_against_content(&skeleton, &idle, &rooted_locomotion)
+        .expect("bounded forward root motion is admitted");
     profile.retarget_joints[0].target_joint_key =
         SchemaId::new("fixture.joint.changed").expect("changed joint");
     assert_eq!(
@@ -165,6 +178,42 @@ fn profile_rejects_root_motion_and_non_identity_retarget() {
             .expect_err("non-identity retarget is outside R5a")
             .diagnostic_code(),
         "PHYSICAL_ANIMATION_PROFILE_INVALID",
+    );
+}
+
+#[test]
+fn root_motion_intent_round_trips_and_rejects_pose_authority() {
+    let intent = RootMotionIntentV1 {
+        schema_version: ROOT_MOTION_INTENT_SCHEMA_VERSION,
+        subject_id: PersistentId::from_bytes([8; 16]),
+        intent_sequence: 7,
+        source_graph_hash: ContentHash::from_bytes([1; 32]),
+        source_clip_hash: ContentHash::from_bytes([2; 32]),
+        source_action_or_ability_phase_id: SchemaId::new(ROOT_MOTION_MOVE_PERFORMED_PHASE_ID)
+            .expect("phase"),
+        source_animation_tick: 9,
+        interval_us: 33_333,
+        quantized_local_translation: [0, 0, 100_000],
+        quantized_local_yaw: 0,
+        locomotion_profile_hash: capsule_root_motion_profile_hash_v1(30).expect("profile"),
+        expected_intent_state_revision: 9,
+        expected_body_revision: 11,
+    };
+    let bytes = intent.canonical_payload_bytes().expect("intent bytes");
+    assert_eq!(
+        RootMotionIntentV1::from_canonical_payload_bytes(&bytes, CanonicalDecodeLimits::default(),)
+            .expect("decode intent"),
+        intent,
+    );
+
+    let mut invalid = intent;
+    invalid.quantized_local_yaw = 1;
+    assert_eq!(
+        invalid
+            .validate()
+            .expect_err("bounded R5c has no yaw authority")
+            .diagnostic_code(),
+        "ANIM_ROOT_MOTION_REJECTED",
     );
 }
 

@@ -507,6 +507,11 @@ impl ReferenceGameDriverV2 {
         self.runtime.next_tick()
     }
 
+    #[must_use]
+    pub fn last_command_batches(&self) -> &[next_contracts::input::ClosedCommandAdmissionBatchV2] {
+        self.runtime.last_command_batches()
+    }
+
     pub fn presentation_snapshot(&self) -> Result<&PresentationSnapshotV2, ReferenceGameError> {
         self.presentation_extractor
             .accepted_snapshot()
@@ -613,18 +618,27 @@ impl ReferenceGameDriverV2 {
             dialogue = ReferenceDialogueUiV1::Closed;
             inject_interact = true;
         }
+        let root_motion_command = crate::physical_animation::reference_root_motion_command(
+            &self.fixture,
+            &physical_animation,
+            input.resolved.as_ref(),
+            strip_interaction_movement,
+            self.runtime.next_tick(),
+            self.runtime.physics_snapshot(),
+        )?;
         if let Some(sample) = crate::dialogue::dialogue_runtime_sample(
             input.resolved.as_ref(),
             &self.input,
             self.next_logical_frame_sequence,
             strip_interaction_movement,
+            strip_interaction_movement || root_motion_command.is_some(),
             inject_interact,
         )? {
             runtime_preparation.enqueue_input_sample(&self.fixture.principal, sample)?;
         }
         let mut prepared_runtime = runtime_preparation
             .prepare_with_world_services_cognition_and_activity(
-                [],
+                root_motion_command,
                 &self.world_routine,
                 &self.world_population,
                 &self.world_activity,

@@ -580,6 +580,7 @@ impl RuntimeState {
                     rpg_bindings: &self.rpg_bindings,
                     controllers: &self.player_controller_registry,
                     physical_contact_facts: &[],
+                    gameplay_hz: self.tick_rate_profile.gameplay_hz,
                     source: ValidationSource::ExternalIngress,
                     tick,
                     phase: CommandPhase::Ingress,
@@ -830,6 +831,7 @@ impl RuntimeState {
                     rpg_bindings: &self.rpg_bindings,
                     controllers: &self.player_controller_registry,
                     physical_contact_facts: &physical_contact_facts,
+                    gameplay_hz: self.tick_rate_profile.gameplay_hz,
                     source: ValidationSource::InternalOutcome,
                     tick,
                     phase: CommandPhase::Outcome,
@@ -908,7 +910,12 @@ impl RuntimeState {
                     .body
                     .envelopes
                     .iter()
-                    .filter(|command| matches!(&command.payload, CommandPayload::Physical(_)))
+                    .filter(|command| {
+                        matches!(
+                            &command.payload,
+                            CommandPayload::Physical(_) | CommandPayload::RootMotion(_)
+                        )
+                    })
                     .count(),
             )?,
             accepted: count(
@@ -916,7 +923,12 @@ impl RuntimeState {
                     .body
                     .envelopes
                     .iter()
-                    .filter(|command| matches!(&command.payload, CommandPayload::Physical(_)))
+                    .filter(|command| {
+                        matches!(
+                            &command.payload,
+                            CommandPayload::Physical(_) | CommandPayload::RootMotion(_)
+                        )
+                    })
                     .count(),
             )?,
             rejected: 0,

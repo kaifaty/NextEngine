@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-21 |
 | Статус | Accepted |
-| Версия | 1.8 |
-| Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-21 1.7; records the current R4d activity and bulk-time consumers of the existing deterministic primitives |
+| Версия | 1.9 |
+| Последняя проверка | 2026-08-17 |
+| Нормативные зависимости | [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
+| Заменяет | SPEC-21 1.8; records the additive R5c root-motion ingress while preserving the R4d schedule and historical registry prefix |
 
 ## Назначение, authority и граница
 
@@ -1543,9 +1543,15 @@ admission, divine judgment batch or generic cross-context transaction wrapper.
 ## Current Strategic Agent deterministic primitives
 
 SPEC-32/ADR-073 cognition and ADR-074 systemic execution use the existing
-fixed-stage, command-ledger, named-RNG and replay rules. Current `core_r4d`
-retains all twelve stages and has a closed seven-entry command-kind registry
-and four-system schedule. The single-shard World Activity system runs after
+fixed-stage, command-ledger, named-RNG and replay rules. Historical `core_r4d`
+retains its closed seven-entry command-kind registry. Current `core_r5c` keeps
+the same twelve stages and four-system schedule while adding one ingress-only
+`nextengine.command.root-motion@1` descriptor under the existing physical
+capability/priority class. The eighth command kind is a recorded animation
+proposal validated before it lowers into the existing capsule intent; it adds
+no system, schedule stage, transform owner or hidden retry path.
+
+The single-shard World Activity system runs after
 cognition at `AgentPlanning`, stages priority-280 internal work, and commits at
 the unchanged Outcome barrier only after the common final preflight.
 Goal Utility, GOAP cost, confidence and cadence use bounded integer/Q16 values

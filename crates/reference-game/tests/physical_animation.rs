@@ -50,6 +50,12 @@ fn live_normalized_controls_drive_player_animation_without_camera_authority() {
         .snapshot
         .sorted_body_states[&body_id]
         .pose;
+    let initial_body_revision = initial
+        .checkpoint
+        .physics_checkpoint
+        .snapshot
+        .sorted_body_states[&body_id]
+        .body_revision;
     movement
         .advance(&[control_event(
             KEYBOARD_DEVICE_CLASS_ID,
@@ -58,6 +64,19 @@ fn live_normalized_controls_drive_player_animation_without_camera_authority() {
             vec![i16::MAX],
         )])
         .expect("normalized movement");
+    let next_contracts::command::CommandPayload::RootMotion(intent) =
+        &movement.last_command_batches()[0].body.envelopes[0].payload
+    else {
+        panic!("forward movement must enter runtime as root motion")
+    };
+    assert_eq!(intent.subject_id, body_id.subject_id);
+    assert_eq!(intent.source_animation_tick, 0);
+    assert_eq!(intent.expected_intent_state_revision, 0);
+    assert_eq!(intent.expected_body_revision, initial_body_revision);
+    assert_eq!(intent.quantized_local_translation, [0, 0, 100_000]);
+    assert_eq!(intent.quantized_local_yaw, 0);
+    assert_ne!(intent.source_graph_hash, ContentHash::default());
+    assert_ne!(intent.source_clip_hash, ContentHash::default());
     let moved = movement.state().expect("moved state");
     assert_eq!(moved.physical_animation_snapshot.next_simulation_tick, 1);
     assert_eq!(

@@ -1,5 +1,5 @@
 {
-  "format": "nextengine.neutral-humanoid-authoring.v1",
+  "format": "nextengine.neutral-humanoid-authoring.v2",
   "asset_set_id": "nextengine.reference-alpha.humanoid.cc0.v1",
   "creator": "Next Engine contributors",
   "source": "urn:nextengine:reference-alpha:humanoid-cc0-v1",
@@ -34,11 +34,12 @@
             { "time_microseconds": 1000000, "value": [0, 900000, 0] }
           ]
         }
-      ]
+      ],
+      "root_motion_intent": []
     },
     {
       "asset_id": "b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9b9",
-      "record_revision": 1,
+      "record_revision": 2,
       "clip_id": "nextengine.reference-alpha.animation.locomotion",
       "duration_microseconds": 1000000,
       "channels": [
@@ -75,6 +76,39 @@
             { "time_microseconds": 1000000, "value": [150000, -900000, 0] }
           ]
         }
+      ],
+      "root_motion_intent": [
+        { "time_microseconds": 0, "value": [0, 0, 0] },
+        { "time_microseconds": 33333, "value": [0, 0, 100000] },
+        { "time_microseconds": 66666, "value": [0, 0, 200000] },
+        { "time_microseconds": 100000, "value": [0, 0, 300000] },
+        { "time_microseconds": 133333, "value": [0, 0, 400000] },
+        { "time_microseconds": 166666, "value": [0, 0, 500000] },
+        { "time_microseconds": 200000, "value": [0, 0, 600000] },
+        { "time_microseconds": 233333, "value": [0, 0, 700000] },
+        { "time_microseconds": 266666, "value": [0, 0, 800000] },
+        { "time_microseconds": 300000, "value": [0, 0, 900000] },
+        { "time_microseconds": 333333, "value": [0, 0, 1000000] },
+        { "time_microseconds": 366666, "value": [0, 0, 1100000] },
+        { "time_microseconds": 400000, "value": [0, 0, 1200000] },
+        { "time_microseconds": 433333, "value": [0, 0, 1300000] },
+        { "time_microseconds": 466666, "value": [0, 0, 1400000] },
+        { "time_microseconds": 500000, "value": [0, 0, 1500000] },
+        { "time_microseconds": 533333, "value": [0, 0, 1600000] },
+        { "time_microseconds": 566666, "value": [0, 0, 1700000] },
+        { "time_microseconds": 600000, "value": [0, 0, 1800000] },
+        { "time_microseconds": 633333, "value": [0, 0, 1900000] },
+        { "time_microseconds": 666666, "value": [0, 0, 2000000] },
+        { "time_microseconds": 700000, "value": [0, 0, 2100000] },
+        { "time_microseconds": 733333, "value": [0, 0, 2200000] },
+        { "time_microseconds": 766666, "value": [0, 0, 2300000] },
+        { "time_microseconds": 800000, "value": [0, 0, 2400000] },
+        { "time_microseconds": 833333, "value": [0, 0, 2500000] },
+        { "time_microseconds": 866666, "value": [0, 0, 2600000] },
+        { "time_microseconds": 900000, "value": [0, 0, 2700000] },
+        { "time_microseconds": 933333, "value": [0, 0, 2800000] },
+        { "time_microseconds": 966666, "value": [0, 0, 2900000] },
+        { "time_microseconds": 1000000, "value": [0, 0, 3000000] }
       ]
     }
   ]

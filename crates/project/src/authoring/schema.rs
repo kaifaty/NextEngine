@@ -174,7 +174,7 @@ pub(super) struct AuthoringAnimationCatalogReferenceV1 {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct AuthoringHumanoidCatalogV1 {
+pub(super) struct AuthoringHumanoidCatalogV2 {
     pub format: String,
     pub asset_set_id: String,
     pub creator: String,
@@ -208,6 +208,7 @@ pub(super) struct AuthoringAnimationClipV1 {
     pub clip_id: String,
     pub duration_microseconds: u64,
     pub channels: Vec<AuthoringAnimationChannelV1>,
+    pub root_motion_intent: Vec<AuthoringAnimationKeyV1>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

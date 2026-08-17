@@ -92,7 +92,28 @@ fn fixture() -> Fixture {
         .expect("clip")
     };
     let idle = clip(2, "fixture.animation.idle", 905_000);
-    let locomotion = clip(3, "fixture.animation.locomotion", 930_000);
+    let locomotion_pose = clip(3, "fixture.animation.locomotion", 930_000);
+    let locomotion = NeutralAnimationV1::new(
+        locomotion_pose.asset_id,
+        2,
+        locomotion_pose.clip_id.clone(),
+        locomotion_pose.skeleton_revision,
+        locomotion_pose.duration_microseconds,
+        locomotion_pose.wrap_mode,
+        locomotion_pose.channels.clone(),
+        locomotion_pose.markers.clone(),
+        (0_u64..=30)
+            .map(|tick| NeutralAnimationKeyV1 {
+                time_microseconds: tick * 1_000_000 / 30,
+                value: NeutralAnimationValueV1::Translation([
+                    0,
+                    0,
+                    i64::try_from(tick).expect("tick fits") * 100_000,
+                ]),
+            })
+            .collect(),
+    )
+    .expect("rooted locomotion");
     let mut retarget_joints = skeleton
         .joints
         .iter()
@@ -214,6 +235,43 @@ fn actual_capsule_displacement_selects_graph_per_shared_archetype() {
     )
     .expect("restore");
     assert_eq!(restored.snapshot(), owner.snapshot());
+}
+
+#[test]
+fn root_curve_proposes_exact_future_intent_without_mutation() {
+    let fixture = fixture();
+    let owner = PhysicalAnimationOwnerV1::activate(
+        fixture.profile,
+        fixture.skeleton,
+        fixture.idle,
+        fixture.locomotion,
+        fixture.bindings.clone(),
+        &fixture.physics,
+    )
+    .expect("activate");
+    let snapshot = owner.snapshot().clone();
+    let intent = owner
+        .root_motion_intent(
+            fixture.bindings[0].subject_id,
+            17,
+            SchemaId::new(next_contracts::physical_animation::ROOT_MOTION_MOVE_STARTED_PHASE_ID)
+                .expect("phase"),
+            &fixture.physics,
+        )
+        .expect("root intent");
+    assert_eq!(intent.intent_sequence, 17);
+    assert_eq!(intent.source_animation_tick, 0);
+    assert_eq!(intent.expected_intent_state_revision, 0);
+    assert_eq!(intent.expected_body_revision, 0);
+    assert_eq!(intent.quantized_local_translation, [0, 0, 100_000]);
+    assert_eq!(intent.quantized_local_yaw, 0);
+    assert_eq!(owner.snapshot(), &snapshot);
+    assert_eq!(
+        fixture.physics.sorted_body_states[&fixture.bindings[0].body_id]
+            .pose
+            .translation_micrometres[2],
+        0
+    );
 }
 
 #[test]

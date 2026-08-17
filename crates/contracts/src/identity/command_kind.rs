@@ -16,6 +16,9 @@ use crate::command::{
     NOOP_COMMAND_CAPABILITY_ID, NOOP_COMMAND_SCHEMA_ID,
 };
 use crate::ids::{CapabilityId, ContentHash, SchemaId, content_hash_from_bytes};
+use crate::physical_animation::{
+    ROOT_MOTION_COMMAND_SCHEMA_ID, ROOT_MOTION_COMMAND_SCHEMA_VERSION,
+};
 use crate::physics::{
     PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION,
 };
@@ -50,6 +53,7 @@ pub const COMMAND_KIND_REGISTRY_SEGMENT_ID: &str = "v1";
 pub const NOOP_COMMAND_KIND_ID: &str = "nextengine.command-kind.noop";
 pub const RPG_COMMAND_KIND_ID: &str = "nextengine.command-kind.rpg";
 pub const PHYSICAL_COMMAND_KIND_ID: &str = "nextengine.command-kind.physical";
+pub const ROOT_MOTION_COMMAND_KIND_ID: &str = "nextengine.command-kind.root-motion";
 pub const NOOP_PRIORITY_CLASS: u16 = 100;
 pub const RPG_PRIORITY_CLASS: u16 = 200;
 pub const PHYSICAL_PRIORITY_CLASS: u16 = 300;
@@ -110,20 +114,25 @@ pub struct CommandKindRegistryV1 {
 
 impl CommandKindRegistryV1 {
     pub fn core_r4b() -> Result<Self, IdentityContractError> {
-        Self::core(false, false)
+        Self::core(false, false, false)
     }
 
     pub fn core_r4c() -> Result<Self, IdentityContractError> {
-        Self::core(true, false)
+        Self::core(true, false, false)
     }
 
     pub fn core_r4d() -> Result<Self, IdentityContractError> {
-        Self::core(true, true)
+        Self::core(true, true, false)
+    }
+
+    pub fn core_r5c() -> Result<Self, IdentityContractError> {
+        Self::core(true, true, true)
     }
 
     fn core(
         include_agent_cognition: bool,
         include_world_activity: bool,
+        include_root_motion: bool,
     ) -> Result<Self, IdentityContractError> {
         let entry = |payload_schema_id: &str,
                      payload_schema_version: u32,
@@ -213,6 +222,17 @@ impl CommandKindRegistryV1 {
             )?;
             entries.insert(key, value);
         }
+        if include_root_motion {
+            let (key, value) = entry(
+                ROOT_MOTION_COMMAND_SCHEMA_ID,
+                ROOT_MOTION_COMMAND_SCHEMA_VERSION,
+                ROOT_MOTION_COMMAND_KIND_ID,
+                PHYSICAL_PRIORITY_CLASS,
+                b"nextengine.command-validator.root-motion.v1\0",
+                PHYSICAL_COMMAND_CAPABILITY_ID,
+            )?;
+            entries.insert(key, value);
+        }
         let value = Self {
             schema_version: COMMAND_KIND_REGISTRY_SCHEMA_VERSION,
             entries,
@@ -267,6 +287,7 @@ impl CommandKindRegistryV1 {
             (NOOP_COMMAND_SCHEMA_ID, CommandPayload::Noop)
                 | (RPG_COMMAND_SCHEMA_ID, CommandPayload::Rpg(_))
                 | (PHYSICAL_COMMAND_SCHEMA_ID, CommandPayload::Physical(_))
+                | (ROOT_MOTION_COMMAND_SCHEMA_ID, CommandPayload::RootMotion(_))
                 | (
                     WORLD_ROUTINE_COMMAND_SCHEMA_ID,
                     CommandPayload::WorldRoutine(_)
@@ -290,7 +311,9 @@ impl CommandKindRegistryV1 {
     pub fn allows_phase(entry: &CommandKindRegistryEntryV1, phase: CommandPhase) -> bool {
         match entry.payload_schema_id.as_str() {
             NOOP_COMMAND_SCHEMA_ID | RPG_COMMAND_SCHEMA_ID => true,
-            PHYSICAL_COMMAND_SCHEMA_ID => phase == CommandPhase::Ingress,
+            PHYSICAL_COMMAND_SCHEMA_ID | ROOT_MOTION_COMMAND_SCHEMA_ID => {
+                phase == CommandPhase::Ingress
+            }
             WORLD_ROUTINE_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
             WORLD_POPULATION_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
             WORLD_ACTIVITY_COMMAND_SCHEMA_ID => phase == CommandPhase::Outcome,
@@ -612,6 +635,27 @@ mod tests {
         assert!(CommandKindRegistryV1::allows_phase(
             entry,
             CommandPhase::Outcome
+        ));
+    }
+
+    #[test]
+    fn r5c_root_motion_entry_is_ingress_only_and_preserves_r4d() {
+        let historical = CommandKindRegistryV1::core_r4d().expect("R4d registry");
+        let current = CommandKindRegistryV1::core_r5c().expect("R5c registry");
+        assert_eq!(historical.entries.len(), 7);
+        assert_eq!(current.entries.len(), 8);
+        let schema = SchemaId::new(ROOT_MOTION_COMMAND_SCHEMA_ID).expect("schema");
+        let entry = current
+            .descriptor(&schema, ROOT_MOTION_COMMAND_SCHEMA_VERSION)
+            .expect("root-motion command is registered");
+        assert_eq!(entry.priority_class, PHYSICAL_PRIORITY_CLASS);
+        assert!(CommandKindRegistryV1::allows_phase(
+            entry,
+            CommandPhase::Ingress,
+        ));
+        assert!(!CommandKindRegistryV1::allows_phase(
+            entry,
+            CommandPhase::Outcome,
         ));
     }
 }

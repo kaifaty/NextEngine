@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-28 |
 | Статус | Accepted |
-| Версия | 1.9 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 2.0 |
+| Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Заменяет | SPEC-28 1.8; distinguishes the committed population view from physical and animation LOD |
+| Заменяет | SPEC-28 1.9; records the bounded R5a–R5c production consumer without widening the accepted authority split |
 
 ## История принятия
 
@@ -581,13 +581,32 @@ chain ID and first differing canonical field.
 
 ## Текущий implementation checkpoint
 
-R2 реализует только content-side prerequisite: public neutral skeleton/clip
-schemas, canonical codecs, exact clip→skeleton binding, cook/activation и один
-CC0 catalog с hash/source/license/NOTICE в `projects/reference-alpha`.
-Animation graph evaluation, deterministic retargeting, physical и presentation
-IK, validated `RootMotionIntentV1`, runtime save/load/replay и соответствующие
-ProductCheck ниже ещё не реализованы и остаются gate R5. Наличие catalog не
-переводит ни один `ANIM-*` check в `PASS`.
+Текущий bounded R5 consumer развивает R2 content prerequisite тремя принятыми
+инкрементами. R5a активирует один engine-owned player/NPC profile, exact neutral
+sampling, identity retarget, presentation-only foot IK/bind fallback и сохраняет
+future-affecting graph cursor отдельным десятым owner segment в Replay V10. R5b
+оставляет capsule physics единственным pose/contact owner и закрывает production
+slopes, stairs, dynamic push, sensors и fall/recovery fixture.
+
+R5c cooker принимает current-only
+`nextengine.neutral-humanoid-authoring.v2` с отдельной root-intent curve.
+`PhysicalAnimationOwnerV1` без mutation семплирует один будущий fixed-tick
+forward delta и выпускает canonical `RootMotionIntentV1`. Отдельный ingress
+command kind проходит common physical capability, exact registered
+profile/clip source, subject/body revision, tick, interval, bounds and capsule
+profile validation; valid proposal понижается в существующий
+`AcceptedLocomotionIntentV2`, после чего только capsule physics может применить
+или collision-clip displacement. Stale, unregistered, yaw/lateral или
+out-of-profile proposal получает `ANIM_ROOT_MOTION_REJECTED` до pose/event
+mutation. `PhysicalAnimationSnapshotV1`, `PhysicsStepInputV2`, applied-result
+contracts и Replay V10 не получили successor; save/load воспроизводит exact
+proposal из сохранённого cursor, а Replay хранит полную command body.
+
+Это закрывает только bounded R5a–R5c production path. Layered/general graph,
+non-identity retarget, physical IK, animation LOD matrix, real skinning,
+BodySchema projection, articulation/hybrid motion и полный 10 000-cycle
+`ANIM-ROOT-MOTION-P1` остаются открыты; остальные `ANIM-*` checks также не
+переводятся в `PASS` этим checkpoint.
 
 ## Product checks
 

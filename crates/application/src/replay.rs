@@ -583,6 +583,18 @@ pub fn run_replay_manifest_v10_with_physics_options(
             .register(grant.principal.clone(), grant.capabilities.clone())
             .map_err(|_| ManifestValidationError::AuthorityNotStrictlySorted)?;
     }
+    for (principal, subject_id, source_graph_hash, source_clip_hash) in
+        fixture.authority.root_motion_sources()
+    {
+        authority
+            .register_root_motion_source(
+                principal.clone(),
+                subject_id,
+                source_graph_hash,
+                source_clip_hash,
+            )
+            .map_err(|_| ManifestValidationError::ReplayInitialSegmentsInvalid)?;
+    }
     let mut replay = RuntimeReplayDriver::new_with_definitions_and_physics_options(
         initial.checkpoint,
         authority,

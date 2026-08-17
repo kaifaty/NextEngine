@@ -5,7 +5,7 @@ use super::run_persistence_replay_check;
 #[test]
 fn product_check_covers_npc_transition_replay_and_structural_fallbacks() {
     let report = run_persistence_replay_check().expect("product check passes");
-    assert_eq!(report.ticks, 19);
+    assert_eq!(report.ticks, 20);
     assert_eq!(report.generations, 2);
     assert_eq!(report.rpg_events, 18);
     assert_eq!(
@@ -25,6 +25,6 @@ fn product_check_covers_npc_transition_replay_and_structural_fallbacks() {
     assert_eq!(report.player_health, 50);
     assert_eq!(
         report.final_pose.translation_micrometres,
-        [200_000, 900_000, 200_000]
+        [200_000, 900_000, 300_000]
     );
 }

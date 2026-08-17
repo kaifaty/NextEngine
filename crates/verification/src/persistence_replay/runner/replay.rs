@@ -39,6 +39,21 @@ pub(super) fn verify(
             "recorded replay contains the exact planned agent command",
         ));
     }
+    if !direct
+        .replay_direct_commands
+        .iter()
+        .flatten()
+        .any(|command| {
+            matches!(
+                &command.payload,
+                next_contracts::command::CommandPayload::RootMotion(_)
+            )
+        })
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "Replay V10 records the complete root-motion proposal command",
+        ));
+    }
     let replay_bytes = replay_manifest.to_jcs_bytes().map_err(|error| {
         PersistenceReplayCheckError::new("encode replay V10", error.to_string())
     })?;

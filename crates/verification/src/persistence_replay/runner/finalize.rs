@@ -244,9 +244,9 @@ fn read_final_outcome(
         .get(&fixture.physics_body_id)
         .ok_or_else(|| PersistenceReplayCheckError::condition("final capsule body exists"))?
         .pose;
-    if pose.translation_micrometres != [200_000, 900_000, 200_000] {
+    if pose.translation_micrometres != [200_000, 900_000, 300_000] {
         return Err(PersistenceReplayCheckError::condition(
-            "queued movement applies exactly once",
+            "queued movement and rooted forward displacement each apply exactly once",
         ));
     }
     let interactive_object_state = match aggregate_payload(

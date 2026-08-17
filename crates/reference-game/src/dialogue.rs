@@ -331,7 +331,8 @@ pub(crate) fn dialogue_runtime_sample(
     resolved: Option<&ResolvedPlayerInputFrameV1>,
     tag_session: &PlayerInputSessionV1,
     logical_frame_sequence: u64,
-    strip_interaction_movement: bool,
+    strip_interaction: bool,
+    strip_movement: bool,
     inject_interact: bool,
 ) -> Result<Option<InputSampleV1>, ReferenceGameError> {
     let interact_id = SchemaId::new(CORE_INTERACT_ACTION_ID)?;
@@ -355,10 +356,10 @@ pub(crate) fn dialogue_runtime_sample(
         },
         None => return Ok(None),
     };
-    if strip_interaction_movement {
+    if strip_interaction || strip_movement {
         frame.actions.retain(|action| {
-            action.action_id.as_str() != CORE_INTERACT_ACTION_ID
-                && action.action_id.as_str() != CORE_MOVE_ACTION_ID
+            (!strip_interaction || action.action_id.as_str() != CORE_INTERACT_ACTION_ID)
+                && (!strip_movement || action.action_id.as_str() != CORE_MOVE_ACTION_ID)
         });
     }
     if inject_interact {

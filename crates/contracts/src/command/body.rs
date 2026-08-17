@@ -9,6 +9,9 @@ use crate::cognition::{
     AgentCognitionCommandV1,
 };
 use crate::ids::{CapabilityId, CommandStreamId, ContentHash, PersistentId, SchemaId};
+use crate::physical_animation::{
+    ROOT_MOTION_COMMAND_SCHEMA_ID, ROOT_MOTION_COMMAND_SCHEMA_VERSION, RootMotionIntentV1,
+};
 use crate::physics::{
     PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION, PhysicalCommandV1,
 };
@@ -62,6 +65,7 @@ pub enum CommandPayload {
     Noop,
     Rpg(RpgCommandV1),
     Physical(PhysicalCommandV1),
+    RootMotion(RootMotionIntentV1),
     WorldRoutine(WorldRoutineCommandV1),
     WorldPopulation(WorldPopulationCommandV1),
     WorldActivity(WorldActivityCommandV1),
@@ -74,6 +78,9 @@ impl CommandPayload {
             Self::Noop => Ok(Vec::new()),
             Self::Rpg(command) => command.canonical_payload_bytes(),
             Self::Physical(command) => command.canonical_payload_bytes(),
+            Self::RootMotion(intent) => intent
+                .canonical_payload_bytes()
+                .map_err(|_| CanonicalError::DuplicateSequenceValue),
             Self::WorldRoutine(command) => command.canonical_payload_bytes(),
             Self::WorldPopulation(command) => command.canonical_payload_bytes(),
             Self::WorldActivity(command) => command
@@ -371,6 +378,12 @@ impl CanonicalCommandBodyV2 {
                     limits,
                 )?)
             }
+            (ROOT_MOTION_COMMAND_SCHEMA_ID, ROOT_MOTION_COMMAND_SCHEMA_VERSION) => {
+                CommandPayload::RootMotion(RootMotionIntentV1::from_canonical_payload_bytes(
+                    payload_bytes,
+                    limits,
+                )?)
+            }
             (WORLD_ROUTINE_COMMAND_SCHEMA_ID, WORLD_ROUTINE_COMMAND_SCHEMA_VERSION) => {
                 CommandPayload::WorldRoutine(WorldRoutineCommandV1::from_canonical_payload_bytes(
                     payload_bytes,
@@ -397,6 +410,7 @@ impl CanonicalCommandBodyV2 {
                 NOOP_COMMAND_SCHEMA_ID
                 | RPG_COMMAND_SCHEMA_ID
                 | PHYSICAL_COMMAND_SCHEMA_ID
+                | ROOT_MOTION_COMMAND_SCHEMA_ID
                 | WORLD_ROUTINE_COMMAND_SCHEMA_ID
                 | WORLD_POPULATION_COMMAND_SCHEMA_ID
                 | WORLD_ACTIVITY_COMMAND_SCHEMA_ID

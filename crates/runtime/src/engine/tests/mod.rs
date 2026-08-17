@@ -2,12 +2,14 @@ mod fixtures;
 mod input;
 mod input_configuration;
 mod ledger;
+mod root_motion;
 mod world_routine;
 
 use std::collections::BTreeMap;
 
 use next_contracts::command::{
-    CommandPhase, DomainEvent, IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID, WorldCommand,
+    CommandPayload, CommandPhase, DomainEvent, IssuerPrincipal, NOOP_COMMAND_CAPABILITY_ID,
+    WorldCommand,
 };
 use next_contracts::identity::{
     CommandStreamKeyV1, CommandStreamRegistryV1, PrincipalRecordV1, PrincipalRegistryV1,
@@ -29,6 +31,10 @@ use next_contracts::input::{
     TickRateProfileV1,
 };
 use next_contracts::ledger::{CausalIdentityKey, CausalIdentityKind, CommandStreamStateV1};
+use next_contracts::physical_animation::{
+    ROOT_MOTION_INTENT_SCHEMA_VERSION, ROOT_MOTION_MOVE_PERFORMED_PHASE_ID, RootMotionIntentV1,
+    capsule_root_motion_profile_hash_v1,
+};
 use next_contracts::physics::{
     AuthoritativeNumericProfileV1, PHYSICAL_COMMAND_CAPABILITY_ID, PhysicsBodyDescriptorV1,
     PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2, PhysicsContactReportingV1, PhysicsGeometryV1,
@@ -40,7 +46,10 @@ use next_physics_api::{PhysicsBackendKind, PhysicsBackendPolicy};
 
 use super::*;
 use crate::AuthorityRegistry;
-use fixtures::{PhysicalFixture, command, fixture, fixture_for, movement_sample, physical_fixture};
+use fixtures::{
+    PhysicalFixture, clipped_physical_fixture, command, fixture, fixture_for, movement_sample,
+    physical_fixture,
+};
 
 fn exact_player_sample(
     fixture: &PhysicalFixture,

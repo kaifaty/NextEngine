@@ -7,6 +7,10 @@ use next_contracts::ledger::{
     CommandFinalResultV1, CommandLedgerError, CommandReceiptSubjectV1, CommandReservationV1,
     CommandStreamLedgerV2, CommandStreamStateV1, IdentityInsertResult,
 };
+use next_contracts::physical_animation::{
+    RootMotionIntentV1, capsule_root_motion_profile_hash_v1,
+    capsule_root_motion_step_micrometres_v1,
+};
 use next_contracts::physics::{AcceptedLocomotionIntentV2, PhysicalCommandV1};
 use next_contracts::rpg::RpgTransactionPlanV1;
 use next_rpg::{
@@ -28,6 +32,44 @@ use crate::engine::result::{CommittedRpgPlanTraceV1, OrderedResult, RejectionCod
 use crate::engine::world_activity::WorldActivityStageContextV1;
 use crate::engine::world_population::WorldPopulationStageContextV1;
 use crate::engine::world_routine::WorldRoutineStageContextV1;
+
+fn validate_root_motion_admission(
+    intent: &RootMotionIntentV1,
+    command: &next_contracts::command::WorldCommand,
+    body_revision: u64,
+    context: PhaseContext<'_>,
+) -> Result<[i16; 2], RejectionCode> {
+    // The saved locomotion graph phase can start between world-tick cadence
+    // residues. V1 records the sampled interval but not that phase cursor, so
+    // Runtime admits exactly the two legal fixed-rate quanta rather than
+    // pretending it can derive clip-phase parity from the world tick.
+    let expected_interval_floor = 1_000_000_u64 / u64::from(context.gameplay_hz);
+    let expected_interval_ceil = 1_000_000_u64.div_ceil(u64::from(context.gameplay_hz));
+    let expected_step = capsule_root_motion_step_micrometres_v1(context.gameplay_hz)
+        .map_err(|_| RejectionCode::RootMotionIntentRejected)?;
+    let expected_profile = capsule_root_motion_profile_hash_v1(context.gameplay_hz)
+        .map_err(|_| RejectionCode::RootMotionIntentRejected)?;
+    if intent.validate().is_err()
+        || command.target != Some(intent.subject_id)
+        || intent.intent_sequence != command.sequence
+        || context
+            .authority
+            .root_motion_source(&command.issuer, intent.subject_id)
+            != Some((intent.source_graph_hash, intent.source_clip_hash))
+        || intent.source_animation_tick != context.tick
+        || intent.expected_intent_state_revision != context.tick
+        || intent.expected_body_revision != body_revision
+        || intent.locomotion_profile_hash != expected_profile
+        || intent.quantized_local_translation != [0, 0, expected_step]
+        || !matches!(
+            intent.interval_us,
+            value if value == expected_interval_floor || value == expected_interval_ceil
+        )
+    {
+        return Err(RejectionCode::RootMotionIntentRejected);
+    }
+    Ok([0, 32_767])
+}
 use crate::registry::command_kind_registry_hash;
 
 #[allow(
@@ -198,6 +240,15 @@ pub(super) fn execute_candidate(
                 );
             }
             CommandPayload::Physical(_) => {}
+            CommandPayload::RootMotion(_) if command.target.is_none() => {
+                return finalize_rejection(
+                    context,
+                    candidate,
+                    staged,
+                    RejectionCode::PhysicalTargetUnbound,
+                );
+            }
+            CommandPayload::RootMotion(_) => {}
             CommandPayload::WorldRoutine(_) if command.target.is_none() => {
                 return finalize_rejection(
                     context,
@@ -314,10 +365,14 @@ pub(super) fn execute_candidate(
         );
     }
 
-    if let CommandPayload::Physical(PhysicalCommandV1::SetCapsuleLocomotionIntent {
-        direction_q15,
-    }) = &command.payload
-    {
+    let physical_direction = match &command.payload {
+        CommandPayload::Physical(PhysicalCommandV1::SetCapsuleLocomotionIntent {
+            direction_q15,
+        }) => Some(*direction_q15),
+        CommandPayload::RootMotion(_) => Some([0, 32_767]),
+        _ => None,
+    };
+    if let Some(mut direction_q15) = physical_direction {
         let body_id = command
             .target
             .expect("physical target presence was validated after admission");
@@ -370,6 +425,12 @@ pub(super) fn execute_candidate(
                 RejectionCode::PhysicalBodyInactive,
             );
         }
+        if let CommandPayload::RootMotion(intent) = &command.payload {
+            match validate_root_motion_admission(intent, command, body.body_revision, context) {
+                Ok(direction) => direction_q15 = direction,
+                Err(code) => return finalize_rejection(context, candidate, staged, code),
+            }
+        }
         if !physical_bodies.insert(body_id) {
             return finalize_rejection(
                 context,
@@ -383,7 +444,7 @@ pub(super) fn execute_candidate(
             controlled_target_id: body_id,
             body_id: physics_body_id,
             target_gameplay_tick: context.tick,
-            direction_q15: *direction_q15,
+            direction_q15,
         };
         return Ok(CandidateExecution::PhysicalPending(Box::new(
             PhysicalPending { candidate, intent },
@@ -468,6 +529,9 @@ pub(super) fn execute_candidate(
         }
         CommandPayload::Physical(_) => {
             unreachable!("physical commands return a pending step before domain execution")
+        }
+        CommandPayload::RootMotion(_) => {
+            unreachable!("root-motion commands return a pending physical step after admission")
         }
         CommandPayload::WorldRoutine(_) => {
             let routine = world_routine.ok_or(RuntimeFatalError::WorldRoutineInternalInvariant)?;

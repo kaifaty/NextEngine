@@ -52,7 +52,7 @@ fn live_command_body_counts(
         let count = match &command.body.payload {
             CommandPayload::Noop => &mut counts.noop,
             CommandPayload::Rpg(_) => &mut counts.rpg,
-            CommandPayload::Physical(_) => &mut counts.physical,
+            CommandPayload::Physical(_) | CommandPayload::RootMotion(_) => &mut counts.physical,
             CommandPayload::WorldRoutine(_) => &mut counts.world_routine,
             CommandPayload::WorldPopulation(_) => &mut counts.world_population,
             CommandPayload::WorldActivity(_) => &mut counts.world_activity,

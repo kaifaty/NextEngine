@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::canonical::{CanonicalDecodeError, CanonicalError};
 use crate::cognition::CognitionContractError;
+use crate::physical_animation::PhysicalAnimationContractErrorV1;
 use crate::physics::PhysicsContractError;
 use crate::rpg::RpgContractErrorV1;
 use crate::world_activity::WorldActivityContractError;
@@ -19,6 +20,7 @@ pub enum CommandDecodeError {
     Principal(PrincipalDecodeError),
     Rpg(RpgContractErrorV1),
     Physics(PhysicsContractError),
+    PhysicalAnimation(PhysicalAnimationContractErrorV1),
     WorldRoutine(WorldRoutineContractError),
     WorldPopulation(WorldPopulationContractError),
     WorldActivity(WorldActivityContractError),
@@ -67,6 +69,9 @@ impl Display for CommandDecodeError {
             Self::Rpg(error) => write!(formatter, "command RPG payload is invalid: {error}"),
             Self::Physics(error) => {
                 write!(formatter, "command physical payload is invalid: {error}")
+            }
+            Self::PhysicalAnimation(error) => {
+                write!(formatter, "command root-motion payload is invalid: {error}")
             }
             Self::WorldRoutine(error) => {
                 write!(
@@ -182,6 +187,12 @@ impl From<RpgContractErrorV1> for CommandDecodeError {
 impl From<PhysicsContractError> for CommandDecodeError {
     fn from(error: PhysicsContractError) -> Self {
         Self::Physics(error)
+    }
+}
+
+impl From<PhysicalAnimationContractErrorV1> for CommandDecodeError {
+    fn from(error: PhysicalAnimationContractErrorV1) -> Self {
+        Self::PhysicalAnimation(error)
     }
 }
 

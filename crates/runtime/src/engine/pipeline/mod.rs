@@ -88,6 +88,7 @@ pub(super) struct PhaseContext<'a> {
     pub(super) rpg_bindings: &'a RpgRuntimeBindingsV1,
     pub(super) controllers: &'a PlayerControllerRegistryV1,
     pub(super) physical_contact_facts: &'a [RpgPhysicalContactFactV1],
+    pub(super) gameplay_hz: u32,
     pub(super) source: ValidationSource,
     pub(super) tick: u64,
     pub(super) phase: CommandPhase,

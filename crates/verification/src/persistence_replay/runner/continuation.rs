@@ -80,10 +80,109 @@ pub(super) fn run(
     } = run_queued_melee_and_plan_agent(direct, restored)?;
     run_cooldown_retry(direct, restored, direct_command, restored_command)?;
     run_dialogue_transaction(direct, restored)?;
+    run_root_motion(direct, restored)?;
     run_left_movement(direct, restored)?;
     run_stop_and_compare(direct, restored)?;
     return_world(direct, restored)?;
     Ok(evidence)
+}
+
+fn run_root_motion(
+    direct: &mut DirectScenario,
+    restored: &mut RestoredScenario,
+) -> Result<(), PersistenceReplayCheckError> {
+    let tick = direct.runtime.next_tick();
+    if restored.runtime.next_tick() != tick {
+        return Err(PersistenceReplayCheckError::condition(
+            "root-motion continuations share the same tick",
+        ));
+    }
+    let phase =
+        SchemaId::new(next_contracts::physical_animation::ROOT_MOTION_MOVE_PERFORMED_PHASE_ID)
+            .map_err(|error| {
+                PersistenceReplayCheckError::new("root-motion phase", error.to_string())
+            })?;
+    let direct_intent = direct
+        .physical_animation
+        .root_motion_intent(
+            direct.fixture.body_id,
+            14,
+            phase.clone(),
+            direct.runtime.physics_snapshot(),
+        )
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("direct root-motion proposal", error.to_string())
+        })?;
+    let restored_intent = restored
+        .physical_animation
+        .root_motion_intent(
+            direct.fixture.body_id,
+            14,
+            phase,
+            restored.runtime.physics_snapshot(),
+        )
+        .map_err(|error| {
+            PersistenceReplayCheckError::new("restored root-motion proposal", error.to_string())
+        })?;
+    if direct_intent != restored_intent {
+        return Err(PersistenceReplayCheckError::condition(
+            "save/load regenerates the exact root-motion proposal",
+        ));
+    }
+    let direct_command = WorldCommand::root_motion(
+        direct.fixture.movement_stream_id,
+        direct.fixture.principal.clone(),
+        14,
+        tick,
+        direct.fixture.body_id,
+        direct_intent,
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("direct root-motion command", error.to_string())
+    })?;
+    let restored_command = WorldCommand::root_motion(
+        direct.fixture.movement_stream_id,
+        direct.fixture.principal.clone(),
+        14,
+        tick,
+        direct.fixture.body_id,
+        restored_intent,
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("restored root-motion command", error.to_string())
+    })?;
+    let command_id = direct_command.compute_command_id().map_err(|error| {
+        PersistenceReplayCheckError::new("root-motion command ID", error.to_string())
+    })?;
+    let report = run_paired_tick(
+        direct,
+        restored,
+        vec![direct_command],
+        vec![restored_command],
+        None,
+        None,
+        WorldStreamingReplayInputV1::None,
+        "direct/restored root motion",
+    )?;
+    if !report.results.iter().any(|result| {
+        result.command_id == command_id
+            && result.disposition == next_runtime::CommandDisposition::Committed
+    }) || !report.command_batches[0]
+        .body
+        .envelopes
+        .iter()
+        .any(|command| {
+            matches!(
+                &command.payload,
+                next_contracts::command::CommandPayload::RootMotion(_)
+            )
+        })
+    {
+        return Err(PersistenceReplayCheckError::condition(
+            "root-motion proposal commits through the recorded command batch",
+        ));
+    }
+    Ok(())
 }
 
 fn run_queued_melee_and_plan_agent(
@@ -383,7 +482,7 @@ fn run_left_movement(
 ) -> Result<(), PersistenceReplayCheckError> {
     let left = player_action_sample(
         &direct.fixture,
-        14,
+        15,
         PlayerActionPhaseV1::Performed,
         [-32_767, 0],
         None,
@@ -430,7 +529,7 @@ fn run_stop_and_compare(
 ) -> Result<(), PersistenceReplayCheckError> {
     let stop = player_action_sample(
         &direct.fixture,
-        15,
+        16,
         PlayerActionPhaseV1::Completed,
         [0, 0],
         None,

@@ -2,19 +2,19 @@
   "format": "nextengine.project-authoring.v6",
   "project": {
     "project_id": "org.nextengine.reference-alpha",
-    "project_revision": 10
+    "project_revision": 11
   },
   "provenance": {
     "provenance_id": "nextengine.reference-alpha.provenance.cc0",
     "license_id": "CC0-1.0",
     "attribution": "Next Engine Frontier Relay original reference content; CC0-1.0",
     "source_identity": "urn:nextengine:reference-alpha:frontier-relay-v1",
-    "license_manifest_sha256": "ea020915e2859dc1cfc90d589be4c24b3b32b8890f664e2395ba80b16d58d315",
+    "license_manifest_sha256": "9c3a1ceadd3676102cfe5e14a11804d220c1e55d1636d3c815d03ad0b4c2bd77",
     "referenced_sources": [
       {
         "logical_source": "urn:nextengine:reference-alpha:humanoid-cc0-v1",
         "relative_path": "assets/humanoid-cc0.catalog.json",
-        "sha256": "755c88cea66addfc5813b24ef03a1bc96650bd60bb6602b43b9d4573b3d0495d",
+        "sha256": "49adf3ec9c3333b0d324c27666c888b1b49add6335380a94d6dae8fab5446e54",
         "license_expression": "CC0-1.0",
         "notice_path": "NOTICE",
         "source_span": { "relative_path": "assets/humanoid-cc0.catalog.json", "line": 1, "column": 1 }
@@ -1668,7 +1668,7 @@
   "world_navigation_catalog": {
     "schema_version": 1,
     "catalog_asset_id": "96969696969696969696969696969696",
-    "topology_revision": 10,
+    "topology_revision": 11,
     "edge_cost": 1000
   },
   "world_population_catalog": {

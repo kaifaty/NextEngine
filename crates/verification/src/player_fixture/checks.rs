@@ -461,11 +461,11 @@ fn play_check_report(scenario: ReferenceRunOutcomeV2) -> Result<PlayCheckReport,
         || report.player_health != 50
         || report.world_streaming_generation != 2
         || command_archive_root
-            != "78116d0dc63b8df82540c29db3cb993e8743182e7110fad4c993619942ba214a"
+            != "1ce3c6c9f67f312a62798e77de5c98504e27edf34f69b377ddf4769b0875b821"
         || command_identity_index_root
-            != "8d55fb44cd9bfd834b4ab9227b8fe83139e493b070983437b5e1a107bdffba71"
+            != "d8eb67bc1bc4dc58b1f636f2dc81352a53d76d882d2b0c61c2c81d4162535322"
         || report.final_command_ledger_hash.to_hex()
-            != "fc3d05e211a39dcb7953944460abf4dad536230e0eb1551e7b87bd9693457daf"
+            != "a95542f87a198189d68f2306b1184319889222cff2b26119b1f5557cd354ad98"
         || stage_checkpoint_count != 3
         || !stage_checkpoints_match_acceptance
         || !duty_branch_matches

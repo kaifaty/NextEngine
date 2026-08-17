@@ -16,7 +16,7 @@ use std::path::{Component, Path};
 use self::cognition::build_agent_cognition_catalog;
 use self::schema::{
     AUTHORING_FORMAT_V6, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
-    AuthoringHumanoidCatalogV1, AuthoringNeutralRecordKindV1, AuthoringPresentationTargetV1,
+    AuthoringHumanoidCatalogV2, AuthoringNeutralRecordKindV1, AuthoringPresentationTargetV1,
     AuthoringRenderRecordV1, AuthoringSourceReferenceV1, AuthoringSourceSpanV1,
     AuthoringTextureAlphaV1, AuthoringTextureColorSpaceV1, AuthoringWorldRoutineActivityV1,
     ProjectAuthoringManifestV6,
@@ -560,8 +560,8 @@ fn build_animation_catalogs(
                 ProjectAuthoringError::MissingReference(reference.relative_path.clone())
             })?;
         let path = safe_join(project_directory, &reference.relative_path)?;
-        let catalog: AuthoringHumanoidCatalogV1 = serde_json::from_slice(&read_file(&path)?)?;
-        if catalog.format != "nextengine.neutral-humanoid-authoring.v1"
+        let catalog: AuthoringHumanoidCatalogV2 = serde_json::from_slice(&read_file(&path)?)?;
+        if catalog.format != "nextengine.neutral-humanoid-authoring.v2"
             || catalog.creator.trim().is_empty()
             || catalog.source != provenance.logical_source
             || catalog.license_expression != provenance.license_expression
@@ -635,7 +635,13 @@ fn build_animation_catalogs(
                 AnimationWrapModeV1::Loop,
                 channels,
                 Vec::new(),
-                Vec::new(),
+                clip.root_motion_intent
+                    .iter()
+                    .map(|key| NeutralAnimationKeyV1 {
+                        time_microseconds: key.time_microseconds,
+                        value: NeutralAnimationValueV1::Translation(key.value),
+                    })
+                    .collect(),
             )?;
             for channel in &animation.channels {
                 if !skeleton

@@ -238,6 +238,7 @@ pub fn build_reference_game_session_with_profile(
         .stream_for(&activity_principal)
         .expect("neutral fixture allocates the activity boundary stream");
     let mut bootstrap = base.bootstrap;
+    let mut authority = base.authority;
     let cognition_rpg_stream_id = bootstrap
         .stream_registry
         .allocate_stream(cognition_principal.clone())?;
@@ -377,9 +378,20 @@ pub fn build_reference_game_session_with_profile(
         &bootstrap.authoritative_numeric_profile,
         &bootstrap.physics_quantization_profile,
     )?;
+    let (source_graph_hash, source_clip_hash) =
+        crate::physical_animation::reference_root_motion_source_hashes(
+            &activated_project,
+            bootstrap.tick_rate_profile.gameplay_hz,
+        )?;
+    authority.register_root_motion_source(
+        principal.clone(),
+        body_id,
+        source_graph_hash,
+        source_clip_hash,
+    )?;
     Ok(ReferenceGameSession {
         bootstrap,
-        authority: base.authority,
+        authority,
         principal,
         movement_stream_id,
         rpg_stream_id,

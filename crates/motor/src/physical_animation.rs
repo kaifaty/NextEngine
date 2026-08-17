@@ -5,13 +5,16 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::animation_content::{
-    AnimationInterpolationV1, NeutralAnimationChannelV1, NeutralAnimationV1,
-    NeutralAnimationValueV1, NeutralSkeletonV1, NeutralTransformV1,
+    AnimationInterpolationV1, AnimationWrapModeV1, NeutralAnimationChannelV1,
+    NeutralAnimationKeyV1, NeutralAnimationV1, NeutralAnimationValueV1, NeutralSkeletonV1,
+    NeutralTransformV1,
 };
 use next_contracts::ids::{PersistentId, SchemaId};
 use next_contracts::physical_animation::{
     PhysicalAnimationBindingV1, PhysicalAnimationContractErrorV1, PhysicalAnimationGraphStateV1,
-    PhysicalAnimationProfileV1, PhysicalAnimationSnapshotV1,
+    PhysicalAnimationProfileV1, PhysicalAnimationSnapshotV1, ROOT_MOTION_INTENT_SCHEMA_VERSION,
+    RootMotionIntentV1, capsule_root_motion_profile_hash_v1,
+    capsule_root_motion_step_micrometres_v1,
 };
 use next_contracts::physics::{PhysicsCanonicalSnapshotV2, PhysicsPoseV1};
 
@@ -133,6 +136,88 @@ impl PhysicalAnimationOwnerV1 {
     #[must_use]
     pub const fn snapshot(&self) -> &PhysicalAnimationSnapshotV1 {
         &self.snapshot
+    }
+
+    /// Samples one future locomotion interval without mutating graph state.
+    /// The returned value is only a proposal; Runtime must still validate it
+    /// and capsule physics remains the only transform writer.
+    pub fn root_motion_intent(
+        &self,
+        subject_id: PersistentId,
+        intent_sequence: u64,
+        source_action_or_ability_phase_id: SchemaId,
+        physics: &PhysicsCanonicalSnapshotV2,
+    ) -> Result<RootMotionIntentV1, PhysicalAnimationOwnerErrorV1> {
+        self.validate(physics, self.snapshot.next_simulation_tick)?;
+        let record = self
+            .snapshot
+            .records
+            .iter()
+            .find(|record| record.subject_id == subject_id)
+            .ok_or(PhysicalAnimationOwnerErrorV1::BindingMissing)?;
+        let body = physics
+            .sorted_body_states
+            .get(&record.body_id)
+            .ok_or(PhysicalAnimationOwnerErrorV1::PhysicsProjectionInvalid)?;
+        let phase_ticks = match record.graph_state {
+            PhysicalAnimationGraphStateV1::Idle => 0,
+            PhysicalAnimationGraphStateV1::Locomotion => record.phase_ticks,
+        };
+        let next_phase_ticks = phase_ticks
+            .checked_add(1)
+            .ok_or(PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)?;
+        let elapsed_us = |ticks: u64| {
+            u128::from(ticks)
+                .checked_mul(1_000_000)
+                .ok_or(PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)
+                .map(|value| value / u128::from(self.profile.gameplay_hz))
+                .and_then(|value| {
+                    u64::try_from(value)
+                        .map_err(|_| PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)
+                })
+        };
+        let start_us = elapsed_us(phase_ticks)?;
+        let end_us = elapsed_us(next_phase_ticks)?;
+        let start = sample_root_translation_unwrapped(&self.locomotion_clip, start_us)?;
+        let end = sample_root_translation_unwrapped(&self.locomotion_clip, end_us)?;
+        let translation: [Option<i64>; 3] =
+            std::array::from_fn(|axis| end[axis].checked_sub(start[axis]));
+        let translation = translation
+            .into_iter()
+            .collect::<Option<Vec<_>>>()
+            .and_then(|values| values.try_into().ok())
+            .ok_or(PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)?;
+        if translation
+            != [
+                0,
+                0,
+                capsule_root_motion_step_micrometres_v1(self.profile.gameplay_hz)?,
+            ]
+        {
+            return Err(PhysicalAnimationOwnerErrorV1::RootMotionRejected);
+        }
+        let intent = RootMotionIntentV1 {
+            schema_version: ROOT_MOTION_INTENT_SCHEMA_VERSION,
+            subject_id,
+            intent_sequence,
+            source_graph_hash: self.profile.revision()?,
+            source_clip_hash: self
+                .locomotion_clip
+                .record_sha256()
+                .map_err(PhysicalAnimationContractErrorV1::from)?,
+            source_action_or_ability_phase_id,
+            source_animation_tick: self.snapshot.next_simulation_tick,
+            interval_us: end_us
+                .checked_sub(start_us)
+                .ok_or(PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)?,
+            quantized_local_translation: translation,
+            quantized_local_yaw: 0,
+            locomotion_profile_hash: capsule_root_motion_profile_hash_v1(self.profile.gameplay_hz)?,
+            expected_intent_state_revision: self.snapshot.next_simulation_tick,
+            expected_body_revision: body.body_revision,
+        };
+        intent.validate()?;
+        Ok(intent)
     }
 
     pub fn validate(
@@ -466,6 +551,93 @@ fn sample_translation_channel(
     Ok(result)
 }
 
+fn sample_root_translation_unwrapped(
+    clip: &NeutralAnimationV1,
+    elapsed_us: u64,
+) -> Result<[i64; 3], PhysicalAnimationOwnerErrorV1> {
+    if clip.wrap_mode != AnimationWrapModeV1::Loop || clip.root_motion_intent.is_empty() {
+        return Err(PhysicalAnimationOwnerErrorV1::RootMotionRejected);
+    }
+    let duration = clip.duration_microseconds;
+    let cycles = elapsed_us / duration;
+    let local_time = elapsed_us % duration;
+    let first = root_translation(
+        clip.root_motion_intent
+            .first()
+            .ok_or(PhysicalAnimationOwnerErrorV1::RootMotionRejected)?,
+    )?;
+    let last = root_translation(
+        clip.root_motion_intent
+            .last()
+            .ok_or(PhysicalAnimationOwnerErrorV1::RootMotionRejected)?,
+    )?;
+    let local = sample_root_translation(&clip.root_motion_intent, local_time)?;
+    let mut result = [0_i64; 3];
+    for axis in 0..3 {
+        let cycle_delta = i128::from(last[axis]) - i128::from(first[axis]);
+        let value = i128::from(local[axis])
+            .checked_add(
+                cycle_delta
+                    .checked_mul(i128::from(cycles))
+                    .ok_or(PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)?,
+            )
+            .ok_or(PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)?;
+        result[axis] =
+            i64::try_from(value).map_err(|_| PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)?;
+    }
+    Ok(result)
+}
+
+fn sample_root_translation(
+    keys: &[NeutralAnimationKeyV1],
+    time_microseconds: u64,
+) -> Result<[i64; 3], PhysicalAnimationOwnerErrorV1> {
+    let upper = keys.partition_point(|key| key.time_microseconds <= time_microseconds);
+    let left = keys
+        .get(upper.saturating_sub(1))
+        .ok_or(PhysicalAnimationOwnerErrorV1::RootMotionRejected)?;
+    let right = keys
+        .get(upper.min(keys.len().saturating_sub(1)))
+        .ok_or(PhysicalAnimationOwnerErrorV1::RootMotionRejected)?;
+    let left_value = root_translation(left)?;
+    if left.time_microseconds == right.time_microseconds {
+        return Ok(left_value);
+    }
+    let right_value = root_translation(right)?;
+    let numerator = time_microseconds
+        .checked_sub(left.time_microseconds)
+        .ok_or(PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)?;
+    let denominator = right
+        .time_microseconds
+        .checked_sub(left.time_microseconds)
+        .ok_or(PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)?;
+    let mut result = [0_i64; 3];
+    for axis in 0..3 {
+        let delta = i128::from(right_value[axis]) - i128::from(left_value[axis]);
+        let scaled = delta
+            .checked_mul(i128::from(numerator))
+            .ok_or(PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)?;
+        let value = i128::from(left_value[axis])
+            .checked_add(crate::safety_control::round_div_ties_even(
+                scaled,
+                i128::from(denominator),
+            ))
+            .ok_or(PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)?;
+        result[axis] =
+            i64::try_from(value).map_err(|_| PhysicalAnimationOwnerErrorV1::ArithmeticOverflow)?;
+    }
+    Ok(result)
+}
+
+fn root_translation(
+    key: &NeutralAnimationKeyV1,
+) -> Result<[i64; 3], PhysicalAnimationOwnerErrorV1> {
+    match key.value {
+        NeutralAnimationValueV1::Translation(value) => Ok(value),
+        _ => Err(PhysicalAnimationOwnerErrorV1::RootMotionRejected),
+    }
+}
+
 fn foot_ik_corrections(
     profile: &PhysicalAnimationProfileV1,
     skeleton: &NeutralSkeletonV1,
@@ -537,6 +709,7 @@ pub enum PhysicalAnimationOwnerErrorV1 {
     PhysicsProjectionInvalid,
     BindingMissing,
     ContentClosureInvalid,
+    RootMotionRejected,
     ArithmeticOverflow,
 }
 
@@ -549,6 +722,7 @@ impl PhysicalAnimationOwnerErrorV1 {
             Self::PhysicsProjectionInvalid => "PHYSICAL_ANIMATION_PHYSICS_PROJECTION_INVALID",
             Self::BindingMissing => "PHYSICAL_ANIMATION_BINDING_INVALID",
             Self::ContentClosureInvalid => "PHYSICAL_ANIMATION_CONTENT_CLOSURE_INVALID",
+            Self::RootMotionRejected => "ANIM_ROOT_MOTION_REJECTED",
             Self::ArithmeticOverflow => "PHYSICAL_ANIMATION_ARITHMETIC_OVERFLOW",
         }
     }

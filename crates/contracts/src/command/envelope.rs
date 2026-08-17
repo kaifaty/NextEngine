@@ -9,6 +9,9 @@ use crate::ids::{
     CommandBodyHash, CommandId, CommandStreamId, PersistentId, SchemaId, SystemId,
     command_body_hash_from_bytes,
 };
+use crate::physical_animation::{
+    ROOT_MOTION_COMMAND_SCHEMA_ID, ROOT_MOTION_COMMAND_SCHEMA_VERSION, RootMotionIntentV1,
+};
 use crate::physics::{
     PHYSICAL_COMMAND_CAPABILITY_ID, PHYSICAL_COMMAND_SCHEMA_ID, PHYSICAL_COMMAND_SCHEMA_VERSION,
     PhysicalCommandV1,
@@ -139,6 +142,38 @@ impl WorldCommandEnvelopeV2 {
                 capability_claims: vec![CapabilityRefV1::unscoped(PHYSICAL_COMMAND_CAPABILITY_ID)?],
                 preconditions: Vec::new(),
                 payload: CommandPayload::Physical(payload),
+            },
+        };
+        command.refresh_command_id()?;
+        Ok(command)
+    }
+
+    pub fn root_motion(
+        stream_id: CommandStreamId,
+        issuer: IssuerPrincipal,
+        sequence: u64,
+        target_tick: u64,
+        target: PersistentId,
+        intent: RootMotionIntentV1,
+    ) -> Result<Self, CanonicalError> {
+        intent
+            .validate()
+            .map_err(|_| CanonicalError::DuplicateSequenceValue)?;
+        let mut command = Self {
+            envelope_schema_version: COMMAND_ENVELOPE_SCHEMA_VERSION,
+            claimed_command_id: None,
+            body: CanonicalCommandBodyV2 {
+                payload_schema_id: SchemaId::new(ROOT_MOTION_COMMAND_SCHEMA_ID)?,
+                payload_schema_version: ROOT_MOTION_COMMAND_SCHEMA_VERSION,
+                issuer,
+                stream_id,
+                sequence,
+                target_tick,
+                phase: CommandPhase::Ingress,
+                target: Some(target),
+                capability_claims: vec![CapabilityRefV1::unscoped(PHYSICAL_COMMAND_CAPABILITY_ID)?],
+                preconditions: Vec::new(),
+                payload: CommandPayload::RootMotion(intent),
             },
         };
         command.refresh_command_id()?;

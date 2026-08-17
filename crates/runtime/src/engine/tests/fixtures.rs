@@ -21,7 +21,7 @@ pub(super) fn fixture() -> Fixture {
 }
 
 pub(super) fn fixture_for(project_id: &str, principal: IssuerPrincipal) -> Fixture {
-    let profile = RuntimeDeterminismBundleV1::core_r4d()
+    let profile = RuntimeDeterminismBundleV1::core_r5c()
         .expect("determinism bundle")
         .runtime_profile();
     let world = WorldIdentityManifestV1::new(
@@ -79,13 +79,22 @@ pub(super) struct PhysicalFixture {
     pub(super) source_id: InputSourceId,
     pub(super) controller_id: PersistentId,
     pub(super) physics_body_id: PhysicsBodyIdV1,
+    pub(super) command_stream_id: CommandStreamId,
     pub(super) action_map_hash: ContentHash,
     pub(super) context_stack_hash: ContentHash,
 }
 
 pub(super) fn physical_fixture() -> PhysicalFixture {
+    physical_fixture_with_wall(false)
+}
+
+pub(super) fn clipped_physical_fixture() -> PhysicalFixture {
+    physical_fixture_with_wall(true)
+}
+
+fn physical_fixture_with_wall(include_wall: bool) -> PhysicalFixture {
     let principal = IssuerPrincipal::Player(PlayerPrincipalId::from_bytes([13; 16]));
-    let profile = RuntimeDeterminismBundleV1::core_r4d()
+    let profile = RuntimeDeterminismBundleV1::core_r5c()
         .expect("determinism bundle")
         .runtime_profile();
     let world = WorldIdentityManifestV1::new(
@@ -119,6 +128,14 @@ pub(super) fn physical_fixture() -> PhysicalFixture {
     let source_id = InputSourceId::from_bytes([17; 16]);
     let controller_id = PersistentId::from_bytes([18; 16]);
     let body_id = PersistentId::from_bytes([19; 16]);
+    authority
+        .register_root_motion_source(
+            principal.clone(),
+            body_id,
+            ContentHash::from_bytes([31; 32]),
+            ContentHash::from_bytes([32; 32]),
+        )
+        .expect("root-motion source authority");
     let action_map = ActionMapManifestV1::core_keyboard_mouse_v1().expect("core action map");
     let action_map_hash = action_map.content_hash;
     let context_stack = InputContextStackV1::gameplay_v1().expect("gameplay context stack");
@@ -151,6 +168,7 @@ pub(super) fn physical_fixture() -> PhysicalFixture {
         &bootstrap.tick_rate_profile,
         &bootstrap.authoritative_numeric_profile,
         &bootstrap.physics_quantization_profile,
+        include_wall,
     );
     let runtime = RuntimeState::new(bootstrap, authority).expect("physical runtime");
     PhysicalFixture {
@@ -159,6 +177,7 @@ pub(super) fn physical_fixture() -> PhysicalFixture {
         source_id,
         controller_id,
         physics_body_id,
+        command_stream_id: stream_id,
         action_map_hash,
         context_stack_hash,
     }
@@ -170,6 +189,7 @@ fn grounded_test_checkpoint(
     tick_rate: &TickRateProfileV1,
     numeric: &AuthoritativeNumericProfileV1,
     quantization: &PhysicsQuantizationProfileV1,
+    include_wall: bool,
 ) -> PhysicsWorldCheckpointV1 {
     let material_id = SchemaId::new("nextengine.physics.material.reference-zero").expect("id");
     let material = PhysicsMaterialDescriptorV1 {
@@ -247,6 +267,46 @@ fn grounded_test_checkpoint(
         active: true,
         shapes: BTreeMap::from([(floor_shape_id, floor_shape)]),
     };
+    let mut bodies = BTreeMap::from([(capsule_body_id, capsule), (floor_body_id, floor)]);
+    if include_wall {
+        let wall_body_id = PhysicsBodyIdV1 {
+            subject_id: PersistentId::from_bytes([23; 16]),
+            body_slot: 0,
+        };
+        let wall_shape_id = PhysicsShapeIdV1 {
+            body_id: wall_body_id,
+            shape_slot: 0,
+        };
+        let wall_shape = PhysicsShapeDescriptorV1 {
+            shape_id: wall_shape_id,
+            descriptor_revision: 1,
+            local_pose: PhysicsPoseV1::default(),
+            geometry: PhysicsGeometryV1::Box {
+                half_extents_micrometres: [1_000_000, 900_000, 100_000],
+            },
+            material_id: material_id.clone(),
+            collision_layer: 0,
+            collision_mask: 1,
+            participation: PhysicsParticipationV1::Solid,
+            contact_reporting: PhysicsContactReportingV1::BeginPersistEnd,
+        };
+        bodies.insert(
+            wall_body_id,
+            PhysicsBodyDescriptorV1 {
+                body_id: wall_body_id,
+                descriptor_revision: 1,
+                motion_kind: PhysicsMotionKindV1::Static,
+                initial_pose: PhysicsPoseV1 {
+                    translation_micrometres: [0, 900_000, 450_000],
+                    ..PhysicsPoseV1::default()
+                },
+                initial_linear_velocity_micrometres_per_second: [0; 3],
+                initial_angular_velocity_q16: [0; 3],
+                active: true,
+                shapes: BTreeMap::from([(wall_shape_id, wall_shape)]),
+            },
+        );
+    }
     let catalog = PhysicsWorldCatalogV1::new(
         world_id,
         PhysicsWorldCatalogProfilesV1 {
@@ -258,7 +318,7 @@ fn grounded_test_checkpoint(
             quantization_hash: quantization.profile_hash().expect("quantization hash"),
         },
         BTreeMap::from([(material_id, material)]),
-        BTreeMap::from([(capsule_body_id, capsule), (floor_body_id, floor)]),
+        bodies,
         BTreeMap::from([(capsule_body_id.subject_id, capsule_body_id)]),
     )
     .expect("catalog");

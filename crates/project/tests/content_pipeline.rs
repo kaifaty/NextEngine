@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use next_assets::{
     CONTENT_GENERATIONS_DIRECTORY, ContentPublicationV1, ContentStore, PublicationFileV1,
 };
+use next_contracts::animation_content::NeutralAnimationValueV1;
 use next_contracts::content::NeutralRecordKindV1;
 use next_contracts::ids::PersistentId;
 use next_contracts::ids::{AssetId, ContentHash, SchemaId, content_hash_from_bytes};
@@ -199,6 +200,38 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
     assert_eq!(activated.neutral_animations.len(), 2);
     assert_eq!(activated.neutral_animations[0].channels.len(), 1);
     assert_eq!(activated.neutral_animations[1].channels.len(), 3);
+    assert!(
+        activated.neutral_animations[0]
+            .root_motion_intent
+            .is_empty()
+    );
+    let root_curve = &activated.neutral_animations[1].root_motion_intent;
+    assert_eq!(root_curve.len(), 31);
+    assert_eq!(root_curve[0].time_microseconds, 0);
+    assert_eq!(
+        root_curve[0].value,
+        NeutralAnimationValueV1::Translation([0, 0, 0])
+    );
+    assert_eq!(root_curve[30].time_microseconds, 1_000_000);
+    assert_eq!(
+        root_curve[30].value,
+        NeutralAnimationValueV1::Translation([0, 0, 3_000_000])
+    );
+    assert!(root_curve.windows(2).all(|pair| {
+        let NeutralAnimationValueV1::Translation([0, 0, left]) = pair[0].value else {
+            return false;
+        };
+        let NeutralAnimationValueV1::Translation([0, 0, right]) = pair[1].value else {
+            return false;
+        };
+        right - left == 100_000 && pair[0].time_microseconds < pair[1].time_microseconds
+    }));
+    assert_eq!(
+        activated.project_lock.runtime_determinism_profile_sha256,
+        next_contracts::identity::RuntimeDeterminismBundleV1::core_r5c()
+            .expect("current determinism bundle")
+            .runtime_profile_hash(),
+    );
     assert!(
         activated
             .content_manifest
