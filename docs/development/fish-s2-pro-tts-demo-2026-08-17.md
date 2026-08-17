@@ -28,6 +28,27 @@ The CUDA release build targets the detected RTX 3080 `sm_86`. Weights,
 reference voices, logs and generated WAV files stay under this external root
 and never enter Git.
 
+### audio.cpp alternative closure
+
+The faster alternative is installed separately at:
+
+```text
+/home/kaifaty/.local/share/nextengine/audio-cpp-fish-s2-pro
+```
+
+| Artifact | Immutable identity |
+| --- | --- |
+| `0xShug0/audio.cpp` | commit `980bd4164b9de744b618a6b0d5e6e515de94999a` |
+| `audio-cpp/audio.cpp-gguf` | revision `c3857f1ec35cfea8993924e7c2a6f682b5dc060b` |
+| audio.cpp Q8_0 package | 6,317,911,232 bytes; SHA-256 `4ffc169447b7a26df8bf49e8637adb4000bfa763a22c018b6c03968564259d0b` |
+
+This is a different GGUF package with audio.cpp-specific metadata and tensor
+names; it is not interchangeable with the `s2.cpp` files above. The custom
+deployment build includes only `fish_audio` plus required VAD dependencies,
+targets CUDA architecture 86, and has CUDA Graphs enabled. The audio.cpp source
+is Apache-2.0; the Fish S2 Pro model remains subject to the Fish Audio Research
+License and is not cleared here for commercial use.
+
 ## Quick demo
 
 From the NextEngine repository root:
@@ -72,6 +93,38 @@ python3 lab/scripts/fish_s2_pro_demo.py generate --force \
 On this 10 GiB card, forcing the Q8 codec to CUDA is not a supported demo
 profile: the current runtime allocation probe fails and `s2.cpp` falls back to
 CPU. The wrapper therefore avoids the known failed allocation by default.
+
+## Faster audio.cpp demo
+
+Validate the pinned external installation once, then generate without repeating
+the 6.3 GB hash pass on every request:
+
+```bash
+python3 lab/scripts/fish_s2_pro_audio_cpp_demo.py doctor
+
+python3 lab/scripts/fish_s2_pro_audio_cpp_demo.py generate \
+  --skip-model-hash-check --force \
+  --text 'Привет! Сервер синтеза речи работает локально.'
+```
+
+The generated mono PCM16 44.1 kHz file is external at:
+
+```text
+/home/kaifaty/.local/share/nextengine/audio-cpp-fish-s2-pro/outputs/fish-s2-pro-audio-cpp-q8-demo.wav
+```
+
+Run the reproducible warm benchmark with one disposable prewarm request and
+three measured requests in the same model session:
+
+```bash
+python3 lab/scripts/fish_s2_pro_audio_cpp_demo.py benchmark \
+  --skip-model-hash-check --iterations 3
+```
+
+The wrapper keeps `fish_audio.mem_saver=false`, Q8 weights native, CUDA Graphs
+enabled and helper threads at 4. Increasing helper threads to 8 and enabling
+the experimental `GGML_CUDA_GRAPH_OPT=1` did not improve the bounded local
+probe, so neither override is part of the profile.
 
 ## Local HTTP demo
 
@@ -141,6 +194,27 @@ The exact per-request rows and external WAV files are retained outside Git at
 `/home/kaifaty/.local/share/nextengine/fish-s2-pro/outputs/`, including
 `q456-warm-benchmark.csv`.
 
+The audio.cpp Q8_0 package was measured with the same text, seed 1234 and
+`max_tokens=384`. Its repository-owned benchmark entry point reported:
+
+| Engine/profile | Warm wall, mean | Warm audio | Warm RTF, mean | Speed vs realtime | Peak total GPU memory |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `audio.cpp` Q8_0 | 2.816 s | 4.272 s | 0.659 | 1.52x | 8,189 MiB |
+
+On this one fixed-text probe, audio.cpp Q8_0 has about 25% lower RTF and 1.33x
+the realtime throughput of the `s2.cpp` Q4_K_M result. It also uses about
+3.1 GiB more peak total GPU memory. Two uninstrumented repeat processes placed
+audio.cpp warm RTF between 0.627 and 0.656; the instrumented wrapper result
+above is retained as the conservative reproducible comparison. Fixed-seed
+audio.cpp outputs were byte-identical.
+
+Detailed timing attributes about 2.67-2.69 s of a warm request to the
+autoregressive generator and only 116-117 ms to codec decode. The remaining
+speed ceiling is therefore the 92 slow plus 920 fast autoregressive graph
+executions, not model loading, the codec or CPU helper thread count. The result
+still misses the Proposed SPEC-16 RTF target of at most 0.5 and does not prove
+subjective Russian quality.
+
 The chunked low-latency request returned HTTP 200 and valid mono PCM16 44.1 kHz
 WAV (2.833 s), but upstream metrics reported RTF 6.24 because the alpha
 streaming path repeatedly decodes its prefix. HTTP header arrival is not a
@@ -151,8 +225,9 @@ first-audio measurement, so no TTFA claim is made.
 The basic demo intentionally does not accept reference audio. Voice cloning
 must use a recording whose speaker/rights holder authorized this exact use and
 must keep both reference audio and generated profiles outside Git. The direct
-upstream flags are `--prompt-audio`, `--prompt-text`, `--voice` and
-`--save-voice`; enabling them is a separate consent-aware experiment.
+`s2.cpp` flags are `--prompt-audio`, `--prompt-text`, `--voice` and
+`--save-voice`; audio.cpp uses `--voice-ref` and `--reference-text`. Enabling
+either path is a separate consent-aware experiment.
 
 ## Upstream sources
 
@@ -160,3 +235,7 @@ upstream flags are `--prompt-audio`, `--prompt-text`, `--voice` and
 - <https://huggingface.co/rodrigomt/s2-pro-gguf>
 - <https://huggingface.co/fishaudio/s2-pro>
 - <https://github.com/fishaudio/fish-speech/blob/main/docs/en/install.md>
+- <https://github.com/0xShug0/audio.cpp>
+- <https://github.com/0xShug0/audio.cpp/blob/main/model_specs/fish_audio.json>
+- <https://github.com/0xShug0/audio.cpp/blob/main/docs/reports/gguf_q8_performance.md>
+- <https://huggingface.co/audio-cpp/audio.cpp-gguf/tree/main>
