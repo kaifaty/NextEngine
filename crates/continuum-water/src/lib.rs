@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod audit;
 mod boundary;
 mod error;
 mod hash;
@@ -17,7 +18,18 @@ use std::path::Path;
 /// into engine contracts or runtime crates.
 pub fn run_xtask(
     repository_root: &Path,
-    arguments: impl Iterator<Item = String>,
+    mut arguments: impl Iterator<Item = String>,
 ) -> Result<String, String> {
-    oracle::run_xtask(repository_root, arguments).map_err(|error| error.to_string())
+    let material = arguments.next();
+    let command = arguments.next();
+    let result = match (&material, &command) {
+        (Some(material), Some(command)) if material == "water" && command == "audit-hydro" => {
+            audit::run_xtask(repository_root, arguments)
+        }
+        _ => oracle::run_xtask(
+            repository_root,
+            material.into_iter().chain(command).chain(arguments),
+        ),
+    };
+    result.map_err(|error| error.to_string())
 }

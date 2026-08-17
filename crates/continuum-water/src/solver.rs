@@ -20,8 +20,10 @@ use crate::profile::{
 };
 use crate::scenario::{validate_capacity, validate_sample_identity};
 
+mod diagnostic;
 mod neighborhood;
 
+pub(crate) use diagnostic::production_hydro_audit;
 use neighborhood::{admitted_boundary, admitted_fluid, build_boundary_grid, build_fluid_grid};
 
 const DENSITY_MIN_ITERATIONS: u8 = 2;
@@ -539,6 +541,15 @@ fn solve_density(
     boundary: &[BoundarySample],
     velocities: &mut [Vec3f],
 ) -> Result<SolveResult, WaterError> {
+    solve_density_with_recorder(reconstruction, boundary, velocities, None)
+}
+
+fn solve_density_with_recorder(
+    reconstruction: &Reconstruction,
+    boundary: &[BoundarySample],
+    velocities: &mut [Vec3f],
+    mut recorder: Option<&mut diagnostic::DensityRecorder>,
+) -> Result<SolveResult, WaterError> {
     let count = velocities.len();
     let mut rho_adv = filled_vec(count, 0.0)?;
     let mut factor = filled_vec(count, 0.0)?;
@@ -561,6 +572,9 @@ fn solve_density(
         let positive = if error > 0.0 { error } else { 0.0 };
         multiplier[index] = checked_scalar(positive * factor[index], "density initial k")?;
     }
+    if let Some(recorder) = recorder.as_deref_mut() {
+        recorder.capture_initial(&rho_adv, &factor, &multiplier)?;
+    }
     let mut accepted_acceleration = None;
     let mut error_ppb = i64::MAX;
     let mut accepted_iteration = 0_u8;
@@ -580,9 +594,25 @@ fn solve_density(
             let error = checked_scalar((rho_adv[index] + dt2_a) - 1.0, "density error")?;
             let error = if error > 0.0 { error } else { 0.0 };
             error_sum = checked_scalar(error_sum + error, "density error reduction")?;
+            if let Some(recorder) = recorder.as_deref_mut() {
+                recorder.capture_iteration_row(
+                    iteration,
+                    index,
+                    diagnostic::IterationObservation {
+                        multiplier_in: multiplier[index],
+                        acceleration: acceleration.total[index],
+                        matrix_action: matrix[index],
+                        error,
+                        multiplier_out: next[index],
+                    },
+                )?;
+            }
         }
         let mean = checked_scalar(error_sum / (count as f64), "density error mean")?;
         error_ppb = quantize_ppb(mean)?;
+        if let Some(recorder) = recorder.as_deref_mut() {
+            recorder.capture_iteration_error(error_ppb)?;
+        }
         std::mem::swap(&mut multiplier, &mut next);
         if converged(
             iteration,

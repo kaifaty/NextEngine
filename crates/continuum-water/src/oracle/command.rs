@@ -102,7 +102,7 @@ fn set_once<T>(slot: &mut Option<T>, value: T, flag: &str) -> Result<(), WaterEr
     }
 }
 
-pub(super) fn validate_output_path(
+pub(crate) fn validate_output_path(
     repository_root: &Path,
     output: &Path,
 ) -> Result<(), WaterError> {
@@ -206,7 +206,7 @@ pub(super) fn write_report(output: &Path, state: &mut ReportState) -> Result<(),
     })
 }
 
-pub(super) fn validate_report_capacity(byte_count: usize) -> Result<(), WaterError> {
+pub(crate) fn validate_report_capacity(byte_count: usize) -> Result<(), WaterError> {
     scenario::validate_capacity(
         byte_count,
         MAXIMUM_REPORT_BYTES,
@@ -240,7 +240,7 @@ pub(super) fn report_reserve_error(error: std::collections::TryReserveError) -> 
     )
 }
 
-pub(super) fn tool_commit(repository_root: &Path) -> String {
+pub(crate) fn tool_commit(repository_root: &Path) -> String {
     Command::new("git")
         .args(["rev-parse", "HEAD"])
         .current_dir(repository_root)
@@ -252,7 +252,7 @@ pub(super) fn tool_commit(repository_root: &Path) -> String {
         .unwrap_or_else(|| "UNKNOWN".to_owned())
 }
 
-pub(super) fn tool_tree_state(repository_root: &Path) -> String {
+pub(crate) fn tool_tree_state(repository_root: &Path) -> String {
     Command::new("git")
         .args(["status", "--porcelain", "--untracked-files=normal"])
         .current_dir(repository_root)

@@ -22,7 +22,7 @@ use crate::profile::{
 use crate::reference::{self, CurveComparison};
 use crate::{profile, scenario, solver};
 
-mod command;
+pub(crate) mod command;
 
 use command::{
     parse_arguments, preflight_report_plan, report_reserve_error, tool_commit, tool_tree_state,
