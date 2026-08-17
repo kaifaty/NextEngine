@@ -152,7 +152,8 @@ pub(crate) fn run_xtask(
     let scenario_root = scenario::root_for(&scenario, &roots)?;
     let samples = scenario::initial_samples(&scenario, StorageOrder::Reverse)?;
     let boundary = boundary::build(scenario.geometry)?;
-    let fluid_input = production_fluid_input(&samples)?;
+    let mut fluid_input = production_fluid_input(&samples)?;
+    fluid_input.sort_unstable_by_key(|sample| sample.id);
     let mut boundary_input = Vec::new();
     boundary_input
         .try_reserve_exact(boundary.len())
@@ -376,11 +377,17 @@ mod tests {
         let scenario = scenario::find("CW-HYDRO-001").unwrap();
         let samples = scenario::initial_samples(&scenario, StorageOrder::Reverse).unwrap();
         let boundary = boundary::build(scenario.geometry).unwrap();
+        let mut fluid_input = production_fluid_input(&samples).unwrap();
+        fluid_input.sort_unstable_by_key(|sample| sample.id);
         let production =
             solver::production_hydro_calibration(&samples, &boundary, scenario.geometry).unwrap();
         let independent = independent_hydro_calibration().unwrap();
 
         assert_eq!(first_mismatch(&production, &independent), None);
+        assert_eq!(
+            fluid_input_root(&fluid_input),
+            "bd18fe6e6a305ccc875ba12014e90f0cbca74a05068c7bd573ef95d3f3f51dbc"
+        );
         assert_eq!(
             production.density_error_ppb_by_iteration.len(),
             usize::from(DIAGNOSTIC_MAX_ITERATIONS)
