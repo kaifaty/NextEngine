@@ -21,17 +21,17 @@ documentation-only and prove no physics.
 | 4A | Fixed root | Root is a rigid clamp; translation, rotation and uprooting are excluded. |
 | 5A | Formulation bake-off | Compare a shearable Cosserat/Timoshenko formulation with a constrained/implicit discrete-rod or corotational beam baseline. |
 | 6A | Fixed cadence | Outer step is 1/240 s; V0B freezes bounded candidate cadence ladders and V1 selects one fixed internal profile from the corpus. No adaptive or variable step. |
-| 7A | Fixed-point continuation | `f64` is private to one outer step; the next step begins only from ties-to-even fixed-point canonical state. |
+| 7A | Profiled fixed-point continuation | `f64` is private to one outer step under the exact ADR-081 execution profile; the next step begins only from ties-to-even fixed-point canonical state. |
 | 8A | Axe-only cutting | One authored felling zone supports a directional axe notch and back cut through the production command path. |
 | 9B | Section resolution | Exactly 8 radial rings by 32 angular sectors, or 256 cells, in the felling zone. |
-| 10A | Canonical cut work | Work derives from bounded canonical impulse, blade direction, relative motion and a material grain coefficient. |
+| 10A | Canonical cut work | One exact contact/load identity is consumed once; its receipt allocates rigid reaction, structural work, damage/fracture and dissipation. |
 | 11A | Geometry-derived failure | Remaining area, centroid and moments plus directional stress/strength drive failure; at most one split per structure per substep. |
-| 12A | Rigid handoff | A detached component transfers atomically to exactly one PhysX compound rigid body. |
-| 13A | Collision shape | Standing-tree collision uses tapered capsules with a hard capacity of 32 proxies. |
+| 12A | Outcome-owned rigid handoff | Stage 8 publishes `PendingFracture`; stage-9 Outcome owns the topology transaction and the PhysX body activates next substep. |
+| 13A | Stable collision shape | Standing-tree collision uses at most 32 tapered proxies, each mapped to one stable PhysX kinematic body/shape pair. |
 | 14A | Forcing fixtures | Deterministic analytical calm, steady-wind and gust fixtures plus prescribed pull/release. |
 | 15A | LOD ladder | `AuthoredStatic -> ShaderWind -> ModalStructural -> ActiveStructural -> RefinedSection`, driven only by canonical facts. |
 | 16B | Forest gate | 1,000 visible, 128 modal, 8 active, 1 refined and at most 2 falling trees. |
-| 17A | Performance budget | Incremental vegetation CPU is at most 2/3 ms p95/p99 on THOTH inside the existing integrated physical 8/12 ms p95/p99 budget. |
+| 17A | Performance budget | 2/3 ms p95/p99 is a standalone THOTH stop target; integrated promotion uses the successor combined `world-dynamics-step` row. |
 | 18A | Accuracy targets | Static curves <=2%; natural frequencies <=5%; aggregate normalized RMSE <=5%; maximum curve error <=10%; work/impulse residual <=1%; mass exact; handoff CoM <=1 mm and momentum residual <=1%. |
 | 19A | Exactness ladder | Same-target roots are exact in V1; Windows/Linux roots are exact before production; exact active save precedes lossy modal/sleep persistence. |
 
@@ -83,6 +83,11 @@ Freeze exact integer widths, scales, bounds and ties-to-even conversions for:
 - topology/handoff mass, CoM and linear/angular momentum;
 - residuals, iteration counts and stable failure codes.
 
+Also freeze the ADR-081 target/toolchain feature baseline, FMA contraction,
+rounding/subnormal behavior, deterministic math primitives, factorization/
+reduction/tie order and convergence branches plus adversarial cross-target
+fixtures.
+
 The outer cadence is exactly 1/240 s. Freeze a bounded internal
 substep/iteration ladder for each V1 candidate, convergence rules and hard
 iteration/capacity limits before running the bake-off. V1 may select only a
@@ -105,12 +110,15 @@ Structural pull/release profile:
 
 Cut profile:
 
-- axe/contact identity, geometry and production command trace;
+- axe/contact/load identity, one-use consumption ledger, geometry and
+  production command trace;
 - exact mapping from canonical relative velocity/impulse, blade direction,
   grain coefficient and tool profile to cut work;
 - the selected 8-ring by 32-sector cell geometry and closed cell states;
 - notch/back-cut command sequence and permitted felling-zone bounds;
 - failure/hinge criterion and deterministic tie-breaking.
+- exact work-allocation receipt across rigid reaction, structural work,
+  section damage/fracture and dissipation.
 
 Direct test mutation or a `fell_now` command is forbidden.
 
@@ -155,8 +163,8 @@ store. Checked-in summaries bind their exact input/output hashes.
 The production gate is 1,000 visible, 128 modal, 8 active, one refined and at
 most two falling trees. Active trees have at most 128 structural segments and
 32 tapered-capsule proxies; a refined felling section has 256 cells. The
-incremental vegetation CPU budget is 2/3 ms p95/p99 on THOTH inside the
-existing integrated physical 8/12 ms p95/p99 budget.
+incremental vegetation CPU stop target is 2/3 ms p95/p99 on THOTH. The combined
+successor `world-dynamics-step` budget is frozen separately before promotion.
 
 Before V6 code, V0B must still freeze:
 

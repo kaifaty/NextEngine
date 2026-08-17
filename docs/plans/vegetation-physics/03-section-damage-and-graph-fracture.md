@@ -25,9 +25,11 @@ non-goals.
 
 For every substep, compute section resultants and the frozen directional
 failure criterion. Select at most one failing section using the complete V0
-total key. Stage an anchored/detached partition and exact identity mapping;
-validate graph closure, mass, CoM and momentum values that V4 will hand to
-PhysX. Commit the new structural graph only if every result validates.
+total key. Publish only a bounded `PendingFracture` fact and one stage-9
+internal Outcome proposal. The Outcome command owns the
+`PhysicsTopologyTransaction`, graph partition and stable derived-body ID; it
+commits the anchored graph plus staged body atomically, and the body first
+activates next substep. Pending material cannot split, downgrade or transfer.
 
 Run progressive notch, back cut, mirrored/asymmetric cut, insufficient cut,
 overload without cut, stale revision, duplicate command, capacity and forced

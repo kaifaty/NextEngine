@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-079 |
 | Status | Proposed |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-17 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [SPEC-39](../39-layered-physical-world.md), [SPEC-40](../40-structural-vegetation-physics.md), [SPEC-41](../41-world-substrate-composition.md), [SPEC-42](../42-arcane-substrate-and-physical-magic.md), [SPEC-43](../43-thermochemical-material-processes.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-078](078-world-substrate-and-arcane-physical-interaction-track.md) |
+| Normative dependencies | [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-38](../38-continuum-material-physics.md), [SPEC-39](../39-layered-physical-world.md), [SPEC-40](../40-structural-vegetation-physics.md), [SPEC-41](../41-world-substrate-composition.md), [SPEC-42](../42-arcane-substrate-and-physical-magic.md), [SPEC-43](../43-thermochemical-material-processes.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-078](078-world-substrate-and-arcane-physical-interaction-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
 | Supersedes | none |
-| Superseded by | none |
+| Superseded by | Partially [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md): it supersedes current-stage access, generation-key, discarded sub-LSB residual, non-atomic parcel topology, implicit fault-domain and legacy-budget clauses. |
 
 ## Context
 
@@ -51,13 +51,19 @@ Private `f64` is oracle/diagnostic-only and GPU is correspondence-only. A
 variable timestep, implicit epsilon, retry with smaller step, unordered float
 reduction or backend-selected phase cannot affect authority.
 
+One signed sub-LSB heat residual per active interface is canonical owner state,
+participates in the next transfer and is root/checkpoint-bound. Discarding it
+as scratch or inventing an implicit deadband is forbidden.
+
 ### Start with a sealed calorimetry bench
 
 The first profile contains one bounded water parcel, one finite thermal
 reservoir and a closed heat-transfer interface. It proves exact energy/mass
-accounting and water/ice equilibrium at the existing 240 Hz `PhysicalStep`
-without a new stage or command barrier. T0B freezes numeric scales, material
-curve, conductance, fixtures, capacities, thresholds and budget before code.
+accounting and water/ice equilibrium at 240 Hz. Because this is non-physical
+state, its production consumer uses ADR-081's successor `WorldDynamicsStep` at
+stage 8 and closed composition profile; the current stage set is unchanged.
+T0B freezes numeric scales, material curve, conductance, fixtures, capacities,
+thresholds and budget before code.
 
 Free water, mechanical ice, thermal expansion, combustion, atmosphere,
 moisture/soil, tree fire and arcane heat are independent couplers. Base heat
@@ -75,13 +81,23 @@ transaction. Do not introduce a universal `ConservationLedger`, global
 `CouplingGraph`, shared field database, public reaction callbacks or a
 `RepresentationManager`.
 
+Exchange records use ADR-081's complete namespace/owner/world/revision/root/
+participant/operation tuple, never thermochemical, save or checkpoint
+generation. Parcel split, merge and attachment handoff use one atomic
+`MaterialParcelTopologyTransaction`; children derive from causal slots, parents
+become tombstones and species mass, enthalpy, progress and mechanical mass
+close together.
+
 ### Exact active persistence before summaries
 
 The first production consumer adds one required Thermochemical owner segment
 to a successor composite checkpoint. Attachments, inventories, enthalpy,
-future-affecting reaction progress and exchange receipts restore atomically
+interface residuals, future-affecting reaction progress and exchange receipts restore atomically
 with participating owners. Sidecars, ambient-temperature defaults and lossy
 sleep before exact persistence are forbidden.
+
+A PhysX-coupled exact-restart profile uses fixed scheduled checkpoint epochs;
+save waits for the same rehydration barrier executed in uninterrupted runs.
 
 ## Failure and fallback
 
@@ -90,6 +106,15 @@ table-domain failure, capacity excess, duplicate batch, mass/energy residual,
 destination rejection or corrupt persistence rejects the complete
 participating step and retains the prior generation. There is no retry,
 smaller timestep, frozen thermochemistry or backend switch.
+
+Worst-case capacities are admitted before freeze; an expressible denial is
+ordinary and exhaustion beyond reservation is an invariant. The first primary
+gameplay profile faults the whole application session via ADR-081; only
+independently provisioned test/training scenes may isolate a narrower slot.
+
+Integrated performance authority is the successor mutually exclusive
+`world-dynamics-step` row across every substep in one gameplay tick; standalone
+bench figures are stop targets only.
 
 Before activation, authored static material state is the fallback. After
 activation, decorative ice/fire, scripted ignition/damage or silent state

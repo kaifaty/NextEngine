@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-41 |
 | Status | Proposed |
-| Version | 1.2 |
+| Version | 1.3 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-39](39-layered-physical-world.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-078](adr/078-world-substrate-and-arcane-physical-interaction-track.md) |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-39](39-layered-physical-world.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-078](adr/078-world-substrate-and-arcane-physical-interaction-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
 | Specializations | [SPEC-42](42-arcane-substrate-and-physical-magic.md), [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md) |
-| Candidate revision note | Version 1.2 adds the thermochemical owner and neural non-owner boundary while retaining the existing command/step split and current runtime semantics; the imported candidate was renumbered to avoid the occupied mainline namespace |
+| Candidate revision note | Version 1.3 applies ADR-081 successor-stage, composition, identity, checkpoint-epoch, capacity, fault-domain, budget and shadow-only neural guardrails without changing the current runtime profile |
 
 ## Status and purpose
 
@@ -83,8 +83,9 @@ command open across the current stage-5/stage-8 boundary:
 4. the due Ingress transaction atomically publishes only the validated owner
    start/reservation state and an ordinary terminal `CommandReceipt`; that
    receipt means `execution started`, not `physical effect succeeded`;
-5. at the declared `PhysicalStep`, active owners compute private candidate
-   states and typed exchange batches without another package callback;
+5. at the declared stage-8 boundary (`PhysicalStep` for the current physical-
+   only profile or successor `WorldDynamicsStep`), active owners compute private
+   candidate states and typed exchange batches without another package callback;
 6. Runtime validates batch uniqueness, revisions, bounds, conservation/cost
    receipts and all candidate roots;
 7. participating owner states plus exchange receipts publish together, or none
@@ -98,15 +99,40 @@ future substrate that cannot use the start-receipt plus exchange-receipt split
 requires a consumer-backed schedule/ledger decision before implementation; it
 cannot add a hidden barrier or same-tick re-entry.
 
+## Successor `WorldDynamicsStep` and composition profile
+
+The current twelve-stage runtime profile is unchanged: its stage 8 remains the
+physical-state-only `PhysicalStep`. The first production profile containing a
+non-physical Arcane or Thermochemical owner introduces a successor profile
+whose stage 8 is named `WorldDynamicsStep`; it retains the same stage count and
+relative order. The successor profile binds a closed owner set and exact read/
+write access sets, so an inactive owner has no default segment or empty step.
+
+One runtime-owned `WorldDynamicsCompositionProfile` binds the complete acyclic
+owner/edge DAG, stable topological order, cadence, reducers, capacities,
+candidate/root closure, checkpoint segments, fault domain and performance row.
+Every canonical rigid input is merged before exactly one PhysX integration;
+downstream owners then consume the frozen contact/load projection. Pairwise
+couplers cannot each integrate PhysX or publish independently when more than
+one edge is active.
+
+The stage transaction is `Freeze -> Prepare -> Execute once -> Validate all ->
+Publish all or fault`. Owners mutate only private candidate storage. A failed
+post-execution validation publishes no candidate state and faults the declared
+domain; continuation by rolling a mutated PhysX adapter back is forbidden until
+an exact clone/restore proof receives a separate Accepted decision.
+
 ## Typed exchange edges
 
 Each cross-owner edge is a separately versioned profile, not one universal
 coupler interface. A canonical exchange record contains at least:
 
-- source and destination owner IDs plus full participant identities;
-- exact `world_namespace`, destination `world_id`/prior `world_revision`,
-  command identity, tick/substep and unique batch key;
-- source/destination definition, profile and prior-state revisions/roots;
+- exact `world_namespace`, source and destination owner IDs and the applicable
+  destination `world_id`;
+- expected source and destination revisions/roots, tick/substep, edge profile,
+  stable source/destination participant IDs and operation slot;
+- source/destination definition and profile revisions plus command identity
+  when the record is command-derived;
 - fixed-point quantities, units, reference frames and moment/COM references;
 - declared source debit, destination effect and residual/dissipation receipt;
 - finite capacities, exact canonical order and stable failure code.
@@ -118,6 +144,10 @@ under that key is an internal invariant failure that rejects the complete
 participating step. The runtime never chooses by arrival, worker or GPU
 completion order. Direct references to another owner's ECS/backend buffers are
 forbidden.
+
+`world generation`, save/checkpoint generation and an undefined owner
+generation are forbidden exchange-key fields. Epoch identity belongs to the
+schedule and checkpoint closure, never to an exchange key.
 
 ## Representation, streaming and persistence
 
@@ -138,6 +168,13 @@ atomic save closure; sidecars and independently published substrate saves are
 forbidden. Load validates all required segments before replacing the target
 world. Pre-v1 formats remain current-only under ADR-046.
 
+The first PhysX-coupled production profile additionally binds a fixed positive
+checkpoint-epoch length. At every scheduled epoch boundary the live run
+reconstructs a fresh PhysX scene from canonical owner state, validates its
+continuation witness and swaps it atomically. Save requests wait for that same
+barrier; the uninterrupted comparison run executes identical barriers. An
+unbounded world cannot rely on ADR-059's bounded training-prefix replay.
+
 ## Mechanics, AI and semantic queries
 
 Magic and other systemic mechanics remain `AbilityDefinition`/affordance/
@@ -151,33 +188,38 @@ raw field, particle, solver or hidden target state. Planning is a proposal;
 owner validation remains the oracle. Events describe committed facts and never
 replace owner state or permit same-tick mutation.
 
-Optional learned assistance follows SPEC-44. It may advise one existing owner
-candidate only after that owner's classical gates. It cannot create a new
-layer, own a field, write a trusted exchange batch or use tolerance to change a
-canonical root. Missing advice uses the same classical default; failure after
-admitted advice is not retried.
+Optional learned assistance follows SPEC-44. N0 diagnostics and N1 proposals
+run only after the classical owner step as report/shadow work. They cannot
+alter production initialization, work, failure classification, exchange or
+root. Runtime solver advice requires a later consumer-backed Accepted ADR and
+a mechanically checkable admissibility certificate under ADR-081.
 
 ## Failure and fallback
 
-Capability denial, insufficient source quantity/throughput, ineligible target
-or explicit cancel before owner freeze is an ordinary gameplay rejection or
-deterministic execution termination. It affects that action only, publishes no
-destination effect and returns any unused reservation under the profile.
+Capability denial, insufficient source quantity/throughput, ineligible target,
+worst-case capacity denial or explicit cancel before owner freeze is an
+ordinary gameplay rejection or deterministic execution termination. It affects
+that action only, publishes no destination effect and returns any unused
+reservation under the profile. Content, topology and batch capacities are
+pre-admitted from declared worst-case bounds.
 
 Nonfinite value, fixed-point overflow, post-freeze missing/stale participant,
 duplicate exchange key, different bytes under one key, conservation/cost
-failure, backend rejection, rollback failure or corrupt checkpoint is an
-internal invariant failure. It rejects the complete participating step and
-retains the prior complete generation; rollback failure stops the instance.
-Invalid project content/profile or missing required capability fails before
-world activation.
+failure, exhaustion beyond a reserved bound, backend rejection or corrupt
+checkpoint is an internal invariant failure. It rejects the complete
+participating step and transitions its bound domain through `Running ->
+Faulted -> DiagnosticSaved -> Closed | ExplicitRestore`. Invalid project
+content/profile or missing required capability fails before world activation.
+The first primary gameplay profile maps a fatal world-dynamics fault to the
+whole application session; only independently provisioned test/training scene
+slots may declare narrower isolation.
 
 Before a Proposed substrate capability is activated, a project may omit it or
 use a separately authored ordinary mechanic. After activation there is no
 silent VFX-only success, free resource use, scripted transform, owner freeze,
 backend switch or retry-to-green. Required-capability absence rejects project
-activation; an active fatal failure stops the affected run at the last complete
-checkpoint.
+activation; an active fatal failure uses the exact fault domain above and the
+last complete checkpoint remains the only restorable authority.
 
 ## Promotion boundary
 
@@ -189,9 +231,15 @@ substrate owners beyond the existing Physical Embodiment owner** participate
 in one production transaction. The first Arcane-to-PhysX edge is covered by
 its own coupling check. An Arcane-to-Thermochemical edge is the first currently
 identified candidate for the composition check, after both base owners pass.
-The check must prove exclusive writers, complete rollback, exact receipt/event
-order and presentation independence. A neural model cannot satisfy the owner
-count.
+The check must prove exclusive writers, all-or-none publication, exact
+receipt/event order and presentation independence. A neural model cannot
+satisfy the owner count.
+
+Before the first integrated consumer, a successor `GameplayBudgetMatrix` adds
+one mutually exclusive `world-dynamics-step` row. Its measurement window covers
+all physical substeps, canonical merges, owner solves, validation and root
+publication in one gameplay tick. Standalone solver and PHYS-P4 numbers remain
+diagnostic evidence and cannot be added together as an integrated PASS.
 
 No public `WorldDynamics`, generic domain, raw query, spell graph or exchange
 API is added by this Proposed SPEC. A production consumer introduces only the

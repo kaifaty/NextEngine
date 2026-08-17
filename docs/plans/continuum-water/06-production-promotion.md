@@ -21,6 +21,10 @@ In the same coherent change:
 - update schema registry, routing, traceability and the main roadmap;
 - add production adapters/composition while keeping vendor types private;
 - preserve identical `game`/`headless` command, failure and persistence paths.
+- bind the ADR-081 composition DAG, exact exchange identity, worst-case
+  capacity, checkpoint epoch and primary-session fault profiles;
+- add one successor mutually exclusive `world-dynamics-step` budget row whose
+  window covers all substeps, merges, validation and publication in a tick.
 
 No migration reader is required for unshipped alpha continuum records. The
 outer current version rejects anything else before nested decode or mutation.
@@ -28,7 +32,7 @@ outer current version rejects anything else before nested decode or mutation.
 ## Promotion evidence set
 
 - `CONTINUUM-WATER-REF-P1 = PASS` for W0/W1;
-- W2 worker/order exactness and 50k THOTH performance PASS;
+- W2 worker/order exactness and standalone 50k THOTH stop-target PASS;
 - `CONTINUUM-COUPLING-P1 = PASS` for one-pass reaction and failures;
 - W4 `play`/headless production-command and presentation-independence PASS;
 - `CONTINUUM-PERSISTENCE-P1 = PASS` for exact active continuation;
@@ -36,7 +40,8 @@ outer current version rejects anything else before nested decode or mutation.
 - `persistence-replay` for composite checkpoint and corrupt inputs;
 - `platform` for Windows x86_64 and Linux x86_64 on one exact revision;
 - exact canonical water/rigid/composite roots on both shipping targets;
-- `performance` using exact THOTH fingerprint and compatible baseline;
+- `performance` using the successor combined `world-dynamics-step` row and
+  exact THOTH fingerprint;
 - `fast`/host check appropriate to the cross-cutting public-contract change.
 
 WG/GPU correspondence is not required for CPU production promotion. If a GPU
@@ -66,7 +71,8 @@ Do not promote when any of the following holds:
 
 - a correctness threshold passes only after post-hoc tolerance changes;
 - same-target or Windows/Linux canonical roots differ;
-- 50k exceeds the current budget after the two W2 optimization cycles;
+- 50k exceeds its standalone stop target or the combined successor budget
+  after the two W2 optimization cycles;
 - water or rigid state can publish independently;
 - save/restart is exact only with native/sidecar state;
 - renderer/GPU/camera state affects physical output;

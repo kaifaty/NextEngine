@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-077 |
 | Status | Proposed |
-| Version | 1.1 |
+| Version | 1.2 |
 | Decision date | 2026-08-16 |
-| Last verified | 2026-08-16 |
-| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-38](../38-continuum-material-physics.md), [SPEC-39](../39-layered-physical-world.md), [SPEC-40](../40-structural-vegetation-physics.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-076](076-continuum-material-physics-track.md) |
-| Candidate revision note | Version 1.1 records the selected V0A vegetation profile without changing Accepted PhysX authority; the imported candidate was renumbered to avoid the occupied mainline namespace |
-| Superseded by | none |
+| Last verified | 2026-08-17 |
+| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-05](../05-physics-animation-and-motor-control.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-38](../38-continuum-material-physics.md), [SPEC-39](../39-layered-physical-world.md), [SPEC-40](../40-structural-vegetation-physics.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-076](076-continuum-material-physics-track.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
+| Candidate revision note | Version 1.2 applies ADR-081 float, proxy/load, staged-fracture, checkpoint, capacity, fault-domain and successor-budget guardrails |
+| Superseded by | Partially [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md): it supersedes same-step rigid topology, generic contact-load, unprofiled float, unbounded continuation, implicit fault-domain and legacy-budget clauses. |
 
 ## Context
 
@@ -42,6 +42,11 @@ batches at one fixed `PhysicalStep`; none directly mutates another. Future
 thermal/combustion and root/soil owners join only through separately promoted
 exchange profiles. There is no generic solver bus or raw shared field store.
 
+ADR-081 additionally requires one runtime-owned composition profile/DAG,
+pre-merged rigid inputs, exactly one PhysX integration, all-or-none publication
+and an explicit fault domain. Pairwise couplers do not own separate PhysX
+steps.
+
 PhysX remains the sole writer of rigid/articulation state. A later production
 consumer requires a narrow Accepted decision that preserves this rule while
 adding exact owner segments and coupling records.
@@ -53,6 +58,11 @@ structures. Its canonical candidate is CPU `f64` with a fixed-point boundary;
 GPU is optional correspondence only. It owns a stable rooted structural graph,
 elastic/damage state, section cells and topology. Visual mesh, foliage and VFX
 remain projections.
+
+The candidate must bind the exact ADR-081 `CanonicalFloatExecutionProfile`
+before solver code and pass cross-target adversarial roots; two failed
+remediation cycles keep it research-only or require a separate fixed-point/
+soft-float decision.
 
 The first player-visible consumer is one procedural trail-side tree: analytical
 wind, production-path notch/back-cut, geometry-derived hinge failure, atomic
@@ -76,10 +86,16 @@ runtime integration.
 ### Damage is section state, not HP
 
 The initial destructive representation is one bounded polar cell lattice at a
-declared felling zone. Validated tool/contact input modifies cell state through
-a frozen fixed-point cut-work mapping. Remaining area, centroid and section
-moments determine load capacity. Fracture selects one unique failing section,
-partitions the graph and commits topology plus PhysX handoff atomically.
+declared felling zone. One consumer-specific `StructuralContactLoadBatch`
+provides exact impulse/moment and equal-and-opposite reaction; each stable load
+identity contributes cut work at most once. Its receipt allocates input among
+rigid reaction, structural work, damage/fracture and dissipation. Every active
+collision proxy maps to one stable PhysX kinematic body/shape pair.
+
+Remaining area, centroid and section moments determine load capacity. Fracture
+first publishes `PendingFracture`; one stage-9 Outcome command owns the
+`PhysicsTopologyTransaction`, and its body activates next substep. The solver
+cannot create durable PhysX topology in the same step.
 
 Detailed strands, arbitrary fracture surfaces, saw kerf simulation, secondary
 fragmentation and micro-scale cutting are later research. Presentation may add
@@ -92,6 +108,9 @@ shader and sleep tiers are explicit representation transitions driven only by
 canonical simulation facts and integer budgets. Camera visibility, measured
 frame time and GPU completion cannot select authority. Damage or unstable
 contact blocks lossy downgrade.
+
+PhysX-coupled exact restart uses fixed scheduled checkpoint epochs; save waits
+for the same rehydration barrier executed by uninterrupted comparison runs.
 
 Forest LOD follows the destructible vertical and exact persistence, but it is
 required before production promotion. Fire/moisture, decay, roots, deformable
@@ -125,6 +144,12 @@ After activation, a scripted fall, decorative damage, static replacement or GPU
 switch is forbidden. Failure stops the affected physical run and preserves the
 last complete checkpoint.
 
+Worst-case capacities are admitted before freeze; an expressible denial is
+ordinary and post-freeze exhaustion beyond reservation is an invariant. The
+first primary-gameplay fault stops the whole application session through the
+ADR-081 state machine; isolated test/training scenes may declare narrower
+slots.
+
 ## Promotion and stop conditions
 
 The vegetation roadmap remains `PLANNED / NOT_ACTIVE` while V0B is open. V0A
@@ -137,8 +162,9 @@ Production promotion additionally requires tree/wind, fracture, rigid coupling,
 exact persistence, LOD and Windows/Linux root gates plus a THOTH performance
 profile fixed before measurement. Its production gate is 1,000 visible,
 128 modal, 8 active, one refined and at most two falling trees, with an
-incremental THOTH vegetation budget of 2/3 ms p95/p99 inside the existing
-integrated physical 8/12 ms p95/p99 budget. If that workload misses its
+standalone THOTH vegetation stop target of 2/3 ms p95/p99. Integrated promotion
+uses the successor combined `world-dynamics-step` row across every substep in
+one gameplay tick. If that workload misses its
 declared budget after two evidence-backed optimization cycles, the
 track remains research-only. Reducing the tree/branch gate, enlarging the
 budget or granting GPU authority requires a new explicit decision.

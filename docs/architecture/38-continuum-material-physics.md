@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-38 |
 | Status | Proposed |
-| Version | 1.2 |
+| Version | 1.3 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md) |
-| Candidate revision note | Version 1.2 separates future thermochemical state and neural advice from the unchanged W1-W6 water authority path; the imported candidate was renumbered to avoid the occupied mainline namespace |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
+| Candidate revision note | Version 1.3 applies ADR-081 float-execution, exchange-identity, checkpoint-epoch, capacity, fault-domain, budget and neural-shadow guardrails |
 | Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and scope
@@ -56,11 +56,17 @@ warm-start accumulators and reduction scratch are reconstructed every substep
 and are neither owner state nor continuation state.
 
 The solver may decode the prior canonical integers and use private `f64`
-within one substep. Publication performs exactly one checked
+within one substep only under an exact ADR-081 `CanonicalFloatExecutionProfile`
+that fixes target/toolchain features, FMA, rounding/subnormal behavior,
+mathematical primitives, reduction/factorization/tie order and convergence
+branches. Publication performs exactly one checked
 round-to-nearest-ties-to-even conversion to the SPEC-21 fixed-point boundary.
 The next substep starts only from that published canonical state. Nonfinite,
 overflow or out-of-range conversion rejects the candidate; private float state
-cannot survive the boundary.
+cannot survive the boundary. Production also requires exact Windows/Linux roots
+on adversarial rounding and convergence cases. Failure after two remediation
+cycles leaves this authority research-only or forces a separate fixed-point/
+soft-float decision.
 
 Material-specific active state remains separate: a future MPM solid needs
 deformation gradient, affine velocity and plastic/internal variables in its
@@ -110,8 +116,10 @@ region/profile/prior-state roots, fixed-point linear and angular impulse, and
 the frozen body centre of mass as the explicit torque reference. Records sort
 by complete body identity and reduce to at most one record per body.
 
-Exactly one batch may exist for
-`(world generation, physics tick, substep, region identity)`. An exact
+Exactly one batch may exist for the ADR-081 identity tuple: `world_namespace`,
+source/destination owner IDs, applicable destination `world_id`, expected
+source/destination revisions and roots, tick/substep, edge profile, region and
+body participant IDs and operation slot. An exact
 duplicate or different result under the same key is a result collision and
 rejects the whole uncommitted step. No arrival-order winner, retry, coupling
 iteration selected by wall time or delayed reaction on the next substep is
@@ -135,11 +143,20 @@ cannot commit, restore or fail independently. Save-at-N/resume-to-M must reach
 the same canonical root as uninterrupted execution. Neighbor structures,
 pressure scratch and render buffers are rebuilt.
 
+That production profile defines a fixed positive checkpoint epoch. At every
+epoch, with or without a save request, it reconstructs and validates a fresh
+PhysX scene from canonical state before atomic replacement. Saves publish only
+after this barrier, and uninterrupted comparison runs execute the same barrier.
+
 Active-to-sleep conversion is a later optional lossy model transition. It is
 not required by the water roadmap and cannot claim owner-root equality with
 the exact active representation. A future conversion profile must carry a
 receipt for mass, momentum, volume/surface and material-history error and pass
 repeated sleep/wake cycles before streaming can use it.
+
+Worst-case sample, neighbor, pair, reaction-batch and rigid-participant
+capacities are admitted before freeze. User-expressible denial is an ordinary
+activation/action rejection; exhaustion after admission is an invariant fault.
 
 Before activation, missing or rejected continuum capability selects an
 authored dry basin variant. After activation, the runtime cannot silently
@@ -161,10 +178,12 @@ the continuum region and pass `THERMOCHEM-CONTINUUM-P1`; neither owner may
 derive an independently mutable copy.
 
 The V1 water roadmap still forbids warm start. SPEC-44 may evaluate a learned
-warm-start proposal only as an independent post-promotion branch after the
-classical reference, production and exact-persistence gates pass. It cannot
-change W1-W6, CPU authority, GPU correspondence status, stopping rules or
-canonical roots.
+warm-start proposal only as an independent post-promotion report/shadow branch
+after the classical reference, production and exact-persistence gates pass. It
+cannot change W1-W6, production initialization or work, CPU authority, GPU
+correspondence status, stopping rules, failure classification or canonical
+roots. Runtime advice requires the later certificate-backed Accepted decision
+required by ADR-081.
 
 ## Other material lanes
 
@@ -193,11 +212,15 @@ reaction batch or gameplay result.
 ## Failure semantics
 
 Invalid content/profile, nonfinite value, fixed-point overflow, capacity
-excess, non-convergence, boundary escape, stale revision, missing body,
+excess beyond a reserved bound, non-convergence, boundary escape, stale revision, missing body,
 reaction collision, conservation violation, PhysX rejection or corrupt owner
 segment rejects the complete candidate. The prior physical generation remains
 the only published state. There is no retry-to-green, partial sample set,
 water-only commit, rigid-only commit or mid-run fallback.
+
+The first primary-gameplay profile faults the whole application session through
+`Running -> Faulted -> DiagnosticSaved -> Closed | ExplicitRestore`. Only a
+separately provisioned training/test scene may declare narrower isolation.
 
 A serial research tool stops at the first such failure and emits a bounded
 typed report. It does not keep the prior frame and continue, because that
@@ -218,7 +241,7 @@ recorded command trace without test-only mutation.
 | `CONTINUUM-PERSISTENCE-P1` | Exact active save/restart continuation matches uninterrupted roots; corrupt/stale/capacity cases fail before mutation. |
 | `CONTINUUM-MIRROR-P1` | Optional GPU aggregate correspondence passes its predeclared metrics without an authority claim. |
 | `CONTINUUM-TERRAIN-P1` | One calibrated dry-sand profile and prescribed wheel/terrain contact pass declared conservation and reference curves. |
-| conditional `performance` | `50k` water fits existing THOTH physics `4/6 ms` p95/p99 and integrated `8/12 ms` ceilings; `10k` and `100k` remain report profiles, with `100k` not a production promise. |
+| conditional `performance` | `50k` water meets the standalone THOTH `4/6 ms` p95/p99 stop target; before integration, the full combined workload must pass the successor mutually exclusive `world-dynamics-step` row measured across every substep in one gameplay tick. `10k` and `100k` remain report profiles, with `100k` not a production promise. |
 
 The CPU oracle also compares published curves with aggregate output from an
 independently executed SPlisHSPlasH revision. External solver code, generated

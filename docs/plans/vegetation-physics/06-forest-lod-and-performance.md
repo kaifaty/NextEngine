@@ -37,10 +37,14 @@ cadences, command/contact trace and transition schedule under declared worker
 modes and registration permutations. Canonical state/tier/outcome roots must
 match; timing is evidence, never an input.
 
-Record p50/p95/p99 CPU and integrated frame cost, memory, transition latency,
+Record p50/p95/p99 CPU standalone stop-target cost, memory, transition latency,
 active nodes/proxies/cells and exact roots. Apply the repository Performance V5
 methodology and THOTH preflight. Stress profiles are report-only and cannot
 replace the production gate.
+
+Integrated promotion additionally passes the successor mutually exclusive
+`world-dynamics-step` row covering every substep, merge, validation and
+publication in one gameplay tick; standalone PASS values are not summed.
 
 ## Stop and exit
 

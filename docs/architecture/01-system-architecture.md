@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-01 |
 | Статус | Accepted |
-| Версия | 2.7 |
+| Версия | 2.8 |
 | Последнее изменение | 2026-08-17 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Related Proposed architecture | [SPEC-39](39-layered-physical-world.md), [SPEC-41](41-world-substrate-composition.md), [SPEC-42](42-arcane-substrate-and-physical-magic.md), [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md) |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
+| Related Proposed architecture | [SPEC-38](38-continuum-material-physics.md), [SPEC-39](39-layered-physical-world.md), [SPEC-40](40-structural-vegetation-physics.md), [SPEC-41](41-world-substrate-composition.md), [SPEC-42](42-arcane-substrate-and-physical-magic.md), [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md) |
 
 ## Архитектурная форма
 
@@ -180,11 +180,20 @@ Thermochemical and Arcane owners. Each owner retains one write set and joins a
 cross-owner effect only through immutable revision-bound projections, a typed
 bounded exchange and one declared atomic commit.
 
+ADR-081 keeps the current twelve-stage/physical-only stage-8 profile unchanged.
+The first non-physical production owner must introduce a successor
+`WorldDynamicsStep` at the same stage index with one runtime-owned closed DAG,
+one merged PhysX integration, pre-admitted capacities, all-or-none fail-stop
+publication, an explicit fault domain, fixed checkpoint epochs for exact PhysX
+continuation and a successor combined gameplay-budget row.
+
 SPEC-39 specializes physical owners; SPEC-42 owns only future arcane quantity
 and execution; SPEC-43 owns only future material composition, enthalpy, phase
 and reaction progress. Vital, Identity and atmosphere have no current owner.
-SPEC-44 models are optional stateless proposal producers to one already
-promoted classical owner, not owners, laws, backends or persistence segments.
+SPEC-44 models are optional stateless N0/N1 report/shadow producers after one
+already promoted classical owner, not owners, runtime advisors, laws, backends
+or persistence segments. Runtime consumption needs a later mechanically
+certified Accepted decision.
 
 All these tracks remain `Proposed`. They add no current crate, public contract,
 schedule stage, save segment or mandatory capability. Each becomes current

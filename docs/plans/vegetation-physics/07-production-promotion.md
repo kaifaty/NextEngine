@@ -18,6 +18,9 @@ not production evidence.
 - `content-package`, `play`, `persistence-replay`, affected `platform` and
   conditional `performance` results;
 - all failure cases retain the prior complete physical generation.
+- ADR-081 composition DAG, exact exchange tuple, scheduled checkpoint epoch,
+  worst-case capacity and primary whole-session fault profiles are closed;
+- the successor combined `world-dynamics-step` budget row passes.
 
 GPU correspondence is optional and cannot block CPU promotion or grant GPU
 authority.

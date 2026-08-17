@@ -3,7 +3,9 @@
 Status: `PLANNED / NOT_ACTIVE`; post-v1 isolated program. Governing candidate
 architecture: [SPEC-39](../../architecture/39-layered-physical-world.md),
 [SPEC-40](../../architecture/40-structural-vegetation-physics.md) and
-[ADR-077](../../architecture/adr/077-layered-physical-world-and-living-structures-track.md).
+[ADR-077](../../architecture/adr/077-layered-physical-world-and-living-structures-track.md),
+with [ADR-081](../../architecture/adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md)
+as the promotion guardrail.
 V0A product decisions are complete; V0B numerical/profile/corpus calibration
 is open and no `VEGETATION-*` ProductCheck has run.
 
@@ -46,13 +48,13 @@ V5/V7 ── VF future thermochemical/fire/root/soil lanes NOT_STARTED / OUTSIDE
 | Stage | Specification | Exit evidence | Blocks |
 |---|---|---|---|
 | V0A | [Selected product decisions](00-product-profile-and-evidence-closure.md#v0a-selected-decision-profile) | Answers 1–19 are recorded as the product/authority/evidence profile | V0B |
-| V0B | [Numeric, profile and corpus calibration](00-product-profile-and-evidence-closure.md#v0b-required-exact-tree-definition) | Geometry, wood, wind, cut, state, corpus, remaining thresholds, capacities and stop rules are exact | every code stage |
+| V0B | [Numeric, profile and corpus calibration](00-product-profile-and-evidence-closure.md#v0b-required-exact-tree-definition) | Geometry, wood, wind, cut/work allocation, canonical float execution, state, corpus, capacities and stop rules are exact | every code stage |
 | V1 | [Serial structural formulation oracle](01-serial-structural-formulation-oracle.md) | `VEGETATION-BEAM-REF-P1 = PASS`; one formulation/integrator/state is frozen | main-roadmap activation, V2, VG |
 | V2 | [Rooted tree graph and analytical wind](02-rooted-tree-graph-and-wind.md) | `VEGETATION-TREE-P1 = PASS` without collision/fracture | V3 |
-| V3 | [Section damage and graph fracture](03-section-damage-and-graph-fracture.md) | `VEGETATION-FRACTURE-P1 = PASS` under prescribed loads/cuts | V4 |
-| V4 | [PhysX coupling and trail-tree vertical](04-physx-coupling-and-trail-tree.md) | `VEGETATION-COUPLING-P1 = PASS`; production command loop and handoff work | V5 |
-| V5 | [Exact active persistence](05-exact-active-persistence.md) | `VEGETATION-PERSISTENCE-P1 = PASS` | V6, VF stateful lanes |
-| V6 | [Forest LOD and performance](06-forest-lod-and-performance.md) | `VEGETATION-LOD-P1` plus the V0 THOTH workload pass | V7 |
+| V3 | [Section damage and graph fracture](03-section-damage-and-graph-fracture.md) | `VEGETATION-FRACTURE-P1 = PASS`; failure publishes `PendingFracture` for Outcome-owned topology | V4 |
+| V4 | [PhysX coupling and trail-tree vertical](04-physx-coupling-and-trail-tree.md) | Stable proxy bodies/shapes, exact one-use contact-load accounting and next-substep handoff pass | V5 |
+| V5 | [Exact active persistence](05-exact-active-persistence.md) | `VEGETATION-PERSISTENCE-P1 = PASS` with scheduled checkpoint epochs | V6, VF stateful lanes |
+| V6 | [Forest LOD and performance](06-forest-lod-and-performance.md) | `VEGETATION-LOD-P1`, standalone stop target and successor combined budget pass | V7 |
 | V7 | [Production promotion](07-production-promotion.md) | Consumer-backed Accepted decision and all declared checks | shipped claim |
 | VG | [GPU correspondence mirror](vg-gpu-correspondence.md) | Aggregate report for pinned devices | no authority or promotion stage |
 | VF | [Future thermochemical, root and continuum lanes](vf-thermal-roots-and-continuum.md) | Independent lane-specific profiles and checks | no base-tree stage |
@@ -65,10 +67,17 @@ V5/V7 ── VF future thermochemical/fire/root/soil lanes NOT_STARTED / OUTSIDE
   fact.
 - Private `f64` is accepted only inside a fixed step; complete
   future-affecting state crosses one fixed-point publication boundary.
+- The exact ADR-081 float-execution profile and adversarial cross-target roots
+  are promotion prerequisites.
 - Wind is an immutable revision-bound forcing projection, not presentation or
   wall-clock noise.
-- PhysX writes rigid state; the living solver writes structural state; graph
-  split and detached-body creation publish together or neither does.
+- Each collision proxy has one stable kinematic PhysX body/shape; one exact
+  structural contact/load ID contributes cut work once with a complete energy
+  allocation receipt.
+- The living solver publishes `PendingFracture`; stage-9 Outcome owns the
+  topology command and the detached body first activates next substep.
+- Worst-case capacities are admitted before freeze; the primary gameplay fault
+  domain is the whole session.
 - Exact active persistence precedes modal/sleep persistence or forest
   streaming.
 - LOD uses canonical simulation facts and manifest integer budgets, never the

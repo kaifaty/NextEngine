@@ -10,8 +10,8 @@ PhysicalStep publishes completely or not at all.
 
 For each 240 Hz substep:
 
-1. bind world generation, world revision, physics tick/substep, water region
-   revision/root and exact rigid canonical snapshot;
+1. bind the ADR-081 namespace/owner/world/revision/root/tick/substep/edge/
+   participant/operation identity tuple and exact rigid canonical snapshot;
 2. freeze the selected rigid body poses, linear/angular velocities, centre of
    mass and boundary material mapping;
 3. solve the water candidate against analytical static and moving primitive
@@ -50,7 +50,9 @@ WaterBodyReactionV1 {
 }
 
 WaterBodyReactionBatchV1 {
-  key: (world generation, physics tick, substep, region_id),
+  key: (world_namespace, source_owner_id, destination_owner_id, world_id,
+        expected_source_revision/root, expected_destination_revision/root,
+        physics_tick, substep, edge_profile_id, region_id, operation_slot),
   sorted_reactions[],
   resulting_water_state_root,
   batch_root,
@@ -96,6 +98,11 @@ previous complete physical generation and stops the run with the first stable
 diagnostic. The implementation cannot commit PhysX while retaining old water,
 commit water without PhysX, retry with fewer iterations, freeze water or load
 the dry fallback after activation.
+
+The runtime composition profile owns the complete DAG and merges every rigid
+input before one PhysX integration. Worst-case batch/participant capacity is
+admitted before freeze; post-freeze exhaustion beyond reservation is an
+invariant. A primary-gameplay fault uses the ADR-081 whole-session domain.
 
 A private composite lab checkpoint is allowed for continuation evidence. It
 must contain exact water state plus the existing engine-owned rigid canonical

@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-40 |
 | Status | Proposed |
-| Version | 1.2 |
+| Version | 1.3 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-39](39-layered-physical-world.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-077](adr/077-layered-physical-world-and-living-structures-track.md) |
-| Candidate revision note | Version 1.2 separates future thermochemical state and neural advice from the unchanged V0-V7 structural path; the imported candidate was renumbered to avoid the occupied mainline namespace |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-39](39-layered-physical-world.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-077](adr/077-layered-physical-world-and-living-structures-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
+| Candidate revision note | Version 1.3 applies ADR-081 float-execution, collision-proxy, contact-load, staged-fracture, checkpoint-epoch, capacity, fault-domain and budget guardrails |
 | Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and selected scope
@@ -54,13 +54,18 @@ The selected representation ladder is `AuthoredStatic -> ShaderWind ->
 ModalStructural -> ActiveStructural -> RefinedSection`. The production forest
 fixture contains 1,000 visible, 128 modal, 8 active, one refined and no more
 than two simultaneously falling trees. The incremental vegetation CPU budget
-on THOTH is 2/3 ms p95/p99 within the existing integrated physical 8/12 ms
-p95/p99 budget. Exact memory and transition budgets remain V0B blockers.
+on THOTH is a standalone 2/3 ms p95/p99 stop target. Integrated authority is
+the future ADR-081 `world-dynamics-step` row, not an arithmetic share of the
+existing 8/12 ms matrix. Exact memory and transition budgets remain V0B
+blockers.
 
 ## Candidate authority
 
 Physical Embodiment is the future owner of active living-structure state. CPU
-`f64` execution is the only candidate authority for V1. The serial structural
+`f64` execution under a closed ADR-081 `CanonicalFloatExecutionProfile` is the
+only candidate authority for V1. The profile fixes target/toolchain features,
+FMA, rounding/subnormal behavior, mathematical primitives, reduction/
+factorization/tie order and convergence branches. The serial structural
 reference selects and freezes one geometrically exact beam/rod formulation
 before runtime integration. A GPU implementation may later mirror aggregate
 curves but cannot write structure, damage, topology, rigid impulses, commands,
@@ -119,6 +124,11 @@ boundary and the next outer step starts from accepted values. Factorizations,
 residual scratch, broad-phase structures, modal basis caches and GPU/render
 buffers are reconstructed and cannot survive as hidden authority.
 
+Production additionally requires exact Windows/Linux canonical roots on
+boundary and adversarial rounding/convergence fixtures. Failure after two
+coherent remediation cycles leaves the solver research-only or requires a
+separate fixed-point/soft-float authority decision.
+
 Warm start, variable time step, adaptive element insertion/removal, fatigue,
 plasticity/creep and arbitrary local fibre refinement are disabled in V1 unless
 V0B explicitly adds a future-affecting field and a corpus for it.
@@ -131,9 +141,11 @@ strength/mass/topology consequences cross one atomic typed batch and require
 substitute for that owner.
 
 SPEC-44 neural assistance is also downstream of the complete classical tree
-track. It may begin as report-only diagnostics or bounded initialization
-advice only after formulation, coupling and exact persistence pass; it cannot
-select fracture, topology, representation tier or a structural root.
+track. It may begin only as report/shadow diagnostics or proposals after
+formulation, coupling and exact persistence pass; it cannot change production
+work or select fracture, topology, representation tier, failure class or a
+structural root. Runtime advice requires a later certificate-backed Accepted
+decision under ADR-081.
 
 ## Formulation selection gate
 
@@ -170,6 +182,14 @@ update. The mapping from tool geometry, relative velocity/impulse, grain
 direction and material profile to removed/crushed cells is frozen in V0B and
 exercised through the same command path in game and headless.
 
+The command references exactly one consumer-specific
+`StructuralContactLoadBatch` record. Its stable contact/load identity can be
+consumed for cut work at most once; retry or a second command finds the existing
+consumption receipt. A canonical `CutWorkReceipt` allocates the bounded input
+among rigid equal-and-opposite reaction, structural elastic/kinetic work,
+section-cell damage/fracture and declared dissipation. The same impulse cannot
+enter both a generic contact event and a separate cut debit.
+
 The first cut representation is a polar cross-section lattice of exactly 8
 radial rings by 32 angular sectors at one authored felling zone. Cells carry
 closed states such as intact, crushed and severed plus only the history selected
@@ -178,15 +198,22 @@ second moments are derived in canonical cell order. Load capacity follows that
 remaining geometry and directional material strength; a scalar accumulated HP
 or a scripted `fell_now` threshold is forbidden.
 
-Fracture is a staged topology transaction:
+Fracture crosses the existing Outcome/topology-command boundary:
 
 1. evaluate section resultants and failure criterion from accepted state;
 2. select the unique failing section by a complete `(criterion, SectionId)`
    total order fixed before implementation;
-3. partition the rooted graph into anchored and detached components;
-4. derive stable identity mapping, mass/centre-of-mass and momentum handoff;
-5. validate collision capacity and both owner candidates;
-6. atomically publish graph topology plus PhysX body creation, or neither.
+3. publish a bounded `PendingFracture` fact in the accepted structural
+   candidate and propose one stage-9 internal Outcome command;
+4. the validated Outcome command partitions the graph, derives the stable body
+   identity and owns one `PhysicsTopologyTransaction`;
+5. validate collision capacity, mass/centre-of-mass and momentum handoff;
+6. atomically replace the pending component with the anchored graph plus one
+   staged PhysX body, or publish neither; the body activates next substep.
+
+While pending, the component cannot split again, downgrade, transfer or be
+advanced by both owners. The structural solver never creates durable PhysX
+topology in the same stage-8 step.
 
 Only one load-bearing split per structure per substep is admitted in V1. Bark
 tearing, fibres/splinters and secondary fragment clouds remain presentation.
@@ -196,11 +223,18 @@ and transition evidence; it cannot silently replace section cells.
 ## PhysX coupling and detached handoff
 
 An active standing tree exposes no more than 32 tapered-capsule collision
-proxies derived from its last accepted graph. During a substep PhysX integrates
-dynamic bodies exactly once against that frozen projection and emits canonical
-contact loads. The living solver consumes the batch plus wind and advances once
-according to SPEC-39. Missing contacts, stale revisions, a duplicate batch or a
-capacity overflow rejects the whole composite step.
+proxies derived from its last accepted graph. Every active proxy maps to exactly
+one stable PhysX kinematic body/shape pair for its lifetime; replacement uses a
+validated topology/representation transition rather than backend-handle reuse.
+During a substep PhysX integrates dynamic bodies exactly once against that
+frozen projection and emits the consumer-specific
+`StructuralContactLoadBatch`. The batch binds the ADR-081 exchange tuple,
+quantized impulse and moment at an explicit reference point, one stable contact/
+load ID and an equal-and-opposite reaction receipt. Generic contact-event bounds
+are not interpreted as exact structural loads. The living solver consumes the
+batch plus wind and advances once according to SPEC-39. Missing contacts, stale
+revisions, a duplicate batch or capacity overflow rejects the whole composite
+step.
 
 At the first trunk sever, the selected detached component becomes one bounded
 PhysX compound rigid body in V1. The handoff preserves declared mass, centre of
@@ -231,10 +265,20 @@ Modal/sleep conversion is later approximate persistence with a distinct root
 and receipt; a sidecar or reconstruction of damage from immutable content is
 forbidden.
 
+The PhysX-coupled production profile binds a fixed positive checkpoint epoch.
+At every epoch it rebuilds a fresh PhysX scene from the composite canonical
+closure, validates the continuation witness and swaps atomically. Save requests
+wait for this scheduled barrier, and uninterrupted comparison runs execute the
+same barriers.
+
 ## Failure and fallback
 
+Worst-case node, segment, proxy, contact/load, pending-fracture and rigid-body
+capacities are reserved before activation/action freeze. User-expressible
+denial is ordinary; exhaustion beyond the admitted bound is an invariant fault.
+
 Invalid definition/profile, nonfinite value, fixed-point overflow,
-non-convergence, capacity excess, stale identity/revision, contact or result
+non-convergence, capacity excess beyond a reserved bound, stale identity/revision, contact or result
 collision, impossible graph partition, conservation/handoff failure, PhysX
 rejection or corrupt owner segment publishes no partial state. The prior
 composite generation remains authoritative.
@@ -244,6 +288,11 @@ tree/collider. After successful activation there is no silent switch to a
 scripted fall, decorative damage, frozen structure, GPU authority or static
 replacement. A fatal active failure stops the affected physical run and
 retains the last complete checkpoint.
+
+For the first primary gameplay world, that fatal failure faults the whole
+application session through `Running -> Faulted -> DiagnosticSaved -> Closed |
+ExplicitRestore`. Only independently provisioned test/training scenes may use
+narrower isolation.
 
 ## Evidence and promotion boundary
 
@@ -256,7 +305,7 @@ retains the last complete checkpoint.
 | `VEGETATION-PERSISTENCE-P1` | Exact active save/restart equals uninterrupted execution; corrupt/incompatible segments fail before mutation. |
 | `VEGETATION-LOD-P1` | Adjacent tier cycles meet frozen discontinuity/history bounds; camera/timing/worker permutations do not change tiers or roots. |
 | `VEGETATION-MIRROR-P1` | Optional GPU aggregate correspondence passes without an authority claim. |
-| conditional `performance` | The selected V0A active/modal/visible forest fixture and V0B memory/transition closure fit the declared THOTH budgets or the track remains research-only. |
+| conditional `performance` | The selected V0A active/modal/visible forest fixture meets its standalone THOTH stop target; before integration the full combined workload passes the successor mutually exclusive `world-dynamics-step` row across every substep in one gameplay tick, or the track remains research-only. |
 
 The frozen accuracy thresholds are: static curve error at most 2%, natural
 frequency error at most 5%, aggregate normalized RMSE at most 5%, maximum

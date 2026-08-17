@@ -8,12 +8,14 @@ and the trail-blocking product loop without a second rigid writer.
 
 ## Coupling profile
 
-1. Freeze prior structural state, collision proxies and rigid projection.
+1. Freeze prior structural state and the one stable kinematic PhysX body/shape
+   pair assigned to each active collision proxy.
 2. PhysX applies player/tool inputs, integrates dynamic bodies once and emits
    canonical loads against the frozen tree proxies.
-3. Validate one batch keyed by world generation, tick/substep and structure
-   identity; records bind complete bodies/proxies, revisions, contact point and
-   fixed-point impulse/moment.
+3. Validate one consumer-specific `StructuralContactLoadBatch` keyed by the
+   ADR-081 namespace/owner/world/revision/root/tick/substep/edge/participant/
+   operation tuple; records bind fixed-point impulse/moment, explicit reference
+   point, stable load ID and equal-and-opposite reaction receipt.
 4. The living solver consumes that batch plus wind and advances its graph once.
 5. Validate both candidates and publish one composite `PhysicalStep`, or none.
 6. Build the next proxy projection only from the accepted graph.
@@ -24,11 +26,17 @@ to a PhysX transform is permitted.
 
 ## Detached handoff
 
-When V3 selects the trunk split, stage one bounded compound body from the
-detached graph component. Validate geometry/collision capacity, stable new body
+When V3's Outcome command consumes `PendingFracture`, stage one bounded compound
+body from the detached graph component. Validate geometry/collision capacity, stable new body
 identity, material mapping, mass, CoM, inertia and V0 momentum thresholds.
 Graph topology, owner mapping, PhysX body creation and handoff receipt publish
-atomically. After commit the living solver cannot advance the detached mass.
+atomically. The body activates next substep; after commit the living solver
+cannot advance the detached mass.
+
+The production cut command consumes one stable contact/load ID once. Its
+receipt allocates input work among rigid reaction, structural elastic/kinetic
+work, section damage/fracture and dissipation; no generic contact event can
+double-credit that input.
 
 V1 falling-tree flexibility, branch re-fracture and tree-to-tree damage are
 absent; the rigid compound may collide with terrain, player and existing rigid

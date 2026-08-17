@@ -22,6 +22,7 @@ documentation-only and proves no solver behavior.
 | Density solver | minimum `2`, maximum `20`, mean error `<= 0.01%` |
 | Divergence solver | minimum `1`, maximum `20`, mean error `<= 0.1%` |
 | Canonical rounding | one checked `NearestTiesToEven` conversion per substep |
+| Float execution | exact ADR-081 target/toolchain/FMA/rounding/subnormal/math/reduction/convergence profile |
 | Hard capacity | `50,000` active samples for production; `100,000` only in stress report |
 
 V1 has no warm start, surface tension, viscosity/vorticity model, variable
@@ -43,6 +44,10 @@ Private `f64` density, residual, pressure/divergence factor, energy and
 external-reference values are diagnostic inputs to declared metrics. They do
 not survive a substep, choose identity/order or waive a canonical mismatch.
 Uniform mass is profile-owned and sample mass is not duplicated in each state.
+
+The float profile and adversarial Windows/Linux rounding/convergence fixtures
+are frozen before W1 code. Two failed remediation cycles make the selected
+authority research-only unless a separate fixed-point/soft-float decision lands.
 
 ## Product fixture
 

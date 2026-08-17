@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-42 |
 | Status | Proposed |
-| Version | 1.2 |
+| Version | 1.3 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-38](38-continuum-material-physics.md), [SPEC-39](39-layered-physical-world.md), [SPEC-40](40-structural-vegetation-physics.md), [SPEC-41](41-world-substrate-composition.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md), [ADR-078](adr/078-world-substrate-and-arcane-physical-interaction-track.md) |
-| Candidate revision note | Version 1.2 binds future heat/cooling to the separately promoted SPEC-43 owner without changing the A0-A5 telekinesis path; the imported candidate was renumbered to avoid the occupied mainline namespace |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-38](38-continuum-material-physics.md), [SPEC-39](39-layered-physical-world.md), [SPEC-40](40-structural-vegetation-physics.md), [SPEC-41](41-world-substrate-composition.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md), [ADR-078](adr/078-world-substrate-and-arcane-physical-interaction-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
+| Candidate revision note | Version 1.3 applies ADR-081 successor-stage, analytical-debit, composition, checkpoint-epoch, capacity, fault-domain, identity and budget guardrails |
 | Related Proposed destination | [SPEC-43](43-thermochemical-material-processes.md), [ADR-079](adr/079-thermochemical-material-process-track.md) |
 
 ## Status and first consumer
@@ -122,6 +122,12 @@ stage-8 request, without calling package code again or reserving the same work
 twice. Release and cancel are new `WorldCommand` values applied only at their
 declared future boundary.
 
+Because Arcane is not physical state, this owner cannot execute in the current
+physical-only stage-8 access set. The first integrated consumer uses the
+ADR-081 successor twelve-stage profile with `WorldDynamicsStep` at stage 8 and
+one closed `WorldDynamicsCompositionProfile`; the current schedule remains
+unchanged.
+
 V1 does not expose a generic spell-graph language. The one telekinesis consumer
 compiles to a closed immutable execution plan with the minimal sequence:
 
@@ -165,10 +171,11 @@ before the substep closes; a missing participant is an internal invariant.
 
 The reservoir is an authored stable slot bound to the caster `PersistentId`.
 An execution ID derives from the causal start command plus a contiguous
-execution slot. Exchange identity uses the exact tuple `world_namespace`,
-physics `world_id`, expected prior `world_revision`, tick, substep, execution
-ID and target body; the ambiguous term `world generation` is not a schema
-field.
+execution slot. Exchange identity uses the ADR-081 tuple:
+`world_namespace`, Arcane and Physics owner IDs, physics `world_id`, expected
+Arcane/Physics revisions and roots, tick/substep, edge profile, caster,
+reservoir, execution and target-body IDs and operation slot. The ambiguous
+term `world generation` is not a schema field.
 
 ## Arcane-to-rigid staged coupling
 
@@ -188,14 +195,15 @@ The first coupling profile specializes SPEC-39/41:
 5. compile the private `ArcaneRigidExchangeV1` records into the existing
    `PhysicsStepInputV1.external_force_requests` collection; V1 adds no public
    physics-step field or generic coupling bus;
-6. execute PhysX exactly once on staging and build its candidate projection/
+6. merge this wrench with every other declared rigid input, execute PhysX
+   exactly once under the closed composition profile and build its candidate projection/
    snapshot without publication;
 7. compute canonical work, maintenance/loss, debit and unused-reservation
    exchange receipts from the accepted candidate projection;
 8. validate every Arcane/PhysX candidate root and atomically publish Arcane
    plus rigid state and exchange receipts, or publish none;
-9. on internal failure discard staging and reconstruct the adapter from the
-   prior canonical snapshot; rollback failure stops the instance.
+9. on internal failure publish no candidate and transition the declared fault
+   domain to `Faulted`; the prior complete checkpoint remains restore authority.
 
 The exchange record binds full `PhysicsBodyIdV1`, caster/reservoir/execution
 IDs, command identity, exact world tuple, body/arcane revisions, tick/substep,
@@ -204,7 +212,7 @@ torque, application point, COM reference, maximum debit and conversion
 receipt. An exact command retry is resolved by the ledger and emits no new
 exchange. Inside a newly constructed closed batch, an exact duplicate key or
 different bytes under that key is a fatal internal invariant and rejects the
-complete participating `PhysicalStep` before PhysX publication.
+complete participating `WorldDynamicsStep` before PhysX publication.
 
 ### V1 work and maintenance law
 
@@ -222,15 +230,22 @@ debit = positive_work + maintenance + declared_conversion_loss
 unused = reserved_maximum - debit
 ```
 
-A0B freezes the coefficient raws, efficiency/loss rule and a conservative
-`reserved_maximum` slice bound from the declared force, torque, velocity,
-duration and cadence ceilings. The sum of all slices is the full reservation
-acquired at stage 5. Each committed substep debits its slice, returns that
-slice's unused amount and leaves later slices reserved; termination returns
-all unconsumed future slices. Negative mechanical work is dissipated and never
-recharges the reservoir. A stationary held body still pays maintenance.
-Overflow, negative unused quantity or debit above the current slice rejects
-the complete participating step.
+A0B freezes the coefficient raws, efficiency/loss rule and an analytical
+maximum-debit proof. It derives `v_point_max` from declared body linear speed,
+angular speed and application-point-to-CoM lever-arm bounds, then bounds
+`F dot v_point`, free-torque work, fixed cadence and duration, maintenance,
+conversion loss and every intermediate/final ties-to-even error. The
+`reserved_maximum` slice is the checked ceiling of that expression, not a
+corpus-observed maximum; the sum of all slices is the full reservation acquired
+at stage 5.
+
+Insufficient quantity for that full proof rejects ordinarily before freeze.
+Each committed substep debits its slice, returns that slice's unused amount and
+leaves later slices reserved; termination returns all unconsumed future slices.
+Negative mechanical work is dissipated and never recharges the reservoir. A
+stationary held body still pays maintenance. Overflow, negative unused quantity
+or debit above the frozen slice is an unreachable internal invariant that
+faults the complete participating step.
 
 Telekinesis never sets a transform or velocity. Contact, gravity and rigid
 constraints remain PhysX-owned. A0B must freeze the remaining coefficient raws,
@@ -247,6 +262,12 @@ segment cannot default to a zero reservoir. A sidecar, resource reconstruction
 from presentation or reissuing a command on load is forbidden. Save-at-N/
 resume-to-M must equal uninterrupted execution.
 
+The integrated PhysX profile binds a fixed positive checkpoint epoch. At each
+scheduled boundary, independent of save requests, it reconstructs and validates
+a fresh PhysX scene from the composite canonical closure before atomic swap.
+Save publication waits for this barrier, and uninterrupted comparison runs
+execute identical barriers.
+
 Regional summaries, ambient fields, ley graphs, organism channel LOD and lossy
 sleep are later representations. They cannot precede exact active persistence
 or silently discard depletion, corruption, channel damage, persistent effects
@@ -259,13 +280,18 @@ missing target and explicit cancel are ordinary rejections/terminations for one
 execution. They publish no force, return unused reservation and do not prevent
 other valid executions in the closed set.
 
+Worst-case execution, target, exchange-record and aggregate wrench capacities
+are reserved before freeze. An expressible over-capacity start is an ordinary
+rejection; exhaustion beyond its admitted bound is an internal invariant.
+
 Post-freeze stale/missing participant, nonfinite/overflow, duplicate exchange
 key, different bytes under one key, work-accounting mismatch, PhysX rejection,
-rollback failure or corrupt checkpoint is fatal. It rejects the complete
-participating `PhysicalStep` and halts advancement of the affected world at
-its prior complete generation; the active execution is not automatically
-retried. Rollback failure or untrusted backend state stops the instance. Stable
-diagnostics encode the class and never convert an internal failure into
+capacity exhaustion beyond reservation or corrupt checkpoint is fatal. It
+rejects the complete participating `WorldDynamicsStep`; the active execution is
+not automatically retried. The first primary gameplay profile faults the whole
+application session through `Running -> Faulted -> DiagnosticSaved -> Closed |
+ExplicitRestore`; only independently provisioned test/training scenes may use
+narrower isolation. Stable diagnostics never convert an internal failure into
 ordinary gameplay.
 
 Before capability activation the project contains no arcane ability and may
@@ -280,10 +306,10 @@ authority or substitution with an unrelated mechanic.
 |---|---|
 | `ARCANE-RESERVOIR-REF-P1` | Frozen reservoir/transfer/throughput/conversion cases preserve declared quantity and loss, reject bounds/faults and produce exact same-target roots. |
 | `ARCANE-MECHANICS-P1` | At integrated A3, first-party, data/Luau/Wasm and headless paths use the same package, authoritative targeting, start-command and rejection semantics; no private magic mutation path exists. |
-| `ARCANE-RIGID-COUPLING-P1` | One production telekinesis trace moves the real PhysX fixture only through the canonical batch; debit/work, duplicate/stale/backend failures and atomic rollback meet frozen thresholds. |
+| `ARCANE-RIGID-COUPLING-P1` | One production telekinesis trace moves the real PhysX fixture only through the canonical batch; debit/work, duplicate/stale/backend failures, all-or-none publication and fault transition meet frozen thresholds. |
 | `ARCANE-PERSISTENCE-P1` | Active save/restart and replay equal uninterrupted roots exactly; corrupt or missing owner closure fails before mutation. |
 | `ARCANE-CROSS-TARGET-P1` | Windows/Linux canonical arcane, command, event and physical projection roots are exact before production promotion. |
-| conditional `performance` | The predeclared active execution workload fits its incremental and integrated GameplayBudgetMatrix rows without changing authority. |
+| conditional `performance` | The predeclared active-execution workload meets its standalone stop target and the complete combined workload passes the successor mutually exclusive `world-dynamics-step` row across every substep in one gameplay tick. |
 
 The isolated roadmap may become active R8 research only after
 `ARCANE-RESERVOIR-REF-P1 = PASS`. Production promotion requires all five base

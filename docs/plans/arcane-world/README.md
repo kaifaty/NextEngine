@@ -3,7 +3,9 @@
 Status: `PLANNED / NOT_ACTIVE`; post-v1 isolated program. Governing candidate
 architecture: [SPEC-41](../../architecture/41-world-substrate-composition.md),
 [SPEC-42](../../architecture/42-arcane-substrate-and-physical-magic.md) and
-[ADR-078](../../architecture/adr/078-world-substrate-and-arcane-physical-interaction-track.md).
+[ADR-078](../../architecture/adr/078-world-substrate-and-arcane-physical-interaction-track.md),
+with [ADR-081](../../architecture/adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md)
+as the promotion guardrail.
 Package A0A architecture closure is `COMPLETE`; numeric/calibration Package
 A0B is `OPEN` and every `ARCANE-*` ProductCheck is `NOT_RUN`.
 
@@ -47,13 +49,13 @@ A4 ── AV Vital and Identity lanes                OUTSIDE BASE
 
 | Stage | Exit evidence | Blocks |
 |---|---|---|
-| A0A | Start/exchange receipt split, owner write set, fixed-point authority, targeting/residency/identity, PhysX staging, work-law shape, failure isolation, persistence and promotion sequence are frozen | A0B; `COMPLETE` |
-| A0B | Exact integer raws/scales, capacity/throughput, efficiency/loss/maintenance coefficients, cadence/duration, fixture force curve, traces, capacities, thresholds and budgets are frozen | every code stage |
+| A0A | Start/exchange split, successor stage/DAG, owner write set, fixed-point authority, targeting/identity, fail-stop domain, checkpoint epochs and promotion sequence are frozen | A0B; `COMPLETE` |
+| A0B | Exact integer raws/scales, capacity/throughput, analytical maximum-debit proof, cadence/duration, fixture curve, traces, capacities, thresholds and standalone/successor budgets are frozen | every code stage |
 | A1 | `ARCANE-RESERVOIR-REF-P1 = PASS`; serial transfer/debit/loss and failure roots are exact | main-roadmap research activation, A2 |
-| A2 | Proposed consumer schemas, exact schedule/access sets and profile/fixture hashes are documentation-complete; no public contract lands yet | integrated A3 |
+| A2 | Proposed schemas and the exact successor `WorldDynamicsStep` owner/DAG/access/fault/capacity/budget profile are documentation-complete; no public contract lands yet | integrated A3 |
 | A3 | `ARCANE-MECHANICS-P1 = PASS` and `ARCANE-RIGID-COUPLING-P1 = PASS`; production targeting/package start path and Arcane/PhysX substeps publish under the selected receipt split | A4, later physical couplers |
-| A4 | `ARCANE-PERSISTENCE-P1 = PASS`; save/restart/replay equal uninterrupted active roots | A5, later lossy/regional representations |
-| A5 | `ARCANE-CROSS-TARGET-P1 = PASS`, `play`, `content-package`, `persistence-replay`, `platform`, declared conditional performance gate and consumer-backed Accepted decision | production claim |
+| A4 | `ARCANE-PERSISTENCE-P1 = PASS`; fixed checkpoint-epoch save/restart/replay equals uninterrupted active roots | A5, later lossy/regional representations |
+| A5 | Cross-target/product checks plus the successor combined `world-dynamics-step` budget and consumer-backed Accepted decision | production claim |
 | AT | `ARCANE-THERMOCHEMICAL-P1` after separately promoted SPEC-43 heat/phase and Arcane base owners; debit and enthalpy publish atomically | no base stage |
 | AC | `ARCANE-CONTINUUM-P1` after the relevant SPEC-38 owner gate | no base stage |
 | AE | Separate regional-law/ecology profile and exact persistence | no base stage |
@@ -70,10 +72,10 @@ A4 ── AV Vital and Identity lanes                OUTSIDE BASE
   package callback. Release/cancel are later `WorldCommand` values.
 - Private `ArcaneRigidExchangeV1` compiles into existing PhysX external force
   requests. V1 uses force at a point plus optional free torque, not impulse.
-- PhysX and Arcane build staging candidates, validate the work/loss receipt and
-  publish together. Internal rollback reconstructs the prior canonical PhysX
-  snapshot. A post-freeze invariant halts that world without automatic retry;
-  rollback failure stops the instance.
+- The successor `WorldDynamicsStep` profile merges all rigid inputs before one
+  PhysX integration. Arcane and PhysX validate candidates and publish together;
+  a post-execution invariant publishes none and faults the primary application
+  session rather than rolling a mutated adapter back to running.
 - Exact retries terminate in the ledger. Duplicate exchange keys are fatal
   internal invariants. Concurrent executions sort canonically and reserve one
   finite-plan ceiling sequentially from the stage-5 Arcane candidate. Stage 8
@@ -86,7 +88,8 @@ A4 ── AV Vital and Identity lanes                OUTSIDE BASE
 - Targeting uses the production snapshot-bound query trace. Caster and dynamic
   crate remain in one sealed pinned region for the first fixture.
 - A4 adds a required Arcane owner segment to a successor composite checkpoint;
-  no absent/default segment or sidecar is allowed.
+  no absent/default segment or sidecar is allowed. Fixed scheduled checkpoint
+  epochs rehydrate PhysX whether or not a save was requested.
 
 ## A0B blockers
 
@@ -98,6 +101,9 @@ Before implementation, freeze:
   reservation values;
 - efficiency/conversion loss and `k_active`, `k_force`, `k_torque` coefficient
   raws for the selected work equation;
+- analytical maximum-debit ceiling including body linear/angular speed,
+  application-point-to-CoM lever arm, force/free torque, duration/cadence,
+  maintenance, conversion loss and every rounding bound;
 - exact existing physics cadence/profile binding, execution duration and
   release/cancel command traces;
 - crate mass/shape/material/start pose, application point, force/free-torque
@@ -105,7 +111,8 @@ Before implementation, freeze:
 - predeclared work/trajectory/failure thresholds and golden input/profile hashes;
 - concurrent execution/batch capacities and exact same-target/cross-target
   root requirements;
-- incremental CPU/memory and integrated GameplayBudgetMatrix limits.
+- standalone CPU/memory stop targets and the successor mutually exclusive
+  `world-dynamics-step` GameplayBudgetMatrix row.
 
 Any missing item is an explicit blocker, not a solver or gameplay implementer
 choice.
@@ -113,6 +120,8 @@ choice.
 ## Program invariants
 
 - Runtime remains the only command/ledger/schedule authority.
+- Worst-case capacities admit before freeze; expressible denial is ordinary,
+  while post-freeze exhaustion beyond reservation is an invariant.
 - RPG owns skills/inventory/current character resources; Mechanics owns the
   immutable V1 ability policy and no mutable telekinesis reducer; Arcane owns
   its declared resource/execution state; PhysX owns rigid state.

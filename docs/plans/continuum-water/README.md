@@ -2,7 +2,9 @@
 
 Status: `PLANNED / NOT_ACTIVE`; post-v1 isolated program. Governing candidate
 architecture: [SPEC-38](../../architecture/38-continuum-material-physics.md)
-and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md).
+and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md),
+with [ADR-081](../../architecture/adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md)
+as the promotion guardrail.
 No `CONTINUUM-*` ProductCheck has run.
 
 This directory is the resume and execution surface for a dedicated water
@@ -37,22 +39,28 @@ W0 Specification closure                         COMPLETE / DOCUMENTATION
 
 | Stage | Specification | Exit evidence | Blocks |
 |---|---|---|---|
-| W0 | [Product and evidence contract](00-product-and-evidence-contract.md) | Exact scenario, profile, metrics, limits and non-goals are frozen | W1 |
+| W0 | [Product and evidence contract](00-product-and-evidence-contract.md) | Exact scenario, canonical float-execution profile, metrics, limits and non-goals are frozen | W1 |
 | W1 | [Serial CPU DFSPH oracle](01-serial-cpu-dfsph-oracle.md) | `CONTINUUM-WATER-REF-P1 = PASS` on the same-target reference profile | main-roadmap activation, W2, WG |
-| W2 | [Deterministic parallel CPU and performance](02-deterministic-parallel-and-performance.md) | Worker/order exactness and `50k` THOTH budget PASS | W3 |
-| W3 | [One-pass PhysX coupling](03-one-pass-physx-coupling.md) | `CONTINUUM-COUPLING-P1 = PASS` without a second rigid writer | W4 |
+| W2 | [Deterministic parallel CPU and performance](02-deterministic-parallel-and-performance.md) | Worker/order exactness and standalone `50k` THOTH stop-target PASS | W3 |
+| W3 | [One-pass PhysX coupling](03-one-pass-physx-coupling.md) | `CONTINUUM-COUPLING-P1 = PASS` under one composition DAG, exact exchange tuple and one PhysX integration | W4 |
 | W4 | [Basin, crate and debug presentation](04-basin-crate-debug-presentation.md) | Production command loop and presentation-independence pass | W5 |
-| W5 | [Exact active persistence](05-exact-active-persistence.md) | `CONTINUUM-PERSISTENCE-P1 = PASS` for exact active state | W6 |
-| W6 | [Production promotion](06-production-promotion.md) | Consumer-backed Accepted decision and all declared product checks | shipped claim |
+| W5 | [Exact active persistence](05-exact-active-persistence.md) | `CONTINUUM-PERSISTENCE-P1 = PASS` with scheduled checkpoint epochs | W6 |
+| W6 | [Production promotion](06-production-promotion.md) | Consumer-backed Accepted decision, explicit fault/capacity profiles and successor combined budget PASS | shipped claim |
 | WG | [GPU correspondence mirror](wg-gpu-correspondence.md) | `CONTINUUM-MIRROR-P1` report for named devices | no authority or promotion stage |
 
 ## Program invariants
 
 - CPU DFSPH is the only canonical water solver candidate for V1.
+- Authoritative private `f64` requires the exact ADR-081 execution profile and
+  adversarial Windows/Linux root gate before solver code can promote.
 - The accepted state is stable sample ID plus fixed-point position/velocity;
   the next substep starts from that state.
 - One physical substep produces one water candidate and one reaction batch;
   water and PhysX publish together or neither publishes.
+- Exchange keys use namespace/owners/world/revisions/roots/participants and an
+  operation slot, never a generic world or checkpoint generation.
+- The production profile pre-admits worst-case capacities, binds the primary
+  session fault domain and rebuilds PhysX at fixed checkpoint epochs.
 - The first region is sealed and pinned active. Cross-region transfer, halos,
   streaming eviction and sleep conversion are not hidden implementation work.
 - Public contracts appear only at W4/W6 with the runtime-bearing basin
@@ -72,7 +80,10 @@ W0 Specification closure                         COMPLETE / DOCUMENTATION
    main roadmap contains only this experimental pointer.
 4. Each stage is a coherent commit boundary. Failed evidence leaves the stage
    open and records the smallest discriminator; it does not relax thresholds.
-5. If the 50k gate misses budget after two evidence-backed optimization
+5. Treat the `4/6 ms` 50k number as a standalone stop target. Production also
+   requires the mutually exclusive successor `world-dynamics-step` row across
+   every substep in one gameplay tick. If that combined gate misses after two
+   evidence-backed optimization
    cycles, stop the roadmap as `RESEARCH_ONLY`. GPU authority, a smaller
    production gate or a larger budget requires a new explicit decision.
 

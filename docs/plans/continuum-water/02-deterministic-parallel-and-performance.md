@@ -4,7 +4,7 @@
 
 Turn the passing serial oracle into a bounded parallel CPU candidate without
 changing its canonical trajectory, then determine whether the selected 50k
-product fixture can fit the current THOTH budgets.
+product fixture can fit its standalone THOTH stop target.
 
 ## Correctness-preserving parallel plan
 
@@ -45,20 +45,19 @@ Define `continuum-water-50k.v1` for `ref-win-thoth-v1`:
 Also run identical report-only `10k` and `100k` profiles. `100k` is a stress
 measurement and cannot become a production claim.
 
-## Budget gate
+## Standalone stop gate
 
 The 50k workload must satisfy on THOTH:
 
 - water-inclusive physical-frame p95 `<= 4,000 µs`;
 - water-inclusive physical-frame p99 `<= 6,000 µs`;
-- integrated gameplay total p95 `<= 8,000 µs` and p99 `<= 12,000 µs`;
 - no missed substep, non-convergence, capacity fault, unowned span or root
   difference across profiler/worker permutations.
 
-This is a new continuum workload using the current absolute ceilings; it does
-not relabel itself as a PASS for the existing 16-humanoid `PHYS-P4` workload.
-Instrumentation assigns every continuum span to the future PhysicalStep owner
-row before production promotion and cannot manufacture a second budget.
+These values are an isolated solver stop target, not `PHYS-P4`, an integrated
+gameplay PASS or permission to sum subsystem budgets. W6 must introduce and
+pass the successor mutually exclusive `world-dynamics-step` row whose one-tick
+window includes every physical substep, merge, validation and publication.
 
 ## Two-cycle stop policy
 
@@ -81,7 +80,8 @@ requires a new explicit architecture/product decision.
 The W2 report binds tool commit, Rust/toolchain, target, THOTH fingerprint,
 scenario/profile hashes, canonical roots, run boundaries, raw percentile
 samples, iteration tails, memory peaks and per-stage costs. A PASS requires
-exact correctness plus the budget gate; report-only timing cannot unblock W3.
+exact correctness plus this standalone stop gate; it cannot satisfy the W6
+combined budget.
 
 ## Non-goals
 

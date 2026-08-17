@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.44 |
+| Версия | 2.45 |
 | Последняя проверка | 2026-08-17 |
-| Заменяет | INDEX-001 2.43; integrates the Proposed continuum, layered-physical, vegetation, world-substrate, arcane, thermochemical and neural-assistance tracks without changing the Accepted baseline |
+| Заменяет | INDEX-001 2.44; adds Accepted ADR-081 promotion guardrails and synchronizes the Proposed world-dynamics tracks without activating runtime/schema behavior |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -189,10 +189,10 @@ traceability — навигационная карта, не admission authority
 | SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 local water/deformable-terrain track; CPU DFSPH reference, GPU correspondence and MLS-MPM terrain are not current runtime contracts |
 | SPEC-39 | [Proposed layered physical-world model](39-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and thermochemical state without a universal solver or second writer |
 | SPEC-40 | [Proposed structural vegetation physics](40-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; V0A decisions are closed and V0B calibration remains open |
-| SPEC-41 | [Proposed world-substrate composition](41-world-substrate-composition.md) | Proposed cross-owner composition with a start-command/exchange-receipt split, exact owner identity and no universal world service or shared mutable state |
-| SPEC-42 | [Proposed arcane substrate and physical magic](42-arcane-substrate-and-physical-magic.md) | Proposed fixed-point Arcane owner, production targeting, staged atomic PhysX coupling and exact persistence track; architecture A0A is closed and numeric A0B remains open |
-| SPEC-43 | [Proposed thermochemical material processes](43-thermochemical-material-processes.md) | Proposed parcel composition/enthalpy/phase owner and sealed water/ice calorimetry track; T0A is closed and numeric/profile T0B remains open |
-| SPEC-44 | [Proposed neural-assisted world simulation](44-neural-assisted-world-simulation.md) | Proposed post-promotion diagnostics and bounded solver proposals; model is not an owner/backend and exact classical non-regression is required |
+| SPEC-41 | [Proposed world-substrate composition](41-world-substrate-composition.md) | Proposed successor stage-8 `WorldDynamicsStep`, runtime-owned DAG, exact identity, epoch persistence and fail-stop transaction; current schedule remains unchanged |
+| SPEC-42 | [Proposed arcane substrate and physical magic](42-arcane-substrate-and-physical-magic.md) | Proposed fixed-point Arcane owner with analytical maximum debit, successor-stage PhysX coupling and epoch persistence; numeric A0B remains open |
+| SPEC-43 | [Proposed thermochemical material processes](43-thermochemical-material-processes.md) | Proposed enthalpy/phase owner with per-interface sub-LSB residuals and atomic parcel topology; numeric/profile T0B remains open |
+| SPEC-44 | [Proposed neural-assisted world simulation](44-neural-assisted-world-simulation.md) | Proposed N0/N1 report/shadow-only research; runtime advice requires a later safety-certificate-backed Accepted ADR |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -277,11 +277,12 @@ traceability — навигационная карта, не admission authority
 | ADR-073 | [Deterministic cognition owner vertical](adr/073-deterministic-cognition-owner-vertical.md) | Accepted R4c semantic beliefs, fixed-point Utility, bounded GOAP and paired Agent/Memory owners; its V5/V6/Replay V8 boundary is superseded by ADR-074 |
 | ADR-074 | [Systemic Strategic Agent owner vertical](adr/074-systemic-strategic-agent-owner-vertical.md) | Accepted bounded R4d structured social/work/economy path, activity owner, tier cognition, bulk-time equivalence, V6/V7 content and nine-owner Replay V9 |
 | ADR-075 | [Product-grounded functional anatomy and character embodiment](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) | Accepted functional gameplay abstraction, fixed-PD capability projection, treatment, agency, player/NPC parity, third-person severity/LOD and lower-limb vertical semantics; exact schemas/implementation remain Proposed |
-| ADR-076 | [Continuum material physics track](adr/076-continuum-material-physics-track.md) | Proposed multi-lane continuum ownership and promotion strategy; no current backend/schema/save claim |
-| ADR-077 | [Layered physical world and living-structures track](adr/077-layered-physical-world-and-living-structures-track.md) | Proposed peer-owner physical DAG and selected V0A destructible-tree profile; V0B remains open and there is no current backend/schema/save claim |
-| ADR-078 | [World substrate and arcane physical-interaction track](adr/078-world-substrate-and-arcane-physical-interaction-track.md) | Proposed world-owner composition and selected telekinesis-first architecture; numeric A0B remains open and no current schema/runtime claim exists |
-| ADR-079 | [Thermochemical material-process track](adr/079-thermochemical-material-process-track.md) | Proposed enthalpy-first fixed-point parcel owner and sealed heat/phase promotion path; no current schema/runtime claim |
-| ADR-080 | [Neural assistance as bounded proposals](adr/080-neural-assistance-as-bounded-proposals.md) | Proposed optional proposal-only acceleration after classical promotion; no model authority, retry or current model-lane claim |
+| ADR-076 | [Continuum material physics track](adr/076-continuum-material-physics-track.md) | Proposed multi-lane continuum strategy, partially narrowed by ADR-081; no current backend/schema/save claim |
+| ADR-077 | [Layered physical world and living-structures track](adr/077-layered-physical-world-and-living-structures-track.md) | Proposed destructible-tree profile, partially narrowed by ADR-081; V0B remains open and there is no current backend/schema/save claim |
+| ADR-078 | [World substrate and arcane physical-interaction track](adr/078-world-substrate-and-arcane-physical-interaction-track.md) | Proposed telekinesis-first architecture, partially narrowed by ADR-081; numeric A0B remains open and no current schema/runtime claim exists |
+| ADR-079 | [Thermochemical material-process track](adr/079-thermochemical-material-process-track.md) | Proposed enthalpy-first parcel owner, partially narrowed by ADR-081; no current schema/runtime claim |
+| ADR-080 | [Neural assistance as bounded proposals](adr/080-neural-assistance-as-bounded-proposals.md) | Proposed report/shadow-only research after classical promotion, narrowed by ADR-081 |
+| ADR-081 | [World-dynamics gap closure and promotion guardrails](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) | Accepted promotion guardrails for successor scheduling, composition, exact continuation, float execution, fault/capacity/budget semantics and domain closures; no current runtime/schema activation |
 
 ## Proposed tracks
 
@@ -297,9 +298,9 @@ traceability — навигационная карта, не admission authority
 - SPEC-43/ADR-079 — post-v1 thermochemical material research; a sealed
   enthalpy/ice calorimetry profile is first, T0B calibration blocks code, and
   combustion/atmosphere/physical/arcane couplers remain independent.
-- SPEC-44/ADR-080 — optional neural assistance downstream of a promoted
-  classical owner; models own no state, cannot trigger retry-to-green and must
-  preserve exact canonical roots and failure classes.
+- SPEC-44/ADR-080 — optional N0/N1 report/shadow assistance downstream of a
+  promoted classical owner; models own no state and cannot affect production
+  work, roots or failure classes under ADR-081.
 - SPEC-16/ADR-017 — optional text-canonical multimodal dialogue/model packs.
 - Broader navigation sections of SPEC-08 — navmesh cooking, dynamic overlays,
   tactical/physical path following and optional Recast adapter remain Proposed

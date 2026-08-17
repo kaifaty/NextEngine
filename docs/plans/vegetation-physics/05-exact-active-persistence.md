@@ -19,6 +19,10 @@ Factorizations, residual scratch, adjacency acceleration, collision broad
 phase, render mesh and GPU buffers are reconstructed. A sidecar cannot commit
 or fail independently.
 
+The profile fixes a positive checkpoint epoch. At each boundary it rebuilds
+and validates a fresh PhysX scene whether or not a save was requested; save
+waits for the same barrier and uninterrupted comparison runs execute it too.
+
 ## Restore
 
 Validate the entire project/profile/definition/PhysX/structure closure before

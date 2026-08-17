@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-076 |
 | Status | Proposed |
-| Version | 1.1 |
+| Version | 1.2 |
 | Decision date | 2026-08-16 |
-| Last verified | 2026-08-16 |
-| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md) |
-| Candidate revision note | Version 1.1 fixes the selected water consumer, CPU authority, one-pass coupling and exact-active persistence while retaining `Proposed` status; the imported candidate was renumbered to avoid the occupied mainline namespace |
-| Superseded by | none |
+| Last verified | 2026-08-17 |
+| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
+| Candidate revision note | Version 1.2 applies ADR-081 float, identity, checkpoint-epoch, capacity, fault-domain and successor-budget promotion guardrails |
+| Superseded by | Partially [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md): it supersedes the world-generation key, unprofiled private-float, unbounded continuation, implicit fault-domain and legacy-budget clauses. |
 
 ## Context
 
@@ -52,6 +52,11 @@ micrometres and velocity in signed `i64` micrometres per second. Publication
 uses one checked ties-to-even conversion, and the next substep reconstructs
 private floats from that accepted state.
 
+Before solver code, the authoritative path binds the exact ADR-081
+`CanonicalFloatExecutionProfile`. Cross-target adversarial roots are a
+production gate; two failed remediation cycles keep this path research-only or
+require a separate fixed-point/soft-float authority decision.
+
 Uniform sample mass is profile state. Density, pressure/divergence factors,
 neighbor/grid structures, warm-start values and render buffers are rebuilt
 caches. V1 disables warm start, adaptivity, surface tension, optional
@@ -75,8 +80,10 @@ The future engine-owned reaction record binds full `PhysicsBodyIdV1`, expected
 world/body revisions, tick/substep, region/profile/prior-state roots,
 fixed-point linear/angular impulse and frozen centre of mass as torque
 reference. One canonical record remains per body after stable reduction.
-Exactly one batch key `(world generation, tick, substep, region)` is allowed;
-any duplicate or conflicting result rejects the complete step.
+Exactly one ADR-081 exchange tuple is allowed, including namespace, both owner
+IDs, applicable world ID, expected revisions/roots, tick/substep, edge profile,
+participants and operation slot; any duplicate or conflicting result rejects
+the complete step. World/save/checkpoint generation is not an exchange key.
 
 PhysX remains the sole writer of rigid/articulation transforms and velocities.
 Production requires a later Accepted ADR narrowly superseding the applicable
@@ -89,11 +96,17 @@ cross-region coupling and streaming eviction are absent. First persistence
 serializes exact active samples inside the same composite physics checkpoint;
 an independently committed sidecar is forbidden.
 
+The production profile uses fixed scheduled checkpoint epochs to reconstruct
+and validate a fresh PhysX scene even when no save was requested. Save waits
+for the same barrier, which uninterrupted comparison runs also execute.
+
 Sleep conversion is a separate optional lossy transition and is not on the
 water critical path. It requires versioned receipts and repeated-cycle bounds
 before use. Cross-region transfer requires another specification and cannot be
 inferred from this decision.
 
+Worst-case capacities are admitted before freeze; an expressible denial is
+ordinary and exhaustion beyond the admitted bound is an invariant fault.
 Missing/rejected capability before activation loads an authored dry basin
 variant. After activation, silent switch to dry/decorative water, GPU authority
 or frozen water while PhysX advances is forbidden. A fatal active failure
@@ -129,6 +142,10 @@ publishes neither water nor rigid state. The previous complete generation
 remains authoritative. Retry-to-green, partial result, mid-run fallback and
 separate sidecar recovery are forbidden.
 
+The first primary gameplay profile faults the whole application session via
+the ADR-081 state machine; only independently provisioned test/training scenes
+may isolate a narrower slot.
+
 The offline serial oracle stops at its first failed substep and reports a typed
 bounded failure. It cannot continue a trajectory from a retained prior frame
 and present it as successful evidence.
@@ -142,16 +159,17 @@ integration track. A later production proposal must additionally prove:
 
 - exact same-target repeat and insertion-order roots;
 - published/reference and independent-solver aggregate error bounds;
-- `50k` performance inside the existing THOTH physics `4/6 ms` p95/p99 and
-  integrated `8/12 ms` ceilings; `100k` is stress/report-only;
+- `50k` standalone performance at the THOTH `4/6 ms` p95/p99 stop target and
+  the full combined successor `world-dynamics-step` row; `100k` is
+  stress/report-only;
 - one-pass crate float/impact and failure atomicity;
 - exact active save/restart continuation;
 - Windows/Linux canonical-root equality before production promotion;
 - identical `game`/`headless` semantics and the authored dry pre-activation
   fallback.
 
-If `50k` misses the current budget after two evidence-backed optimization
-cycles, the track remains research-only. GPU authority, a smaller production
+If `50k` misses its standalone stop target or the successor combined budget
+after two evidence-backed optimization cycles, the track remains research-only. GPU authority, a smaller production
 sample gate or a larger total budget requires an explicit new decision.
 
 ## Considered alternatives

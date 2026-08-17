@@ -36,7 +36,12 @@ persisted.
 
 ## Save and restore flow
 
-1. close the physical boundary after a complete water/PhysX substep;
+The profile fixes a positive checkpoint-epoch length. Every epoch reconstructs
+and validates a fresh PhysX scene whether or not a save was requested; save
+requests wait for that scheduled boundary, and uninterrupted comparison runs
+execute the same boundaries.
+
+1. close the scheduled rehydration boundary after a complete water/PhysX substep;
 2. validate exact region/profile/content and sample bounds;
 3. serialize rigid and water segments into private staging;
 4. recompute every segment and composite root;
@@ -63,6 +68,7 @@ ADR-046.
   revision, mismatched segment/composite root and unsupported version;
 - failure during staging, rigid reconstruction, water reconstruction and final
   publication exposes no mixed physical generation.
+- save/no-save permutations execute identical epoch barriers and roots;
 
 `CONTINUUM-PERSISTENCE-P1 = PASS` requires exact owner-root and continuation
 parity. It never compares exact active root with a future lossy sleep root.

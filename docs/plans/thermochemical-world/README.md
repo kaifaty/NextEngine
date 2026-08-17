@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Status | `PLANNED / NOT_ACTIVE` |
-| Architecture | [SPEC-43](../../architecture/43-thermochemical-material-processes.md), [ADR-079](../../architecture/adr/079-thermochemical-material-process-track.md) |
+| Architecture | [SPEC-43](../../architecture/43-thermochemical-material-processes.md), [ADR-079](../../architecture/adr/079-thermochemical-material-process-track.md), [ADR-081](../../architecture/adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
 | Source context | [Research-paper manifest](../../architecture/research/world-dynamics-source-papers.md) |
 | Current checkpoint | `T0A COMPLETE / T0B OPEN / T1 NOT_STARTED` |
 | Activation gate | `THERMOCHEM-ENTHALPY-REF-P1 = PASS` |
@@ -53,13 +53,13 @@ inherits a PASS from base heat/phase evidence.
 
 | Package | Status | Exit |
 |---|---|---|
-| T0A Architecture | `COMPLETE` | Owner, attachment, enthalpy-first authority, fixed-step batch, atomic coupling, persistence and failure semantics are explicit in SPEC-43/ADR-079. |
+| T0A Architecture | `COMPLETE` | Owner, attachment, enthalpy-first authority, successor stage/DAG, sub-LSB residual, atomic parcel topology, persistence and fault semantics are explicit. |
 | T0B Numeric/profile/corpus | `OPEN` | All blockers below are exact, hash-bound and reviewable. |
 | T1 Serial oracle | `NOT_STARTED` | `THERMOCHEM-ENTHALPY-REF-P1 = PASS`; performance recorded but not blocking. |
 | T2 Heat transfer | `NOT_STARTED` | `THERMOCHEM-HEAT-P1` and `THERMOCHEM-PHASE-P1` pass order/fault corpus. |
 | T3 Production fixture | `NOT_STARTED` | Real content/owner activation and immutable presentation use production paths; no test-only mutation. |
-| T4 Persistence | `NOT_STARTED` | `THERMOCHEM-PERSISTENCE-P1 = PASS`; corrupt closure fails before mutation. |
-| T5 Target/performance | `NOT_STARTED` | `THERMOCHEM-CROSS-TARGET-P1` plus frozen conditional budget pass. |
+| T4 Persistence | `NOT_STARTED` | `THERMOCHEM-PERSISTENCE-P1 = PASS`; any PhysX-coupled profile uses scheduled checkpoint epochs. |
+| T5 Target/performance | `NOT_STARTED` | Cross-target gate plus standalone stop target and successor combined `world-dynamics-step` budget pass. |
 | T6 Promotion | `NOT_STARTED` | Consumer-backed Accepted ADR and only required current contracts land together. |
 
 ## T0B blockers
@@ -67,17 +67,20 @@ inherits a PASS from base heat/phase evidence.
 No solver code starts until one reviewed profile fixes:
 
 - fixed-point descriptors for mass, enthalpy, temperature projection, phase
-  fraction, heat flow and every checked intermediate;
+  fraction, heat flow, signed sub-LSB interface residual and every checked
+  intermediate;
 - exact water/ice mass, initial states, heat capacities, transition enthalpy,
   phase interval convention and piecewise lookup bytes;
 - exact reservoir state, interface geometry, conductance law, fixed 240 Hz
   interval and run duration;
-- maximum parcels/interfaces/transfers, decoded bytes and failure codes;
+- maximum parcels/interfaces/transfers/topology operations, decoded bytes and
+  failure codes, all pre-admitted before freeze;
 - independent oracle implementation/version and golden fixture hashes;
 - conservation and curve thresholds, N-1/N/N+1 faults, order/worker repeats
   and save-at-N/resume-to-M points;
-- THOTH incremental CPU/memory and integrated GameplayBudgetMatrix rows plus
-  one report-only stress profile.
+- THOTH standalone CPU/memory stop targets and successor mutually exclusive
+  `world-dynamics-step` GameplayBudgetMatrix row plus one report-only stress
+  profile.
 
 Absence of any value is a blocker, not solver discretion.
 
@@ -90,9 +93,13 @@ Absence of any value is a blocker, not solver discretion.
 - T2 may parallelize only with fixed logical shards, canonical reductions and
   exact roots independent of worker count.
 - T3 uses authored project activation and immutable committed projections.
-  Presentation is debug-only and never authority.
+  It uses the successor stage-8 `WorldDynamicsStep` closed owner/DAG profile;
+  presentation is debug-only and never authority.
 - T4 creates no sidecar. Exact Thermochemical state participates in one
-  successor composite checkpoint with every required attachment owner.
+  successor composite checkpoint with every required attachment owner and all
+  interface residuals. A PhysX-coupled profile rehydrates at fixed epochs.
+- Parcel split/merge/handoff is one atomic transaction with derived child IDs,
+  parent tombstones and species/enthalpy/progress/mechanical-mass conservation.
 - After two evidence-backed performance optimization cycles without meeting
   the frozen gate, retain research status. Changing workload, budget or
   authority requires an explicit decision.
@@ -107,7 +114,8 @@ Before activation, authored static material state is allowed. After
 activation, ambient-temperature reset, decorative ice/fire, frozen
 thermochemistry, retry-to-green or backend switch is forbidden. A fatal
 thermochemical/coupling failure retains the prior complete checkpoint and
-stops the affected world.
+faults the primary application session; only independently provisioned test/
+training scenes may isolate a narrower slot.
 
 ## Handoff checklist
 

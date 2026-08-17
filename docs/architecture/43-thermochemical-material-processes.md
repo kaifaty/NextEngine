@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-43 |
 | Status | Proposed |
-| Version | 1.0 |
+| Version | 1.1 |
 | Last verified | 2026-08-17 |
-| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-38](38-continuum-material-physics.md), [SPEC-39](39-layered-physical-world.md), [SPEC-40](40-structural-vegetation-physics.md), [SPEC-41](41-world-substrate-composition.md), [SPEC-42](42-arcane-substrate-and-physical-magic.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-071](adr/071-canonical-physics-material-lineage.md), [ADR-079](adr/079-thermochemical-material-process-track.md) |
+| Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-38](38-continuum-material-physics.md), [SPEC-39](39-layered-physical-world.md), [SPEC-40](40-structural-vegetation-physics.md), [SPEC-41](41-world-substrate-composition.md), [SPEC-42](42-arcane-substrate-and-physical-magic.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-071](adr/071-canonical-physics-material-lineage.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
 | Related research | [Imported world-dynamics source papers](research/world-dynamics-source-papers.md) |
+| Candidate revision note | Version 1.1 applies ADR-081 sub-LSB residual, exchange identity, successor-stage, parcel-topology, capacity, fault-domain, checkpoint and budget guardrails |
 
 ## Status and bounded purpose
 
@@ -81,17 +82,22 @@ reaction, branch, event or root.
 Each accepted outer step publishes complete future-affecting state:
 
 ```text
-ThermochemicalParcelStateV1 {
-  parcel_id,
-  attachment_revision,
+ThermochemicalOwnerStateV1 {
   profile_revision,
   tick,
   completed_substep,
+  parcels_sorted_by_id: ThermochemicalParcelStateV1[],
+  interface_heat_residuals_sorted_by_id[(interface_id, signed_sub_lsb)],
+  canonical_root,
+}
+
+ThermochemicalParcelStateV1 {
+  parcel_id,
+  attachment_revision,
   species_masses_fixed[],
   total_enthalpy_fixed,
   equilibrium_phase_class,
   reaction_progress_fixed[],
-  canonical_root,
 }
 ```
 
@@ -112,10 +118,18 @@ The base reaction table is empty and its reaction-progress collection is
 canonically empty. Adding even one reaction is a later profile with its own
 species/element closure and evidence.
 
-Internal lookup indexes, neighbor/interface caches, floating residuals,
-derived temperature/phase fractions and presentation meshes are
-reconstructible. The next step begins only from the published fixed-point
-state and exact attachment projections.
+Each active interface owns one signed sub-LSB heat residual in canonical
+orientation. T0B fixes its finer integer scale, bound and ties-to-even update.
+The next transfer evaluates `law_joules + prior_residual`, publishes the rounded
+equal-and-opposite joules and stores the signed remainder for that interface.
+The residual participates in state roots and checkpoints; it cannot be
+discarded as scratch or replaced by an implicit deadband. A physical deadband
+requires an explicit material-law profile.
+
+Internal lookup indexes, neighbor/interface caches, derived temperature/phase
+fractions and presentation meshes are reconstructible. The next step begins
+only from the published fixed-point state, interface residuals and exact
+attachment projections.
 
 ## Base heat-transfer step
 
@@ -124,20 +138,23 @@ is immutable profile data with stable endpoints, orientation, area and a
 bounded conductance law. The graph cannot be modified by package callbacks
 during a step.
 
-The base profile runs once per existing 240 Hz `PhysicalStep` substep. It adds
-no runtime stage, command barrier or async completion boundary. A later slower
-or multi-rate profile must define an integer cadence, exact accumulation state
-and coupling semantics in a separate decision; wall time cannot skip or merge
-thermal steps.
+The base profile runs once per 240 Hz substep, but Thermochemical state is not
+admitted to the current physical-only stage-8 access set. Its first production
+consumer therefore uses ADR-081's successor twelve-stage profile with
+`WorldDynamicsStep` at stage 8 and a closed owner/DAG manifest; the current
+runtime profile is unchanged. A later slower or multi-rate profile must define
+an integer cadence, exact accumulation state and coupling semantics in a
+separate decision; wall time cannot skip or merge thermal steps.
 
 For each fixed interval:
 
 1. freeze parcel states, attachments, interface/profile revisions and the
    exact mechanical mass projection;
 2. derive temperatures from canonical enthalpy using the frozen profile;
-3. evaluate every interface in canonical endpoint order;
-4. compute one fixed-point heat transfer with an equal-and-opposite source and
-   destination entry;
+3. evaluate every interface in canonical endpoint order, adding its prior
+   signed sub-LSB residual;
+4. round one fixed-point heat transfer, store the signed remainder and emit an
+   equal-and-opposite source/destination entry;
 5. reduce entries using declared exact reducers and checked bounds;
 6. update candidate enthalpies once, derive candidate phase classes and
    validate mass/energy receipts;
@@ -148,15 +165,15 @@ The base fixture has no ambient infinite sink. Its finite thermal reservoir is
 another parcel whose enthalpy changes by the opposite amount. `cold` is
 enthalpy removal, not a second substance or negative-energy inventory.
 
-Each `ThermochemicalHeatBatchV1` candidate binds the world namespace,
-thermochemical generation, tick/substep, source/destination parcel IDs,
-attachment and profile revisions, prior roots, signed fixed-point joules and
-result roots. Exactly one record is allowed for one canonical interface key.
-An exact duplicate or different hash under the same key rejects the complete
-step as an internal invariant. Arrival or worker order never selects a record.
-The V1 key is exactly `(world_namespace, thermochemical_generation, tick,
-substep, interface_id)`; source/destination IDs are bound by the immutable
-interface revision and revalidated in the record.
+Each `ThermochemicalHeatBatchV1` candidate binds the ADR-081 tuple:
+`world_namespace`, source/destination owner IDs, applicable destination
+`world_id`, expected owner revisions and roots, tick/substep, edge profile,
+source/destination parcel IDs, interface ID and operation slot. It also binds
+attachment/profile revisions, signed fixed-point joules, residual before/after
+and result roots. Exactly one record is allowed for that key. An exact duplicate
+or different hash under the same key rejects the complete step as an internal
+invariant. Arrival or worker order never selects a record. Thermochemical,
+checkpoint or save generation is not an exchange-key field.
 
 ## Physical and world coupling
 
@@ -178,6 +195,17 @@ transaction. A thermochemical process cannot directly set a rigid mass,
 delete a continuum sample, break a tree edge, apply gameplay damage or emit a
 success event as a substitute for destination-owner validation.
 
+### Parcel topology and ownership transfer
+
+Any parcel split, merge or attachment handoff is one atomic
+`MaterialParcelTopologyTransaction` with the participating mechanical topology
+transaction. Child IDs derive from the causal transaction identity plus
+canonical child slots; successfully replaced parents become tombstones and
+cannot be reused. Prepare/validate closes species mass, total enthalpy,
+reaction progress, interface residual disposition and corresponding mechanical
+mass before either owner publishes. There is no interval in which parent and
+children are simultaneously authoritative and no thermochemical-only split.
+
 ## Reactions and combustion ladder
 
 Heat and water/ice phase closure precede chemistry. A later reaction package
@@ -195,9 +223,15 @@ species namespace, atmosphere and explosion mechanics are not part of V1.
 
 T5 introduces the first successor composite checkpoint only with a production
 consumer. It stores exact active parcels, attachments, species inventory,
-enthalpy, required reaction progress and cross-owner receipts in the same
-atomic generation as participating owners. Missing or corrupt required state
-cannot default to ambient temperature or equilibrium content.
+enthalpy, interface residuals, required reaction progress and cross-owner
+receipts in the same atomic generation as participating owners. Missing or
+corrupt required state cannot default to ambient temperature or equilibrium
+content.
+
+If the production composition includes PhysX and requires exact restart, it
+binds a fixed positive checkpoint epoch. Each scheduled epoch reconstructs and
+validates a fresh PhysX scene before atomic swap; saves wait for that barrier and
+uninterrupted comparison runs execute the same barriers.
 
 Sidecar saves, recomputing heat history from presentation, independent owner
 publication and lossy thermal sleep before exact persistence are forbidden.
@@ -207,8 +241,12 @@ integer budgets, never camera, wall time or measured frame cost.
 
 ## Failure and fallback
 
+Worst-case parcel, interface, residual, reaction and topology-transaction
+capacities are admitted before freeze. User-expressible denial is ordinary;
+post-freeze exhaustion beyond the reserved bound is an invariant fault.
+
 Invalid profile/content, missing attachment, stale revision, nonfinite input,
-fixed-point overflow, table-domain failure, capacity excess, duplicate batch,
+fixed-point overflow, table-domain failure, capacity excess beyond a reserved bound, duplicate batch,
 mass/energy residual, destination rejection or corrupt checkpoint rejects the
 complete participating step. The prior generation remains authoritative.
 There is no clamp-to-green, retry with a smaller timestep, frozen thermal
@@ -220,6 +258,11 @@ reset, decorative ice/fire, scripted ignition/damage or thermochemical state
 omission is forbidden. A required but unsupported capability fails project
 activation.
 
+The first primary-gameplay profile maps a fatal thermochemical/world-dynamics
+fault to the whole application session through `Running -> Faulted ->
+DiagnosticSaved -> Closed | ExplicitRestore`. Only independently provisioned
+test/training scenes may declare narrower isolation.
+
 ## Evidence and promotion
 
 | Check | Required result |
@@ -229,7 +272,7 @@ activation.
 | `THERMOCHEM-PHASE-P1` | Heating/cooling traverses the frozen water/ice curve without hidden hysteresis or double-owned temperature and matches the independent oracle thresholds. |
 | `THERMOCHEM-PERSISTENCE-P1` | Save-at-N/resume-to-M equals uninterrupted roots exactly and corrupt/missing attachment or owner state fails before publication. |
 | `THERMOCHEM-CROSS-TARGET-P1` | Windows/Linux canonical parcel, receipt, command and event roots match exactly before production promotion. |
-| conditional `performance` | The frozen active-parcel/interface workload meets its incremental and integrated GameplayBudgetMatrix rows without changing authority. |
+| conditional `performance` | The frozen active-parcel/interface workload meets its standalone stop target and the complete combined workload passes the successor mutually exclusive `world-dynamics-step` row across every substep in one gameplay tick. |
 
 Only `THERMOCHEM-ENTHALPY-REF-P1 = PASS` activates an R8 integration track.
 Production promotion requires the base checks, affected `play`,
