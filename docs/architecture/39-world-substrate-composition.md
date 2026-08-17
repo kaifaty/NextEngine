@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-39 |
 | Status | Proposed |
-| Version | 1.1 |
+| Version | 1.2 |
 | Last verified | 2026-08-17 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-37](37-layered-physical-world.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-074](adr/074-world-substrate-and-arcane-physical-interaction-track.md) |
-| Specialization | [SPEC-40](40-arcane-substrate-and-physical-magic.md) |
-| Supersedes | SPEC-39 1.0; closes the command/step receipt split, exchange identity, duplicate and failure-isolation rules without changing current runtime, RPG, Mechanics, PhysX, content, save or public-contract semantics |
+| Specializations | [SPEC-40](40-arcane-substrate-and-physical-magic.md), [SPEC-41](41-thermochemical-material-processes.md), [SPEC-42](42-neural-assisted-world-simulation.md) |
+| Supersedes | SPEC-39 1.1; adds the thermochemical owner and neural non-owner boundary while retaining the existing command/step split and current runtime semantics |
 
 ## Status and purpose
 
@@ -18,11 +18,12 @@ store or a second command runtime. `WorldDynamics` is an architectural name for
 their fixed-stage composition. It is not a new state owner, public service,
 crate requirement or generic plugin bus.
 
-Current Accepted owners and paths remain unchanged. The first proposed new
-substrate is the bounded arcane lane in SPEC-40. Continuum, living structures
-and future thermal state retain their independent SPEC-36/37/38 promotion
-gates. Vital, soul, identity, divine and ontological domains have no current
-authority or implementation obligation.
+Current Accepted owners and paths remain unchanged. Proposed additions are the
+bounded Arcane owner in SPEC-40 and Thermochemical material owner in SPEC-41.
+Continuum and living structures retain their independent SPEC-36/37/38 gates.
+SPEC-42 is an optional proposal producer, not a substrate owner. Vital, soul,
+identity, divine, atmosphere and ontological domains have no current authority
+or implementation obligation.
 
 ## World owner map
 
@@ -31,8 +32,10 @@ authority or implementation obligation.
 | Tick, command identity, ledger, schedule and atomic publication | Core Runtime | No substrate creates a private clock, command queue, RNG or receipt path. |
 | Character, inventory, equipment, skill/proficiency and current bounded character resources | RPG Framework | A substrate reads revision-bound views and proposes typed operations; it never copies RPG fields. |
 | Ability definitions, package reducer state and semantic effect proposals | Mechanics Runtime | First-party and community magic use the same package/capability/`EffectRequestV1` path. |
-| Rigid/articulated and promoted non-rigid physical state | Physical Embodiment owners from SPEC-26/37 | External substrates send canonical batches; only the physical owner writes pose, velocity, contact, material or topology state. |
+| Rigid/articulated and promoted non-rigid physical state | Physical Embodiment owners from SPEC-26/37 | External substrates send canonical batches; only the physical owner writes pose, velocity, contact, mechanical sample/structure state or topology. |
 | Future arcane reservoirs, channels, executions and fields | Arcane owner from SPEC-40 | RPG skill and Mechanics definitions are references, not duplicate arcane state. |
+| Future material composition, enthalpy, phase and reaction progress | Thermochemical owner from SPEC-41 | Stable parcel attachments reference physical participants; consequences cross typed atomic batches. |
+| Optional learned solver advice | no state owner; SPEC-42 proposal producer | Advice is revision-bound, stateless and validated by one classical owner; it publishes no world state or exchange. |
 | Future tissue, growth and disease | no current owner | A Vital owner requires a concrete production consumer and separate SPEC/ADR. |
 | Future soul, true-name, oath or continuity state | no current owner | Identity is not inferred from mana, RPG identity or `PersistentId`. |
 | Presentation and diagnostics | Presentation | Read-only extraction; VFX, camera and renderer timing never select an outcome. |
@@ -50,7 +53,7 @@ L1 Runtime identity, command ledger and fixed schedule
  ↓
 L2 Mechanics/RPG validation and immutable cross-owner read set
  ↓
-L3 Peer owner candidate states (physical, arcane, later vital/identity)
+L3 Peer owner candidate states (physical, thermochemical, arcane, later vital/identity)
  ↓
 L4 Typed exchange batches and one declared composite commit
  ↓
@@ -148,6 +151,12 @@ raw field, particle, solver or hidden target state. Planning is a proposal;
 owner validation remains the oracle. Events describe committed facts and never
 replace owner state or permit same-tick mutation.
 
+Optional learned assistance follows SPEC-42. It may advise one existing owner
+candidate only after that owner's classical gates. It cannot create a new
+layer, own a field, write a trusted exchange batch or use tolerance to change a
+canonical root. Missing advice uses the same classical default; failure after
+admitted advice is not retried.
+
 ## Failure and fallback
 
 Capability denial, insufficient source quantity/throughput, ineligible target
@@ -178,9 +187,11 @@ persistence, cross-target and conditional performance checks. A future
 `WORLD-DYNAMICS-P1` is created only when two independently promoted **new
 substrate owners beyond the existing Physical Embodiment owner** participate
 in one production transaction. The first Arcane-to-PhysX edge is covered by
-its own coupling check. The later composition check must prove exclusive
-writers, complete rollback, exact receipt/event order and presentation
-independence.
+its own coupling check. An Arcane-to-Thermochemical edge is the first currently
+identified candidate for the composition check, after both base owners pass.
+The check must prove exclusive writers, complete rollback, exact receipt/event
+order and presentation independence. A neural model cannot satisfy the owner
+count.
 
 No public `WorldDynamics`, generic domain, raw query, spell graph or exchange
 API is added by this Proposed SPEC. A production consumer introduces only the

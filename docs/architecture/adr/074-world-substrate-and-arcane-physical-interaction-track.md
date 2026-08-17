@@ -4,12 +4,13 @@
 |---|---|
 | ID | ADR-074 |
 | Status | Proposed |
-| Version | 1.1 |
+| Version | 1.2 |
 | Decision date | 2026-08-16 |
 | Last verified | 2026-08-17 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](../18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-31](../31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-36](../36-continuum-material-physics.md), [SPEC-37](../37-layered-physical-world.md), [SPEC-38](../38-structural-vegetation-physics.md), [SPEC-39](../39-world-substrate-composition.md), [SPEC-40](../40-arcane-substrate-and-physical-magic.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-019](019-canonical-player-actions-and-presentation-authority.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-034](034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-073](073-layered-physical-world-and-living-structures-track.md) |
-| Supersedes | ADR-074 1.0; selects all recommended architecture-gap resolutions while keeping the track Proposed and numeric calibration open |
+| Supersedes | ADR-074 1.1; binds future heat/cooling to SPEC-41 while keeping the base Arcane track Proposed and numeric calibration open |
 | Superseded by | none |
+| Related Proposed tracks | [SPEC-41](../41-thermochemical-material-processes.md), [SPEC-42](../42-neural-assisted-world-simulation.md), [ADR-075](075-thermochemical-material-process-track.md), [ADR-076](076-neural-assistance-as-bounded-proposals.md) |
 
 ## Context
 
@@ -111,8 +112,10 @@ composition. Ambient/regional fields, ley networks, ecology, channels as
 detailed anatomy, artifacts, runes and anti-magic are later packages with
 their own consumers and state/evidence.
 
-Thermal, continuum and vegetation coupling can start only after the destination
-owner's relevant gate passes. Vital/tissue, soul/identity, divine remote
+Thermochemical, continuum and vegetation coupling can start only after the
+destination owner's relevant gate passes. Arcane heat/cooling uses SPEC-41
+enthalpy and `ARCANE-THERMOCHEMICAL-P1`; it never directly selects
+temperature, phase, ignition or damage. Vital/tissue, soul/identity, divine remote
 sources, teleportation, matter creation, transformation, resurrection and
 causality/time changes require separate SPEC/ADR. SPEC-31's inert divine-
 standing intent does not grant arcane or identity authority.

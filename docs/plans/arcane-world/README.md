@@ -38,7 +38,7 @@ A0A Architecture/schedule/lifecycle closure      COMPLETE
                  └─ A4 Exact active persistence  NOT_STARTED
                      └─ A5 Production promotion  NOT_STARTED
 
-A3 ── AT Future thermal coupling                 BLOCKED / SEPARATE OWNER
+A3 ── AT Future thermochemical coupling          BLOCKED / SPEC-41 GATES
 A3 ── AC Future continuum coupling               BLOCKED / SPEC-36 GATES
 A4 ── AE Regional field + ecology                NOT_STARTED / LATER
 A4 ── AA Artifacts/runes/anti-magic              NOT_STARTED / LATER
@@ -54,7 +54,7 @@ A4 ── AV Vital and Identity lanes                OUTSIDE BASE
 | A3 | `ARCANE-MECHANICS-P1 = PASS` and `ARCANE-RIGID-COUPLING-P1 = PASS`; production targeting/package start path and Arcane/PhysX substeps publish under the selected receipt split | A4, later physical couplers |
 | A4 | `ARCANE-PERSISTENCE-P1 = PASS`; save/restart/replay equal uninterrupted active roots | A5, later lossy/regional representations |
 | A5 | `ARCANE-CROSS-TARGET-P1 = PASS`, `play`, `content-package`, `persistence-replay`, `platform`, declared conditional performance gate and consumer-backed Accepted decision | production claim |
-| AT | `ARCANE-THERMAL-P1` after a separately promoted thermal owner | no base stage |
+| AT | `ARCANE-THERMOCHEMICAL-P1` after separately promoted SPEC-41 heat/phase and Arcane base owners; debit and enthalpy publish atomically | no base stage |
 | AC | `ARCANE-CONTINUUM-P1` after the relevant SPEC-36 owner gate | no base stage |
 | AE | Separate regional-law/ecology profile and exact persistence | no base stage |
 | AA | At least two artifact/spell consumers before a shared graph/circuit contract | no base stage |

@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-40 |
 | Status | Proposed |
-| Version | 1.1 |
+| Version | 1.2 |
 | Last verified | 2026-08-17 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-36](36-continuum-material-physics.md), [SPEC-37](37-layered-physical-world.md), [SPEC-38](38-structural-vegetation-physics.md), [SPEC-39](39-world-substrate-composition.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](adr/071-canonical-physics-material-lineage.md), [ADR-074](adr/074-world-substrate-and-arcane-physical-interaction-track.md) |
-| Supersedes | SPEC-40 1.0; closes the recommended command lifecycle, ownership, fixed-point, targeting, coupling, failure and promotion semantics while leaving numeric calibration open |
+| Supersedes | SPEC-40 1.1; binds future heat/cooling to the separately promoted SPEC-41 owner without changing the A0-A5 telekinesis path |
+| Related Proposed destination | [SPEC-41](41-thermochemical-material-processes.md), [ADR-075](adr/075-thermochemical-material-process-track.md) |
 
 ## Status and first consumer
 
@@ -46,7 +47,7 @@ physical effect, command, event or checkpoint state.
 | Skill/proficiency and inventory/equipment references | RPG Framework | Arcane state cannot rewrite them directly. |
 | Ability/template definition and immutable cooldown/phase policy | Mechanics Runtime | V1 has no mutable telekinesis package reducer/cooldown state; definition is intent, not execution authority. |
 | Rigid pose, velocity, contact, mass and inertia | PhysX through SPEC-26 | Arcane code never writes transform/velocity or a backend object. |
-| Continuum, tree or future thermal state | its separately promoted owner | An arcane coupler cannot manufacture an absent owner or decorative substitute. |
+| Continuum, tree or thermochemical state | its separately promoted owner | An arcane coupler cannot manufacture an absent owner or decorative substitute. |
 | Health/tissue and soul/identity | current RPG operation or no current owner | Mana is not health, tissue, soul, `PersistentId` or divine standing. |
 
 ## V1 ontology and law closure
@@ -291,7 +292,10 @@ checks, `play`, `content-package`, `persistence-replay`, `platform`, conditional
 
 Future coupling checks are independent and cannot borrow base completion:
 
-- `ARCANE-THERMAL-P1` requires a promoted thermal owner and heat/work corpus;
+- `ARCANE-THERMOCHEMICAL-P1` requires a promoted SPEC-41 owner and exact
+  source-debit/enthalpy/phase corpus. Heat credits enthalpy; cooling removes
+  enthalpy into a declared sink. Arcane cannot directly select temperature,
+  ignition, phase, strength, damage or presentation success;
 - `ARCANE-CONTINUUM-P1` requires the relevant SPEC-36 water/terrain owner gate;
 - `ARCANE-VEGETATION-P1` requires the relevant SPEC-38 persistence/coupling
   gate;

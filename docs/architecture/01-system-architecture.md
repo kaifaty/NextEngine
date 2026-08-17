@@ -4,9 +4,10 @@
 |---|---|
 | ID | SPEC-01 |
 | Статус | Accepted |
-| Версия | 2.5 |
-| Последнее изменение | 2026-08-15 |
+| Версия | 2.6 |
+| Последнее изменение | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md) |
+| Related Proposed architecture | [SPEC-37](37-layered-physical-world.md), [SPEC-39](39-world-substrate-composition.md), [SPEC-40](40-arcane-substrate-and-physical-magic.md), [SPEC-41](41-thermochemical-material-processes.md), [SPEC-42](42-neural-assisted-world-simulation.md) |
 
 ## Архитектурная форма
 
@@ -169,3 +170,23 @@ ADR-029/ADR-031 current obligations are superseded by ADR-046. No narrative
 graph, pantheon or generic cross-context transaction contract is part of the
 current system architecture; a future player-visible production consumer must
 promote the smallest required boundary through a new ADR and ProductCheck.
+
+## Proposed post-v1 world dynamics
+
+The current system has no `WorldDynamics` service or shared mutable world
+database. SPEC-39 uses that name only for a Proposed composition of existing
+Runtime/RPG/Mechanics owners with independently promoted Physical,
+Thermochemical and Arcane owners. Each owner retains one write set and joins a
+cross-owner effect only through immutable revision-bound projections, a typed
+bounded exchange and one declared atomic commit.
+
+SPEC-37 specializes physical owners; SPEC-40 owns only future arcane quantity
+and execution; SPEC-41 owns only future material composition, enthalpy, phase
+and reaction progress. Vital, Identity and atmosphere have no current owner.
+SPEC-42 models are optional stateless proposal producers to one already
+promoted classical owner, not owners, laws, backends or persistence segments.
+
+All these tracks remain `Proposed`. They add no current crate, public contract,
+schedule stage, save segment or mandatory capability. Each becomes current
+only through its own production consumer, ProductChecks and Accepted successor
+decision under ADR-046.

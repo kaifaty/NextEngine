@@ -177,13 +177,15 @@ traceability — навигационная карта, не admission authority
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Proposed R4c/R4d target; ADR-056 invariants are Accepted, exact schemas wait for consumers |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
-| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070 |
+| SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070; SPEC-42 does not yet add a world-solver lane |
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
 | SPEC-36 | [Proposed continuum material physics](36-continuum-material-physics.md) | Proposed post-v1 local water/deformable-terrain track; CPU DFSPH reference, GPU correspondence and MLS-MPM terrain are not current runtime contracts |
-| SPEC-37 | [Proposed layered physical-world model](37-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and later energy state without a universal solver or second writer |
+| SPEC-37 | [Proposed layered physical-world model](37-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and thermochemical state without a universal solver or second writer |
 | SPEC-38 | [Proposed structural vegetation physics](38-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; V0A decisions are closed and V0B calibration remains open |
 | SPEC-39 | [Proposed world-substrate composition](39-world-substrate-composition.md) | Proposed cross-owner composition with a start-command/exchange-receipt split, exact owner identity and no universal world service or shared mutable state |
 | SPEC-40 | [Proposed arcane substrate and physical magic](40-arcane-substrate-and-physical-magic.md) | Proposed fixed-point Arcane owner, production targeting, staged atomic PhysX coupling and exact persistence track; architecture A0A is closed and numeric A0B remains open |
+| SPEC-41 | [Proposed thermochemical material processes](41-thermochemical-material-processes.md) | Proposed parcel composition/enthalpy/phase owner and sealed water/ice calorimetry track; T0A is closed and numeric/profile T0B remains open |
+| SPEC-42 | [Proposed neural-assisted world simulation](42-neural-assisted-world-simulation.md) | Proposed post-promotion diagnostics and bounded solver proposals; model is not an owner/backend and exact classical non-regression is required |
 | GLOSSARY-001 | [Glossary](glossary.md) | Accepted |
 | EVIDENCE-001 | [Evidence register](evidence-register.md) | Superseded; historical pointer under ADR-030 |
 | TRACE-001 | [Lightweight traceability](traceability.md) | Accepted; navigation reference |
@@ -267,6 +269,8 @@ traceability — навигационная карта, не admission authority
 | ADR-072 | [Continuum material physics track](adr/072-continuum-material-physics-track.md) | Proposed multi-lane continuum ownership and promotion strategy; no current backend/schema/save claim |
 | ADR-073 | [Layered physical world and living-structures track](adr/073-layered-physical-world-and-living-structures-track.md) | Proposed peer-owner physical DAG and selected V0A destructible-tree profile; V0B remains open and there is no current backend/schema/save claim |
 | ADR-074 | [World substrate and arcane physical-interaction track](adr/074-world-substrate-and-arcane-physical-interaction-track.md) | Proposed world-owner composition and selected telekinesis-first architecture; numeric A0B remains open and no current schema/runtime claim exists |
+| ADR-075 | [Thermochemical material-process track](adr/075-thermochemical-material-process-track.md) | Proposed enthalpy-first fixed-point parcel owner and sealed heat/phase promotion path; no current schema/runtime claim |
+| ADR-076 | [Neural assistance as bounded proposals](adr/076-neural-assistance-as-bounded-proposals.md) | Proposed optional proposal-only acceleration after classical promotion; no model authority, retry or current model-lane claim |
 
 ## Proposed tracks
 
@@ -283,7 +287,13 @@ traceability — навигационная карта, не admission authority
 - SPEC-39/SPEC-40/ADR-074 — post-v1 world-substrate and arcane-physical
   research; A0A ownership/schedule/coupling closure is complete, numeric A0B
   blocks code, the first consumer is one production-path telekinesis ability,
-  and thermal/continuum/vegetation/Vital/Identity lanes remain independent.
+  and thermochemical/continuum/vegetation/Vital/Identity lanes remain independent.
+- SPEC-41/ADR-075 — post-v1 thermochemical material research; a sealed
+  fixed-point enthalpy/water-ice fixture is first, T0B calibration blocks code,
+  and combustion/atmosphere/physical/arcane couplers remain independent.
+- SPEC-42/ADR-076 — optional neural assistance downstream of a promoted
+  classical owner; N0 diagnostics and N1 bounded proposals cannot own state,
+  change canonical roots or retry a failed admitted solve.
 - SPEC-31 narrative director, generated quest graph and divine-standing intent
   formerly described by ADR-029/ADR-031; they have no current implementation
   obligation and return only with a concrete production consumer.

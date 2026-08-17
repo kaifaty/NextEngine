@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-38 |
 | Status | Proposed |
-| Version | 1.1 |
-| Last verified | 2026-08-16 |
+| Version | 1.2 |
+| Last verified | 2026-08-17 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-37](37-layered-physical-world.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-073](adr/073-layered-physical-world-and-living-structures-track.md) |
-| Supersedes | SPEC-38 1.0; records the selected V0A product, authority, evidence and budget decisions without changing current runtime, PhysX, content or save contracts |
+| Supersedes | SPEC-38 1.1; separates future thermochemical state and neural advice from the unchanged V0-V7 structural path |
+| Related Proposed tracks | [SPEC-41](41-thermochemical-material-processes.md), [SPEC-42](42-neural-assisted-world-simulation.md), [ADR-075](adr/075-thermochemical-material-process-track.md), [ADR-076](adr/076-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and selected scope
 
@@ -121,6 +122,18 @@ buffers are reconstructed and cannot survive as hidden authority.
 Warm start, variable time step, adaptive element insertion/removal, fatigue,
 plasticity/creep and arbitrary local fibre refinement are disabled in V1 unless
 V0B explicitly adds a future-affecting field and a corpus for it.
+
+Temperature, moisture, chemical composition, drying and combustion do not
+become private structural fields by implication. A future profile uses the
+SPEC-41 Thermochemical owner and an exact parcel-to-structure attachment;
+strength/mass/topology consequences cross one atomic typed batch and require
+`THERMOCHEM-VEGETATION-P1`. Fire presentation or an arcane effect cannot
+substitute for that owner.
+
+SPEC-42 neural assistance is also downstream of the complete classical tree
+track. It may begin as report-only diagnostics or bounded initialization
+advice only after formulation, coupling and exact persistence pass; it cannot
+select fracture, topology, representation tier or a structural root.
 
 ## Formulation selection gate
 
