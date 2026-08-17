@@ -461,6 +461,11 @@ pub(crate) fn independent_ghost_hydro_calibration()
     independent::compute_ghost_calibration()
 }
 
+pub(crate) fn independent_zero_velocity_settling()
+-> Result<crate::calibration::SettlingComputation, WaterError> {
+    independent::compute_zero_velocity_settling()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

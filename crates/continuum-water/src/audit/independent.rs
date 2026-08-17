@@ -12,10 +12,12 @@ use super::{
 };
 
 mod calibration;
+mod initialization;
 
 pub(crate) use calibration::{
     compute as compute_calibration, compute_ghost as compute_ghost_calibration,
 };
+pub(crate) use initialization::compute as compute_zero_velocity_settling;
 
 const FLUID_COUNT: usize = 6_000;
 const BOUNDARY_COUNT: usize = 2_402;

@@ -29,7 +29,7 @@ use crate::{boundary, profile, scenario, solver};
 use super::{CandidateCalibrationComputation, HydroCalibrationTrace, first_mismatch};
 
 const CANDIDATE_ID: &str = "ghost-cell-shell-v1";
-const HYDRO_SOAK_STEPS: u32 = 24;
+pub(super) const HYDRO_SOAK_STEPS: u32 = 24;
 
 #[derive(Serialize)]
 struct CandidateEnvelope<'a> {
@@ -94,8 +94,8 @@ struct NormalHydroStep {
 }
 
 #[derive(Serialize)]
-struct FreefallControl {
-    status: String,
+pub(super) struct FreefallControl {
+    pub(super) status: String,
     compared_frames: u32,
     first_mismatch_frame: Option<u32>,
     baseline_final_frame_root: Option<String>,
@@ -105,8 +105,8 @@ struct FreefallControl {
 }
 
 #[derive(Serialize)]
-struct HydroSoak {
-    status: String,
+pub(super) struct HydroSoak {
+    pub(super) status: String,
     density_ceiling: u8,
     requested_steps: u32,
     completed_steps: u32,
@@ -307,7 +307,7 @@ fn argument_error() -> WaterError {
     )
 }
 
-fn ghost_cell_shell(geometry: Geometry) -> Result<Vec<BoundarySample>, WaterError> {
+pub(super) fn ghost_cell_shell(geometry: Geometry) -> Result<Vec<BoundarySample>, WaterError> {
     if geometry.aperture.is_some() {
         return Err(WaterError::new(
             AUDIT_INVALID,
@@ -413,7 +413,7 @@ fn ghost_coordinate(minimum: i64, index: i64) -> Result<i64, WaterError> {
         .ok_or_else(|| WaterError::new(AUDIT_INVALID, "ghost coordinate overflow"))
 }
 
-fn audit_boundary_input(
+pub(super) fn audit_boundary_input(
     boundary: &[BoundarySample],
 ) -> Result<Vec<AuditBoundaryInput>, WaterError> {
     let mut result = Vec::new();
@@ -488,7 +488,7 @@ fn normal_hydro_step(
     }
 }
 
-fn run_hydro_soak(
+pub(super) fn run_hydro_soak(
     samples: &[crate::model::CanonicalSample],
     geometry: Geometry,
     boundary: &[BoundarySample],
@@ -556,7 +556,7 @@ fn run_hydro_soak(
     })
 }
 
-fn compare_freefall(
+pub(super) fn compare_freefall(
     scenario: &crate::model::Scenario,
     execution_root: &[u8; 32],
     scenario_root: &[u8; 32],

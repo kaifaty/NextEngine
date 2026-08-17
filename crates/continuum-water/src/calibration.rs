@@ -8,8 +8,8 @@ use std::time::Instant;
 use serde::Serialize;
 
 use crate::audit::{
-    AuditBoundaryInput, boundary_input_root, fluid_input_root, independent_hydro_calibration,
-    production_fluid_input,
+    AuditBoundaryInput, AuditFluidInput, boundary_input_root, fluid_input_root,
+    independent_hydro_calibration, production_fluid_input,
 };
 use crate::error::{
     AUDIT_INVALID, AUDIT_MISMATCH, REPORT_CAPACITY_EXCEEDED, SCENARIO_INVALID, WaterError,
@@ -22,11 +22,18 @@ use crate::oracle::command::{
 use crate::{boundary, profile, scenario, solver};
 
 mod candidate;
+mod initialization;
 
 pub(crate) use candidate::run_xtask as run_candidate_xtask;
+pub(crate) use initialization::run_xtask as run_initialization_xtask;
 
 pub(crate) const DIAGNOSTIC_MAX_ITERATIONS: u16 = 320;
 pub(crate) const DIAGNOSTIC_CHECKPOINTS: [u16; 5] = [20, 40, 80, 160, 320];
+pub(crate) const SETTLING_MAX_PASSES: u8 = 24;
+pub(crate) const SETTLING_DENSITY_CEILING: u8 = 160;
+pub(crate) const SETTLING_READY_STREAK: u8 = 2;
+pub(crate) const SETTLING_TREND_TRANSITIONS: usize = 3;
+pub(crate) const SETTLING_MAXIMUM_DISPLACEMENT_UM: i64 = 1;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct BoundaryFeatureContribution {
@@ -95,6 +102,34 @@ pub(crate) struct ExtendedDensityTrace {
 pub(crate) struct CandidateCalibrationComputation {
     pub(crate) boundary: Vec<AuditBoundaryInput>,
     pub(crate) trace: HydroCalibrationTrace,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct SettlingPassTrace {
+    pub(crate) pass: u8,
+    pub(crate) density_iterations: u8,
+    pub(crate) density_error_ppb: i64,
+    pub(crate) maximum_displacement_um: i64,
+    pub(crate) maximum_penetration_um: i64,
+    pub(crate) centre_of_mass_y_um: i64,
+    pub(crate) zero_velocity_state_root: String,
+    pub(crate) production_ceiling_ready: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct SettlingTrace {
+    pub(crate) status: String,
+    pub(crate) requested_maximum_passes: u8,
+    pub(crate) completed_passes: u8,
+    pub(crate) terminal_pass: Option<u8>,
+    pub(crate) terminal_code: String,
+    pub(crate) terminal_detail: String,
+    pub(crate) passes: Vec<SettlingPassTrace>,
+}
+
+pub(crate) struct SettlingComputation {
+    pub(crate) trace: SettlingTrace,
+    pub(crate) final_fluid: Vec<AuditFluidInput>,
 }
 
 #[derive(Serialize)]
