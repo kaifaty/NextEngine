@@ -3,6 +3,7 @@ use super::content::{ContentManifestV1, ContentSemanticClassV1};
 use super::lock::ProjectLockV3;
 use super::schema::SchemaRegistryManifestV2;
 use super::world_partition::WorldPartitionManifestV1;
+use crate::body::{BODY_SCHEMA_ASSET_SCHEMA_ID, BodySchemaAssetV1};
 use crate::canonical::CanonicalDecodeLimits;
 use crate::cognition::AgentCognitionCatalogV1;
 use crate::render_content::{NeutralRenderRecordV1, RenderContentCatalogV1};
@@ -11,7 +12,7 @@ use crate::world_population::{WorldNavigationCatalogV1, WorldPopulationCatalogV1
 use crate::world_routine::WorldRoutineCatalogV1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ActivatedProjectV7 {
+pub struct ActivatedProjectV8 {
     pub project_lock: ProjectLockV3,
     pub schema_registry: SchemaRegistryManifestV2,
     pub content_manifest: ContentManifestV1,
@@ -21,6 +22,7 @@ pub struct ActivatedProjectV7 {
     pub audio_clips: Vec<crate::audio::NeutralAudioV1>,
     pub neutral_skeletons: Vec<crate::animation_content::NeutralSkeletonV1>,
     pub neutral_animations: Vec<crate::animation_content::NeutralAnimationV1>,
+    pub body_schema_asset: BodySchemaAssetV1,
     pub rpg_definitions: crate::mechanics::RpgDefinitionRegistryV2,
     pub world_routine_catalog_or_none: Option<WorldRoutineCatalogV1>,
     pub world_navigation_catalog: WorldNavigationCatalogV1,
@@ -30,7 +32,7 @@ pub struct ActivatedProjectV7 {
     pub render_content_catalog: RenderContentCatalogV1,
 }
 
-impl ActivatedProjectV7 {
+impl ActivatedProjectV8 {
     pub fn validate(&self) -> Result<(), ProjectContractError> {
         self.project_lock.validate()?;
         self.rpg_definitions
@@ -183,6 +185,38 @@ impl ActivatedProjectV7 {
             {
                 return Err(ProjectContractError::HashMismatch);
             }
+        }
+        self.body_schema_asset
+            .validate()
+            .map_err(|_| ProjectContractError::HashMismatch)?;
+        let body_schema_revision = self
+            .body_schema_asset
+            .record_sha256()
+            .map_err(|_| ProjectContractError::HashMismatch)?;
+        let matching_body_entries = self
+            .content_manifest
+            .body
+            .asset_entries
+            .iter()
+            .filter(|entry| {
+                entry.asset_revision.asset_id == self.body_schema_asset.asset_id
+                    && entry.asset_revision.record_sha256 == body_schema_revision
+                    && entry.schema_ref.schema_id.as_str() == BODY_SCHEMA_ASSET_SCHEMA_ID
+                    && entry.semantic_class == ContentSemanticClassV1::DomainRelevant
+            })
+            .count();
+        let matching_body_roots = self
+            .content_manifest
+            .body
+            .root_assets
+            .iter()
+            .filter(|root| {
+                root.asset_id == self.body_schema_asset.asset_id
+                    && root.record_sha256 == body_schema_revision
+            })
+            .count();
+        if matching_body_entries != 1 || matching_body_roots != 1 {
+            return Err(ProjectContractError::HashMismatch);
         }
         let catalog_bytes = self
             .render_content_catalog

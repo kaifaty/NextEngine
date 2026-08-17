@@ -93,10 +93,10 @@ An assigned action requiring gameplay targeting creates a `TargetingIntent` with
 
 Runtime reconstructs `AuthoritativeTargetingQueryV1` only from the authoritative snapshot at the assigned tick, authoritative actor pose, ability/mechanic definition and hash-bound gameplay `TargetingQueryProfile`. The common validator resolves visibility/range/collision/affordance and accepts or rejects the resulting command candidate. Presentation camera consumes the immutable targeting projection/result to place reticle, lock-on and feedback; the data flow never reverses.
 
-`ReplayManifestV9` stores the ordered targeting intents, reconstructed queries,
+`ReplayManifestV10` stores the ordered targeting intents, reconstructed queries,
 closed physics query batch/results and their compare hashes. Replay повторно
 выполняет production mapper/query path и отклоняет первое отличие receipt,
-intent, query, result, command, event или root. Retired Replay V7 and earlier are rejected
+intent, query, result, command, event или root. Retired Replay V9 and earlier are rejected
 from its outer version and is not evidence for this targeting closure.
 
 Camera collision/occlusion, smoothing, shake, FOV, aspect and framing are

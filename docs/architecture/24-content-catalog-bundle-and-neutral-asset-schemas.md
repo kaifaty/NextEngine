@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 2.4 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 2.5 |
+| Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-24 2.3; admits the typed activity/systemic-work catalog in the exact content closure |
+| Заменяет | SPEC-24 2.4; admits the exact Stage 0 body-schema asset in the current content closure |
 
 ## Scope
 
@@ -110,6 +110,10 @@ The implemented specialized neutral records are:
   a generic neutral navigation schema;
 - domain-specific `AgentCognitionCatalogV1`, carried as one required exact root
   and bound to an existing population subject.
+- `BodySchemaAssetV1`, carried as one DomainRelevant root with exact asset
+  revision, frozen `BodySchemaV1` bytes and the admitted deterministic compiler
+  profile. The reference CharacterDefinition has one required dependency on
+  this asset.
 
 These contracts use engine-owned fixed-width/canonical values, exact asset
 revisions and checked bounds. Render records validate index/attribute lengths,
@@ -140,7 +144,7 @@ schema/content/world/mechanics/render closure, writes exact blobs plus notices
 and publishes `project-lock.json`. Physical package layout is private; there is
 no public bundle archive ABI or runtime catalog resolver.
 
-`ActivatedProjectV7` revalidates:
+`ActivatedProjectV8` revalidates:
 
 - exact `ProjectLockV3`, `SchemaRegistryManifestV2`, `ContentManifestV1` and
   world/mechanics hashes;
@@ -155,6 +159,8 @@ no public bundle archive ABI or runtime catalog resolver.
   planner profile and subject binding to the population/RPG/bootstrap closure;
 - exact activity catalog revision, systemic-work profile, worker/commitment/
   workplace/item bindings and their population/RPG/bootstrap closure.
+- exact `BodySchemaAssetV1` record/hash, frozen reference schema generation,
+  admitted compiler profile, required root and CharacterDefinition dependency.
 
 Only the complete candidate publishes. Failure leaves the prior activated
 project/content untouched. Equal canonical inputs produce byte-identical
@@ -175,9 +181,9 @@ canonical values, manifests and immutable records. ECS/storage, OS/window,
 task/thread, vendor/compiler, database, importer and filesystem types are
 forbidden.
 
-`content-package` is the governing check: cook and reopen the 32-root/118-entry
+`content-package` is the governing check: cook and reopen the 36-root/122-entry
 reference project, validate the direct-lock closure, Luau/Wasm content, provenance/NOTICE,
-localization, audio/animation and render catalog; malformed version/hash/bounds,
+localization, audio/animation, body schema and render catalog; malformed version/hash/bounds,
 duplicate, cycle, missing dependency and forbidden-type cases publish nothing.
 Renderer-facing changes additionally run `platform`/`visual-smoke`; gameplay
 content changes additionally run `play` and state-bearing changes run

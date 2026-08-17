@@ -21,12 +21,12 @@ static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
 fn reference_source_recooks_byte_identically_and_runs_through_production_paths() {
-    let first = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let first = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("first cook");
-    let second = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let second = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("second cook");
     assert_eq!(first, second);
@@ -364,8 +364,8 @@ fn reference_source_recooks_byte_identically_and_runs_through_production_paths()
 fn prepared_live_advance_preserves_driver_and_commits_its_exact_preview() {
     let root = test_root("prepared-live-advance");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let cooked = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("cook");
     store
@@ -422,8 +422,8 @@ fn prepared_live_advance_preserves_driver_and_commits_its_exact_preview() {
 fn prepared_live_advance_rejects_a_stale_driver_generation() {
     let root = test_root("stale-prepared-live-advance");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let cooked = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("cook");
     store
@@ -452,8 +452,8 @@ fn prepared_live_advance_rejects_a_stale_driver_generation() {
 fn failed_live_staging_preserves_input_camera_ledger_and_physics() {
     let root = test_root("failed-live-staging");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let cooked = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("cook");
     store
@@ -492,8 +492,8 @@ fn failed_live_staging_preserves_input_camera_ledger_and_physics() {
 fn live_driver_continues_after_quantized_corner_contact() {
     let root = test_root("live-corner-contact");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let cooked = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("cook");
     store
@@ -593,8 +593,8 @@ fn live_driver_continues_after_quantized_corner_contact() {
 fn live_composite_camera_and_gameplay_frame_preserves_gameplay_root() {
     let root = test_root("live-composite-camera-gameplay");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let cooked = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("cook");
     store
@@ -639,8 +639,8 @@ fn live_composite_camera_and_gameplay_frame_preserves_gameplay_root() {
 fn live_recovery_republishes_sequence_zero_camera_cut_under_a_new_epoch() {
     let root = test_root("live-presentation-recovery-cut");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let cooked = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("cook");
     store
@@ -707,8 +707,8 @@ fn live_recovery_republishes_sequence_zero_camera_cut_under_a_new_epoch() {
 fn live_presentation_publishes_typed_semantic_ui_hud_from_rpg_state() {
     let root = test_root("live-semantic-ui-hud");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let cooked = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("cook");
     store

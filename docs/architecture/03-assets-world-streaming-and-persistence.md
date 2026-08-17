@@ -4,14 +4,14 @@
 |---|---|
 | ID | SPEC-03 |
 | Статус | Accepted |
-| Версия | 2.6 |
-| Последняя проверка | 2026-08-16 |
+| Версия | 2.7 |
+| Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-026](adr/026-deterministic-work-resource-and-streaming-admission.md), [ADR-032](adr/032-grounded-capsule-physics-checkpoint-version-boundary.md), [ADR-034](adr/034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-03 2.5; adds the World Activity owner segment and current-only Replay V9 nine-owner closure |
+| Заменяет | SPEC-03 2.6; aligns immutable content with authoring V7/body-schema activation and the Replay V10 ten-owner closure |
 
 ## Sources of truth
 
-Before cooking, `nextengine.project-authoring.v6` and referenced source files
+Before cooking, `nextengine.project-authoring.v7` and referenced source files
 are editable intent. After cooking, `ProjectLockV3` plus its exact
 `SchemaRegistryManifestV2`, content/mechanics/world/render manifests and blobs
 are the only runtime content source. Runtime never scans source directories,
@@ -109,9 +109,11 @@ Current world checkpoint composition is `RuntimeSnapshotV3` +
 physics snapshot V1 is not a fallback.
 
 The current reference application root additionally frames world streaming,
-optional routine, required population, required `WorldActivitySnapshotV1` and
-the required separate `AgentCognitionSnapshotV1`/`AgentMemorySnapshotV1`
-segments. Reference alpha has all nine full-tuple descriptors.
+optional routine, required population, required `WorldActivitySnapshotV1`,
+the required separate `AgentCognitionSnapshotV1`/`AgentMemorySnapshotV1` and
+the physical-animation owner segment. Reference alpha has all ten full-tuple
+descriptors. R5d body projections are reconstructed from immutable activated
+content and therefore add no save segment.
 `WorldCheckpointV4` remains the generic
 three-owner checkpoint; the larger application root is validated before any
 joint owner publication.
@@ -132,14 +134,15 @@ validates the full closure before mutation, then atomically replaces world
 state. It creates a fresh presentation epoch/sequence `0` and waits for Resume.
 Corrupt or incompatible input leaves the current world and source bytes intact.
 
-`ReplayManifestV9` binds the runtime, RPG, physics, world-streaming, optional
-world-routine, required population/activity and required Agent/Memory owner segments, exact
+`ReplayManifestV10` binds the runtime, RPG, physics, world-streaming, optional
+world-routine, required population/activity, required Agent/Memory and
+physical-animation owner segments, exact
 `InputMappingReceiptV2`, targeting/query facts, closed ingress and command
 admission batches, typed streaming assignments, interaction availability,
 expected receipts/events and per-tick full-tuple descriptors/application roots. Replay
 is read-only production re-execution: it injects recorded authoritative inputs,
 uses the ordinary validators/order and stops at the first divergence. There is
-no branching/counterfactual replay API and no projection through Replay V8.
+no branching/counterfactual replay API and no projection through Replay V9.
 
 `CommandLedgerV2` wire semantics, identity, reservation/receipt window and
 golden roots are unchanged.
@@ -167,14 +170,14 @@ Missing optional content uses only an exact declared fallback.
 ## Product checks
 
 - `content-package`: deterministic cook and activation of the complete
-  four-region/64-chunk, 118-entry closure plus malformed/cyclic/missing content
+  four-region/64-chunk, 122-entry/36-root closure plus malformed/cyclic/missing content
   and Luau/Wasm packages.
 - `play`: exact initial-role → frontier-role → initial-role transition through
   the paired production Assets/World/Runtime path without changing the R2
   gameplay and ledger baseline.
 - `persistence-replay`: Save in `Requested`, process restart, exact pinned
   reactivation and re-fetch converge with uninterrupted execution; ordinary
-  Save/Load/Resume, Replay V9, routine/population/activity ledger closure,
+  Save/Load/Resume, Replay V10, routine/population/activity ledger closure,
   paired Agent/Memory restoration and
   retired-format rejection remain exact.
 - `performance --scenario smoke --mode report`: 1,000 real packaged transitions

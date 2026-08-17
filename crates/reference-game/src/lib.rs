@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod body_projection;
 mod camera;
 mod dialogue;
 mod error;
@@ -17,6 +18,7 @@ mod ui_dialogue;
 
 pub mod audio;
 
+pub use body_projection::{ReferenceBodyProjectionSetV1, ReferenceBodyProjectionV1};
 pub use dialogue::{ReferenceDialogueChoiceV1, ReferenceDialogueUiV1};
 pub use error::{ReferenceGameError, ReferenceInputError};
 pub use input::{
@@ -45,7 +47,7 @@ pub use session::{
     build_reference_game_session_with_profile,
 };
 pub use source::{
-    REFERENCE_GAME_PROJECT_ID, project_source_v6, project_source_v6_with_id,
+    REFERENCE_GAME_PROJECT_ID, project_source_v7, project_source_v7_with_id,
     reference_alpha_project_directory,
 };
 pub use topology::{ReferenceChunkRouteEntryV1, ReferenceWorldTopologyV1};

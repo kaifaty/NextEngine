@@ -1,7 +1,7 @@
 use super::*;
 
 pub(super) fn build_world_activity_catalog(
-    manifest: &ProjectAuthoringManifestV6,
+    manifest: &ProjectAuthoringManifestV7,
     population: &WorldPopulationCatalogV1,
 ) -> Result<WorldActivityCatalogV1, ProjectAuthoringError> {
     let authored = &manifest.world_activity_catalog;
@@ -133,7 +133,7 @@ pub(super) fn build_world_activity_catalog(
 }
 
 pub(super) fn build_world_navigation_catalog(
-    manifest: &ProjectAuthoringManifestV6,
+    manifest: &ProjectAuthoringManifestV7,
     chunks: &[SourceChunkBindingV1],
 ) -> Result<WorldNavigationCatalogV1, ProjectAuthoringError> {
     let authored = &manifest.world_navigation_catalog;
@@ -214,7 +214,7 @@ pub(super) fn build_world_navigation_catalog(
 }
 
 pub(super) fn build_world_population_catalog(
-    manifest: &ProjectAuthoringManifestV6,
+    manifest: &ProjectAuthoringManifestV7,
     navigation: &WorldNavigationCatalogV1,
 ) -> Result<WorldPopulationCatalogV1, ProjectAuthoringError> {
     let authored = &manifest.world_population_catalog;

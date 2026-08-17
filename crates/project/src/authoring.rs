@@ -15,17 +15,17 @@ use std::path::{Component, Path};
 
 use self::cognition::build_agent_cognition_catalog;
 use self::schema::{
-    AUTHORING_FORMAT_V6, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
+    AUTHORING_FORMAT_V7, AuthoringAnimationPropertyV1, AuthoringAudioRecordV1,
     AuthoringHumanoidCatalogV2, AuthoringNeutralRecordKindV1, AuthoringPresentationTargetV1,
     AuthoringRenderRecordV1, AuthoringSourceReferenceV1, AuthoringSourceSpanV1,
     AuthoringTextureAlphaV1, AuthoringTextureColorSpaceV1, AuthoringWorldRoutineActivityV1,
-    ProjectAuthoringManifestV6,
+    ProjectAuthoringManifestV7,
 };
 use self::world_services::{
     build_world_activity_catalog, build_world_navigation_catalog, build_world_population_catalog,
     population_subject_id,
 };
-use crate::cook::{NeutralProjectSourceV6, SourceChunkBindingV1};
+use crate::cook::{NeutralProjectSourceV7, SourceChunkBindingV1};
 use crate::cook_support::schema_ref;
 use next_contracts::animation_content::{
     AnimationInterpolationV1, AnimationPropertyV1, AnimationWrapModeV1, NeutralAnimationChannelV1,
@@ -34,6 +34,10 @@ use next_contracts::animation_content::{
 };
 use next_contracts::audio::{
     AudioLoudnessMetadataV1, AudioPcmEncodingV1, NeutralAudioErrorV1, NeutralAudioV1,
+};
+use next_contracts::body::{
+    BODY_PROJECTION_COMPILER_PROFILE_ID_V1, BODY_SCHEMA_ASSET_VERSION_V1, BodySchemaAssetV1,
+    reference_humanoid_body_schema_v1,
 };
 use next_contracts::cognition::{
     AgentCognitionCatalogV1, BeliefContradictionV1, BeliefSourceV1, COGNITION_Q16_ONE,
@@ -84,31 +88,31 @@ struct ProjectAuthoringFormatProbe {
     format: String,
 }
 
-pub fn load_project_authoring_v6(
+pub fn load_project_authoring_v7(
     project_directory: impl AsRef<Path>,
-) -> Result<NeutralProjectSourceV6, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV7, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), None)
 }
 
-pub fn load_project_authoring_v6_with_project_id(
+pub fn load_project_authoring_v7_with_project_id(
     project_directory: impl AsRef<Path>,
     project_id: &str,
-) -> Result<NeutralProjectSourceV6, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV7, ProjectAuthoringError> {
     load_project_authoring_with_override(project_directory.as_ref(), Some(project_id))
 }
 
 fn load_project_authoring_with_override(
     project_directory: &Path,
     project_id_override: Option<&str>,
-) -> Result<NeutralProjectSourceV6, ProjectAuthoringError> {
+) -> Result<NeutralProjectSourceV7, ProjectAuthoringError> {
     let manifest_path = project_directory.join(PROJECT_AUTHORING_MANIFEST_FILE);
     let bytes = read_file(&manifest_path)?;
     let format: ProjectAuthoringFormatProbe = serde_json::from_slice(&bytes)?;
-    if format.format != AUTHORING_FORMAT_V6 {
+    if format.format != AUTHORING_FORMAT_V7 {
         return Err(ProjectAuthoringError::UnsupportedFormat(format.format));
     }
-    let manifest: ProjectAuthoringManifestV6 = serde_json::from_slice(&bytes)?;
-    if manifest.format != AUTHORING_FORMAT_V6 {
+    let manifest: ProjectAuthoringManifestV7 = serde_json::from_slice(&bytes)?;
+    if manifest.format != AUTHORING_FORMAT_V7 {
         return Err(ProjectAuthoringError::UnsupportedFormat(manifest.format));
     }
     validate_span(project_directory, &manifest.provenance.source_span)?;
@@ -156,6 +160,23 @@ fn load_project_authoring_with_override(
     let text_catalogs = build_text_catalogs(project_directory, &manifest.text_catalogs)?;
     let audio_records = build_audio_records(project_directory, &manifest.audio_records)?;
     let (skeletons, animations) = build_animation_catalogs(project_directory, &manifest)?;
+    validate_span(project_directory, &manifest.body_schema_asset.source_span)?;
+    let body_schema = reference_humanoid_body_schema_v1();
+    if manifest.body_schema_asset.profile_id != body_schema.schema_id.as_str()
+        || manifest.body_schema_asset.compiler_profile_id != BODY_PROJECTION_COMPILER_PROFILE_ID_V1
+    {
+        return Err(ProjectAuthoringError::InvalidValue);
+    }
+    let body_schema_asset = BodySchemaAssetV1 {
+        schema_version: BODY_SCHEMA_ASSET_VERSION_V1,
+        asset_id: asset_id(&manifest.body_schema_asset.asset_id)?,
+        record_revision: manifest.body_schema_asset.record_revision,
+        compiler_profile_id: SchemaId::new(&manifest.body_schema_asset.compiler_profile_id)?,
+        body_schema,
+    };
+    body_schema_asset
+        .validate()
+        .map_err(|_| ProjectAuthoringError::InvalidValue)?;
     let chunks = manifest
         .partition
         .chunks
@@ -252,18 +273,19 @@ fn load_project_authoring_with_override(
     if agent_cognition_catalog.subject_id != world_activity_catalog.worker_subject_id {
         return Err(ProjectAuthoringError::InvalidValue);
     }
-    Ok(NeutralProjectSourceV6 {
+    Ok(NeutralProjectSourceV7 {
         project_id: ProjectId::new(
             project_id_override.unwrap_or(manifest.project.project_id.as_str()),
         )?,
         project_revision: manifest.project.project_revision,
-        authoring_sha256: domain_hash(AUTHORING_FORMAT_V6, &bytes),
+        authoring_sha256: domain_hash(AUTHORING_FORMAT_V7, &bytes),
         records,
         render_records,
         text_catalogs,
         audio_records,
         skeletons,
         animations,
+        body_schema_asset,
         world_routine_catalog_or_none,
         world_routine_interaction_binding_or_none,
         world_navigation_catalog,
@@ -545,7 +567,7 @@ fn build_audio_records(
 
 fn build_animation_catalogs(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV6,
+    manifest: &ProjectAuthoringManifestV7,
 ) -> Result<(Vec<NeutralSkeletonV1>, Vec<NeutralAnimationV1>), ProjectAuthoringError> {
     let mut skeletons = Vec::new();
     let mut animations = Vec::new();
@@ -663,7 +685,7 @@ fn build_animation_catalogs(
 
 fn validate_provenance(
     project_directory: &Path,
-    manifest: &ProjectAuthoringManifestV6,
+    manifest: &ProjectAuthoringManifestV7,
 ) -> Result<ContentHash, ProjectAuthoringError> {
     if manifest.provenance.source_identity.is_empty()
         || manifest.provenance.referenced_sources.is_empty()

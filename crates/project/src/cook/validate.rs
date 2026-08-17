@@ -1,6 +1,6 @@
 use super::*;
 
-pub(super) fn validate_source(source: &NeutralProjectSourceV6) -> Result<(), ProjectCookError> {
+pub(super) fn validate_source(source: &NeutralProjectSourceV7) -> Result<(), ProjectCookError> {
     if source.project_revision == 0 {
         return Err(ProjectCookError::InvalidRevision);
     }
@@ -27,6 +27,7 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV6) -> Result<(), Pro
             .chain(source.audio_records.iter().map(|record| record.asset_id))
             .chain(source.skeletons.iter().map(|record| record.asset_id))
             .chain(source.animations.iter().map(|record| record.asset_id))
+            .chain([source.body_schema_asset.asset_id])
             .chain(
                 source
                     .world_routine_catalog_or_none
@@ -39,6 +40,20 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV6) -> Result<(), Pro
             .chain([source.world_activity_catalog.catalog_asset_id]),
     )?;
     ensure_unique(source.records.iter().map(|record| record.record_id))?;
+    if source
+        .records
+        .iter()
+        .filter(|record| record.kind == NeutralRecordKindV1::CharacterDefinition)
+        .filter(|record| {
+            record
+                .asset_dependencies
+                .contains(&source.body_schema_asset.asset_id)
+        })
+        .count()
+        != 1
+    {
+        return Err(ProjectCookError::MissingReference);
+    }
     for animation in &source.animations {
         let skeleton = source
             .skeletons
@@ -78,6 +93,7 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV6) -> Result<(), Pro
         .chain(source.audio_records.iter().map(|record| record.asset_id))
         .chain(source.skeletons.iter().map(|record| record.asset_id))
         .chain(source.animations.iter().map(|record| record.asset_id))
+        .chain([source.body_schema_asset.asset_id])
         .chain(
             source
                 .world_routine_catalog_or_none
@@ -102,6 +118,20 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV6) -> Result<(), Pro
     for record in &source.animations {
         revisions.insert(record.asset_id, record.asset_revision()?);
     }
+    source
+        .body_schema_asset
+        .validate()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    revisions.insert(
+        source.body_schema_asset.asset_id,
+        AssetRevisionRefV1 {
+            asset_id: source.body_schema_asset.asset_id,
+            record_sha256: source
+                .body_schema_asset
+                .record_sha256()
+                .map_err(|_| ProjectCookError::InvalidValue)?,
+        },
+    );
     source
         .world_navigation_catalog
         .validate()
@@ -266,6 +296,19 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV6) -> Result<(), Pro
             next_contracts::canonical::CanonicalDecodeLimits::default(),
         )?;
     }
+    let body_schema_bytes = source
+        .body_schema_asset
+        .canonical_bytes()
+        .map_err(|_| ProjectCookError::InvalidValue)?;
+    if BodySchemaAssetV1::from_canonical_bytes(
+        &body_schema_bytes,
+        next_contracts::canonical::CanonicalDecodeLimits::default(),
+    )
+    .map_err(|_| ProjectCookError::InvalidValue)?
+        != source.body_schema_asset
+    {
+        return Err(ProjectCookError::InvalidValue);
+    }
     let activity_bytes = source
         .world_activity_catalog
         .canonical_bytes()
@@ -279,10 +322,13 @@ pub(super) fn validate_source(source: &NeutralProjectSourceV6) -> Result<(), Pro
     {
         return Err(ProjectCookError::InvalidValue);
     }
-    if source
+    if !source
         .root_asset_ids
-        .iter()
-        .any(|asset_id| !assets.contains(asset_id))
+        .contains(&source.body_schema_asset.asset_id)
+        || source
+            .root_asset_ids
+            .iter()
+            .any(|asset_id| !assets.contains(asset_id))
     {
         return Err(ProjectCookError::MissingReference);
     }

@@ -1,7 +1,7 @@
 use next_contracts::canonical::sha256;
 use next_contracts::ids::{ContentHash, SchemaId, content_hash_from_bytes};
 use next_contracts::persistence::{SaveCompatibility, TickSettings};
-use next_contracts::project::ActivatedProjectV7;
+use next_contracts::project::ActivatedProjectV8;
 use next_contracts::session::{
     ApplicationSessionStatusV1, CausalInputReferenceV1, CausalInputSourceKindV1,
     CloseSessionJournalStageV2, CloseSessionJournalV2, CloseSessionReceiptV2,
@@ -235,7 +235,7 @@ impl ApplicationCoordinator {
 }
 
 pub(crate) fn save_compatibility(
-    project: &ActivatedProjectV7,
+    project: &ActivatedProjectV8,
     checkpoint: &WorldCheckpointV4,
 ) -> Result<SaveCompatibility, ApplicationError> {
     let profile = checkpoint.runtime_snapshot.tick_rate_profile;

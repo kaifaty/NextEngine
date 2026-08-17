@@ -40,7 +40,10 @@ pub use biomechanics::{
     BIOMECHANICS_HUMANOID_DOF, BIOMECHANICS_HUMANOID_ROOT_HEIGHT_MICROMETRES,
     BIOMECHANICS_HUMANOID_TOTAL_MASS_MICROKILOGRAMS, biomechanics_humanoid_body_schema_v2,
 };
-pub use compiler::{CompiledBodySchemaV1, CompiledPhysicsDescriptorsV1, MotorCompileError};
+pub use compiler::{
+    CompiledBodySchemaV1, CompiledPhysicsDescriptorsV1, MotorCompileError,
+    body_projection_compiler_profile_hash_v1,
+};
 pub use compiler_v2::{CompiledBodySchemaV2, CompiledPhysicsDescriptorsV2};
 pub use compiler_v3::{
     BIOMECHANICS_BODY_MATERIAL_ID, BIOMECHANICS_DYNAMIC_FRICTION_Q16,
@@ -63,6 +66,7 @@ pub use control::{
 };
 pub use humanoid::{
     REFERENCE_HUMANOID_DOF, REFERENCE_HUMANOID_STANDING_ROOT_HEIGHT_MICROMETRES,
+    neutral_body_instance_projection_v1, reference_humanoid_body_instance_projection_v1,
     reference_humanoid_body_schema_v1,
 };
 pub use mirror::{stage0_isaac_mirror_descriptor_json_v2, stage0_isaac_mirror_golden_json_v2};

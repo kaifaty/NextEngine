@@ -63,7 +63,7 @@ Definitions и package manifests canonical, bounded и content-addressed.
 2. Direct project cooking binds the exact `MechanicsLockV1` hash into
    `ProjectLockV3`.
 3. Activation validates the package/content/hash closure before publishing
-   `ActivatedProjectV7`.
+   `ActivatedProjectV8`.
 4. Runtime gives a package only declared immutable views and deterministic
    inputs.
 5. The package returns bounded `EffectRequestV1` or command proposal values.

@@ -1,7 +1,7 @@
 use super::*;
 
 pub(super) fn build_agent_cognition_catalog(
-    manifest: &ProjectAuthoringManifestV6,
+    manifest: &ProjectAuthoringManifestV7,
     population: &WorldPopulationCatalogV1,
 ) -> Result<AgentCognitionCatalogV1, ProjectAuthoringError> {
     let authored = &manifest.agent_cognition_catalog;

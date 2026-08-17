@@ -4,15 +4,22 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-use crate::canonical::sha256;
-use crate::ids::{ContentHash, SchemaId, content_hash_from_bytes};
+use crate::canonical::{CanonicalDecodeLimits, sha256};
+use crate::ids::{AssetId, ContentHash, SchemaId, content_hash_from_bytes};
 use crate::physics::{PhysicsGeometryV1, PhysicsPoseV1};
 
+mod reference;
 mod v2;
+pub use reference::*;
 pub use v2::*;
 
 pub const BODY_SCHEMA_VERSION_V1: u16 = 1;
 pub const BODY_INSTANCE_PROJECTION_VERSION_V1: u16 = 1;
+pub const BODY_SCHEMA_ASSET_VERSION_V1: u16 = 1;
+pub const BODY_PROJECTION_ROOTS_VERSION_V1: u16 = 1;
+pub const BODY_SCHEMA_ASSET_SCHEMA_ID: &str = "nextengine.body-schema-asset.v1";
+pub const BODY_PROJECTION_COMPILER_PROFILE_ID_V1: &str =
+    "nextengine.body-projection-compiler.stage0.v1";
 pub const MAX_BODY_SCHEMA_BODIES: usize = 128;
 pub const MAX_BODY_SCHEMA_JOINTS: usize = 256;
 pub const MAX_BODY_SCHEMA_ACTUATORS: usize = 256;
@@ -271,6 +278,112 @@ impl BodySchemaV1 {
     pub fn schema_hash(&self) -> Result<ContentHash, BodyContractError> {
         Ok(content_hash_from_bytes(sha256(&self.canonical_bytes()?)))
     }
+
+    pub fn from_canonical_bytes(
+        bytes: &[u8],
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, BodyContractError> {
+        if bytes.len() > limits.max_total_bytes {
+            return Err(BodyContractError::InputTooLarge);
+        }
+        let mut cursor = BodyCursor::new(bytes, limits);
+        if cursor.bytes()? != b"nextengine.body-schema.v1\0" {
+            return Err(BodyContractError::MalformedEncoding);
+        }
+        let value = Self {
+            schema_version: cursor.u16()?,
+            schema_id: cursor.id()?,
+            schema_revision: cursor.u32()?,
+            family_id: cursor.id()?,
+            bodies: cursor.sequence(MAX_BODY_SCHEMA_BODIES, decode_body)?,
+            joints: cursor.sequence(MAX_BODY_SCHEMA_JOINTS, decode_joint)?,
+            actuators: cursor.sequence(MAX_BODY_SCHEMA_ACTUATORS, decode_actuator)?,
+            effectors: cursor.sequence(MAX_BODY_SCHEMA_EFFECTORS, decode_effector)?,
+            symmetry_pairs: cursor.sequence(MAX_BODY_SCHEMA_BODIES, |cursor| {
+                Ok(BodySymmetryPairV1 {
+                    left_id: cursor.id()?,
+                    right_id: cursor.id()?,
+                })
+            })?,
+            capability_ids: cursor.sequence(MAX_BODY_SCHEMA_BODIES, BodyCursor::id)?,
+        };
+        cursor.finish()?;
+        value.validate()?;
+        if value.canonical_bytes()? != bytes {
+            return Err(BodyContractError::NonCanonicalEncoding);
+        }
+        Ok(value)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BodySchemaAssetV1 {
+    pub schema_version: u16,
+    pub asset_id: AssetId,
+    pub record_revision: u32,
+    pub compiler_profile_id: SchemaId,
+    pub body_schema: BodySchemaV1,
+}
+
+impl BodySchemaAssetV1 {
+    pub fn validate(&self) -> Result<(), BodyContractError> {
+        if self.schema_version != BODY_SCHEMA_ASSET_VERSION_V1
+            || self.asset_id == AssetId::default()
+            || self.record_revision == 0
+            || self.compiler_profile_id.as_str() != BODY_PROJECTION_COMPILER_PROFILE_ID_V1
+        {
+            return Err(BodyContractError::InvalidBounds);
+        }
+        self.body_schema.validate()
+    }
+
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, BodyContractError> {
+        self.validate()?;
+        let mut output = Vec::new();
+        push_bytes(&mut output, b"nextengine.body-schema-asset.v1\0")?;
+        push_u16(&mut output, self.schema_version);
+        output.extend_from_slice(self.asset_id.as_bytes());
+        push_u32(&mut output, self.record_revision);
+        push_id(&mut output, &self.compiler_profile_id)?;
+        push_bytes(&mut output, &self.body_schema.canonical_bytes()?)?;
+        Ok(output)
+    }
+
+    pub fn record_sha256(&self) -> Result<ContentHash, BodyContractError> {
+        Ok(content_hash_from_bytes(sha256(&self.canonical_bytes()?)))
+    }
+
+    pub fn from_canonical_bytes(
+        bytes: &[u8],
+        limits: CanonicalDecodeLimits,
+    ) -> Result<Self, BodyContractError> {
+        if bytes.len() > limits.max_total_bytes {
+            return Err(BodyContractError::InputTooLarge);
+        }
+        let mut cursor = BodyCursor::new(bytes, limits);
+        if cursor.bytes()? != b"nextengine.body-schema-asset.v1\0" {
+            return Err(BodyContractError::MalformedEncoding);
+        }
+        let schema_version = cursor.u16()?;
+        let asset_id = AssetId::from_bytes(cursor.fixed()?);
+        let record_revision = cursor.u32()?;
+        let compiler_profile_id = cursor.id()?;
+        let body_schema_bytes = cursor.bytes()?;
+        let body_schema = BodySchemaV1::from_canonical_bytes(body_schema_bytes, limits)?;
+        let value = Self {
+            schema_version,
+            asset_id,
+            record_revision,
+            compiler_profile_id,
+            body_schema,
+        };
+        cursor.finish()?;
+        value.validate()?;
+        if value.canonical_bytes()? != bytes {
+            return Err(BodyContractError::NonCanonicalEncoding);
+        }
+        Ok(value)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -302,8 +415,32 @@ impl BodyInstanceProjectionV1 {
                 self.schema_version,
             ));
         }
-        if self.body_schema_revision == 0 || self.topology_revision == 0 {
+        if self.body_schema_revision == 0
+            || self.topology_revision == 0
+            || self.body_schema_hash == ContentHash::default()
+            || [
+                self.morphology_hash,
+                self.equipment_hash,
+                self.stats_hash,
+                self.damage_hash,
+                self.fatigue_hash,
+                self.attachment_hash,
+            ]
+            .contains(&ContentHash::default())
+        {
             return Err(BodyContractError::InvalidBounds);
+        }
+        Ok(())
+    }
+
+    pub fn validate_against(&self, schema: &BodySchemaV1) -> Result<(), BodyContractError> {
+        self.validate()?;
+        schema.validate()?;
+        if self.body_schema_id != schema.schema_id
+            || self.body_schema_revision != schema.schema_revision
+            || self.body_schema_hash != schema.schema_hash()?
+        {
+            return Err(BodyContractError::ProjectionMismatch);
         }
         Ok(())
     }
@@ -333,6 +470,56 @@ impl BodyInstanceProjectionV1 {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BodyProjectionRootsV1 {
+    pub schema_version: u16,
+    pub body_schema_hash: ContentHash,
+    pub body_instance_projection_hash: ContentHash,
+    pub compiler_profile_hash: ContentHash,
+    pub physics_descriptor_root: ContentHash,
+    pub observation_layout_hash: ContentHash,
+    pub action_layout_hash: ContentHash,
+    pub actuator_safety_root: ContentHash,
+}
+
+impl BodyProjectionRootsV1 {
+    pub fn validate(&self) -> Result<(), BodyContractError> {
+        if self.schema_version != BODY_PROJECTION_ROOTS_VERSION_V1
+            || [
+                self.body_schema_hash,
+                self.body_instance_projection_hash,
+                self.compiler_profile_hash,
+                self.physics_descriptor_root,
+                self.observation_layout_hash,
+                self.action_layout_hash,
+                self.actuator_safety_root,
+            ]
+            .contains(&ContentHash::default())
+        {
+            return Err(BodyContractError::InvalidBounds);
+        }
+        Ok(())
+    }
+
+    pub fn projection_root(&self) -> Result<ContentHash, BodyContractError> {
+        self.validate()?;
+        let mut bytes = b"nextengine.body-projection-roots.v1\0".to_vec();
+        push_u16(&mut bytes, self.schema_version);
+        for hash in [
+            self.body_schema_hash,
+            self.body_instance_projection_hash,
+            self.compiler_profile_hash,
+            self.physics_descriptor_root,
+            self.observation_layout_hash,
+            self.action_layout_hash,
+            self.actuator_safety_root,
+        ] {
+            bytes.extend_from_slice(hash.as_bytes());
+        }
+        Ok(content_hash_from_bytes(sha256(&bytes)))
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BodyContractError {
     UnsupportedSchemaVersion(u16),
@@ -345,6 +532,10 @@ pub enum BodyContractError {
     InvalidReference,
     UnsupportedGeometry,
     LengthOverflow,
+    InputTooLarge,
+    MalformedEncoding,
+    NonCanonicalEncoding,
+    ProjectionMismatch,
     Physics(crate::physics::PhysicsContractError),
 }
 
@@ -362,6 +553,10 @@ impl BodyContractError {
             Self::InvalidReference => "BODY_SCHEMA_REFERENCE_INVALID",
             Self::UnsupportedGeometry => "BODY_SCHEMA_GEOMETRY_UNSUPPORTED",
             Self::LengthOverflow => "BODY_SCHEMA_LENGTH_OVERFLOW",
+            Self::InputTooLarge => "BODY_SCHEMA_INPUT_TOO_LARGE",
+            Self::MalformedEncoding => "BODY_SCHEMA_ENCODING_MALFORMED",
+            Self::NonCanonicalEncoding => "BODY_SCHEMA_ENCODING_NON_CANONICAL",
+            Self::ProjectionMismatch => "BODY_INSTANCE_PROJECTION_MISMATCH",
             Self::Physics(_) => "BODY_SCHEMA_PHYSICS_VALUE_INVALID",
         }
     }
@@ -378,6 +573,195 @@ impl Error for BodyContractError {}
 impl From<crate::physics::PhysicsContractError> for BodyContractError {
     fn from(value: crate::physics::PhysicsContractError) -> Self {
         Self::Physics(value)
+    }
+}
+
+struct BodyCursor<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+    limits: CanonicalDecodeLimits,
+}
+
+impl<'a> BodyCursor<'a> {
+    const fn new(bytes: &'a [u8], limits: CanonicalDecodeLimits) -> Self {
+        Self {
+            bytes,
+            offset: 0,
+            limits,
+        }
+    }
+
+    fn take(&mut self, length: usize) -> Result<&'a [u8], BodyContractError> {
+        let end = self
+            .offset
+            .checked_add(length)
+            .ok_or(BodyContractError::MalformedEncoding)?;
+        let value = self
+            .bytes
+            .get(self.offset..end)
+            .ok_or(BodyContractError::MalformedEncoding)?;
+        self.offset = end;
+        Ok(value)
+    }
+
+    fn fixed<const N: usize>(&mut self) -> Result<[u8; N], BodyContractError> {
+        self.take(N)?
+            .try_into()
+            .map_err(|_| BodyContractError::MalformedEncoding)
+    }
+
+    fn u8(&mut self) -> Result<u8, BodyContractError> {
+        Ok(self.fixed::<1>()?[0])
+    }
+
+    fn u16(&mut self) -> Result<u16, BodyContractError> {
+        Ok(u16::from_le_bytes(self.fixed()?))
+    }
+
+    fn u32(&mut self) -> Result<u32, BodyContractError> {
+        Ok(u32::from_le_bytes(self.fixed()?))
+    }
+
+    fn u64(&mut self) -> Result<u64, BodyContractError> {
+        Ok(u64::from_le_bytes(self.fixed()?))
+    }
+
+    fn i32(&mut self) -> Result<i32, BodyContractError> {
+        Ok(i32::from_le_bytes(self.fixed()?))
+    }
+
+    fn i64(&mut self) -> Result<i64, BodyContractError> {
+        Ok(i64::from_le_bytes(self.fixed()?))
+    }
+
+    fn bytes(&mut self) -> Result<&'a [u8], BodyContractError> {
+        let length =
+            usize::try_from(self.u32()?).map_err(|_| BodyContractError::MalformedEncoding)?;
+        if length > self.limits.max_field_payload_bytes {
+            return Err(BodyContractError::InputTooLarge);
+        }
+        self.take(length)
+    }
+
+    fn id(&mut self) -> Result<SchemaId, BodyContractError> {
+        let bytes = self.bytes()?;
+        if bytes.len() > self.limits.max_identifier_bytes {
+            return Err(BodyContractError::InputTooLarge);
+        }
+        let value = std::str::from_utf8(bytes).map_err(|_| BodyContractError::MalformedEncoding)?;
+        SchemaId::new(value).map_err(|_| BodyContractError::MalformedEncoding)
+    }
+
+    fn sequence<T>(
+        &mut self,
+        contract_limit: usize,
+        mut decode: impl FnMut(&mut BodyCursor<'a>) -> Result<T, BodyContractError>,
+    ) -> Result<Vec<T>, BodyContractError> {
+        let length =
+            usize::try_from(self.u32()?).map_err(|_| BodyContractError::MalformedEncoding)?;
+        if length > contract_limit || length > self.limits.max_sequence_items {
+            return Err(BodyContractError::InputTooLarge);
+        }
+        (0..length).map(|_| decode(self)).collect()
+    }
+
+    fn finish(&self) -> Result<(), BodyContractError> {
+        if self.offset == self.bytes.len() {
+            Ok(())
+        } else {
+            Err(BodyContractError::MalformedEncoding)
+        }
+    }
+}
+
+fn decode_body(cursor: &mut BodyCursor<'_>) -> Result<BodyDefinitionV1, BodyContractError> {
+    let body_id = cursor.id()?;
+    let parent_body_id = match cursor.u8()? {
+        0 => None,
+        1 => Some(cursor.id()?),
+        _ => return Err(BodyContractError::MalformedEncoding),
+    };
+    Ok(BodyDefinitionV1 {
+        body_id,
+        parent_body_id,
+        local_bind_pose: decode_pose(cursor)?,
+        mass_microkilograms: cursor.u64()?,
+        center_of_mass_micrometres: decode_i64_3(cursor)?,
+        inertia_microkilogram_metre_squared: [cursor.u64()?, cursor.u64()?, cursor.u64()?],
+        colliders: cursor.sequence(MAX_BODY_SCHEMA_JOINTS, |cursor| {
+            Ok(BodyColliderDefinitionV1 {
+                collider_id: cursor.id()?,
+                local_pose: decode_pose(cursor)?,
+                geometry: decode_geometry(cursor)?,
+                material_id: cursor.id()?,
+            })
+        })?,
+    })
+}
+
+fn decode_joint(cursor: &mut BodyCursor<'_>) -> Result<BodyJointDefinitionV1, BodyContractError> {
+    Ok(BodyJointDefinitionV1 {
+        joint_id: cursor.id()?,
+        parent_body_id: cursor.id()?,
+        child_body_id: cursor.id()?,
+        parent_frame: decode_pose(cursor)?,
+        child_frame: decode_pose(cursor)?,
+        axis_q1_30: [cursor.i32()?, cursor.i32()?, cursor.i32()?],
+        limit_min_microradians: cursor.i64()?,
+        limit_max_microradians: cursor.i64()?,
+        maximum_velocity_microradians_per_second: cursor.u64()?,
+    })
+}
+
+fn decode_actuator(
+    cursor: &mut BodyCursor<'_>,
+) -> Result<BodyActuatorDefinitionV1, BodyContractError> {
+    Ok(BodyActuatorDefinitionV1 {
+        actuator_id: cursor.id()?,
+        joint_id: cursor.id()?,
+        neutral_position_microradians: cursor.i64()?,
+        stiffness_q16: cursor.u64()?,
+        damping_q16: cursor.u64()?,
+        maximum_effort_micronewton_metres: cursor.u64()?,
+        maximum_effort_rate_micronewton_metres_per_second: cursor.u64()?,
+    })
+}
+
+fn decode_effector(
+    cursor: &mut BodyCursor<'_>,
+) -> Result<BodyEffectorDefinitionV1, BodyContractError> {
+    Ok(BodyEffectorDefinitionV1 {
+        effector_id: cursor.id()?,
+        body_id: cursor.id()?,
+        local_pose: decode_pose(cursor)?,
+        semantic_role_id: cursor.id()?,
+    })
+}
+
+fn decode_pose(cursor: &mut BodyCursor<'_>) -> Result<PhysicsPoseV1, BodyContractError> {
+    Ok(PhysicsPoseV1 {
+        translation_micrometres: decode_i64_3(cursor)?,
+        rotation_q1_30: [cursor.i32()?, cursor.i32()?, cursor.i32()?, cursor.i32()?],
+    })
+}
+
+fn decode_i64_3(cursor: &mut BodyCursor<'_>) -> Result<[i64; 3], BodyContractError> {
+    Ok([cursor.i64()?, cursor.i64()?, cursor.i64()?])
+}
+
+fn decode_geometry(cursor: &mut BodyCursor<'_>) -> Result<PhysicsGeometryV1, BodyContractError> {
+    match cursor.u8()? {
+        1 => Ok(PhysicsGeometryV1::Box {
+            half_extents_micrometres: decode_i64_3(cursor)?,
+        }),
+        2 => Ok(PhysicsGeometryV1::Sphere {
+            radius_micrometres: cursor.i64()?,
+        }),
+        3 => Ok(PhysicsGeometryV1::Capsule {
+            radius_micrometres: cursor.i64()?,
+            half_segment_micrometres: cursor.i64()?,
+        }),
+        _ => Err(BodyContractError::UnsupportedGeometry),
     }
 }
 
@@ -555,91 +939,4 @@ fn push_i64(output: &mut Vec<u8>, value: i64) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn id(value: &str) -> SchemaId {
-        SchemaId::new(value).expect("test identifier")
-    }
-
-    fn body(body_id: &str, parent: Option<&str>) -> BodyDefinitionV1 {
-        BodyDefinitionV1 {
-            body_id: id(body_id),
-            parent_body_id: parent.map(id),
-            local_bind_pose: PhysicsPoseV1::default(),
-            mass_microkilograms: 1_000_000,
-            center_of_mass_micrometres: [0; 3],
-            inertia_microkilogram_metre_squared: [1; 3],
-            colliders: vec![BodyColliderDefinitionV1 {
-                collider_id: id(&format!("{body_id}.collider")),
-                local_pose: PhysicsPoseV1::default(),
-                geometry: PhysicsGeometryV1::Sphere {
-                    radius_micrometres: 100_000,
-                },
-                material_id: id("nextengine.material.training"),
-            }],
-        }
-    }
-
-    fn schema() -> BodySchemaV1 {
-        BodySchemaV1 {
-            schema_version: BODY_SCHEMA_VERSION_V1,
-            schema_id: id("nextengine.body.test"),
-            schema_revision: 1,
-            family_id: id("nextengine.family.humanoid"),
-            bodies: vec![
-                body("nextengine.body.root", None),
-                body("nextengine.body.child", Some("nextengine.body.root")),
-            ],
-            joints: vec![BodyJointDefinitionV1 {
-                joint_id: id("nextengine.joint.test"),
-                parent_body_id: id("nextengine.body.root"),
-                child_body_id: id("nextengine.body.child"),
-                parent_frame: PhysicsPoseV1::default(),
-                child_frame: PhysicsPoseV1::default(),
-                axis_q1_30: [1 << 30, 0, 0],
-                limit_min_microradians: -1_000_000,
-                limit_max_microradians: 1_000_000,
-                maximum_velocity_microradians_per_second: 5_000_000,
-            }],
-            actuators: vec![BodyActuatorDefinitionV1 {
-                actuator_id: id("nextengine.actuator.test"),
-                joint_id: id("nextengine.joint.test"),
-                neutral_position_microradians: 0,
-                stiffness_q16: 65_536,
-                damping_q16: 65_536,
-                maximum_effort_micronewton_metres: 10_000_000,
-                maximum_effort_rate_micronewton_metres_per_second: 20_000_000,
-            }],
-            effectors: vec![BodyEffectorDefinitionV1 {
-                effector_id: id("nextengine.effector.test"),
-                body_id: id("nextengine.body.child"),
-                local_pose: PhysicsPoseV1::default(),
-                semantic_role_id: id("nextengine.role.foot"),
-            }],
-            symmetry_pairs: Vec::new(),
-            capability_ids: vec![id("nextengine.capability.stand")],
-        }
-        .canonicalize()
-    }
-
-    #[test]
-    fn canonicalization_erases_source_record_order() {
-        let expected = schema().schema_hash().expect("valid schema");
-        let mut permuted = schema();
-        permuted.bodies.reverse();
-        assert!(permuted.validate().is_err());
-        assert_eq!(
-            permuted.canonicalize().schema_hash().expect("canonical"),
-            expected
-        );
-    }
-
-    #[test]
-    fn topology_cycle_fails_closed() {
-        let mut invalid = schema();
-        invalid.bodies[1].parent_body_id = Some(invalid.bodies[0].body_id.clone());
-        invalid.bodies[0].parent_body_id = Some(invalid.bodies[1].body_id.clone());
-        assert_eq!(invalid.validate(), Err(BodyContractError::InvalidTopology));
-    }
-}
+mod tests;

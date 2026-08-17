@@ -148,8 +148,8 @@ mod tests {
 
     #[test]
     fn exact_reference_population_routes_every_due_record_without_fabricated_outcomes() {
-        let cooked = next_project::cook_project_v6(
-            next_reference_game::project_source_v6().expect("reference source"),
+        let cooked = next_project::cook_project_v7(
+            next_reference_game::project_source_v7().expect("reference source"),
         )
         .expect("reference cook");
         let reports = (0_u64..60)
@@ -216,8 +216,8 @@ mod tests {
 
     #[test]
     fn incomplete_population_snapshot_is_rejected_before_dispatch() {
-        let cooked = next_project::cook_project_v6(
-            next_reference_game::project_source_v6().expect("reference source"),
+        let cooked = next_project::cook_project_v7(
+            next_reference_game::project_source_v7().expect("reference source"),
         )
         .expect("reference cook");
         let mut snapshot = WorldPopulationSnapshotV1::initial(
@@ -238,7 +238,7 @@ mod tests {
     }
 
     fn reference_snapshot_at_tick(
-        cooked: &next_project::CookedProjectV6,
+        cooked: &next_project::CookedProjectV7,
         tick: u64,
     ) -> WorldPopulationSnapshotV1 {
         let mut snapshot = WorldPopulationSnapshotV1::initial(

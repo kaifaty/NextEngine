@@ -89,8 +89,8 @@ fn bounded_bulk_time_converges_exactly_with_ordinary_stepped_advances() {
 }
 
 fn activated_reference_package() -> (std::path::PathBuf, next_project::ActivatedProjectPackage) {
-    let cooked = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let cooked = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("reference cook");
     let root = std::env::temp_dir().join(format!(

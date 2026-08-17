@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_assets::{ContentStore, PinnedContentGeneration};
-use next_project::{activate_project_package, cook_project_v6};
+use next_project::{activate_project_package, cook_project_v7};
 
 use super::*;
 
@@ -25,8 +25,8 @@ fn worker_counts_and_result_permutations_are_deterministic() {
             loaded.metrics(),
             WorldStreamingLoadMetricsV1 {
                 asset_count: 9,
-                encoded_bytes: 6_714,
-                required_staging_bytes: 6_714,
+                encoded_bytes: 6_730,
+                required_staging_bytes: 6_730,
             }
         );
         result_hashes.push(loaded.result_hash());
@@ -199,7 +199,7 @@ fn execute_transition(streamer: &mut WorldStreamerV1, target: SchemaId, tick: u6
 }
 
 fn run_route(
-    project: &ActivatedProjectV7,
+    project: &ActivatedProjectV8,
     generation: &PinnedContentGeneration,
     route: &[SchemaId],
     workers: usize,
@@ -246,11 +246,11 @@ fn publish_completion(streamer: &mut WorldStreamerV1, loaded: PreparedWorldChunk
 fn fixture_project(
     label: &str,
 ) -> (
-    ActivatedProjectV7,
+    ActivatedProjectV8,
     PinnedContentGeneration,
     std::path::PathBuf,
 ) {
-    let cooked = cook_project_v6(next_reference_game::project_source_v6().expect("fixture source"))
+    let cooked = cook_project_v7(next_reference_game::project_source_v7().expect("fixture source"))
         .expect("cook fixture");
     let root = std::env::temp_dir().join(format!(
         "nextengine-world-{label}-{}-{}",
@@ -265,7 +265,7 @@ fn fixture_project(
     (package.project, package.content_generation, root)
 }
 
-fn first_two_chunk_ids(project: &ActivatedProjectV7) -> (SchemaId, SchemaId) {
+fn first_two_chunk_ids(project: &ActivatedProjectV8) -> (SchemaId, SchemaId) {
     let topology = next_reference_game::ReferenceWorldTopologyV1::from_activated_project(project)
         .expect("reference topology");
     (

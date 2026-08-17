@@ -3,9 +3,12 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::body::{
-    BodyActuatorDefinitionV1, BodyContractError, BodySchemaV1, BodyV2ContractError,
+    BODY_PROJECTION_COMPILER_PROFILE_ID_V1, BODY_PROJECTION_ROOTS_VERSION_V1,
+    BodyActuatorDefinitionV1, BodyContractError, BodyInstanceProjectionV1, BodyProjectionRootsV1,
+    BodySchemaV1, BodyV2ContractError,
 };
-use next_contracts::ids::{ContentHash, PersistentId, SchemaId};
+use next_contracts::canonical::sha256;
+use next_contracts::ids::{ContentHash, PersistentId, SchemaId, content_hash_from_bytes};
 use next_contracts::motor::{
     MOTOR_ACTION_LAYOUT_V1_SCHEMA_VERSION, MOTOR_OBSERVATION_LAYOUT_V1_SCHEMA_VERSION,
     MotorActionChannelV1, MotorActionLayoutV1, MotorActionSemanticV1, MotorContractError,
@@ -25,6 +28,8 @@ use next_physics_physx_ffi::{
     SHAPE_SPHERE, StaticBoxInput,
 };
 
+use crate::neutral_body_instance_projection_v1;
+
 const ARTICULATION_ID: &str = "articulation.humanoid-stage0";
 const HUMANOID_TOKEN_BASE: u64 = 1_000;
 const FLAT_LOCOMOTION_OBSERVATION_LAYOUT_ID: &str =
@@ -40,6 +45,8 @@ pub struct CompiledPhysicsDescriptorsV1 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompiledBodySchemaV1 {
     pub body_schema_hash: ContentHash,
+    pub body_instance_projection_hash: ContentHash,
+    pub projection_roots: BodyProjectionRootsV1,
     pub construction_order: Vec<SchemaId>,
     pub body_tokens: BTreeMap<SchemaId, u64>,
     pub effector_tokens: BTreeMap<SchemaId, u64>,
@@ -58,8 +65,19 @@ impl CompiledBodySchemaV1 {
         schema: &BodySchemaV1,
         subject_id: PersistentId,
     ) -> Result<Self, MotorCompileError> {
+        let projection = neutral_body_instance_projection_v1(schema, subject_id)?;
+        Self::compile_projection(schema, &projection)
+    }
+
+    pub fn compile_projection(
+        schema: &BodySchemaV1,
+        projection: &BodyInstanceProjectionV1,
+    ) -> Result<Self, MotorCompileError> {
         schema.validate()?;
+        projection.validate_against(schema)?;
         let body_schema_hash = schema.schema_hash()?;
+        let body_instance_projection_hash = projection.projection_hash()?;
+        let subject_id = projection.subject_id;
         let construction_order = topological_construction_order(schema)?;
         let body_by_id = schema
             .bodies
@@ -294,18 +312,29 @@ impl CompiledBodySchemaV1 {
             links: ffi_links,
             joints: ffi_joints,
         };
+        let physics_descriptors = CompiledPhysicsDescriptorsV1 {
+            bodies,
+            joints,
+            actuators,
+        };
+        let projection_roots = compile_projection_roots(
+            body_schema_hash,
+            body_instance_projection_hash,
+            &physics_descriptors,
+            &observation_layout,
+            &action_layout,
+            &actuator_definitions,
+        )?;
         let result = Self {
             body_schema_hash,
+            body_instance_projection_hash,
+            projection_roots,
             construction_order,
             body_tokens,
             effector_tokens,
             joint_dof_ordinals,
             actuator_dof_ordinals,
-            physics_descriptors: CompiledPhysicsDescriptorsV1 {
-                bodies,
-                joints,
-                actuators,
-            },
+            physics_descriptors,
             physx_scene_profile,
             physx_catalog,
             observation_layout,
@@ -323,6 +352,7 @@ impl CompiledBodySchemaV1 {
         for actuator in &result.physics_descriptors.actuators {
             actuator.validate()?;
         }
+        result.projection_roots.validate()?;
         Ok(result)
     }
 
@@ -361,6 +391,8 @@ impl CompiledBodySchemaV1 {
             return Err(MotorCompileError::UnsupportedBodyProfile);
         }
         self.observation_layout.validate()?;
+        self.projection_roots.observation_layout_hash = self.observation_layout.layout_hash()?;
+        self.projection_roots.validate()?;
         Ok(())
     }
 }
@@ -516,6 +548,190 @@ fn compile_layouts(
             .collect(),
     };
     Ok((observation_layout, action_layout))
+}
+
+#[must_use]
+pub fn body_projection_compiler_profile_hash_v1() -> ContentHash {
+    let mut bytes = b"nextengine.body-projection-compiler-profile.v1\0".to_vec();
+    bytes.extend_from_slice(BODY_PROJECTION_COMPILER_PROFILE_ID_V1.as_bytes());
+    content_hash_from_bytes(sha256(&bytes))
+}
+
+fn compile_projection_roots(
+    body_schema_hash: ContentHash,
+    body_instance_projection_hash: ContentHash,
+    physics: &CompiledPhysicsDescriptorsV1,
+    observation_layout: &MotorObservationLayoutV1,
+    action_layout: &MotorActionLayoutV1,
+    actuator_definitions: &[BodyActuatorDefinitionV1],
+) -> Result<BodyProjectionRootsV1, MotorCompileError> {
+    let value = BodyProjectionRootsV1 {
+        schema_version: BODY_PROJECTION_ROOTS_VERSION_V1,
+        body_schema_hash,
+        body_instance_projection_hash,
+        compiler_profile_hash: body_projection_compiler_profile_hash_v1(),
+        physics_descriptor_root: physics_descriptor_root(physics)?,
+        observation_layout_hash: observation_layout.layout_hash()?,
+        action_layout_hash: action_layout.layout_hash()?,
+        actuator_safety_root: actuator_safety_root(actuator_definitions, action_layout)?,
+    };
+    value.validate()?;
+    Ok(value)
+}
+
+fn physics_descriptor_root(
+    descriptors: &CompiledPhysicsDescriptorsV1,
+) -> Result<ContentHash, MotorCompileError> {
+    let mut bytes = b"nextengine.compiled-physics-descriptors.v1\0".to_vec();
+    push_len(&mut bytes, descriptors.bodies.len())?;
+    for (body_id, body) in &descriptors.bodies {
+        bytes.extend_from_slice(&body_id.canonical_key_bytes());
+        bytes.extend_from_slice(&body.schema_version.to_le_bytes());
+        push_schema_id(&mut bytes, &body.semantic_body_id)?;
+        bytes.extend_from_slice(&body.base.descriptor_revision.to_le_bytes());
+        bytes.push(body.base.motion_kind as u8);
+        push_pose(&mut bytes, body.base.initial_pose);
+        push_i64_3(
+            &mut bytes,
+            body.base.initial_linear_velocity_micrometres_per_second,
+        );
+        push_i64_3(&mut bytes, body.base.initial_angular_velocity_q16);
+        bytes.push(u8::from(body.base.active));
+        push_len(&mut bytes, body.base.shapes.len())?;
+        for (shape_id, shape) in &body.base.shapes {
+            bytes.extend_from_slice(&shape_id.canonical_key_bytes());
+            bytes.extend_from_slice(&shape.descriptor_revision.to_le_bytes());
+            push_pose(&mut bytes, shape.local_pose);
+            push_geometry(&mut bytes, &shape.geometry)?;
+            push_schema_id(&mut bytes, &shape.material_id)?;
+            bytes.push(shape.collision_layer);
+            bytes.extend_from_slice(&shape.collision_mask.to_le_bytes());
+            bytes.push(shape.participation as u8);
+            bytes.push(shape.contact_reporting as u8);
+        }
+        bytes.extend_from_slice(&body.mass_microkilograms.to_le_bytes());
+        push_i64_3(&mut bytes, body.center_of_mass_micrometres);
+        for value in body.inertia_microkilogram_metre_squared {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        match &body.articulation_id {
+            Some(id) => {
+                bytes.push(1);
+                push_schema_id(&mut bytes, id)?;
+            }
+            None => bytes.push(0),
+        }
+    }
+    push_len(&mut bytes, descriptors.joints.len())?;
+    for joint in &descriptors.joints {
+        bytes.extend_from_slice(&joint.schema_version.to_le_bytes());
+        push_schema_id(&mut bytes, &joint.joint_id)?;
+        push_schema_id(&mut bytes, &joint.articulation_id)?;
+        bytes.extend_from_slice(&joint.parent_body_id.canonical_key_bytes());
+        bytes.extend_from_slice(&joint.child_body_id.canonical_key_bytes());
+        bytes.push(joint.joint_kind as u8);
+        for value in joint.axis_q1_30 {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        bytes.extend_from_slice(&joint.limit_min_microradians.to_le_bytes());
+        bytes.extend_from_slice(&joint.limit_max_microradians.to_le_bytes());
+        bytes.extend_from_slice(&joint.maximum_velocity_microradians_per_second.to_le_bytes());
+    }
+    push_len(&mut bytes, descriptors.actuators.len())?;
+    for actuator in &descriptors.actuators {
+        bytes.extend_from_slice(&actuator.schema_version.to_le_bytes());
+        push_schema_id(&mut bytes, &actuator.actuator_id)?;
+        push_schema_id(&mut bytes, &actuator.joint_id)?;
+        bytes.extend_from_slice(&actuator.neutral_position_microradians.to_le_bytes());
+        bytes.extend_from_slice(&actuator.limit_min_microradians.to_le_bytes());
+        bytes.extend_from_slice(&actuator.limit_max_microradians.to_le_bytes());
+        bytes.extend_from_slice(&actuator.maximum_effort_micronewton_metres.to_le_bytes());
+        bytes.extend_from_slice(
+            &actuator
+                .maximum_effort_rate_micronewton_metres_per_second
+                .to_le_bytes(),
+        );
+    }
+    Ok(content_hash_from_bytes(sha256(&bytes)))
+}
+
+fn actuator_safety_root(
+    actuators: &[BodyActuatorDefinitionV1],
+    action_layout: &MotorActionLayoutV1,
+) -> Result<ContentHash, MotorCompileError> {
+    let mut bytes = b"nextengine.compiled-actuator-safety.v1\0".to_vec();
+    bytes.extend_from_slice(action_layout.layout_hash()?.as_bytes());
+    push_len(&mut bytes, actuators.len())?;
+    for actuator in actuators {
+        push_schema_id(&mut bytes, &actuator.actuator_id)?;
+        push_schema_id(&mut bytes, &actuator.joint_id)?;
+        bytes.extend_from_slice(&actuator.neutral_position_microradians.to_le_bytes());
+        bytes.extend_from_slice(&actuator.stiffness_q16.to_le_bytes());
+        bytes.extend_from_slice(&actuator.damping_q16.to_le_bytes());
+        bytes.extend_from_slice(&actuator.maximum_effort_micronewton_metres.to_le_bytes());
+        bytes.extend_from_slice(
+            &actuator
+                .maximum_effort_rate_micronewton_metres_per_second
+                .to_le_bytes(),
+        );
+    }
+    Ok(content_hash_from_bytes(sha256(&bytes)))
+}
+
+fn push_len(bytes: &mut Vec<u8>, length: usize) -> Result<(), MotorCompileError> {
+    bytes.extend_from_slice(
+        &u32::try_from(length)
+            .map_err(|_| MotorCompileError::Capacity)?
+            .to_le_bytes(),
+    );
+    Ok(())
+}
+
+fn push_schema_id(bytes: &mut Vec<u8>, id: &SchemaId) -> Result<(), MotorCompileError> {
+    push_len(bytes, id.as_str().len())?;
+    bytes.extend_from_slice(id.as_str().as_bytes());
+    Ok(())
+}
+
+fn push_pose(bytes: &mut Vec<u8>, pose: PhysicsPoseV1) {
+    push_i64_3(bytes, pose.translation_micrometres);
+    for value in pose.rotation_q1_30 {
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+}
+
+fn push_i64_3(bytes: &mut Vec<u8>, values: [i64; 3]) {
+    for value in values {
+        bytes.extend_from_slice(&value.to_le_bytes());
+    }
+}
+
+fn push_geometry(
+    bytes: &mut Vec<u8>,
+    geometry: &PhysicsGeometryV1,
+) -> Result<(), MotorCompileError> {
+    match geometry {
+        PhysicsGeometryV1::Box {
+            half_extents_micrometres,
+        } => {
+            bytes.push(1);
+            push_i64_3(bytes, *half_extents_micrometres);
+        }
+        PhysicsGeometryV1::Sphere { radius_micrometres } => {
+            bytes.push(2);
+            bytes.extend_from_slice(&radius_micrometres.to_le_bytes());
+        }
+        PhysicsGeometryV1::Capsule {
+            radius_micrometres,
+            half_segment_micrometres,
+        } => {
+            bytes.push(3);
+            bytes.extend_from_slice(&radius_micrometres.to_le_bytes());
+            bytes.extend_from_slice(&half_segment_micrometres.to_le_bytes());
+        }
+        _ => return Err(MotorCompileError::UnsupportedBodyProfile),
+    }
+    Ok(())
 }
 
 fn require_identity_rotation(pose: PhysicsPoseV1) -> Result<(), MotorCompileError> {
@@ -683,7 +899,10 @@ impl From<MotorContractError> for MotorCompileError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{REFERENCE_HUMANOID_DOF, reference_humanoid_body_schema_v1};
+    use crate::{
+        REFERENCE_HUMANOID_DOF, neutral_body_instance_projection_v1,
+        reference_humanoid_body_schema_v1,
+    };
 
     #[test]
     fn source_record_permutation_has_identical_projection_hashes_and_order() {
@@ -700,6 +919,7 @@ mod tests {
         let first = CompiledBodySchemaV1::compile(&source, subject).expect("first compile");
         let second = CompiledBodySchemaV1::compile(&permuted, subject).expect("second compile");
         assert_eq!(first.body_schema_hash, second.body_schema_hash);
+        assert_eq!(first.projection_roots, second.projection_roots);
         assert_eq!(first.construction_order, second.construction_order);
         assert_eq!(first.physx_catalog, second.physx_catalog);
         assert_eq!(
@@ -718,5 +938,57 @@ mod tests {
         );
         assert_eq!(first.physx_catalog.joints.len(), REFERENCE_HUMANOID_DOF);
         assert_eq!(first.action_layout.channels.len(), REFERENCE_HUMANOID_DOF);
+    }
+
+    #[test]
+    fn two_subjects_share_tensor_and_safety_roots_but_keep_distinct_instance_physics() {
+        let schema = reference_humanoid_body_schema_v1();
+        let player = CompiledBodySchemaV1::compile(&schema, PersistentId::from_bytes([0x54; 16]))
+            .expect("player projection");
+        let npc = CompiledBodySchemaV1::compile(&schema, PersistentId::from_bytes([0x59; 16]))
+            .expect("npc projection");
+        assert_eq!(player.body_schema_hash, npc.body_schema_hash);
+        assert_eq!(
+            player.projection_roots.observation_layout_hash,
+            npc.projection_roots.observation_layout_hash
+        );
+        assert_eq!(
+            player.projection_roots.action_layout_hash,
+            npc.projection_roots.action_layout_hash
+        );
+        assert_eq!(
+            player.projection_roots.actuator_safety_root,
+            npc.projection_roots.actuator_safety_root
+        );
+        assert_ne!(
+            player.body_instance_projection_hash,
+            npc.body_instance_projection_hash
+        );
+        assert_ne!(
+            player.projection_roots.physics_descriptor_root,
+            npc.projection_roots.physics_descriptor_root
+        );
+        assert_ne!(
+            player
+                .projection_roots
+                .projection_root()
+                .expect("player root"),
+            npc.projection_roots.projection_root().expect("npc root")
+        );
+    }
+
+    #[test]
+    fn mismatched_projection_rejects_before_any_compiled_value_is_published() {
+        let schema = reference_humanoid_body_schema_v1();
+        let mut projection =
+            neutral_body_instance_projection_v1(&schema, PersistentId::from_bytes([7; 16]))
+                .expect("projection");
+        projection.body_schema_revision += 1;
+        assert!(matches!(
+            CompiledBodySchemaV1::compile_projection(&schema, &projection),
+            Err(MotorCompileError::Body(
+                BodyContractError::ProjectionMismatch
+            ))
+        ));
     }
 }

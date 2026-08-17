@@ -299,8 +299,8 @@ Exact cognition segments are `AgentCognitionSnapshotV1` under
 `nextengine.agent-runtime` and `AgentMemorySnapshotV1` under
 `nextengine.memory-service`. R4d adds `WorldActivitySnapshotV1` under
 `nextengine.world-services`. They participate in one joint publication.
-Reference alpha has nine full-tuple application descriptors; current-only
-`ReplayManifestV9` requires the eight non-routine owners, permits only routine
+Reference alpha has ten full-tuple application descriptors; current-only
+`ReplayManifestV10` requires the nine non-routine owners, permits only routine
 to be absent, and compares activity/cognition bytes, commands/events and the
 application root. `SaveManifestV2` and
 `WorldCheckpointV4` retain their generic wire shapes.
@@ -339,7 +339,7 @@ Learned strategic/tactical policies из SPEC-33/34 — optional R8 optimization
 |---|---|
 | `STRATEGIC-EPISTEMIC-P1` (current focused tests) | Hidden authoritative value is absent from the constructed view and cannot change candidate/plan; semantic belief retrieval is bounded, canonical and provenance-preserving. |
 | `STRATEGIC-GOAP-P1` (current focused tests plus `play`) | Fixed-point Utility selects the canonical goal; bounded GOAP builds a stable plan. Missing affordance and expansion cap give typed no-proposal fallback without mutation. |
-| `STRATEGIC-STATE-P1` (current production branch plus `persistence-replay`) | Emergency interrupts and suspends the ordinary goal; exact exit resumes it. Save/restart/Replay V9 preserves activity/Agent/Memory segments, decision RNG, commands/events and nine-owner reference roots. |
+| `STRATEGIC-STATE-P1` (current production branch plus `persistence-replay`) | Emergency interrupts and suspends the ordinary goal; exact exit resumes it. Save/restart/Replay V10 preserves activity/Agent/Memory segments, decision RNG, commands/events and ten-owner reference roots. |
 | `STRATEGIC-SOCIAL-P1` (current) | NPC-to-NPC `Ask/Inform/Offer/Accept` and `Threaten` work without `ai-host`; claims contain provenance but no truth flag; commitment/trade exists only after RPG commit. |
 | `STRATEGIC-R4-P1` (current) | R4d `work -> currency -> trade -> food` vertical passes production `play` and deterministic headless tests, including no-job/no-route/no-money/stale-revision branches and atomic rollback. |
 | `STRATEGIC-100NPC-P1` (current report-only) | 100 NPC use declared tier/cadence work kinds; abstract tiers fabricate no outcome; local repeats produce exact counts/roots. Cross-target and timing evidence remains `NOT_RUN`, not B-12. |

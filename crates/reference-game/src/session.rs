@@ -18,10 +18,13 @@ use next_contracts::physics::{
     PhysicsSolverSemanticsProfileV1, PhysicsWorldCatalogProfilesV1, PhysicsWorldCatalogV1,
     PhysicsWorldCheckpointV1,
 };
-use next_contracts::project::ActivatedProjectV7;
+use next_contracts::project::ActivatedProjectV8;
 use next_contracts::rpg::RPG_COMMAND_CAPABILITY_ID;
 
-use crate::{ReferenceGameError, ReferenceWorldTopologyV1, build_reference_runtime_bootstrap};
+use crate::{
+    ReferenceBodyProjectionSetV1, ReferenceGameError, ReferenceWorldTopologyV1,
+    build_reference_runtime_bootstrap,
+};
 
 const WORLD_COLLISION_LAYER: u8 = 0;
 const WORLD_COLLISION_MASK: u64 = 1 << WORLD_COLLISION_LAYER;
@@ -83,6 +86,7 @@ pub struct ReferenceGameSession {
     pub r5b_course: ReferenceCapsuleCourseV1,
     pub interactive_object_id: PersistentId,
     pub npc_character_id: PersistentId,
+    pub body_projections: ReferenceBodyProjectionSetV1,
     pub quest_giver_character_id: PersistentId,
     pub dialogue_id: PersistentId,
     pub quest_id: PersistentId,
@@ -106,7 +110,7 @@ pub struct ReferenceGameSession {
     pub action_map_hash: ContentHash,
     pub context_stack: InputContextStackV1,
     pub context_stack_hash: ContentHash,
-    pub activated_project: ActivatedProjectV7,
+    pub activated_project: ActivatedProjectV8,
     world_topology: ReferenceWorldTopologyV1,
 }
 
@@ -145,13 +149,13 @@ impl ReferenceGameSession {
 }
 
 pub fn build_reference_game_session(
-    activated_project: ActivatedProjectV7,
+    activated_project: ActivatedProjectV8,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     build_reference_game_session_with_profile(activated_project, false)
 }
 
 pub fn build_reference_game_session_with_profile(
-    activated_project: ActivatedProjectV7,
+    activated_project: ActivatedProjectV8,
     physx_compatible: bool,
 ) -> Result<ReferenceGameSession, ReferenceGameError> {
     let world_topology = ReferenceWorldTopologyV1::from_activated_project(&activated_project)?;
@@ -323,6 +327,8 @@ pub fn build_reference_game_session_with_profile(
     let r5b_course = ReferenceCapsuleCourseV1::production_v1();
     let interactive_object_id = PersistentId::from_bytes([0x58; 16]);
     let npc_character_id = PersistentId::from_bytes([0x59; 16]);
+    let body_projections =
+        ReferenceBodyProjectionSetV1::compile(&activated_project, body_id, npc_character_id)?;
     let dialogue_id = PersistentId::from_bytes([0x5a; 16]);
     let quest_id = PersistentId::from_bytes([0x5b; 16]);
     let relationship_id = PersistentId::from_bytes([0x5c; 16]);
@@ -403,6 +409,7 @@ pub fn build_reference_game_session_with_profile(
         r5b_course,
         interactive_object_id,
         npc_character_id,
+        body_projections,
         quest_giver_character_id,
         dialogue_id,
         quest_id,

@@ -94,7 +94,7 @@ and binds its hash into `ProjectLockV3`. Package publication includes the
 manifest and every referenced content blob.
 
 Activation reads `ProjectLockV3`, verifies the complete hash closure, decodes
-the partition with current limits and publishes one `ActivatedProjectV7` only
+the partition with current limits and publishes one `ActivatedProjectV8` only
 after all project artifacts agree. It does not resolve versions from a
 catalog, scan ambient files or repair a partial closure.
 
@@ -106,8 +106,8 @@ production bounded path; eager activation не превращается в lazy 
 
 Save/replay bind the already activated project/content/world hashes through
 their current manifests. The separate `WorldPopulationSnapshotV1` serializes
-the 100 durable logical placement/tier records and Replay V9 proves their
-ledger closure alongside the separate activity/Agent/Memory segments. Runtime entity mappings, pending file operations and cache
+the 100 durable logical placement/tier records and Replay V10 proves their
+ledger closure alongside the separate activity/Agent/Memory/physical-animation segments. Runtime entity mappings, pending file operations and cache
 state remain reconstructible and are not serialized.
 
 Load accepts only the current compatible project closure. Missing or changed
@@ -179,8 +179,8 @@ interest/residency admission and eviction remain future concepts.
 | Check | Current evidence |
 |---|---|
 | focused project/contracts tests | canonical four-region/64-chunk ordering, bounds, unknown-field, duplicate ID, wrong class and dependency mismatch failures |
-| `content-package` | cooker/package/activation agree on 4 regions, 64 chunks, typed routine/population/navigation/cognition/activity catalogs and 118 packaged entries |
-| `persistence-replay` | save after `Requested`, process restart, exact pinned reactivation/re-fetch and the separate population/activity/Agent/Memory segments complete with the uninterrupted nine-owner root |
+| `content-package` | cooker/package/activation agree on 4 regions, 64 chunks, typed body-schema/routine/population/navigation/cognition/activity catalogs and 122 packaged entries |
+| `persistence-replay` | save after `Requested`, process restart, exact pinned reactivation/re-fetch and the separate population/activity/Agent/Memory/physical-animation segments complete with the uninterrupted ten-owner root |
 | `performance --scenario smoke --mode report` | 1,000 transitions perform real packaged I/O and record existing V4 logical staging charges; 30 seconds remains report-only |
 | `performance --scenario r3-multiregion-streaming --mode report` | 1,000 transitions cycle over the canonical 64-chunk route with production default two workers; only `streaming_world` is authoritative and the scenario remains report-only |
 | `performance --scenario r4-100npc --mode report` | 1,000 warm-up plus 10,000 measured joint ticks execute one graph query and one exact tier-cognition work item per due population record with exact roots and no drop/starvation/fabrication; unsupported-host timing remains `NOT_RUN`, not B-12 evidence |

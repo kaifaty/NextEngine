@@ -342,10 +342,10 @@ impl PreparedDriverWorkload {
         scratch: &ScratchContext,
         workload: LiveRuntimeWorkload,
     ) -> Result<(Self, ScratchDirectory), LiveRuntimePerformanceError> {
-        let source = next_reference_game::project_source_v6().map_err(|error| {
+        let source = next_reference_game::project_source_v7().map_err(|error| {
             LiveRuntimePerformanceError::new("fixture source", error.to_string())
         })?;
-        let cooked = next_project::cook_project_v6(source)
+        let cooked = next_project::cook_project_v7(source)
             .map_err(|error| LiveRuntimePerformanceError::new("cook fixture", error.to_string()))?;
         let directory = scratch
             .create_directory(workload.directory_label)

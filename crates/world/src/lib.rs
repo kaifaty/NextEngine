@@ -12,7 +12,7 @@ use next_contracts::canonical::{CanonicalDecodeLimits, sha256};
 use next_contracts::content::{NeutralRecordKindV1, NeutralRecordV1};
 use next_contracts::ids::{AssetId, ContentHash, PersistentId, SchemaId, content_hash_from_bytes};
 use next_contracts::project::{
-    ActivatedProjectV7, AssetRevisionRefV1, ContentAssetEntryV1, ContentSemanticClassV1,
+    ActivatedProjectV8, AssetRevisionRefV1, ContentAssetEntryV1, ContentSemanticClassV1,
     WorldChunkBindingV1,
 };
 use next_contracts::world::{
@@ -124,7 +124,7 @@ impl ValidatedWorldStreamingPublicationV1 {
 
 #[derive(Clone, Debug)]
 pub struct WorldStreamerV1 {
-    project: Arc<ActivatedProjectV7>,
+    project: Arc<ActivatedProjectV8>,
     content_generation: PinnedContentGeneration,
     snapshot: WorldStreamingSnapshotV1,
     active_records: Vec<NeutralRecordV1>,
@@ -132,7 +132,7 @@ pub struct WorldStreamerV1 {
 
 impl WorldStreamerV1 {
     pub fn activate(
-        project: ActivatedProjectV7,
+        project: ActivatedProjectV8,
         content_generation: PinnedContentGeneration,
         initial_chunk_id: SchemaId,
     ) -> Result<Self, WorldStreamingError> {
@@ -183,7 +183,7 @@ impl WorldStreamerV1 {
     }
 
     pub fn restore(
-        project: ActivatedProjectV7,
+        project: ActivatedProjectV8,
         content_generation: PinnedContentGeneration,
         snapshot: WorldStreamingSnapshotV1,
     ) -> Result<Self, WorldStreamingError> {

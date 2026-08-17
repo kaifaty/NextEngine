@@ -5,7 +5,7 @@ mod lock;
 mod schema;
 mod world_partition;
 
-pub use activation::ActivatedProjectV7;
+pub use activation::ActivatedProjectV8;
 pub use codec::{ProjectContractError, canonical_empty_manifest_hash, domain_hash};
 pub use content::{
     AssetRevisionRefV1, ContentAssetEntryV1, ContentDependencyEdgeV1, ContentManifestBodyV1,

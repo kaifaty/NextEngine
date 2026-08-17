@@ -38,6 +38,8 @@ pub enum ReferenceGameError {
     Input(next_contracts::input::InputContractError),
     PlayerInput(next_player::PlayerInputError),
     PhysicalAnimation(next_motor::PhysicalAnimationOwnerErrorV1),
+    Body(next_contracts::body::BodyContractError),
+    MotorCompile(next_motor::MotorCompileError),
     Platform(next_contracts::platform::PlatformContractError),
     Physics(next_contracts::physics::PhysicsContractError),
     Authority(next_runtime::AuthorityRegistryError),
@@ -61,6 +63,7 @@ pub enum ReferenceGameError {
     DuplicatePrincipal,
     CountOverflow,
     BodyMissing,
+    BodyProjectionInvalid,
     WorldPartitionEmpty,
     WorldChunkRecordMissing,
     WorldChunkRecordKindMismatch,
@@ -88,6 +91,8 @@ impl Display for ReferenceGameError {
             Self::Input(error) => write!(formatter, "{error}"),
             Self::PlayerInput(error) => write!(formatter, "{error}"),
             Self::PhysicalAnimation(error) => write!(formatter, "{error}"),
+            Self::Body(error) => write!(formatter, "{error}"),
+            Self::MotorCompile(error) => write!(formatter, "{error}"),
             Self::Platform(error) => write!(formatter, "{error}"),
             Self::Physics(error) => write!(formatter, "{error}"),
             Self::Authority(error) => write!(formatter, "{error}"),
@@ -111,6 +116,7 @@ impl Display for ReferenceGameError {
             Self::DuplicatePrincipal => formatter.write_str("reference principal is duplicated"),
             Self::CountOverflow => formatter.write_str("reference run count overflow"),
             Self::BodyMissing => formatter.write_str("reference player body is missing"),
+            Self::BodyProjectionInvalid => formatter.write_str("REFERENCE_BODY_PROJECTION_INVALID"),
             Self::WorldPartitionEmpty => formatter.write_str("reference world partition is empty"),
             Self::WorldChunkRecordMissing => {
                 formatter.write_str("reference world chunk record is missing")
@@ -176,6 +182,8 @@ from_error!(next_contracts::identity::IdentityContractError, Identity);
 from_error!(next_contracts::input::InputContractError, Input);
 from_error!(next_player::PlayerInputError, PlayerInput);
 from_error!(next_motor::PhysicalAnimationOwnerErrorV1, PhysicalAnimation);
+from_error!(next_contracts::body::BodyContractError, Body);
+from_error!(next_motor::MotorCompileError, MotorCompile);
 from_error!(next_contracts::platform::PlatformContractError, Platform);
 from_error!(next_contracts::physics::PhysicsContractError, Physics);
 from_error!(next_runtime::AuthorityRegistryError, Authority);

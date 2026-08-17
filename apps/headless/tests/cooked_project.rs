@@ -82,7 +82,7 @@ fn cooked_store(test_name: &str) -> (std::path::PathBuf, String) {
         std::process::id()
     ));
     let cooked =
-        next_project::cook_project_v6(next_reference_game::project_source_v6().expect("source"))
+        next_project::cook_project_v7(next_reference_game::project_source_v7().expect("source"))
             .expect("cook");
     let store = ContentStore::new(&output);
     store

@@ -1,10 +1,10 @@
 use serde::Deserialize;
 
-pub(super) const AUTHORING_FORMAT_V6: &str = "nextengine.project-authoring.v6";
+pub(super) const AUTHORING_FORMAT_V7: &str = "nextengine.project-authoring.v7";
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct ProjectAuthoringManifestV6 {
+pub(super) struct ProjectAuthoringManifestV7 {
     pub format: String,
     pub project: AuthoringProjectV2,
     pub provenance: AuthoringProvenanceV1,
@@ -15,6 +15,7 @@ pub(super) struct ProjectAuthoringManifestV6 {
     pub audio_records: Vec<AuthoringAudioRecordV1>,
     #[serde(default)]
     pub neutral_animation_catalogs: Vec<AuthoringAnimationCatalogReferenceV1>,
+    pub body_schema_asset: AuthoringBodySchemaAssetV1,
     pub world_routine_catalog: Option<AuthoringWorldRoutineCatalogV1>,
     pub world_routine_interaction_binding: Option<AuthoringWorldRoutineInteractionBindingV1>,
     pub world_navigation_catalog: AuthoringWorldNavigationCatalogV1,
@@ -23,6 +24,16 @@ pub(super) struct ProjectAuthoringManifestV6 {
     pub world_activity_catalog: AuthoringWorldActivityCatalogV1,
     pub root_asset_ids: Vec<String>,
     pub allowed_presentation_targets: Vec<AuthoringPresentationTargetV1>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringBodySchemaAssetV1 {
+    pub asset_id: String,
+    pub record_revision: u32,
+    pub profile_id: String,
+    pub compiler_profile_id: String,
+    pub source_span: AuthoringSourceSpanV1,
 }
 
 #[derive(Clone, Debug, Deserialize)]

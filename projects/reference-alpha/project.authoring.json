@@ -1,8 +1,8 @@
 {
-  "format": "nextengine.project-authoring.v6",
+  "format": "nextengine.project-authoring.v7",
   "project": {
     "project_id": "org.nextengine.reference-alpha",
-    "project_revision": 11
+    "project_revision": 12
   },
   "provenance": {
     "provenance_id": "nextengine.reference-alpha.provenance.cc0",
@@ -534,7 +534,7 @@
       "record_id": "21212121212121212121212121212121",
       "kind": "character-definition",
       "persistent_references": ["23232323232323232323232323232323", "24242424242424242424242424242424"],
-      "asset_dependencies": ["05050505050505050505050505050505", "06060606060606060606060606060606"],
+      "asset_dependencies": ["05050505050505050505050505050505", "06060606060606060606060606060606", "bdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbd"],
       "properties": [{ "property_id": "nextengine.reference.role", "value_id": "nextengine.reference-alpha.character" }],
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
     },
@@ -1642,6 +1642,13 @@
       "source_span": { "relative_path": "assets/humanoid-cc0.catalog.json", "line": 1, "column": 1 }
     }
   ],
+  "body_schema_asset": {
+    "asset_id": "bdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbd",
+    "record_revision": 1,
+    "profile_id": "nextengine.body.humanoid-stage0.v1",
+    "compiler_profile_id": "nextengine.body-projection-compiler.stage0.v1",
+    "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
+  },
   "world_routine_catalog": {
     "schema_version": 1,
     "catalog_asset_id": "94949494949494949494949494949494",
@@ -1668,7 +1675,7 @@
   "world_navigation_catalog": {
     "schema_version": 1,
     "catalog_asset_id": "96969696969696969696969696969696",
-    "topology_revision": 11,
+    "topology_revision": 12,
     "edge_cost": 1000
   },
   "world_population_catalog": {
@@ -1782,7 +1789,8 @@
     "95959595959595959595959595959595",
     "96969696969696969696969696969696",
     "97979797979797979797979797979797",
-    "a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8"
+    "a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8a8",
+    "bdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbd"
   ],
   "allowed_presentation_targets": ["none", "interactive", "displayless-offscreen"]
 }

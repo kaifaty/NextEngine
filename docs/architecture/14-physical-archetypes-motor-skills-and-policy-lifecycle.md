@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-14 |
 | Статус | Accepted |
-| Версия | 3.1 |
+| Версия | 3.2 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-06](06-ai-agents-perception-and-memory.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-011](adr/011-macos-developer-host-local-verification-and-staged-training.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
-| Дополнительные зависимости V3.1 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-14 3.0; follows the product-grounded capability/agency boundary while keeping exact advanced schemas consumer-driven |
+| Дополнительные зависимости V3.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
+| Заменяет | SPEC-14 3.1; admits the bounded R5d production BodySchema projection while retaining the product-grounded capability/agency boundary, without admitting mutable overlays or a learned route |
 
 ## Назначение и invariants
 
@@ -220,6 +220,24 @@ identity narrowed by ADR-068. ADR-058/SPEC-35 accept the `BodySchemaV1` and
 23-DoF Stage 0 humanoid. Non-default equipment, damage, attachment/topology
 overlays and additional policy families remain Proposed until their own
 production consumers and ProductChecks exist under ADR-046.
+
+R5d is the first current reference-project consumer of that frozen V1
+generation. Authoring V7 publishes one exact `BodySchemaAssetV1` root with the
+admitted compiler-profile identity. Production bootstrap constructs a neutral
+`BodyInstanceProjectionV1` independently for the player and NPC, validates its
+exact schema ID/revision/hash, and atomically derives `BodyProjectionRootsV1`:
+the source schema and instance hashes, compiler-profile hash, physics-descriptor
+root, observation/action layout hashes and complete actuator-safety root.
+Shared schema/layout/safety roots MUST match for the two subjects; instance,
+physics-descriptor and complete projection roots MUST differ because their
+stable subject IDs differ.
+
+These compiled records are reconstructible evidence used by the shared
+physical-animation binding, not an additional mutable owner or saved segment.
+The active gameplay transform remains owned by the existing capsule Physics
+route; R5d does not publish the full articulation into that active scene and
+does not claim a complete `PhysicalArchetypeBundle`, non-default overlays,
+topology remap, learned policy, real skinning or full R5 completion.
 
 ADR-069 additionally accepts a distinct current-only `BodySchemaV2` for the
 concrete biomechanics training generation. V2 closes full source inertia plus

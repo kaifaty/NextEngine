@@ -17,14 +17,69 @@ static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 fn live_normalized_controls_drive_player_animation_without_camera_authority() {
     let root = test_root("live-physical-animation");
     let store = ContentStore::new(&root);
-    let cooked = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let cooked = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("cook");
     store
         .publish(&cooked.publication().expect("publication"))
         .expect("publish");
     let activated = next_project::activate_project_package(&store).expect("activate");
+    let projection_fixture =
+        next_reference_game::build_reference_game_session(activated.project.clone())
+            .expect("body projection fixture");
+    let rehydrated_projection_fixture =
+        next_reference_game::build_reference_game_session(activated.project.clone())
+            .expect("rehydrated body projection fixture");
+    assert_eq!(
+        projection_fixture
+            .body_projections
+            .combined_root()
+            .expect("direct projection root"),
+        rehydrated_projection_fixture
+            .body_projections
+            .combined_root()
+            .expect("rehydrated projection root")
+    );
+    assert_eq!(
+        projection_fixture
+            .body_projections
+            .player
+            .roots
+            .observation_layout_hash,
+        projection_fixture
+            .body_projections
+            .npc
+            .roots
+            .observation_layout_hash
+    );
+    assert_eq!(
+        projection_fixture
+            .body_projections
+            .player
+            .roots
+            .actuator_safety_root,
+        projection_fixture
+            .body_projections
+            .npc
+            .roots
+            .actuator_safety_root
+    );
+    assert_ne!(
+        projection_fixture
+            .body_projections
+            .player
+            .instance
+            .subject_id,
+        projection_fixture.body_projections.npc.instance.subject_id
+    );
+
+    let mut tampered_project = activated.project.clone();
+    tampered_project.body_schema_asset.body_schema.bodies[0].mass_microkilograms += 1;
+    assert!(matches!(
+        next_reference_game::build_reference_game_session(tampered_project),
+        Err(next_reference_game::ReferenceGameError::BodyProjectionInvalid)
+    ));
 
     let mut movement = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
         .expect("movement driver");

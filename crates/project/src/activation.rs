@@ -8,6 +8,7 @@ use next_contracts::animation_content::{
     NeutralAnimationV1, NeutralSkeletonV1,
 };
 use next_contracts::audio::{NEUTRAL_AUDIO_SCHEMA_ID, NeutralAudioErrorV1, NeutralAudioV1};
+use next_contracts::body::{BODY_SCHEMA_ASSET_SCHEMA_ID, BodyContractError, BodySchemaAssetV1};
 use next_contracts::canonical::CanonicalDecodeLimits;
 use next_contracts::cognition::{AGENT_COGNITION_CATALOG_SCHEMA_ID, AgentCognitionCatalogV1};
 use next_contracts::content::{NeutralRecordError, NeutralRecordV1};
@@ -15,7 +16,7 @@ use next_contracts::identity::RuntimeDeterminismBundleV1;
 use next_contracts::ids::AssetId;
 use next_contracts::localization::{TEXT_CATALOG_SCHEMA_ID, TextCatalogErrorV1, TextCatalogV1};
 use next_contracts::project::{
-    ActivatedProjectV7, ContentManifestV1, ContentSemanticClassV1, ProjectContractError,
+    ActivatedProjectV8, ContentManifestV1, ContentSemanticClassV1, ProjectContractError,
     ProjectLockV3, SchemaEncodingV1, SchemaRefV1, SchemaRegistryManifestV2, SchemaRoleV1,
     WorldPartitionManifestV1, domain_hash,
 };
@@ -38,13 +39,13 @@ use crate::cook_rpg::activate_rpg_definitions_v2;
 
 #[derive(Clone, Debug)]
 pub struct ActivatedProjectPackage {
-    pub project: ActivatedProjectV7,
+    pub project: ActivatedProjectV8,
     pub content_generation: PinnedContentGeneration,
 }
 
 pub fn activate_project(
     store: &ContentStore,
-) -> Result<ActivatedProjectV7, ProjectActivationError> {
+) -> Result<ActivatedProjectV8, ProjectActivationError> {
     Ok(activate_project_package(store)?.project)
 }
 
@@ -61,7 +62,7 @@ pub fn activate_project_package(
 
 fn activate_pinned_project(
     content_generation: &PinnedContentGeneration,
-) -> Result<ActivatedProjectV7, ProjectActivationError> {
+) -> Result<ActivatedProjectV8, ProjectActivationError> {
     let generation = content_generation.load_all_verified()?;
     let limits = CanonicalDecodeLimits::default();
     let project_lock = ProjectLockV3::from_jcs_bytes(
@@ -124,6 +125,7 @@ fn activate_pinned_project(
     let mut audio_clips = Vec::new();
     let mut neutral_skeletons = Vec::new();
     let mut neutral_animations = Vec::new();
+    let mut body_schema_asset_or_none = None;
     let mut world_routine_catalog_or_none = None;
     let mut world_navigation_catalog_or_none = None;
     let mut world_population_catalog_or_none = None;
@@ -137,7 +139,28 @@ fn activate_pinned_project(
         );
         expected_files.insert(blob_path.clone());
         let blob = required_file(&generation.files, &blob_path)?;
-        if entry.schema_ref.schema_id.as_str() == TEXT_CATALOG_SCHEMA_ID {
+        if entry.schema_ref.schema_id.as_str() == BODY_SCHEMA_ASSET_SCHEMA_ID {
+            let asset = BodySchemaAssetV1::from_canonical_bytes(blob, limits)?;
+            let expected_schema_ref = SchemaRefV1 {
+                schema_id: entry.schema_ref.schema_id.clone(),
+                schema_version: u32::from(asset.schema_version),
+                descriptor_sha256: domain_hash(
+                    "nextengine.schema-descriptor.v1",
+                    BODY_SCHEMA_ASSET_SCHEMA_ID.as_bytes(),
+                ),
+                role: SchemaRoleV1::NeutralContent,
+                encoding: SchemaEncodingV1::CanonicalBinaryV1,
+            };
+            if asset.asset_id != entry.asset_revision.asset_id
+                || expected_schema_ref != entry.schema_ref
+                || asset.record_sha256()? != entry.asset_revision.record_sha256
+                || entry.semantic_class != ContentSemanticClassV1::DomainRelevant
+                || body_schema_asset_or_none.replace(asset).is_some()
+            {
+                return Err(ProjectActivationError::HashMismatch);
+            }
+            record_dependencies.insert(entry.asset_revision.asset_id, BTreeSet::new());
+        } else if entry.schema_ref.schema_id.as_str() == TEXT_CATALOG_SCHEMA_ID {
             let catalog = TextCatalogV1::from_canonical_bytes(blob, limits)?;
             let expected_schema_ref = SchemaRefV1 {
                 schema_id: entry.schema_ref.schema_id.clone(),
@@ -461,6 +484,8 @@ fn activate_pinned_project(
         agent_cognition_catalog_or_none.ok_or(ProjectActivationError::MissingReference)?;
     let world_activity_catalog =
         world_activity_catalog_or_none.ok_or(ProjectActivationError::MissingReference)?;
+    let body_schema_asset =
+        body_schema_asset_or_none.ok_or(ProjectActivationError::MissingReference)?;
     world_population_catalog
         .validate_against_navigation(&world_navigation_catalog)
         .map_err(|_| ProjectActivationError::HashMismatch)?;
@@ -497,7 +522,7 @@ fn activate_pinned_project(
     if generation.files.keys().cloned().collect::<BTreeSet<_>>() != expected_files {
         return Err(ProjectActivationError::UnexpectedArtifact);
     }
-    let activated = ActivatedProjectV7 {
+    let activated = ActivatedProjectV8 {
         project_lock,
         schema_registry,
         content_manifest,
@@ -507,6 +532,7 @@ fn activate_pinned_project(
         audio_clips,
         neutral_skeletons,
         neutral_animations,
+        body_schema_asset,
         rpg_definitions: activate_rpg_definitions_v2(
             &neutral_records,
             world_routine_catalog_or_none.as_ref(),
@@ -555,6 +581,7 @@ pub enum ProjectActivationError {
     Localization(TextCatalogErrorV1),
     Audio(NeutralAudioErrorV1),
     Animation(NeutralAnimationContentErrorV1),
+    Body(BodyContractError),
     Cook(crate::ProjectCookError),
     MissingArtifact(String),
     MissingReference,
@@ -576,7 +603,8 @@ impl ProjectActivationError {
             | Self::Neutral(_)
             | Self::Localization(_)
             | Self::Audio(_)
-            | Self::Animation(_) => "PROJECT_SCHEMA_INVALID",
+            | Self::Animation(_)
+            | Self::Body(_) => "PROJECT_SCHEMA_INVALID",
             Self::Render(error) => error.diagnostic_code(),
             Self::Cook(_) => "PROJECT_DEFINITION_INVALID",
             Self::MissingReference => "PROJECT_REFERENCE_MISSING",
@@ -600,6 +628,7 @@ impl Display for ProjectActivationError {
             Self::Animation(error) => {
                 write!(formatter, "project animation content invalid: {error}")
             }
+            Self::Body(error) => write!(formatter, "project body schema invalid: {error}"),
             Self::Cook(error) => write!(formatter, "project definition compile failed: {error}"),
             Self::MissingArtifact(path) => write!(formatter, "project artifact missing: {path}"),
             Self::MissingReference => formatter.write_str("project reference missing"),
@@ -654,5 +683,11 @@ impl From<NeutralAudioErrorV1> for ProjectActivationError {
 impl From<NeutralAnimationContentErrorV1> for ProjectActivationError {
     fn from(error: NeutralAnimationContentErrorV1) -> Self {
         Self::Animation(error)
+    }
+}
+
+impl From<BodyContractError> for ProjectActivationError {
+    fn from(error: BodyContractError) -> Self {
+        Self::Body(error)
     }
 }

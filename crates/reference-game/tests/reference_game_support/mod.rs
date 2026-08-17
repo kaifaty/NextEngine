@@ -6,10 +6,10 @@ use next_contracts::platform::{
 use next_runtime::{TickReport, TransactionStage};
 
 pub(super) fn assert_reference_topology_faults_are_typed(
-    project: &next_contracts::project::ActivatedProjectV7,
+    project: &next_contracts::project::ActivatedProjectV8,
     topology: &next_reference_game::ReferenceWorldTopologyV1,
 ) {
-    let record_index = |project: &next_contracts::project::ActivatedProjectV7,
+    let record_index = |project: &next_contracts::project::ActivatedProjectV8,
                         chunk_id: &SchemaId| {
         let asset_id = project
             .world_partition
@@ -29,7 +29,7 @@ pub(super) fn assert_reference_topology_faults_are_typed(
 
     let initial_index = record_index(project, topology.initial_chunk_id());
     let target_index = record_index(project, topology.gameplay_target_chunk_id());
-    let role_index = |project: &next_contracts::project::ActivatedProjectV7, index: usize| {
+    let role_index = |project: &next_contracts::project::ActivatedProjectV8, index: usize| {
         project.neutral_records[index]
             .properties
             .iter()

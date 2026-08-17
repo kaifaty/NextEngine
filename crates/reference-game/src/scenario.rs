@@ -675,7 +675,7 @@ struct ScenarioWorldServices<'a> {
 fn run_scenario_tick(
     runtime: &mut RuntimeState,
     services: ScenarioWorldServices<'_>,
-    project: &next_contracts::project::ActivatedProjectV7,
+    project: &next_contracts::project::ActivatedProjectV8,
     content_generation: &next_assets::PinnedContentGeneration,
     commands: impl IntoIterator<Item = next_contracts::command::WorldCommand>,
     pending: &mut Option<PendingPackagedTransitionV1>,

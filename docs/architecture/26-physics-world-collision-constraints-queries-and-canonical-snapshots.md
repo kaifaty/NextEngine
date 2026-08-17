@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 2.2 |
+| Версия | 2.3 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
-| Заменяет | SPEC-26 2.1; follows the product-grounded retained-limb topology boundary without changing current physics bytes |
+| Заменяет | SPEC-26 2.2; records the bounded R5d production compiler consumer and retains the product-grounded retained-limb topology boundary without changing descriptor ownership or current physics bytes |
 | Дополнительная зависимость V2.0 | [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Дополнительные зависимости V2.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 
@@ -281,6 +281,23 @@ production physical-character consumer and accept `BodySchemaV1`,
 `PhysicsWorldCatalogV2`, `PhysicsStepInputV3`, `PhysicsStepResultV2`,
 `PhysicsCanonicalSnapshotV3` and `PhysicsWorldCheckpointV2`. Earlier alpha
 versions are unsupported inputs and are not migrated.
+
+The bounded R5d reference consumer additionally compiles the exact
+project-activated `BodySchemaAssetV1` twice, once for each stable player/NPC
+subject. The compiler validates the complete neutral
+`BodyInstanceProjectionV1` against the schema before constructing any adapter
+input and returns the descriptor catalog plus `BodyProjectionRootsV1`
+atomically. The physics-descriptor root covers every emitted body, shape,
+joint and actuator field in canonical identity order; observation/action and
+actuator-safety roots bind the other derived consumers. A mismatch publishes
+no candidate projection.
+
+This production projection is currently a compatibility/admission witness for
+the shared physical-animation archetype. It is not inserted into the active
+reference gameplay scene: the existing upright capsule remains the sole
+transform owner and collision participant. Articulation cutover, topology
+transactions and non-default overlays require later bounded consumers and
+their own snapshot/replay evidence.
 
 ## Proposed ephemeral candidate-physics forks
 

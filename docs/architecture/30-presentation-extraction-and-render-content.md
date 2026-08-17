@@ -96,7 +96,7 @@ changing condition, command, physics or gameplay roots.
 The current B0 content path uses exact neutral mesh, material, texture and
 render-profile revisions in `RenderContentCatalogV1`. Cooking validates
 canonical payloads, references, bounds, index/attribute consistency, color
-interpretation and profile support before `ActivatedProjectV7` publication.
+interpretation and profile support before `ActivatedProjectV8` publication.
 
 The implemented renderer consumes the locked B0 shader interface and derived
 meshlet/indexed-indirect content. Backend handles, descriptor sets, command

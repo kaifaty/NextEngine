@@ -4,11 +4,11 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 3.10 |
+| Версия | 4.0 |
 | Последняя проверка | 2026-08-17 |
 | Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Дополнительные зависимости V3.10 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | GLOSSARY-001 3.9; retains current R4d terms and adds product-grounded systemic condition, treatment and visual-profile terms without creating current wire schemas |
+| Дополнительные зависимости V4.0 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
+| Заменяет | GLOSSARY-001 3.10; updates the current project formats and bounded R5d body-projection terms while retaining functional-anatomy, treatment and visual-profile terms |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -24,16 +24,16 @@
 | **PersistentId** | Стабильный 128-bit opaque ID сущности или логического объекта между save/load, chunks и replay. Не кодирует ECS layout или vendor handle. |
 | **AssetId** | Стабильная ссылка на логический asset; конкретная cooked revision определяется manifest и content hash. |
 | **ContentHash** | SHA-256 канонических cooked bytes и параметров cooker, используемый для immutable bundle addressing. |
-| **ProjectAuthoringV6** | Current editable `nextengine.project-authoring.v6` intent consumed only by the cooker; it carries typed routine, 100-record population/navigation, cognition and systemic activity catalogs and is not runtime authority. |
+| **ProjectAuthoringV7** | Current editable `nextengine.project-authoring.v7` intent consumed only by the cooker; it carries typed body-schema, routine, 100-record population/navigation, cognition and systemic activity catalogs and is not runtime authority. |
 | **ProjectLockV3** | Current immutable exact project closure over authoring, schema/content/world/mechanics and runtime/launch/platform profile hashes plus allowed presentation targets; it contains no resolver, recovery or storage policy. |
-| **ActivatedProjectV7** | Complete validated current project closure atomically published from one exact `ProjectLockV3`, all referenced manifests/records and exact routine/population/navigation/cognition/activity catalog bindings. |
+| **ActivatedProjectV8** | Complete validated current project closure atomically published from one exact `ProjectLockV3`, all referenced manifests/records and exact body-schema/routine/population/navigation/cognition/activity catalog bindings. |
 | **WorldPopulationSnapshotV1** | World Services segment containing 100 stable logical population records with revision, home/current region/node and tier; it owns no physical pose. |
 | **NavigationRoutePlanV1** | Revision-bound engine-owned ordered graph path with integer cost and plan hash; advisory for physical traversal and authoritative only for validated abstract transfer. |
 | **AgentCognitionCatalogV1** | Required current content root binding one existing population subject to integer evaluation cadence, bounded retrieval/GOAP limits, stable goal/action/fact IDs and sorted seed beliefs. |
 | **AgentCognitionSnapshotV1** | Separate Agent Runtime owner state for active/suspended goals, plan, private task, pending intent, hysteresis, decision RNG and last epistemic hash. |
 | **AgentMemorySnapshotV1** | Separate Memory Service owner state for the current bounded semantic beliefs, provenance/contradiction, recorded structured speech acts, revision and last retrieval tick. |
 | **WorldActivitySnapshotV1** | Separate World Services authority for one owner-validated `Unassigned → Assigned → Working → Completed` activity; it stores no RPG resource, currency, item or physical pose. |
-| **ReplayManifestV9** | Current-only replay envelope requiring the eight non-routine Runtime/RPG/Physics/streaming/population/activity/Agent/Memory owners and permitting only routine to be absent; reference alpha compares nine full-tuple descriptors and the application root. |
+| **ReplayManifestV10** | Current-only replay envelope requiring the nine non-routine Runtime/RPG/Physics/streaming/population/activity/Agent/Memory/physical-animation owners and permitting only routine to be absent; reference alpha compares ten full-tuple descriptors and the application root. |
 | **SchemaDescriptorV1** | Immutable engine-owned schema declaration со stable schema/field IDs, wire shape, encoding, role, compatibility policy and canonical hash; storage/backend layout не является schema. |
 | **SchemaRegistryManifestV2** | Exact current set of bounded schema descriptors/current refs bound by `ProjectLockV3`; it contains no historical window or migration DAG. |
 | **ContentManifestV1** | Immutable catalog root of exact neutral asset revisions, provenance, current dependency closure and domain root; runtime resolves no floating content revision. |
@@ -83,6 +83,7 @@
 | **Decision Trace** | Bounded immutable non-authoritative diagnostic goal scores, cited beliefs, selected plan, task outcome и replan reason для одного Strategic Agent boundary. |
 | **PhysicalAvatarIntent** | Ограниченный по времени запрос locomotion/posture/manipulation к motor controller; не задаёт physics pose напрямую. |
 | **BodySchema** | Immutable versioned heterogeneous Physical Interaction Graph со stable schema-scoped body-node/joint-edge/actuator/effector/attachment identities and semantic roles; из одной exact revision выводятся physics descriptors, motor layouts, cached static morphology input, safety limits и replay compatibility. Не содержит current pose или mutable overlays. |
+| **BodySchemaAsset** | Current exact content wrapper binding one `BodySchemaV1` generation to its `AssetId`, record revision/hash and admitted deterministic compiler-profile identity; it is immutable project content, not pose or instance state. |
 | **BodyInstanceProjection** | Immutable revision-bound effective projection exact BodySchema plus morphology/equipment/stats/damage/fatigue/attachment owners; Physical Embodiment компилирует mass/inertia/ROM/actuator/sensor facts, но не получает ownership исходных mutable fields. |
 | **BodyTissueSchema** | Future immutable content-addressed functional anatomy bound to one exact BodySchema: stable tissue/group/break-site identities, sparse capability dependencies, allowed structural variants and presentation bindings. Exact V1 wire remains Proposed. |
 | **BodyConditionState** | Future RPG-owned durable typed tissue integrity/continuity/structural/recovery state. Mechanics, Physics, Motor and presentation may consume immutable views or submit proposals but cannot own or mutate it directly. Exact aggregate remains Proposed. |
@@ -91,6 +92,7 @@
 | **BodyCapabilityEnvelope** | Reconstructible immutable Physical Embodiment projection intersecting BodySchema safety with committed condition/stats/equipment/fatigue/structural facts; consumed by Motor observation and fixed safety/PD, never a second durable owner. Exact wire remains Proposed. |
 | **BodyTreatmentStage** | Future semantic stabilization, repair or rehabilitation transition over RPG-owned body condition. Medicine and magic use the same validated proposal/command path; exact treatment contracts remain Proposed. |
 | **BodyStatusProjection** | Future qualitative read-only UI view of region, function, attachment/structure, systemic band and next treatment stage. It cannot diagnose from presentation or reveal hidden NPC truth. Exact wire remains Proposed. |
+| **BodyProjectionRoots** | Reconstructible canonical witness binding exact schema/instance/compiler inputs to emitted physics descriptors, observation/action layouts and actuator-safety limits. It is rederived at activation/restore and is not a mutable save owner. |
 | **CanonicalEnvironmentReplay** | Byte-exact engine-owned reset/step/action/observation/snapshot/root continuation для locked CPU PhysX build profile. Worker/slot completion order и vendor caches не входят в result. |
 | **MotorReplayPrefix** | Bounded ordered episode-origin reset plus every canonical post-safety 240 Hz effort and per-motor-tick physics witness used to reconstruct hidden PhysX continuation in a fresh scene; policy/PD re-execution is separate parity evidence. |
 | **EvaluatorCorrespondence** | Bounded comparison canonical CPU execution с accelerated GPU/trainer mirror. Это проверка близости trajectories/contact/done, а не разрешение GPU быть replay authority. |

@@ -10,7 +10,7 @@ use next_contracts::physical_animation::{
     ROOT_MOTION_MOVE_STARTED_PHASE_ID,
 };
 use next_contracts::physics::{PhysicsBodyIdV1, PhysicsCanonicalSnapshotV2};
-use next_contracts::project::ActivatedProjectV7;
+use next_contracts::project::ActivatedProjectV8;
 use next_motor::{PhysicalAnimationOwnerErrorV1, PhysicalAnimationOwnerV1};
 use next_player::ResolvedPlayerInputFrameV1;
 
@@ -162,6 +162,31 @@ fn reference_physical_animation_content(
         },
     ];
     bindings.sort();
+    let body_schema_hash = fixture
+        .activated_project
+        .body_schema_asset
+        .body_schema
+        .schema_hash()?;
+    let body_schema_asset_hash = fixture
+        .activated_project
+        .body_schema_asset
+        .record_sha256()?;
+    if fixture.body_projections.body_schema_asset_revision.asset_id
+        != fixture.activated_project.body_schema_asset.asset_id
+        || fixture
+            .body_projections
+            .body_schema_asset_revision
+            .record_sha256
+            != body_schema_asset_hash
+        || bindings.iter().any(|binding| {
+            fixture
+                .body_projections
+                .roots_for(binding.subject_id)
+                .is_none_or(|roots| roots.body_schema_hash != body_schema_hash)
+        })
+    {
+        return Err(ReferenceGameError::BodyProjectionInvalid);
+    }
     Ok(ReferencePhysicalAnimationContentV1 {
         profile,
         skeleton,
@@ -172,7 +197,7 @@ fn reference_physical_animation_content(
 }
 
 pub(crate) fn reference_root_motion_source_hashes(
-    project: &ActivatedProjectV7,
+    project: &ActivatedProjectV8,
     gameplay_hz: u32,
 ) -> Result<(ContentHash, ContentHash), ReferenceGameError> {
     let skeleton = project

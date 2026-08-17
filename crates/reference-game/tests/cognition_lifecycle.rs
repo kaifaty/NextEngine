@@ -5,8 +5,8 @@ static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[test]
 fn production_cognition_interrupts_for_emergency_and_resumes_the_ordinary_goal() {
-    let cooked = next_project::cook_project_v6(
-        next_reference_game::project_source_v6().expect("reference source"),
+    let cooked = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
     )
     .expect("reference cook");
     let root = std::env::temp_dir().join(format!(
