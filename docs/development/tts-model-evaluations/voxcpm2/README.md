@@ -337,6 +337,24 @@ outputs are mono float32 48 kHz, finite and unclipped. Their peaks range from
 files and timing only. Whether each prompt preserves the intended adult voice
 and conveys the named emotion remains a human-listening decision.
 
+### Human listening verdict for the emotion suite
+
+The user judged the suite generally quite good, but the three explicitly
+reviewed expressive controls exposed important limitations:
+
+| Variant | Human result | Consequence |
+| --- | --- | --- |
+| Dry sarcasm | Failed: sarcasm was not perceptible, and `стража` had the wrong stress in this output | Do not retain this control. Use semantically sarcastic text and separately test an explicit stress-marked spelling. |
+| Restrained anger | Partial: the result sounded reasonable, but anger was not perceptible | The `restrained` instruction is too weak for a gameplay preset; test a clearly stronger angry delivery. |
+| Joyful / excited | Partial success: the intended emotion was clear, but the speaker voice changed | Voice Design can hit a broad emotion while changing speaker identity; it is insufficient by itself for a persistent character voice. |
+
+No final verdict was recorded for neutral, sad/tired, tense whisper or the
+requested chuckle. The controlled-cloning path is the appropriate next A/B for
+character dialogue: bind timbre with a clean authorized reference, then apply a
+style instruction. If reference-free Voice Design must be retained, each
+emotion needs a separate speaker-consistency review and cannot be assumed to
+represent one stable character merely because the voice description repeats.
+
 ## Audio archive
 
 ```text

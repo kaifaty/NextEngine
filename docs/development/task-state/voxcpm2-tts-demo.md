@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Compiled/streaming PyTorch remains the VoxCPM2 quality baseline and now has a seven-case natural-language emotion/delivery suite. Nano-vLLM 2.0.3 with CUDA Graphs is faster at RTF 0.249, but its intonation is noticeably worse and it remains a throughput-only alternative.
-- **Why:** The new suite generated valid unclipped audio at mean RTF 0.787 and 60.0 ms mean first PCM while keeping one resident model, fixed seed/CFG/steps and explicit control strings. Perceptual adherence of the seven controls is not yet scored.
-- **Next action:** Listen to the seven emotion-suite WAVs and record which controls preserve the adult speaker and clearly convey the intended delivery; promote only the successful descriptions to candidate engine presets.
+- **Current conclusion:** Compiled/streaming PyTorch remains the VoxCPM2 quality baseline, but reference-free Voice Design is not sufficient by itself for a stable character across emotions. Joy/excitement was perceptible but changed the voice; restrained anger and dry sarcasm were not perceptible, and the sarcasm sample mis-stressed `стража`. Nano-vLLM remains a throughput-only alternative because its intonation is noticeably worse.
+- **Why:** The suite generated technically valid audio at mean RTF 0.787 and 60.0 ms mean first PCM, but direct listening separated waveform validity from controllability: stronger emotion can shift identity, while subtle controls can be ignored.
+- **Next action:** Run the smallest controlled-cloning A/B with one clean authorized adult reference, holding that reference fixed while testing neutral, clearly angry and joyful delivery; separately test explicit stress marking for `стра́жа`.
 - **Current blocker:** None.
 - **Do not retry:** Do not use the unqualified `main` branch, mutable model aliases at runtime, community quantizations, unlicensed reference speech or model/generated artifacts inside Git for the correctness baseline.
 - **Reconsider when:** A later pinned Nano-vLLM/model revision materially improves the waveform, the workload explicitly accepts weaker intonation for throughput, or concurrency becomes a requirement.
@@ -39,7 +39,8 @@
 | Nano-vLLM longer dialogue | `PASS`: 6.560 s audio, warm RTF 0.236, first PCM 146.2 ms, 9,284 MiB, fixed-seed PCM-identical | Human review must check completeness because PyTorch generated 8.000 s for the same text. |
 | Nano-vLLM external evidence archive | `PASS`: three listening WAVs and four raw run directories added under the existing VoxCPM2 archive | Exact speed and side-by-side quality evidence remain outside Git and reviewable. |
 | Human intonation comparison | `FAIL` for Nano-vLLM quality parity: the user judged PyTorch to have noticeably better intonation in the retained A/B examples | Keep PyTorch as the quality baseline; do not select Nano-vLLM solely by RTF. |
-| PyTorch emotion/delivery suite | `PASS` technically: seven streaming 48 kHz float32 WAVs in one resident compiled session; mean RTF 0.787, first PCM 60.0 ms, peak total GPU 7,491 MiB, no non-finite or clipped samples | Exact Voice Design strings and timing evidence are reproducible; human emotion and speaker-consistency scoring remains pending. |
+| PyTorch emotion/delivery suite | `PASS` technically: seven streaming 48 kHz float32 WAVs in one resident compiled session; mean RTF 0.787, first PCM 60.0 ms, peak total GPU 7,491 MiB, no non-finite or clipped samples | Exact Voice Design strings and timing evidence are reproducible, but technical validity does not establish style adherence. |
+| Emotion-suite human review | `PARTIAL`: joy/excitement was clear but changed the voice; restrained anger and dry sarcasm were not perceptible; the sarcasm output mis-stressed `стража`; overall quality was judged fairly good | Do not promote the three controls as stable character presets. Evaluate emotion over controlled cloning and use semantically aligned test lines. |
 
 ## Decisions that still constrain the work
 
@@ -76,12 +77,12 @@
 ### D-004 — Evaluate emotion through explicit Voice Design controls
 
 - **Observation:** VoxCPM2 accepts free-form Voice Design text rather than a documented fixed emotion-tag vocabulary, and loading the model for every variation would confound latency and waste startup time.
-- **Evidence:** The repository `emotion-suite` run produced seven distinct fixed-seed streaming WAVs in one resident compiled process; exact controls and request metrics are retained in `summary.json`.
-- **Decision:** Compare emotions with explicit English control descriptions, a repeated mature-adult voice description, common Russian text where semantically suitable, and fixed seed/CFG/steps. Treat requested laughter as a prompt attempt rather than guaranteed tag behavior.
+- **Evidence:** The repository `emotion-suite` run produced seven distinct fixed-seed streaming WAVs in one resident compiled process; exact controls and request metrics are retained in `summary.json`. Direct listening found no clear sarcasm or restrained anger, a speaker change under joy/excitement, and wrong stress in `стража` in the sarcasm output.
+- **Decision:** Use reference-free Voice Design only for discovering a new voice/style, not for assuming persistent character identity across emotions. The next character-dialogue experiment must hold a clean authorized reference fixed through the official controllable-cloning path. Use semantically aligned lines and fixed seed/CFG/steps; treat requested laughter as a prompt attempt rather than guaranteed tag behavior.
 - **Rejected alternatives:** Do not compare variants in separate cold processes; do not claim a prompt succeeded from waveform validity or timing alone; do not describe free-form controls as canonical tags.
-- **Consequences:** Runtime differences are directly comparable and every candidate preset is auditable. Human listening is required before an emotion control can be promoted.
-- **Uncertainty:** Emotion adherence, speaker identity consistency, Russian pronunciation and whether the requested chuckle is actually produced remain unscored.
-- **Reconsider when:** Human listening identifies weak controls, at which point change one description at a time and retain the neutral control as the anchor.
+- **Consequences:** Runtime differences remain directly comparable, but none of the three reviewed expressive controls is a stable character preset. Human listening is required before any control can be promoted.
+- **Uncertainty:** The fixed-reference emotion tradeoff, explicit Russian stress marking, neutral/sad/whisper adherence and whether the requested chuckle is actually produced remain unscored.
+- **Reconsider when:** A fixed-reference controlled-cloning A/B preserves timbre across clearly distinct emotions, or a newer pinned model improves reference-free identity consistency.
 
 ## Open hypotheses
 
@@ -91,7 +92,7 @@
 | H2: Adult Voice Design avoids a childlike output without reference speech | Adult male/female examples were produced without reference audio and have valid unclipped waveforms | Human timbre judgment is pending | User listens to archived examples. |
 | H3: Warm RTX 3080 RTF is competitive with CosyVoice 0.582 | Confirmed for Nano-vLLM: RTF 0.249 is 57.2% lower than CosyVoice | Nano-vLLM intonation is noticeably worse than PyTorch and it uses 1,290 MiB more peak total GPU than CosyVoice | Retain only as a throughput comparator, not the quality candidate. |
 | H4: Nano-vLLM fits and materially accelerates one request on 10 GiB | Confirmed: RTF 0.249 at 9,271 MiB versus PyTorch RTF 0.707 at 8,286 MiB | Less than 1 GiB observed peak headroom; concurrency is not established; quality parity failed | Keep one resident request as the proven performance boundary. |
-| H5: Free-form Voice Design can produce useful RPG emotion presets while preserving one adult speaker | Seven technically valid variants were generated from explicit mature-male controls | Perceptual emotion adherence and speaker consistency have not been scored | User listens to the neutral anchor and six expressive variants. |
+| H5: Free-form Voice Design can produce useful RPG emotion presets while preserving one adult speaker | Joy/excitement produced a clear intended emotion | Falsified for the tested controls: the joyful voice changed, while restrained anger and dry sarcasm were not perceptible | Switch the next identity-sensitive A/B to controlled cloning with one fixed authorized reference. |
 
 ## Required context
 
@@ -102,9 +103,9 @@
 
 ## Next action
 
-1. Listen to the seven files under `examples/emotion-suite-stream-steps10` and score intended emotion, adult-speaker consistency, pronunciation and artifacts.
-2. If a control is weak, change only its Voice Design description and compare it against `neutral.wav` with the same seed, CFG and step count.
-3. Revisit Nano-vLLM only after a pinned quality-relevant change or for an explicitly throughput-first workload.
+1. Obtain or record one clean authorized adult reference and use it for neutral, clearly angry and joyful controlled-cloning requests.
+2. Use semantically aligned text for each emotion and add a separate Russian stress A/B for `стража` versus `стра́жа`; keep seed, CFG and steps fixed.
+3. Score emotion, speaker identity, pronunciation and artifacts independently; revisit Nano-vLLM only for an explicitly throughput-first workload or after a pinned quality change.
 
 ## Do not retry
 
@@ -112,10 +113,11 @@
 - Treating model load or generator creation as TTFA — measure the first returned PCM chunk for streaming.
 - Passing `device="cuda:0"` to release 2.0.3 when measuring the compiled path — `optimize()` checks exact string equality with `"cuda"` and silently falls back to eager execution; select the physical GPU through `CUDA_VISIBLE_DEVICES` and pass `device="cuda"`.
 - Recompiling the full stock FlashAttention source on this host for the bounded VoxCPM2 inference test — it spends most of its build time on unused backward, FP16 and other head dimensions. Reconsider only for a general-purpose distributable wheel; the retained inference build is deliberately BF16/head-dim-128 only.
+- Reusing the exact `dry-sarcasm`, `restrained-anger` or `joyful-excited` Voice Design controls as stable character presets — direct listening found absent subtle emotions or changed speaker identity. Retry only with a semantically aligned line or fixed-reference controlled cloning.
 
 ## Handoff
 
 - **Workspace state:** PyTorch and Nano-vLLM wrappers, tests, report and task-state are tracked; all model/runtime/generated/raw artifacts remain in external machine-local roots.
 - **Checks:** Nano-vLLM pinned doctor, all 15 focused VoxCPM2 unit tests, Python compile, canonical graph/eager/long-dialogue/0.80-utilization runs, seven-case emotion suite, fixed-seed PCM determinism, WAV structure, no-clipping analysis and external archive copies pass. Documentation path/link validation and `git diff --check` pass.
-- **Remaining risk:** Emotion adherence, speaker consistency, Russian pronunciation, requested chuckle, long-text completeness, broader-corpus behavior and multi-request concurrency remain perceptually or operationally unmeasured; the direct backend intonation verdict favors PyTorch.
+- **Remaining risk:** Fixed-reference emotion adherence, Russian stress control, neutral/sad/whisper/chuckle scoring, long-text completeness, broader-corpus behavior and multi-request concurrency remain unmeasured; reference-free speaker consistency has failed for the reviewed joyful variant, and the direct backend intonation verdict favors PyTorch.
 - **Promotion needed:** None for a bounded lab experiment.
