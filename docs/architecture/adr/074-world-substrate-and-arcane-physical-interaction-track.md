@@ -4,11 +4,11 @@
 |---|---|
 | ID | ADR-074 |
 | Status | Proposed |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-16 |
-| Last verified | 2026-08-16 |
-| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-31](../31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-36](../36-continuum-material-physics.md), [SPEC-37](../37-layered-physical-world.md), [SPEC-38](../38-structural-vegetation-physics.md), [SPEC-39](../39-world-substrate-composition.md), [SPEC-40](../40-arcane-substrate-and-physical-magic.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-073](073-layered-physical-world-and-living-structures-track.md) |
-| Supersedes | none; proposes a post-v1 world-substrate composition and arcane research lane without changing Accepted current semantics |
+| Last verified | 2026-08-17 |
+| Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-13](../13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](../18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-19](../19-rpg-domain-and-narrative-state.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [SPEC-31](../31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-36](../36-continuum-material-physics.md), [SPEC-37](../37-layered-physical-world.md), [SPEC-38](../38-structural-vegetation-physics.md), [SPEC-39](../39-world-substrate-composition.md), [SPEC-40](../40-arcane-substrate-and-physical-magic.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-019](019-canonical-player-actions-and-presentation-authority.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-034](034-player-targeting-replay-v5-and-mapping-provenance.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-073](073-layered-physical-world-and-living-structures-track.md) |
+| Supersedes | ADR-074 1.0; selects all recommended architecture-gap resolutions while keeping the track Proposed and numeric calibration open |
 | Superseded by | none |
 
 ## Context
@@ -50,30 +50,58 @@ segments when evidence proves the need.
 Create the Proposed SPEC-40 arcane lane. It owns only arcane quantity,
 reservations, throughput and active execution state. RPG continues to own
 skills, inventory/equipment and current character resources. Mechanics owns
-ability/package definitions and proposal state. PhysX remains the only rigid
-writer. Mana is not health, physical energy already deposited in another
-owner, soul, identity or divine standing.
+ability/package definitions and validates proposals; it owns no mutable V1
+telekinesis reducer state. PhysX remains the only rigid writer. Mana is not
+health, physical energy already deposited in another owner, soul, identity or
+divine standing.
 
-The candidate authority is CPU fixed-point publication with private `f64`
-inside a fixed step. GPU is optional presentation/correspondence only. Every
+The candidate authority is checked CPU fixed-point arithmetic/publication.
+`f64` is oracle/diagnostic-only for A1-A5 and cannot select a request, debit,
+branch or root. GPU is optional presentation/correspondence only. Every
 physical effect has a named source, finite debit, conversion/loss receipt and
 atomic destination result. No effect receives permission to set transforms,
 delete material or emit damage as a substitute for the destination owner.
 
+### Split command start from physical exchange
+
+Do not extend the current command ledger with a receipt pending across stage 5
+and stage 8. The ordinary Ingress transaction creates the Arcane-owned active
+execution, recast lock and one conservative reservation for the complete
+finite declared plan, partitioned into canonical per-substep maximum-debit
+slices. It then finalizes a command receipt whose meaning is `execution
+started`. Mechanics retains only immutable V1 policy and no mutable
+telekinesis reducer/cooldown state.
+
+Each active execution emits bounded fixed-point requests at `PhysicalStep`
+without another package callback. Arcane and PhysX build candidate states,
+validate work/loss and publish both plus an exchange receipt atomically. Release
+and cancel are later `WorldCommand` values. Completion facts use the single
+existing stage-9 Outcome batch and never re-enter the current tick.
+
 ### Start with one telekinesis vertical
 
 The first production-shaped consumer is one package-authored telekinesis
-ability acting on one real PhysX rigid fixture through the ordinary player
-action, `EffectRequestV1` and `WorldCommand` path. A sealed reservoir is debited
-and one canonical force/torque batch is applied. The vertical proves resource
-accounting, rigid ownership, atomic failure, exact persistence/replay and
-game/headless/package parity.
+ability acting on one real dynamic PhysX crate through the ordinary
+`PlayerActionFrame`/authoritative targeting, `EffectRequestV1` and
+`WorldCommand` path. One authored caster reservoir is sealed, closed and has no
+regeneration or energy recovery. `1 AQ` is a one-joule pre-loss maximum
+mechanical-work budget. V1 applies force at a point plus optional free torque;
+impulse is excluded.
 
-A0 must freeze exact units, conservation/source model, reservoir and throughput
-profile, numeric scales, schedule, target fixture, force/work law, traces,
-capacities, thresholds and performance budget before code. The recommended
-starting law is a closed reservoir with no regeneration during the oracle, but
-that recommendation is not frozen until A0 closes.
+The fixture pins caster and crate in one sealed active region and forbids
+streaming, transfer and despawn. A0A architecture closure is complete. A0B must
+still freeze integer raws/scales, capacity/throughput values, efficiency and
+maintenance coefficients, cadence/duration, exact force curve, analytical
+traces, capacities, thresholds and performance budget before code.
+
+The private `ArcaneRigidExchangeV1` compiles into existing
+`PhysicsStepInputV1.external_force_requests`; no generic bus or new public
+physics-step collection is introduced. Exact command retries stop in the
+ledger. Duplicate exchange keys inside a newly built closed batch are fatal
+internal invariants. Concurrent executions sort canonically and reserve
+sequentially from one Arcane candidate state at start. Physical substeps
+account already published current slices in the same order and never reserve
+the same work twice.
 
 ### Defer general spell graphs and metaphysics
 
@@ -91,19 +119,25 @@ standing intent does not grant arcane or identity authority.
 
 ### Exact active state before summaries
 
-The first arcane owner stores complete future-affecting active state and
-coupling receipts in one successor composite checkpoint. Exact save/restart
-precedes regional summaries, field LOD, sleep or lossy ecology persistence.
-Representation changes use canonical facts and integer budgets; camera,
-visibility, measured frame time, wall clock and GPU completion are forbidden.
+The first Arcane owner stores complete future-affecting active state, recast
+locks and exchange receipts in one required owner segment of a successor
+current-only composite checkpoint. Arcane and PhysX restore into staging and
+publish together; absent Arcane state cannot default to zero. Exact save/
+restart precedes regional summaries, field LOD, sleep or lossy ecology
+persistence. Representation changes use canonical facts and integer budgets;
+camera, visibility, measured frame time, wall clock and GPU completion are
+forbidden.
 
 ## Failure and fallback
 
-Invalid capability/profile, insufficient quantity, throughput violation,
-stale revision, nonfinite/overflow, capacity excess, batch collision,
-conversion/work mismatch, backend rejection or corrupt persistence publishes
-no partial debit, physical state, receipt or event. The prior complete
-generation remains authoritative.
+Capability denial, insufficient quantity/throughput, ineligible or pre-freeze
+missing target and explicit cancel are ordinary per-execution rejections or
+terminations; they apply no force and return unused reservation. Post-freeze
+missing/stale participant, nonfinite/overflow, duplicate key, work mismatch,
+PhysX rejection, rollback failure or corrupt persistence is fatal and rejects
+the complete participating `PhysicalStep`. The affected world halts at the
+prior complete generation and does not automatically retry the execution;
+rollback failure stops the instance.
 
 Before activation, projects may omit arcane content or author an ordinary
 mechanic. A project requiring unsupported arcane capability fails activation.
@@ -113,19 +147,36 @@ success, frozen owner, GPU switch or retry-to-green.
 ## Promotion and stop conditions
 
 The [arcane roadmap](../../plans/arcane-world/README.md) remains
-`PLANNED / NOT_ACTIVE` while A0 is open. After A0 closure the serial
-reservoir/transfer oracle may run. Only `ARCANE-RESERVOIR-REF-P1 = PASS` allows
-the main R8 row to become an active research track.
+`PLANNED / NOT_ACTIVE` while numeric Package A0B is open. After A0B closure the
+serial reservoir/transfer oracle may run. Only
+`ARCANE-RESERVOIR-REF-P1 = PASS` allows the main R8 row to become an active
+research track.
 
 Production promotion additionally requires `ARCANE-MECHANICS-P1`,
 `ARCANE-RIGID-COUPLING-P1`, `ARCANE-PERSISTENCE-P1`,
-`ARCANE-CROSS-TARGET-P1`, the declared performance budget and a
-consumer-backed Accepted ADR. Failing the closed law/coupling corpus keeps the
-track research-only; changing the source model, physical budget, target scope
-or GPU authority requires an explicit new decision.
+`ARCANE-CROSS-TARGET-P1`, `play`, `content-package`, `persistence-replay`,
+`platform`, the declared conditional performance budget and a consumer-backed
+Accepted ADR. A2 freezes Proposed schema/schedule detail; public contracts land
+only in the coherent integrated A3 consumer checkpoint. Failing the closed
+law/coupling corpus keeps the track research-only; changing the source model,
+physical budget, target scope or GPU authority requires an explicit new
+decision.
 
 ## Alternatives rejected
 
+- One external command receipt pending from Ingress through `PhysicalStep`:
+  conflicts with the current two-phase ledger/barrier contract; start plus
+  exchange receipts preserve it.
+- PhysX-first publication or irreversible debit-first publication: either can
+  expose a partial owner result when later validation fails.
+- Per-substep package callbacks: create hidden re-entry and make package
+  runtime timing part of authority.
+- Authoritative private `f64`: unnecessary for the first reservoir/wrench law
+  and weaker than the current fixed-point numeric baseline.
+- New public `arcane_requests[]` in `PhysicsStepInputV1`: the first consumer can
+  compile a private exchange record into the existing external-force path.
+- Camera/depth or package-supplied target IDs: do not preserve authoritative
+  targeting/query provenance across live, headless and replay.
 - Hardcoded `FireballSystem`, `HealSystem` or privileged first-party magic:
   violates ADR-008/020 and prevents package dogfooding.
 - One scalar mana plus scripted physical effects: cannot close source,
@@ -146,6 +197,10 @@ or GPU authority requires an explicit new decision.
   command kind, package primitive or ProductCheck is added.
 - SPEC-37 remains the physical owner/coupling specialization; SPEC-39 composes
   it with non-physical substrates without superseding it.
-- The next action is A0 law/profile/evidence closure, not arcane runtime code.
+- The first Arcane-to-PhysX edge is fully gated by
+  `ARCANE-RIGID-COUPLING-P1`; `WORLD-DYNAMICS-P1` waits for one transaction
+  involving two promoted new substrate owners beyond Physical Embodiment.
+- The next action is A0B numeric profile/fixture/evidence closure, not arcane
+  runtime code.
 - Future magic effects receive completion credit only from their real
   destination-owner checks, never from presentation or an arcane-only test.

@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-39 |
 | Status | Proposed |
-| Version | 1.0 |
-| Last verified | 2026-08-16 |
+| Version | 1.1 |
+| Last verified | 2026-08-17 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-19](19-rpg-domain-and-narrative-state.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md), [SPEC-37](37-layered-physical-world.md), [ADR-008](adr/008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-020](adr/020-rpg-domain-authority-and-extension-boundary.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-074](adr/074-world-substrate-and-arcane-physical-interaction-track.md) |
 | Specialization | [SPEC-40](40-arcane-substrate-and-physical-magic.md) |
-| Supersedes | none; adds a Proposed cross-owner composition model without changing current runtime, RPG, Mechanics, PhysX, content, save or public-contract semantics |
+| Supersedes | SPEC-39 1.0; closes the command/step receipt split, exchange identity, duplicate and failure-isolation rules without changing current runtime, RPG, Mechanics, PhysX, content, save or public-contract semantics |
 
 ## Status and purpose
 
@@ -67,27 +67,33 @@ forbidden.
 
 ## Command-to-outcome transaction
 
-Every cross-owner action starts through the current production path:
+Every cross-owner action starts through the current production path. The first
+Arcane-to-PhysX profile uses two transactions rather than keeping an external
+command open across the current stage-5/stage-8 boundary:
 
 1. player, AI, package, script or tool emits a bounded mechanics/command
    proposal;
 2. Runtime authenticates capabilities, normalizes the canonical command body,
-   computes ADR-022 identity and reserves it in the ledger;
+   computes ADR-022 identity and admits it through the existing ledger;
 3. domain validators freeze the exact owner/profile revisions and construct an
-   immutable cross-owner transaction plan;
-4. participating owners compute private candidate states and typed exchange
-   batches at their declared fixed stage;
-5. Runtime validates batch uniqueness, revisions, bounds, conservation/cost
+   immutable start plan;
+4. the due Ingress transaction atomically publishes only the validated owner
+   start/reservation state and an ordinary terminal `CommandReceipt`; that
+   receipt means `execution started`, not `physical effect succeeded`;
+5. at the declared `PhysicalStep`, active owners compute private candidate
+   states and typed exchange batches without another package callback;
+6. Runtime validates batch uniqueness, revisions, bounds, conservation/cost
    receipts and all candidate roots;
-6. all participating owner states, terminal command receipt and ordered events
-   publish together, or none publishes;
-7. semantic queries and presentation derive only from the committed result.
+7. participating owner states plus exchange receipts publish together, or none
+   publishes;
+8. stage-9 Outcome may publish completion/failure facts through its one existing
+   `InternalSystem` batch; it cannot re-enter gameplay in the same tick;
+9. semantic queries and presentation derive only from committed results.
 
-The first implementation may specialize this flow inside existing Ingress,
-`PhysicalStep` and Outcome boundaries, but it cannot add a hidden same-tick
-re-entry. If the current ledger/schedule cannot keep a receipt pending until
-the composite result, implementation stops until a consumer-backed schedule
-decision closes that exact boundary.
+An external command never remains pending merely to await stage-8 physics. A
+future substrate that cannot use the start-receipt plus exchange-receipt split
+requires a consumer-backed schedule/ledger decision before implementation; it
+cannot add a hidden barrier or same-tick re-entry.
 
 ## Typed exchange edges
 
@@ -95,16 +101,20 @@ Each cross-owner edge is a separately versioned profile, not one universal
 coupler interface. A canonical exchange record contains at least:
 
 - source and destination owner IDs plus full participant identities;
-- world generation, command identity, tick/substep and unique batch key;
+- exact `world_namespace`, destination `world_id`/prior `world_revision`,
+  command identity, tick/substep and unique batch key;
 - source/destination definition, profile and prior-state revisions/roots;
 - fixed-point quantities, units, reference frames and moment/COM references;
 - declared source debit, destination effect and residual/dissipation receipt;
 - finite capacities, exact canonical order and stable failure code.
 
-Exactly one record/batch is allowed for a declared key. An exact duplicate or
-a different hash under that key rejects the uncommitted composite action; the
-runtime never chooses by arrival, worker or GPU completion order. Direct
-references to another owner's ECS/backend buffers are forbidden.
+An exact command retry is intercepted by the command ledger and creates no new
+exchange record. Inside one newly constructed closed owner batch, exactly one
+record is allowed for a declared key: an exact duplicate or a different hash
+under that key is an internal invariant failure that rejects the complete
+participating step. The runtime never chooses by arrival, worker or GPU
+completion order. Direct references to another owner's ECS/backend buffers are
+forbidden.
 
 ## Representation, streaming and persistence
 
@@ -140,11 +150,18 @@ replace owner state or permit same-tick mutation.
 
 ## Failure and fallback
 
-Invalid content/profile, capability denial, stale revision, nonfinite value,
-fixed-point overflow, capacity excess, batch collision, missing owner,
-non-convergence, conservation/cost failure, backend rejection or corrupt
-checkpoint publishes no partial owner state, receipt or event. The prior
-complete generation remains authoritative.
+Capability denial, insufficient source quantity/throughput, ineligible target
+or explicit cancel before owner freeze is an ordinary gameplay rejection or
+deterministic execution termination. It affects that action only, publishes no
+destination effect and returns any unused reservation under the profile.
+
+Nonfinite value, fixed-point overflow, post-freeze missing/stale participant,
+duplicate exchange key, different bytes under one key, conservation/cost
+failure, backend rejection, rollback failure or corrupt checkpoint is an
+internal invariant failure. It rejects the complete participating step and
+retains the prior complete generation; rollback failure stops the instance.
+Invalid project content/profile or missing required capability fails before
+world activation.
 
 Before a Proposed substrate capability is activated, a project may omit it or
 use a separately authored ordinary mechanic. After activation there is no
@@ -158,8 +175,10 @@ checkpoint.
 This composition model has no standalone current ProductCheck. A concrete
 substrate first passes its own reference, production-path, coupling,
 persistence, cross-target and conditional performance checks. A future
-`WORLD-DYNAMICS-P1` is created only when two independently promoted non-RPG
-owners participate in one production transaction; it must prove exclusive
+`WORLD-DYNAMICS-P1` is created only when two independently promoted **new
+substrate owners beyond the existing Physical Embodiment owner** participate
+in one production transaction. The first Arcane-to-PhysX edge is covered by
+its own coupling check. The later composition check must prove exclusive
 writers, complete rollback, exact receipt/event order and presentation
 independence.
 
