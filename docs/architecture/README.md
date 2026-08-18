@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.45 |
-| Последняя проверка | 2026-08-17 |
-| Заменяет | INDEX-001 2.44; adds Accepted ADR-081 promotion guardrails and synchronizes the Proposed world-dynamics tracks without activating runtime/schema behavior |
+| Версия | 2.46 |
+| Последняя проверка | 2026-08-18 |
+| Заменяет | INDEX-001 2.45; records the current bounded R5g authored pose-corrective and cadence/deformation-LOD route without promoting injury or full embodiment |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -185,7 +185,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070; SPEC-44 does not yet add a world-solver lane |
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
 | SPEC-36 | [Functional tissue condition, injury and structural body changes](36-functional-tissue-condition-and-injury.md) | Accepted functional-anatomy product, ownership, treatment, player/NPC parity and fallback semantics; exact contracts/vertical remain Proposed |
-| SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person target and current R5f exact base-rig/LBS/fallback route; pose/load/injury, severity/LOD matrix and advanced deformers remain Proposed |
+| SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person target and current R5g exact base-rig/LBS/pose-corrective/fallback plus bounded cadence/deformation-LOD route; load/injury, severity matrix and advanced deformers remain Proposed |
 | SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 local water/deformable-terrain track; CPU DFSPH reference, GPU correspondence and MLS-MPM terrain are not current runtime contracts |
 | SPEC-39 | [Proposed layered physical-world model](39-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and thermochemical state without a universal solver or second writer |
 | SPEC-40 | [Proposed structural vegetation physics](40-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; V0A decisions are closed and V0B calibration remains open |
@@ -276,7 +276,7 @@ traceability — навигационная карта, не admission authority
 | ADR-072 | [Deterministic population tiers and graph-navigation vertical](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) | Accepted R4b 100-record World Services owner and 64-node graph; its six-owner/Replay V7 format boundary is superseded by ADR-073 |
 | ADR-073 | [Deterministic cognition owner vertical](adr/073-deterministic-cognition-owner-vertical.md) | Accepted R4c semantic beliefs, fixed-point Utility, bounded GOAP and paired Agent/Memory owners; its V5/V6/Replay V8 boundary is superseded by ADR-074 |
 | ADR-074 | [Systemic Strategic Agent owner vertical](adr/074-systemic-strategic-agent-owner-vertical.md) | Accepted bounded R4d structured social/work/economy path, activity owner, tier cognition, bulk-time equivalence, V6/V7 content and nine-owner Replay V9 |
-| ADR-075 | [Product-grounded functional anatomy and character embodiment](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) | Accepted functional gameplay abstraction and third-person semantics; R5f base-rig/LBS projection is current, while condition/injury schemas and the complete lower-limb severity/LOD vertical remain Proposed |
+| ADR-075 | [Product-grounded functional anatomy and character embodiment](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) | Accepted functional gameplay abstraction and third-person semantics; R5g base-rig/LBS plus bounded pose-corrective/deformation-LOD projection is current, while condition/injury schemas and the complete lower-limb severity matrix remain Proposed |
 | ADR-076 | [Continuum material physics track](adr/076-continuum-material-physics-track.md) | Proposed multi-lane continuum strategy, partially narrowed by ADR-081; no current backend/schema/save claim |
 | ADR-077 | [Layered physical world and living-structures track](adr/077-layered-physical-world-and-living-structures-track.md) | Proposed destructible-tree profile, partially narrowed by ADR-081; V0B remains open and there is no current backend/schema/save claim |
 | ADR-078 | [World substrate and arcane physical-interaction track](adr/078-world-substrate-and-arcane-physical-interaction-track.md) | Proposed telekinesis-first architecture, partially narrowed by ADR-081; numeric A0B remains open and no current schema/runtime claim exists |
@@ -331,7 +331,8 @@ traceability — навигационная карта, не admission authority
   staged treatment, preserved agency, player/NPC parity, qualitative body UI,
   third-person `Reduced`/`Realistic`/`Graphic` presentation and complete
   fallback semantics are Accepted. Exact commands/manifests/controllers and
-  the 16/64/distant workload profile remain Proposed until the bounded
+  the 16/64/distant workload profile remain Proposed beyond the current small
+  authored pose-corrective/cadence-LOD subset until the bounded
   unilateral lower-limb production consumer closes `play`,
   `persistence-replay`, `content-package` and applicable platform/performance
   checks. Joint-target plus fixed safety/PD and an authored skinned surface

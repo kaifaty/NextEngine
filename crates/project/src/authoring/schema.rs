@@ -383,6 +383,7 @@ pub(super) enum AuthoringRenderRecordV1 {
         max_instances_per_frame: u32,
         render_joints: Vec<AuthoringRenderJointV1>,
         vertex_joint_ranges: Vec<AuthoringVertexJointRangeV1>,
+        pose_correctives: Vec<AuthoringPoseCorrectiveV1>,
         source_span: AuthoringSourceSpanV1,
     },
 }
@@ -403,6 +404,41 @@ pub(super) struct AuthoringVertexJointRangeV1 {
     pub render_joint_id: String,
     pub first_vertex: u32,
     pub vertex_count: u32,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringPoseCorrectiveV1 {
+    pub corrective_id: String,
+    pub driver_render_joint_id: String,
+    pub driver_axis: AuthoringPoseCorrectiveDriverAxisV1,
+    pub activation_start_delta_micrometres: i64,
+    pub activation_full_delta_micrometres: i64,
+    pub lod_class: AuthoringPoseCorrectiveLodClassV1,
+    pub vertex_delta_ranges: Vec<AuthoringPoseCorrectiveVertexDeltaRangeV1>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(super) enum AuthoringPoseCorrectiveDriverAxisV1 {
+    X,
+    Y,
+    Z,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(super) enum AuthoringPoseCorrectiveLodClassV1 {
+    Essential,
+    Detail,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct AuthoringPoseCorrectiveVertexDeltaRangeV1 {
+    pub first_vertex: u32,
+    pub vertex_count: u32,
+    pub delta_micrometres: [i64; 3],
 }
 
 impl AuthoringRenderRecordV1 {

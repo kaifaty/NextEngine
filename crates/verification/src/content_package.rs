@@ -117,6 +117,25 @@ pub(crate) fn run_content_package_check_with_scratch(
             || catalog.materials().len() != 11
             || catalog.textures().len() != 7
             || catalog.base_skinning_profiles().len() != 1
+            || skinning_profile.pose_correctives().len() != 3
+            || skinning_profile
+                .pose_correctives()
+                .iter()
+                .filter(|corrective| {
+                    corrective.lod_class()
+                        == next_contracts::render_content::PoseCorrectiveLodClassV1::Essential
+                })
+                .count()
+                != 1
+            || skinning_profile
+                .pose_correctives()
+                .iter()
+                .filter(|corrective| {
+                    corrective.lod_class()
+                        == next_contracts::render_content::PoseCorrectiveLodClassV1::Detail
+                })
+                .count()
+                != 2
             || catalog.cooked_meshes().len() != 12
             || catalog
                 .meshes()
@@ -131,9 +150,11 @@ pub(crate) fn run_content_package_check_with_scratch(
             || prepared.check.fallback_material_draw_count != 0
             || fallback_plan.fallback_material_draw_count != 1
             || skinning_records.len() != 2
-            || skinning_records
-                .iter()
-                .any(|record| record.skinning_profile_revision != skinning_profile_revision)
+            || skinning_records.iter().any(|record| {
+                record.skinning_profile_revision != skinning_profile_revision
+                    || record.deformation_lod
+                        != next_contracts::presentation::CharacterDeformationLodV1::FullCorrectives
+            })
             || !skinning_records.iter().any(|record| {
                 record.object_key.presentation_role
                     == next_contracts::presentation::PresentationRoleV1::PlayerAvatar
@@ -146,7 +167,13 @@ pub(crate) fn run_content_package_check_with_scratch(
             || sampled_skinning_plan
                 .skinned_vertex_streams
                 .iter()
-                .any(|stream| stream.used_bind_pose_fallback)
+                .any(|stream| {
+                    stream.used_bind_pose_fallback || stream.used_pose_corrective_fallback
+                })
+            || sampled_skinning_plan
+                .skinned_vertex_streams
+                .iter()
+                .all(|stream| stream.applied_pose_corrective_count == 0)
             || sampled_skinning_plan
                 .skinned_vertex_streams
                 .iter()
@@ -156,6 +183,8 @@ pub(crate) fn run_content_package_check_with_scratch(
             || bind_pose_plan.skinned_vertex_streams.len() != 2
             || bind_pose_plan.skinned_vertex_streams.iter().any(|stream| {
                 !stream.used_bind_pose_fallback
+                    || stream.used_pose_corrective_fallback
+                    || stream.applied_pose_corrective_count != 0
                     || stream.positions_micrometres.as_slice()
                         != humanoid_mesh.positions_micrometres()
             })
@@ -418,6 +447,7 @@ fn bind_pose_fallback_plan(
                 record.source_body_schema_revision,
                 record.source_animation_profile_hash,
                 next_contracts::presentation::BaseSkinningProjectionModeV1::BindPoseFallback,
+                next_contracts::presentation::CharacterDeformationLodV1::BaseSkinningOnly,
                 record.ordered_local_joint_poses.clone(),
             )
         })

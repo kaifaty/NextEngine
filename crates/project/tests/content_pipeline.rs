@@ -190,6 +190,18 @@ fn repeated_cooking_is_byte_identical_and_activates_through_production_loader() 
         AssetId::from_bytes([0xc1; 16])
     );
     assert_eq!(skinning.render_joints().len(), 8);
+    assert_eq!(skinning.pose_correctives().len(), 3);
+    assert_eq!(
+        skinning
+            .pose_correctives()
+            .iter()
+            .filter(|corrective| {
+                corrective.lod_class()
+                    == next_contracts::render_content::PoseCorrectiveLodClassV1::Essential
+            })
+            .count(),
+        1
+    );
     assert_eq!(skinning.vertices().len(), 48);
     assert_eq!(skinning.max_instances_per_frame(), 2);
     let floor = activated
@@ -762,6 +774,7 @@ fn malformed_schema_missing_reference_duplicate_id_and_cycle_are_rejected() {
         skinning.fallback(),
         skinning.max_instances_per_frame(),
         render_joints,
+        skinning.pose_correctives().to_vec(),
         skinning.vertices().to_vec(),
     )
     .expect("mapping is structurally valid before exact skeleton closure");

@@ -10,11 +10,13 @@ use super::{
     AabbI64V1, B0CookedMeshV1, B0RenderContentProfileV1, BaseSkinningFallbackV1,
     BaseSkinningMethodV1, MaterialAlphaModeV1, MaterialColorSpaceV1, MaterialTextureSlotV1,
     MeshPrimitiveTopologyV1, NeutralBaseSkinningProfileV1, NeutralMaterialTextureBindingV1,
-    NeutralMaterialV1, NeutralMeshPrimitiveV1, NeutralMeshV1, NeutralRenderJointV1,
-    NeutralRenderRecordV1, NeutralSkinInfluenceV1, NeutralSkinVertexV1, NeutralTangentV1,
-    NeutralTexelEncodingV1, NeutralTextureAlphaSemanticsV1, NeutralTextureColorSpaceV1,
-    NeutralTextureDimensionV1, NeutralTextureMipLevelV1, NeutralTextureV1, RenderContentCatalogV1,
-    RenderContentContractError, UvTransformV1, b0_shader_interface_manifest_sha256,
+    NeutralMaterialV1, NeutralMeshPrimitiveV1, NeutralMeshV1, NeutralPoseCorrectiveV1,
+    NeutralPoseCorrectiveVertexDeltaV1, NeutralRenderJointV1, NeutralRenderRecordV1,
+    NeutralSkinInfluenceV1, NeutralSkinVertexV1, NeutralTangentV1, NeutralTexelEncodingV1,
+    NeutralTextureAlphaSemanticsV1, NeutralTextureColorSpaceV1, NeutralTextureDimensionV1,
+    NeutralTextureMipLevelV1, NeutralTextureV1, PoseCorrectiveDriverAxisV1,
+    PoseCorrectiveLodClassV1, RenderContentCatalogV1, RenderContentContractError, UvTransformV1,
+    b0_shader_interface_manifest_sha256,
 };
 use super::{
     B0_RENDER_CONTENT_PROFILE_SCHEMA_ID, NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID,
@@ -125,6 +127,19 @@ fn base_skinning_profile_round_trips_and_rejects_incomplete_weights() {
         weight_unorm16: u16::MAX,
     }])
     .expect("complete weight");
+    let corrective = NeutralPoseCorrectiveV1::new(
+        SchemaId::new("test.corrective.root-x").expect("corrective id"),
+        joint_id.clone(),
+        PoseCorrectiveDriverAxisV1::X,
+        0,
+        1,
+        PoseCorrectiveLodClassV1::Essential,
+        vec![NeutralPoseCorrectiveVertexDeltaV1 {
+            vertex_index: 0,
+            delta_micrometres: [1, 0, 0],
+        }],
+    )
+    .expect("corrective");
     let profile = NeutralBaseSkinningProfileV1::new(
         schema_ref(NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID),
         asset(9),
@@ -143,6 +158,7 @@ fn base_skinning_profile_round_trips_and_rejects_incomplete_weights() {
         BaseSkinningFallbackV1::BindPose,
         2,
         vec![joint],
+        vec![corrective.clone()],
         vec![vertex; mesh.positions_micrometres().len()],
     )
     .expect("base skinning profile");
@@ -164,6 +180,64 @@ fn base_skinning_profile_round_trips_and_rejects_incomplete_weights() {
     assert_eq!(
         catalog.base_skinning_profile(profile.asset_revision().expect("profile revision")),
         Some(&profile)
+    );
+    assert_eq!(
+        profile.pose_correctives(),
+        std::slice::from_ref(&corrective)
+    );
+    assert_eq!(
+        NeutralPoseCorrectiveV1::new(
+            SchemaId::new("test.corrective.duplicate-vertex").expect("corrective id"),
+            joint_id.clone(),
+            PoseCorrectiveDriverAxisV1::X,
+            0,
+            1,
+            PoseCorrectiveLodClassV1::Essential,
+            vec![
+                NeutralPoseCorrectiveVertexDeltaV1 {
+                    vertex_index: 0,
+                    delta_micrometres: [1, 0, 0],
+                },
+                NeutralPoseCorrectiveVertexDeltaV1 {
+                    vertex_index: 0,
+                    delta_micrometres: [0, 1, 0],
+                },
+            ],
+        ),
+        Err(RenderContentContractError::InvalidPoseCorrective)
+    );
+    assert_eq!(
+        NeutralPoseCorrectiveV1::new(
+            SchemaId::new("test.corrective.zero-interval").expect("corrective id"),
+            joint_id.clone(),
+            PoseCorrectiveDriverAxisV1::X,
+            1,
+            1,
+            PoseCorrectiveLodClassV1::Essential,
+            vec![NeutralPoseCorrectiveVertexDeltaV1 {
+                vertex_index: 0,
+                delta_micrometres: [1, 0, 0],
+            }],
+        ),
+        Err(RenderContentContractError::InvalidPoseCorrective)
+    );
+    assert_eq!(
+        NeutralBaseSkinningProfileV1::new(
+            profile.schema_ref().clone(),
+            profile.asset_id(),
+            profile.record_revision(),
+            profile.mesh_revision(),
+            profile.skeleton_revision(),
+            profile.body_schema_revision(),
+            profile.mesh_origin_in_skeleton_micrometres(),
+            profile.method(),
+            profile.fallback(),
+            profile.max_instances_per_frame(),
+            profile.render_joints().to_vec(),
+            vec![corrective.clone(), corrective],
+            profile.vertices().to_vec(),
+        ),
+        Err(RenderContentContractError::InvalidPoseCorrective)
     );
     assert_eq!(
         NeutralSkinVertexV1::new(vec![NeutralSkinInfluenceV1 {

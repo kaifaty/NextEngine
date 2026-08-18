@@ -21,9 +21,9 @@ pub use camera::{
 };
 pub use skinning::{
     BaseSkinningProjectionModeV1, CHARACTER_SKINNING_PRESENTATION_RECORD_SCHEMA_VERSION,
-    CharacterSkinningPresentationBatchV1, CharacterSkinningPresentationRecordV1,
-    PRESENTATION_MAX_CHARACTER_SKINNING_RECORDS, PRESENTATION_MAX_RENDER_JOINT_POSES,
-    RenderJointPoseV1,
+    CharacterDeformationLodV1, CharacterSkinningPresentationBatchV1,
+    CharacterSkinningPresentationRecordV1, PRESENTATION_MAX_CHARACTER_SKINNING_RECORDS,
+    PRESENTATION_MAX_RENDER_JOINT_POSES, RenderJointPoseV1,
 };
 pub use ui::{
     PRESENTATION_DEFAULT_SEMANTIC_UI_RECORDS_PER_BATCH, PRESENTATION_MAX_SEMANTIC_UI_RECORDS,
@@ -714,7 +714,11 @@ fn validate_skinning_scene_closure<'a>(
             .feature_flags
             .contains(ScenePresentationFlagsV1::SKINNED);
         match skinning.get(&scene.object_key) {
-            Some(record) if uses_skinning && record.mesh_revision == scene.mesh_revision => {}
+            Some(record)
+                if uses_skinning
+                    && record.mesh_revision == scene.mesh_revision
+                    && (record.deformation_lod == CharacterDeformationLodV1::Culled)
+                        == !scene.visible => {}
             None if !uses_skinning => {}
             _ => return Err(PresentationContractError::SkinningClosureInvalid),
         }

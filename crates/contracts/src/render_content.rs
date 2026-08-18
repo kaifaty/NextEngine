@@ -26,7 +26,9 @@ pub use profile::{
 pub use skinning::{
     BASE_SKINNING_MAX_INFLUENCES_PER_VERTEX_V1, BASE_SKINNING_MAX_RENDER_JOINTS_V1,
     BaseSkinningFallbackV1, BaseSkinningMethodV1, NeutralBaseSkinningProfileV1,
-    NeutralRenderJointV1, NeutralSkinInfluenceV1, NeutralSkinVertexV1,
+    NeutralPoseCorrectiveV1, NeutralPoseCorrectiveVertexDeltaV1, NeutralRenderJointV1,
+    NeutralSkinInfluenceV1, NeutralSkinVertexV1, POSE_CORRECTIVE_MAX_RECORDS_V1,
+    POSE_CORRECTIVE_MAX_VERTEX_DELTAS_V1, PoseCorrectiveDriverAxisV1, PoseCorrectiveLodClassV1,
 };
 
 pub const NEUTRAL_MESH_SCHEMA_ID: &str = "nextengine.content.mesh";

@@ -2,8 +2,12 @@ use std::collections::BTreeMap;
 
 use next_contracts::canonical::sha256;
 use next_contracts::ids::{ContentHash, SchemaId, content_hash_from_bytes};
-use next_contracts::presentation::CharacterSkinningPresentationRecordV1;
-use next_contracts::render_content::{NeutralBaseSkinningProfileV1, NeutralMeshV1};
+use next_contracts::presentation::{
+    BaseSkinningProjectionModeV1, CharacterDeformationLodV1, CharacterSkinningPresentationRecordV1,
+};
+use next_contracts::render_content::{
+    NeutralBaseSkinningProfileV1, NeutralMeshV1, PoseCorrectiveLodClassV1,
+};
 
 use super::{B0SkinnedVertexStreamV1, RenderDeviceError};
 
@@ -24,6 +28,7 @@ pub(super) fn build_skinning_stream(
         || record.source_body_schema_revision != profile.body_schema_revision()
         || mesh.asset_revision()? != profile.mesh_revision()
         || mesh.positions_micrometres().len() != profile.vertices().len()
+        || record.deformation_lod == CharacterDeformationLodV1::Culled
     {
         return Err(RenderDeviceError::SkinningBindingInvalid);
     }
@@ -41,41 +46,164 @@ pub(super) fn build_skinning_stream(
         return Err(RenderDeviceError::SkinningBindingInvalid);
     }
 
-    let attempted = skin_positions(record, profile, mesh, &local_poses);
-    let sampled_positions_valid = attempted.as_ref().is_some_and(|positions| {
+    if record.projection_mode == BaseSkinningProjectionModeV1::BindPoseFallback {
+        let positions = mesh.positions_micrometres().to_vec();
+        let vertex_stream_hash =
+            vertex_stream_hash(record.canonical_hash, 0, false, true, &positions)?;
+        return Ok(B0SkinnedVertexStreamV1 {
+            skinning_record_hash: record.canonical_hash,
+            mesh_revision: record.mesh_revision,
+            positions_micrometres: positions,
+            applied_pose_corrective_count: 0,
+            used_pose_corrective_fallback: false,
+            used_bind_pose_fallback: true,
+            vertex_stream_hash,
+        });
+    }
+
+    let corrective_attempt = corrected_bind_positions(record, profile, mesh, &local_poses)
+        .and_then(|(positions, count)| {
+            skin_positions(profile, &positions, &local_poses).map(|positions| (positions, count))
+        });
+    let corrected_positions_valid = corrective_attempt.as_ref().is_some_and(|(positions, _)| {
         positions
             .iter()
             .all(|position| mesh.bounds().contains(*position))
     });
-    let used_bind_pose_fallback = record.projection_mode
-        == next_contracts::presentation::BaseSkinningProjectionModeV1::BindPoseFallback
-        || !sampled_positions_valid;
-    let positions = if sampled_positions_valid {
-        attempted.expect("validated sampled positions")
+    let requests_correctives = matches!(
+        record.deformation_lod,
+        CharacterDeformationLodV1::FullCorrectives | CharacterDeformationLodV1::ReducedCorrectives
+    );
+    let (
+        positions,
+        applied_pose_corrective_count,
+        used_pose_corrective_fallback,
+        used_bind_pose_fallback,
+    ) = if corrected_positions_valid {
+        let (positions, count) = corrective_attempt.expect("validated corrected positions");
+        (positions, count, false, false)
     } else {
-        mesh.positions_micrometres().to_vec()
+        let base_attempt = skin_positions(profile, mesh.positions_micrometres(), &local_poses);
+        let base_positions_valid = base_attempt.as_ref().is_some_and(|positions| {
+            positions
+                .iter()
+                .all(|position| mesh.bounds().contains(*position))
+        });
+        if base_positions_valid {
+            (
+                base_attempt.expect("validated base skinning positions"),
+                0,
+                requests_correctives,
+                false,
+            )
+        } else {
+            (
+                mesh.positions_micrometres().to_vec(),
+                0,
+                requests_correctives,
+                true,
+            )
+        }
     };
-    let vertex_stream_hash = vertex_stream_hash(record.canonical_hash, &positions)?;
+    let vertex_stream_hash = vertex_stream_hash(
+        record.canonical_hash,
+        applied_pose_corrective_count,
+        used_pose_corrective_fallback,
+        used_bind_pose_fallback,
+        &positions,
+    )?;
     Ok(B0SkinnedVertexStreamV1 {
         skinning_record_hash: record.canonical_hash,
         mesh_revision: record.mesh_revision,
         positions_micrometres: positions,
+        applied_pose_corrective_count,
+        used_pose_corrective_fallback,
         used_bind_pose_fallback,
         vertex_stream_hash,
     })
 }
 
-fn skin_positions(
+fn corrected_bind_positions(
     record: &CharacterSkinningPresentationRecordV1,
     profile: &NeutralBaseSkinningProfileV1,
     mesh: &NeutralMeshV1,
     local_poses: &BTreeMap<&SchemaId, next_contracts::animation_content::NeutralTransformV1>,
-) -> Option<Vec<[i64; 3]>> {
-    if record.projection_mode
-        == next_contracts::presentation::BaseSkinningProjectionModeV1::BindPoseFallback
-    {
-        return Some(mesh.positions_micrometres().to_vec());
+) -> Option<(Vec<[i64; 3]>, u32)> {
+    if record.deformation_lod == CharacterDeformationLodV1::BaseSkinningOnly {
+        return Some((mesh.positions_micrometres().to_vec(), 0));
     }
+    let bind_poses = profile
+        .render_joints()
+        .iter()
+        .map(|joint| (&joint.render_joint_id, joint.bind_transform))
+        .collect::<BTreeMap<_, _>>();
+    let mut positions = mesh.positions_micrometres().to_vec();
+    let mut applied_count = 0_u32;
+    for corrective in profile.pose_correctives() {
+        if record.deformation_lod == CharacterDeformationLodV1::ReducedCorrectives
+            && corrective.lod_class() != PoseCorrectiveLodClassV1::Essential
+        {
+            continue;
+        }
+        let current = local_poses.get(corrective.driver_render_joint_id())?;
+        let bind = bind_poses.get(corrective.driver_render_joint_id())?;
+        let axis = corrective.driver_axis().index();
+        let driver_delta = i128::from(current.translation_micrometres[axis])
+            .checked_sub(i128::from(bind.translation_micrometres[axis]))?;
+        let weight = corrective_weight_unorm16(
+            driver_delta,
+            corrective.activation_start_delta_micrometres(),
+            corrective.activation_full_delta_micrometres(),
+        )?;
+        if weight == 0 {
+            continue;
+        }
+        applied_count = applied_count.checked_add(1)?;
+        for delta in corrective.vertex_deltas() {
+            let position = positions.get_mut(usize::try_from(delta.vertex_index).ok()?)?;
+            for (position_component, delta_component) in
+                position.iter_mut().zip(delta.delta_micrometres.iter())
+            {
+                let weighted_delta = i128::from(*delta_component)
+                    .checked_mul(i128::from(weight))?
+                    / i128::from(u16::MAX);
+                *position_component =
+                    i64::try_from(i128::from(*position_component).checked_add(weighted_delta)?)
+                        .ok()?;
+            }
+        }
+    }
+    Some((positions, applied_count))
+}
+
+fn corrective_weight_unorm16(driver_delta: i128, start: i64, full: i64) -> Option<u16> {
+    let start = i128::from(start);
+    let full = i128::from(full);
+    let (numerator, denominator) = if full > start {
+        if driver_delta <= start {
+            return Some(0);
+        }
+        if driver_delta >= full {
+            return Some(u16::MAX);
+        }
+        (driver_delta.checked_sub(start)?, full.checked_sub(start)?)
+    } else {
+        if driver_delta >= start {
+            return Some(0);
+        }
+        if driver_delta <= full {
+            return Some(u16::MAX);
+        }
+        (start.checked_sub(driver_delta)?, start.checked_sub(full)?)
+    };
+    u16::try_from(numerator.checked_mul(i128::from(u16::MAX))? / denominator).ok()
+}
+
+fn skin_positions(
+    profile: &NeutralBaseSkinningProfileV1,
+    bind_positions: &[[i64; 3]],
+    local_poses: &BTreeMap<&SchemaId, next_contracts::animation_content::NeutralTransformV1>,
+) -> Option<Vec<[i64; 3]>> {
     let mut bind_globals = BTreeMap::new();
     let mut current_globals = BTreeMap::new();
     for joint in profile.render_joints() {
@@ -99,7 +227,7 @@ fn skin_positions(
         current_globals.insert(joint.render_joint_id.clone(), current_global);
     }
     let origin = profile.mesh_origin_in_skeleton_micrometres();
-    mesh.positions_micrometres()
+    bind_positions
         .iter()
         .zip(profile.vertices())
         .map(|(position, vertex)| {
@@ -233,11 +361,17 @@ fn checked_sub3(left: [i64; 3], right: [i64; 3]) -> Option<[i64; 3]> {
 
 fn vertex_stream_hash(
     record_hash: ContentHash,
+    applied_pose_corrective_count: u32,
+    used_pose_corrective_fallback: bool,
+    used_bind_pose_fallback: bool,
     positions: &[[i64; 3]],
 ) -> Result<ContentHash, RenderDeviceError> {
     let mut bytes = Vec::new();
-    bytes.extend_from_slice(b"nextengine.b0-skinned-vertex-stream.v1\0");
+    bytes.extend_from_slice(b"nextengine.b0-skinned-vertex-stream.v2\0");
     bytes.extend_from_slice(record_hash.as_bytes());
+    bytes.extend_from_slice(&applied_pose_corrective_count.to_le_bytes());
+    bytes.push(u8::from(used_pose_corrective_fallback));
+    bytes.push(u8::from(used_bind_pose_fallback));
     bytes.extend_from_slice(
         &u32::try_from(positions.len())
             .map_err(|_| RenderDeviceError::CountOverflow)?
@@ -249,4 +383,24 @@ fn vertex_stream_hash(
         }
     }
     Ok(content_hash_from_bytes(sha256(&bytes)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::corrective_weight_unorm16;
+
+    #[test]
+    fn corrective_weight_is_exact_for_both_signed_activation_directions() {
+        assert_eq!(corrective_weight_unorm16(-1, 0, 100), Some(0));
+        assert_eq!(corrective_weight_unorm16(0, 0, 100), Some(0));
+        assert_eq!(corrective_weight_unorm16(50, 0, 100), Some(32_767));
+        assert_eq!(corrective_weight_unorm16(100, 0, 100), Some(u16::MAX));
+        assert_eq!(corrective_weight_unorm16(101, 0, 100), Some(u16::MAX));
+
+        assert_eq!(corrective_weight_unorm16(1, 0, -100), Some(0));
+        assert_eq!(corrective_weight_unorm16(0, 0, -100), Some(0));
+        assert_eq!(corrective_weight_unorm16(-50, 0, -100), Some(32_767));
+        assert_eq!(corrective_weight_unorm16(-100, 0, -100), Some(u16::MAX));
+        assert_eq!(corrective_weight_unorm16(-101, 0, -100), Some(u16::MAX));
+    }
 }

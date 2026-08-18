@@ -1,8 +1,8 @@
 use super::*;
 use next_contracts::physics::PhysicsCanonicalSnapshotV2;
 use next_contracts::presentation::{
-    BaseSkinningProjectionModeV1, CharacterSkinningPresentationRecordV1, PresentationObjectKeyV1,
-    PresentationRoleV1, RenderJointPoseV1,
+    BaseSkinningProjectionModeV1, CharacterDeformationLodV1, CharacterSkinningPresentationRecordV1,
+    PresentationObjectKeyV1, PresentationRoleV1, RenderJointPoseV1,
 };
 use next_motor::{
     PhysicalAnimationOwnerV1, PhysicalAnimationPresentationAvailabilityV1,
@@ -425,6 +425,15 @@ pub(crate) fn fixture_character_skinning_records(
                     BaseSkinningProjectionModeV1::Sampled
                 }
             };
+            let deformation_lod = match projection_mode {
+                BaseSkinningProjectionModeV1::BindPoseFallback => {
+                    CharacterDeformationLodV1::BaseSkinningOnly
+                }
+                BaseSkinningProjectionModeV1::Sampled
+                | BaseSkinningProjectionModeV1::HeldPresentationPose => {
+                    CharacterDeformationLodV1::FullCorrectives
+                }
+            };
             let joints = profile
                 .render_joints()
                 .iter()
@@ -454,6 +463,7 @@ pub(crate) fn fixture_character_skinning_records(
                 profile.body_schema_revision(),
                 source_animation_profile_hash,
                 projection_mode,
+                deformation_lod,
                 joints,
             )?)
         })

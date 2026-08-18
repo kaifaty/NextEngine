@@ -186,6 +186,7 @@ fn skinned_scene_requires_one_exact_pose_record_and_mesh_revision() {
             asset_revision(43, "test.body-schema"),
             domain_hash("test.animation-profile", b"profile"),
             BaseSkinningProjectionModeV1::Sampled,
+            CharacterDeformationLodV1::FullCorrectives,
             vec![RenderJointPoseV1 {
                 render_joint_id: SchemaId::new("test.render-joint.root").expect("joint id"),
                 local_transform: NeutralTransformV1::translated([0, 0, 0]),
@@ -200,6 +201,71 @@ fn skinned_scene_requires_one_exact_pose_record_and_mesh_revision() {
     let valid = build(vec![skinning_record(scene.mesh_revision)]).expect("exact closure");
     valid.validate().expect("snapshot validates");
     assert_eq!(valid.character_skinning_records().count(), 1);
+    let culled = CharacterSkinningPresentationRecordV1::new(
+        scene.object_key,
+        scene.mesh_revision,
+        asset_revision(41, "test.skinning-profile"),
+        asset_revision(42, "test.skeleton"),
+        asset_revision(43, "test.body-schema"),
+        domain_hash("test.animation-profile", b"profile"),
+        BaseSkinningProjectionModeV1::Sampled,
+        CharacterDeformationLodV1::Culled,
+        vec![RenderJointPoseV1 {
+            render_joint_id: SchemaId::new("test.render-joint.root").expect("joint id"),
+            local_transform: NeutralTransformV1::translated([0, 0, 0]),
+        }],
+    )
+    .expect("culled skinning record");
+    assert_eq!(
+        build(vec![culled.clone()]),
+        Err(PresentationContractError::SkinningClosureInvalid)
+    );
+    let hidden_scene = ScenePresentationRecordV2::new(
+        scene.presentation_layer,
+        scene.object_key,
+        scene.mesh_revision,
+        scene.material_revision,
+        scene.instance_ordinal,
+        scene.local_bounds,
+        scene.feature_flags,
+        scene.previous_transform,
+        scene.current_transform,
+        false,
+    );
+    PresentationSnapshotV3::new_with_character_skinning_records(
+        epoch,
+        0,
+        0,
+        domain_hash("test.lock", b"lock"),
+        domain_hash("test.content", b"content"),
+        domain_hash("test.profile", b"profile"),
+        vec![hidden_scene],
+        Vec::new(),
+        Vec::new(),
+        vec![culled],
+        8,
+        8,
+        8,
+        domain_hash("test.environment", b"environment"),
+    )
+    .expect("culled record closes over an invisible skinned scene");
+    assert_eq!(
+        CharacterSkinningPresentationRecordV1::new(
+            scene.object_key,
+            scene.mesh_revision,
+            asset_revision(41, "test.skinning-profile"),
+            asset_revision(42, "test.skeleton"),
+            asset_revision(43, "test.body-schema"),
+            domain_hash("test.animation-profile", b"profile"),
+            BaseSkinningProjectionModeV1::BindPoseFallback,
+            CharacterDeformationLodV1::FullCorrectives,
+            vec![RenderJointPoseV1 {
+                render_joint_id: SchemaId::new("test.render-joint.root").expect("joint id"),
+                local_transform: NeutralTransformV1::translated([0, 0, 0]),
+            }],
+        ),
+        Err(PresentationContractError::InvalidSkinningPose)
+    );
 }
 
 #[test]

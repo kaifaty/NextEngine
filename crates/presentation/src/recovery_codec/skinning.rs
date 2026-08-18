@@ -7,8 +7,8 @@ use next_contracts::canonical::{
 use next_contracts::ids::{AssetId, PersistentId, SchemaId};
 use next_contracts::presentation::{
     BaseSkinningProjectionModeV1, CHARACTER_SKINNING_PRESENTATION_RECORD_SCHEMA_VERSION,
-    CharacterSkinningPresentationRecordV1, PRESENTATION_MAX_RENDER_JOINT_POSES,
-    PresentationObjectKeyV1, RenderJointPoseV1,
+    CharacterDeformationLodV1, CharacterSkinningPresentationRecordV1,
+    PRESENTATION_MAX_RENDER_JOINT_POSES, PresentationObjectKeyV1, RenderJointPoseV1,
 };
 use next_contracts::project::AssetRevisionRefV1;
 
@@ -65,6 +65,7 @@ pub(super) fn encode_character_skinning_record(
             CanonicalField::new(15, CANONICAL_TYPE_U8, vec![record.projection_mode as u8]),
             CanonicalField::new(16, CANONICAL_TYPE_SEQUENCE, encode_sequence(joint_poses)?),
             hash_field(17, record.canonical_hash),
+            CanonicalField::new(18, CANONICAL_TYPE_U8, vec![record.deformation_lod as u8]),
         ],
     )
     .map_err(|_| ())
@@ -81,7 +82,7 @@ pub(super) fn decode_character_skinning_record(
         RECOVERY_OWNER,
         CHARACTER_SKINNING_RECORD_SCHEMA,
         &format!("character-skinning-{index}"),
-        17,
+        18,
     )?;
     if decode_u32(field(&segment, 1, CANONICAL_TYPE_U32)?)?
         != CHARACTER_SKINNING_PRESENTATION_RECORD_SCHEMA_VERSION
@@ -118,6 +119,8 @@ pub(super) fn decode_character_skinning_record(
     .map(decode_render_joint_pose)
     .collect::<Result<Vec<_>, _>>()?;
     let expected_hash = decode_hash(field(&segment, 17, CANONICAL_TYPE_HASH256)?)?;
+    let deformation_lod =
+        decode_deformation_lod(decode_u8(field(&segment, 18, CANONICAL_TYPE_U8)?)?)?;
     let record = CharacterSkinningPresentationRecordV1::new(
         object_key,
         mesh_revision,
@@ -126,6 +129,7 @@ pub(super) fn decode_character_skinning_record(
         source_body_schema_revision,
         source_animation_profile_hash,
         projection_mode,
+        deformation_lod,
         ordered_local_joint_poses,
     )
     .map_err(|_| ())?;
@@ -200,6 +204,17 @@ fn decode_skinning_projection_mode(value: u8) -> Result<BaseSkinningProjectionMo
     match value {
         1 => Ok(BaseSkinningProjectionModeV1::Sampled),
         2 => Ok(BaseSkinningProjectionModeV1::BindPoseFallback),
+        3 => Ok(BaseSkinningProjectionModeV1::HeldPresentationPose),
+        _ => Err(()),
+    }
+}
+
+fn decode_deformation_lod(value: u8) -> Result<CharacterDeformationLodV1, ()> {
+    match value {
+        1 => Ok(CharacterDeformationLodV1::FullCorrectives),
+        2 => Ok(CharacterDeformationLodV1::ReducedCorrectives),
+        3 => Ok(CharacterDeformationLodV1::BaseSkinningOnly),
+        4 => Ok(CharacterDeformationLodV1::Culled),
         _ => Err(()),
     }
 }

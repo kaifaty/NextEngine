@@ -62,6 +62,8 @@ pub struct B0SkinnedVertexStreamV1 {
     pub skinning_record_hash: ContentHash,
     pub mesh_revision: AssetRevisionRefV1,
     pub positions_micrometres: Vec<[i64; 3]>,
+    pub applied_pose_corrective_count: u32,
+    pub used_pose_corrective_fallback: bool,
     pub used_bind_pose_fallback: bool,
     pub vertex_stream_hash: ContentHash,
 }

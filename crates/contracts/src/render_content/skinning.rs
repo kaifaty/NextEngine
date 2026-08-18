@@ -21,6 +21,14 @@ use super::{
     RENDER_CONTENT_SCHEMA_VERSION, RENDER_CONTENT_SEGMENT_ID, RenderContentContractError,
 };
 
+mod corrective;
+
+pub use corrective::{
+    NeutralPoseCorrectiveV1, NeutralPoseCorrectiveVertexDeltaV1, POSE_CORRECTIVE_MAX_RECORDS_V1,
+    POSE_CORRECTIVE_MAX_VERTEX_DELTAS_V1, PoseCorrectiveDriverAxisV1, PoseCorrectiveLodClassV1,
+};
+use corrective::{canonicalize_pose_correctives, decode_pose_correctives, encode_pose_correctives};
+
 pub const BASE_SKINNING_MAX_RENDER_JOINTS_V1: usize = 256;
 pub const BASE_SKINNING_MAX_INFLUENCES_PER_VERTEX_V1: usize = 4;
 const BASE_SKINNING_MAX_VERTICES_V1: usize = 16_777_216;
@@ -119,6 +127,7 @@ pub struct NeutralBaseSkinningProfileV1 {
     fallback: BaseSkinningFallbackV1,
     max_instances_per_frame: u32,
     render_joints: Vec<NeutralRenderJointV1>,
+    pose_correctives: Vec<NeutralPoseCorrectiveV1>,
     vertices: Vec<NeutralSkinVertexV1>,
 }
 
@@ -139,6 +148,7 @@ impl NeutralBaseSkinningProfileV1 {
         fallback: BaseSkinningFallbackV1,
         max_instances_per_frame: u32,
         render_joints: Vec<NeutralRenderJointV1>,
+        pose_correctives: Vec<NeutralPoseCorrectiveV1>,
         vertices: Vec<NeutralSkinVertexV1>,
     ) -> Result<Self, RenderContentContractError> {
         validate_schema_ref(&schema_ref, NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID)?;
@@ -160,6 +170,8 @@ impl NeutralBaseSkinningProfileV1 {
             .iter()
             .map(|joint| &joint.render_joint_id)
             .collect::<BTreeSet<_>>();
+        let pose_correctives =
+            canonicalize_pose_correctives(pose_correctives, &joint_ids, vertices.len())?;
         for vertex in &vertices {
             for influence in vertex.influences() {
                 if !joint_ids.contains(&influence.render_joint_id) {
@@ -179,6 +191,7 @@ impl NeutralBaseSkinningProfileV1 {
             fallback,
             max_instances_per_frame,
             render_joints,
+            pose_correctives,
             vertices,
         })
     }
@@ -239,6 +252,11 @@ impl NeutralBaseSkinningProfileV1 {
     }
 
     #[must_use]
+    pub fn pose_correctives(&self) -> &[NeutralPoseCorrectiveV1] {
+        &self.pose_correctives
+    }
+
+    #[must_use]
     pub fn vertices(&self) -> &[NeutralSkinVertexV1] {
         &self.vertices
     }
@@ -292,6 +310,37 @@ impl NeutralBaseSkinningProfileV1 {
                 || !body_ids.contains(&joint.body_semantic_id)
         }) {
             return Err(RenderContentContractError::InvalidSkinningProfile);
+        }
+        let mut maximum_corrective_deltas = BTreeMap::<u32, [i64; 3]>::new();
+        for corrective in &self.pose_correctives {
+            for delta in corrective.vertex_deltas() {
+                let target = maximum_corrective_deltas
+                    .entry(delta.vertex_index)
+                    .or_insert([0; 3]);
+                for (axis, target_component) in target.iter_mut().enumerate() {
+                    *target_component = target_component
+                        .checked_add(delta.delta_micrometres[axis])
+                        .ok_or(RenderContentContractError::IntegerOverflow)?;
+                }
+            }
+        }
+        if maximum_corrective_deltas
+            .into_iter()
+            .any(|(vertex_index, delta)| {
+                usize::try_from(vertex_index)
+                    .ok()
+                    .and_then(|index| mesh.positions_micrometres().get(index))
+                    .and_then(|position| {
+                        Some([
+                            position[0].checked_add(delta[0])?,
+                            position[1].checked_add(delta[1])?,
+                            position[2].checked_add(delta[2])?,
+                        ])
+                    })
+                    .is_none_or(|value| !mesh.bounds().contains(value))
+            })
+        {
+            return Err(RenderContentContractError::InvalidPoseCorrective);
         }
         Ok(())
     }
@@ -355,6 +404,11 @@ impl NeutralBaseSkinningProfileV1 {
                     CANONICAL_TYPE_SEQUENCE,
                     encode_vertices(&self.vertices)?,
                 ),
+                CanonicalField::new(
+                    14,
+                    CANONICAL_TYPE_SEQUENCE,
+                    encode_pose_correctives(&self.pose_correctives)?,
+                ),
             ],
         )?)
     }
@@ -364,7 +418,7 @@ impl NeutralBaseSkinningProfileV1 {
         limits: CanonicalDecodeLimits,
     ) -> Result<Self, RenderContentContractError> {
         let segment = decode_canonical_segment(bytes, limits)?;
-        validate_envelope(&segment, NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID, 13)?;
+        validate_envelope(&segment, NEUTRAL_BASE_SKINNING_PROFILE_SCHEMA_ID, 14)?;
         let value = Self::new(
             schema_ref_from_segment(&segment, 4)?,
             asset_id_from_segment(&segment, 2)?,
@@ -385,6 +439,7 @@ impl NeutralBaseSkinningProfileV1 {
             )?)?)?,
             read_u32(field(&segment, 11, CANONICAL_TYPE_U32)?)?,
             decode_render_joints(field(&segment, 12, CANONICAL_TYPE_SEQUENCE)?, limits)?,
+            decode_pose_correctives(field(&segment, 14, CANONICAL_TYPE_SEQUENCE)?, limits)?,
             decode_vertices(field(&segment, 13, CANONICAL_TYPE_SEQUENCE)?, limits)?,
         )?;
         if value.canonical_bytes()? != bytes {

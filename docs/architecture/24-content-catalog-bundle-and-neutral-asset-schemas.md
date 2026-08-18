@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 2.6 |
-| Последняя проверка | 2026-08-17 |
+| Версия | 2.7 |
+| Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-24 2.5; admits the exact R5f base-skinning profile in the current content closure |
+| Заменяет | SPEC-24 2.6; extends the exact current base-skinning profile with the bounded R5g pose-corrective set |
 
 ## Scope
 
@@ -103,8 +103,9 @@ The implemented specialized neutral records are:
   `B0RenderContentProfileV1`, cooked into `RenderContentCatalogV1`;
 - `NeutralBaseSkinningProfileV1`, binding one exact mesh, source skeleton and
   `BodySchemaAssetV1` revision to stable render-joint IDs, explicit animation-
-  joint/body-semantic mappings, bounded LBS influences and a mandatory bind-
-  pose fallback;
+  joint/body-semantic mappings, bounded LBS influences, sparse authored pose
+  correctives classified as `Essential | Detail` and a mandatory bind-pose
+  fallback;
 - `NeutralSkeletonV1` and `NeutralAnimationV1` with exact clip-to-skeleton
   binding;
 - `NeutralAudioV1` with canonical bounded PCM/audio metadata;
@@ -126,8 +127,14 @@ Animation validates stable joint keys, hierarchy, channel/key order and exact
 skeleton revision. Base-skinning validation requires an acyclic complete render
 hierarchy, one-to-one source-joint/body-semantic mappings, exactly one to four
 positive influences per mesh vertex, exact `u16::MAX` weight sums and a
-positive per-frame instance bound. Audio validates sample format/rate/channels/
-frame bounds.
+positive per-frame instance bound. The current corrective subset admits at
+most 64 canonical corrective IDs and 1,048,576 total sparse vertex deltas. Each
+record names one existing render-joint translation axis, unequal signed
+start/full driver deltas within ±2 m, one LOD class and unique in-range vertex
+indices with non-zero per-component-bounded deltas (±0.5 m). At least one
+corrective is Essential, and conservative full-delta accumulation must retain
+every corrected bind vertex inside the exact mesh bounds. Audio validates
+sample format/rate/channels/frame bounds.
 
 The reference alpha's scene/collider/RPG/world definitions use the generic
 `NeutralRecordV1`; this SPEC does not promise the detailed future neutral
@@ -163,7 +170,8 @@ no public bundle archive ABI or runtime catalog resolver.
 - render catalog canonical round-trip and equality to manifest render entries;
 - every base-skinning profile against its exact mesh vertex closure, source
   skeleton joints, body semantics, required root/dependency revisions and
-  canonical profile hash;
+  canonical profile hash, including corrective driver IDs, LOD classes,
+  sparse vertex indices/deltas and corrected bind bounds;
 - exact population/navigation catalog revisions, 100-record closure and graph
   references against the 64 world chunks;
 - exact cognition catalog revision, sorted seed beliefs, bounded cadence/
@@ -186,9 +194,10 @@ catalog selection, automatic migration or in-place rewrite occurs. Rejected
 source bytes are preserved.
 
 Under ADR-046 the current alpha `RenderContentCatalogV1` payload is not a
-public persisted ABI. R5f adds the base-skinning family to that exact current
-shape; an older catalog must be recooked by its matching toolchain and is never
-silently decoded or migrated as the new shape.
+public persisted ABI. R5f added the base-skinning family and R5g adds its exact
+pose-corrective field to that current shape; an older catalog must be recooked
+by its matching toolchain and is never silently decoded or migrated as the new
+shape.
 
 ## Public boundary and checks
 
@@ -200,8 +209,9 @@ forbidden.
 `content-package` is the governing check: cook and reopen the 37-root/123-entry
 reference project, validate the direct-lock closure, Luau/Wasm content,
 provenance/NOTICE, localization, audio/animation, body schema, base-skinning
-profile and render catalog; malformed version/hash/bounds, mapping/weights,
-duplicate, cycle, missing dependency and forbidden-type cases publish nothing.
+profile/correctives and render catalog; malformed version/hash/bounds,
+mapping/weights/driver/delta/LOD data, duplicate, cycle, missing dependency and
+forbidden-type cases publish nothing.
 Renderer-facing changes additionally run `platform`/`visual-smoke`; gameplay
 content changes additionally run `play` and state-bearing changes run
 `persistence-replay`.

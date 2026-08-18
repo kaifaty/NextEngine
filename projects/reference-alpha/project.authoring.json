@@ -1226,7 +1226,7 @@
     {
       "kind": "base-skinning-profile",
       "asset_id": "dededededededededededededededede",
-      "record_revision": 1,
+      "record_revision": 2,
       "mesh_asset_id": "c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
       "skeleton_asset_id": "b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1",
       "body_schema_asset_id": "bdbdbdbdbdbdbdbdbdbdbdbdbdbdbdbd",
@@ -1297,6 +1297,47 @@
         { "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.hand-r", "first_vertex": 24, "vertex_count": 8 },
         { "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.foot-l", "first_vertex": 32, "vertex_count": 8 },
         { "render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.foot-r", "first_vertex": 40, "vertex_count": 8 }
+      ],
+      "pose_correctives": [
+        {
+          "corrective_id": "nextengine.reference-alpha.humanoid.cc0.v1.corrective.hips-volume",
+          "driver_render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.hips",
+          "driver_axis": "y",
+          "activation_start_delta_micrometres": 0,
+          "activation_full_delta_micrometres": 30000,
+          "lod_class": "essential",
+          "vertex_delta_ranges": [
+            { "first_vertex": 0, "vertex_count": 1, "delta_micrometres": [-20000, 0, 0] },
+            { "first_vertex": 1, "vertex_count": 2, "delta_micrometres": [20000, 0, 0] },
+            { "first_vertex": 3, "vertex_count": 2, "delta_micrometres": [-20000, 0, 0] },
+            { "first_vertex": 5, "vertex_count": 2, "delta_micrometres": [20000, 0, 0] },
+            { "first_vertex": 7, "vertex_count": 1, "delta_micrometres": [-20000, 0, 0] }
+          ]
+        },
+        {
+          "corrective_id": "nextengine.reference-alpha.humanoid.cc0.v1.corrective.left-step-volume",
+          "driver_render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.foot-l",
+          "driver_axis": "z",
+          "activation_start_delta_micrometres": 0,
+          "activation_full_delta_micrometres": 150000,
+          "lod_class": "detail",
+          "vertex_delta_ranges": [
+            { "first_vertex": 32, "vertex_count": 4, "delta_micrometres": [0, 0, -15000] },
+            { "first_vertex": 36, "vertex_count": 4, "delta_micrometres": [0, 0, 15000] }
+          ]
+        },
+        {
+          "corrective_id": "nextengine.reference-alpha.humanoid.cc0.v1.corrective.right-step-volume",
+          "driver_render_joint_id": "nextengine.reference-alpha.humanoid.cc0.v1.render-joint.foot-r",
+          "driver_axis": "z",
+          "activation_start_delta_micrometres": 0,
+          "activation_full_delta_micrometres": 150000,
+          "lod_class": "detail",
+          "vertex_delta_ranges": [
+            { "first_vertex": 40, "vertex_count": 4, "delta_micrometres": [0, 0, -15000] },
+            { "first_vertex": 44, "vertex_count": 4, "delta_micrometres": [0, 0, 15000] }
+          ]
+        }
       ],
       "source_span": { "relative_path": "project.authoring.json", "line": 1, "column": 1 }
     },

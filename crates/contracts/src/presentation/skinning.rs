@@ -18,6 +18,7 @@ pub const PRESENTATION_MAX_RENDER_JOINT_POSES: usize = 256;
 pub enum BaseSkinningProjectionModeV1 {
     Sampled = 1,
     BindPoseFallback = 2,
+    HeldPresentationPose = 3,
 }
 
 impl BaseSkinningProjectionModeV1 {
@@ -26,6 +27,28 @@ impl BaseSkinningProjectionModeV1 {
         match self {
             Self::Sampled => "Sampled",
             Self::BindPoseFallback => "BindPoseFallback",
+            Self::HeldPresentationPose => "HeldPresentationPose",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[repr(u8)]
+pub enum CharacterDeformationLodV1 {
+    FullCorrectives = 1,
+    ReducedCorrectives = 2,
+    BaseSkinningOnly = 3,
+    Culled = 4,
+}
+
+impl CharacterDeformationLodV1 {
+    #[must_use]
+    pub const fn token(self) -> &'static str {
+        match self {
+            Self::FullCorrectives => "FullCorrectives",
+            Self::ReducedCorrectives => "ReducedCorrectives",
+            Self::BaseSkinningOnly => "BaseSkinningOnly",
+            Self::Culled => "Culled",
         }
     }
 }
@@ -46,6 +69,7 @@ pub struct CharacterSkinningPresentationRecordV1 {
     pub source_body_schema_revision: AssetRevisionRefV1,
     pub source_animation_profile_hash: ContentHash,
     pub projection_mode: BaseSkinningProjectionModeV1,
+    pub deformation_lod: CharacterDeformationLodV1,
     pub ordered_local_joint_poses: Vec<RenderJointPoseV1>,
     pub canonical_hash: ContentHash,
 }
@@ -63,6 +87,7 @@ impl CharacterSkinningPresentationRecordV1 {
         source_body_schema_revision: AssetRevisionRefV1,
         source_animation_profile_hash: ContentHash,
         projection_mode: BaseSkinningProjectionModeV1,
+        deformation_lod: CharacterDeformationLodV1,
         mut ordered_local_joint_poses: Vec<RenderJointPoseV1>,
     ) -> Result<Self, PresentationContractError> {
         ordered_local_joint_poses
@@ -76,6 +101,7 @@ impl CharacterSkinningPresentationRecordV1 {
             source_body_schema_revision,
             source_animation_profile_hash,
             projection_mode,
+            deformation_lod,
             ordered_local_joint_poses,
             canonical_hash: ContentHash::default(),
         };
@@ -99,6 +125,8 @@ impl CharacterSkinningPresentationRecordV1 {
             || self.source_skeleton_revision.record_sha256 == ContentHash::default()
             || self.source_body_schema_revision.record_sha256 == ContentHash::default()
             || self.source_animation_profile_hash == ContentHash::default()
+            || (self.projection_mode == BaseSkinningProjectionModeV1::BindPoseFallback
+                && self.deformation_lod != CharacterDeformationLodV1::BaseSkinningOnly)
             || self.ordered_local_joint_poses.is_empty()
             || self.ordered_local_joint_poses.len() > PRESENTATION_MAX_RENDER_JOINT_POSES
             || self
@@ -150,6 +178,7 @@ impl CharacterSkinningPresentationRecordV1 {
                     ),
                 ),
                 ("projection_mode", string(self.projection_mode.token())),
+                ("deformation_lod", string(self.deformation_lod.token())),
                 ("schema_version", number(self.schema_version)),
                 (
                     "skinning_profile_revision",

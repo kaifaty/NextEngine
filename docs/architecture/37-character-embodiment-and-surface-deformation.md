@@ -4,12 +4,12 @@
 |---|---|
 | ID | SPEC-37 |
 | Статус | Accepted |
-| Scope status | Third-person visual target and the R5f exact base-rig/skinning route are Accepted/current; pose/load/injury deformation, severity/LOD matrix and advanced deformers remain Proposed |
-| Версия | 1.2 |
-| Последняя проверка | 2026-08-17 |
+| Scope status | Third-person visual target and the R5g exact base-rig/skinning/pose-corrective plus bounded deformation-LOD route are Accepted/current; load/injury deformation, severity matrix and advanced deformers remain Proposed |
+| Версия | 1.3 |
+| Последняя проверка | 2026-08-18 |
 | Product decision | [PRODUCT-FA-001](../product/functional-anatomy-and-character-embodiment.md) |
 | Нормативные зависимости | [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-37 1.1; records the production R5f base-rig, exact mapping, LBS and bind-pose fallback route |
+| Заменяет | SPEC-37 1.2; records the production R5g authored pose-corrective and cadence/deformation-LOD authority-isolation route |
 
 ## Назначение и status boundary
 
@@ -23,9 +23,12 @@ Accepted here are the one-way data flow, anatomically plausible visual target,
 `Reduced`/`Realistic`/`Graphic` severity semantics, mandatory base fallback,
 third-person readability, LOD behavior and first vertical. The current
 `NeutralBaseSkinningProfileV1`, exact presentation subprojection
-and B0 LBS consumer are admitted because R5f provides a production consumer.
-The broader `CharacterEmbodimentManifestV1`, pose/load/injury correctives,
-severity/LOD matrix, wound catalog and advanced deformer models remain Proposed.
+and B0 LBS consumer are admitted because R5f provides a production consumer;
+R5g additionally admits one bounded translation-driven sparse pose-corrective
+set and its four-level presentation work selector. The broader
+`CharacterEmbodimentManifestV1`, load/injury correctives, severity matrix,
+wound catalog, general animation LOD and advanced deformer models remain
+Proposed.
 
 ## Product visual target
 
@@ -111,7 +114,7 @@ activation.
 The manifest contains no current pose, condition, effort, temporal deformer
 state or renderer device object.
 
-### Current R5f base profile
+### Current R5f/R5g base profile
 
 R5f does not introduce the future all-features manifest. Its exact current
 `NeutralBaseSkinningProfileV1` binds one mesh, source skeleton and
@@ -120,6 +123,14 @@ joint/body-semantic mappings; bind transforms; one-to-four positive LBS
 influences per vertex summing exactly to `u16::MAX`; a positive instance bound;
 and mandatory `BindPose` fallback. Cook and activation validate the complete
 closure before atomic publication.
+
+R5g extends that exact current-only profile with at most 64 stable corrective
+IDs and 1,048,576 total sparse vertex deltas. Each corrective names one render
+joint translation axis, signed start/full displacement from bind pose,
+`Essential | Detail` class and canonical unique in-range mesh vertex deltas.
+Checked fixed-point evaluation applies the selected deltas before LBS. This is
+an authored normal-locomotion surface subset, not a general blend-shape graph,
+load estimate, injury condition or topology selector.
 
 The reference player and NPC share this profile and mesh while retaining their
 distinct material and committed body-transform projections. Runtime name,
@@ -156,9 +167,10 @@ solver. The production priority is a correct authored character and injury
 matrix. Advanced deformation must improve measured appearance while retaining
 the baseline on all target hardware.
 
-R5f implements the prefix through `base skinning` only. The following authored
-corrective and injury/topology stages remain mandatory for the complete future
-vertical and begin in later bounded cuts; R5f does not claim them.
+R5g implements the prefix through one small authored pose-corrective set. The
+broader limp/guard/fall/crawl/drag corpus and the injury/topology stages remain
+mandatory for the complete future vertical and begin in later bounded cuts;
+R5g does not claim them.
 
 ## Pose, effort and muscle semantics
 
@@ -240,9 +252,12 @@ quality rule, not permission for a learned model to own gameplay.
 The current base projection is
 `CharacterSkinningPresentationRecordV1` inside `PresentationSnapshotV3`. It
 binds stable object key, exact mesh/profile/skeleton/body-schema revisions,
-source animation-profile hash, sampled-or-bind-fallback mode and one complete
-sorted local render-joint pose. Scene and skinning records form an exact
-one-to-one closure for every skinned object.
+source animation-profile hash, `Sampled | HeldPresentationPose |
+BindPoseFallback` mode, `FullCorrectives | ReducedCorrectives |
+BaseSkinningOnly | Culled` deformation LOD and one complete sorted local
+render-joint pose. Scene and skinning records form an exact one-to-one closure
+for every skinned object; Culled corresponds exactly to an invisible scene
+record.
 
 The future extended embodiment projection additionally contains:
 
@@ -283,10 +298,14 @@ required in player UI.
 Physical and visual LOD are independent choices over the same committed state.
 Presentation may select:
 
-1. full skinning + correctives + injury/load/secondary detail;
-2. skinning + correctives + static injury variant;
-3. skinning/reduced rig + coarse injury variant;
-4. already-authorized impostor/cull while UI/game state remains available.
+1. current `FullCorrectives`: base skinning plus Essential and Detail pose data;
+2. current `ReducedCorrectives`: base skinning plus Essential pose data only;
+3. current `BaseSkinningOnly`: no pose-corrective evaluation;
+4. current `Culled`: an invisible skinned scene emits no renderer work while
+   UI/game state remains available.
+
+Future injury/load/secondary and impostor tiers refine these four bounded
+presentation-work choices; they do not retroactively become current contracts.
 
 The product workload target is:
 
@@ -320,14 +339,18 @@ deformer and capture availability change zero authoritative roots.
 
 ## First bounded product vertical
 
-The bounded R5f prefix now includes:
+The bounded R5g prefix now includes:
 
 - authored render skeleton, one skinned surface and explicit physical/animation
   mapping;
+- one Essential and two Detail normal-locomotion pose correctives shared by the
+  player and NPC;
+- exact Full/Reduced/Base/Held/Culled B0 permutations and 30/60/144 Hz
+  latest-complete-snapshot repetition with zero authoritative-root change.
 
 The remaining first-vertical work includes:
 
-- pose correctives sufficient for normal, limp, guarded, fall, crawl and drag
+- pose-corrective breadth sufficient for limp, guarded, fall, crawl and drag
   poses;
 - intact, partial-damage, stable-fracture, retained-fracture and detached
   authored variants;
@@ -351,9 +374,11 @@ The future `CHARACTER-EMBODIMENT-P1` requires:
 - 16/64/distant workload reports measured result or deterministic fallback;
 - optional captures support human review but are not gameplay oracles.
 
-R5f combines focused contracts/recovery/render tests with `content-package`,
-`play`, `persistence-replay` and conditional `platform`; those checks admit
-only the base route. The broader `CHARACTER-EMBODIMENT-P1`, injury matrix and
+R5g combines focused contracts/recovery/render/reference tests with
+`content-package`, `play`, `persistence-replay` and conditional `platform`;
+those checks admit
+only the base plus small pose-corrective/cadence-LOD route. The broader
+`CHARACTER-EMBODIMENT-P1`, injury matrix, general animation-LOD corpus and
 16/64/distant performance claim remain `NotRun(NoProductionConsumer)` until
 their own consumers exist.
 
@@ -365,7 +390,8 @@ their own consumers exist.
 | Missing base mesh/skinning/corrective fallback | Profile is not activatable; use another complete character profile |
 | Missing optional load/wound/secondary/neural asset | Use the next declared base/static fallback; authority unchanged |
 | Illegal/unavailable graphic content | Resolve to declared realistic/reduced profile before play |
-| Invalid deformer output/runtime | Discard optional sample and render base skinning/correctives |
+| Invalid pose-corrective evaluation | Discard the corrected sample and retry exact sampled base skinning; invalid base output uses bind mesh |
+| Invalid optional deformer output/runtime | Discard optional sample and render base skinning/correctives |
 | Stale source sequence/revision | Reject sample, reset history and use prior/held/bind fallback |
 | Presentation write-back attempt | Deny/quarantine and preserve authoritative roots |
 
@@ -373,10 +399,11 @@ their own consumers exist.
 
 1. **Implemented by R5f:** author the complete base rig, physical/render
    mapping, skinned surface and normal third-person sampled/bind pose range.
-2. **Next bounded cut (R5g):** add pose correctives and prove cadence/LOD
-   authority isolation.
-3. Create all three severity profiles and the intact/partial/stable/retained/
-   detached asset matrix with static fallbacks.
+2. **Implemented by R5g:** add the bounded normal-locomotion pose correctives
+   and prove Full/Reduced/Base/Held/Culled plus 30/60/144 Hz authority
+   isolation.
+3. **Next embodiment vertical cut:** create all three severity profiles and the
+   intact/partial/stable/retained/detached asset matrix with static fallbacks.
 4. Bind committed SPEC-36 state and SPEC-18 qualitative body UI.
 5. Add bounded retained-tissue secondary motion with static fallback.
 6. Measure 16/64/distant workload and tune only declared visual/physical LOD.

@@ -10,9 +10,9 @@ use next_contracts::physics::{
     PhysicsWorldCatalogV1,
 };
 use next_contracts::presentation::{
-    BaseSkinningProjectionModeV1, RenderJointPoseV1, UiAccessibilityRoleV1, UiActionAffordanceV1,
-    UiElementRoleV1, UiElementValueV1, UiSemanticElementV1, UiStyleRoleV1, UiTextArgumentV1,
-    UiTextRefV1,
+    BaseSkinningProjectionModeV1, CharacterDeformationLodV1, RenderJointPoseV1,
+    UiAccessibilityRoleV1, UiActionAffordanceV1, UiElementRoleV1, UiElementValueV1,
+    UiSemanticElementV1, UiStyleRoleV1, UiTextArgumentV1, UiTextRefV1,
 };
 
 #[test]
@@ -236,7 +236,8 @@ fn recovery_round_trip_preserves_exact_character_skinning_records() {
             record_sha256: domain_hash("test.skinning-body", b"body"),
         },
         domain_hash("test.skinning-animation-profile", b"animation"),
-        BaseSkinningProjectionModeV1::Sampled,
+        BaseSkinningProjectionModeV1::HeldPresentationPose,
+        CharacterDeformationLodV1::ReducedCorrectives,
         vec![RenderJointPoseV1 {
             render_joint_id: SchemaId::new("test.render-joint.root").expect("joint id"),
             local_transform: NeutralTransformV1::translated([0, 5_000, 0]),
@@ -261,6 +262,20 @@ fn recovery_round_trip_preserves_exact_character_skinning_records() {
         PresentationExtractorV1::resume_from_recovery_bytes(&bytes).expect("resume extractor");
     assert_eq!(resumed.accepted_snapshot(), Some(&snapshot));
     assert_eq!(snapshot.character_skinning_records().count(), 1);
+    let recovered_skinning = resumed
+        .accepted_snapshot()
+        .expect("recovered snapshot")
+        .character_skinning_records()
+        .next()
+        .expect("recovered skinning record");
+    assert_eq!(
+        recovered_skinning.projection_mode,
+        BaseSkinningProjectionModeV1::HeldPresentationPose
+    );
+    assert_eq!(
+        recovered_skinning.deformation_lod,
+        CharacterDeformationLodV1::ReducedCorrectives
+    );
     assert_eq!(
         resumed.recovery_bytes().expect("canonical recovery bytes"),
         bytes

@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-18 |
-| Текущая точка | R3, reference-project vertical и functional R4 остаются `COMPLETE`: R4a, [R4b tiers + graph navigation + 100 NPC](development/task-state/r4b-population-navigation.md), [R4c deterministic cognition core](development/task-state/r4c-deterministic-cognition.md) и [R4d systemic Strategic Agent vertical](development/task-state/r4d-systemic-strategic-agent.md) закрыты production evidence under ADR-074. R5a physical-animation owner, [R5b capsule/world interactions](development/task-state/r5b-capsule-world-interactions.md), [R5c root-motion admission](development/task-state/r5c-root-motion-admission.md), [R5d BodySchema projection](development/task-state/r5d-body-schema-projection.md), [R5e procedural motor/safety/recovery](development/task-state/r5e-procedural-motor-safety-recovery.md) и [R5f production base skinning/render rig](development/task-state/r5f-base-skinning-render-rig.md) теперь `COMPLETE`; следующий bounded WIP — R5g authored pose-correctives + cadence/LOD authority-isolation route без injury/severity, active articulation или learned route. [Linux catch-up](development/task-state/linux-validation-catch-up.md) на clean `d15c11a…` закрыл LNX-003/004/005 полным hardware-GPU native `PASS`; matching Windows report/compare, B-12 и PhysX Stage 0 остаются открыты. R141 остаётся `INVALID / STOP_NO_RETRY` без R142/downstream authority. |
+| Текущая точка | R3, reference-project vertical и functional R4 остаются `COMPLETE`: R4a, [R4b tiers + graph navigation + 100 NPC](development/task-state/r4b-population-navigation.md), [R4c deterministic cognition core](development/task-state/r4c-deterministic-cognition.md) и [R4d systemic Strategic Agent vertical](development/task-state/r4d-systemic-strategic-agent.md) закрыты production evidence under ADR-074. R5a physical-animation owner, [R5b capsule/world interactions](development/task-state/r5b-capsule-world-interactions.md), [R5c root-motion admission](development/task-state/r5c-root-motion-admission.md), [R5d BodySchema projection](development/task-state/r5d-body-schema-projection.md), [R5e procedural motor/safety/recovery](development/task-state/r5e-procedural-motor-safety-recovery.md), [R5f production base skinning/render rig](development/task-state/r5f-base-skinning-render-rig.md) и [R5g authored pose correctives + cadence/LOD isolation](development/task-state/r5g-pose-correctives-cadence-lod.md) теперь `COMPLETE`. Следующий bounded R5 cut ещё не выбран: сначала нужен completion audit открытых general animation/root-motion и active-articulation gates; injury/severity остаётся отдельным post-baseline vertical. [Linux catch-up](development/task-state/linux-validation-catch-up.md) на clean `d15c11a…` закрыл LNX-003/004/005 полным hardware-GPU native `PASS`; matching Windows report/compare, B-12 и PhysX Stage 0 остаются открыты. R141 остаётся `INVALID / STOP_NO_RETRY` без R142/downstream authority. |
 | Windows blocker-plan checkpoint | B-02 теперь `CLOSED / TARGET-LOCAL`: current Linux hardware target и прежний Windows target независимо проходят desktop/package paths. `COMPLETE` для Windows R2 и R3, `COMPLETE / LOCAL FUNCTIONAL` для R4 на текущем developer host, `COMPLETE / WINDOWS_ACCEPTED` для Architecture Cleanup. R3a/B-04, R3b/B-06 и R4a–R4d increments `COMPLETE`. Это не заявляет same-commit Windows/Linux pair и не закрывает R1, B-01, B-12, paired cross-target evidence или v1 shipping; bounded TRAIN-4 lineage остановлена без retry/downstream authority. |
 | R2 visual checkpoint | Три Windows visual packages и свежий `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохранили прежний gameplay result. Performance остаётся `REPORT_ONLY`; B-12 открыт. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -144,15 +144,15 @@ animation и reusable systemic quest conditions относятся к R3–R5.
 | Persistence/replay | Реализован current-only Replay V10 и ten-owner application closure с independent routine/population/activity/Agent/Memory/physical-animation ledger validation; exact root-motion command body replay-ится без нового owner/format | Migration вводится только после первого публично поддерживаемого v1 format и реального successor. |
 | RPG | Частично: двенадцать aggregate payload kinds и девять операций, включая bounded commitment/atomic systemic settlement | Нет полного faction/membership, status/effect, quest-graph, reward, debt/market или divine command lifecycle. |
 | Mechanics/packages | Частично: contact melee + Luau/Wasm examples | Нет общего ability phase/cost/cooldown/status lifecycle и creator-facing SDK workflow. |
-| Content/cooker | Data-first `projects/reference-alpha` проходит typed V7/V8 authoring/cook/direct-lock activation; package содержит 123 canonical entries, 37 roots и 64 chunk bindings, включая exact `BodySchemaAssetV1`, `NeutralBaseSkinningProfileV1`, neutral skeleton/clip/root curve, routine, population, navigation, cognition and activity catalogs | Нет broad animation graph/retarget content, polygon navmesh or creator workflow. |
+| Content/cooker | Data-first `projects/reference-alpha` проходит typed V7/V8 authoring/cook/direct-lock activation; package содержит 123 canonical entries, 37 roots и 64 chunk bindings, включая exact `BodySchemaAssetV1`, `NeutralBaseSkinningProfileV1` with one Essential/two Detail sparse correctives, neutral skeleton/clip/root curve, routine, population, navigation, cognition and activity catalogs | Нет broad animation graph/retarget content, polygon navmesh or creator workflow. |
 | World/streaming | R3 partition and R4a–R4d world consumers реализованы: exact pinned generation, 4 regions/64 chunks, derived calendar, separate routine/population/activity/Agent/Memory owners, 16/32/52 cadence, 64-node graph, bounded bulk time and joint publication | Нет generic interest/eviction, physical corridor following or broad jobs/economy framework; эти gaps не входят в bounded R4 closure. |
 | Jobs/resources | R3 использует private bounded workers (default 2, max 4), immutable revision-bound request/result и channel 64; generic subsystem не принят | Shared scheduler/resource contract появляется только при доказанной второй production потребности; SPEC-23 остаётся Proposed. |
 | Physics | PhysX 5.9.0 является единственным production backend; upright capsule, static Box, exact B0 `ClosestPoint`, reduced articulation и fixed-humanoid scene/restore path реализованы | Не закрыты полный cutover/platform/replay matrix, general gameplay shape/query breadth и Windows/Linux Stage 0 evidence. |
-| Animation/motor | Bounded R5a–R5f production path активирует shared player/NPC skeleton/clip owner, exact neutral sampling, identity retarget, presentation-only foot IK, fixed-tick root proposal, physics-validated capsule application, exact project-backed `BodySchemaV1` projections, stateless player capsule controller and one shared exact base-skinning profile. During Physics-owned fall the controller clamps horizontal intent to zero and resumes held cardinal input after landing; render joints consume only the committed sampled/bind pose. Replay V10 owner arity не меняется. Отдельный deterministic 23-DoF standing/flat-command substrate и current curriculum V2 CPU environments сохраняются; R141 learned lineage остановлен. | Нет authored pose correctives and cadence/LOD isolation proof, general graph/non-identity retarget/physical IK, injury/severity surface variants, active articulation cutover, полного `ANIM-ROOT-MOTION-P1`/general SPEC-27 route corpora, Isaac GPU correspondence и Windows/Linux performance/parity evidence. |
+| Animation/motor | Bounded R5a–R5g production path активирует shared player/NPC skeleton/clip owner, exact neutral sampling, identity retarget, presentation-only foot IK, fixed-tick root proposal, physics-validated capsule application, exact project-backed `BodySchemaV1` projections, stateless player capsule controller, shared exact base-skinning profile and sampled/held/bind plus Full/Reduced/Base/Culled presentation selectors. During Physics-owned fall the controller clamps horizontal intent to zero and resumes held cardinal input after landing; pose correctives consume only the complete committed render-joint projection. Replay V10 owner arity не меняется. Отдельный deterministic 23-DoF standing/flat-command substrate и current curriculum V2 CPU environments сохраняются; R141 learned lineage остановлен. | Нет general graph/non-identity retarget/physical IK or general animation-LOD corpus, injury/severity surface variants, active articulation cutover, полного `ANIM-ROOT-MOTION-P1`/general SPEC-27 route corpora, Isaac GPU correspondence и Windows/Linux performance/parity evidence. |
 | Agent AI | Bounded R4c/R4d core current: one production subject uses revision-bound Epistemic/Drive views, semantic beliefs/speech, Q16 Utility/emergency, bounded GOAP, private tasks, commitment/activity/systemic settlement and separate Agent/Memory owners; 100 records produce exact four-kind tier work | Нет broad episodic/social memory, bargaining or macro-economy. SPEC-33/34 и ADR-050/053/054 остаются optional R8 research. |
 | Navigation/audio | Baseline audio vertical и R4b engine-owned graph/query current: 64 chunk-bound nodes, four region tiles, deterministic Dijkstra and route-hash-bound abstract transfer | Gaps: chunked long-clip streaming payload, zone reverb fallback, polygon navmesh cooker, dynamic overlays and physical path-following adapter. |
 | Player experience | Keyboard/mouse и generic controller используют одинаковые action IDs с keyboard fallback; persisted targeting, third-person camera, semantic HUD/inventory/journal/dialogue/pause flow, localization, subtitles и preferences проходят automated Windows checks. HUD получил цветовой health meter, objective и отдельный presentation-only next-action panel, который выводится из immutable RPG snapshot для accept/pickup/equip/combat/relay/return/complete; Save показывает `Saved`, а Load оставляет восстановленный world на паузе с `Loaded - press Resume`. | Worker-to-desktop regression покрывает quest accept, explicit Save, визуально различимое изменение, sequence-zero Load cut, Load confirmation, продолжение новой epoch после явного Resume и реальное authoritative WASD movement с exact загруженной input-context revision. Свежий 20–30-minute run зафиксирован как `PASS`. Accessibility profiles и capability-scoped extension panels остаются вне R2 gate. |
-| Presentation/render | Exact revision-bound `PresentationSnapshotV3`, typed camera, offline SPIR-V, seven-binding B0 scene и Windows recovery/package path реализованы; R5f atomically publishes exact player/NPC `CharacterSkinningPresentationRecordV1` records, performs bounded fixed-point LBS and uploads complete per-frame dynamic vertex streams with bind-pose and optional no-shadow fallbacks. Humanoid/blade/relay retain distinct materials and all prior scene/UI behavior. Engine-owned relay-approach kit (tiled path, platform, two ruined pillars, four-rock field) добавляет читаемый маршрут и landmarks одним batched draw; relay collider точно следует видимым geometry. Contract-preserving B0+ shader выводит flat geometry normal из world-position varying и применяет fixed sun/ambient + depth fog без смены locked position/UV ABI. Current Linux hardware-GPU B0/platform/package path passes on `d15c11a…`. | Нет authored smooth normals, pose correctives/cadence-LOD matrix, injury/VFX consumption, production art/animation polish, clean ten-run THOTH hard evidence и paired same-commit target proof. |
+| Presentation/render | Exact revision-bound `PresentationSnapshotV3`, typed camera, offline SPIR-V, seven-binding B0 scene и Windows recovery/package path реализованы; R5g atomically publishes exact player/NPC `CharacterSkinningPresentationRecordV1` records, applies canonical sparse correctives before bounded fixed-point LBS and uploads complete per-frame dynamic vertex streams with corrected→base→bind and optional no-shadow fallbacks. Full/Reduced/Base/Held/Culled plus 30/60/144 Hz permutations preserve authoritative roots. Humanoid/blade/relay retain distinct materials and all prior scene/UI behavior. Engine-owned relay-approach kit (tiled path, platform, two ruined pillars, four-rock field) добавляет читаемый маршрут и landmarks одним batched draw; relay collider точно следует видимым geometry. Contract-preserving B0+ shader выводит flat geometry normal из world-position varying и применяет fixed sun/ambient + depth fog без смены locked position/UV ABI. Current Linux hardware-GPU B0/platform/package path passes on `d15c11a…`. | Нет authored smooth normals, injury/VFX consumption, general animation/injury LOD, production art/animation polish, clean ten-run THOTH hard evidence и paired same-commit target proof. |
 | Tooling | Repository `xtask`, Performance V5/run-level gate batches, восемь scenarios, representative R2/R3/report-only R4/R5 workloads и Windows package smoke реализованы | Нет creator-facing `next` CLI, inspectors, scenario/minimizer, fresh clean ten-run V5 THOTH baselines и stable external SDK workflow. |
 | Autonomous narrative | Proposed intent only | Вернуться только с конкретным player-visible production consumer после R3. |
 
@@ -220,7 +220,7 @@ flowchart LR
 | R2. Playable alpha | `COMPLETE / WINDOWS_ACCEPTED` | L | Data-first slice, Windows package, automated checks и зафиксированный 20–30-minute acceptance проходят. Linux/R1 cross-target closure не заявляется. |
 | R3. Scalable content and streaming | `COMPLETE` | XL | Private packaged vertical и bounded 4-region/64-chunk project проходят cook/load/unload/save/restart и report-only workload без hard-coded two-chunk assumptions. |
 | R4. Systemic living world | `COMPLETE / LOCAL FUNCTIONAL` | XL | R4a routine, R4b population/navigation, R4c cognition and bounded R4d systemic owners pass production/failure/persistence/tier/bulk checks; B-12 and cross-target gates remain separate. |
-| R5. Physical character integration | `IN_PROGRESS / R5A–R5F_COMPLETE / R&D_LINEAGE_STOPPED` | XL | R5a owner, R5b capsule interactions, R5c physics-validated root motion, R5d project-backed `BodySchema` projection, R5e stateless capsule procedural/safety/recovery and R5f exact base-skinning/render-rig routes are complete. Next WIP is bounded R5g authored pose-correctives plus cadence/LOD authority isolation. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
+| R5. Physical character integration | `IN_PROGRESS / R5A–R5G_COMPLETE / NEXT_CUT_UNSELECTED / R&D_LINEAGE_STOPPED` | XL | R5a owner, R5b capsule interactions, R5c physics-validated root motion, R5d project-backed `BodySchema` projection, R5e stateless capsule procedural/safety/recovery, R5f exact base skinning and R5g authored pose-corrective/cadence-LOD routes are complete. Select the next bounded completion cut only after auditing the remaining general animation/root-motion and active-articulation gates. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
 | R6. Creator beta | `PLANNED` | L–XL | Второй проект/пакет создаётся без правки engine internals. |
 | R7. V1 release candidate | `PLANNED` | L | Полный v1 scope стабилизирован и упакован для Windows/Linux. |
 | R8. Post-v1 tracks | `DEFERRED` | отдельные программы | Optional AI/narrative/importer/advanced rendering не размывают v1. |
@@ -708,7 +708,7 @@ sources: SPEC-33, SPEC-34, ADR-050, ADR-053, ADR-054.
 
 ## R5 — Physical character, animation and motor integration
 
-**Статус:** `IN_PROGRESS / R5A_COMPLETE / R5B_COMPLETE / R5C_COMPLETE / R5D_COMPLETE / R5E_COMPLETE / NEXT_R5F_BASE_SKINNING_ROUTE`;
+**Статус:** `IN_PROGRESS / R5A_COMPLETE / R5B_COMPLETE / R5C_COMPLETE / R5D_COMPLETE / R5E_COMPLETE / R5F_COMPLETE / R5G_COMPLETE / NEXT_CUT_UNSELECTED`;
 `R&D_LINEAGE_STOPPED`. R141 завершился `INVALID / STOP_NO_RETRY` и не
 возобновляется. Bounded R5a package принят: один capsule-driven player/NPC
 animation owner выполняет exact neutral sampling/identity retarget,
@@ -743,9 +743,15 @@ adds one exact `NeutralBaseSkinningProfileV1`, explicit render-joint mapping,
 shared player/NPC sampled records, deterministic B0 LBS, a per-frame Vulkan
 vertex route and complete bind-pose fallback without changing any authoritative
 owner or making deformation cache state a root input. The exact project/content
-lock advances as required. Следующий bounded cut — R5g authored pose correctives plus cadence/
-LOD authority isolation; any injury/severity or learned route still requires
-its own future gates.
+lock advances as required. Bounded R5g adds one Essential and two Detail sparse
+pose correctives to that exact profile, carries sampled/held/bind and
+Full/Reduced/Base/Culled selectors through the atomic V3/recovery boundary,
+evaluates them before LBS with corrected→base→bind fallback and proves
+30/60/144 Hz latest-snapshot repetition changes zero state, ledger, physics or
+physical-animation roots. Injury/severity, general animation LOD, active
+articulation and learned routes still require their own future gates. The next
+bounded R5 completion cut is intentionally unselected pending an explicit gap
+audit.
 Решения и evidence R5a записаны в
 [R5a task state](development/task-state/r5a-physical-animation-owner.md).
 Принятая граница, решения и evidence R5b записаны в
@@ -758,6 +764,8 @@ Procedural/safety/recovery граница и evidence R5e записаны в
 [R5e task state](development/task-state/r5e-procedural-motor-safety-recovery.md).
 Base-skinning/render-rig граница и evidence R5f записаны в
 [R5f task state](development/task-state/r5f-base-skinning-render-rig.md).
+Pose-corrective/cadence-LOD граница и evidence R5g записаны в
+[R5g task state](development/task-state/r5g-pose-correctives-cadence-lod.md).
 
 **Цель:** сделать физическое воплощение персонажа частью production gameplay,
 не пропуская vendor types или model state через engine-owned authority.
@@ -1975,7 +1983,8 @@ reference, coupling or persistence path.
 Accumulated general Linux validation now has a current hardware checkpoint:
 LNX-003/004/005 are complete on `d15c11a…`. Future Linux-specific actions still
 accumulate in [Linux validation backlog](development/linux-validation-backlog.md)
-and run as separate checkpoint sessions. This does not occupy the R5g WIP slot.
+and run as separate checkpoint sessions. This does not occupy the next R5
+implementation WIP slot.
 Both same-commit target reports and successful compare remain mandatory before
 closing R1/B-01.
 
@@ -2520,7 +2529,7 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    trade → food, including threat interruption/replan, failure branches and
    exact tiered/headless/bulk behavior. V6/V7 content and nine-owner Replay V9
    formed the historical ADR-074 boundary; this closes functional R4 without learned models.
-12. **R5 physical character and animation production integration (`IN_PROGRESS`; R5a/R5b/R5c/R5d/R5e/R5f `COMPLETE`, next R5g pose-corrective/cadence-LOD route):**
+12. **R5 physical character and animation production integration (`IN_PROGRESS`; R5a–R5g `COMPLETE`, next bounded cut unselected):**
    один shared player/NPC skeleton/clip owner, retargeting, fixed IK and
    ten-owner save/Replay V10 закрыты R5a; production slopes, stairs, dynamic
    push, sensors, fall/recovery и exact mid-push continuation закрыты R5b.
@@ -2538,11 +2547,13 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    R5f adds one exact content-addressed render rig shared by player/NPC,
    explicit animation/body mapping, complete canonical weights, atomic V3
    skinning records, deterministic fixed-point B0 LBS, per-frame GPU vertex
-   upload and bind-pose fallback without a new save/replay owner. Следующий
-   bounded cut — R5g authored pose correctives plus cadence/LOD authority
-   isolation; injury/severity variants, полный `ANIM-ROOT-MOTION-P1`, general
-   SPEC-27 route corpora, active articulation cutover и полное R5 promotion
-   остаются последующими cuts. A
+   upload and bind-pose fallback without a new save/replay owner. R5g adds the
+   exact one-Essential/two-Detail corrective set, explicit sampled/held/bind and
+   Full/Reduced/Base/Culled presentation selectors, corrected→base→bind
+   fallback and 30/60/144 cadence isolation without a new owner. Injury/
+   severity variants, полный `ANIM-ROOT-MOTION-P1`, general SPEC-27/animation-
+   LOD corpora, active articulation cutover и полное R5 promotion остаются
+   subsequent cuts; an explicit completion audit must choose the next one. A
    TRAIN-9 actor may enter only after its own
    promotion/parity gates; later policy-family phases remain optional and do
    not block the procedural path.

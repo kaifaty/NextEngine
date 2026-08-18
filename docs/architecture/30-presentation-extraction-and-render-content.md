@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-30 |
 | Статус | Accepted |
-| Версия | 3.6 |
-| Последняя проверка | 2026-08-17 |
+| Версия | 3.7 |
+| Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
 | Дополнительные зависимости V3.5 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-30 3.5; adds the current exact R5f character-skinning subprojection and B0 base-deformation route |
+| Заменяет | SPEC-30 3.6; extends the current character subprojection with R5g source/LOD selectors and deterministic pose-corrective evaluation |
 
 ## Authority boundary
 
@@ -71,9 +71,13 @@ candidate; publication failure retains the prior snapshot.
   not durable identity.
 - `CharacterSkinningPresentationRecordV1` binds that same stable object key to
   exact mesh/profile/skeleton/body-schema revisions, source animation-profile
-  hash, `Sampled | BindPoseFallback` mode and a complete sorted render-joint
-  local pose. A skinned scene record must have exactly one matching record in
-  the same snapshot; mesh/object mismatch rejects the candidate.
+  hash, `Sampled | HeldPresentationPose | BindPoseFallback` source mode,
+  `FullCorrectives | ReducedCorrectives | BaseSkinningOnly | Culled`
+  deformation LOD and a complete sorted render-joint local pose. A skinned
+  scene record must have exactly one matching record in the same snapshot;
+  mesh/object mismatch rejects the candidate. `Culled` is valid exactly when
+  that matching scene record is invisible; a visible/cull mismatch rejects the
+  complete candidate.
 - `CameraPresentationRecordV2` carries typed integer/fixed-point camera intent
   and result, viewport, projection and cut/interpolation policy. Private
   renderer float matrices are derived caches.
@@ -89,14 +93,18 @@ UI menus may compose a new immutable presentation snapshot while simulation is
 suspended, but cannot mutate world state. Gameplay actions still enter through
 the normalized action/command path.
 
-R5f implements only the base SPEC-37 subprojection. It maps the existing
+R5f implemented the base SPEC-37 subprojection. It maps the existing
 committed `PhysicalAnimationPoseV1` through one exact surface profile into the
 current `PresentationSnapshotV3`; both reference player and NPC use the same
 profile and retain distinct materials/body transforms. Joint palettes, CPU/GPU
 buffers and deformed vertices remain renderer-owned reconstructible data.
-Pose/load/injury correctives, secondary motion and severity/accessibility
-variants remain later cuts. Headless/null presentation may omit all of this
-without changing command, physics, save, Replay or gameplay roots.
+R5g adds the small authored pose-corrective subset and explicit deformation
+work selector. Held is a complete already-published local pose, not a hidden
+animation cursor; renderer cadence is not serialized into the record and only
+repeats a complete snapshot. Load/injury correctives, secondary motion and
+severity/accessibility variants remain later cuts. Headless/null presentation
+may omit all of this without changing command, physics, save, Replay or
+gameplay roots.
 
 ## Neutral render content
 
@@ -107,16 +115,24 @@ interpretation and profile support before `ActivatedProjectV8` publication.
 
 The implemented renderer consumes the locked B0 shader interface and derived
 meshlet/indexed-indirect content. R5f performs bounded fixed-point linear blend
-skinning from the exact profile and complete joint record, hashes the resulting
-vertex stream and uploads position plus the locked UV/normal template through a
-per-frame-slot host-visible Vulkan vertex ring. Static draws keep the existing
-indexed-indirect path; skinned draws bind their exact dynamic stream. Backend
-handles, descriptor sets, command buffers, SPIR-V compiler objects and Vulkan
-structs remain private. Stable pipeline/cache keys derive only from exact
-content/profile/interface inputs; cache state is reconstructible.
+skinning from the exact profile and complete joint record. R5g first evaluates
+selected sparse mesh-local correctives in canonical corrective/vertex order.
+Driver weight is an exact clamped `u16` interpolation of the named local-joint
+translation relative to its bind translation; weighted integer deltas truncate
+toward zero before checked accumulation. Full selects Essential+Detail,
+Reduced selects Essential, Base selects none and Culled emits no renderer work.
+B0 hashes the resulting vertex stream and uploads position plus the locked
+UV/normal template through a per-frame-slot host-visible Vulkan vertex ring.
+Static draws keep the existing indexed-indirect path; skinned draws bind their
+exact dynamic stream. Backend handles, descriptor sets, command buffers,
+SPIR-V compiler objects and Vulkan structs remain private. Stable pipeline/
+cache keys derive only from exact content/profile/interface inputs; cache state
+is reconstructible.
 
-Missing/invalid sampled skinning output selects the complete authored bind
-mesh. Missing optional normals select the declared authored/flat-normal path.
+Missing/invalid corrected output atomically retries the same sampled pose with
+base LBS; invalid base skinning selects the complete authored bind mesh.
+Explicit bind fallback bypasses correctives. Missing optional normals select
+the declared authored/flat-normal path.
 Missing material or unavailable optional shadow allocation selects only the
 declared presentation fallback; the current R5f skinned draw intentionally
 uses the optional no-shadow branch while the static shadow path remains
@@ -126,7 +142,7 @@ presentation behavior; exact pixels are required only by an explicit pinned
 developer capture profile.
 
 `RenderContentCatalogV1` and `PresentationSnapshotV3` are exact current-only
-alpha contracts under ADR-046. R5f replaces their prior in-tree shapes; it does
+alpha contracts under ADR-046. R5g replaces their prior in-tree shapes; it does
 not introduce compatibility aliases, persisted migrations or a second runtime
 catalog/snapshot family.
 
@@ -147,9 +163,11 @@ correctness oracle.
 ## Product checks
 
 - `play` proves snapshot cadence independence, camera/UI behavior and no
-  reverse authority into gameplay.
+  reverse authority into gameplay; the focused R5g matrix repeats Full,
+  Reduced, Base, Held and Culled publications at 30/60/144 Hz.
 - `content-package` proves neutral render records, exact base-profile closure,
-  shared player/NPC consumption, sampled deformation and bind-pose fallback.
+  authored correctives, shared player/NPC consumption, sampled deformation and
+  the corrected → base LBS → bind fallback chain.
 - `platform` is conditional for Vulkan/host/device changes.
 - `visual-smoke` and captures are bounded human evidence, not architecture
   admission artifacts.
