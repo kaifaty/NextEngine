@@ -91,6 +91,7 @@ class SpeechConnection:
         self._transcriber_session: Any = None
         self._asr_tasks: set[asyncio.Task[None]] = set()
         self._emotion_tasks: set[asyncio.Task[None]] = set()
+        self._asr_slots = asyncio.Semaphore(runtime.scheduler.max_pending_asr)
         self._released = False
         self._job_metrics: list[ModelJobMetric] = []
         self.terminal_ready = asyncio.Event()
@@ -125,10 +126,20 @@ class SpeechConnection:
         )
 
     async def append_pcm(self, payload: bytes) -> None:
-        frame = self.session.append_pcm(payload)
+        await self._asr_slots.acquire()
+        try:
+            frame = self.session.append_pcm(payload)
+        except BaseException:
+            self._asr_slots.release()
+            raise
         generation = self.session.generation
         self._spawn(
-            self._asr_push(generation, frame.start_sample, frame.end_sample, frame.payload),
+            self._asr_push_with_backpressure(
+                generation,
+                frame.start_sample,
+                frame.end_sample,
+                frame.payload,
+            ),
             self._asr_tasks,
         )
         pcm = self.session.pcm_bytes
@@ -257,6 +268,14 @@ class SpeechConnection:
     async def fail_input(self, code: str, detail: str) -> None:
         """Terminate an unrecoverable client-input fault exactly once."""
         await self._fail(code, detail)
+
+    async def _asr_push_with_backpressure(
+        self, generation: int, start_sample: int, end_sample: int, pcm: bytes
+    ) -> None:
+        try:
+            await self._asr_push(generation, start_sample, end_sample, pcm)
+        finally:
+            self._asr_slots.release()
 
     async def _asr_push(
         self, generation: int, start_sample: int, end_sample: int, pcm: bytes

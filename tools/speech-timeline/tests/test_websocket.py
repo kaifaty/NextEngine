@@ -396,28 +396,29 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.transcriber.load_count, 1)
         self.assertEqual(self.transcriber.start_count, 2)
 
-    async def test_unpaced_overload_reports_first_typed_failure_and_recovers(self) -> None:
+    async def test_transport_backpressure_absorbs_short_unpaced_burst(self) -> None:
         self.transcriber.push_delay = 0.05
 
         async def chunks():
             for _ in range(10):
                 yield b"\0\0" * 100
 
-        with self.assertRaisesRegex(Exception, "SERVICE_OVERLOADED"):
-            await run_websocket_session(
-                ReadyInfo(
-                    uri=self.service.uri,
-                    token=self.ready["token"],
-                    protocol="nextengine.speech-timeline/1",
-                    bounds={},
-                ),
-                chunks(),
-                locale="ru",
-                on_event=lambda _: None,
-                session_id="overload",
-            )
+        final = await run_websocket_session(
+            ReadyInfo(
+                uri=self.service.uri,
+                token=self.ready["token"],
+                protocol="nextengine.speech-timeline/1",
+                bounds={},
+            ),
+            chunks(),
+            locale="ru",
+            on_event=lambda _: None,
+            session_id="backpressured",
+        )
+        self.assertEqual(final["text"], "готово")
+        self.assertEqual(self.transcriber.push_count, 10)
+
         self.transcriber.push_delay = 0.0
-        await asyncio.sleep(0.1)
         events = await self.run_turn("after-overload")
         self.assertEqual(events[-1]["type"], "utterance.final")
 

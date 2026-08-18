@@ -47,8 +47,9 @@
 | `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` | deferred Phase 4 sequence | Reopens exact Phase 3 catalogs, then builds corpus, measures/fine-tunes FunctionGemma and integrates it shadow-first. |
 | `codex/speech-timeline-service`, Phase 1 fake suite | 50 Python service tests + 14 preserved Voxtral probe tests pass | Auth/version/size/state/fault/dashboard boundaries, second-session residency, cadence, no-word-span fusion and client/benchmark paths are executable without weights. |
 | Joint RTX 3080 run, exact artifacts, 2026-08-18 | 2 × 4.5 s paced turns; load counts Voxtral/emotion `1/1`; worker-busy RTF p95 `0.690`; first chunk→update p95 `1.363 s`; finish→final p95 `0.970 s`; process peak `5870 MiB` VRAM | Both CUDA models remain resident with >1 GiB headroom; explicit-finish vertical passes. Report: `/tmp/nextengine-speech-timeline-phase1-benchmark.json` (external, content-free). |
-| 30 s paced soak, 2026-08-18 | worker-busy RTF `0.530`; first update `1.136 s`; finish→final `1.352 s`; no reload | Paced streaming remains faster than realtime without unbounded ASR backlog. Unpaced burst separately fails closed as `SERVICE_OVERLOADED`. |
+| 30 s paced soak, 2026-08-18 | worker-busy RTF `0.530`; first update `1.136 s`; finish→final `1.352 s`; no reload | Paced streaming remains faster than realtime without unbounded ASR backlog. Direct internal scheduler saturation still fails closed. |
 | Vue dashboard + turn-bound regression, 2026-08-18 | Browser source builds with pinned Vue/Vite/TypeScript; same-origin HTTP/bootstrap and WebSocket-origin tests pass; CLI/browser auto-finalize at the advertised 30 s/960,000-byte bound; overflow emits one terminal `TURN_TOO_LARGE` | The diagnostic view can expose transcript/raw affect/smoothed fusion without token copy-paste or repeated overflow spam. |
+| Real 30 s unpaced ingress after browser overload report, 2026-08-18 | completed in `15.478 s`; worker-busy RTF `0.515`; first update `0.597 s`; scheduler max useful depth `4`, overloads `0`, model load counts `1/1` | A bounded two-ASR-job admission semaphore absorbs transient transport bursts without expanding the model scheduler or failing a live turn. External content-free report: `/tmp/nextengine-speech-backpressure-30s.json`. |
 | ADR-005; SPEC-16/ADR-017 | Accepted isolation/fallback boundary; multimodal track remains Deferred Proposed | No direct gameplay mutation or product-shipped claim. |
 
 ## Decisions that constrain the work
@@ -139,8 +140,8 @@
 ### D-010 — Same-origin diagnostic UI and terminal turn bounds
 
 - **Observation:** Raw protocol JSON obscures independent revisions, while an overlong open microphone previously produced repeated nonterminal `TURN_TOO_LARGE` events after the 30 s in-memory ceiling.
-- **Decision:** Serve a bundled Vue dashboard from the loopback speech process, keep transcript/raw affect/smoothed fusion as separate views on the sample clock, fetch the ephemeral token only through same-origin bootstrap, auto-finalize clients at the advertised bound, and make actual overflow terminal exactly once.
-- **Rejected:** Inline word emotion tags without lexical timing, browser token entry, a separate permissive dev server, silently increasing the bounded turn, or continuing capture after overflow.
+- **Decision:** Serve a bundled Vue dashboard from the loopback speech process, keep transcript/raw affect/smoothed fusion as separate views on the sample clock, fetch the ephemeral token only through same-origin bootstrap, auto-finalize clients at the advertised bound, make actual overflow terminal exactly once, and apply bounded ASR admission backpressure before the GPU scheduler.
+- **Rejected:** Inline word emotion tags without lexical timing, browser token entry, a separate permissive dev server, silently increasing the bounded turn or scheduler queue, continuing capture after overflow, or treating a transient browser delivery burst as terminal overload.
 - **Consequence:** The UI remains an optional diagnostic projection and not gameplay authority. Conversations longer than 30 s require multiple utterances; bounded VAD remains a later measured increment.
 - **Reconsider when:** A verified aligner supplies lexical timing or an approved multi-utterance consumer requires automatic endpointing.
 

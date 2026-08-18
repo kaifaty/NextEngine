@@ -121,6 +121,8 @@ limit and finalize the turn automatically. `TURN_TOO_LARGE` means a client sent
 beyond that boundary; the service treats it as one terminal input error. It is
 not a model failure. Longer conversation must be split into utterances (and
 later may use bounded VAD) instead of increasing an unbounded in-memory turn.
+Transient browser/audio bursts are flow-controlled at the service's bounded
+ASR ingress instead of being expanded into an unbounded model queue.
 
 ## Rebuild the Vue dashboard
 
