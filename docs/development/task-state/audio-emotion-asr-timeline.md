@@ -161,6 +161,13 @@
 - **Consequence:** Long turns remain observable without unbounded wire payloads; benchmark aggregation reads the exact job summary when the tail is truncated.
 - **Reconsider when:** The protocol gains a separately authenticated streaming metrics channel or a consumer requires complete per-job traces off-band.
 
+### D-013 — Do not add external audio trimming before proving native cache drift
+
+- **Observation/evidence:** The current facade schedules 80-ms PCM frames; the local Voxtral native stream advances every 240 ms, keeps encoder/decoder sliding caches, and erases PCM before the committed mel horizon. A 30-s paced run stayed below realtime worker load, while tail queue waits remained bounded. Separately, `SpeechConnection.append_pcm` still copies the entire turn buffer on every frame to slice affect windows, and every timeline event repeats prior affect observations.
+- **Decision:** Treat “the full turn is re-sent to ASR on every update” as unconfirmed for this adapter. Instrument monotonic input/commit cursors and retained-window size before restarting sessions or trimming audio in Python.
+- **Consequence:** The next investigation separates native inference, Python O(T²) buffer copying, scheduler contention, and repeated full timeline-event rendering; sentence trimming remains the fallback only for a stateless ASR adapter.
+- **Reconsider when:** Native retained audio or per-update compute grows with turn duration, or a replacement model lacks stateful streaming and requires a bounded-window/LocalAgreement wrapper.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
