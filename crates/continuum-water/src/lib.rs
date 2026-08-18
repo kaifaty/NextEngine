@@ -57,6 +57,11 @@ pub fn run_xtask(
         {
             oracle::successor::run_closure_xtask(repository_root, arguments)
         }
+        (Some(material), Some(command))
+            if material == "water" && command == "close-accelerated-pressure-profile" =>
+        {
+            oracle::successor::run_pressure_closure_xtask(repository_root, arguments)
+        }
         (Some(material), Some(command)) if material == "water" && command == "run-w1-linux" => {
             oracle::successor::run_xtask(repository_root, arguments)
         }

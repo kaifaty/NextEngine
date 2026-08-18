@@ -8,13 +8,15 @@ use sha2::{Digest, Sha256};
 use crate::error::{PROFILE_MISMATCH, SCENARIO_INVALID, WaterError};
 use crate::model::CanonicalSample;
 use crate::profile::{
-    CORPUS_ROOT_HEX, FLOAT_PROFILE_ROOT_HEX, IMPACT_ENERGY_CONTRACT_ROOT_HEX,
-    IMPACT_ENERGY_CORPUS_ROOT_HEX, IMPACT_ENERGY_DOCUMENT_ROOT_HEX,
-    IMPACT_ENERGY_EXECUTION_PROFILE_ROOT_HEX, IMPACT_ENERGY_SCENARIO_ROOTS_HEX,
-    SUCCESSOR_CORPUS_ROOT_HEX, SUCCESSOR_DOCUMENT_ROOT_HEX, SUCCESSOR_EXECUTION_MANIFEST_ROOT_HEX,
-    SUCCESSOR_EXECUTION_PROFILE_ROOT_HEX, SUCCESSOR_FIXTURE_ROOT_HEX,
-    SUCCESSOR_FLOAT_PROFILE_ROOT_HEX, SUCCESSOR_GEOMETRY_ROOT_HEX, SUCCESSOR_SCENARIO_ROOTS_HEX,
-    W0B_DOCUMENT_ROOT_HEX,
+    ACCELERATED_PRESSURE_CORPUS_ROOT_HEX, ACCELERATED_PRESSURE_DOCUMENT_ROOT_HEX,
+    ACCELERATED_PRESSURE_EXECUTION_PROFILE_ROOT_HEX, ACCELERATED_PRESSURE_PROFILE_ROOT_HEX,
+    ACCELERATED_PRESSURE_SCENARIO_ROOTS_HEX, CORPUS_ROOT_HEX, FLOAT_PROFILE_ROOT_HEX,
+    IMPACT_ENERGY_CONTRACT_ROOT_HEX, IMPACT_ENERGY_CORPUS_ROOT_HEX,
+    IMPACT_ENERGY_DOCUMENT_ROOT_HEX, IMPACT_ENERGY_EXECUTION_PROFILE_ROOT_HEX,
+    IMPACT_ENERGY_SCENARIO_ROOTS_HEX, SUCCESSOR_CORPUS_ROOT_HEX, SUCCESSOR_DOCUMENT_ROOT_HEX,
+    SUCCESSOR_EXECUTION_MANIFEST_ROOT_HEX, SUCCESSOR_EXECUTION_PROFILE_ROOT_HEX,
+    SUCCESSOR_FIXTURE_ROOT_HEX, SUCCESSOR_FLOAT_PROFILE_ROOT_HEX, SUCCESSOR_GEOMETRY_ROOT_HEX,
+    SUCCESSOR_SCENARIO_ROOTS_HEX, W0B_DOCUMENT_ROOT_HEX,
 };
 
 const W0B_PATH: &str = "docs/plans/continuum-water/00b-numeric-execution-and-corpus-closure.md";
@@ -42,6 +44,16 @@ const IMPACT_ENERGY_SCENARIO_DOMAIN: &[u8] =
     b"nextengine.continuum-water.impact-energy-scenario.v1\0";
 const IMPACT_ENERGY_EXECUTION_PROFILE_DOMAIN: &[u8] =
     b"nextengine.continuum-water.impact-energy-execution-profile.v1\0";
+const ACCELERATED_PRESSURE_PATH: &str =
+    "docs/plans/continuum-water/00h-accelerated-pressure-profile-reclosure.md";
+const ACCELERATED_PRESSURE_PROFILE_DOMAIN: &[u8] =
+    b"nextengine.continuum-water.accelerated-pressure-profile.v1\0";
+const ACCELERATED_PRESSURE_CORPUS_DOMAIN: &[u8] =
+    b"nextengine.continuum-water.accelerated-pressure-corpus.v1\0";
+const ACCELERATED_PRESSURE_SCENARIO_DOMAIN: &[u8] =
+    b"nextengine.continuum-water.accelerated-pressure-scenario.v1\0";
+const ACCELERATED_PRESSURE_EXECUTION_PROFILE_DOMAIN: &[u8] =
+    b"nextengine.continuum-water.accelerated-pressure-execution-profile.v1\0";
 
 #[derive(Clone, Debug)]
 pub(crate) struct FrozenRoots {
@@ -403,6 +415,103 @@ impl ImpactEnergyRoots {
     }
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct AcceleratedPressureRoots {
+    pub(crate) parent: ImpactEnergyRoots,
+    pub(crate) document: [u8; 32],
+    pub(crate) solver_profile: [u8; 32],
+    pub(crate) corpus: [u8; 32],
+    pub(crate) execution_profile: [u8; 32],
+}
+
+impl AcceleratedPressureRoots {
+    pub(crate) fn load(repository_root: &Path) -> Result<Self, WaterError> {
+        let parent = ImpactEnergyRoots::verify(repository_root)?;
+        let path = repository_root.join(ACCELERATED_PRESSURE_PATH);
+        let document_bytes = fs::read(&path).map_err(|error| {
+            WaterError::new(
+                PROFILE_MISMATCH,
+                format!("cannot read {}: {error}", path.display()),
+            )
+        })?;
+        if document_bytes.contains(&b'\r') {
+            return Err(WaterError::new(
+                PROFILE_MISMATCH,
+                "accelerated pressure profile document contains CR bytes",
+            ));
+        }
+        let profile_bytes = successor_block(
+            &document_bytes,
+            b"ACCELERATED_PRESSURE_PROFILE_V1_BEGIN\n",
+            b"ACCELERATED_PRESSURE_PROFILE_V1_END\n",
+            "accelerated pressure profile",
+        )?;
+        let document = digest(&document_bytes);
+        let solver_profile = domain_digest(ACCELERATED_PRESSURE_PROFILE_DOMAIN, profile_bytes);
+
+        let mut corpus_hasher = Sha256::new();
+        corpus_hasher.update(ACCELERATED_PRESSURE_CORPUS_DOMAIN);
+        corpus_hasher.update(parent.corpus);
+        corpus_hasher.update(solver_profile);
+        let corpus = finalize(corpus_hasher);
+
+        let mut execution_hasher = Sha256::new();
+        execution_hasher.update(ACCELERATED_PRESSURE_EXECUTION_PROFILE_DOMAIN);
+        execution_hasher.update(parent.execution_profile);
+        execution_hasher.update(document);
+        execution_hasher.update(solver_profile);
+        execution_hasher.update(corpus);
+        let execution_profile = finalize(execution_hasher);
+        Ok(Self {
+            parent,
+            document,
+            solver_profile,
+            corpus,
+            execution_profile,
+        })
+    }
+
+    pub(crate) fn verify(repository_root: &Path) -> Result<Self, WaterError> {
+        let roots = Self::load(repository_root)?;
+        require_root(
+            "accelerated pressure document",
+            roots.document,
+            ACCELERATED_PRESSURE_DOCUMENT_ROOT_HEX,
+        )?;
+        require_root(
+            "accelerated pressure solver profile",
+            roots.solver_profile,
+            ACCELERATED_PRESSURE_PROFILE_ROOT_HEX,
+        )?;
+        require_root(
+            "accelerated pressure corpus",
+            roots.corpus,
+            ACCELERATED_PRESSURE_CORPUS_ROOT_HEX,
+        )?;
+        require_root(
+            "accelerated pressure execution profile",
+            roots.execution_profile,
+            ACCELERATED_PRESSURE_EXECUTION_PROFILE_ROOT_HEX,
+        )?;
+        for (scenario_id, expected) in ACCELERATED_PRESSURE_SCENARIO_ROOTS_HEX {
+            require_root(
+                &format!("accelerated pressure scenario {scenario_id}"),
+                roots.scenario_root(scenario_id)?,
+                expected,
+            )?;
+        }
+        Ok(roots)
+    }
+
+    pub(crate) fn scenario_root(&self, scenario_id: &str) -> Result<[u8; 32], WaterError> {
+        let mut hasher = Sha256::new();
+        hasher.update(ACCELERATED_PRESSURE_SCENARIO_DOMAIN);
+        hasher.update(self.parent.scenario_root(scenario_id)?);
+        hasher.update(self.solver_profile);
+        Ok(finalize(hasher))
+    }
+}
+
 fn verify_cargo_profile(repository_root: &Path) -> Result<(), WaterError> {
     const EXPECTED: &str = r#"[profile.water-oracle]
 inherits = "release"
@@ -679,6 +788,29 @@ mod tests {
         let hydro = roots.scenario_root("CW-HYDRO-001").unwrap();
         let dam_break = roots.scenario_root("CW-DAMBREAK-001").unwrap();
         assert_ne!(hydro, dam_break);
+        assert_ne!(roots.execution_profile, roots.parent.execution_profile);
+    }
+
+    #[test]
+    fn accelerated_pressure_profile_has_all_domain_separated_scenario_roots() {
+        let repository_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .unwrap();
+        let roots = AcceleratedPressureRoots::verify(repository_root).unwrap();
+        assert_eq!(hex(&roots.document), ACCELERATED_PRESSURE_DOCUMENT_ROOT_HEX);
+        assert_eq!(
+            hex(&roots.solver_profile),
+            ACCELERATED_PRESSURE_PROFILE_ROOT_HEX
+        );
+        assert_eq!(hex(&roots.corpus), ACCELERATED_PRESSURE_CORPUS_ROOT_HEX);
+        assert_eq!(
+            hex(&roots.execution_profile),
+            ACCELERATED_PRESSURE_EXECUTION_PROFILE_ROOT_HEX
+        );
+        let hydro = roots.scenario_root("CW-HYDRO-001").unwrap();
+        let sealed = roots.scenario_root("CW-SEALED-001").unwrap();
+        assert_ne!(hydro, sealed);
         assert_ne!(roots.execution_profile, roots.parent.execution_profile);
     }
 }

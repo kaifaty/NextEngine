@@ -18,7 +18,7 @@ use crate::error::{
     REPORT_CAPACITY_EXCEEDED, SAMPLE_CAPACITY_EXCEEDED, SCENARIO_INVALID, STEP_CAPACITY_EXCEEDED,
     WaterError,
 };
-use crate::hash::{self, ImpactEnergyRoots, TrajectoryHasher};
+use crate::hash::{self, AcceleratedPressureRoots, TrajectoryHasher};
 use crate::model::{
     CanonicalSample, OutputMetric, Scenario, StorageOrder, Vec3f, Vec3i, checked_scalar,
 };
@@ -45,6 +45,7 @@ const SCENARIO_IDS: [&str; 7] = [
 mod closure;
 mod command;
 mod energy;
+mod pressure_closure;
 mod validation;
 
 use command::{command_result, parse_arguments, validate_reference_paths, write_report};
@@ -56,8 +57,8 @@ use energy::{
 #[cfg(test)]
 use energy::{EnergyPublication, publish_energy_metrics};
 use validation::{
-    corpus_run_root, primary_order, reference_path, reference_required, validate_output,
-    validate_step,
+    capacity_thresholds, corpus_run_root, primary_order, reference_path, reference_required,
+    serializable_root, validate_output, validate_step,
 };
 
 #[derive(Clone, Debug)]
@@ -80,8 +81,10 @@ enum W1SolverMode {
 impl W1SolverMode {
     fn label(self) -> &'static str {
         match self {
-            Self::FrozenSuccessor => "frozen-successor-pcg50-sequential-contact",
-            Self::FrozenObserveEnergyDiagnostic => "diagnostic-frozen-successor-observe-energy",
+            Self::FrozenSuccessor => {
+                "frozen-w0h-accelerated-projected-gradient50-sequential-contact"
+            }
+            Self::FrozenObserveEnergyDiagnostic => "diagnostic-w0h-observe-energy",
         }
     }
 }
@@ -139,6 +142,10 @@ struct RootReport {
     w0g_energy_contract: String,
     w0g_corpus: String,
     w0g_execution_profile: String,
+    w0h_document: String,
+    w0h_solver_profile: String,
+    w0h_corpus: String,
+    w0h_execution_profile: String,
 }
 
 #[derive(Serialize)]
@@ -179,6 +186,7 @@ struct TrajectoryEvidence {
     final_centre_of_mass_um: Vec3i,
     maximum_density_iterations: u8,
     maximum_density_error_ppb: i64,
+    maximum_density_kkt_error_ppb: Option<i64>,
     maximum_divergence_iterations: u8,
     maximum_divergence_error_ppb: i64,
     maximum_penetration_um: i64,
@@ -237,7 +245,7 @@ pub(crate) fn run_xtask(
     let request = parse_arguments(arguments)?;
     validate_output_path(repository_root, &request.output)?;
     validate_reference_paths(repository_root, &request)?;
-    let roots = ImpactEnergyRoots::verify(repository_root)?;
+    let roots = AcceleratedPressureRoots::verify(repository_root)?;
     let mut report = new_report(repository_root, &request, &roots);
     let started = Instant::now();
     let execution = execute(repository_root, &request, &roots, &mut report);
@@ -283,10 +291,21 @@ pub(crate) fn run_closure_xtask(
     closure::run(repository_root, arguments)
 }
 
-fn new_report(repository_root: &Path, request: &Request, roots: &ImpactEnergyRoots) -> W1Report {
+pub(crate) fn run_pressure_closure_xtask(
+    repository_root: &Path,
+    arguments: impl Iterator<Item = String>,
+) -> Result<String, WaterError> {
+    pressure_closure::run(repository_root, arguments)
+}
+
+fn new_report(
+    repository_root: &Path,
+    request: &Request,
+    roots: &AcceleratedPressureRoots,
+) -> W1Report {
     let run_execution_profile_root = effective_execution_profile_root(request.solver_mode, roots);
     W1Report {
-        report_schema: "nextengine.continuum-water.w1-linux-serial.v2".to_owned(),
+        report_schema: "nextengine.continuum-water.w1-linux-serial.v3".to_owned(),
         classification: "W1_LINUX_SERIAL_RESEARCH_ONLY".to_owned(),
         tool_commit: tool_commit(repository_root),
         tool_tree_state: tool_tree_state(repository_root),
@@ -302,17 +321,21 @@ fn new_report(repository_root: &Path, request: &Request, roots: &ImpactEnergyRoo
             promotion_cross_target_gate: "DEFERRED_NOT_WAIVED".to_owned(),
         },
         roots: RootReport {
-            w0f_document: hash::hex(&roots.parent.document),
-            w0f_float_profile: hash::hex(&roots.parent.float_profile),
-            w0f_execution_manifest: hash::hex(&roots.parent.execution_manifest),
-            w0f_corpus: hash::hex(&roots.parent.corpus),
-            w0f_fixtures: hash::hex(&roots.parent.fixtures),
-            w0f_geometry: hash::hex(&roots.parent.geometry),
-            w0f_execution_profile: hash::hex(&roots.parent.execution_profile),
-            w0g_document: hash::hex(&roots.document),
-            w0g_energy_contract: hash::hex(&roots.contract),
-            w0g_corpus: hash::hex(&roots.corpus),
-            w0g_execution_profile: hash::hex(&roots.execution_profile),
+            w0f_document: hash::hex(&roots.parent.parent.document),
+            w0f_float_profile: hash::hex(&roots.parent.parent.float_profile),
+            w0f_execution_manifest: hash::hex(&roots.parent.parent.execution_manifest),
+            w0f_corpus: hash::hex(&roots.parent.parent.corpus),
+            w0f_fixtures: hash::hex(&roots.parent.parent.fixtures),
+            w0f_geometry: hash::hex(&roots.parent.parent.geometry),
+            w0f_execution_profile: hash::hex(&roots.parent.parent.execution_profile),
+            w0g_document: hash::hex(&roots.parent.document),
+            w0g_energy_contract: hash::hex(&roots.parent.contract),
+            w0g_corpus: hash::hex(&roots.parent.corpus),
+            w0g_execution_profile: hash::hex(&roots.parent.execution_profile),
+            w0h_document: hash::hex(&roots.document),
+            w0h_solver_profile: hash::hex(&roots.solver_profile),
+            w0h_corpus: hash::hex(&roots.corpus),
+            w0h_execution_profile: hash::hex(&roots.execution_profile),
         },
         requested_scenario: request.scenario_id.clone(),
         capacity_thresholds: capacity_thresholds(),
@@ -329,12 +352,15 @@ fn new_report(repository_root: &Path, request: &Request, roots: &ImpactEnergyRoo
     }
 }
 
-fn effective_execution_profile_root(mode: W1SolverMode, roots: &ImpactEnergyRoots) -> [u8; 32] {
+fn effective_execution_profile_root(
+    mode: W1SolverMode,
+    roots: &AcceleratedPressureRoots,
+) -> [u8; 32] {
     if mode == W1SolverMode::FrozenSuccessor {
         return roots.execution_profile;
     }
     let mut digest = Sha256::new();
-    digest.update(b"nextengine.continuum-water.w1-energy-observation-diagnostic.v1\0");
+    digest.update(b"nextengine.continuum-water.w1-energy-observation-diagnostic.v2\0");
     digest.update(roots.execution_profile);
     digest.update(mode.label().as_bytes());
     digest.finalize().into()
@@ -343,7 +369,7 @@ fn effective_execution_profile_root(mode: W1SolverMode, roots: &ImpactEnergyRoot
 fn execute(
     repository_root: &Path,
     request: &Request,
-    roots: &ImpactEnergyRoots,
+    roots: &AcceleratedPressureRoots,
     report: &mut W1Report,
 ) -> Result<(), WaterError> {
     profile::validate_execution_profile()?;
@@ -367,7 +393,7 @@ fn execute(
         .map_err(report_reserve_error)?;
     for scenario_id in selected_ids {
         let selected = scenario::find(scenario_id)?;
-        let source_projection = roots.parent.scenario_projection(scenario_id)?;
+        let source_projection = roots.parent.parent.scenario_projection(scenario_id)?;
         let implementation_projection = scenario::successor_projection(&selected)?;
         if source_projection != implementation_projection.as_bytes() {
             return Err(WaterError::new(
@@ -375,7 +401,7 @@ fn execute(
                 format!("scenario {scenario_id} differs from its successor projection"),
             ));
         }
-        let energy_source_projection = roots.scenario_projection(scenario_id)?;
+        let energy_source_projection = roots.parent.scenario_projection(scenario_id)?;
         let energy_implementation_projection = energy_contract_projection(scenario_id)?;
         if energy_source_projection != energy_implementation_projection.as_bytes() {
             return Err(WaterError::new(
@@ -434,7 +460,7 @@ fn execute(
 
 fn scenario_evidence(
     selected: &Scenario,
-    roots: &ImpactEnergyRoots,
+    roots: &AcceleratedPressureRoots,
     reference_path: Option<&Path>,
 ) -> Result<ScenarioEvidence, WaterError> {
     let samples = scenario::initial_samples(selected, primary_order(selected))?;
@@ -469,7 +495,7 @@ fn scenario_evidence(
 
 fn execute_scenario(
     selected: &Scenario,
-    roots: &ImpactEnergyRoots,
+    roots: &AcceleratedPressureRoots,
     solver_mode: W1SolverMode,
     reference_path: Option<&Path>,
     evidence: &mut ScenarioEvidence,
@@ -663,6 +689,7 @@ fn run_trajectory(
         final_centre_of_mass_um: initial_summary.centre_of_mass_um,
         maximum_density_iterations: 0,
         maximum_density_error_ppb: 0,
+        maximum_density_kkt_error_ppb: None,
         maximum_divergence_iterations: 0,
         maximum_divergence_error_ppb: 0,
         maximum_penetration_um: 0,
@@ -688,7 +715,7 @@ fn run_trajectory(
     for step in 1..=selected.steps {
         let next = match solver_mode {
             W1SolverMode::FrozenSuccessor | W1SolverMode::FrozenObserveEnergyDiagnostic => {
-                solver::successor_pcg_constrained_substep(
+                solver::successor_accelerated_projected_gradient_substep(
                     &frame,
                     selected.geometry,
                     boundary,
@@ -703,7 +730,7 @@ fn run_trajectory(
                 format!("{} step {step}: {}", selected.id, error.detail()),
             )
         })?;
-        validate_step(selected, solver_mode, &next)?;
+        validate_step(selected, &next)?;
         for _sample in &next.outcome.frame.samples {
             let mass_dt = checked_scalar(UNIFORM_MASS * DT, "W1 gravity impulse mass dt")?;
             let gravity_y = checked_scalar(mass_dt * -GRAVITY_MAGNITUDE, "W1 gravity impulse y")?;
@@ -854,6 +881,14 @@ fn update_trajectory_evidence(
     evidence.maximum_density_error_ppb = evidence
         .maximum_density_error_ppb
         .max(summary.density_error_ppb);
+    if let Some(error_ppb) = summary.density_kkt_error_ppb {
+        evidence.maximum_density_kkt_error_ppb = Some(
+            evidence
+                .maximum_density_kkt_error_ppb
+                .unwrap_or(0)
+                .max(error_ppb),
+        );
+    }
     evidence.maximum_divergence_iterations = evidence
         .maximum_divergence_iterations
         .max(summary.divergence_iterations);
@@ -914,58 +949,6 @@ fn update_trajectory_evidence(
             .max(metric.common.momentum_residual_ppb);
     }
     Ok(())
-}
-
-fn serializable_root<T: Serialize>(domain: &[u8], value: &T) -> Result<String, WaterError> {
-    let bytes = serde_json::to_vec(value).map_err(|error| {
-        WaterError::new(
-            REPORT_CAPACITY_EXCEEDED,
-            format!("cannot serialize W1 rooted metrics: {error}"),
-        )
-    })?;
-    let mut hasher = Sha256::new();
-    hasher.update(domain);
-    hasher.update(bytes);
-    Ok(hash::hex(&hasher.finalize().into()))
-}
-
-fn capacity_thresholds() -> Vec<CapacityThreshold> {
-    vec![
-        capacity_threshold("samples", MAXIMUM_SAMPLES, SAMPLE_CAPACITY_EXCEEDED),
-        capacity_threshold(
-            "static-boundary-samples",
-            SUCCESSOR_MAXIMUM_STATIC_BOUNDARY_SAMPLES,
-            BOUNDARY_CAPACITY_EXCEEDED,
-        ),
-        capacity_threshold(
-            "fluid-row-neighbors",
-            MAXIMUM_NEIGHBORS_PER_FLUID_ROW,
-            NEIGHBOR_CAPACITY_EXCEEDED,
-        ),
-        capacity_threshold(
-            "boundary-row-neighbors",
-            MAXIMUM_NEIGHBORS_PER_BOUNDARY_ROW,
-            BOUNDARY_NEIGHBOR_CAPACITY_EXCEEDED,
-        ),
-        capacity_threshold("steps", MAXIMUM_STEPS as usize, STEP_CAPACITY_EXCEEDED),
-    ]
-}
-
-fn capacity_threshold(resource: &str, maximum: usize, code: &'static str) -> CapacityThreshold {
-    CapacityThreshold {
-        resource: resource.to_owned(),
-        below: capacity_outcome(maximum - 1, maximum, code),
-        equal: capacity_outcome(maximum, maximum, code),
-        above: capacity_outcome(maximum + 1, maximum, code),
-    }
-}
-
-fn capacity_outcome(value: usize, maximum: usize, code: &'static str) -> String {
-    match scenario::validate_capacity(value, maximum, code, "W1 capacity threshold") {
-        Ok(()) => "PASS".to_owned(),
-        Err(error) if error.code() == code => "EXPECTED_REJECTION".to_owned(),
-        Err(error) => format!("UNEXPECTED:{}", error.code()),
-    }
 }
 
 fn report_reserve_error(error: std::collections::TryReserveError) -> WaterError {

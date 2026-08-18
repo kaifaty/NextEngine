@@ -11,6 +11,10 @@ use crate::geometry::{
 };
 use crate::profile::{PARTICLE_RADIUS, UNIFORM_MASS};
 
+mod accelerated;
+
+pub(super) use accelerated::solve_density_accelerated_projected_gradient;
+
 const CONTACT_FEATURE_CAPACITY: usize = 25;
 const INTERNAL_CONTACT_ITERATIONS: usize = 8;
 const CONTACT_DIRECTION_ROUNDING_GUARD: f64 = 32.0 * f64::EPSILON;
@@ -826,6 +830,7 @@ pub(super) fn solve_density_projected_pcg(
     Ok(SolveResult {
         iterations: accepted_iteration,
         error_ppb,
+        kkt_error_ppb: None,
         maximum_multiplier_bits,
         boundary_impulse,
     })

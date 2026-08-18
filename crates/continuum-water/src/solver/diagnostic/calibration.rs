@@ -4,9 +4,10 @@ use sha2::{Digest, Sha256};
 
 use crate::audit::{SELECTED_ROWS, scalar_bits};
 use crate::calibration::{
-    BoundaryFeatureContribution, DIAGNOSTIC_CHECKPOINTS, DIAGNOSTIC_MAX_ITERATIONS,
-    DensityContributionRow, ExtendedDensityCheckpoint, ExtendedDensityTrace, HydroCalibrationTrace,
-    PressureOperatorDiagonalProbe, PressureOperatorProbe, ProjectedPcgFirstStepProbe,
+    AcceleratedPressureFirstStepProbe, BoundaryFeatureContribution, DIAGNOSTIC_CHECKPOINTS,
+    DIAGNOSTIC_MAX_ITERATIONS, DensityContributionRow, ExtendedDensityCheckpoint,
+    ExtendedDensityTrace, HydroCalibrationTrace, PressureOperatorDiagonalProbe,
+    PressureOperatorProbe, ProjectedPcgFirstStepProbe,
 };
 use crate::error::{AUDIT_INVALID, WaterError};
 use crate::model::Geometry;
@@ -110,6 +111,35 @@ pub(crate) fn production_projected_pcg_first_step_probe(
     Ok(ProjectedPcgFirstStepProbe {
         density_iterations: result.iterations,
         density_error_ppb: result.error_ppb,
+        maximum_multiplier_bits: format!("0x{:016x}", result.maximum_multiplier_bits),
+    })
+}
+
+pub(crate) fn production_accelerated_pressure_first_step_probe(
+    samples: &[CanonicalSample],
+    geometry: Geometry,
+    boundary: &[BoundarySample],
+) -> Result<AcceleratedPressureFirstStepProbe, WaterError> {
+    let mut state = decode(samples)?;
+    let reconstruction = reconstruct(&state, geometry, boundary)?;
+    let _divergence = solve_divergence(&reconstruction, &mut state.velocities)?;
+    for velocity in &mut state.velocities {
+        velocity.y = checked_scalar(
+            velocity.y + (DT * -GRAVITY_MAGNITUDE),
+            "accelerated pressure probe gravity velocity y",
+        )?;
+    }
+    let result =
+        solve_density_accelerated_projected_gradient(&reconstruction, &mut state.velocities, 50)?;
+    Ok(AcceleratedPressureFirstStepProbe {
+        density_iterations: result.iterations,
+        density_error_ppb: result.error_ppb,
+        density_kkt_error_ppb: result.kkt_error_ppb.ok_or_else(|| {
+            WaterError::new(
+                AUDIT_INVALID,
+                "accelerated pressure probe has no KKT residual",
+            )
+        })?,
         maximum_multiplier_bits: format!("0x{:016x}", result.maximum_multiplier_bits),
     })
 }

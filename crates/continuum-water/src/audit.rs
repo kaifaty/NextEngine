@@ -497,6 +497,11 @@ pub(crate) fn independent_support_complete_projected_pcg_first_step_probe()
     independent::compute_support_complete_projected_pcg_first_step_probe()
 }
 
+pub(crate) fn independent_support_complete_accelerated_pressure_first_step_probe()
+-> Result<crate::calibration::AcceleratedPressureFirstStepProbe, WaterError> {
+    independent::compute_support_complete_accelerated_pressure_first_step_probe()
+}
+
 pub(crate) fn independent_contact_projection_probe()
 -> Result<crate::calibration::ContactProjectionProbe, WaterError> {
     independent::compute_contact_projection_probe()

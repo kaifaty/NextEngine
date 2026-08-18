@@ -171,6 +171,7 @@ pub(crate) struct StepSummary {
     pub(crate) frame_root: String,
     pub(crate) density_iterations: u8,
     pub(crate) density_error_ppb: i64,
+    pub(crate) density_kkt_error_ppb: Option<i64>,
     pub(crate) density_maximum_multiplier_bits: String,
     pub(crate) density_ratio_p50_ppb: i64,
     pub(crate) density_ratio_p95_ppb: i64,

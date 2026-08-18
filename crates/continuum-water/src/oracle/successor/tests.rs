@@ -105,12 +105,12 @@ fn every_w1_scenario_has_one_exact_w0g_energy_projection() {
         .parent()
         .and_then(Path::parent)
         .unwrap();
-    let roots = ImpactEnergyRoots::verify(repository_root).unwrap();
+    let roots = AcceleratedPressureRoots::verify(repository_root).unwrap();
     let mut reversible = 0;
     let mut impact = 0;
     for scenario_id in SCENARIO_IDS {
         assert_eq!(
-            roots.scenario_projection(scenario_id).unwrap(),
+            roots.parent.scenario_projection(scenario_id).unwrap(),
             energy_contract_projection(scenario_id).unwrap().as_bytes()
         );
         match energy_class(scenario_id).unwrap() {

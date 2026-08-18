@@ -4,13 +4,17 @@ use sha2::{Digest, Sha256};
 
 use crate::audit::{AuditBoundaryInput, SELECTED_ROWS, scalar_bits};
 use crate::calibration::{
-    BoundaryFeatureContribution, CandidateCalibrationComputation, DIAGNOSTIC_CHECKPOINTS,
-    DIAGNOSTIC_MAX_ITERATIONS, DensityContributionRow, ExtendedDensityCheckpoint,
-    ExtendedDensityTrace, HydroCalibrationTrace, PressureOperatorDiagonalProbe,
-    PressureOperatorProbe, ProjectedPcgFirstStepProbe,
+    AcceleratedPressureFirstStepProbe, BoundaryFeatureContribution,
+    CandidateCalibrationComputation, DIAGNOSTIC_CHECKPOINTS, DIAGNOSTIC_MAX_ITERATIONS,
+    DensityContributionRow, ExtendedDensityCheckpoint, ExtendedDensityTrace, HydroCalibrationTrace,
+    PressureOperatorDiagonalProbe, PressureOperatorProbe, ProjectedPcgFirstStepProbe,
 };
 
 use super::*;
+
+mod accelerated;
+
+pub(crate) use accelerated::compute_support_complete_accelerated_pressure_first_step_probe;
 
 pub(crate) fn compute() -> Result<HydroCalibrationTrace, WaterError> {
     let positions = generate_fluid()?;

@@ -1,12 +1,14 @@
 # W1 — Serial CPU DFSPH oracle
 
-Status: `IMPLEMENTED / LINUX_CORPUS_IN_PROGRESS / EXTERNAL_REFERENCES_PENDING`.
+Status: `IMPLEMENTED / W0H_RECLOSED / CLEAN_LINUX_CORPUS_PENDING / EXTERNAL_REFERENCES_PENDING`.
 
 The original W0B oracle remains rejected-profile evidence. W0E selected the
 constraint-separated local survivor, W0F froze its solver, geometry,
 capacities and successor roots, and W0G reclosed impact-energy semantics after
-the first full dam-break discriminator. The current safe-Rust runner verifies
-that complete root chain before executing any nominal scenario.
+the first full dam-break discriminator. W0H then replaces the inherited
+globally restarting active-set PCG with one fixed accelerated projected-
+gradient schedule over the same pressure QP. The current safe-Rust runner
+verifies that complete root chain before executing any nominal scenario.
 
 Linux hydro and exact free-fall pass internally. The unchanged W0F dam-break
 also completes `720/720` under W0G with zero penetration, bounded solver and
@@ -14,15 +16,20 @@ momentum metrics, zero positive energy excess and an explicitly published
 `638,407,503 ppb` mechanical-energy deficit. It remains
 `REFERENCE_PENDING`; this is not corpus or ProductCheck credit. See the
 [successor energy discriminator](../../development/continuum-water-w1-successor-energy-discriminator-2026-08-18.md).
+The W0H candidate passes the complete internal seven-scenario discriminator,
+including repeated sealed-48k and storage-order roots, but those diagnostic
+runs predate the W0H root freeze and receive no W1 credit. Clean rooted W1 and
+all three external references are still pending.
 `CONTINUUM-WATER-REF-P1` remains `NOT_RUN`.
 
 ## Outcome
 
 Implement a safe-Rust, serial, runtime-independent DFSPH oracle that executes
 the hash-frozen [W0F](00f-geometry-capacity-and-root-closure.md) formulation,
-[W0G](00g-impact-energy-contract-reclosure.md) metric contract and nominal
-corpus, publishes a canonical fixed-point frame after every substep and
-produces bounded typed evidence. It is not a production physics backend.
+[W0G](00g-impact-energy-contract-reclosure.md) metric contract,
+[W0H](00h-accelerated-pressure-profile-reclosure.md) pressure algorithm and
+nominal corpus, publishes a canonical fixed-point frame after every substep
+and produces bounded typed evidence. It is not a production physics backend.
 
 ## Placement and interfaces
 
@@ -39,7 +46,7 @@ Private logical records:
 
 ```text
 WaterLabProfileV1 {
-  W0F parent roots, W0G metric/corpus/execution roots,
+  W0F parent roots, W0G metric roots, W0H solver/corpus/execution roots,
   exact successor constants,
   maximum_samples,
   maximum_steps,
@@ -80,9 +87,13 @@ style and write only to an explicit output path outside Git by default.
   `(cell_key, SampleId)` entries plus contiguous cell ranges. Do not use
   hash-map iteration in membership or a reduction.
 - Use the W0F inclusive integer neighbor test, support-complete boundary,
-  cubic kernel, projected active-set PCG density solve, divergence solve,
-  swept analytical contact and quantized convergence branches exactly; no
-  solver choice remains in W1.
+  cubic kernel, pressure operator, divergence solve and swept analytical
+  contact exactly. Solve the non-negative pressure QP with W0H's fixed
+  diagonal scaling, step `0.25`, momentum schedule, projection, majorization
+  guard and ascending reductions; no solver choice remains in W1.
+- Accept density only when mean positive compression and mean projected-KKT
+  residual are both at most `100,000 ppb` within `2..=50` exact pressure-
+  operator applications.
 - Apply divergence, gravity, density solve, position update, validation and
   publication in the frozen order.
 - Disable warm start and every non-pressure optional model in V1.
@@ -117,19 +128,22 @@ a successful corpus after any terminal failure.
 - zero/one-particle, duplicate-ID and input-order permutation cases;
 - one checked-in `SMOKE_ONLY` small analogue of each historical geometry, with a
   distinct scenario root and no corpus-credit claim;
-- full W0F/W0G corpus at nominal scale with output artifacts outside Git;
+- full W0F/W0G/W0H corpus at nominal scale with output artifacts outside Git;
 - repeat runs on the same target/toolchain with identical canonical roots;
 - analytical and SPlisHSPlasH aggregate comparison under the frozen metrics;
-- preflight rejection when any W0F parent or W0G metric/corpus root differs;
+- preflight rejection when any W0F parent, W0G metric or W0H
+  solver/corpus/execution root differs;
+- exact production/independent W0H first-step equality, zero-diagonal residual
+  retention and fixed-step majorization failure coverage;
 - signed/absolute/excess/deficit threshold vectors and per-output stage-energy
   closure within `2,000 ppb`.
 
 ## Exit and stop rule
 
-`CONTINUUM-WATER-REF-P1 = PASS` requires every W0F/W0G correctness threshold,
-all required independent references and Linux same-target repeat/insertion
-equality. Timing at `10k/50k/100k` is recorded but cannot fail W1 or be called
-a production budget result.
+`CONTINUUM-WATER-REF-P1 = PASS` requires every W0F/W0G/W0H correctness
+threshold, all required independent references and Linux same-target
+repeat/insertion equality. Timing at `10k/50k/100k` is recorded but cannot
+fail W1 or be called a production budget result.
 
 Windows is outside the current W1 execution scope by user decision. Exact
 cross-target comparison remains deferred and not waived for production

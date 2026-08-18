@@ -69,6 +69,26 @@ fn projected_pcg_first_step_matches_independent_calculator() {
 }
 
 #[test]
+fn accelerated_pressure_first_step_matches_independent_calculator() {
+    let hydro = scenario::find("CW-HYDRO-001").unwrap();
+    let samples = scenario::initial_samples(&hydro, StorageOrder::Reverse).unwrap();
+    let boundary = support_complete_lattice_complement(hydro.geometry).unwrap();
+    let production = solver::production_accelerated_pressure_first_step_probe(
+        &samples,
+        hydro.geometry,
+        &boundary,
+    )
+    .unwrap();
+    let independent =
+        crate::audit::independent_support_complete_accelerated_pressure_first_step_probe().unwrap();
+
+    assert_eq!(production, independent);
+    assert!(production.density_iterations <= 50);
+    assert!(production.density_error_ppb <= 100_000);
+    assert!(production.density_kkt_error_ppb <= 100_000);
+}
+
+#[test]
 fn predictive_contact_matches_independent_analytical_calculator() {
     let production = solver::production_contact_projection_probe().unwrap();
     let independent = independent_contact_projection_probe().unwrap();

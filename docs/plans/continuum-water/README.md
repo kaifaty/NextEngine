@@ -21,9 +21,13 @@ density support, swept aperture contact, the `32,768` static capacity and new
 domain-separated roots. W1 then exposes an inherited contradiction between
 inelastic impact projection and a two-sided conservation gate. W0G keeps the
 solver fixed and roots reversible versus static-impact energy semantics. The
-successor profile is authorized only for the Linux W1 serial corpus; it is not
-selected for production. Required external references are still missing and
-no `CONTINUUM-*` ProductCheck has run.
+next W1 failure shows that the inherited active-set PCG globally restarts its
+direction on every observed sealed-48k iteration. W0H retains the physical QP
+and operation ceiling but roots a fixed accelerated projected-gradient solve
+with compression plus projected-KKT acceptance. The successor profile is
+authorized only for the Linux W1 serial corpus; it is not selected for
+production. Required external references are still missing and no
+`CONTINUUM-*` ProductCheck has run.
 
 This directory is the resume and execution surface for a dedicated water
 worktree. The main [Next Engine roadmap](../../roadmap.md) keeps the track
@@ -52,13 +56,14 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
              └─ W0E Constraint-separated redesign CLOSED / LOCAL_SURVIVOR
                  └─ W0F Geometry + successor roots CLOSED / W1_AUTHORIZED
                      └─ W0G Impact energy semantics CLOSED / W1_AUTHORIZED
-                         └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / IN_PROGRESS
-                             ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
-                             │   └─ W3 One-pass PhysX coupling            NOT_STARTED
-                             │       └─ W4 Basin + crate + debug view     NOT_STARTED
-                             │           └─ W5 Exact active persistence   NOT_STARTED
-                             │               └─ W6 Production promotion   NOT_STARTED
-                             └─ WG Optional GPU correspondence mirror     NOT_STARTED / NON_BLOCKING
+                         └─ W0H Accelerated pressure profile CLOSED / W1_AUTHORIZED
+                             └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / IN_PROGRESS
+                                 ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
+                                 │   └─ W3 One-pass PhysX coupling            NOT_STARTED
+                                 │       └─ W4 Basin + crate + debug view     NOT_STARTED
+                                 │           └─ W5 Exact active persistence   NOT_STARTED
+                                 │               └─ W6 Production promotion   NOT_STARTED
+                                 └─ WG Optional GPU correspondence mirror     NOT_STARTED / NON_BLOCKING
 ```
 
 | Stage | Specification | Exit evidence | Blocks |
@@ -70,6 +75,7 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
 | W0E | [Constraint-separated profile reclosure](00e-constraint-separated-profile-reclosure.md) | Independent operator equality and 24/1200-step local survivor; no corpus credit | W0F |
 | W0F | [Geometry, capacity and successor-root closure](00f-geometry-capacity-and-root-closure.md) | Outer/internal geometry semantics, admitted capacities and successor roots frozen | W1 resume |
 | W0G | [Impact energy-contract reclosure](00g-impact-energy-contract-reclosure.md) | Reversible absolute drift and static-impact energy-excess semantics rooted without changing W0F operations | W1 resume |
+| W0H | [Accelerated pressure-profile reclosure](00h-accelerated-pressure-profile-reclosure.md) | Same W0F pressure QP closes under a rooted fixed APG schedule with independent compression/KKT equality | W1 resume |
 | W1 | [Serial CPU DFSPH oracle](01-serial-cpu-dfsph-oracle.md) | `CONTINUUM-WATER-REF-P1 = PASS` on the same-target reference profile | main-roadmap activation, W2, WG |
 | W2 | [Deterministic parallel CPU and performance](02-deterministic-parallel-and-performance.md) | Worker/order exactness and standalone `50k` THOTH stop-target PASS | W3 |
 | W3 | [One-pass PhysX coupling](03-one-pass-physx-coupling.md) | `CONTINUUM-COUPLING-P1 = PASS` under one composition DAG, exact exchange tuple and one PhysX integration | W4 |
@@ -126,6 +132,24 @@ completes `720/720`, has zero positive energy excess and publishes the full
 deficit/stage accounting. It remains `REFERENCE_PENDING`, so W1 and
 `CONTINUUM-WATER-REF-P1` remain incomplete. Current execution is Linux-only;
 Windows exactness is deferred, not waived, for promotion.
+
+The next first failure is `CW-SEALED-001` step 2: projected active-set PCG
+ends its 50th operator application at `194,545 ppb`. A PCG-200 control accepts
+that step only at application 96, and exact traces show that active-set changes
+globally reset the conjugate direction on every iteration. Standard MPRGP and
+projected-CG expansion also reach no feasible CG step within the same budget.
+The bounded
+[solver research report](../../development/continuum-water-w1-sealed-pressure-solver-research-2026-08-18.md)
+selects fixed-step `0.25` accelerated projected gradient after rejecting step
+`0.5` on its hydro curvature guard.
+
+W0H now freezes that algorithm, its zero-diagonal rule, one-operator schedule,
+curvature bound and dual compression/projected-KKT acceptance. Production and
+an independent first-step calculator match exactly. The candidate completes
+the entire internal discriminator, including two identical still and sealed
+runs and all three storage orders. Those were diagnostic pre-freeze runs and
+provide no W1 corpus credit: the next action is a clean W0H-rooted Linux rerun
+plus independent hydro/dam-break/orifice references.
 
 Commit `74730e208cfeb70b05a3ec44b2bb9c2f5002fe97` implements the serial oracle.
 On a clean exact-profile run, `CW-FREEFALL-001` passes all 97 canonical frames
@@ -210,8 +234,14 @@ bounded report projections.
 W0G leaves those operations and roots immutable. It adds a child metric/corpus
 root: equilibrium/control scenarios retain two-sided `1%` drift, while named
 static-impact scenarios block positive energy creation and expose dissipation.
-External dam-break/orifice curves remain mandatory, so the reclosure cannot
-manufacture reference credit.
+External hydro/dam-break/orifice curves remain mandatory, so the reclosure
+cannot manufacture reference credit.
+
+W0H leaves W0F and W0G immutable and adds a child pressure-solver profile. Its
+fixed diagonal scaling and APG schedule solve the same non-negative QP within
+the same 50-operator ceiling. Compression and projected-KKT residuals are both
+blocking. External hydro/dam-break/orifice curves and clean rooted corpus runs
+remain mandatory, so W0H also cannot manufacture W1 or ProductCheck credit.
 
 ## Worktree and main-roadmap protocol
 

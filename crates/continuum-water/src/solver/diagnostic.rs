@@ -16,8 +16,9 @@ use super::*;
 mod calibration;
 
 pub(crate) use calibration::{
-    production_hydro_calibration, production_pressure_operator_probe,
-    production_projected_pcg_first_step_probe, production_volume_map_calibration,
+    production_accelerated_pressure_first_step_probe, production_hydro_calibration,
+    production_pressure_operator_probe, production_projected_pcg_first_step_probe,
+    production_volume_map_calibration,
 };
 
 pub(crate) fn counterfactual_substep(
@@ -146,6 +147,30 @@ pub(crate) fn successor_pcg_constrained_substep(
         50,
         TerminalVelocityProjection::PredictiveGeometry,
         DensitySolveMethod::ProjectedPreconditionedConjugateGradient,
+    )?;
+    Ok(ContactConstrainedStepOutcome {
+        outcome,
+        projection,
+        energy,
+    })
+}
+
+pub(crate) fn successor_accelerated_projected_gradient_substep(
+    prior: &AcceptedFrame,
+    geometry: Geometry,
+    boundary: &[BoundarySample],
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+) -> Result<ContactConstrainedStepOutcome, WaterError> {
+    let (outcome, projection, energy) = substep_with_boundary_projection_limit(
+        prior,
+        geometry,
+        BoundaryInput::Particles(boundary),
+        execution_profile_root,
+        scenario_root,
+        50,
+        TerminalVelocityProjection::PredictiveGeometry,
+        DensitySolveMethod::AcceleratedProjectedGradient,
     )?;
     Ok(ContactConstrainedStepOutcome {
         outcome,

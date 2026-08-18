@@ -150,6 +150,14 @@ pub(crate) struct ProjectedPcgFirstStepProbe {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AcceleratedPressureFirstStepProbe {
+    pub(crate) density_iterations: u8,
+    pub(crate) density_error_ppb: i64,
+    pub(crate) density_kkt_error_ppb: i64,
+    pub(crate) maximum_multiplier_bits: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct ContactProjectionCase {
     pub(crate) id: &'static str,
     pub(crate) position_um: Vec3i,

@@ -29,20 +29,22 @@ mod statistics;
 
 use constraint::{
     VelocityProjectionResult, checked_dot, density_pressure_operator, project_predictive_geometry,
-    project_predictive_outer_box, solve_density_projected_pcg,
+    project_predictive_outer_box, solve_density_accelerated_projected_gradient,
+    solve_density_projected_pcg,
 };
 pub(crate) use diagnostic::{
     ContactConstrainedStepOutcome, contact_constrained_substep_with_limit,
-    contact_pcg_constrained_substep, counterfactual_substep, production_contact_projection_probe,
+    contact_pcg_constrained_substep, counterfactual_substep,
+    production_accelerated_pressure_first_step_probe, production_contact_projection_probe,
     production_hydro_audit, production_hydro_calibration, production_pressure_operator_probe,
     production_projected_pcg_first_step_probe, production_successor_contact_fixtures,
     production_successor_density_fixtures, production_volume_map_calibration,
-    successor_pcg_constrained_substep,
+    successor_accelerated_projected_gradient_substep, successor_pcg_constrained_substep,
 };
 pub(crate) use energy::StepEnergyTrace;
 use energy::mechanical_energy;
 use neighborhood::{admitted_boundary, admitted_fluid, build_boundary_grid, build_fluid_grid};
-use statistics::density_ratio_percentiles;
+use statistics::{centre_of_mass, density_ratio_percentiles};
 
 const DENSITY_MIN_ITERATIONS: u8 = 2;
 const DENSITY_MAX_ITERATIONS: u8 = 20;
@@ -99,6 +101,7 @@ struct DecodedState {
 struct SolveResult {
     iterations: u8,
     error_ppb: i64,
+    kkt_error_ppb: Option<i64>,
     maximum_multiplier_bits: u64,
     boundary_impulse: Vec3f,
 }
@@ -125,6 +128,7 @@ enum TerminalVelocityProjection {
 enum DensitySolveMethod {
     RelaxedJacobi,
     ProjectedPreconditionedConjugateGradient,
+    AcceleratedProjectedGradient,
 }
 
 #[derive(Clone, Copy)]
@@ -191,6 +195,7 @@ fn initial_frame_with_boundary(
             frame_root: hash::hex(&frame_root),
             density_iterations: 0,
             density_error_ppb: 0,
+            density_kkt_error_ppb: None,
             density_maximum_multiplier_bits: "0x0000000000000000".to_owned(),
             density_ratio_p50_ppb: density_percentiles[0],
             density_ratio_p95_ppb: density_percentiles[1],
@@ -328,6 +333,13 @@ fn substep_with_boundary_projection_limit(
                 density_maximum_iterations,
             )?
         }
+        DensitySolveMethod::AcceleratedProjectedGradient => {
+            solve_density_accelerated_projected_gradient(
+                &reconstruction,
+                &mut state.velocities,
+                density_maximum_iterations,
+            )?
+        }
     };
     energy.after_density = mechanical_energy(&state.positions, &state.velocities)?;
 
@@ -375,6 +387,7 @@ fn substep_with_boundary_projection_limit(
                 frame_root: hash::hex(&frame_root),
                 density_iterations: density.iterations,
                 density_error_ppb: density.error_ppb,
+                density_kkt_error_ppb: density.kkt_error_ppb,
                 density_maximum_multiplier_bits: format!(
                     "0x{:016x}",
                     density.maximum_multiplier_bits
@@ -421,6 +434,7 @@ fn publish_empty(
             frame_root: hash::hex(&frame_root),
             density_iterations: DENSITY_MIN_ITERATIONS,
             density_error_ppb: 0,
+            density_kkt_error_ppb: None,
             density_maximum_multiplier_bits: "0x0000000000000000".to_owned(),
             density_ratio_p50_ppb: 0,
             density_ratio_p95_ppb: 0,
@@ -578,6 +592,7 @@ fn solve_divergence(
     Ok(SolveResult {
         iterations: accepted_iteration,
         error_ppb,
+        kkt_error_ppb: None,
         maximum_multiplier_bits,
         boundary_impulse,
     })
@@ -687,6 +702,7 @@ fn solve_density_with_limit(
     Ok(SolveResult {
         iterations: accepted_iteration,
         error_ppb,
+        kkt_error_ppb: None,
         maximum_multiplier_bits,
         boundary_impulse,
     })
@@ -921,59 +937,6 @@ fn filled_vec<T: Clone>(count: usize, value: T) -> Result<Vec<T>, WaterError> {
     result.try_reserve_exact(count).map_err(heap_error)?;
     result.resize(count, value);
     Ok(result)
-}
-
-fn centre_of_mass(samples: &[CanonicalSample]) -> Result<Vec3i, WaterError> {
-    if samples.is_empty() {
-        return Ok(Vec3i::new(0, 0, 0));
-    }
-    let mut sums = [0_i128; 3];
-    for sample in samples {
-        for (sum, value) in sums.iter_mut().zip([
-            sample.position_um.x,
-            sample.position_um.y,
-            sample.position_um.z,
-        ]) {
-            *sum = sum
-                .checked_add(i128::from(value))
-                .ok_or_else(|| WaterError::new(NUMERIC_OVERFLOW, "centre-of-mass sum overflow"))?;
-        }
-    }
-    let denominator = i128::try_from(samples.len()).map_err(|_| {
-        WaterError::new(NUMERIC_OVERFLOW, "centre-of-mass count conversion overflow")
-    })?;
-    Ok(Vec3i::new(
-        round_ratio(sums[0], denominator)?,
-        round_ratio(sums[1], denominator)?,
-        round_ratio(sums[2], denominator)?,
-    ))
-}
-
-fn round_ratio(numerator: i128, denominator: i128) -> Result<i64, WaterError> {
-    let negative = numerator < 0;
-    let magnitude = numerator.unsigned_abs();
-    let divisor = u128::try_from(denominator).map_err(|_| {
-        WaterError::new(
-            NUMERIC_OVERFLOW,
-            "centre-of-mass divisor conversion overflow",
-        )
-    })?;
-    let quotient = magnitude / divisor;
-    let remainder = magnitude % divisor;
-    let twice_remainder = remainder
-        .checked_mul(2)
-        .ok_or_else(|| WaterError::new(NUMERIC_OVERFLOW, "centre-of-mass remainder overflow"))?;
-    let rounded =
-        if twice_remainder > divisor || (twice_remainder == divisor && (quotient & 1) != 0) {
-            quotient + 1
-        } else {
-            quotient
-        };
-    let signed = i128::try_from(rounded)
-        .map_err(|_| WaterError::new(NUMERIC_OVERFLOW, "centre-of-mass result overflow"))?;
-    let signed = if negative { -signed } else { signed };
-    i64::try_from(signed)
-        .map_err(|_| WaterError::new(NUMERIC_OVERFLOW, "centre-of-mass i64 overflow"))
 }
 
 fn converged(iteration: u8, minimum: u8, value: i64, threshold: i64) -> bool {

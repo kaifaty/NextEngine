@@ -4,17 +4,71 @@ use super::*;
 use crate::geometry::AxisAlignedGeometryManifest;
 use crate::profile::MAXIMUM_BOUNDARY_PENETRATION_UM;
 
+pub(super) fn serializable_root<T: Serialize>(
+    domain: &[u8],
+    value: &T,
+) -> Result<String, WaterError> {
+    let bytes = serde_json::to_vec(value).map_err(|error| {
+        WaterError::new(
+            REPORT_CAPACITY_EXCEEDED,
+            format!("cannot serialize W1 rooted metrics: {error}"),
+        )
+    })?;
+    let mut hasher = Sha256::new();
+    hasher.update(domain);
+    hasher.update(bytes);
+    Ok(hash::hex(&hasher.finalize().into()))
+}
+
+pub(super) fn capacity_thresholds() -> Vec<CapacityThreshold> {
+    vec![
+        capacity_threshold("samples", MAXIMUM_SAMPLES, SAMPLE_CAPACITY_EXCEEDED),
+        capacity_threshold(
+            "static-boundary-samples",
+            SUCCESSOR_MAXIMUM_STATIC_BOUNDARY_SAMPLES,
+            BOUNDARY_CAPACITY_EXCEEDED,
+        ),
+        capacity_threshold(
+            "fluid-row-neighbors",
+            MAXIMUM_NEIGHBORS_PER_FLUID_ROW,
+            NEIGHBOR_CAPACITY_EXCEEDED,
+        ),
+        capacity_threshold(
+            "boundary-row-neighbors",
+            MAXIMUM_NEIGHBORS_PER_BOUNDARY_ROW,
+            BOUNDARY_NEIGHBOR_CAPACITY_EXCEEDED,
+        ),
+        capacity_threshold("steps", MAXIMUM_STEPS as usize, STEP_CAPACITY_EXCEEDED),
+    ]
+}
+
+fn capacity_threshold(resource: &str, maximum: usize, code: &'static str) -> CapacityThreshold {
+    CapacityThreshold {
+        resource: resource.to_owned(),
+        below: capacity_outcome(maximum - 1, maximum, code),
+        equal: capacity_outcome(maximum, maximum, code),
+        above: capacity_outcome(maximum + 1, maximum, code),
+    }
+}
+
+fn capacity_outcome(value: usize, maximum: usize, code: &'static str) -> String {
+    match scenario::validate_capacity(value, maximum, code, "W1 capacity threshold") {
+        Ok(()) => "PASS".to_owned(),
+        Err(error) if error.code() == code => "EXPECTED_REJECTION".to_owned(),
+        Err(error) => format!("UNEXPECTED:{}", error.code()),
+    }
+}
+
 pub(super) fn validate_step(
     selected: &Scenario,
-    solver_mode: W1SolverMode,
     next: &solver::ContactConstrainedStepOutcome,
 ) -> Result<(), WaterError> {
     let summary = &next.outcome.summary;
-    let maximum_density_iterations = match solver_mode {
-        W1SolverMode::FrozenSuccessor | W1SolverMode::FrozenObserveEnergyDiagnostic => 50,
-    };
-    if !(2..=maximum_density_iterations).contains(&summary.density_iterations)
+    if !(2..=50).contains(&summary.density_iterations)
         || summary.density_error_ppb > 100_000
+        || !summary
+            .density_kkt_error_ppb
+            .is_some_and(|error_ppb| error_ppb <= 100_000)
         || !(1..=20).contains(&summary.divergence_iterations)
         || summary.divergence_error_ppb > 1_000_000
         || !canonical_penetration_is_admitted(summary.maximum_penetration_um)
@@ -27,11 +81,12 @@ pub(super) fn validate_step(
         return Err(WaterError::new(
             INVARIANT_MISMATCH,
             format!(
-                "{} step {} violates the successor solver/clearance bounds: density={}/{} ppb, divergence={}/{} ppb, penetration={} um{clearance_witness}",
+                "{} step {} violates the successor solver/clearance bounds: density={}/{} ppb, density-kkt={:?} ppb, divergence={}/{} ppb, penetration={} um{clearance_witness}",
                 selected.id,
                 summary.step,
                 summary.density_iterations,
                 summary.density_error_ppb,
+                summary.density_kkt_error_ppb,
                 summary.divergence_iterations,
                 summary.divergence_error_ppb,
                 summary.maximum_penetration_um,
@@ -148,7 +203,10 @@ pub(super) fn reference_path<'a>(request: &'a Request, scenario_id: &str) -> Opt
     }
 }
 
-pub(super) fn corpus_run_root(roots: &ImpactEnergyRoots, scenarios: &[ScenarioEvidence]) -> String {
+pub(super) fn corpus_run_root(
+    roots: &AcceleratedPressureRoots,
+    scenarios: &[ScenarioEvidence],
+) -> String {
     let mut hasher = Sha256::new();
     hasher.update(b"nextengine.continuum-water.w1-linux-corpus-run.v1\0");
     hasher.update(roots.execution_profile);
