@@ -201,7 +201,8 @@ worker implementation remain pending. The clean serial baseline then records
 `100%` of one CPU, about `1.212 s` per measured sealed-48k substep,
 reconstruction at `61.15%` and density at `34.90%`. W2 cycle 1 now removes the
 duplicate canonical neighbor discovery and per-row temporary allocations; its
-clean measurement is pending.
+clean measurement preserves every short-run root, makes reconstruction
+`1.801×` and the whole step `1.375×` faster. Cycle 2 stable workers are next.
 
 Commit `74730e208cfeb70b05a3ec44b2bb9c2f5002fe97` implements the serial oracle.
 On a clean exact-profile run, `CW-FREEFALL-001` passes all 97 canonical frames

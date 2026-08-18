@@ -28,8 +28,11 @@ with `32` available logical CPUs. Three measured sealed-48k substeps average
 about `1.212 s`: reconstruction accounts for `61.15%` and density for
 `34.90%`. Cycle 1 therefore retains each row's first canonical admitted-index
 result in bounded flattened scratch instead of repeating grid admission and
-temporary row allocation. Its clean exact measurement and root comparison are
-pending; see the [resource-utilization discriminator](../../development/continuum-water-w2-resource-utilization-2026-08-19.md).
+temporary row allocation. At clean commit `e15c5e2`, all short-run roots and
+iterations remain exact, reconstruction is `1.801×` faster and the whole step
+is `1.375×` faster. Density/reconstruction now jointly own `94.73%`; cycle 2
+must partition both without changing row or reduction order. See the
+[resource-utilization discriminator](../../development/continuum-water-w2-resource-utilization-2026-08-19.md).
 
 ## Correctness-preserving parallel plan
 

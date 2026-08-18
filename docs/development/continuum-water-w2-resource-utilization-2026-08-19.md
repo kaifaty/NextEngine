@@ -1,6 +1,6 @@
 # Continuum water W2 resource-utilization discriminator — 2026-08-19
 
-Status: `REPORT_ONLY / CYCLE_1_IN_PROGRESS / NO_W2_CREDIT`
+Status: `REPORT_ONLY / CYCLE_1_COMPLETE_ROOT_EXACT / NO_W2_CREDIT`
 
 ## Question
 
@@ -65,15 +65,34 @@ sort/deduplication, records row ranges, accounts worst-case scratch capacity in
 the frozen decoded-heap cap, allocates final neighbor records exactly, and
 drops scratch before density-factor construction. Allocation or capacity
 failure still aborts the local step before publication. Full crate tests,
-focused suffix/capacity tests, clippy and boundary scan pass; a clean exact
-candidate measurement remains pending.
+focused suffix/capacity tests, clippy and boundary scan pass.
+
+Clean commit `e15c5e22bd23af7336e8c4027dba851c323520e9` produces exact-profile
+binary SHA-256
+`bfd9f9fc3bcc4f15eb530466bac6f14d3f914d4a95a6ed4eb398382db207c520`.
+Its report `/tmp/nextengine-w2-cycle1-e15c5e2.json` has SHA-256
+`403883df598d8880bfecf1c9544565a629e26eea4eaa0fbe3b8993ed3310d6c3`;
+the external time record has SHA-256
+`ae7c489b7232eac6905562fb3d906fe7b9e2aafecad4d5504f859e508833b320`.
+
+The three outer step samples fall to `932,221,569`, `860,311,684` and
+`850,752,784 ns`, a mean of about `881.095 ms` and a `1.375×` whole-step
+speedup. Reconstruction falls from `2,212,373,023` to `1,228,475,543 ns`
+over three steps (`1.801×`) and from `61.15%` to `46.73%`; density is now
+`48.00%`. CPU remains `99%` of one logical CPU. Maximum RSS rises from
+`86,060` to `91,432 KiB`, remaining bounded by the frozen heap admission.
+
+All initial, measured and final frame roots match the baseline exactly, as do
+density/divergence iteration counts and short trajectory root
+`41390c922ca043cb5daff987fef0457fe8be9e0fa08a9d8c852e38ee5884329f`.
+Cycle 1 therefore survives its hypothesis and exact-root discriminator.
 
 ## Risk and next discriminator
 
-The three-sample mean is about `1.212 s`. Even an impossible perfect division
-by all `32` logical CPUs would be about `37.9 ms`, far above the standalone
+The cycle-1 mean is about `881.1 ms`. Even an impossible perfect division by
+all `32` logical CPUs would be about `27.5 ms`, far above the standalone
 `4 ms` target. This is not a percentile verdict and does not close W2, but it
-means parallel scheduling alone cannot be assumed sufficient. Measure cycle 1
-against the exact short trajectory root, then implement the smallest
-deterministic worker mechanism and apply the two-cycle stop rule without
-changing sample count, cadence, thresholds or CPU authority.
+means parallel scheduling alone cannot be assumed sufficient. Cycle 2 must
+now implement stable logical partitions with canonical merge, compare serial
+and worker `1/2/4/8` roots, and apply the two-cycle stop rule without changing
+sample count, cadence, thresholds or CPU authority.
