@@ -65,6 +65,9 @@ pub fn run_xtask(
         (Some(material), Some(command)) if material == "water" && command == "run-w1-linux" => {
             oracle::successor::run_xtask(repository_root, arguments)
         }
+        (Some(material), Some(command)) if material == "water" && command == "profile-w2-linux" => {
+            oracle::successor::run_resource_profile_xtask(repository_root, arguments)
+        }
         _ => oracle::run_xtask(
             repository_root,
             material.into_iter().chain(command).chain(arguments),

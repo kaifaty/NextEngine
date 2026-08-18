@@ -84,6 +84,7 @@ pub(crate) fn contact_constrained_substep_with_limit(
         density_maximum_iterations,
         TerminalVelocityProjection::PredictiveOuterBox,
         DensitySolveMethod::RelaxedJacobi,
+        None,
     )?;
     Ok(ContactConstrainedStepOutcome {
         outcome,
@@ -123,6 +124,7 @@ pub(crate) fn contact_pcg_constrained_substep(
         density_maximum_iterations,
         TerminalVelocityProjection::PredictiveOuterBox,
         DensitySolveMethod::ProjectedPreconditionedConjugateGradient,
+        None,
     )?;
     Ok(ContactConstrainedStepOutcome {
         outcome,
@@ -147,6 +149,7 @@ pub(crate) fn successor_pcg_constrained_substep(
         50,
         TerminalVelocityProjection::PredictiveGeometry,
         DensitySolveMethod::ProjectedPreconditionedConjugateGradient,
+        None,
     )?;
     Ok(ContactConstrainedStepOutcome {
         outcome,
@@ -171,12 +174,42 @@ pub(crate) fn successor_accelerated_projected_gradient_substep(
         50,
         TerminalVelocityProjection::PredictiveGeometry,
         DensitySolveMethod::AcceleratedProjectedGradient,
+        None,
     )?;
     Ok(ContactConstrainedStepOutcome {
         outcome,
         projection,
         energy,
     })
+}
+
+pub(crate) fn timed_successor_accelerated_projected_gradient_substep(
+    prior: &AcceptedFrame,
+    geometry: Geometry,
+    boundary: &[BoundarySample],
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+) -> Result<(ContactConstrainedStepOutcome, StepStageTimings), WaterError> {
+    let mut timings = StepStageTimings::default();
+    let (outcome, projection, energy) = substep_with_boundary_projection_limit(
+        prior,
+        geometry,
+        BoundaryInput::Particles(boundary),
+        execution_profile_root,
+        scenario_root,
+        50,
+        TerminalVelocityProjection::PredictiveGeometry,
+        DensitySolveMethod::AcceleratedProjectedGradient,
+        Some(&mut timings),
+    )?;
+    Ok((
+        ContactConstrainedStepOutcome {
+            outcome,
+            projection,
+            energy,
+        },
+        timings,
+    ))
 }
 
 pub(crate) fn production_successor_density_fixtures(

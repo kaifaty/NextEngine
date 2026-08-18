@@ -47,6 +47,7 @@ mod closure;
 mod command;
 mod energy;
 mod pressure_closure;
+mod resource;
 mod validation;
 
 use command::{command_result, parse_arguments, validate_reference_paths, write_report};
@@ -300,6 +301,13 @@ pub(crate) fn run_pressure_closure_xtask(
     arguments: impl Iterator<Item = String>,
 ) -> Result<String, WaterError> {
     pressure_closure::run(repository_root, arguments)
+}
+
+pub(crate) fn run_resource_profile_xtask(
+    repository_root: &Path,
+    arguments: impl Iterator<Item = String>,
+) -> Result<String, WaterError> {
+    resource::run(repository_root, arguments)
 }
 
 fn new_report(

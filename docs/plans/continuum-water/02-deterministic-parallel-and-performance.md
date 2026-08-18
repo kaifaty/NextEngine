@@ -6,6 +6,23 @@ Turn the passing serial oracle into a bounded parallel CPU candidate without
 changing its canonical trajectory, then determine whether the selected 50k
 product fixture can fit its standalone THOTH stop target.
 
+## Current implementation checkpoint
+
+W2 starts with a bounded Linux-only stage discriminator rather than another
+full serial corpus repetition. `continuum water profile-w2-linux` fixes the
+sealed `48,000`-sample scenario, one warm-up substep and three measured
+substeps. It records raw wall-clock costs for decode, reconstruction, initial
+diagnostics, divergence, gravity, density, contact, integration and canonical
+publication, plus the short trajectory root and available logical
+parallelism. Timers exist only in the diagnostic call and never enter accepted
+state, convergence decisions or hashes.
+
+This `continuum-water-50k-stage-profile.v0` projection is a bottleneck
+discriminator only: setup/report I/O are separate, process CPU utilization is
+captured externally, and it grants no W2 percentile, correctness or ProductCheck
+credit. The formal `continuum-water-50k.v1` warm-up/measured windows remain to
+be frozen after the worker design and root-equality harness exist.
+
 ## Correctness-preserving parallel plan
 
 - Keep the serial implementation as the oracle and fallback test path.

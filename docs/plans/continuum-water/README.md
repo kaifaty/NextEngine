@@ -65,7 +65,7 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
                          └─ W0H Accelerated pressure profile CLOSED / W1_AUTHORIZED
                              └─ W0I External reference attestation CLOSED / W1_AUTHORIZED
                                  └─ W1 Serial CPU oracle + external corpus COMPLETE / LINUX_PASS
-                                     ├─ W2 Deterministic parallel CPU + benchmark READY / NOT_STARTED
+                                     ├─ W2 Deterministic parallel CPU + benchmark IN_PROGRESS / PROFILING
                                      │   └─ W3 One-pass PhysX coupling            NOT_STARTED
                                      │       └─ W4 Basin + crate + debug view     NOT_STARTED
                                      │           └─ W5 Exact active persistence   NOT_STARTED
@@ -191,6 +191,13 @@ all seven scenario roots and `d38d6bc8...e96835`. Its second serial repetition
 was stopped by explicit user decision because a run takes about 42 minutes on
 one core; it receives no evidence status. W2 now owns resource utilization and
 worker-count equality rather than more redundant serial corpus repetition.
+
+W2 begins with the Linux-only `profile-w2-linux` diagnostic. Its fixed
+`continuum-water-50k-stage-profile.v0` projection runs one warm-up and three
+measured sealed-48k substeps, reports decode-through-publication stage times,
+and records a short trajectory root. Timing is outside canonical state and
+roots; the diagnostic is explicitly `NO_W2_CREDIT`. The clean baseline and
+worker implementation remain pending.
 
 Commit `74730e208cfeb70b05a3ec44b2bb9c2f5002fe97` implements the serial oracle.
 On a clean exact-profile run, `CW-FREEFALL-001` passes all 97 canonical frames

@@ -26,6 +26,7 @@ mod energy;
 mod neighborhood;
 mod reconstruction;
 mod statistics;
+mod timing;
 
 use constraint::{
     VelocityProjectionResult, checked_dot, density_pressure_operator, project_predictive_geometry,
@@ -40,11 +41,14 @@ pub(crate) use diagnostic::{
     production_projected_pcg_first_step_probe, production_successor_contact_fixtures,
     production_successor_density_fixtures, production_volume_map_calibration,
     successor_accelerated_projected_gradient_substep, successor_pcg_constrained_substep,
+    timed_successor_accelerated_projected_gradient_substep,
 };
 pub(crate) use energy::StepEnergyTrace;
 use energy::mechanical_energy;
 use neighborhood::{admitted_boundary, admitted_fluid, build_boundary_grid, build_fluid_grid};
 use statistics::{centre_of_mass, density_ratio_percentiles};
+pub(crate) use timing::StepStageTimings;
+use timing::{StepStage, StepTimer};
 
 const DENSITY_MIN_ITERATIONS: u8 = 2;
 const DENSITY_MAX_ITERATIONS: u8 = 20;
@@ -277,6 +281,7 @@ fn substep_with_boundary_limit(
         density_maximum_iterations,
         TerminalVelocityProjection::None,
         DensitySolveMethod::RelaxedJacobi,
+        None,
     )
     .map(|(outcome, _projection, _energy)| outcome)
 }
@@ -291,34 +296,42 @@ fn substep_with_boundary_projection_limit(
     density_maximum_iterations: u8,
     velocity_projection: TerminalVelocityProjection,
     density_method: DensitySolveMethod,
+    timings: Option<&mut StepStageTimings>,
 ) -> Result<(StepOutcome, VelocityProjectionResult, StepEnergyTrace), WaterError> {
+    let mut timer = StepTimer::new(timings);
     let mut state = decode(&prior.samples)?;
+    timer.finish(StepStage::Decode);
     if state.samples.is_empty() {
-        return publish_empty(prior.step, execution_profile_root, scenario_root, geometry).map(
-            |outcome| {
+        let result = publish_empty(prior.step, execution_profile_root, scenario_root, geometry)
+            .map(|outcome| {
                 (
                     outcome,
                     VelocityProjectionResult::default(),
                     StepEnergyTrace::default(),
                 )
-            },
-        );
+            });
+        timer.finish(StepStage::Publication);
+        return result;
     }
     let reconstruction = reconstruct_boundary(&state, geometry, boundary)?;
+    timer.finish(StepStage::Reconstruction);
     let density_percentiles = density_ratio_percentiles(&reconstruction.rho_ratio)?;
 
     let mut energy = StepEnergyTrace {
         decoded: mechanical_energy(&state.positions, &state.velocities)?,
         ..StepEnergyTrace::default()
     };
+    timer.finish(StepStage::InitialDiagnostics);
 
     let divergence = solve_divergence(&reconstruction, &mut state.velocities)?;
     energy.after_divergence = mechanical_energy(&state.positions, &state.velocities)?;
+    timer.finish(StepStage::Divergence);
     for (index, velocity) in state.velocities.iter_mut().enumerate() {
         velocity.y = checked_scalar(velocity.y + (DT * -GRAVITY_MAGNITUDE), "gravity velocity y")?;
         (*velocity).checked(&format!("gravity sample {}", state.samples[index].id))?;
     }
     energy.after_gravity = mechanical_energy(&state.positions, &state.velocities)?;
+    timer.finish(StepStage::Gravity);
     let density = match density_method {
         DensitySolveMethod::RelaxedJacobi => solve_density_with_limit(
             &reconstruction,
@@ -342,6 +355,7 @@ fn substep_with_boundary_projection_limit(
         }
     };
     energy.after_density = mechanical_energy(&state.positions, &state.velocities)?;
+    timer.finish(StepStage::Density);
 
     let projection = match velocity_projection {
         TerminalVelocityProjection::None => VelocityProjectionResult::default(),
@@ -353,6 +367,7 @@ fn substep_with_boundary_projection_limit(
         }
     };
     energy.after_contact = mechanical_energy(&state.positions, &state.velocities)?;
+    timer.finish(StepStage::Contact);
 
     for index in 0..state.samples.len() {
         let displacement = state.velocities[index]
@@ -363,6 +378,7 @@ fn substep_with_boundary_projection_limit(
             .checked("position integration")?;
     }
     energy.after_integration = mechanical_energy(&state.positions, &state.velocities)?;
+    timer.finish(StepStage::Integration);
     let next_step = prior
         .step
         .checked_add(1)
@@ -375,7 +391,7 @@ fn substep_with_boundary_projection_limit(
     crate::boundary::validate_transition(geometry, &prior.samples, &samples)?;
     let frame_root = hash::frame_root(execution_profile_root, scenario_root, next_step, &samples)?;
     let centre_of_mass_um = centre_of_mass(&samples)?;
-    Ok((
+    let result = Ok((
         StepOutcome {
             frame: AcceptedFrame {
                 step: next_step,
@@ -408,7 +424,9 @@ fn substep_with_boundary_projection_limit(
         },
         projection,
         energy,
-    ))
+    ));
+    timer.finish(StepStage::Publication);
+    result
 }
 
 fn publish_empty(

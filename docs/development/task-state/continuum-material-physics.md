@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W1_LINUX_SERIAL_PASS_W2_RESOURCE_UTILIZATION_NEXT` |
+| Status | `W2_RESOURCE_PROFILE_IMPLEMENTED_BASELINE_PENDING` |
 | Updated | `2026-08-19` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -32,8 +32,9 @@
 - **Authority:** private `f64` solve, ties-to-even canonical sample
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
-- **Next action:** start W2 by measuring stage-level cost and CPU utilization,
-  then add the smallest crate-private deterministic worker mechanism. Compare
+- **Next action:** run the fixed sealed-48k W2 stage diagnostic and capture
+  process CPU utilization, then optimize the measured limiter and add the
+  smallest crate-private deterministic worker mechanism. Compare
   serial and `1/2/4/8` worker roots before the exact `10k/50k/100k` standalone
   performance discriminator. Do not start PhysX coupling, runtime/public
   contracts or GPU authority first.
@@ -57,7 +58,7 @@
 | --- | --- | --- |
 | [Research report](../continuum-material-physics-research-2026-08-16.md) | `REPORT_ONLY` | Supports solver-family separation; proves no implementation |
 | [SPEC-38](../../architecture/38-continuum-material-physics.md) and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md) | `Proposed` | Candidate CPU authority, fixed-point boundary, one-pass coupling and exact-active semantics are closed |
-| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W1 LINUX PASS / W2 READY` | Serial correctness is closed in the dedicated worktree; merge/activation and W2 are next |
+| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W1 LINUX PASS / W2 RESOURCE PROFILE IN PROGRESS` | Fixed one-worker stage timing is implemented; clean sealed-48k baseline and optimization remain open |
 | [W1 clean-tree discriminator](../continuum-water-w1-evidence-2026-08-17.md) | Free-fall `SCENARIO_PASS`; hydro `WATER_DENSITY_NONCONVERGENCE` | Reopens the W0B/W1 numerical boundary; `CONTINUUM-WATER-REF-P1` remains `NOT_RUN` |
 | [W1-RC1 independent audit](../continuum-water-w1-rc1-audit-2026-08-17.md) | `EXACT_MATCH / REPORT_ONLY` | Rejects a production-vs-W0B mismatch for the audited projection and requires W0C recalibration |
 | [W0C hydro-calibration cycles](../continuum-water-w0c-hydro-calibration-2026-08-17.md) | `EXACT_MATCH / BOUNDARY_AND_INITIALIZATION_CANDIDATES_REJECTED / REPORT_ONLY` | Rejects uniform scaling, ceiling-only repair, `ghost-cell-shell-v1` and zero-velocity settling; triggers adjacent-layer research escalation |
@@ -190,8 +191,9 @@
 
 1. Preserve and explicitly merge the W1 evidence checkpoint when authorized;
    do not relabel the still-inactive main R8 row by implication.
-2. Start W2 with deterministic parallel/order equality against the frozen W1
-   roots, then run the exact `10k/50k/100k` standalone performance profile.
+2. Run the short sealed-48k resource diagnostic, optimize its measured limiter,
+   then prove deterministic parallel/order equality against the frozen W1 roots
+   before the exact `10k/50k/100k` standalone performance profile.
 3. Keep Windows equality explicitly deferred for production promotion; do not
    infer it from Linux worker equality.
 4. Do not start W3 PhysX coupling, runtime/public contracts, persistence or
