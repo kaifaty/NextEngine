@@ -410,9 +410,11 @@ Voxtral or emotion2vec implementation modules.
 - crash/OOM/malformed/stale/cancel fault matrix;
 - update durable task state with admitted/rejected model profiles.
 
-FunctionGemma work is not an extra Phase 2 commit. Phase 3 first integrates
-actual neural capabilities into engine-owned boundaries; FunctionGemma starts
-only through the separate Phase 4 gates.
+FunctionGemma work is not an extra Phase 2 commit. Phase 3A first consumes this
+service in a bounded one-character demo scene with no world context, internal
+models or tools. Later Phase 3 subphases harden the proven boundaries and
+shadow-integrate strategic capabilities; FunctionGemma starts only through the
+separate Phase 4 gates.
 
 ## 12. Test matrix
 

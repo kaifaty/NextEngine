@@ -5,7 +5,7 @@
 | Status | `ACTIVE` |
 | Updated | `2026-08-18` |
 | Task key | `audio-emotion-asr-timeline` |
-| Scope | Phase 1 prototypes Voxtral/emotion2vec; Phase 2 adds replaceable LLM/TTS; Phase 3 integrates actual neural capabilities into engine-owned roles; prerequisite-gated Phase 4 fine-tunes FunctionGemma against the resulting strategic catalog. |
+| Scope | Phase 1 prototypes Voxtral/emotion2vec; Phase 2 adds replaceable LLM/TTS; Phase 3A proves them in a one-character simple-dialogue scene before 3B-3D boundary/internal-model work; prerequisite-gated Phase 4 fine-tunes FunctionGemma. |
 | Definition of done | A resident prototype exposes versioned transcript/affect/fusion revisions, declares timing precision, avoids model reload between clients and reports joint latency/resource evidence. |
 | Authority | Working context only; Accepted ADR-005 and repository architecture outrank this file. SPEC-16/ADR-017 remain Deferred Proposed. |
 
@@ -16,7 +16,7 @@
 - **Critical limit:** Current Voxtral public APIs return streaming text but no lexical timestamps. `transcribe.cpp` reports timestamp kind `NONE`; its Voxtral `audio_committed_ms` remains zero during feed and is not a text boundary.
 - **Implementation plan:** `docs/plans/2026-08-18-speech-timeline-service-implementation.md` has approved scope `A/A/A/A`: standalone authenticated localhost WebSocket, explicit finish first and honest `utterance` alignment; VAD/model-slot remain later increments.
 - **Phase 2 plan:** `docs/plans/2026-08-18-conversation-service-phase-2.md` adds a `ConversationService` facade for large-LLM dialogue and TTS only; two Phase 2 scope choices remain pending.
-- **Phase 3 plan:** `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` inventories and shadow-integrates actual Phase 1/2 plus strategic-model capabilities behind engine-owned role, authority, validator and fallback boundaries.
+- **Phase 3 plan:** `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` now starts with 3A: one existing character, push-to-talk, session-local persona/history, subtitles/TTS and no world/internal-model/tool context. 3B-3D then harden proven boundaries, shadow-integrate the strategic model and freeze catalogs.
 - **Phase 4 plan:** `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` fine-tunes FunctionGemma only after Phase 3 freezes a consumer-backed strategic catalog and corpus seed.
 - **Next action:** Create `codex/speech-timeline-service`, converge the exact Voxtral commits, and execute Commit 1 without recreating the wrapper or adding engine-facing IPC.
 - **Current blocker:** The Voxtral wrapper exists on `codex/architecture-foundation-promotion`, not in this worktree. Research is unblocked; implementation should use/merge that source rather than recreate it.
@@ -41,6 +41,7 @@
 | User FunctionGemma ordering clarification, 2026-08-18 | FunctionGemma follows the large LLM and mediates LLM tool calls to the engine strategic neural model | Use `LLM plan → FunctionGemma compile → StrategicAgentGateway → LLM response → TTS`, not FunctionGemma-first routing. |
 | User FunctionGemma staging clarification, 2026-08-18 | FunctionGemma needs engine/strategic-network fine-tuning and tight integration; there is no value in connecting it now | Keep Phase 2 limited to LLM/TTS and defer FunctionGemma behind explicit prerequisites. |
 | User intermediate-stage clarification, 2026-08-18 | Existing neural-network capabilities must first be brought into engine boundaries between Phase 2 and FunctionGemma | Add a consumer-driven Phase 3 capability integration/shadow stage and renumber FunctionGemma as Phase 4. |
+| User Phase 3A clarification, 2026-08-18 | Phase 3 is large and begins with a demo scene containing one character for simple dialogue, without world context or internal-model integration | Make the playable dialogue vertical the first independently closable gate; move catalog hardening, strategic shadow work and FunctionGemma preparation to 3B-3D. |
 | `docs/plans/2026-08-18-conversation-service-phase-2.md` | proposed Phase 2 sequence | Defines LLM/TTS worker topology, context seam, evidence and two pending scope choices without tool calling or strategic integration. |
 | `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` | proposed Phase 3 sequence | Maps actual models to engine-owned roles, validators, owners and fallbacks; shadow-integrates the strategic model and freezes consumer-backed catalogs. |
 | `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` | deferred Phase 4 sequence | Reopens exact Phase 3 catalogs, then builds corpus, measures/fine-tunes FunctionGemma and integrates it shadow-first. |
@@ -102,6 +103,27 @@
 - **Remaining uncertainty:** Exact LLM/TTS artifacts, joint 10-GiB resource profile, exact strategic-model interface, role classification, catalog breadth and Phase 4 thresholds.
 - **Reconsider when:** Phase 3 cannot produce a stable consumer-backed catalog, or a different measured compiler makes FunctionGemma unnecessary without weakening validation/fallback boundaries.
 
+### D-008 — Phase 3A is a presentation-only one-character dialogue demo
+
+- **Observation:** The user made the first part of the large Phase 3 a scene
+  where one character supports simple dialogue, explicitly without world
+  context or integration with internal models.
+- **Decision:** Reuse the clean `reference-alpha` relay keeper and the existing
+  presentation-only semantic `Interact` open/close path, but never enter its
+  authored `AcceptPending` transition. Use push-to-talk and the Phase 1/2
+  resident services. The LLM sees only a fixed demo persona, bounded
+  current-session history, final utterance, structured vocal affect and
+  response limits. The session owns no gameplay state and is discarded on
+  close.
+- **Rejected for 3A:** World snapshots, Agent memory/goals, strategic neural
+  models, tools, FunctionGemma, persistent memory, gameplay consequences, lip
+  sync and new art/animation pipelines.
+- **Consequence:** 3A can close on a three-turn microphone → subtitle/TTS demo
+  plus fault/resource evidence. 3B generalizes only seams proven by that demo;
+  3C audits/shadow-integrates internal models; 3D prepares Phase 4 catalogs.
+- **Reconsider when:** 3A cannot be demonstrated through existing interaction,
+  presentation and audio boundaries without adding authoritative state.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -129,15 +151,23 @@ Read in precedence order:
 12. `docs/architecture/adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md`
 13. `docs/architecture/adr/053-engine-native-model-training-and-immutable-artifact-boundary.md`
 14. `docs/architecture/adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md`
-15. `docs/architecture/09-tooling-sdk-and-observability.md`
-16. `docs/architecture/11-security-licensing-and-governance.md`
-17. `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md`
-18. `docs/plans/2026-08-18-speech-timeline-service-implementation.md`
-19. `docs/plans/2026-08-18-conversation-service-phase-2.md`
-20. `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md`
-21. `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md`
-22. `e839a38:lab/scripts/voxtral_microphone.py` and its tests
-23. `tools/emotion-probe/README.md` and implementation
+15. `docs/architecture/18-player-interaction-ui-camera-localization-and-accessibility.md`
+16. `docs/architecture/29-platform-host-and-application-session.md`
+17. `docs/architecture/30-presentation-extraction-and-render-content.md`
+18. `docs/architecture/08-audio-navigation-and-world-services.md`
+19. `docs/architecture/adr/019-canonical-player-actions-and-presentation-authority.md`
+20. `docs/architecture/adr/044-neutral-text-catalog-and-locale-fallback.md`
+21. `docs/architecture/adr/047-simple-application-session-and-save-on-close.md`
+22. `docs/architecture/adr/028-platform-session-and-presentation-authority.md`
+23. `docs/architecture/09-tooling-sdk-and-observability.md`
+24. `docs/architecture/11-security-licensing-and-governance.md`
+25. `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md`
+26. `docs/plans/2026-08-18-speech-timeline-service-implementation.md`
+27. `docs/plans/2026-08-18-conversation-service-phase-2.md`
+28. `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md`
+29. `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md`
+30. `e839a38:lab/scripts/voxtral_microphone.py` and its tests
+31. `tools/emotion-probe/README.md` and implementation
 
 ## Smallest next action
 
@@ -148,8 +178,15 @@ Read in precedence order:
 5. Measure cold/warm readiness, second session reload count, combined VRAM, capture-to-event latency, queue wait and cancellation cleanup.
 6. Only then extend `transcribe.cpp` to expose token slots for a bounded alignment experiment.
 7. After Phase 1 residency/latency evidence, confirm the two unresolved Phase 2 choices and execute its Commit A without merging LLM/TTS implementation into `SpeechTimelineService`.
-8. After Phase 2 evidence, execute Phase 3 inventory/authority mapping before adding any engine-facing model contract; start the strategic model in shadow-only mode.
-9. Do not start Phase 4 until Phase 3 freezes consumer-backed `NeuralCapabilityCatalog` and `StrategicSemanticCatalog` revisions plus the external corpus/evaluation seed.
+8. After Phase 2 evidence, implement Phase 3A first: clean `reference-alpha`
+   relay keeper, semantic presentation-only dialogue open, fake then real
+   `ConversationClient`, push-to-talk, subtitles/TTS, three-turn residency and
+   fault/resource evidence.
+9. Only after 3A closes, execute 3B capability hardening and 3C strategic-model
+   audit/shadow integration; do not add world/memory/tool context to 3A.
+10. Do not start Phase 4 until 3D freezes consumer-backed
+    `NeuralCapabilityCatalog` and `StrategicSemanticCatalog` revisions plus the
+    external corpus/evaluation seed.
 
 ## Do not retry
 
