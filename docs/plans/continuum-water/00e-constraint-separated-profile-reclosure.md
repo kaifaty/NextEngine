@@ -1,6 +1,29 @@
 # W0E — Constraint-separated water-profile reclosure
 
-Status: `AUTHORIZED / IN_PROGRESS / RESEARCH_ONLY`.
+Status: `CLOSED / LOCAL_PROFILE_DISCRIMINATOR_SURVIVED / RESEARCH_ONLY`.
+
+## Outcome
+
+The candidate survived every bounded W0E gate. Production and separately
+written calculators match exactly for the support-complete boundary, pressure
+operator, first projected-PCG solve and analytical contact operator. The
+candidate passes both the 24-step local gate and a 1200-step equilibrium soak
+with zero particle-radius penetration; the 97-frame free-fall control remains
+byte-identical.
+
+This result resolves the local second-step failure, but does not select a
+product profile. The full W1 corpus, internal aperture semantics, dynamic
+rigid contact, successor roots and 50k cost remain open. The disposition is
+therefore exactly
+`LOCAL_PROFILE_DISCRIMINATOR_SURVIVED / NO_CORPUS_CREDIT / NOT_SELECTED` and
+`CONTINUUM-WATER-REF-P1` remains `NOT_RUN`.
+
+Implementation commit:
+`7ee1651b6c1bfcef575af1bd6952ac36f9fca661`.
+The clean exact-profile report has SHA-256
+`PENDING_CLEAN_CLOSURE_REPORT`;
+its JSON stays outside Git. The bounded results are recorded in the
+[W0E evidence report](../../development/continuum-water-w0e-constraint-separated-redesign-2026-08-18.md).
 
 ## Decision being tested
 
@@ -49,8 +72,9 @@ defects in the rejected composition:
 
 The successor tests an algorithmic pressure change rather than treating 160
 Jacobi sweeps as the solution. Its projected diagonally preconditioned
-conjugate-gradient prototype passes the same 24-step gate with at most 48
-iterations. Performance and long-horizon stability remain unproven.
+conjugate-gradient prototype passes the 24-step and 1200-step gates with at
+most 48 iterations. Full-corpus stability and product-scale performance
+remain unproven.
 
 ## Frozen candidate operations
 
@@ -148,6 +172,12 @@ The candidate may survive W0E only if all of these pass:
 7. The 97-frame free-fall control remains byte-identical and activates no
    contact or pressure multiplier.
 
+All seven checks pass. The two causal controls also separate the failure:
+contact plus Jacobi-20 still fails on step 2 at `205,138 ppb`, while contact
+plus Jacobi-160 passes all 24 steps with zero penetration. The new architecture
+is needed in both dimensions; contact alone and a larger Jacobi ceiling are
+not selected alternatives.
+
 ## Stop rules
 
 - If PCG-50 fails the 24-step gate, reject the solver candidate. Do not raise
@@ -168,3 +198,31 @@ The candidate may survive W0E only if all of these pass:
   target and calibration corpus.
 
 `CONTINUUM-WATER-REF-P1` remains `NOT_RUN` throughout W0E.
+
+## Required successor closure
+
+W0F must turn the surviving local candidate into a rootable W1 profile before
+the serial corpus can resume:
+
+1. Define one geometry abstraction shared by density support and unilateral
+   contact. W0E deliberately supports only an outer axis-aligned box; the
+   `CW-ORIFICE-001` internal aperture must fail closed until internal solid and
+   opening semantics have an independent calculator and scenarios.
+2. Reclose capacity. A two-layer complement around the selected
+   `4 × 2 × 1 m` product extent needs
+   `84 × 44 × 24 - 80 × 40 × 20 = 24,704` static samples, already above the
+   rejected profile's `16,384` boundary capacity. Choose and root either a
+   higher admitted capacity or an equivalent implicit complement; do not
+   inherit the old number silently.
+3. Freeze the successor document, float, execution, corpus and scenario roots.
+   The W0B roots remain immutable rejected-profile evidence.
+4. Extend reaction ownership to dynamic rigid geometry and test the one-pass
+   pressure/contact split. W0E's outer wall is static, so it cannot prove the
+   W3 crate exchange or added-mass behavior.
+5. Run the full W1 corpus and exact cross-target gate before performance work.
+   A PCG iteration is more expensive than a Jacobi sweep; the 50k `4/6 ms`
+   stop target remains completely unmeasured.
+
+No W0E evidence requires XSPH, viscosity, a density map, warm pressure state,
+settling output or retry. Those operations remain absent unless a later named
+scenario falsifies the separated profile and supplies a calibration target.
