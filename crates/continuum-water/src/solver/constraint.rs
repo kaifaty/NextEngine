@@ -18,6 +18,7 @@ const CONTACT_DIRECTION_ROUNDING_GUARD: f64 = 32.0 * f64::EPSILON;
 #[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct VelocityProjectionResult {
     pub(crate) fluid_impulse: Vec3f,
+    pub(crate) kinetic_energy_delta: f64,
     pub(crate) active_rows: usize,
     pub(crate) active_components: usize,
     pub(crate) maximum_absolute_delta_velocity: f64,
@@ -105,6 +106,22 @@ pub(super) fn project_predictive_outer_box(
             .fluid_impulse
             .add(impulse)
             .checked("predictive contact fluid impulse reduction")?;
+        let before_speed_squared = checked_scalar(
+            before.dot(before),
+            "predictive contact before speed squared",
+        )?;
+        let after_speed_squared = checked_scalar(
+            velocity.dot(*velocity),
+            "predictive contact after speed squared",
+        )?;
+        let energy_delta = checked_scalar(
+            0.5 * UNIFORM_MASS * (after_speed_squared - before_speed_squared),
+            "predictive contact kinetic energy delta",
+        )?;
+        result.kinetic_energy_delta = checked_scalar(
+            result.kinetic_energy_delta + energy_delta,
+            "predictive contact kinetic energy reduction",
+        )?;
         for (feature_id, component) in [
             (
                 if delta.x > 0.0 {
@@ -187,6 +204,20 @@ pub(super) fn project_predictive_geometry(
             .fluid_impulse
             .add(impulse)
             .checked("internal contact fluid impulse reduction")?;
+        let before_speed_squared =
+            checked_scalar(before.dot(before), "internal contact before speed squared")?;
+        let projected_speed_squared = checked_scalar(
+            projected.dot(projected),
+            "internal contact projected speed squared",
+        )?;
+        let energy_delta = checked_scalar(
+            0.5 * UNIFORM_MASS * (projected_speed_squared - before_speed_squared),
+            "internal contact kinetic energy delta",
+        )?;
+        result.kinetic_energy_delta = checked_scalar(
+            result.kinetic_energy_delta + energy_delta,
+            "internal contact kinetic energy reduction",
+        )?;
         *velocity = projected;
     }
     Ok(result)
@@ -870,6 +901,10 @@ mod contact_tests {
         assert_eq!(project(contact, Vec3f::ZERO).0.x, 0.0);
         let (direct, direct_result) = project(contact, Vec3f::new(1.0, 0.0, 0.0));
         assert_eq!(direct.x.to_bits(), 0.0_f64.to_bits());
+        assert_eq!(
+            direct_result.kinetic_energy_delta.to_bits(),
+            (-0.0625_f64).to_bits()
+        );
         assert_eq!(
             direct_result.feature_active_constraints[INTERNAL_PATCH_FEATURE_ID as usize],
             1

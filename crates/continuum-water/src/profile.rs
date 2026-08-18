@@ -57,6 +57,44 @@ pub(crate) const SUCCESSOR_SCENARIO_ROOTS_HEX: [(&str, &str); 7] = [
         "e26be82f99726a763016958daea8cedb8c1cec77c6efe2b3dee5e2e7d61ba25f",
     ),
 ];
+pub(crate) const IMPACT_ENERGY_DOCUMENT_ROOT_HEX: &str =
+    "d1d97cc490df9e4f7ea13ceae3719420c1cad0d63e44e0632320652b192962c1";
+pub(crate) const IMPACT_ENERGY_CONTRACT_ROOT_HEX: &str =
+    "7de6f9b2277173f63eb7a2027ed19fd734727687ba2f529cb133c718f240a468";
+pub(crate) const IMPACT_ENERGY_CORPUS_ROOT_HEX: &str =
+    "0e2e6b0bc30d1f4846223b1b6ab207bcfd4bb5ca51662e44253256e84262508f";
+pub(crate) const IMPACT_ENERGY_EXECUTION_PROFILE_ROOT_HEX: &str =
+    "8f74f45e4952c419bd4fed9125ae9b22c873eaae28755ee38bef77922e3186f6";
+pub(crate) const IMPACT_ENERGY_SCENARIO_ROOTS_HEX: [(&str, &str); 7] = [
+    (
+        "CW-HYDRO-001",
+        "5f131dc734166821ead34df332e1332396222f5b20cc54c36c554a687a75d7bb",
+    ),
+    (
+        "CW-FREEFALL-001",
+        "fddc346230484a7fb4a0f6f90feb27278fce3fe749ec961f8648226bce1fbcb9",
+    ),
+    (
+        "CW-DAMBREAK-001",
+        "7246cf1e42483bc14c91033c0d5c4d30916569a2a4860bdd7c7591ee333b82d6",
+    ),
+    (
+        "CW-STILL-001",
+        "608af34541f551e39e8b01cd223a8ad1e1356152dbe8fd5e7a8a5108337be89f",
+    ),
+    (
+        "CW-ORIFICE-001",
+        "8384a909b4e12aff9f947519c0e85b82a2c053c2038bf27123e221b5f1f9af75",
+    ),
+    (
+        "CW-SEALED-001",
+        "900e844e18516a31363d510efb5db4023b7805089baae92766d95cc732893a02",
+    ),
+    (
+        "CW-ORDER-001",
+        "578789ef19fd8f47d3d1c6503fa0cfb131849def6bdae65b28d772d0dcedae9a",
+    ),
+];
 
 pub(crate) const MAXIMUM_SAMPLES: usize = 50_000;
 pub(crate) const MAXIMUM_BOUNDARY_SAMPLES: usize = 16_384;

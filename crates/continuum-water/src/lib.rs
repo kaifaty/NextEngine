@@ -52,6 +52,14 @@ pub fn run_xtask(
         {
             calibration::successor::run_xtask(repository_root, arguments)
         }
+        (Some(material), Some(command))
+            if material == "water" && command == "close-impact-energy-profile" =>
+        {
+            oracle::successor::run_closure_xtask(repository_root, arguments)
+        }
+        (Some(material), Some(command)) if material == "water" && command == "run-w1-linux" => {
+            oracle::successor::run_xtask(repository_root, arguments)
+        }
         _ => oracle::run_xtask(
             repository_root,
             material.into_iter().chain(command).chain(arguments),

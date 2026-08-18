@@ -8,8 +8,10 @@ use sha2::{Digest, Sha256};
 use crate::error::{PROFILE_MISMATCH, SCENARIO_INVALID, WaterError};
 use crate::model::CanonicalSample;
 use crate::profile::{
-    CORPUS_ROOT_HEX, FLOAT_PROFILE_ROOT_HEX, SUCCESSOR_CORPUS_ROOT_HEX,
-    SUCCESSOR_DOCUMENT_ROOT_HEX, SUCCESSOR_EXECUTION_MANIFEST_ROOT_HEX,
+    CORPUS_ROOT_HEX, FLOAT_PROFILE_ROOT_HEX, IMPACT_ENERGY_CONTRACT_ROOT_HEX,
+    IMPACT_ENERGY_CORPUS_ROOT_HEX, IMPACT_ENERGY_DOCUMENT_ROOT_HEX,
+    IMPACT_ENERGY_EXECUTION_PROFILE_ROOT_HEX, IMPACT_ENERGY_SCENARIO_ROOTS_HEX,
+    SUCCESSOR_CORPUS_ROOT_HEX, SUCCESSOR_DOCUMENT_ROOT_HEX, SUCCESSOR_EXECUTION_MANIFEST_ROOT_HEX,
     SUCCESSOR_EXECUTION_PROFILE_ROOT_HEX, SUCCESSOR_FIXTURE_ROOT_HEX,
     SUCCESSOR_FLOAT_PROFILE_ROOT_HEX, SUCCESSOR_GEOMETRY_ROOT_HEX, SUCCESSOR_SCENARIO_ROOTS_HEX,
     W0B_DOCUMENT_ROOT_HEX,
@@ -31,6 +33,15 @@ const SUCCESSOR_FIXTURE_DOMAIN: &[u8] = b"nextengine.continuum-water.successor-f
 const SUCCESSOR_EXECUTION_PROFILE_DOMAIN: &[u8] =
     b"nextengine.continuum-water.successor-execution-profile.v1\0";
 const SUCCESSOR_SCENARIO_DOMAIN: &[u8] = b"nextengine.continuum-water.successor-scenario.v1\0";
+const IMPACT_ENERGY_PATH: &str =
+    "docs/plans/continuum-water/00g-impact-energy-contract-reclosure.md";
+const IMPACT_ENERGY_CONTRACT_DOMAIN: &[u8] =
+    b"nextengine.continuum-water.impact-energy-contract.v1\0";
+const IMPACT_ENERGY_CORPUS_DOMAIN: &[u8] = b"nextengine.continuum-water.impact-energy-corpus.v1\0";
+const IMPACT_ENERGY_SCENARIO_DOMAIN: &[u8] =
+    b"nextengine.continuum-water.impact-energy-scenario.v1\0";
+const IMPACT_ENERGY_EXECUTION_PROFILE_DOMAIN: &[u8] =
+    b"nextengine.continuum-water.impact-energy-execution-profile.v1\0";
 
 #[derive(Clone, Debug)]
 pub(crate) struct FrozenRoots {
@@ -262,6 +273,130 @@ impl SuccessorRoots {
             return Err(WaterError::new(
                 SCENARIO_INVALID,
                 format!("scenario {scenario_id:?} is absent from the successor corpus"),
+            ));
+        }
+        Ok(projection)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ImpactEnergyRoots {
+    pub(crate) parent: SuccessorRoots,
+    pub(crate) document: [u8; 32],
+    pub(crate) contract: [u8; 32],
+    pub(crate) corpus: [u8; 32],
+    pub(crate) execution_profile: [u8; 32],
+    contract_bytes: Vec<u8>,
+}
+
+impl ImpactEnergyRoots {
+    pub(crate) fn load(repository_root: &Path) -> Result<Self, WaterError> {
+        let parent = SuccessorRoots::verify(repository_root)?;
+        let path = repository_root.join(IMPACT_ENERGY_PATH);
+        let document_bytes = fs::read(&path).map_err(|error| {
+            WaterError::new(
+                PROFILE_MISMATCH,
+                format!("cannot read {}: {error}", path.display()),
+            )
+        })?;
+        if document_bytes.contains(&b'\r') {
+            return Err(WaterError::new(
+                PROFILE_MISMATCH,
+                "impact energy profile document contains CR bytes",
+            ));
+        }
+        let contract_bytes = successor_block(
+            &document_bytes,
+            b"IMPACT_ENERGY_CONTRACT_V1_BEGIN\n",
+            b"IMPACT_ENERGY_CONTRACT_V1_END\n",
+            "impact energy contract",
+        )?;
+        let document = digest(&document_bytes);
+        let contract = domain_digest(IMPACT_ENERGY_CONTRACT_DOMAIN, contract_bytes);
+
+        let mut corpus_hasher = Sha256::new();
+        corpus_hasher.update(IMPACT_ENERGY_CORPUS_DOMAIN);
+        corpus_hasher.update(parent.corpus);
+        corpus_hasher.update(contract);
+        let corpus = finalize(corpus_hasher);
+
+        let mut execution_hasher = Sha256::new();
+        execution_hasher.update(IMPACT_ENERGY_EXECUTION_PROFILE_DOMAIN);
+        execution_hasher.update(parent.execution_profile);
+        execution_hasher.update(document);
+        execution_hasher.update(contract);
+        execution_hasher.update(corpus);
+        let execution_profile = finalize(execution_hasher);
+        Ok(Self {
+            parent,
+            document,
+            contract,
+            corpus,
+            execution_profile,
+            contract_bytes: contract_bytes.to_vec(),
+        })
+    }
+
+    pub(crate) fn verify(repository_root: &Path) -> Result<Self, WaterError> {
+        let roots = Self::load(repository_root)?;
+        require_root(
+            "impact energy document",
+            roots.document,
+            IMPACT_ENERGY_DOCUMENT_ROOT_HEX,
+        )?;
+        require_root(
+            "impact energy contract",
+            roots.contract,
+            IMPACT_ENERGY_CONTRACT_ROOT_HEX,
+        )?;
+        require_root(
+            "impact energy corpus",
+            roots.corpus,
+            IMPACT_ENERGY_CORPUS_ROOT_HEX,
+        )?;
+        require_root(
+            "impact energy execution profile",
+            roots.execution_profile,
+            IMPACT_ENERGY_EXECUTION_PROFILE_ROOT_HEX,
+        )?;
+        for (scenario_id, expected) in IMPACT_ENERGY_SCENARIO_ROOTS_HEX {
+            require_root(
+                &format!("impact energy scenario {scenario_id}"),
+                roots.scenario_root(scenario_id)?,
+                expected,
+            )?;
+        }
+        Ok(roots)
+    }
+
+    pub(crate) fn scenario_root(&self, scenario_id: &str) -> Result<[u8; 32], WaterError> {
+        let parent_root = self.parent.scenario_root(scenario_id)?;
+        let projection = self.scenario_projection(scenario_id)?;
+        let mut hasher = Sha256::new();
+        hasher.update(IMPACT_ENERGY_SCENARIO_DOMAIN);
+        hasher.update(parent_root);
+        hasher.update(projection);
+        Ok(finalize(hasher))
+    }
+
+    pub(crate) fn scenario_projection(&self, scenario_id: &str) -> Result<Vec<u8>, WaterError> {
+        let prefix = format!("scenario.{scenario_id}.energy-class=");
+        let mut projection = Vec::new();
+        let mut matches = 0_u8;
+        for line in self.contract_bytes.split_inclusive(|byte| *byte == b'\n') {
+            if line.starts_with(prefix.as_bytes()) {
+                projection.extend_from_slice(line);
+                matches = matches.checked_add(1).ok_or_else(|| {
+                    WaterError::new(PROFILE_MISMATCH, "impact energy scenario count overflow")
+                })?;
+            }
+        }
+        if matches != 1 {
+            return Err(WaterError::new(
+                SCENARIO_INVALID,
+                format!(
+                    "impact energy scenario {scenario_id:?} has {matches} contract projections"
+                ),
             ));
         }
         Ok(projection)
@@ -525,5 +660,25 @@ mod tests {
         assert_ne!(hydro, freefall);
         assert_ne!(hydro, orifice);
         assert_ne!(roots.execution_profile, roots.corpus);
+    }
+
+    #[test]
+    fn impact_energy_profile_has_all_domain_separated_scenario_roots() {
+        let repository_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .unwrap();
+        let roots = ImpactEnergyRoots::verify(repository_root).unwrap();
+        assert_eq!(hex(&roots.document), IMPACT_ENERGY_DOCUMENT_ROOT_HEX);
+        assert_eq!(hex(&roots.contract), IMPACT_ENERGY_CONTRACT_ROOT_HEX);
+        assert_eq!(hex(&roots.corpus), IMPACT_ENERGY_CORPUS_ROOT_HEX);
+        assert_eq!(
+            hex(&roots.execution_profile),
+            IMPACT_ENERGY_EXECUTION_PROFILE_ROOT_HEX
+        );
+        let hydro = roots.scenario_root("CW-HYDRO-001").unwrap();
+        let dam_break = roots.scenario_root("CW-DAMBREAK-001").unwrap();
+        assert_ne!(hydro, dam_break);
+        assert_ne!(roots.execution_profile, roots.parent.execution_profile);
     }
 }

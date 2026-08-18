@@ -4,11 +4,11 @@
 |---|---|
 | ID | ADR-076 |
 | Status | Proposed |
-| Version | 1.3 |
+| Version | 1.4 |
 | Decision date | 2026-08-16 |
 | Last verified | 2026-08-18 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
-| Candidate revision note | Version 1.3 binds the W0F successor water operations and static-boundary capacity without promoting this Proposed track |
+| Candidate revision note | Version 1.4 binds the W0G reversible/static-impact energy semantics over unchanged W0F operations without promoting this Proposed track |
 | Superseded by | Partially [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md): it supersedes the world-generation key, unprofiled private-float, unbounded continuation, implicit fault-domain and legacy-budget clauses. |
 
 ## Context
@@ -205,7 +205,7 @@ sample gate or a larger total budget requires an explicit new decision.
 
 | Check | Scenario | Expected | Fallback |
 |---|---|---|---|
-| `CONTINUUM-WATER-REF-P1` | Hydrostatics, dam break, free fall, still tank, drain and analytical boundaries | Fixed profile, conservation/reference bounds and exact same-target roots pass | Keep the program offline; load authored dry basin |
+| `CONTINUUM-WATER-REF-P1` | Hydrostatics, dam break, free fall, still tank, drain and analytical boundaries | Fixed W0F solver plus W0G scenario-class energy/reference bounds and exact same-target roots pass | Keep the program offline; load authored dry basin |
 | `CONTINUUM-COUPLING-P1` | One-pass water reaction against the crate plus stale/capacity/failure cases | One composite result or none; PhysX remains the only rigid writer | Do not activate the water region |
 | `CONTINUUM-PERSISTENCE-P1` | Exact active save/restart and corrupt/incompatible inputs | Uninterrupted and restored roots match exactly | Retain prior save; do not activate the water region |
 | `CONTINUUM-MIRROR-P1` | Optional CPU/GPU corpus | Declared aggregate correspondence without authority claim | CPU remains the only candidate authority |

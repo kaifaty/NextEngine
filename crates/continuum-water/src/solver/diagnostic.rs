@@ -49,6 +49,7 @@ pub(crate) fn counterfactual_substep(
 pub(crate) struct ContactConstrainedStepOutcome {
     pub(crate) outcome: StepOutcome,
     pub(crate) projection: VelocityProjectionResult,
+    pub(crate) energy: StepEnergyTrace,
 }
 
 pub(crate) fn contact_constrained_substep_with_limit(
@@ -73,7 +74,7 @@ pub(crate) fn contact_constrained_substep_with_limit(
             "predictive outer-box contact does not define internal aperture contact",
         ));
     }
-    let (outcome, projection) = substep_with_boundary_projection_limit(
+    let (outcome, projection, energy) = substep_with_boundary_projection_limit(
         prior,
         geometry,
         BoundaryInput::Particles(boundary),
@@ -86,6 +87,7 @@ pub(crate) fn contact_constrained_substep_with_limit(
     Ok(ContactConstrainedStepOutcome {
         outcome,
         projection,
+        energy,
     })
 }
 
@@ -111,7 +113,7 @@ pub(crate) fn contact_pcg_constrained_substep(
             "predictive outer-box contact does not define internal aperture contact",
         ));
     }
-    let (outcome, projection) = substep_with_boundary_projection_limit(
+    let (outcome, projection, energy) = substep_with_boundary_projection_limit(
         prior,
         geometry,
         BoundaryInput::Particles(boundary),
@@ -124,6 +126,7 @@ pub(crate) fn contact_pcg_constrained_substep(
     Ok(ContactConstrainedStepOutcome {
         outcome,
         projection,
+        energy,
     })
 }
 
@@ -134,7 +137,7 @@ pub(crate) fn successor_pcg_constrained_substep(
     execution_profile_root: &[u8; 32],
     scenario_root: &[u8; 32],
 ) -> Result<ContactConstrainedStepOutcome, WaterError> {
-    let (outcome, projection) = substep_with_boundary_projection_limit(
+    let (outcome, projection, energy) = substep_with_boundary_projection_limit(
         prior,
         geometry,
         BoundaryInput::Particles(boundary),
@@ -147,6 +150,7 @@ pub(crate) fn successor_pcg_constrained_substep(
     Ok(ContactConstrainedStepOutcome {
         outcome,
         projection,
+        energy,
     })
 }
 

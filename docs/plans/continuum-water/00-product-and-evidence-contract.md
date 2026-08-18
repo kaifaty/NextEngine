@@ -4,9 +4,13 @@
 
 Select the product fixture, state classification, evidence categories,
 external oracle and explicit non-goals. The exact numerical formulation,
-corpus, metric formulas, resource bounds and failure strings are frozen by
-[W0B](00b-numeric-execution-and-corpus-closure.md). W0A/W0B are
-documentation-only and prove no solver behavior.
+corpus, metric formulas, resource bounds and failure strings were first frozen
+by [W0B](00b-numeric-execution-and-corpus-closure.md). Its rejected numerical
+profile remains immutable evidence. [W0F](00f-geometry-capacity-and-root-closure.md)
+freezes the surviving solver/geometry profile, and
+[W0G](00g-impact-energy-contract-reclosure.md) narrows the energy semantics
+after the first full-corpus impact discriminator. None of these documentation
+closures proves product behavior.
 
 ## Water profile V1
 
@@ -20,10 +24,10 @@ documentation-only and prove no solver behavior.
 | Uniform mass | `0.125 kg` |
 | Time step | fixed `1/240 s` |
 | Gravity | `[0, -9.81, 0] m/s²` |
-| Density solver | minimum `2`, maximum `20`, mean error `<= 0.01%` |
+| Density solver | projected active-set PCG, minimum `2`, maximum `50`, mean positive compression `<= 0.01%` |
 | Divergence solver | minimum `1`, maximum `20`, mean error `<= 0.1%` |
 | Canonical rounding | one checked `NearestTiesToEven` conversion per substep |
-| Float execution | exact hash-frozen [W0B canonical profile](00b-numeric-execution-and-corpus-closure.md#canonical-float-execution-profile) |
+| Float execution | exact hash-frozen [W0F successor profile](00f-geometry-capacity-and-root-closure.md#successor-root-projections) plus [W0G metric root](00g-impact-energy-contract-reclosure.md#frozen-metric-projection) |
 | Hard capacity | `50,000` active samples for production; `100,000` only in stress report |
 
 V1 has no warm start, surface tension, viscosity/vorticity model, variable
@@ -81,10 +85,14 @@ forbidden.
 | Sealed two-chamber orifice | internal transfer curve and chamber sample counts | curve RMSE `<= 5%`; maximum error `<= 10%`; partition and total mass exact |
 | Sealed boundary | sample count/mass and maximum centre penetration | count/mass exact; no leak; penetration `<= 2.5 mm` |
 
-W0B supplies the exact energy/momentum formulas. Its orifice case is a closed
-two-chamber transfer with no sink; later driven cases must account for gravity,
-boundary work, prescribed moving-body work and true outlet flux rather than
-claim naive conservation.
+W0B supplies the underlying `K`, `U`, denominator and momentum formulas. W0G
+keeps two-sided `1%` mechanical-energy drift for hydro, free-fall, still-tank
+and order controls. Dam-break, orifice and sealed-boundary stress instead
+block positive mechanical-energy creation above `1%` and publish their deficit
+as diagnostic. A static boundary still performs zero work; deficit from an
+inelastic projection is not relabelled as wall work. Dam-break/orifice external
+curves remain mandatory. Later driven cases must account for gravity, boundary
+work, prescribed moving-body work and true outlet flux.
 
 ## Independent evidence
 
@@ -110,8 +118,9 @@ still implicit. A missing published curve is recorded as an explicit
 `REFERENCE_NOT_AVAILABLE` case and replaced by the analytical invariant plus
 independent-solver aggregate before implementation, not after a failure.
 
-W0B closes these items and distinguishes frozen source/profile hashes from
-output hashes that can exist only after W1 executes. The dam-break and exact
+W0B originally closed these items and distinguishes frozen source/profile hashes from
+output hashes that can exist only after W1 executes. W0F/W0G issue successor
+roots without rewriting that history. The dam-break and exact
 two-chamber geometries are explicit `REFERENCE_NOT_AVAILABLE` published-curve
 cases; their numerical reference is the predeclared independent-solver
 aggregate. W1 is therefore ready, but no correctness check has passed.
