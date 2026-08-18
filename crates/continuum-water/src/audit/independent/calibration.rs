@@ -19,13 +19,28 @@ pub(crate) fn compute() -> Result<HydroCalibrationTrace, WaterError> {
 pub(crate) fn compute_ghost() -> Result<CandidateCalibrationComputation, WaterError> {
     let positions = generate_fluid()?;
     let boundary_positions = generate_ghost_boundary()?;
+    compute_lattice_candidate(&positions, boundary_positions, "ghost")
+}
+
+pub(crate) fn compute_support_complete() -> Result<CandidateCalibrationComputation, WaterError> {
+    let positions = generate_fluid()?;
+    let boundary_positions = generate_support_complete_boundary()?;
+    compute_lattice_candidate(&positions, boundary_positions, "support-complete")
+}
+
+fn compute_lattice_candidate(
+    positions: &[I3],
+    boundary_positions: Vec<I3>,
+    label: &str,
+) -> Result<CandidateCalibrationComputation, WaterError> {
     let boundary_volumes = filled(boundary_positions.len(), REST_VOLUME)?;
-    let trace = compute_trace(&positions, &boundary_positions, &boundary_volumes)?;
+    let trace = compute_trace(positions, &boundary_positions, &boundary_volumes)?;
     let mut boundary = reserved(boundary_positions.len())?;
     for (index, position) in boundary_positions.iter().copied().enumerate() {
         boundary.push(AuditBoundaryInput {
-            id: u32::try_from(index)
-                .map_err(|_| WaterError::new(AUDIT_INVALID, "ghost boundary id overflow"))?,
+            id: u32::try_from(index).map_err(|_| {
+                WaterError::new(AUDIT_INVALID, format!("{label} boundary id overflow"))
+            })?,
             position_um: position.common(),
             volume_bits: scalar_bits(boundary_volumes[index]),
         });
@@ -81,6 +96,26 @@ fn generate_ghost_boundary() -> Result<Vec<I3>, WaterError> {
         }
     }
     require_count("ghost boundary", result.len(), EXPECTED_COUNT)?;
+    Ok(result)
+}
+
+fn generate_support_complete_boundary() -> Result<Vec<I3>, WaterError> {
+    const EXPECTED_COUNT: usize = 5_824;
+    let mut result = reserved(EXPECTED_COUNT)?;
+    for ix in -2_i64..=21 {
+        for iy in -2_i64..=21 {
+            for iz in -2_i64..=21 {
+                if !(0..20).contains(&ix) || !(0..20).contains(&iy) || !(0..20).contains(&iz) {
+                    result.push(I3::new(
+                        25_000 + (50_000 * ix),
+                        25_000 + (50_000 * iy),
+                        25_000 + (50_000 * iz),
+                    ));
+                }
+            }
+        }
+    }
+    require_count("support-complete boundary", result.len(), EXPECTED_COUNT)?;
     Ok(result)
 }
 

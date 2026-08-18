@@ -478,6 +478,11 @@ pub(crate) fn independent_ghost_hydro_calibration()
     independent::compute_ghost_calibration()
 }
 
+pub(crate) fn independent_support_complete_hydro_calibration()
+-> Result<crate::calibration::CandidateCalibrationComputation, WaterError> {
+    independent::compute_support_complete_calibration()
+}
+
 pub(crate) fn independent_volume_map_hydro_calibration()
 -> Result<crate::calibration::HydroCalibrationTrace, WaterError> {
     independent::compute_volume_map_calibration()

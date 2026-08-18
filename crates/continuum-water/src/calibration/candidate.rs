@@ -9,7 +9,7 @@ use serde::Serialize;
 
 use crate::audit::{
     AuditBoundaryInput, boundary_input_root, fluid_input_root, independent_ghost_hydro_calibration,
-    production_fluid_input, scalar_bits,
+    independent_support_complete_hydro_calibration, production_fluid_input, scalar_bits,
 };
 use crate::boundary::BoundarySample;
 use crate::error::{
@@ -29,7 +29,31 @@ use crate::{boundary, profile, scenario, solver};
 use super::{CandidateCalibrationComputation, HydroCalibrationTrace, first_mismatch};
 
 const CANDIDATE_ID: &str = "ghost-cell-shell-v1";
+const SUPPORT_COMPLETE_CANDIDATE_ID: &str = "support-complete-lattice-complement-v1";
 pub(crate) const HYDRO_SOAK_STEPS: u32 = 24;
+
+#[derive(Clone, Copy)]
+struct CandidateSpec {
+    id: &'static str,
+    exterior_layers: i64,
+    definition: &'static str,
+}
+
+fn candidate_spec(id: &str) -> Option<CandidateSpec> {
+    match id {
+        CANDIDATE_ID => Some(CandidateSpec {
+            id: CANDIDATE_ID,
+            exterior_layers: 1,
+            definition: "one REST_VOLUME sample at every exterior cell centre in the one-cell shell around the analytical box; lattice origin is min + PARTICLE_RADIUS and no fitted multiplier is used",
+        }),
+        SUPPORT_COMPLETE_CANDIDATE_ID => Some(CandidateSpec {
+            id: SUPPORT_COMPLETE_CANDIDATE_ID,
+            exterior_layers: 2,
+            definition: "one REST_VOLUME sample at every exterior cell centre in the two-cell support-complete lattice complement around the analytical box; lattice origin is min + PARTICLE_RADIUS and no fitted multiplier is used",
+        }),
+        _ => None,
+    }
+}
 
 #[derive(Serialize)]
 struct CandidateEnvelope<'a> {
@@ -126,11 +150,8 @@ pub(crate) fn run_xtask(
     let candidate = arguments.next().ok_or_else(argument_error)?;
     let output_flag = arguments.next().ok_or_else(argument_error)?;
     let output = arguments.next().ok_or_else(argument_error)?;
-    if candidate_flag != "--candidate"
-        || candidate != CANDIDATE_ID
-        || output_flag != "--output"
-        || arguments.next().is_some()
-    {
+    let spec = candidate_spec(&candidate).ok_or_else(argument_error)?;
+    if candidate_flag != "--candidate" || output_flag != "--output" || arguments.next().is_some() {
         return Err(argument_error());
     }
     let output = PathBuf::from(output);
@@ -143,7 +164,16 @@ pub(crate) fn run_xtask(
     let freefall = scenario::find("CW-FREEFALL-001")?;
     let freefall_root = scenario::root_for(&freefall, &roots)?;
     let samples = scenario::initial_samples(&hydro, StorageOrder::Reverse)?;
-    let candidate_boundary = ghost_cell_shell(hydro.geometry)?;
+    let candidate_boundary = match spec.exterior_layers {
+        1 => ghost_cell_shell(hydro.geometry)?,
+        2 => support_complete_lattice_complement(hydro.geometry)?,
+        _ => {
+            return Err(WaterError::new(
+                AUDIT_INVALID,
+                "candidate has an unsupported exterior layer count",
+            ));
+        }
+    };
     let production_boundary = audit_boundary_input(&candidate_boundary)?;
     let mut fluid_input = production_fluid_input(&samples)?;
     fluid_input.sort_unstable_by_key(|sample| sample.id);
@@ -151,7 +181,16 @@ pub(crate) fn run_xtask(
     let started = Instant::now();
     let production_trace =
         solver::production_hydro_calibration(&samples, &candidate_boundary, hydro.geometry)?;
-    let independent = independent_ghost_hydro_calibration()?;
+    let independent = match spec.exterior_layers {
+        1 => independent_ghost_hydro_calibration()?,
+        2 => independent_support_complete_hydro_calibration()?,
+        _ => {
+            return Err(WaterError::new(
+                AUDIT_INVALID,
+                "candidate has an unsupported exterior layer count",
+            ));
+        }
+    };
     let mismatch = candidate_mismatch(&production_boundary, &production_trace, &independent);
     let normal_hydro_step = normal_hydro_step(
         &samples,
@@ -184,7 +223,13 @@ pub(crate) fn run_xtask(
         &hydro_root,
         160,
     )?;
-    let freefall_control = compare_freefall(&freefall, &roots.execution_profile, &freefall_root)?;
+    let freefall_control = compare_freefall_with_layers(
+        &freefall,
+        &roots.execution_profile,
+        &freefall_root,
+        spec.exterior_layers,
+        spec.id,
+    )?;
     let elapsed = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
     let comparison = if mismatch.is_none() {
         "EXACT_MATCH"
@@ -224,22 +269,31 @@ pub(crate) fn run_xtask(
             original_hydro_scenario_root: hash::hex(&hydro_root),
             original_freefall_scenario_root: hash::hex(&freefall_root),
         },
-        candidate_id: CANDIDATE_ID.to_owned(),
-        candidate_definition: "one REST_VOLUME sample at every exterior cell centre in the one-cell shell around the analytical box; lattice origin is min + PARTICLE_RADIUS and no fitted multiplier is used".to_owned(),
+        candidate_id: spec.id.to_owned(),
+        candidate_definition: spec.definition.to_owned(),
         classification: "COUNTERFACTUAL_BOUNDARY_CANDIDATE".to_owned(),
         corpus_credit: "NO_CORPUS_CREDIT".to_owned(),
         selection_status: "NOT_SELECTED".to_owned(),
         comparison: comparison.to_owned(),
         first_mismatch: mismatch.clone(),
         local_disposition: local_disposition.to_owned(),
-        ceiling_counterfactual_id: "ghost-cell-shell-v1+max100".to_owned(),
+        ceiling_counterfactual_id: format!("{}+max100", spec.id),
         ceiling_counterfactual_disposition: ceiling_counterfactual_disposition.to_owned(),
         conclusion: if survived {
-            "the cell-centred ghost-volume shell survives the bounded hydro step and exact free-fall control; full corpus, external aggregate comparison and successor-root closure are still required before selection".to_owned()
+            format!(
+                "{} survives the bounded hydro step and exact free-fall control; full corpus, external aggregate comparison and successor-root closure are still required before selection",
+                spec.id
+            )
         } else if combined_survived {
-            "the boundary-only candidate fails at the original ceiling, while the source-derived max100 counterfactual survives the bounded hydro soak and exact free-fall control; independent dynamic, full-corpus and external evidence are still required".to_owned()
+            format!(
+                "{} fails at the original ceiling, while its max100 counterfactual survives the bounded hydro soak and exact free-fall control; the candidate remains rejected under the unchanged profile",
+                spec.id
+            )
         } else {
-            "the cell-centred ghost-volume shell fails a local discriminator and must not be selected".to_owned()
+            format!(
+                "{} fails a local discriminator and must not be selected",
+                spec.id
+            )
         },
         product_check: "CONTINUUM-WATER-REF-P1=NOT_RUN".to_owned(),
         fluid_sample_count: fluid_input.len(),
@@ -302,16 +356,36 @@ fn argument_error() -> WaterError {
     WaterError::new(
         SCENARIO_INVALID,
         format!(
-            "evaluate-hydro-candidate requires --candidate {CANDIDATE_ID} --output <absolute-path>"
+            "evaluate-hydro-candidate requires --candidate <{CANDIDATE_ID}|{SUPPORT_COMPLETE_CANDIDATE_ID}> --output <absolute-path>"
         ),
     )
 }
 
 pub(super) fn ghost_cell_shell(geometry: Geometry) -> Result<Vec<BoundarySample>, WaterError> {
+    lattice_complement_shell(geometry, 1, CANDIDATE_ID)
+}
+
+fn support_complete_lattice_complement(
+    geometry: Geometry,
+) -> Result<Vec<BoundarySample>, WaterError> {
+    lattice_complement_shell(geometry, 2, SUPPORT_COMPLETE_CANDIDATE_ID)
+}
+
+fn lattice_complement_shell(
+    geometry: Geometry,
+    exterior_layers: i64,
+    candidate_id: &str,
+) -> Result<Vec<BoundarySample>, WaterError> {
     if geometry.aperture.is_some() {
         return Err(WaterError::new(
             AUDIT_INVALID,
-            "ghost-cell-shell-v1 does not define internal aperture sampling",
+            format!("{candidate_id} does not define internal aperture sampling"),
+        ));
+    }
+    if exterior_layers <= 0 {
+        return Err(WaterError::new(
+            AUDIT_INVALID,
+            format!("{candidate_id} requires at least one exterior layer"),
         ));
     }
     let counts = [
@@ -319,14 +393,26 @@ pub(super) fn ghost_cell_shell(geometry: Geometry) -> Result<Vec<BoundarySample>
         cell_count(geometry.bounds.min.y, geometry.bounds.max.y)?,
         cell_count(geometry.bounds.min.z, geometry.bounds.max.z)?,
     ];
+    let exterior_span = exterior_layers.checked_mul(2).ok_or_else(|| {
+        WaterError::new(
+            BOUNDARY_CAPACITY_EXCEEDED,
+            "lattice complement span overflow",
+        )
+    })?;
     let expanded = counts
         .iter()
         .try_fold(1_usize, |product, count| {
-            usize::try_from(*count + 2)
-                .ok()
+            count
+                .checked_add(exterior_span)
+                .and_then(|value| usize::try_from(value).ok())
                 .and_then(|value| product.checked_mul(value))
         })
-        .ok_or_else(|| WaterError::new(BOUNDARY_CAPACITY_EXCEEDED, "ghost shell size overflow"))?;
+        .ok_or_else(|| {
+            WaterError::new(
+                BOUNDARY_CAPACITY_EXCEEDED,
+                "lattice complement size overflow",
+            )
+        })?;
     let interior = counts
         .iter()
         .try_fold(1_usize, |product, count| {
@@ -334,35 +420,54 @@ pub(super) fn ghost_cell_shell(geometry: Geometry) -> Result<Vec<BoundarySample>
                 .ok()
                 .and_then(|value| product.checked_mul(value))
         })
-        .ok_or_else(|| WaterError::new(BOUNDARY_CAPACITY_EXCEEDED, "ghost interior overflow"))?;
+        .ok_or_else(|| {
+            WaterError::new(
+                BOUNDARY_CAPACITY_EXCEEDED,
+                "lattice complement interior overflow",
+            )
+        })?;
     let expected = expanded.checked_sub(interior).ok_or_else(|| {
         WaterError::new(
             BOUNDARY_CAPACITY_EXCEEDED,
-            "ghost shell subtraction overflow",
+            "lattice complement subtraction overflow",
         )
     })?;
     if expected > MAXIMUM_BOUNDARY_SAMPLES {
         return Err(WaterError::new(
             BOUNDARY_CAPACITY_EXCEEDED,
-            format!("ghost boundary samples {expected} exceed capacity {MAXIMUM_BOUNDARY_SAMPLES}"),
+            format!(
+                "{candidate_id} boundary samples {expected} exceed capacity {MAXIMUM_BOUNDARY_SAMPLES}"
+            ),
         ));
     }
     let mut result = Vec::new();
     result.try_reserve_exact(expected).map_err(|error| {
         WaterError::new(
             BOUNDARY_CAPACITY_EXCEEDED,
-            format!("ghost boundary allocation failed: {error}"),
+            format!("{candidate_id} boundary allocation failed: {error}"),
         )
     })?;
-    for ix in -1_i64..=counts[0] {
-        for iy in -1_i64..=counts[1] {
-            for iz in -1_i64..=counts[2] {
-                if ix == -1
-                    || ix == counts[0]
-                    || iy == -1
-                    || iy == counts[1]
-                    || iz == -1
-                    || iz == counts[2]
+    let maximum_indices = counts.map(|count| {
+        count.checked_add(exterior_layers - 1).ok_or_else(|| {
+            WaterError::new(
+                BOUNDARY_CAPACITY_EXCEEDED,
+                "lattice complement maximum index overflow",
+            )
+        })
+    });
+    let [maximum_x, maximum_y, maximum_z] = maximum_indices;
+    let maximum_x = maximum_x?;
+    let maximum_y = maximum_y?;
+    let maximum_z = maximum_z?;
+    for ix in -exterior_layers..=maximum_x {
+        for iy in -exterior_layers..=maximum_y {
+            for iz in -exterior_layers..=maximum_z {
+                if ix < 0
+                    || ix >= counts[0]
+                    || iy < 0
+                    || iy >= counts[1]
+                    || iz < 0
+                    || iz >= counts[2]
                 {
                     let position_um = Vec3i::new(
                         ghost_coordinate(geometry.bounds.min.x, ix)?,
@@ -371,7 +476,10 @@ pub(super) fn ghost_cell_shell(geometry: Geometry) -> Result<Vec<BoundarySample>
                     );
                     result.push(BoundarySample {
                         id: u32::try_from(result.len()).map_err(|_| {
-                            WaterError::new(BOUNDARY_CAPACITY_EXCEEDED, "ghost id overflow")
+                            WaterError::new(
+                                BOUNDARY_CAPACITY_EXCEEDED,
+                                "lattice complement id overflow",
+                            )
                         })?,
                         position_um,
                         volume: REST_VOLUME,
@@ -384,7 +492,7 @@ pub(super) fn ghost_cell_shell(geometry: Geometry) -> Result<Vec<BoundarySample>
         return Err(WaterError::new(
             AUDIT_INVALID,
             format!(
-                "ghost boundary generated {} samples, expected {expected}",
+                "{candidate_id} generated {} samples, expected {expected}",
                 result.len()
             ),
         ));
@@ -561,9 +669,20 @@ pub(super) fn compare_freefall(
     execution_root: &[u8; 32],
     scenario_root: &[u8; 32],
 ) -> Result<FreefallControl, WaterError> {
+    compare_freefall_with_layers(scenario, execution_root, scenario_root, 1, CANDIDATE_ID)
+}
+
+fn compare_freefall_with_layers(
+    scenario: &crate::model::Scenario,
+    execution_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+    exterior_layers: i64,
+    candidate_id: &str,
+) -> Result<FreefallControl, WaterError> {
     let samples = scenario::initial_samples(scenario, StorageOrder::Reverse)?;
     let baseline_boundary = boundary::build(scenario.geometry)?;
-    let candidate_boundary = ghost_cell_shell(scenario.geometry)?;
+    let candidate_boundary =
+        lattice_complement_shell(scenario.geometry, exterior_layers, candidate_id)?;
     let (mut baseline, _) = solver::initial_frame(
         samples.clone(),
         scenario.geometry,
@@ -708,6 +827,75 @@ mod tests {
                 .iter()
                 .all(|sample| sample.volume.to_bits() == REST_VOLUME.to_bits())
         );
+    }
+
+    #[test]
+    fn support_complete_complement_has_exactly_two_outer_layers() {
+        let hydro = scenario::find("CW-HYDRO-001").unwrap();
+        let boundary = support_complete_lattice_complement(hydro.geometry).unwrap();
+        assert_eq!(boundary.len(), 5_824);
+        assert_eq!(
+            boundary.first().unwrap().position_um,
+            Vec3i::new(-75_000, -75_000, -75_000)
+        );
+        assert_eq!(
+            boundary.last().unwrap().position_um,
+            Vec3i::new(1_075_000, 1_075_000, 1_075_000)
+        );
+        assert!(
+            boundary
+                .iter()
+                .all(|sample| sample.volume.to_bits() == REST_VOLUME.to_bits())
+        );
+
+        let freefall = scenario::find("CW-FREEFALL-001").unwrap();
+        assert_eq!(
+            support_complete_lattice_complement(freefall.geometry)
+                .unwrap()
+                .len(),
+            9_344
+        );
+    }
+
+    #[test]
+    fn support_complete_candidate_matches_the_independent_calculator() {
+        let hydro = scenario::find("CW-HYDRO-001").unwrap();
+        let samples = scenario::initial_samples(&hydro, StorageOrder::Reverse).unwrap();
+        let boundary = support_complete_lattice_complement(hydro.geometry).unwrap();
+        let boundary_input = audit_boundary_input(&boundary).unwrap();
+        let production =
+            solver::production_hydro_calibration(&samples, &boundary, hydro.geometry).unwrap();
+        let independent = independent_support_complete_hydro_calibration().unwrap();
+
+        assert_eq!(
+            candidate_mismatch(&boundary_input, &production, &independent),
+            None
+        );
+        assert_eq!(
+            production
+                .contributions
+                .iter()
+                .map(|row| row.partition_error_ppb)
+                .collect::<Vec<_>>(),
+            [-27_534; 4]
+        );
+        assert_eq!(
+            boundary_input_root(&boundary_input),
+            "16b70d3db32f099630101021e542aaa6d7d95d9be6c931207f6521df8056251a"
+        );
+
+        let original =
+            run_hydro_soak(&samples, hydro.geometry, &boundary, &[0; 32], &[1; 32], 20).unwrap();
+        let max100 =
+            run_hydro_soak(&samples, hydro.geometry, &boundary, &[0; 32], &[1; 32], 100).unwrap();
+        let max160 =
+            run_hydro_soak(&samples, hydro.geometry, &boundary, &[0; 32], &[1; 32], 160).unwrap();
+        assert_eq!(original.completed_steps, 1);
+        assert_eq!(original.terminal_detail, "iteration 20 ended at 192430 ppb");
+        assert_eq!(max100.completed_steps, 3);
+        assert_eq!(max100.terminal_detail, "iteration 100 ended at 108211 ppb");
+        assert_eq!(max160.completed_steps, 4);
+        assert_eq!(max160.terminal_detail, "iteration 160 ended at 126883 ppb");
     }
 
     #[test]

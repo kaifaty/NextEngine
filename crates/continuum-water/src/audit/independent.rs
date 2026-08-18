@@ -17,6 +17,7 @@ mod volume_map;
 
 pub(crate) use calibration::{
     compute as compute_calibration, compute_ghost as compute_ghost_calibration,
+    compute_support_complete as compute_support_complete_calibration,
     compute_volume_map as compute_volume_map_calibration,
 };
 pub(crate) use initialization::compute as compute_zero_velocity_settling;
