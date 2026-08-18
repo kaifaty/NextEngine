@@ -123,7 +123,8 @@ async def benchmark_service(
             capture_to_first_affect_latencies.append(capture_affect_ms)
         metrics = final.get("metrics")
         jobs = metrics.get("jobs", []) if isinstance(metrics, dict) else []
-        if isinstance(jobs, list):
+        jobs_truncated = isinstance(metrics, dict) and metrics.get("jobs_truncated") is True
+        if isinstance(jobs, list) and not jobs_truncated:
             for job in jobs:
                 if not isinstance(job, dict):
                     continue
@@ -133,11 +134,30 @@ async def benchmark_service(
                     queue_waits.append(float(queue_wait))
                 if isinstance(inference, (int, float)):
                     inference_times.append(float(inference))
-        run_inference_ms = sum(
-            float(job.get("inference_ms", 0))
-            for job in jobs
-            if isinstance(job, dict) and isinstance(job.get("inference_ms"), (int, float))
-        )
+        if jobs_truncated and isinstance(metrics, dict):
+            run_inference_ms = 0.0
+            summary = metrics.get("job_summary")
+            if isinstance(summary, dict):
+                for item in summary.values():
+                    if not isinstance(item, dict):
+                        continue
+                    total = item.get("inference_total_ms")
+                    if isinstance(total, (int, float)):
+                        run_inference_ms += float(total)
+                    for key in ("queue_wait_p50_ms", "queue_wait_p95_ms"):
+                        value = item.get(key)
+                        if isinstance(value, (int, float)):
+                            queue_waits.append(float(value))
+                    for key in ("inference_p50_ms", "inference_p95_ms"):
+                        value = item.get(key)
+                        if isinstance(value, (int, float)):
+                            inference_times.append(float(value))
+        else:
+            run_inference_ms = sum(
+                float(job.get("inference_ms", 0))
+                for job in jobs
+                if isinstance(job, dict) and isinstance(job.get("inference_ms"), (int, float))
+            )
         model_busy_rtf = run_inference_ms / 1000 / audio_seconds
         model_busy_rtfs.append(model_busy_rtf)
         run_reports.append(

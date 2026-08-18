@@ -373,6 +373,20 @@ class SpeechTimelineWebSocketService:
             payload = await connection.events.get()
             try:
                 await websocket.send(encode_event(payload))
+            except ProtocolError as error:
+                # Keep an oversized update from killing the sender task and
+                # leaving the client waiting forever for utterance.final.
+                fallback = event(
+                    "error",
+                    code=error.code,
+                    terminal=True,
+                    detail=str(error)[:512],
+                )
+                try:
+                    await websocket.send(encode_event(fallback))
+                except ConnectionClosed:
+                    return
+                return
             finally:
                 connection.events.task_done()
 

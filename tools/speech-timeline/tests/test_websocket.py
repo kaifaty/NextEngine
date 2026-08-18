@@ -17,7 +17,9 @@ from nextengine_speech_timeline.adapters.base import AffectObservation
 from nextengine_speech_timeline.adapters.voxtral_transcribe_cpp import TranscriptRevision
 from nextengine_speech_timeline.benchmark import benchmark_service
 from nextengine_speech_timeline.microphone_client import ReadyInfo, run_websocket_session
-from nextengine_speech_timeline.service import SpeechTimelineRuntime
+from nextengine_speech_timeline.metrics import ModelJobMetric
+from nextengine_speech_timeline.protocol import MAX_JSON_BYTES, encode_event, event
+from nextengine_speech_timeline.service import SpeechConnection, SpeechTimelineRuntime
 from nextengine_speech_timeline.session import SessionBounds
 from nextengine_speech_timeline.transport_websocket import SpeechTimelineWebSocketService
 
@@ -395,6 +397,36 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("готово", serialized)
         self.assertEqual(self.transcriber.load_count, 1)
         self.assertEqual(self.transcriber.start_count, 2)
+
+    async def test_final_metrics_remain_within_event_bound_after_long_turn(self) -> None:
+        connection = SpeechConnection(
+            self.service.runtime,
+            SessionBounds(),
+            self.service._claim,
+            self.service._release,
+        )
+        connection._job_metrics = [
+            ModelJobMetric(1, "voxtral_push", index * 1_000, (index + 1) * 1_000, 3, 40)
+            for index in range(1_000)
+        ]
+
+        metrics = connection.metrics_payload()
+        self.assertTrue(metrics["jobs_truncated"])
+        self.assertEqual(metrics["jobs_total"], 1_000)
+        self.assertEqual(len(metrics["jobs"]), 64)
+        encoded = encode_event(
+            event(
+                "utterance.final",
+                session_id="long-turn",
+                text="готово",
+                timing_precision="utterance",
+                observed_vocal_expression="neutral",
+                alignment_grade="utterance",
+                spans=[],
+                metrics=metrics,
+            )
+        )
+        self.assertLessEqual(len(encoded.encode("utf-8")), MAX_JSON_BYTES)
 
     async def test_transport_backpressure_absorbs_short_unpaced_burst(self) -> None:
         self.transcriber.push_delay = 0.05

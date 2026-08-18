@@ -154,4 +154,7 @@ Measure sequential resident sessions with an external 16 kHz mono PCM WAV:
 
 The report is atomically replaced with mode `0600` and contains model identity,
 load counts, queue/inference latency, end-to-end RTF, and p50/p95 summaries. It
-omits audio and transcript content.
+omits audio and transcript content. The terminal `metrics` payload keeps the
+last 64 job records on the wire, while `jobs_total` and `job_summary` retain
+exact counts/totals/percentiles for long turns; any future oversized event is
+returned as one terminal protocol error rather than leaving the client waiting.

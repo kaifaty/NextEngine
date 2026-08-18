@@ -21,6 +21,7 @@ from .timeline import AffectCadence, SpeechTimeline, TimelineSnapshot
 
 
 T = TypeVar("T")
+PUBLIC_JOB_METRIC_LIMIT = 64
 
 
 class SpeechTimelineRuntime:
@@ -443,7 +444,10 @@ class SpeechConnection:
         scheduler_delta["max_queue_depth"] = self._session_max_queue_depth
         return {
             "audio_samples": self.session.total_samples,
-            "jobs": [item.as_dict() for item in self._job_metrics],
+            "jobs": [item.as_dict() for item in self._job_metrics[-PUBLIC_JOB_METRIC_LIMIT:]],
+            "jobs_total": len(self._job_metrics),
+            "jobs_truncated": len(self._job_metrics) > PUBLIC_JOB_METRIC_LIMIT,
+            "job_summary": _job_summary(self._job_metrics),
             "scheduler": scheduler_delta,
             "model_load_count": {
                 "transcriber": getattr(self.runtime.transcriber, "load_count", None),
@@ -499,3 +503,29 @@ def _value(value: object) -> object:
 
 def _bounded_error(error: BaseException) -> str:
     return f"model operation failed: {type(error).__name__}"
+
+
+def _job_summary(metrics: list[ModelJobMetric]) -> dict[str, dict[str, int]]:
+    by_kind: dict[str, list[ModelJobMetric]] = {}
+    for item in metrics:
+        by_kind.setdefault(item.job_kind, []).append(item)
+    return {
+        kind: {
+            "count": len(items),
+            "queue_wait_total_ms": sum(item.queue_wait_ms for item in items),
+            "queue_wait_p50_ms": _percentile_int([item.queue_wait_ms for item in items], 50),
+            "queue_wait_p95_ms": _percentile_int([item.queue_wait_ms for item in items], 95),
+            "inference_total_ms": sum(item.inference_ms for item in items),
+            "inference_p50_ms": _percentile_int([item.inference_ms for item in items], 50),
+            "inference_p95_ms": _percentile_int([item.inference_ms for item in items], 95),
+        }
+        for kind, items in sorted(by_kind.items())
+    }
+
+
+def _percentile_int(values: list[int], percentile: int) -> int:
+    if not values:
+        return 0
+    ordered = sorted(values)
+    index = max(0, (percentile * len(ordered) + 99) // 100 - 1)
+    return ordered[index]

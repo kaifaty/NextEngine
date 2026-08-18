@@ -45,12 +45,13 @@
 | `docs/plans/2026-08-18-conversation-service-phase-2.md` | proposed Phase 2 sequence | Defines LLM/TTS worker topology, context seam, evidence and two pending scope choices without tool calling or strategic integration. |
 | `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` | proposed Phase 3 sequence | Maps actual models to engine-owned roles, validators, owners and fallbacks; shadow-integrates the strategic model and freezes consumer-backed catalogs. |
 | `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` | deferred Phase 4 sequence | Reopens exact Phase 3 catalogs, then builds corpus, measures/fine-tunes FunctionGemma and integrates it shadow-first. |
-| `codex/speech-timeline-service`, Phase 1 fake suite | 52 Python service tests + 14 preserved Voxtral probe tests pass | Auth/version/size/state/fault/dashboard boundaries, second-session residency, cadence, no-word-span fusion and client/benchmark paths are executable without weights. |
+| `codex/speech-timeline-service`, Phase 1 fake suite | 53 Python service tests + 14 preserved Voxtral probe tests pass | Auth/version/size/state/fault/dashboard boundaries, second-session residency, cadence, no-word-span fusion, bounded terminal metrics and client/benchmark paths are executable without weights. |
 | Joint RTX 3080 run, exact artifacts, 2026-08-18 | 2 × 4.5 s paced turns; load counts Voxtral/emotion `1/1`; worker-busy RTF p95 `0.690`; first chunk→update p95 `1.363 s`; finish→final p95 `0.970 s`; process peak `5870 MiB` VRAM | Both CUDA models remain resident with >1 GiB headroom; explicit-finish vertical passes. Report: `/tmp/nextengine-speech-timeline-phase1-benchmark.json` (external, content-free). |
 | 30 s paced soak, 2026-08-18 | worker-busy RTF `0.530`; first update `1.136 s`; finish→final `1.352 s`; no reload | Paced streaming remains faster than realtime without unbounded ASR backlog. Direct internal scheduler saturation still fails closed. |
 | Vue dashboard + turn-bound regression, 2026-08-18 | Browser source builds with pinned Vue/Vite/TypeScript; same-origin HTTP/bootstrap and WebSocket-origin tests pass; CLI/browser auto-finalize at the advertised 30 s/960,000-byte bound; overflow emits one terminal `TURN_TOO_LARGE` | The diagnostic view can expose transcript/raw affect/smoothed fusion without token copy-paste or repeated overflow spam. |
 | Real 30 s unpaced ingress after browser overload report, 2026-08-18 | completed in `15.478 s`; worker-busy RTF `0.515`; first update `0.597 s`; scheduler max useful depth `4`, overloads `0`, model load counts `1/1` | A bounded two-ASR-job admission semaphore absorbs transient transport bursts without expanding the model scheduler or failing a live turn. External content-free report: `/tmp/nextengine-speech-backpressure-30s.json`. |
 | Optimized 80 ms paced ingress, partial decode 240 ms, 2026-08-18 | 3 × 10.44 s; first affect p95 `1.094 s`, first ASR revision p95 `1.806 s`, finish→final p95 `0.810 s`, worker-busy RTF p95 `0.594`, max queue depth `2`, overloads `0`; 44.1/48 kHz 12 s resampler checks have zero sample drift | Keep model delay 480 ms for quality, separate partial cadence at 240 ms, and expose ASR/affect latency separately. Report: `/tmp/nextengine-speech-optimized-final.json` (external, content-free). |
+| Long-turn terminal-event soak, 2026-08-18 | Before fix, a 29–30 s paced turn completed model work but `utterance.final` JSON reached `68,660` bytes because all per-job metrics were serialized; the sender then failed with `EVENT_TOO_LARGE` and the client waited. After fix, exact 30 s completes in `31.204 s`, finish→final `0.987 s`, worker-busy RTF `0.554`; all `479` jobs remain represented by aggregates plus a 64-job tail. | Bound diagnostic metrics on the wire and fail closed on any future oversized event; do not treat this protocol failure as model inference degradation. Reports: `/tmp/nextengine-speech-diag-29s-fixed-full.json`, `/tmp/nextengine-speech-diag-30s-fixed-metrics.json` (external, content-free). |
 | ADR-005; SPEC-16/ADR-017 | Accepted isolation/fallback boundary; multimodal track remains Deferred Proposed | No direct gameplay mutation or product-shipped claim. |
 
 ## Decisions that constrain the work
@@ -152,6 +153,13 @@
 - **Decision:** Keep the Voxtral quality-delay setting at 480 ms, feed 80 ms PCM, request partial decoding every 240 ms, preserve resampler phase across worklet blocks and flush the last block before finish. Report ASR and affect first-result latency separately.
 - **Consequence:** Transport cadence no longer masquerades as model delay, browser audio time stays aligned, and later tuning can change adapter cadence without changing the facade.
 - **Reconsider when:** Representative live Russian WER/revision-churn or RTF degrades, or a runtime exposes a lower-latency quality profile with measured parity.
+
+### D-012 — Bound terminal diagnostics and fail closed on oversized events
+
+- **Observation/evidence:** A long turn accumulated hundreds of model-job metrics; the 64 KiB protocol limit was exceeded after inference had completed, killing the sender task before `utterance.final`.
+- **Decision:** Keep exact aggregates and only the last 64 job records in terminal metrics; treat any future `EVENT_TOO_LARGE` as one terminal protocol error instead of leaving the client waiting.
+- **Consequence:** Long turns remain observable without unbounded wire payloads; benchmark aggregation reads the exact job summary when the tail is truncated.
+- **Reconsider when:** The protocol gains a separately authenticated streaming metrics channel or a consumer requires complete per-job traces off-band.
 
 ## Open hypotheses
 
