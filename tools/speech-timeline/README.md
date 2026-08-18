@@ -79,6 +79,14 @@ The dashboard deliberately keeps these representations separate:
 - smoothed observed-expression segments;
 - the final utterance-level fusion result and exact model lineage.
 
+Timeline updates carry only newly observed affect windows after the first
+revision (`raw_observations_mode: "append"`); the dashboard merges them by
+`observation_id`. Smoothed segments remain a replaceable projection. This
+keeps long-turn event payloads bounded instead of serializing the full affect
+history on every ASR revision. Use `NEXTENGINE_SPEECH_LOG_LEVEL=DEBUG` (or
+`serve --log-level DEBUG`) to inspect periodic ingress, slow model jobs, event
+serialization/send timings, and browser-side slow-event diagnostics.
+
 Emotion scores remain uncalibrated observations. Phase 1 doesn't fabricate
 word timestamps, so emotional tags aren't attached to individual words in this
 view. The final tagged-text form is a later derived consumer view.

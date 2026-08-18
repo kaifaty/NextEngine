@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from http import HTTPStatus
 import json
+import time
 import mimetypes
 import os
 from pathlib import Path
@@ -372,7 +373,17 @@ class SpeechTimelineWebSocketService:
         while True:
             payload = await connection.events.get()
             try:
-                await websocket.send(encode_event(payload))
+                encode_started = time.perf_counter_ns()
+                encoded = encode_event(payload)
+                encode_ms = round((time.perf_counter_ns() - encode_started) / 1_000_000)
+                send_started = time.perf_counter_ns()
+                await websocket.send(encoded)
+                send_ms = round((time.perf_counter_ns() - send_started) / 1_000_000)
+                connection.record_event_sent(
+                    payload_bytes=len(encoded.encode("utf-8")),
+                    encode_ms=encode_ms,
+                    send_ms=send_ms,
+                )
             except ProtocolError as error:
                 # Keep an oversized update from killing the sender task and
                 # leaving the client waiting forever for utterance.final.

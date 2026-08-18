@@ -40,6 +40,8 @@ export class SpeechTimelineClient {
   private finishing = false;
   private sessionStarted = false;
   private expectedClose = false;
+  private maxBufferedAmount = 0;
+  private lastBufferLogMs = 0;
   private startedResolve: (() => void) | null = null;
   private startedReject: ((error: Error) => void) | null = null;
   bounds: ServiceBounds | null = null;
@@ -58,6 +60,8 @@ export class SpeechTimelineClient {
     this.finishing = false;
     this.sessionStarted = false;
     this.expectedClose = false;
+    this.maxBufferedAmount = 0;
+    this.lastBufferLogMs = 0;
     return new Promise<void>((resolve, reject) => {
       this.startedResolve = resolve;
       this.startedReject = reject;
@@ -110,6 +114,15 @@ export class SpeechTimelineClient {
     }
     const accepted = bytes.byteLength > remaining ? bytes.slice(0, remaining) : bytes;
     this.socket.send(accepted);
+    this.maxBufferedAmount = Math.max(this.maxBufferedAmount, this.socket.bufferedAmount);
+    const now = performance.now();
+    if (this.socket.bufferedAmount >= 64 * 1024 && now - this.lastBufferLogMs >= 1_000) {
+      this.lastBufferLogMs = now;
+      console.info("[speech-timeline] ws_buffer_slow", {
+        bufferedAmount: this.socket.bufferedAmount,
+        maxBufferedAmount: this.maxBufferedAmount,
+      });
+    }
     this.sentBytes += accepted.byteLength;
     return {
       sentBytes: this.sentBytes,

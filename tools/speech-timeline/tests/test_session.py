@@ -60,6 +60,16 @@ class SessionTests(unittest.TestCase):
             session.cancel("turn-2")
         self.assertEqual(caught.exception.code, "SESSION_MISMATCH")
 
+    def test_pcm_window_copies_only_requested_range(self) -> None:
+        session = active_session()
+        session.append_pcm(b"0123456789")
+        self.assertEqual(session.pcm_window(1, 4), b"234567")
+        metrics = session.copy_metrics()
+        self.assertEqual(metrics["window_copy_calls"], 1)
+        self.assertEqual(metrics["window_copy_bytes"], 6)
+        self.assertEqual(metrics["full_copy_bytes"], 0)
+        self.assertEqual(metrics["peak_buffer_bytes"], 10)
+
 
 if __name__ == "__main__":
     unittest.main()

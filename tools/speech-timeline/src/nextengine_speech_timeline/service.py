@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import asdict, is_dataclass
+import logging
 from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 
 from .adapters.base import AudioWindow
@@ -17,11 +18,13 @@ from .scheduler import (
     SchedulerOverloaded,
 )
 from .session import SessionBounds, SessionError, SessionState, SpeechSession
-from .timeline import AffectCadence, SpeechTimeline, TimelineSnapshot
+from .timeline import AffectCadence, RawAffectObservation, SpeechTimeline, TimelineSnapshot
 
 
 T = TypeVar("T")
 PUBLIC_JOB_METRIC_LIMIT = 64
+EVENT_TIMING_LIMIT = 128
+logger = logging.getLogger("nextengine.speech_timeline")
 
 
 class SpeechTimelineRuntime:
@@ -98,6 +101,14 @@ class SpeechConnection:
         self.terminal_ready = asyncio.Event()
         self._scheduler_baseline = asdict(self.runtime.scheduler.metrics)
         self._session_max_queue_depth = 0
+        self._affect_observation_cursor = 0
+        self._ingress_frames = 0
+        self._last_progress_second = -1
+        self._event_count = 0
+        self._event_bytes = 0
+        self._event_max_bytes = 0
+        self._event_encode_ms = 0
+        self._event_send_ms: list[int] = []
 
     async def start(self, session_id: str, locale: str | None) -> None:
         if not await self._claim(self):
@@ -134,6 +145,7 @@ class SpeechConnection:
             self._asr_slots.release()
             raise
         generation = self.session.generation
+        self._ingress_frames += 1
         self._spawn(
             self._asr_push_with_backpressure(
                 generation,
@@ -143,9 +155,9 @@ class SpeechConnection:
             ),
             self._asr_tasks,
         )
-        pcm = self.session.pcm_bytes
-        for request in self.cadence.advance(frame.end_sample):
-            window = pcm[request.start_sample * 2 : request.end_sample * 2]
+        requests = self.cadence.advance(frame.end_sample)
+        for request in requests:
+            window = self.session.pcm_window(request.start_sample, request.end_sample)
             self._spawn(
                 self._affect_observe(
                     generation,
@@ -156,6 +168,21 @@ class SpeechConnection:
                     window,
                 ),
                 self._emotion_tasks,
+            )
+        elapsed_second = frame.end_sample // 16_000
+        if elapsed_second > self._last_progress_second:
+            self._last_progress_second = elapsed_second
+            logger.info(
+                "speech.progress session_id=%s audio_ms=%d frames=%d affect_windows=%d "
+                "scheduler_queue=%d asr_tasks=%d emotion_tasks=%d pcm=%s",
+                self.session.session_id,
+                round(frame.end_sample * 1_000 / 16_000),
+                self._ingress_frames,
+                len(requests),
+                self.runtime.scheduler.live_queue_depth,
+                len(self._asr_tasks),
+                len(self._emotion_tasks),
+                self.session.copy_metrics(),
             )
 
     async def finish(self, session_id: str) -> None:
@@ -223,7 +250,7 @@ class SpeechConnection:
         self.session.complete(session_id)
         self.runtime.scheduler.invalidate_generation(generation)
         self._cancel_tasks(self._emotion_tasks)
-        await self.events.put(_timeline_event(session_id, snapshot))
+        await self.events.put(self._timeline_event(snapshot))
         await self.events.put(
             event(
                 "utterance.final",
@@ -296,7 +323,7 @@ class SpeechConnection:
                     final=False,
                     timing_precision=revision.timing_precision,
                 )
-                await self.events.put(_timeline_event(self.session.session_id, snapshot))
+                await self.events.put(self._timeline_event(snapshot))
         except asyncio.CancelledError:
             raise
         except JobDiscarded:
@@ -334,7 +361,7 @@ class SpeechConnection:
                 audio_end_sample=end_sample,
             )
             snapshot = self.timeline.apply_affect(observation)
-            await self.events.put(_timeline_event(self.session.session_id, snapshot))
+            await self.events.put(self._timeline_event(snapshot))
         except asyncio.CancelledError:
             raise
         except JobDiscarded:
@@ -370,6 +397,16 @@ class SpeechConnection:
                         inference_ms=completion.inference_ms,
                     )
                 )
+                if completion.inference_ms >= 100 or completion.queue_wait_ms >= 100:
+                    logger.info(
+                        "speech.model_slow session_id=%s kind=%s audio_end_ms=%d "
+                        "queue_wait_ms=%d inference_ms=%d",
+                        self.session.session_id,
+                        priority.name.lower(),
+                        round(audio_end_sample * 1_000 / 16_000),
+                        completion.queue_wait_ms,
+                        completion.inference_ms,
+                    )
             if completion.error is not None:
                 future.set_exception(completion.error)
             else:
@@ -454,10 +491,63 @@ class SpeechConnection:
                 "vocal_affect": getattr(self.runtime.affect_analyzer, "load_count", None),
             },
             "resources": self.runtime.resources.snapshot(),
+            "ingress": {
+                "frames": self._ingress_frames,
+                "audio_samples": self.session.total_samples,
+                "copy": self.session.copy_metrics(),
+            },
+            "events": {
+                "count": self._event_count,
+                "bytes_total": self._event_bytes,
+                "max_bytes": self._event_max_bytes,
+                "encode_total_ms": self._event_encode_ms,
+                "send_p50_ms": _percentile_int(self._event_send_ms, 50),
+                "send_p95_ms": _percentile_int(self._event_send_ms, 95),
+            },
         }
 
+    def _timeline_event(self, snapshot: TimelineSnapshot) -> dict[str, object]:
+        observations = snapshot.vocal_affect.raw_observations
+        delta = observations[self._affect_observation_cursor :]
+        self._affect_observation_cursor = len(observations)
+        return _timeline_event(
+            self.session.session_id,
+            snapshot,
+            raw_observations=delta,
+        )
 
-def _timeline_event(session_id: str | None, snapshot: TimelineSnapshot) -> dict[str, object]:
+    def record_event_sent(
+        self, *, payload_bytes: int, encode_ms: int, send_ms: int
+    ) -> None:
+        self._event_count += 1
+        self._event_bytes += payload_bytes
+        self._event_max_bytes = max(self._event_max_bytes, payload_bytes)
+        self._event_encode_ms += encode_ms
+        self._event_send_ms.append(send_ms)
+        if len(self._event_send_ms) > EVENT_TIMING_LIMIT:
+            del self._event_send_ms[:-EVENT_TIMING_LIMIT]
+        if payload_bytes >= 16 * 1024 or send_ms >= 25:
+            logger.info(
+                "speech.event_slow session_id=%s bytes=%d encode_ms=%d send_ms=%d queue=%d",
+                self.session.session_id,
+                payload_bytes,
+                encode_ms,
+                send_ms,
+                self.events.qsize(),
+            )
+
+
+def _timeline_event(
+    session_id: str | None,
+    snapshot: TimelineSnapshot,
+    *,
+    raw_observations: tuple[RawAffectObservation, ...] | None = None,
+) -> dict[str, object]:
+    observations = (
+        snapshot.vocal_affect.raw_observations
+        if raw_observations is None
+        else raw_observations
+    )
     return event(
         "speech_timeline.update",
         session_id=session_id,
@@ -472,6 +562,8 @@ def _timeline_event(session_id: str | None, snapshot: TimelineSnapshot) -> dict[
         vocal_affect={
             "revision": snapshot.vocal_affect.revision,
             "replace_from_sample": snapshot.vocal_affect.replace_from_sample,
+            "raw_observations_mode": "snapshot" if raw_observations is None else "append",
+            "raw_observations_total": len(snapshot.vocal_affect.raw_observations),
             "raw_observations": [
                 {
                     "observation_id": item.observation_id,
@@ -480,7 +572,7 @@ def _timeline_event(session_id: str | None, snapshot: TimelineSnapshot) -> dict[
                     "scores": dict(item.scores),
                     "top_label": item.top_label,
                 }
-                for item in snapshot.vocal_affect.raw_observations
+                for item in observations
             ],
             "segments": [asdict(item) for item in snapshot.vocal_affect.segments],
         },

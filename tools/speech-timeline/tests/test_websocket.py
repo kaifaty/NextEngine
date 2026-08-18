@@ -19,8 +19,13 @@ from nextengine_speech_timeline.benchmark import benchmark_service
 from nextengine_speech_timeline.microphone_client import ReadyInfo, run_websocket_session
 from nextengine_speech_timeline.metrics import ModelJobMetric
 from nextengine_speech_timeline.protocol import MAX_JSON_BYTES, encode_event, event
-from nextengine_speech_timeline.service import SpeechConnection, SpeechTimelineRuntime
+from nextengine_speech_timeline.service import (
+    SpeechConnection,
+    SpeechTimelineRuntime,
+    _timeline_event,
+)
 from nextengine_speech_timeline.session import SessionBounds
+from nextengine_speech_timeline.timeline import SpeechTimeline
 from nextengine_speech_timeline.transport_websocket import SpeechTimelineWebSocketService
 
 
@@ -427,6 +432,51 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
             )
         )
         self.assertLessEqual(len(encoded.encode("utf-8")), MAX_JSON_BYTES)
+
+    async def test_timeline_event_emits_affect_observations_as_append_only_delta(self) -> None:
+        timeline = SpeechTimeline()
+        connection = SpeechConnection(
+            self.service.runtime,
+            SessionBounds(),
+            self.service._claim,
+            self.service._release,
+        )
+
+        first = timeline.apply_affect(
+            AffectObservation(
+                model_id="fake-emotion",
+                model_revision="revision",
+                start_sample=0,
+                end_sample=16_000,
+                source_revision=16_000,
+                scores={"neutral": 0.8},
+                top_label="neutral",
+                inference_elapsed_ms=1,
+            )
+        )
+        first_event = connection._timeline_event(first)
+        second = timeline.apply_affect(
+            AffectObservation(
+                model_id="fake-emotion",
+                model_revision="revision",
+                start_sample=4_000,
+                end_sample=20_000,
+                source_revision=20_000,
+                scores={"angry": 0.9},
+                top_label="angry",
+                inference_elapsed_ms=1,
+            )
+        )
+        second_event = connection._timeline_event(second)
+
+        first_affect = first_event["vocal_affect"]
+        second_affect = second_event["vocal_affect"]
+        self.assertEqual(first_affect["raw_observations_mode"], "append")
+        self.assertEqual(second_affect["raw_observations_mode"], "append")
+        self.assertEqual(len(first_affect["raw_observations"]), 1)
+        self.assertEqual(len(second_affect["raw_observations"]), 1)
+        self.assertEqual(second_affect["raw_observations_total"], 2)
+        self.assertEqual(second_affect["raw_observations"][0]["observation_id"], 2)
 
     async def test_transport_backpressure_absorbs_short_unpaced_burst(self) -> None:
         self.transcriber.push_delay = 0.05

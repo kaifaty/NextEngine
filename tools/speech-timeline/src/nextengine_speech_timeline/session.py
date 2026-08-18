@@ -61,6 +61,10 @@ class SpeechSession:
         self._sequence = 0
         self._terminal_emitted = False
         self._lock = threading.RLock()
+        self._full_copy_bytes = 0
+        self._window_copy_bytes = 0
+        self._window_copy_calls = 0
+        self._peak_buffer_bytes = 0
 
     @property
     def total_samples(self) -> int:
@@ -70,7 +74,36 @@ class SpeechSession:
     @property
     def pcm_bytes(self) -> bytes:
         with self._lock:
-            return bytes(self._buffer)
+            payload = bytes(self._buffer)
+            self._full_copy_bytes += len(payload)
+            return payload
+
+    def pcm_window(self, start_sample: int, end_sample: int) -> bytes:
+        """Copy only one bounded audio window from the authoritative buffer."""
+        with self._lock:
+            if start_sample < 0 or end_sample < start_sample:
+                raise SessionError("INVALID_AUDIO_WINDOW", "audio window bounds are invalid")
+            total_samples = self._received_bytes // SAMPLE_WIDTH_BYTES
+            if end_sample > total_samples:
+                raise SessionError("INVALID_AUDIO_WINDOW", "audio window exceeds received PCM")
+            payload = bytes(
+                self._buffer[
+                    start_sample * SAMPLE_WIDTH_BYTES : end_sample * SAMPLE_WIDTH_BYTES
+                ]
+            )
+            self._window_copy_bytes += len(payload)
+            self._window_copy_calls += 1
+            return payload
+
+    def copy_metrics(self) -> dict[str, int]:
+        with self._lock:
+            return {
+                "full_copy_bytes": self._full_copy_bytes,
+                "window_copy_bytes": self._window_copy_bytes,
+                "window_copy_calls": self._window_copy_calls,
+                "buffer_bytes": len(self._buffer),
+                "peak_buffer_bytes": self._peak_buffer_bytes,
+            }
 
     def authenticate(self) -> None:
         with self._lock:
@@ -107,6 +140,7 @@ class SpeechSession:
             start = self._received_bytes // SAMPLE_WIDTH_BYTES
             self._buffer.extend(payload)
             self._received_bytes += len(payload)
+            self._peak_buffer_bytes = max(self._peak_buffer_bytes, len(self._buffer))
             end = self._received_bytes // SAMPLE_WIDTH_BYTES
             frame = PcmFrame(self._sequence, start, end, payload)
             self._sequence += 1

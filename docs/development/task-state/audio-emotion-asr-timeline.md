@@ -161,12 +161,12 @@
 - **Consequence:** Long turns remain observable without unbounded wire payloads; benchmark aggregation reads the exact job summary when the tail is truncated.
 - **Reconsider when:** The protocol gains a separately authenticated streaming metrics channel or a consumer requires complete per-job traces off-band.
 
-### D-013 — Do not add external audio trimming before proving native cache drift
+### D-013 — Bound wrapper copies and append-only timeline updates
 
-- **Observation/evidence:** The current facade schedules 80-ms PCM frames; the local Voxtral native stream advances every 240 ms, keeps encoder/decoder sliding caches, and erases PCM before the committed mel horizon. A 30-s paced run stayed below realtime worker load, while tail queue waits remained bounded. Separately, `SpeechConnection.append_pcm` still copies the entire turn buffer on every frame to slice affect windows, and every timeline event repeats prior affect observations.
-- **Decision:** Treat “the full turn is re-sent to ASR on every update” as unconfirmed for this adapter. Instrument monotonic input/commit cursors and retained-window size before restarting sessions or trimming audio in Python.
-- **Consequence:** The next investigation separates native inference, Python O(T²) buffer copying, scheduler contention, and repeated full timeline-event rendering; sentence trimming remains the fallback only for a stateless ASR adapter.
-- **Reconsider when:** Native retained audio or per-update compute grows with turn duration, or a replacement model lacks stateful streaming and requires a bounded-window/LocalAgreement wrapper.
+- **Observation/evidence:** Voxtral already owns a stateful native stream; the Python facade was copying the growing turn buffer on every 80-ms frame and repeating all affect observations in every event. The optimized 30-s paced run copies 0.96 MB once plus 7.36 MB of bounded affect windows, emits at most 3.3 KB events, and keeps scheduler depth at 2 with zero overloads.
+- **Decision:** Keep the native Voxtral path untouched. Use `pcm_window()` for affect requests, emit append-only affect deltas merged by the Vue dashboard, bound event timing samples, and log ingress/model/event timings. Do not add external sentence trimming for current stateful models.
+- **Consequence:** The former ~172 MiB cumulative Python PCM-copy path is removed; remaining delay is attributable to model work and serialized priority contention rather than growing wrapper payloads.
+- **Reconsider when:** A replacement model lacks stateful streaming, retained audio or per-update compute grows with turn duration, or a measured live run shows wrapper/transport backpressure.
 
 ## Open hypotheses
 

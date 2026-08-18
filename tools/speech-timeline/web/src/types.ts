@@ -43,6 +43,8 @@ export interface TimelineUpdate {
   vocal_affect: {
     revision: number;
     replace_from_sample: number;
+    raw_observations_mode: "append" | "snapshot";
+    raw_observations_total: number;
     raw_observations: AffectObservation[];
     segments: AffectSegment[];
   };

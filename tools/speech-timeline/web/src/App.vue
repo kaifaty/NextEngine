@@ -184,9 +184,10 @@ async function stopRecording(): Promise<void> {
 }
 
 function handleEvent(event: SpeechEvent): void {
+  const handlingStarted = performance.now();
   events.value = [...events.value.slice(-39), event];
   if (event.type === "speech_timeline.update") {
-    const update = event as unknown as TimelineUpdate;
+    const update = mergeTimelineUpdate(event as unknown as TimelineUpdate);
     timeline.value = update;
     if (
       captureInfo.value &&
@@ -214,6 +215,41 @@ function handleEvent(event: SpeechEvent): void {
     const detail = typeof event.detail === "string" ? event.detail : "";
     void abortAfterError(new Error(`${code}${detail ? `: ${detail}` : ""}`));
   }
+  const handlingMs = performance.now() - handlingStarted;
+  if (handlingMs >= 16) {
+    console.info("[speech-timeline] ui_event_slow", {
+      type: event.type,
+      handlingMs: Math.round(handlingMs),
+      eventCount: events.value.length,
+    });
+  }
+}
+
+function mergeTimelineUpdate(update: TimelineUpdate): TimelineUpdate {
+  if (
+    update.vocal_affect.raw_observations_mode === "snapshot" ||
+    !timeline.value
+  ) {
+    return update;
+  }
+  const observations = new Map(
+    timeline.value.vocal_affect.raw_observations.map((observation) => [
+      observation.observation_id,
+      observation,
+    ]),
+  );
+  for (const observation of update.vocal_affect.raw_observations) {
+    observations.set(observation.observation_id, observation);
+  }
+  return {
+    ...update,
+    vocal_affect: {
+      ...update.vocal_affect,
+      raw_observations: [...observations.values()].sort(
+        (left, right) => left.observation_id - right.observation_id,
+      ),
+    },
+  };
 }
 
 async function abortAfterError(error: unknown): Promise<void> {

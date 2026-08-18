@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
+import os
 from pathlib import Path
 import sys
 from typing import Sequence
@@ -35,6 +37,12 @@ def parser() -> argparse.ArgumentParser:
     commands = root.add_subparsers(dest="command", required=True)
     serve = commands.add_parser("serve", help="start the resident loopback service")
     serve.add_argument("--profile", type=Path, required=True)
+    serve.add_argument(
+        "--log-level",
+        choices=("DEBUG", "INFO", "WARNING", "ERROR"),
+        default=os.environ.get("NEXTENGINE_SPEECH_LOG_LEVEL", "INFO").upper(),
+        help="diagnostic log verbosity (default: INFO)",
+    )
     microphone = commands.add_parser(
         "microphone", help="stream the Linux microphone into a resident service"
     )
@@ -62,6 +70,13 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = parser().parse_args(argv)
     if arguments.command == "serve":
+        logging.basicConfig(
+            level=logging.WARNING,
+            format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        )
+        logging.getLogger("nextengine.speech_timeline").setLevel(
+            getattr(logging, arguments.log_level)
+        )
         try:
             profile = load_profile(arguments.profile)
             transcriber, affect = build_adapters(profile)
