@@ -1,19 +1,19 @@
-# Phase 3: FunctionGemma и strategic neural model
+# Phase 4: FunctionGemma и strategic neural model tool integration
 
 | Поле | Значение |
 | --- | --- |
 | Дата | 2026-08-18 |
-| Статус | Deferred prerequisite-gated design; implementation is not authorized by Phase 2 |
-| Зависимость | [Phase 2 LLM + TTS conversation service](2026-08-18-conversation-service-phase-2.md) |
+| Статус | Deferred prerequisite-gated design; implementation is not authorized by Phase 2 or Phase 3 shadow evidence |
+| Зависимость | [Phase 3 engine neural-capability integration](2026-08-18-engine-neural-capability-integration-phase-3.md) |
 | Candidate | `google/functiongemma-270m-it`; exact base/fine-tuned revisions remain unpinned |
-| Причина отдельного этапа | FunctionGemma должна быть обучена на реальных возможностях движка и strategic model; generic base integration сейчас не даёт полезного contract evidence |
+| Причина отдельного этапа | FunctionGemma обучается на frozen consumer-backed strategic catalog, а не на предположительных возможностях движка или модели |
 | Архитектурная граница | Optional `ai-host`/developer process; strategic output remains advisory/proposal-only until validated engine command flow exists |
 
 ## 1. Решение и целевой поток
 
-FunctionGemma не подключается в Phase 2. Phase 3 начинается только после того,
-как известны реальные возможности strategic neural model, stable engine-owned
-names/types и authoritative mutation boundary. Тогда целевой поток имеет вид:
+FunctionGemma не подключается в Phase 2 и не входит в Phase 3. Phase 4
+начинается только после того, как Phase 3 свела реальные neural capabilities к
+engine-owned границам и заморозила exact `StrategicSemanticCatalog`.
 
 ```text
 UtteranceFinal
@@ -26,7 +26,7 @@ fine-tuned FunctionGemma
       │ untrusted StrategicCallCandidate
       ▼
 strict StrategicCallValidator
-      │ validated typed call
+      │ validated typed call from exact catalog revision
       ▼
 StrategicAgentGateway
       │
@@ -45,25 +45,27 @@ FunctionGemma является replaceable compiler между bounded LLM inten
 strategic contract. Она не ведёт диалог, не исполняет функции, не получает raw
 world storage и не создаёт `WorldCommand` напрямую.
 
-## 2. Обязательные входные данные до начала реализации
+## 2. Entry gates from Phase 3
 
-Phase 3 не переходит к model integration, пока не готовы:
+Phase 4 не переходит к model work, пока не готовы:
 
-1. inventory реальных strategic capabilities и их владельцев;
-2. engine-owned stable IDs, bounded input/output types and version policy;
-3. distinction между immutable query, advisory result, `AgentIntent` proposal
-   и authoritative `WorldCommand`;
-4. exact gateway failure, deadline, cancellation and idempotency semantics;
-5. representative Russian and engine-domain request corpus;
-6. negative/adversarial corpus, включая irrelevant requests and prompt
-   injection;
-7. external artifact store, provenance/license policy and evaluation harness;
-8. measured Phase 2 resource envelope, чтобы выбрать CPU/GPU placement;
-9. concrete consumer and architecture promotion scope for any engine-facing
-   public contract.
+1. exact `NeuralCapabilityCatalog` revision for every participating model;
+2. exact consumer-backed `StrategicSemanticCatalog` revision;
+3. classification of the strategic model as `CandidateScorer`,
+   `AdvisoryQuery` or another explicitly approved role;
+4. engine-owned stable IDs, bounded input/output schemas and version policy;
+5. distinction between immutable query, advisory result, `AgentIntent`
+   proposal and authoritative `WorldCommand`;
+6. exact gateway failure, deadline, cancellation and idempotency semantics;
+7. Phase 3 shadow results proving zero changes to authoritative roots;
+8. representative Russian/engine-domain positive and negative corpus seed;
+9. external artifact store, provenance/license policy and evaluation harness;
+10. measured joint resource envelope for worker placement;
+11. concrete consumer and architecture promotion scope for any new public
+    engine contract.
 
-До этих артефактов можно делать только fake contract sketches. Нельзя объявлять
-generic FunctionGemma base model рабочей частью продукта.
+До выполнения этих gates generic base FunctionGemma остаётся research
+candidate и не является working product component.
 
 ## 3. Replaceable boundaries
 
@@ -82,13 +84,12 @@ Facade contracts не содержат `Gemma`, tokenizer, PyTorch/provider type
 control tokens and parser. Gateway скрывает deterministic, learned and fake
 backends behind one typed contract.
 
-Large LLM получает только high-level declared capability names и выдаёт
-bounded `StrategicRequestDraft`. FunctionGemma получает этот draft, selected
-trusted schemas и cited immutable context IDs. Она не получает arbitrary user
-tool definitions, callbacks, credentials, filesystem/network access or direct
-world state.
+Large LLM выдаёт bounded `StrategicRequestDraft`. FunctionGemma получает
+только этот draft, selected trusted schemas from the exact Phase 3 catalog and
+cited immutable context IDs. Она не получает arbitrary user tool definitions,
+callbacks, credentials, filesystem/network access or direct world state.
 
-## 4. Authority and safety boundary
+## 4. Authority and validation
 
 Every model output is untrusted:
 
@@ -99,93 +100,87 @@ Every model output is untrusted:
 - result size/type is validated before returning to the LLM;
 - mapping uses an explicit stable-ID dictionary, never regex plus dynamic
   execution;
-- model result is advisory or an `AgentIntent` proposal;
+- model result is observation, advisory or an `AgentIntent` proposal according
+  to the Phase 3 authority classification;
 - gameplay mutation remains possible only through normal validated
   `WorldCommand` transaction and committed `DomainEvent` flow.
 
-Initial integration is shadow/read-only. Proposal-producing operations remain
-disabled until a concrete engine consumer, replay/fault evidence and the normal
-architecture workflow authorize them.
+Initial FunctionGemma integration is shadow/read-only. Proposal-producing
+operations remain disabled until a concrete engine consumer, replay/fault
+evidence and normal architecture workflow authorize them.
 
 ## 5. Training and evaluation strategy
 
-Official FunctionGemma guidance positions the 270M model as a function-calling
-specialist and a base for task-specific fine-tuning, not a direct dialogue
-model. Upstream explicitly trains single-turn and independent parallel calls;
-multi-step and multi-turn orchestration are not assumed.
+FunctionGemma is treated as a function-calling base for task-specific
+fine-tuning, not a direct dialogue model. Multi-step orchestration is owned by
+the supervisor; the first profile supports one compile pass and bounded
+independent parallel calls only.
 
 Training assets remain outside the repository and include:
 
-- exact catalog/schema revision;
+- exact Phase 3 catalog/schema revisions;
 - generated and human-reviewed Russian paraphrases;
 - engine-domain vocabulary and ambiguous requests;
-- positive single calls and independent parallel calls;
-- no-call/irrelevant examples;
+- positive calls and no-call/irrelevant examples;
 - malformed, stale, oversized and injection examples;
+- examples for every strategic role/authority class;
 - provenance, license, split hashes and generator/reviewer identities;
 - base model, tokenizer, runtime and fine-tune hashes.
 
 Minimum held-out metrics:
 
 - correct no-call versus call routing;
-- exact tool ID accuracy;
+- exact operation ID accuracy;
 - exact argument match and schema-valid rate;
 - context-ID citation validity;
 - irrelevance/injection rejection rate;
 - duplicate/idempotency behavior;
 - Russian paraphrase robustness;
 - p50/p95 compile latency and peak RAM/VRAM;
-- regression versus deterministic/fake baseline.
+- regression versus deterministic/fake compiler baseline.
 
-Thresholds are set from the concrete catalog and risk classification before
-training. Aggregate accuracy alone cannot admit the model; every dangerous
-operation class needs a separately passing rejection/validation gate.
+Aggregate accuracy alone cannot admit the model. Every operation class with
+mutation-adjacent consequences needs its own passing rejection/validation gate.
 
 ## 6. Implementation sequence
 
-### Phase 3 Gate A — inventory strategic capabilities
+### Phase 4 Gate A — validate Phase 3 catalog closure
 
-- document exact query/advisory/proposal operations;
-- identify technical source of truth for every input/output;
-- remove capabilities without a concrete consumer or safe authority boundary.
+- reopen exact catalog/schema/validator bytes;
+- reject missing, speculative or consumer-less operations;
+- freeze the training/evaluation catalog revision.
 
-### Phase 3 Gate B — define the smallest strategic gateway contract
-
-- versioned types, limits, deadlines, cancellation and idempotency;
-- fake/shadow adapter and deterministic validator tests;
-- architecture promotion only if a Rust public contract is actually needed.
-
-### Phase 3 Gate C — build corpus and evaluation harness
+### Phase 4 Gate B — build corpus and evaluation harness
 
 - hash-closed external train/dev/test splits;
 - Russian engine-domain positives, no-calls and adversarial cases;
 - deterministic exact-match/schema/rejection metrics.
 
-### Phase 3 Gate D — measure base FunctionGemma
+### Phase 4 Gate C — measure base FunctionGemma
 
 - pin exact base artifact/runtime/tokenizer;
 - official formatting and strict bounded parser;
 - record baseline errors without production quality claim.
 
-### Phase 3 Gate E — fine-tune and select artifact
+### Phase 4 Gate D — fine-tune and select artifact
 
 - train outside runtime/repository;
 - compare against base and deterministic alternatives;
-- admit only a provenance-complete artifact that passes held-out gates.
+- admit only a provenance-complete artifact passing held-out gates.
 
-### Phase 3 Gate F — integrate isolated compiler worker
+### Phase 4 Gate E — integrate isolated compiler worker
 
 - resident load/warm, capability handshake and resource preflight;
 - LLM draft → FunctionGemma candidate → strict validation;
 - cancellation, stale output, malformed tokens and crash coverage.
 
-### Phase 3 Gate G — shadow strategic round trip
+### Phase 4 Gate F — shadow strategic round trip
 
 - validated call → fake/read-only strategic backend;
 - bounded result → LLM response pass → existing TTS;
-- no gameplay mutation.
+- compare with direct Phase 3 gateway use and change no gameplay state.
 
-### Phase 3 Gate H — optional proposal integration
+### Phase 4 Gate G — optional proposal integration
 
 - only after a concrete engine consumer and architecture approval;
 - strategic output normalizes to declared `AgentIntent` candidate;
@@ -195,31 +190,34 @@ operation class needs a separately passing rejection/validation gate.
 
 ## 7. Completion gates
 
-Phase 3 shadow vertical is complete only when:
+Phase 4 shadow vertical is complete only when:
 
-1. exact strategic catalog and gateway contract are versioned;
+1. exact Phase 3 catalogs and gateway contract are reopened and validated;
 2. FunctionGemma artifact is fine-tuned/evaluated on held-out engine-domain
    data and has complete hashes/provenance;
 3. compiler is replaceable behind `StrategicToolCompiler`;
 4. candidate validation rejects unknown/malformed/stale/unsafe calls;
-5. strategic backend is replaceable behind `StrategicAgentGateway`;
+5. strategic backend remains replaceable behind `StrategicAgentGateway`;
 6. one full `LLM → compiler → shadow strategic model → LLM → TTS` turn works;
-7. second turn proves worker residency without reload;
-8. failure degrades to truthful direct dialogue/text fallback;
-9. CPU/GPU/RAM and p50/p95 evidence fits an admitted profile;
-10. no component gains direct mutable-world access.
+7. direct Phase 3 and FunctionGemma-mediated calls have equivalent gateway
+   validation semantics;
+8. second turn proves worker residency without reload;
+9. failure degrades to truthful direct dialogue/text fallback;
+10. CPU/GPU/RAM and p50/p95 evidence fits an admitted profile;
+11. no component gains direct mutable-world access.
 
 Proposal/engine integration has a separate completion gate and cannot be
 inferred from a passing shadow vertical.
 
 ## 8. Rollback and reconsideration
 
-- If fine-tuned FunctionGemma does not beat the deterministic baseline on exact
-  schema/rejection metrics, keep the compiler disabled.
-- If the strategic catalog changes faster than the model can be evaluated,
-  prefer deterministic typed routing until a stable version exists.
-- If Phase 2 models exhaust the local resource budget, keep Phase 3 in a
-  separate measured worker/profile; do not weaken headroom checks.
+- If fine-tuned FunctionGemma does not beat the deterministic compiler on exact
+  schema/rejection metrics, keep it disabled.
+- If the Phase 3 catalog changes, invalidate affected train/eval results and
+  produce a new artifact revision; never silently reuse the old model.
+- If catalog churn outpaces evaluation, prefer deterministic typed routing.
+- If the compound stack exceeds the local resource budget, keep FunctionGemma
+  in a separate measured worker/profile or omit it.
 - If a future model reliably combines planning and constrained compilation,
   it may replace both adapters only behind the same validator/gateway contracts.
 

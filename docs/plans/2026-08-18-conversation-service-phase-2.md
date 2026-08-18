@@ -3,9 +3,9 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | 2026-08-18 |
-| Статус | User-requested stage-2 design; FunctionGemma explicitly deferred to Phase 3; two scope choices remain pending |
+| Статус | User-requested stage-2 design; FunctionGemma explicitly deferred to Phase 4; two scope choices remain pending |
 | Зависимость | [Phase 1 resident speech-timeline service](2026-08-18-speech-timeline-service-implementation.md) |
-| Следующий этап | [Phase 3 FunctionGemma and strategic-model integration](2026-08-18-functiongemma-strategic-integration-phase-3.md) |
+| Следующий этап | [Phase 3 engine neural-capability integration](2026-08-18-engine-neural-capability-integration-phase-3.md) |
 | Первый профиль | Local Linux x86_64, один conversation session, network default-deny |
 | LLM/TTS | Role adapters first; exact artifacts selected by local resource/quality measurements |
 | Архитектурная граница | Optional developer/`ai-host` service under ADR-005; no direct gameplay mutation and no current Rust public-contract change |
@@ -42,9 +42,10 @@ ConversationSupervisor                      Phase 2 facade
 FunctionGemma, tool schemas и вызов внутренней strategic neural model в этот
 этап не входят. Facade не должен зашить предположение, что LLM всегда отвечает
 без дополнительного контекста: `ConversationContextAssembler` принимает
-bounded immutable context blocks. В Phase 3 стратегический результат сможет
-стать ещё одним typed context block без изменения speech/TTS contracts, но
-никакой speculative tool API в Phase 2 не создаётся.
+bounded immutable context blocks. В Phase 3 validated observation/advisory от
+engine-integrated model сможет стать ещё одним typed context block без
+изменения speech/TTS contracts, но никакой speculative tool API в Phase 2 не
+создаётся. FunctionGemma использует consumer-backed catalog только в Phase 4.
 
 ## 2. Scope второй вертикали
 
@@ -409,8 +410,9 @@ Voxtral or emotion2vec implementation modules.
 - crash/OOM/malformed/stale/cancel fault matrix;
 - update durable task state with admitted/rejected model profiles.
 
-FunctionGemma work is not an extra Phase 2 commit. It starts only through the
-separate Phase 3 gates.
+FunctionGemma work is not an extra Phase 2 commit. Phase 3 first integrates
+actual neural capabilities into engine-owned boundaries; FunctionGemma starts
+only through the separate Phase 4 gates.
 
 ## 12. Test matrix
 
