@@ -62,6 +62,14 @@ reconstructs to `2.139 / 2.600`; the first step ends at `70,690,915 ppb`, and
 the 24-step soak accepts zero steps. The candidate is `NOT_SELECTED` and the
 predeclared stop rule is now active.
 
+A later, separately authorized
+[W0D support-complete discriminator](00d-support-complete-boundary-discriminator.md)
+also rejects the hypothesis that the one-layer shell merely truncated dynamic
+kernel support. Its two-layer complement changes the failing residual only
+minimally and accepts the same single unchanged-profile step. This does not
+reopen W0C; it further narrows the successor decision to a joint boundary
+field, equilibrium and stabilization reclosure.
+
 ## Fixed constraints
 
 - Keep CPU serial `f64`, exact target/toolchain flags, integer neighbor
@@ -123,7 +131,9 @@ W2.
 ## Reclosure output
 
 No W0C selection or reclosure output exists. Do not produce successor roots
-from these candidates. A future decision may authorize either a separately
-specified density-map discriminator (recommended) or a revised
-lattice-clearance/product profile. Only that new decision can define its own
-closure and eventual W1 rerun. `CONTINUUM-WATER-REF-P1` remains `NOT_RUN`.
+from these candidates. W0D shows that support completion alone also fails. A
+future decision must close a boundary field, equilibrium generator and
+stabilization/non-pressure profile together; a density map or changed lattice
+clearance alone is insufficiently specified. Only that new decision can
+define its own closure and eventual W1 rerun.
+`CONTINUUM-WATER-REF-P1` remains `NOT_RUN`.

@@ -19,6 +19,9 @@ accepted steps. H3 is falsified: support truncation is real but is not the
 cause of the observed instability. No third layer, fitted scale or further
 particle-shell candidate is authorized.
 
+Exact roots, terminal values, source audit and verification are recorded in
+the [W0D evidence report](../../development/continuum-water-w0d-support-complete-boundary-2026-08-18.md).
+
 ## Decision
 
 Authorize one successor research experiment after the closed W0C cycle:

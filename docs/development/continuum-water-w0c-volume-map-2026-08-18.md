@@ -16,6 +16,13 @@ fails the initial partition and the first hydro step by large margins. Under
 the predeclared W0C stop rule, this closes W0C as `RESEARCH_ONLY`; W1 cannot
 resume and no successor roots or ProductCheck credit exist.
 
+Subsequent [W0D evidence](continuum-water-w0d-support-complete-boundary-2026-08-18.md)
+also rejects support truncation as the cause and audits the published density
+map's deliberate fluid-side buffer. The current next action is therefore a
+joint boundary-field, equilibrium and stabilization profile reclosure, not
+the standalone density-map discriminator recommended when this historical
+W0C report was written.
+
 ## Frozen candidate
 
 The method is based on the primary

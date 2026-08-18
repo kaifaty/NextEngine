@@ -11,9 +11,11 @@ W0C calibration reclosure. W0C diagnostics reject the ceiling-only repair,
 cell-centred ghost boundary and independently reproduced settling generator.
 The final analytical volume-map discriminator also fails local partition and
 the first hydro step while matching its independent calculator exactly. W0C
-is closed `RESEARCH_ONLY`; the W1 serial oracle is implemented and blocked on
-a new explicit architecture/profile decision. No `CONTINUUM-*` ProductCheck
-has run.
+is closed `RESEARCH_ONLY`. W0D then falsifies one-layer support truncation as
+the cause: a support-complete two-layer complement matches independently but
+fails on the same second step. The W1 serial oracle is implemented and blocked
+on a joint boundary-field, equilibrium-initialization and stabilization
+profile reclosure. No `CONTINUUM-*` ProductCheck has run.
 
 This directory is the resume and execution surface for a dedicated water
 worktree. The main [Next Engine roadmap](../../roadmap.md) keeps the track
@@ -38,13 +40,14 @@ frozen water.
 W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
  └─ W0B Original numeric/corpus closure           INVALIDATED_BY_RC1 / ROOTS_RETAINED
      └─ W0C Hydro calibration reclosure            CLOSED / RESEARCH_ONLY
-         └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / BLOCKED_ON_PROFILE_DECISION
-         ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
-         │   └─ W3 One-pass PhysX coupling            NOT_STARTED
-         │       └─ W4 Basin + crate + debug view     NOT_STARTED
-         │           └─ W5 Exact active persistence   NOT_STARTED
-         │               └─ W6 Production promotion   NOT_STARTED
-         └─ WG Optional GPU correspondence mirror     NOT_STARTED / NON_BLOCKING
+         └─ W0D Support-complete discriminator     CLOSED / CANDIDATE_REJECTED
+             └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / BLOCKED_ON_PROFILE_RECLOSURE
+                 ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
+                 │   └─ W3 One-pass PhysX coupling            NOT_STARTED
+                 │       └─ W4 Basin + crate + debug view     NOT_STARTED
+                 │           └─ W5 Exact active persistence   NOT_STARTED
+                 │               └─ W6 Production promotion   NOT_STARTED
+                 └─ WG Optional GPU correspondence mirror     NOT_STARTED / NON_BLOCKING
 ```
 
 | Stage | Specification | Exit evidence | Blocks |
@@ -52,6 +55,7 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
 | W0A | [Product and evidence contract](00-product-and-evidence-contract.md) | Product fixture, evidence categories, authority and non-goals are selected | W0B |
 | W0B | [Original numeric execution and corpus closure](00b-numeric-execution-and-corpus-closure.md) | Immutable rejected-profile evidence; RC1 invalidates promotion use | W0C |
 | W0C | [Hydro calibration reclosure](00c-hydro-calibration-reclosure.md) | Exit not achieved; candidate ladder exhausted and explicit successor decision required | W1 resume |
+| W0D | [Support-complete boundary discriminator](00d-support-complete-boundary-discriminator.md) | Two-layer production/independent equality; candidate rejected and joint profile reclosure required | W1 resume |
 | W1 | [Serial CPU DFSPH oracle](01-serial-cpu-dfsph-oracle.md) | `CONTINUUM-WATER-REF-P1 = PASS` on the same-target reference profile | main-roadmap activation, W2, WG |
 | W2 | [Deterministic parallel CPU and performance](02-deterministic-parallel-and-performance.md) | Worker/order exactness and standalone `50k` THOTH stop-target PASS | W3 |
 | W3 | [One-pass PhysX coupling](03-one-pass-physx-coupling.md) | `CONTINUUM-COUPLING-P1 = PASS` under one composition DAG, exact exchange tuple and one PhysX integration | W4 |
@@ -135,10 +139,24 @@ bounded [volume-map evidence](../../development/continuum-water-w0c-volume-map-2
 therefore closes W0C `RESEARCH_ONLY`. No fitted scale, larger ceiling or
 successor roots are authorized.
 
+Commit `89567e14a6205fbec4705c8bf5de40be674eb234` implements the separately
+authorized W0D support-completeness discriminator. Its two exterior layers
+cover every boundary lattice centre that can enter support before the
+unchanged clearance gate. Production and independent calculations match
+exactly and initial partition remains `-27,534 ppb`, but the trajectory still
+accepts one step and fails step 2 at `192,430 ppb`; even ceilings 100 and 160
+accept only three and four steps. The bounded
+[W0D evidence](../../development/continuum-water-w0d-support-complete-boundary-2026-08-18.md)
+rejects the candidate and stops particle-shell variants.
+
 W1 remains blocked and the main roadmap remains inactive. Continuing water
-work requires an explicit decision authorizing a density-map discriminator
-(recommended) or a revised lattice-clearance/product profile. W2, WG, PhysX
-and GPU work remain blocked.
+work requires one successor decision that closes the boundary density field,
+authored equilibrium state and stabilization/non-pressure profile together.
+A published density map is not a drop-in change under the current `25 mm`
+lattice clearance; its deliberate fluid-side density buffer selects a
+different equilibrium offset and the published experiments use XSPH. The
+alternative is a separately derived geometric non-penetration constraint.
+W2, WG, PhysX and GPU work remain blocked.
 
 ## Worktree and main-roadmap protocol
 

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W0C_CLOSED_RESEARCH_ONLY_PROFILE_DECISION_REQUIRED` |
+| Status | `W0D_CLOSED_RESEARCH_ONLY_JOINT_PROFILE_RECLOSURE_REQUIRED` |
 | Updated | `2026-08-18` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -11,13 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** W0C is closed `RESEARCH_ONLY`. Exact diagnostics
-  reject the ceiling, ghost shell and settling families, then reject
-  `volume-map-box-bender2019-ref-v1`. Production and an independent calculator
-  match exactly, but the volume map reconstructs face/corner density as
-  `2.139 / 2.600`, the first step ends at `70,690,915 ppb`, and the fixed soak
-  accepts zero steps. No successor roots, runtime or public schema are
-  authorized.
+- **Current conclusion:** W0C and W0D are closed `RESEARCH_ONLY`. Exact
+  diagnostics reject the ceiling, boundary, settling and analytical
+  volume-map families. The final support-complete two-layer complement matches
+  its independent calculator and initial partition exactly, but still accepts
+  only step 1 and fails step 2 at `192,430 ppb`. Support truncation is not the
+  root cause. No successor roots, runtime or public schema are authorized.
 - **Selected consumer:** one sealed `4 × 2 × 1 m` basin, `0.75 m` depth,
   nominal `48k`/hard `50k` samples, one `0.5 m`/`50 kg` PhysX crate and debug
   particles; unavailable capability selects an authored dry variant before
@@ -25,19 +24,21 @@
 - **Authority:** private `f64` solve, ties-to-even canonical sample
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
-- **Next action:** do not implement another water candidate. Obtain an explicit
-  architecture/profile decision first. Recommended: authorize a separately
-  scoped density-map discriminator with exact convolved density/gradient and
-  unchanged fixed-point authority. Alternative: revise lattice phase/wall
-  clearance and close new product/profile/corpus roots.
+- **Next action:** do not implement a density map or another particle shell in
+  isolation. Close one successor decision for boundary density/gradient,
+  authored equilibrium generation and stabilization/non-pressure operations.
+  Recommended: exact convolved density field plus deterministic equilibrium
+  generator and an explicitly accounted stabilization model. Alternative: a
+  separately derived unilateral geometric non-penetration constraint.
 - **Activation gate:** the main R8 row remains `PLANNED / NOT_ACTIVE` until
   `CONTINUUM-WATER-REF-P1 = PASS`.
-- **Current uncertainty:** a density map may preserve partition and smooth
-  gradients under the selected fixed-point authority, but it is not authorized
-  or specified. A changed wall clearance may make reference volume semantics
-  plausible, but changes product fill/sample/corpus identity. Full-corpus
-  correctness and 50k real-time cost remain unmeasured; every `CONTINUUM-*`
-  ProductCheck is `NOT_RUN`.
+- **Current uncertainty:** the published density-map basis deliberately extends
+  into a fluid-side buffer and cannot preserve the current `25 mm` lattice
+  partition at face/edge/corner simultaneously. Its evidence also includes
+  XSPH, which the rejected profile disables. The exact successor equilibrium,
+  stabilization and possible pressure-continuation state are unselected.
+  Full-corpus correctness and 50k real-time cost remain unmeasured; every
+  `CONTINUUM-*` ProductCheck is `NOT_RUN`.
 - **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
   hidden warm-start/float continuation, iterative coupling, sleep before exact
   persistence, or wet terrain before dry-sand evidence.
@@ -56,6 +57,7 @@
 | [W1-RC1 independent audit](../continuum-water-w1-rc1-audit-2026-08-17.md) | `EXACT_MATCH / REPORT_ONLY` | Rejects a production-vs-W0B mismatch for the audited projection and requires W0C recalibration |
 | [W0C hydro-calibration cycles](../continuum-water-w0c-hydro-calibration-2026-08-17.md) | `EXACT_MATCH / BOUNDARY_AND_INITIALIZATION_CANDIDATES_REJECTED / REPORT_ONLY` | Rejects uniform scaling, ceiling-only repair, `ghost-cell-shell-v1` and zero-velocity settling; triggers adjacent-layer research escalation |
 | [W0C analytical volume map](../continuum-water-w0c-volume-map-2026-08-18.md) | `EXACT_MATCH / CANDIDATE_REJECTED / W0C_RESEARCH_ONLY` | Rejects the adjacent non-particle candidate at local partition and first-step gates; requires a new explicit architecture/profile decision |
+| [W0D support-complete boundary](../continuum-water-w0d-support-complete-boundary-2026-08-18.md) | `EXACT_MATCH / CANDIDATE_REJECTED / PROFILE_RECLOSURE_REQUIRED` | Falsifies one-layer support truncation as root cause and requires boundary, equilibrium and stabilization to be closed together |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-*` ProductChecks | `NOT_RUN` | No solver, performance, persistence or production claim is admissible |
@@ -130,7 +132,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: fixed-point-boundary CPU DFSPH passes the clean-water corpus | Exact free-fall/repeat roots pass; every diagnostic is independently reproducible | Original W0B, ghost-shell dynamics, settling and analytical volume-map semantics fail; larger ceilings only defer failure | No automatic discriminator; explicit density-map or clearance/profile decision required |
+| H1: fixed-point-boundary CPU DFSPH passes the clean-water corpus | Exact free-fall/repeat roots pass; every diagnostic is independently reproducible; the consistent boundary equations match primary/upstream sources | Original W0B, complete particle-boundary dynamics, settling and analytical volume-map semantics fail; larger ceilings only defer failure | Joint boundary-field, equilibrium and stabilization profile reclosure required |
 | H2: 50k CPU water fits the current THOTH budget | bounded sealed region and fixed profile | published prior art does not prove Next Engine 240 Hz cost | W2 exact 10k/50k/100k workload after W1 PASS |
 | H3: one-pass coupling is stable for the basin crate | narrow consumer and fixed cadence | fast impact/added-mass behavior is unmeasured | W3 float/impact corpus and reaction closure |
 | H4: one Drucker-Prager profile covers the first wheel scenario | established dry-sand model | exact source material and curve thresholds are not selected | Package 10T calibration closure |
@@ -147,16 +149,17 @@
 
 ## Next action
 
-1. Keep W0C and W1 blocked; do not add a fourth boundary/initialization variant
-   under the rejected profile.
-2. Write an explicit architecture/profile decision choosing either a new
-   density-map research stage or a changed lattice-clearance/product profile.
-3. If density map is selected, close its exact field, gradient, sampling or
-   interpolation, feature/aperture composition, capacities and independent
-   evidence before implementation.
-4. If clearance is selected, regenerate product sample counts and all
-   successor document/profile/corpus roots before rerunning W1. Do not start
-   W2, WG or PhysX coupling meanwhile.
+1. Keep W0C, W0D and W1 blocked; do not add another particle layer, fitted
+   boundary scale or iteration-only variant under the rejected profile.
+2. Write an explicit successor profile that jointly closes the boundary field,
+   predicted density/gradient operations, equilibrium generator and every
+   stabilization/non-pressure term.
+3. Preserve canonical integer position/velocity authority initially. If warm
+   pressure continuation is proposed, treat it as a separately rooted state
+   contract and prove that deterministic recomputation is insufficient.
+4. Regenerate product sample counts and all successor
+   document/profile/corpus/scenario roots before rerunning W1. Do not start W2,
+   WG or PhysX coupling meanwhile.
 
 ## Do not retry
 
@@ -175,21 +178,24 @@
   exact transcript shows growing solver demand and wall penetration.
 - Retune the volume-map `0.8` factor or virtual-point offset under W0C; the
   face/edge/corner correction factors differ and the candidate is closed.
-- Implement a density map or change lattice clearance without a new explicit
-  architecture/profile decision and successor root plan.
+- Implement a density map, XSPH/stabilization term, pressure continuation or
+  changed lattice clearance without one joint architecture/profile decision
+  and successor root plan.
 - Start terrain code while Package 10T remains profile-unclosed.
 
 ## Handoff
 
-- **Workspace claim:** tool-only W1 serial oracle plus bounded clean-tree RC1
-  and completed W0C diagnostics. Particle, initialization and analytical
-  volume-map candidates are explicitly `NOT_SELECTED`; W0C is
-  `RESEARCH_ONLY`, with no runtime/public schema or ProductCheck PASS.
-- **Checks:** implementation commit `ea12220` passes format, strict all-target
-  Clippy for water/xtask, 42/42 water tests, 99/99 + 44/44 xtask tests and all
-  six `boundary-scan` checks. Its clean exact-profile volume-map report is
-  independently `EXACT_MATCH / CANDIDATE_REJECTED`; all `CONTINUUM-*`
-  ProductChecks remain `NOT_RUN`. Broad `host-check` was not rerun.
-- **Remaining risk:** an authorized successor boundary/profile, external and
-  full-corpus accuracy, 50k performance, coupling stability, exact persistence
-  implementation and all terrain constitutive evidence remain unmeasured.
+- **Workspace claim:** tool-only W1 serial oracle plus bounded clean-tree RC1,
+  W0C and W0D diagnostics. Particle, initialization, volume-map and
+  support-complete candidates are explicitly `NOT_SELECTED`; there is no
+  runtime/public schema or ProductCheck PASS.
+- **Checks:** implementation commit `89567e1` passes format, focused exact
+  W0D tests, strict all-target water Clippy and all six `boundary-scan` checks.
+  Its clean report is independently
+  `EXACT_MATCH / CANDIDATE_REJECTED / NOT_SELECTED`; broader final checks are
+  recorded in the linked W0D evidence. All `CONTINUUM-*` ProductChecks remain
+  `NOT_RUN`; broad `host-check` was not rerun.
+- **Remaining risk:** an authorized joint boundary/equilibrium/stabilization
+  profile, external and full-corpus accuracy, 50k performance, coupling
+  stability, exact persistence implementation and all terrain constitutive
+  evidence remain unmeasured.
