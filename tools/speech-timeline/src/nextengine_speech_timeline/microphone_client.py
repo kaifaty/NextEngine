@@ -11,6 +11,7 @@ import secrets
 import stat
 import subprocess
 import sys
+import time
 from types import ModuleType
 from urllib.parse import urlsplit
 
@@ -34,6 +35,8 @@ class ReadyInfo:
     token: str
     protocol: str
     bounds: dict[str, object]
+    models: dict[str, object] | None = None
+    model_identity: dict[str, object] | None = None
 
 
 def load_ready_file(path: Path) -> ReadyInfo:
@@ -85,7 +88,20 @@ def load_ready_file(path: Path) -> ReadyInfo:
         raise ClientError("ready file token must use lowercase hex")
     if protocol != SERVICE_PROTOCOL:
         raise ClientError(f"unsupported service protocol: {protocol!r}")
-    return ReadyInfo(uri=uri, token=token, protocol=protocol, bounds={})
+    models = value.get("models")
+    model_identity = value.get("model_identity")
+    if not isinstance(models, dict):
+        models = {}
+    if not isinstance(model_identity, dict):
+        model_identity = {}
+    return ReadyInfo(
+        uri=uri,
+        token=token,
+        protocol=protocol,
+        bounds={},
+        models=models,
+        model_identity=model_identity,
+    )
 
 
 async def run_websocket_session(
@@ -95,6 +111,7 @@ async def run_websocket_session(
     locale: str | None,
     on_event: Callable[[dict[str, object]], None],
     session_id: str | None = None,
+    measurement: dict[str, float] | None = None,
 ) -> dict[str, object]:
     identity = session_id or secrets.token_hex(16)
     async with connect(
@@ -147,6 +164,8 @@ async def run_websocket_session(
                     raise ClientError("microphone source returned invalid PCM")
                 if len(chunk) > max_frame_bytes:
                     raise ClientError("microphone chunk exceeds service max_frame_bytes")
+                if sent == 0 and measurement is not None:
+                    measurement["first_chunk_send_monotonic"] = time.monotonic()
                 sent += len(chunk)
                 await websocket.send(chunk)
             if sent == 0:
@@ -161,15 +180,25 @@ async def run_websocket_session(
                     separators=(",", ":"),
                 )
             )
+            if measurement is not None:
+                measurement["finish_send_monotonic"] = time.monotonic()
 
         async def receive_events() -> None:
             nonlocal final_event
             async for message in websocket:
                 payload = _decode_event(message)
+                if (
+                    measurement is not None
+                    and payload.get("type") == "speech_timeline.update"
+                    and "first_update_monotonic" not in measurement
+                ):
+                    measurement["first_update_monotonic"] = time.monotonic()
                 on_event(payload)
                 if payload.get("type") == "error" and payload.get("terminal") is True:
                     raise ClientError(f"service failed: {payload.get('code')}")
                 if payload.get("type") == "utterance.final":
+                    if measurement is not None:
+                        measurement["final_monotonic"] = time.monotonic()
                     final_event = payload
                     return
 

@@ -8,6 +8,12 @@ import sys
 from typing import Sequence
 
 from . import SERVICE_PROTOCOL
+from .benchmark import (
+    BenchmarkError,
+    benchmark_service,
+    load_benchmark_wav,
+    write_report,
+)
 from .microphone_client import (
     ClientError,
     ReadyInfo,
@@ -41,6 +47,15 @@ def parser() -> argparse.ArgumentParser:
     microphone.add_argument("--list-inputs", action="store_true")
     microphone.add_argument("--save-wav", type=Path)
     microphone.add_argument("--json", action="store_true", dest="json_output")
+    benchmark = commands.add_parser(
+        "benchmark", help="stream an external WAV and write a content-free timing report"
+    )
+    benchmark.add_argument("--ready-file", type=Path, required=True)
+    benchmark.add_argument("--audio", type=Path, required=True)
+    benchmark.add_argument("--mode", choices=("paced", "unpaced"), default="paced")
+    benchmark.add_argument("--runs", type=int, default=2)
+    benchmark.add_argument("--chunk-ms", type=int, default=250)
+    benchmark.add_argument("--out", type=Path, required=True)
     return root
 
 
@@ -111,6 +126,45 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             )
         except ClientError as error:
+            print(
+                json.dumps(
+                    {"schema_version": 1, "status": "error", "error": str(error)},
+                    ensure_ascii=False,
+                ),
+                file=sys.stderr,
+            )
+            return 2
+        except KeyboardInterrupt:
+            return 130
+    if arguments.command == "benchmark":
+        try:
+            ready = load_ready_file(arguments.ready_file)
+            pcm, samples = load_benchmark_wav(arguments.audio)
+            report = asyncio.run(
+                benchmark_service(
+                    ready,
+                    pcm,
+                    samples,
+                    mode=arguments.mode,
+                    runs=arguments.runs,
+                    chunk_ms=arguments.chunk_ms,
+                )
+            )
+            write_report(arguments.out, report)
+            print(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "status": "complete",
+                        "report": str(arguments.out.expanduser().resolve()),
+                        "summary": report["summary"],
+                    },
+                    ensure_ascii=False,
+                ),
+                flush=True,
+            )
+            return 0
+        except (BenchmarkError, ClientError) as error:
             print(
                 json.dumps(
                     {"schema_version": 1, "status": "error", "error": str(error)},

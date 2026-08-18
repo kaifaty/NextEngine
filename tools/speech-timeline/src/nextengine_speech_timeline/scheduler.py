@@ -92,6 +92,11 @@ class ModelScheduler:
             )
             self._thread.start()
 
+    @property
+    def live_queue_depth(self) -> int:
+        with self._lock:
+            return self._live_queue_depth()
+
     def submit(
         self,
         priority: JobPriority,

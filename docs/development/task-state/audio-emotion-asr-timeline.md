@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE` |
+| Status | `PHASE_1_IMPLEMENTED`; manual microphone acceptance remains |
 | Updated | `2026-08-18` |
 | Task key | `audio-emotion-asr-timeline` |
 | Scope | Phase 1 prototypes Voxtral/emotion2vec; Phase 2 adds replaceable LLM/TTS; Phase 3A proves them in a one-character simple-dialogue scene before 3B-3D boundary/internal-model work; prerequisite-gated Phase 4 fine-tunes FunctionGemma. |
@@ -11,15 +11,15 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Use a resident optional `SpeechTimelineService` with `VoxtralTranscriberAdapter`, `Emotion2VecAffectAdapter`, optional VAD and a deterministic timeline fuser. Keep three independently revisioned tracks and derive LLM context from them.
+- **Current conclusion:** Phase 1 now implements the resident optional `SpeechTimelineService` with model-neutral Voxtral/emotion2vec adapters, bounded scheduling, three independently revisioned tracks, authenticated loopback WebSocket, microphone client and benchmark runner.
 - **Why:** The existing Voxtral wrapper already performs real streaming inside one invocation, while warm emotion2vec inference is fast. Reloading either model per connection/window is the avoidable delay.
 - **Critical limit:** Current Voxtral public APIs return streaming text but no lexical timestamps. `transcribe.cpp` reports timestamp kind `NONE`; its Voxtral `audio_committed_ms` remains zero during feed and is not a text boundary.
 - **Implementation plan:** `docs/plans/2026-08-18-speech-timeline-service-implementation.md` has approved scope `A/A/A/A`: standalone authenticated localhost WebSocket, explicit finish first and honest `utterance` alignment; VAD/model-slot remain later increments.
 - **Phase 2 plan:** `docs/plans/2026-08-18-conversation-service-phase-2.md` adds a `ConversationService` facade for large-LLM dialogue and TTS only; two Phase 2 scope choices remain pending.
 - **Phase 3 plan:** `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` now starts with 3A: one existing character, push-to-talk, session-local persona/history, subtitles/TTS and no world/internal-model/tool context. 3B-3D then harden proven boundaries, shadow-integrate the strategic model and freeze catalogs.
 - **Phase 4 plan:** `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` fine-tunes FunctionGemma only after Phase 3 freezes a consumer-backed strategic catalog and corpus seed.
-- **Next action:** Create `codex/speech-timeline-service`, converge the exact Voxtral commits, and execute Commit 1 without recreating the wrapper or adding engine-facing IPC.
-- **Current blocker:** The Voxtral wrapper exists on `codex/architecture-foundation-promotion`, not in this worktree. Research is unblocked; implementation should use/merge that source rather than recreate it.
+- **Next action:** Run one user-spoken microphone acceptance through `next-speech-timeline microphone`, then reopen the two Phase 2 LLM/TTS scope choices; VAD/model-slot remain separate increments.
+- **Current blocker:** No service implementation blocker. A meaningful live-microphone quality/latency run requires a user-spoken utterance; automated evidence uses the external 4.5 s Russian WAV and 30 s paced soak.
 - **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated word timestamps from text arrival time.
 - **Reconsider when:** A model/runtime exposes better timed lexical units, or measured model-slot boundary error is too high and justifies a final aligner.
 
@@ -45,6 +45,9 @@
 | `docs/plans/2026-08-18-conversation-service-phase-2.md` | proposed Phase 2 sequence | Defines LLM/TTS worker topology, context seam, evidence and two pending scope choices without tool calling or strategic integration. |
 | `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` | proposed Phase 3 sequence | Maps actual models to engine-owned roles, validators, owners and fallbacks; shadow-integrates the strategic model and freezes consumer-backed catalogs. |
 | `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` | deferred Phase 4 sequence | Reopens exact Phase 3 catalogs, then builds corpus, measures/fine-tunes FunctionGemma and integrates it shadow-first. |
+| `codex/speech-timeline-service`, Phase 1 fake suite | 45 Python service tests + 14 preserved Voxtral probe tests pass | Auth/version/size/state/fault boundaries, second-session residency, cadence, no-word-span fusion and client/benchmark paths are executable without weights. |
+| Joint RTX 3080 run, exact artifacts, 2026-08-18 | 2 × 4.5 s paced turns; load counts Voxtral/emotion `1/1`; worker-busy RTF p95 `0.690`; first chunk→update p95 `1.363 s`; finish→final p95 `0.970 s`; process peak `5870 MiB` VRAM | Both CUDA models remain resident with >1 GiB headroom; explicit-finish vertical passes. Report: `/tmp/nextengine-speech-timeline-phase1-benchmark.json` (external, content-free). |
+| 30 s paced soak, 2026-08-18 | worker-busy RTF `0.530`; first update `1.136 s`; finish→final `1.352 s`; no reload | Paced streaming remains faster than realtime without unbounded ASR backlog. Unpaced burst separately fails closed as `SERVICE_OVERLOADED`. |
 | ADR-005; SPEC-16/ADR-017 | Accepted isolation/fallback boundary; multimodal track remains Deferred Proposed | No direct gameplay mutation or product-shipped claim. |
 
 ## Decisions that constrain the work
@@ -124,11 +127,19 @@
 - **Reconsider when:** 3A cannot be demonstrated through existing interaction,
   presentation and audio boundaries without adding authoritative state.
 
+### D-009 — Admit the serialized joint CUDA profile for Phase 1
+
+- **Observation/evidence:** Real pinned Voxtral Q4_K_M + emotion2vec runs peaked at 5870 MiB process VRAM, kept both load counts at one, and achieved worker-busy RTF below one in two-turn and 30 s paced runs.
+- **Decision:** Keep both models in one resident process and one priority worker for the current local RTX 3080 profile; retain one active utterance and explicit finish.
+- **Rejected:** CPU emotion fallback now, separate GPU processes, or weakening bounds to make unpaced bursts succeed.
+- **Consequence/uncertainty:** Phase 1 service implementation is admissible; microphone acoustics, Russian quality and within-turn affect accuracy remain evaluation work, not residency blockers.
+- **Reconsider when:** Representative live runs exceed the 1 GiB headroom/RTF gates, or model/runtime changes invalidate the exact profile.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: both models fit and remain faster than realtime under serialized joint load | Voxtral uses ~4080 MiB and emotion windows are short. | Combined allocator peaks and queue interaction are unmeasured. | Load/warm both, record peak, then replay paced PCM with per-adapter queue metrics. |
+| H1: both models fit and remain faster than realtime under serialized joint load | Confirmed on current exact profile: 5870 MiB peak and worker-busy RTF 0.530–0.690. | One Russian sample/host is not a broad deployment envelope. | Repeat after artifact/runtime/device change and on representative live dialogue. |
 | H2: Voxtral token slots are accurate enough for clause-level affect attachment | Training uses explicitly aligned 80 ms audio/text streams. | Public APIs omit timing; slot offset/grouping error is unknown. | Expose token/control slots and compare to manually aligned Russian words. |
 | H3: utterance-grade context already improves downstream LLM responses | It preserves vocal evidence honestly without timestamp invention. | Mixed emotion inside a turn may be smeared. | Blind downstream response evaluation: text-only versus turn affect versus timed spans. |
 | H4: 1 s/250 ms emotion windows give useful Live transitions | Warm inference is ~8 ms and windows overlap densely. | Utterance-pooled classifier may smear or flicker. | Labeled Russian within-turn transition corpus with boundary/F1 and churn metrics. |
@@ -167,24 +178,20 @@ Read in precedence order:
 28. `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md`
 29. `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md`
 30. `e839a38:lab/scripts/voxtral_microphone.py` and its tests
-31. `tools/emotion-probe/README.md` and implementation
+31. `tools/speech-timeline/README.md` and implementation
 
 ## Smallest next action
 
-1. Work from the branch/source containing commit `e839a38`.
-2. Separate microphone capture from Voxtral model/session code and wrap the latter as `StreamingTranscriber` without changing its inference behavior.
-3. Wrap resident emotion loading and 1 s/2 s window inference as `VocalAffectAnalyzer`.
-4. Add one-session facade, capability handshake, binary PCM input and transcript/affect revisions at `utterance` grade.
-5. Measure cold/warm readiness, second session reload count, combined VRAM, capture-to-event latency, queue wait and cancellation cleanup.
-6. Only then extend `transcribe.cpp` to expose token slots for a bounded alignment experiment.
-7. After Phase 1 residency/latency evidence, confirm the two unresolved Phase 2 choices and execute its Commit A without merging LLM/TTS implementation into `SpeechTimelineService`.
-8. After Phase 2 evidence, implement Phase 3A first: clean `reference-alpha`
+1. Run one user-spoken turn with the service and microphone client; record capture-to-first-update and subjective ASR/affect sanity without persisting audio by default.
+2. Confirm the two unresolved Phase 2 choices and execute its Commit A without merging LLM/TTS implementation into `SpeechTimelineService`.
+3. Keep VAD and Voxtral model-slot timing as separately measured increments; do not fabricate word spans meanwhile.
+4. After Phase 2 evidence, implement Phase 3A first: clean `reference-alpha`
    relay keeper, semantic presentation-only dialogue open, fake then real
    `ConversationClient`, push-to-talk, subtitles/TTS, three-turn residency and
    fault/resource evidence.
-9. Only after 3A closes, execute 3B capability hardening and 3C strategic-model
+5. Only after 3A closes, execute 3B capability hardening and 3C strategic-model
    audit/shadow integration; do not add world/memory/tool context to 3A.
-10. Do not start Phase 4 until 3D freezes consumer-backed
+6. Do not start Phase 4 until 3D freezes consumer-backed
     `NeuralCapabilityCatalog` and `StrategicSemanticCatalog` revisions plus the
     external corpus/evaluation seed.
 
@@ -198,7 +205,7 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace state:** Pair/facade research and task-state update are documentation-only; the current worktree intentionally lacks the Voxtral wrapper present on `codex/architecture-foundation-promotion`.
-- **Checks:** Run documentation diff/path/link validation before handoff.
-- **Remaining risk:** Joint VRAM and sustained latency, Russian ASR and slot alignment accuracy, VAD endpoint delay, emotion transition quality, and emotion2vec+ redistribution terms.
+- **Workspace state:** `codex/speech-timeline-service` contains the converged tested wrapper and complete standalone Phase 1 service/client/benchmark implementation; external models, profiles, ready files and reports remain outside Git.
+- **Checks:** Run the focused Python/lab suites, `git diff --check`, lock consistency and final risk-scoped `host-check` before handoff.
+- **Remaining risk:** User-spoken microphone acceptance, broader Russian ASR quality, VAD/model-slot alignment, emotion transition quality, and emotion2vec+ redistribution terms.
 - **Promotion needed:** None; no Accepted architecture or roadmap change is authorized by this research.

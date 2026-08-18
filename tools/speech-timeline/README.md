@@ -96,3 +96,19 @@ sends 250 ms PCM chunks by default, and renders replaceable transcript and
 emotion timeline updates until `utterance.final`. Use Ctrl-C to cancel by
 disconnecting. `--save-wav` remains an explicit diagnostic exception and
 refuses repository paths or overwrite.
+
+Measure sequential resident sessions with an external 16 kHz mono PCM WAV:
+
+```bash
+~/.cache/nextengine/emotion2vec-plus-base/venv/bin/next-speech-timeline \
+  benchmark \
+  --ready-file /path/outside/repository/speech-timeline-ready.json \
+  --audio /path/outside/repository/sample.wav \
+  --mode unpaced \
+  --runs 2 \
+  --out /path/outside/repository/speech-timeline-benchmark.json
+```
+
+The report is atomically replaced with mode `0600` and contains model identity,
+load counts, queue/inference latency, end-to-end RTF, and p50/p95 summaries. It
+omits audio and transcript content.

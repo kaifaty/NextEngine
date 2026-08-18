@@ -7,6 +7,7 @@ from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 from .adapters.base import AudioWindow
 from .adapters.voxtral_transcribe_cpp import TranscriberConfig, TranscriptRevision
 from .audio import pcm16le_to_float32, pcm16le_to_float32_array
+from .metrics import ModelJobMetric, ResourceMonitor
 from .protocol import event
 from .scheduler import (
     JobCompletion,
@@ -31,6 +32,7 @@ class SpeechTimelineRuntime:
         self.scheduler = ModelScheduler()
         self._ready: dict[str, object] | None = None
         self._closed = False
+        self.resources = ResourceMonitor()
 
     def start(self) -> dict[str, object]:
         if self._ready is not None:
@@ -55,12 +57,15 @@ class SpeechTimelineRuntime:
             }
 
         self._ready = self.scheduler.call_blocking(load_and_warm)
+        self.resources.start()
+        self._ready["resources"] = self.resources.snapshot()
         return self._ready
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
+        self.resources.stop()
         if hasattr(self.transcriber, "close"):
             self.scheduler.call_blocking(self.transcriber.close)
         self.scheduler.close()
@@ -87,6 +92,10 @@ class SpeechConnection:
         self._asr_tasks: set[asyncio.Task[None]] = set()
         self._emotion_tasks: set[asyncio.Task[None]] = set()
         self._released = False
+        self._job_metrics: list[ModelJobMetric] = []
+        self.terminal_ready = asyncio.Event()
+        self._scheduler_baseline = asdict(self.runtime.scheduler.metrics)
+        self._session_max_queue_depth = 0
 
     async def start(self, session_id: str, locale: str | None) -> None:
         if not await self._claim(self):
@@ -119,7 +128,7 @@ class SpeechConnection:
         frame = self.session.append_pcm(payload)
         generation = self.session.generation
         self._spawn(
-            self._asr_push(generation, frame.payload),
+            self._asr_push(generation, frame.start_sample, frame.end_sample, frame.payload),
             self._asr_tasks,
         )
         pcm = self.session.pcm_bytes
@@ -158,7 +167,13 @@ class SpeechConnection:
                 self._transcriber_session.close()
 
         final_transcript_task = asyncio.create_task(
-            self._execute(JobPriority.VOXTRAL_FINISH, generation, finish_transcriber)
+            self._execute(
+                JobPriority.VOXTRAL_FINISH,
+                generation,
+                finish_transcriber,
+                audio_start_sample=0,
+                audio_end_sample=self.session.total_samples,
+            )
         )
         final_window = AffectCadence.final(self.session.total_samples)
         final_affect_task = asyncio.create_task(
@@ -174,6 +189,8 @@ class SpeechConnection:
                         source_revision=self.session.total_samples,
                     )
                 ),
+                audio_start_sample=final_window.start_sample,
+                audio_end_sample=final_window.end_sample,
             )
         )
         try:
@@ -196,9 +213,15 @@ class SpeechConnection:
         self._cancel_tasks(self._emotion_tasks)
         await self.events.put(_timeline_event(session_id, snapshot))
         await self.events.put(
-            event("utterance.final", session_id=session_id, **self.timeline.utterance_final())
+            event(
+                "utterance.final",
+                session_id=session_id,
+                **self.timeline.utterance_final(),
+                metrics=self.metrics_payload(),
+            )
         )
         self.session.claim_terminal_event()
+        self.terminal_ready.set()
         await self._release_once()
 
     async def cancel(self, session_id: str) -> None:
@@ -221,6 +244,7 @@ class SpeechConnection:
             self._transcriber_session = None
         if self.session.claim_terminal_event():
             await self.events.put(event("session.cancelled", session_id=session_id))
+        self.terminal_ready.set()
         await self._release_once()
 
     async def disconnect(self) -> None:
@@ -230,12 +254,16 @@ class SpeechConnection:
         else:
             await self._release_once()
 
-    async def _asr_push(self, generation: int, pcm: bytes) -> None:
+    async def _asr_push(
+        self, generation: int, start_sample: int, end_sample: int, pcm: bytes
+    ) -> None:
         try:
             revision = await self._execute(
                 JobPriority.VOXTRAL_PUSH,
                 generation,
                 lambda: self._transcriber_session.push_pcm(pcm16le_to_float32_array(pcm)),
+                audio_start_sample=start_sample,
+                audio_end_sample=end_sample,
             )
             if revision is not None:
                 snapshot = self.timeline.apply_transcript(
@@ -278,6 +306,8 @@ class SpeechConnection:
                     )
                 ),
                 coalesce_key=mode,
+                audio_start_sample=start_sample,
+                audio_end_sample=end_sample,
             )
             snapshot = self.timeline.apply_affect(observation)
             await self.events.put(_timeline_event(self.session.session_id, snapshot))
@@ -296,6 +326,8 @@ class SpeechConnection:
         *,
         is_current: Callable[[int], bool] | None = None,
         coalesce_key: object | None = None,
+        audio_start_sample: int = 0,
+        audio_end_sample: int = 0,
     ) -> T:
         loop = asyncio.get_running_loop()
         future: asyncio.Future[T] = loop.create_future()
@@ -303,6 +335,17 @@ class SpeechConnection:
         def resolve(completion: JobCompletion[T]) -> None:
             if future.cancelled() or future.done():
                 return
+            if not isinstance(completion.error, JobDiscarded):
+                self._job_metrics.append(
+                    ModelJobMetric(
+                        session_generation=generation,
+                        job_kind=priority.name.lower(),
+                        audio_start_sample=audio_start_sample,
+                        audio_end_sample=audio_end_sample,
+                        queue_wait_ms=completion.queue_wait_ms,
+                        inference_ms=completion.inference_ms,
+                    )
+                )
             if completion.error is not None:
                 future.set_exception(completion.error)
             else:
@@ -315,6 +358,10 @@ class SpeechConnection:
             is_current=is_current or self.session.is_generation_current,
             callback=lambda completion: loop.call_soon_threadsafe(resolve, completion),
             coalesce_key=coalesce_key,
+        )
+        self._session_max_queue_depth = max(
+            self._session_max_queue_depth,
+            self.runtime.scheduler.live_queue_depth,
         )
         return await future
 
@@ -339,6 +386,7 @@ class SpeechConnection:
             event("error", code=code, terminal=True, detail=detail[:512])
         )
         self.session.claim_terminal_event()
+        self.terminal_ready.set()
         await self._release_once()
 
     def _spawn(self, coroutine: Coroutine[Any, Any, None], tasks: set[asyncio.Task[None]]) -> None:
@@ -361,6 +409,25 @@ class SpeechConnection:
             return
         self._released = True
         await self._release(self)
+
+    def metrics_payload(self) -> dict[str, object]:
+        scheduler_current = asdict(self.runtime.scheduler.metrics)
+        scheduler_delta = {
+            key: scheduler_current[key] - self._scheduler_baseline[key]
+            for key in scheduler_current
+            if key != "max_queue_depth"
+        }
+        scheduler_delta["max_queue_depth"] = self._session_max_queue_depth
+        return {
+            "audio_samples": self.session.total_samples,
+            "jobs": [item.as_dict() for item in self._job_metrics],
+            "scheduler": scheduler_delta,
+            "model_load_count": {
+                "transcriber": getattr(self.runtime.transcriber, "load_count", None),
+                "vocal_affect": getattr(self.runtime.affect_analyzer, "load_count", None),
+            },
+            "resources": self.runtime.resources.snapshot(),
+        }
 
 
 def _timeline_event(session_id: str | None, snapshot: TimelineSnapshot) -> dict[str, object]:

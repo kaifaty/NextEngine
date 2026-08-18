@@ -22,7 +22,7 @@ from .protocol import (
     parse_client_message,
 )
 from .service import SpeechConnection, SpeechTimelineRuntime
-from .session import SessionBounds, SessionError
+from .session import SessionBounds, SessionError, SessionState
 
 
 class SpeechTimelineWebSocketService:
@@ -152,6 +152,10 @@ class SpeechTimelineWebSocketService:
                 await websocket.send(encode_event(self._ready_public))
                 sender = asyncio.create_task(self._send_events(websocket, connection))
                 async for message in websocket:
+                    if connection.session.state is SessionState.FAILED:
+                        await connection.terminal_ready.wait()
+                        await connection.events.join()
+                        break
                     if isinstance(message, bytes):
                         try:
                             await connection.append_pcm(message)
@@ -159,6 +163,11 @@ class SpeechTimelineWebSocketService:
                             await connection.events.put(
                                 event("error", code=error.code, terminal=False, detail=str(error)[:512])
                             )
+                        await asyncio.sleep(0)
+                        if connection.session.state is SessionState.FAILED:
+                            await connection.terminal_ready.wait()
+                            await connection.events.join()
+                            break
                         continue
                     client_message = parse_client_message(message)
                     if isinstance(client_message, SessionStart):

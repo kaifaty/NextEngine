@@ -5,12 +5,14 @@ import json
 from pathlib import Path
 import stat
 import tempfile
+import time
 import unittest
 
 from websockets.asyncio.client import connect
 
 from nextengine_speech_timeline.adapters.base import AffectObservation
 from nextengine_speech_timeline.adapters.voxtral_transcribe_cpp import TranscriptRevision
+from nextengine_speech_timeline.benchmark import benchmark_service
 from nextengine_speech_timeline.service import SpeechTimelineRuntime
 from nextengine_speech_timeline.microphone_client import ReadyInfo, run_websocket_session
 from nextengine_speech_timeline.transport_websocket import SpeechTimelineWebSocketService
@@ -24,6 +26,8 @@ class FakeTranscriberSession:
         self.closed = False
 
     def push_pcm(self, samples: object) -> TranscriptRevision:
+        if self.owner.push_delay:
+            time.sleep(self.owner.push_delay)
         self.revision += 1
         self.owner.push_count += 1
         return TranscriptRevision(
@@ -57,6 +61,7 @@ class FakeTranscriber:
         self.load_count = 0
         self.start_count = 0
         self.push_count = 0
+        self.push_delay = 0.0
         self.sessions: list[FakeTranscriberSession] = []
 
     def load(self) -> dict[str, int]:
@@ -183,6 +188,7 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(item["type"] == "speech_timeline.update" for item in first))
         final = next(item for item in second if item["type"] == "utterance.final")
         self.assertEqual(final["text"], "готово")
+        self.assertIn("metrics", final)
         self.assertEqual(final["spans"], [])
         self.assertEqual(self.transcriber.load_count, 1)
         self.assertEqual(self.affect.load_count, 1)
@@ -305,6 +311,54 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(final["text"], "готово")
         self.assertTrue(any(item["type"] == "speech_timeline.update" for item in received))
         self.assertEqual(self.transcriber.push_count, 2)
+
+    async def test_unpaced_benchmark_reports_two_resident_runs_without_content(self) -> None:
+        report = await benchmark_service(
+            ReadyInfo(
+                uri=self.service.uri,
+                token=self.ready["token"],
+                protocol="nextengine.speech-timeline/1",
+                bounds={},
+                models={"fake": "resident"},
+                model_identity={"revision": "exact"},
+            ),
+            b"\0\0" * 4_000,
+            4_000,
+            mode="unpaced",
+            runs=2,
+            chunk_ms=125,
+        )
+        self.assertEqual(len(report["runs"]), 2)
+        self.assertEqual(report["privacy"], "audio_and_transcript_omitted")
+        serialized = json.dumps(report, ensure_ascii=False)
+        self.assertNotIn("готово", serialized)
+        self.assertEqual(self.transcriber.load_count, 1)
+        self.assertEqual(self.transcriber.start_count, 2)
+
+    async def test_unpaced_overload_reports_first_typed_failure_and_recovers(self) -> None:
+        self.transcriber.push_delay = 0.05
+
+        async def chunks():
+            for _ in range(10):
+                yield b"\0\0" * 100
+
+        with self.assertRaisesRegex(Exception, "SERVICE_OVERLOADED"):
+            await run_websocket_session(
+                ReadyInfo(
+                    uri=self.service.uri,
+                    token=self.ready["token"],
+                    protocol="nextengine.speech-timeline/1",
+                    bounds={},
+                ),
+                chunks(),
+                locale="ru",
+                on_event=lambda _: None,
+                session_id="overload",
+            )
+        self.transcriber.push_delay = 0.0
+        await asyncio.sleep(0.1)
+        events = await self.run_turn("after-overload")
+        self.assertEqual(events[-1]["type"], "utterance.final")
 
 
 if __name__ == "__main__":
