@@ -123,9 +123,32 @@ must not be treated as a reliable Russian basic-emotion classifier, especially
 for happy, sad and disgusted speech; it also separates the current VAD result
 from the later temporal-aggregation loss. Do not retune VAD thresholds,
 smoothing thresholds or public label semantics to improve this held-out score.
-The next comparison must use the frozen v2 clips for direct and full-path base
-versus-large measurements, report abstentions separately, and only then decide
-whether a bounded smoothing-policy experiment is justified.
+Every subsequent candidate must first use the frozen v2 clips for direct
+comparison with base; run its full-path measurement only after it wins that
+cheaper gate. Report abstentions separately and only then decide whether a
+bounded smoothing-policy experiment is justified.
+
+## `emotion2vec_plus_large` A/B result
+
+The larger official checkpoint was downloaded outside Git at pinned revision
+`6c303ba987b86b93193de93e34bb2b077a6bedc4` and loaded successfully beside the
+resident base service. It was evaluated directly against exactly the same
+RESD-70 v2 manifest and label map as base. It scored 26/60 (`43.3%`) mapped
+top-1 versus base's 29/60 (`48.3%`): angry `5/10`, disgusted `3/10`, fearful
+`3/10`, happy `6/10`, neutral `4/10`, sad `5/10`. It improves happy and sad but
+loses too much on fear, angry and disgusted for the aggregate result to pass.
+The external report is
+`/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v2/emotion2vec-plus-large-report.v1.json`
+with SHA-256
+`152eaed20f0a7d6f36ae6f9ddbc52c67215099f9d4f79812a7736b6818e02a07`.
+
+**Decision:** retain the base checkpoint and do not run a full resident
+timeline/latency profile or swap the browser service to this candidate. The
+candidate already fails the cheaper whole-utterance quality gate; a full path
+run would interrupt the current resident service while adding no evidence that
+the model itself is better. Reconsider only if a declared downstream weighting
+values happiness/sadness enough to outweigh aggregate loss, or a new candidate
+first beats the base direct score on the frozen manifest.
 
 ## Model shortlist (research, not an approval to install)
 
@@ -170,8 +193,8 @@ evaluation manifest is therefore the release criterion. [ACL paper](https://acla
 
 ## Next smallest action
 
-Run direct and full-path v2 evaluation for the pinned
-`emotion2vec_plus_large` candidate without changing the label map, VAD or
-smoothing policy. Keep a separate paced latency benchmark plus actual-microphone
-quiet-room calibration and a labelled live checklist: the acted RESD screen
-does not replace them.
+Do not retry `emotion2vec_plus_large` on the full path unless the product
+weighting changes. Select the next Russian-capable candidate, pin it and apply
+the same direct gate before any resident-service swap. Keep a separate paced
+latency benchmark plus actual-microphone quiet-room calibration and a labelled
+live checklist: the acted RESD screen does not replace them.
