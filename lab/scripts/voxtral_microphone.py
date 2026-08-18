@@ -234,6 +234,16 @@ def pcm_chunks(
     max_samples: int | None,
     raw_sink: Callable[[bytes], object] | None = None,
 ) -> Iterator[array.array]:
+    for raw in raw_pcm_chunks(source, chunk_samples, max_samples, raw_sink):
+        yield pcm16le_to_float32(raw)
+
+
+def raw_pcm_chunks(
+    source: BinaryIO,
+    chunk_samples: int,
+    max_samples: int | None,
+    raw_sink: Callable[[bytes], object] | None = None,
+) -> Iterator[bytes]:
     pending = bytearray()
     yielded = 0
     chunk_bytes = chunk_samples * SAMPLE_WIDTH_BYTES
@@ -249,7 +259,7 @@ def pcm_chunks(
                         raw = raw[: remaining * SAMPLE_WIDTH_BYTES]
                     if raw_sink is not None:
                         raw_sink(raw)
-                    yield pcm16le_to_float32(raw)
+                    yield raw
             return
         pending.extend(data)
         if len(pending) < chunk_bytes:
@@ -260,10 +270,9 @@ def pcm_chunks(
             raw = raw[: (max_samples - yielded) * SAMPLE_WIDTH_BYTES]
         if raw_sink is not None:
             raw_sink(raw)
-        pcm = pcm16le_to_float32(raw)
-        yielded += len(pcm)
-        if pcm:
-            yield pcm
+        yielded += len(raw) // SAMPLE_WIDTH_BYTES
+        if raw:
+            yield raw
 
 
 def stop_capture(process: subprocess.Popen[bytes]) -> None:

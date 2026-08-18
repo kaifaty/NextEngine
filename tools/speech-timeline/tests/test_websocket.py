@@ -12,6 +12,7 @@ from websockets.asyncio.client import connect
 from nextengine_speech_timeline.adapters.base import AffectObservation
 from nextengine_speech_timeline.adapters.voxtral_transcribe_cpp import TranscriptRevision
 from nextengine_speech_timeline.service import SpeechTimelineRuntime
+from nextengine_speech_timeline.microphone_client import ReadyInfo, run_websocket_session
 from nextengine_speech_timeline.transport_websocket import SpeechTimelineWebSocketService
 
 
@@ -282,6 +283,28 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         duplicate = json.loads(await first.recv())
         self.assertEqual(duplicate["code"], "DUPLICATE_START")
         await first.close()
+
+    async def test_model_neutral_client_streams_chunks_and_receives_final_timeline(self) -> None:
+        async def chunks():
+            yield b"\0\0" * 2_000
+            yield b"\0\0" * 2_000
+
+        received: list[dict[str, object]] = []
+        final = await run_websocket_session(
+            ReadyInfo(
+                uri=self.service.uri,
+                token=self.ready["token"],
+                protocol="nextengine.speech-timeline/1",
+                bounds={},
+            ),
+            chunks(),
+            locale="ru",
+            on_event=received.append,
+            session_id="client-turn",
+        )
+        self.assertEqual(final["text"], "готово")
+        self.assertTrue(any(item["type"] == "speech_timeline.update" for item in received))
+        self.assertEqual(self.transcriber.push_count, 2)
 
 
 if __name__ == "__main__":

@@ -77,3 +77,22 @@ The profile is strict schema version 1 and contains three objects:
 The ready file is created with mode `0600`, contains the random session token,
 and is removed on clean shutdown. Raw PCM, transcripts, and model outputs are
 not written by the service.
+
+In a second terminal, list inputs and connect the microphone client:
+
+```bash
+~/.cache/nextengine/emotion2vec-plus-base/venv/bin/next-speech-timeline \
+  microphone --list-inputs
+
+~/.cache/nextengine/emotion2vec-plus-base/venv/bin/next-speech-timeline \
+  microphone \
+  --ready-file /path/outside/repository/speech-timeline-ready.json \
+  --device 'pw:<exact-node-name>' \
+  --locale ru
+```
+
+The client performs the same microphone preflight as the direct Voxtral probe,
+sends 250 ms PCM chunks by default, and renders replaceable transcript and
+emotion timeline updates until `utterance.final`. Use Ctrl-C to cancel by
+disconnecting. `--save-wav` remains an explicit diagnostic exception and
+refuses repository paths or overwrite.
