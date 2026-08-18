@@ -10,6 +10,7 @@
 | Архитектурная граница | Optional separate `ai-host`/developer service по ADR-005; gameplay и Rust public contracts не меняются |
 | Research | [Voxtral + emotion2vec facade](../development/voxtral-emotion2vec-facade-research-2026-08-18.md) |
 | Durable state | [Audio emotion + ASR timeline](../development/task-state/audio-emotion-asr-timeline.md) |
+| Follow-up | [Phase 2: LLM and TTS](2026-08-18-conversation-service-phase-2.md) after Phase 1 residency/latency gates; FunctionGemma is deferred to Phase 3 |
 
 ## 1. Рекомендуемый baseline
 
