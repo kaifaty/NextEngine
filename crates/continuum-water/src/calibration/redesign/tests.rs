@@ -37,7 +37,8 @@ fn pressure_operator_matches_independent_support_complete_calculator() {
     let hydro = scenario::find("CW-HYDRO-001").unwrap();
     let samples = scenario::initial_samples(&hydro, StorageOrder::Reverse).unwrap();
     let boundary = support_complete_lattice_complement(hydro.geometry).unwrap();
-    let production = solver::production_pressure_operator_probe(&samples, &boundary).unwrap();
+    let production =
+        solver::production_pressure_operator_probe(&samples, hydro.geometry, &boundary).unwrap();
     let independent = independent_support_complete_pressure_probe().unwrap();
 
     assert_eq!(production, independent);
@@ -58,7 +59,8 @@ fn projected_pcg_first_step_matches_independent_calculator() {
     let samples = scenario::initial_samples(&hydro, StorageOrder::Reverse).unwrap();
     let boundary = support_complete_lattice_complement(hydro.geometry).unwrap();
     let production =
-        solver::production_projected_pcg_first_step_probe(&samples, &boundary).unwrap();
+        solver::production_projected_pcg_first_step_probe(&samples, hydro.geometry, &boundary)
+            .unwrap();
     let independent = independent_support_complete_projected_pcg_first_step_probe().unwrap();
 
     assert_eq!(production, independent);

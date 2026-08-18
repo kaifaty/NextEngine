@@ -195,7 +195,11 @@ pub(crate) fn run_xtask(
     let production_samples = scenario::initial_samples(&scenario, StorageOrder::Reverse)?;
     let production_boundary = boundary::build(scenario.geometry)?;
     let started = Instant::now();
-    let production = solver::production_hydro_audit(&production_samples, &production_boundary)?;
+    let production = solver::production_hydro_audit(
+        &production_samples,
+        scenario.geometry,
+        &production_boundary,
+    )?;
     let independent = independent::compute()?;
     let elapsed = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
 
@@ -578,7 +582,8 @@ mod tests {
         let scenario = scenario::find("CW-HYDRO-001").unwrap();
         let samples = scenario::initial_samples(&scenario, StorageOrder::Reverse).unwrap();
         let boundary = boundary::build(scenario.geometry).unwrap();
-        let production = solver::production_hydro_audit(&samples, &boundary).unwrap();
+        let production =
+            solver::production_hydro_audit(&samples, scenario.geometry, &boundary).unwrap();
         let independent = independent::compute().unwrap();
 
         assert_eq!(first_mismatch(&production, &independent), None);

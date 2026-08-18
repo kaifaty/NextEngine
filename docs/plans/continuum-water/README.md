@@ -16,9 +16,11 @@ the cause: a support-complete two-layer complement matches independently but
 fails on the same second step. W0E separates density support, unilateral
 geometric contact and the pressure algorithm; its projected-PCG candidate
 matches independent implementations and passes a 1200-step local soak with
-zero penetration. It remains `NOT_SELECTED`: W0F must close geometry,
-capacity and successor roots before the implemented W1 serial corpus resumes.
-No `CONTINUUM-*` ProductCheck has run.
+zero penetration. W0F now closes shared outer/internal geometry, oriented
+density support, swept aperture contact, the `32,768` static capacity and new
+domain-separated roots. The successor profile is authorized only for the W1
+serial corpus; it is not selected for production. No `CONTINUUM-*`
+ProductCheck has run.
 
 This directory is the resume and execution surface for a dedicated water
 worktree. The main [Next Engine roadmap](../../roadmap.md) keeps the track
@@ -45,8 +47,8 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
      └─ W0C Hydro calibration reclosure            CLOSED / RESEARCH_ONLY
          └─ W0D Support-complete discriminator     CLOSED / CANDIDATE_REJECTED
              └─ W0E Constraint-separated redesign CLOSED / LOCAL_SURVIVOR
-                 └─ W0F Geometry + successor roots REQUIRED / NOT_STARTED
-                     └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / BLOCKED_ON_W0F
+                 └─ W0F Geometry + successor roots CLOSED / W1_AUTHORIZED
+                     └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / READY_TO_RUN
                  ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
                  │   └─ W3 One-pass PhysX coupling            NOT_STARTED
                  │       └─ W4 Basin + crate + debug view     NOT_STARTED
@@ -169,14 +171,17 @@ penetration and the existing reaction/work gates. The bounded
 [W0E evidence](../../development/continuum-water-w0e-constraint-separated-redesign-2026-08-18.md)
 records the clean report and limits.
 
-W1 remains blocked and the main roadmap remains inactive. The local survivor
-does not support internal apertures or dynamic rigid geometry, the selected
-product extent needs `24,704` static two-layer samples against the rejected
-profile's `16,384` boundary capacity, successor roots are unissued, and 50k
-cost is unknown. W0F must close those profile-level contracts before the full
-serial corpus runs. The evidence does not currently require a density map,
-XSPH, warm pressure state or settling generator. W2, WG, PhysX and GPU work
-remain blocked.
+W0F closes the profile-level blockers without activating the main roadmap.
+Production and independent paths match the exact geometry manifest, all
+`10,880` orifice support records, density/gradient fixtures and swept contact
+fixtures. Every selected W1 geometry fits the `32,768` static capacity; the
+product extent uses `24,704`. The W0E 24/1200-step roots and free-fall remain
+exact, while the 24-step orifice preflight transfers 24 samples legally with
+strict radius clearance and closes momentum to `23 ppb`. The new roots
+authorize the full serial W1 corpus. They do not supply corpus credit or a
+ProductCheck PASS, and dynamic rigid geometry remains W3 work. The evidence
+does not currently require a density map, XSPH, warm pressure state or
+settling generator. W2, WG, PhysX and GPU work remain blocked.
 
 ## Worktree and main-roadmap protocol
 

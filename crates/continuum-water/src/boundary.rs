@@ -18,6 +18,25 @@ pub(crate) struct BoundarySample {
     pub(crate) id: u32,
     pub(crate) position_um: Vec3i,
     pub(crate) volume: f64,
+    pub(crate) feature_id: u32,
+    pub(crate) support: BoundarySupport,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub(crate) enum BoundarySupport {
+    Unrestricted,
+    FluidXLessThan(i64),
+    FluidXGreaterThan(i64),
+}
+
+impl BoundarySupport {
+    pub(crate) fn admits(self, fluid_position_um: Vec3i) -> bool {
+        match self {
+            Self::Unrestricted => true,
+            Self::FluidXLessThan(coordinate_um) => fluid_position_um.x < coordinate_um,
+            Self::FluidXGreaterThan(coordinate_um) => fluid_position_um.x > coordinate_um,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -130,6 +149,8 @@ pub(crate) fn build(geometry: Geometry) -> Result<Vec<BoundarySample>, WaterErro
                 .map_err(|_| WaterError::new(BOUNDARY_CAPACITY_EXCEEDED, "boundary id overflow"))?,
             position_um,
             volume,
+            feature_id: 0,
+            support: BoundarySupport::Unrestricted,
         });
     }
     Ok(result)

@@ -11,7 +11,7 @@ use crate::audit::{
     AuditBoundaryInput, boundary_input_root, fluid_input_root, independent_ghost_hydro_calibration,
     independent_support_complete_hydro_calibration, production_fluid_input, scalar_bits,
 };
-use crate::boundary::BoundarySample;
+use crate::boundary::{BoundarySample, BoundarySupport};
 use crate::error::{
     AUDIT_INVALID, AUDIT_MISMATCH, BOUNDARY_CAPACITY_EXCEEDED, REPORT_CAPACITY_EXCEEDED,
     SCENARIO_INVALID, WaterError,
@@ -483,6 +483,8 @@ fn lattice_complement_shell(
                         })?,
                         position_um,
                         volume: REST_VOLUME,
+                        feature_id: 0,
+                        support: BoundarySupport::Unrestricted,
                     });
                 }
             }

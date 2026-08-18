@@ -5,6 +5,9 @@ use crate::audit::{
     DensityIterationRowTrace, HydroAuditTrace, HydroRowTrace, SELECTED_ROWS,
     production_fluid_input, scalar_bits, vector_bits,
 };
+use crate::calibration::successor::{
+    ContactFixtureInput, ContactFixtureObservation, DensityFixtureObservation, FeatureActivation,
+};
 use crate::calibration::{ContactProjectionCase, ContactProjectionProbe};
 use crate::error::{AUDIT_INVALID, DENSITY_NONCONVERGENCE, WaterError};
 
@@ -122,6 +125,146 @@ pub(crate) fn contact_pcg_constrained_substep(
         outcome,
         projection,
     })
+}
+
+pub(crate) fn successor_pcg_constrained_substep(
+    prior: &AcceptedFrame,
+    geometry: Geometry,
+    boundary: &[BoundarySample],
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+) -> Result<ContactConstrainedStepOutcome, WaterError> {
+    let (outcome, projection) = substep_with_boundary_projection_limit(
+        prior,
+        geometry,
+        BoundaryInput::Particles(boundary),
+        execution_profile_root,
+        scenario_root,
+        50,
+        TerminalVelocityProjection::PredictiveGeometry,
+        DensitySolveMethod::ProjectedPreconditionedConjugateGradient,
+    )?;
+    Ok(ContactConstrainedStepOutcome {
+        outcome,
+        projection,
+    })
+}
+
+pub(crate) fn production_successor_density_fixtures(
+    samples: &[CanonicalSample],
+    geometry: Geometry,
+    boundary: &[BoundarySample],
+    selections: &[(&str, u32)],
+) -> Result<Vec<DensityFixtureObservation>, WaterError> {
+    let state = decode(samples)?;
+    let reconstruction = reconstruct(&state, geometry, boundary)?;
+    let mut observations = Vec::new();
+    observations
+        .try_reserve_exact(selections.len())
+        .map_err(audit_reserve_error)?;
+    for (role, sample_id) in selections {
+        let index = state
+            .samples
+            .binary_search_by_key(sample_id, |sample| sample.id)
+            .map_err(|_| {
+                WaterError::new(
+                    AUDIT_INVALID,
+                    format!("successor density fixture sample {sample_id} is missing"),
+                )
+            })?;
+        let row = reconstruction.rows[index];
+        let mut fluid_gradient = Vec3f::ZERO;
+        for neighbor in &reconstruction.fluid[row.fluid_start..row.fluid_end] {
+            fluid_gradient = fluid_gradient
+                .add(
+                    neighbor
+                        .gradient
+                        .scale(REST_VOLUME)
+                        .checked("successor fixture fluid gradient")?,
+                )
+                .checked("successor fixture fluid gradient reduction")?;
+        }
+        let mut boundary_gradient = Vec3f::ZERO;
+        for neighbor in &reconstruction.solid[row.solid_start..row.solid_end] {
+            boundary_gradient = boundary_gradient
+                .add(
+                    neighbor
+                        .gradient
+                        .scale(neighbor.volume)
+                        .checked("successor fixture boundary gradient")?,
+                )
+                .checked("successor fixture boundary gradient reduction")?;
+        }
+        let total_gradient = fluid_gradient
+            .add(boundary_gradient)
+            .checked("successor fixture total gradient")?;
+        observations.push(DensityFixtureObservation {
+            role: (*role).to_owned(),
+            sample_id: *sample_id,
+            position_um: state.samples[index].position_um,
+            fluid_neighbor_count: row.fluid_end - row.fluid_start,
+            boundary_neighbor_count: row.solid_end - row.solid_start,
+            rho_ratio_bits: scalar_bits(reconstruction.rho_ratio[index]),
+            alpha_bits: scalar_bits(reconstruction.alpha[index]),
+            fluid_gradient_bits: vector_bits(fluid_gradient),
+            boundary_gradient_bits: vector_bits(boundary_gradient),
+            total_gradient_bits: vector_bits(total_gradient),
+        });
+    }
+    Ok(observations)
+}
+
+pub(crate) fn production_successor_contact_fixtures(
+    geometry: Geometry,
+    inputs: &[ContactFixtureInput],
+) -> Result<Vec<ContactFixtureObservation>, WaterError> {
+    let mut observations = Vec::new();
+    observations
+        .try_reserve_exact(inputs.len())
+        .map_err(audit_reserve_error)?;
+    for input in inputs {
+        let position = Vec3f::new(
+            decode_micrometres(input.position_um.x)?,
+            decode_micrometres(input.position_um.y)?,
+            decode_micrometres(input.position_um.z)?,
+        );
+        let before = Vec3f::new(
+            decode_velocity(input.velocity_um_s.x)?,
+            decode_velocity(input.velocity_um_s.y)?,
+            decode_velocity(input.velocity_um_s.z)?,
+        );
+        let mut velocities = [before];
+        let projection = project_predictive_geometry(geometry, &[position], &mut velocities)?;
+        let mut features = Vec::new();
+        for (feature_id, active_constraints) in projection
+            .feature_active_constraints
+            .iter()
+            .copied()
+            .enumerate()
+        {
+            if active_constraints == 0 {
+                continue;
+            }
+            features.push(FeatureActivation {
+                feature_id: u32::try_from(feature_id).map_err(|_| {
+                    WaterError::new(AUDIT_INVALID, "contact fixture feature ID overflow")
+                })?,
+                active_constraints,
+                fluid_impulse_bits: vector_bits(projection.feature_fluid_impulses[feature_id]),
+            });
+        }
+        observations.push(ContactFixtureObservation {
+            id: input.id.to_owned(),
+            position_um: input.position_um,
+            velocity_before_um_s: input.velocity_um_s,
+            velocity_after_bits: vector_bits(velocities[0]),
+            fluid_impulse_bits: vector_bits(projection.fluid_impulse),
+            active_rows: projection.active_rows,
+            active_components: projection.active_components,
+            features,
+        });
+    }
+    Ok(observations)
 }
 
 pub(crate) fn production_contact_projection_probe() -> Result<ContactProjectionProbe, WaterError> {
@@ -363,10 +506,11 @@ impl DensityRecorder {
 
 pub(crate) fn production_hydro_audit(
     samples: &[CanonicalSample],
+    geometry: Geometry,
     boundary: &[BoundarySample],
 ) -> Result<AuditComputation, WaterError> {
     let mut state = decode(samples)?;
-    let reconstruction = reconstruct(&state, boundary)?;
+    let reconstruction = reconstruct(&state, geometry, boundary)?;
     let divergence = solve_divergence(&reconstruction, &mut state.velocities)?;
     for velocity in &mut state.velocities {
         velocity.y = checked_scalar(

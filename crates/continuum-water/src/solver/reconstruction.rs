@@ -6,8 +6,10 @@ use super::*;
 
 pub(super) fn particles(
     state: &DecodedState,
+    geometry: Geometry,
     boundary: &[BoundarySample],
 ) -> Result<Reconstruction, WaterError> {
+    let manifest = crate::geometry::AxisAlignedGeometryManifest::from_geometry(geometry)?;
     let fluid_grid = build_fluid_grid(&state.samples)?;
     let boundary_grid = build_boundary_grid(boundary)?;
     let mut fluid_counts = Vec::new();
@@ -22,7 +24,7 @@ pub(super) fn particles(
     let mut total_solid = 0_usize;
     let mut total_directed = 0_usize;
     for sample in &state.samples {
-        let fluid = admitted_fluid(sample, &state.samples, &fluid_grid)?;
+        let fluid = admitted_fluid(sample, &state.samples, &fluid_grid, &manifest)?;
         let solid = admitted_boundary(sample, boundary, &boundary_grid)?;
         let row_count = fluid.len().checked_add(solid.len()).ok_or_else(|| {
             WaterError::new(NEIGHBOR_CAPACITY_EXCEEDED, "fluid row count overflow")
@@ -75,7 +77,7 @@ pub(super) fn particles(
         .map_err(heap_error)?;
     for (row_index, sample) in state.samples.iter().enumerate() {
         let fluid_start = fluid_neighbors.len();
-        for other in admitted_fluid(sample, &state.samples, &fluid_grid)? {
+        for other in admitted_fluid(sample, &state.samples, &fluid_grid, &manifest)? {
             let displacement = sample
                 .position_um
                 .checked_sub(state.samples[other].position_um)?;
@@ -119,6 +121,7 @@ pub(super) fn volume_map(
     state: &DecodedState,
     geometry: Geometry,
 ) -> Result<Reconstruction, WaterError> {
+    let manifest = crate::geometry::AxisAlignedGeometryManifest::from_geometry(geometry)?;
     let fluid_grid = build_fluid_grid(&state.samples)?;
     let map = VolumeMapBoundary::new(geometry)?;
     let mut fluid_counts = Vec::new();
@@ -133,7 +136,7 @@ pub(super) fn volume_map(
     let mut total_solid = 0_usize;
     let mut total_directed = 0_usize;
     for (index, sample) in state.samples.iter().enumerate() {
-        let fluid = admitted_fluid(sample, &state.samples, &fluid_grid)?;
+        let fluid = admitted_fluid(sample, &state.samples, &fluid_grid, &manifest)?;
         let map_sample = map.sample(state.positions[index])?;
         let solid_count = usize::from(map_sample.is_some());
         let row_count = fluid.len().checked_add(solid_count).ok_or_else(|| {
@@ -187,7 +190,7 @@ pub(super) fn volume_map(
         .map_err(heap_error)?;
     for (row_index, sample) in state.samples.iter().enumerate() {
         let fluid_start = fluid_neighbors.len();
-        for other in admitted_fluid(sample, &state.samples, &fluid_grid)? {
+        for other in admitted_fluid(sample, &state.samples, &fluid_grid, &manifest)? {
             let displacement = sample
                 .position_um
                 .checked_sub(state.samples[other].position_um)?;

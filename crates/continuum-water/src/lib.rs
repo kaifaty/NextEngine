@@ -4,6 +4,7 @@ mod audit;
 mod boundary;
 mod calibration;
 mod error;
+mod geometry;
 mod hash;
 mod kernel;
 mod model;
@@ -45,6 +46,11 @@ pub fn run_xtask(
             if material == "water" && command == "evaluate-hydro-redesign" =>
         {
             calibration::run_redesign_xtask(repository_root, arguments)
+        }
+        (Some(material), Some(command))
+            if material == "water" && command == "close-successor-profile" =>
+        {
+            calibration::successor::run_xtask(repository_root, arguments)
         }
         _ => oracle::run_xtask(
             repository_root,

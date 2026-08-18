@@ -4,11 +4,11 @@
 |---|---|
 | ID | ADR-076 |
 | Status | Proposed |
-| Version | 1.2 |
+| Version | 1.3 |
 | Decision date | 2026-08-16 |
-| Last verified | 2026-08-17 |
+| Last verified | 2026-08-18 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](../25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](../26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](../30-presentation-extraction-and-render-content.md), [ADR-027](027-physics-motor-and-animation-layering.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-071](071-canonical-physics-material-lineage.md), [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
-| Candidate revision note | Version 1.2 applies ADR-081 float, identity, checkpoint-epoch, capacity, fault-domain and successor-budget promotion guardrails |
+| Candidate revision note | Version 1.3 binds the W0F successor water operations and static-boundary capacity without promoting this Proposed track |
 | Superseded by | Partially [ADR-081](081-world-dynamics-gap-closure-and-promotion-guardrails.md): it supersedes the world-generation key, unprofiled private-float, unbounded continuation, implicit fault-domain and legacy-budget clauses. |
 
 ## Context
@@ -63,10 +63,21 @@ caches. V1 disables warm start, adaptivity, surface tension, optional
 viscosity/vorticity models and variable time step so that no unrecorded field
 can affect continuation.
 
-The exact baseline uses 240 Hz cadence, water density `1000 kg/m³`, particle
-radius `0.025 m`, spacing `0.05 m`, cubic-spline support `0.1 m`, sample mass
-`0.125 kg`, gravity `9.81 m/s²`, density iterations `2..=20` with mean error
-`<= 0.01%`, and divergence iterations `1..=20` with mean error `<= 0.1%`.
+The exact successor baseline uses 240 Hz cadence, water density `1000 kg/m³`,
+particle radius `0.025 m`, spacing `0.05 m`, cubic-spline support `0.1 m`,
+sample mass `0.125 kg` and gravity `9.81 m/s²`. Density uses projected
+diagonally preconditioned active-set PCG for `2..=50` iterations with mean
+positive compression error `<= 0.01%`; divergence remains `1..=20` with mean
+error `<= 0.1%`.
+
+Static analytical geometry has one exact integer source shared by neighbor
+visibility, two-layer `REST_VOLUME` density support, validation and swept
+particle-radius contact. Internal plane patches have stable feature IDs and
+closed rectangular openings; their support samples are oriented to one fluid
+side. Contact executes after pressure and before integration, reduces impulse
+per feature, and permits no positional repair or retry. The successor admits
+at most `32,768` static boundary samples; future dynamic rigid samples require
+a separate W3 capacity.
 
 ### One-pass composite PhysicalStep
 

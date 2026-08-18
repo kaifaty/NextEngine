@@ -2,6 +2,7 @@
 
 use crate::boundary::BoundarySample;
 use crate::error::{NEIGHBOR_CAPACITY_EXCEEDED, WaterError};
+use crate::geometry::AxisAlignedGeometryManifest;
 use crate::model::{CanonicalSample, Vec3i};
 use crate::profile::{GRID_CELL_WIDTH_UM, MAXIMUM_NEIGHBORS_PER_FLUID_ROW, SUPPORT_RADIUS_UM};
 use crate::scenario::validate_capacity;
@@ -60,6 +61,7 @@ pub(super) fn admitted_fluid(
     sample: &CanonicalSample,
     samples: &[CanonicalSample],
     entries: &[GridEntry],
+    geometry: &AxisAlignedGeometryManifest,
 ) -> Result<Vec<usize>, WaterError> {
     let mut result = Vec::new();
     result
@@ -72,7 +74,9 @@ pub(super) fn admitted_fluid(
         let displacement = sample
             .position_um
             .checked_sub(samples[entry.index].position_um)?;
-        if displacement.squared_length_i128()? <= support_radius_squared() {
+        if displacement.squared_length_i128()? <= support_radius_squared()
+            && !geometry.blocks_segment(sample.position_um, samples[entry.index].position_um)?
+        {
             result.push(entry.index);
             validate_capacity(
                 result.len(),
@@ -101,7 +105,9 @@ pub(super) fn admitted_boundary(
         let displacement = sample
             .position_um
             .checked_sub(boundary[entry.index].position_um)?;
-        if displacement.squared_length_i128()? <= support_radius_squared() {
+        if boundary[entry.index].support.admits(sample.position_um)
+            && displacement.squared_length_i128()? <= support_radius_squared()
+        {
             result.push(entry.index);
             validate_capacity(
                 result.len(),

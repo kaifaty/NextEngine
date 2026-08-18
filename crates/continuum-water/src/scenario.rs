@@ -161,6 +161,117 @@ pub(crate) fn root_for(scenario: &Scenario, roots: &FrozenRoots) -> Result<[u8; 
     }
 }
 
+pub(crate) fn successor_projection(scenario: &Scenario) -> Result<String, WaterError> {
+    use std::fmt::Write as _;
+
+    if scenario.smoke_only {
+        return Err(WaterError::new(
+            SCENARIO_INVALID,
+            "smoke scenarios are not part of the successor corpus",
+        ));
+    }
+    let mut output = String::new();
+    writeln!(output, "scenario.{}.kind={}", scenario.id, scenario.kind)
+        .map_err(|_| WaterError::new(SCENARIO_INVALID, "successor kind formatting failed"))?;
+    writeln!(
+        output,
+        "scenario.{}.box_um=({},{},{})..({},{},{})",
+        scenario.id,
+        scenario.geometry.bounds.min.x,
+        scenario.geometry.bounds.min.y,
+        scenario.geometry.bounds.min.z,
+        scenario.geometry.bounds.max.x,
+        scenario.geometry.bounds.max.y,
+        scenario.geometry.bounds.max.z
+    )
+    .map_err(|_| WaterError::new(SCENARIO_INVALID, "successor box formatting failed"))?;
+    if let Some(aperture) = scenario.geometry.aperture {
+        writeln!(
+            output,
+            "scenario.{}.boundary=successor-outer-box-plus-patch-16",
+            scenario.id
+        )
+        .map_err(|_| WaterError::new(SCENARIO_INVALID, "successor wall formatting failed"))?;
+        writeln!(
+            output,
+            "scenario.{}.aperture_um=x={};y={}..{};z={}..{};opening-set-closed",
+            scenario.id,
+            aperture.wall_x_um,
+            aperture.y_min_um,
+            aperture.y_max_um,
+            aperture.z_min_um,
+            aperture.z_max_um
+        )
+        .map_err(|_| WaterError::new(SCENARIO_INVALID, "successor opening formatting failed"))?;
+    } else if scenario.id == "CW-SEALED-001" {
+        writeln!(
+            output,
+            "scenario.{}.boundary=successor-closed-outer-box;static-support-count=24704",
+            scenario.id
+        )
+        .map_err(|_| {
+            WaterError::new(
+                SCENARIO_INVALID,
+                "successor product boundary formatting failed",
+            )
+        })?;
+    } else {
+        writeln!(
+            output,
+            "scenario.{}.boundary=successor-closed-outer-box",
+            scenario.id
+        )
+        .map_err(|_| WaterError::new(SCENARIO_INVALID, "successor boundary formatting failed"))?;
+    }
+    writeln!(
+        output,
+        "scenario.{}.fluid={},{},{};({},{},{});({},{},{})",
+        scenario.id,
+        scenario.dimensions[0],
+        scenario.dimensions[1],
+        scenario.dimensions[2],
+        scenario.first_position_um.x,
+        scenario.first_position_um.y,
+        scenario.first_position_um.z,
+        scenario.initial_velocity_um_s.x,
+        scenario.initial_velocity_um_s.y,
+        scenario.initial_velocity_um_s.z
+    )
+    .map_err(|_| WaterError::new(SCENARIO_INVALID, "successor fluid formatting failed"))?;
+    writeln!(output, "scenario.{}.steps={}", scenario.id, scenario.steps)
+        .map_err(|_| WaterError::new(SCENARIO_INVALID, "successor steps formatting failed"))?;
+    writeln!(
+        output,
+        "scenario.{}.outputs=0..{}/every={}",
+        scenario.id, scenario.steps, scenario.output_every
+    )
+    .map_err(|_| WaterError::new(SCENARIO_INVALID, "successor outputs formatting failed"))?;
+    if scenario.id == "CW-FREEFALL-001" {
+        writeln!(
+            output,
+            "scenario.CW-FREEFALL-001.recurrence=publish-vy-plus-gravity-then-publish-y-plus-published-vy-over-240"
+        )
+        .map_err(|_| {
+            WaterError::new(SCENARIO_INVALID, "successor recurrence formatting failed")
+        })?;
+    }
+    if scenario.id == "CW-ORDER-001" {
+        writeln!(
+            output,
+            "scenario.CW-ORDER-001.storage-orders=identity,reverse,affine-257k-plus-17-mod-1152"
+        )
+        .map_err(|_| WaterError::new(SCENARIO_INVALID, "successor order formatting failed"))?;
+    }
+    writeln!(
+        output,
+        "scenario.{}.reference={}",
+        scenario.id,
+        reference_label(scenario.id)?
+    )
+    .map_err(|_| WaterError::new(SCENARIO_INVALID, "successor reference formatting failed"))?;
+    Ok(output)
+}
+
 fn implementation_projection(scenario: &Scenario) -> Result<String, WaterError> {
     use std::fmt::Write as _;
 
@@ -674,6 +785,30 @@ mod tests {
                     .unwrap()
                     .len(),
                 expected
+            );
+        }
+    }
+
+    #[test]
+    fn successor_scenario_definitions_match_every_rooted_projection() {
+        let repository_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(std::path::Path::parent)
+            .unwrap();
+        let roots = crate::hash::SuccessorRoots::verify(repository_root).unwrap();
+        for id in [
+            "CW-HYDRO-001",
+            "CW-FREEFALL-001",
+            "CW-DAMBREAK-001",
+            "CW-STILL-001",
+            "CW-ORIFICE-001",
+            "CW-SEALED-001",
+            "CW-ORDER-001",
+        ] {
+            let scenario = find(id).unwrap();
+            assert_eq!(
+                successor_projection(&scenario).unwrap().as_bytes(),
+                roots.scenario_projection(id).unwrap()
             );
         }
     }

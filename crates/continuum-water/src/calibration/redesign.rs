@@ -221,11 +221,14 @@ pub(crate) fn run_xtask(
     let initial_boundary_match = boundary_input == independent_initial.boundary
         && initial_production_trace == independent_initial.trace;
     let production_pressure_operator =
-        solver::production_pressure_operator_probe(&samples, &candidate_boundary)?;
+        solver::production_pressure_operator_probe(&samples, hydro.geometry, &candidate_boundary)?;
     let independent_pressure_operator = independent_support_complete_pressure_probe()?;
     let pressure_operator_match = production_pressure_operator == independent_pressure_operator;
-    let production_projected_pcg_first_step =
-        solver::production_projected_pcg_first_step_probe(&samples, &candidate_boundary)?;
+    let production_projected_pcg_first_step = solver::production_projected_pcg_first_step_probe(
+        &samples,
+        hydro.geometry,
+        &candidate_boundary,
+    )?;
     let independent_projected_pcg_first_step =
         independent_support_complete_projected_pcg_first_step_probe()?;
     let projected_pcg_first_step_match =

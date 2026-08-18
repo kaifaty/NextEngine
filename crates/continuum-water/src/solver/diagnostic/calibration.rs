@@ -16,10 +16,11 @@ use super::super::*;
 
 pub(crate) fn production_pressure_operator_probe(
     samples: &[CanonicalSample],
+    geometry: Geometry,
     boundary: &[BoundarySample],
 ) -> Result<PressureOperatorProbe, WaterError> {
     let state = decode(samples)?;
-    let reconstruction = reconstruct(&state, boundary)?;
+    let reconstruction = reconstruct(&state, geometry, boundary)?;
     let (vector_u, vector_v) = pressure_probe_vectors(&state.samples)?;
     let action_u = density_pressure_operator(&reconstruction, &vector_u)?;
     let action_v = density_pressure_operator(&reconstruction, &vector_v)?;
@@ -93,10 +94,11 @@ pub(crate) fn production_pressure_operator_probe(
 
 pub(crate) fn production_projected_pcg_first_step_probe(
     samples: &[CanonicalSample],
+    geometry: Geometry,
     boundary: &[BoundarySample],
 ) -> Result<ProjectedPcgFirstStepProbe, WaterError> {
     let mut state = decode(samples)?;
-    let reconstruction = reconstruct(&state, boundary)?;
+    let reconstruction = reconstruct(&state, geometry, boundary)?;
     let _divergence = solve_divergence(&reconstruction, &mut state.velocities)?;
     for velocity in &mut state.velocities {
         velocity.y = checked_scalar(
@@ -152,7 +154,7 @@ pub(crate) fn production_hydro_calibration(
     geometry: Geometry,
 ) -> Result<HydroCalibrationTrace, WaterError> {
     let mut state = decode(samples)?;
-    let reconstruction = reconstruct(&state, boundary)?;
+    let reconstruction = reconstruct(&state, geometry, boundary)?;
     let contributions = density_contributions(&state, &reconstruction, Some(boundary), geometry)?;
     let _divergence = solve_divergence(&reconstruction, &mut state.velocities)?;
     for velocity in &mut state.velocities {

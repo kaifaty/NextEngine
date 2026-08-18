@@ -24,6 +24,7 @@ use crate::{boundary, profile, scenario, solver};
 mod candidate;
 mod initialization;
 mod redesign;
+pub(crate) mod successor;
 mod volume_map_candidate;
 
 pub(crate) use candidate::HYDRO_SOAK_STEPS;

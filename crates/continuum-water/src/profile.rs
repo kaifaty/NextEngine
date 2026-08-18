@@ -13,9 +13,54 @@ pub(crate) const FLOAT_PROFILE_ROOT_HEX: &str =
     "d6152c575fd88bb53d0d63d0e1e8b2e86a82465268fc8d102ebdb1d77c092d63";
 pub(crate) const CORPUS_ROOT_HEX: &str =
     "cb091e0f3a04f2c052b614aeab72034bddd3c0b32430fba85854ede2d183aa91";
+pub(crate) const SUCCESSOR_DOCUMENT_ROOT_HEX: &str =
+    "faf655976ca52f2ba49cd1fe786a82771f0df5a4889199f0417f727f4cf62df0";
+pub(crate) const SUCCESSOR_FLOAT_PROFILE_ROOT_HEX: &str =
+    "4b08279c5d640b3a550677aa70e4c9798cda354ab0936683e9b7bf3f18d8c91e";
+pub(crate) const SUCCESSOR_EXECUTION_MANIFEST_ROOT_HEX: &str =
+    "141448c0a1eac2d110639ba5a70476e9cc10b4536679f900728f3b3a5ae14eac";
+pub(crate) const SUCCESSOR_CORPUS_ROOT_HEX: &str =
+    "2170a7117ac7dfa9cca38fa465ac4805ffb8b73693e38e18a1285dbfe077c75d";
+pub(crate) const SUCCESSOR_FIXTURE_ROOT_HEX: &str =
+    "6bea54b5223aff6735ecb44d6597326737efecf986665f7ca609259803546c38";
+pub(crate) const SUCCESSOR_GEOMETRY_ROOT_HEX: &str =
+    "575300649a3d0d7f3c0c92f95d3e194d3dacb1602a18ab064959e026118f18bf";
+pub(crate) const SUCCESSOR_EXECUTION_PROFILE_ROOT_HEX: &str =
+    "617ceec10c0ce2e1c90ec45a3a713696e58313a7432cc9379aadbf4adf48cab3";
+pub(crate) const SUCCESSOR_SCENARIO_ROOTS_HEX: [(&str, &str); 7] = [
+    (
+        "CW-HYDRO-001",
+        "8df5c03be5f09ffecc9d3787712b138b463d9a21f5fd42c259e0f348799e7373",
+    ),
+    (
+        "CW-FREEFALL-001",
+        "84af378ac392983b88318e9b63a727a41c97e9bf2e9b22c13091988141cd26fe",
+    ),
+    (
+        "CW-DAMBREAK-001",
+        "de787aca267b8c0c7b892f14639ef011911d28750d66acb47b09f42adc6c873e",
+    ),
+    (
+        "CW-STILL-001",
+        "272043a7d9ae428908867d7092bfdbe8dedf36021e2664dd1c78701e1ddf7756",
+    ),
+    (
+        "CW-ORIFICE-001",
+        "a10a731187bdc66a41a5f9ac3407103a43c3ea1ffd58760d76cd9d5ed5717839",
+    ),
+    (
+        "CW-SEALED-001",
+        "047e9ff6e2fc1f0b806caa7e96ea8fc571b1334fe213d5c5248dcae2ac629556",
+    ),
+    (
+        "CW-ORDER-001",
+        "e26be82f99726a763016958daea8cedb8c1cec77c6efe2b3dee5e2e7d61ba25f",
+    ),
+];
 
 pub(crate) const MAXIMUM_SAMPLES: usize = 50_000;
 pub(crate) const MAXIMUM_BOUNDARY_SAMPLES: usize = 16_384;
+pub(crate) const SUCCESSOR_MAXIMUM_STATIC_BOUNDARY_SAMPLES: usize = 32_768;
 pub(crate) const MAXIMUM_NEIGHBORS_PER_FLUID_ROW: usize = 128;
 pub(crate) const MAXIMUM_DIRECTED_FLUID_NEIGHBORS: usize = 6_400_000;
 pub(crate) const MAXIMUM_NEIGHBORS_PER_BOUNDARY_ROW: usize = 128;

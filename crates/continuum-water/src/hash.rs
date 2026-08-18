@@ -7,7 +7,13 @@ use sha2::{Digest, Sha256};
 
 use crate::error::{PROFILE_MISMATCH, SCENARIO_INVALID, WaterError};
 use crate::model::CanonicalSample;
-use crate::profile::{CORPUS_ROOT_HEX, FLOAT_PROFILE_ROOT_HEX, W0B_DOCUMENT_ROOT_HEX};
+use crate::profile::{
+    CORPUS_ROOT_HEX, FLOAT_PROFILE_ROOT_HEX, SUCCESSOR_CORPUS_ROOT_HEX,
+    SUCCESSOR_DOCUMENT_ROOT_HEX, SUCCESSOR_EXECUTION_MANIFEST_ROOT_HEX,
+    SUCCESSOR_EXECUTION_PROFILE_ROOT_HEX, SUCCESSOR_FIXTURE_ROOT_HEX,
+    SUCCESSOR_FLOAT_PROFILE_ROOT_HEX, SUCCESSOR_GEOMETRY_ROOT_HEX, SUCCESSOR_SCENARIO_ROOTS_HEX,
+    W0B_DOCUMENT_ROOT_HEX,
+};
 
 const W0B_PATH: &str = "docs/plans/continuum-water/00b-numeric-execution-and-corpus-closure.md";
 const FLOAT_DOMAIN: &[u8] = b"nextengine.continuum-water.float-profile.v1\0";
@@ -16,6 +22,15 @@ const EXECUTION_DOMAIN: &[u8] = b"nextengine.continuum-water.execution-profile.v
 const SCENARIO_DOMAIN: &[u8] = b"nextengine.continuum-water.scenario.v1\0";
 const FRAME_DOMAIN: &[u8] = b"nextengine.continuum-water.frame.v1\0";
 const TRAJECTORY_DOMAIN: &[u8] = b"nextengine.continuum-water.trajectory.v1\0";
+const SUCCESSOR_PATH: &str = "docs/plans/continuum-water/00f-geometry-capacity-and-root-closure.md";
+const SUCCESSOR_FLOAT_DOMAIN: &[u8] = b"nextengine.continuum-water.successor-float-profile.v1\0";
+const SUCCESSOR_EXECUTION_MANIFEST_DOMAIN: &[u8] =
+    b"nextengine.continuum-water.successor-execution-manifest.v1\0";
+const SUCCESSOR_CORPUS_DOMAIN: &[u8] = b"nextengine.continuum-water.successor-corpus.v1\0";
+const SUCCESSOR_FIXTURE_DOMAIN: &[u8] = b"nextengine.continuum-water.successor-fixtures.v1\0";
+const SUCCESSOR_EXECUTION_PROFILE_DOMAIN: &[u8] =
+    b"nextengine.continuum-water.successor-execution-profile.v1\0";
+const SUCCESSOR_SCENARIO_DOMAIN: &[u8] = b"nextengine.continuum-water.successor-scenario.v1\0";
 
 #[derive(Clone, Debug)]
 pub(crate) struct FrozenRoots {
@@ -99,6 +114,154 @@ impl FrozenRoots {
             return Err(WaterError::new(
                 SCENARIO_INVALID,
                 format!("scenario {scenario_id:?} is absent from the frozen corpus"),
+            ));
+        }
+        Ok(projection)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct SuccessorRoots {
+    pub(crate) document: [u8; 32],
+    pub(crate) float_profile: [u8; 32],
+    pub(crate) execution_manifest: [u8; 32],
+    pub(crate) corpus: [u8; 32],
+    pub(crate) fixtures: [u8; 32],
+    pub(crate) geometry: [u8; 32],
+    pub(crate) execution_profile: [u8; 32],
+    corpus_bytes: Vec<u8>,
+}
+
+impl SuccessorRoots {
+    pub(crate) fn load(repository_root: &Path) -> Result<Self, WaterError> {
+        let path = repository_root.join(SUCCESSOR_PATH);
+        let document = fs::read(&path).map_err(|error| {
+            WaterError::new(
+                PROFILE_MISMATCH,
+                format!("cannot read {}: {error}", path.display()),
+            )
+        })?;
+        if document.contains(&b'\r') {
+            return Err(WaterError::new(
+                PROFILE_MISMATCH,
+                "successor profile document contains CR bytes",
+            ));
+        }
+        let float_bytes = successor_block(
+            &document,
+            b"SUCCESSOR_FLOAT_PROFILE_V1_BEGIN\n",
+            b"SUCCESSOR_FLOAT_PROFILE_V1_END\n",
+            "float profile",
+        )?;
+        let execution_bytes = successor_block(
+            &document,
+            b"SUCCESSOR_EXECUTION_PROFILE_V1_BEGIN\n",
+            b"SUCCESSOR_EXECUTION_PROFILE_V1_END\n",
+            "execution profile",
+        )?;
+        let corpus_bytes = successor_block(
+            &document,
+            b"SUCCESSOR_CORPUS_MANIFEST_V1_BEGIN\n",
+            b"SUCCESSOR_CORPUS_MANIFEST_V1_END\n",
+            "corpus manifest",
+        )?;
+        let fixture_bytes = successor_block(
+            &document,
+            b"SUCCESSOR_FIXTURE_MANIFEST_V1_BEGIN\n",
+            b"SUCCESSOR_FIXTURE_MANIFEST_V1_END\n",
+            "fixture manifest",
+        )?;
+        let document_root = digest(&document);
+        let float_profile = domain_digest(SUCCESSOR_FLOAT_DOMAIN, float_bytes);
+        let execution_manifest =
+            domain_digest(SUCCESSOR_EXECUTION_MANIFEST_DOMAIN, execution_bytes);
+        let corpus = domain_digest(SUCCESSOR_CORPUS_DOMAIN, corpus_bytes);
+        let fixtures = domain_digest(SUCCESSOR_FIXTURE_DOMAIN, fixture_bytes);
+        let orifice = crate::scenario::find("CW-ORIFICE-001")?;
+        let geometry =
+            crate::geometry::AxisAlignedGeometryManifest::from_geometry(orifice.geometry)?.root();
+        let mut hasher = Sha256::new();
+        hasher.update(SUCCESSOR_EXECUTION_PROFILE_DOMAIN);
+        hasher.update(document_root);
+        hasher.update(float_profile);
+        hasher.update(execution_manifest);
+        hasher.update(corpus);
+        hasher.update(fixtures);
+        hasher.update(geometry);
+        Ok(Self {
+            document: document_root,
+            float_profile,
+            execution_manifest,
+            corpus,
+            fixtures,
+            geometry,
+            execution_profile: finalize(hasher),
+            corpus_bytes: corpus_bytes.to_vec(),
+        })
+    }
+
+    pub(crate) fn verify(repository_root: &Path) -> Result<Self, WaterError> {
+        let roots = Self::load(repository_root)?;
+        require_root(
+            "successor document",
+            roots.document,
+            SUCCESSOR_DOCUMENT_ROOT_HEX,
+        )?;
+        require_root(
+            "successor float profile",
+            roots.float_profile,
+            SUCCESSOR_FLOAT_PROFILE_ROOT_HEX,
+        )?;
+        require_root(
+            "successor execution manifest",
+            roots.execution_manifest,
+            SUCCESSOR_EXECUTION_MANIFEST_ROOT_HEX,
+        )?;
+        require_root("successor corpus", roots.corpus, SUCCESSOR_CORPUS_ROOT_HEX)?;
+        require_root(
+            "successor fixtures",
+            roots.fixtures,
+            SUCCESSOR_FIXTURE_ROOT_HEX,
+        )?;
+        require_root(
+            "successor geometry",
+            roots.geometry,
+            SUCCESSOR_GEOMETRY_ROOT_HEX,
+        )?;
+        require_root(
+            "successor execution profile",
+            roots.execution_profile,
+            SUCCESSOR_EXECUTION_PROFILE_ROOT_HEX,
+        )?;
+        for (scenario_id, expected) in SUCCESSOR_SCENARIO_ROOTS_HEX {
+            require_root(
+                &format!("successor scenario {scenario_id}"),
+                roots.scenario_root(scenario_id)?,
+                expected,
+            )?;
+        }
+        Ok(roots)
+    }
+
+    pub(crate) fn scenario_root(&self, scenario_id: &str) -> Result<[u8; 32], WaterError> {
+        Ok(domain_digest(
+            SUCCESSOR_SCENARIO_DOMAIN,
+            &self.scenario_projection(scenario_id)?,
+        ))
+    }
+
+    pub(crate) fn scenario_projection(&self, scenario_id: &str) -> Result<Vec<u8>, WaterError> {
+        let prefix = format!("scenario.{scenario_id}.");
+        let mut projection = Vec::new();
+        for line in self.corpus_bytes.split_inclusive(|byte| *byte == b'\n') {
+            if line.starts_with(prefix.as_bytes()) {
+                projection.extend_from_slice(line);
+            }
+        }
+        if projection.is_empty() {
+            return Err(WaterError::new(
+                SCENARIO_INVALID,
+                format!("scenario {scenario_id:?} is absent from the successor corpus"),
             ));
         }
         Ok(projection)
@@ -257,6 +420,28 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|window| window == needle)
 }
 
+fn successor_block<'a>(
+    document: &'a [u8],
+    begin: &[u8],
+    end: &[u8],
+    label: &str,
+) -> Result<&'a [u8], WaterError> {
+    let start = find_subslice(document, begin).ok_or_else(|| {
+        WaterError::new(
+            PROFILE_MISMATCH,
+            format!("successor {label} start marker is missing"),
+        )
+    })?;
+    let tail = &document[start..];
+    let relative_end = find_subslice(tail, end).ok_or_else(|| {
+        WaterError::new(
+            PROFILE_MISMATCH,
+            format!("successor {label} end marker is missing"),
+        )
+    })?;
+    Ok(&document[start..start + relative_end + end.len()])
+}
+
 fn require_root(label: &str, actual: [u8; 32], expected_hex: &str) -> Result<(), WaterError> {
     let actual_hex = hex(&actual);
     if actual_hex == expected_hex {
@@ -325,5 +510,20 @@ mod tests {
                 .code(),
             PROFILE_MISMATCH
         );
+    }
+
+    #[test]
+    fn successor_profile_has_all_domain_separated_scenario_roots() {
+        let repository_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .unwrap();
+        let roots = SuccessorRoots::verify(repository_root).unwrap();
+        let hydro = roots.scenario_root("CW-HYDRO-001").unwrap();
+        let freefall = roots.scenario_root("CW-FREEFALL-001").unwrap();
+        let orifice = roots.scenario_root("CW-ORIFICE-001").unwrap();
+        assert_ne!(hydro, freefall);
+        assert_ne!(hydro, orifice);
+        assert_ne!(roots.execution_profile, roots.corpus);
     }
 }

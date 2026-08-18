@@ -27,14 +27,16 @@ mod reconstruction;
 mod statistics;
 
 use constraint::{
-    VelocityProjectionResult, checked_dot, density_pressure_operator, project_predictive_outer_box,
-    solve_density_projected_pcg,
+    VelocityProjectionResult, checked_dot, density_pressure_operator, project_predictive_geometry,
+    project_predictive_outer_box, solve_density_projected_pcg,
 };
 pub(crate) use diagnostic::{
     contact_constrained_substep_with_limit, contact_pcg_constrained_substep,
     counterfactual_substep, production_contact_projection_probe, production_hydro_audit,
     production_hydro_calibration, production_pressure_operator_probe,
-    production_projected_pcg_first_step_probe, production_volume_map_calibration,
+    production_projected_pcg_first_step_probe, production_successor_contact_fixtures,
+    production_successor_density_fixtures, production_volume_map_calibration,
+    successor_pcg_constrained_substep,
 };
 use neighborhood::{admitted_boundary, admitted_fluid, build_boundary_grid, build_fluid_grid};
 use statistics::density_ratio_percentiles;
@@ -113,6 +115,7 @@ pub(crate) struct StepOutcome {
 enum TerminalVelocityProjection {
     None,
     PredictiveOuterBox,
+    PredictiveGeometry,
 }
 
 #[derive(Clone, Copy)]
@@ -169,7 +172,7 @@ fn initial_frame_with_boundary(
     validate_sample_identity(&samples)?;
     validate_canonical_bounds(&samples)?;
     let decoded = decode(&samples)?;
-    let reconstruction = reconstruct_boundary(&decoded, boundary)?;
+    let reconstruction = reconstruct_boundary(&decoded, geometry, boundary)?;
     let density_percentiles = density_ratio_percentiles(&reconstruction.rho_ratio)?;
     let penetration = crate::boundary::validate_centres(geometry, &samples)?;
     let frame_root = hash::frame_root(execution_profile_root, scenario_root, 0, &samples)?;
@@ -286,7 +289,7 @@ fn substep_with_boundary_projection_limit(
         return publish_empty(prior.step, execution_profile_root, scenario_root, geometry)
             .map(|outcome| (outcome, VelocityProjectionResult::default()));
     }
-    let reconstruction = reconstruct_boundary(&state, boundary)?;
+    let reconstruction = reconstruct_boundary(&state, geometry, boundary)?;
     let density_percentiles = density_ratio_percentiles(&reconstruction.rho_ratio)?;
 
     let divergence = solve_divergence(&reconstruction, &mut state.velocities)?;
@@ -314,6 +317,9 @@ fn substep_with_boundary_projection_limit(
         TerminalVelocityProjection::None => VelocityProjectionResult::default(),
         TerminalVelocityProjection::PredictiveOuterBox => {
             project_predictive_outer_box(geometry, &state.positions, &mut state.velocities)?
+        }
+        TerminalVelocityProjection::PredictiveGeometry => {
+            project_predictive_geometry(geometry, &state.positions, &mut state.velocities)?
         }
     };
 
@@ -451,19 +457,21 @@ fn decode(samples: &[CanonicalSample]) -> Result<DecodedState, WaterError> {
 
 fn reconstruct_boundary(
     state: &DecodedState,
+    geometry: Geometry,
     boundary: BoundaryInput<'_>,
 ) -> Result<Reconstruction, WaterError> {
     match boundary {
-        BoundaryInput::Particles(samples) => reconstruct(state, samples),
+        BoundaryInput::Particles(samples) => reconstruct(state, geometry, samples),
         BoundaryInput::VolumeMap(geometry) => reconstruct_volume_map(state, geometry),
     }
 }
 
 fn reconstruct(
     state: &DecodedState,
+    geometry: Geometry,
     boundary: &[BoundarySample],
 ) -> Result<Reconstruction, WaterError> {
-    reconstruction::particles(state, boundary)
+    reconstruction::particles(state, geometry, boundary)
 }
 
 fn reconstruct_volume_map(

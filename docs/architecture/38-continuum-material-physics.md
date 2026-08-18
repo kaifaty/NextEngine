@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-38 |
 | Status | Proposed |
-| Version | 1.3 |
-| Last verified | 2026-08-17 |
+| Version | 1.4 |
+| Last verified | 2026-08-18 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
-| Candidate revision note | Version 1.3 applies ADR-081 float-execution, exchange-identity, checkpoint-epoch, capacity, fault-domain, budget and neural-shadow guardrails |
+| Candidate revision note | Version 1.4 binds the W0F successor water operations and capacities while retaining ADR-081 promotion guardrails and Proposed status |
 | Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and scope
@@ -87,14 +87,25 @@ The first profile is a clean, fixed-resolution baseline:
 | Uniform particle mass | `0.125 kg` |
 | Fixed cadence | `240 Hz` (`1/240 s`) |
 | Gravity magnitude | `9.81 m/s²` toward `-Y` |
-| Density solve | minimum `2`, maximum `20`, mean error `<= 0.01%` |
+| Density solve | projected diagonally preconditioned active-set PCG; minimum `2`, maximum `50`, mean positive compression error `<= 0.01%` |
 | Divergence solve | minimum `1`, maximum `20`, mean error `<= 0.1%` |
 | Hard active capacity | `50,000` samples |
+| Static analytical-boundary capacity | `32,768` samples; dynamic rigid samples use a separate later capacity |
 
 V1 enables no warm start, surface tension, viscosity/vorticity model,
 adaptive split/merge or variable time step. Analytical plane and box
 boundaries are part of the reference solver rather than deferred to rigid
 coupling. A capability/profile mismatch fails before region activation.
+
+The W0F successor represents static density support as a two-layer
+`REST_VOLUME` lattice complement. Internal axis-aligned plane patches use
+stable feature IDs, closed rectangular openings and side-oriented support so
+that one side cannot see the other side's ghost samples. The same exact
+integer geometry filters fluid-neighbor visibility, generates density support,
+classifies openings and supplies swept-sphere contact features. Contact runs
+after pressure and before integration, resolves outer faces plus internal
+faces and aperture edges in stable feature order, reports per-feature impulse,
+and performs no post-integration clamp, retry or positional repair.
 
 ## One-pass rigid coupling candidate
 
