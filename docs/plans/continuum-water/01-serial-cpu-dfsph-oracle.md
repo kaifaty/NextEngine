@@ -1,6 +1,6 @@
 # W1 — Serial CPU DFSPH oracle
 
-Status: `IMPLEMENTED / W0I_RECLOSED / CLEAN_ATTESTED_LINUX_CORPUS_PENDING`.
+Status: `LINUX_W1_PASS / CONTINUUM-WATER-REF-P1=PASS / RESEARCH_ONLY`.
 
 The original W0B oracle remains rejected-profile evidence. W0E selected the
 constraint-separated local survivor, W0F froze its solver, geometry,
@@ -13,18 +13,24 @@ verifies that complete root chain before executing any nominal scenario.
 Linux hydro and exact free-fall pass internally. The unchanged W0F dam-break
 also completes `720/720` under W0G with zero penetration, bounded solver and
 momentum metrics, zero positive energy excess and an explicitly published
-`638,407,503 ppb` mechanical-energy deficit. It remains
-`REFERENCE_PENDING`; this is not corpus or ProductCheck credit. See the
+`638,407,503 ppb` mechanical-energy deficit. See the
 [successor energy discriminator](../../development/continuum-water-w1-successor-energy-discriminator-2026-08-18.md).
 The W0H candidate passes the complete internal seven-scenario discriminator,
-including repeated sealed-48k and storage-order roots, but those diagnostic
-runs predate the W0H root freeze and receive no W1 credit. W0I subsequently
+including repeated sealed-48k and storage-order roots. W0I subsequently
 rejects the old geometry-violating external curves, freezes independently
 generated hard-clearance hydro/dam-break/orifice file hashes and makes exact
 reference attestation a production-credit preflight. The unchanged W0H
-dam-break and orifice curves pass the frozen aggregate thresholds. Two clean
-full-corpus runs under W0I remain pending.
-`CONTINUUM-WATER-REF-P1` remains `NOT_RUN`.
+dam-break and orifice curves pass the frozen aggregate thresholds.
+
+At clean commit `e00999e96f0f55ae02426e806457f625d0a4844f`, the complete
+seven-scenario Linux corpus passed twice with all three required external
+hashes attested. Both runs reproduce corpus root
+`d38d6bc8a8e98e87402202a926685dbe4867e3de6a7d8679362885be46e96835`;
+their normalized reports are exactly equal after removing only diagnostic
+wall-clock fields. W1 therefore closes
+`CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS / RESEARCH_ONLY`. Detailed report
+and scenario roots are in the
+[hard-clearance reference evidence](../../development/continuum-water-w1-hard-clearance-reference-reclosure-2026-08-18.md).
 
 ## Outcome
 
@@ -152,13 +158,19 @@ threshold, all required W0I-attested independent references and Linux same-targe
 repeat/insertion equality. Timing at `10k/50k/100k` is recorded but cannot
 fail W1 or be called a production budget result.
 
+That exit is satisfied by the two clean runs at commit `e00999e`. It authorizes
+W2 inside the isolated research track; it does not select a production backend
+or establish the W2 standalone-performance, W3 coupling, W5 persistence or W6
+promotion gates.
+
 Windows is outside the current W1 execution scope by user decision. Exact
 cross-target comparison remains deferred and not waived for production
 promotion.
 
-Failure keeps the main roadmap inactive. The smallest failing scenario and
-first causal metric become the next discriminator; implementation cannot move
-to parallelism, PhysX or GPU to hide a serial correctness failure.
+The main roadmap remains `PLANNED / NOT_ACTIVE` until this evidence checkpoint
+is explicitly merged and the track is activated. The next bounded stage is W2
+deterministic parallel equality and standalone performance; PhysX and GPU
+cannot bypass that stage.
 
 ## Non-goals
 

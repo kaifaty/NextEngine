@@ -1,6 +1,6 @@
 # Continuum water W1 hard-clearance reference reclosure — 2026-08-18
 
-Status: `REFERENCE_PROFILE_SELECTED / EXACT_HASH_ATTESTATION_IMPLEMENTED / CLEAN_W1_PENDING`.
+Status: `LINUX_W1_PASS / CONTINUUM-WATER-REF-P1=PASS / RESEARCH_ONLY`.
 
 ## Outcome
 
@@ -16,10 +16,11 @@ threshold changed. W0F, W0G and W0H remain immutable. W0I freezes the new
 external provenance/output hashes and the W1 runner rejects any other required
 reference in production-credit mode.
 
-`CONTINUUM-WATER-REF-P1` remains `NOT_RUN` in this report. All comparison runs
-below used a dirty research tree and the explicit
-`diagnostic-frozen-observe-energy` mode; they are architecture discriminators,
-not clean corpus evidence.
+The comparison runs below used a dirty research tree and the explicit
+`diagnostic-frozen-observe-energy` mode; they remain architecture
+discriminators rather than corpus evidence. The later clean closure runs at
+commit `e00999e96f0f55ae02426e806457f625d0a4844f` attest the same three files,
+pass every blocking scenario and issue `CONTINUUM-WATER-REF-P1=PASS`.
 
 ## Counterexample to the old reference
 
@@ -141,6 +142,48 @@ Diagnostic report SHA-256 values are:
 - dam-break `8e2f041ad5dd542ce272410ecc1006f5dfdb80b0ff7ea85cd6def22bc5157b98`;
 - orifice `4d5bf729f0b53a70cdf1d16aa82df4bae9ec40801e339cd37b450f1f249161f9`.
 
+## Clean W1 closure
+
+The exact Linux oracle profile was built at clean commit
+`e00999e96f0f55ae02426e806457f625d0a4844f` for
+`x86_64-unknown-linux-gnu`, with the frozen `water-oracle` Rust flags and
+report schema `nextengine.continuum-water.w1-linux-serial.v4`. Before the
+positive corpus, the old dam-break file was supplied to normal
+`frozen-successor` mode. It failed before trajectory execution with
+`WATER_REFERENCE_CORPUS_MISMATCH`; `primary` remained null. That negative
+report has SHA-256
+`4cec7eea7badbfbb71a09264ff9af95e5020d3ba673162cb4d8aa691112c616d`.
+
+The complete seven-scenario Linux corpus then ran twice from the same clean
+commit and binary.
+
+| Evidence | Run 1 | Run 2 |
+|---|---|---|
+| terminal result | `CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS` | `CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS` |
+| report SHA-256 | `7adc168805774fec3df4cc7355175c72fe6b3de6114ff1c51935660f2858941c` | `ee78e40d2cda0e179c19f0e1a3eeef017ebcdb376d0087861a9c43817ac52e0e` |
+| corpus run root | `d38d6bc8a8e98e87402202a926685dbe4867e3de6a7d8679362885be46e96835` | `d38d6bc8a8e98e87402202a926685dbe4867e3de6a7d8679362885be46e96835` |
+| required references | `3/3 PASS`, exact SHA attested | `3/3 PASS`, exact SHA attested |
+| scenarios | `7/7 PASS` | `7/7 PASS` |
+
+The report files differ only in recursively named diagnostic
+`wall_clock_nanoseconds` fields. After removing only those fields, the
+canonical sorted JSON projections are byte-identical and both hash to
+`2dffa4e3ea12638c3cb3c5f1be43c3ebddea3213a967c4ed3bb8054d5252a0bf`.
+
+| Scenario | Reproduced primary trajectory root |
+|---|---|
+| `CW-HYDRO-001` | `6520b80423785d73c575c4ca463a62ddc226c35f4ea6bf2fca51c125ca5920c3` |
+| `CW-FREEFALL-001` | `6cecc22b6562ffa2270d629d0139e2ee02533a9ae36bb31f21f41cab4053d585` |
+| `CW-DAMBREAK-001` | `b593f9909bf4a551d04c26c13e1c4f4be60af6556fa710740d309167b4ec48d2` |
+| `CW-STILL-001` | `eef96436fbbf1e295acf6b65eedd2bddfdeff19bb6fc7d627ce21d8bea967289` |
+| `CW-ORIFICE-001` | `6ec92511a89591ba86530c41c1cb7747ab74caffd4e34d56795f6f03b72db4c8` |
+| `CW-SEALED-001` | `384241fb872c08160999f9ef356f2a4fede4baeb98abee73324e11404dee45c7` |
+| `CW-ORDER-001` | `315449df441718739bc985882bb58a5b131e51748b6e18af6ee77cf5fcda0a7c` |
+
+Every declared repeat root equals its primary root. All three
+`CW-ORDER-001` identity/reverse/affine permutation roots also equal the
+primary root. Timing remains diagnostic and supplies no performance claim.
+
 ## Decision and next action
 
 1. Retain W0H APG and sequential analytical contact unchanged.
@@ -148,9 +191,10 @@ Diagnostic report SHA-256 values are:
    branches tested against them.
 3. Require exact W0I reference hashes before a `frozen-successor` trajectory;
    permit alternatives only in explicit no-credit research mode.
-4. Run the complete Linux W1 corpus twice from a clean committed tree with the
-   three exact references. Identical target-local roots and all blocking
-   checks are required before `CONTINUUM-WATER-REF-P1 = PASS`.
-5. Keep Windows outside current W1 scope and explicitly deferred for production
-   promotion. Do not infer cross-target evidence from this result.
-
+4. Accept the two clean same-target runs above as the W1 Linux serial exit:
+   `CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS / RESEARCH_ONLY`.
+5. Continue next with W2 deterministic parallel equality and the standalone
+   `10k/50k/100k` performance discriminator. Do not infer production,
+   coupling, persistence or integrated-budget readiness from W1.
+6. Keep Windows outside current W1 scope and explicitly deferred for
+   production promotion. Do not infer cross-target evidence from this result.

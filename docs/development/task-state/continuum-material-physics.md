@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W0I_REFERENCE_ATTESTATION_FROZEN_W1_CLEAN_LINUX_RERUN_PENDING` |
+| Status | `W1_LINUX_SERIAL_PASS_W2_READY_RESEARCH_ONLY` |
 | Updated | `2026-08-18` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -20,6 +20,9 @@
   residuals. W0I rejects the old external trajectories because they cross the
   analytical wall, retains W0H unchanged, and freezes three twice-identical
   hard-clearance reference hashes under attestation root `186e1e31...65c90`.
+  W1 then passes the complete seven-scenario Linux serial corpus twice at clean
+  commit `e00999e`, with exact normalized report equality and corpus root
+  `d38d6bc8...e96835`.
 - **Selected consumer:** one sealed `4 × 2 × 1 m` basin, `0.75 m` depth,
   nominal `48k`/hard `50k` samples, one `0.5 m`/`50 kg` PhysX crate and debug
   particles; unavailable capability selects an authored dry variant before
@@ -27,19 +30,17 @@
 - **Authority:** private `f64` solve, ties-to-even canonical sample
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
-- **Next action:** commit the W0I runner/evidence change, then run the complete
-  W1 Linux corpus twice from the clean checkpoint with the exact hydro,
-  dam-break and orifice hashes. Windows equality is deferred from the current
-  execution scope, not waived for production promotion. Do not start W2, WG or
-  PhysX coupling first.
-- **Activation gate:** the main R8 row remains `PLANNED / NOT_ACTIVE` until
-  `CONTINUUM-WATER-REF-P1 = PASS`.
-- **Current uncertainty:** unchanged W0H passes the geometry-attested
-  dam-break and orifice curves with substantial margin, but those comparison
-  runs used an explicit dirty-tree diagnostic mode and receive no W1 credit.
-  Clean full-corpus repeat evidence remains pending. Windows equality, 50k
-  performance, dynamic rigid reaction, fast impact and added-mass behavior are
-  also open; every `CONTINUUM-*` ProductCheck is `NOT_RUN`.
+- **Next action:** preserve this W1 evidence checkpoint for explicit merge,
+  then execute W2 deterministic parallel/order equality and the exact
+  `10k/50k/100k` standalone performance discriminator. Do not start PhysX
+  coupling, runtime/public contracts or GPU authority first.
+- **Activation gate:** `CONTINUUM-WATER-REF-P1=PASS` is satisfied in the
+  dedicated worktree. The main R8 row remains `PLANNED / NOT_ACTIVE` until the
+  evidence checkpoint is explicitly merged and the track is activated.
+- **Current uncertainty:** Windows/Linux equality, 50k performance, dynamic
+  rigid reaction, fast impact and added-mass behavior remain open. W1 supplies
+  only Linux serial correctness; every later `CONTINUUM-*` ProductCheck is
+  `NOT_RUN`.
 - **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
   hidden warm-start/float continuation, iterative coupling, sleep before exact
   persistence, or wet terrain before dry-sand evidence.
@@ -53,7 +54,7 @@
 | --- | --- | --- |
 | [Research report](../continuum-material-physics-research-2026-08-16.md) | `REPORT_ONLY` | Supports solver-family separation; proves no implementation |
 | [SPEC-38](../../architecture/38-continuum-material-physics.md) and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md) | `Proposed` | Candidate CPU authority, fixed-point boundary, one-pass coupling and exact-active semantics are closed |
-| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W0F CLOSED / W1 READY_TO_RUN` | Successor geometry, capacity and roots are closed; the complete W1 corpus is next |
+| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W1 LINUX PASS / W2 READY` | Serial correctness is closed in the dedicated worktree; merge/activation and W2 are next |
 | [W1 clean-tree discriminator](../continuum-water-w1-evidence-2026-08-17.md) | Free-fall `SCENARIO_PASS`; hydro `WATER_DENSITY_NONCONVERGENCE` | Reopens the W0B/W1 numerical boundary; `CONTINUUM-WATER-REF-P1` remains `NOT_RUN` |
 | [W1-RC1 independent audit](../continuum-water-w1-rc1-audit-2026-08-17.md) | `EXACT_MATCH / REPORT_ONLY` | Rejects a production-vs-W0B mismatch for the audited projection and requires W0C recalibration |
 | [W0C hydro-calibration cycles](../continuum-water-w0c-hydro-calibration-2026-08-17.md) | `EXACT_MATCH / BOUNDARY_AND_INITIALIZATION_CANDIDATES_REJECTED / REPORT_ONLY` | Rejects uniform scaling, ceiling-only repair, `ghost-cell-shell-v1` and zero-velocity settling; triggers adjacent-layer research escalation |
@@ -65,12 +66,13 @@
 | [W0G impact-energy reclosure](../../plans/continuum-water/00g-impact-energy-contract-reclosure.md) | `SUCCESSOR_IMPACT_ENERGY_ROOTS_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Roots scenario-class energy semantics without changing W0F operations; missing external references still block W1 |
 | [W1 canonical-clearance discriminator](../continuum-water-w1-canonical-clearance-discriminator-2026-08-18.md) | `REPORT_ONLY / RUNNER_POLICY_DEFECT_CONFIRMED / NO_W1_CREDIT` | Restores the rooted inclusive `2,500 µm` canonical gate after an unrooted successor-runner zero check stopped orifice at a `1 µm` publication artifact; contact and roots stay unchanged |
 | [W1 sealed pressure-solver research](../continuum-water-w1-sealed-pressure-solver-research-2026-08-18.md) | `ACCELERATED_PROJECTED_GRADIENT_SELECTED_FOR_W0H_RECLOSURE / NO_W1_CREDIT` | Exact traces reject a ceiling increase and tested MPRGP variants; fixed step `0.25` survives the complete internal discriminator with compression/KKT gates |
-| [W0H accelerated pressure reclosure](../../plans/continuum-water/00h-accelerated-pressure-profile-reclosure.md) | `ACCELERATED_PRESSURE_ROOTS_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Roots the same pressure QP under cold fixed APG, zero-diagonal residual retention and a directional-curvature guard; clean W1 remains pending |
+| [W0H accelerated pressure reclosure](../../plans/continuum-water/00h-accelerated-pressure-profile-reclosure.md) | `ACCELERATED_PRESSURE_ROOTS_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Roots the same pressure QP under cold fixed APG, zero-diagonal residual retention and a directional-curvature guard; downstream W1 now passes |
 | [W0I external reference attestation](../../plans/continuum-water/00i-external-reference-geometry-attestation.md) | `REFERENCE_GEOMETRY_ATTESTATION_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Rejects geometry-violating external trajectories, freezes three exact hard-clearance reference hashes and leaves W0F/G/H unchanged |
-| [W1 hard-clearance reference evidence](../continuum-water-w1-hard-clearance-reference-reclosure-2026-08-18.md) | `REFERENCE_PROFILE_SELECTED / CLEAN_W1_PENDING` | Unchanged W0H passes dam-break front/height and orifice transfer under the original thresholds; dirty diagnostics give no W1 credit |
+| [W1 hard-clearance reference evidence](../continuum-water-w1-hard-clearance-reference-reclosure-2026-08-18.md) | `LINUX_W1_PASS / CONTINUUM-WATER-REF-P1=PASS` | Two clean complete runs attest all required references, pass 7/7 scenarios and reproduce the same corpus/report projection roots |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
-| `CONTINUUM-*` ProductChecks | `NOT_RUN` | No solver, performance, persistence or production claim is admissible |
+| `CONTINUUM-WATER-REF-P1` | `PASS / LINUX_W1_PASS / RESEARCH_ONLY` | Admits W2 work; does not imply performance, coupling, persistence, runtime or production readiness |
+| Later `CONTINUUM-*` ProductChecks | `NOT_RUN` | No later-stage or production claim is admissible |
 
 ## Decisions that constrain the next work
 
@@ -95,8 +97,8 @@
   two-layer support, analytical swept contact, `32,768` static capacity and
   the pressure QP under new document/profile/corpus/scenario/fixture roots.
   W0H later replaces only the failing projected-PCG algorithm with a rooted
-  cold fixed APG schedule. W1 must validate the complete rooted corpus before
-  any selection claim; cross-target equality remains a promotion gate.
+  cold fixed APG schedule. W1 now validates the complete rooted Linux serial
+  corpus twice; cross-target equality remains a promotion gate.
 - **Rejected:** float owner state, final-output-only quantization and GPU-first
   canonical execution.
 - **Reconsider when:** a later consumer and exact cross-target evidence require
@@ -155,11 +157,11 @@
   predeclared profile that passes the same hard geometry and unchanged curve
   thresholds; it requires a new attestation root and cannot inherit W0I credit.
 
-## Open hypotheses
+## Hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: fixed-point-boundary CPU DFSPH passes the Linux clean-water corpus | W0H APG completes the internal discriminator; unchanged W0H passes W0I-attested dam-break/orifice curves; external files reproduce byte-identically | All complete reference comparisons are dirty diagnostic runs with no W1 credit | Complete the clean W0I-attested Linux W1 serial corpus twice |
+| H1: fixed-point-boundary CPU DFSPH passes the Linux clean-water corpus | Two clean complete runs at `e00999e` pass 7/7 scenarios, attest 3/3 required references and reproduce the exact corpus and normalized report roots | No counterexample under the frozen Linux W1 profile | `CLOSED / LINUX_W1_PASS` |
 | H2: 50k CPU water fits the current THOTH budget | bounded sealed region and fixed profile | published prior art does not prove Next Engine 240 Hz cost | W2 exact 10k/50k/100k workload after W1 PASS |
 | H3: one-pass coupling is stable for the basin crate | narrow consumer and fixed cadence | fast impact/added-mass behavior is unmeasured | W3 float/impact corpus and reaction closure |
 | H4: one Drucker-Prager profile covers the first wheel scenario | established dry-sand model | exact source material and curve thresholds are not selected | Package 10T calibration closure |
@@ -183,20 +185,21 @@
 
 ## Next action
 
-1. Commit W0I and run the complete W1 Linux corpus twice from the clean tree
-   with all three exact external references.
-2. Fail on the first named scenario/criterion; do not retry, change a root,
-   loosen a threshold or continue a partial corpus after failure.
-3. Compare corpus, scenario, repeat, permutation and external-attestation
-   roots; leave Windows equality explicitly deferred for production promotion.
-4. Promote only if the documented W1 exit criteria pass. Do not start W2, WG,
-   PhysX coupling, runtime/public contracts or ProductCheck claims meanwhile.
+1. Preserve and explicitly merge the W1 evidence checkpoint when authorized;
+   do not relabel the still-inactive main R8 row by implication.
+2. Start W2 with deterministic parallel/order equality against the frozen W1
+   roots, then run the exact `10k/50k/100k` standalone performance profile.
+3. Keep Windows equality explicitly deferred for production promotion; do not
+   infer it from Linux worker equality.
+4. Do not start W3 PhysX coupling, runtime/public contracts, persistence or
+   production promotion before W2 closes.
 
 ## Do not retry
 
 - Add continuum types to `crates/contracts` during W1.
 - Use SPlisHSPlasH source as a linked/copied engine implementation.
-- Parallelize or add GPU before the serial correctness gate.
+- Skip W2's deterministic parallel/equality gates or add GPU authority before
+  W2 closes.
 - Persist density, pressure, neighbor, warm-start or render cache as V1 water
   authority.
 - Hide a non-convergent frame by retaining the previous water state and
@@ -224,20 +227,16 @@
 ## Handoff
 
 - **Workspace claim:** tool-only successor water profile with immutable W0F
-  geometry/QP roots, W0G scenario-class energy roots and W0H accelerated-
-  pressure roots. It is `W1_AUTHORIZED / RESEARCH_ONLY`, with no
-  runtime/public schema or ProductCheck PASS.
-- **Checks:** clean checkpoint `a56e57a` has exact independent
-  geometry/support/density/contact comparisons, exact W0E hydro/free-fall
-  regression, orifice preflight PASS and two identical bounded clean report
-  projections. Format, 64 library tests, 143 xtask tests, strict Clippy and
-  boundary scan pass as recorded in the linked W0F evidence. The current W0G
-  worktree passes formatting, all 72 library tests, strict package Clippy and
-  all six boundary checks; clean W0G closure and full-corpus evidence are still
-  pending. The current W0H worktree passes all 76 crate tests and a dirty
-  exact-profile closure with production/independent first-step equality;
-  strict Clippy, boundary scan and two clean closures are pending. All
-  `CONTINUUM-*` ProductChecks remain `NOT_RUN`; broad `host-check` was not run.
-- **Remaining risk:** full Linux corpus and external-reference accuracy,
-  Windows/Linux root equality, 50k performance, dynamic coupling, exact
-  persistence and all terrain constitutive evidence remain unmeasured.
+  geometry/QP roots, W0G scenario-class energy roots, W0H accelerated-pressure
+  roots and exact W0I reference attestation. It is
+  `CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS / RESEARCH_ONLY`, with no
+  runtime/public schema or production-backend claim.
+- **Checks:** executable checkpoint `e00999e` is clean. The complete
+  seven-scenario Linux corpus passes twice, all required external hashes are
+  attested, corpus root is `d38d6bc8...e96835`, and normalized report SHA is
+  `2dffa4e3...52a0bf` for both runs. Focused crate tests, exact-profile build
+  and strict Clippy passed before the closure; final post-documentation checks
+  are recorded in the W1 evidence checkpoint. Broad `host-check` was not run.
+- **Remaining risk:** Windows/Linux root equality, deterministic parallel
+  equality, 50k performance, dynamic coupling, exact persistence and all
+  terrain constitutive evidence remain unmeasured.

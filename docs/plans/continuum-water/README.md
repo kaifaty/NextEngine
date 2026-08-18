@@ -29,13 +29,16 @@ authorized only for the Linux W1 serial corpus; it is not selected for
 production. W0I rejects the earlier geometry-violating external trajectories,
 freezes three twice-reproduced hard-clearance reference hashes and requires
 exact attestation before production-credit execution. Clean full-corpus W1
-evidence is still pending and no
-`CONTINUUM-*` ProductCheck has run.
+now passes twice at one clean Linux commit with exact target-local equality:
+`CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS`. The result remains
+`RESEARCH_ONLY`; every later continuum ProductCheck is still `NOT_RUN`.
 
 This directory is the resume and execution surface for a dedicated water
-worktree. The main [Next Engine roadmap](../../roadmap.md) keeps the track
-inactive until `CONTINUUM-WATER-REF-P1 = PASS`. Progress here cannot change
-the current PhysX, save/replay or public-contract baseline by implication.
+worktree. The W1 entry condition has passed here, but the main
+[Next Engine roadmap](../../roadmap.md) keeps the track inactive until the
+evidence checkpoint is explicitly merged and activated. Progress here cannot
+change the current PhysX, save/replay or public-contract baseline by
+implication.
 
 ## Selected product result
 
@@ -61,8 +64,8 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
                      └─ W0G Impact energy semantics CLOSED / W1_AUTHORIZED
                          └─ W0H Accelerated pressure profile CLOSED / W1_AUTHORIZED
                              └─ W0I External reference attestation CLOSED / W1_AUTHORIZED
-                                 └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / IN_PROGRESS
-                                     ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
+                                 └─ W1 Serial CPU oracle + external corpus COMPLETE / LINUX_PASS
+                                     ├─ W2 Deterministic parallel CPU + benchmark READY / NOT_STARTED
                                      │   └─ W3 One-pass PhysX coupling            NOT_STARTED
                                      │       └─ W4 Basin + crate + debug view     NOT_STARTED
                                      │           └─ W5 Exact active persistence   NOT_STARTED
@@ -81,7 +84,7 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
 | W0G | [Impact energy-contract reclosure](00g-impact-energy-contract-reclosure.md) | Reversible absolute drift and static-impact energy-excess semantics rooted without changing W0F operations | W1 resume |
 | W0H | [Accelerated pressure-profile reclosure](00h-accelerated-pressure-profile-reclosure.md) | Same W0F pressure QP closes under a rooted fixed APG schedule with independent compression/KKT equality | W1 resume |
 | W0I | [External reference geometry attestation](00i-external-reference-geometry-attestation.md) | Geometry-safe external profile and three exact reference hashes frozen without changing W0F/G/H | W1 resume |
-| W1 | [Serial CPU DFSPH oracle](01-serial-cpu-dfsph-oracle.md) | `CONTINUUM-WATER-REF-P1 = PASS` on the same-target reference profile | main-roadmap activation, W2, WG |
+| W1 | [Serial CPU DFSPH oracle](01-serial-cpu-dfsph-oracle.md) | `CONTINUUM-WATER-REF-P1 = PASS` on the same-target reference profile | evidence merge, explicit track activation, W2, WG |
 | W2 | [Deterministic parallel CPU and performance](02-deterministic-parallel-and-performance.md) | Worker/order exactness and standalone `50k` THOTH stop-target PASS | W3 |
 | W3 | [One-pass PhysX coupling](03-one-pass-physx-coupling.md) | `CONTINUUM-COUPLING-P1 = PASS` under one composition DAG, exact exchange tuple and one PhysX integration | W4 |
 | W4 | [Basin, crate and debug presentation](04-basin-crate-debug-presentation.md) | Production command loop and presentation-independence pass | W5 |
@@ -132,11 +135,12 @@ contact-aware Jacobi counterfactual did not remove the defect. The
 therefore routes the metric meaning—not a threshold value or solver
 coefficient—to W0G.
 
-W0G is now root-frozen. Under its static-impact rule the unchanged dam-break
+W0G is root-frozen. Under its static-impact rule the unchanged dam-break
 completes `720/720`, has zero positive energy excess and publishes the full
-deficit/stage accounting. It remains `REFERENCE_PENDING`, so W1 and
-`CONTINUUM-WATER-REF-P1` remain incomplete. Current execution is Linux-only;
-Windows exactness is deferred, not waived, for promotion.
+deficit/stage accounting. At that checkpoint it remained
+`REFERENCE_PENDING`; W0I and the later clean W1 closure resolve that historical
+gap. Current execution is Linux-only; Windows exactness is deferred, not
+waived, for promotion.
 
 The next first failure is `CW-SEALED-001` step 2: projected active-set PCG
 ends its 50th operator application at `194,545 ppb`. A PCG-200 control accepts
@@ -164,8 +168,21 @@ implemented predictive hard contact produces twice-identical hydro,
 dam-break and orifice files. Unchanged W0H passes dam-break front/height at
 `0.3157% / 0.8419%` and `2.3296% / 6.4657%` RMSE/maximum, and orifice transfer
 at `0.1624% / 0.3000%`, under the original `5% / 10%` gates. The next action
-is two clean W0I-attested full Linux corpus runs. See the
+was two clean W0I-attested full Linux corpus runs. See the
 [hard-clearance reference report](../../development/continuum-water-w1-hard-clearance-reference-reclosure-2026-08-18.md).
+
+Commit `e00999e96f0f55ae02426e806457f625d0a4844f` implements exact W0I
+attestation and is the clean executable checkpoint for the final gate. Two
+complete seven-scenario runs both produce
+`CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS`, attest all three mandatory
+references and reproduce corpus root
+`d38d6bc8a8e98e87402202a926685dbe4867e3de6a7d8679362885be46e96835`.
+After removing only diagnostic wall-clock fields, both reports are
+byte-identical with normalized SHA-256
+`2dffa4e3ea12638c3cb3c5f1be43c3ebddea3213a967c4ed3bb8054d5252a0bf`.
+The next stage is W2 deterministic parallel equality and standalone
+performance; this W1 result supplies no production, coupling or persistence
+claim.
 
 Commit `74730e208cfeb70b05a3ec44b2bb9c2f5002fe97` implements the serial oracle.
 On a clean exact-profile run, `CW-FREEFALL-001` passes all 97 canonical frames
@@ -231,7 +248,7 @@ penetration and the existing reaction/work gates. The bounded
 [W0E evidence](../../development/continuum-water-w0e-constraint-separated-redesign-2026-08-18.md)
 records the clean report and limits.
 
-W0F closes the profile-level blockers without activating the main roadmap.
+W0F closed the profile-level blockers without activating the main roadmap.
 Production and independent paths match the exact geometry manifest, all
 `10,880` orifice support records, density/gradient fixtures and swept contact
 fixtures. Every selected W1 geometry fits the `32,768` static capacity; the
@@ -241,7 +258,8 @@ strict radius clearance and closes momentum to `23 ppb`. The new roots
 authorize the full serial W1 corpus. They do not supply corpus credit or a
 ProductCheck PASS, and dynamic rigid geometry remains W3 work. The evidence
 does not currently require a density map, XSPH, warm pressure state or
-settling generator. W2, WG, PhysX and GPU work remain blocked.
+settling generator. At the W0F checkpoint W2, WG, PhysX and GPU work remained
+blocked; only the later W1 closure releases W2.
 
 The dated [W0F evidence](../../development/continuum-water-w0f-geometry-capacity-root-closure-2026-08-18.md)
 records the frozen roots, independent comparisons and two clean identical
@@ -257,7 +275,9 @@ W0H leaves W0F and W0G immutable and adds a child pressure-solver profile. Its
 fixed diagonal scaling and APG schedule solve the same non-negative QP within
 the same 50-operator ceiling. Compression and projected-KKT residuals are both
 blocking. External hydro/dam-break/orifice curves and clean rooted corpus runs
-remain mandatory, so W0H also cannot manufacture W1 or ProductCheck credit.
+were mandatory downstream evidence; W0H itself did not manufacture W1 or
+ProductCheck credit. W0I plus the two clean W1 runs now close that downstream
+gate.
 
 ## Worktree and main-roadmap protocol
 
@@ -267,7 +287,8 @@ remain mandatory, so W0H also cannot manufacture W1 or ProductCheck credit.
    never mark a PASS from a type, fixture, compilation or report-only run.
 3. After W1 PASS, merge the evidence checkpoint and change the main R8 row from
    `PLANNED / NOT_ACTIVE` to an active integration track. Before that event the
-   main roadmap contains only this experimental pointer.
+   main roadmap contains only this experimental pointer. W1 now passes in the
+   dedicated worktree, so this merge/activation is the current handoff.
 4. Each stage is a coherent commit boundary. Failed evidence leaves the stage
    open and records the smallest discriminator; it does not relax thresholds.
 5. Treat the `4/6 ms` 50k number as a standalone stop target. Production also

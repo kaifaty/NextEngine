@@ -1,4 +1,5 @@
 use super::*;
+use crate::error::REFERENCE_CORPUS_MISMATCH;
 
 fn parse(arguments: &[&str]) -> Result<Request, WaterError> {
     parse_arguments(arguments.iter().map(|value| (*value).to_owned()))
@@ -150,7 +151,7 @@ fn diagnostic_solver_requires_one_explicit_scenario() {
 fn frozen_reference_attestation_rejects_unknown_hash_but_diagnostic_reports_it() {
     let expected = reference::expected_sha256("CW-DAMBREAK-001").unwrap();
     assert!(
-        validate_reference_attestation(
+        attestation::validate(
             W1SolverMode::FrozenSuccessor,
             true,
             "CW-DAMBREAK-001",
@@ -159,7 +160,7 @@ fn frozen_reference_attestation_rejects_unknown_hash_but_diagnostic_reports_it()
         .unwrap()
     );
     assert_eq!(
-        validate_reference_attestation(
+        attestation::validate(
             W1SolverMode::FrozenSuccessor,
             true,
             "CW-DAMBREAK-001",
@@ -170,7 +171,7 @@ fn frozen_reference_attestation_rejects_unknown_hash_but_diagnostic_reports_it()
         REFERENCE_CORPUS_MISMATCH
     );
     assert!(
-        !validate_reference_attestation(
+        !attestation::validate(
             W1SolverMode::FrozenObserveEnergyDiagnostic,
             true,
             "CW-DAMBREAK-001",

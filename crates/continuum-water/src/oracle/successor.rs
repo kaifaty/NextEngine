@@ -15,8 +15,8 @@ use crate::calibration::successor::build_density_support;
 use crate::error::{
     BOUNDARY_CAPACITY_EXCEEDED, BOUNDARY_NEIGHBOR_CAPACITY_EXCEEDED, INVARIANT_MISMATCH,
     NEIGHBOR_CAPACITY_EXCEEDED, NONDETERMINISTIC_RESULT, NUMERIC_OVERFLOW,
-    REFERENCE_CORPUS_MISMATCH, REPORT_CAPACITY_EXCEEDED, SAMPLE_CAPACITY_EXCEEDED,
-    SCENARIO_INVALID, STEP_CAPACITY_EXCEEDED, WaterError,
+    REPORT_CAPACITY_EXCEEDED, SAMPLE_CAPACITY_EXCEEDED, SCENARIO_INVALID, STEP_CAPACITY_EXCEEDED,
+    WaterError,
 };
 use crate::hash::{self, AcceleratedPressureRoots, TrajectoryHasher};
 use crate::model::{
@@ -42,6 +42,7 @@ const SCENARIO_IDS: [&str; 7] = [
     "CW-ORDER-001",
 ];
 
+mod attestation;
 mod closure;
 mod command;
 mod energy;
@@ -370,24 +371,6 @@ fn effective_execution_profile_root(
     digest.finalize().into()
 }
 
-fn validate_reference_attestation(
-    solver_mode: W1SolverMode,
-    required: bool,
-    scenario_id: &str,
-    actual_sha256: &str,
-) -> Result<bool, WaterError> {
-    let attested = reference::expected_sha256(scenario_id) == Some(actual_sha256);
-    if solver_mode == W1SolverMode::FrozenSuccessor && required && !attested {
-        return Err(WaterError::new(
-            REFERENCE_CORPUS_MISMATCH,
-            format!(
-                "{scenario_id} reference SHA-256 is not admitted by the W1 attestation profile"
-            ),
-        ));
-    }
-    Ok(attested)
-}
-
 fn execute(
     repository_root: &Path,
     request: &Request,
@@ -529,7 +512,7 @@ fn execute_scenario(
     let imported_reference = if let Some(path) = reference_path {
         let imported = reference::load(path, selected, &scenario_root, evidence.sample_count)?;
         evidence.reference.sha256 = Some(imported.sha256.clone());
-        let attested = match validate_reference_attestation(
+        let attested = match attestation::validate(
             solver_mode,
             evidence.reference.required,
             selected.id,

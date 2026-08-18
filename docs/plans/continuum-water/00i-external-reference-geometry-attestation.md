@@ -108,11 +108,17 @@ remain blocking.
 Detailed counterexamples, generator diagnostics and report hashes are in the
 [W1 hard-clearance reference evidence](../../development/continuum-water-w1-hard-clearance-reference-reclosure-2026-08-18.md).
 
-## Remaining gate
+## Downstream closure
 
-W0I authorizes a clean full Linux W1 execution; it does not itself issue
-`CONTINUUM-WATER-REF-P1`. Two complete clean runs must use the three exact
-external files, reproduce target-local roots and pass every W0F/W0G/W0H/W0I
-preflight and metric. Windows remains outside the current W1 scope by user
-decision and is deferred, not waived, for production promotion.
+W0I itself only authorizes the evidence profile; it does not manufacture W1
+credit. Downstream W1 closed at clean commit
+`e00999e96f0f55ae02426e806457f625d0a4844f`: two complete Linux runs used the
+three exact external files, passed every W0F/W0G/W0H/W0I preflight and metric,
+and reproduced corpus root
+`d38d6bc8a8e98e87402202a926685dbe4867e3de6a7d8679362885be46e96835`.
+Their reports are identical after removing only diagnostic wall-clock fields,
+so W1 issues `CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS`.
 
+Windows remains outside the current W1 scope by user decision and is deferred,
+not waived, for production promotion. W1 supplies no W2 performance, PhysX,
+persistence, runtime or shipping evidence.
