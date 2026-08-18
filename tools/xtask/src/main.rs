@@ -5,6 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+mod animation_lod_command;
 mod native_gate_projection;
 mod native_gate_publish;
 mod native_gate_runner;
@@ -102,9 +103,13 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected animation-root-motion, boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
+        "expected animation-lod, animation-root-motion, boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
+        "animation-lod" => {
+            reject_extra_arguments(arguments)?;
+            animation_lod_command::run()
+        }
         "animation-root-motion" => {
             reject_extra_arguments(arguments)?;
             animation_root_motion()

@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-28 |
 | Статус | Accepted |
-| Версия | 2.5 |
+| Версия | 2.6 |
 | Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
 | Дополнительные зависимости V2.1 | [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-28 2.4; promotes the existing bounded forward root-motion route through the complete R5h `ANIM-ROOT-MOTION-P1` matrix without widening its schemas or authority |
+| Заменяет | SPEC-28 2.5; promotes the current bounded R5 animation-work route through the complete R5i `ANIM-LOD-P1` matrix without adding a durable creator-authored LOD schema |
 
 ## История принятия
 
@@ -645,11 +645,31 @@ partially clipped and blocked Physics outcomes, while all 3,000 rejected/retry
 cycles preserve the complete body state and admit no physical intent. Full and
 bind-pose projection probes mutate neither animation cursor nor Physics state.
 
-Это закрывает bounded R5a–R5h production path и только
-`ANIM-ROOT-MOTION-P1`. Layered/general graph, non-identity retarget, physical
-IK, the general animation-LOD transition/profile corpus and
-articulation/hybrid motion остаются открыты; остальные `ANIM-*` checks не
-переводятся в `PASS` этим checkpoint.
+R5i closes the current bounded `ANIM-LOD-P1` route without creating another
+owner or durable format. `PhysicalAnimationLodProfileV1` pins a two-tick
+Reduced cadence, a four-tick maximum held-pose age and the five declared work
+levels. Held input must match the exact physical-animation profile, LOD-profile
+revision, Physics world and catalog; it reuses only the bounded complete local
+pose while refreshing the presentation root from current committed Physics.
+`IntentOnly` and `CulledPresentation` publish no pose, but the due root-intent
+probe still evaluates at every logical animation tick. The normal reference
+player/NPC composition now enters the same planner through `FullPose`.
+
+The release-mode `animation-lod` command executes 1,000 isolated ten-cycle
+generations: 4,000 Full, 3,000 Reduced, and 1,000 each Held, IntentOnly and
+Culled requests. It observes 3,000 sampled, 3,000 held, 1,000 bind and 3,000
+no-pose projections; publishes 9,000 complete snapshots; rejects 1,000 invalid
+scene/skinning candidates while preserving the prior exact snapshot; evaluates
+10,000 due intents; and rebuilds/repeats 26,665 exact B0 frame plans across
+30/60/144 Hz and three target revisions. Two independent runs produce matrix
+digest `4ada362926fefcd636cf1b86f69863c82895dc9bf4c6f80c3b5a91c232aba59b`.
+Optional capture was not requested and is not an acceptance prerequisite.
+
+Это закрывает bounded R5a–R5i production path, current bounded-forward
+`ANIM-ROOT-MOTION-P1` and current bounded-profile `ANIM-LOD-P1`. Layered/general
+graph, non-identity retarget, physical IK, creator-authored/multi-profile LOD
+descriptors and articulation/hybrid motion остаются открыты; остальные
+`ANIM-*` checks не переводятся в `PASS` этим checkpoint.
 
 ## Product checks
 
@@ -664,8 +684,12 @@ articulation/hybrid motion остаются открыты; остальные `
 
 `ANIM-ROOT-MOTION-P1` is current `PASS` for the exact bounded forward
 R5c/R5e route through the R5h command above. This result does not admit lateral
-or yaw roots, a general graph evaluator, physical IK, general animation LOD or
-active articulation.
+or yaw roots, a general graph evaluator, physical IK or active articulation.
+
+`ANIM-LOD-P1` is current `PASS` for the exact bounded R5 profile and production
+R5g presentation consumer through the R5i command above. It does not admit a
+durable creator-authored LOD descriptor, multiple graph/layer profiles,
+non-identity retargeting, physical IK or a physical-LOD transition.
 
 `ANIM-HYBRID-P1` remains `NOT_RUN(NO_PRODUCTION_CONSUMER)` until the R5
 physical-tracking consumer exists.

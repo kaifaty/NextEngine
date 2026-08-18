@@ -18,6 +18,16 @@ use next_contracts::physical_animation::{
 };
 use next_contracts::physics::{PhysicsCanonicalSnapshotV2, PhysicsPoseV1};
 
+mod lod;
+
+pub use lod::{
+    PHYSICAL_ANIMATION_MAX_HELD_POSE_AGE_TICKS_V1,
+    PHYSICAL_ANIMATION_REDUCED_POSE_CADENCE_TICKS_V1, PhysicalAnimationLodDecisionV1,
+    PhysicalAnimationLodLevelV1, PhysicalAnimationLodProfileV1, PhysicalAnimationLodProjectionV1,
+    PhysicalAnimationLodPublicationModeV1, PhysicalAnimationLodRequestV1,
+    PhysicalAnimationLodResourcesV1,
+};
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PhysicalAnimationPresentationAvailabilityV1 {
     pub clip_sampling_available: bool,
@@ -705,6 +715,7 @@ fn checked_vec3_add(
 #[non_exhaustive]
 pub enum PhysicalAnimationOwnerErrorV1 {
     Contract(PhysicalAnimationContractErrorV1),
+    LodProfileInvalid,
     TickSequenceInvalid,
     PhysicsProjectionInvalid,
     BindingMissing,
@@ -718,6 +729,7 @@ impl PhysicalAnimationOwnerErrorV1 {
     pub const fn diagnostic_code(&self) -> &'static str {
         match self {
             Self::Contract(error) => error.diagnostic_code(),
+            Self::LodProfileInvalid => "PHYSICAL_ANIMATION_LOD_PROFILE_INVALID",
             Self::TickSequenceInvalid => "PHYSICAL_ANIMATION_TICK_SEQUENCE_INVALID",
             Self::PhysicsProjectionInvalid => "PHYSICAL_ANIMATION_PHYSICS_PROJECTION_INVALID",
             Self::BindingMissing => "PHYSICAL_ANIMATION_BINDING_INVALID",
@@ -742,5 +754,7 @@ impl From<PhysicalAnimationContractErrorV1> for PhysicalAnimationOwnerErrorV1 {
     }
 }
 
+#[cfg(test)]
+mod lod_tests;
 #[cfg(test)]
 mod tests;

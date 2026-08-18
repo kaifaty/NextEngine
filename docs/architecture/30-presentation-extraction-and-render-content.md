@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-30 |
 | Статус | Accepted |
-| Версия | 3.7 |
+| Версия | 3.8 |
 | Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-29](29-platform-host-and-application-session.md), [ADR-019](adr/019-canonical-player-actions-and-presentation-authority.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
 | Дополнительные зависимости V3.5 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-30 3.6; extends the current character subprojection with R5g source/LOD selectors and deterministic pose-corrective evaluation |
+| Заменяет | SPEC-30 3.7; records the R5i animation-work projection, explicit no-pose publication and atomic LOD fault retention over unchanged V3 contracts |
 
 ## Authority boundary
 
@@ -106,6 +106,16 @@ severity/accessibility variants remain later cuts. Headless/null presentation
 may omit all of this without changing command, physics, save, Replay or
 gameplay roots.
 
+R5i selects animation work before that unchanged R5g surface. Sampled, bounded
+held and bind results map through one production reference composition helper;
+`IntentOnly`, requested cull and exhausted held/bind fallback omit both the
+character scene binding and skinning record from the next complete candidate.
+An invalid visible-scene/culled-record closure rejects the whole candidate,
+does not consume a presentation sequence and leaves the prior complete V3
+snapshot available. The `animation-lod` matrix repeats that accepted snapshot
+at 30/60/144 Hz and rotating target/cache revisions while exact Runtime,
+ledger, Physics, RPG and physical-animation snapshots remain unchanged.
+
 ## Neutral render content
 
 The current B0 content path uses exact neutral mesh, material, texture and
@@ -142,9 +152,9 @@ presentation behavior; exact pixels are required only by an explicit pinned
 developer capture profile.
 
 `RenderContentCatalogV1` and `PresentationSnapshotV3` are exact current-only
-alpha contracts under ADR-046. R5g replaces their prior in-tree shapes; it does
-not introduce compatibility aliases, persisted migrations or a second runtime
-catalog/snapshot family.
+alpha contracts under ADR-046. R5g replaces their prior in-tree shapes; R5i
+uses those shapes unchanged and introduces no compatibility alias, persisted
+migration or second runtime catalog/snapshot family.
 
 ## Device loss and failure semantics
 
@@ -165,6 +175,9 @@ correctness oracle.
 - `play` proves snapshot cadence independence, camera/UI behavior and no
   reverse authority into gameplay; the focused R5g matrix repeats Full,
   Reduced, Base, Held and Culled publications at 30/60/144 Hz.
+- `animation-lod` proves the current five-level animation-work planner across
+  10,000 cadence/resource/publication transitions, including no-pose output,
+  exact prior-snapshot retention and repeated B0 frame plans.
 - `content-package` proves neutral render records, exact base-profile closure,
   authored correctives, shared player/NPC consumption, sampled deformation and
   the corrected → base LBS → bind fallback chain.

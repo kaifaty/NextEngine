@@ -28,6 +28,7 @@ mod evidence;
 mod presentation;
 
 use evidence::{accumulate_report, reference_stage_checkpoint, rpg_contact_facts_from_report};
+pub use presentation::reference_character_skinning_record_from_lod_projection;
 pub(super) use presentation::{fixture_character_skinning_records, fixture_presentation_bindings};
 
 #[derive(Clone, Debug, Eq, PartialEq)]

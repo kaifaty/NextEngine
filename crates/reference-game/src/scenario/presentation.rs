@@ -5,8 +5,8 @@ use next_contracts::presentation::{
     PresentationObjectKeyV1, PresentationRoleV1, RenderJointPoseV1,
 };
 use next_motor::{
-    PhysicalAnimationOwnerV1, PhysicalAnimationPresentationAvailabilityV1,
-    PhysicalAnimationProjectionModeV1,
+    PhysicalAnimationLodLevelV1, PhysicalAnimationLodProfileV1, PhysicalAnimationLodProjectionV1,
+    PhysicalAnimationLodPublicationModeV1, PhysicalAnimationLodRequestV1, PhysicalAnimationOwnerV1,
 };
 
 pub(crate) fn fixture_presentation_bindings(
@@ -382,6 +382,45 @@ pub(crate) fn fixture_character_skinning_records(
     physics: &PhysicsCanonicalSnapshotV2,
     snapshot_epoch: ContentHash,
 ) -> Result<Vec<CharacterSkinningPresentationRecordV1>, ReferenceGameError> {
+    [fixture.body_id, fixture.npc_character_id]
+        .into_iter()
+        .map(|subject_id| {
+            let projection = physical_animation.project_pose_lod(
+                subject_id,
+                physics,
+                Some(0),
+                PhysicalAnimationLodProfileV1::REFERENCE_R5,
+                PhysicalAnimationLodRequestV1::full_pose(),
+                None,
+            )?;
+            reference_character_skinning_record_from_lod_projection(
+                fixture,
+                snapshot_epoch,
+                &projection,
+            )?
+            .ok_or(ReferenceGameError::PresentationAssetMissing)
+        })
+        .collect()
+}
+
+/// Maps one complete physical-animation LOD projection into the current R5g
+/// character surface. Explicit no-pose results remain absent from the atomic
+/// presentation candidate.
+pub fn reference_character_skinning_record_from_lod_projection(
+    fixture: &ReferenceGameSession,
+    snapshot_epoch: ContentHash,
+    projection: &PhysicalAnimationLodProjectionV1,
+) -> Result<Option<CharacterSkinningPresentationRecordV1>, ReferenceGameError> {
+    let Some(pose) = projection.pose() else {
+        return Ok(None);
+    };
+    let role = if projection.subject_id() == fixture.body_id {
+        PresentationRoleV1::PlayerAvatar
+    } else if projection.subject_id() == fixture.npc_character_id {
+        PresentationRoleV1::Character
+    } else {
+        return Err(ReferenceGameError::PresentationAssetMissing);
+    };
     let profile = fixture
         .activated_project
         .render_content_catalog
@@ -399,73 +438,60 @@ pub(crate) fn fixture_character_skinning_records(
     let profile_revision = profile
         .asset_revision()
         .map_err(|_| ReferenceGameError::PresentationAssetMissing)?;
-    let source_animation_profile_hash = physical_animation
-        .profile()
-        .revision()
-        .map_err(next_motor::PhysicalAnimationOwnerErrorV1::from)?;
-    let subjects = [
-        (fixture.body_id, PresentationRoleV1::PlayerAvatar),
-        (fixture.npc_character_id, PresentationRoleV1::Character),
-    ];
-    subjects
-        .into_iter()
-        .map(|(subject_id, role)| {
-            let pose = physical_animation.pose(
-                subject_id,
-                physics,
-                Some(0),
-                PhysicalAnimationPresentationAvailabilityV1::FULL,
-            )?;
-            let projection_mode = match pose.projection_mode {
-                PhysicalAnimationProjectionModeV1::BindPoseFallback => {
-                    BaseSkinningProjectionModeV1::BindPoseFallback
-                }
-                PhysicalAnimationProjectionModeV1::SampledWithFootIk
-                | PhysicalAnimationProjectionModeV1::SampledWithoutFootIk => {
-                    BaseSkinningProjectionModeV1::Sampled
-                }
-            };
-            let deformation_lod = match projection_mode {
-                BaseSkinningProjectionModeV1::BindPoseFallback => {
-                    CharacterDeformationLodV1::BaseSkinningOnly
-                }
-                BaseSkinningProjectionModeV1::Sampled
-                | BaseSkinningProjectionModeV1::HeldPresentationPose => {
-                    CharacterDeformationLodV1::FullCorrectives
-                }
-            };
-            let joints = profile
-                .render_joints()
+    let projection_mode = match projection.publication_mode() {
+        PhysicalAnimationLodPublicationModeV1::Sampled => BaseSkinningProjectionModeV1::Sampled,
+        PhysicalAnimationLodPublicationModeV1::HeldPresentationPose => {
+            BaseSkinningProjectionModeV1::HeldPresentationPose
+        }
+        PhysicalAnimationLodPublicationModeV1::BindPoseFallback => {
+            BaseSkinningProjectionModeV1::BindPoseFallback
+        }
+        PhysicalAnimationLodPublicationModeV1::NoPose => {
+            return Err(ReferenceGameError::PresentationAssetMissing);
+        }
+    };
+    let deformation_lod = if projection_mode == BaseSkinningProjectionModeV1::BindPoseFallback {
+        CharacterDeformationLodV1::BaseSkinningOnly
+    } else if projection.requested_lod() == PhysicalAnimationLodLevelV1::ReducedPose {
+        CharacterDeformationLodV1::ReducedCorrectives
+    } else if matches!(
+        projection.requested_lod(),
+        PhysicalAnimationLodLevelV1::FullPose | PhysicalAnimationLodLevelV1::HeldPresentationPose
+    ) {
+        CharacterDeformationLodV1::FullCorrectives
+    } else {
+        return Err(ReferenceGameError::PresentationAssetMissing);
+    };
+    let joints = profile
+        .render_joints()
+        .iter()
+        .map(|joint| {
+            let local_transform = pose
+                .joint_poses
                 .iter()
-                .map(|joint| {
-                    let local_transform = pose
-                        .joint_poses
-                        .iter()
-                        .find(|pose| pose.joint_key == joint.animation_joint_id)
-                        .map(|pose| pose.local_transform)
-                        .ok_or(ReferenceGameError::PresentationAssetMissing)?;
-                    Ok(RenderJointPoseV1 {
-                        render_joint_id: joint.render_joint_id.clone(),
-                        local_transform,
-                    })
-                })
-                .collect::<Result<Vec<_>, ReferenceGameError>>()?;
-            Ok(CharacterSkinningPresentationRecordV1::new(
-                PresentationObjectKeyV1 {
-                    snapshot_epoch,
-                    persistent_id: subject_id,
-                    presentation_role: role,
-                    incarnation: 0,
-                },
-                profile.mesh_revision(),
-                profile_revision,
-                profile.skeleton_revision(),
-                profile.body_schema_revision(),
-                source_animation_profile_hash,
-                projection_mode,
-                deformation_lod,
-                joints,
-            )?)
+                .find(|pose| pose.joint_key == joint.animation_joint_id)
+                .map(|pose| pose.local_transform)
+                .ok_or(ReferenceGameError::PresentationAssetMissing)?;
+            Ok(RenderJointPoseV1 {
+                render_joint_id: joint.render_joint_id.clone(),
+                local_transform,
+            })
         })
-        .collect()
+        .collect::<Result<Vec<_>, ReferenceGameError>>()?;
+    Ok(Some(CharacterSkinningPresentationRecordV1::new(
+        PresentationObjectKeyV1 {
+            snapshot_epoch,
+            persistent_id: projection.subject_id(),
+            presentation_role: role,
+            incarnation: 0,
+        },
+        profile.mesh_revision(),
+        profile_revision,
+        profile.skeleton_revision(),
+        profile.body_schema_revision(),
+        projection.physical_animation_profile_revision(),
+        projection_mode,
+        deformation_lod,
+        joints,
+    )?))
 }

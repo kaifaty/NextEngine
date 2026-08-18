@@ -89,8 +89,12 @@ pub use performance::{
     run_reference_humanoid_performance_v1,
 };
 pub use physical_animation::{
-    PhysicalAnimationJointPoseV1, PhysicalAnimationOwnerErrorV1, PhysicalAnimationOwnerV1,
-    PhysicalAnimationPoseV1, PhysicalAnimationPresentationAvailabilityV1,
+    PHYSICAL_ANIMATION_MAX_HELD_POSE_AGE_TICKS_V1,
+    PHYSICAL_ANIMATION_REDUCED_POSE_CADENCE_TICKS_V1, PhysicalAnimationJointPoseV1,
+    PhysicalAnimationLodDecisionV1, PhysicalAnimationLodLevelV1, PhysicalAnimationLodProfileV1,
+    PhysicalAnimationLodProjectionV1, PhysicalAnimationLodPublicationModeV1,
+    PhysicalAnimationLodRequestV1, PhysicalAnimationLodResourcesV1, PhysicalAnimationOwnerErrorV1,
+    PhysicalAnimationOwnerV1, PhysicalAnimationPoseV1, PhysicalAnimationPresentationAvailabilityV1,
     PhysicalAnimationProjectionModeV1,
 };
 pub use procedural_standing::{

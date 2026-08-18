@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.48 |
+| Версия | 2.49 |
 | Последняя проверка | 2026-08-18 |
-| Заменяет | INDEX-001 2.47; records R5h root-motion conformance while leaving the remaining general animation and articulation scope open |
+| Заменяет | INDEX-001 2.48; records R5i bounded animation-LOD conformance while leaving general graph/retarget/physical-IK and articulation scope open |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -178,16 +178,16 @@ traceability — навигационная карта, не admission authority
 | SPEC-25 | [Current bounded world partition и streaming boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
 | SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted |
 | SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety/replay baseline; exact adaptation/reference profile evolution is Proposed |
-| SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted; bounded forward `ANIM-ROOT-MOTION-P1` is current through R5h, while general graph/retarget/physical-IK/animation-LOD and hybrid articulation remain open |
+| SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted; bounded forward `ANIM-ROOT-MOTION-P1` and bounded-profile `ANIM-LOD-P1` are current through R5h/R5i, while general graph/retarget/physical-IK, creator-authored LOD breadth and hybrid articulation remain open |
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted |
-| SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted |
+| SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted; R5i preserves atomic V3 complete-or-none animation-LOD publication and prior-snapshot retention |
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Accepted R4c cognition core under ADR-073 plus bounded R4d social/work/economy and tier-cadence vertical under ADR-074 |
 | SPEC-33 | [Behavior-policy training, evaluation and deployment lifecycle](33-behavior-policy-training-evaluation-and-deployment-lifecycle.md) | Proposed optional R8 quality track |
 | SPEC-34 | [Model-training environments, trajectories and consolidation lifecycle](34-model-training-environments-trajectories-and-consolidation-lifecycle.md) | Proposed common lifecycle; bounded standing/flat-command/curriculum V2 and biomechanics reference-tracker V3 records are current through SPEC-35 and ADR-064/065/067/070; SPEC-44 does not yet add a world-solver lane |
 | SPEC-35 | [Deterministic humanoid training substrate](35-deterministic-humanoid-training-substrate.md) | Accepted PhysX-only fixed 23-DoF standing, flat-command/curriculum and biomechanics reference-tracking environments; profiles authorize implementation, not learned quality, runtime policy or R5 completion |
 | SPEC-36 | [Functional tissue condition, injury and structural body changes](36-functional-tissue-condition-and-injury.md) | Accepted functional-anatomy product, ownership, treatment, player/NPC parity and fallback semantics; exact contracts/vertical remain Proposed |
-| SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person target and current R5g exact base-rig/LBS/pose-corrective/fallback plus bounded cadence/deformation-LOD route; load/injury, severity matrix and advanced deformers remain Proposed |
+| SPEC-37 | [Character embodiment, surface deformation and injury presentation](37-character-embodiment-and-surface-deformation.md) | Accepted realistic third-person target, current R5g exact base-rig/LBS/pose-corrective/deformation-LOD route and R5i bounded upstream animation-work projection; load/injury, severity matrix and advanced deformers remain Proposed |
 | SPEC-38 | [Proposed continuum material physics](38-continuum-material-physics.md) | Proposed post-v1 local water/deformable-terrain track; CPU DFSPH reference, GPU correspondence and MLS-MPM terrain are not current runtime contracts |
 | SPEC-39 | [Proposed layered physical-world model](39-layered-physical-world.md) | Proposed owner/coupling/commit model for composing rigid, continuum, living-structure and thermochemical state without a universal solver or second writer |
 | SPEC-40 | [Proposed structural vegetation physics](40-structural-vegetation-physics.md) | Proposed sparse tree graph, CPU structural oracle, section-cell cutting, PhysX handoff, exact persistence and forest-LOD track; V0A decisions are closed and V0B calibration remains open |

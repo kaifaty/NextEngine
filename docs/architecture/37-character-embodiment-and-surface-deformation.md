@@ -4,12 +4,12 @@
 |---|---|
 | ID | SPEC-37 |
 | Статус | Accepted |
-| Scope status | Third-person visual target and the R5g exact base-rig/skinning/pose-corrective plus bounded deformation-LOD route are Accepted/current; load/injury deformation, severity matrix and advanced deformers remain Proposed |
-| Версия | 1.3 |
+| Scope status | Third-person visual target, the R5g exact base-rig/skinning/pose-corrective/deformation-LOD route and its R5i bounded upstream animation-work projection are Accepted/current; load/injury deformation, severity matrix and advanced deformers remain Proposed |
+| Версия | 1.4 |
 | Последняя проверка | 2026-08-18 |
 | Product decision | [PRODUCT-FA-001](../product/functional-anatomy-and-character-embodiment.md) |
 | Нормативные зависимости | [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-37 1.2; records the production R5g authored pose-corrective and cadence/deformation-LOD authority-isolation route |
+| Заменяет | SPEC-37 1.3; records the R5i bounded animation-work projection into the unchanged R5g surface while preserving the later injury/deformer boundary |
 
 ## Назначение и status boundary
 
@@ -25,10 +25,12 @@ third-person readability, LOD behavior and first vertical. The current
 `NeutralBaseSkinningProfileV1`, exact presentation subprojection
 and B0 LBS consumer are admitted because R5f provides a production consumer;
 R5g additionally admits one bounded translation-driven sparse pose-corrective
-set and its four-level presentation work selector. The broader
-`CharacterEmbodimentManifestV1`, load/injury correctives, severity matrix,
-wound catalog, general animation LOD and advanced deformer models remain
-Proposed.
+set and its four-level deformation-work selector. R5i supplies the upstream
+five-level animation-work projection and maps only a complete sampled/held/bind
+pose into that surface; explicit no-pose results omit the character record.
+The broader `CharacterEmbodimentManifestV1`, load/injury correctives, severity
+matrix, wound catalog, creator-authored/multi-profile animation LOD and advanced
+deformer models remain Proposed.
 
 ## Product visual target
 
@@ -339,7 +341,7 @@ deformer and capture availability change zero authoritative roots.
 
 ## First bounded product vertical
 
-The bounded R5g prefix now includes:
+The bounded R5g/R5i prefix now includes:
 
 - authored render skeleton, one skinned surface and explicit physical/animation
   mapping;
@@ -347,6 +349,8 @@ The bounded R5g prefix now includes:
   player and NPC;
 - exact Full/Reduced/Base/Held/Culled B0 permutations and 30/60/144 Hz
   latest-complete-snapshot repetition with zero authoritative-root change.
+- upstream Full/Reduced/Held/IntentOnly/Culled animation-work selection with
+  bounded held/bind/cull fallback and atomic complete-or-none publication.
 
 The remaining first-vertical work includes:
 
@@ -376,11 +380,12 @@ The future `CHARACTER-EMBODIMENT-P1` requires:
 
 R5g combines focused contracts/recovery/render/reference tests with
 `content-package`, `play`, `persistence-replay` and conditional `platform`;
-those checks admit
-only the base plus small pose-corrective/cadence-LOD route. The broader
-`CHARACTER-EMBODIMENT-P1`, injury matrix, general animation-LOD corpus and
-16/64/distant performance claim remain `NotRun(NoProductionConsumer)` until
-their own consumers exist.
+R5i adds the fixed `animation-lod` matrix over the same surface. Those checks
+admit only the base plus small pose-corrective/deformation-LOD and current
+bounded animation-work route. The broader `CHARACTER-EMBODIMENT-P1`, injury
+matrix, creator-authored/multi-profile animation-LOD breadth and 16/64/distant
+performance claim remain `NotRun(NoProductionConsumer)` until their own
+consumers exist.
 
 ## Failure semantics and fallback chain
 
@@ -402,10 +407,12 @@ their own consumers exist.
 2. **Implemented by R5g:** add the bounded normal-locomotion pose correctives
    and prove Full/Reduced/Base/Held/Culled plus 30/60/144 Hz authority
    isolation.
-3. **Next embodiment vertical cut:** create all three severity profiles and the
+3. **Implemented by R5i:** select bounded Full/Reduced/Held/IntentOnly/Culled
+   animation work and prove held/bind/cull plus atomic publication fallback.
+4. **Next embodiment vertical cut:** create all three severity profiles and the
    intact/partial/stable/retained/detached asset matrix with static fallbacks.
-4. Bind committed SPEC-36 state and SPEC-18 qualitative body UI.
-5. Add bounded retained-tissue secondary motion with static fallback.
-6. Measure 16/64/distant workload and tune only declared visual/physical LOD.
-7. Evaluate effort-aware, neural or local flesh refinement last against the
+5. Bind committed SPEC-36 state and SPEC-18 qualitative body UI.
+6. Add bounded retained-tissue secondary motion with static fallback.
+7. Measure 16/64/distant workload and tune only declared visual/physical LOD.
+8. Evaluate effort-aware, neural or local flesh refinement last against the
    accepted authored baseline.

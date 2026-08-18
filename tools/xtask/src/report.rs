@@ -345,6 +345,35 @@ pub struct RootMotionConformanceDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct AnimationLodConformanceDetailsV1 {
+    pub cycles: u64,
+    pub full_pose_requests: u64,
+    pub reduced_pose_requests: u64,
+    pub held_pose_requests: u64,
+    pub intent_only_requests: u64,
+    pub culled_pose_requests: u64,
+    pub sampled_pose_projections: u64,
+    pub held_pose_projections: u64,
+    pub bind_pose_projections: u64,
+    pub no_pose_projections: u64,
+    pub complete_snapshot_publications: u64,
+    pub rejected_snapshot_publications: u64,
+    pub due_intent_evaluations: u64,
+    pub resource_fallbacks: u64,
+    pub authoritative_isolation_checks: u64,
+    pub renderer_frame_plans: u64,
+    pub lod_profile_revision: String,
+    pub final_state_root: String,
+    pub final_command_ledger_hash: String,
+    pub final_physics_checkpoint_hash: String,
+    pub final_animation_snapshot_hash: String,
+    pub final_presentation_snapshot_hash: String,
+    pub final_frame_plan_hash: String,
+    pub matrix_digest: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PersistenceReplayDetailsV1 {
     pub ticks: u64,
     pub generations: u64,

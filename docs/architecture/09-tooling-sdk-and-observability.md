@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 4.0 |
+| Версия | 4.1 |
 | Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
-| Заменяет | SPEC-09 3.9; adds the fixed Linux-runnable R5h root-motion conformance command without changing the global ProductCheck categories |
+| Заменяет | SPEC-09 4.0; adds the fixed Linux-runnable R5i animation-LOD conformance command without changing the global ProductCheck categories |
 
 ## Scope and authority
 
@@ -31,6 +31,7 @@ Repository commands are non-interactive, accept explicit options/outputs and
 return nonzero on failure. The governing product commands include:
 
 - `cargo run -p xtask -- host-check`;
+- `cargo run --locked --release -p xtask -- animation-lod`;
 - `cargo run --locked --release -p xtask -- animation-root-motion`;
 - `cargo run -p xtask -- play`;
 - `cargo run -p xtask -- persistence-replay`;
@@ -51,6 +52,13 @@ their production scenario; they do not prove unrelated roadmap stages.
 report. It is not folded into every `host-check`: the workspace carries a
 30-cycle production smoke, while the full release-mode matrix runs when the
 root-motion gate or its implementation is changed.
+
+`animation-lod` is the fixed milestone-specific `ANIM-LOD-P1` check for the
+current bounded R5 profile. It runs exactly 10,000 production-path
+LOD/cadence/resource/publication transitions in 1,000 isolated generations and
+emits one strict V1 report. The workspace carries a deterministic one-block
+smoke; the full release-mode matrix runs when the LOD planner, animation
+projection or atomic character publication boundary changes.
 
 The active desktop performance route is:
 

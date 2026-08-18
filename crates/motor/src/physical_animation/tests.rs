@@ -12,16 +12,16 @@ use next_contracts::physics::PhysicsBodyStateV2;
 
 use super::*;
 
-struct Fixture {
-    profile: PhysicalAnimationProfileV1,
-    skeleton: NeutralSkeletonV1,
-    idle: NeutralAnimationV1,
-    locomotion: NeutralAnimationV1,
-    bindings: Vec<PhysicalAnimationBindingV1>,
-    physics: PhysicsCanonicalSnapshotV2,
+pub(super) struct Fixture {
+    pub(super) profile: PhysicalAnimationProfileV1,
+    pub(super) skeleton: NeutralSkeletonV1,
+    pub(super) idle: NeutralAnimationV1,
+    pub(super) locomotion: NeutralAnimationV1,
+    pub(super) bindings: Vec<PhysicalAnimationBindingV1>,
+    pub(super) physics: PhysicsCanonicalSnapshotV2,
 }
 
-fn fixture() -> Fixture {
+pub(super) fn fixture() -> Fixture {
     let root = SchemaId::new("fixture.joint.root").expect("root");
     let hips = SchemaId::new("fixture.joint.hips").expect("hips");
     let foot_l = SchemaId::new("fixture.joint.foot-l").expect("foot L");

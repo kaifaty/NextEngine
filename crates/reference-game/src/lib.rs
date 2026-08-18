@@ -40,7 +40,8 @@ pub use rpg::{
 pub use runtime_bootstrap::{ReferenceRuntimeBootstrap, build_reference_runtime_bootstrap};
 pub use scenario::{
     ReferenceRunOutcomeV2, ReferenceStageCheckpointV2, ReferenceWorldRoutineRestBranchV1,
-    run_reference_game, run_reference_game_with_backend,
+    reference_character_skinning_record_from_lod_projection, run_reference_game,
+    run_reference_game_with_backend,
 };
 pub use session::{
     ReferenceCapsuleCourseV1, ReferenceGameSession, build_reference_game_session,

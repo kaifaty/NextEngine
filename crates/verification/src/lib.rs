@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod agent_performance;
+mod animation_lod_conformance;
 mod content_package;
 mod live_runtime_history_scaling;
 mod live_runtime_performance;
@@ -26,6 +27,10 @@ pub use agent_performance::{
     AgentPlanningPerformanceReport, PreparedAgentPlanningPerformanceCheck,
     prepare_agent_planning_performance_check, prepare_agent_planning_performance_check_in,
     run_agent_planning_performance_check, run_agent_planning_performance_check_in,
+};
+pub use animation_lod_conformance::{
+    ANIMATION_LOD_CONFORMANCE_CYCLES, AnimationLodConformanceErrorV1,
+    AnimationLodConformanceReportV1, run_animation_lod_conformance_check,
 };
 pub use content_package::{
     ContentPackageCheckError, ContentPackageCheckReport, run_content_package_check,

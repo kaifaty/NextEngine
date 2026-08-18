@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 3.9 |
+| Версия | 4.0 |
 | Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
-| Заменяет | SPEC-12 3.8; records the focused R5h root-motion milestone check under the existing fast/play/persistence categories |
+| Заменяет | SPEC-12 3.9; records the focused R5i animation-LOD milestone check under the existing risk-scoped categories |
 
 ## Назначение
 
@@ -40,6 +40,10 @@ Milestone-specific checks MAY expose a narrower command without becoming a new
 global category. Current `animation-root-motion` executes the fixed
 `ANIM-ROOT-MOTION-P1` production matrix and maps to `fast`, `play` and
 `persistence-replay`; it proves only the bounded forward R5c/R5e route.
+Current `animation-lod` executes the fixed `ANIM-LOD-P1` matrix and maps to
+`fast` plus the affected presentation/play boundary; it proves only the exact
+bounded R5 profile and does not create a global ProductCheck category or a
+creator-authored LOD schema.
 
 `cargo run -p xtask -- v1-closure` агрегирует реализованные v1 checks, exact
 project/content/mechanics/extension roots и target package descriptors. На
