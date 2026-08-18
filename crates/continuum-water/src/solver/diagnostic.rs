@@ -85,6 +85,7 @@ pub(crate) fn contact_constrained_substep_with_limit(
         TerminalVelocityProjection::PredictiveOuterBox,
         DensitySolveMethod::RelaxedJacobi,
         None,
+        None,
     )?;
     Ok(ContactConstrainedStepOutcome {
         outcome,
@@ -125,6 +126,7 @@ pub(crate) fn contact_pcg_constrained_substep(
         TerminalVelocityProjection::PredictiveOuterBox,
         DensitySolveMethod::ProjectedPreconditionedConjugateGradient,
         None,
+        None,
     )?;
     Ok(ContactConstrainedStepOutcome {
         outcome,
@@ -149,6 +151,7 @@ pub(crate) fn successor_pcg_constrained_substep(
         50,
         TerminalVelocityProjection::PredictiveGeometry,
         DensitySolveMethod::ProjectedPreconditionedConjugateGradient,
+        None,
         None,
     )?;
     Ok(ContactConstrainedStepOutcome {
@@ -175,6 +178,7 @@ pub(crate) fn successor_accelerated_projected_gradient_substep(
         TerminalVelocityProjection::PredictiveGeometry,
         DensitySolveMethod::AcceleratedProjectedGradient,
         None,
+        None,
     )?;
     Ok(ContactConstrainedStepOutcome {
         outcome,
@@ -189,6 +193,7 @@ pub(crate) fn timed_successor_accelerated_projected_gradient_substep(
     boundary: &[BoundarySample],
     execution_profile_root: &[u8; 32],
     scenario_root: &[u8; 32],
+    workers: Option<&DeterministicWorkers>,
 ) -> Result<(ContactConstrainedStepOutcome, StepStageTimings), WaterError> {
     let mut timings = StepStageTimings::default();
     let (outcome, projection, energy) = substep_with_boundary_projection_limit(
@@ -201,6 +206,7 @@ pub(crate) fn timed_successor_accelerated_projected_gradient_substep(
         TerminalVelocityProjection::PredictiveGeometry,
         DensitySolveMethod::AcceleratedProjectedGradient,
         Some(&mut timings),
+        workers,
     )?;
     Ok((
         ContactConstrainedStepOutcome {
@@ -210,6 +216,33 @@ pub(crate) fn timed_successor_accelerated_projected_gradient_substep(
         },
         timings,
     ))
+}
+
+pub(crate) fn worker_successor_accelerated_projected_gradient_substep(
+    prior: &AcceptedFrame,
+    geometry: Geometry,
+    boundary: &[BoundarySample],
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+    workers: &DeterministicWorkers,
+) -> Result<ContactConstrainedStepOutcome, WaterError> {
+    let (outcome, projection, energy) = substep_with_boundary_projection_limit(
+        prior,
+        geometry,
+        BoundaryInput::Particles(boundary),
+        execution_profile_root,
+        scenario_root,
+        50,
+        TerminalVelocityProjection::PredictiveGeometry,
+        DensitySolveMethod::AcceleratedProjectedGradient,
+        None,
+        Some(workers),
+    )?;
+    Ok(ContactConstrainedStepOutcome {
+        outcome,
+        projection,
+        energy,
+    })
 }
 
 pub(crate) fn production_successor_density_fixtures(

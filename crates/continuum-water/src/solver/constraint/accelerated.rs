@@ -9,6 +9,7 @@ pub(in crate::solver) fn solve_density_accelerated_projected_gradient(
     reconstruction: &Reconstruction,
     velocities: &mut [Vec3f],
     maximum_iterations: u8,
+    workers: Option<&DeterministicWorkers>,
 ) -> Result<SolveResult, WaterError> {
     let count = velocities.len();
     let mut right_hand_side = filled_vec(count, 0.0)?;
@@ -71,7 +72,8 @@ pub(in crate::solver) fn solve_density_accelerated_projected_gradient(
             )?
             .max(0.0);
         }
-        let next_gradient = exact_scaled_gradient(reconstruction, &scale, &next, &right_hand_side)?;
+        let next_gradient =
+            exact_scaled_gradient(reconstruction, &scale, &next, &right_hand_side, workers)?;
         error_ppb = scaled_density_residual_ppb(&next_gradient, &scale)?;
         kkt_error_ppb = scaled_kkt_residual_ppb(&next, &next_gradient, &scale)?;
         let directional_curvature = directional_curvature(
@@ -112,7 +114,7 @@ pub(in crate::solver) fn solve_density_accelerated_projected_gradient(
             "accelerated projected-gradient pressure multiplier",
         )?;
     }
-    let acceleration = pressure_acceleration(reconstruction, &multiplier)?;
+    let acceleration = pressure_acceleration_with_workers(reconstruction, &multiplier, workers)?;
     let boundary_impulse = apply_acceleration(velocities, &acceleration)?;
     let maximum_multiplier_bits = maximum_multiplier_bits(&multiplier)?;
     Ok(SolveResult {
@@ -162,8 +164,9 @@ fn exact_scaled_gradient(
     scale: &[f64],
     iterate: &[f64],
     right_hand_side: &[f64],
+    workers: Option<&DeterministicWorkers>,
 ) -> Result<Vec<f64>, WaterError> {
-    let mut result = scaled_pressure_operator(reconstruction, scale, iterate)?;
+    let mut result = scaled_pressure_operator(reconstruction, scale, iterate, workers)?;
     for index in 0..result.len() {
         result[index] = checked_scalar(
             result[index] - right_hand_side[index],
@@ -177,6 +180,7 @@ fn scaled_pressure_operator(
     reconstruction: &Reconstruction,
     scale: &[f64],
     vector: &[f64],
+    workers: Option<&DeterministicWorkers>,
 ) -> Result<Vec<f64>, WaterError> {
     let mut unscaled = filled_vec(vector.len(), 0.0)?;
     for index in 0..vector.len() {
@@ -185,7 +189,7 @@ fn scaled_pressure_operator(
             "accelerated projected-gradient unscale",
         )?;
     }
-    let mut result = density_pressure_operator(reconstruction, &unscaled)?;
+    let mut result = density_pressure_operator_with_workers(reconstruction, &unscaled, workers)?;
     for index in 0..result.len() {
         result[index] = checked_scalar(
             scale[index] * result[index],

@@ -120,3 +120,41 @@ fn smoke_storage_orders_publish_the_same_frame() {
     assert_eq!(roots[0], roots[1]);
     assert_eq!(roots[0], roots[2]);
 }
+
+#[test]
+fn worker_faults_leave_the_prior_frame_unpublished() {
+    let scenario = scenario::find("SMOKE-CW-SEALED-001").unwrap();
+    let boundary = crate::calibration::successor::build_density_support(scenario.geometry).unwrap();
+    let profile = [0x12; 32];
+    let scenario_root = [0x21; 32];
+    let samples = scenario::initial_samples(&scenario, StorageOrder::Reverse).unwrap();
+    let (frame, _) = initial_frame(
+        samples,
+        scenario.geometry,
+        &boundary,
+        &profile,
+        &scenario_root,
+    )
+    .unwrap();
+    let prior_root = frame.frame_root;
+    let prior_samples = frame.samples.clone();
+    for fault in [
+        parallel::WorkerFault::ErrorAt(3),
+        parallel::WorkerFault::PanicAt(3),
+    ] {
+        let workers = DeterministicWorkers::with_fault(4, fault).unwrap();
+        let error = worker_successor_accelerated_projected_gradient_substep(
+            &frame,
+            scenario.geometry,
+            &boundary,
+            &profile,
+            &scenario_root,
+            &workers,
+        )
+        .err()
+        .expect("injected worker fault must reject the step");
+        assert_eq!(error.code(), crate::error::WORKER_FAILURE);
+        assert_eq!(frame.frame_root, prior_root);
+        assert_eq!(frame.samples, prior_samples);
+    }
+}

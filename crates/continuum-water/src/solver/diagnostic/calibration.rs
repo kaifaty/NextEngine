@@ -129,8 +129,12 @@ pub(crate) fn production_accelerated_pressure_first_step_probe(
             "accelerated pressure probe gravity velocity y",
         )?;
     }
-    let result =
-        solve_density_accelerated_projected_gradient(&reconstruction, &mut state.velocities, 50)?;
+    let result = solve_density_accelerated_projected_gradient(
+        &reconstruction,
+        &mut state.velocities,
+        50,
+        None,
+    )?;
     Ok(AcceleratedPressureFirstStepProbe {
         density_iterations: result.iterations,
         density_error_ppb: result.error_ppb,

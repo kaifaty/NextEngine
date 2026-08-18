@@ -15,7 +15,7 @@ use crate::model::StorageOrder;
 use crate::oracle::command::{
     tool_commit, tool_tree_state, validate_output_path, validate_report_capacity,
 };
-use crate::solver::StepStageTimings;
+use crate::solver::{DeterministicWorkers, StepStageTimings};
 use crate::{profile, scenario, solver};
 
 use super::validation::validate_step;
@@ -33,13 +33,14 @@ const WORKLOAD_PROJECTION: &str = concat!(
     "warmup-substeps=1\n",
     "measured-substeps=3\n",
     "solver=frozen-w0h-accelerated-projected-gradient50-sequential-contact\n",
-    "workers=1\n",
+    "execution=serial-or-stable-logical-partitions\n",
     "setup-and-report-io=excluded\n",
     "substep-rebuild-through-canonical-root=included\n",
 );
 
 struct Request {
     output: PathBuf,
+    workers: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -89,8 +90,10 @@ struct ScopeReport {
 #[derive(Serialize)]
 struct HostReport {
     available_logical_parallelism: usize,
-    configured_workers: usize,
-    single_worker_logical_capacity_ceiling_ppm: u64,
+    execution_mode: &'static str,
+    configured_worker_threads: usize,
+    logical_partition_count: usize,
+    configured_logical_capacity_ceiling_ppm: u64,
     process_cpu_utilization_evidence: &'static str,
 }
 
@@ -107,6 +110,9 @@ struct WorkloadReport {
     measured_steps: u32,
     physical_frequency_hz: u32,
     solver: &'static str,
+    execution_mode: &'static str,
+    worker_count: Option<usize>,
+    logical_partition_count: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -140,7 +146,7 @@ pub(super) fn run(
     let request = parse_arguments(arguments)?;
     validate_output_path(repository_root, &request.output)?;
     let started = Instant::now();
-    let mut report = execute(repository_root)?;
+    let mut report = execute(repository_root, &request)?;
     report.command_wall_clock_nanoseconds = elapsed_nanoseconds(started);
     let ending_tree_state = tool_tree_state(repository_root);
     if ending_tree_state != report.tool_tree_state {
@@ -150,7 +156,7 @@ pub(super) fn run(
     command_result(&request, &report)
 }
 
-fn execute(repository_root: &Path) -> Result<ResourceProfileReport, WaterError> {
+fn execute(repository_root: &Path, request: &Request) -> Result<ResourceProfileReport, WaterError> {
     profile::validate_execution_profile()?;
     profile::validate_float_environment()?;
     if env!("WATER_BUILD_TARGET") != LINUX_TARGET {
@@ -162,6 +168,8 @@ fn execute(repository_root: &Path) -> Result<ResourceProfileReport, WaterError> 
             ),
         ));
     }
+    let workers = request.workers.map(DeterministicWorkers::new).transpose()?;
+    let worker_ref = workers.as_ref();
     let roots = AcceleratedPressureRoots::verify(repository_root)?;
     let selected = scenario::find(SCENARIO_ID)?;
     if roots.parent.parent.scenario_projection(SCENARIO_ID)?
@@ -199,13 +207,23 @@ fn execute(repository_root: &Path) -> Result<ResourceProfileReport, WaterError> 
 
     let warmup_started = Instant::now();
     for _ in 0..WARMUP_STEPS {
-        let next = solver::successor_accelerated_projected_gradient_substep(
-            &frame,
-            selected.geometry,
-            &boundary,
-            &roots.execution_profile,
-            &scenario_root,
-        )?;
+        let next = match worker_ref {
+            Some(workers) => solver::worker_successor_accelerated_projected_gradient_substep(
+                &frame,
+                selected.geometry,
+                &boundary,
+                &roots.execution_profile,
+                &scenario_root,
+                workers,
+            ),
+            None => solver::successor_accelerated_projected_gradient_substep(
+                &frame,
+                selected.geometry,
+                &boundary,
+                &roots.execution_profile,
+                &scenario_root,
+            ),
+        }?;
         validate_step(&selected, &next)?;
         trajectory.push(next.outcome.frame.step, &next.outcome.frame.frame_root)?;
         frame = next.outcome.frame;
@@ -232,6 +250,7 @@ fn execute(repository_root: &Path) -> Result<ResourceProfileReport, WaterError> 
             &boundary,
             &roots.execution_profile,
             &scenario_root,
+            worker_ref,
         )?;
         let outer_wall_clock_nanoseconds = elapsed_nanoseconds(step_started);
         validate_step(&selected, &next)?;
@@ -251,11 +270,24 @@ fn execute(repository_root: &Path) -> Result<ResourceProfileReport, WaterError> 
     let logical_parallelism = std::thread::available_parallelism()
         .map(usize::from)
         .unwrap_or(1);
-    let projection_root = workload_projection_root(&roots.execution_profile, &scenario_root);
+    let projection_root =
+        workload_projection_root(&roots.execution_profile, &scenario_root, request.workers);
+    let execution_mode = if request.workers.is_some() {
+        "STABLE_LOGICAL_PARTITIONS"
+    } else {
+        "SERIAL_ORACLE"
+    };
+    let configured_worker_threads = workers
+        .as_ref()
+        .map_or(0, DeterministicWorkers::worker_count);
+    let configured_lanes = configured_worker_threads.max(1);
+    let logical_partition_count = workers
+        .as_ref()
+        .map_or(0, DeterministicWorkers::logical_partition_count);
     Ok(ResourceProfileReport {
-        report_schema: "nextengine.continuum-water.w2-resource-profile.v1",
-        classification: "W2_RESOURCE_UTILIZATION_BASELINE_DIAGNOSTIC",
-        disposition: "BASELINE_RECORDED / NO_W2_CREDIT",
+        report_schema: "nextengine.continuum-water.w2-resource-profile.v2",
+        classification: "W2_RESOURCE_UTILIZATION_AND_WORKER_DIAGNOSTIC",
+        disposition: "RESOURCE_PROFILE_RECORDED / NO_W2_CREDIT",
         product_check: "NOT_APPLICABLE_DIAGNOSTIC_ONLY",
         tool_commit: tool_commit(repository_root),
         tool_tree_state: tool_tree_state(repository_root),
@@ -270,8 +302,11 @@ fn execute(repository_root: &Path) -> Result<ResourceProfileReport, WaterError> 
         },
         host: HostReport {
             available_logical_parallelism: logical_parallelism,
-            configured_workers: 1,
-            single_worker_logical_capacity_ceiling_ppm: 1_000_000_u64
+            execution_mode,
+            configured_worker_threads,
+            logical_partition_count,
+            configured_logical_capacity_ceiling_ppm: 1_000_000_u64
+                .saturating_mul(u64::try_from(configured_lanes).unwrap_or(u64::MAX))
                 / u64::try_from(logical_parallelism).unwrap_or(u64::MAX),
             process_cpu_utilization_evidence: "CAPTURE_EXTERNALLY_WITH_/usr/bin/time_-v",
         },
@@ -286,7 +321,12 @@ fn execute(repository_root: &Path) -> Result<ResourceProfileReport, WaterError> 
             warmup_steps: WARMUP_STEPS,
             measured_steps: MEASURED_STEPS,
             physical_frequency_hz: 240,
-            solver: "frozen-w0h-accelerated-projected-gradient50-sequential-contact",
+            solver: "frozen-w0h-accelerated-projected-gradient50-canonical-contact",
+            execution_mode,
+            worker_count: workers.as_ref().map(DeterministicWorkers::worker_count),
+            logical_partition_count: workers
+                .as_ref()
+                .map(DeterministicWorkers::logical_partition_count),
         },
         roots: RootReport {
             w0h_execution_profile: hash::hex(&roots.execution_profile),
@@ -308,35 +348,71 @@ fn execute(repository_root: &Path) -> Result<ResourceProfileReport, WaterError> 
 }
 
 fn parse_arguments(mut arguments: impl Iterator<Item = String>) -> Result<Request, WaterError> {
-    let flag = arguments.next().ok_or_else(|| {
-        WaterError::new(
-            SCENARIO_INVALID,
-            "profile-w2-linux requires --output <absolute-path>",
-        )
-    })?;
-    let value = arguments
-        .next()
-        .ok_or_else(|| WaterError::new(SCENARIO_INVALID, "--output requires a value"))?;
-    if flag != "--output" || arguments.next().is_some() {
-        return Err(WaterError::new(
-            SCENARIO_INVALID,
-            "profile-w2-linux accepts only --output <absolute-path>",
-        ));
+    let mut output = None;
+    let mut workers = None;
+    while let Some(flag) = arguments.next() {
+        let value = arguments
+            .next()
+            .ok_or_else(|| WaterError::new(SCENARIO_INVALID, format!("{flag} requires a value")))?;
+        match flag.as_str() {
+            "--output" => set_once(&mut output, PathBuf::from(value), "--output")?,
+            "--workers" => {
+                let count = value.parse::<usize>().map_err(|_| {
+                    WaterError::new(SCENARIO_INVALID, "--workers must be 1, 2, 4 or 8")
+                })?;
+                if ![1, 2, 4, 8].contains(&count) {
+                    return Err(WaterError::new(
+                        SCENARIO_INVALID,
+                        "--workers must be 1, 2, 4 or 8",
+                    ));
+                }
+                set_once(&mut workers, count, "--workers")?;
+            }
+            _ => {
+                return Err(WaterError::new(
+                    SCENARIO_INVALID,
+                    format!("unexpected profile-w2-linux argument {flag}"),
+                ));
+            }
+        }
     }
     Ok(Request {
-        output: PathBuf::from(value),
+        output: output.ok_or_else(|| {
+            WaterError::new(
+                SCENARIO_INVALID,
+                "profile-w2-linux requires --output <absolute-path>",
+            )
+        })?,
+        workers,
     })
+}
+
+fn set_once<T>(slot: &mut Option<T>, value: T, flag: &str) -> Result<(), WaterError> {
+    if slot.replace(value).is_some() {
+        Err(WaterError::new(
+            SCENARIO_INVALID,
+            format!("duplicate argument {flag}"),
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 fn workload_projection_root(
     execution_profile_root: &[u8; 32],
     scenario_root: &[u8; 32],
+    workers: Option<usize>,
 ) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(b"nextengine.continuum-water.w2-resource-profile.v1\0");
     hasher.update(WORKLOAD_PROJECTION.as_bytes());
     hasher.update(execution_profile_root);
     hasher.update(scenario_root);
+    hasher.update(
+        workers
+            .map(|count| format!("workers={count}"))
+            .unwrap_or_else(|| "execution=serial-oracle".to_owned()),
+    );
     hasher.finalize().into()
 }
 
@@ -449,7 +525,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parser_accepts_only_one_output() {
+    fn parser_accepts_serial_and_declared_worker_profiles() {
         let request = parse_arguments(
             ["--output", "/tmp/w2-resource.json"]
                 .into_iter()
@@ -457,7 +533,27 @@ mod tests {
         )
         .unwrap();
         assert_eq!(request.output, PathBuf::from("/tmp/w2-resource.json"));
-        assert!(parse_arguments(["--workers", "4"].into_iter().map(str::to_owned)).is_err());
+        assert_eq!(request.workers, None);
+        let workers = parse_arguments(
+            [
+                "--workers",
+                "4",
+                "--output",
+                "/tmp/w2-resource-workers.json",
+            ]
+            .into_iter()
+            .map(str::to_owned),
+        )
+        .unwrap();
+        assert_eq!(workers.workers, Some(4));
+        assert!(
+            parse_arguments(
+                ["--output", "/tmp/w2.json", "--workers", "3"]
+                    .into_iter()
+                    .map(str::to_owned)
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -496,6 +592,7 @@ mod tests {
             &boundary,
             &execution_root,
             &scenario_root,
+            None,
         )
         .unwrap();
         assert_eq!(
@@ -507,5 +604,68 @@ mod tests {
             serde_json::to_vec(&timed.outcome.summary).unwrap(),
             serde_json::to_vec(&serial.outcome.summary).unwrap()
         );
+    }
+
+    #[test]
+    fn worker_counts_publish_the_exact_serial_step() {
+        let selected = scenario::find("SMOKE-CW-SEALED-001").unwrap();
+        let samples = scenario::initial_samples(&selected, StorageOrder::Reverse).unwrap();
+        let boundary = build_density_support(selected.geometry).unwrap();
+        let execution_root = [0x36; 32];
+        let scenario_root = [0x63; 32];
+        let (frame, _) = solver::initial_frame(
+            samples,
+            selected.geometry,
+            &boundary,
+            &execution_root,
+            &scenario_root,
+        )
+        .unwrap();
+        let serial = solver::successor_accelerated_projected_gradient_substep(
+            &frame,
+            selected.geometry,
+            &boundary,
+            &execution_root,
+            &scenario_root,
+        )
+        .unwrap();
+        for worker_count in [1, 2, 4, 8] {
+            let workers = DeterministicWorkers::new(worker_count).unwrap();
+            let parallel = solver::worker_successor_accelerated_projected_gradient_substep(
+                &frame,
+                selected.geometry,
+                &boundary,
+                &execution_root,
+                &scenario_root,
+                &workers,
+            )
+            .unwrap();
+            assert_eq!(
+                parallel.outcome.frame.frame_root,
+                serial.outcome.frame.frame_root
+            );
+            assert_eq!(parallel.outcome.frame.samples, serial.outcome.frame.samples);
+            assert_eq!(
+                serde_json::to_vec(&parallel.outcome.summary).unwrap(),
+                serde_json::to_vec(&serial.outcome.summary).unwrap()
+            );
+        }
+        for partition_count in [1, 7, 64, 127] {
+            let workers = DeterministicWorkers::with_partition_count(4, partition_count).unwrap();
+            let parallel = solver::worker_successor_accelerated_projected_gradient_substep(
+                &frame,
+                selected.geometry,
+                &boundary,
+                &execution_root,
+                &scenario_root,
+                &workers,
+            )
+            .unwrap();
+            assert_eq!(
+                parallel.outcome.frame.frame_root,
+                serial.outcome.frame.frame_root
+            );
+            assert_eq!(parallel.outcome.frame.samples, serial.outcome.frame.samples);
+        }
     }
 }

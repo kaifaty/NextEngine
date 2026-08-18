@@ -840,8 +840,16 @@ pub(super) fn density_pressure_operator(
     reconstruction: &Reconstruction,
     multiplier: &[f64],
 ) -> Result<Vec<f64>, WaterError> {
-    let acceleration = pressure_acceleration(reconstruction, multiplier)?;
-    let matrix = matrix_action(reconstruction, &acceleration.total)?;
+    density_pressure_operator_with_workers(reconstruction, multiplier, None)
+}
+
+pub(super) fn density_pressure_operator_with_workers(
+    reconstruction: &Reconstruction,
+    multiplier: &[f64],
+    workers: Option<&DeterministicWorkers>,
+) -> Result<Vec<f64>, WaterError> {
+    let acceleration = pressure_acceleration_with_workers(reconstruction, multiplier, workers)?;
+    let matrix = matrix_action_with_workers(reconstruction, &acceleration.total, workers)?;
     let mut result = Vec::new();
     result.try_reserve_exact(matrix.len()).map_err(heap_error)?;
     for value in matrix {
