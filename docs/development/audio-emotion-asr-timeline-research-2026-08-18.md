@@ -7,6 +7,13 @@
 | Scope | Local Russian microphone stream → provisional/final ASR words + emotion intervals → one aligned timeline and derived tagged text |
 | Hardware examined | Linux x86_64, NVIDIA GeForce RTX 3080 10 GiB |
 
+> **Selection update (2026-08-18):** the generic timeline and emotion-window
+> findings in this report still apply, but the SimulStreaming/Whisper ASR
+> selection and implementation order are superseded for the current experiment
+> by
+> `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md`.
+> The selected pair is Voxtral Mini 4B Realtime 2602 plus emotion2vec+.
+
 ## Executive conclusion
 
 The smallest viable design is one persistent optional `ai-host` with a single

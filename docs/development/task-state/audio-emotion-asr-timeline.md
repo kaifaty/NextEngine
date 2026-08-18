@@ -5,85 +5,114 @@
 | Status | `ACTIVE` |
 | Updated | `2026-08-18` |
 | Task key | `audio-emotion-asr-timeline` |
-| Scope | Research and prototype an isolated live pipeline that aligns ASR text timestamps with bounded emotion intervals. |
-| Definition of done | A reviewable design selects the smallest viable VAD/ASR/emotion/alignment pipeline, versioned provisional/final timeline shapes, measured latency targets and the next falsifiable prototype. |
-| Authority | Working context only; Accepted ADR-005 and the repository architecture outrank this file. SPEC-16/ADR-017 remain Deferred Proposed. |
+| Scope | Research and prototype an isolated live pipeline that aligns Voxtral text with bounded emotion2vec intervals behind replaceable model adapters. |
+| Definition of done | A resident prototype exposes versioned transcript/affect/fusion revisions, declares timing precision, avoids model reload between clients and reports joint latency/resource evidence. |
+| Authority | Working context only; Accepted ADR-005 and repository architecture outrank this file. SPEC-16/ADR-017 remain Deferred Proposed. |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Prototype one persistent optional `ai-host` with Silero VAD, a SimulStreaming/Whisper `turbo` reference ASR, the existing emotion2vec+ sliding windows, one serialized GPU queue and a WebSocket developer adapter. Keep structured timed tracks authoritative and derive tagged text.
-- **Why:** Official implementations expose the needed VAD and confirmed/unconfirmed word timestamps, while the current emotion classifier is utterance-pooled and must be sampled over overlapping windows. A common integer sample clock plus revision watermark handles both forms without corrupting partial text.
-- **Next action:** Implement the persistent emotion-only server and measure warm Live event latency/resource use before adding the ASR model.
-- **Current blocker:** None.
-- **Do not retry:** Per-window process launch and checkpoint reload; measured startup dominates inference and cannot meet Live latency.
-- **Reconsider when:** A target runtime cannot keep the model resident or a native streaming emotion model demonstrably improves end-to-end quality/resource use.
+- **Current conclusion:** Use a resident optional `SpeechTimelineService` with `VoxtralTranscriberAdapter`, `Emotion2VecAffectAdapter`, optional VAD and a deterministic timeline fuser. Keep three independently revisioned tracks and derive LLM context from them.
+- **Why:** The existing Voxtral wrapper already performs real streaming inside one invocation, while warm emotion2vec inference is fast. Reloading either model per connection/window is the avoidable delay.
+- **Critical limit:** Current Voxtral public APIs return streaming text but no lexical timestamps. `transcribe.cpp` reports timestamp kind `NONE`; its Voxtral `audio_committed_ms` remains zero during feed and is not a text boundary.
+- **Next action:** Implement on the branch containing `e839a38:lab/scripts/voxtral_microphone.py`: extract a resident Voxtral adapter plus emotion adapter, expose `utterance`-grade tracks, and measure second-session/no-reload behavior before modifying timestamp support.
+- **Current blocker:** The Voxtral wrapper exists on `codex/architecture-foundation-promotion`, not in this worktree. Research is unblocked; implementation should use/merge that source rather than recreate it.
+- **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated word timestamps from text arrival time.
+- **Reconsider when:** A model/runtime exposes better timed lexical units, or measured model-slot boundary error is too high and justifies a final aligner.
 
 ## Current evidence
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| `tools/emotion-probe/` at commit `365a2d8` | `PASS` microphone/file PoC | Existing wrapper is reusable for model loading and score normalization but is not a server. |
-| RTX 3080 exploratory run, 2026-08-18 | model load 5.2–5.6 s; warm inference p50 8.2/11.5/12.7/14.7 ms for 1/2/3/4 s windows | Persistent model residency is the primary latency fix; values are exploratory, not product evidence. |
-| `docs/architecture/16-text-canonical-multimodal-dialogue-and-model-packs.md` | `Deferred Proposed` | Partial ASR/emotion is presentation-only; only finalized text may become `CanonicalUtterance`. |
-| `docs/architecture/adr/005-offline-first-ai-process-boundary.md` | `Accepted` | Speech and audio-understanding models remain optional and process-isolated with deterministic fallback. |
-| `docs/development/audio-emotion-asr-timeline-research-2026-08-18.md` | bounded research complete | Selects the first reference pipeline, revision/timeline shape, fusion algorithm, metrics and staged prototype; it does not promote SPEC-16. |
+| `tools/emotion-probe/` at commit `365a2d8` | `PASS` microphone/file PoC | Reuse its loader and score normalization; keep weights resident. |
+| RTX 3080 emotion run, 2026-08-18 | model load 5.2–5.6 s; warm inference p50 8.2/11.5 ms for 1/2 s windows | First tag is dominated by the 1 s context window; later cadence can be 250 ms. |
+| `e839a38:lab/scripts/voxtral_microphone.py` | 16 kHz streaming wrapper, one model/session per invocation, default 250 ms feed and 480 ms model delay | Extract adapter logic; CLI is not a persistent service. |
+| `e839a38:docs/development/voxtral-mini-4b-realtime-2602-research-2026-08-17.md` | Q4_K_M ~4080 MiB process VRAM, ~3x realtime, 1.2–1.4 s model load | Plausible resident ASR on the 10 GiB host; joint peak remains mandatory evidence. |
+| `transcribe.cpp` commit `9315160` | Voxtral capability `TIMESTAMPS_NONE`; whole-text segment; feed cursor is not lexical time | Baseline fusion grade is `utterance`, not word. |
+| Official Voxtral/vLLM protocol | 80 ms aligned model slots but public Realtime events carry only text delta/final | Test a private token-slot adapter; keep timing capability explicit. |
+| `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md` | bounded pair/facade research complete | Supersedes the prior SimulStreaming ASR selection and defines staged implementation/evidence. |
+| ADR-005; SPEC-16/ADR-017 | Accepted isolation/fallback boundary; multimodal track remains Deferred Proposed | No direct gameplay mutation or product-shipped claim. |
 
-## Decisions that still constrain the work
+## Decisions that constrain the work
 
-### D-001 — One audio-clock timeline before tagged text
+### D-001 — One acoustic clock; structured tracks before tagged text
 
-- **Observation:** ASR words and emotion scores describe different temporal granularities and may revise at different times.
-- **Evidence:** Current emotion2vec+ yields utterance scores for a supplied waveform window; the desired consumer needs time-aligned text.
-- **Decision:** Preserve structured word and emotion intervals on one monotonic sample clock; tagged text is a derived serialization, never the source of truth.
-- **Rejected alternatives:** Inject emotion labels directly into partial ASR strings; revisions would make offsets ambiguous and tags unstable.
-- **Consequences:** Every provisional item needs identity/revision/finality, and alignment occurs only from timestamps rather than string offsets.
-- **Uncertainty:** Best emotion window/hop and tag-transition thresholds for Russian gameplay speech.
-- **Reconsider when:** A selected joint speech model emits calibrated word-level emotion with independently verified timestamps.
+- **Observation:** ASR text and emotion describe different granularities and revise independently.
+- **Decision:** Preserve audio intervals on one integer sample clock; canonical text, timed affect and optional timed lexical units remain separate. Inline tagged text is a derived view only.
+- **Consequence:** Untimed text receives turn/region context, not invented word tags.
+- **Reconsider when:** A verified joint model emits calibrated word-level affect with acoustic timestamps.
 
-### D-002 — Benchmark SimulStreaming/Whisper first, retain faster-whisper fallback
+### D-002 — SimulStreaming/Whisper selection superseded
 
-- **Observation:** SimulStreaming is the current successor to WhisperStreaming and already exposes Russian incremental words, confirmed/unconfirmed text, finality and emission time. The current released SenseVoiceSmall checkpoint does not document Russian among its five ASR languages.
-- **Evidence:** Official SimulStreaming, faster-whisper, SenseVoice and OpenAI Whisper repositories linked from the dated research report.
-- **Decision:** Use SimulStreaming with multilingual Whisper `turbo` as the first ASR reference; serialize its GPU work with emotion2vec+. Evaluate faster-whisper plus a stable-prefix controller only if peak VRAM or latency fails.
-- **Rejected alternatives:** SenseVoiceSmall as the Russian baseline; its joint emotion tags do not remove temporal alignment needs and its released checkpoint language scope does not include Russian.
-- **Consequences:** Joint GPU residency and Russian stable-word latency are mandatory early measurements, not assumed properties.
-- **Uncertainty:** Whether Torch Whisper `turbo` plus emotion2vec+ fits the 10 GiB RTX 3080 with safe peak headroom.
-- **Reconsider when:** A measured Russian-capable streaming checkpoint provides better stable-word latency/quality and classified distribution terms within the resource envelope.
+- **Observation:** The user selected Voxtral Mini 4B Realtime 2602 and identified the existing wrapper after the generic ASR research.
+- **Evidence:** `e839a38:lab/scripts/voxtral_microphone.py` plus local Voxtral research and runtime measurements.
+- **Decision:** Do not implement the prior SimulStreaming-first path for this experiment. Retain that report only as generic timeline/alternative-ASR evidence.
+- **Consequence:** Voxtral-specific timestamp limitations now determine the first fusion grade.
+- **Reconsider when:** Voxtral fails joint residency, Russian quality or latency gates.
+
+### D-003 — Model-agnostic facade with capability negotiation
+
+- **Observation:** Models differ in streaming state, revision semantics, timestamps, vocabularies and resource envelopes.
+- **Decision:** Consumers depend on `SpeechTimelineService`; adapters fill `StreamingTranscriber`, `VocalAffectAnalyzer` and optional endpoint/alignment roles. Startup returns exact capabilities and identities.
+- **Rejected:** A `VoxtralEmotion2VecService` public API or hard-coded model fields.
+- **Consequence:** Model swap is configuration plus adapter; incompatible timing degrades explicitly or fails preflight.
+
+### D-004 — Voxtral starts at `utterance`; `model_slot` is an experiment
+
+- **Observation:** The model is trained over synchronized 80 ms audio/text streams, but current local and official serving APIs omit token/word timestamps.
+- **Evidence:** Official report/model card; vLLM Realtime protocol; `transcribe.cpp` capability and source at `9315160`.
+- **Decision:** Current adapter declares `utterance`. A private extension may expose token/control IDs with decoder output slots and graduate to `model_slot` only after Russian boundary validation.
+- **Rejected:** Mapping `committed_text` changes or `audio_committed_ms` directly to word time.
+- **Consequence:** Accurate word-level final tags may still require an optional `TranscriptAligner`.
+
+### D-005 — Resident bounded scheduler
+
+- **Observation:** Cold model loads dominate warm emotion inference and add 1.2–1.4 s for Voxtral alone.
+- **Decision:** Load and warm both adapters once; use one bounded GPU queue, prioritize Voxtral, and coalesce obsolete emotion jobs. Begin with one active session.
+- **Consequence:** Second-session no-reload and combined peak VRAM are prototype gates.
+- **Reconsider when:** One-process CUDA/runtime interaction fails a reproducible check; then isolate resident workers behind the same facade.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: separate streaming ASR plus sliding-window emotion2vec+ is sufficient | Warm emotion inference is inexpensive and components remain replaceable. | emotion2vec+ is not causal and abrupt transitions may be smeared. | Labeled transition corpus with word timestamps and end-to-end lag/error metrics. |
-| H2: VAD-defined utterance finalization plus provisional windows gives stable UX | Separates fast Live updates from higher-quality final analysis. | Endpoint latency can dominate short utterances. | Measure VAD endpoint p50/p95 and final-tag revision rate. |
-| H3: Whisper `turbo` and emotion2vec+ can reside together on the RTX 3080 | Declared Whisper VRAM is about 6 GiB and emotion checkpoint bytes are about 1.12 GB. | Runtime peaks, allocator reserve and simultaneous decode are unmeasured. | Load/warm both, record process/GPU peak, then run a serialized and a controlled-overlap workload. |
+| H1: both models fit and remain faster than realtime under serialized joint load | Voxtral uses ~4080 MiB and emotion windows are short. | Combined allocator peaks and queue interaction are unmeasured. | Load/warm both, record peak, then replay paced PCM with per-adapter queue metrics. |
+| H2: Voxtral token slots are accurate enough for clause-level affect attachment | Training uses explicitly aligned 80 ms audio/text streams. | Public APIs omit timing; slot offset/grouping error is unknown. | Expose token/control slots and compare to manually aligned Russian words. |
+| H3: utterance-grade context already improves downstream LLM responses | It preserves vocal evidence honestly without timestamp invention. | Mixed emotion inside a turn may be smeared. | Blind downstream response evaluation: text-only versus turn affect versus timed spans. |
+| H4: 1 s/250 ms emotion windows give useful Live transitions | Warm inference is ~8 ms and windows overlap densely. | Utterance-pooled classifier may smear or flicker. | Labeled Russian within-turn transition corpus with boundary/F1 and churn metrics. |
 
 ## Required context
 
-Read these sources in precedence order before acting:
+Read in precedence order:
 
 1. `docs/architecture/agent-routing.md`
 2. `docs/architecture/adr/005-offline-first-ai-process-boundary.md`
 3. `docs/architecture/16-text-canonical-multimodal-dialogue-and-model-packs.md`
 4. `docs/architecture/adr/017-text-canonical-multimodal-dialogue-and-replaceable-model-packs.md`
 5. `docs/architecture/09-tooling-sdk-and-observability.md`
-6. `tools/emotion-probe/README.md` and `tools/emotion-probe/src/nextengine_emotion_probe/`
-7. `docs/development/audio-emotion-asr-timeline-research-2026-08-18.md` once created
+6. `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md`
+7. `e839a38:lab/scripts/voxtral_microphone.py` and its tests
+8. `tools/emotion-probe/README.md` and implementation
 
-## Next action
+## Smallest next action
 
-1. Add an emotion-only persistent server with model warm-up, bounded WebSocket PCM ingress and revisioned interval events.
-2. Success criterion: repeated client sessions reload no weights, warm 1/2 s inference and capture-to-event latency are reported separately, and disconnect/cancel releases bounded session buffers.
-3. Non-regression: existing file/record CLI remains usable and `ai-host` absence cannot affect gameplay; remove the developer server adapter if it cannot meet these boundaries.
+1. Work from the branch/source containing commit `e839a38`.
+2. Separate microphone capture from Voxtral model/session code and wrap the latter as `StreamingTranscriber` without changing its inference behavior.
+3. Wrap resident emotion loading and 1 s/2 s window inference as `VocalAffectAnalyzer`.
+4. Add one-session facade, capability handshake, binary PCM input and transcript/affect revisions at `utterance` grade.
+5. Measure cold/warm readiness, second session reload count, combined VRAM, capture-to-event latency, queue wait and cancellation cleanup.
+6. Only then extend `transcribe.cpp` to expose token slots for a bounded alignment experiment.
 
 ## Do not retry
 
-- One process per audio window — checkpoint load is orders of magnitude slower than warm inference; reconsider only if the model/runtime changes enough to make cold start fit the Live budget.
-- Raw tagged text as timeline authority — partial transcript revisions invalidate character offsets; reconsider only if all upstream output is immutable and final.
+- One process per chunk/window or one model load per client.
+- Treating 480 ms configured delay as measured end-to-end latency.
+- Treating text arrival/commit time as acoustic word time.
+- Emitting inline word emotion tags while capability is `none`/`utterance`.
+- Recreating the Voxtral wrapper in this branch instead of using the tested `e839a38` source.
 
 ## Handoff
 
-- **Workspace state:** Task-state and dated research report are the only current uncommitted research changes; existing emotion probe is committed at `365a2d8`.
-- **Checks:** Direct source/path/link validation and documentation diff check remain before handoff.
-- **Remaining risk:** Joint VRAM, Russian ASR quality/stable-word latency, timestamp accuracy, VAD endpoint latency, emotion transition quality and license classification of emotion2vec+ weights remain open.
-- **Promotion needed:** None now; no Accepted architecture or roadmap change is authorized by this bounded research.
+- **Workspace state:** Pair/facade research and task-state update are documentation-only; the current worktree intentionally lacks the Voxtral wrapper present on `codex/architecture-foundation-promotion`.
+- **Checks:** Run documentation diff/path/link validation before handoff.
+- **Remaining risk:** Joint VRAM and sustained latency, Russian ASR and slot alignment accuracy, VAD endpoint delay, emotion transition quality, and emotion2vec+ redistribution terms.
+- **Promotion needed:** None; no Accepted architecture or roadmap change is authorized by this research.
