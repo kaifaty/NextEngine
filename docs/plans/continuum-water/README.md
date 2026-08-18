@@ -197,7 +197,11 @@ W2 begins with the Linux-only `profile-w2-linux` diagnostic. Its fixed
 measured sealed-48k substeps, reports decode-through-publication stage times,
 and records a short trajectory root. Timing is outside canonical state and
 roots; the diagnostic is explicitly `NO_W2_CREDIT`. The clean baseline and
-worker implementation remain pending.
+worker implementation remain pending. The clean serial baseline then records
+`100%` of one CPU, about `1.212 s` per measured sealed-48k substep,
+reconstruction at `61.15%` and density at `34.90%`. W2 cycle 1 now removes the
+duplicate canonical neighbor discovery and per-row temporary allocations; its
+clean measurement is pending.
 
 Commit `74730e208cfeb70b05a3ec44b2bb9c2f5002fe97` implements the serial oracle.
 On a clean exact-profile run, `CW-FREEFALL-001` passes all 97 canonical frames

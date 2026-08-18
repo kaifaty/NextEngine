@@ -45,7 +45,9 @@ pub(crate) use diagnostic::{
 };
 pub(crate) use energy::StepEnergyTrace;
 use energy::mechanical_energy;
-use neighborhood::{admitted_boundary, admitted_fluid, build_boundary_grid, build_fluid_grid};
+use neighborhood::{
+    append_admitted_boundary_to, append_admitted_fluid_to, build_boundary_grid, build_fluid_grid,
+};
 use statistics::{centre_of_mass, density_ratio_percentiles};
 pub(crate) use timing::StepStageTimings;
 use timing::{StepStage, StepTimer};
@@ -908,6 +910,7 @@ fn validate_heap_plan(
     sample_count: usize,
     fluid_neighbor_count: usize,
     solid_neighbor_count: usize,
+    scratch_index_capacity: usize,
 ) -> Result<(), WaterError> {
     let sample_bytes = sample_count
         .checked_mul(
@@ -929,9 +932,15 @@ fn validate_heap_plan(
         .ok_or_else(|| {
             WaterError::new(DECODED_HEAP_CAPACITY_EXCEEDED, "solid heap plan overflow")
         })?;
+    let scratch_bytes = scratch_index_capacity
+        .checked_mul(size_of::<usize>())
+        .ok_or_else(|| {
+            WaterError::new(DECODED_HEAP_CAPACITY_EXCEEDED, "scratch heap plan overflow")
+        })?;
     let total = sample_bytes
         .checked_add(fluid_bytes)
         .and_then(|value| value.checked_add(solid_bytes))
+        .and_then(|value| value.checked_add(scratch_bytes))
         .ok_or_else(|| {
             WaterError::new(DECODED_HEAP_CAPACITY_EXCEEDED, "decoded heap plan overflow")
         })?;

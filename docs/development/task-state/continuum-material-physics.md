@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W2_RESOURCE_PROFILE_IMPLEMENTED_BASELINE_PENDING` |
+| Status | `W2_CYCLE1_NEIGHBOR_DISCOVERY_CANDIDATE_PENDING_CLEAN_MEASUREMENT` |
 | Updated | `2026-08-19` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -32,9 +32,9 @@
 - **Authority:** private `f64` solve, ties-to-even canonical sample
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
-- **Next action:** run the fixed sealed-48k W2 stage diagnostic and capture
-  process CPU utilization, then optimize the measured limiter and add the
-  smallest crate-private deterministic worker mechanism. Compare
+- **Next action:** clean-measure the single-discovery reconstruction candidate
+  against the fixed sealed-48k root, then add the smallest crate-private
+  deterministic worker mechanism. Compare
   serial and `1/2/4/8` worker roots before the exact `10k/50k/100k` standalone
   performance discriminator. Do not start PhysX coupling, runtime/public
   contracts or GPU authority first.
@@ -73,6 +73,7 @@
 | [W0H accelerated pressure reclosure](../../plans/continuum-water/00h-accelerated-pressure-profile-reclosure.md) | `ACCELERATED_PRESSURE_ROOTS_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Roots the same pressure QP under cold fixed APG, zero-diagonal residual retention and a directional-curvature guard; downstream W1 now passes |
 | [W0I external reference attestation](../../plans/continuum-water/00i-external-reference-geometry-attestation.md) | `REFERENCE_GEOMETRY_ATTESTATION_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Rejects geometry-violating external trajectories, freezes three exact hard-clearance reference hashes and leaves W0F/G/H unchanged |
 | [W1 hard-clearance reference evidence](../continuum-water-w1-hard-clearance-reference-reclosure-2026-08-18.md) | `LINUX_W1_PASS / CONTINUUM-WATER-REF-P1=PASS` | Two clean complete runs attest all required references, pass 7/7 scenarios and reproduce the same corpus/report projection roots |
+| [W2 resource-utilization discriminator](../continuum-water-w2-resource-utilization-2026-08-19.md) | `SERIAL_BASELINE_RECORDED / CYCLE_1_IN_PROGRESS / NO_W2_CREDIT` | One worker consumes 100% of one CPU; reconstruction is 61.15%, so cycle 1 removes duplicate canonical neighbor discovery before worker partitioning |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-WATER-REF-P1` | `PASS / LINUX_W1_PASS / RESEARCH_ONLY` | Admits W2 work; does not imply performance, coupling, persistence, runtime or production readiness |

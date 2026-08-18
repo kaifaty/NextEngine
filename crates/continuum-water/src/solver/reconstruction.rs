@@ -12,20 +12,24 @@ pub(super) fn particles(
     let manifest = crate::geometry::AxisAlignedGeometryManifest::from_geometry(geometry)?;
     let fluid_grid = build_fluid_grid(&state.samples)?;
     let boundary_grid = build_boundary_grid(boundary)?;
-    let mut fluid_counts = Vec::new();
-    let mut solid_counts = Vec::new();
-    fluid_counts
-        .try_reserve_exact(state.samples.len())
-        .map_err(heap_error)?;
-    solid_counts
-        .try_reserve_exact(state.samples.len())
+    let mut rows = Vec::new();
+    let mut fluid_indices = Vec::new();
+    let mut solid_indices = Vec::new();
+    rows.try_reserve_exact(state.samples.len())
         .map_err(heap_error)?;
     let mut total_fluid = 0_usize;
     let mut total_solid = 0_usize;
     let mut total_directed = 0_usize;
     for sample in &state.samples {
-        let fluid = admitted_fluid(sample, &state.samples, &fluid_grid, &manifest)?;
-        let solid = admitted_boundary(sample, boundary, &boundary_grid)?;
+        let fluid = append_admitted_fluid_to(
+            sample,
+            &state.samples,
+            &fluid_grid,
+            &manifest,
+            &mut fluid_indices,
+        )?;
+        let solid =
+            append_admitted_boundary_to(sample, boundary, &boundary_grid, &mut solid_indices)?;
         let row_count = fluid.len().checked_add(solid.len()).ok_or_else(|| {
             WaterError::new(NEIGHBOR_CAPACITY_EXCEEDED, "fluid row count overflow")
         })?;
@@ -59,60 +63,62 @@ pub(super) fn particles(
             NEIGHBOR_CAPACITY_EXCEEDED,
             "directed fluid-row neighbors",
         )?;
-        fluid_counts.push(fluid.len());
-        solid_counts.push(solid.len());
+        rows.push(Row {
+            fluid_start: fluid.start,
+            fluid_end: fluid.end,
+            solid_start: solid.start,
+            solid_end: solid.end,
+        });
     }
-    validate_heap_plan(state.samples.len(), total_fluid, total_solid)?;
+    let scratch_capacity = fluid_indices
+        .capacity()
+        .checked_add(solid_indices.capacity())
+        .ok_or_else(|| WaterError::new(NEIGHBOR_CAPACITY_EXCEEDED, "scratch capacity overflow"))?;
+    validate_heap_plan(
+        state.samples.len(),
+        total_fluid,
+        total_solid,
+        scratch_capacity,
+    )?;
+    drop(fluid_grid);
+    drop(boundary_grid);
 
-    let mut rows = Vec::new();
     let mut fluid_neighbors = Vec::new();
     let mut solid_neighbors = Vec::new();
-    rows.try_reserve_exact(state.samples.len())
-        .map_err(heap_error)?;
     fluid_neighbors
         .try_reserve_exact(total_fluid)
         .map_err(heap_error)?;
     solid_neighbors
         .try_reserve_exact(total_solid)
         .map_err(heap_error)?;
-    for (row_index, sample) in state.samples.iter().enumerate() {
-        let fluid_start = fluid_neighbors.len();
-        for other in admitted_fluid(sample, &state.samples, &fluid_grid, &manifest)? {
+    for (row, sample) in rows.iter().copied().zip(&state.samples) {
+        for other in &fluid_indices[row.fluid_start..row.fluid_end] {
             let displacement = sample
                 .position_um
-                .checked_sub(state.samples[other].position_um)?;
+                .checked_sub(state.samples[*other].position_um)?;
             let sampled = kernel::sample(displacement)?;
             fluid_neighbors.push(FluidNeighbor {
-                other,
+                other: *other,
                 value: sampled.value,
                 gradient: sampled.gradient,
             });
         }
-        let fluid_end = fluid_neighbors.len();
-        let solid_start = solid_neighbors.len();
-        for boundary_index in admitted_boundary(sample, boundary, &boundary_grid)? {
+        for boundary_index in &solid_indices[row.solid_start..row.solid_end] {
             let displacement = sample
                 .position_um
-                .checked_sub(boundary[boundary_index].position_um)?;
+                .checked_sub(boundary[*boundary_index].position_um)?;
             let sampled = kernel::sample(displacement)?;
             solid_neighbors.push(SolidNeighbor {
-                boundary: boundary_index,
-                volume: boundary[boundary_index].volume,
+                boundary: *boundary_index,
+                volume: boundary[*boundary_index].volume,
                 value: sampled.value,
                 gradient: sampled.gradient,
                 feature_rank: 0,
             });
         }
-        let solid_end = solid_neighbors.len();
-        debug_assert_eq!(fluid_end - fluid_start, fluid_counts[row_index]);
-        debug_assert_eq!(solid_end - solid_start, solid_counts[row_index]);
-        rows.push(Row {
-            fluid_start,
-            fluid_end,
-            solid_start,
-            solid_end,
-        });
     }
+    drop(fluid_indices);
+    drop(solid_indices);
 
     finish(state.samples.len(), rows, fluid_neighbors, solid_neighbors)
 }
@@ -124,10 +130,10 @@ pub(super) fn volume_map(
     let manifest = crate::geometry::AxisAlignedGeometryManifest::from_geometry(geometry)?;
     let fluid_grid = build_fluid_grid(&state.samples)?;
     let map = VolumeMapBoundary::new(geometry)?;
-    let mut fluid_counts = Vec::new();
+    let mut rows = Vec::new();
+    let mut fluid_indices = Vec::new();
     let mut map_samples: Vec<Option<VolumeMapSample>> = Vec::new();
-    fluid_counts
-        .try_reserve_exact(state.samples.len())
+    rows.try_reserve_exact(state.samples.len())
         .map_err(heap_error)?;
     map_samples
         .try_reserve_exact(state.samples.len())
@@ -136,7 +142,13 @@ pub(super) fn volume_map(
     let mut total_solid = 0_usize;
     let mut total_directed = 0_usize;
     for (index, sample) in state.samples.iter().enumerate() {
-        let fluid = admitted_fluid(sample, &state.samples, &fluid_grid, &manifest)?;
+        let fluid = append_admitted_fluid_to(
+            sample,
+            &state.samples,
+            &fluid_grid,
+            &manifest,
+            &mut fluid_indices,
+        )?;
         let map_sample = map.sample(state.positions[index])?;
         let solid_count = usize::from(map_sample.is_some());
         let row_count = fluid.len().checked_add(solid_count).ok_or_else(|| {
@@ -172,37 +184,42 @@ pub(super) fn volume_map(
             NEIGHBOR_CAPACITY_EXCEEDED,
             "volume-map directed fluid-row neighbors",
         )?;
-        fluid_counts.push(fluid.len());
+        rows.push(Row {
+            fluid_start: fluid.start,
+            fluid_end: fluid.end,
+            solid_start: total_solid - solid_count,
+            solid_end: total_solid,
+        });
         map_samples.push(map_sample);
     }
-    validate_heap_plan(state.samples.len(), total_fluid, total_solid)?;
+    validate_heap_plan(
+        state.samples.len(),
+        total_fluid,
+        total_solid,
+        fluid_indices.capacity(),
+    )?;
+    drop(fluid_grid);
 
-    let mut rows = Vec::new();
     let mut fluid_neighbors = Vec::new();
     let mut solid_neighbors = Vec::new();
-    rows.try_reserve_exact(state.samples.len())
-        .map_err(heap_error)?;
     fluid_neighbors
         .try_reserve_exact(total_fluid)
         .map_err(heap_error)?;
     solid_neighbors
         .try_reserve_exact(total_solid)
         .map_err(heap_error)?;
-    for (row_index, sample) in state.samples.iter().enumerate() {
-        let fluid_start = fluid_neighbors.len();
-        for other in admitted_fluid(sample, &state.samples, &fluid_grid, &manifest)? {
+    for (row_index, (row, sample)) in rows.iter().copied().zip(&state.samples).enumerate() {
+        for other in &fluid_indices[row.fluid_start..row.fluid_end] {
             let displacement = sample
                 .position_um
-                .checked_sub(state.samples[other].position_um)?;
+                .checked_sub(state.samples[*other].position_um)?;
             let sampled = kernel::sample(displacement)?;
             fluid_neighbors.push(FluidNeighbor {
-                other,
+                other: *other,
                 value: sampled.value,
                 gradient: sampled.gradient,
             });
         }
-        let fluid_end = fluid_neighbors.len();
-        let solid_start = solid_neighbors.len();
         if let Some(sampled) = map_samples[row_index] {
             solid_neighbors.push(SolidNeighbor {
                 boundary: usize::MAX,
@@ -212,19 +229,8 @@ pub(super) fn volume_map(
                 feature_rank: sampled.feature_rank,
             });
         }
-        let solid_end = solid_neighbors.len();
-        debug_assert_eq!(fluid_end - fluid_start, fluid_counts[row_index]);
-        debug_assert_eq!(
-            solid_end - solid_start,
-            usize::from(map_samples[row_index].is_some())
-        );
-        rows.push(Row {
-            fluid_start,
-            fluid_end,
-            solid_start,
-            solid_end,
-        });
     }
+    drop(fluid_indices);
     finish(state.samples.len(), rows, fluid_neighbors, solid_neighbors)
 }
 

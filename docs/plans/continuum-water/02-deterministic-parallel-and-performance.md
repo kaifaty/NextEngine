@@ -23,6 +23,14 @@ captured externally, and it grants no W2 percentile, correctness or ProductCheck
 credit. The formal `continuum-water-50k.v1` warm-up/measured windows remain to
 be frozen after the worker design and root-equality harness exist.
 
+The clean serial baseline at commit `5b3590e` uses `100%` of one CPU on a host
+with `32` available logical CPUs. Three measured sealed-48k substeps average
+about `1.212 s`: reconstruction accounts for `61.15%` and density for
+`34.90%`. Cycle 1 therefore retains each row's first canonical admitted-index
+result in bounded flattened scratch instead of repeating grid admission and
+temporary row allocation. Its clean exact measurement and root comparison are
+pending; see the [resource-utilization discriminator](../../development/continuum-water-w2-resource-utilization-2026-08-19.md).
+
 ## Correctness-preserving parallel plan
 
 - Keep the serial implementation as the oracle and fallback test path.

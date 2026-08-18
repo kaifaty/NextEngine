@@ -57,15 +57,16 @@ pub(super) fn build_boundary_grid(
     Ok(entries)
 }
 
-pub(super) fn admitted_fluid(
+pub(super) fn append_admitted_fluid_to(
     sample: &CanonicalSample,
     samples: &[CanonicalSample],
     entries: &[GridEntry],
     geometry: &AxisAlignedGeometryManifest,
-) -> Result<Vec<usize>, WaterError> {
-    let mut result = Vec::new();
+    result: &mut Vec<usize>,
+) -> Result<std::ops::Range<usize>, WaterError> {
+    let start = result.len();
     result
-        .try_reserve_exact(MAXIMUM_NEIGHBORS_PER_FLUID_ROW + 1)
+        .try_reserve(MAXIMUM_NEIGHBORS_PER_FLUID_ROW + 1)
         .map_err(heap_error)?;
     visit_neighbor_cells(entries, cell_key(sample.position_um), |entry| {
         if entry.id == sample.id {
@@ -79,7 +80,7 @@ pub(super) fn admitted_fluid(
         {
             result.push(entry.index);
             validate_capacity(
-                result.len(),
+                result.len() - start,
                 MAXIMUM_NEIGHBORS_PER_FLUID_ROW,
                 NEIGHBOR_CAPACITY_EXCEEDED,
                 "fluid row neighbors",
@@ -87,19 +88,19 @@ pub(super) fn admitted_fluid(
         }
         Ok(())
     })?;
-    result.sort_unstable_by_key(|index| samples[*index].id);
-    result.dedup();
-    Ok(result)
+    sort_and_dedup_suffix(result, start, |index| samples[index].id);
+    Ok(start..result.len())
 }
 
-pub(super) fn admitted_boundary(
+pub(super) fn append_admitted_boundary_to(
     sample: &CanonicalSample,
     boundary: &[BoundarySample],
     entries: &[GridEntry],
-) -> Result<Vec<usize>, WaterError> {
-    let mut result = Vec::new();
+    result: &mut Vec<usize>,
+) -> Result<std::ops::Range<usize>, WaterError> {
+    let start = result.len();
     result
-        .try_reserve_exact(MAXIMUM_NEIGHBORS_PER_FLUID_ROW + 1)
+        .try_reserve(MAXIMUM_NEIGHBORS_PER_FLUID_ROW + 1)
         .map_err(heap_error)?;
     visit_neighbor_cells(entries, cell_key(sample.position_um), |entry| {
         let displacement = sample
@@ -110,7 +111,7 @@ pub(super) fn admitted_boundary(
         {
             result.push(entry.index);
             validate_capacity(
-                result.len(),
+                result.len() - start,
                 MAXIMUM_NEIGHBORS_PER_FLUID_ROW,
                 NEIGHBOR_CAPACITY_EXCEEDED,
                 "fluid boundary row neighbors",
@@ -118,9 +119,21 @@ pub(super) fn admitted_boundary(
         }
         Ok(())
     })?;
-    result.sort_unstable_by_key(|index| boundary[*index].id);
-    result.dedup();
-    Ok(result)
+    sort_and_dedup_suffix(result, start, |index| boundary[index].id);
+    Ok(start..result.len())
+}
+
+fn sort_and_dedup_suffix(result: &mut Vec<usize>, start: usize, key: impl Fn(usize) -> u32) {
+    result[start..].sort_unstable_by_key(|index| key(*index));
+    let mut write = start;
+    for read in start..result.len() {
+        let value = result[read];
+        if write == start || result[write - 1] != value {
+            result[write] = value;
+            write += 1;
+        }
+    }
+    result.truncate(write);
 }
 
 fn visit_neighbor_cells(
@@ -157,4 +170,16 @@ fn cell_key(position: Vec3i) -> CellKey {
 
 fn support_radius_squared() -> i128 {
     i128::from(SUPPORT_RADIUS_UM) * i128::from(SUPPORT_RADIUS_UM)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn suffix_sort_and_dedup_preserves_prior_rows() {
+        let mut indices = vec![99, 3, 1, 3, 2, 1];
+        sort_and_dedup_suffix(&mut indices, 1, |index| index as u32);
+        assert_eq!(indices, [99, 1, 2, 3]);
+    }
 }

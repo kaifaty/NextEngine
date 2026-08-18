@@ -46,6 +46,20 @@ fn fluid_row_capacity_accepts_n_minus_one_and_n() {
 }
 
 #[test]
+fn worst_case_neighbor_scratch_remains_inside_the_frozen_heap_cap() {
+    let doubled_scratch_capacity = MAXIMUM_DIRECTED_FLUID_NEIGHBORS.checked_mul(2).unwrap();
+    assert!(
+        validate_heap_plan(
+            crate::profile::MAXIMUM_SAMPLES,
+            0,
+            MAXIMUM_DIRECTED_FLUID_NEIGHBORS,
+            doubled_scratch_capacity,
+        )
+        .is_ok()
+    );
+}
+
+#[test]
 fn zero_and_one_particle_frames_are_well_defined() {
     let geometry = Geometry {
         bounds: Box3i {
