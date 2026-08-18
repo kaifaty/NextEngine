@@ -254,6 +254,10 @@ class SpeechConnection:
         else:
             await self._release_once()
 
+    async def fail_input(self, code: str, detail: str) -> None:
+        """Terminate an unrecoverable client-input fault exactly once."""
+        await self._fail(code, detail)
+
     async def _asr_push(
         self, generation: int, start_sample: int, end_sample: int, pcm: bytes
     ) -> None:

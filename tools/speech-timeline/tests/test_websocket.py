@@ -7,14 +7,18 @@ import stat
 import tempfile
 import time
 import unittest
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 from websockets.asyncio.client import connect
+from websockets.exceptions import InvalidStatus
 
 from nextengine_speech_timeline.adapters.base import AffectObservation
 from nextengine_speech_timeline.adapters.voxtral_transcribe_cpp import TranscriptRevision
 from nextengine_speech_timeline.benchmark import benchmark_service
-from nextengine_speech_timeline.service import SpeechTimelineRuntime
 from nextengine_speech_timeline.microphone_client import ReadyInfo, run_websocket_session
+from nextengine_speech_timeline.service import SpeechTimelineRuntime
+from nextengine_speech_timeline.session import SessionBounds
 from nextengine_speech_timeline.transport_websocket import SpeechTimelineWebSocketService
 
 
@@ -183,6 +187,7 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_ready_file_is_private_and_two_sessions_do_not_reload_models(self) -> None:
         self.assertEqual(stat.S_IMODE(self.ready_file.stat().st_mode), 0o600)
+        self.assertEqual(self.ready["dashboard_uri"], self.service.dashboard_uri)
         first = await self.run_turn("turn-1")
         second = await self.run_turn("turn-2")
         self.assertTrue(any(item["type"] == "speech_timeline.update" for item in first))
@@ -194,6 +199,62 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.affect.load_count, 1)
         self.assertEqual(self.transcriber.start_count, 2)
         self.assertEqual([item.finalize_count for item in self.transcriber.sessions], [1, 1])
+
+    async def test_dashboard_and_private_bootstrap_are_served_same_origin(self) -> None:
+        def get(path: str) -> tuple[int, dict[str, str], bytes]:
+            with urlopen(self.service.dashboard_uri + path, timeout=2) as response:
+                return response.status, dict(response.headers.items()), response.read()
+
+        status, headers, index = await asyncio.to_thread(get, "")
+        self.assertEqual(status, 200)
+        self.assertIn(b'<div id="app"></div>', index)
+        self.assertIn("default-src 'self'", headers["Content-Security-Policy"])
+        self.assertEqual(headers["X-Frame-Options"], "DENY")
+
+        status, headers, raw = await asyncio.to_thread(get, "api/bootstrap")
+        bootstrap = json.loads(raw)
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Cache-Control"], "no-store")
+        self.assertEqual(bootstrap["token"], self.ready["token"])
+        self.assertEqual(bootstrap["service"]["type"], "service.ready")
+        self.assertEqual(
+            bootstrap["service"]["bounds"]["max_turn_duration_ms"], 30_000
+        )
+
+    async def test_dashboard_rejects_unsafe_http_and_foreign_websocket_origins(
+        self,
+    ) -> None:
+        def fetch(request: Request) -> int:
+            try:
+                with urlopen(request, timeout=2) as response:
+                    return response.status
+            except HTTPError as error:
+                return error.code
+
+        traversal = Request(self.service.dashboard_uri + "%2e%2e/pyproject.toml")
+        self.assertEqual(await asyncio.to_thread(fetch, traversal), 404)
+        post = Request(self.service.dashboard_uri + "api/bootstrap", method="POST")
+        self.assertEqual(await asyncio.to_thread(fetch, post), 405)
+        rebound = Request(
+            self.service.dashboard_uri + "api/bootstrap",
+            headers={"Host": "malicious.example"},
+        )
+        self.assertEqual(await asyncio.to_thread(fetch, rebound), 421)
+
+        async with connect(
+            self.service.uri,
+            compression=None,
+            origin=self.service.dashboard_uri.rstrip("/"),
+        ) as websocket:
+            ready = await self.authenticate(websocket)
+            self.assertEqual(ready["type"], "service.ready")
+        with self.assertRaises(InvalidStatus):
+            async with connect(
+                self.service.uri,
+                compression=None,
+                origin="http://malicious.example",
+            ):
+                pass
 
     async def test_bad_auth_and_protocol_version_fail_closed(self) -> None:
         async with connect(self.service.uri, compression=None) as websocket:
@@ -359,6 +420,96 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.1)
         events = await self.run_turn("after-overload")
         self.assertEqual(events[-1]["type"], "utterance.final")
+
+    async def test_turn_too_large_is_one_terminal_error(self) -> None:
+        ready_file = Path(self.temp.name) / "small-ready.json"
+        service = SpeechTimelineWebSocketService(
+            SpeechTimelineRuntime(FakeTranscriber(), FakeAffect()),
+            ready_file=ready_file,
+            port=0,
+            bounds=SessionBounds(max_frame_bytes=320, max_turn_bytes=640),
+        )
+        await service.start()
+        ready = json.loads(ready_file.read_text(encoding="utf-8"))
+        try:
+            async with connect(service.uri, compression=None) as websocket:
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "type": "client.hello",
+                            "token": ready["token"],
+                        }
+                    )
+                )
+                await websocket.recv()
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "type": "session.start",
+                            "session_id": "too-long",
+                            "locale": "ru",
+                            "sample_rate_hz": 16_000,
+                            "encoding": "pcm_s16le",
+                            "channels": 1,
+                        }
+                    )
+                )
+                await websocket.recv()
+                await websocket.send(b"\0" * 320)
+                await websocket.send(b"\0" * 320)
+                await websocket.send(b"\0\0")
+                errors = []
+                async for message in websocket:
+                    payload = json.loads(message)
+                    if payload["type"] == "error":
+                        errors.append(payload)
+        finally:
+            await service.close()
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0]["code"], "TURN_TOO_LARGE")
+        self.assertTrue(errors[0]["terminal"])
+
+    async def test_client_auto_finalizes_at_server_turn_limit(self) -> None:
+        ready_file = Path(self.temp.name) / "bounded-ready.json"
+        transcriber = FakeTranscriber()
+        service = SpeechTimelineWebSocketService(
+            SpeechTimelineRuntime(transcriber, FakeAffect()),
+            ready_file=ready_file,
+            port=0,
+            bounds=SessionBounds(max_frame_bytes=320, max_turn_bytes=640),
+        )
+        await service.start()
+        ready = json.loads(ready_file.read_text(encoding="utf-8"))
+
+        async def chunks():
+            yield b"\0" * 320
+            yield b"\0" * 320
+            yield b"\0" * 320
+
+        received: list[dict[str, object]] = []
+        try:
+            final = await run_websocket_session(
+                ReadyInfo(
+                    uri=service.uri,
+                    token=ready["token"],
+                    protocol="nextengine.speech-timeline/1",
+                    bounds={},
+                ),
+                chunks(),
+                locale="ru",
+                on_event=received.append,
+                session_id="bounded-client",
+            )
+        finally:
+            await service.close()
+        limit = next(
+            item for item in received if item["type"] == "client.capture_limit_reached"
+        )
+        self.assertEqual(limit["captured_bytes"], 640)
+        self.assertEqual(final["text"], "готово")
+        self.assertEqual(transcriber.push_count, 2)
 
 
 if __name__ == "__main__":

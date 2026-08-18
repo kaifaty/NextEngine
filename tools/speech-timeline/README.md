@@ -65,6 +65,24 @@ must all live outside the repository.
   serve --profile /path/outside/repository/speech-timeline-profile.v1.json
 ```
 
+Once model warm-up completes, the ready JSON printed to stdout contains both
+`uri` and `dashboard_uri`. Open the latter (for example,
+`http://127.0.0.1:43721/`) in a browser, grant microphone access, select the
+exact input, and press **Начать запись**. The Vue dashboard is served by the
+same loopback process as the WebSocket, obtains its short-lived token from a
+same-origin `no-store` bootstrap response, and never writes raw audio.
+
+The dashboard deliberately keeps these representations separate:
+
+- stable and tentative Voxtral transcript revisions;
+- raw emotion2vec score windows on the 16 kHz sample clock;
+- smoothed observed-expression segments;
+- the final utterance-level fusion result and exact model lineage.
+
+Emotion scores remain uncalibrated observations. Phase 1 doesn't fabricate
+word timestamps, so emotional tags aren't attached to individual words in this
+view. The final tagged-text form is a later derived consumer view.
+
 The profile is strict schema version 1 and contains three objects:
 
 - `voxtral`: exact GGUF path, byte size, `sha256:` digest, `transcribe.cpp`
@@ -96,6 +114,25 @@ sends 250 ms PCM chunks by default, and renders replaceable transcript and
 emotion timeline updates until `utterance.final`. Use Ctrl-C to cancel by
 disconnecting. `--save-wav` remains an explicit diagnostic exception and
 refuses repository paths or overwrite.
+
+One Phase 1 turn is bounded to 960,000 bytes: 30 seconds of 16 kHz mono signed
+16-bit PCM. Both the CLI and browser now stop capture at the advertised server
+limit and finalize the turn automatically. `TURN_TOO_LARGE` means a client sent
+beyond that boundary; the service treats it as one terminal input error. It is
+not a model failure. Longer conversation must be split into utterances (and
+later may use bounded VAD) instead of increasing an unbounded in-memory turn.
+
+## Rebuild the Vue dashboard
+
+The production bundle is committed inside the Python package so the installed
+service has no Node.js runtime dependency. After changing `web/src`, rebuild it
+with the pinned lockfile:
+
+```bash
+cd tools/speech-timeline/web
+pnpm install --frozen-lockfile
+pnpm run build
+```
 
 Measure sequential resident sessions with an external 16 kHz mono PCM WAV:
 

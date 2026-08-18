@@ -187,6 +187,7 @@ async def _serve(service: SpeechTimelineWebSocketService, ready_file: Path) -> i
                     "schema_version": 1,
                     "status": "ready",
                     "uri": service.uri,
+                    "dashboard_uri": service.dashboard_uri,
                     "ready_file": str(ready_file),
                 },
                 ensure_ascii=False,

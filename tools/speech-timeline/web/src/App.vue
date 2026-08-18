@@ -1,0 +1,327 @@
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+
+import EmotionTimeline from "./components/EmotionTimeline.vue";
+import TranscriptPanel from "./components/TranscriptPanel.vue";
+import { BrowserMicrophoneCapture, listAudioInputs } from "./lib/audioCapture";
+import { emotionColor, emotionLabel, formatDuration } from "./lib/display";
+import { loadBootstrap, SpeechTimelineClient } from "./lib/speechClient";
+import type {
+  ConnectionState,
+  DashboardBootstrap,
+  FinalUtterance,
+  JsonObject,
+  SpeechEvent,
+  TimelineUpdate,
+} from "./types";
+
+const state = ref<ConnectionState>("loading");
+const bootstrap = ref<DashboardBootstrap | null>(null);
+const client = ref<SpeechTimelineClient | null>(null);
+const capture = ref<BrowserMicrophoneCapture | null>(null);
+const devices = ref<MediaDeviceInfo[]>([]);
+const selectedDevice = ref("");
+const timeline = ref<TimelineUpdate | null>(null);
+const finalUtterance = ref<FinalUtterance | null>(null);
+const events = ref<SpeechEvent[]>([]);
+const errorMessage = ref("");
+const notice = ref("");
+const sentBytes = ref(0);
+const inputRms = ref(0);
+let limitStopScheduled = false;
+
+const isRecording = computed(() => state.value === "recording");
+const canStart = computed(() => ["ready", "complete", "error"].includes(state.value));
+const currentSamples = computed(() => sentBytes.value / 2);
+const durationMs = computed(() => (sentBytes.value * 1_000) / 32_000);
+const limitMs = computed(() => client.value?.bounds?.maxTurnDurationMs ?? 30_000);
+const progress = computed(() => Math.min(100, (durationMs.value / limitMs.value) * 100));
+const levelDb = computed(() => 20 * Math.log10(Math.max(inputRms.value, 0.00001)));
+const currentExpression = computed(
+  () =>
+    finalUtterance.value?.observed_vocal_expression ??
+    timeline.value?.fusion.observed_vocal_expression ??
+    "unknown",
+);
+
+const stateText: Record<ConnectionState, string> = {
+  loading: "Загрузка интерфейса",
+  ready: "Сервис готов",
+  connecting: "Подключение",
+  recording: "Идёт запись",
+  finalizing: "Финальный анализ",
+  complete: "Результат готов",
+  error: "Требуется внимание",
+};
+
+const transcriberName = computed(() => modelValue("transcriber", "adapter_id") || "Voxtral");
+const affectName = computed(() => modelValue("vocal_affect", "adapter_id") || "Emotion2Vec");
+const identitySummary = computed(() => {
+  const identity = objectValue(bootstrap.value?.service, "model_identity");
+  if (!identity) return "точные revisions доступны после запуска";
+  const voxtral = stringValue(identity, "transcribe_revision");
+  const emotion = stringValue(identity, "emotion_revision");
+  return [voxtral && `ASR ${voxtral.slice(0, 8)}`, emotion && `affect ${emotion.slice(0, 8)}`]
+    .filter(Boolean)
+    .join(" · ");
+});
+
+onMounted(async () => {
+  try {
+    bootstrap.value = await loadBootstrap();
+    await refreshDevices();
+    state.value = "ready";
+  } catch (error) {
+    fail(error);
+  }
+  window.addEventListener("beforeunload", cancelActiveSession);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("beforeunload", cancelActiveSession);
+  cancelActiveSession();
+});
+
+async function refreshDevices(): Promise<void> {
+  devices.value = await listAudioInputs();
+  if (!selectedDevice.value && devices.value.length > 0) {
+    selectedDevice.value = devices.value[0]?.deviceId ?? "";
+  }
+}
+
+async function startRecording(): Promise<void> {
+  if (!bootstrap.value || !canStart.value) return;
+  errorMessage.value = "";
+  notice.value = "";
+  timeline.value = null;
+  finalUtterance.value = null;
+  events.value = [];
+  sentBytes.value = 0;
+  inputRms.value = 0;
+  limitStopScheduled = false;
+  state.value = "connecting";
+  const nextClient = new SpeechTimelineClient(bootstrap.value, handleEvent);
+  client.value = nextClient;
+  const nextCapture = new BrowserMicrophoneCapture();
+  capture.value = nextCapture;
+  try {
+    await nextClient.connectAndStart("ru");
+    await nextCapture.start(selectedDevice.value, 250, {
+      onChunk: handleAudioChunk,
+      onLevel: (level) => {
+        inputRms.value = level;
+      },
+    });
+    await refreshDevices();
+    state.value = "recording";
+  } catch (error) {
+    nextClient.cancel();
+    await nextCapture.stop().catch(() => undefined);
+    fail(error);
+  }
+}
+
+function handleAudioChunk(chunk: Uint8Array): void {
+  try {
+    const result = client.value?.sendPcm(chunk);
+    if (!result) return;
+    sentBytes.value = result.sentBytes;
+    if (result.limitReached && !limitStopScheduled) {
+      limitStopScheduled = true;
+      notice.value = `Достигнут безопасный предел ${formatDuration(limitMs.value)} — запись остановлена и отправлена на финализацию.`;
+      queueMicrotask(() => void stopRecording());
+    }
+  } catch (error) {
+    void abortAfterError(error);
+  }
+}
+
+async function stopRecording(): Promise<void> {
+  if (state.value !== "recording" && state.value !== "finalizing") return;
+  state.value = "finalizing";
+  const activeCapture = capture.value;
+  capture.value = null;
+  if (activeCapture) {
+    await activeCapture.stop();
+  }
+  client.value?.finish();
+}
+
+function handleEvent(event: SpeechEvent): void {
+  events.value = [...events.value.slice(-39), event];
+  if (event.type === "speech_timeline.update") {
+    timeline.value = event as unknown as TimelineUpdate;
+  } else if (event.type === "utterance.final") {
+    finalUtterance.value = event as unknown as FinalUtterance;
+    state.value = "complete";
+    client.value?.close();
+    client.value = null;
+  } else if (event.type === "error" && event.terminal === true) {
+    const code = typeof event.code === "string" ? event.code : "UNKNOWN_ERROR";
+    const detail = typeof event.detail === "string" ? event.detail : "";
+    void abortAfterError(new Error(`${code}${detail ? `: ${detail}` : ""}`));
+  }
+}
+
+async function abortAfterError(error: unknown): Promise<void> {
+  const activeCapture = capture.value;
+  capture.value = null;
+  if (activeCapture) {
+    await activeCapture.stop().catch(() => undefined);
+  }
+  client.value?.close();
+  client.value = null;
+  fail(error);
+}
+
+function cancelActiveSession(): void {
+  client.value?.cancel();
+  client.value = null;
+  void capture.value?.stop();
+  capture.value = null;
+}
+
+function fail(error: unknown): void {
+  errorMessage.value = error instanceof Error ? error.message : String(error);
+  state.value = "error";
+}
+
+function modelValue(role: string, field: string): string {
+  const models = objectValue(bootstrap.value?.service, "models");
+  const model = objectValue(models, role);
+  return model ? stringValue(model, field) : "";
+}
+
+function objectValue(value: unknown, key: string): JsonObject | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const candidate = (value as JsonObject)[key];
+  return typeof candidate === "object" && candidate !== null && !Array.isArray(candidate)
+    ? (candidate as JsonObject)
+    : null;
+}
+
+function stringValue(value: JsonObject, key: string): string {
+  return typeof value[key] === "string" ? value[key] : "";
+}
+</script>
+
+<template>
+  <main class="dashboard-shell">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <span class="brand-mark">N</span>
+        <div>
+          <p>Next Engine Lab</p>
+          <h1>Speech Timeline</h1>
+        </div>
+      </div>
+      <div class="service-state" :class="state">
+        <i></i>
+        <span>{{ stateText[state] }}</span>
+      </div>
+    </header>
+
+    <section class="hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Realtime speech observability</p>
+        <h2>Слышим не только слова.</h2>
+        <p>
+          Здесь текст, эмоциональные окна и сглаженные переходы остаются отдельными
+          ревизиями на одной аудиошкале. Это диагностические данные, а не вывод о
+          внутреннем состоянии человека.
+        </p>
+      </div>
+
+      <div class="capture-card">
+        <div class="capture-row">
+          <div>
+            <p class="eyebrow">Источник</p>
+            <select v-model="selectedDevice" :disabled="isRecording || state === 'finalizing'">
+              <option value="">Системный микрофон</option>
+              <option v-for="(device, index) in devices" :key="device.deviceId" :value="device.deviceId">
+                {{ device.label || `Микрофон ${index + 1}` }}
+              </option>
+            </select>
+          </div>
+          <button class="icon-button" :disabled="isRecording" title="Обновить список" @click="refreshDevices">↻</button>
+        </div>
+
+        <div class="record-controls">
+          <button v-if="!isRecording" class="primary-button" :disabled="!canStart" @click="startRecording">
+            <span class="record-dot"></span>
+            Начать запись
+          </button>
+          <button v-else class="stop-button" @click="stopRecording">
+            <span class="stop-square"></span>
+            Завершить фразу
+          </button>
+          <div class="level-meter" title="Текущий RMS микрофона">
+            <span :style="{ width: `${Math.max(0, Math.min(100, (levelDb + 72) * 1.4))}%` }"></span>
+          </div>
+          <b class="duration">{{ formatDuration(durationMs) }} / {{ formatDuration(limitMs) }}</b>
+        </div>
+        <div class="duration-track"><i :style="{ width: `${progress}%` }"></i></div>
+        <p v-if="notice" class="notice">{{ notice }}</p>
+        <p v-if="errorMessage" class="error-box">{{ errorMessage }}</p>
+      </div>
+    </section>
+
+    <section class="model-strip">
+      <div>
+        <span>ASR</span>
+        <b>{{ transcriberName }}</b>
+      </div>
+      <div>
+        <span>Vocal affect</span>
+        <b>{{ affectName }}</b>
+      </div>
+      <div>
+        <span>Lineage</span>
+        <b>{{ identitySummary }}</b>
+      </div>
+      <div class="expression-card" :style="{ '--emotion': emotionColor(currentExpression) }">
+        <span>Текущий окрас</span>
+        <b>{{ emotionLabel(currentExpression) }}</b>
+      </div>
+    </section>
+
+    <section class="content-grid">
+      <TranscriptPanel
+        :text="timeline?.transcript.text ?? finalUtterance?.text ?? ''"
+        :stable-prefix="timeline?.transcript.stable_prefix ?? ''"
+        :final="Boolean(finalUtterance || timeline?.transcript.final)"
+        :revision="timeline?.transcript.revision ?? 0"
+        :timing-precision="timeline?.transcript.timing_precision ?? 'utterance'"
+      />
+      <EmotionTimeline
+        :segments="timeline?.vocal_affect.segments ?? []"
+        :observations="timeline?.vocal_affect.raw_observations ?? []"
+        :current-samples="currentSamples"
+        :revision="timeline?.vocal_affect.revision ?? 0"
+      />
+    </section>
+
+    <section v-if="finalUtterance" class="final-card">
+      <div>
+        <p class="eyebrow">Final utterance</p>
+        <h2>{{ finalUtterance.text || "Текст не распознан" }}</h2>
+      </div>
+      <div class="final-expression" :style="{ '--emotion': emotionColor(finalUtterance.observed_vocal_expression) }">
+        <span>Наблюдаемый окрас</span>
+        <b>{{ emotionLabel(finalUtterance.observed_vocal_expression) }}</b>
+        <small>alignment: {{ finalUtterance.alignment_grade }}</small>
+      </div>
+    </section>
+
+    <details class="event-console">
+      <summary>Протокол и последние события <span>{{ events.length }}</span></summary>
+      <pre>{{ JSON.stringify(events, null, 2) }}</pre>
+    </details>
+
+    <footer class="footer-note">
+      <span>16 kHz · mono · PCM S16LE</span>
+      <span>raw audio не сохраняется</span>
+      <span>localhost-only diagnostic</span>
+    </footer>
+  </main>
+</template>

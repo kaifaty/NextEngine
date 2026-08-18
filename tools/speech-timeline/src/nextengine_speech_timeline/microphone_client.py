@@ -138,6 +138,13 @@ async def run_websocket_session(
         max_frame_bytes = bounds.get("max_frame_bytes")
         if not isinstance(max_frame_bytes, int):
             raise ClientError("service.ready has invalid max_frame_bytes")
+        max_turn_bytes = bounds.get("max_turn_bytes")
+        if (
+            not isinstance(max_turn_bytes, int)
+            or max_turn_bytes < max_frame_bytes
+            or max_turn_bytes % 2
+        ):
+            raise ClientError("service.ready has invalid max_turn_bytes")
         await websocket.send(
             json.dumps(
                 {
@@ -159,17 +166,38 @@ async def run_websocket_session(
 
         async def send_audio() -> None:
             sent = 0
+            capture_limit_reached = False
             async for chunk in pcm_chunks:
                 if not isinstance(chunk, bytes) or not chunk or len(chunk) % 2:
                     raise ClientError("microphone source returned invalid PCM")
                 if len(chunk) > max_frame_bytes:
                     raise ClientError("microphone chunk exceeds service max_frame_bytes")
+                remaining = max_turn_bytes - sent
+                if remaining <= 0:
+                    capture_limit_reached = True
+                    break
+                if len(chunk) > remaining:
+                    chunk = chunk[:remaining]
+                    capture_limit_reached = True
                 if sent == 0 and measurement is not None:
                     measurement["first_chunk_send_monotonic"] = time.monotonic()
                 sent += len(chunk)
                 await websocket.send(chunk)
+                if sent == max_turn_bytes:
+                    capture_limit_reached = True
+                    break
             if sent == 0:
                 raise ClientError("microphone returned no PCM")
+            if capture_limit_reached:
+                on_event(
+                    {
+                        "schema_version": 1,
+                        "type": "client.capture_limit_reached",
+                        "captured_bytes": sent,
+                        "max_turn_bytes": max_turn_bytes,
+                        "duration_ms": sent * 1_000 // (16_000 * 2),
+                    }
+                )
             await websocket.send(
                 json.dumps(
                     {
@@ -304,6 +332,11 @@ def render_event(payload: dict[str, object], *, json_output: bool) -> None:
         print(
             f"final={payload.get('text', '')}  "
             f"expression={payload.get('observed_vocal_expression', 'unknown')}",
+            flush=True,
+        )
+    elif message_type == "client.capture_limit_reached":
+        print(
+            f"capture limit reached at {payload.get('duration_ms', 0)} ms; finalizing ...",
             flush=True,
         )
     elif message_type == "error":

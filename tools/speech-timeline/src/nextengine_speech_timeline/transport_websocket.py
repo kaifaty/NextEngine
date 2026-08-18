@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+from http import HTTPStatus
 import json
+import mimetypes
 import os
 from pathlib import Path
 import secrets
+from urllib.parse import unquote, urlsplit
 
 from websockets.asyncio.server import Server, ServerConnection, serve
+from websockets.datastructures import Headers
 from websockets.exceptions import ConnectionClosed
+from websockets.http11 import Request, Response
 
 from . import SERVICE_PROTOCOL
 from .protocol import (
@@ -55,6 +60,13 @@ class SpeechTimelineWebSocketService:
         port = self._server.sockets[0].getsockname()[1]
         return f"ws://127.0.0.1:{port}"
 
+    @property
+    def dashboard_uri(self) -> str:
+        if self._server is None or not self._server.sockets:
+            raise RuntimeError("service is not listening")
+        port = self._server.sockets[0].getsockname()[1]
+        return f"http://127.0.0.1:{port}/"
+
     async def start(self) -> dict[str, object]:
         if self._server is not None:
             raise RuntimeError("service is already started")
@@ -66,6 +78,7 @@ class SpeechTimelineWebSocketService:
             max_size=MAX_JSON_BYTES,
             max_queue=16,
             compression=None,
+            process_request=self._process_request,
         )
         self._ready_public = event(
             "service.ready",
@@ -77,6 +90,9 @@ class SpeechTimelineWebSocketService:
                 "max_json_bytes": MAX_JSON_BYTES,
                 "max_frame_bytes": self.bounds.max_frame_bytes,
                 "max_turn_bytes": self.bounds.max_turn_bytes,
+                "max_turn_duration_ms": (
+                    self.bounds.max_turn_bytes * 1_000 // (16_000 * 2)
+                ),
                 "sample_rate_hz": 16_000,
                 "encoding": "pcm_s16le",
                 "channels": 1,
@@ -89,6 +105,7 @@ class SpeechTimelineWebSocketService:
                     "schema_version": 1,
                     "status": "ready",
                     "uri": self.uri,
+                    "dashboard_uri": self.dashboard_uri,
                     "token": self.token,
                     "protocol": SERVICE_PROTOCOL,
                     "models": startup,
@@ -102,6 +119,132 @@ class SpeechTimelineWebSocketService:
             self.runtime.close()
             raise
         return self._ready_public
+
+    def _process_request(
+        self, connection: ServerConnection, request: Request
+    ) -> Response | None:
+        del connection
+        parsed = urlsplit(request.path)
+        path = unquote(parsed.path)
+        hosts = request.headers.get_all("Host")
+        expected_host = urlsplit(self.dashboard_uri).netloc
+        if hosts != [expected_host]:
+            return self._http_error(HTTPStatus.MISDIRECTED_REQUEST)
+        upgrades = request.headers.get_all("Upgrade")
+        websocket_upgrade = len(upgrades) == 1 and upgrades[0].lower() == "websocket"
+        if websocket_upgrade:
+            if path not in {"", "/"} or parsed.query or parsed.fragment:
+                return self._http_error(HTTPStatus.NOT_FOUND)
+            origins = request.headers.get_all("Origin")
+            allowed_origin = self.dashboard_uri.rstrip("/")
+            if len(origins) > 1 or (origins and origins[0] != allowed_origin):
+                return self._http_error(HTTPStatus.FORBIDDEN)
+            return None
+
+        if request.method != "GET":
+            return self._http_error(HTTPStatus.METHOD_NOT_ALLOWED, allow="GET")
+        if parsed.query or parsed.fragment:
+            return self._http_error(HTTPStatus.BAD_REQUEST)
+        if path == "/api/bootstrap":
+            if self._ready_public is None:
+                return self._http_error(HTTPStatus.SERVICE_UNAVAILABLE)
+            body = json.dumps(
+                {
+                    "schema_version": 1,
+                    "status": "ready",
+                    "uri": self.uri,
+                    "token": self.token,
+                    "protocol": SERVICE_PROTOCOL,
+                    "service": self._ready_public,
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            return self._http_response(
+                HTTPStatus.OK,
+                body,
+                content_type="application/json; charset=utf-8",
+                cache_control="no-store",
+            )
+
+        relative = "index.html" if path in {"", "/", "/index.html"} else path.lstrip("/")
+        if (
+            not relative
+            or "\\" in relative
+            or "\x00" in relative
+            or any(part in {"", ".", ".."} for part in Path(relative).parts)
+        ):
+            return self._http_error(HTTPStatus.NOT_FOUND)
+        static_root = Path(__file__).with_name("dashboard_static").resolve()
+        target = (static_root / relative).resolve()
+        try:
+            target.relative_to(static_root)
+        except ValueError:
+            return self._http_error(HTTPStatus.NOT_FOUND)
+        try:
+            if target.is_symlink() or not target.is_file():
+                return self._http_error(HTTPStatus.NOT_FOUND)
+            body = target.read_bytes()
+        except OSError:
+            return self._http_error(HTTPStatus.NOT_FOUND)
+        if len(body) > 1_048_576:
+            return self._http_error(HTTPStatus.NOT_FOUND)
+        content_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        if content_type.startswith("text/") or content_type in {
+            "application/javascript",
+            "application/json",
+        }:
+            content_type += "; charset=utf-8"
+        cache_control = (
+            "no-store"
+            if target.name == "index.html"
+            else "public, max-age=31536000, immutable"
+        )
+        return self._http_response(
+            HTTPStatus.OK,
+            body,
+            content_type=content_type,
+            cache_control=cache_control,
+        )
+
+    @classmethod
+    def _http_error(cls, status: HTTPStatus, *, allow: str | None = None) -> Response:
+        body = f"{status.value} {status.phrase}\n".encode("ascii")
+        response = cls._http_response(
+            status,
+            body,
+            content_type="text/plain; charset=utf-8",
+            cache_control="no-store",
+        )
+        if allow is not None:
+            response.headers["Allow"] = allow
+        return response
+
+    @staticmethod
+    def _http_response(
+        status: HTTPStatus,
+        body: bytes,
+        *,
+        content_type: str,
+        cache_control: str,
+    ) -> Response:
+        headers = Headers(
+            {
+                "Cache-Control": cache_control,
+                "Content-Length": str(len(body)),
+                "Content-Security-Policy": (
+                    "default-src 'self'; script-src 'self'; style-src 'self'; "
+                    "connect-src 'self' ws://127.0.0.1:*; worker-src 'self' blob:; "
+                    "img-src 'self' data:; object-src 'none'; base-uri 'none'; "
+                    "frame-ancestors 'none'"
+                ),
+                "Content-Type": content_type,
+                "Referrer-Policy": "no-referrer",
+                "X-Content-Type-Options": "nosniff",
+                "X-Frame-Options": "DENY",
+            }
+        )
+        return Response(status.value, status.phrase, headers, body)
 
     async def serve_forever(self) -> None:
         if self._server is None:
@@ -160,9 +303,17 @@ class SpeechTimelineWebSocketService:
                         try:
                             await connection.append_pcm(message)
                         except SessionError as error:
-                            await connection.events.put(
-                                event("error", code=error.code, terminal=False, detail=str(error)[:512])
-                            )
+                            if error.code == "TURN_TOO_LARGE":
+                                await connection.fail_input(error.code, str(error))
+                            else:
+                                await connection.events.put(
+                                    event(
+                                        "error",
+                                        code=error.code,
+                                        terminal=False,
+                                        detail=str(error)[:512],
+                                    )
+                                )
                         await asyncio.sleep(0)
                         if connection.session.state is SessionState.FAILED:
                             await connection.terminal_ready.wait()

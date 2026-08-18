@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PHASE_1_IMPLEMENTED`; manual microphone acceptance remains |
+| Status | `PHASE_1_IMPLEMENTED`; browser microphone acceptance remains |
 | Updated | `2026-08-18` |
 | Task key | `audio-emotion-asr-timeline` |
 | Scope | Phase 1 prototypes Voxtral/emotion2vec; Phase 2 adds replaceable LLM/TTS; Phase 3A proves them in a one-character simple-dialogue scene before 3B-3D boundary/internal-model work; prerequisite-gated Phase 4 fine-tunes FunctionGemma. |
@@ -11,14 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Phase 1 now implements the resident optional `SpeechTimelineService` with model-neutral Voxtral/emotion2vec adapters, bounded scheduling, three independently revisioned tracks, authenticated loopback WebSocket, microphone client and benchmark runner.
+- **Current conclusion:** Phase 1 now implements the resident optional `SpeechTimelineService` with model-neutral Voxtral/emotion2vec adapters, bounded scheduling, three independently revisioned tracks, authenticated loopback WebSocket, CLI microphone client, same-origin Vue diagnostic dashboard and benchmark runner.
 - **Why:** The existing Voxtral wrapper already performs real streaming inside one invocation, while warm emotion2vec inference is fast. Reloading either model per connection/window is the avoidable delay.
 - **Critical limit:** Current Voxtral public APIs return streaming text but no lexical timestamps. `transcribe.cpp` reports timestamp kind `NONE`; its Voxtral `audio_committed_ms` remains zero during feed and is not a text boundary.
 - **Implementation plan:** `docs/plans/2026-08-18-speech-timeline-service-implementation.md` has approved scope `A/A/A/A`: standalone authenticated localhost WebSocket, explicit finish first and honest `utterance` alignment; VAD/model-slot remain later increments.
 - **Phase 2 plan:** `docs/plans/2026-08-18-conversation-service-phase-2.md` adds a `ConversationService` facade for large-LLM dialogue and TTS only; two Phase 2 scope choices remain pending.
 - **Phase 3 plan:** `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` now starts with 3A: one existing character, push-to-talk, session-local persona/history, subtitles/TTS and no world/internal-model/tool context. 3B-3D then harden proven boundaries, shadow-integrate the strategic model and freeze catalogs.
 - **Phase 4 plan:** `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` fine-tunes FunctionGemma only after Phase 3 freezes a consumer-backed strategic catalog and corpus seed.
-- **Next action:** Run one user-spoken microphone acceptance through `next-speech-timeline microphone`, then reopen the two Phase 2 LLM/TTS scope choices; VAD/model-slot remain separate increments.
+- **Next action:** Run one user-spoken browser-microphone acceptance through the emitted `dashboard_uri`, then reopen the two Phase 2 LLM/TTS scope choices; VAD/model-slot remain separate increments.
 - **Current blocker:** No service implementation blocker. A meaningful live-microphone quality/latency run requires a user-spoken utterance; automated evidence uses the external 4.5 s Russian WAV and 30 s paced soak.
 - **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated word timestamps from text arrival time.
 - **Reconsider when:** A model/runtime exposes better timed lexical units, or measured model-slot boundary error is too high and justifies a final aligner.
@@ -45,9 +45,10 @@
 | `docs/plans/2026-08-18-conversation-service-phase-2.md` | proposed Phase 2 sequence | Defines LLM/TTS worker topology, context seam, evidence and two pending scope choices without tool calling or strategic integration. |
 | `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` | proposed Phase 3 sequence | Maps actual models to engine-owned roles, validators, owners and fallbacks; shadow-integrates the strategic model and freezes consumer-backed catalogs. |
 | `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` | deferred Phase 4 sequence | Reopens exact Phase 3 catalogs, then builds corpus, measures/fine-tunes FunctionGemma and integrates it shadow-first. |
-| `codex/speech-timeline-service`, Phase 1 fake suite | 46 Python service tests + 14 preserved Voxtral probe tests pass | Auth/version/size/state/fault boundaries, second-session residency, cadence, no-word-span fusion and client/benchmark paths are executable without weights. |
+| `codex/speech-timeline-service`, Phase 1 fake suite | 50 Python service tests + 14 preserved Voxtral probe tests pass | Auth/version/size/state/fault/dashboard boundaries, second-session residency, cadence, no-word-span fusion and client/benchmark paths are executable without weights. |
 | Joint RTX 3080 run, exact artifacts, 2026-08-18 | 2 × 4.5 s paced turns; load counts Voxtral/emotion `1/1`; worker-busy RTF p95 `0.690`; first chunk→update p95 `1.363 s`; finish→final p95 `0.970 s`; process peak `5870 MiB` VRAM | Both CUDA models remain resident with >1 GiB headroom; explicit-finish vertical passes. Report: `/tmp/nextengine-speech-timeline-phase1-benchmark.json` (external, content-free). |
 | 30 s paced soak, 2026-08-18 | worker-busy RTF `0.530`; first update `1.136 s`; finish→final `1.352 s`; no reload | Paced streaming remains faster than realtime without unbounded ASR backlog. Unpaced burst separately fails closed as `SERVICE_OVERLOADED`. |
+| Vue dashboard + turn-bound regression, 2026-08-18 | Browser source builds with pinned Vue/Vite/TypeScript; same-origin HTTP/bootstrap and WebSocket-origin tests pass; CLI/browser auto-finalize at the advertised 30 s/960,000-byte bound; overflow emits one terminal `TURN_TOO_LARGE` | The diagnostic view can expose transcript/raw affect/smoothed fusion without token copy-paste or repeated overflow spam. |
 | ADR-005; SPEC-16/ADR-017 | Accepted isolation/fallback boundary; multimodal track remains Deferred Proposed | No direct gameplay mutation or product-shipped claim. |
 
 ## Decisions that constrain the work
@@ -135,6 +136,14 @@
 - **Consequence/uncertainty:** Phase 1 service implementation is admissible; microphone acoustics, Russian quality and within-turn affect accuracy remain evaluation work, not residency blockers.
 - **Reconsider when:** Representative live runs exceed the 1 GiB headroom/RTF gates, or model/runtime changes invalidate the exact profile.
 
+### D-010 — Same-origin diagnostic UI and terminal turn bounds
+
+- **Observation:** Raw protocol JSON obscures independent revisions, while an overlong open microphone previously produced repeated nonterminal `TURN_TOO_LARGE` events after the 30 s in-memory ceiling.
+- **Decision:** Serve a bundled Vue dashboard from the loopback speech process, keep transcript/raw affect/smoothed fusion as separate views on the sample clock, fetch the ephemeral token only through same-origin bootstrap, auto-finalize clients at the advertised bound, and make actual overflow terminal exactly once.
+- **Rejected:** Inline word emotion tags without lexical timing, browser token entry, a separate permissive dev server, silently increasing the bounded turn, or continuing capture after overflow.
+- **Consequence:** The UI remains an optional diagnostic projection and not gameplay authority. Conversations longer than 30 s require multiple utterances; bounded VAD remains a later measured increment.
+- **Reconsider when:** A verified aligner supplies lexical timing or an approved multi-utterance consumer requires automatic endpointing.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -182,7 +191,7 @@ Read in precedence order:
 
 ## Smallest next action
 
-1. Run one user-spoken turn with the service and microphone client; record capture-to-first-update and subjective ASR/affect sanity without persisting audio by default.
+1. Run one user-spoken turn through the same-origin Vue dashboard; record capture-to-first-update and subjective ASR/affect sanity without persisting audio by default.
 2. Confirm the two unresolved Phase 2 choices and execute its Commit A without merging LLM/TTS implementation into `SpeechTimelineService`.
 3. Keep VAD and Voxtral model-slot timing as separately measured increments; do not fabricate word spans meanwhile.
 4. After Phase 2 evidence, implement Phase 3A first: clean `reference-alpha`
