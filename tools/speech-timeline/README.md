@@ -75,6 +75,7 @@ same-origin `no-store` bootstrap response, and never writes raw audio.
 The dashboard deliberately keeps these representations separate:
 
 - stable and tentative Voxtral transcript revisions;
+- VAD speech/no-speech segments on the same 16 kHz sample clock;
 - raw emotion2vec score windows on the 16 kHz sample clock;
 - smoothed observed-expression segments;
 - the final utterance-level fusion result and exact model lineage.
@@ -87,9 +88,15 @@ history on every ASR revision. Use `NEXTENGINE_SPEECH_LOG_LEVEL=DEBUG` (or
 `serve --log-level DEBUG`) to inspect periodic ingress, slow model jobs, event
 serialization/send timings, and browser-side slow-event diagnostics.
 
-Emotion scores remain uncalibrated observations. Phase 1 doesn't fabricate
-word timestamps, so emotional tags aren't attached to individual words in this
-view. The final tagged-text form is a later derived consumer view.
+Emotion scores remain uncalibrated observations. The resident service applies
+an energy-VAD gate (20 ms frames, 2-frame start hysteresis, 400 ms hangover,
+200 ms pre-roll) and runs emotion2vec only when a window contains at least
+600 ms and 35% voiced coverage. Silence is emitted as `no_speech`, never as a
+model-derived `neutral` label. The gate is a replaceable baseline; a Silero or
+WebRTC adapter can be evaluated behind the same activity contract later.
+Phase 1 doesn't fabricate word timestamps, so emotional tags aren't attached
+to individual words in this view. The final tagged-text form is a later derived
+consumer view.
 
 The profile is strict schema version 1 and contains three objects:
 
@@ -128,8 +135,8 @@ One Phase 1 turn is bounded to 960,000 bytes: 30 seconds of 16 kHz mono signed
 16-bit PCM. Both the CLI and browser now stop capture at the advertised server
 limit and finalize the turn automatically. `TURN_TOO_LARGE` means a client sent
 beyond that boundary; the service treats it as one terminal input error. It is
-not a model failure. Longer conversation must be split into utterances (and
-later may use bounded VAD) instead of increasing an unbounded in-memory turn.
+not a model failure. Longer conversation must be split into utterances instead
+of increasing an unbounded in-memory turn.
 The browser asks for a 16 kHz audio context, uses a stateful fallback resampler,
 disables browser AEC/noise suppression/AGC for ASR fidelity, batches worklet
 messages to 20 ms, and flushes the final partial block before `session.finish`.

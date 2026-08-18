@@ -92,6 +92,8 @@ select:focus { border-color: rgba(101, 224, 194, .55); }
 .timeline-stage { margin-bottom: 21px; }
 .timeline-track { position: relative; height: 54px; overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: #0c0f15; }
 .timeline-track::before { position: absolute; inset: 0; z-index: 0; content: ""; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(10% - 1px), rgba(255,255,255,.04) 10%); }
+.activity-segment { position: absolute; top: 0; bottom: 0; z-index: 1; border-right: 1px solid rgba(255,255,255,.06); background: repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0, rgba(255,255,255,.035) 3px, transparent 3px, transparent 7px); }
+.activity-segment.speech { background: rgba(101, 224, 194, .08); }
 .timeline-segment { position: absolute; top: 7px; bottom: 7px; z-index: 1; display: grid; place-items: center; overflow: hidden; border-radius: 6px; color: rgba(9,11,16,.8); font-size: 9px; font-weight: 800; white-space: nowrap; transition: left .2s ease, width .2s ease; }
 .timeline-empty { position: absolute; inset: 0; display: grid; place-items: center; color: #596173; font-size: 11px; }
 .timeline-axis { display: flex; justify-content: space-between; padding-top: 6px; color: #626b7c; font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; }

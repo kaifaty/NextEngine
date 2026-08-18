@@ -101,4 +101,7 @@ class Emotion2VecAffectAdapter:
             scores=scores,
             top_label=top_label,
             inference_elapsed_ms=int(result["inference_elapsed_ms"]),
+            activity="speech",
+            voiced_ratio=1.0,
+            evidence_samples=window.end_sample - window.start_sample,
         )

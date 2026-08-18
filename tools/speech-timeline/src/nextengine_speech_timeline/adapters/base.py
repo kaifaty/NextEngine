@@ -31,3 +31,6 @@ class AffectObservation:
     top_label: str
     inference_elapsed_ms: int
     semantics: str = "uncalibrated_observed_expression"
+    activity: str = "speech"
+    voiced_ratio: float = 1.0
+    evidence_samples: int = 0

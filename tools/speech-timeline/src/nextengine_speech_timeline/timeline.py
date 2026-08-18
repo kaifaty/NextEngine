@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+from collections.abc import Callable
 from typing import Mapping
 
+from .activity import SpeechActivitySegment
 from .adapters.base import AffectObservation
 
 
@@ -25,7 +27,12 @@ class AffectCadence:
     def __init__(self) -> None:
         self._next_end_sample = FAST_WINDOW_SAMPLES
 
-    def advance(self, audio_end_sample: int) -> list[AffectWindowRequest]:
+    def advance(
+        self,
+        audio_end_sample: int,
+        *,
+        eligible: Callable[[int, int], bool] | None = None,
+    ) -> list[AffectWindowRequest]:
         requests = []
         while self._next_end_sample <= audio_end_sample:
             end = self._next_end_sample
@@ -35,15 +42,17 @@ class AffectCadence:
             else:
                 mode = "stable"
                 length = STABLE_WINDOW_SAMPLES
-            requests.append(AffectWindowRequest(mode, end - length, end))
+            start = end - length
+            if eligible is None or eligible(start, end):
+                requests.append(AffectWindowRequest(mode, start, end))
             self._next_end_sample += HOP_SAMPLES
         return requests
 
     @staticmethod
-    def final(audio_end_sample: int) -> AffectWindowRequest:
-        if audio_end_sample <= 0:
+    def final(audio_end_sample: int, *, start_sample: int = 0) -> AffectWindowRequest:
+        if audio_end_sample <= start_sample or start_sample < 0:
             raise ValueError("final affect window requires audio")
-        return AffectWindowRequest("final", 0, audio_end_sample, final=True)
+        return AffectWindowRequest("final", start_sample, audio_end_sample, final=True)
 
 
 @dataclass(frozen=True)
@@ -53,6 +62,9 @@ class RawAffectObservation:
     end_sample: int
     scores: Mapping[str, float]
     top_label: str
+    activity: str = "speech"
+    voiced_ratio: float = 1.0
+    evidence_samples: int = 0
 
 
 @dataclass(frozen=True)
@@ -78,6 +90,7 @@ class AffectTrack:
     replace_from_sample: int = 0
     raw_observations: tuple[RawAffectObservation, ...] = ()
     segments: tuple[AffectSegment, ...] = ()
+    speech_activity: tuple[SpeechActivitySegment, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -114,6 +127,7 @@ class SpeechTimeline:
         self._revision = 0
         self._observations: list[RawAffectObservation] = []
         self._segments: list[AffectSegment] = []
+        self._speech_activity: tuple[SpeechActivitySegment, ...] = ()
         self._candidate: str | None = None
         self._candidate_hops = 0
 
@@ -147,6 +161,9 @@ class SpeechTimeline:
             end_sample=observation.end_sample,
             scores=scores,
             top_label=observation.top_label,
+            activity=observation.activity,
+            voiced_ratio=observation.voiced_ratio,
+            evidence_samples=observation.evidence_samples,
         )
         self._observations.append(raw)
         self._smooth(raw)
@@ -155,6 +172,23 @@ class SpeechTimeline:
             replace_from_sample=raw.start_sample,
             raw_observations=tuple(self._observations),
             segments=tuple(self._segments),
+            speech_activity=self._speech_activity,
+        )
+        self._rebuild_fusion()
+        return self.snapshot()
+
+    def apply_activity(
+        self, segments: tuple[SpeechActivitySegment, ...]
+    ) -> TimelineSnapshot:
+        if segments == self._speech_activity:
+            return self.snapshot()
+        self._speech_activity = segments
+        self.affect = AffectTrack(
+            revision=self.affect.revision + 1,
+            replace_from_sample=segments[0].start_sample if segments else 0,
+            raw_observations=tuple(self._observations),
+            segments=tuple(self._segments),
+            speech_activity=segments,
         )
         self._rebuild_fusion()
         return self.snapshot()
@@ -175,10 +209,16 @@ class SpeechTimeline:
         }
 
     def _smooth(self, observation: RawAffectObservation) -> None:
-        recent = self._observations[-4:]
+        recent = sorted(self._observations, key=lambda item: item.end_sample)[-4:]
         labels = set().union(*(item.scores.keys() for item in recent))
+        weights = {
+            id(item): max(1, item.evidence_samples or item.end_sample - item.start_sample)
+            for item in recent
+        }
+        total_weight = sum(weights.values())
         totals = {
-            label: sum(item.scores.get(label, 0.0) for item in recent) / len(recent)
+            label: sum(item.scores.get(label, 0.0) * weights[id(item)] for item in recent)
+            / total_weight
             for label in labels
         }
         candidate = max(totals, key=lambda label: (totals[label], label))

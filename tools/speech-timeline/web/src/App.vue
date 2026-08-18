@@ -392,6 +392,7 @@ function stringValue(value: JsonObject, key: string): string {
       />
       <EmotionTimeline
         :segments="timeline?.vocal_affect.segments ?? []"
+        :speech-activity="timeline?.vocal_affect.speech_activity ?? []"
         :observations="timeline?.vocal_affect.raw_observations ?? []"
         :current-samples="currentSamples"
         :revision="timeline?.vocal_affect.revision ?? 0"

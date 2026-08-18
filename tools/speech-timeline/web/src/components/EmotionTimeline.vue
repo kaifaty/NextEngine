@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import type { AffectObservation, AffectSegment } from "../types";
+import type { AffectObservation, AffectSegment, SpeechActivitySegment } from "../types";
 import { emotionColor, emotionLabel, formatTime } from "../lib/display";
 
 const props = defineProps<{
   segments: AffectSegment[];
+  speechActivity: SpeechActivitySegment[];
   observations: AffectObservation[];
   currentSamples: number;
   revision: number;
@@ -16,6 +17,7 @@ const timelineSamples = computed(() =>
     props.currentSamples,
     16_000,
     ...props.segments.map((segment) => segment.end_sample),
+    ...props.speechActivity.map((segment) => segment.end_sample),
     ...props.observations.map((observation) => observation.end_sample),
   ),
 );
@@ -45,6 +47,15 @@ function observationStyle(observation: AffectObservation): Record<string, string
     opacity: `${0.28 + score * 0.72}`,
   };
 }
+
+function activityStyle(segment: SpeechActivitySegment): Record<string, string> {
+  const start = (segment.start_sample / timelineSamples.value) * 100;
+  const width = ((segment.end_sample - segment.start_sample) / timelineSamples.value) * 100;
+  return {
+    left: `${Math.max(0, start)}%`,
+    width: `${Math.max(0.7, width)}%`,
+  };
+}
 </script>
 
 <template>
@@ -60,6 +71,14 @@ function observationStyle(observation: AffectObservation): Record<string, string
     <div class="timeline-stage">
       <div class="timeline-track" aria-label="Сглаженные эмоциональные сегменты">
         <div
+          v-for="(activity, index) in speechActivity"
+          :key="`activity-${activity.start_sample}-${activity.end_sample}-${index}`"
+          class="activity-segment"
+          :class="activity.state"
+          :style="activityStyle(activity)"
+          :title="`${activity.state === 'speech' ? 'речь' : 'тишина'} · ${formatTime(activity.start_sample)}–${formatTime(activity.end_sample)}`"
+        ></div>
+        <div
           v-for="(segment, index) in segments"
           :key="`${segment.start_sample}-${segment.end_sample}-${index}`"
           class="timeline-segment"
@@ -70,7 +89,7 @@ function observationStyle(observation: AffectObservation): Record<string, string
             {{ emotionLabel(segment.label) }}
           </span>
         </div>
-        <div v-if="segments.length === 0" class="timeline-empty">Ожидание первого окна · 1,0 с</div>
+        <div v-if="segments.length === 0 && speechActivity.length === 0" class="timeline-empty">Ожидание VAD · первое эмоциональное окно после речи</div>
       </div>
       <div class="timeline-axis">
         <span>0</span>

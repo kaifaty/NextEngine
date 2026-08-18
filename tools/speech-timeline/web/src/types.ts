@@ -29,6 +29,17 @@ export interface AffectObservation {
   end_sample: number;
   scores: Record<string, number>;
   top_label: string;
+  activity?: "speech" | "no_speech";
+  voiced_ratio?: number;
+  evidence_samples?: number;
+}
+
+export interface SpeechActivitySegment {
+  start_sample: number;
+  end_sample: number;
+  state: "speech" | "no_speech";
+  voiced_samples: number;
+  voiced_ratio: number;
 }
 
 export interface TimelineUpdate {
@@ -47,6 +58,7 @@ export interface TimelineUpdate {
     raw_observations_total: number;
     raw_observations: AffectObservation[];
     segments: AffectSegment[];
+    speech_activity: SpeechActivitySegment[];
   };
   fusion: {
     revision: number;

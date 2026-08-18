@@ -207,6 +207,15 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.transcriber.start_count, 2)
         self.assertEqual([item.finalize_count for item in self.transcriber.sessions], [1, 1])
 
+    async def test_silence_is_vad_gated_and_final_timeline_is_no_speech(self) -> None:
+        events = await self.run_turn("silence-turn")
+        self.assertEqual(self.affect.observe_count, 0)
+        updates = [item for item in events if item["type"] == "speech_timeline.update"]
+        self.assertTrue(updates)
+        activity = updates[-1]["vocal_affect"]["speech_activity"]
+        self.assertEqual(activity[0]["state"], "no_speech")
+        self.assertEqual(updates[-1]["vocal_affect"]["raw_observations"], [])
+
     async def test_dashboard_and_private_bootstrap_are_served_same_origin(self) -> None:
         def get(path: str) -> tuple[int, dict[str, str], bytes]:
             with urlopen(self.service.dashboard_uri + path, timeout=2) as response:

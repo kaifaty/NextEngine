@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, is_dataclass, replace
 import logging
 from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 
 from .adapters.base import AudioWindow
+from .activity import EnergyVoiceActivityDetector, VoiceActivityDetector
 from .adapters.voxtral_transcribe_cpp import TranscriberConfig, TranscriptRevision
 from .audio import pcm16le_to_float32, pcm16le_to_float32_array
 from .metrics import ModelJobMetric, ResourceMonitor
@@ -30,9 +31,16 @@ logger = logging.getLogger("nextengine.speech_timeline")
 class SpeechTimelineRuntime:
     """Owns resident models and the single dedicated model worker."""
 
-    def __init__(self, transcriber: Any, affect_analyzer: Any) -> None:
+    def __init__(
+        self,
+        transcriber: Any,
+        affect_analyzer: Any,
+        *,
+        activity_factory: Callable[[], VoiceActivityDetector] = EnergyVoiceActivityDetector,
+    ) -> None:
         self.transcriber = transcriber
         self.affect_analyzer = affect_analyzer
+        self.activity_factory = activity_factory
         self.scheduler = ModelScheduler()
         self._ready: dict[str, object] | None = None
         self._closed = False
@@ -50,6 +58,7 @@ class SpeechTimelineRuntime:
             return {
                 "transcriber": _value(self.transcriber.capabilities()),
                 "vocal_affect": _value(self.affect_analyzer.capabilities()),
+                "vocal_activity": self.activity_factory().capabilities(),
                 "load": {
                     "transcriber": _value(transcriber_load),
                     "vocal_affect": _value(affect_load),
@@ -89,6 +98,7 @@ class SpeechConnection:
         self.session = SpeechSession(bounds)
         self.timeline = SpeechTimeline()
         self.cadence = AffectCadence()
+        self.activity = runtime.activity_factory()
         self.events: asyncio.Queue[dict[str, object]] = asyncio.Queue(maxsize=64)
         self._claim = claim
         self._release = release
@@ -146,6 +156,16 @@ class SpeechConnection:
             raise
         generation = self.session.generation
         self._ingress_frames += 1
+        try:
+            activity_changed = self.activity.feed_pcm16(frame.start_sample, frame.payload)
+        except BaseException as error:
+            await self._fail("VAD_FAILURE", _bounded_error(error))
+            return
+        if activity_changed:
+            activity_snapshot = self.timeline.apply_activity(
+                self.activity.timeline(frame.end_sample)
+            )
+            await self.events.put(self._timeline_event(activity_snapshot))
         self._spawn(
             self._asr_push_with_backpressure(
                 generation,
@@ -155,7 +175,10 @@ class SpeechConnection:
             ),
             self._asr_tasks,
         )
-        requests = self.cadence.advance(frame.end_sample)
+        requests = self.cadence.advance(
+            frame.end_sample,
+            eligible=lambda start, end: self.activity.window(start, end).eligible_for_affect,
+        )
         for request in requests:
             window = self.session.pcm_window(request.start_sample, request.end_sample)
             self._spawn(
@@ -174,7 +197,7 @@ class SpeechConnection:
             self._last_progress_second = elapsed_second
             logger.info(
                 "speech.progress session_id=%s audio_ms=%d frames=%d affect_windows=%d "
-                "scheduler_queue=%d asr_tasks=%d emotion_tasks=%d pcm=%s",
+                "scheduler_queue=%d asr_tasks=%d emotion_tasks=%d activity=%s pcm=%s",
                 self.session.session_id,
                 round(frame.end_sample * 1_000 / 16_000),
                 self._ingress_frames,
@@ -182,6 +205,7 @@ class SpeechConnection:
                 self.runtime.scheduler.live_queue_depth,
                 len(self._asr_tasks),
                 len(self._emotion_tasks),
+                self.activity.state,
                 self.session.copy_metrics(),
             )
 
@@ -197,7 +221,10 @@ class SpeechConnection:
         if self.session.state is SessionState.FAILED:
             return
         generation = self.session.generation
-        pcm = self.session.pcm_bytes
+        total_samples = self.session.total_samples
+        self.activity.flush()
+        activity_segments = self.activity.timeline(total_samples)
+        final_span = self.activity.latest_speech_span(total_samples)
 
         def finish_transcriber() -> TranscriptRevision:
             try:
@@ -214,28 +241,40 @@ class SpeechConnection:
                 audio_end_sample=self.session.total_samples,
             )
         )
-        final_window = AffectCadence.final(self.session.total_samples)
-        final_affect_task = asyncio.create_task(
-            self._execute(
-                JobPriority.EMOTION_FINAL,
-                generation,
-                lambda: self.runtime.affect_analyzer.observe(
-                    AudioWindow(
-                        samples=pcm16le_to_float32(pcm),
-                        sample_rate_hz=16_000,
-                        start_sample=final_window.start_sample,
-                        end_sample=final_window.end_sample,
-                        source_revision=self.session.total_samples,
-                    )
-                ),
-                audio_start_sample=final_window.start_sample,
-                audio_end_sample=final_window.end_sample,
+        final_affect_task: asyncio.Task[Any] | None = None
+        if final_span is not None:
+            final_window = AffectCadence.final(
+                total_samples,
+                start_sample=final_span[0],
             )
-        )
+            final_pcm = self.session.pcm_window(
+                final_window.start_sample,
+                final_window.end_sample,
+            )
+            final_affect_task = asyncio.create_task(
+                self._execute(
+                    JobPriority.EMOTION_FINAL,
+                    generation,
+                    lambda: self.runtime.affect_analyzer.observe(
+                        AudioWindow(
+                            samples=pcm16le_to_float32(final_pcm),
+                            sample_rate_hz=16_000,
+                            start_sample=final_window.start_sample,
+                            end_sample=final_window.end_sample,
+                            source_revision=total_samples,
+                        )
+                    ),
+                    audio_start_sample=final_window.start_sample,
+                    audio_end_sample=final_window.end_sample,
+                )
+            )
         try:
-            final_transcript, final_affect = await asyncio.gather(
-                final_transcript_task, final_affect_task
-            )
+            final_tasks: list[asyncio.Task[Any]] = [final_transcript_task]
+            if final_affect_task is not None:
+                final_tasks.append(final_affect_task)
+            results = await asyncio.gather(*final_tasks)
+            final_transcript = results[0]
+            final_affect = results[1] if final_affect_task is not None else None
         except BaseException as error:
             await self._fail("MODEL_FAILURE", _bounded_error(error))
             return
@@ -246,7 +285,18 @@ class SpeechConnection:
             final=True,
             timing_precision=final_transcript.timing_precision,
         )
-        snapshot = self.timeline.apply_affect(final_affect)
+        self.timeline.apply_activity(activity_segments)
+        if final_affect is not None and final_span is not None:
+            coverage = self.activity.window(final_span[0], final_span[1])
+            final_affect = replace(
+                final_affect,
+                activity="speech",
+                voiced_ratio=coverage.voiced_ratio,
+                evidence_samples=coverage.voiced_samples,
+            )
+            snapshot = self.timeline.apply_affect(final_affect)
+        else:
+            snapshot = self.timeline.snapshot()
         self.session.complete(session_id)
         self.runtime.scheduler.invalidate_generation(generation)
         self._cancel_tasks(self._emotion_tasks)
@@ -359,6 +409,13 @@ class SpeechConnection:
                 coalesce_key=mode,
                 audio_start_sample=start_sample,
                 audio_end_sample=end_sample,
+            )
+            coverage = self.activity.window(start_sample, end_sample)
+            observation = replace(
+                observation,
+                activity="speech",
+                voiced_ratio=coverage.voiced_ratio,
+                evidence_samples=coverage.voiced_samples,
             )
             snapshot = self.timeline.apply_affect(observation)
             await self.events.put(self._timeline_event(snapshot))
@@ -479,6 +536,12 @@ class SpeechConnection:
             if key != "max_queue_depth"
         }
         scheduler_delta["max_queue_depth"] = self._session_max_queue_depth
+        activity_segments = self.activity.timeline(self.session.total_samples)
+        speech_samples = sum(
+            item.end_sample - item.start_sample
+            for item in activity_segments
+            if item.state == "speech"
+        )
         return {
             "audio_samples": self.session.total_samples,
             "jobs": [item.as_dict() for item in self._job_metrics[-PUBLIC_JOB_METRIC_LIMIT:]],
@@ -495,6 +558,16 @@ class SpeechConnection:
                 "frames": self._ingress_frames,
                 "audio_samples": self.session.total_samples,
                 "copy": self.session.copy_metrics(),
+            },
+            "vocal_activity": {
+                "adapter_id": "energy-vad/1",
+                "speech_samples": speech_samples,
+                "speech_ratio": (
+                    speech_samples / self.session.total_samples
+                    if self.session.total_samples > 0
+                    else 0.0
+                ),
+                "segments": len(activity_segments),
             },
             "events": {
                 "count": self._event_count,
@@ -571,10 +644,16 @@ def _timeline_event(
                     "end_sample": item.end_sample,
                     "scores": dict(item.scores),
                     "top_label": item.top_label,
+                    "activity": item.activity,
+                    "voiced_ratio": item.voiced_ratio,
+                    "evidence_samples": item.evidence_samples,
                 }
                 for item in observations
             ],
             "segments": [asdict(item) for item in snapshot.vocal_affect.segments],
+            "speech_activity": [
+                asdict(item) for item in snapshot.vocal_affect.speech_activity
+            ],
         },
         fusion={
             "revision": snapshot.fusion.revision,
