@@ -184,6 +184,14 @@ The next stage is W2 deterministic parallel equality and standalone
 performance; this W1 result supplies no production, coupling or persistence
 claim.
 
+Final source-layout commit `fa12d3956a2a5d5b6127a9e31cbb664221b01afc`
+extracts the unchanged attestation policy into a private module to satisfy the
+repository file-size boundary. One additional complete clean corpus reproduces
+all seven scenario roots and `d38d6bc8...e96835`. Its second serial repetition
+was stopped by explicit user decision because a run takes about 42 minutes on
+one core; it receives no evidence status. W2 now owns resource utilization and
+worker-count equality rather than more redundant serial corpus repetition.
+
 Commit `74730e208cfeb70b05a3ec44b2bb9c2f5002fe97` implements the serial oracle.
 On a clean exact-profile run, `CW-FREEFALL-001` passes all 97 canonical frames
 and two repeats produce the same trajectory root. `CW-HYDRO-001` then stops at

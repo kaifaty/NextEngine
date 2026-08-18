@@ -184,6 +184,27 @@ Every declared repeat root equals its primary root. All three
 `CW-ORDER-001` identity/reverse/affine permutation roots also equal the
 primary root. Timing remains diagnostic and supplies no performance claim.
 
+The repository source-layout scan subsequently found that
+`oracle/successor.rs` had reached `1,008` lines over its `1,000`-line limit.
+Commit `fa12d3956a2a5d5b6127a9e31cbb664221b01afc` moves the unchanged
+attestation policy into a private 21-line module; no solver or report rule
+changes. Its exact-profile binary has SHA-256
+`ecacda58df9e880d224d8efebd62238c7a34e1f3a8ede4adb87be4eeb9053f6e`.
+The old dam-break file again fails before trajectory execution; that negative
+report has SHA-256
+`d8d5eff44f958f380f3996eb0c2397f9cff34c4575c155b65bad01bee703066d`.
+
+One complete clean regression on `fa12d395` passes all seven scenarios,
+attests all three required files and reproduces every scenario root and corpus
+root above. Its report SHA-256 is
+`16cff32fc21667e5214571dd88b8821dde932789fad9bec21e143651aadd6f08`.
+A second full `fa12d395` run was explicitly stopped by the user because each
+serial corpus consumes about 42 minutes while using one core; it produces no
+evidence and is not labelled `PASS`. W1 closure therefore rests on the two
+complete same-commit `e00999e` runs plus one complete final-code regression at
+`fa12d395`. W2 replaces further redundant whole-corpus repetition with
+declared worker-count/root equality and performance evidence.
+
 ## Decision and next action
 
 1. Retain W0H APG and sequential analytical contact unchanged.
@@ -193,8 +214,10 @@ primary root. Timing remains diagnostic and supplies no performance claim.
    permit alternatives only in explicit no-credit research mode.
 4. Accept the two clean same-target runs above as the W1 Linux serial exit:
    `CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS / RESEARCH_ONLY`.
-5. Continue next with W2 deterministic parallel equality and the standalone
+5. Accept the complete `fa12d395` regression as non-regression of the final
+   source layout; do not claim that its deliberately stopped second run passed.
+6. Continue next with W2 deterministic parallel equality and the standalone
    `10k/50k/100k` performance discriminator. Do not infer production,
    coupling, persistence or integrated-budget readiness from W1.
-6. Keep Windows outside current W1 scope and explicitly deferred for
+7. Keep Windows outside current W1 scope and explicitly deferred for
    production promotion. Do not infer cross-target evidence from this result.

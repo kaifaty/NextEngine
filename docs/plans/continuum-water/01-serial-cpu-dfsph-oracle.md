@@ -32,6 +32,12 @@ wall-clock fields. W1 therefore closes
 and scenario roots are in the
 [hard-clearance reference evidence](../../development/continuum-water-w1-hard-clearance-reference-reclosure-2026-08-18.md).
 
+Final source-layout commit `fa12d3956a2a5d5b6127a9e31cbb664221b01afc`
+only extracts the attestation policy from the 1,008-line runner. One further
+complete clean run passes 7/7 and reproduces the same roots. Its second costly
+serial repetition was stopped by explicit user decision and is not counted as
+evidence; the exact two-run closure remains at `e00999e`.
+
 ## Outcome
 
 Implement a safe-Rust, serial, runtime-independent DFSPH oracle that executes
@@ -161,7 +167,8 @@ fail W1 or be called a production budget result.
 That exit is satisfied by the two clean runs at commit `e00999e`. It authorizes
 W2 inside the isolated research track; it does not select a production backend
 or establish the W2 standalone-performance, W3 coupling, W5 persistence or W6
-promotion gates.
+promotion gates. The complete `fa12d395` regression confirms the final source
+layout without claiming a second same-commit run.
 
 Windows is outside the current W1 execution scope by user decision. Exact
 cross-target comparison remains deferred and not waived for production

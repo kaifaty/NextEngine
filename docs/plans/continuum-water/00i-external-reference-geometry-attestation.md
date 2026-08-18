@@ -119,6 +119,12 @@ and reproduced corpus root
 Their reports are identical after removing only diagnostic wall-clock fields,
 so W1 issues `CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS`.
 
+Final source-layout commit `fa12d3956a2a5d5b6127a9e31cbb664221b01afc`
+moves this validation policy into a private module and passes one additional
+complete clean corpus with the same scenario and corpus roots. A requested
+second `fa12d395` corpus was stopped for cost and receives no evidence status;
+the two-run closure remains the exact `e00999e` pair above.
+
 Windows remains outside the current W1 scope by user decision and is deferred,
 not waived, for production promotion. W1 supplies no W2 performance, PhysX,
 persistence, runtime or shipping evidence.

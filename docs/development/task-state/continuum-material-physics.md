@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W1_LINUX_SERIAL_PASS_W2_READY_RESEARCH_ONLY` |
-| Updated | `2026-08-18` |
+| Status | `W1_LINUX_SERIAL_PASS_W2_RESOURCE_UTILIZATION_NEXT` |
+| Updated | `2026-08-19` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
 | Definition of done | Decision-complete water W0A/W0B–W6 roadmap plus independent terrain/wet/lifecycle DAG; documentation checks pass; no runtime/public-contract claim |
@@ -22,7 +22,9 @@
   hard-clearance reference hashes under attestation root `186e1e31...65c90`.
   W1 then passes the complete seven-scenario Linux serial corpus twice at clean
   commit `e00999e`, with exact normalized report equality and corpus root
-  `d38d6bc8...e96835`.
+  `d38d6bc8...e96835`. Final source-layout commit `fa12d395` moves only the
+  attestation policy into a private module and passes one further complete
+  clean regression with the same seven scenario roots and corpus root.
 - **Selected consumer:** one sealed `4 × 2 × 1 m` basin, `0.75 m` depth,
   nominal `48k`/hard `50k` samples, one `0.5 m`/`50 kg` PhysX crate and debug
   particles; unavailable capability selects an authored dry variant before
@@ -30,10 +32,11 @@
 - **Authority:** private `f64` solve, ties-to-even canonical sample
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
-- **Next action:** preserve this W1 evidence checkpoint for explicit merge,
-  then execute W2 deterministic parallel/order equality and the exact
-  `10k/50k/100k` standalone performance discriminator. Do not start PhysX
-  coupling, runtime/public contracts or GPU authority first.
+- **Next action:** start W2 by measuring stage-level cost and CPU utilization,
+  then add the smallest crate-private deterministic worker mechanism. Compare
+  serial and `1/2/4/8` worker roots before the exact `10k/50k/100k` standalone
+  performance discriminator. Do not start PhysX coupling, runtime/public
+  contracts or GPU authority first.
 - **Activation gate:** `CONTINUUM-WATER-REF-P1=PASS` is satisfied in the
   dedicated worktree. The main R8 row remains `PLANNED / NOT_ACTIVE` until the
   evidence checkpoint is explicitly merged and the track is activated.
@@ -234,9 +237,10 @@
 - **Checks:** executable checkpoint `e00999e` is clean. The complete
   seven-scenario Linux corpus passes twice, all required external hashes are
   attested, corpus root is `d38d6bc8...e96835`, and normalized report SHA is
-  `2dffa4e3...52a0bf` for both runs. Focused crate tests, exact-profile build
-  and strict Clippy passed before the closure; final post-documentation checks
-  are recorded in the W1 evidence checkpoint. Broad `host-check` was not run.
+  `2dffa4e3...52a0bf` for both runs. Final layout checkpoint `fa12d395` passes
+  one further complete clean regression with identical roots, 78/78 crate
+  tests, strict Clippy, formatting and all six boundary checks. Its deliberately
+  stopped second full run has no status. Broad `host-check` was not run.
 - **Remaining risk:** Windows/Linux root equality, deterministic parallel
   equality, 50k performance, dynamic coupling, exact persistence and all
   terrain constitutive evidence remain unmeasured.
