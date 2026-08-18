@@ -13,6 +13,7 @@ T = TypeVar("T")
 
 
 class JobPriority(IntEnum):
+    STARTUP = -1
     VOXTRAL_FINISH = 0
     VOXTRAL_PUSH = 1
     EMOTION_FINAL = 2
@@ -21,6 +22,10 @@ class JobPriority(IntEnum):
 
 
 class SchedulerOverloaded(RuntimeError):
+    pass
+
+
+class JobDiscarded(RuntimeError):
     pass
 
 
@@ -115,6 +120,15 @@ class ModelScheduler:
                     previous.invalidated = True
                     self._invalidated_pending += 1
                     self.metrics.coalesced += 1
+                    if previous.callback is not None:
+                        previous.callback(
+                            JobCompletion(
+                                value=None,
+                                error=JobDiscarded("provisional model job was coalesced"),
+                                queue_wait_ms=0,
+                                inference_ms=0,
+                            )
+                        )
             sequence = next(self._sequences)
             job: _Job[T] = _Job(
                 int(priority), sequence, generation, function, callback, is_current, coalesce_key
@@ -129,6 +143,24 @@ class ModelScheduler:
                 self.metrics.max_queue_depth, self._live_queue_depth()
             )
             return sequence
+
+    def call_blocking(self, function: Callable[[], T], timeout: float = 120.0) -> T:
+        self.start()
+        completed = threading.Event()
+        result: list[JobCompletion[T]] = []
+        self.submit(
+            JobPriority.STARTUP,
+            0,
+            function,
+            is_current=lambda _: True,
+            callback=lambda completion: (result.append(completion), completed.set()),
+        )
+        if not completed.wait(timeout):
+            raise TimeoutError("model worker call timed out")
+        completion = result[0]
+        if completion.error is not None:
+            raise completion.error
+        return completion.value  # type: ignore[return-value]
 
     def invalidate_generation(self, generation: int) -> None:
         with self._lock:

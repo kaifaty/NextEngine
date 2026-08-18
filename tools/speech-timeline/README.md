@@ -51,3 +51,29 @@ Analyze an existing file:
 The JSON `scores` are upstream model scores, not calibrated probabilities or
 facts about a speaker's internal state. The wrapper reports them as observed
 vocal expression only.
+
+## Resident service
+
+The service accepts one explicit-finish utterance at a time over an
+authenticated `ws://127.0.0.1` listener. It loads and warms both pinned models
+before publishing its ready file. The explicit JSON profile, GGUF, emotion
+cache, `transcribe.cpp` checkout/library, ready file, and any diagnostic output
+must all live outside the repository.
+
+```bash
+~/.cache/nextengine/emotion2vec-plus-base/venv/bin/next-speech-timeline \
+  serve --profile /path/outside/repository/speech-timeline-profile.v1.json
+```
+
+The profile is strict schema version 1 and contains three objects:
+
+- `voxtral`: exact GGUF path, byte size, `sha256:` digest, `transcribe.cpp`
+  root/library/revision, backend, and delay;
+- `emotion`: pinned model ID/revision, existing cache directory, device, and
+  local-only classification;
+- `service`: loopback port (`0` selects an ephemeral port), external ready-file
+  path, and aligned frame/turn byte ceilings.
+
+The ready file is created with mode `0600`, contains the random session token,
+and is removed on clean shutdown. Raw PCM, transcripts, and model outputs are
+not written by the service.

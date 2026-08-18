@@ -39,8 +39,8 @@ class AudioMetadata:
 def configure_cache(cache_dir: Path) -> None:
     resolved = cache_dir.expanduser().resolve()
     resolved.mkdir(parents=True, exist_ok=True)
-    os.environ.setdefault("HF_HOME", str(resolved / "huggingface"))
-    os.environ.setdefault("MODELSCOPE_CACHE", str(resolved / "modelscope"))
+    os.environ["HF_HOME"] = str(resolved / "huggingface")
+    os.environ["MODELSCOPE_CACHE"] = str(resolved / "modelscope")
 
 
 def select_device(requested: str) -> str:
@@ -137,14 +137,22 @@ class EmotionProbe:
         model_revision: str,
         cache_dir: Path,
         device: str,
+        *,
+        local_files_only: bool = False,
     ) -> None:
         configure_cache(cache_dir)
         self.model_id = model_id
         self.model_revision = model_revision
         self.cache_dir = cache_dir.expanduser().resolve()
         self.device = select_device(device)
+        self.local_files_only = local_files_only
         self._model: Any = None
         self._resolved_model_path: Path | None = None
+        self._load_count = 0
+
+    @property
+    def load_count(self) -> int:
+        return self._load_count
 
     def load(self) -> None:
         if self._model is not None:
@@ -156,6 +164,8 @@ class EmotionProbe:
             model_path = snapshot_download(
                 repo_id=self.model_id,
                 revision=self.model_revision,
+                cache_dir=self.cache_dir / "huggingface" / "hub",
+                local_files_only=self.local_files_only,
             )
             self._resolved_model_path = Path(model_path).resolve()
             self._model = AutoModel(
@@ -166,6 +176,7 @@ class EmotionProbe:
                 disable_pbar=True,
                 log_level="WARNING",
             )
+            self._load_count += 1
 
     def analyze(self, audio_path: Path) -> dict[str, Any]:
         path = validate_audio(audio_path)

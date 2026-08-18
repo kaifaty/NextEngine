@@ -162,6 +162,13 @@ class SpeechSession:
             self._terminal_emitted = True
             return True
 
+    def is_generation_current(self, generation: int) -> bool:
+        with self._lock:
+            return self.generation == generation and self.state in {
+                SessionState.ACTIVE,
+                SessionState.FINALIZING,
+            }
+
     def _require_identity(self, session_id: str) -> None:
         if self.session_id != session_id:
             raise SessionError("SESSION_MISMATCH", "session identity does not match")

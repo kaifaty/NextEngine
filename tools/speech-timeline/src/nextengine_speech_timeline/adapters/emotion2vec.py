@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import math
+import time
 
 from nextengine_emotion_probe.probe import EmotionProbe, ProbeError
 
+from ..capabilities import AffectCapabilities, ModelLoadEvidence, WarmupEvidence
 from .base import AdapterError, AffectObservation, AudioWindow
 
 
@@ -26,14 +28,43 @@ class Emotion2VecAffectAdapter:
 
     def __init__(self, probe: EmotionProbe) -> None:
         self._probe = probe
+        self._warmup_count = 0
 
-    def load(self) -> None:
+    @property
+    def load_count(self) -> int:
+        return self._probe.load_count
+
+    def load(self) -> ModelLoadEvidence:
+        before = self._probe.load_count
+        started = time.perf_counter()
         self._probe.load()
+        elapsed = round((time.perf_counter() - started) * 1000)
+        return ModelLoadEvidence(
+            elapsed_ms=elapsed if self._probe.load_count != before else 0,
+            load_count=self._probe.load_count,
+        )
 
-    def warmup(self) -> None:
+    def warmup(self) -> WarmupEvidence:
         # The first real bounded observation is measured separately. Running a
         # fabricated waveform here could make readiness depend on model quirks.
+        started = time.perf_counter()
         self.load()
+        self._warmup_count += 1
+        return WarmupEvidence(
+            elapsed_ms=round((time.perf_counter() - started) * 1000),
+            warmup_count=self._warmup_count,
+        )
+
+    def capabilities(self) -> AffectCapabilities:
+        return AffectCapabilities(
+            adapter_id="emotion2vec-plus/1",
+            model_id=self._probe.model_id,
+            model_revision=self._probe.model_revision,
+            device=self._probe.device,
+            sample_rate_hz=16_000,
+            labels=tuple(sorted(NORMALIZED_LABELS)),
+            semantics="uncalibrated_observed_expression",
+        )
 
     def observe(self, window: AudioWindow) -> AffectObservation:
         if window.start_sample < 0 or window.end_sample <= window.start_sample:

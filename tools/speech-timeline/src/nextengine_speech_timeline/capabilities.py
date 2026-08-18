@@ -28,3 +28,14 @@ class TranscriberCapabilities:
     timing_precision: str
     resolution_samples: int | None
     supported_delay_ms: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class AffectCapabilities:
+    adapter_id: str
+    model_id: str
+    model_revision: str
+    device: str
+    sample_rate_hz: int
+    labels: tuple[str, ...]
+    semantics: str
