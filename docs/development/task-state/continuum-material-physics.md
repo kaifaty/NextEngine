@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W0E_LOCAL_PROFILE_SURVIVED_W0F_GEOMETRY_ROOT_CLOSURE_REQUIRED` |
+| Status | `W0F_SUCCESSOR_PROFILE_ROOTS_FROZEN_W1_AUTHORIZED` |
 | Updated | `2026-08-18` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** W0E is closed
-  `LOCAL_PROFILE_DISCRIMINATOR_SURVIVED / NOT_SELECTED`. Separating density
-  support, projected-PCG incompressibility and analytical velocity-level
-  contact fixes the local second-step failure: independent implementations
-  match exactly and the cold profile passes 1200/1200 steps with zero
-  penetration. No successor roots, runtime or public schema are authorized.
+- **Current conclusion:** W0F is closed
+  `SUCCESSOR_PROFILE_ROOTS_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY`. One exact
+  integer geometry now owns outer/internal solid and opening semantics for
+  neighbor visibility, oriented density support and swept contact. Independent
+  paths match exactly, all W1 extents fit the `32,768` static capacity, W0E
+  hydro/free-fall transcripts remain exact and the orifice preflight passes.
 - **Selected consumer:** one sealed `4 × 2 × 1 m` basin, `0.75 m` depth,
   nominal `48k`/hard `50k` samples, one `0.5 m`/`50 kg` PhysX crate and debug
   particles; unavailable capability selects an authored dry variant before
@@ -24,19 +24,17 @@
 - **Authority:** private `f64` solve, ties-to-even canonical sample
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
-- **Next action:** execute W0F. Freeze one geometry contract shared by density
-  support and contact, add internal-wall/aperture semantics, raise or replace
-  the static boundary capacity for the product extent, and issue new
-  document/float/execution/corpus/scenario roots. Then run the full W1 serial
-  corpus and cross-target exactness; do not start W2 first.
+- **Next action:** run W1 in serial under the successor roots: hydro,
+  free-fall, dam-break, still tank, full orifice, sealed-48k, storage-order and
+  capacity cases; repeat clean roots and compare Linux/Windows exactly. Do not
+  start W2, WG or PhysX coupling first.
 - **Activation gate:** the main R8 row remains `PLANNED / NOT_ACTIVE` until
   `CONTINUUM-WATER-REF-P1 = PASS`.
-- **Current uncertainty:** the surviving W0E contact handles only a static
-  outer box. Internal apertures, dynamic rigid reaction, fast impact and
-  added-mass behavior are unmeasured. The selected product outer extent needs
-  `24,704` explicit two-layer samples, above the old `16,384` capacity. PCG
-  cost at 50k and full-corpus/cross-target correctness remain unmeasured;
-  every `CONTINUUM-*` ProductCheck is `NOT_RUN`.
+- **Current uncertainty:** dam-break, the 7200-step still horizon, full
+  orifice, sealed-48k, storage-order and cross-target roots remain unmeasured
+  under the successor profile. PCG cost at 50k, dynamic rigid reaction, fast
+  impact and added-mass behavior are also open; every `CONTINUUM-*`
+  ProductCheck is `NOT_RUN`.
 - **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
   hidden warm-start/float continuation, iterative coupling, sleep before exact
   persistence, or wet terrain before dry-sand evidence.
@@ -50,13 +48,14 @@
 | --- | --- | --- |
 | [Research report](../continuum-material-physics-research-2026-08-16.md) | `REPORT_ONLY` | Supports solver-family separation; proves no implementation |
 | [SPEC-38](../../architecture/38-continuum-material-physics.md) and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md) | `Proposed` | Candidate CPU authority, fixed-point boundary, one-pass coupling and exact-active semantics are closed |
-| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W0E LOCAL SURVIVOR / W0F REQUIRED / W1 BLOCKED` | Constraint separation resolves the local failure; geometry, capacity and successor roots still block corpus credit |
+| [Standalone water roadmap](../../plans/continuum-water/README.md) | `W0F CLOSED / W1 READY_TO_RUN` | Successor geometry, capacity and roots are closed; the complete W1 corpus is next |
 | [W1 clean-tree discriminator](../continuum-water-w1-evidence-2026-08-17.md) | Free-fall `SCENARIO_PASS`; hydro `WATER_DENSITY_NONCONVERGENCE` | Reopens the W0B/W1 numerical boundary; `CONTINUUM-WATER-REF-P1` remains `NOT_RUN` |
 | [W1-RC1 independent audit](../continuum-water-w1-rc1-audit-2026-08-17.md) | `EXACT_MATCH / REPORT_ONLY` | Rejects a production-vs-W0B mismatch for the audited projection and requires W0C recalibration |
 | [W0C hydro-calibration cycles](../continuum-water-w0c-hydro-calibration-2026-08-17.md) | `EXACT_MATCH / BOUNDARY_AND_INITIALIZATION_CANDIDATES_REJECTED / REPORT_ONLY` | Rejects uniform scaling, ceiling-only repair, `ghost-cell-shell-v1` and zero-velocity settling; triggers adjacent-layer research escalation |
 | [W0C analytical volume map](../continuum-water-w0c-volume-map-2026-08-18.md) | `EXACT_MATCH / CANDIDATE_REJECTED / W0C_RESEARCH_ONLY` | Rejects the adjacent non-particle candidate at local partition and first-step gates; requires a new explicit architecture/profile decision |
 | [W0D support-complete boundary](../continuum-water-w0d-support-complete-boundary-2026-08-18.md) | `EXACT_MATCH / CANDIDATE_REJECTED / PROFILE_RECLOSURE_REQUIRED` | Falsifies one-layer support truncation as root cause and requires boundary, equilibrium and stabilization to be closed together |
 | [W0E constraint-separated redesign](../continuum-water-w0e-constraint-separated-redesign-2026-08-18.md) | `EXACT_MATCH / LOCAL_PROFILE_DISCRIMINATOR_SURVIVED / NOT_SELECTED` | Separates density support, PCG pressure and contact; passes 24/1200 local steps but leaves aperture, capacity, roots and full corpus open |
+| [W0F geometry/capacity/root closure](../continuum-water-w0f-geometry-capacity-root-closure-2026-08-18.md) | `EXACT_MATCH / SUCCESSOR_PROFILE_ROOTS_FROZEN / W1_AUTHORIZED` | Closes shared aperture geometry, oriented support, swept contact, static capacity and clean repeatable successor roots; gives no corpus credit |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-*` ProductChecks | `NOT_RUN` | No solver, performance, persistence or production claim is admissible |
@@ -79,11 +78,12 @@
 - **Decision:** after each water substep publish only stable sample ID,
   micrometre position and micrometre-per-second velocity; uniform mass is in
   the profile, other solve fields are rebuilt, and warm start is disabled.
-- **Closure:** W0B fixes the Rust/LLVM targets and flags, float-environment
-  probes, exact DFSPH operations/order, integer neighbor membership,
-  convergence branches, corpus roots, capacities and typed failures. RC1 keeps
-  those original roots as rejected-profile evidence. W0C–W0E issued no
-  successor roots; only the W0F profile closure may do so before W1 resumes.
+- **Closure:** W0B's original roots remain rejected-profile evidence. W0F
+  freezes the successor Rust/LLVM profile, projected-PCG-50, shared exact
+  geometry, oriented two-layer support, analytical swept contact, `32,768`
+  static capacity and new document/profile/corpus/scenario/fixture roots. W1
+  must now validate the complete corpus and cross-target roots before any
+  selection claim.
 - **Rejected:** float owner state, final-output-only quantization and GPU-first
   canonical execution.
 - **Reconsider when:** a later consumer and exact cross-target evidence require
@@ -131,7 +131,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: fixed-point-boundary CPU DFSPH passes the clean-water corpus | Exact free-fall/repeat roots pass; W0E pressure/contact implementations match independent calculators and pass 1200 local hydro steps | Internal aperture, dam-break, order, sealed-48k, full still horizon and cross-target roots have not run under the successor profile | W0F roots followed by the complete W1 corpus |
+| H1: fixed-point-boundary CPU DFSPH passes the clean-water corpus | W0F freezes repeatable successor roots; independent geometry/support/contact match; exact free-fall, 1200-step hydro and orifice preflight pass | Dam-break, full orifice, order, sealed-48k, full still horizon and cross-target roots have not run under the successor profile | Complete W1 serial corpus and exact target comparison |
 | H2: 50k CPU water fits the current THOTH budget | bounded sealed region and fixed profile | published prior art does not prove Next Engine 240 Hz cost | W2 exact 10k/50k/100k workload after W1 PASS |
 | H3: one-pass coupling is stable for the basin crate | narrow consumer and fixed cadence | fast impact/added-mass behavior is unmeasured | W3 float/impact corpus and reaction closure |
 | H4: one Drucker-Prager profile covers the first wheel scenario | established dry-sand model | exact source material and curve thresholds are not selected | Package 10T calibration closure |
@@ -145,22 +145,19 @@
 4. [Water roadmap](../../plans/continuum-water/README.md), especially W0B/W1.
 5. [W0C calibration reclosure](../../plans/continuum-water/00c-hydro-calibration-reclosure.md).
 6. [W0E constraint-separated reclosure](../../plans/continuum-water/00e-constraint-separated-profile-reclosure.md).
-7. [Research report](../continuum-material-physics-research-2026-08-16.md).
+7. [W0F geometry/capacity/root closure](../../plans/continuum-water/00f-geometry-capacity-and-root-closure.md).
+8. [Research report](../continuum-material-physics-research-2026-08-16.md).
 
 ## Next action
 
-1. Close W0F's shared analytical geometry contract for outer boxes, internal
-   wall patches and rectangular apertures; density and contact must derive
-   from the same rooted solid/open set and match independent calculators.
-2. Select an explicit static-boundary capacity of at least `24,704`; the
-   recommended admitted value is `32,768`, subject to exact corpus counts and
-   threshold tests. Keep dynamic rigid boundary storage separate for W3.
-3. Freeze projected-PCG-50, analytical pre-integration contact, cold regular
-   lattice, stabilization `NONE` and canonical integer position/velocity in
-   new successor roots. Do not silently inherit rejected W0B roots.
-4. Run W1 in serial: hydro, free-fall, dam-break, still, orifice, sealed-48k,
-   storage-order and capacity cases, followed by exact same/cross-target roots.
-   Do not start W2, WG or PhysX coupling meanwhile.
+1. Run the existing W1 oracle in the frozen serial order: hydro, free-fall,
+   dam-break, still tank, orifice, sealed-48k, storage-order and capacities.
+2. Fail on the first named scenario/criterion; do not retry, change a root,
+   loosen a threshold or continue a partial corpus after failure.
+3. Repeat the complete run on a clean tree and compare every bounded root,
+   then reproduce the same roots on the frozen Windows target.
+4. Promote only if the documented W1 exit criteria pass. Do not start W2, WG,
+   PhysX coupling, runtime/public contracts or ProductCheck claims meanwhile.
 
 ## Do not retry
 
@@ -186,14 +183,16 @@
 
 ## Handoff
 
-- **Workspace claim:** tool-only W1 serial oracle plus bounded clean-tree RC1
-  through W0E diagnostics. The W0E candidate is a local survivor, still
-  `NOT_SELECTED`; there is no runtime/public schema or ProductCheck PASS.
-- **Checks:** implementation commit `7ee1651` and clean report checkpoint
-  `b1f7c43` have independent boundary/operator/PCG/contact equality, causal-control
-  outcomes, 24/1200-step soak PASS and exact free-fall. Final format, tests,
-  Clippy and boundary scan are recorded in the linked W0E evidence. All
+- **Workspace claim:** tool-only successor water profile with W0F shared
+  geometry, oriented support, swept aperture contact, static capacity and
+  roots. It is `W1_AUTHORIZED / RESEARCH_ONLY`, with no runtime/public schema
+  or ProductCheck PASS.
+- **Checks:** clean checkpoint `a56e57a` has exact independent
+  geometry/support/density/contact comparisons, exact W0E hydro/free-fall
+  regression, orifice preflight PASS and two identical bounded clean report
+  projections. Format, 64 library tests, 143 xtask tests, strict Clippy and
+  boundary scan pass as recorded in the linked W0F evidence. All
   `CONTINUUM-*` ProductChecks remain `NOT_RUN`; broad `host-check` was not run.
-- **Remaining risk:** internal geometry, successor roots, external/full-corpus
-  accuracy, cross-target roots, 50k performance, dynamic coupling, exact
-  persistence and all terrain constitutive evidence remain unmeasured.
+- **Remaining risk:** full-corpus accuracy, Windows/Linux root equality, 50k
+  performance, dynamic coupling, exact persistence and all terrain
+  constitutive evidence remain unmeasured.

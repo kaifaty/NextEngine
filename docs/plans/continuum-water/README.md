@@ -183,6 +183,10 @@ ProductCheck PASS, and dynamic rigid geometry remains W3 work. The evidence
 does not currently require a density map, XSPH, warm pressure state or
 settling generator. W2, WG, PhysX and GPU work remain blocked.
 
+The dated [W0F evidence](../../development/continuum-water-w0f-geometry-capacity-root-closure-2026-08-18.md)
+records the frozen roots, independent comparisons and two clean identical
+bounded report projections.
+
 ## Worktree and main-roadmap protocol
 
 1. Create the water worktree from the documentation checkpoint containing W0A
