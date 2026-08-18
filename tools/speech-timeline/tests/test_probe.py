@@ -14,6 +14,7 @@ from nextengine_emotion_probe.recording import recording_command, validate_recor
 
 
 class PredictionTests(unittest.TestCase):
+    """Preserve the original emotion probe behavior after the project move."""
     def test_predictions_are_sorted_without_renaming_scores(self) -> None:
         predictions = normalize_predictions(
             [{"labels": ["sad", "angry", "neutral"], "scores": [0.2, 0.7, 0.1]}]

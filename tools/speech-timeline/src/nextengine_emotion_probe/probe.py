@@ -1,3 +1,5 @@
+"""Pinned emotion2vec+ loader and inference helpers."""
+
 from __future__ import annotations
 
 import contextlib

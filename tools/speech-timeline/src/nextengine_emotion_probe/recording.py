@@ -1,3 +1,5 @@
+"""Bounded PipeWire microphone capture for development probes."""
+
 from __future__ import annotations
 
 import shutil

@@ -1,4 +1,4 @@
-"""Optional emotion2vec+ microphone and file probe."""
+"""Backward-compatible emotion2vec+ microphone and file probe."""
 
 from .probe import DEFAULT_MODEL_ID, DEFAULT_MODEL_REVISION, normalize_predictions
 
