@@ -350,7 +350,7 @@ fn r2_alpha_render_is_an_available_six_window_workload() {
     assert_eq!(
         performance_scenario_hash(scenario),
         sha256_hex(
-            b"nextengine.performance.r2-alpha-render.v2:reference-alpha:frontier-relay:windows=exploration+combat+ui-dialogue:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
+            b"nextengine.performance.r2-alpha-render.v3:reference-alpha:frontier-relay:desktop-views=exploration+combat+ui-dialogue:active-report-host=linux-x86_64:windows-hard-host=deferred:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
         )
     );
     let methodology = methodology_for(scenario);
@@ -359,6 +359,12 @@ fn r2_alpha_render_is_an_available_six_window_workload() {
     assert_eq!(
         methodology.frame_critical_path.as_deref(),
         Some("max(cpu_extract_and_submit_us,gpu_timestamp_duration_us)")
+    );
+    assert!(
+        methodology
+            .notes
+            .iter()
+            .any(|note| note.contains("active supported development/report host"))
     );
 }
 

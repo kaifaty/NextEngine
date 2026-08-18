@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 3.7 |
-| Последняя проверка | 2026-08-16 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-12 3.6; maps the bounded R4d consumer without creating a global gate |
+| Версия | 3.8 |
+| Последняя проверка | 2026-08-18 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
+| Заменяет | SPEC-12 3.7; makes Linux the active check host and moves Windows/THOTH evidence to the deferred release boundary |
 
 ## Назначение
 
@@ -42,10 +42,24 @@ developer host недоступный Windows/Linux runtime check или desktop
 `NotRun(reason)` и делает `shipping_ready = false`; portable local success не
 подменяет target product evidence.
 
-## Native Windows/Linux gate
+## Active Linux check policy
 
-R1 native evidence собирается существующими ProductCheck, а не новым видом
-глобального допуска. На native Windows x86_64 и Linux x86_64 hosts с
+Native Linux x86_64 является текущим active development host по ADR-082.
+Затронутые Linux-capable checks выполняются в том же work package, а не
+переносятся в асинхронный backlog. Desktop renderer/performance check явно
+включает `desktop-sdl-ash` и использует подключённый X11/Wayland Vulkan path.
+
+Windows execution отложен до explicit pre-R7 bring-up. Текущий Linux handoff
+не запускает и не требует Windows, THOTH calibration или paired comparator;
+эти claims остаются открытыми с `NotRun(WindowsHostDeferred)`. Исторический
+Windows result не переносится на новый commit. Этот порядок не удаляет Windows
+из v1 shipping matrix.
+
+## Deferred native Windows/Linux release gate
+
+После явного Windows bring-up R1/R7 native evidence собирается существующими
+ProductCheck, а не новым видом глобального допуска. На native Windows x86_64 и
+Linux x86_64 hosts с
 Vulkan-capable driver один и тот же clean commit выполняет:
 
 ```text
@@ -203,13 +217,16 @@ source/imported bytes в engine repository.
 
 ## Conditional platform check
 
-Platform check выбирает только реально затронутые shipping targets:
+Platform check выбирает затронутую границу с учётом active-host policy:
 
 - shared portable/runtime change обычно покрывается `fast`, `play` и
   `persistence-replay`;
-- Windows adapter/package change проверяется на Windows;
-- Linux adapter/package change проверяется на Linux;
-- shared renderer/platform ABI change проверяется на обоих shipping targets;
+- Linux adapter/package и shared renderer/platform change проверяются сейчас
+  на active Linux host;
+- Windows-only adapter/package result остаётся
+  `NotRun(WindowsHostDeferred)` и записывается в Windows backlog;
+- paired shared-renderer release claim проверяется на обоих shipping targets
+  только после explicit Windows bring-up;
 - macOS developer-host run подтверждает только portable development scope.
 
 Если нужный host недоступен, результат записывается как `NotRun(reason)`, а
@@ -227,27 +244,32 @@ authoritative outcome, считается failure независимо от ск
 variance MAY привести к повторному измерению по той же declared методике, но
 не к retry-to-green функциональных или deterministic failures.
 
-Hard timing verdict следует ADR-036/ADR-045/ADR-049: только `release`, compatible baseline и
-полный `ref-win-thoth-v1` могут дать timing `PASS`/`FAIL`. Linux timings всегда
-`REPORT_ONLY`, но Linux native build/platform/replay/hash correctness остаются
-обязательными. Несовместимый host, driver/BIOS/power plan/toolchain/content/
+Current development timing выполняется на Linux и всегда остаётся
+`REPORT_ONLY`; Linux native build/platform/replay/hash correctness обязательны
+для затронутой области. Hard timing design следует ADR-036/ADR-045/ADR-049:
+только `release`, compatible baseline и полный `ref-win-thoth-v1` могут дать
+timing `PASS`/`FAIL`, но ADR-082 откладывает такой run до Windows bring-up и
+делает B-12 R7/release blocker. Несовместимый host, driver/BIOS/power plan/toolchain/content/
 methodology, недостаточный idle/free-memory/thermal preflight или
 неimplemented representative workload возвращает `NOT_RUN`. V5 hard evidence
 дополнительно требует canonical logical resource charges, peak working set,
 process I/O, device-allocation ceiling, profiler integrity и exact authoritative
 roots. Allocator-counter fields/readers отсутствуют.
 
-ADR-061 sets the current THOTH preflight boundary: CPU/GPU load must be below
+При возобновлении hard evidence ADR-061 sets the THOTH preflight boundary: CPU/GPU load must be below
 40%, free physical RAM must be at least 10 GiB, CPU clock must remain at least
 80% of reported maximum and GPU thermal slowdown must be clear.
 
 Two-role streaming, one-agent, статические render fixtures и live-movement checks
-являются только `smoke/report`. Отдельный representative `r2-alpha-render`
-production workload реализован для `projects/reference-alpha`: exploration,
+являются только `smoke/report`. Отдельный representative `r2-alpha-render.v3`
+production workload реализован для `projects/reference-alpha` и активного
+Linux desktop host: exploration,
 combat и UI/dialogue выполняются отдельно в primary и fallback profiles с
 600 warm-up и 3 600 measured frames на каждую из шести пар. Report mode может
 дать outer ProductCheck execution `PASS` с вложенным timing verdict
-`REPORT_ONLY`, но не закрывает absolute budget или B-12. Отдельный streaming-only
+`REPORT_ONLY`, но не закрывает absolute budget или B-12. Он запускается с
+`--features desktop-sdl-ash`; disabled feature или недоступная desktop/GPU
+capability даёт typed `NOT_RUN`, не Windows-only fallback. Отдельный streaming-only
 `r3-multiregion-streaming` выполняет 1 000 production packaged transitions по
 canonical four-region/64-chunk route, публикует только `streaming_world` и
 заполняет logical `required_staging_bytes`; он также `REPORT_ONLY`. R2/R3 hard

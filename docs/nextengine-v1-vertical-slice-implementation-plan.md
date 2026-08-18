@@ -5,9 +5,11 @@
 This file is a historical implementation record for the `M0 → M11` sequence.
 Its local-result table describes the closure state when that sequence
 completed; it is not the current native-target status or execution queue.
-Current stage status lives in [roadmap.md](roadmap.md), and deferred native
-Linux work lives in
-[development/linux-validation-backlog.md](development/linux-validation-backlog.md).
+Current stage status lives in [roadmap.md](roadmap.md). Native Linux is now the
+active development host under
+[ADR-082](architecture/adr/082-linux-first-development-and-deferred-windows-host.md),
+and deferred Windows work lives in
+[development/windows-validation-backlog.md](development/windows-validation-backlog.md).
 
 The implementation sequence is present in the repository. At record time, the
 full portable/local closure passed on the pinned Rust `1.93.0` Apple Silicon
@@ -133,11 +135,10 @@ harness. On each selected exact clean checkpoint, run:
 cargo run --locked -p xtask --features desktop-sdl-ash -- native-gate-run --output artifacts/native-gate/<commit>
 ```
 
-The authoritative command semantics remain in SPEC-12. The active asynchronous
-Linux queue, preflight, complete-bundle transfer and paired compare procedure
-are maintained in
-[development/linux-validation-backlog.md](development/linux-validation-backlog.md);
-they are intentionally not duplicated in this historical record.
+The authoritative command semantics remain in SPEC-12. This section preserves
+the historical paired-gate entry point; current Linux-first execution and the
+deferred Windows bundle/compare procedure are maintained in ADR-082 and
+[development/windows-validation-backlog.md](development/windows-validation-backlog.md).
 
 Learned motor policy, LLM narrative and SPEC-31 runtime remain gated behind a
 separate implementation plan with mandatory procedural/template fallback.

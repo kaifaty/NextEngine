@@ -69,6 +69,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
                 "CPU/GPU frame samples exclude VSync wait, retain every outlier and count primary/fallback deadline misses separately".to_owned(),
                 "project activation and deterministic scenario/presentation extraction precede the observation window; six production Vulkan adapters are prepared, measured and released sequentially so device residency is a true per-run ceiling".to_owned(),
                 "logical charges use the hash-bound r2-alpha-render-v1 accounting profile; physical evidence consists of peak working set, process I/O, device allocation ceilings and Vulkan timestamps".to_owned(),
+                "Linux x86_64 is the active supported development/report host; its timing remains REPORT_ONLY, while Windows/THOTH hard execution is deferred and does not gate current development".to_owned(),
             ];
         }
         PerformanceScenarioV1::R3MultiregionStreaming => {

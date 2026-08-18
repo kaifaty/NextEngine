@@ -468,6 +468,19 @@ pub fn validate_thoth_fingerprint(fingerprint: &PerformanceTargetFingerprintV1) 
 }
 
 pub fn inspect_process_counters() -> PerformanceResourceCountersV4 {
+    if cfg!(target_os = "linux") {
+        return match inspect_linux_process_counters() {
+            Ok(counters) => counters,
+            Err(error) => PerformanceResourceCountersV4 {
+                unavailable: vec![
+                    format!("Linux process counters unavailable: {error}"),
+                    "device residency requires a representative Vulkan workload".to_owned(),
+                    "Vulkan timestamps require a representative render workload".to_owned(),
+                ],
+                ..PerformanceResourceCountersV4::default()
+            },
+        };
+    }
     if !cfg!(target_os = "windows") {
         return PerformanceResourceCountersV4 {
             unavailable: vec![
@@ -545,6 +558,56 @@ if (-not [NextEngineProcessIo]::GetProcessIoCounters($process.Handle, [ref]$coun
             ..PerformanceResourceCountersV4::default()
         },
     }
+}
+
+fn inspect_linux_process_counters() -> Result<PerformanceResourceCountersV4, String> {
+    let status = fs::read_to_string("/proc/self/status")
+        .map_err(|error| format!("PERF_LINUX_PROCESS_STATUS_UNAVAILABLE: {error}"))?;
+    let io = fs::read_to_string("/proc/self/io")
+        .map_err(|error| format!("PERF_LINUX_PROCESS_IO_UNAVAILABLE: {error}"))?;
+    Ok(PerformanceResourceCountersV4 {
+        process_peak_working_set_bytes: Some(parse_linux_process_kib(&status, "VmHWM")?),
+        io_read_bytes: Some(parse_linux_process_bytes(&io, "read_bytes")?),
+        io_write_bytes: Some(parse_linux_process_bytes(&io, "write_bytes")?),
+        unavailable: vec![
+            "device residency requires a representative Vulkan workload".to_owned(),
+            "Vulkan timestamps require a representative render workload".to_owned(),
+        ],
+        ..PerformanceResourceCountersV4::default()
+    })
+}
+
+fn parse_linux_process_kib(value: &str, key: &str) -> Result<u64, String> {
+    let line = value
+        .lines()
+        .find(|line| line.split_once(':').is_some_and(|(name, _)| name == key))
+        .ok_or_else(|| format!("PERF_LINUX_PROCESS_COUNTER_MISSING: {key}"))?;
+    let (_, field) = line
+        .split_once(':')
+        .ok_or_else(|| format!("PERF_LINUX_PROCESS_COUNTER_INVALID: {key}"))?;
+    let mut fields = field.split_whitespace();
+    let amount = fields
+        .next()
+        .ok_or_else(|| format!("PERF_LINUX_PROCESS_COUNTER_INVALID: {key}"))?
+        .parse::<u64>()
+        .map_err(|error| format!("PERF_LINUX_PROCESS_COUNTER_INVALID: {key}: {error}"))?;
+    if fields.next() != Some("kB") || fields.next().is_some() {
+        return Err(format!("PERF_LINUX_PROCESS_COUNTER_INVALID: {key}"));
+    }
+    amount
+        .checked_mul(1_024)
+        .ok_or_else(|| format!("PERF_LINUX_PROCESS_COUNTER_OVERFLOW: {key}"))
+}
+
+fn parse_linux_process_bytes(value: &str, key: &str) -> Result<u64, String> {
+    let field = value
+        .lines()
+        .filter_map(|line| line.split_once(':'))
+        .find_map(|(name, field)| (name == key).then_some(field.trim()))
+        .ok_or_else(|| format!("PERF_LINUX_PROCESS_COUNTER_MISSING: {key}"))?;
+    field
+        .parse::<u64>()
+        .map_err(|error| format!("PERF_LINUX_PROCESS_COUNTER_INVALID: {key}: {error}"))
 }
 
 pub fn finish_process_counters(
@@ -720,5 +783,16 @@ cpu cores : 2\n";
         let mountinfo = "36 26 259:6 / / rw,relatime - ext4 /dev/nvme1n1p2 rw\n";
         assert_eq!(parse_linux_root_device_id(mountinfo), Ok("259:6"));
         assert!(parse_linux_root_device_id("36 26 0:1 / /tmp rw - tmpfs tmpfs rw\n").is_err());
+    }
+
+    #[test]
+    fn linux_process_counters_parse_peak_residency_and_io_bytes() {
+        let status = "Name:\txtask\nVmHWM:\t  12345 kB\n";
+        let io = "rchar: 99\nread_bytes: 4096\nwrite_bytes: 8192\n";
+        assert_eq!(parse_linux_process_kib(status, "VmHWM"), Ok(12_641_280));
+        assert_eq!(parse_linux_process_bytes(io, "read_bytes"), Ok(4_096));
+        assert_eq!(parse_linux_process_bytes(io, "write_bytes"), Ok(8_192));
+        assert!(parse_linux_process_kib(status, "VmRSS").is_err());
+        assert!(parse_linux_process_bytes(io, "cancelled_write_bytes").is_err());
     }
 }

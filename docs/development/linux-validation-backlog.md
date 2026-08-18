@@ -1,30 +1,31 @@
-# Linux validation backlog
+# Linux validation backlog — retired historical snapshot
 
 | Поле | Значение |
 |---|---|
-| Статус | Living operational checklist, не нормативная архитектура |
+| Статус | `RETIRED / HISTORICAL` |
 | Последнее обновление | 2026-08-18 |
-| Основной developer host | Windows x86_64 MSVC/Vulkan |
+| Историческая policy | Windows-first development, Linux asynchronous validation |
 | Linux target | Native Linux x86_64 GNU, Ubuntu 22.04 / glibc 2.35 baseline |
 
 ## Назначение
 
-Этот документ хранит действия, которые требуют native Linux host. Они
-накапливаются во время Windows-first разработки и выполняются отдельными
-асинхронными сессиями, когда Linux-машина доступна.
+Этот документ сохраняет exact operational record завершённого Linux catch-up
+и прежней Windows-first policy. Он больше не является execution queue и не
+принимает новые items.
 
-Недоступность Linux не блокирует обычную Windows-разработку и не меняет
-результаты независимых Windows/portable checks. Одновременно она не считается
-успехом Linux target: невыполненная проверка остаётся `NotRun(reason)`, а
-зависящие от неё R1/v1 claims остаются открытыми.
+[ADR-082](../architecture/adr/082-linux-first-development-and-deferred-windows-host.md)
+сделал native Linux x86_64 текущим development host. Затронутые Linux checks
+теперь выполняются inline с work package, а native Windows действия
+накапливаются в [Windows validation backlog](windows-validation-backlog.md) до
+explicit pre-R7 bring-up. Текущее состояние этапов остаётся в
+[roadmap](../roadmap.md).
 
-Windows x86_64 и Linux x86_64 по-прежнему являются v1 shipping targets. Этот
-порядок выполнения не меняет
-[SPEC-12](../architecture/12-vertical-slice-conformance.md),
-[ADR-030](../architecture/adr/030-product-first-development-and-lightweight-validation.md)
-или [roadmap](../roadmap.md).
+Всё ниже заголовка «Historical Windows-first snapshot» является исторической
+инструкцией. Императивы в этой части нельзя применять к новым changesets.
 
-## Execution policy
+## Historical Windows-first snapshot
+
+### Historical execution policy
 
 1. Реализация и частые проверки выполняются на Windows.
 2. Если work package меняет Linux-specific код либо общий
@@ -46,7 +47,7 @@ Windows x86_64 и Linux x86_64 по-прежнему являются v1 shippin
 затронул условие из пункта 2. Полный native gate на checkpoint всё равно
 проверит накопленное состояние целиком.
 
-## Текущее evidence
+### Historical evidence
 
 | Checkpoint | Linux environment | Результат | Оставшееся действие |
 |---|---|---|---|
@@ -60,7 +61,7 @@ Historical `f58b2a5…` still proves only the software Vulkan path. Neither
 standalone Linux run sets `native_gate_ready` without a matching Windows report
 and successful compare on the same commit.
 
-## Накопительная очередь
+### Historical accumulated queue
 
 | ID | Статус | Когда выполнять | Действие на Linux | Закрывает |
 |---|---|---|---|---|
@@ -75,7 +76,7 @@ and successful compare on the same commit.
 завершает соответствующий Windows work package. Статус `DONE` ставится только
 после фактического native run с записанными commit, environment и результатом.
 
-## Focused Linux session
+### Historical focused Linux session
 
 Перед любым run:
 
@@ -105,7 +106,7 @@ cargo run --locked -p xtask -- v1-package --output dist/nextengine-v1-linux
 renderer hot path также требует `performance`; content/cooker change требует
 `content-package`.
 
-## Closure checkpoint
+### Historical closure checkpoint
 
 Когда нужен target-level или stage-level вывод, focused checks не подменяют
 полный gate. Он выполняется один раз без автоматического retry-to-green:
@@ -139,7 +140,7 @@ evidence. Он не объявляет автоматически весь R1 и
 опубликованный результат не перезаписывается и не превращается повтором в
 `PASS`.
 
-## Как обновлять backlog
+### Historical update procedure
 
 После Linux-сессии:
 

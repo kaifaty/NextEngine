@@ -4,11 +4,11 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 4.4 |
+| Версия | 4.5 |
 | Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
+| Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
 | Дополнительные зависимости V4.0 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | GLOSSARY-001 4.3; adds the current R5g pose-corrective and deformation-LOD terms |
+| Заменяет | GLOSSARY-001 4.4; adds the active-development-host distinction without changing the v1 shipping targets |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -19,6 +19,7 @@
 | **RPG framework** | Generic доменная модель персонажей, предметов, квестов, диалогов, фракций и интерактивных объектов. |
 | **Backend** | Заменяемая реализация engine-owned interface. Vendor-типы не входят в interface. |
 | **DeveloperHostTier** | Поддержанный host для portable source/tool development и локальных ProductCheck, не создающий shipping-platform claim; v1 включает `macOS-aarch64` по ADR-011. |
+| **ActiveDevelopmentHost** | Native host, на котором выполняется текущий короткий implementation/ProductCheck loop. По ADR-082 это `x86_64-unknown-linux-gnu`; роль не удаляет Windows из v1 shipping targets и не создаёт hard timing/release claim. |
 | **TrainingCapabilityStatus** | `Available`, `Unavailable` либо `Rejected` для exact hardware/backend profile; сообщает только доступность bounded training run и не выводится из наличия model file. |
 | **RuntimeEntityId** | Эфемерный идентификатор живой ECS entity. Действует только в пределах одного runtime instance и не сериализуется. |
 | **PersistentId** | Стабильный 128-bit opaque ID сущности или логического объекта между save/load, chunks и replay. Не кодирует ECS layout или vendor handle. |

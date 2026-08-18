@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `COMPLETE / LINUX_TARGET_PASS / WINDOWS_PAIR_PENDING` |
+| Status | `COMPLETE / LINUX_TARGET_PASS / WINDOWS_DEFERRED` |
 | Updated | 2026-08-18 |
 | Task key | `linux-validation-catch-up` |
 | Scope | Restore current native Linux performance-host and Ubuntu 22.04/glibc 2.35 package compatibility, then close accumulated hardware-GPU, render-content and player/session Linux checks with one full clean-commit native gate |
 | Definition of done | A native `x86_64-unknown-linux-gnu` hardware-GPU checkpoint publishes a valid `PASS` target bundle with all eight checks, compatible packaged binaries and exact evidence hashes; retired allocator work is classified without resurrection; Windows pairing remains an explicit non-claim |
-| Authority | Working context only; Accepted SPEC/ADR, `docs/roadmap.md`, the Linux validation backlog and exact native-gate reports outrank this file |
+| Authority | Working context only; Accepted SPEC/ADR, `docs/roadmap.md`, the deferred Windows backlog and exact native-gate reports outrank this file; the retired Linux backlog preserves only historical procedure |
 
 ## Resume in 60 seconds
 
@@ -19,18 +19,19 @@
   fingerprint/preflight evidence, and the Linux package build isolates SDL
   under a C17/glibc-2.35 compatibility configuration. Both packaged binaries
   require at most GLIBC 2.34 on the Ubuntu 26.04 build host.
-- **Next action:** Preserve/transfer the complete Linux target bundle, build the
-  matching Windows target bundle on the exact same commit and run
-  `native-gate-compare`. Separately, resume the roadmap at R5g; do not treat
-  this general native gate as the PhysX Stage 0 platform/replay/correspondence
-  gate.
-- **Current blocker:** B-01 only: no Windows `PASS` target report exists for
-  `d15c11a…`, so no same-commit compare or `native_gate_ready` claim exists.
+- **Next action:** Preserve the complete Linux target bundle as exact-commit
+  evidence and continue the roadmap on Linux. Windows pairing now belongs to
+  the deferred pre-R7 backlog; this general native gate is not the PhysX Stage
+  0 platform/replay/correspondence gate.
+- **Current blocker:** None for current Linux feature development. B-01 remains
+  a deferred R1/R7 release blocker because no same-commit Windows report or
+  `native_gate_ready` claim exists.
 - **Do not retry:** Do not overwrite or relabel the preserved `de92e37…`
   source-size FAIL or the first `d15c11a…` no-display FAIL. Do not relax the
   `<40%` CPU/GPU preflight or the glibc 2.35 package baseline.
-- **Reconsider when:** A matching Windows bundle is available, or a later
-  material platform/package/runtime change requires a new paired checkpoint.
+- **Reconsider when:** A later material Linux platform/package/runtime change
+  requires a new native checkpoint, or an explicit pre-R7 ADR activates the
+  deferred Windows bundle.
 
 ## Locked boundary
 
@@ -116,13 +117,15 @@
 | Performance report | Outer `PASS`, inner `REPORT_ONLY`; report SHA-256 `e11aac351ed471d71053ffe1f1614d9455eef3b3671417bdd71d1d1e54f92dd7`; preflight CPU/GPU `18/10%`, postflight `39/23%`, both ready | Linux fingerprint/preflight implementation works; no B-12 hard claim |
 | Final package audit | `PASS`: actual maximum GLIBC import 2.34 for both binaries; game `77907999fb6f32ee4196878b023c0fed336074dcf31f6b8e3de66723dbc69ebd`, headless `83d175e065d64be2f87e4d3f0aa8bc82406d29a7ae355b9f21866acb31d2ced8`; identical packaged state/ledger roots | Ubuntu 22.04 / glibc 2.35 baseline and game/headless authority parity hold |
 
-## Explicitly remaining
+## Explicitly remaining outside this completed task
 
-- Matching Windows target report and `native-gate-compare` on exact
-  `d15c11a…` for B-01/R1.
+- A future matching Windows/Linux target pair and `native-gate-compare` on a
+  newly selected clean pre-R7 commit for B-01/R1; `d15c11a…` remains historical
+  Linux evidence and is not the required future candidate.
 - Representative Windows Performance V5 ten-run baselines and fixed three-run
-  hard gates; representative Linux timing remains report-only and B-12 stays
-  open.
+  hard gates after bring-up; representative Linux timing remains report-only
+  and B-12 stays open for R7.
 - PhysX-only Windows/Linux Stage 0 platform/replay matrix, R5 hard performance
   and Isaac GPU correspondence.
-- R5g authored pose correctives plus cadence/LOD authority isolation.
+- The R5 completion audit after completed R5g pose correctives and cadence/LOD
+  isolation.

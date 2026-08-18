@@ -121,7 +121,7 @@ pub fn performance_scenario_hash(scenario: PerformanceScenarioV1) -> String {
             b"nextengine.performance.production-worker-soak.v3:240-fifo-main-callbacks:60hz:bounded-sync-queue:next-simulation-worker:fixed-step-application:shared-presentation-publication:main-snapshot-read:resource-observation=production-worker-diagnostic-only"
         }
         PerformanceScenarioV1::R2AlphaRender => {
-            b"nextengine.performance.r2-alpha-render.v2:reference-alpha:frontier-relay:windows=exploration+combat+ui-dialogue:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
+            b"nextengine.performance.r2-alpha-render.v3:reference-alpha:frontier-relay:desktop-views=exploration+combat+ui-dialogue:active-report-host=linux-x86_64:windows-hard-host=deferred:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
         }
         PerformanceScenarioV1::R3MultiregionStreaming => {
             b"nextengine.performance.r3-multiregion-streaming.v1:reference-alpha:regions=4:chunks=64:cycles=1000:canonical-cyclic-route:two-fixed-ticks-per-transition:packaged-io:bounded-workers=2:logical-staging-charge:resource-observation=streaming-only"

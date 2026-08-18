@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-29 |
 | Статус | Accepted |
-| Версия | 3.0 |
-| Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md) |
-| Заменяет | SPEC-29 version 2.5 recovery/archive/object-pack model |
+| Версия | 3.1 |
+| Последняя проверка | 2026-08-18 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
+| Заменяет | SPEC-29 3.0; records Linux as the active host without changing platform/session contracts |
 
 ## Platform boundary
 
@@ -150,3 +150,7 @@ Resume. `persistence-replay` covers Save → change → Load rollback, close cra
 boundaries and exact roots. `platform` is conditional for host/renderer changes.
 Focused session-store tests inject faults before and after slot/pointer/save
 publication and prove one final save generation per close identity.
+
+Current interactive host evidence is collected on native Linux. Windows host
+execution is deferred under ADR-082; its absence leaves Windows/R1/R7 claims
+open but does not block a Linux feature-development handoff.

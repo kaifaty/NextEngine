@@ -605,7 +605,7 @@ pub(super) fn performance_report_once(
         && r2_alpha_render.is_none()
     {
         run.diagnostics.push(
-            "PERF_R2_ALPHA_RENDER_UNAVAILABLE: build xtask with --features desktop-sdl-ash on a supported Windows desktop host"
+            "PERF_R2_ALPHA_RENDER_UNAVAILABLE: build xtask with --features desktop-sdl-ash on the active Linux desktop host; Windows performance execution is deferred"
                 .to_owned(),
         );
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;

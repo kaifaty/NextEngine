@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.4 |
-| Последняя проверка | 2026-08-08 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md) |
-| Заменяет | SPEC-04 2.3; VFX consumption recovery references removed with SPEC-30 3.0 |
+| Версия | 2.5 |
+| Последняя проверка | 2026-08-18 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
+| Заменяет | SPEC-04 2.4; moves active renderer development/report evidence to Linux while preserving deferred Windows release targets |
 
 ## Technical authority boundary
 
@@ -149,8 +149,10 @@ Debug layers/RenderDoc markers MAY быть optional package, но их отсу
 
 ## B0 performance profile
 
-Hard B0 timing следует ADR-036 и принимается только на полном
-`ref-win-thoth-v1` в `release`:
+Текущий development check выполняет B0 workload на native Linux и сохраняет
+timing только как `REPORT_ONLY`. Hard B0 design следует ADR-036 и принимается
+только на полном `ref-win-thoth-v1` в `release`, но ADR-082 откладывает этот
+Windows execution до explicit pre-R7 bring-up:
 
 - primary `1920×1080`: `p95 <= 14,000 us`, `p99 <= 16,670 us`;
 - fallback `b0-safe-720p30`, `1280×720`: `p99 <= 33,330 us`.
@@ -167,8 +169,9 @@ Fallback выбирается только при launch в v1. Его `PASS` н
 presentation profile не меняют commands/events/replay result или
 authoritative roots.
 
-Production workload `r2-alpha-render` загружает `projects/reference-alpha`
-через authoring → cook → activate, использует production Vulkan adapter и
+Production workload `r2-alpha-render.v3` загружает `projects/reference-alpha`
+через authoring → cook → activate, использует production Vulkan adapter на
+текущем Linux X11/Wayland desktop host и
 выполняет шесть независимых profile/window runs: exploration, combat и
 UI/dialogue отдельно для primary и fallback. Каждый run сохраняет свои 600
 warm-up и 3 600 measured samples, exact Vulkan timestamp-query accounting,
@@ -183,7 +186,7 @@ workload.
 
 | ID | Scenario | Expected behavior | Fallback |
 |---|---|---|---|
-| `RENDER-P1` | Run an engine-owned Vulkan B0 gameplay scene on available Win/Linux targets with the selected binding adapter. | No validation errors or leaked objects; THOTH primary/fallback results are reported independently against ADR-036, Linux timing is `REPORT_ONLY`, and no binding/vendor type escapes the renderer backend. | Fix or replace the adapter behind the same `RenderDevice`; select declared `b0-safe-720p30` at launch without hiding primary failure or changing gameplay. |
+| `RENDER-P1` | Run an engine-owned Vulkan B0 gameplay scene on the active Linux target with the selected binding adapter; run Windows later during explicit bring-up. | No validation errors or leaked objects; Linux timing is `REPORT_ONLY`, deferred THOTH primary/fallback evidence remains unclaimed, and no binding/vendor type escapes the renderer backend. | Fix or replace the adapter behind the same `RenderDevice`; select declared `b0-safe-720p30` at launch without hiding primary failure or changing gameplay. |
 | `SHADER-P1` | Compile the offline `ShaderInterface` matrix with the selected compiler chain. | VS/FS/compute SPIR-V, canonical reflection and platform-neutral artifact keys match across Win/Linux; layouts match exactly; unavailable optional task/mesh or ray-query paths remain unloaded. | Replace the compiler adapter behind the same interface and reject incompatible shader assets. |
 | `RENDER-ASH-P1` | Exercise the B0 scene through the proposed ash adapter. | The renderer behavior matches `RENDER-P1` and no ash type crosses the backend boundary. | Keep the internal/generated binding adapter. |
 | `SHADER-SLANG-P1` | Exercise the shader matrix through the proposed Slang adapter. | The behavior matches `SHADER-P1` and source mapping exists for every compiled entry. | Keep the verified GLSL/HLSL-to-SPIR-V compiler adapter. |

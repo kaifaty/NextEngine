@@ -9,7 +9,7 @@
 | Last verified | 2026-08-10 |
 | Normative dependencies | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-045](045-low-overhead-hard-performance-evidence.md), [ADR-049](049-performance-evidence-without-allocator-instrumentation.md), [ADR-061](061-forty-percent-thoth-load-preflight.md), [ADR-062](062-r5-physx-humanoid-performance-authority.md) |
 | Supersedes | The ADR-036 raw-sample relative-bootstrap rule and the ADR-062 single-candidate-run gate semantics. Absolute budgets, the 5% relative threshold, exact roots, ten-run calibration, THOTH fingerprint, preflight thresholds and no-retry policy remain Accepted. |
-| Superseded by | none |
+| Superseded by | [ADR-082](082-linux-first-development-and-deferred-windows-host.md) narrowly defers Windows/THOTH execution and B-12 to explicit pre-R7 bring-up; Performance V5/v8 run boundaries, fixed batch semantics and evidence validation remain Accepted. |
 
 ## Context
 
@@ -86,8 +86,10 @@ produce `NOT_RUN`.
 - Hard gates take three times the workload duration and retain more raw data.
 - The failed v7 R5 gate remains a non-retried historical fact; it neither passes
   nor fails v8.
-- R5/B-12 remain open until a fresh ten-run v8 baseline and one fixed three-run
-  hard-gate batch pass on the required commit and host.
+- Under ADR-082 B-12 remains open as a deferred R7/release gate until a fresh
+  ten-run v8 baseline and one fixed three-run hard-gate batch pass on the
+  required future Windows commit and host; it is no longer a current R5
+  development handoff condition.
 
 ## Product checks
 

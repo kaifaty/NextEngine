@@ -14,9 +14,10 @@ service. Models can enrich the experience when available; declared in-process
 fallbacks keep the game working when they are not.
 
 > **Project status:** Next Engine is in active pre-1.0 development. A playable
-> Windows reference alpha and its deterministic headless counterpart work
-> locally. Native Linux closure, hard release performance evidence, the public
-> creator workflow, and the v1 release are not complete. See the
+> Linux reference alpha and its deterministic headless counterpart work
+> locally. Windows host bring-up is intentionally deferred while development
+> continues on Linux; paired release evidence, hard release performance, the
+> public creator workflow, and v1 are not complete. See the
 > [roadmap](docs/roadmap.md) for the current stage and open blockers.
 
 Next Engine is an independent project. It is not an OpenGothic port and it is
@@ -47,7 +48,7 @@ being rebuilt as one-off scripts for every quest or character.
 ## What is playable today
 
 The current reference project, **Frontier Relay**, is a compact product slice.
-On the validated Windows path, a player can:
+On the active Linux development path, a player can:
 
 - explore a streamed multi-region world;
 - pick up and equip an item, fight an enemy, interact with an NPC, and complete
@@ -82,16 +83,9 @@ runtime model training, and a bundled Gothic importer are outside the v1 scope.
 
 ## Try the current alpha
 
-The shortest supported local path is Windows x86_64 with a Vulkan-capable GPU,
-an up-to-date graphics driver, and the repository-pinned Rust toolchain.
-
-From Explorer, run:
-
-```text
-PLAY_NEXT_ENGINE.bat
-```
-
-Or start it from a Rust-enabled shell:
+The supported development path is native Linux x86_64 with an active X11 or
+Wayland desktop session, a Vulkan-capable GPU, an up-to-date graphics driver,
+and the repository-pinned Rust toolchain. Start it from a Rust-enabled shell:
 
 ```bash
 cargo run --release -p next_game --features desktop-sdl-ash -- --interactive
@@ -103,9 +97,10 @@ Run the same reference project without a window or renderer:
 cargo run -p next_headless
 ```
 
-This is a source build and may take a while on its first run. Linux is a v1
-shipping target, but the current same-commit Windows/Linux release gate remains
-open; do not treat an ad-hoc Linux build as a supported release.
+This is a source build and may take a while on its first run. Linux and Windows
+remain v1 shipping targets, but Windows is not an active development host and
+the same-commit release gate remains deferred. A Linux development run is not
+by itself a supported release.
 
 ## Learn more
 

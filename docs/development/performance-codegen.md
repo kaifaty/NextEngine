@@ -1,5 +1,11 @@
 # Opt-in Thin LTO и PGO
 
+> **Current status:** `DEFERRED / WINDOWS_BRING_UP`. ADR-082 оставляет этот
+> THOTH workflow release-only и запрещает запускать его в текущем Linux-first
+> development loop. Ни один Linux report не активирует codegen comparison и не
+> закрывает B-12; остальной документ сохраняет exact historical protocol для
+> будущего superseding bring-up decision.
+
 Этот workflow проверяет code-generation candidate после алгоритмических
 оптимизаций. Он не меняет default `[profile.release]`, не создаёт shipping
 verdict и не закрывает B-12. Единственный fallback при неполной или неуспешной

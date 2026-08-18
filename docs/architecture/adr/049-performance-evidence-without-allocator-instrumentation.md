@@ -9,7 +9,7 @@
 | Last verified | 2026-08-08 |
 | Normative dependencies | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-23](../23-jobs-memory-resource-residency-and-io-backpressure.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-038](038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](045-low-overhead-hard-performance-evidence.md) |
 | Supersedes | Fully supersedes ADR-039 through ADR-043. Supersedes ADR-045 clauses that retain allocator instrumentation, allocator report fields or `allocator-counter-check`. Performance budgets, low-overhead evidence, retained historical results and no-retry policy remain. |
-| Superseded by | The methodology identity and Performance V4 wire schemas are superseded by [ADR-063](063-run-level-performance-evidence-and-fixed-gate-batches.md), after intermediate ADR-060/061/062 revisions. The allocator-removal and low-overhead resource-evidence decisions remain Accepted. |
+| Superseded by | The methodology identity and Performance V4 wire schemas are superseded by [ADR-063](063-run-level-performance-evidence-and-fixed-gate-batches.md), after intermediate ADR-060/061/062 revisions. [ADR-082](082-linux-first-development-and-deferred-windows-host.md) adds native Linux RSS/I/O report evidence and defers Windows hard execution. The allocator-removal and low-overhead resource-evidence decisions remain Accepted. |
 
 > Current reports use the Performance V5 wire shape and
 > `nextengine-performance-v8` under ADR-063. Earlier schemas/methodology strings below are
