@@ -17,6 +17,50 @@ use crate::scenario::validate_capacity;
 
 const MAGIC: &[u8; 8] = b"CWREFV1\0";
 
+const HYDRO_REFERENCE_SHA256: &str =
+    "84ae867f5b336cd0bd51be6f29a6a2a1f27f702c424f1dbd0a8f735b9f4bb435";
+const DAM_BREAK_REFERENCE_SHA256: &str =
+    "853d965489a40082a024aeee5a19f98aef054417014af8556fa212687d88d12c";
+const ORIFICE_REFERENCE_SHA256: &str =
+    "60e9b3538d621ef1a3f1ae77569640740df471fbe4e5ef8eaa813d3751930849";
+
+const REFERENCE_ATTESTATION_PROJECTION: &str = concat!(
+    "REFERENCE_ATTESTATION_V1_BEGIN\n",
+    "upstream.repository=InteractiveComputerGraphics/SPlisHSPlasH\n",
+    "upstream.commit=eccce86155776f6ac52d5080b1f720a52bf29450\n",
+    "adaptation.tracked-diff.sha256=4effa812553649c89135ca9515aaac410e47eca1fe250890766c0d6183165a4b\n",
+    "adaptation.comparator-source.sha256=f87a598a03b1893646de8188c393b41c262fb335e4f980a3672ea099d8461c11\n",
+    "adaptation.binary.sha256=ee0e12ea5ef6afc6090a6404a259d75769bae28448119edc9764a96bb705d0aa\n",
+    "build=release;binary64;avx-off;omp-threads-1\n",
+    "solver=dfsph;dt=1/240;cfl-off;warmstart-off;viscosity-off;surface-tension-off\n",
+    "fluid=6000-samples;volume-m3=0.000125;mass-kg=0.125\n",
+    "boundary.outer=support-complete-two-layer-lattice;volume=akinci-2012\n",
+    "boundary.orifice=left-source-two-layer-support;volume=akinci-2012\n",
+    "contact.outer=predictive-particle-radius;clearance-m=0.025\n",
+    "contact.internal=swept-plane-edge-corner;iterations=8;clearance-m=0.025\n",
+    "validation=outer-clearance;internal-clearance;safe-aperture-crossing;self-test-vectors\n",
+    "reference.CW-HYDRO-001.sha256=84ae867f5b336cd0bd51be6f29a6a2a1f27f702c424f1dbd0a8f735b9f4bb435\n",
+    "reference.CW-DAMBREAK-001.sha256=853d965489a40082a024aeee5a19f98aef054417014af8556fa212687d88d12c\n",
+    "reference.CW-ORIFICE-001.sha256=60e9b3538d621ef1a3f1ae77569640740df471fbe4e5ef8eaa813d3751930849\n",
+    "REFERENCE_ATTESTATION_V1_END\n",
+);
+
+pub(crate) fn expected_sha256(scenario_id: &str) -> Option<&'static str> {
+    match scenario_id {
+        "CW-HYDRO-001" => Some(HYDRO_REFERENCE_SHA256),
+        "CW-DAMBREAK-001" => Some(DAM_BREAK_REFERENCE_SHA256),
+        "CW-ORIFICE-001" => Some(ORIFICE_REFERENCE_SHA256),
+        _ => None,
+    }
+}
+
+pub(crate) fn attestation_profile_root() -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update(b"nextengine.continuum-water.w1-reference-attestation.v1\0");
+    digest.update(REFERENCE_ATTESTATION_PROJECTION.as_bytes());
+    digest.finalize().into()
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct ReferenceCorpus {
     pub(crate) sha256: String,
@@ -36,6 +80,9 @@ pub(crate) struct CurveComparison {
     pub(crate) metric: &'static str,
     pub(crate) rmse_ppb: i64,
     pub(crate) maximum_absolute_error_ppb: i64,
+    pub(crate) maximum_absolute_error_step: u32,
+    pub(crate) candidate_at_maximum_ppb: i64,
+    pub(crate) reference_at_maximum_ppb: i64,
     pub(crate) threshold_rmse_ppb: i64,
     pub(crate) threshold_maximum_absolute_error_ppb: i64,
     pub(crate) passed: bool,
@@ -239,6 +286,9 @@ fn compare(
     }
     let mut squared_sum = 0.0;
     let mut maximum = 0.0;
+    let mut maximum_step = 0_u32;
+    let mut candidate_at_maximum = 0.0;
+    let mut reference_at_maximum = 0.0;
     for (candidate, reference) in candidate.iter().zip(reference) {
         if candidate.step != reference.step {
             return Err(WaterError::new(
@@ -249,8 +299,10 @@ fn compare(
                 ),
             ));
         }
+        let candidate_curve_value = candidate_value(candidate)?;
+        let reference_curve_value = reference_value(reference)?;
         let difference = checked_scalar(
-            candidate_value(candidate)? - reference_value(reference)?,
+            candidate_curve_value - reference_curve_value,
             "reference curve difference",
         )?;
         let square = checked_scalar(difference * difference, "reference curve square")?;
@@ -258,6 +310,9 @@ fn compare(
         let absolute = difference.abs();
         if absolute > maximum {
             maximum = absolute;
+            maximum_step = candidate.step;
+            candidate_at_maximum = candidate_curve_value;
+            reference_at_maximum = reference_curve_value;
         }
     }
     let mean = checked_scalar(
@@ -270,6 +325,9 @@ fn compare(
         metric,
         rmse_ppb,
         maximum_absolute_error_ppb,
+        maximum_absolute_error_step: maximum_step,
+        candidate_at_maximum_ppb: quantize_ppb(candidate_at_maximum)?,
+        reference_at_maximum_ppb: quantize_ppb(reference_at_maximum)?,
         threshold_rmse_ppb: 50_000_000,
         threshold_maximum_absolute_error_ppb: 100_000_000,
         passed: rmse_ppb <= 50_000_000 && maximum_absolute_error_ppb <= 100_000_000,
@@ -438,6 +496,27 @@ mod tests {
         let values: Vec<i64> = (1..=100).collect();
         assert_eq!(nearest_rank_99(&values).unwrap(), 99);
         assert_eq!(nearest_rank_99(&[7]).unwrap(), 7);
+    }
+
+    #[test]
+    fn w1_reference_attestation_admits_only_the_three_frozen_hashes() {
+        assert_eq!(
+            expected_sha256("CW-HYDRO-001"),
+            Some(HYDRO_REFERENCE_SHA256)
+        );
+        assert_eq!(
+            expected_sha256("CW-DAMBREAK-001"),
+            Some(DAM_BREAK_REFERENCE_SHA256)
+        );
+        assert_eq!(
+            expected_sha256("CW-ORIFICE-001"),
+            Some(ORIFICE_REFERENCE_SHA256)
+        );
+        assert_eq!(expected_sha256("CW-FREEFALL-001"), None);
+        assert_eq!(
+            crate::hash::hex(&attestation_profile_root()),
+            "186e1e31c0aa2636525bbc54e4fe4335b8432e7e99eddf3221d08e0380b65c90"
+        );
     }
 
     #[test]

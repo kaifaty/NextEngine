@@ -1,6 +1,6 @@
 # W1 — Serial CPU DFSPH oracle
 
-Status: `IMPLEMENTED / W0H_RECLOSED / CLEAN_LINUX_CORPUS_PENDING / EXTERNAL_REFERENCES_PENDING`.
+Status: `IMPLEMENTED / W0I_RECLOSED / CLEAN_ATTESTED_LINUX_CORPUS_PENDING`.
 
 The original W0B oracle remains rejected-profile evidence. W0E selected the
 constraint-separated local survivor, W0F froze its solver, geometry,
@@ -18,8 +18,12 @@ momentum metrics, zero positive energy excess and an explicitly published
 [successor energy discriminator](../../development/continuum-water-w1-successor-energy-discriminator-2026-08-18.md).
 The W0H candidate passes the complete internal seven-scenario discriminator,
 including repeated sealed-48k and storage-order roots, but those diagnostic
-runs predate the W0H root freeze and receive no W1 credit. Clean rooted W1 and
-all three external references are still pending.
+runs predate the W0H root freeze and receive no W1 credit. W0I subsequently
+rejects the old geometry-violating external curves, freezes independently
+generated hard-clearance hydro/dam-break/orifice file hashes and makes exact
+reference attestation a production-credit preflight. The unchanged W0H
+dam-break and orifice curves pass the frozen aggregate thresholds. Two clean
+full-corpus runs under W0I remain pending.
 `CONTINUUM-WATER-REF-P1` remains `NOT_RUN`.
 
 ## Outcome
@@ -27,7 +31,8 @@ all three external references are still pending.
 Implement a safe-Rust, serial, runtime-independent DFSPH oracle that executes
 the hash-frozen [W0F](00f-geometry-capacity-and-root-closure.md) formulation,
 [W0G](00g-impact-energy-contract-reclosure.md) metric contract,
-[W0H](00h-accelerated-pressure-profile-reclosure.md) pressure algorithm and
+[W0H](00h-accelerated-pressure-profile-reclosure.md) pressure algorithm,
+[W0I](00i-external-reference-geometry-attestation.md) external attestation and
 nominal corpus, publishes a canonical fixed-point frame after every substep
 and produces bounded typed evidence. It is not a production physics backend.
 
@@ -131,6 +136,8 @@ a successful corpus after any terminal failure.
 - full W0F/W0G/W0H corpus at nominal scale with output artifacts outside Git;
 - repeat runs on the same target/toolchain with identical canonical roots;
 - analytical and SPlisHSPlasH aggregate comparison under the frozen metrics;
+- fail-closed exact SHA-256 attestation of all three W0I external files before
+  a production-credit trajectory starts;
 - preflight rejection when any W0F parent, W0G metric or W0H
   solver/corpus/execution root differs;
 - exact production/independent W0H first-step equality, zero-diagonal residual
@@ -141,7 +148,7 @@ a successful corpus after any terminal failure.
 ## Exit and stop rule
 
 `CONTINUUM-WATER-REF-P1 = PASS` requires every W0F/W0G/W0H correctness
-threshold, all required independent references and Linux same-target
+threshold, all required W0I-attested independent references and Linux same-target
 repeat/insertion equality. Timing at `10k/50k/100k` is recorded but cannot
 fail W1 or be called a production budget result.
 

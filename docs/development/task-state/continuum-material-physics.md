@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W0H_ACCELERATED_PRESSURE_ROOTS_FROZEN_W1_CLEAN_LINUX_RERUN_PENDING` |
+| Status | `W0I_REFERENCE_ATTESTATION_FROZEN_W1_CLEAN_LINUX_RERUN_PENDING` |
 | Updated | `2026-08-18` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -17,7 +17,9 @@
   conjugate direction and misses the unchanged 50-operator gate. W0H keeps the
   same pressure QP, geometry, contact and energy semantics, selects fixed-step
   diagonally scaled APG, and blocks on both compression and projected-KKT
-  residuals.
+  residuals. W0I rejects the old external trajectories because they cross the
+  analytical wall, retains W0H unchanged, and freezes three twice-identical
+  hard-clearance reference hashes under attestation root `186e1e31...65c90`.
 - **Selected consumer:** one sealed `4 × 2 × 1 m` basin, `0.75 m` depth,
   nominal `48k`/hard `50k` samples, one `0.5 m`/`50 kg` PhysX crate and debug
   particles; unavailable capability selects an authored dry variant before
@@ -25,18 +27,17 @@
 - **Authority:** private `f64` solve, ties-to-even canonical sample
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
-- **Next action:** commit W0H, produce two clean identical closure projections,
-  then run W1 on Linux from hydro in frozen serial order and obtain independent
-  hydro/dam-break/orifice reference curves. Windows equality is deferred from
-  the current execution scope, not waived for production promotion. Do not
-  start W2, WG or PhysX coupling first.
+- **Next action:** commit the W0I runner/evidence change, then run the complete
+  W1 Linux corpus twice from the clean checkpoint with the exact hydro,
+  dam-break and orifice hashes. Windows equality is deferred from the current
+  execution scope, not waived for production promotion. Do not start W2, WG or
+  PhysX coupling first.
 - **Activation gate:** the main R8 row remains `PLANNED / NOT_ACTIVE` until
   `CONTINUUM-WATER-REF-P1 = PASS`.
-- **Current uncertainty:** the fixed APG candidate completes the entire
-  internal seven-scenario discriminator, including repeated still/sealed and
-  all storage orders, but those runs predate the W0H freeze and receive no W1
-  credit. Clean W0H closure and rooted corpus reruns remain pending. Required
-  external hydro/dam-break/orifice curves are absent. Windows equality, 50k
+- **Current uncertainty:** unchanged W0H passes the geometry-attested
+  dam-break and orifice curves with substantial margin, but those comparison
+  runs used an explicit dirty-tree diagnostic mode and receive no W1 credit.
+  Clean full-corpus repeat evidence remains pending. Windows equality, 50k
   performance, dynamic rigid reaction, fast impact and added-mass behavior are
   also open; every `CONTINUUM-*` ProductCheck is `NOT_RUN`.
 - **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
@@ -64,7 +65,9 @@
 | [W0G impact-energy reclosure](../../plans/continuum-water/00g-impact-energy-contract-reclosure.md) | `SUCCESSOR_IMPACT_ENERGY_ROOTS_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Roots scenario-class energy semantics without changing W0F operations; missing external references still block W1 |
 | [W1 canonical-clearance discriminator](../continuum-water-w1-canonical-clearance-discriminator-2026-08-18.md) | `REPORT_ONLY / RUNNER_POLICY_DEFECT_CONFIRMED / NO_W1_CREDIT` | Restores the rooted inclusive `2,500 µm` canonical gate after an unrooted successor-runner zero check stopped orifice at a `1 µm` publication artifact; contact and roots stay unchanged |
 | [W1 sealed pressure-solver research](../continuum-water-w1-sealed-pressure-solver-research-2026-08-18.md) | `ACCELERATED_PROJECTED_GRADIENT_SELECTED_FOR_W0H_RECLOSURE / NO_W1_CREDIT` | Exact traces reject a ceiling increase and tested MPRGP variants; fixed step `0.25` survives the complete internal discriminator with compression/KKT gates |
-| [W0H accelerated pressure reclosure](../../plans/continuum-water/00h-accelerated-pressure-profile-reclosure.md) | `ACCELERATED_PRESSURE_ROOTS_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Roots the same pressure QP under cold fixed APG, zero-diagonal residual retention and a directional-curvature guard; clean W1 and external references remain pending |
+| [W0H accelerated pressure reclosure](../../plans/continuum-water/00h-accelerated-pressure-profile-reclosure.md) | `ACCELERATED_PRESSURE_ROOTS_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Roots the same pressure QP under cold fixed APG, zero-diagonal residual retention and a directional-curvature guard; clean W1 remains pending |
+| [W0I external reference attestation](../../plans/continuum-water/00i-external-reference-geometry-attestation.md) | `REFERENCE_GEOMETRY_ATTESTATION_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Rejects geometry-violating external trajectories, freezes three exact hard-clearance reference hashes and leaves W0F/G/H unchanged |
+| [W1 hard-clearance reference evidence](../continuum-water-w1-hard-clearance-reference-reclosure-2026-08-18.md) | `REFERENCE_PROFILE_SELECTED / CLEAN_W1_PENDING` | Unchanged W0H passes dam-break front/height and orifice transfer under the original thresholds; dirty diagnostics give no W1 credit |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-*` ProductChecks | `NOT_RUN` | No solver, performance, persistence or production claim is admissible |
@@ -137,11 +140,26 @@
 - **Current blocker:** Package 10T has no calibrated exact constants/curve
   thresholds; terrain code must not start until it closes them.
 
+### D-007 — External water references share hard geometry
+
+- **Observation:** the original SPlisHSPlasH dam-break reference crosses the
+  analytical wall before the first W0H curve mismatch; matching its later
+  height would require accepting forbidden states.
+- **Decision:** W0I keeps W0F/G/H immutable, adds an independent predictive
+  hard-contact adapter and requires three exact twice-reproduced reference
+  hashes before production-credit execution.
+- **Rejected:** no-contact curve matching, density-map/barrier tuning against
+  the invalid splash, symmetric explosive internal Akinci support and
+  shape-only `CWREFV1` admission.
+- **Reconsider when:** a new pinned independent implementation supplies a
+  predeclared profile that passes the same hard geometry and unchanged curve
+  thresholds; it requires a new attestation root and cannot inherit W0I credit.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: fixed-point-boundary CPU DFSPH passes the Linux clean-water corpus | W0F/W0G freeze the physical and energy inputs; W0H APG completes the entire internal discriminator with exact repeat/order roots | The complete pass is diagnostic and predates W0H root freeze; required hydro/dam-break/orifice references are missing | Complete the clean W0H-rooted Linux W1 serial corpus and required external comparisons |
+| H1: fixed-point-boundary CPU DFSPH passes the Linux clean-water corpus | W0H APG completes the internal discriminator; unchanged W0H passes W0I-attested dam-break/orifice curves; external files reproduce byte-identically | All complete reference comparisons are dirty diagnostic runs with no W1 credit | Complete the clean W0I-attested Linux W1 serial corpus twice |
 | H2: 50k CPU water fits the current THOTH budget | bounded sealed region and fixed profile | published prior art does not prove Next Engine 240 Hz cost | W2 exact 10k/50k/100k workload after W1 PASS |
 | H3: one-pass coupling is stable for the basin crate | narrow consumer and fixed cadence | fast impact/added-mass behavior is unmeasured | W3 float/impact corpus and reaction closure |
 | H4: one Drucker-Prager profile covers the first wheel scenario | established dry-sand model | exact source material and curve thresholds are not selected | Package 10T calibration closure |
@@ -158,18 +176,19 @@
 7. [W0F geometry/capacity/root closure](../../plans/continuum-water/00f-geometry-capacity-and-root-closure.md).
 8. [W0G impact-energy reclosure](../../plans/continuum-water/00g-impact-energy-contract-reclosure.md).
 9. [W0H accelerated-pressure reclosure](../../plans/continuum-water/00h-accelerated-pressure-profile-reclosure.md).
-10. [Sealed pressure-solver research](../continuum-water-w1-sealed-pressure-solver-research-2026-08-18.md).
-11. [Research report](../continuum-material-physics-research-2026-08-16.md).
+10. [W0I external reference attestation](../../plans/continuum-water/00i-external-reference-geometry-attestation.md).
+11. [Hard-clearance reference evidence](../continuum-water-w1-hard-clearance-reference-reclosure-2026-08-18.md).
+12. [Sealed pressure-solver research](../continuum-water-w1-sealed-pressure-solver-research-2026-08-18.md).
+13. [Research report](../continuum-material-physics-research-2026-08-16.md).
 
 ## Next action
 
-1. Commit W0H and run its closure twice from a clean tree; compare bounded
-   semantic projections exactly.
+1. Commit W0I and run the complete W1 Linux corpus twice from the clean tree
+   with all three exact external references.
 2. Fail on the first named scenario/criterion; do not retry, change a root,
    loosen a threshold or continue a partial corpus after failure.
-3. Run the complete W0H-rooted Linux corpus from hydro and compare every
-   bounded root; obtain independent hydro/dam-break/orifice curves and leave
-   Windows equality explicitly deferred for production promotion.
+3. Compare corpus, scenario, repeat, permutation and external-attestation
+   roots; leave Windows equality explicitly deferred for production promotion.
 4. Promote only if the documented W1 exit criteria pass. Do not start W2, WG,
    PhysX coupling, runtime/public contracts or ProductCheck claims meanwhile.
 
@@ -197,6 +216,9 @@
   rejected standard/projected-expansion MPRGP variants or use APG step `0.5`.
 - Drop zero-inverse-diagonal rows from compression/KKT reductions, introduce
   backtracking/dynamic steps or hide pressure state between canonical frames.
+- Reuse the old non-clearance SPlisHSPlasH files, tune density/contact to their
+  invalid splash height, or admit an external file by shape without exact W0I
+  hash attestation.
 - Start terrain code while Package 10T remains profile-unclosed.
 
 ## Handoff

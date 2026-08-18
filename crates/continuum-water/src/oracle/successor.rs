@@ -15,8 +15,8 @@ use crate::calibration::successor::build_density_support;
 use crate::error::{
     BOUNDARY_CAPACITY_EXCEEDED, BOUNDARY_NEIGHBOR_CAPACITY_EXCEEDED, INVARIANT_MISMATCH,
     NEIGHBOR_CAPACITY_EXCEEDED, NONDETERMINISTIC_RESULT, NUMERIC_OVERFLOW,
-    REPORT_CAPACITY_EXCEEDED, SAMPLE_CAPACITY_EXCEEDED, SCENARIO_INVALID, STEP_CAPACITY_EXCEEDED,
-    WaterError,
+    REFERENCE_CORPUS_MISMATCH, REPORT_CAPACITY_EXCEEDED, SAMPLE_CAPACITY_EXCEEDED,
+    SCENARIO_INVALID, STEP_CAPACITY_EXCEEDED, WaterError,
 };
 use crate::hash::{self, AcceleratedPressureRoots, TrajectoryHasher};
 use crate::model::{
@@ -146,6 +146,7 @@ struct RootReport {
     w0h_solver_profile: String,
     w0h_corpus: String,
     w0h_execution_profile: String,
+    w1_reference_attestation: String,
 }
 
 #[derive(Serialize)]
@@ -215,7 +216,9 @@ struct ReferenceEvidence {
     required: bool,
     status: String,
     path: Option<String>,
+    expected_sha256: Option<String>,
     sha256: Option<String>,
+    attested: Option<bool>,
     comparisons: Vec<CurveComparison>,
 }
 
@@ -305,7 +308,7 @@ fn new_report(
 ) -> W1Report {
     let run_execution_profile_root = effective_execution_profile_root(request.solver_mode, roots);
     W1Report {
-        report_schema: "nextengine.continuum-water.w1-linux-serial.v3".to_owned(),
+        report_schema: "nextengine.continuum-water.w1-linux-serial.v4".to_owned(),
         classification: "W1_LINUX_SERIAL_RESEARCH_ONLY".to_owned(),
         tool_commit: tool_commit(repository_root),
         tool_tree_state: tool_tree_state(repository_root),
@@ -336,6 +339,7 @@ fn new_report(
             w0h_solver_profile: hash::hex(&roots.solver_profile),
             w0h_corpus: hash::hex(&roots.corpus),
             w0h_execution_profile: hash::hex(&roots.execution_profile),
+            w1_reference_attestation: hash::hex(&reference::attestation_profile_root()),
         },
         requested_scenario: request.scenario_id.clone(),
         capacity_thresholds: capacity_thresholds(),
@@ -364,6 +368,24 @@ fn effective_execution_profile_root(
     digest.update(roots.execution_profile);
     digest.update(mode.label().as_bytes());
     digest.finalize().into()
+}
+
+fn validate_reference_attestation(
+    solver_mode: W1SolverMode,
+    required: bool,
+    scenario_id: &str,
+    actual_sha256: &str,
+) -> Result<bool, WaterError> {
+    let attested = reference::expected_sha256(scenario_id) == Some(actual_sha256);
+    if solver_mode == W1SolverMode::FrozenSuccessor && required && !attested {
+        return Err(WaterError::new(
+            REFERENCE_CORPUS_MISMATCH,
+            format!(
+                "{scenario_id} reference SHA-256 is not admitted by the W1 attestation profile"
+            ),
+        ));
+    }
+    Ok(attested)
 }
 
 fn execute(
@@ -486,7 +508,9 @@ fn scenario_evidence(
                 "NOT_PROVIDED".to_owned()
             },
             path: reference_path.map(|path| path.display().to_string()),
+            expected_sha256: reference::expected_sha256(selected.id).map(str::to_owned),
             sha256: None,
+            attested: None,
             comparisons: Vec::new(),
         },
         wall_clock_nanoseconds: 0,
@@ -502,6 +526,27 @@ fn execute_scenario(
 ) -> Result<(), WaterError> {
     let boundary = build_density_support(selected.geometry)?;
     let scenario_root = roots.scenario_root(selected.id)?;
+    let imported_reference = if let Some(path) = reference_path {
+        let imported = reference::load(path, selected, &scenario_root, evidence.sample_count)?;
+        evidence.reference.sha256 = Some(imported.sha256.clone());
+        let attested = match validate_reference_attestation(
+            solver_mode,
+            evidence.reference.required,
+            selected.id,
+            &imported.sha256,
+        ) {
+            Ok(attested) => attested,
+            Err(error) => {
+                evidence.reference.status = "FAILED_ATTESTATION".to_owned();
+                evidence.reference.attested = Some(false);
+                return Err(error);
+            }
+        };
+        evidence.reference.attested = Some(attested);
+        Some(imported)
+    } else {
+        None
+    };
     let execution_profile_root = effective_execution_profile_root(solver_mode, roots);
     let order = primary_order(selected);
     let primary = run_trajectory(
@@ -603,8 +648,7 @@ fn execute_scenario(
             }
         }
     }
-    if let Some(path) = reference_path {
-        let imported = reference::load(path, selected, &scenario_root, evidence.sample_count)?;
+    if let Some(imported) = imported_reference {
         let comparisons = reference::compare_curves(selected, &primary.output_metrics, &imported)?;
         if let Some(failed_metric) = comparisons
             .iter()
@@ -612,7 +656,6 @@ fn execute_scenario(
             .map(|comparison| comparison.metric)
         {
             evidence.reference.status = "FAILED".to_owned();
-            evidence.reference.sha256 = Some(imported.sha256);
             evidence.reference.comparisons = comparisons;
             return Err(WaterError::new(
                 INVARIANT_MISMATCH,
@@ -622,8 +665,11 @@ fn execute_scenario(
                 ),
             ));
         }
-        evidence.reference.status = "PASS".to_owned();
-        evidence.reference.sha256 = Some(imported.sha256);
+        evidence.reference.status = if evidence.reference.attested == Some(true) {
+            "PASS".to_owned()
+        } else {
+            "PASS_UNATTESTED_RESEARCH_ONLY".to_owned()
+        };
         evidence.reference.comparisons = comparisons;
     }
     evidence.status = if evidence.reference.required && evidence.reference.status != "PASS" {

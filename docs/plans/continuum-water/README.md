@@ -26,7 +26,10 @@ direction on every observed sealed-48k iteration. W0H retains the physical QP
 and operation ceiling but roots a fixed accelerated projected-gradient solve
 with compression plus projected-KKT acceptance. The successor profile is
 authorized only for the Linux W1 serial corpus; it is not selected for
-production. Required external references are still missing and no
+production. W0I rejects the earlier geometry-violating external trajectories,
+freezes three twice-reproduced hard-clearance reference hashes and requires
+exact attestation before production-credit execution. Clean full-corpus W1
+evidence is still pending and no
 `CONTINUUM-*` ProductCheck has run.
 
 This directory is the resume and execution surface for a dedicated water
@@ -57,13 +60,14 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
                  └─ W0F Geometry + successor roots CLOSED / W1_AUTHORIZED
                      └─ W0G Impact energy semantics CLOSED / W1_AUTHORIZED
                          └─ W0H Accelerated pressure profile CLOSED / W1_AUTHORIZED
-                             └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / IN_PROGRESS
-                                 ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
-                                 │   └─ W3 One-pass PhysX coupling            NOT_STARTED
-                                 │       └─ W4 Basin + crate + debug view     NOT_STARTED
-                                 │           └─ W5 Exact active persistence   NOT_STARTED
-                                 │               └─ W6 Production promotion   NOT_STARTED
-                                 └─ WG Optional GPU correspondence mirror     NOT_STARTED / NON_BLOCKING
+                             └─ W0I External reference attestation CLOSED / W1_AUTHORIZED
+                                 └─ W1 Serial CPU oracle + external corpus IMPLEMENTED / IN_PROGRESS
+                                     ├─ W2 Deterministic parallel CPU + benchmark NOT_STARTED
+                                     │   └─ W3 One-pass PhysX coupling            NOT_STARTED
+                                     │       └─ W4 Basin + crate + debug view     NOT_STARTED
+                                     │           └─ W5 Exact active persistence   NOT_STARTED
+                                     │               └─ W6 Production promotion   NOT_STARTED
+                                     └─ WG Optional GPU correspondence mirror     NOT_STARTED / NON_BLOCKING
 ```
 
 | Stage | Specification | Exit evidence | Blocks |
@@ -76,6 +80,7 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
 | W0F | [Geometry, capacity and successor-root closure](00f-geometry-capacity-and-root-closure.md) | Outer/internal geometry semantics, admitted capacities and successor roots frozen | W1 resume |
 | W0G | [Impact energy-contract reclosure](00g-impact-energy-contract-reclosure.md) | Reversible absolute drift and static-impact energy-excess semantics rooted without changing W0F operations | W1 resume |
 | W0H | [Accelerated pressure-profile reclosure](00h-accelerated-pressure-profile-reclosure.md) | Same W0F pressure QP closes under a rooted fixed APG schedule with independent compression/KKT equality | W1 resume |
+| W0I | [External reference geometry attestation](00i-external-reference-geometry-attestation.md) | Geometry-safe external profile and three exact reference hashes frozen without changing W0F/G/H | W1 resume |
 | W1 | [Serial CPU DFSPH oracle](01-serial-cpu-dfsph-oracle.md) | `CONTINUUM-WATER-REF-P1 = PASS` on the same-target reference profile | main-roadmap activation, W2, WG |
 | W2 | [Deterministic parallel CPU and performance](02-deterministic-parallel-and-performance.md) | Worker/order exactness and standalone `50k` THOTH stop-target PASS | W3 |
 | W3 | [One-pass PhysX coupling](03-one-pass-physx-coupling.md) | `CONTINUUM-COUPLING-P1 = PASS` under one composition DAG, exact exchange tuple and one PhysX integration | W4 |
@@ -148,8 +153,19 @@ curvature bound and dual compression/projected-KKT acceptance. Production and
 an independent first-step calculator match exactly. The candidate completes
 the entire internal discriminator, including two identical still and sealed
 runs and all three storage orders. Those were diagnostic pre-freeze runs and
-provide no W1 corpus credit: the next action is a clean W0H-rooted Linux rerun
-plus independent hydro/dam-break/orifice references.
+provide no W1 corpus credit.
+
+The first external dam-break comparison then failed only because the pinned
+SPlisHSPlasH trajectory crossed the analytical wall: it exceeded the canonical
+penetration allowance at step 4 and escaped at step 28. Geometry-safe solver
+counterfactuals could not match that invalid splash height. W0I therefore
+recloses the reference profile rather than the W0H equations. Independently
+implemented predictive hard contact produces twice-identical hydro,
+dam-break and orifice files. Unchanged W0H passes dam-break front/height at
+`0.3157% / 0.8419%` and `2.3296% / 6.4657%` RMSE/maximum, and orifice transfer
+at `0.1624% / 0.3000%`, under the original `5% / 10%` gates. The next action
+is two clean W0I-attested full Linux corpus runs. See the
+[hard-clearance reference report](../../development/continuum-water-w1-hard-clearance-reference-reclosure-2026-08-18.md).
 
 Commit `74730e208cfeb70b05a3ec44b2bb9c2f5002fe97` implements the serial oracle.
 On a clean exact-profile run, `CW-FREEFALL-001` passes all 97 canonical frames

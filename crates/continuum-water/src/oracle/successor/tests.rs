@@ -145,3 +145,37 @@ fn diagnostic_solver_requires_one_explicit_scenario() {
         .is_ok()
     );
 }
+
+#[test]
+fn frozen_reference_attestation_rejects_unknown_hash_but_diagnostic_reports_it() {
+    let expected = reference::expected_sha256("CW-DAMBREAK-001").unwrap();
+    assert!(
+        validate_reference_attestation(
+            W1SolverMode::FrozenSuccessor,
+            true,
+            "CW-DAMBREAK-001",
+            expected,
+        )
+        .unwrap()
+    );
+    assert_eq!(
+        validate_reference_attestation(
+            W1SolverMode::FrozenSuccessor,
+            true,
+            "CW-DAMBREAK-001",
+            "unattested",
+        )
+        .unwrap_err()
+        .code(),
+        REFERENCE_CORPUS_MISMATCH
+    );
+    assert!(
+        !validate_reference_attestation(
+            W1SolverMode::FrozenObserveEnergyDiagnostic,
+            true,
+            "CW-DAMBREAK-001",
+            "unattested",
+        )
+        .unwrap()
+    );
+}
