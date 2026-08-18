@@ -13,6 +13,8 @@ from . import SERVICE_PROTOCOL
 from .benchmark import (
     BenchmarkError,
     benchmark_service,
+    evaluate_affect_calibration,
+    load_affect_calibration_manifest,
     load_benchmark_wav,
     write_report,
 )
@@ -64,6 +66,20 @@ def parser() -> argparse.ArgumentParser:
     benchmark.add_argument("--runs", type=int, default=2)
     benchmark.add_argument("--chunk-ms", type=int, default=80)
     benchmark.add_argument("--out", type=Path, required=True)
+    evaluate_affect = commands.add_parser(
+        "evaluate-affect",
+        help="replay an external held-out affect manifest through the resident service",
+    )
+    evaluate_affect.add_argument("--ready-file", type=Path, required=True)
+    evaluate_affect.add_argument("--manifest", type=Path, required=True)
+    evaluate_affect.add_argument(
+        "--mode",
+        choices=("paced", "unpaced"),
+        default="unpaced",
+        help="unpaced preserves sample-clock behavior without claiming live wall latency",
+    )
+    evaluate_affect.add_argument("--chunk-ms", type=int, default=80)
+    evaluate_affect.add_argument("--out", type=Path, required=True)
     return root
 
 
@@ -162,6 +178,43 @@ def main(argv: Sequence[str] | None = None) -> int:
                     samples,
                     mode=arguments.mode,
                     runs=arguments.runs,
+                    chunk_ms=arguments.chunk_ms,
+                )
+            )
+            write_report(arguments.out, report)
+            print(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "status": "complete",
+                        "report": str(arguments.out.expanduser().resolve()),
+                        "summary": report["summary"],
+                    },
+                    ensure_ascii=False,
+                ),
+                flush=True,
+            )
+            return 0
+        except (BenchmarkError, ClientError) as error:
+            print(
+                json.dumps(
+                    {"schema_version": 1, "status": "error", "error": str(error)},
+                    ensure_ascii=False,
+                ),
+                file=sys.stderr,
+            )
+            return 2
+        except KeyboardInterrupt:
+            return 130
+    if arguments.command == "evaluate-affect":
+        try:
+            ready = load_ready_file(arguments.ready_file)
+            manifest = load_affect_calibration_manifest(arguments.manifest)
+            report = asyncio.run(
+                evaluate_affect_calibration(
+                    ready,
+                    manifest,
+                    mode=arguments.mode,
                     chunk_ms=arguments.chunk_ms,
                 )
             )

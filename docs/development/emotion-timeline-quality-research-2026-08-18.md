@@ -77,34 +77,55 @@ the base model.
 
 `Aniemore/resd` is now used only as an external, held-out calibration artifact,
 not as a training input. The external manifest
-`/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v1/manifest.json`
+`/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v2/manifest.json`
 selects ten deterministic, actor-stratified test clips for each of the seven
-RESD labels. It contains 70 normalised 16 kHz mono WAV files (6 m 11 s total),
+RESD labels. It contains 70 normalised 16 kHz mono WAV files (6 m 13 s total),
 the source revision `8db7068a7717e48d829c2baa32e4908972611138`, file hashes,
-and the explicit label map. The dataset's card declares MIT; raw files and the
-manifest remain outside Git.
+an explicit label map, and a minimum duration of one second. The dataset's card
+declares MIT; raw files and the manifest remain outside Git. The prior v1
+selection contained one 720 ms neutral clip and is retained only as a
+diagnostic artifact, not the comparison baseline.
 
 The pinned `emotion2vec_plus_base` checkpoint was loaded once on the local RTX
-3080 and measured against whole normalised utterances. Of the 60 clips with an
-exact class mapping, top-1 matched 28 (`46.7%`): angry `7/10`, disgusted
-`5/10`, fearful `6/10`, happy `3/10`, neutral `3/10`, sad `4/10`. The ten RESD
+3080 and measured against whole normalised v2 utterances. Of the 60 clips with
+an exact class mapping, top-1 matched 29 (`48.3%`): angry `7/10`, disgusted
+`5/10`, fearful `6/10`, happy `3/10`, neutral `4/10`, sad `4/10`. The ten RESD
 `enthusiasm` clips are intentionally unscored because the checkpoint exposes no
 equivalent label; it predicted `other` for six of them. Mean model-only
-inference was 27.6 ms per clip after load, maximum 341 ms. The complete,
+inference was 28.0 ms per clip after load, maximum 321 ms. The complete,
 content-free report is
-`/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v1/emotion2vec-plus-base-report.v1.json`
+`/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v2/emotion2vec-plus-base-report.v1.json`
 with SHA-256
-`587b3e704e2d01604c0a365d5bc7924aae926dfe45a961bb610f97331ce0326e`.
+`4dc1ef57ceb39c6ec21f4b9507dfaf104e32a4928ad755ae41c4bce954d569de`.
+
+The same v2 clips were then replayed through the public resident WebSocket
+path with 80 ms logical frames. All 70 clips were admitted as speech and all
+70 yielded at least one affect observation, so this screen provides no evidence
+that the current VAD loses voiced RESD material. The final timeline result was
+23/60 exact mapped top-1 (`38.3%`), with eight final abstentions. Per mapped
+class it was angry `5/10`, disgusted `2/10`, fearful `6/10`, happy `3/10`,
+neutral `4/10` and sad `3/10`. Thus the VAD/window/smoothing path reduced this
+small-screen score by ten percentage points relative to whole-utterance model
+inference; do not attribute that gap to VAD. The external privacy-preserving
+report is
+`/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v2/timeline-base-report.v1.json`
+with SHA-256
+`726c58c1540547f012c1d8b34cee85a338bcbd1ebd7b9affd62fba44b50e024d`.
+It omits PCM and transcript text. Its 3.44 s / 7.45 s p50/p95
+finish-to-final times are **not** Live latency: this quality run used unpaced
+burst ingress, which deliberately queues all 80 ms ASR frames before each
+finish.
 
 This is a small acted-speech screen, not a deployment-quality or probability
-calibration claim: it does not exercise streaming VAD admission, overlapping
-windows, smoothing or natural microphone speech. It does establish that the
-base checkpoint must not be treated as a reliable Russian basic-emotion
-classifier, especially for happy and neutral. Do not retune VAD thresholds or
-change the public label semantics to improve this score. The next comparison
-must replay the same frozen clips through the full speech-only timeline path,
-then compare base and large on the identical manifest and report abstentions
-separately.
+calibration claim: it does not exercise natural microphone speech, and the
+unpaced path is not a latency test. It does establish that the base checkpoint
+must not be treated as a reliable Russian basic-emotion classifier, especially
+for happy, sad and disgusted speech; it also separates the current VAD result
+from the later temporal-aggregation loss. Do not retune VAD thresholds,
+smoothing thresholds or public label semantics to improve this held-out score.
+The next comparison must use the frozen v2 clips for direct and full-path base
+versus-large measurements, report abstentions separately, and only then decide
+whether a bounded smoothing-policy experiment is justified.
 
 ## Model shortlist (research, not an approval to install)
 
@@ -149,8 +170,8 @@ evaluation manifest is therefore the release criterion. [ACL paper](https://acla
 
 ## Next smallest action
 
-Replay the frozen RESD-70 manifest through the resident VAD/window/smoothing
-path and add per-clip admission, final-label and abstention measurements. Then
-run the same evaluation for the pinned `emotion2vec_plus_large` candidate.
-Keep the actual-microphone quiet-room calibration and a separate labelled live
-checklist: the acted RESD screen does not replace them.
+Run direct and full-path v2 evaluation for the pinned
+`emotion2vec_plus_large` candidate without changing the label map, VAD or
+smoothing policy. Keep a separate paced latency benchmark plus actual-microphone
+quiet-room calibration and a labelled live checklist: the acted RESD screen
+does not replace them.

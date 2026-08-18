@@ -173,3 +173,31 @@ omits audio and transcript content. The terminal `metrics` payload keeps the
 last 64 job records on the wire, while `jobs_total` and `job_summary` retain
 exact counts/totals/percentiles for long turns; any future oversized event is
 returned as one terminal protocol error rather than leaving the client waiting.
+
+## Held-out affect evaluation
+
+`evaluate-affect` replays a previously prepared external calibration manifest
+through the public resident WebSocket path. This exercises the production VAD,
+emotion-window cadence and final smoothing rather than calling emotion2vec
+directly. It verifies every local WAV hash before use and writes only clip IDs,
+source labels, final expression/admission diagnostics, timing and model lineage;
+audio and ASR transcripts are omitted. The command is evaluation only: it never
+trains a model or adjusts model/VAD thresholds.
+
+```bash
+~/.cache/nextengine/emotion2vec-plus-base/venv/bin/next-speech-timeline \
+  evaluate-affect \
+  --ready-file /path/outside/repository/speech-timeline-ready.json \
+  --manifest /path/outside/repository/resd-70-v1/manifest.json \
+  --mode unpaced \
+  --chunk-ms 80 \
+  --out /path/outside/repository/resd-70-v1/timeline-base-report.v1.json
+```
+
+`unpaced` is the default for a compact model-quality screen: it preserves each
+clip's 16 kHz sample order and the configured 80 ms logical ingress cadence, but
+does not claim realtime wall latency. Use `--mode paced` when latency is part of
+the question. A manifest must be outside the repository and use the
+`nextengine.speech-timeline.manual-affect-calibration-set` schema; all selected
+audio must be external, 16 kHz mono signed-16-bit PCM WAV, at most 30 seconds
+per clip, and match the manifest's `normalized_audio_sha256`.

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from pathlib import Path
 import stat
 import tempfile
 import time
 import unittest
+import wave
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -15,7 +17,11 @@ from websockets.exceptions import InvalidStatus
 
 from nextengine_speech_timeline.adapters.base import AffectObservation
 from nextengine_speech_timeline.adapters.voxtral_transcribe_cpp import TranscriptRevision
-from nextengine_speech_timeline.benchmark import benchmark_service
+from nextengine_speech_timeline.benchmark import (
+    benchmark_service,
+    evaluate_affect_calibration,
+    load_affect_calibration_manifest,
+)
 from nextengine_speech_timeline.microphone_client import ReadyInfo, run_websocket_session
 from nextengine_speech_timeline.metrics import ModelJobMetric
 from nextengine_speech_timeline.protocol import MAX_JSON_BYTES, encode_event, event
@@ -215,6 +221,55 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         activity = updates[-1]["vocal_affect"]["speech_activity"]
         self.assertEqual(activity[0]["state"], "no_speech")
         self.assertEqual(updates[-1]["vocal_affect"]["raw_observations"], [])
+
+    async def test_held_out_calibration_uses_websocket_vad_timeline_and_omits_text(self) -> None:
+        root = Path(self.temp.name) / "calibration"
+        audio = root / "audio" / "neutral.wav"
+        audio.parent.mkdir(parents=True)
+        with wave.open(str(audio), "wb") as destination:
+            destination.setnchannels(1)
+            destination.setsampwidth(2)
+            destination.setframerate(16_000)
+            destination.writeframes(b"\x40\x1f" * 40_000)
+        audio_hash = hashlib.sha256(audio.read_bytes()).hexdigest()
+        manifest_path = root / "manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "kind": "nextengine.speech-timeline.manual-affect-calibration-set",
+                    "source": {"dataset_id": "test"},
+                    "clips": [
+                        {
+                            "clip_id": "neutral-1",
+                            "source_emotion": "neutral",
+                            "expected_emotion2vec_label": "neutral",
+                            "relative_audio_path": "audio/neutral.wav",
+                            "normalized_audio_sha256": f"sha256:{audio_hash}",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        report = await evaluate_affect_calibration(
+            ReadyInfo(
+                uri=self.service.uri,
+                token=self.ready["token"],
+                protocol=self.ready["protocol"],
+                bounds={},
+                models=self.ready["models"],
+                model_identity=self.ready["model_identity"],
+            ),
+            load_affect_calibration_manifest(manifest_path),
+            mode="unpaced",
+            chunk_ms=80,
+        )
+        self.assertEqual(report["summary"]["clips_complete"], 1)
+        self.assertEqual(report["summary"]["speech_admitted_clips"], 1)
+        self.assertEqual(report["summary"]["exact_top1_matches"], 1)
+        self.assertEqual(report["rows"][0]["result"]["final_label"], "neutral")
+        self.assertNotIn("готово", json.dumps(report, ensure_ascii=False))
 
     async def test_vad_calibration_is_reflected_in_session_and_final_metrics(self) -> None:
         async with connect(self.service.uri, compression=None) as websocket:
