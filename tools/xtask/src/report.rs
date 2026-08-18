@@ -282,6 +282,9 @@ pub struct PlatformDetailsV1 {
 pub struct ContentPackageDetailsV1 {
     pub records: usize,
     pub chunks: usize,
+    pub creator_records: usize,
+    pub creator_chunks: usize,
+    pub creator_composition_lock_hash: String,
     pub mechanic_packages: usize,
     pub luau_packages: usize,
     pub wasm_plugins: usize,

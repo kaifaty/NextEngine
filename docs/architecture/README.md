@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.50 |
+| Версия | 2.51 |
 | Последняя проверка | 2026-08-18 |
-| Заменяет | INDEX-001 2.49; records the completed R5 procedural baseline through R5j while leaving optional/post-baseline breadth open |
+| Заменяет | INDEX-001 2.50; records the first bounded R6 creator CLI and independent second-project consumer |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -159,15 +159,15 @@ traceability — навигационная карта, не admission authority
 | SPEC-06 | [AI agents, perception и memory](06-ai-agents-perception-and-memory.md) | Accepted |
 | SPEC-07 | [RPG, scripting и plugins](07-rpg-scripting-and-plugins.md) | Accepted |
 | SPEC-08 | [Audio, navigation и world services](08-audio-navigation-and-world-services.md) | Accepted audio plus bounded engine-owned graph/query baseline; broader navmesh/traversal remains Proposed |
-| SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted; includes the Linux-runnable `physical-character` conformance command |
+| SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted; includes repository ProductChecks plus public `next project validate/cook` |
 | SPEC-10 | [Gothic importer boundary](10-gothic-importer-boundary.md) | Accepted |
-| SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted |
-| SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted; commit-independent risk-scoped validation, documentation-only cheap path and bounded R5 milestone checks |
+| SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted; creator paths are confined after symlink resolution and arbitrary output roots fail closed |
+| SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted; risk-scoped validation plus bounded R5 and R6a milestone matrices |
 | SPEC-13 | [Gameplay mechanics и mod packages](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted |
 | SPEC-14 | [Physical archetypes, BodySchema, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted hierarchy/ownership; fixed-humanoid BodySchema V1 is current through SPEC-35, advanced skill/adaptation/family profiles remain Proposed |
-| SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted; R5j uses repeated production generations with immutable contact/checkpoint probes |
+| SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted; includes the immutable repeated creator validate/cook matrix without a mutable backdoor |
 | SPEC-16 | [Text-canonical multimodal dialogue и model packs](16-text-canonical-multimodal-dialogue-and-model-packs.md) | Proposed |
-| SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
+| SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted; the public creator CLI projects the same exact V7 cook/activation path |
 | SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted; future qualitative body-status projection remains consumer-driven |
 | SPEC-19 | [Current RPG domain state](19-rpg-domain-and-narrative-state.md) | Accepted |
 | SPEC-20 | [World calendar, authored routines and bounded population lifecycle](20-world-simulation-and-population-lifecycle.md) | Accepted R4a calendar/routine, R4b population/navigation, R4c cognition consumer and bounded R4d activity/tier/bulk-time vertical |
@@ -286,6 +286,7 @@ traceability — навигационная карта, не admission authority
 | ADR-080 | [Neural assistance as bounded proposals](adr/080-neural-assistance-as-bounded-proposals.md) | Proposed report/shadow-only research after classical promotion, narrowed by ADR-081 |
 | ADR-081 | [World-dynamics gap closure and promotion guardrails](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) | Accepted promotion guardrails for successor scheduling, composition, exact continuation, float execution, fault/capacity/budget semantics and domain closures; no current runtime/schema activation |
 | ADR-082 | [Linux-first development and deferred Windows host](adr/082-linux-first-development-and-deferred-windows-host.md) | Accepted active Linux development/report host; Windows/THOTH execution and paired release evidence deferred until explicit pre-R7 bring-up |
+| ADR-083 | [Public creator project CLI vertical](adr/083-public-creator-project-cli-vertical.md) | Accepted bounded `next project validate/cook`, Creator Command Report V1, confined atomic output and independent creator project |
 
 ## Proposed tracks
 

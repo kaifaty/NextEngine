@@ -22,6 +22,7 @@ impl ProjectAuthoringError {
             Self::InvalidProvenance | Self::HashMismatch(_) => "CONTENT_PROVENANCE_INVALID",
             Self::DuplicateIdentity => "CONTENT_ID_DUPLICATE",
             Self::MissingReference(_) => "CONTENT_REFERENCE_MISSING",
+            Self::SourceLimitExceeded { .. } => "CONTENT_SOURCE_LIMIT_EXCEEDED",
         }
     }
 }
@@ -67,6 +68,12 @@ impl Display for ProjectAuthoringError {
                 write!(formatter, "authoring reference is missing: {reference}")
             }
             Self::HashMismatch(subject) => write!(formatter, "authoring hash mismatch: {subject}"),
+            Self::SourceLimitExceeded { actual, limit } => {
+                write!(
+                    formatter,
+                    "authoring source size {actual} exceeds limit {limit}"
+                )
+            }
         }
     }
 }

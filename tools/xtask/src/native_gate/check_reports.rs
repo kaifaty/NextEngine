@@ -219,6 +219,10 @@ fn parse_check_report(
                     "composition_lock_hash",
                     &report.details.composition_lock_hash,
                 ),
+                (
+                    "creator_composition_lock_hash",
+                    &report.details.creator_composition_lock_hash,
+                ),
             ] {
                 validate_hash(field, value)?;
             }

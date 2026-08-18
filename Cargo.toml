@@ -24,6 +24,7 @@ members = [
     "crates/script-luau",
     "crates/verification",
     "crates/world",
+    "tools/next-cli",
     "tools/xtask",
 ]
 resolver = "3"
@@ -58,6 +59,7 @@ next_runtime = { path = "crates/runtime" }
 next_script_luau = { path = "crates/script-luau" }
 next_verification = { path = "crates/verification" }
 next_world = { path = "crates/world" }
+next_cli = { path = "tools/next-cli" }
 sha2 = "=0.10.9"
 unicode-normalization = "=0.1.25"
 ash = { version = "=0.38.0", default-features = false, features = ["loaded", "std"] }

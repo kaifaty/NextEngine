@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-11 |
 | Статус | Accepted |
-| Версия | 2.0 |
-| Последняя проверка | 2026-07-25 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md) |
-| Заменяет | SPEC-11 1.7 |
+| Версия | 2.1 |
+| Последняя проверка | 2026-08-18 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md) |
+| Заменяет | SPEC-11 2.0; makes resolved project-root and creator output confinement explicit for the first public creator commands |
 
 ## Назначение
 
@@ -47,6 +47,11 @@
    values;
 6. построить полную staging generation и публиковать её только атомарно;
 7. вернуть stable diagnostic code без частичного результата.
+
+Для project-root allowlist проверка `path traversal` относится и к resolved
+target: безопасно выглядящий relative path через symbolic link не может выйти
+за выбранный project root. Public cook также не принимает symbolic-link output
+или произвольный nonempty directory как content-store root.
 
 Unknown version, hash mismatch, unsupported capability, malformed payload или
 resource-limit violation являются typed failure, а не warning с попыткой

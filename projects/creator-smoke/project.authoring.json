@@ -1,0 +1,452 @@
+{
+  "format": "nextengine.project-authoring.v7",
+  "project": {
+    "project_id": "org.nextengine.creator-smoke",
+    "project_revision": 1
+  },
+  "provenance": {
+    "provenance_id": "nextengine.creator-smoke.provenance.cc0",
+    "license_id": "CC0-1.0",
+    "attribution": "Next Engine Creator Outpost original sample content; CC0-1.0",
+    "source_identity": "urn:nextengine:creator-smoke:outpost-v1",
+    "license_manifest_sha256": "b2d16c628909a1b677f288c3119b31e1032a936294f8e1c3ddccf3c8e35b7ea6",
+    "referenced_sources": [
+      {
+        "logical_source": "urn:nextengine:creator-smoke:original-v1",
+        "relative_path": "assets/original-source.txt",
+        "sha256": "0fe56a7b246d035f3ebb845aee4e63b2bcc16b05fdb5936dd843aa4405d23814",
+        "license_expression": "CC0-1.0",
+        "notice_path": "NOTICE",
+        "source_span": {
+          "relative_path": "assets/original-source.txt",
+          "line": 1,
+          "column": 1
+        }
+      }
+    ],
+    "source_span": {
+      "relative_path": "project.authoring.json",
+      "line": 1,
+      "column": 1
+    }
+  },
+  "partition": {
+    "partition_id": "nextengine.creator-smoke.partition.v1",
+    "coordinate_profile_id": "nextengine.coordinates.right-handed-metres.v1",
+    "chunks": [
+      {
+        "chunk_id": "nextengine.creator-smoke.chunk.outpost",
+        "region_id": "nextengine.creator-smoke.region.outpost",
+        "chunk_asset_id": "17171717171717171717171717171717",
+        "required_asset_ids": [],
+        "source_span": {
+          "relative_path": "project.authoring.json",
+          "line": 1,
+          "column": 1
+        }
+      },
+      {
+        "chunk_id": "nextengine.creator-smoke.chunk.ridge",
+        "region_id": "nextengine.creator-smoke.region.ridge",
+        "chunk_asset_id": "18181818181818181818181818181818",
+        "required_asset_ids": [],
+        "source_span": {
+          "relative_path": "project.authoring.json",
+          "line": 1,
+          "column": 1
+        }
+      },
+      {
+        "chunk_id": "nextengine.creator-smoke.chunk.crossing",
+        "region_id": "nextengine.creator-smoke.region.crossing",
+        "chunk_asset_id": "19191919191919191919191919191919",
+        "required_asset_ids": [],
+        "source_span": {
+          "relative_path": "project.authoring.json",
+          "line": 1,
+          "column": 1
+        }
+      }
+    ]
+  },
+  "records": [
+    {
+      "asset_id": "10101010101010101010101010101010",
+      "record_id": "20102010201020102010201020102010",
+      "kind": "character-definition",
+      "asset_dependencies": [
+        "34343434343434343434343434343434"
+      ],
+      "properties": [
+        {
+          "property_id": "nextengine.creator.role",
+          "value_id": "nextengine.creator-smoke.character.outpost-keeper"
+        }
+      ],
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    },
+    {
+      "asset_id": "11111111111111111111111111111111",
+      "record_id": "21212121212121212121212121212121",
+      "kind": "item-definition",
+      "properties": [
+        {
+          "property_id": "nextengine.creator.role",
+          "value_id": "nextengine.creator-smoke.item.signal-tool"
+        }
+      ],
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    },
+    {
+      "asset_id": "12121212121212121212121212121212",
+      "record_id": "22222222222222222222222222222222",
+      "kind": "dialogue-definition",
+      "properties": [
+        {
+          "property_id": "nextengine.dialogue.entry-node",
+          "value_id": "nextengine.creator-smoke.dialogue.offer"
+        }
+      ],
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    },
+    {
+      "asset_id": "13131313131313131313131313131313",
+      "record_id": "23232323232323232323232323232323",
+      "kind": "quest-definition",
+      "properties": [
+        {
+          "property_id": "nextengine.quest.entry-state",
+          "value_id": "nextengine.creator-smoke.quest.available"
+        }
+      ],
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    },
+    {
+      "asset_id": "14141414141414141414141414141414",
+      "record_id": "24242424242424242424242424242424",
+      "kind": "relationship-definition",
+      "properties": [
+        {
+          "property_id": "nextengine.relationship.dimension",
+          "value_id": "nextengine.creator-smoke.relationship.trust"
+        }
+      ],
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    },
+    {
+      "asset_id": "15151515151515151515151515151515",
+      "record_id": "25252525252525252525252525252525",
+      "kind": "interaction-definition",
+      "persistent_references": [
+        "22222222222222222222222222222222",
+        "23232323232323232323232323232323",
+        "24242424242424242424242424242424"
+      ],
+      "asset_dependencies": [
+        "12121212121212121212121212121212",
+        "13131313131313131313131313131313",
+        "14141414141414141414141414141414"
+      ],
+      "properties": [
+        {
+          "property_id": "nextengine.interaction.definition-id",
+          "value_id": "nextengine.creator-smoke.interaction.accept-signal-run"
+        },
+        {
+          "property_id": "nextengine.interaction.dialogue-transition",
+          "value_id": "nextengine.creator-smoke.transition.dialogue.accept"
+        },
+        {
+          "property_id": "nextengine.interaction.dialogue-source",
+          "value_id": "nextengine.creator-smoke.dialogue.offer"
+        },
+        {
+          "property_id": "nextengine.interaction.dialogue-target",
+          "value_id": "nextengine.creator-smoke.dialogue.accepted"
+        },
+        {
+          "property_id": "nextengine.interaction.quest-transition",
+          "value_id": "nextengine.creator-smoke.transition.quest.accept"
+        },
+        {
+          "property_id": "nextengine.interaction.quest-source",
+          "value_id": "nextengine.creator-smoke.quest.available"
+        },
+        {
+          "property_id": "nextengine.interaction.quest-target",
+          "value_id": "nextengine.creator-smoke.quest.active"
+        },
+        {
+          "property_id": "nextengine.interaction.relationship-source",
+          "value_id": "nextengine.value.i32.0"
+        },
+        {
+          "property_id": "nextengine.interaction.relationship-delta",
+          "value_id": "nextengine.value.i32.5"
+        }
+      ],
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    },
+    {
+      "asset_id": "16161616161616161616161616161616",
+      "record_id": "26262626262626262626262626262626",
+      "kind": "ability-definition",
+      "persistent_references": [
+        "21212121212121212121212121212121"
+      ],
+      "asset_dependencies": [
+        "11111111111111111111111111111111"
+      ],
+      "properties": [
+        {
+          "property_id": "nextengine.ability.definition-id",
+          "value_id": "nextengine.creator-smoke.ability.signal-strike"
+        },
+        {
+          "property_id": "nextengine.ability.semantic-action",
+          "value_id": "nextengine.action.melee"
+        },
+        {
+          "property_id": "nextengine.ability.resource",
+          "value_id": "nextengine.rpg.resource.health"
+        },
+        {
+          "property_id": "nextengine.ability.resource-delta",
+          "value_id": "nextengine.value.i32.-10"
+        },
+        {
+          "property_id": "nextengine.ability.cooldown-ticks",
+          "value_id": "nextengine.value.u32.3"
+        },
+        {
+          "property_id": "nextengine.ability.cooldown-group",
+          "value_id": "nextengine.cooldown.melee"
+        },
+        {
+          "property_id": "nextengine.ability.equipment-slot",
+          "value_id": "nextengine.rpg.equipment-slot.main-hand"
+        }
+      ],
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    },
+    {
+      "asset_id": "17171717171717171717171717171717",
+      "record_id": "27272727272727272727272727272727",
+      "kind": "world-chunk",
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    },
+    {
+      "asset_id": "18181818181818181818181818181818",
+      "record_id": "28282828282828282828282828282828",
+      "kind": "world-chunk",
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    },
+    {
+      "asset_id": "19191919191919191919191919191919",
+      "record_id": "29292929292929292929292929292929",
+      "kind": "world-chunk",
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    }
+  ],
+  "render_records": [
+    {
+      "kind": "texture-rgba8",
+      "asset_id": "31313131313131313131313131313131",
+      "record_revision": 1,
+      "extent": [1, 1, 1],
+      "color_space": "srgb",
+      "alpha": "opaque",
+      "texels": [190, 210, 255, 255],
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    },
+    {
+      "kind": "material",
+      "asset_id": "32323232323232323232323232323232",
+      "record_revision": 1,
+      "texture_asset_id": "31313131313131313131313131313131",
+      "base_color_rgba_u16": [50000, 56000, 65535, 65535],
+      "metallic_u16": 0,
+      "roughness_u16": 65535,
+      "emissive_rgb_u16": [0, 0, 0],
+      "double_sided": false,
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    },
+    {
+      "kind": "b0-profile",
+      "asset_id": "33333333333333333333333333333333",
+      "record_revision": 1,
+      "fallback_material_asset_id": "32323232323232323232323232323232",
+      "fallback_texture_asset_id": "31313131313131313131313131313131",
+      "source_span": {
+        "relative_path": "project.authoring.json",
+        "line": 1,
+        "column": 1
+      }
+    }
+  ],
+  "text_catalogs": [],
+  "audio_records": [],
+  "neutral_animation_catalogs": [],
+  "body_schema_asset": {
+    "asset_id": "34343434343434343434343434343434",
+    "record_revision": 1,
+    "profile_id": "nextengine.body.humanoid-stage0.v1",
+    "compiler_profile_id": "nextengine.body-projection-compiler.stage0.v1",
+    "source_span": {
+      "relative_path": "project.authoring.json",
+      "line": 1,
+      "column": 1
+    }
+  },
+  "world_routine_catalog": null,
+  "world_routine_interaction_binding": null,
+  "world_navigation_catalog": {
+    "schema_version": 1,
+    "catalog_asset_id": "35353535353535353535353535353535",
+    "topology_revision": 1,
+    "edge_cost": 1000
+  },
+  "world_population_catalog": {
+    "schema_version": 1,
+    "catalog_asset_id": "36363636363636363636363636363636",
+    "identity_domain": "nextengine.creator-smoke.population.v1",
+    "courier_ordinal": 99,
+    "courier_transition_start_tick": 1,
+    "courier_initial_node_id": "nextengine.creator-smoke.chunk.outpost",
+    "courier_goal_node_id": "nextengine.creator-smoke.chunk.ridge"
+  },
+  "agent_cognition_catalog": {
+    "schema_version": 2,
+    "catalog_asset_id": "37373737373737373737373737373737",
+    "population_subject_ordinal": 99,
+    "evaluation_start_tick": 1,
+    "evaluation_period_ticks": 1,
+    "retrieval_limit": 4,
+    "goal_switch_threshold_q16": 16384,
+    "emergency_health_threshold": 30,
+    "planner_max_depth": 2,
+    "planner_max_expanded_nodes": 8,
+    "ordinary_goal_id": "nextengine.creator-smoke.goal.reach-ridge",
+    "emergency_goal_id": "nextengine.goal.preserve-self",
+    "navigate_action_id": "nextengine.affordance.request-logical-route",
+    "hold_action_id": "nextengine.affordance.hold-position",
+    "route_known_fact_id": "nextengine.fact.route-known",
+    "travel_needed_fact_id": "nextengine.fact.travel-needed",
+    "emergency_fact_id": "nextengine.fact.health-emergency",
+    "navigate_ready_fact_id": "nextengine.fact.navigate-intent-ready",
+    "hold_ready_fact_id": "nextengine.fact.hold-intent-ready",
+    "seed_beliefs": [
+      {
+        "predicate_id": "nextengine.creator-smoke.belief.ridge-duty",
+        "value_id": "nextengine.belief-value.required",
+        "confidence_q16": 65536
+      }
+    ]
+  },
+  "world_activity_catalog": {
+    "schema_version": 1,
+    "catalog_asset_id": "38383838383838383838383838383838",
+    "commitment_id": "41414141414141414141414141414141",
+    "work_id": "nextengine.creator-smoke.work.signal-run",
+    "workplace_node_id": "nextengine.creator-smoke.chunk.ridge",
+    "work_duration_ticks": 1,
+    "employer_character_id": "42424242424242424242424242424242",
+    "seller_character_id": "43434343434343434343434343434343",
+    "worker_inventory_id": "44444444444444444444444444444444",
+    "seller_inventory_id": "45454545454545454545454545454545",
+    "food_item_id": "46464646464646464646464646464646",
+    "currency_resource_id": "nextengine.creator-smoke.resource.tokens",
+    "hunger_resource_id": "nextengine.resource.hunger",
+    "satiety_resource_id": "nextengine.resource.satiety",
+    "wage_amount": 10,
+    "food_price": 4,
+    "hunger_restore_amount": 100,
+    "satiety_gain_amount": 100,
+    "listener_trust_q16": 49152,
+    "social_action_id": "nextengine.creator-smoke.affordance.commit-signal-run",
+    "await_activity_action_id": "nextengine.creator-smoke.affordance.await-ridge",
+    "settlement_action_id": "nextengine.creator-smoke.affordance.settle-signal-run",
+    "social_ready_fact_id": "nextengine.creator-smoke.fact.signal-run-ready",
+    "activity_ready_fact_id": "nextengine.creator-smoke.fact.ridge-ready",
+    "settlement_ready_fact_id": "nextengine.creator-smoke.fact.settlement-ready",
+    "work_topic_id": "nextengine.creator-smoke.topic.signal-run",
+    "work_claim_predicate_id": "nextengine.creator-smoke.claim.work-available",
+    "work_claim_value_id": "nextengine.creator-smoke.claim-value.signal-run",
+    "work_claim_cited_belief_id": "6161616161616161616161616161616161616161616161616161616161616161",
+    "work_exchange_tick": 1,
+    "work_exchange_expiry_tick": 8,
+    "threat_topic_id": "nextengine.creator-smoke.topic.ridge-threat",
+    "threat_claim_predicate_id": "nextengine.creator-smoke.claim.immediate-threat",
+    "threat_claim_value_id": "nextengine.creator-smoke.claim-value.withdraw-now",
+    "threat_claim_cited_belief_id": "6262626262626262626262626262626262626262626262626262626262626262",
+    "threat_tick": 4,
+    "threat_expiry_tick": 5
+  },
+  "root_asset_ids": [
+    "10101010101010101010101010101010",
+    "11111111111111111111111111111111",
+    "12121212121212121212121212121212",
+    "13131313131313131313131313131313",
+    "14141414141414141414141414141414",
+    "15151515151515151515151515151515",
+    "16161616161616161616161616161616",
+    "17171717171717171717171717171717",
+    "18181818181818181818181818181818",
+    "19191919191919191919191919191919",
+    "33333333333333333333333333333333",
+    "34343434343434343434343434343434",
+    "35353535353535353535353535353535",
+    "36363636363636363636363636363636",
+    "37373737373737373737373737373737",
+    "38383838383838383838383838383838"
+  ],
+  "allowed_presentation_targets": ["none"]
+}

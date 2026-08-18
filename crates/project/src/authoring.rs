@@ -12,6 +12,7 @@ mod schema;
 mod world_services;
 
 use std::collections::BTreeMap;
+use std::io::Read;
 use std::path::{Component, Path};
 
 use self::cognition::build_agent_cognition_catalog;
@@ -88,6 +89,7 @@ use next_contracts::world_routine::{
 };
 
 pub const PROJECT_AUTHORING_MANIFEST_FILE: &str = "project.authoring.json";
+pub const PROJECT_AUTHORING_MAX_SOURCE_BYTES: u64 = 16 * 1024 * 1024;
 
 #[derive(serde::Deserialize)]
 struct ProjectAuthoringFormatProbe {
@@ -111,7 +113,7 @@ fn load_project_authoring_with_override(
     project_directory: &Path,
     project_id_override: Option<&str>,
 ) -> Result<NeutralProjectSourceV7, ProjectAuthoringError> {
-    let manifest_path = project_directory.join(PROJECT_AUTHORING_MANIFEST_FILE);
+    let manifest_path = safe_join(project_directory, PROJECT_AUTHORING_MANIFEST_FILE)?;
     let bytes = read_file(&manifest_path)?;
     let format: ProjectAuthoringFormatProbe = serde_json::from_slice(&bytes)?;
     if format.format != AUTHORING_FORMAT_V7 {
@@ -623,14 +625,54 @@ fn safe_join(root: &Path, relative: &str) -> Result<std::path::PathBuf, ProjectA
             relative.display().to_string(),
         ));
     }
-    Ok(root.join(relative))
+    let path = root.join(relative);
+    let canonical_root =
+        std::fs::canonicalize(root).map_err(|source| ProjectAuthoringError::Io {
+            path: root.display().to_string(),
+            source,
+        })?;
+    if let Ok(canonical_path) = std::fs::canonicalize(&path)
+        && !canonical_path.starts_with(&canonical_root)
+    {
+        return Err(ProjectAuthoringError::UnsafePath(
+            relative.display().to_string(),
+        ));
+    }
+    Ok(path)
 }
 
 fn read_file(path: &Path) -> Result<Vec<u8>, ProjectAuthoringError> {
-    std::fs::read(path).map_err(|source| ProjectAuthoringError::Io {
+    let file = std::fs::File::open(path).map_err(|source| ProjectAuthoringError::Io {
         path: path.display().to_string(),
         source,
-    })
+    })?;
+    let actual = file
+        .metadata()
+        .map_err(|source| ProjectAuthoringError::Io {
+            path: path.display().to_string(),
+            source,
+        })?
+        .len();
+    if actual > PROJECT_AUTHORING_MAX_SOURCE_BYTES {
+        return Err(ProjectAuthoringError::SourceLimitExceeded {
+            actual,
+            limit: PROJECT_AUTHORING_MAX_SOURCE_BYTES,
+        });
+    }
+    let mut bytes = Vec::new();
+    file.take(PROJECT_AUTHORING_MAX_SOURCE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|source| ProjectAuthoringError::Io {
+            path: path.display().to_string(),
+            source,
+        })?;
+    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > PROJECT_AUTHORING_MAX_SOURCE_BYTES {
+        return Err(ProjectAuthoringError::SourceLimitExceeded {
+            actual: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
+            limit: PROJECT_AUTHORING_MAX_SOURCE_BYTES,
+        });
+    }
+    Ok(bytes)
 }
 
 fn asset_id(value: &str) -> Result<AssetId, ProjectAuthoringError> {
@@ -685,4 +727,8 @@ pub enum ProjectAuthoringError {
     DuplicateIdentity,
     MissingReference(String),
     HashMismatch(String),
+    SourceLimitExceeded {
+        actual: u64,
+        limit: u64,
+    },
 }

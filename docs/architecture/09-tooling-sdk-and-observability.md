@@ -4,26 +4,29 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 4.2 |
+| Версия | 4.3 |
 | Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
-| Заменяет | SPEC-09 4.1; adds the fixed Linux-runnable R5j physical-character conformance command without changing the global ProductCheck categories |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md) |
+| Заменяет | SPEC-09 4.2; admits the bounded public R6a `next project validate/cook` surface and Creator Command Report V1 while retaining repository ProductChecks and later R6 tooling as separate boundaries |
 
 ## Scope and authority
 
-Current tooling is the repository-owned `xtask` command surface plus standard
-Cargo tests/lints. It runs production application/content/persistence paths and
-emits bounded structured reports. Tool output, telemetry, captures and profiles
-are diagnostics; they never become gameplay authority.
+Current tooling has two distinct surfaces: repository-owned `xtask` plus
+standard Cargo tests/lints, and the bounded public creator binary `next` from
+ADR-083. Both run production application/content/persistence paths and emit
+bounded structured reports. Tool output, telemetry, captures and profiles are
+diagnostics; they never become gameplay authority.
 
 Subsystems own the semantics of their diagnostics and immutable projections.
 Tooling owns command parsing, stable machine-readable report envelopes, local
 output publication and performance evidence. Test/verification crates are not
 production dependencies and receive no mutation backdoor.
 
-There is no current public `next` CLI, MCP tool protocol, live inspector API,
-`AuthoringContextBundle`, `AgentChangeSet` or agent policy contract. Those are
-R6 possibilities and cannot be required by current development or runtime.
+The only current public `next` commands are project validate and cook below.
+There is no current MCP tool protocol, public scenario/capture command, live
+inspector API, `AuthoringContextBundle`, `AgentChangeSet` or agent policy
+contract. Those remain later consumer-driven R6 possibilities and cannot be
+required by current runtime.
 
 ## Current command surface
 
@@ -79,9 +82,24 @@ cargo run --locked --release -p xtask --features desktop-sdl-ash -- performance 
 Windows/THOTH commands remain implemented but are deferred target/release
 operations under ADR-082, not part of the current Linux handoff loop.
 
+The current public creator commands are:
+
+```text
+next project validate --project <project-directory>
+next project cook --project <project-directory> --output <content-store-directory>
+```
+
+The workspace source-build spelling is `cargo run --locked -p next_cli --`
+followed by the same arguments. Both commands use the project-declared identity
+and the production V7 loader/cooker. Cook additionally publishes through
+`ContentStore` and reopens through production activation. Project-ID override,
+implicit migration and reference-game fixture construction are not CLI paths.
+
 Operational JSON stdout must decode as exactly one versioned command/report
 object where the command promises JSON. Progress belongs on stderr. Stable
 codes/typed fields are the oracle, not rendered text or unordered logs.
+Creator Command Report V1 success exposes only exact project hashes and bounded
+counts; failure exposes stable code/subsystem/message key without raw paths.
 
 ## Diagnostics and output safety
 
@@ -95,6 +113,11 @@ Crash, disk-full, hash mismatch or unsupported input leaves the previous
 complete output untouched. Generated reports, captures, profiles, caches and
 machine-local paths are not committed. Secrets, prompts, voices, protected
 assets and raw user paths are redacted or excluded.
+
+Creator project references are confined to the explicitly selected project
+root after symlink resolution. Creator cook accepts only a new/empty or
+recognizable ContentStore root; symlink and unrelated nonempty outputs fail
+with `CREATOR_OUTPUT_INVALID` before publication.
 
 Pre-v1 reports and tool-owned formats are current-only unless an ADR names a
 public support promise. A retired version returns a typed unsupported result;
@@ -202,8 +225,10 @@ without affecting gameplay. A deterministic retry mismatch is
 `NONDETERMINISTIC_RESULT`, never retry-to-green.
 
 Focused tooling tests cover command parsing, exact report schemas, atomic
-output, current-only rejection and boundary scan. `host-check` covers the
-workspace. The `performance` command covers V5 reports/baselines and all eight
+output, current-only rejection, creator project-root/output confinement and
+boundary scan. `content-package` reopens both the reference project and the
+independent creator fixture; `host-check` covers the workspace. The
+`performance` command covers V5 reports/baselines and all eight
 scenario routes; platform/GPU availability may legitimately yield typed
 `NOT_RUN` without claiming success for that scenario.
 

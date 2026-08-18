@@ -17,8 +17,9 @@ fallbacks keep the game working when they are not.
 > Linux reference alpha and its deterministic headless counterpart work
 > locally. Windows host bring-up is intentionally deferred while development
 > continues on Linux. The bounded procedural physical-character baseline is
-> complete; paired release evidence, hard release performance, the public
-> creator workflow, and v1 are not. See the
+> complete; the first public creator validate/cook slice is available, while
+> creator run/package breadth, paired release evidence, hard release
+> performance, and v1 are not. See the
 > [roadmap](docs/roadmap.md) for the current stage and open blockers.
 
 Next Engine is an independent project. It is not an OpenGothic port and it is
@@ -104,6 +105,27 @@ This is a source build and may take a while on its first run. Linux and Windows
 remain v1 shipping targets, but Windows is not an active development host and
 the same-commit release gate remains deferred. A Linux development run is not
 by itself a supported release.
+
+## Try the first creator workflow
+
+Validate the independent data-only sample without writing output:
+
+```bash
+cargo run --locked -p next_cli -- project validate --project projects/creator-smoke
+```
+
+Cook it into an atomic content-store generation and reopen it through the
+production project loader:
+
+```bash
+cargo run --locked -p next_cli -- project cook \
+  --project projects/creator-smoke \
+  --output target/creator-smoke-cooked
+```
+
+Each command emits exactly one versioned JSON object. This is the bounded R6a
+surface: project diff, inspectors, creator run/package/replay and a complete v1
+SDK workflow remain later work.
 
 ## Learn more
 

@@ -4,15 +4,15 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 2.7 |
+| Версия | 2.8 |
 | Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-24 2.6; extends the exact current base-skinning profile with the bounded R5g pose-corrective set |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md) |
+| Заменяет | SPEC-24 2.7; adds the independent creator project as a second production cooker/activation consumer without changing the current content schemas |
 
 ## Scope
 
 This SPEC describes content contracts exercised by the current cooker,
-reference project and package. It intentionally removes speculative archive
+reference project, independent creator project and package. It intentionally removes speculative archive
 ABI, target-profile resolver, capability-scoring/fallback plans and full future
 navigation/collision/world schema listings. Git history retains those designs;
 a future production consumer must reintroduce only the fields it demonstrates.
@@ -207,7 +207,8 @@ task/thread, vendor/compiler, database, importer and filesystem types are
 forbidden.
 
 `content-package` is the governing check: cook and reopen the 37-root/123-entry
-reference project, validate the direct-lock closure, Luau/Wasm content,
+reference project and the data-only 16-root/18-entry, three-chunk
+`creator-smoke` project, validate the direct-lock closure, Luau/Wasm content,
 provenance/NOTICE, localization, audio/animation, body schema, base-skinning
 profile/correctives and render catalog; malformed version/hash/bounds,
 mapping/weights/driver/delta/LOD data, duplicate, cycle, missing dependency and

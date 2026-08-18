@@ -1,0 +1,21 @@
+[package]
+name = "next_cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+default-run = "next"
+
+[[bin]]
+name = "next"
+path = "src/main.rs"
+
+[dependencies]
+next_assets.workspace = true
+next_project.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

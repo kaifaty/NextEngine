@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-17 |
 | Статус | Accepted |
-| Версия | 2.6 |
-| Последняя проверка | 2026-08-17 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-17 2.5; admits the exact R5f base-skinning root through authoring V7 and `ActivatedProjectV8` |
+| Версия | 2.7 |
+| Последняя проверка | 2026-08-18 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md) |
+| Заменяет | SPEC-17 2.6; exposes the existing exact V7 cook/activation path through the bounded public creator CLI and adds an independent second-project consumer |
 
 ## Назначение
 
@@ -40,6 +40,10 @@ resolver profiles, `project.json`, `catalog.json` and
 Authoring describes only project-owned composition intent. Session recovery,
 storage layout and shutdown policy do not belong to authoring or project lock;
 save-on-close is the current application behavior from ADR-047.
+
+ADR-083 exposes this same path as `next project validate` and
+`next project cook`; the CLI does not override authoring identity or construct a
+reference-game source in Rust.
 
 ## `ProjectLockV3`
 
@@ -88,6 +92,12 @@ the output directory/current package. Failure leaves the prior output intact.
 Cooker caches are reconstructible and do not enter lock identity unless their
 produced artifact hash is explicitly referenced.
 
+Every authored relative source/notice/span resolves beneath the selected
+project root, including after symbolic-link resolution. Public cook accepts
+only a new/empty or recognizable ContentStore root and uses its atomic
+generation plus `CURRENT` switch; unrelated or symlink output fails closed.
+Every individual authoring/source/notice read is bounded to 16 MiB.
+
 ## Atomic activation
 
 Activation accepts `ProjectLockV3` directly and must:
@@ -127,6 +137,8 @@ or identities.
 
 `content-package` is the governing ProductCheck: cook the reference project,
 reopen the package, validate all 37 roots/123 entries and activate the same
-`ActivatedProjectV8` in required roots. `fast` covers focused contract tests;
-packaging or host changes additionally run `platform`/`v1-package` as selected
-by SPEC-12.
+`ActivatedProjectV8` in required roots; then independently load/cook/publish/
+activate `creator-smoke` with 16 roots/18 entries and three chunks. Focused
+`next_cli` tests cover exact report/failure and generation-preservation
+semantics. Packaging or host changes additionally run `platform`/`v1-package`
+as selected by SPEC-12.

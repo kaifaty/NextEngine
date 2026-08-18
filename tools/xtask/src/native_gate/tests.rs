@@ -306,6 +306,9 @@ fn check_report_value(
             "details": {
                 "records": 1,
                 "chunks": 1,
+                "creator_records": 1,
+                "creator_chunks": 1,
+                "creator_composition_lock_hash": hash('5'),
                 "mechanic_packages": 1,
                 "luau_packages": 1,
                 "wasm_plugins": 1,

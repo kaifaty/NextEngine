@@ -10,8 +10,8 @@ pub use activation::{
     ActivatedProjectPackage, ProjectActivationError, activate_project, activate_project_package,
 };
 pub use authoring::{
-    PROJECT_AUTHORING_MANIFEST_FILE, ProjectAuthoringError, load_project_authoring_v7,
-    load_project_authoring_v7_with_project_id,
+    PROJECT_AUTHORING_MANIFEST_FILE, PROJECT_AUTHORING_MAX_SOURCE_BYTES, ProjectAuthoringError,
+    load_project_authoring_v7, load_project_authoring_v7_with_project_id,
 };
 pub use cook::{
     CookedProjectV7, NeutralProjectSourceV7, ProjectCookError, SourceChunkBindingV1,

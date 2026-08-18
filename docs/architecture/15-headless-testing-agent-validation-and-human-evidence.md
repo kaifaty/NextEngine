@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 3.1 |
+| Версия | 3.2 |
 | Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
-| Заменяет | SPEC-15 3.0; records the repeated-generation R5j physical-character scenario without adding mutable test access |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md) |
+| Заменяет | SPEC-15 3.1; admits the focused public creator validate/cook acceptance matrix while leaving scenario run/minimize and capture commands unpromoted |
 
 ## Назначение
 
@@ -151,11 +151,17 @@ loss, encoder absence или quota overflow оставляет replay/diagnostic
 
 ## Current command surface
 
-Current supported entry points are `cargo run -p xtask -- <ProductCheck>` and
-focused crate tests. A public `next` scenario/capture CLI, GUI projection or MCP
-protocol is not a current contract. Tool output хранится только в явном local
-output directory, ignored by source control by default. Удаление локальных
-debug artifacts не меняет source, package или product status.
+Current supported entry points are `cargo run -p xtask -- <ProductCheck>`,
+focused crate tests and the ADR-083 public `next project validate/cook`
+commands. A public `next` scenario/run/minimize/capture command, GUI projection
+or MCP protocol is not a current contract. Tool output хранится только в явном
+local output directory, ignored by source control by default. Удаление
+локальных debug artifacts не меняет source, package или product status.
+
+The creator matrix runs the data-only `creator-smoke` fixture twice through the
+production loader/cooker/publication/activation path and observes only the
+typed report plus immutable generation. Negative cases use retired format,
+symlink escape and unsafe output; no mutable runtime probe is introduced.
 
 The focused `animation-root-motion` entry point uses 1,000 independently
 activated ten-cycle neutral generations so receipt/snapshot history length is

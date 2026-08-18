@@ -10,7 +10,8 @@ use next_contracts::physics::ContactPhaseV1;
 use next_contracts::project::ProjectLockV3;
 use next_contracts::rpg::{RpgAggregateKindV1, RpgAggregatePayloadV1, RpgPhysicalContactFactV1};
 use next_project::{
-    ProjectActivationError, ProjectCookError, activate_project_package, cook_project_v7,
+    ProjectActivationError, ProjectAuthoringError, ProjectCookError, activate_project,
+    activate_project_package, cook_project_v7, load_project_authoring_v7,
 };
 use next_render::{RenderTargetV1, build_b0_frame_plan};
 
@@ -20,6 +21,9 @@ use crate::scratch::ScratchContext;
 pub struct ContentPackageCheckReport {
     pub records: usize,
     pub chunks: usize,
+    pub creator_records: usize,
+    pub creator_chunks: usize,
+    pub creator_composition_lock_hash: ContentHash,
     pub mechanic_packages: usize,
     pub luau_packages: usize,
     pub wasm_plugins: usize,
@@ -50,6 +54,7 @@ pub fn run_content_package_check_in(
 pub(crate) fn run_content_package_check_with_scratch(
     scratch: &ScratchContext,
 ) -> Result<ContentPackageCheckReport, ContentPackageCheckError> {
+    let creator = verify_creator_project(scratch)?;
     let source = next_reference_game::project_source_v7()?;
     if source.root_asset_ids.len() != 37 {
         return Err(ContentPackageCheckError::FixtureClosureMismatch);
@@ -197,6 +202,9 @@ pub(crate) fn run_content_package_check_with_scratch(
         Ok(ContentPackageCheckReport {
             records: activated.content_manifest.body.asset_entries.len(),
             chunks: activated.world_partition.body.chunk_bindings.len(),
+            creator_records: creator.records,
+            creator_chunks: creator.chunks,
+            creator_composition_lock_hash: creator.composition_lock_hash,
             mechanic_packages: activated.rpg_definitions.packages.len(),
             luau_packages: 1,
             wasm_plugins: 1,
@@ -213,6 +221,57 @@ pub(crate) fn run_content_package_check_with_scratch(
                 .mechanics_lock
                 .mechanics_lock_sha256,
             world_partition_hash: activated.world_partition.world_partition_manifest_sha256,
+            composition_lock_hash: activated.project_lock.project_lock_sha256,
+        })
+    })();
+    directory.finish(result, ContentPackageCheckError::Cleanup)
+}
+
+struct CreatorProjectEvidence {
+    records: usize,
+    chunks: usize,
+    composition_lock_hash: ContentHash,
+}
+
+fn verify_creator_project(
+    scratch: &ScratchContext,
+) -> Result<CreatorProjectEvidence, ContentPackageCheckError> {
+    let project_directory =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../projects/creator-smoke");
+    let source = load_project_authoring_v7(project_directory)?;
+    if source.project_id.as_str() != "org.nextengine.creator-smoke"
+        || source.project_revision != 1
+        || source.records.len() != 10
+        || source.chunks.len() != 3
+    {
+        return Err(ContentPackageCheckError::FixtureClosureMismatch);
+    }
+    let cooked = cook_project_v7(source)?;
+    let directory = scratch
+        .create_directory("content-package-creator")
+        .map_err(ContentPackageCheckError::Cleanup)?;
+    let result = (|| {
+        let store = ContentStore::new(directory.path());
+        store.publish(&cooked.publication()?)?;
+        let activated = activate_project(&store)?;
+        if activated.project_lock.project_id.as_str() != "org.nextengine.creator-smoke"
+            || activated.project_lock.project_revision != 1
+            || activated.neutral_records.len() != 10
+            || activated.content_manifest.body.asset_entries.len() != 18
+            || activated.content_manifest.body.root_assets.len() != 16
+            || activated.world_partition.body.chunk_bindings.len() != 3
+            || activated.rpg_definitions.abilities.len() != 1
+            || activated.rpg_definitions.interactions.len() != 1
+            || activated.world_routine_catalog_or_none.is_some()
+            || !activated.render_content_catalog.meshes().is_empty()
+            || activated.render_content_catalog.materials().len() != 1
+            || activated.render_content_catalog.textures().len() != 1
+        {
+            return Err(ContentPackageCheckError::FixtureClosureMismatch);
+        }
+        Ok(CreatorProjectEvidence {
+            records: activated.content_manifest.body.asset_entries.len(),
+            chunks: activated.world_partition.body.chunk_bindings.len(),
             composition_lock_hash: activated.project_lock.project_lock_sha256,
         })
     })();
@@ -663,6 +722,7 @@ fn character_health(
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ContentPackageCheckError {
+    Authoring(ProjectAuthoringError),
     Cook(ProjectCookError),
     Store(next_assets::ContentStoreError),
     Activation(ProjectActivationError),
@@ -681,6 +741,9 @@ pub enum ContentPackageCheckError {
 impl Display for ContentPackageCheckError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Authoring(error) => {
+                write!(formatter, "content-package authoring failed: {error}")
+            }
             Self::Cook(error) => write!(formatter, "content-package cook failed: {error}"),
             Self::Store(error) => write!(formatter, "content-package publish failed: {error}"),
             Self::Activation(error) => {
@@ -705,6 +768,12 @@ impl Display for ContentPackageCheckError {
 }
 
 impl Error for ContentPackageCheckError {}
+
+impl From<ProjectAuthoringError> for ContentPackageCheckError {
+    fn from(error: ProjectAuthoringError) -> Self {
+        Self::Authoring(error)
+    }
+}
 
 impl From<ProjectCookError> for ContentPackageCheckError {
     fn from(error: ProjectCookError) -> Self {
@@ -775,6 +844,8 @@ mod tests {
         let report = run_content_package_check().expect("content-package passes");
         assert_eq!(report.records, 123);
         assert_eq!(report.chunks, 64);
+        assert_eq!(report.creator_records, 18);
+        assert_eq!(report.creator_chunks, 3);
         assert_eq!(report.mechanic_packages, 2);
         assert_eq!(report.wasm_plugins, 1);
         assert_eq!(report.combat_npc_health, 0);

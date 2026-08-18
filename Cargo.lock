@@ -684,6 +684,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "next_cli"
+version = "0.1.0"
+dependencies = [
+ "next_assets",
+ "next_project",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "next_contracts"
 version = "0.1.0"
 dependencies = [

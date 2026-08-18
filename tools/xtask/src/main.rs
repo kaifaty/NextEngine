@@ -438,6 +438,9 @@ fn content_package_report(
         ContentPackageDetailsV1 {
             records: report.records,
             chunks: report.chunks,
+            creator_records: report.creator_records,
+            creator_chunks: report.creator_chunks,
+            creator_composition_lock_hash: report.creator_composition_lock_hash.to_hex(),
             mechanic_packages: report.mechanic_packages,
             luau_packages: report.luau_packages,
             wasm_plugins: report.wasm_plugins,
