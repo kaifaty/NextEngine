@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-11 |
 | Статус | Accepted |
-| Версия | 2.2 |
+| Версия | 2.3 |
 | Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md) |
-| Заменяет | SPEC-11 2.1; adds fresh-output, exact-inventory and required-NOTICE confinement for the public creator project package |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
+| Заменяет | SPEC-11 2.2; adds fail-closed, path-free read-only creator projection and diff confinement |
 
 ## Назначение
 
@@ -60,6 +60,14 @@ files, unsupported format, activation/run mismatch и missing/empty root
 `NOTICE` отклоняют весь package. Проверка package никогда не выдаёт gameplay
 capability и не доверяет записанному run proof без повторного production run.
 
+Public inspect/diff принимает только полностью validated authoring или package
+operand. Package operand проходит тот же exact inventory/NOTICE/activation и
+run-proof rerun до projection. Report может содержать stable IDs, schema facts,
+exact hashes, provenance/license roots and granted capability IDs, but never raw
+path, source span/property value, private generation layout or mutable runtime
+object. Failure одного operand прекращает diff целиком; partial projection не
+публикуется. Valid `different = true` является observation, а не input failure.
+
 Unknown version, hash mismatch, unsupported capability, malformed payload или
 resource-limit violation являются typed failure, а не warning с попыткой
 угадать данные. Предыдущая валидная generation остаётся активной.
@@ -80,7 +88,7 @@ Default capability — deny. Эффективные права package/script/pl
 | Importer/parser | separate process, bounded reads/archives, normalized neutral output, no runtime linkage | input quarantined or rejected; no partial bundle |
 | `ai-host` | bounded schema/size/deadline, immutable context, no mutable tools, deterministic in-process fallback | response rejected; gameplay continues through fallback |
 | Model runtime | exact model/schema/hash compatibility, bounded tensors/operators, finite output check, common safety clamp | model route rejected; deterministic procedural fallback or safe stop |
-| Tools/agents | project-root allowlist, explicit operations, base-hash preconditions, atomic apply, no generic ambient authority | stale/out-of-root operation rejected |
+| Tools/agents | project-root allowlist, explicit operations, base-hash preconditions, atomic apply, path-free read-only projections, no generic ambient authority | stale/out-of-root operation rejected; invalid inspect/diff emits no partial view |
 
 Fuel, instruction counts и deterministic logical deadlines MAY влиять на
 authoritative outcome только через заранее объявленный deterministic fallback.
@@ -151,6 +159,8 @@ source, license expression и redistribution status.
 Негативные fixtures для malformed inputs, capability denial, budget exhaustion,
 protected-data boundaries и incompatible licenses входят в соответствующие
 `fast` или `content-package` ProductCheck из [SPEC-12](12-vertical-slice-conformance.md).
+Creator inspect/diff дополнительно проверяет tampered package, path redaction,
+location-independent deterministic projection and all-or-none operand failure.
 Новая public parser, WIT import, capability, IPC method или network endpoint
 должна добавлять хотя бы один positive и один failure-path scenario. Эти
 проверки дают локальную инженерную обратную связь и не создают отдельный

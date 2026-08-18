@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 4.3 |
+| Версия | 4.4 |
 | Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md) |
-| Заменяет | SPEC-12 4.2; adds the R6b creator runtime/package acceptance matrix to existing ProductChecks without creating a new global category |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
+| Заменяет | SPEC-12 4.3; adds the R6c creator inspect/diff acceptance matrix to existing ProductChecks without creating a new global category |
 
 ## Назначение
 
@@ -64,6 +64,15 @@ published bytes, compares exact runtime/final-save roots and rejects changed
 inventory, NOTICE/link and unsafe destination cases. It proves the bounded
 one-tick headless creator startup and content distribution envelope, not an
 interactive game, native OS bundle, replay inspector or complete R6 SDK.
+
+The R6c `next project inspect/diff` commands map to `fast` plus
+`content-package`. The focused matrix compares repeat authoring bytes from two
+filesystem locations, authoring against its fully revalidated/rerun package and
+one controlled record edit. It requires a path-free deterministic immutable
+projection, empty source/package diff, stable-ID localized change categories,
+success-on-valid-difference and all-or-none failure for invalid operands. It is
+not a live gameplay/replay inspector, scenario runner, editor or complete R6
+SDK.
 
 `cargo run -p xtask -- v1-closure` агрегирует реализованные v1 checks, exact
 project/content/mechanics/extension roots и target package descriptors. На
@@ -223,8 +232,8 @@ authoritative oracle.
 
 Check использует CC0/engine-owned neutral fixtures и public tooling. The
 reference project remains the complete gameplay/package oracle; the independent
-`creator-smoke` project additionally proves file-backed validate/cook/activate
-without a Rust fixture constructor:
+`creator-smoke` project additionally proves file-backed validate/cook/activate,
+run/package and source-neutral inspect/diff without a Rust fixture constructor:
 
 Текущий M3/M10/R3 implementation gate покрывает пункты 1–6 для data-only, Luau и
 Wasm, storage/schema failure matrix и atomic four-region/64-chunk admission тем же

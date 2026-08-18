@@ -276,6 +276,44 @@ fn verify_creator_public_run_and_package(
         else {
             return Err(ContentPackageCheckError::FixtureClosureMismatch);
         };
+        let authoring_inspection = next_cli::execute([
+            OsString::from("project"),
+            OsString::from("inspect"),
+            OsString::from("--project"),
+            project_directory.as_os_str().to_owned(),
+        ]);
+        let next_cli::CreatorCliReportV1::Inspect(next_cli::CreatorInspectCommandReportV1::Pass(
+            authoring_inspection,
+        )) = authoring_inspection
+        else {
+            return Err(ContentPackageCheckError::FixtureClosureMismatch);
+        };
+        let package_inspection = next_cli::execute([
+            OsString::from("project"),
+            OsString::from("inspect"),
+            OsString::from("--package"),
+            package_root.as_os_str().to_owned(),
+        ]);
+        let next_cli::CreatorCliReportV1::Inspect(next_cli::CreatorInspectCommandReportV1::Pass(
+            package_inspection,
+        )) = package_inspection
+        else {
+            return Err(ContentPackageCheckError::FixtureClosureMismatch);
+        };
+        let authoring_package_diff = next_cli::execute([
+            OsString::from("project"),
+            OsString::from("diff"),
+            OsString::from("--base-project"),
+            project_directory.as_os_str().to_owned(),
+            OsString::from("--candidate-package"),
+            package_root.as_os_str().to_owned(),
+        ]);
+        let next_cli::CreatorCliReportV1::Diff(next_cli::CreatorDiffCommandReportV1::Pass(
+            authoring_package_diff,
+        )) = authoring_package_diff
+        else {
+            return Err(ContentPackageCheckError::FixtureClosureMismatch);
+        };
         let expected_lock = expected_project_lock.to_hex();
         if authoring_run.details.project.project_lock_sha256 != expected_lock
             || authoring_run.details.runtime.ticks != 1
@@ -283,6 +321,17 @@ fn verify_creator_public_run_and_package(
             || package.details.runtime != packaged_run.details.runtime
             || package.details.project != packaged_run.details.project
             || package.details.required_notices != ["NOTICE"]
+            || authoring_inspection.details.project != package_inspection.details.project
+            || authoring_inspection.details.projection != package_inspection.details.projection
+            || authoring_package_diff.details.different
+            || authoring_package_diff.details.summary.root_changes != 0
+            || authoring_package_diff.details.summary.asset_changes != 0
+            || authoring_package_diff.details.summary.world_chunk_changes != 0
+            || authoring_package_diff
+                .details
+                .summary
+                .mechanic_package_changes
+                != 0
         {
             return Err(ContentPackageCheckError::FixtureClosureMismatch);
         }

@@ -17,9 +17,10 @@ fallbacks keep the game working when they are not.
 > Linux reference alpha and its deterministic headless counterpart work
 > locally. Windows host bring-up is intentionally deferred while development
 > continues on Linux. The bounded procedural physical-character baseline is
-> complete; public creator validate/cook/run/package and the independent
-> project-package slice are available, while diff/inspect, templates/scenarios,
-> paired release evidence, hard release performance, and v1 are not. See the
+> complete; public creator validate/cook/run/package/inspect/diff and the
+> independent project-package/projection slice are available, while templates,
+> scenarios/replay inspection, paired release evidence, hard release
+> performance, and v1 are not. See the
 > [roadmap](docs/roadmap.md) for the current stage and open blockers.
 
 Next Engine is an independent project. It is not an OpenGothic port and it is
@@ -143,10 +144,24 @@ cargo run --locked -p next_cli -- project run \
   --package target/creator-smoke-package
 ```
 
+Inspect the exact stable-ID composition and prove that the authoring source and
+the published package have no project drift:
+
+```bash
+cargo run --locked -p next_cli -- project inspect \
+  --project projects/creator-smoke
+cargo run --locked -p next_cli -- project inspect \
+  --package target/creator-smoke-package
+cargo run --locked -p next_cli -- project diff \
+  --base-project projects/creator-smoke \
+  --candidate-package target/creator-smoke-package
+```
+
 Each command emits exactly one versioned JSON object. The creator package is a
 self-verifying content envelope for a compatible `next` runtime, not a native
-standalone game bundle. Project diff/inspect, templates, scenarios/replay tools
-and a complete v1 SDK workflow remain later R6 work.
+standalone game bundle. Inspect/diff are read-only and path-free; a valid
+non-empty diff is `PASS` with `different = true`. Templates, scenarios/replay
+tools and a complete v1 SDK workflow remain later R6 work.
 
 ## Learn more
 

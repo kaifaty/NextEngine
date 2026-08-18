@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-084 |
 | Status | Accepted |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-18 |
 | Last verified | 2026-08-18 |
 | Normative dependencies | [SPEC-01](../01-system-architecture.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](../20-world-simulation-and-population-lifecycle.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-29](../29-platform-host-and-application-session.md), [ADR-014](014-deterministic-extensions-and-package-trust.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](047-simple-application-session-and-save-on-close.md), [ADR-048](048-direct-exact-project-lock.md), [ADR-082](082-linux-first-development-and-deferred-windows-host.md), [ADR-083](083-public-creator-project-cli-vertical.md) |
 | Supersedes | Narrowly supersedes ADR-083's statement that creator run/package have no current consumer. It adds two commands and two report contracts without changing Creator Command Report V1 or the R6a validate/cook semantics. |
-| Superseded by | not superseded |
+| Superseded by | Narrowly [ADR-085](085-public-creator-project-inspect-and-diff-vertical.md) for the later read-only inspect/diff consumer; run/package commands and report/package semantics remain unchanged |
 
 ## Context
 
@@ -114,9 +114,10 @@ public `next` binary. A recipient can run the packaged bytes without the
 authoring source tree, while exact roots and NOTICE remain inspectable and
 tampering fails closed.
 
-This completes the R6b run/package vertical and materially reduces B-09. It
-does not complete R6: diff/inspect, templates, scenarios/minimization, replay
-inspection and the broader SDK/documented cold-authoring exercise remain open.
+This completes the R6b run/package vertical and materially reduces B-09. At
+this decision boundary it does not complete R6: diff/inspect, templates,
+scenarios/minimization, replay inspection and the broader SDK/documented
+cold-authoring exercise remain open. ADR-085 later closes only diff/inspect.
 
 ## Relevant product checks
 
@@ -154,7 +155,7 @@ inspection and the broader SDK/documented cold-authoring exercise remain open.
   is rejected until an explicit consumer-backed successor exists.
 - The next bounded R6 increment should add read-only project diff/inspect over
   this same creator/package fixture before templates and scenarios widen the
-  mutation surface.
+  mutation surface; ADR-085 later fulfills that increment.
 - Native Linux remains the active development host. Windows execution and
   paired shipping evidence remain `NotRun(WindowsHostDeferred)` under ADR-082.
 

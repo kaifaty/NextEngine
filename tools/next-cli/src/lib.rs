@@ -11,20 +11,29 @@ use next_project::{
     CookedProjectV7, ProjectActivationError, ProjectAuthoringError, ProjectCookError,
     activate_project, cook_project_v7, load_project_authoring_v7,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
+mod inspection;
 mod package;
+mod report;
 mod runtime;
+
+pub use inspection::*;
+pub use report::*;
 
 pub const CREATOR_COMMAND_REPORT_SCHEMA_VERSION: u32 = 1;
 pub const CREATOR_RUN_REPORT_SCHEMA_VERSION: u32 = 1;
 pub const CREATOR_PACKAGE_REPORT_SCHEMA_VERSION: u32 = 1;
+pub const CREATOR_INSPECT_REPORT_SCHEMA_VERSION: u32 = 1;
+pub const CREATOR_DIFF_REPORT_SCHEMA_VERSION: u32 = 1;
 
 const UNKNOWN_COMMAND: &str = "unknown";
 const PROJECT_VALIDATE_COMMAND: &str = "project.validate";
 const PROJECT_COOK_COMMAND: &str = "project.cook";
 const PROJECT_RUN_COMMAND: &str = "project.run";
 const PROJECT_PACKAGE_COMMAND: &str = "project.package";
+const PROJECT_INSPECT_COMMAND: &str = "project.inspect";
+const PROJECT_DIFF_COMMAND: &str = "project.diff";
 const CONTENT_CURRENT_FILE: &str = "CURRENT";
 static PREFLIGHT_ORDINAL: AtomicU64 = AtomicU64::new(0);
 
@@ -34,6 +43,8 @@ pub enum CreatorCliReportV1 {
     Project(CreatorCommandReportV1),
     Run(CreatorRunCommandReportV1),
     Package(CreatorPackageCommandReportV1),
+    Inspect(CreatorInspectCommandReportV1),
+    Diff(CreatorDiffCommandReportV1),
 }
 
 impl CreatorCliReportV1 {
@@ -43,6 +54,8 @@ impl CreatorCliReportV1 {
             Self::Project(report) => report.is_pass(),
             Self::Run(report) => report.is_pass(),
             Self::Package(report) => report.is_pass(),
+            Self::Inspect(report) => report.is_pass(),
+            Self::Diff(report) => report.is_pass(),
         }
     }
 
@@ -51,175 +64,38 @@ impl CreatorCliReportV1 {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreatorCommandReportV1 {
-    Pass(CreatorCommandPassReportV1),
-    Fail(CreatorCommandFailureReportV1),
-}
-
-impl CreatorCommandReportV1 {
-    #[must_use]
-    pub const fn is_pass(&self) -> bool {
-        matches!(self, Self::Pass(_))
-    }
-
-    pub fn to_json(&self) -> Result<String, serde_json::Error> {
-        serde_json::to_string(self)
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CreatorCommandPassReportV1 {
-    pub schema_version: u32,
-    pub status: String,
-    pub command: String,
-    pub details: CreatorProjectDetailsV1,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CreatorCommandFailureReportV1 {
-    pub schema_version: u32,
-    pub status: String,
-    pub command: String,
-    pub diagnostic: CreatorDiagnosticV1,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CreatorDiagnosticV1 {
-    pub code: String,
-    pub subsystem: String,
-    pub message_key: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CreatorProjectDetailsV1 {
-    pub project_id: String,
-    pub project_revision: u64,
-    pub authoring_sha256: String,
-    pub project_lock_sha256: String,
-    pub schema_registry_sha256: String,
-    pub content_manifest_sha256: String,
-    pub world_partition_sha256: String,
-    pub mechanics_lock_sha256: String,
-    pub root_asset_count: u32,
-    pub content_entry_count: u32,
-    pub neutral_record_count: u32,
-    pub render_asset_count: u32,
-    pub world_chunk_count: u32,
-    pub publication_file_count: u32,
-    pub publication_state: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CreatorProjectIdentityV1 {
-    pub project_id: String,
-    pub project_revision: u64,
-    pub authoring_sha256: String,
-    pub project_lock_sha256: String,
-    pub schema_registry_sha256: String,
-    pub content_manifest_sha256: String,
-    pub world_partition_sha256: String,
-    pub mechanics_lock_sha256: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CreatorRuntimeProofV1 {
-    pub status: String,
-    pub composition_root: String,
-    pub session_id: String,
-    pub close_receipt_hash: String,
-    pub final_save_generation_hash: String,
-    pub ticks: u64,
-    pub events: u64,
-    pub rpg_events: u64,
-    pub authoritative_revision: u64,
-    pub authoritative_state_root: String,
-    pub command_archive_root: String,
-    pub command_identity_index_root: String,
-    pub command_ledger_hash: String,
-    pub project_composition_lock_hash: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreatorRunCommandReportV1 {
-    Pass(Box<CreatorRunCommandPassReportV1>),
-    Fail(CreatorCommandFailureReportV1),
-}
-
-impl CreatorRunCommandReportV1 {
-    #[must_use]
-    pub const fn is_pass(&self) -> bool {
-        matches!(self, Self::Pass(_))
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CreatorRunCommandPassReportV1 {
-    pub schema_version: u32,
-    pub status: String,
-    pub command: String,
-    pub details: CreatorRunDetailsV1,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CreatorRunDetailsV1 {
-    pub project: CreatorProjectIdentityV1,
-    pub runtime: CreatorRuntimeProofV1,
-    pub source: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum CreatorPackageCommandReportV1 {
-    Pass(Box<CreatorPackageCommandPassReportV1>),
-    Fail(CreatorCommandFailureReportV1),
-}
-
-impl CreatorPackageCommandReportV1 {
-    #[must_use]
-    pub const fn is_pass(&self) -> bool {
-        matches!(self, Self::Pass(_))
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CreatorPackageCommandPassReportV1 {
-    pub schema_version: u32,
-    pub status: String,
-    pub command: String,
-    pub details: CreatorPackageDetailsV1,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CreatorPackageDetailsV1 {
-    pub project: CreatorProjectIdentityV1,
-    pub package_format: String,
-    pub package_manifest_sha256: String,
-    pub packaged_file_count: u32,
-    pub packaged_size_bytes: u64,
-    pub required_notices: Vec<String>,
-    pub runtime: CreatorRuntimeProofV1,
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum CreatorCommand {
+    Validate {
+        project: PathBuf,
+    },
+    Cook {
+        project: PathBuf,
+        output: PathBuf,
+    },
+    RunProject {
+        project: PathBuf,
+    },
+    RunPackage {
+        package: PathBuf,
+    },
+    Package {
+        project: PathBuf,
+        output: PathBuf,
+    },
+    Inspect {
+        input: CreatorProjectInput,
+    },
+    Diff {
+        base: CreatorProjectInput,
+        candidate: CreatorProjectInput,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum CreatorCommand {
-    Validate { project: PathBuf },
-    Cook { project: PathBuf, output: PathBuf },
-    RunProject { project: PathBuf },
-    RunPackage { package: PathBuf },
-    Package { project: PathBuf, output: PathBuf },
+enum CreatorProjectInput {
+    Project(PathBuf),
+    Package(PathBuf),
 }
 
 impl CreatorCommand {
@@ -229,6 +105,8 @@ impl CreatorCommand {
             Self::Cook { .. } => PROJECT_COOK_COMMAND,
             Self::RunProject { .. } | Self::RunPackage { .. } => PROJECT_RUN_COMMAND,
             Self::Package { .. } => PROJECT_PACKAGE_COMMAND,
+            Self::Inspect { .. } => PROJECT_INSPECT_COMMAND,
+            Self::Diff { .. } => PROJECT_DIFF_COMMAND,
         }
     }
 
@@ -237,6 +115,8 @@ impl CreatorCommand {
             Self::Validate { .. } | Self::Cook { .. } => CreatorReportKind::Project,
             Self::RunProject { .. } | Self::RunPackage { .. } => CreatorReportKind::Run,
             Self::Package { .. } => CreatorReportKind::Package,
+            Self::Inspect { .. } => CreatorReportKind::Inspect,
+            Self::Diff { .. } => CreatorReportKind::Diff,
         }
     }
 }
@@ -246,6 +126,8 @@ enum CreatorReportKind {
     Project,
     Run,
     Package,
+    Inspect,
+    Diff,
 }
 
 #[derive(Debug)]
@@ -385,6 +267,22 @@ pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> CreatorCliRepor
                 details,
             })),
         ),
+        Ok(CreatorSuccess::Inspect(details)) => CreatorCliReportV1::Inspect(
+            CreatorInspectCommandReportV1::Pass(Box::new(CreatorInspectCommandPassReportV1 {
+                schema_version: CREATOR_INSPECT_REPORT_SCHEMA_VERSION,
+                status: "PASS".to_owned(),
+                command: command_name.to_owned(),
+                details,
+            })),
+        ),
+        Ok(CreatorSuccess::Diff(details)) => CreatorCliReportV1::Diff(
+            CreatorDiffCommandReportV1::Pass(Box::new(CreatorDiffCommandPassReportV1 {
+                schema_version: CREATOR_DIFF_REPORT_SCHEMA_VERSION,
+                status: "PASS".to_owned(),
+                command: command_name.to_owned(),
+                details,
+            })),
+        ),
         Err(error) => failure_report(report_kind, command_name, error),
     }
 }
@@ -410,6 +308,12 @@ fn failure_report(
         CreatorReportKind::Package => CreatorCliReportV1::Package(
             CreatorPackageCommandReportV1::Fail(failure(CREATOR_PACKAGE_REPORT_SCHEMA_VERSION)),
         ),
+        CreatorReportKind::Inspect => CreatorCliReportV1::Inspect(
+            CreatorInspectCommandReportV1::Fail(failure(CREATOR_INSPECT_REPORT_SCHEMA_VERSION)),
+        ),
+        CreatorReportKind::Diff => CreatorCliReportV1::Diff(CreatorDiffCommandReportV1::Fail(
+            failure(CREATOR_DIFF_REPORT_SCHEMA_VERSION),
+        )),
     }
 }
 
@@ -417,6 +321,8 @@ enum CreatorSuccess {
     Project(CreatorProjectDetailsV1),
     Run(CreatorRunDetailsV1),
     Package(CreatorPackageDetailsV1),
+    Inspect(CreatorInspectDetailsV1),
+    Diff(CreatorProjectDiffV1),
 }
 
 #[derive(Clone, Copy)]
@@ -425,6 +331,8 @@ enum CreatorAction {
     Cook,
     Run,
     Package,
+    Inspect,
+    Diff,
 }
 
 fn parse_arguments(
@@ -469,6 +377,18 @@ fn parse_arguments(
             PROJECT_PACKAGE_COMMAND,
             CreatorReportKind::Package,
         )
+    } else if action == OsStr::new("inspect") {
+        (
+            CreatorAction::Inspect,
+            PROJECT_INSPECT_COMMAND,
+            CreatorReportKind::Inspect,
+        )
+    } else if action == OsStr::new("diff") {
+        (
+            CreatorAction::Diff,
+            PROJECT_DIFF_COMMAND,
+            CreatorReportKind::Diff,
+        )
     } else {
         return Err((
             UNKNOWN_COMMAND,
@@ -480,6 +400,10 @@ fn parse_arguments(
     let mut project = None;
     let mut package = None;
     let mut output = None;
+    let mut base_project = None;
+    let mut base_package = None;
+    let mut candidate_project = None;
+    let mut candidate_package = None;
     while let Some(flag) = arguments.next() {
         let Some(value) = arguments.next() else {
             return Err((command_name, report_kind, CreatorFailure::Argument));
@@ -493,28 +417,62 @@ fn parse_arguments(
             package = Some(PathBuf::from(value));
         } else if flag == OsStr::new("--output") && output.is_none() {
             output = Some(PathBuf::from(value));
+        } else if flag == OsStr::new("--base-project") && base_project.is_none() {
+            base_project = Some(PathBuf::from(value));
+        } else if flag == OsStr::new("--base-package") && base_package.is_none() {
+            base_package = Some(PathBuf::from(value));
+        } else if flag == OsStr::new("--candidate-project") && candidate_project.is_none() {
+            candidate_project = Some(PathBuf::from(value));
+        } else if flag == OsStr::new("--candidate-package") && candidate_package.is_none() {
+            candidate_package = Some(PathBuf::from(value));
         } else {
             return Err((command_name, report_kind, CreatorFailure::Argument));
         }
     }
 
-    match (action, project, package, output) {
-        (CreatorAction::Validate, Some(project), None, None) => {
-            Ok(CreatorCommand::Validate { project })
+    let no_diff_inputs = base_project.is_none()
+        && base_package.is_none()
+        && candidate_project.is_none()
+        && candidate_package.is_none();
+    let result = match action {
+        CreatorAction::Validate if package.is_none() && output.is_none() && no_diff_inputs => {
+            project.map(|project| CreatorCommand::Validate { project })
         }
-        (CreatorAction::Cook, Some(project), None, Some(output)) => {
-            Ok(CreatorCommand::Cook { project, output })
+        CreatorAction::Cook if package.is_none() && no_diff_inputs => project
+            .zip(output)
+            .map(|(project, output)| CreatorCommand::Cook { project, output }),
+        CreatorAction::Run if output.is_none() && no_diff_inputs => match (project, package) {
+            (Some(project), None) => Some(CreatorCommand::RunProject { project }),
+            (None, Some(package)) => Some(CreatorCommand::RunPackage { package }),
+            _ => None,
+        },
+        CreatorAction::Package if package.is_none() && no_diff_inputs => project
+            .zip(output)
+            .map(|(project, output)| CreatorCommand::Package { project, output }),
+        CreatorAction::Inspect if output.is_none() && no_diff_inputs => {
+            exclusive_project_input(project, package).map(|input| CreatorCommand::Inspect { input })
         }
-        (CreatorAction::Run, Some(project), None, None) => {
-            Ok(CreatorCommand::RunProject { project })
+        CreatorAction::Diff if project.is_none() && package.is_none() && output.is_none() => {
+            exclusive_project_input(base_project, base_package)
+                .zip(exclusive_project_input(
+                    candidate_project,
+                    candidate_package,
+                ))
+                .map(|(base, candidate)| CreatorCommand::Diff { base, candidate })
         }
-        (CreatorAction::Run, None, Some(package), None) => {
-            Ok(CreatorCommand::RunPackage { package })
-        }
-        (CreatorAction::Package, Some(project), None, Some(output)) => {
-            Ok(CreatorCommand::Package { project, output })
-        }
-        _ => Err((command_name, report_kind, CreatorFailure::Argument)),
+        _ => None,
+    };
+    result.ok_or((command_name, report_kind, CreatorFailure::Argument))
+}
+
+fn exclusive_project_input(
+    project: Option<PathBuf>,
+    package: Option<PathBuf>,
+) -> Option<CreatorProjectInput> {
+    match (project, package) {
+        (Some(project), None) => Some(CreatorProjectInput::Project(project)),
+        (None, Some(package)) => Some(CreatorProjectInput::Package(package)),
+        _ => None,
     }
 }
 
@@ -530,6 +488,14 @@ fn execute_command(command: CreatorCommand) -> Result<CreatorSuccess, CreatorFai
         CreatorCommand::RunPackage { package } => run_package(&package).map(CreatorSuccess::Run),
         CreatorCommand::Package { project, output } => {
             package_project(&project, &output).map(CreatorSuccess::Package)
+        }
+        CreatorCommand::Inspect { input } => inspect_input(&input).map(CreatorSuccess::Inspect),
+        CreatorCommand::Diff { base, candidate } => {
+            let base = inspect_input(&base)?;
+            let candidate = inspect_input(&candidate)?;
+            inspection::diff_projects(&base, &candidate)
+                .map(CreatorSuccess::Diff)
+                .map_err(|_| CreatorFailure::ReportInvalid)
         }
     }
 }
@@ -602,6 +568,25 @@ fn package_project(
     let source = load_project_authoring_v7(project).map_err(CreatorFailure::Authoring)?;
     let cooked = cook_project_v7(source).map_err(CreatorFailure::Cook)?;
     package::build_project_package(project, &cooked, output).map_err(map_package_failure)
+}
+
+fn inspect_input(input: &CreatorProjectInput) -> Result<CreatorInspectDetailsV1, CreatorFailure> {
+    match input {
+        CreatorProjectInput::Project(project) => inspect_project(project),
+        CreatorProjectInput::Package(package) => inspect_package(package),
+    }
+}
+
+fn inspect_project(project: &Path) -> Result<CreatorInspectDetailsV1, CreatorFailure> {
+    let source = load_project_authoring_v7(project).map_err(CreatorFailure::Authoring)?;
+    let neutral_records = source.records.clone();
+    let cooked = cook_project_v7(source).map_err(CreatorFailure::Cook)?;
+    inspection::inspect_cooked(&cooked, &neutral_records).map_err(|_| CreatorFailure::ReportInvalid)
+}
+
+fn inspect_package(package_root: &Path) -> Result<CreatorInspectDetailsV1, CreatorFailure> {
+    let validated = package::validate_and_run(package_root).map_err(map_package_failure)?;
+    inspection::inspect_activated(&validated.activated).map_err(|_| CreatorFailure::ReportInvalid)
 }
 
 fn map_runtime_failure(error: runtime::RuntimeExecutionError) -> CreatorFailure {
@@ -801,7 +786,7 @@ mod tests {
     }
 
     #[test]
-    fn parser_accepts_only_the_four_bounded_commands() {
+    fn parser_accepts_only_the_six_bounded_operations() {
         assert!(matches!(
             parse_arguments(args(&["project", "validate", "--project", "sample"])),
             Ok(CreatorCommand::Validate { project })
@@ -854,7 +839,57 @@ mod tests {
                 if project.as_path() == Path::new("sample")
                     && output.as_path() == Path::new("out")
         ));
+        assert!(matches!(
+            parse_arguments(args(&[
+                "project",
+                "inspect",
+                "--package",
+                "bundle",
+            ])),
+            Ok(CreatorCommand::Inspect {
+                input: CreatorProjectInput::Package(package),
+            }) if package.as_path() == Path::new("bundle")
+        ));
+        assert!(matches!(
+            parse_arguments(args(&[
+                "project",
+                "diff",
+                "--base-project",
+                "before",
+                "--candidate-package",
+                "after",
+            ])),
+            Ok(CreatorCommand::Diff {
+                base: CreatorProjectInput::Project(base),
+                candidate: CreatorProjectInput::Package(candidate),
+            }) if base.as_path() == Path::new("before")
+                && candidate.as_path() == Path::new("after")
+        ));
         assert!(parse_arguments(args(&["project", "diff"])).is_err());
+        assert!(
+            parse_arguments(args(&[
+                "project",
+                "inspect",
+                "--project",
+                "sample",
+                "--package",
+                "bundle",
+            ]))
+            .is_err()
+        );
+        assert!(
+            parse_arguments(args(&[
+                "project",
+                "diff",
+                "--base-project",
+                "before",
+                "--base-package",
+                "before-package",
+                "--candidate-project",
+                "after",
+            ]))
+            .is_err()
+        );
         assert!(
             parse_arguments(args(&[
                 "project",

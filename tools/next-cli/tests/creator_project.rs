@@ -5,7 +5,10 @@ use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_assets::{CONTENT_GENERATIONS_DIRECTORY, ContentStore};
-use next_cli::{CreatorCommandReportV1, CreatorPackageCommandReportV1, CreatorRunCommandReportV1};
+use next_cli::{
+    CreatorCommandReportV1, CreatorDiffCommandReportV1, CreatorInspectCommandReportV1,
+    CreatorPackageCommandReportV1, CreatorRunCommandReportV1,
+};
 use next_project::{PROJECT_AUTHORING_MAX_SOURCE_BYTES, activate_project};
 
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -70,6 +73,33 @@ fn package_report(output: &Output) -> CreatorPackageCommandReportV1 {
     assert!(stdout.ends_with('\n'));
     assert_eq!(stdout.bytes().filter(|byte| *byte == b'\n').count(), 1);
     serde_json::from_str(stdout.trim_end()).expect("decode Creator Package Report V1")
+}
+
+fn inspect_report(output: &Output) -> CreatorInspectCommandReportV1 {
+    let stdout = text(output);
+    assert!(stdout.ends_with('\n'));
+    assert_eq!(stdout.bytes().filter(|byte| *byte == b'\n').count(), 1);
+    serde_json::from_str(stdout.trim_end()).expect("decode Creator Inspect Report V1")
+}
+
+fn diff_report(output: &Output) -> CreatorDiffCommandReportV1 {
+    let stdout = text(output);
+    assert!(stdout.ends_with('\n'));
+    assert_eq!(stdout.bytes().filter(|byte| *byte == b'\n').count(), 1);
+    serde_json::from_str(stdout.trim_end()).expect("decode Creator Diff Report V1")
+}
+
+fn copy_creator_project(destination: &Path) {
+    let source = creator_project();
+    fs::create_dir_all(destination.join("assets")).expect("create copied project assets");
+    for relative in [
+        "project.authoring.json",
+        "NOTICE",
+        "assets/original-source.txt",
+    ] {
+        fs::copy(source.join(relative), destination.join(relative))
+            .expect("copy creator project file");
+    }
 }
 
 fn generation_count(output_root: &Path) -> usize {
@@ -184,6 +214,51 @@ fn creator_project_run_is_deterministic_and_uses_the_generic_application_runtime
 }
 
 #[test]
+fn creator_project_inspect_is_deterministic_path_free_and_location_independent() {
+    let scratch = TestDirectory::new("inspect");
+    let copied_project = scratch.path().join("copied-project");
+    copy_creator_project(&copied_project);
+    let original = creator_project();
+    let inspect = |project: &Path| {
+        next(&[
+            OsStr::new("project"),
+            OsStr::new("inspect"),
+            OsStr::new("--project"),
+            project.as_os_str(),
+        ])
+    };
+    let first = inspect(&original);
+    let second = inspect(&original);
+    let copied = inspect(&copied_project);
+    assert!(first.status.success());
+    assert!(second.status.success());
+    assert!(copied.status.success());
+    assert_eq!(first.stdout, second.stdout);
+    assert_eq!(first.stdout, copied.stdout);
+    assert!(first.stderr.is_empty());
+
+    let CreatorInspectCommandReportV1::Pass(pass) = inspect_report(&first) else {
+        panic!("creator project inspects");
+    };
+    assert_eq!(pass.command, "project.inspect");
+    assert_eq!(pass.details.source, "authoring");
+    assert_eq!(
+        pass.details.project.project_id,
+        "org.nextengine.creator-smoke"
+    );
+    assert_eq!(pass.details.projection.summary.schema_count, 17);
+    assert_eq!(pass.details.projection.summary.root_asset_count, 16);
+    assert_eq!(pass.details.projection.summary.asset_count, 18);
+    assert_eq!(pass.details.projection.summary.dependency_count, 11);
+    assert_eq!(pass.details.projection.summary.neutral_record_count, 10);
+    assert_eq!(pass.details.projection.summary.world_chunk_count, 3);
+    assert_eq!(pass.details.projection.summary.mechanic_package_count, 2);
+    assert_eq!(pass.details.projection.summary.granted_capability_count, 3);
+    assert!(!text(&first).contains(original.to_string_lossy().as_ref()));
+    assert!(!text(&first).contains(copied_project.to_string_lossy().as_ref()));
+}
+
+#[test]
 fn creator_project_package_is_reproducible_and_runs_from_its_published_bytes() {
     let scratch = TestDirectory::new("package");
     let first_root = scratch.path().join("package-one");
@@ -239,6 +314,115 @@ fn creator_project_package_is_reproducible_and_runs_from_its_published_bytes() {
     assert_eq!(launched.details.source, "package");
     assert_eq!(launched.details.project, packaged.details.project);
     assert_eq!(launched.details.runtime, packaged.details.runtime);
+
+    let authoring_inspection = next(&[
+        OsStr::new("project"),
+        OsStr::new("inspect"),
+        OsStr::new("--project"),
+        project.as_os_str(),
+    ]);
+    let package_inspection = next(&[
+        OsStr::new("project"),
+        OsStr::new("inspect"),
+        OsStr::new("--package"),
+        first_root.as_os_str(),
+    ]);
+    assert!(authoring_inspection.status.success());
+    assert!(package_inspection.status.success());
+    let CreatorInspectCommandReportV1::Pass(authoring_inspection) =
+        inspect_report(&authoring_inspection)
+    else {
+        panic!("authoring project inspects");
+    };
+    let CreatorInspectCommandReportV1::Pass(package_inspection) =
+        inspect_report(&package_inspection)
+    else {
+        panic!("creator package inspects");
+    };
+    assert_eq!(authoring_inspection.details.source, "authoring");
+    assert_eq!(package_inspection.details.source, "package");
+    assert_eq!(
+        authoring_inspection.details.project,
+        package_inspection.details.project
+    );
+    assert_eq!(
+        authoring_inspection.details.projection,
+        package_inspection.details.projection
+    );
+
+    let diff = next(&[
+        OsStr::new("project"),
+        OsStr::new("diff"),
+        OsStr::new("--base-project"),
+        project.as_os_str(),
+        OsStr::new("--candidate-package"),
+        first_root.as_os_str(),
+    ]);
+    assert!(diff.status.success());
+    let CreatorDiffCommandReportV1::Pass(diff) = diff_report(&diff) else {
+        panic!("authoring/package diff succeeds");
+    };
+    assert!(!diff.details.different);
+    assert_eq!(diff.details.summary.root_changes, 0);
+    assert_eq!(diff.details.summary.asset_changes, 0);
+    assert_eq!(diff.details.summary.world_chunk_changes, 0);
+    assert_eq!(diff.details.summary.mechanic_package_changes, 0);
+}
+
+#[test]
+fn creator_project_diff_localizes_one_neutral_record_change() {
+    let scratch = TestDirectory::new("diff-change");
+    let candidate = scratch.path().join("candidate");
+    copy_creator_project(&candidate);
+    let manifest_path = candidate.join("project.authoring.json");
+    let mut manifest: serde_json::Value = serde_json::from_slice(
+        &fs::read(&manifest_path).expect("read candidate authoring manifest"),
+    )
+    .expect("decode candidate authoring manifest");
+    let records = manifest["records"]
+        .as_array_mut()
+        .expect("candidate records array");
+    let item = records
+        .iter_mut()
+        .find(|record| record["asset_id"] == "11111111111111111111111111111111")
+        .expect("creator item record");
+    item["properties"][0]["value_id"] =
+        serde_json::Value::String("nextengine.creator-smoke.item.signal-tool-revised".to_owned());
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).expect("encode changed authoring manifest"),
+    )
+    .expect("write changed authoring manifest");
+
+    let original = creator_project();
+    let arguments = [
+        OsStr::new("project"),
+        OsStr::new("diff"),
+        OsStr::new("--base-project"),
+        original.as_os_str(),
+        OsStr::new("--candidate-project"),
+        candidate.as_os_str(),
+    ];
+    let first = next(&arguments);
+    let second = next(&arguments);
+    assert!(first.status.success());
+    assert!(second.status.success());
+    assert_eq!(first.stdout, second.stdout);
+    let CreatorDiffCommandReportV1::Pass(diff) = diff_report(&first) else {
+        panic!("changed project diff succeeds");
+    };
+    assert!(diff.details.different);
+    assert_eq!(diff.details.changes.assets.len(), 1);
+    assert_eq!(
+        diff.details.changes.assets[0].key,
+        "11111111111111111111111111111111"
+    );
+    assert_eq!(diff.details.changes.assets[0].change, "changed");
+    assert!(diff.details.changes.schemas.is_empty());
+    assert!(diff.details.changes.dependencies.is_empty());
+    assert!(diff.details.changes.world_chunks.is_empty());
+    assert!(!diff.details.changes.roots.is_empty());
+    assert!(!text(&first).contains(candidate.to_string_lossy().as_ref()));
 }
 
 #[test]
@@ -270,6 +454,20 @@ fn tampered_creator_package_is_rejected_before_runtime_launch() {
     assert_eq!(failure.command, "project.run");
     assert_eq!(failure.diagnostic.code, "CREATOR_PACKAGE_INVALID");
     assert!(!text(&failed).contains(package_root.to_string_lossy().as_ref()));
+
+    let inspected = next(&[
+        OsStr::new("project"),
+        OsStr::new("inspect"),
+        OsStr::new("--package"),
+        package_root.as_os_str(),
+    ]);
+    assert!(!inspected.status.success());
+    let CreatorInspectCommandReportV1::Fail(failure) = inspect_report(&inspected) else {
+        panic!("tampered package inspection fails");
+    };
+    assert_eq!(failure.command, "project.inspect");
+    assert_eq!(failure.diagnostic.code, "CREATOR_PACKAGE_INVALID");
+    assert!(!text(&inspected).contains(package_root.to_string_lossy().as_ref()));
 }
 
 #[test]

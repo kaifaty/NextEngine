@@ -67,6 +67,7 @@ struct CreatorPackageVersionProbe {
 pub(super) struct ValidatedCreatorPackageV1 {
     pub(super) project: CreatorProjectIdentityV1,
     pub(super) runtime: CreatorRuntimeProofV1,
+    pub(super) activated: next_contracts::project::ActivatedProjectV8,
 }
 
 pub(super) fn build_project_package(
@@ -209,6 +210,7 @@ pub(super) fn validate_and_run(
     Ok(ValidatedCreatorPackageV1 {
         project: actual_identity,
         runtime: actual_run,
+        activated,
     })
 }
 

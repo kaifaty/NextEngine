@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-083 |
 | Status | Accepted |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-18 |
 | Last verified | 2026-08-18 |
 | Normative dependencies | [SPEC-01](../01-system-architecture.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-22](../22-schema-registry-compatibility-and-migration.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-008](008-mechanics-mod-package-and-agent-authoring-model.md), [ADR-025](025-schema-content-and-migration-authority.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](048-direct-exact-project-lock.md), [ADR-082](082-linux-first-development-and-deferred-windows-host.md) |
@@ -138,7 +138,7 @@ reduces B-09 but does not close either.
 - R6a owns only project validate/cook and report V1 compatibility within the
   current pre-v1 policy.
 - ADR-084 uses this fixture for run/package with separate report contracts;
-  read-only diff/inspect remains the next bounded creator surface.
+  ADR-085 later adds the read-only diff/inspect bounded creator surface.
 - Windows/THOTH remains deferred under ADR-082; Linux `host-check` is the active
   implementation handoff.
 

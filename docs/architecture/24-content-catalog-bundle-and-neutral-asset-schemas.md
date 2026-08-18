@@ -4,16 +4,16 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 2.9 |
+| Версия | 3.0 |
 | Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md) |
-| Заменяет | SPEC-24 2.8; adds the exact current Creator Project Package V1 envelope and packaged-byte activation/run evidence without changing neutral schemas |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
+| Заменяет | SPEC-24 2.9; adds the stable-ID Creator Project Projection V1 inspection boundary without changing neutral schemas or package bytes |
 
 ## Scope
 
 This SPEC describes content contracts exercised by the current cooker,
-reference project, independent creator project, private ContentStore and public
-current-only creator package. It intentionally removes speculative archive
+reference project, independent creator project, private ContentStore, public
+current-only creator package and its source-neutral read-only projection. It intentionally removes speculative archive
 ABI, target-profile resolver, capability-scoring/fallback plans and full future
 navigation/collision/world schema listings. Git history retains those designs;
 a future production consumer must reintroduce only the fields it demonstrates.
@@ -163,6 +163,14 @@ Creator Project Package V1 is a narrower public directory envelope around one
 complete store publication: its canonical manifest lists every payload path,
 size and hash, binds the exact project/run proof, and requires root `NOTICE`.
 
+Creator Project Projection V1 does not serialize neutral payload properties or
+the private package layout. It projects the already validated content manifest
+into sorted root assets, schema-bound asset entries, dependency edges, world
+chunk bindings and locked mechanics capabilities keyed only by engine-owned
+stable IDs and exact hashes. Authoring and the corresponding package must yield
+the same projection; source kind and filesystem location are not comparison
+inputs.
+
 `ActivatedProjectV8` revalidates:
 
 - exact `ProjectLockV3`, `SchemaRegistryManifestV2`, `ContentManifestV1` and
@@ -218,7 +226,8 @@ provenance/NOTICE, localization, audio/animation, body schema, base-skinning
 profile/correctives and render catalog. It additionally builds the creator
 package twice, verifies byte-identical manifests, rejects changed/linked/
 unsupported inputs and reruns the actual packaged ContentStore with the same
-project/runtime/final-save proof. Malformed version/hash/bounds,
+project/runtime/final-save proof. It additionally inspects authoring/package
+through the public CLI and requires an empty stable-ID diff. Malformed version/hash/bounds,
 mapping/weights/driver/delta/LOD data, duplicate, cycle, missing dependency and
 forbidden-type cases publish nothing.
 Renderer-facing changes additionally run `platform`/`visual-smoke`; gameplay
