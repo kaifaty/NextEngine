@@ -33,12 +33,13 @@
   W2, WG or PhysX coupling first.
 - **Activation gate:** the main R8 row remains `PLANNED / NOT_ACTIVE` until
   `CONTINUUM-WATER-REF-P1 = PASS`.
-- **Current uncertainty:** hydro/free-fall need final clean W0G-rooted repeats;
-  the 7200-step still horizon, full orifice, sealed-48k, storage-order and
-  capacity cases remain incomplete. Required external dam-break/orifice curves
-  are absent. Windows equality, PCG cost at 50k, dynamic rigid reaction, fast
-  impact and added-mass behavior are also open; every `CONTINUUM-*`
-  ProductCheck is `NOT_RUN`.
+- **Current uncertainty:** clean W0G-rooted hydro, free-fall, dam-break and the
+  repeated 7200-step still horizon pass internally. Full orifice passes only
+  on the dirty canonical-clearance correction and needs a clean repeat;
+  sealed-48k and storage-order remain unmeasured. Required external
+  hydro/dam-break/orifice curves are absent. Windows equality, PCG cost at 50k,
+  dynamic rigid reaction, fast impact and added-mass behavior are also open;
+  every `CONTINUUM-*` ProductCheck is `NOT_RUN`.
 - **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
   hidden warm-start/float continuation, iterative coupling, sleep before exact
   persistence, or wet terrain before dry-sand evidence.
@@ -62,6 +63,7 @@
 | [W0F geometry/capacity/root closure](../continuum-water-w0f-geometry-capacity-root-closure-2026-08-18.md) | `EXACT_MATCH / SUCCESSOR_PROFILE_ROOTS_FROZEN / W1_AUTHORIZED` | Closes shared aperture geometry, oriented support, swept contact, static capacity and clean repeatable successor roots; gives no corpus credit |
 | [W1 successor energy discriminator](../continuum-water-w1-successor-energy-discriminator-2026-08-18.md) | `REPORT_ONLY / IMPACT_ENERGY_CONTRACT_RECLOSURE_REQUIRED / NO_W1_CREDIT` | Shows the frozen dam-break solver is healthy apart from an inherited energy-contract contradiction; rejects three pressure/contact counterfactuals |
 | [W0G impact-energy reclosure](../../plans/continuum-water/00g-impact-energy-contract-reclosure.md) | `SUCCESSOR_IMPACT_ENERGY_ROOTS_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Roots scenario-class energy semantics without changing W0F operations; missing external references still block W1 |
+| [W1 canonical-clearance discriminator](../continuum-water-w1-canonical-clearance-discriminator-2026-08-18.md) | `REPORT_ONLY / RUNNER_POLICY_DEFECT_CONFIRMED / NO_W1_CREDIT` | Restores the rooted inclusive `2,500 µm` canonical gate after an unrooted successor-runner zero check stopped orifice at a `1 µm` publication artifact; contact and roots stay unchanged |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-*` ProductChecks | `NOT_RUN` | No solver, performance, persistence or production claim is admissible |
@@ -137,7 +139,7 @@
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: fixed-point-boundary CPU DFSPH passes the Linux clean-water corpus | W0F freezes repeatable successor roots; W0G keeps the solver fixed; independent geometry/support/contact match; exact free-fall, 1200-step hydro and full internal dam-break pass | Full orifice, order, sealed-48k and full still horizon have not completed; dam-break/orifice references are missing | Complete the Linux W1 serial corpus and required external comparisons |
+| H1: fixed-point-boundary CPU DFSPH passes the Linux clean-water corpus | W0F freezes repeatable successor roots; W0G keeps the solver fixed; clean free-fall, hydro, dam-break and repeated 7200-step still-tank pass; dirty corrected orifice completes internally | Corrected orifice needs a clean repeat; order and sealed-48k have not run; required hydro/dam-break/orifice references are missing | Complete the clean Linux W1 serial corpus and required external comparisons |
 | H2: 50k CPU water fits the current THOTH budget | bounded sealed region and fixed profile | published prior art does not prove Next Engine 240 Hz cost | W2 exact 10k/50k/100k workload after W1 PASS |
 | H3: one-pass coupling is stable for the basin crate | narrow consumer and fixed cadence | fast impact/added-mass behavior is unmeasured | W3 float/impact corpus and reaction closure |
 | H4: one Drucker-Prager profile covers the first wheel scenario | established dry-sand model | exact source material and curve thresholds are not selected | Package 10T calibration closure |
@@ -157,8 +159,9 @@
 
 ## Next action
 
-1. Run the W0G-rooted W1 oracle on Linux in the frozen serial order: hydro, free-fall,
-   dam-break, still tank, orifice, sealed-48k, storage-order and capacities.
+1. Commit and clean-repeat the canonical-clearance runner correction, then
+   resume the W0G-rooted Linux order at orifice, sealed-48k, storage-order and
+   capacities.
 2. Fail on the first named scenario/criterion; do not retry, change a root,
    loosen a threshold or continue a partial corpus after failure.
 3. Repeat the complete Linux run on a clean tree and compare every bounded
@@ -199,7 +202,7 @@
   regression, orifice preflight PASS and two identical bounded clean report
   projections. Format, 64 library tests, 143 xtask tests, strict Clippy and
   boundary scan pass as recorded in the linked W0F evidence. The current W0G
-  worktree passes formatting, all 71 library tests, strict package Clippy and
+  worktree passes formatting, all 72 library tests, strict package Clippy and
   all six boundary checks; clean W0G closure and full-corpus evidence are still
   pending. All `CONTINUUM-*` ProductChecks remain `NOT_RUN`; broad `host-check`
   was not run.

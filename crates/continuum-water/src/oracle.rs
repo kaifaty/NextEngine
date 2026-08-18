@@ -16,8 +16,8 @@ use crate::model::{
     Vec3i, checked_scalar,
 };
 use crate::profile::{
-    DT, GRAVITY_MAGNITUDE, MAXIMUM_REPORT_BYTES, UNIFORM_MASS, decode_micrometres, decode_velocity,
-    quantize_micrometres, quantize_ppb, quantize_velocity,
+    DT, GRAVITY_MAGNITUDE, MAXIMUM_BOUNDARY_PENETRATION_UM, MAXIMUM_REPORT_BYTES, UNIFORM_MASS,
+    decode_micrometres, decode_velocity, quantize_micrometres, quantize_ppb, quantize_velocity,
 };
 use crate::reference::{self, CurveComparison};
 use crate::{profile, scenario, solver};
@@ -752,7 +752,7 @@ fn validate_common_metrics(
             || summary.density_error_ppb > 100_000
             || !(1..=20).contains(&summary.divergence_iterations)
             || summary.divergence_error_ppb > 1_000_000
-            || summary.maximum_penetration_um > 2_500
+            || !canonical_penetration_is_admitted(summary.maximum_penetration_um)
         {
             return Err(WaterError::new(
                 INVARIANT_MISMATCH,
@@ -787,6 +787,10 @@ fn validate_common_metrics(
         }
     }
     Ok(())
+}
+
+fn canonical_penetration_is_admitted(penetration_um: i64) -> bool {
+    (0..=MAXIMUM_BOUNDARY_PENETRATION_UM).contains(&penetration_um)
 }
 
 fn validate_scenario_metrics(

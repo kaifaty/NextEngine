@@ -703,7 +703,7 @@ fn run_trajectory(
                 format!("{} step {step}: {}", selected.id, error.detail()),
             )
         })?;
-        validate_step(selected.id, solver_mode, &next.outcome.summary)?;
+        validate_step(selected, solver_mode, &next)?;
         for _sample in &next.outcome.frame.samples {
             let mass_dt = checked_scalar(UNIFORM_MASS * DT, "W1 gravity impulse mass dt")?;
             let gravity_y = checked_scalar(mass_dt * -GRAVITY_MAGNITUDE, "W1 gravity impulse y")?;

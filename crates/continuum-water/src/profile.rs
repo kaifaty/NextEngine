@@ -114,6 +114,7 @@ pub(crate) const GRID_CELL_WIDTH_UM: i64 = 100_000;
 pub(crate) const SUPPORT_RADIUS_UM: i64 = 100_000;
 pub(crate) const PARTICLE_RADIUS_UM: i64 = 25_000;
 pub(crate) const MINIMUM_CLEARANCE_UM: i64 = 22_500;
+pub(crate) const MAXIMUM_BOUNDARY_PENETRATION_UM: i64 = PARTICLE_RADIUS_UM - MINIMUM_CLEARANCE_UM;
 pub(crate) const LATTICE_SPACING_UM: i64 = 50_000;
 
 pub(crate) const RHO0: f64 = f64::from_bits(0x408f_4000_0000_0000);

@@ -1,12 +1,15 @@
 #![forbid(unsafe_code)]
 
 use super::*;
+use crate::geometry::AxisAlignedGeometryManifest;
+use crate::profile::MAXIMUM_BOUNDARY_PENETRATION_UM;
 
 pub(super) fn validate_step(
-    scenario_id: &str,
+    selected: &Scenario,
     solver_mode: W1SolverMode,
-    summary: &crate::model::StepSummary,
+    next: &solver::ContactConstrainedStepOutcome,
 ) -> Result<(), WaterError> {
+    let summary = &next.outcome.summary;
     let maximum_density_iterations = match solver_mode {
         W1SolverMode::FrozenSuccessor | W1SolverMode::FrozenObserveEnergyDiagnostic => 50,
     };
@@ -14,12 +17,18 @@ pub(super) fn validate_step(
         || summary.density_error_ppb > 100_000
         || !(1..=20).contains(&summary.divergence_iterations)
         || summary.divergence_error_ppb > 1_000_000
-        || summary.maximum_penetration_um != 0
+        || !canonical_penetration_is_admitted(summary.maximum_penetration_um)
     {
+        let clearance_witness = if summary.maximum_penetration_um == 0 {
+            String::new()
+        } else {
+            minimum_clearance_witness(selected, &next.outcome.frame.samples)?
+        };
         return Err(WaterError::new(
             INVARIANT_MISMATCH,
             format!(
-                "{scenario_id} step {} violates the successor solver/clearance bounds: density={}/{} ppb, divergence={}/{} ppb, penetration={} um",
+                "{} step {} violates the successor solver/clearance bounds: density={}/{} ppb, divergence={}/{} ppb, penetration={} um{clearance_witness}",
+                selected.id,
                 summary.step,
                 summary.density_iterations,
                 summary.density_error_ppb,
@@ -30,6 +39,42 @@ pub(super) fn validate_step(
         ));
     }
     Ok(())
+}
+
+fn canonical_penetration_is_admitted(penetration_um: i64) -> bool {
+    (0..=MAXIMUM_BOUNDARY_PENETRATION_UM).contains(&penetration_um)
+}
+
+fn minimum_clearance_witness(
+    selected: &Scenario,
+    samples: &[crate::model::CanonicalSample],
+) -> Result<String, WaterError> {
+    let manifest = AxisAlignedGeometryManifest::from_geometry(selected.geometry)?;
+    let mut witness = None;
+    for sample in samples {
+        let observation = manifest.observe(sample.position_um)?;
+        if witness.as_ref().is_none_or(
+            |(_, current): &(u32, crate::geometry::GeometryObservation)| {
+                observation.closest_distance_squared_um2 < current.closest_distance_squared_um2
+            },
+        ) {
+            witness = Some((sample.id, observation));
+        }
+    }
+    let (sample_id, observation) = witness.ok_or_else(|| {
+        WaterError::new(
+            INVARIANT_MISMATCH,
+            "positive penetration has no canonical sample witness",
+        )
+    })?;
+    Ok(format!(
+        "; witness=sample-{sample_id}@({},{},{}),feature-{},distance-squared-{}-um2",
+        observation.position_um.x,
+        observation.position_um.y,
+        observation.position_um.z,
+        observation.closest_feature_id,
+        observation.closest_distance_squared_um2,
+    ))
 }
 
 pub(super) fn validate_output(
@@ -146,4 +191,21 @@ pub(super) fn corpus_run_root(roots: &ImpactEnergyRoots, scenarios: &[ScenarioEv
 fn hash_text(hasher: &mut Sha256, value: &str) {
     hasher.update(value.len().to_le_bytes());
     hasher.update(value.as_bytes());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn canonical_penetration_uses_the_frozen_inclusive_product_limit() {
+        assert!(!canonical_penetration_is_admitted(-1));
+        assert!(canonical_penetration_is_admitted(0));
+        assert!(canonical_penetration_is_admitted(
+            MAXIMUM_BOUNDARY_PENETRATION_UM
+        ));
+        assert!(!canonical_penetration_is_admitted(
+            MAXIMUM_BOUNDARY_PENETRATION_UM + 1
+        ));
+    }
 }
