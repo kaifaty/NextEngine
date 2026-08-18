@@ -1,0 +1,30 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class ModelLoadEvidence:
+    elapsed_ms: int
+    load_count: int
+
+
+@dataclass(frozen=True)
+class WarmupEvidence:
+    elapsed_ms: int
+    warmup_count: int
+
+
+@dataclass(frozen=True)
+class TranscriberCapabilities:
+    adapter_id: str
+    model_id: str
+    runtime_id: str
+    backend: str
+    sample_rate_hz: int
+    encoding: str
+    channels: int
+    supports_streaming: bool
+    timing_precision: str
+    resolution_samples: int | None
+    supported_delay_ms: tuple[int, ...]
