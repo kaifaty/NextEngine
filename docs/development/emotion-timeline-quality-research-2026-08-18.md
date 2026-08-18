@@ -6,10 +6,12 @@ This note concerns only the optional Phase 1 vocal-expression diagnostic.
 It neither promotes SPEC-16/ADR-017 nor changes the later LLM, TTS or
 FunctionGemma scope.
 
-**Decision:** retain `emotion2vec_plus_base` for the current live path, add a
-speech-only final aggregation and an explicit quiet-room VAD calibration, then
-run a pinned base-versus-large comparison. Do not replace a model based on a
-model-card headline or a subjective single microphone recording.
+**Decision:** retain `emotion2vec_plus_base` in the current live service until
+an integrated candidate completes a joint resource/latency screen and a
+labelled microphone check. A pinned Russian WavLM candidate has now passed the
+quality gates below; it is the next adapter-integration candidate, not an
+unqualified default. Do not replace a model based on a model-card headline or
+a subjective single microphone recording.
 
 ## Observed failure and correction
 
@@ -150,6 +152,52 @@ the model itself is better. Reconsider only if a declared downstream weighting
 values happiness/sadness enough to outweigh aggregate loss, or a new candidate
 first beats the base direct score on the frozen manifest.
 
+## `Aniemore/wavlm-emotion-russian-resd` A/B result
+
+The Russian audio-only WavLM candidate was downloaded outside Git at pinned
+revision `7a4ca18b34adff59b56b451acc7ff44fc43a12dc`. Only the standard
+Transformers `config.json`, `preprocessor_config.json` and `model.safetensors`
+were fetched; no remote model code was enabled. The 1,266,099,454-byte weights
+have SHA-256
+`dabf15d84b451195346b8050102a7243b3f92276064195f6e34b65aaa06a12ab`.
+
+On the frozen RESD-70 v2 clips, with the model card's 16 kHz mono,
+per-utterance-normalized and maximum-12-second preprocessing, it scored 45/60
+exactly mapped classes (`75.0%`) versus base's 29/60 (`48.3%`). Per mapped
+class: angry `8/10`, disgusted `7/10`, fearful `7/10`, happy `8/10`, neutral
+`8/10`, sad `7/10`. The candidate also has a native `enthusiasm` class and got
+7/10 on the otherwise-unscored RESD enthusiasm clips. The direct report is
+`/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v2/aniemore-wavlm-russian-resd-direct-report.v1.json`,
+SHA-256 `ed66c8e250695daf13805ef61888ed976f1aa35562ce1ab96fa93db1834c3489`.
+GPU-synchronized inference averaged 34.8 ms per utterance (maximum 423.8 ms,
+including the first invocation); it is not a live service latency claim.
+
+An ephemeral WavLM adapter then exercised the production loopback WebSocket,
+PCM framing, energy VAD, 1/2-second affect cadence, scheduler, smoothing and
+final aggregation. It scored 44/60 (`73.3%`): angry `8/10`, disgusted `7/10`,
+fearful `9/10`, happy `6/10`, neutral `7/10`, sad `7/10`. All 70 clips were
+speech-admitted and affect-observed; final `unknown` was returned for one
+neutral and one enthusiasm clip because no segment reached the existing
+two-hop smoothing admission. The report is
+`/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v2/aniemore-wavlm-russian-resd-affect-timeline-report.v1.json`,
+SHA-256 `8fdfc51f47474c1888b575f2d5c62b9e238a21bb60db071bb065c0106c8e572f`.
+
+**Scope limit:** the currently running base service already holds Voxtral in
+the 10 GiB GPU. To avoid an overlapping second Voxtral allocation, the trial
+used an ASR scheduler stub. It does **not** claim joint Voxtral+WavLM latency,
+ASR quality or a deployable profile. The reported 328.7/912.6 ms unpaced
+finish-to-final p50/p95 are likewise not Live latency. The existing user-facing
+base service remained live and unchanged.
+
+**Decision:** promote this exact WavLM revision to the next adapter-integration
+experiment. Preserve its seven-label native vocabulary (including
+`enthusiasm`) in model capabilities; do not silently remap it to `happy`.
+Before selecting it in the live profile, implement the replaceable adapter,
+run a one-process Voxtral+WavLM residency/latency screen after deliberately
+stopping the base service, and measure a small labelled microphone set. Keep
+the base service as the rollback path until all three checks pass. [model
+card](https://huggingface.co/Aniemore/wavlm-emotion-russian-resd)
+
 ## Model shortlist (research, not an approval to install)
 
 1. **`emotion2vec/emotion2vec_plus_large` — first A/B candidate.** It preserves
@@ -162,7 +210,7 @@ first beats the base direct score on the frozen manifest.
    card](https://huggingface.co/emotion2vec/emotion2vec_plus_base), [large model
    card](https://huggingface.co/emotion2vec/emotion2vec_plus_large)
 
-2. **Russian-specialized A/B baseline, not a default.**
+2. **Russian-specialized Wav2Vec2 baseline, lower priority.**
    `Aniemore/wav2vec2-xlsr-53-russian-emotion-recognition` has seven Russian
    labels and 316M parameters. Its own card reports macro-F1 0.721 on RESD but
    only 0.095 on Dusha podcast and 0.225 on CAMEO; that is useful evidence of
