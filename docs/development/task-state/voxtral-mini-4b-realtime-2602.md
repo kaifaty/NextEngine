@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | `COMPLETE` |
-| Updated | `2026-08-17` |
+| Updated | `2026-08-18` |
 | Task key | `voxtral-mini-4b-realtime-2602` |
 | Scope | Determine whether useful quantizations run on the workstation RTX 3080, assess quality evidence, and provide a bounded live-microphone probe |
 | Definition of done | Verify one recommended quant locally, distinguish measured quality from inference, and validate a microphone streaming client that persists audio only by explicit debug opt-in |
@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Use GGUF Q4_K_M through transcribe.cpp on the 10 GB RTX 3080. CMF Buds Pro 2 now reconnects directly in HSP/HFP MSBC mode as both the default sink and default source, and the bounded microphone client validates the live route before loading the model.
+- **Current conclusion:** Use GGUF Q4_K_M through transcribe.cpp on the 10 GB RTX 3080. CMF Buds Pro 2 now reconnects directly in HSP/HFP MSBC mode as both the default sink and default source, and the bounded microphone client validates the live route before loading the model. The user reports that Russian transcription at 80 ms delay parsed every tested word correctly; this is encouraging interactive-use evidence, not a controlled WER result.
 - **Why:** Local CUDA and streaming runs passed. On Ubuntu 26.04 with WirePlumber 0.5.13, saving `bluetooth.autoswitch-to-headset-profile=false`, retaining the `headset-head-unit` device profile, and selecting both CMF nodes as defaults survived a Bluetooth disconnect/reconnect; a ten-second `pipewire` probe then measured a non-silent -43.7 dBFS peak.
-- **Next action:** Run one live Voxtral session with spoken Russian and `--save-wav` to compare the transcript against the exact captured audio.
+- **Next action:** Build downstream neural integrations from the primary branch after commit `e839a38`; retain the external model/runtime boundary and add a representative paired Russian evaluation when product adoption requires a quality claim.
 - **Current blocker:** No representative NextEngine Russian speech corpus was in scope for quality evaluation.
 - **Do not retry:** Official BF16 vLLM on this 10 GB card; Mistral requires at least 16 GB.
 - **Reconsider when:** vLLM gains verified Voxtral quantization support or representative Russian evaluation contradicts Q4 neutrality.
@@ -31,6 +31,7 @@
 | Post-reconnect ten-second `pipewire` probe | `PASS` | Default capture returned a non-silent -43.7 dBFS peak without persisting audio |
 | Opt-in debug capture `/tmp/voxtral-microphone-probe-2026-08-17.wav` | `PASS` | Probe wrote exactly 5.0 s of mono 16-bit 16 kHz PCM outside the repository; the sampled interval was below the usable-signal threshold |
 | Live run through the exact built-in PipeWire source | `PASS` with expected empty transcript | Capture, CUDA inference, finalization, and the no-speech warning execute end to end; no microphone was connected for speech input |
+| User interactive Russian test at 80 ms delay | `USER_REPORTED` | Every tested word was parsed correctly; supports trying 80 ms for interactive work but does not replace paired WER/CER evaluation |
 | Published LibriSpeech test-clean quant ladder | `REPORT_ONLY` | English WER is neutral from BF16 through Q4_K_M within reported confidence interval |
 
 ## Decisions that still constrain the work
@@ -101,7 +102,7 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** Research/task-state documentation plus a bounded lab microphone script and focused tests; downloaded model and external runtime build remain only under `/tmp/codex-voxtral-research`.
+- **Workspace state:** The five-commit Voxtral series was cherry-picked onto the primary `codex/architecture-foundation-promotion` branch as `941cd40..e839a38`; downloaded model, debug audio, and external runtime build remain outside the repository under `/tmp`.
 - **Checks:** Local CUDA Q4_K_M runs, shared-library `--check`, incremental Russian stream, exact input listing/probes, a full bounded live path, and the earlier broad `cargo run -p xtask -- host-check` passed. The later WAV follow-up passed 13 focused Python tests, probe/live format checks, and `git diff --check`; broad host-check was not rerun for that localized Python change.
 - **Remaining risk:** A non-silent microphone signal is confirmed, but spoken headset gain and transcription quality remain unevaluated; debug WAV files may contain sensitive speech and must remain external; no representative Russian corpus evaluation and no local Q8/Q6/Q5 comparison.
 - **Promotion needed:** None.
