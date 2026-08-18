@@ -70,6 +70,13 @@ export interface TimelineUpdate {
 export interface FinalUtterance {
   text: string;
   observed_vocal_expression: string;
+  observed_vocal_expression_source?: string;
+  vocal_expression_summary?: {
+    evidence_samples: number;
+    evidence_duration_ms: number;
+    confirmed_segment_count: number;
+    label_support_samples: Record<string, number>;
+  };
   alignment_grade: string;
   metrics?: JsonObject;
 }
@@ -83,6 +90,7 @@ export type ConnectionState =
   | "loading"
   | "ready"
   | "connecting"
+  | "calibrating"
   | "recording"
   | "finalizing"
   | "complete"

@@ -6,11 +6,11 @@ import logging
 from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 
 from .adapters.base import AudioWindow
-from .activity import EnergyVoiceActivityDetector, VoiceActivityDetector
+from .activity import EnergyVoiceActivityDetector, VoiceActivityConfig, VoiceActivityDetector
 from .adapters.voxtral_transcribe_cpp import TranscriberConfig, TranscriptRevision
 from .audio import pcm16le_to_float32, pcm16le_to_float32_array
 from .metrics import ModelJobMetric, ResourceMonitor
-from .protocol import event
+from .protocol import VadCalibration, event
 from .scheduler import (
     JobCompletion,
     JobDiscarded,
@@ -120,10 +120,17 @@ class SpeechConnection:
         self._event_encode_ms = 0
         self._event_send_ms: list[int] = []
 
-    async def start(self, session_id: str, locale: str | None) -> None:
+    async def start(
+        self,
+        session_id: str,
+        locale: str | None,
+        vad_calibration: VadCalibration | None = None,
+    ) -> None:
         if not await self._claim(self):
             raise SessionError("SERVICE_BUSY", "another speech session is active")
         try:
+            if vad_calibration is not None:
+                self._apply_vad_calibration(vad_calibration)
             generation = self.session.start(session_id, locale)
             self._transcriber_session = await self._execute(
                 JobPriority.STARTUP,
@@ -144,8 +151,24 @@ class SpeechConnection:
                 sample_rate_hz=16_000,
                 encoding="pcm_s16le",
                 channels=1,
+                vocal_activity=self.activity.capabilities(),
             )
         )
+
+    def _apply_vad_calibration(self, calibration: VadCalibration) -> None:
+        """Apply calibration only to the built-in, energy-only VAD adapter."""
+        if not isinstance(self.activity, EnergyVoiceActivityDetector):
+            logger.info(
+                "speech.vad_calibration_ignored session_id=%s adapter=%s",
+                self.session.session_id,
+                self.activity.capabilities().get("adapter_id", "unknown"),
+            )
+            return
+        config = VoiceActivityConfig.calibrated(
+            noise_floor_dbfs=calibration.noise_floor_dbfs,
+            duration_ms=calibration.duration_ms,
+        )
+        self.activity = EnergyVoiceActivityDetector(config)
 
     async def append_pcm(self, payload: bytes) -> None:
         await self._asr_slots.acquire()
@@ -560,7 +583,7 @@ class SpeechConnection:
                 "copy": self.session.copy_metrics(),
             },
             "vocal_activity": {
-                "adapter_id": "energy-vad/1",
+                **self.activity.capabilities(),
                 "speech_samples": speech_samples,
                 "speech_ratio": (
                     speech_samples / self.session.total_samples
@@ -569,6 +592,7 @@ class SpeechConnection:
                 ),
                 "segments": len(activity_segments),
             },
+            "vocal_affect": self.timeline.affect_diagnostics(),
             "events": {
                 "count": self._event_count,
                 "bytes_total": self._event_bytes,

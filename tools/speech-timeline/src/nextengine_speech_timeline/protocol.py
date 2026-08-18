@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
 import re
 from typing import Any
 
@@ -36,12 +37,21 @@ class ClientHello:
 
 
 @dataclass(frozen=True)
+class VadCalibration:
+    """Bounded quiet-room measurement supplied by the local dashboard."""
+
+    noise_floor_dbfs: float
+    duration_ms: int
+
+
+@dataclass(frozen=True)
 class SessionStart:
     session_id: str
     locale: str | None
     sample_rate_hz: int
     encoding: str
     channels: int
+    vad_calibration: VadCalibration | None = None
 
 
 @dataclass(frozen=True)
@@ -90,6 +100,7 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
                 "encoding",
                 "channels",
             },
+            optional={"vad_calibration"},
         )
         session_id = _session_id(value.get("session_id"))
         locale_value = value.get("locale")
@@ -104,7 +115,17 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
                 "audio must be mono pcm_s16le at 16000 Hz",
                 terminal=True,
             )
-        return SessionStart(session_id, locale_value, sample_rate, encoding, channels)
+        calibration = None
+        if "vad_calibration" in value:
+            calibration = _vad_calibration(value["vad_calibration"])
+        return SessionStart(
+            session_id,
+            locale_value,
+            sample_rate,
+            encoding,
+            channels,
+            calibration,
+        )
     if message_type in {"session.finish", "session.cancel"}:
         _require_keys(value, {"schema_version", "type", "session_id"})
         session_id = _session_id(value.get("session_id"))
@@ -125,13 +146,16 @@ def encode_event(value: dict[str, object]) -> str:
     return encoded
 
 
-def _require_keys(value: dict[str, Any], expected: set[str]) -> None:
+def _require_keys(
+    value: dict[str, Any], expected: set[str], *, optional: set[str] | None = None
+) -> None:
     actual = set(value)
-    if actual != expected:
+    allowed = expected | (optional or set())
+    if not expected <= actual or not actual <= allowed:
         raise ProtocolError(
             "INVALID_FIELDS",
             f"message fields do not match schema: missing={sorted(expected - actual)}, "
-            f"extra={sorted(actual - expected)}",
+            f"extra={sorted(actual - allowed)}",
             terminal=True,
         )
 
@@ -155,3 +179,29 @@ def _exact_integer(value: object, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise ProtocolError("INVALID_FIELD", f"{name} must be an integer", terminal=True)
     return value
+
+
+def _vad_calibration(value: object) -> VadCalibration:
+    if not isinstance(value, dict):
+        raise ProtocolError("INVALID_FIELD", "vad_calibration must be an object", terminal=True)
+    _require_keys(value, {"noise_floor_dbfs", "duration_ms"})
+    noise_floor = value.get("noise_floor_dbfs")
+    if isinstance(noise_floor, bool) or not isinstance(noise_floor, (int, float)):
+        raise ProtocolError(
+            "INVALID_FIELD", "vad_calibration.noise_floor_dbfs must be a number", terminal=True
+        )
+    noise_floor = float(noise_floor)
+    if not math.isfinite(noise_floor) or not -90.0 <= noise_floor <= -15.0:
+        raise ProtocolError(
+            "INVALID_FIELD",
+            "vad_calibration.noise_floor_dbfs must be between -90 and -15",
+            terminal=True,
+        )
+    duration_ms = _exact_integer(value.get("duration_ms"), "vad_calibration.duration_ms")
+    if not 500 <= duration_ms <= 10_000:
+        raise ProtocolError(
+            "INVALID_FIELD",
+            "vad_calibration.duration_ms must be between 500 and 10000",
+            terminal=True,
+        )
+    return VadCalibration(noise_floor_dbfs=noise_floor, duration_ms=duration_ms)

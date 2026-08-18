@@ -102,6 +102,24 @@ class FusionTrack:
 
 
 @dataclass(frozen=True)
+class UtteranceAffectSummary:
+    """A time-weighted summary of confirmed speech-only affect evidence.
+
+    ``fusion.observed_vocal_expression`` deliberately represents the current
+    timeline state.  It can therefore be ``unknown`` at a boundary while the
+    hysteresis policy decides whether a new label is real.  A completed
+    utterance needs different semantics: a transient boundary must not erase
+    the confirmed evidence gathered earlier in the spoken turn.
+    """
+
+    label: str = "unknown"
+    source: str = "no_confirmed_speech_evidence"
+    evidence_samples: int = 0
+    segment_count: int = 0
+    label_support: tuple[tuple[str, int], ...] = ()
+
+
+@dataclass(frozen=True)
 class TimelineSnapshot:
     revision: int
     transcript: TranscriptTrack
@@ -200,12 +218,91 @@ class SpeechTimeline:
     def utterance_final(self) -> dict[str, object]:
         if not self.transcript.final:
             raise ValueError("transcript is not final")
+        summary = self.utterance_affect_summary()
         return {
             "text": self.transcript.text,
             "timing_precision": "utterance",
-            "observed_vocal_expression": self.fusion.observed_vocal_expression,
+            "observed_vocal_expression": summary.label,
+            "observed_vocal_expression_source": summary.source,
+            "vocal_expression_summary": {
+                "evidence_samples": summary.evidence_samples,
+                "evidence_duration_ms": round(summary.evidence_samples * 1_000 / SAMPLE_RATE_HZ),
+                "confirmed_segment_count": summary.segment_count,
+                "label_support_samples": dict(summary.label_support),
+            },
             "alignment_grade": "utterance",
             "spans": [],
+        }
+
+    def utterance_affect_summary(self) -> UtteranceAffectSummary:
+        """Summarize admitted, interpretable vocal-expression segments.
+
+        The model's ``other`` bucket and the timeline's ``unknown`` state are
+        useful diagnostic observations, but neither is a stable expression to
+        inject into downstream context.  We keep both in the raw timeline and
+        only abstain in the final summary when there is no admitted primary
+        expression at all.  Segment duration is used once, so overlapping raw
+        windows cannot multiply their influence.
+        """
+        support: dict[str, int] = {}
+        segment_count = 0
+        for segment in self._segments:
+            if segment.label in {"unknown", "other"}:
+                continue
+            duration = max(0, segment.end_sample - segment.start_sample)
+            if duration == 0:
+                continue
+            support[segment.label] = support.get(segment.label, 0) + duration
+            segment_count += 1
+        if not support:
+            return UtteranceAffectSummary()
+        label, _ = max(support.items(), key=lambda item: (item[1], item[0]))
+        ordered_support = tuple(sorted(support.items(), key=lambda item: item[0]))
+        return UtteranceAffectSummary(
+            label=label,
+            source="time_weighted_confirmed_speech_segments",
+            evidence_samples=sum(support.values()),
+            segment_count=segment_count,
+            label_support=ordered_support,
+        )
+
+    def affect_diagnostics(self) -> dict[str, object]:
+        """Content-free quality probes for live checks and corpus evaluation."""
+        summary = self.utterance_affect_summary()
+        total_segment_samples = sum(
+            max(0, item.end_sample - item.start_sample) for item in self._segments
+        )
+        unknown_segment_samples = sum(
+            max(0, item.end_sample - item.start_sample)
+            for item in self._segments
+            if item.label == "unknown"
+        )
+        raw_top_labels: dict[str, int] = {}
+        for observation in self._observations:
+            raw_top_labels[observation.top_label] = (
+                raw_top_labels.get(observation.top_label, 0) + 1
+            )
+        smoothed_labels = [item.label for item in self._segments if item.label != "unknown"]
+        transitions = sum(
+            1 for left, right in zip(smoothed_labels, smoothed_labels[1:]) if left != right
+        )
+        return {
+            "raw_observation_count": len(self._observations),
+            "confirmed_segment_count": summary.segment_count,
+            "confirmed_expression_samples": summary.evidence_samples,
+            "unknown_segment_samples": unknown_segment_samples,
+            "unknown_segment_ratio": (
+                unknown_segment_samples / total_segment_samples
+                if total_segment_samples > 0
+                else 0.0
+            ),
+            "smoothed_expression_transitions": transitions,
+            "raw_top_label_counts": dict(sorted(raw_top_labels.items())),
+            "final_summary": {
+                "label": summary.label,
+                "source": summary.source,
+                "label_support_samples": dict(summary.label_support),
+            },
         }
 
     def _smooth(self, observation: RawAffectObservation) -> None:

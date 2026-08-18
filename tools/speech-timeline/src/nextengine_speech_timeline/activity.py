@@ -28,6 +28,8 @@ class VoiceActivityConfig:
     pre_roll_ms: int = 200
     min_voiced_ms: int = 600
     min_voiced_ratio: float = 0.35
+    calibration_noise_floor_dbfs: float | None = None
+    calibration_duration_ms: int | None = None
 
     def __post_init__(self) -> None:
         if self.frame_ms not in {10, 20, 30}:
@@ -44,6 +46,46 @@ class VoiceActivityConfig:
             raise ValueError("VAD durations must be non-negative/positive")
         if not 0.0 < self.min_voiced_ratio <= 1.0:
             raise ValueError("min_voiced_ratio must be in (0, 1]")
+        if (self.calibration_noise_floor_dbfs is None) != (
+            self.calibration_duration_ms is None
+        ):
+            raise ValueError("VAD calibration requires both noise floor and duration")
+        if self.calibration_noise_floor_dbfs is not None:
+            if not math.isfinite(self.calibration_noise_floor_dbfs) or not -90.0 <= self.calibration_noise_floor_dbfs <= -15.0:
+                raise ValueError("VAD calibration noise floor must be between -90 and -15 dBFS")
+            if self.calibration_duration_ms is None or not 500 <= self.calibration_duration_ms <= 10_000:
+                raise ValueError("VAD calibration duration must be between 500 and 10000 ms")
+
+    @classmethod
+    def calibrated(
+        cls,
+        *,
+        noise_floor_dbfs: float,
+        duration_ms: int,
+    ) -> "VoiceActivityConfig":
+        """Build bounded energy thresholds from a quiet-room measurement.
+
+        The measurement is used only by the VAD gate.  Audio passed to the
+        emotion model is deliberately not denoised or gain-normalized because
+        those transformations can erase the prosodic features being measured.
+        """
+        floor = float(noise_floor_dbfs)
+        if not math.isfinite(floor) or not -90.0 <= floor <= -15.0:
+            raise ValueError("VAD calibration noise floor must be between -90 and -15 dBFS")
+        if not 500 <= duration_ms <= 10_000:
+            raise ValueError("VAD calibration duration must be between 500 and 10000 ms")
+        base = cls()
+        speech_threshold = max(base.speech_threshold_dbfs, min(-18.0, floor + 15.0))
+        silence_threshold = max(
+            base.silence_threshold_dbfs,
+            min(speech_threshold - 3.0, floor + 6.0),
+        )
+        return cls(
+            speech_threshold_dbfs=speech_threshold,
+            silence_threshold_dbfs=silence_threshold,
+            calibration_noise_floor_dbfs=floor,
+            calibration_duration_ms=duration_ms,
+        )
 
     @property
     def frame_samples(self) -> int:
@@ -287,6 +329,15 @@ class EnergyVoiceActivityDetector:
             "pre_roll_ms": self.config.pre_roll_ms,
             "min_voiced_ms": self.config.min_voiced_ms,
             "min_voiced_ratio": self.config.min_voiced_ratio,
+            "calibration": {
+                "mode": (
+                    "browser_quiet_noise_floor"
+                    if self.config.calibration_noise_floor_dbfs is not None
+                    else "default_thresholds"
+                ),
+                "noise_floor_dbfs": self.config.calibration_noise_floor_dbfs,
+                "duration_ms": self.config.calibration_duration_ms,
+            },
         }
 
     def _consume_frame(self, start_sample: int, samples: np.ndarray) -> bool:

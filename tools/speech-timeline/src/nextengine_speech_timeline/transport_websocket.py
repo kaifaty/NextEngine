@@ -323,7 +323,11 @@ class SpeechTimelineWebSocketService:
                         continue
                     client_message = parse_client_message(message)
                     if isinstance(client_message, SessionStart):
-                        await connection.start(client_message.session_id, client_message.locale)
+                        await connection.start(
+                            client_message.session_id,
+                            client_message.locale,
+                            client_message.vad_calibration,
+                        )
                     elif isinstance(client_message, SessionFinish):
                         await connection.finish(client_message.session_id)
                     elif isinstance(client_message, SessionCancel):

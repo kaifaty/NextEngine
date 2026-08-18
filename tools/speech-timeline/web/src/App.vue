@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import EmotionTimeline from "./components/EmotionTimeline.vue";
 import TranscriptPanel from "./components/TranscriptPanel.vue";
 import {
   BrowserMicrophoneCapture,
+  calibrateMicrophoneNoise,
   listAudioInputs,
   type AudioCaptureInfo,
+  type NoiseCalibration,
 } from "./lib/audioCapture";
 import { emotionColor, emotionLabel, formatDuration } from "./lib/display";
 import { loadBootstrap, SpeechTimelineClient } from "./lib/speechClient";
@@ -35,10 +37,12 @@ const inputRms = ref(0);
 const captureInfo = ref<AudioCaptureInfo | null>(null);
 const firstTranscriptLatencyMs = ref<number | null>(null);
 const firstAffectLatencyMs = ref<number | null>(null);
+const calibration = ref<NoiseCalibration | null>(null);
 let limitStopScheduled = false;
 
 const isRecording = computed(() => state.value === "recording");
 const canStart = computed(() => ["ready", "complete", "error"].includes(state.value));
+const canCalibrate = computed(() => ["ready", "complete", "error"].includes(state.value));
 const currentSamples = computed(() => sentBytes.value / 2);
 const durationMs = computed(() => (sentBytes.value * 1_000) / 32_000);
 const limitMs = computed(() => client.value?.bounds?.maxTurnDurationMs ?? 30_000);
@@ -55,6 +59,7 @@ const stateText: Record<ConnectionState, string> = {
   loading: "Загрузка интерфейса",
   ready: "Сервис готов",
   connecting: "Подключение",
+  calibrating: "Калибровка микрофона",
   recording: "Идёт запись",
   finalizing: "Финальный анализ",
   complete: "Результат готов",
@@ -89,6 +94,11 @@ const captureSummary = computed(() => {
       : `affect ${Math.round(firstAffectLatencyMs.value)} мс`;
   return `${sourceRate}${info.contextSampleRate / 1_000} kHz · DSP ${dsp.join("+") || "off"} · ${asrLatency} · ${affectLatency}`;
 });
+const calibrationSummary = computed(() => {
+  const result = calibration.value;
+  if (!result) return "VAD: пороги по умолчанию — для шумного места выполните калибровку тишины.";
+  return `VAD: шум ${result.noiseFloorDbfs.toFixed(1)} dBFS · пик ${result.peakDbfs.toFixed(1)} dBFS · ${result.durationMs / 1_000} с`;
+});
 const identitySummary = computed(() => {
   const identity = objectValue(bootstrap.value?.service, "model_identity");
   if (!identity) return "точные revisions доступны после запуска";
@@ -113,6 +123,10 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener("beforeunload", cancelActiveSession);
   cancelActiveSession();
+});
+
+watch(selectedDevice, () => {
+  calibration.value = null;
 });
 
 async function refreshDevices(): Promise<void> {
@@ -141,7 +155,15 @@ async function startRecording(): Promise<void> {
   const nextCapture = new BrowserMicrophoneCapture();
   capture.value = nextCapture;
   try {
-    await nextClient.connectAndStart("ru");
+    await nextClient.connectAndStart(
+      "ru",
+      calibration.value
+        ? {
+            noiseFloorDbfs: calibration.value.noiseFloorDbfs,
+            durationMs: calibration.value.durationMs,
+          }
+        : undefined,
+    );
     captureInfo.value = await nextCapture.start(selectedDevice.value, 80, {
       onChunk: handleAudioChunk,
       onLevel: (level) => {
@@ -153,6 +175,22 @@ async function startRecording(): Promise<void> {
   } catch (error) {
     nextClient.cancel();
     await nextCapture.stop().catch(() => undefined);
+    fail(error);
+  }
+}
+
+async function calibrateNoise(): Promise<void> {
+  if (!canCalibrate.value) return;
+  errorMessage.value = "";
+  notice.value = "Калибруем фон 2 секунды — пожалуйста, не говорите.";
+  state.value = "calibrating";
+  try {
+    const result = await calibrateMicrophoneNoise(selectedDevice.value, 2_000);
+    calibration.value = result;
+    notice.value = `Калибровка готова: фон ${result.noiseFloorDbfs.toFixed(1)} dBFS. Эти пороги используются только для VAD.`;
+    await refreshDevices();
+    state.value = "ready";
+  } catch (error) {
     fail(error);
   }
 }
@@ -347,6 +385,14 @@ function stringValue(value: JsonObject, key: string): string {
             <span class="record-dot"></span>
             Начать запись
           </button>
+          <button
+            v-if="!isRecording"
+            class="secondary-button"
+            :disabled="!canCalibrate"
+            @click="calibrateNoise"
+          >
+            Калибровать тишину
+          </button>
           <button v-else class="stop-button" @click="stopRecording">
             <span class="stop-square"></span>
             Завершить фразу
@@ -358,6 +404,7 @@ function stringValue(value: JsonObject, key: string): string {
         </div>
         <div class="duration-track"><i :style="{ width: `${progress}%` }"></i></div>
         <p v-if="captureSummary" class="capture-diagnostics">{{ captureSummary }}</p>
+        <p class="capture-diagnostics">{{ calibrationSummary }}</p>
         <p v-if="notice" class="notice">{{ notice }}</p>
         <p v-if="errorMessage" class="error-box">{{ errorMessage }}</p>
       </div>
@@ -408,6 +455,9 @@ function stringValue(value: JsonObject, key: string): string {
         <span>Наблюдаемый окрас</span>
         <b>{{ emotionLabel(finalUtterance.observed_vocal_expression) }}</b>
         <small>alignment: {{ finalUtterance.alignment_grade }}</small>
+        <small v-if="finalUtterance.observed_vocal_expression_source">
+          {{ finalUtterance.observed_vocal_expression_source }}
+        </small>
       </div>
     </section>
 

@@ -216,6 +216,51 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(activity[0]["state"], "no_speech")
         self.assertEqual(updates[-1]["vocal_affect"]["raw_observations"], [])
 
+    async def test_vad_calibration_is_reflected_in_session_and_final_metrics(self) -> None:
+        async with connect(self.service.uri, compression=None) as websocket:
+            await self.authenticate(websocket)
+            await websocket.send(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "type": "session.start",
+                        "session_id": "calibrated",
+                        "locale": "ru",
+                        "sample_rate_hz": 16_000,
+                        "encoding": "pcm_s16le",
+                        "channels": 1,
+                        "vad_calibration": {
+                            "noise_floor_dbfs": -50.0,
+                            "duration_ms": 2_000,
+                        },
+                    }
+                )
+            )
+            started = json.loads(await websocket.recv())
+            activity = started["vocal_activity"]
+            self.assertEqual(activity["speech_threshold_dbfs"], -35.0)
+            self.assertEqual(activity["calibration"]["noise_floor_dbfs"], -50.0)
+            await websocket.send(b"\0\0" * 4_000)
+            await websocket.send(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "type": "session.finish",
+                        "session_id": "calibrated",
+                    }
+                )
+            )
+            while True:
+                final = json.loads(await asyncio.wait_for(websocket.recv(), 2))
+                if final["type"] == "utterance.final":
+                    break
+        metrics = final["metrics"]
+        self.assertEqual(
+            metrics["vocal_activity"]["calibration"]["mode"],
+            "browser_quiet_noise_floor",
+        )
+        self.assertIn("vocal_affect", metrics)
+
     async def test_dashboard_and_private_bootstrap_are_served_same_origin(self) -> None:
         def get(path: str) -> tuple[int, dict[str, str], bytes]:
             with urlopen(self.service.dashboard_uri + path, timeout=2) as response:

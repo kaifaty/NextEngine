@@ -16,6 +16,12 @@ export interface AudioCaptureInfo {
   startedAtMonotonicMs: number;
 }
 
+export interface NoiseCalibration {
+  noiseFloorDbfs: number;
+  durationMs: number;
+  peakDbfs: number;
+}
+
 class PcmChunker {
   private readonly resampler: StreamingLinearResampler;
   private readonly output: number[] = [];
@@ -70,24 +76,8 @@ export class BrowserMicrophoneCapture {
     if (this.context !== null) {
       throw new Error("microphone capture is already active");
     }
-    this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
-        channelCount: 1,
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-      },
-      video: false,
-    });
-    try {
-      this.context = new AudioContext({
-        latencyHint: "interactive",
-        sampleRate: TARGET_SAMPLE_RATE,
-      });
-    } catch {
-      this.context = new AudioContext({ latencyHint: "interactive" });
-    }
+    this.stream = await navigator.mediaDevices.getUserMedia(microphoneConstraints(deviceId));
+    this.context = createAudioContext();
     await this.context.audioWorklet.addModule(
       new URL("../audio/pcm-worklet.js", import.meta.url),
     );
@@ -179,10 +169,100 @@ export class BrowserMicrophoneCapture {
   }
 }
 
+/**
+ * Measures ambient microphone energy without retaining or transmitting audio.
+ * The user should remain quiet during this short calibration window.
+ */
+export async function calibrateMicrophoneNoise(
+  deviceId: string,
+  durationMs = 2_000,
+): Promise<NoiseCalibration> {
+  if (!Number.isInteger(durationMs) || durationMs < 500 || durationMs > 10_000) {
+    throw new Error("длительность калибровки должна быть от 0.5 до 10 секунд");
+  }
+  const stream = await navigator.mediaDevices.getUserMedia(microphoneConstraints(deviceId));
+  const context = createAudioContext();
+  let source: MediaStreamAudioSourceNode | null = null;
+  let processor: AudioWorkletNode | null = null;
+  let sink: GainNode | null = null;
+  const levels: number[] = [];
+  try {
+    await context.audioWorklet.addModule(
+      new URL("../audio/pcm-worklet.js", import.meta.url),
+    );
+    source = context.createMediaStreamSource(stream);
+    processor = new AudioWorkletNode(context, "nextengine-pcm-processor");
+    sink = context.createGain();
+    sink.gain.value = 0;
+    processor.port.onmessage = (message: MessageEvent<Float32Array | { type: string }>) => {
+      if (!(message.data instanceof Float32Array) || message.data.length === 0) return;
+      let energy = 0;
+      for (const sample of message.data) energy += sample * sample;
+      levels.push(toDbfs(Math.sqrt(energy / message.data.length)));
+    };
+    source.connect(processor);
+    processor.connect(sink);
+    sink.connect(context.destination);
+    await context.resume();
+    await new Promise<void>((resolve) => window.setTimeout(resolve, durationMs));
+  } finally {
+    source?.disconnect();
+    processor?.disconnect();
+    processor?.port.close();
+    sink?.disconnect();
+    for (const track of stream.getTracks()) track.stop();
+    if (context.state !== "closed") await context.close();
+  }
+  if (levels.length < 20) {
+    throw new Error("микрофон не выдал достаточно аудио для калибровки");
+  }
+  const median = percentile(levels, 0.5);
+  const noiseFloorDbfs = Math.max(-90, percentile(levels, 0.9));
+  const peakDbfs = percentile(levels, 0.99);
+  if (noiseFloorDbfs - median > 15) {
+    throw new Error("во время калибровки слышна речь или переменный шум — повторите в тишине");
+  }
+  if (noiseFloorDbfs > -15) {
+    throw new Error("уровень шума вне поддерживаемого диапазона; проверьте микрофон");
+  }
+  return { noiseFloorDbfs, durationMs, peakDbfs };
+}
+
 export async function listAudioInputs(): Promise<MediaDeviceInfo[]> {
   if (!navigator.mediaDevices?.enumerateDevices) {
     return [];
   }
   const devices = await navigator.mediaDevices.enumerateDevices();
   return devices.filter((device) => device.kind === "audioinput");
+}
+
+function microphoneConstraints(deviceId: string): MediaStreamConstraints {
+  return {
+    audio: {
+      ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+      channelCount: 1,
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    },
+    video: false,
+  };
+}
+
+function createAudioContext(): AudioContext {
+  try {
+    return new AudioContext({ latencyHint: "interactive", sampleRate: TARGET_SAMPLE_RATE });
+  } catch {
+    return new AudioContext({ latencyHint: "interactive" });
+  }
+}
+
+function toDbfs(rms: number): number {
+  return 20 * Math.log10(Math.max(rms, 0.00000001));
+}
+
+function percentile(values: number[], quantile: number): number {
+  const ordered = [...values].sort((left, right) => left - right);
+  const index = Math.max(0, Math.min(ordered.length - 1, Math.ceil(quantile * ordered.length) - 1));
+  return ordered[index] ?? -120;
 }

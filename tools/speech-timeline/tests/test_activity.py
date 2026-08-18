@@ -59,6 +59,19 @@ class ActivityTests(unittest.TestCase):
         self.assertAlmostEqual(window.voiced_ratio, 2 / 3, places=3)
         self.assertTrue(window.eligible_for_affect)
 
+    def test_quiet_room_calibration_raises_energy_gate_without_touching_model_audio(self) -> None:
+        config = VoiceActivityConfig.calibrated(
+            noise_floor_dbfs=-50.0,
+            duration_ms=2_000,
+        )
+        detector = EnergyVoiceActivityDetector(config)
+
+        self.assertEqual(config.speech_threshold_dbfs, -35.0)
+        self.assertEqual(config.silence_threshold_dbfs, -44.0)
+        capabilities = detector.capabilities()
+        self.assertEqual(capabilities["calibration"]["mode"], "browser_quiet_noise_floor")
+        self.assertEqual(capabilities["calibration"]["noise_floor_dbfs"], -50.0)
+
 
 if __name__ == "__main__":
     unittest.main()

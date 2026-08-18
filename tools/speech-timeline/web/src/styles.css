@@ -44,11 +44,14 @@ select { width: 100%; min-height: 42px; padding: 0 36px 0 12px; border: 1px soli
 select:focus { border-color: rgba(101, 224, 194, .55); }
 .icon-button { width: 42px; height: 42px; border: 1px solid var(--border); border-radius: 10px; background: #0d1016; cursor: pointer; }
 .icon-button:hover { border-color: rgba(101, 224, 194, .45); }
-.record-controls { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; margin-top: 18px; }
-.primary-button, .stop-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 17px; border: 0; border-radius: 11px; font-weight: 750; cursor: pointer; }
+.record-controls { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 14px; margin-top: 18px; }
+.primary-button, .secondary-button, .stop-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 17px; border: 0; border-radius: 11px; font-weight: 750; cursor: pointer; }
 .primary-button { background: var(--accent); color: #07120f; }
 .primary-button:hover { background: #7ce9ce; transform: translateY(-1px); }
 .primary-button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.secondary-button { border: 1px solid rgba(101, 224, 194, .28); color: var(--accent); background: rgba(101, 224, 194, .08); }
+.secondary-button:hover { background: rgba(101, 224, 194, .15); }
+.secondary-button:disabled { opacity: .45; cursor: not-allowed; }
 .stop-button { background: #282d3a; color: #fff; }
 .record-dot { width: 9px; height: 9px; border-radius: 50%; background: #d93a35; }
 .stop-square { width: 9px; height: 9px; border-radius: 2px; background: var(--danger); }

@@ -10,6 +10,11 @@ interface SendResult {
   limitReached: boolean;
 }
 
+export interface VadCalibrationInput {
+  noiseFloorDbfs: number;
+  durationMs: number;
+}
+
 export async function loadBootstrap(): Promise<DashboardBootstrap> {
   const response = await fetch("/api/bootstrap", {
     cache: "no-store",
@@ -51,7 +56,7 @@ export class SpeechTimelineClient {
     private readonly onEvent: (event: SpeechEvent) => void,
   ) {}
 
-  connectAndStart(locale: string): Promise<void> {
+  connectAndStart(locale: string, vadCalibration?: VadCalibrationInput): Promise<void> {
     if (this.socket !== null) {
       throw new Error("speech session is already connected");
     }
@@ -75,7 +80,7 @@ export class SpeechTimelineClient {
           token: this.bootstrap.token,
         });
       };
-      socket.onmessage = (message) => this.handleMessage(message, locale);
+      socket.onmessage = (message) => this.handleMessage(message, locale, vadCalibration);
       socket.onerror = () => {
         if (!this.sessionStarted) {
           this.rejectStart(new Error("WebSocket connection failed"));
@@ -161,7 +166,11 @@ export class SpeechTimelineClient {
     this.socket = null;
   }
 
-  private handleMessage(message: MessageEvent, locale: string): void {
+  private handleMessage(
+    message: MessageEvent,
+    locale: string,
+    vadCalibration?: VadCalibrationInput,
+  ): void {
     if (typeof message.data !== "string") {
       this.rejectStart(new Error("service returned an unexpected binary frame"));
       return;
@@ -198,6 +207,14 @@ export class SpeechTimelineClient {
         sample_rate_hz: 16_000,
         encoding: "pcm_s16le",
         channels: 1,
+        ...(vadCalibration
+          ? {
+              vad_calibration: {
+                noise_floor_dbfs: vadCalibration.noiseFloorDbfs,
+                duration_ms: vadCalibration.durationMs,
+              },
+            }
+          : {}),
       });
     } else if (payload.type === "session.started") {
       this.sessionStarted = true;

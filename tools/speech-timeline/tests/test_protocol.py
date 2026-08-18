@@ -8,6 +8,7 @@ from nextengine_speech_timeline.protocol import (
     ClientHello,
     ProtocolError,
     SessionStart,
+    VadCalibration,
     encode_event,
     parse_client_message,
 )
@@ -33,6 +34,33 @@ class ProtocolTests(unittest.TestCase):
             )
         )
         self.assertEqual(start, SessionStart("turn-1", "ru", 16_000, "pcm_s16le", 1))
+
+    def test_optional_vad_calibration_is_strictly_bounded(self) -> None:
+        value = {
+            "schema_version": 1,
+            "type": "session.start",
+            "session_id": "turn-1",
+            "locale": "ru",
+            "sample_rate_hz": 16_000,
+            "encoding": "pcm_s16le",
+            "channels": 1,
+            "vad_calibration": {"noise_floor_dbfs": -52.5, "duration_ms": 2_000},
+        }
+        start = parse_client_message(json.dumps(value))
+        self.assertEqual(
+            start,
+            SessionStart(
+                "turn-1",
+                "ru",
+                16_000,
+                "pcm_s16le",
+                1,
+                VadCalibration(-52.5, 2_000),
+            ),
+        )
+        value["vad_calibration"] = {"noise_floor_dbfs": -9, "duration_ms": 2_000}
+        with self.assertRaises(ProtocolError):
+            parse_client_message(json.dumps(value))
 
     def test_version_unknown_fields_and_audio_format_fail_closed(self) -> None:
         invalid = (

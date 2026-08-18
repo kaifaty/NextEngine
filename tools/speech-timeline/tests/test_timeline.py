@@ -19,6 +19,25 @@ def affect(start: int, end: int, angry: float) -> AffectObservation:
     )
 
 
+def labelled_affect(start: int, end: int, label: str) -> AffectObservation:
+    scores = {
+        "happy": 0.0,
+        "neutral": 0.0,
+        "other": 0.0,
+    }
+    scores[label] = 0.99
+    return AffectObservation(
+        model_id="emotion",
+        model_revision="revision",
+        start_sample=start,
+        end_sample=end,
+        source_revision=end,
+        scores=scores,
+        top_label=label,
+        inference_elapsed_ms=1,
+    )
+
+
 class TimelineTests(unittest.TestCase):
     def test_cadence_switches_from_one_to_two_second_windows(self) -> None:
         cadence = AffectCadence()
@@ -77,6 +96,39 @@ class TimelineTests(unittest.TestCase):
         for left, right in zip(segments, segments[1:]):
             self.assertLessEqual(left.end_sample, right.start_sample)
         self.assertEqual(timeline.affect.replace_from_sample, 8_000)
+
+    def test_final_summary_does_not_let_terminal_unknown_erase_confirmed_speech(self) -> None:
+        timeline = SpeechTimeline()
+        # Two hops admit the happy segment.  The later other observations
+        # represent a transition/noise bucket and must not replace the final
+        # utterance-level evidence with unknown.
+        for start, label in (
+            (0, "happy"),
+            (4_000, "happy"),
+            (8_000, "other"),
+            (12_000, "other"),
+            (16_000, "other"),
+            (20_000, "other"),
+        ):
+            timeline.apply_affect(labelled_affect(start, start + 16_000, label))
+        timeline.apply_transcript(
+            text="пример",
+            stable_prefix="пример",
+            final=True,
+            timing_precision="utterance",
+        )
+
+        final = timeline.utterance_final()
+
+        self.assertEqual(final["observed_vocal_expression"], "happy")
+        self.assertEqual(
+            final["observed_vocal_expression_source"],
+            "time_weighted_confirmed_speech_segments",
+        )
+        summary = final["vocal_expression_summary"]
+        self.assertGreater(summary["evidence_samples"], 0)
+        diagnostics = timeline.affect_diagnostics()
+        self.assertEqual(diagnostics["final_summary"]["label"], "happy")
 
 
 if __name__ == "__main__":
