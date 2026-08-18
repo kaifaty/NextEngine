@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-046 |
 | Status | Accepted |
-| Version | 1.5 |
+| Version | 1.6 |
 | Decision date | 2026-08-08 |
 | Last verified | 2026-08-18 |
 | Normative dependencies | [SPEC-00](../00-product-contract.md), [SPEC-01](../01-system-architecture.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](../22-schema-registry-compatibility-and-migration.md), [ADR-020](020-rpg-domain-authority-and-extension-boundary.md), [ADR-021](021-deterministic-population-residency-and-time-advance.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](025-schema-content-and-migration-authority.md), [ADR-026](026-deterministic-work-resource-and-streaming-admission.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-034](034-player-targeting-replay-v5-and-mapping-provenance.md) |
 | Supersedes | Partially supersedes ADR-008's unconsumed agent-authoring/CLI/MCP contract, ADR-020's pre-v1 N-2 RPG migration obligation and check, ADR-021's unconsumed population/calendar schemas and migration, ADR-025's generic N-2 support requirement, ADR-026's unconsumed generic jobs/resource-management subsystem, and ADR-034's legacy Replay V4/InputMappingReceipt V1 retention. Fully supersedes current implementation obligations introduced by ADR-029 and ADR-031; their product ideas become future Proposed intent. |
-| Superseded by | Partially [ADR-052](052-derived-world-calendar-and-authored-routine-vertical.md): later replay/owner closures replace the Replay V5 designation. Partially [ADR-083](083-public-creator-project-cli-vertical.md): exactly two public creator commands now have an independent production consumer; the wider consumer-driven/current-only policy remains Accepted. |
+| Superseded by | Partially [ADR-052](052-derived-world-calendar-and-authored-routine-vertical.md): later replay/owner closures replace the Replay V5 designation. Partially [ADR-083](083-public-creator-project-cli-vertical.md) and [ADR-084](084-public-creator-run-and-project-package-vertical.md): four public creator operations now have independent production consumers; the wider consumer-driven/current-only policy remains Accepted. |
 
 ## Context
 
@@ -43,10 +43,10 @@ semantics.
 
 ADR-008 no longer makes `AuthoringContextBundle`, `AgentChangeSet`, a broad
 public creator CLI or MCP parity a current engine contract. ADR-083 later
-admits only `next project validate/cook` and Creator Command Report V1 for the
-independent `creator-smoke` consumer. All wider creator automation must still
-arrive with a real consumer and cannot gain a privileged gameplay mutation
-path.
+admits `next project validate/cook` and Creator Command Report V1; ADR-084 adds
+bounded `project run/package` and their separate reports for the independent
+`creator-smoke` consumer. All wider creator automation must still arrive with
+a real consumer and cannot gain a privileged gameplay mutation path.
 
 ADR-020 no longer requires an adjacent N-2 migration chain or migration
 ProductCheck for current pre-v1 RPG formats. Its RPG ownership, typed

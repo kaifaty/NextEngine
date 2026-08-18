@@ -11,6 +11,7 @@ mod activation;
 mod close_flow;
 mod identity;
 mod platform_host;
+mod project_run;
 mod publication;
 mod run;
 

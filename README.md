@@ -17,9 +17,9 @@ fallbacks keep the game working when they are not.
 > Linux reference alpha and its deterministic headless counterpart work
 > locally. Windows host bring-up is intentionally deferred while development
 > continues on Linux. The bounded procedural physical-character baseline is
-> complete; the first public creator validate/cook slice is available, while
-> creator run/package breadth, paired release evidence, hard release
-> performance, and v1 are not. See the
+> complete; public creator validate/cook/run/package and the independent
+> project-package slice are available, while diff/inspect, templates/scenarios,
+> paired release evidence, hard release performance, and v1 are not. See the
 > [roadmap](docs/roadmap.md) for the current stage and open blockers.
 
 Next Engine is an independent project. It is not an OpenGothic port and it is
@@ -106,7 +106,7 @@ remain v1 shipping targets, but Windows is not an active development host and
 the same-commit release gate remains deferred. A Linux development run is not
 by itself a supported release.
 
-## Try the first creator workflow
+## Try the creator workflow
 
 Validate the independent data-only sample without writing output:
 
@@ -123,9 +123,30 @@ cargo run --locked -p next_cli -- project cook \
   --output target/creator-smoke-cooked
 ```
 
-Each command emits exactly one versioned JSON object. This is the bounded R6a
-surface: project diff, inspectors, creator run/package/replay and a complete v1
-SDK workflow remain later work.
+Run the authored project through one generic production headless tick and the
+ordinary final save-on-close path:
+
+```bash
+cargo run --locked -p next_cli -- project run \
+  --project projects/creator-smoke
+```
+
+Build a reproducible current project package in a new directory, then run its
+actual packaged content (remove an older local output first or choose a fresh
+path):
+
+```bash
+cargo run --locked -p next_cli -- project package \
+  --project projects/creator-smoke \
+  --output target/creator-smoke-package
+cargo run --locked -p next_cli -- project run \
+  --package target/creator-smoke-package
+```
+
+Each command emits exactly one versioned JSON object. The creator package is a
+self-verifying content envelope for a compatible `next` runtime, not a native
+standalone game bundle. Project diff/inspect, templates, scenarios/replay tools
+and a complete v1 SDK workflow remain later R6 work.
 
 ## Learn more
 

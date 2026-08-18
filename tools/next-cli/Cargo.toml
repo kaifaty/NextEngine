@@ -12,7 +12,9 @@ name = "next"
 path = "src/main.rs"
 
 [dependencies]
+next_application.workspace = true
 next_assets.workspace = true
+next_contracts.workspace = true
 next_project.workspace = true
 serde.workspace = true
 serde_json.workspace = true

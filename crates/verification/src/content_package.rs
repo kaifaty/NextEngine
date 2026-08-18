@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::ffi::OsString;
 use std::fmt::{Display, Formatter};
 use std::path::Path;
 
@@ -227,6 +228,69 @@ pub(crate) fn run_content_package_check_with_scratch(
     directory.finish(result, ContentPackageCheckError::Cleanup)
 }
 
+fn verify_creator_public_run_and_package(
+    scratch: &ScratchContext,
+    project_directory: &Path,
+    expected_project_lock: ContentHash,
+) -> Result<(), ContentPackageCheckError> {
+    let directory = scratch
+        .create_directory("content-package-creator-public")
+        .map_err(ContentPackageCheckError::Cleanup)?;
+    let result = (|| {
+        let authoring_run = next_cli::execute([
+            OsString::from("project"),
+            OsString::from("run"),
+            OsString::from("--project"),
+            project_directory.as_os_str().to_owned(),
+        ]);
+        let next_cli::CreatorCliReportV1::Run(next_cli::CreatorRunCommandReportV1::Pass(
+            authoring_run,
+        )) = authoring_run
+        else {
+            return Err(ContentPackageCheckError::FixtureClosureMismatch);
+        };
+        let package_root = directory.path().join("creator-package");
+        let package = next_cli::execute([
+            OsString::from("project"),
+            OsString::from("package"),
+            OsString::from("--project"),
+            project_directory.as_os_str().to_owned(),
+            OsString::from("--output"),
+            package_root.as_os_str().to_owned(),
+        ]);
+        let next_cli::CreatorCliReportV1::Package(next_cli::CreatorPackageCommandReportV1::Pass(
+            package,
+        )) = package
+        else {
+            return Err(ContentPackageCheckError::FixtureClosureMismatch);
+        };
+        let packaged_run = next_cli::execute([
+            OsString::from("project"),
+            OsString::from("run"),
+            OsString::from("--package"),
+            package_root.as_os_str().to_owned(),
+        ]);
+        let next_cli::CreatorCliReportV1::Run(next_cli::CreatorRunCommandReportV1::Pass(
+            packaged_run,
+        )) = packaged_run
+        else {
+            return Err(ContentPackageCheckError::FixtureClosureMismatch);
+        };
+        let expected_lock = expected_project_lock.to_hex();
+        if authoring_run.details.project.project_lock_sha256 != expected_lock
+            || authoring_run.details.runtime.ticks != 1
+            || authoring_run.details.runtime != package.details.runtime
+            || package.details.runtime != packaged_run.details.runtime
+            || package.details.project != packaged_run.details.project
+            || package.details.required_notices != ["NOTICE"]
+        {
+            return Err(ContentPackageCheckError::FixtureClosureMismatch);
+        }
+        Ok(())
+    })();
+    directory.finish(result, ContentPackageCheckError::Cleanup)
+}
+
 struct CreatorProjectEvidence {
     records: usize,
     chunks: usize,
@@ -238,7 +302,7 @@ fn verify_creator_project(
 ) -> Result<CreatorProjectEvidence, ContentPackageCheckError> {
     let project_directory =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../projects/creator-smoke");
-    let source = load_project_authoring_v7(project_directory)?;
+    let source = load_project_authoring_v7(&project_directory)?;
     if source.project_id.as_str() != "org.nextengine.creator-smoke"
         || source.project_revision != 1
         || source.records.len() != 10
@@ -247,6 +311,11 @@ fn verify_creator_project(
         return Err(ContentPackageCheckError::FixtureClosureMismatch);
     }
     let cooked = cook_project_v7(source)?;
+    verify_creator_public_run_and_package(
+        scratch,
+        &project_directory,
+        cooked.project_lock.project_lock_sha256,
+    )?;
     let directory = scratch
         .create_directory("content-package-creator")
         .map_err(ContentPackageCheckError::Cleanup)?;

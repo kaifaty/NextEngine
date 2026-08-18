@@ -11,6 +11,9 @@
 
 ## Resume in 60 seconds
 
+- **Successor checkpoint:** [R6b creator run/package](r6b-creator-run-package.md)
+  is now complete. The remaining statements in this file preserve the narrower
+  R6a acceptance boundary and its historical handoff.
 - **Current conclusion:** R6a is complete as the first bounded R6 increment. It promotes
   only `next project validate` and `next project cook`; project diff,
   inspectors, run/package/replay commands, templates and the wider SDK remain

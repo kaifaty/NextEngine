@@ -687,7 +687,9 @@ dependencies = [
 name = "next_cli"
 version = "0.1.0"
 dependencies = [
+ "next_application",
  "next_assets",
+ "next_contracts",
  "next_project",
  "serde",
  "serde_json",
@@ -884,6 +886,7 @@ dependencies = [
  "next_agent",
  "next_application",
  "next_assets",
+ "next_cli",
  "next_contracts",
  "next_desktop_sdl_ash",
  "next_motor",

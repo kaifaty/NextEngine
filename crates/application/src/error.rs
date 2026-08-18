@@ -43,6 +43,8 @@ pub enum ApplicationError {
     TerminalReceiptMissing,
     DurableSnapshotInvalid,
     StateRootUnavailable,
+    ProjectRuntimeBootstrap,
+    ProjectRuntimeTick,
 }
 
 impl ApplicationError {
@@ -67,6 +69,8 @@ impl ApplicationError {
             Self::RecoveryIncompatible => "SESSION_RECOVERY_INCOMPATIBLE",
             Self::TerminalReceiptMissing => "SESSION_TERMINAL_RECEIPT_MISSING",
             Self::StateRootUnavailable => "SESSION_STORAGE_UNAVAILABLE",
+            Self::ProjectRuntimeBootstrap => "PROJECT_RUNTIME_BOOTSTRAP_FAILED",
+            Self::ProjectRuntimeTick => "PROJECT_RUNTIME_TICK_FAILED",
             Self::Platform(error) => error.diagnostic_code(),
             Self::PlayerPreference(error) => error.diagnostic_code(),
             Self::SessionMachine(error) => error.diagnostic_code(),
@@ -152,6 +156,10 @@ impl Display for ApplicationError {
             Self::TerminalReceiptMissing => formatter.write_str("terminal receipt is missing"),
             Self::DurableSnapshotInvalid => formatter.write_str("durable snapshot is invalid"),
             Self::StateRootUnavailable => formatter.write_str("user state root is unavailable"),
+            Self::ProjectRuntimeBootstrap => {
+                formatter.write_str("project runtime bootstrap failed")
+            }
+            Self::ProjectRuntimeTick => formatter.write_str("project runtime tick failed"),
         }
     }
 }

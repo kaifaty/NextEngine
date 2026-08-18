@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-11 |
 | Статус | Accepted |
-| Версия | 2.1 |
+| Версия | 2.2 |
 | Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md) |
-| Заменяет | SPEC-11 2.0; makes resolved project-root and creator output confinement explicit for the first public creator commands |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md) |
+| Заменяет | SPEC-11 2.1; adds fresh-output, exact-inventory and required-NOTICE confinement for the public creator project package |
 
 ## Назначение
 
@@ -52,6 +52,13 @@
 target: безопасно выглядящий relative path через symbolic link не может выйти
 за выбранный project root. Public cook также не принимает symbolic-link output
 или произвольный nonempty directory как content-store root.
+
+Public creator package принимает только отсутствующий destination и публикует
+после полной проверки sibling staging directory. Manifest, inventory и каждый
+file path/size/hash bounded и exact; symbolic links, traversal, unknown/changed
+files, unsupported format, activation/run mismatch и missing/empty root
+`NOTICE` отклоняют весь package. Проверка package никогда не выдаёт gameplay
+capability и не доверяет записанному run proof без повторного production run.
 
 Unknown version, hash mismatch, unsupported capability, malformed payload или
 resource-limit violation являются typed failure, а не warning с попыткой
@@ -113,6 +120,10 @@ source, license expression и redistribution status.
 - Shipped packages включают требуемые license notices. SPDX/CycloneDX SBOM MAY
   генерироваться из lockfiles/package manifests, но не является отдельной
   архитектурной системой принятия решений.
+- Current Creator Project Package V1 включает проверенный nonempty project
+  `NOTICE`; отсутствие, link или несовпадение inventory исключает package до
+  публикации. Это минимальный R6b content-distribution contract, не native
+  shipping/SBOM claim.
 - Code, content, fonts, datasets и model weights классифицируются раздельно;
   code license не распространяется автоматически на data or weights.
 - Unknown, non-commercial, field-of-use, source-available или

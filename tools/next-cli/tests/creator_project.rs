@@ -5,7 +5,7 @@ use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use next_assets::{CONTENT_GENERATIONS_DIRECTORY, ContentStore};
-use next_cli::CreatorCommandReportV1;
+use next_cli::{CreatorCommandReportV1, CreatorPackageCommandReportV1, CreatorRunCommandReportV1};
 use next_project::{PROJECT_AUTHORING_MAX_SOURCE_BYTES, activate_project};
 
 static TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -56,6 +56,20 @@ fn report(output: &Output) -> CreatorCommandReportV1 {
     assert!(stdout.ends_with('\n'));
     assert_eq!(stdout.bytes().filter(|byte| *byte == b'\n').count(), 1);
     serde_json::from_str(stdout.trim_end()).expect("decode Creator Command Report V1")
+}
+
+fn run_report(output: &Output) -> CreatorRunCommandReportV1 {
+    let stdout = text(output);
+    assert!(stdout.ends_with('\n'));
+    assert_eq!(stdout.bytes().filter(|byte| *byte == b'\n').count(), 1);
+    serde_json::from_str(stdout.trim_end()).expect("decode Creator Run Report V1")
+}
+
+fn package_report(output: &Output) -> CreatorPackageCommandReportV1 {
+    let stdout = text(output);
+    assert!(stdout.ends_with('\n'));
+    assert_eq!(stdout.bytes().filter(|byte| *byte == b'\n').count(), 1);
+    serde_json::from_str(stdout.trim_end()).expect("decode Creator Package Report V1")
 }
 
 fn generation_count(output_root: &Path) -> usize {
@@ -131,6 +145,199 @@ fn creator_project_cook_is_idempotent_and_reopens_through_production_activation(
     assert_eq!(activated.project_lock.project_revision, 1);
     assert_eq!(activated.neutral_records.len(), 10);
     assert_eq!(activated.world_partition.body.chunk_bindings.len(), 3);
+}
+
+#[test]
+fn creator_project_run_is_deterministic_and_uses_the_generic_application_runtime() {
+    let project = creator_project();
+    let args = [
+        OsStr::new("project"),
+        OsStr::new("run"),
+        OsStr::new("--project"),
+        project.as_os_str(),
+    ];
+    let first = next(&args);
+    let second = next(&args);
+    assert!(first.status.success());
+    assert!(second.status.success());
+    assert_eq!(first.stdout, second.stdout);
+    assert!(first.stderr.is_empty());
+
+    let CreatorRunCommandReportV1::Pass(pass) = run_report(&first) else {
+        panic!("creator project runs");
+    };
+    assert_eq!(pass.command, "project.run");
+    assert_eq!(pass.details.source, "authoring");
+    assert_eq!(
+        pass.details.project.project_id,
+        "org.nextengine.creator-smoke"
+    );
+    assert_eq!(pass.details.runtime.composition_root, "Headless");
+    assert_eq!(pass.details.runtime.ticks, 1);
+    assert_eq!(pass.details.runtime.events, 0);
+    assert_eq!(pass.details.runtime.rpg_events, 0);
+    assert_eq!(pass.details.runtime.status, "PASS");
+    assert_eq!(
+        pass.details.runtime.project_composition_lock_hash,
+        pass.details.project.project_lock_sha256
+    );
+}
+
+#[test]
+fn creator_project_package_is_reproducible_and_runs_from_its_published_bytes() {
+    let scratch = TestDirectory::new("package");
+    let first_root = scratch.path().join("package-one");
+    let second_root = scratch.path().join("package-two");
+    let project = creator_project();
+    let package = |output: &Path| {
+        next(&[
+            OsStr::new("project"),
+            OsStr::new("package"),
+            OsStr::new("--project"),
+            project.as_os_str(),
+            OsStr::new("--output"),
+            output.as_os_str(),
+        ])
+    };
+    let first = package(&first_root);
+    let second = package(&second_root);
+    assert!(first.status.success());
+    assert!(second.status.success());
+    assert_eq!(first.stdout, second.stdout);
+    assert_eq!(
+        fs::read(first_root.join("creator-package.manifest.jcs"))
+            .expect("read first package manifest"),
+        fs::read(second_root.join("creator-package.manifest.jcs"))
+            .expect("read second package manifest")
+    );
+    assert_eq!(
+        fs::read(first_root.join("NOTICE")).expect("read packaged notice"),
+        fs::read(project.join("NOTICE")).expect("read source notice")
+    );
+
+    let CreatorPackageCommandReportV1::Pass(packaged) = package_report(&first) else {
+        panic!("creator project packages");
+    };
+    assert_eq!(packaged.command, "project.package");
+    assert_eq!(
+        packaged.details.package_format,
+        "nextengine.creator-project-package.v1"
+    );
+    assert_eq!(packaged.details.required_notices, ["NOTICE"]);
+    assert_eq!(packaged.details.runtime.ticks, 1);
+
+    let launched = next(&[
+        OsStr::new("project"),
+        OsStr::new("run"),
+        OsStr::new("--package"),
+        first_root.as_os_str(),
+    ]);
+    assert!(launched.status.success());
+    let CreatorRunCommandReportV1::Pass(launched) = run_report(&launched) else {
+        panic!("published package runs");
+    };
+    assert_eq!(launched.details.source, "package");
+    assert_eq!(launched.details.project, packaged.details.project);
+    assert_eq!(launched.details.runtime, packaged.details.runtime);
+}
+
+#[test]
+fn tampered_creator_package_is_rejected_before_runtime_launch() {
+    let scratch = TestDirectory::new("tampered-package");
+    let package_root = scratch.path().join("package");
+    let project = creator_project();
+    let built = next(&[
+        OsStr::new("project"),
+        OsStr::new("package"),
+        OsStr::new("--project"),
+        project.as_os_str(),
+        OsStr::new("--output"),
+        package_root.as_os_str(),
+    ]);
+    assert!(built.status.success());
+    fs::write(package_root.join("NOTICE"), b"tampered notice").expect("tamper packaged notice");
+
+    let failed = next(&[
+        OsStr::new("project"),
+        OsStr::new("run"),
+        OsStr::new("--package"),
+        package_root.as_os_str(),
+    ]);
+    assert!(!failed.status.success());
+    let CreatorRunCommandReportV1::Fail(failure) = run_report(&failed) else {
+        panic!("tampered package fails");
+    };
+    assert_eq!(failure.command, "project.run");
+    assert_eq!(failure.diagnostic.code, "CREATOR_PACKAGE_INVALID");
+    assert!(!text(&failed).contains(package_root.to_string_lossy().as_ref()));
+}
+
+#[test]
+fn unsupported_creator_package_version_is_rejected_before_nested_decode() {
+    let scratch = TestDirectory::new("unsupported-package");
+    let package_root = scratch.path().join("package");
+    let project = creator_project();
+    let built = next(&[
+        OsStr::new("project"),
+        OsStr::new("package"),
+        OsStr::new("--project"),
+        project.as_os_str(),
+        OsStr::new("--output"),
+        package_root.as_os_str(),
+    ]);
+    assert!(built.status.success());
+    let manifest_path = package_root.join("creator-package.manifest.jcs");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).expect("read creator package manifest"))
+            .expect("decode creator package manifest");
+    manifest["schema_version"] = serde_json::Value::from(2);
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec(&manifest).expect("encode unsupported package manifest"),
+    )
+    .expect("write unsupported package manifest");
+
+    let failed = next(&[
+        OsStr::new("project"),
+        OsStr::new("run"),
+        OsStr::new("--package"),
+        package_root.as_os_str(),
+    ]);
+    assert!(!failed.status.success());
+    let CreatorRunCommandReportV1::Fail(failure) = run_report(&failed) else {
+        panic!("unsupported package fails");
+    };
+    assert_eq!(
+        failure.diagnostic.code,
+        "UNSUPPORTED_CREATOR_PACKAGE_FORMAT"
+    );
+}
+
+#[test]
+fn existing_package_output_is_rejected_without_touching_its_contents() {
+    let scratch = TestDirectory::new("package-output");
+    let output_root = scratch.path().join("ordinary-directory");
+    fs::create_dir(&output_root).expect("create ordinary package output");
+    let sentinel = output_root.join("keep.txt");
+    fs::write(&sentinel, b"keep this package output").expect("write package sentinel");
+    let project = creator_project();
+    let failed = next(&[
+        OsStr::new("project"),
+        OsStr::new("package"),
+        OsStr::new("--project"),
+        project.as_os_str(),
+        OsStr::new("--output"),
+        output_root.as_os_str(),
+    ]);
+    assert!(!failed.status.success());
+    let CreatorPackageCommandReportV1::Fail(failure) = package_report(&failed) else {
+        panic!("existing package output fails");
+    };
+    assert_eq!(failure.diagnostic.code, "CREATOR_PACKAGE_OUTPUT_INVALID");
+    assert_eq!(
+        fs::read(&sentinel).expect("read package sentinel"),
+        b"keep this package output"
+    );
 }
 
 #[test]
@@ -302,4 +509,66 @@ fn symlink_source_escape_and_symlink_output_are_rejected() {
             .count(),
         0
     );
+
+    let package_output = scratch.path().join("package-output");
+    let linked_package_output = scratch.path().join("linked-package-output");
+    fs::create_dir(&package_output).expect("create actual package output");
+    symlink(&package_output, &linked_package_output).expect("create package output symlink");
+    let linked_package = next(&[
+        OsStr::new("project"),
+        OsStr::new("package"),
+        OsStr::new("--project"),
+        project.as_os_str(),
+        OsStr::new("--output"),
+        linked_package_output.as_os_str(),
+    ]);
+    assert!(!linked_package.status.success());
+    let CreatorPackageCommandReportV1::Fail(failure) = package_report(&linked_package) else {
+        panic!("symlink package output fails");
+    };
+    assert_eq!(failure.diagnostic.code, "CREATOR_PACKAGE_OUTPUT_INVALID");
+    assert_eq!(
+        fs::read_dir(&package_output)
+            .expect("read actual package output")
+            .count(),
+        0
+    );
+
+    let linked_notice_project = scratch.path().join("linked-notice-project");
+    fs::create_dir_all(linked_notice_project.join("assets")).expect("create linked notice project");
+    fs::copy(
+        project.join("project.authoring.json"),
+        linked_notice_project.join("project.authoring.json"),
+    )
+    .expect("copy linked notice authoring manifest");
+    fs::copy(
+        project.join("assets/original-source.txt"),
+        linked_notice_project.join("assets/original-source.txt"),
+    )
+    .expect("copy linked notice source");
+    fs::copy(
+        project.join("NOTICE"),
+        linked_notice_project.join("NOTICE.real"),
+    )
+    .expect("copy linked notice target");
+    symlink(
+        linked_notice_project.join("NOTICE.real"),
+        linked_notice_project.join("NOTICE"),
+    )
+    .expect("create linked notice");
+    let linked_notice_output = scratch.path().join("linked-notice-package");
+    let linked_notice = next(&[
+        OsStr::new("project"),
+        OsStr::new("package"),
+        OsStr::new("--project"),
+        linked_notice_project.as_os_str(),
+        OsStr::new("--output"),
+        linked_notice_output.as_os_str(),
+    ]);
+    assert!(!linked_notice.status.success());
+    let CreatorPackageCommandReportV1::Fail(failure) = package_report(&linked_notice) else {
+        panic!("linked notice fails");
+    };
+    assert_eq!(failure.diagnostic.code, "CREATOR_PACKAGE_NOTICE_INVALID");
+    assert!(!linked_notice_output.exists());
 }

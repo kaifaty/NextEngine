@@ -27,7 +27,7 @@ pub(super) struct PreparedRunV1 {
     pub(super) activity: WorldActivitySnapshotV1,
     pub(super) agent: AgentCognitionSnapshotV1,
     pub(super) memory: AgentMemorySnapshotV1,
-    pub(super) physical_animation: PhysicalAnimationSnapshotV1,
+    pub(super) physical_animation: Option<PhysicalAnimationSnapshotV1>,
     pub(super) summary: ApplicationRunOutcomeV1,
 }
 
@@ -410,7 +410,7 @@ impl ApplicationCoordinator {
         Ok(summary)
     }
 
-    fn publish_prepared_run(
+    pub(super) fn publish_prepared_run(
         &mut self,
         prepared: PreparedRunV1,
     ) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
@@ -561,7 +561,7 @@ fn prepare_live_state(
         activity: world_activity_snapshot,
         agent: agent_cognition_snapshot,
         memory: agent_memory_snapshot,
-        physical_animation: physical_animation_snapshot,
+        physical_animation: Some(physical_animation_snapshot),
         summary,
     })
 }
@@ -645,7 +645,7 @@ fn prepare_reference_run(
         activity: world_activity_snapshot,
         agent: run.agent_cognition_snapshot,
         memory: run.agent_memory_snapshot,
-        physical_animation: run.physical_animation_snapshot,
+        physical_animation: Some(run.physical_animation_snapshot),
         summary,
     })
 }

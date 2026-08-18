@@ -16,6 +16,7 @@ physx-mock = ["dep:next_physics_physx", "next_runtime/physx-mock"]
 next_agent.workspace = true
 next_application.workspace = true
 next_assets.workspace = true
+next_cli.workspace = true
 next_contracts.workspace = true
 next_motor.workspace = true
 next_desktop_sdl_ash = { workspace = true, optional = true }

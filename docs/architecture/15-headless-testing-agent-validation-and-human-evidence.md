@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 3.2 |
+| Версия | 3.3 |
 | Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md) |
-| Заменяет | SPEC-15 3.1; admits the focused public creator validate/cook acceptance matrix while leaving scenario run/minimize and capture commands unpromoted |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md) |
+| Заменяет | SPEC-15 3.2; adds deterministic authoring/package startup and package-negative evidence while leaving public scenario/minimize/capture commands unpromoted |
 
 ## Назначение
 
@@ -152,16 +152,19 @@ loss, encoder absence или quota overflow оставляет replay/diagnostic
 ## Current command surface
 
 Current supported entry points are `cargo run -p xtask -- <ProductCheck>`,
-focused crate tests and the ADR-083 public `next project validate/cook`
-commands. A public `next` scenario/run/minimize/capture command, GUI projection
-or MCP protocol is not a current contract. Tool output хранится только в явном
+focused crate tests and the ADR-083/084 public `next project
+validate/cook/run/package` commands. A public `next` scenario/minimize/capture
+command, GUI projection or MCP protocol is not a current contract. Tool output хранится только в явном
 local output directory, ignored by source control by default. Удаление
 локальных debug artifacts не меняет source, package или product status.
 
-The creator matrix runs the data-only `creator-smoke` fixture twice through the
-production loader/cooker/publication/activation path and observes only the
-typed report plus immutable generation. Negative cases use retired format,
-symlink escape and unsafe output; no mutable runtime probe is introduced.
+The creator matrix runs the data-only `creator-smoke` fixture repeatedly
+through the production loader/cooker/publication/activation path, then through
+one generic headless runtime tick and ordinary final save-on-close. It builds
+two byte-identical Creator Project Package V1 directories and reruns their
+actual published bytes. Negative cases cover retired package/authoring format,
+changed inventory, linked or missing NOTICE, source/output symlinks and unsafe
+destinations; reports expose immutable roots rather than mutable runtime probes.
 
 The focused `animation-root-motion` entry point uses 1,000 independently
 activated ten-cycle neutral generations so receipt/snapshot history length is
@@ -215,7 +218,7 @@ fixture, применяется обычная строка таблицы.
 | `fast` | focused unit/property/negative scenarios и schema validation |
 | `play` | один bounded neutral gameplay scenario через production paths |
 | `persistence-replay` | save/load/restart, exact replay и corrupt-input cases |
-| `content-package` | neutral validate/cook/load/package и sandbox failures |
+| `content-package` | neutral validate/cook/load/package, packaged-byte run и sandbox failures |
 | `platform` | тот же релевантный scenario на затронутом target |
 | `performance` | тот же scenario с declared numeric sampling method |
 

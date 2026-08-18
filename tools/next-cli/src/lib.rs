@@ -13,13 +13,43 @@ use next_project::{
 };
 use serde::{Deserialize, Serialize};
 
+mod package;
+mod runtime;
+
 pub const CREATOR_COMMAND_REPORT_SCHEMA_VERSION: u32 = 1;
+pub const CREATOR_RUN_REPORT_SCHEMA_VERSION: u32 = 1;
+pub const CREATOR_PACKAGE_REPORT_SCHEMA_VERSION: u32 = 1;
 
 const UNKNOWN_COMMAND: &str = "unknown";
 const PROJECT_VALIDATE_COMMAND: &str = "project.validate";
 const PROJECT_COOK_COMMAND: &str = "project.cook";
+const PROJECT_RUN_COMMAND: &str = "project.run";
+const PROJECT_PACKAGE_COMMAND: &str = "project.package";
 const CONTENT_CURRENT_FILE: &str = "CURRENT";
 static PREFLIGHT_ORDINAL: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum CreatorCliReportV1 {
+    Project(CreatorCommandReportV1),
+    Run(CreatorRunCommandReportV1),
+    Package(CreatorPackageCommandReportV1),
+}
+
+impl CreatorCliReportV1 {
+    #[must_use]
+    pub const fn is_pass(&self) -> bool {
+        match self {
+            Self::Project(report) => report.is_pass(),
+            Self::Run(report) => report.is_pass(),
+            Self::Package(report) => report.is_pass(),
+        }
+    }
+
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -85,10 +115,111 @@ pub struct CreatorProjectDetailsV1 {
     pub publication_state: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreatorProjectIdentityV1 {
+    pub project_id: String,
+    pub project_revision: u64,
+    pub authoring_sha256: String,
+    pub project_lock_sha256: String,
+    pub schema_registry_sha256: String,
+    pub content_manifest_sha256: String,
+    pub world_partition_sha256: String,
+    pub mechanics_lock_sha256: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreatorRuntimeProofV1 {
+    pub status: String,
+    pub composition_root: String,
+    pub session_id: String,
+    pub close_receipt_hash: String,
+    pub final_save_generation_hash: String,
+    pub ticks: u64,
+    pub events: u64,
+    pub rpg_events: u64,
+    pub authoritative_revision: u64,
+    pub authoritative_state_root: String,
+    pub command_archive_root: String,
+    pub command_identity_index_root: String,
+    pub command_ledger_hash: String,
+    pub project_composition_lock_hash: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CreatorRunCommandReportV1 {
+    Pass(Box<CreatorRunCommandPassReportV1>),
+    Fail(CreatorCommandFailureReportV1),
+}
+
+impl CreatorRunCommandReportV1 {
+    #[must_use]
+    pub const fn is_pass(&self) -> bool {
+        matches!(self, Self::Pass(_))
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreatorRunCommandPassReportV1 {
+    pub schema_version: u32,
+    pub status: String,
+    pub command: String,
+    pub details: CreatorRunDetailsV1,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreatorRunDetailsV1 {
+    pub project: CreatorProjectIdentityV1,
+    pub runtime: CreatorRuntimeProofV1,
+    pub source: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CreatorPackageCommandReportV1 {
+    Pass(Box<CreatorPackageCommandPassReportV1>),
+    Fail(CreatorCommandFailureReportV1),
+}
+
+impl CreatorPackageCommandReportV1 {
+    #[must_use]
+    pub const fn is_pass(&self) -> bool {
+        matches!(self, Self::Pass(_))
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreatorPackageCommandPassReportV1 {
+    pub schema_version: u32,
+    pub status: String,
+    pub command: String,
+    pub details: CreatorPackageDetailsV1,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreatorPackageDetailsV1 {
+    pub project: CreatorProjectIdentityV1,
+    pub package_format: String,
+    pub package_manifest_sha256: String,
+    pub packaged_file_count: u32,
+    pub packaged_size_bytes: u64,
+    pub required_notices: Vec<String>,
+    pub runtime: CreatorRuntimeProofV1,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum CreatorCommand {
     Validate { project: PathBuf },
     Cook { project: PathBuf, output: PathBuf },
+    RunProject { project: PathBuf },
+    RunPackage { package: PathBuf },
+    Package { project: PathBuf, output: PathBuf },
 }
 
 impl CreatorCommand {
@@ -96,8 +227,25 @@ impl CreatorCommand {
         match self {
             Self::Validate { .. } => PROJECT_VALIDATE_COMMAND,
             Self::Cook { .. } => PROJECT_COOK_COMMAND,
+            Self::RunProject { .. } | Self::RunPackage { .. } => PROJECT_RUN_COMMAND,
+            Self::Package { .. } => PROJECT_PACKAGE_COMMAND,
         }
     }
+
+    const fn report_kind(&self) -> CreatorReportKind {
+        match self {
+            Self::Validate { .. } | Self::Cook { .. } => CreatorReportKind::Project,
+            Self::RunProject { .. } | Self::RunPackage { .. } => CreatorReportKind::Run,
+            Self::Package { .. } => CreatorReportKind::Package,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CreatorReportKind {
+    Project,
+    Run,
+    Package,
 }
 
 #[derive(Debug)]
@@ -110,6 +258,12 @@ enum CreatorFailure {
     Activation(ProjectActivationError),
     ActivationMismatch,
     ReportInvalid,
+    Application(next_application::ApplicationError),
+    RuntimeStorage,
+    PackageOutputInvalid,
+    PackageInvalid,
+    PackageNoticeInvalid,
+    PackageUnsupported,
 }
 
 impl CreatorFailure {
@@ -155,6 +309,36 @@ impl CreatorFailure {
                 "creator-cli",
                 "creator.report.invalid",
             ),
+            Self::Application(error) => (
+                error.diagnostic_code(),
+                "application-session",
+                "creator.project.run-failed",
+            ),
+            Self::RuntimeStorage => (
+                "CREATOR_RUNTIME_STORAGE_FAILED",
+                "application-session",
+                "creator.project.runtime-storage-failed",
+            ),
+            Self::PackageOutputInvalid => (
+                "CREATOR_PACKAGE_OUTPUT_INVALID",
+                "creator-package",
+                "creator.package.output-invalid",
+            ),
+            Self::PackageInvalid => (
+                "CREATOR_PACKAGE_INVALID",
+                "creator-package",
+                "creator.package.invalid",
+            ),
+            Self::PackageNoticeInvalid => (
+                "CREATOR_PACKAGE_NOTICE_INVALID",
+                "creator-package",
+                "creator.package.notice-invalid",
+            ),
+            Self::PackageUnsupported => (
+                "UNSUPPORTED_CREATOR_PACKAGE_FORMAT",
+                "creator-package",
+                "creator.package.unsupported-format",
+            ),
         };
         CreatorDiagnosticV1 {
             code: code.to_owned(),
@@ -165,85 +349,188 @@ impl CreatorFailure {
 }
 
 #[must_use]
-pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> CreatorCommandReportV1 {
+pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> CreatorCliReportV1 {
     let parsed = parse_arguments(arguments);
-    let (command_name, result) = match parsed {
+    let (command_name, report_kind, result) = match parsed {
         Ok(command) => {
             let command_name = command.name();
-            (command_name, execute_command(command))
+            let report_kind = command.report_kind();
+            (command_name, report_kind, execute_command(command))
         }
-        Err((command_name, error)) => (command_name, Err(error)),
+        Err((command_name, report_kind, error)) => (command_name, report_kind, Err(error)),
     };
 
     match result {
-        Ok(details) => CreatorCommandReportV1::Pass(CreatorCommandPassReportV1 {
-            schema_version: CREATOR_COMMAND_REPORT_SCHEMA_VERSION,
-            status: "PASS".to_owned(),
-            command: command_name.to_owned(),
-            details,
-        }),
-        Err(error) => CreatorCommandReportV1::Fail(CreatorCommandFailureReportV1 {
-            schema_version: CREATOR_COMMAND_REPORT_SCHEMA_VERSION,
-            status: "FAIL".to_owned(),
-            command: command_name.to_owned(),
-            diagnostic: error.diagnostic(),
-        }),
+        Ok(CreatorSuccess::Project(details)) => {
+            CreatorCliReportV1::Project(CreatorCommandReportV1::Pass(CreatorCommandPassReportV1 {
+                schema_version: CREATOR_COMMAND_REPORT_SCHEMA_VERSION,
+                status: "PASS".to_owned(),
+                command: command_name.to_owned(),
+                details,
+            }))
+        }
+        Ok(CreatorSuccess::Run(details)) => CreatorCliReportV1::Run(
+            CreatorRunCommandReportV1::Pass(Box::new(CreatorRunCommandPassReportV1 {
+                schema_version: CREATOR_RUN_REPORT_SCHEMA_VERSION,
+                status: "PASS".to_owned(),
+                command: command_name.to_owned(),
+                details,
+            })),
+        ),
+        Ok(CreatorSuccess::Package(details)) => CreatorCliReportV1::Package(
+            CreatorPackageCommandReportV1::Pass(Box::new(CreatorPackageCommandPassReportV1 {
+                schema_version: CREATOR_PACKAGE_REPORT_SCHEMA_VERSION,
+                status: "PASS".to_owned(),
+                command: command_name.to_owned(),
+                details,
+            })),
+        ),
+        Err(error) => failure_report(report_kind, command_name, error),
     }
+}
+
+fn failure_report(
+    kind: CreatorReportKind,
+    command_name: &str,
+    error: CreatorFailure,
+) -> CreatorCliReportV1 {
+    let failure = |schema_version| CreatorCommandFailureReportV1 {
+        schema_version,
+        status: "FAIL".to_owned(),
+        command: command_name.to_owned(),
+        diagnostic: error.diagnostic(),
+    };
+    match kind {
+        CreatorReportKind::Project => CreatorCliReportV1::Project(CreatorCommandReportV1::Fail(
+            failure(CREATOR_COMMAND_REPORT_SCHEMA_VERSION),
+        )),
+        CreatorReportKind::Run => CreatorCliReportV1::Run(CreatorRunCommandReportV1::Fail(
+            failure(CREATOR_RUN_REPORT_SCHEMA_VERSION),
+        )),
+        CreatorReportKind::Package => CreatorCliReportV1::Package(
+            CreatorPackageCommandReportV1::Fail(failure(CREATOR_PACKAGE_REPORT_SCHEMA_VERSION)),
+        ),
+    }
+}
+
+enum CreatorSuccess {
+    Project(CreatorProjectDetailsV1),
+    Run(CreatorRunDetailsV1),
+    Package(CreatorPackageDetailsV1),
+}
+
+#[derive(Clone, Copy)]
+enum CreatorAction {
+    Validate,
+    Cook,
+    Run,
+    Package,
 }
 
 fn parse_arguments(
     arguments: impl IntoIterator<Item = OsString>,
-) -> Result<CreatorCommand, (&'static str, CreatorFailure)> {
+) -> Result<CreatorCommand, (&'static str, CreatorReportKind, CreatorFailure)> {
     let mut arguments = arguments.into_iter();
     if arguments.next().as_deref() != Some(OsStr::new("project")) {
-        return Err((UNKNOWN_COMMAND, CreatorFailure::Argument));
+        return Err((
+            UNKNOWN_COMMAND,
+            CreatorReportKind::Project,
+            CreatorFailure::Argument,
+        ));
     }
     let Some(action) = arguments.next() else {
-        return Err((UNKNOWN_COMMAND, CreatorFailure::Argument));
+        return Err((
+            UNKNOWN_COMMAND,
+            CreatorReportKind::Project,
+            CreatorFailure::Argument,
+        ));
     };
-    let (command_name, needs_output) = if action == OsStr::new("validate") {
-        (PROJECT_VALIDATE_COMMAND, false)
+    let (action, command_name, report_kind) = if action == OsStr::new("validate") {
+        (
+            CreatorAction::Validate,
+            PROJECT_VALIDATE_COMMAND,
+            CreatorReportKind::Project,
+        )
     } else if action == OsStr::new("cook") {
-        (PROJECT_COOK_COMMAND, true)
+        (
+            CreatorAction::Cook,
+            PROJECT_COOK_COMMAND,
+            CreatorReportKind::Project,
+        )
+    } else if action == OsStr::new("run") {
+        (
+            CreatorAction::Run,
+            PROJECT_RUN_COMMAND,
+            CreatorReportKind::Run,
+        )
+    } else if action == OsStr::new("package") {
+        (
+            CreatorAction::Package,
+            PROJECT_PACKAGE_COMMAND,
+            CreatorReportKind::Package,
+        )
     } else {
-        return Err((UNKNOWN_COMMAND, CreatorFailure::Argument));
+        return Err((
+            UNKNOWN_COMMAND,
+            CreatorReportKind::Project,
+            CreatorFailure::Argument,
+        ));
     };
 
     let mut project = None;
+    let mut package = None;
     let mut output = None;
     while let Some(flag) = arguments.next() {
         let Some(value) = arguments.next() else {
-            return Err((command_name, CreatorFailure::Argument));
+            return Err((command_name, report_kind, CreatorFailure::Argument));
         };
         if value.is_empty() {
-            return Err((command_name, CreatorFailure::Argument));
+            return Err((command_name, report_kind, CreatorFailure::Argument));
         }
         if flag == OsStr::new("--project") && project.is_none() {
             project = Some(PathBuf::from(value));
-        } else if flag == OsStr::new("--output") && needs_output && output.is_none() {
+        } else if flag == OsStr::new("--package") && package.is_none() {
+            package = Some(PathBuf::from(value));
+        } else if flag == OsStr::new("--output") && output.is_none() {
             output = Some(PathBuf::from(value));
         } else {
-            return Err((command_name, CreatorFailure::Argument));
+            return Err((command_name, report_kind, CreatorFailure::Argument));
         }
     }
 
-    let project = project.ok_or((command_name, CreatorFailure::Argument))?;
-    if needs_output {
-        Ok(CreatorCommand::Cook {
-            project,
-            output: output.ok_or((command_name, CreatorFailure::Argument))?,
-        })
-    } else if output.is_none() {
-        Ok(CreatorCommand::Validate { project })
-    } else {
-        Err((command_name, CreatorFailure::Argument))
+    match (action, project, package, output) {
+        (CreatorAction::Validate, Some(project), None, None) => {
+            Ok(CreatorCommand::Validate { project })
+        }
+        (CreatorAction::Cook, Some(project), None, Some(output)) => {
+            Ok(CreatorCommand::Cook { project, output })
+        }
+        (CreatorAction::Run, Some(project), None, None) => {
+            Ok(CreatorCommand::RunProject { project })
+        }
+        (CreatorAction::Run, None, Some(package), None) => {
+            Ok(CreatorCommand::RunPackage { package })
+        }
+        (CreatorAction::Package, Some(project), None, Some(output)) => {
+            Ok(CreatorCommand::Package { project, output })
+        }
+        _ => Err((command_name, report_kind, CreatorFailure::Argument)),
     }
 }
 
-fn execute_command(command: CreatorCommand) -> Result<CreatorProjectDetailsV1, CreatorFailure> {
+fn execute_command(command: CreatorCommand) -> Result<CreatorSuccess, CreatorFailure> {
     match command {
-        CreatorCommand::Validate { project } => validate_project(&project),
-        CreatorCommand::Cook { project, output } => cook_project(&project, &output),
+        CreatorCommand::Validate { project } => {
+            validate_project(&project).map(CreatorSuccess::Project)
+        }
+        CreatorCommand::Cook { project, output } => {
+            cook_project(&project, &output).map(CreatorSuccess::Project)
+        }
+        CreatorCommand::RunProject { project } => run_project(&project).map(CreatorSuccess::Run),
+        CreatorCommand::RunPackage { package } => run_package(&package).map(CreatorSuccess::Run),
+        CreatorCommand::Package { project, output } => {
+            package_project(&project, &output).map(CreatorSuccess::Package)
+        }
     }
 }
 
@@ -284,6 +571,57 @@ fn cook_project(project: &Path, output: &Path) -> Result<CreatorProjectDetailsV1
         publication.files.len(),
         "published-and-activated",
     )
+}
+
+fn run_project(project: &Path) -> Result<CreatorRunDetailsV1, CreatorFailure> {
+    let source = load_project_authoring_v7(project).map_err(CreatorFailure::Authoring)?;
+    let cooked = cook_project_v7(source).map_err(CreatorFailure::Cook)?;
+    let publication = cooked.publication().map_err(CreatorFailure::Cook)?;
+    let runtime = runtime::run_publication(&publication, cooked.project_lock.project_lock_sha256)
+        .map_err(map_runtime_failure)?;
+    Ok(CreatorRunDetailsV1 {
+        project: project_identity_from_cooked(&cooked),
+        runtime,
+        source: "authoring".to_owned(),
+    })
+}
+
+fn run_package(package_root: &Path) -> Result<CreatorRunDetailsV1, CreatorFailure> {
+    let validated = package::validate_and_run(package_root).map_err(map_package_failure)?;
+    Ok(CreatorRunDetailsV1 {
+        project: validated.project,
+        runtime: validated.runtime,
+        source: "package".to_owned(),
+    })
+}
+
+fn package_project(
+    project: &Path,
+    output: &Path,
+) -> Result<CreatorPackageDetailsV1, CreatorFailure> {
+    let source = load_project_authoring_v7(project).map_err(CreatorFailure::Authoring)?;
+    let cooked = cook_project_v7(source).map_err(CreatorFailure::Cook)?;
+    package::build_project_package(project, &cooked, output).map_err(map_package_failure)
+}
+
+fn map_runtime_failure(error: runtime::RuntimeExecutionError) -> CreatorFailure {
+    match error {
+        runtime::RuntimeExecutionError::Application(error) => CreatorFailure::Application(error),
+        runtime::RuntimeExecutionError::Report => CreatorFailure::ReportInvalid,
+        runtime::RuntimeExecutionError::Storage => CreatorFailure::RuntimeStorage,
+    }
+}
+
+fn map_package_failure(error: package::CreatorPackageError) -> CreatorFailure {
+    match error {
+        package::CreatorPackageError::OutputInvalid => CreatorFailure::PackageOutputInvalid,
+        package::CreatorPackageError::NoticeInvalid => CreatorFailure::PackageNoticeInvalid,
+        package::CreatorPackageError::Unsupported => CreatorFailure::PackageUnsupported,
+        package::CreatorPackageError::Runtime(error) => map_runtime_failure(error),
+        package::CreatorPackageError::Activation
+        | package::CreatorPackageError::Invalid
+        | package::CreatorPackageError::Storage => CreatorFailure::PackageInvalid,
+    }
 }
 
 fn preflight_publication(
@@ -360,6 +698,54 @@ fn ensure_managed_output_root(output: &Path) -> Result<(), CreatorFailure> {
     Ok(())
 }
 
+pub(crate) fn project_identity_from_cooked(cooked: &CookedProjectV7) -> CreatorProjectIdentityV1 {
+    CreatorProjectIdentityV1 {
+        project_id: cooked.project_lock.project_id.as_str().to_owned(),
+        project_revision: cooked.project_lock.project_revision,
+        authoring_sha256: cooked.project_lock.authoring_sha256.to_hex(),
+        project_lock_sha256: cooked.project_lock.project_lock_sha256.to_hex(),
+        schema_registry_sha256: cooked
+            .schema_registry
+            .schema_registry_manifest_sha256
+            .to_hex(),
+        content_manifest_sha256: cooked.content_manifest.content_manifest_sha256.to_hex(),
+        world_partition_sha256: cooked
+            .world_partition
+            .world_partition_manifest_sha256
+            .to_hex(),
+        mechanics_lock_sha256: cooked
+            .rpg_definitions
+            .mechanics_lock
+            .mechanics_lock_sha256
+            .to_hex(),
+    }
+}
+
+pub(crate) fn project_identity_from_activated(
+    activated: &next_contracts::project::ActivatedProjectV8,
+) -> CreatorProjectIdentityV1 {
+    CreatorProjectIdentityV1 {
+        project_id: activated.project_lock.project_id.as_str().to_owned(),
+        project_revision: activated.project_lock.project_revision,
+        authoring_sha256: activated.project_lock.authoring_sha256.to_hex(),
+        project_lock_sha256: activated.project_lock.project_lock_sha256.to_hex(),
+        schema_registry_sha256: activated
+            .schema_registry
+            .schema_registry_manifest_sha256
+            .to_hex(),
+        content_manifest_sha256: activated.content_manifest.content_manifest_sha256.to_hex(),
+        world_partition_sha256: activated
+            .world_partition
+            .world_partition_manifest_sha256
+            .to_hex(),
+        mechanics_lock_sha256: activated
+            .rpg_definitions
+            .mechanics_lock
+            .mechanics_lock_sha256
+            .to_hex(),
+    }
+}
+
 fn project_details(
     cooked: &CookedProjectV7,
     neutral_record_count: usize,
@@ -415,12 +801,46 @@ mod tests {
     }
 
     #[test]
-    fn parser_accepts_only_the_two_bounded_commands() {
+    fn parser_accepts_only_the_four_bounded_commands() {
         assert!(matches!(
             parse_arguments(args(&["project", "validate", "--project", "sample"])),
             Ok(CreatorCommand::Validate { project })
                 if project.as_path() == Path::new("sample")
         ));
+        assert!(matches!(
+            parse_arguments(args(&["project", "run", "--project", "sample"])),
+            Ok(CreatorCommand::RunProject { project })
+                if project.as_path() == Path::new("sample")
+        ));
+        assert!(matches!(
+            parse_arguments(args(&["project", "run", "--package", "bundle"])),
+            Ok(CreatorCommand::RunPackage { package })
+                if package.as_path() == Path::new("bundle")
+        ));
+        assert!(matches!(
+            parse_arguments(args(&[
+                "project",
+                "package",
+                "--project",
+                "sample",
+                "--output",
+                "bundle",
+            ])),
+            Ok(CreatorCommand::Package { project, output })
+                if project.as_path() == Path::new("sample")
+                    && output.as_path() == Path::new("bundle")
+        ));
+        assert!(
+            parse_arguments(args(&[
+                "project",
+                "run",
+                "--project",
+                "sample",
+                "--package",
+                "bundle",
+            ]))
+            .is_err()
+        );
         assert!(matches!(
             parse_arguments(args(&[
                 "project",
