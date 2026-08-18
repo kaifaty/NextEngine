@@ -203,8 +203,9 @@ Implementation commit:
 
 The clean exact-profile JSON uses schema
 `nextengine.continuum-water.constraint-separated-redesign.v1`, records a
-`CLEAN` tool tree and has SHA-256
-`PENDING_CLEAN_CLOSURE_REPORT`.
+`CLEAN` tool tree at checkpoint
+`b1f7c43925ae6231556e856cc9cddd2b174c2e18` and has SHA-256
+`24a1de90b8e02dc3146f6c01e868e8f6ab5a76b0aaa3679aa6f4adbb7cbec8a3`.
 It remains outside Git. Its command was:
 
 ```bash
@@ -213,19 +214,19 @@ cargo run --locked --profile water-oracle \
   --target x86_64-unknown-linux-gnu -p xtask -- \
   continuum water evaluate-hydro-redesign \
   --candidate constraint-separated-support-pcg-v1 \
-  --output /tmp/nextengine-w0e-clean-closure.json
+  --output /tmp/nextengine-w0e-clean-b1f7c43.json
 ```
 
 ## Verification
 
 | Check | Result |
 | --- | --- |
-| `cargo fmt --all -- --check` | `PENDING_FINAL` |
-| Strict all-target Clippy for `next_continuum_water` | `PENDING_FINAL` |
-| `next_continuum_water` tests | `PENDING_FINAL` |
-| `xtask` tests | `PENDING_FINAL` |
-| Strict all-target Clippy for `xtask` | `PENDING_FINAL` |
-| `cargo run --locked -p xtask -- boundary-scan` | `PENDING_FINAL` |
+| `cargo fmt --all -- --check` | `PASS` |
+| Strict all-target Clippy for `next_continuum_water` | `PASS` |
+| `next_continuum_water` tests | `PASS` — 49/49 |
+| `xtask` tests | `PASS` — 99/99 library and 44/44 binary |
+| Strict all-target Clippy for `xtask` | `PASS` |
+| `cargo run --locked -p xtask -- boundary-scan` | `PASS` — all six checks |
 | Clean exact-profile redesign report | `EXACT_MATCH / LOCAL_PROFILE_DISCRIMINATOR_SURVIVED / NOT_SELECTED` |
 | `CONTINUUM-WATER-REF-P1` | `NOT_RUN` |
 

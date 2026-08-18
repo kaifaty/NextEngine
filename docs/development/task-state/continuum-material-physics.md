@@ -189,8 +189,8 @@
 - **Workspace claim:** tool-only W1 serial oracle plus bounded clean-tree RC1
   through W0E diagnostics. The W0E candidate is a local survivor, still
   `NOT_SELECTED`; there is no runtime/public schema or ProductCheck PASS.
-- **Checks:** implementation commit `7ee1651` has a clean exact-profile report
-  with independent boundary/operator/PCG/contact equality, causal-control
+- **Checks:** implementation commit `7ee1651` and clean report checkpoint
+  `b1f7c43` have independent boundary/operator/PCG/contact equality, causal-control
   outcomes, 24/1200-step soak PASS and exact free-fall. Final format, tests,
   Clippy and boundary scan are recorded in the linked W0E evidence. All
   `CONTINUUM-*` ProductChecks remain `NOT_RUN`; broad `host-check` was not run.

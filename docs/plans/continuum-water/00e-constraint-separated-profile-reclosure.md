@@ -21,7 +21,7 @@ therefore exactly
 Implementation commit:
 `7ee1651b6c1bfcef575af1bd6952ac36f9fca661`.
 The clean exact-profile report has SHA-256
-`PENDING_CLEAN_CLOSURE_REPORT`;
+`24a1de90b8e02dc3146f6c01e868e8f6ab5a76b0aaa3679aa6f4adbb7cbec8a3`;
 its JSON stays outside Git. The bounded results are recorded in the
 [W0E evidence report](../../development/continuum-water-w0e-constraint-separated-redesign-2026-08-18.md).
 
