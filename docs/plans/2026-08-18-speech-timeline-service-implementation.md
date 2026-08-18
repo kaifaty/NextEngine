@@ -3,7 +3,8 @@
 | Поле | Значение |
 | --- | --- |
 | Дата | 2026-08-18 |
-| Статус | Proposed implementation plan; не ADR, не roadmap commitment |
+| Статус | Scope approved (`A/A/A/A`); execution pending; не ADR, не roadmap commitment |
+| Scope confirmation | 2026-08-18: standalone / explicit finish / utterance MVP / authenticated localhost WebSocket |
 | Целевой профиль | Linux x86_64, RTX 3080 10 GiB, один локальный microphone stream |
 | Модели первого профиля | Voxtral Mini 4B Realtime 2602 Q4_K_M + emotion2vec_plus_base |
 | Архитектурная граница | Optional separate `ai-host`/developer service по ADR-005; gameplay и Rust public contracts не меняются |
@@ -613,36 +614,37 @@ download'ят модель неявно.
 - Если license/provenance модели остаётся unclassified для distribution,
   сервис остаётся local PoC и не входит в package.
 
-## 17. Вопросы, меняющие scope
+## 17. Подтверждённые scope decisions
 
-План использует рекомендуемые ответы ниже; перед реализацией их желательно
-подтвердить.
+Пользователь подтвердил `A/A/A/A` 2026-08-18. Эти ответы являются границей
+первой реализации; варианты B не входят в MVP и требуют отдельного решения.
 
 1. **Граница первого результата**
-   - **A — standalone local service (рекомендуется):** завершаем resident
+   - **A — standalone local service (выбрано):** завершаем resident
      WebSocket service и microphone client, без Rust/engine integration.
    - B — сразу engine-facing `ai-host`: потребуется отдельный public IPC,
      `CanonicalUtterance` path, play/fault checks и решение по Proposed
      SPEC-16/ADR-017.
 
 2. **Endpointing MVP**
-   - **A — explicit start/finish сначала (рекомендуется):** residency, streaming
+   - **A — explicit start/finish сначала (выбрано):** residency, streaming
      и fusion проверяются без третьей модели; automatic VAD идёт следующим
      commit.
    - B — automatic VAD обязателен для первого usable MVP: больше scope и
      artifact/license work, но сразу hands-free dialogue turns.
 
 3. **Точность alignment для определения `done`**
-   - **A — `utterance` достаточно для MVP (рекомендуется):** сервис уже
+   - **A — `utterance` достаточно для MVP (выбрано):** сервис уже
      передаёт LLM текст + честный emotion timeline; model-slot — measured
      follow-up.
    - B — сервис не считается готовым без `model_slot`: понадобится изменение
      внешнего `transcribe.cpp` и русский manually aligned corpus до завершения.
 
 4. **Transport**
-   - **A — authenticated localhost WebSocket (рекомендуется):** проще подключать
+   - **A — authenticated localhost WebSocket (выбрано):** проще подключать
      Python/Rust/UI clients и поддерживать binary PCM/full duplex events.
    - B — Unix domain socket: уже security surface, но сложнее future cross-
      platform client и browser/tool integration.
 
-Если ответов нет, реализация может безопасно начинаться по вариантам `A/A/A/A`.
+Реализация должна начинаться с Commit 0/1 по этому scope. Расширение до любого
+варианта B не является неявной частью реализации.

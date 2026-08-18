@@ -14,8 +14,8 @@
 - **Current conclusion:** Use a resident optional `SpeechTimelineService` with `VoxtralTranscriberAdapter`, `Emotion2VecAffectAdapter`, optional VAD and a deterministic timeline fuser. Keep three independently revisioned tracks and derive LLM context from them.
 - **Why:** The existing Voxtral wrapper already performs real streaming inside one invocation, while warm emotion2vec inference is fast. Reloading either model per connection/window is the avoidable delay.
 - **Critical limit:** Current Voxtral public APIs return streaming text but no lexical timestamps. `transcribe.cpp` reports timestamp kind `NONE`; its Voxtral `audio_committed_ms` remains zero during feed and is not a text boundary.
-- **Implementation plan:** `docs/plans/2026-08-18-speech-timeline-service-implementation.md` defines the recommended standalone localhost WebSocket vertical, commit boundaries, faults, measurements and optional VAD/model-slot increments.
-- **Next action:** Confirm the plan's default scope (`standalone / explicit finish first / utterance MVP / WebSocket`), create `codex/speech-timeline-service`, converge the exact Voxtral commits, and execute Commit 1 without recreating the wrapper.
+- **Implementation plan:** `docs/plans/2026-08-18-speech-timeline-service-implementation.md` has approved scope `A/A/A/A`: standalone authenticated localhost WebSocket, explicit finish first and honest `utterance` alignment; VAD/model-slot remain later increments.
+- **Next action:** Create `codex/speech-timeline-service`, converge the exact Voxtral commits, and execute Commit 1 without recreating the wrapper or adding engine-facing IPC.
 - **Current blocker:** The Voxtral wrapper exists on `codex/architecture-foundation-promotion`, not in this worktree. Research is unblocked; implementation should use/merge that source rather than recreate it.
 - **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated word timestamps from text arrival time.
 - **Reconsider when:** A model/runtime exposes better timed lexical units, or measured model-slot boundary error is too high and justifies a final aligner.
@@ -31,7 +31,8 @@
 | `transcribe.cpp` commit `9315160` | Voxtral capability `TIMESTAMPS_NONE`; whole-text segment; feed cursor is not lexical time | Baseline fusion grade is `utterance`, not word. |
 | Official Voxtral/vLLM protocol | 80 ms aligned model slots but public Realtime events carry only text delta/final | Test a private token-slot adapter; keep timing capability explicit. |
 | `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md` | bounded pair/facade research complete | Supersedes the prior SimulStreaming ASR selection and defines staged implementation/evidence. |
-| `docs/plans/2026-08-18-speech-timeline-service-implementation.md` | proposed implementation sequence | Defines the smallest resident vertical, commit/test boundaries and four explicit scope choices; it does not promote SPEC-16. |
+| User confirmation `A/A/A/A`, 2026-08-18 | first implementation scope approved | Standalone / explicit finish / utterance MVP / authenticated localhost WebSocket; no engine-facing IPC, mandatory VAD or model-slot gate. |
+| `docs/plans/2026-08-18-speech-timeline-service-implementation.md` | approved implementation sequence | Defines the smallest resident vertical and commit/test boundaries; it does not promote SPEC-16. |
 | ADR-005; SPEC-16/ADR-017 | Accepted isolation/fallback boundary; multimodal track remains Deferred Proposed | No direct gameplay mutation or product-shipped claim. |
 
 ## Decisions that constrain the work
@@ -72,6 +73,14 @@
 - **Decision:** Load and warm both adapters once; use one bounded GPU queue, prioritize Voxtral, and coalesce obsolete emotion jobs. Begin with one active session.
 - **Consequence:** Second-session no-reload and combined peak VRAM are prototype gates.
 - **Reconsider when:** One-process CUDA/runtime interaction fails a reproducible check; then isolate resident workers behind the same facade.
+
+### D-006 — First implementation scope approved as A/A/A/A
+
+- **Observation:** The user explicitly selected all four recommended scope options on 2026-08-18.
+- **Decision:** Deliver the first vertical as a standalone authenticated localhost WebSocket service with explicit start/finish and `utterance` alignment.
+- **Rejected for MVP:** Engine-facing IPC, mandatory automatic VAD, a `model_slot` completion gate and Unix-domain-socket-only transport.
+- **Consequence:** Commit 0/1 may begin without another scope question; later increments remain separately measured and approved.
+- **Reconsider when:** The standalone latency/resource gates pass and a concrete engine consumer authorizes promotion, or the selected transport cannot satisfy a reproducible local constraint.
 
 ## Open hypotheses
 
