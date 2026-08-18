@@ -589,6 +589,7 @@ source = { editable = "." }
 dependencies = [
     { name = "funasr" },
     { name = "huggingface-hub" },
+    { name = "numpy" },
     { name = "torch" },
     { name = "torchaudio" },
 ]
@@ -597,6 +598,7 @@ dependencies = [
 requires-dist = [
     { name = "funasr", specifier = "==1.4.2" },
     { name = "huggingface-hub", specifier = "==1.27.0" },
+    { name = "numpy", specifier = "==2.5.2" },
     { name = "torch", specifier = "==2.8.0" },
     { name = "torchaudio", specifier = "==2.8.0" },
 ]

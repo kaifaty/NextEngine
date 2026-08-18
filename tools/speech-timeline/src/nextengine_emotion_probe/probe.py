@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import math
 import os
 import sys
 import time
@@ -12,9 +13,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 DEFAULT_MODEL_ID = "emotion2vec/emotion2vec_plus_base"
 DEFAULT_MODEL_REVISION = "b318240bfe67db81a8c572ecb37ce9c3759b81c9"
 MAX_AUDIO_BYTES = 64 * 1024 * 1024
+IN_MEMORY_SAMPLE_RATE_HZ = 16_000
+MAX_IN_MEMORY_SECONDS = 30
+MAX_IN_MEMORY_SAMPLES = IN_MEMORY_SAMPLE_RATE_HZ * MAX_IN_MEMORY_SECONDS
 
 
 class ProbeError(RuntimeError):
@@ -116,6 +122,8 @@ def normalize_predictions(raw_result: Any) -> list[dict[str, Any]]:
             numeric_score = float(score)
         except (TypeError, ValueError) as error:
             raise ProbeError(f"model returned a non-numeric score for {label!r}") from error
+        if not math.isfinite(numeric_score):
+            raise ProbeError(f"model returned a non-finite score for {label!r}")
         predictions.append({"label": str(label), "score": numeric_score})
 
     predictions.sort(key=lambda item: (-item["score"], item["label"]))
@@ -162,12 +170,35 @@ class EmotionProbe:
     def analyze(self, audio_path: Path) -> dict[str, Any]:
         path = validate_audio(audio_path)
         metadata = audio_metadata(path)
+        return self._analyze_input(str(path), metadata)
+
+    def analyze_waveform(
+        self,
+        samples: np.ndarray,
+        sample_rate_hz: int = IN_MEMORY_SAMPLE_RATE_HZ,
+    ) -> dict[str, Any]:
+        waveform = validate_waveform(samples, sample_rate_hz)
+        pcm_bytes = waveform.tobytes(order="C")
+        metadata = AudioMetadata(
+            content_hash=f"sha256:{hashlib.sha256(pcm_bytes).hexdigest()}",
+            byte_length=len(pcm_bytes),
+            sample_rate_hz=sample_rate_hz,
+            channels=1,
+            duration_ms=round(waveform.size * 1000 / sample_rate_hz),
+        )
+        return self._analyze_input(waveform, metadata)
+
+    def _analyze_input(
+        self,
+        model_input: str | np.ndarray,
+        metadata: AudioMetadata,
+    ) -> dict[str, Any]:
         self.load()
         started = time.perf_counter()
         try:
             with contextlib.redirect_stdout(sys.stderr):
                 raw_result = self._model.generate(
-                    input=str(path),
+                    input=model_input,
                     granularity="utterance",
                     extract_embedding=False,
                 )
@@ -195,3 +226,29 @@ class EmotionProbe:
             "inference_elapsed_ms": elapsed_ms,
             "interpretation": "scores_are_uncalibrated_observed_expression",
         }
+
+
+def validate_waveform(samples: np.ndarray, sample_rate_hz: int) -> np.ndarray:
+    if sample_rate_hz != IN_MEMORY_SAMPLE_RATE_HZ:
+        raise ProbeError(
+            f"in-memory waveform must be {IN_MEMORY_SAMPLE_RATE_HZ} Hz, got {sample_rate_hz}"
+        )
+    if not isinstance(samples, np.ndarray):
+        raise ProbeError("in-memory waveform must be a numpy.ndarray")
+    if samples.dtype != np.float32:
+        raise ProbeError(f"in-memory waveform must have dtype float32, got {samples.dtype}")
+    if samples.ndim != 1:
+        raise ProbeError(f"in-memory waveform must be mono rank-1, got rank {samples.ndim}")
+    if samples.size == 0:
+        raise ProbeError("in-memory waveform must not be empty")
+    if samples.size > MAX_IN_MEMORY_SAMPLES:
+        raise ProbeError(
+            f"in-memory waveform exceeds {MAX_IN_MEMORY_SECONDS}s limit: {samples.size} samples"
+        )
+    if not samples.flags.c_contiguous:
+        raise ProbeError("in-memory waveform must be C-contiguous")
+    if not np.isfinite(samples).all():
+        raise ProbeError("in-memory waveform contains non-finite samples")
+    if np.max(np.abs(samples)) > 1.0:
+        raise ProbeError("in-memory waveform samples must be within [-1.0, 1.0]")
+    return samples

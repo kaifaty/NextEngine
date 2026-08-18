@@ -5,10 +5,14 @@ import unittest
 import wave
 from pathlib import Path
 
+import numpy as np
+
 from nextengine_emotion_probe.probe import (
+    EmotionProbe,
     ProbeError,
     audio_metadata,
     normalize_predictions,
+    validate_waveform,
 )
 from nextengine_emotion_probe.recording import recording_command, validate_recorded_wav
 
@@ -25,6 +29,58 @@ class PredictionTests(unittest.TestCase):
     def test_malformed_result_fails_closed(self) -> None:
         with self.assertRaises(ProbeError):
             normalize_predictions([{"labels": ["sad"], "scores": []}])
+
+    def test_non_finite_score_fails_closed(self) -> None:
+        with self.assertRaises(ProbeError):
+            normalize_predictions([{"labels": ["sad"], "scores": [float("nan")]}])
+
+
+class InMemoryInferenceTests(unittest.TestCase):
+    class FakeModel:
+        def __init__(self) -> None:
+            self.inputs: list[object] = []
+
+        def generate(self, *, input: object, **_: object) -> list[dict[str, object]]:
+            self.inputs.append(input)
+            return [{"labels": ["neutral", "angry"], "scores": [0.8, 0.2]}]
+
+    def test_waveform_requires_exact_bounded_audio_contract(self) -> None:
+        valid = np.zeros(16_000, dtype=np.float32)
+        self.assertIs(validate_waveform(valid, 16_000), valid)
+        invalid = (
+            (valid.astype(np.float64), 16_000),
+            (valid.reshape(1, -1), 16_000),
+            (valid, 8_000),
+            (np.array([float("nan")], dtype=np.float32), 16_000),
+            (np.array([1.1], dtype=np.float32), 16_000),
+        )
+        for samples, sample_rate in invalid:
+            with self.subTest(dtype=samples.dtype, shape=samples.shape, rate=sample_rate):
+                with self.assertRaises(ProbeError):
+                    validate_waveform(samples, sample_rate)
+
+    def test_file_and_waveform_use_one_result_builder_without_writing_audio(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            audio = root / "sample.wav"
+            with wave.open(str(audio), "wb") as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(16_000)
+                wav.writeframes(b"\0\0" * 16_000)
+            cache = root / "cache"
+            probe = EmotionProbe("model", "revision", cache, "cpu")
+            model = self.FakeModel()
+            probe._model = model
+            before = sorted(path.relative_to(root) for path in root.rglob("*"))
+            file_result = probe.analyze(audio)
+            waveform_result = probe.analyze_waveform(np.zeros(16_000, dtype=np.float32))
+            after = sorted(path.relative_to(root) for path in root.rglob("*"))
+        self.assertEqual(file_result["predictions"], waveform_result["predictions"])
+        self.assertEqual(len(model.inputs), 2)
+        self.assertIsInstance(model.inputs[0], str)
+        self.assertIsInstance(model.inputs[1], np.ndarray)
+        self.assertEqual(before, after)
 
 
 class RecordingTests(unittest.TestCase):
