@@ -175,7 +175,7 @@
 | H1: both models fit and remain faster than realtime under serialized joint load | Confirmed on current exact profile: 5870 MiB peak and worker-busy RTF 0.530–0.690. | One Russian sample/host is not a broad deployment envelope. | Repeat after artifact/runtime/device change and on representative live dialogue. |
 | H2: Voxtral token slots are accurate enough for clause-level affect attachment | Training uses explicitly aligned 80 ms audio/text streams. | Public APIs omit timing; slot offset/grouping error is unknown. | Expose token/control slots and compare to manually aligned Russian words. |
 | H3: utterance-grade context already improves downstream LLM responses | It preserves vocal evidence honestly without timestamp invention. | Mixed emotion inside a turn may be smeared. | Blind downstream response evaluation: text-only versus turn affect versus timed spans. |
-| H4: 1 s/250 ms emotion windows give useful Live transitions | Warm inference is ~8 ms and windows overlap densely. | Utterance-pooled classifier may smear or flicker. | Labeled Russian within-turn transition corpus with boundary/F1 and churn metrics. |
+| H4: 1 s/250 ms emotion windows give useful Live transitions | Warm inference is ~8 ms and windows overlap densely. | A 5-s zero-PCM probe produced `surprised` at 0.879–0.931 for every sliding window and `fearful` at 0.590 on the final full-turn pass; the wrapper has no VAD gate, so the classifier is being asked to label silence. | First run a VAD/no-speech ablation on silence, noise and voiced samples; then measure boundary/F1, coverage and churn on a labeled Russian within-turn corpus. |
 
 ## Required context
 
