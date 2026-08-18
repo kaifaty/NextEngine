@@ -14,7 +14,8 @@
 - **Current conclusion:** Use a resident optional `SpeechTimelineService` with `VoxtralTranscriberAdapter`, `Emotion2VecAffectAdapter`, optional VAD and a deterministic timeline fuser. Keep three independently revisioned tracks and derive LLM context from them.
 - **Why:** The existing Voxtral wrapper already performs real streaming inside one invocation, while warm emotion2vec inference is fast. Reloading either model per connection/window is the avoidable delay.
 - **Critical limit:** Current Voxtral public APIs return streaming text but no lexical timestamps. `transcribe.cpp` reports timestamp kind `NONE`; its Voxtral `audio_committed_ms` remains zero during feed and is not a text boundary.
-- **Next action:** Implement on the branch containing `e839a38:lab/scripts/voxtral_microphone.py`: extract a resident Voxtral adapter plus emotion adapter, expose `utterance`-grade tracks, and measure second-session/no-reload behavior before modifying timestamp support.
+- **Implementation plan:** `docs/plans/2026-08-18-speech-timeline-service-implementation.md` defines the recommended standalone localhost WebSocket vertical, commit boundaries, faults, measurements and optional VAD/model-slot increments.
+- **Next action:** Confirm the plan's default scope (`standalone / explicit finish first / utterance MVP / WebSocket`), create `codex/speech-timeline-service`, converge the exact Voxtral commits, and execute Commit 1 without recreating the wrapper.
 - **Current blocker:** The Voxtral wrapper exists on `codex/architecture-foundation-promotion`, not in this worktree. Research is unblocked; implementation should use/merge that source rather than recreate it.
 - **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated word timestamps from text arrival time.
 - **Reconsider when:** A model/runtime exposes better timed lexical units, or measured model-slot boundary error is too high and justifies a final aligner.
@@ -30,6 +31,7 @@
 | `transcribe.cpp` commit `9315160` | Voxtral capability `TIMESTAMPS_NONE`; whole-text segment; feed cursor is not lexical time | Baseline fusion grade is `utterance`, not word. |
 | Official Voxtral/vLLM protocol | 80 ms aligned model slots but public Realtime events carry only text delta/final | Test a private token-slot adapter; keep timing capability explicit. |
 | `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md` | bounded pair/facade research complete | Supersedes the prior SimulStreaming ASR selection and defines staged implementation/evidence. |
+| `docs/plans/2026-08-18-speech-timeline-service-implementation.md` | proposed implementation sequence | Defines the smallest resident vertical, commit/test boundaries and four explicit scope choices; it does not promote SPEC-16. |
 | ADR-005; SPEC-16/ADR-017 | Accepted isolation/fallback boundary; multimodal track remains Deferred Proposed | No direct gameplay mutation or product-shipped claim. |
 
 ## Decisions that constrain the work
