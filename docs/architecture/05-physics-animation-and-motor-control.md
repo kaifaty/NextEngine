@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-05 |
 | Статус | Accepted |
-| Версия | 2.9 |
-| Последняя проверка | 2026-08-17 |
+| Версия | 3.0 |
+| Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
 | Дополнительные зависимости V2.9 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-05 2.8; follows the product-grounded injury/embodiment decision without changing current physical formats |
+| Заменяет | SPEC-05 2.9; records the completed bounded procedural R5 gameplay profile and its `physical-character` conformance check without promoting articulation or learned routes |
 
 ## Source of truth и ownership
 
@@ -198,6 +198,27 @@ Dismemberment/breakable constraints выполняются как physics transa
 
 Checks используют fixed scenarios/seeds и [RunManifest из SPEC-09](09-tooling-sdk-and-observability.md). Captures и timing reports являются диагностикой продукта и не влияют на authoritative simulation.
 
+The current bounded procedural R5 profile admits exactly one primary solid
+capsule and at most one identity-rotation fixed local solid box on the same
+kinematic avatar body. The box participates in canonical sweeps, collision
+filters, contact continuity and activation penetration checks under its actual
+`PhysicsShapeIdV1` and canonical box-face IDs; only the primary capsule may
+trigger step-up or establish
+ground support. The production reference load uses an opt-in carried-load
+layer and a proxy coincident with visible course geometry, so ordinary quest
+routes retain their prior collision semantics while authored clearance can
+physically stop the complete avatar silhouette. Because both shapes share one
+body, Physics remains the sole transform/save owner and the current checkpoint
+and Replay V10 formats need no attachment state.
+
+`physical-character` is the bounded `PHYS-P6` procedural closure check. It
+repeats the production generation twice, observes a low-riser contact followed
+by traversal, proves a carried-shape contact while the capsule keeps positive
+clearance, reconstructs that live contact exactly, and verifies that melee
+health change remains downstream of committed player/NPC contact. General
+grab/drop, multiple loads, mass/effort coupling, ragdoll/get-up, active
+articulation and learned control are independent future consumers.
+
 | ID | Сценарий | Ожидаемый результат | Fallback |
 |---|---|---|---|
 | PHYS-P1 | descriptor parity corpus | 100% bodies/axes/limits; mass/inertia ≤0.1%; torque conversion ≤1% | попробовать следующий backend через тот же contract |
@@ -206,7 +227,7 @@ Checks используют fixed scenarios/seeds и [RunManifest из SPEC-09](
 | PHYS-P4 | `r5-physics-16.v1`: 16 independent 23-DoF PhysX humanoids на полном `ref-win-thoth-v1` без CPU affinity restriction | physics 240 Hz, motor 60 Hz, 8 workers; lockstep physics+motor frame p95 ≤4 ms, p99 ≤6 ms; 1/4/8 worker throughput/scaling, restore and resource budgets exactly follow ADR-062; roots exact across worker/profiler permutations; no missed critical steps; learned inference budget applies only after evaluator promotion | offline tuning следующего manifest integer LOD budget; safe-tier pin |
 | MOTOR-P1 | 10 000 golden observations | ONNX vs training max abs raw action error ≤1e-5; applied safety-clamped/quantized `MotorAction` exact; 0 schema mismatch accepted | reference CPU evaluator или heuristic controller |
 | PHYS-P5 | runtime/training golden trajectories | normalized RMSE ≤0.05; contact F1 ≥0.98; outcome pass-rate delta ≤2 percentage points | retrain, mapping fix или backend fallback |
-| PHYS-P6 | push, slope, stair, trip, carry, fall/recovery | per-scenario thresholds; aggregate ≥95%; 0 safety violation | recovery controller; unsupported learned route остаётся отключён |
+| PHYS-P6 | push, slope, stair, trip, carry, fall/recovery and contact-driven melee | current procedural baseline: `physical-character` plus production capsule-course regressions observe every bounded behavior, exact contact IDs and restart continuation; future broader profiles declare their own thresholds and still require aggregate ≥95% with 0 safety violation | recovery controller; unsupported learned route остаётся отключён |
 | PHYS-P7 | every adjacent LOD transition, 1 000 cycles | 0 forbidden transition; jump/velocity limits соблюдены; no lost durable outcome | pin higher safe tier |
 | PHYS-P8 | optional local success/failure/comparison capture | fixed camera/profile; overlays command/phase/COM/support/contacts/target; when captured, media reproduces the exact run and contains no authority | сохранить diagnostics; gameplay check остаётся authoritative |
 

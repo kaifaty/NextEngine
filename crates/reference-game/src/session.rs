@@ -28,11 +28,17 @@ use crate::{
 
 const WORLD_COLLISION_LAYER: u8 = 0;
 const WORLD_COLLISION_MASK: u64 = 1 << WORLD_COLLISION_LAYER;
+const CARRIED_LOAD_COLLISION_LAYER: u8 = 1;
+const CARRIED_LOAD_COLLISION_MASK: u64 = 1 << CARRIED_LOAD_COLLISION_LAYER;
 const R5B_COURSE_Z_MICROMETRES: i64 = -6_000_000;
+const CARRIED_LOAD_LOCAL_TRANSLATION_MICROMETRES: [i64; 3] = [-700_000, 400_000, 500_000];
+const CARRIED_LOAD_HALF_EXTENTS_MICROMETRES: [i64; 3] = [200_000, 300_000, 200_000];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ReferenceCapsuleCourseV1 {
     pub static_body_id: PhysicsBodyIdV1,
+    pub trip_shape_id: PhysicsShapeIdV1,
+    pub carry_blocker_shape_id: PhysicsShapeIdV1,
     pub dynamic_body_id: PhysicsBodyIdV1,
     pub dynamic_shape_id: PhysicsShapeIdV1,
     pub sensor_body_id: PhysicsBodyIdV1,
@@ -56,6 +62,14 @@ impl ReferenceCapsuleCourseV1 {
         };
         Self {
             static_body_id,
+            trip_shape_id: PhysicsShapeIdV1 {
+                body_id: static_body_id,
+                shape_slot: 0,
+            },
+            carry_blocker_shape_id: PhysicsShapeIdV1 {
+                body_id: static_body_id,
+                shape_slot: 7,
+            },
             dynamic_body_id,
             dynamic_shape_id: PhysicsShapeIdV1 {
                 body_id: dynamic_body_id,
@@ -83,6 +97,9 @@ pub struct ReferenceGameSession {
     pub controller_id: PersistentId,
     pub body_id: PersistentId,
     pub physics_body_id: PhysicsBodyIdV1,
+    pub carried_load_id: PersistentId,
+    pub carried_load_shape_id: PhysicsShapeIdV1,
+    pub carried_load_local_translation_micrometres: [i64; 3],
     pub r5b_course: ReferenceCapsuleCourseV1,
     pub interactive_object_id: PersistentId,
     pub npc_character_id: PersistentId,
@@ -325,6 +342,11 @@ pub fn build_reference_game_session_with_profile(
         subject_id: body_id,
         body_slot: 0,
     };
+    let carried_load_id = PersistentId::from_bytes([0x7b; 16]);
+    let carried_load_shape_id = PhysicsShapeIdV1 {
+        body_id: physics_body_id,
+        shape_slot: 1,
+    };
     let r5b_course = ReferenceCapsuleCourseV1::production_v1();
     let interactive_object_id = PersistentId::from_bytes([0x58; 16]);
     let npc_character_id = PersistentId::from_bytes([0x59; 16]);
@@ -377,6 +399,7 @@ pub fn build_reference_game_session_with_profile(
         r5b_course.static_body_id.subject_id,
         r5b_course.dynamic_body_id.subject_id,
         r5b_course.sensor_body_id.subject_id,
+        carried_load_id,
     ]
     .iter()
     .any(|identity| *identity == quest_giver_character_id || *identity == cognition_subject_id)
@@ -414,6 +437,9 @@ pub fn build_reference_game_session_with_profile(
         controller_id,
         body_id,
         physics_body_id,
+        carried_load_id,
+        carried_load_shape_id,
+        carried_load_local_translation_micrometres: CARRIED_LOAD_LOCAL_TRANSLATION_MICROMETRES,
         r5b_course,
         interactive_object_id,
         npc_character_id,
@@ -482,6 +508,18 @@ fn grounded_capsule_checkpoint(
         participation: PhysicsParticipationV1::Solid,
         contact_reporting: PhysicsContactReportingV1::BeginPersistEnd,
     };
+    let carried_load_shape_id = PhysicsShapeIdV1 {
+        body_id: capsule_body_id,
+        shape_slot: 1,
+    };
+    let carried_load_shape = box_shape_descriptor(
+        carried_load_shape_id,
+        &material_id,
+        CARRIED_LOAD_LOCAL_TRANSLATION_MICROMETRES,
+        CARRIED_LOAD_HALF_EXTENTS_MICROMETRES,
+        CARRIED_LOAD_COLLISION_LAYER,
+        CARRIED_LOAD_COLLISION_MASK,
+    );
     let capsule_pose = PhysicsPoseV1 {
         translation_micrometres: [0, 900_000, 0],
         ..PhysicsPoseV1::default()
@@ -494,7 +532,12 @@ fn grounded_capsule_checkpoint(
         initial_linear_velocity_micrometres_per_second: [0; 3],
         initial_angular_velocity_q16: [0; 3],
         active: true,
-        shapes: BTreeMap::from([(capsule_shape_id, capsule_shape)]),
+        // R5j's carried load is a fixed local compound shape on the same
+        // kinematic body. It therefore has no second transform/save owner.
+        shapes: BTreeMap::from([
+            (capsule_shape_id, capsule_shape),
+            (carried_load_shape_id, carried_load_shape),
+        ]),
     };
     let floor_body_id = PhysicsBodyIdV1 {
         subject_id: PersistentId::from_bytes([0x57; 16]),
@@ -710,7 +753,7 @@ fn r5b_course_static_descriptor(
             [100_000, 900_000, 500_000],
         ),
     ];
-    let shapes = boxes
+    let mut shapes: BTreeMap<_, _> = boxes
         .into_iter()
         .enumerate()
         .map(|(shape_slot, (translation, half_extents))| {
@@ -731,6 +774,24 @@ fn r5b_course_static_descriptor(
             )
         })
         .collect();
+    // The visible tall wall also opts into the carried-load channel. Keeping
+    // this proxy separate from its world-layer twin preserves the existing
+    // capsule/dynamic-box course while making payload clearance intentional.
+    let carry_blocker_shape_id = PhysicsShapeIdV1 {
+        body_id,
+        shape_slot: 7,
+    };
+    shapes.insert(
+        carry_blocker_shape_id,
+        box_shape_descriptor(
+            carry_blocker_shape_id,
+            material_id,
+            [6_800_000, 900_000, R5B_COURSE_Z_MICROMETRES],
+            [100_000, 900_000, 500_000],
+            CARRIED_LOAD_COLLISION_LAYER,
+            CARRIED_LOAD_COLLISION_MASK,
+        ),
+    );
     PhysicsBodyDescriptorV1 {
         body_id,
         descriptor_revision: 1,

@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.49 |
+| Версия | 2.50 |
 | Последняя проверка | 2026-08-18 |
-| Заменяет | INDEX-001 2.48; records R5i bounded animation-LOD conformance while leaving general graph/retarget/physical-IK and articulation scope open |
+| Заменяет | INDEX-001 2.49; records the completed R5 procedural baseline through R5j while leaving optional/post-baseline breadth open |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -155,17 +155,17 @@ traceability — навигационная карта, не admission authority
 | SPEC-02 | [Runtime, ECS и data model](02-runtime-ecs-and-data.md) | Accepted |
 | SPEC-03 | [Assets, current world streaming и persistence](03-assets-world-streaming-and-persistence.md) | Accepted |
 | SPEC-04 | [Rendering и platform](04-rendering-and-platform.md) | Accepted |
-| SPEC-05 | [Physics, animation и motor control](05-physics-animation-and-motor-control.md) | Accepted |
+| SPEC-05 | [Physics, animation и motor control](05-physics-animation-and-motor-control.md) | Accepted; R5j closes the bounded procedural PHYS-P6 gameplay profile through `physical-character` |
 | SPEC-06 | [AI agents, perception и memory](06-ai-agents-perception-and-memory.md) | Accepted |
 | SPEC-07 | [RPG, scripting и plugins](07-rpg-scripting-and-plugins.md) | Accepted |
 | SPEC-08 | [Audio, navigation и world services](08-audio-navigation-and-world-services.md) | Accepted audio plus bounded engine-owned graph/query baseline; broader navmesh/traversal remains Proposed |
-| SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted |
+| SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted; includes the Linux-runnable `physical-character` conformance command |
 | SPEC-10 | [Gothic importer boundary](10-gothic-importer-boundary.md) | Accepted |
 | SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted |
-| SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted; commit-independent risk-scoped validation and documentation-only cheap path |
+| SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted; commit-independent risk-scoped validation, documentation-only cheap path and bounded R5 milestone checks |
 | SPEC-13 | [Gameplay mechanics и mod packages](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted |
 | SPEC-14 | [Physical archetypes, BodySchema, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted hierarchy/ownership; fixed-humanoid BodySchema V1 is current through SPEC-35, advanced skill/adaptation/family profiles remain Proposed |
-| SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted |
+| SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted; R5j uses repeated production generations with immutable contact/checkpoint probes |
 | SPEC-16 | [Text-canonical multimodal dialogue и model packs](16-text-canonical-multimodal-dialogue-and-model-packs.md) | Proposed |
 | SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted |
 | SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted; future qualitative body-status projection remains consumer-driven |
@@ -176,7 +176,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-23 | [Future generic jobs and resource work](23-jobs-memory-resource-residency-and-io-backpressure.md) | Proposed |
 | SPEC-24 | [Current neutral content и package closure](24-content-catalog-bundle-and-neutral-asset-schemas.md) | Accepted |
 | SPEC-25 | [Current bounded world partition и streaming boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
-| SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted |
+| SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted; current capsule profile includes one bounded fixed-local carried box on the same body |
 | SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety/replay baseline; exact adaptation/reference profile evolution is Proposed |
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted; bounded forward `ANIM-ROOT-MOTION-P1` and bounded-profile `ANIM-LOD-P1` are current through R5h/R5i, while general graph/retarget/physical-IK, creator-authored LOD breadth and hybrid articulation remain open |
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted |

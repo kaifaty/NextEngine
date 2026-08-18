@@ -78,6 +78,7 @@ pub enum ReferenceGameError {
     InputFrameMissing,
     PresentationAssetMissing,
     PresentationSnapshotMissing,
+    PresentationTransformOverflow,
     AudioAssetMissing,
     RecoveryInvalid,
     BulkTimeTickBudgetInvalid { requested: u64, maximum: u64 },
@@ -153,6 +154,9 @@ impl Display for ReferenceGameError {
             }
             Self::PresentationSnapshotMissing => {
                 formatter.write_str("reference presentation snapshot is missing")
+            }
+            Self::PresentationTransformOverflow => {
+                formatter.write_str("reference presentation transform overflowed")
             }
             Self::AudioAssetMissing => formatter.write_str("reference audio clip asset is missing"),
             Self::RecoveryInvalid => {

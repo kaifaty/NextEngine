@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-26 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последняя проверка | 2026-08-17 |
+| Версия | 2.4 |
+| Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md), [ADR-013](adr/013-self-contained-physical-avatar-boundary.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md) |
-| Заменяет | SPEC-26 2.2; records the bounded R5d production compiler consumer and retains the product-grounded retained-limb topology boundary without changing descriptor ownership or current physics bytes |
+| Заменяет | SPEC-26 2.3; records the bounded R5j compound carried-load consumer on existing V1 descriptor/checkpoint bytes |
 | Дополнительная зависимость V2.0 | [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 | Дополнительные зависимости V2.2 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
 
@@ -294,10 +294,37 @@ no candidate projection.
 
 This production projection is currently a compatibility/admission witness for
 the shared physical-animation archetype. It is not inserted into the active
-reference gameplay scene: the existing upright capsule remains the sole
-transform owner and collision participant. Articulation cutover, topology
-transactions and non-default overlays require later bounded consumers and
-their own snapshot/replay evidence.
+reference gameplay scene: the existing upright kinematic avatar body remains
+the sole transform owner. R5j adds one ordinary fixed-local box shape to that
+same body for a bounded carried-load consumer; it does not activate the
+BodySchema articulation graph or create another mutable projection. Active
+articulation cutover, topology transactions and non-default overlays require
+later bounded consumers and their own snapshot/replay evidence.
+
+### Current bounded compound capsule profile
+
+The current reference adapter accepts one solid capsule at identity local
+translation and at most one solid identity-rotation box with a fixed local
+translation on the same kinematic body. Every other avatar shape family,
+duplicate capsule, second box, rotated shape or non-solid participant rejects
+before activation. The box:
+
+- uses its catalog `PhysicsShapeIdV1`, canonical moving/obstacle primitive-face
+  pair, material/reporting and symmetric layer/mask filter in sweeps and
+  contact continuity;
+- is checked against static and current dynamic boxes on activation;
+- may block horizontal/vertical displacement but cannot establish grounded
+  support or invoke capsule step-up;
+- reconstructs entirely from the unchanged catalog plus
+  `PhysicsCanonicalSnapshotV2` body/contact state.
+
+The production carried-load layer is opt-in: a visible wall owns a coincident
+filtered clearance proxy while the ordinary world-layer proxy still serves
+the capsule and dynamic push box. The carried collider's `200×300×200` mm
+half-extents match the reused visible push-box mesh bounds. This authoring
+choice prevents a permanent load from silently changing unrelated quest-route collisions. General
+attachment commands, detach/drop state, multiple loads, independent load pose,
+mass transfer and articulated constraints are not implied.
 
 ## Proposed ephemeral candidate-physics forks
 

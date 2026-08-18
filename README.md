@@ -16,8 +16,9 @@ fallbacks keep the game working when they are not.
 > **Project status:** Next Engine is in active pre-1.0 development. A playable
 > Linux reference alpha and its deterministic headless counterpart work
 > locally. Windows host bring-up is intentionally deferred while development
-> continues on Linux; paired release evidence, hard release performance, the
-> public creator workflow, and v1 are not complete. See the
+> continues on Linux. The bounded procedural physical-character baseline is
+> complete; paired release evidence, hard release performance, the public
+> creator workflow, and v1 are not. See the
 > [roadmap](docs/roadmap.md) for the current stage and open blockers.
 
 Next Engine is an independent project. It is not an OpenGothic port and it is
@@ -53,6 +54,8 @@ On the active Linux development path, a player can:
 - explore a streamed multi-region world;
 - pick up and equip an item, fight an enemy, interact with an NPC, and complete
   a dialogue-driven quest;
+- traverse slopes, stairs, a low-riser trip hazard, a push/fall course and a
+  visible carried-load clearance using Physics-owned contacts;
 - use the HUD, inventory, journal, pause, save, and load flows;
 - continue from saved state while the engine preserves authoritative world
   history;

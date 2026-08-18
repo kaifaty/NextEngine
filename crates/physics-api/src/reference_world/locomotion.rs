@@ -2,11 +2,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use next_contracts::physics::{
     CAPSULE_GROUND_SNAP_DISTANCE_MICROMETRES, CAPSULE_MAX_STEP_HEIGHT_MICROMETRES, PhysicsBodyIdV1,
-    PhysicsBodyStateV2, PhysicsCanonicalSnapshotV2,
+    PhysicsBodyStateV2, PhysicsCanonicalSnapshotV2, PhysicsShapeIdV1,
 };
 
 use super::error::ReferencePhysicsError;
-use super::interaction::sweep_box_axis;
+use super::interaction::{sweep_box_axis, sweep_box_axis_with_hit};
 use super::query::{
     GroundedCapsuleQuery, GroundedCapsuleStaticBox, GroundedCapsuleSweepHit,
     GroundedCapsuleSweepRequest, GroundedCapsuleSweepResult, grounded_capsule_collision_filter,
@@ -16,7 +16,20 @@ use super::world::GroundedCapsuleWorld;
 
 pub(super) struct CapsuleSubstep {
     pub body_after: PhysicsBodyStateV2,
-    pub forced_hits: BTreeSet<GroundedCapsuleSweepHit>,
+    pub forced_hits: BTreeSet<AvatarSweepHit>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub(super) struct AvatarSweepHit {
+    pub avatar_shape_id: PhysicsShapeIdV1,
+    pub avatar_feature: u8,
+    pub other: GroundedCapsuleSweepHit,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct AvatarSweepResult {
+    applied_delta_micrometres: i64,
+    hit: Option<AvatarSweepHit>,
 }
 
 impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
@@ -47,9 +60,10 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             .checked_add(vertical.applied_delta_micrometres)
             .ok_or(ReferencePhysicsError::NumericOverflow)?;
         let grounded = vertical_delta <= 0
-            && vertical
-                .hit
-                .is_some_and(|hit| hit.normal_box_to_capsule[1] > 0);
+            && vertical.hit.is_some_and(|hit| {
+                Some(hit.avatar_shape_id) == self.capsule_shape_id
+                    && hit.other.normal_box_to_capsule[1] > 0
+            });
         if vertical.applied_delta_micrometres != vertical_delta {
             body_after.linear_velocity_micrometres_per_second[1] = 0;
         }
@@ -95,7 +109,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         let hit_is_dynamic = selected_hit.is_some_and(|hit| {
             self.dynamic_boxes
                 .iter()
-                .any(|binding| binding.shape_id == hit.shape_id)
+                .any(|binding| binding.shape_id == hit.other.shape_id)
         });
         if hit_is_dynamic {
             let remaining = delta
@@ -103,7 +117,10 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 .ok_or(ReferencePhysicsError::NumericOverflow)?;
             let pushed = self.push_dynamic_box(
                 staged,
-                selected_hit.expect("dynamic hit was checked").shape_id,
+                selected_hit
+                    .expect("dynamic hit was checked")
+                    .other
+                    .shape_id,
                 axis,
                 remaining,
             )?;
@@ -113,8 +130,9 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         } else if grounded
             && applied != delta
             && let Some(blocking_hit) = selected_hit
+            && Some(blocking_hit.avatar_shape_id) == self.capsule_shape_id
             && let Some(stepped) =
-                self.try_step(staged, centre, axis, delta, applied, blocking_hit)?
+                self.try_step(staged, centre, axis, delta, applied, blocking_hit.other)?
         {
             return Ok(stepped);
         }
@@ -187,7 +205,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             || across.hit.is_some_and(|hit| {
                 self.dynamic_boxes
                     .iter()
-                    .any(|binding| binding.shape_id == hit.shape_id)
+                    .any(|binding| binding.shape_id == hit.other.shape_id)
             })
         {
             return Ok(None);
@@ -205,7 +223,10 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             .and_then(i64::checked_neg)
             .ok_or(ReferencePhysicsError::NumericOverflow)?;
         let down = self.sweep_solids_axis(staged, raised, 1, down_probe)?;
-        if !down.hit.is_some_and(|hit| hit.normal_box_to_capsule[1] > 0) {
+        if !down.hit.is_some_and(|hit| {
+            Some(hit.avatar_shape_id) == self.capsule_shape_id
+                && hit.other.normal_box_to_capsule[1] > 0
+        }) {
             return Ok(None);
         }
         raised[1] = raised[1]
@@ -222,7 +243,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         &mut self,
         staged: &PhysicsCanonicalSnapshotV2,
         centre: &mut [i64; 3],
-        forced_hits: &mut BTreeSet<GroundedCapsuleSweepHit>,
+        forced_hits: &mut BTreeSet<AvatarSweepHit>,
     ) -> Result<(), ReferencePhysicsError> {
         let down = self.sweep_solids_axis(
             staged,
@@ -230,7 +251,10 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             1,
             -CAPSULE_GROUND_SNAP_DISTANCE_MICROMETRES,
         )?;
-        if down.hit.is_some_and(|hit| hit.normal_box_to_capsule[1] > 0) {
+        if down.hit.is_some_and(|hit| {
+            Some(hit.avatar_shape_id) == self.capsule_shape_id
+                && hit.other.normal_box_to_capsule[1] > 0
+        }) {
             centre[1] = centre[1]
                 .checked_add(down.applied_delta_micrometres)
                 .ok_or(ReferencePhysicsError::NumericOverflow)?;
@@ -245,7 +269,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         centre: [i64; 3],
         axis: usize,
         delta: i64,
-    ) -> Result<GroundedCapsuleSweepResult, ReferencePhysicsError> {
+    ) -> Result<AvatarSweepResult, ReferencePhysicsError> {
         let axis = u8::try_from(axis).map_err(|_| ReferencePhysicsError::BackendFailure)?;
         let request = |static_boxes| GroundedCapsuleSweepRequest {
             centre_micrometres: centre,
@@ -260,7 +284,47 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         let static_result = self.query.sweep_axis(request(&self.static_boxes))?;
         let dynamic_boxes = self.current_dynamic_boxes(staged)?;
         let dynamic_result = reference_grounded_capsule_sweep(request(&dynamic_boxes))?;
-        Ok(select_nearest_sweep(static_result, dynamic_result))
+        let capsule_shape_id = self
+            .capsule_shape_id
+            .ok_or(ReferencePhysicsError::SnapshotMismatch)?;
+        let mut selected = select_nearest_sweep(
+            AvatarSweepResult::from_capsule(capsule_shape_id, static_result),
+            AvatarSweepResult::from_capsule(capsule_shape_id, dynamic_result),
+        );
+        let mut obstacles = self.static_boxes.to_vec();
+        obstacles.extend(dynamic_boxes);
+        obstacles.sort_by_key(|shape| shape.shape_id);
+        for attached in self.attached_boxes.iter() {
+            let moving = attached.at_body_centre(centre)?;
+            let eligible = obstacles
+                .iter()
+                .filter(|shape| {
+                    grounded_capsule_collision_filter(
+                        moving.collision_layer,
+                        moving.collision_mask,
+                        shape,
+                    )
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            let result = sweep_box_axis_with_hit(&moving, &eligible, usize::from(axis), delta)?;
+            selected = select_nearest_sweep(
+                selected,
+                AvatarSweepResult {
+                    applied_delta_micrometres: result.applied_delta_micrometres,
+                    hit: result.hit.map(|hit| AvatarSweepHit {
+                        avatar_shape_id: attached.shape_id,
+                        avatar_feature: hit.moving_box_feature,
+                        other: GroundedCapsuleSweepHit {
+                            shape_id: hit.shape_id,
+                            box_feature: hit.box_feature,
+                            normal_box_to_capsule: hit.normal_box_to_moving,
+                        },
+                    }),
+                },
+            );
+        }
+        Ok(selected)
     }
 
     pub(super) fn current_dynamic_boxes(
@@ -381,7 +445,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
 
 struct HorizontalMovement {
     centre: [i64; 3],
-    forced_hits: BTreeSet<GroundedCapsuleSweepHit>,
+    forced_hits: BTreeSet<AvatarSweepHit>,
 }
 
 impl HorizontalMovement {
@@ -393,10 +457,7 @@ impl HorizontalMovement {
     }
 }
 
-fn select_nearest_sweep(
-    left: GroundedCapsuleSweepResult,
-    right: GroundedCapsuleSweepResult,
-) -> GroundedCapsuleSweepResult {
+fn select_nearest_sweep(left: AvatarSweepResult, right: AvatarSweepResult) -> AvatarSweepResult {
     match left
         .applied_delta_micrometres
         .unsigned_abs()
@@ -410,6 +471,19 @@ fn select_nearest_sweep(
             } else {
                 right
             }
+        }
+    }
+}
+
+impl AvatarSweepResult {
+    fn from_capsule(avatar_shape_id: PhysicsShapeIdV1, result: GroundedCapsuleSweepResult) -> Self {
+        Self {
+            applied_delta_micrometres: result.applied_delta_micrometres,
+            hit: result.hit.map(|other| AvatarSweepHit {
+                avatar_shape_id,
+                avatar_feature: 1,
+                other,
+            }),
         }
     }
 }

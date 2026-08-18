@@ -6,6 +6,7 @@ mod content_package;
 mod live_runtime_history_scaling;
 mod live_runtime_performance;
 mod persistence_replay;
+mod physical_gameplay_conformance;
 mod physics_parity;
 mod platform_check;
 mod player_fixture;
@@ -53,6 +54,10 @@ pub use persistence_replay::{
     PersistenceReplayBackend, PersistenceReplayCheckError, PersistenceReplayCheckReport,
     run_persistence_replay_check, run_persistence_replay_check_with_backend,
     run_persistence_replay_check_with_backend_in,
+};
+pub use physical_gameplay_conformance::{
+    PhysicalGameplayConformanceErrorV1, PhysicalGameplayConformanceReportV1,
+    run_physical_gameplay_conformance_check,
 };
 pub use physics_parity::{
     PhysicsBackendParityError, PhysicsBackendParityReport, run_physics_backend_parity_check,

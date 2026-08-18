@@ -263,6 +263,7 @@ fn production_capsule_course_traverses_and_restores_mid_push() {
 
     let mut maximum_height = i64::MIN;
     let mut recovered_from_fall = false;
+    let mut trip_contact_seen = false;
     let mut sensor_seen = false;
     let mut sensor_exited = false;
     {
@@ -286,6 +287,13 @@ fn production_capsule_course_traverses_and_restores_mid_push() {
                 });
             sensor_seen |= sensor_now;
             sensor_exited |= sensor_seen && !sensor_now;
+            trip_contact_seen |= physics
+                .sorted_contact_continuity_states
+                .values()
+                .any(|contact| {
+                    contact.participant_low == course.trip_shape_id
+                        || contact.participant_high == course.trip_shape_id
+                });
         };
 
         driver
@@ -354,6 +362,13 @@ fn production_capsule_course_traverses_and_restores_mid_push() {
             });
         sensor_seen |= sensor_now;
         sensor_exited |= sensor_seen && !sensor_now;
+        trip_contact_seen |= physics
+            .sorted_contact_continuity_states
+            .values()
+            .any(|contact| {
+                contact.participant_low == course.trip_shape_id
+                    || contact.participant_high == course.trip_shape_id
+            });
     }
     let completion = control_event(
         next_contracts::input::KEYBOARD_D_CONTROL_PATH_ID,
@@ -378,6 +393,7 @@ fn production_capsule_course_traverses_and_restores_mid_push() {
     let dynamic = &physics.sorted_body_states[&course.dynamic_body_id];
     assert_eq!(maximum_height, 1_500_000);
     assert!(recovered_from_fall);
+    assert!(trip_contact_seen);
     assert!(sensor_seen && sensor_exited);
     assert_eq!(
         player.pose.translation_micrometres,
@@ -394,6 +410,129 @@ fn production_capsule_course_traverses_and_restores_mid_push() {
     assert_eq!(
         push_box.current_transform.translation_micrometres,
         dynamic.pose.translation_micrometres
+    );
+    std::fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn production_carried_load_blocks_on_visible_clearance_and_restores_exactly() {
+    let (root, activated) = activated_reference_project("r5j-carried-load");
+    let session = next_reference_game::build_reference_game_session(activated.project.clone())
+        .expect("reference session");
+    let player_body_id = session.physics_body_id;
+    let load_shape_id = session.carried_load_shape_id;
+    let blocker_shape_id = session.r5b_course.carry_blocker_shape_id;
+    let PhysicsGeometryV1::Box {
+        half_extents_micrometres: load_half_extents,
+    } = session.bootstrap.physics_checkpoint.catalog.bodies[&player_body_id].shapes[&load_shape_id]
+        .geometry
+    else {
+        panic!("carried load must be a box")
+    };
+    assert_eq!(load_half_extents, [200_000, 300_000, 200_000]);
+    let mut driver = next_reference_game::ReferenceGameDriverV2::new(activated.clone(), true)
+        .expect("live driver");
+
+    hold_key(
+        &mut driver,
+        next_contracts::input::KEYBOARD_S_CONTROL_PATH_ID,
+        0,
+        70,
+    );
+    driver
+        .advance(&[control_event(
+            next_contracts::input::KEYBOARD_D_CONTROL_PATH_ID,
+            NormalizedControlPhaseV1::Started,
+            i16::MAX,
+            2,
+        )])
+        .expect("start carried-load clearance traversal");
+    for _ in 1..80 {
+        driver
+            .advance(&[])
+            .expect("continue carried-load clearance traversal");
+    }
+
+    let saved = driver.state().expect("blocked carried-load state");
+    let player = &saved
+        .checkpoint
+        .physics_checkpoint
+        .snapshot
+        .sorted_body_states[&player_body_id];
+    assert_eq!(
+        player.pose.translation_micrometres,
+        [7_200_000, 900_000, -7_000_000]
+    );
+    assert!(
+        saved
+            .checkpoint
+            .physics_checkpoint
+            .snapshot
+            .sorted_contact_continuity_states
+            .values()
+            .any(|contact| {
+                [contact.participant_low, contact.participant_high].contains(&load_shape_id)
+                    && [contact.participant_low, contact.participant_high]
+                        .contains(&blocker_shape_id)
+            })
+    );
+    assert!(
+        player.pose.translation_micrometres[2] + 300_000 < -6_500_000,
+        "the primary capsule must remain clear of the visible wall"
+    );
+    assert_eq!(
+        player.pose.translation_micrometres[0]
+            + session.carried_load_local_translation_micrometres[0]
+            + 200_000,
+        6_700_000,
+        "the attached load, not the capsule, reaches the blocker"
+    );
+    let load_record = saved
+        .presentation_snapshot
+        .scene_records()
+        .find(|record| record.object_key.persistent_id == session.carried_load_id)
+        .expect("visible carried load");
+    assert_eq!(
+        load_record.current_transform.translation_micrometres,
+        [6_500_000, 1_300_000, -6_500_000]
+    );
+
+    let mut restored = next_reference_game::ReferenceGameDriverV2::restore(
+        activated,
+        saved.checkpoint,
+        saved.world_streaming_snapshot,
+        saved.world_routine_snapshot_or_none,
+        saved.world_population_snapshot,
+        saved.world_activity_snapshot,
+        saved.agent_cognition_snapshot,
+        saved.agent_memory_snapshot,
+        saved.physical_animation_snapshot,
+        saved.driver_recovery,
+    )
+    .expect("restore carried-load contact");
+    for _ in 0..4 {
+        driver.advance(&[]).expect("continue original contact");
+        restored.advance(&[]).expect("continue restored contact");
+        assert_eq!(
+            restored.state().expect("restored state").checkpoint,
+            driver.state().expect("original state").checkpoint
+        );
+    }
+    let completion = control_event(
+        next_contracts::input::KEYBOARD_D_CONTROL_PATH_ID,
+        NormalizedControlPhaseV1::Completed,
+        0,
+        3,
+    );
+    driver
+        .advance(std::slice::from_ref(&completion))
+        .expect("complete original carry traversal");
+    restored
+        .advance(&[completion])
+        .expect("complete restored carry traversal");
+    assert_eq!(
+        restored.state().expect("restored final").checkpoint,
+        driver.state().expect("original final").checkpoint
     );
     std::fs::remove_dir_all(root).expect("cleanup");
 }

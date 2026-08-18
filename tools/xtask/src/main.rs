@@ -16,6 +16,7 @@ mod native_gate_tests;
 mod performance_baseline_command;
 mod performance_codegen_command;
 mod performance_command;
+mod physical_character_command;
 mod physx;
 mod visual_smoke;
 
@@ -103,7 +104,7 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected animation-lod, animation-root-motion, boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
+        "expected animation-lod, animation-root-motion, boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physical-character, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
         "animation-lod" => {
@@ -164,6 +165,10 @@ fn run() -> Result<(), String> {
         "performance-codegen" => {
             let request = performance_codegen_command::parse_arguments(arguments)?;
             performance_codegen_command::performance_codegen(&root, &request)
+        }
+        "physical-character" => {
+            reject_extra_arguments(arguments)?;
+            physical_character_command::run()
         }
         "physx" => physx::run(physx::parse_command(arguments)?),
         "platform" => {

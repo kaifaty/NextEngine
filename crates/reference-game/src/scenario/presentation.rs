@@ -13,7 +13,7 @@ pub(crate) fn fixture_presentation_bindings(
     fixture: &ReferenceGameSession,
     rpg: &RpgSnapshotV2,
     _physical_animation: &PhysicalAnimationOwnerV1,
-    _physics: &PhysicsCanonicalSnapshotV2,
+    physics: &PhysicsCanonicalSnapshotV2,
 ) -> Result<Vec<PresentationBindingV1>, ReferenceGameError> {
     let revision = |asset_id| {
         fixture
@@ -67,6 +67,22 @@ pub(crate) fn fixture_presentation_bindings(
     let relay_approach_material =
         revision(crate::source::REFERENCE_RELAY_APPROACH_MATERIAL_ASSET_ID)?;
     let indicator_material = revision(crate::source::REFERENCE_INDICATOR_MATERIAL_ASSET_ID)?;
+    let carried_load_pose = &physics
+        .sorted_body_states
+        .get(&fixture.physics_body_id)
+        .ok_or(ReferenceGameError::BodyMissing)?
+        .pose;
+    let carried_load_translation = [
+        carried_load_pose.translation_micrometres[0]
+            .checked_add(fixture.carried_load_local_translation_micrometres[0])
+            .ok_or(ReferenceGameError::PresentationTransformOverflow)?,
+        carried_load_pose.translation_micrometres[1]
+            .checked_add(fixture.carried_load_local_translation_micrometres[1])
+            .ok_or(ReferenceGameError::PresentationTransformOverflow)?,
+        carried_load_pose.translation_micrometres[2]
+            .checked_add(fixture.carried_load_local_translation_micrometres[2])
+            .ok_or(ReferenceGameError::PresentationTransformOverflow)?,
+    ];
 
     let pickup_collected = matches!(
         aggregate_payload(rpg, RpgAggregateKindV1::Inventory, fixture.player_inventory_id),
@@ -336,6 +352,26 @@ pub(crate) fn fixture_presentation_bindings(
             physics_body_id: Some(fixture.r5b_course.dynamic_body_id),
             fallback_transform:
                 next_contracts::presentation::QuantizedPresentationTransformV1::default(),
+            visible: true,
+        },
+        PresentationBindingV1 {
+            persistent_id: fixture.carried_load_id,
+            presentation_role: next_contracts::presentation::PresentationRoleV1::Item,
+            incarnation: 0,
+            presentation_layer: 13,
+            mesh_revision: r5b_push_box_mesh,
+            material_revision: relay_active_material,
+            instance_ordinal: 13,
+            local_bounds: r5b_push_box_bounds,
+            feature_flags: next_contracts::presentation::ScenePresentationFlagsV1::NONE,
+            // The load has a local compound shape rather than a body of its
+            // own. This fallback is freshly derived from the committed avatar
+            // pose and cannot become an independent presentation authority.
+            physics_body_id: None,
+            fallback_transform: next_contracts::presentation::QuantizedPresentationTransformV1 {
+                translation_micrometres: carried_load_translation,
+                orientation_q30: carried_load_pose.rotation_q1_30,
+            },
             visible: true,
         },
     ]);

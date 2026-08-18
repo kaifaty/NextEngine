@@ -814,7 +814,7 @@ mod tests {
     fn game_headless_platform_and_presentation_contracts_match() {
         let report = run_platform_check().expect("platform check");
         assert_eq!(report.normalized_events, 4);
-        assert_eq!(report.rendered_objects, 8);
+        assert_eq!(report.rendered_objects, 9);
     }
 
     #[test]

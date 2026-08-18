@@ -46,7 +46,7 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
         .presentation_snapshot
         .scene_records()
         .collect::<Vec<_>>();
-    assert_eq!(initial_scene.len(), 10);
+    assert_eq!(initial_scene.len(), 11);
     assert!(
         initial_scene
             .iter()
@@ -219,6 +219,23 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
         push_box.current_transform.translation_micrometres,
         [5_200_000, 300_000, -6_000_000]
     );
+    let carried_load = initial_scene
+        .iter()
+        .find(|record| record.object_key.persistent_id == PersistentId::from_bytes([0x7b; 16]))
+        .expect("R5j carried-load presentation");
+    assert_eq!(
+        carried_load.mesh_revision.asset_id,
+        AssetId::from_bytes([0xcc; 16])
+    );
+    assert_eq!(
+        carried_load.local_bounds.min(),
+        [-200_000, -300_000, -200_000]
+    );
+    assert_eq!(carried_load.local_bounds.max(), [200_001, 300_001, 200_001]);
+    assert_eq!(
+        carried_load.current_transform.translation_micrometres,
+        [-700_000, 1_300_000, 500_000]
+    );
     let outcome = next_reference_game::run_reference_game(activated, true).expect("reference run");
     let final_pickup = outcome
         .presentation_bindings
@@ -245,7 +262,7 @@ fn reference_visual_bindings_replace_markers_and_follow_rpg_state() {
         final_relay.material_revision.asset_id,
         AssetId::from_bytes([0xd6; 16])
     );
-    assert_eq!(outcome.presentation_bindings.len(), 9);
+    assert_eq!(outcome.presentation_bindings.len(), 10);
     assert!(outcome.presentation_bindings.iter().all(|binding| {
         binding.persistent_id != PersistentId::from_bytes([0x70; 16])
             || (binding.presentation_role

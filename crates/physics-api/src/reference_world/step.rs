@@ -8,16 +8,20 @@ use next_contracts::physics::{
 };
 
 use super::error::ReferencePhysicsError;
-use super::interaction::boxes_penetrate;
-use super::query::{
-    GroundedCapsuleQuery, GroundedCapsuleStaticBox, GroundedCapsuleSweepHit,
-    capsule_box_distance_squared, contact_normal_and_feature, grounded_capsule_collision_filter,
-    square,
+use super::interaction::{
+    box_contact_normal_and_features, boxes_penetrate, boxes_touch_or_overlap,
 };
-use super::world::{GroundedCapsuleWorld, checked_sub_vec3};
+use super::locomotion::AvatarSweepHit;
+use super::query::{
+    GroundedCapsuleQuery, GroundedCapsuleStaticBox, capsule_box_distance_squared,
+    contact_normal_and_feature, grounded_capsule_collision_filter, square,
+};
+use super::world::{GroundedCapsuleWorld, checked_add_vec3, checked_sub_vec3};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct ContactCandidate {
+    avatar_shape_id: PhysicsShapeIdV1,
+    avatar_feature: u8,
     shape_id: PhysicsShapeIdV1,
     box_feature: u8,
     point: [i64; 3],
@@ -291,26 +295,30 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         &self,
         staged: &next_contracts::physics::PhysicsCanonicalSnapshotV2,
         centre: [i64; 3],
-        forced_hits: &BTreeSet<GroundedCapsuleSweepHit>,
+        forced_hits: &BTreeSet<AvatarSweepHit>,
     ) -> Result<Vec<ContactCandidate>, ReferencePhysicsError> {
         let radius_squared = square(self.capsule_radius)?;
         let mut candidates = Vec::new();
-        for shape in self.contact_boxes(staged)? {
-            if !self.collides_with(&shape) {
+        let contact_boxes = self.contact_boxes(staged)?;
+        let capsule_shape_id = self
+            .capsule_shape_id
+            .ok_or(ReferencePhysicsError::SnapshotMismatch)?;
+        for shape in &contact_boxes {
+            if !self.collides_with(shape) {
                 continue;
             }
             let distance_squared =
-                capsule_box_distance_squared(centre, self.capsule_half_segment, &shape)?;
-            let forced = forced_hits
-                .iter()
-                .find(|hit| hit.shape_id == shape.shape_id);
+                capsule_box_distance_squared(centre, self.capsule_half_segment, shape)?;
+            let forced = forced_hits.iter().find(|hit| {
+                hit.avatar_shape_id == capsule_shape_id && hit.other.shape_id == shape.shape_id
+            });
             if distance_squared > radius_squared && forced.is_none() {
                 continue;
             }
             let (normal, feature) = if let Some(hit) = forced {
-                (hit.normal_box_to_capsule, hit.box_feature)
+                (hit.other.normal_box_to_capsule, hit.other.box_feature)
             } else {
-                contact_normal_and_feature(centre, self.capsule_half_segment, &shape)?
+                contact_normal_and_feature(centre, self.capsule_half_segment, shape)?
             };
             let point = [
                 centre[0].clamp(shape.minimum[0], shape.maximum[0]),
@@ -318,11 +326,54 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 centre[2].clamp(shape.minimum[2], shape.maximum[2]),
             ];
             candidates.push(ContactCandidate {
+                avatar_shape_id: capsule_shape_id,
+                avatar_feature: 1,
                 shape_id: shape.shape_id,
                 box_feature: feature,
                 point,
                 normal_box_to_capsule: normal,
             });
+        }
+        for attached in self.attached_boxes.iter() {
+            let moving = attached.at_body_centre(centre)?;
+            for shape in &contact_boxes {
+                if !grounded_capsule_collision_filter(
+                    moving.collision_layer,
+                    moving.collision_mask,
+                    shape,
+                ) {
+                    continue;
+                }
+                let forced = forced_hits.iter().find(|hit| {
+                    hit.avatar_shape_id == attached.shape_id && hit.other.shape_id == shape.shape_id
+                });
+                if forced.is_none() && !boxes_touch_or_overlap(&moving, shape) {
+                    continue;
+                }
+                let (normal, avatar_feature, feature) = if let Some(hit) = forced {
+                    (
+                        hit.other.normal_box_to_capsule,
+                        hit.avatar_feature,
+                        hit.other.box_feature,
+                    )
+                } else {
+                    box_contact_normal_and_features(&moving, shape)?
+                };
+                let moving_centre = checked_add_vec3(centre, attached.local_centre_micrometres)?;
+                let point = [
+                    moving_centre[0].clamp(shape.minimum[0], shape.maximum[0]),
+                    moving_centre[1].clamp(shape.minimum[1], shape.maximum[1]),
+                    moving_centre[2].clamp(shape.minimum[2], shape.maximum[2]),
+                ];
+                candidates.push(ContactCandidate {
+                    avatar_shape_id: attached.shape_id,
+                    avatar_feature,
+                    shape_id: shape.shape_id,
+                    box_feature: feature,
+                    point,
+                    normal_box_to_capsule: normal,
+                });
+            }
         }
         candidates.sort();
         candidates.dedup();
@@ -333,22 +384,19 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         &self,
         candidate: ContactCandidate,
     ) -> (PhysicsShapeIdV1, PhysicsShapeIdV1, u8, u8, [i32; 3]) {
-        let capsule_shape_id = self
-            .capsule_shape_id
-            .expect("contact candidates only exist in a capsule world");
-        if candidate.shape_id < capsule_shape_id {
+        if candidate.shape_id < candidate.avatar_shape_id {
             (
                 candidate.shape_id,
-                capsule_shape_id,
+                candidate.avatar_shape_id,
                 candidate.box_feature,
-                1,
+                candidate.avatar_feature,
                 candidate.normal_box_to_capsule,
             )
         } else {
             (
-                capsule_shape_id,
+                candidate.avatar_shape_id,
                 candidate.shape_id,
-                1,
+                candidate.avatar_feature,
                 candidate.box_feature,
                 [
                     -candidate.normal_box_to_capsule[0],
@@ -363,12 +411,16 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
         &self,
         state: &PhysicsContactContinuityStateV1,
     ) -> PhysicsContactReportingV1 {
-        let Some(capsule_shape_id) = self.capsule_shape_id else {
+        let Some(capsule_body_id) = self.capsule_body_id else {
             return PhysicsContactReportingV1::Disabled;
         };
-        let other = if state.participant_low == capsule_shape_id {
+        let other = if state.participant_low.body_id == capsule_body_id
+            && state.participant_high.body_id != capsule_body_id
+        {
             state.participant_high
-        } else if state.participant_high == capsule_shape_id {
+        } else if state.participant_high.body_id == capsule_body_id
+            && state.participant_low.body_id != capsule_body_id
+        {
             state.participant_low
         } else {
             return PhysicsContactReportingV1::Disabled;
@@ -389,6 +441,26 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             self.capsule_collision_mask,
             shape,
         )
+    }
+
+    fn avatar_shape_collides_with(
+        &self,
+        avatar_shape_id: PhysicsShapeIdV1,
+        shape: &GroundedCapsuleStaticBox,
+    ) -> bool {
+        if Some(avatar_shape_id) == self.capsule_shape_id {
+            return self.collides_with(shape);
+        }
+        self.attached_boxes
+            .iter()
+            .find(|attached| attached.shape_id == avatar_shape_id)
+            .is_some_and(|attached| {
+                grounded_capsule_collision_filter(
+                    attached.collision_layer,
+                    attached.collision_mask,
+                    shape,
+                )
+            })
     }
 
     pub(super) fn validate_activation_snapshot(&self) -> Result<(), ReferencePhysicsError> {
@@ -428,6 +500,19 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 return Err(ReferencePhysicsError::SnapshotPenetrating);
             }
         }
+        for attached in self.attached_boxes.iter() {
+            let moving = attached.at_body_centre(body.pose.translation_micrometres)?;
+            for shape in self.static_boxes.iter().chain(dynamic_boxes.iter()) {
+                if grounded_capsule_collision_filter(
+                    moving.collision_layer,
+                    moving.collision_mask,
+                    shape,
+                ) && boxes_penetrate(&moving, shape)
+                {
+                    return Err(ReferencePhysicsError::SnapshotPenetrating);
+                }
+            }
+        }
         for dynamic in &dynamic_boxes {
             for fixed in self.static_boxes.iter().filter(|fixed| {
                 grounded_capsule_collision_filter(
@@ -442,19 +527,21 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             }
         }
 
-        let capsule_shape_id = self
-            .capsule_shape_id
-            .ok_or(ReferencePhysicsError::SnapshotMismatch)?;
         for contact in self
             .checkpoint
             .snapshot
             .sorted_contact_continuity_states
             .values()
         {
-            let other_shape_id = if contact.participant_low == capsule_shape_id {
-                contact.participant_high
-            } else if contact.participant_high == capsule_shape_id {
-                contact.participant_low
+            let (avatar_shape_id, other_shape_id) = if contact.participant_low.body_id
+                == capsule_body_id
+                && contact.participant_high.body_id != capsule_body_id
+            {
+                (contact.participant_low, contact.participant_high)
+            } else if contact.participant_high.body_id == capsule_body_id
+                && contact.participant_low.body_id != capsule_body_id
+            {
+                (contact.participant_high, contact.participant_low)
             } else {
                 return Err(ReferencePhysicsError::SnapshotMismatch);
             };
@@ -463,7 +550,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 .into_iter()
                 .find(|shape| shape.shape_id == other_shape_id)
                 .ok_or(ReferencePhysicsError::SnapshotMismatch)?;
-            if !self.collides_with(&other_shape) {
+            if !self.avatar_shape_collides_with(avatar_shape_id, &other_shape) {
                 return Err(ReferencePhysicsError::SnapshotMismatch);
             }
         }

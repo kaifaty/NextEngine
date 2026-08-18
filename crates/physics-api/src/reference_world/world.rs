@@ -11,7 +11,7 @@ use next_contracts::physics::{
 };
 
 use super::error::ReferencePhysicsError;
-use super::interaction::GroundedCapsuleDynamicBox;
+use super::interaction::{GroundedCapsuleAttachedBox, GroundedCapsuleDynamicBox};
 use super::query::{
     GroundedCapsuleQuery, GroundedCapsuleStaticBox, ReferenceGroundedCapsuleQuery,
     validate_reference_shape,
@@ -29,6 +29,7 @@ pub struct GroundedCapsuleWorld<Q> {
     pub(super) capsule_half_segment: i64,
     pub(super) capsule_collision_layer: u8,
     pub(super) capsule_collision_mask: u64,
+    pub(super) attached_boxes: Arc<[GroundedCapsuleAttachedBox]>,
     pub(super) static_boxes: Arc<[GroundedCapsuleStaticBox]>,
     pub(super) dynamic_boxes: Arc<[GroundedCapsuleDynamicBox]>,
     pub(super) sensor_boxes: Arc<[GroundedCapsuleStaticBox]>,
@@ -53,6 +54,7 @@ impl<Q: PartialEq> PartialEq for GroundedCapsuleWorld<Q> {
             && self.capsule_half_segment == other.capsule_half_segment
             && self.capsule_collision_layer == other.capsule_collision_layer
             && self.capsule_collision_mask == other.capsule_collision_mask
+            && self.attached_boxes == other.attached_boxes
             && self.static_boxes == other.static_boxes
             && self.dynamic_boxes == other.dynamic_boxes
             && self.sensor_boxes == other.sensor_boxes
@@ -115,6 +117,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             capsule_half_segment,
             capsule_collision_layer,
             capsule_collision_mask,
+            attached_boxes,
         ) = if let Some(capsule_body_id) = capsule_body_id {
             let capsule_descriptor = checkpoint
                 .catalog
@@ -122,34 +125,57 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
                 .get(&capsule_body_id)
                 .ok_or(ReferencePhysicsError::UnsupportedProfile)?;
             if capsule_descriptor.motion_kind != PhysicsMotionKindV1::Kinematic
-                || capsule_descriptor.shapes.len() != 1
                 || capsule_descriptor.initial_pose.rotation_q1_30
                     != PhysicsPoseV1::default().rotation_q1_30
             {
                 return Err(ReferencePhysicsError::UnsupportedProfile);
             }
-            let capsule_shape = capsule_descriptor
-                .shapes
-                .values()
-                .next()
-                .ok_or(ReferencePhysicsError::UnsupportedProfile)?;
-            validate_reference_shape(capsule_shape)?;
-            if capsule_shape.participation != PhysicsParticipationV1::Solid {
-                return Err(ReferencePhysicsError::UnsupportedProfile);
+            let mut capsule_shape = None;
+            let mut attached_boxes = Vec::new();
+            for shape in capsule_descriptor.shapes.values() {
+                validate_reference_shape(shape)?;
+                if shape.participation != PhysicsParticipationV1::Solid {
+                    return Err(ReferencePhysicsError::UnsupportedProfile);
+                }
+                match shape.geometry {
+                    PhysicsGeometryV1::Capsule {
+                        radius_micrometres,
+                        half_segment_micrometres,
+                    } => {
+                        if capsule_shape.is_some()
+                            || shape.local_pose.translation_micrometres != [0; 3]
+                        {
+                            return Err(ReferencePhysicsError::UnsupportedProfile);
+                        }
+                        capsule_shape = Some((shape, radius_micrometres, half_segment_micrometres));
+                    }
+                    PhysicsGeometryV1::Box {
+                        half_extents_micrometres,
+                    } => {
+                        if attached_boxes.len() == 1 {
+                            return Err(ReferencePhysicsError::UnsupportedProfile);
+                        }
+                        attached_boxes.push(GroundedCapsuleAttachedBox {
+                            shape_id: shape.shape_id,
+                            local_centre_micrometres: shape.local_pose.translation_micrometres,
+                            half_extents_micrometres,
+                            contact_reporting: shape.contact_reporting,
+                            collision_layer: shape.collision_layer,
+                            collision_mask: shape.collision_mask,
+                        });
+                    }
+                    _ => return Err(ReferencePhysicsError::UnsupportedProfile),
+                }
             }
-            let (capsule_radius, capsule_half_segment) = match capsule_shape.geometry {
-                PhysicsGeometryV1::Capsule {
-                    radius_micrometres,
-                    half_segment_micrometres,
-                } => (radius_micrometres, half_segment_micrometres),
-                _ => return Err(ReferencePhysicsError::UnsupportedProfile),
-            };
+            let (capsule_shape, capsule_radius, capsule_half_segment) =
+                capsule_shape.ok_or(ReferencePhysicsError::UnsupportedProfile)?;
             (
                 Some(capsule_shape.shape_id),
                 capsule_radius,
                 capsule_half_segment,
                 capsule_shape.collision_layer,
                 capsule_shape.collision_mask,
+                attached_boxes,
             )
         } else {
             if checkpoint
@@ -160,7 +186,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             {
                 return Err(ReferencePhysicsError::UnsupportedProfile);
             }
-            (None, 0, 0, 0, 0)
+            (None, 0, 0, 0, 0, Vec::new())
         };
 
         let mut static_boxes = Vec::new();
@@ -270,6 +296,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             capsule_half_segment,
             capsule_collision_layer,
             capsule_collision_mask,
+            attached_boxes: Arc::from(attached_boxes),
             static_boxes: Arc::from(static_boxes),
             dynamic_boxes: Arc::from(dynamic_boxes),
             sensor_boxes: Arc::from(sensor_boxes),
@@ -321,6 +348,7 @@ impl<Q: GroundedCapsuleQuery> GroundedCapsuleWorld<Q> {
             capsule_half_segment: self.capsule_half_segment,
             capsule_collision_layer: self.capsule_collision_layer,
             capsule_collision_mask: self.capsule_collision_mask,
+            attached_boxes: self.attached_boxes.clone(),
             static_boxes: self.static_boxes.clone(),
             dynamic_boxes: self.dynamic_boxes.clone(),
             sensor_boxes: self.sensor_boxes.clone(),

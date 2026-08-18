@@ -1,5 +1,6 @@
 mod fixture;
 mod r5b;
+mod r5j;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};

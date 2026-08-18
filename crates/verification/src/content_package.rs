@@ -145,8 +145,8 @@ pub(crate) fn run_content_package_check_with_scratch(
                 .cooked_meshes()
                 .iter()
                 .any(|mesh| mesh.meshlets().is_empty())
-            || prepared.check.rendered_object_count != 8
-            || prepared.check.indexed_draw_count != 8
+            || prepared.check.rendered_object_count != 9
+            || prepared.check.indexed_draw_count != 9
             || prepared.check.fallback_material_draw_count != 0
             || fallback_plan.fallback_material_draw_count != 1
             || skinning_records.len() != 2
@@ -414,8 +414,8 @@ fn fallback_material_plan(
             snapshot.camera_records().cloned().collect(),
             snapshot.semantic_ui_records().cloned().collect(),
             snapshot.character_skinning_records().cloned().collect(),
-            8,
-            8,
+            9,
+            9,
             next_contracts::presentation::PRESENTATION_DEFAULT_SEMANTIC_UI_RECORDS_PER_BATCH,
             snapshot.environment_batch,
         )
@@ -465,8 +465,8 @@ fn bind_pose_fallback_plan(
             snapshot.camera_records().cloned().collect(),
             snapshot.semantic_ui_records().cloned().collect(),
             skinning_records,
-            8,
-            8,
+            9,
+            9,
             next_contracts::presentation::PRESENTATION_DEFAULT_SEMANTIC_UI_RECORDS_PER_BATCH,
             snapshot.environment_batch,
         )

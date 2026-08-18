@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 4.1 |
+| Версия | 4.2 |
 | Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
-| Заменяет | SPEC-09 4.0; adds the fixed Linux-runnable R5i animation-LOD conformance command without changing the global ProductCheck categories |
+| Заменяет | SPEC-09 4.1; adds the fixed Linux-runnable R5j physical-character conformance command without changing the global ProductCheck categories |
 
 ## Scope and authority
 
@@ -33,6 +33,7 @@ return nonzero on failure. The governing product commands include:
 - `cargo run -p xtask -- host-check`;
 - `cargo run --locked --release -p xtask -- animation-lod`;
 - `cargo run --locked --release -p xtask -- animation-root-motion`;
+- `cargo run --locked -p xtask -- physical-character`;
 - `cargo run -p xtask -- play`;
 - `cargo run -p xtask -- persistence-replay`;
 - `cargo run -p xtask -- content-package`;
@@ -59,6 +60,15 @@ LOD/cadence/resource/publication transitions in 1,000 isolated generations and
 emits one strict V1 report. The workspace carries a deterministic one-block
 smoke; the full release-mode matrix runs when the LOD planner, animation
 projection or atomic character publication boundary changes.
+
+`physical-character` is the fixed milestone-specific procedural `PHYS-P6`
+check. It uses the production reference catalog and gameplay route to cover a
+named low-riser trip contact/traversal, a compound carried-load clearance
+contact with positive capsule clearance, exact checkpoint continuation while
+blocked, and the existing committed-contact → Mechanics → RPG melee outcome.
+It executes two complete generations and emits one strict V1 report with exact
+roots and a matrix digest. It does not benchmark or promote PhysX Stage 0,
+articulation, learned control, general grab/drop or Windows evidence.
 
 The active desktop performance route is:
 

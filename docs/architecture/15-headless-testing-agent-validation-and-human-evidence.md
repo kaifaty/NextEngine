@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 3.0 |
+| Версия | 3.1 |
 | Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
-| Заменяет | SPEC-15 2.9; records the isolated-generation R5i animation-LOD conformance scenario without adding mutable test access |
+| Заменяет | SPEC-15 3.0; records the repeated-generation R5j physical-character scenario without adding mutable test access |
 
 ## Назначение
 
@@ -170,6 +170,15 @@ atomic presentation extractor and B0 frame planner only through immutable
 snapshots. The injected scene/skinning closure fault retains the prior accepted
 snapshot; no mutable Runtime, Physics, animation or renderer test backdoor is
 added.
+
+The focused `physical-character` entry point activates the same cooked
+reference package used by gameplay, then drives its public physics step and
+full melee scenario. Immutable shape IDs/contact batches prove trip and
+carried-load contacts; ordinary `PhysicsWorldCheckpointV1` reconstruction
+proves blocked-contact continuation; the full production tick reports and RPG
+snapshot prove melee contact/outcome coupling. The complete generation is run
+twice and compared exactly. No test-only pose mutation, attachment owner,
+backend handle or direct health write is exposed.
 
 Local interactive scenarios run on the active native Linux host. Windows
 scenario execution remains deferred target/release evidence and is not part of

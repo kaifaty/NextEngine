@@ -321,6 +321,25 @@ pub struct PhysicsCollisionDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct PhysicalCharacterConformanceDetailsV1 {
+    pub trip_contact_events: u64,
+    pub trip_final_pose_um: [i64; 3],
+    pub carry_contact_events: u64,
+    pub carry_final_pose_um: [i64; 3],
+    pub carried_load_pose_um: [i64; 3],
+    pub capsule_clearance_um: i64,
+    pub restored_contact_ticks: u64,
+    pub melee_contact_events: u64,
+    pub melee_npc_health: i32,
+    pub repeated_run_identical: bool,
+    pub final_state_root: String,
+    pub final_command_ledger_hash: String,
+    pub final_physics_checkpoint_hash: String,
+    pub matrix_digest: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RootMotionConformanceDetailsV1 {
     pub cycles: u64,
     pub accepted_cycles: u64,
