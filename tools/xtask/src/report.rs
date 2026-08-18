@@ -321,6 +321,30 @@ pub struct PhysicsCollisionDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct RootMotionConformanceDetailsV1 {
+    pub cycles: u64,
+    pub accepted_cycles: u64,
+    pub rejected_cycles: u64,
+    pub retried_cycles: u64,
+    pub save_load_cycles: u64,
+    pub lod_cycles: u64,
+    pub canonical_proposal_round_trips: u64,
+    pub motor_safety_decisions: u64,
+    pub replayed_cycles: u64,
+    pub full_motion_outcomes: u64,
+    pub clipped_motion_outcomes: u64,
+    pub blocked_motion_outcomes: u64,
+    pub fault_no_mutation_outcomes: u64,
+    pub lod_full_projection_probes: u64,
+    pub lod_fallback_projection_probes: u64,
+    pub final_pose_um: [i64; 3],
+    pub final_physics_checkpoint_hash: String,
+    pub final_command_ledger_hash: String,
+    pub matrix_digest: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PersistenceReplayDetailsV1 {
     pub ticks: u64,
     pub generations: u64,

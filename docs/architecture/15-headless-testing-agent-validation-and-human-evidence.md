@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 2.8 |
+| Версия | 2.9 |
 | Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
-| Заменяет | SPEC-15 2.7; maps local scenario execution to the active Linux host and deferred Windows target |
+| Заменяет | SPEC-15 2.8; records the isolated-generation R5h root-motion conformance scenario without adding mutable test access |
 
 ## Назначение
 
@@ -156,6 +156,12 @@ focused crate tests. A public `next` scenario/capture CLI, GUI projection or MCP
 protocol is not a current contract. Tool output хранится только в явном local
 output directory, ignored by source control by default. Удаление локальных
 debug artifacts не меняет source, package или product status.
+
+The focused `animation-root-motion` entry point uses 1,000 independently
+activated ten-cycle neutral generations so receipt/snapshot history length is
+not an accidental work input. Each generation still crosses production
+proposal, motor/safety, Runtime, Physics, checkpoint/restore and replay
+boundaries; no test-only mutable owner or backend probe exists.
 
 Local interactive scenarios run on the active native Linux host. Windows
 scenario execution remains deferred target/release evidence and is not part of

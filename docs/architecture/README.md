@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.47 |
+| Версия | 2.48 |
 | Последняя проверка | 2026-08-18 |
-| Заменяет | INDEX-001 2.46; makes native Linux the active development host and defers Windows execution without changing the v1 shipping matrix |
+| Заменяет | INDEX-001 2.47; records R5h root-motion conformance while leaving the remaining general animation and articulation scope open |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -178,7 +178,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-25 | [Current bounded world partition и streaming boundary](25-world-partition-streaming-admission-and-persistent-spatial-objects.md) | Accepted |
 | SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted |
 | SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety/replay baseline; exact adaptation/reference profile evolution is Proposed |
-| SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted |
+| SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted; bounded forward `ANIM-ROOT-MOTION-P1` is current through R5h, while general graph/retarget/physical-IK/animation-LOD and hybrid articulation remain open |
 | SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted |
 | SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted |
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |

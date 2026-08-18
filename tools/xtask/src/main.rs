@@ -102,9 +102,13 @@ fn run() -> Result<(), String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut arguments = env::args().skip(1);
     let command = arguments.next().ok_or_else(|| {
-        "expected boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
+        "expected animation-root-motion, boundary-scan, content-package, host-check, native-gate-compare, native-gate-run, performance, performance-baseline, performance-codegen, physx, platform, play, physics-collision, physics-backend-parity, persistence-replay, visual-smoke, v1-closure or v1-package".to_owned()
     })?;
     match command.as_str() {
+        "animation-root-motion" => {
+            reject_extra_arguments(arguments)?;
+            animation_root_motion()
+        }
         "boundary-scan" => {
             reject_extra_arguments(arguments)?;
             xtask::boundary_scan::boundary_scan(&root)?;
@@ -507,6 +511,36 @@ fn physics_collision(backend: next_verification::PhysicsCollisionBackend) -> Res
             final_pose_um: translation,
             contact_batches_hash: report.contact_batches_hash.to_hex(),
             physics_checkpoint_hash: report.physics_checkpoint_hash.to_hex(),
+        },
+    )
+}
+
+fn animation_root_motion() -> Result<(), String> {
+    let report = next_verification::run_root_motion_conformance_check()
+        .map_err(|error| error.to_string())?;
+    CommandReportV1::emit(
+        "animation-root-motion",
+        "PASS",
+        RootMotionConformanceDetailsV1 {
+            cycles: report.cycles,
+            accepted_cycles: report.accepted_cycles,
+            rejected_cycles: report.rejected_cycles,
+            retried_cycles: report.retried_cycles,
+            save_load_cycles: report.save_load_cycles,
+            lod_cycles: report.lod_cycles,
+            canonical_proposal_round_trips: report.canonical_proposal_round_trips,
+            motor_safety_decisions: report.motor_safety_decisions,
+            replayed_cycles: report.replayed_cycles,
+            full_motion_outcomes: report.full_motion_outcomes,
+            clipped_motion_outcomes: report.clipped_motion_outcomes,
+            blocked_motion_outcomes: report.blocked_motion_outcomes,
+            fault_no_mutation_outcomes: report.fault_no_mutation_outcomes,
+            lod_full_projection_probes: report.lod_full_projection_probes,
+            lod_fallback_projection_probes: report.lod_fallback_projection_probes,
+            final_pose_um: report.final_pose.translation_micrometres,
+            final_physics_checkpoint_hash: report.final_physics_checkpoint_hash.to_hex(),
+            final_command_ledger_hash: report.final_command_ledger_hash.to_hex(),
+            matrix_digest: report.matrix_digest.to_hex(),
         },
     )
 }

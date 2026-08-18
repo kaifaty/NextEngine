@@ -12,6 +12,7 @@ mod population_performance;
 mod r2_render_performance;
 mod render_performance;
 mod replay;
+mod root_motion_conformance;
 mod runtime_fixture;
 mod scratch;
 mod state_root;
@@ -97,6 +98,10 @@ pub use replay::{
     ReplayTickInput, ReplayTickRecord, RpgReplayInput, RpgReplayOutput, compare_replay_outputs,
     compute_world_checkpoint_root, run_replay, run_replay_manifest_v9, run_replay_manifest_v10,
     run_rpg_replay, verify_replay,
+};
+pub use root_motion_conformance::{
+    ROOT_MOTION_CONFORMANCE_CYCLES, RootMotionConformanceErrorV1, RootMotionConformanceReportV1,
+    run_root_motion_conformance_check,
 };
 pub use runtime_fixture::{
     NeutralFixtureError, NeutralRuntimeFixture, build_neutral_runtime_fixture,

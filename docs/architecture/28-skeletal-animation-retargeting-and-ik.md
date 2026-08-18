@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-28 |
 | Статус | Accepted |
-| Версия | 2.4 |
+| Версия | 2.5 |
 | Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-068](adr/068-static-morphology-cache-and-action-chunk-field-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md) |
 | Дополнительные зависимости V2.1 | [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | SPEC-28 2.3; records the bounded R5g pose-corrective and presentation cadence/LOD consumer without changing animation or Replay ownership |
+| Заменяет | SPEC-28 2.4; promotes the existing bounded forward root-motion route through the complete R5h `ANIM-ROOT-MOTION-P1` matrix without widening its schemas or authority |
 
 ## История принятия
 
@@ -633,10 +633,22 @@ without advancing or selecting animation state. The production-shaped matrix
 changes presentation/frame hashes where expected while preserving exact state,
 ledger, physics and physical-animation roots.
 
-Это закрывает только bounded R5a–R5g production path. Layered/general graph,
-non-identity retarget, physical IK, the general animation-LOD transition/profile
-corpus, articulation/hybrid motion и полный 10 000-cycle
-`ANIM-ROOT-MOTION-P1` остаются открыты; остальные `ANIM-*` checks также не
+R5h closes the previously declared `ANIM-ROOT-MOTION-P1` matrix over that same
+bounded forward route. The release-mode `animation-root-motion` command
+executes 1,000 isolated ten-cycle production generations:
+4,000 ordinary accepted, 2,000 canonical faulted, 1,000 exact receipt retry,
+1,000 checkpoint/restore and 2,000 animation-LOD-isolation cycles. Every one of
+the 10,000 command/proposal pairs round-trips canonical bytes and replays through
+`RuntimeReplayDriver`; 9,000 fresh proposals carry exact project-bound
+procedural motor/safety evidence. The fixed collision fixture produces full,
+partially clipped and blocked Physics outcomes, while all 3,000 rejected/retry
+cycles preserve the complete body state and admit no physical intent. Full and
+bind-pose projection probes mutate neither animation cursor nor Physics state.
+
+Это закрывает bounded R5a–R5h production path и только
+`ANIM-ROOT-MOTION-P1`. Layered/general graph, non-identity retarget, physical
+IK, the general animation-LOD transition/profile corpus and
+articulation/hybrid motion остаются открыты; остальные `ANIM-*` checks не
 переводятся в `PASS` этим checkpoint.
 
 ## Product checks
@@ -649,6 +661,11 @@ corpus, articulation/hybrid motion и полный 10 000-cycle
 | `ANIM-IK-P1` | 10 000 physical/presentation IK chain/order/target/LOD permutations | fixed iteration/order and exact constraint/presentation roots; presentation IK changes zero command/contact/outcome/gameplay roots; physical IK never bypasses safety | reject physical constraint set and use safe motor behavior; independently disable presentation IK |
 | `ANIM-LOD-P1` | 10 000 LOD/cadence/resource/fault transitions and optional pinned developer capture | one complete snapshot or none; due intent work never skipped; authoritative roots unchanged by camera/render/cache variation; captured roots are reproducible when requested | pin safe evaluation level; use held/bind/cull presentation fallback |
 | `ANIM-HYBRID-P1` (future) | authored/motion-matching physical action chunks and 10 000 animation↔physics handoffs across velocity/contact/fault states | exact chunk/action roots; bounded pose/momentum continuity; no snap, root teleport or presentation feedback | retain source mode and use declared transition/recovery fallback |
+
+`ANIM-ROOT-MOTION-P1` is current `PASS` for the exact bounded forward
+R5c/R5e route through the R5h command above. This result does not admit lateral
+or yaw roots, a general graph evaluator, physical IK, general animation LOD or
+active articulation.
 
 `ANIM-HYBRID-P1` remains `NOT_RUN(NO_PRODUCTION_CONSUMER)` until the R5
 physical-tracking consumer exists.
