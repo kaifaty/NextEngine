@@ -57,6 +57,7 @@ select:focus { border-color: rgba(101, 224, 194, .55); }
 .duration { min-width: 79px; color: var(--soft); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
 .duration-track { height: 2px; margin-top: 15px; background: rgba(255,255,255,.05); }
 .duration-track i { display: block; height: 100%; background: var(--accent); transition: width .2s linear; }
+.capture-diagnostics { margin: 10px 0 0; color: #697387; font: 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .notice, .error-box { margin: 13px 0 0; padding: 10px 12px; border-radius: 9px; font-size: 12px; line-height: 1.45; }
 .notice { color: #c8f5e8; background: rgba(101, 224, 194, .09); }
 .error-box { color: #ffd1cf; background: rgba(255, 102, 94, .1); }

@@ -84,14 +84,21 @@ class FakeModule:
         self.feed_count = 0
         self.languages: list[str | None] = []
         self.streams: list[FakeStream] = []
+        self.stream_options: list[SimpleNamespace] = []
 
     def Model(self, path: Path, *, backend: str) -> FakeModel:
         self.model_construct_count += 1
         return FakeModel(self)
 
-    @staticmethod
-    def VoxtralRealtimeStreamOptions(*, num_delay_tokens: int) -> SimpleNamespace:
-        return SimpleNamespace(num_delay_tokens=num_delay_tokens)
+    def VoxtralRealtimeStreamOptions(
+        self, *, num_delay_tokens: int, min_decode_interval_ms: int
+    ) -> SimpleNamespace:
+        options = SimpleNamespace(
+            num_delay_tokens=num_delay_tokens,
+            min_decode_interval_ms=min_decode_interval_ms,
+        )
+        self.stream_options.append(options)
+        return options
 
 
 class VoxtralAdapterTests(unittest.TestCase):
@@ -101,7 +108,13 @@ class VoxtralAdapterTests(unittest.TestCase):
             model_path.write_bytes(b"fake")
             module = FakeModule()
             adapter = VoxtralTranscriberAdapter(
-                model_path, None, None, backend="cuda", delay_ms=480, module=module
+                model_path,
+                None,
+                None,
+                backend="cuda",
+                delay_ms=480,
+                partial_decode_interval_ms=240,
+                module=module,
             )
             load = adapter.load()
             self.assertEqual(load.load_count, 1)
@@ -122,10 +135,30 @@ class VoxtralAdapterTests(unittest.TestCase):
             self.assertEqual(module.model_construct_count, 1)
             self.assertEqual(module.model_enter_count, 1)
             self.assertEqual(module.session_count, 2)
+            self.assertEqual(
+                [
+                    (options.num_delay_tokens, options.min_decode_interval_ms)
+                    for options in module.stream_options
+                ],
+                [(6, 240), (6, 240)],
+            )
             self.assertEqual([stream.finalize_count for stream in module.streams], [1, 1])
             adapter.close()
             self.assertEqual(module.model_exit_count, 1)
 
+    def test_partial_decode_interval_is_bounded_to_model_frames(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "model.gguf"
+            model_path.write_bytes(b"fake")
+            for invalid in (0, 81, 2_480):
+                with self.subTest(invalid=invalid), self.assertRaises(AdapterError):
+                    VoxtralTranscriberAdapter(
+                        model_path,
+                        None,
+                        None,
+                        partial_decode_interval_ms=invalid,
+                        module=FakeModule(),
+                    )
     def test_cancel_does_not_finalize(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             model_path = Path(temp_dir) / "model.gguf"

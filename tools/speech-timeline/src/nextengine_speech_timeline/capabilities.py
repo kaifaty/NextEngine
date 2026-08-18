@@ -28,6 +28,8 @@ class TranscriberCapabilities:
     timing_precision: str
     resolution_samples: int | None
     supported_delay_ms: tuple[int, ...]
+    configured_delay_ms: int
+    partial_decode_interval_ms: int
 
 
 @dataclass(frozen=True)

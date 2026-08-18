@@ -16,6 +16,8 @@ from .base import AdapterError
 
 SAMPLE_RATE_HZ = 16_000
 VALID_DELAYS_MS = tuple(range(80, 1_201, 80)) + (2_400,)
+MIN_PARTIAL_DECODE_INTERVAL_MS = 80
+MAX_PARTIAL_DECODE_INTERVAL_MS = 2_400
 
 
 def transcribe_root(explicit: Path | None) -> Path:
@@ -91,15 +93,26 @@ class VoxtralTranscriberAdapter:
         *,
         backend: str = "cuda",
         delay_ms: int = 480,
+        partial_decode_interval_ms: int = 240,
         module: ModuleType | Any | None = None,
     ) -> None:
         if delay_ms not in VALID_DELAYS_MS:
             raise AdapterError(f"unsupported Voxtral delay: {delay_ms} ms")
+        if (
+            partial_decode_interval_ms < MIN_PARTIAL_DECODE_INTERVAL_MS
+            or partial_decode_interval_ms > MAX_PARTIAL_DECODE_INTERVAL_MS
+            or partial_decode_interval_ms % 80 != 0
+        ):
+            raise AdapterError(
+                "Voxtral partial decode interval must be an 80 ms multiple "
+                "between 80 and 2400 ms"
+            )
         self.model_path = model_path.expanduser().resolve()
         self.root = root
         self.library = library
         self.backend = backend
         self.delay_ms = delay_ms
+        self.partial_decode_interval_ms = partial_decode_interval_ms
         self._module = module
         self._model: Any = None
         self._model_stack: ExitStack | None = None
@@ -162,6 +175,8 @@ class VoxtralTranscriberAdapter:
             timing_precision="utterance",
             resolution_samples=None,
             supported_delay_ms=VALID_DELAYS_MS,
+            configured_delay_ms=self.delay_ms,
+            partial_decode_interval_ms=self.partial_decode_interval_ms,
         )
 
     def start(self, config: TranscriberConfig | None = None) -> VoxtralTranscriberSession:
@@ -201,7 +216,8 @@ class VoxtralTranscriberSession:
         try:
             model_session = self._stack.enter_context(adapter._model.session())
             family = adapter._module.VoxtralRealtimeStreamOptions(
-                num_delay_tokens=adapter.delay_ms // 80
+                num_delay_tokens=adapter.delay_ms // 80,
+                min_decode_interval_ms=adapter.partial_decode_interval_ms,
             )
             self._stream = self._stack.enter_context(
                 model_session.stream(language=config.language, family=family)

@@ -31,6 +31,7 @@ class VoxtralProfile:
     runtime_revision: str
     backend: str
     delay_ms: int
+    partial_decode_interval_ms: int
 
 
 @dataclass(frozen=True)
@@ -72,7 +73,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
     root = _object(value, {"schema_version", "voxtral", "emotion", "service"}, "profile")
     if root["schema_version"] != 1:
         raise ProfileError("profile schema_version must be 1")
-    voxtral = _object(
+    voxtral = _object_with_optional(
         root["voxtral"],
         {
             "model_path",
@@ -84,6 +85,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
             "backend",
             "delay_ms",
         },
+        {"partial_decode_interval_ms"},
         "voxtral",
     )
     emotion = _object(
@@ -106,6 +108,10 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
             runtime_revision=_string(voxtral["runtime_revision"], "runtime_revision", 128),
             backend=_choice(voxtral["backend"], "backend", {"auto", "cpu", "cuda", "vulkan"}),
             delay_ms=_positive_int(voxtral["delay_ms"], "delay_ms"),
+            partial_decode_interval_ms=_positive_int(
+                voxtral.get("partial_decode_interval_ms", 240),
+                "partial_decode_interval_ms",
+            ),
         ),
         emotion=EmotionProfile(
             model_id=_string(emotion["model_id"], "model_id", 256),
@@ -183,6 +189,7 @@ def build_adapters(
         profile.voxtral.library,
         backend=profile.voxtral.backend,
         delay_ms=profile.voxtral.delay_ms,
+        partial_decode_interval_ms=profile.voxtral.partial_decode_interval_ms,
     )
     probe = EmotionProbe(
         profile.emotion.model_id,
@@ -196,6 +203,18 @@ def build_adapters(
 
 def _object(value: object, keys: set[str], name: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != keys:
+        raise ProfileError(f"{name} fields do not match schema")
+    return value
+
+
+def _object_with_optional(
+    value: object, required: set[str], optional: set[str], name: str
+) -> dict[str, Any]:
+    if (
+        not isinstance(value, dict)
+        or not required.issubset(value)
+        or not set(value).issubset(required | optional)
+    ):
         raise ProfileError(f"{name} fields do not match schema")
     return value
 

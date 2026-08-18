@@ -218,9 +218,25 @@ async def run_websocket_session(
                 if (
                     measurement is not None
                     and payload.get("type") == "speech_timeline.update"
-                    and "first_update_monotonic" not in measurement
                 ):
-                    measurement["first_update_monotonic"] = time.monotonic()
+                    observed_at = time.monotonic()
+                    measurement.setdefault("first_update_monotonic", observed_at)
+                    transcript = payload.get("transcript")
+                    if (
+                        isinstance(transcript, dict)
+                        and isinstance(transcript.get("revision"), int)
+                        and transcript["revision"] > 0
+                    ):
+                        measurement.setdefault(
+                            "first_transcript_update_monotonic", observed_at
+                        )
+                    vocal_affect = payload.get("vocal_affect")
+                    if (
+                        isinstance(vocal_affect, dict)
+                        and isinstance(vocal_affect.get("raw_observations"), list)
+                        and vocal_affect["raw_observations"]
+                    ):
+                        measurement.setdefault("first_affect_update_monotonic", observed_at)
                 on_event(payload)
                 if payload.get("type") == "error" and payload.get("terminal") is True:
                     raise ClientError(f"service failed: {payload.get('code')}")

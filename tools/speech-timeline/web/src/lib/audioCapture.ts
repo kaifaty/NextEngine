@@ -1,3 +1,5 @@
+import { StreamingLinearResampler } from "./pcmResampler";
+
 const TARGET_SAMPLE_RATE = 16_000;
 
 export interface AudioCaptureCallbacks {
@@ -5,54 +7,35 @@ export interface AudioCaptureCallbacks {
   onLevel: (rms: number) => void;
 }
 
+export interface AudioCaptureInfo {
+  contextSampleRate: number;
+  trackSampleRate: number | null;
+  echoCancellation: boolean | null;
+  noiseSuppression: boolean | null;
+  autoGainControl: boolean | null;
+  startedAtMonotonicMs: number;
+}
+
 class PcmChunker {
-  private readonly ratio: number;
+  private readonly resampler: StreamingLinearResampler;
   private readonly output: number[] = [];
-  private source: number[] = [];
-  private sourcePosition = 0;
 
   constructor(
     inputSampleRate: number,
     private readonly chunkSamples: number,
     private readonly onChunk: (chunk: Uint8Array) => void,
   ) {
-    this.ratio = inputSampleRate / TARGET_SAMPLE_RATE;
+    this.resampler = new StreamingLinearResampler(inputSampleRate, TARGET_SAMPLE_RATE);
   }
 
   push(samples: Float32Array): void {
-    for (const sample of samples) {
-      this.source.push(Number.isFinite(sample) ? sample : 0);
-    }
-    this.resample(false);
+    this.output.push(...this.resampler.push(samples));
+    this.emit(false);
   }
 
   flush(): void {
-    if (this.source.length > 0) {
-      this.source.push(this.source[this.source.length - 1]);
-      this.resample(true);
-    }
+    this.output.push(...this.resampler.flush());
     this.emit(true);
-  }
-
-  private resample(final: boolean): void {
-    while (this.sourcePosition + 1 < this.source.length) {
-      const index = Math.floor(this.sourcePosition);
-      const fraction = this.sourcePosition - index;
-      const first = this.source[index] ?? 0;
-      const second = this.source[index + 1] ?? first;
-      this.output.push(first + (second - first) * fraction);
-      this.sourcePosition += this.ratio;
-      this.emit(false);
-    }
-    const consumed = Math.floor(this.sourcePosition);
-    if (consumed > 0) {
-      this.source.splice(0, consumed);
-      this.sourcePosition -= consumed;
-    }
-    if (final) {
-      this.source = [];
-      this.sourcePosition = 0;
-    }
   }
 
   private emit(flush: boolean): void {
@@ -83,7 +66,7 @@ export class BrowserMicrophoneCapture {
     deviceId: string,
     chunkMs: number,
     callbacks: AudioCaptureCallbacks,
-  ): Promise<void> {
+  ): Promise<AudioCaptureInfo> {
     if (this.context !== null) {
       throw new Error("microphone capture is already active");
     }
@@ -91,13 +74,20 @@ export class BrowserMicrophoneCapture {
       audio: {
         ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
         channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
       },
       video: false,
     });
-    this.context = new AudioContext({ latencyHint: "interactive" });
+    try {
+      this.context = new AudioContext({
+        latencyHint: "interactive",
+        sampleRate: TARGET_SAMPLE_RATE,
+      });
+    } catch {
+      this.context = new AudioContext({ latencyHint: "interactive" });
+    }
     await this.context.audioWorklet.addModule(
       new URL("../audio/pcm-worklet.js", import.meta.url),
     );
@@ -110,8 +100,9 @@ export class BrowserMicrophoneCapture {
     this.processor = new AudioWorkletNode(this.context, "nextengine-pcm-processor");
     this.sink = this.context.createGain();
     this.sink.gain.value = 0;
-    this.processor.port.onmessage = (message: MessageEvent<Float32Array>) => {
+    this.processor.port.onmessage = (message: MessageEvent<Float32Array | { type: string }>) => {
       const samples = message.data;
+      if (!(samples instanceof Float32Array)) return;
       let energy = 0;
       for (const sample of samples) {
         energy += sample * sample;
@@ -123,18 +114,28 @@ export class BrowserMicrophoneCapture {
     this.processor.connect(this.sink);
     this.sink.connect(this.context.destination);
     await this.context.resume();
+    const settings = this.stream.getAudioTracks()[0]?.getSettings();
+    return {
+      contextSampleRate: this.context.sampleRate,
+      trackSampleRate: settings?.sampleRate ?? null,
+      echoCancellation: settings?.echoCancellation ?? null,
+      noiseSuppression: settings?.noiseSuppression ?? null,
+      autoGainControl: settings?.autoGainControl ?? null,
+      startedAtMonotonicMs: performance.now(),
+    };
   }
 
   async stop(): Promise<void> {
     const chunker = this.chunker;
-    this.chunker = null;
+    this.source?.disconnect();
+    this.source = null;
     if (this.processor !== null) {
+      await this.flushProcessor(this.processor);
       this.processor.port.onmessage = null;
       this.processor.disconnect();
       this.processor = null;
     }
-    this.source?.disconnect();
-    this.source = null;
+    this.chunker = null;
     this.sink?.disconnect();
     this.sink = null;
     for (const track of this.stream?.getTracks() ?? []) {
@@ -147,6 +148,34 @@ export class BrowserMicrophoneCapture {
     if (context !== null && context.state !== "closed") {
       await context.close();
     }
+  }
+
+  private flushProcessor(processor: AudioWorkletNode): Promise<void> {
+    return new Promise((resolve) => {
+      const previous = processor.port.onmessage;
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        processor.port.onmessage = previous;
+        resolve();
+      };
+      const timeout = window.setTimeout(finish, 1_000);
+      processor.port.onmessage = (message) => {
+        if (
+          typeof message.data === "object" &&
+          message.data !== null &&
+          !(message.data instanceof Float32Array) &&
+          (message.data as { type?: unknown }).type === "flushed"
+        ) {
+          finish();
+          return;
+        }
+        previous?.call(processor.port, message);
+      };
+      processor.port.postMessage({ type: "flush" });
+    });
   }
 }
 

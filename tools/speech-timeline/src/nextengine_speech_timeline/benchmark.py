@@ -66,6 +66,9 @@ async def benchmark_service(
     inference_times: list[float] = []
     finish_latencies: list[float] = []
     first_update_latencies: list[float] = []
+    capture_to_first_update_latencies: list[float] = []
+    capture_to_first_transcript_latencies: list[float] = []
+    capture_to_first_affect_latencies: list[float] = []
     wall_times: list[float] = []
     model_busy_rtfs: list[float] = []
 
@@ -73,6 +76,7 @@ async def benchmark_service(
         measurement: dict[str, float] = {}
 
         async def chunks():
+            measurement["capture_start_monotonic"] = time.monotonic()
             for offset in range(0, len(pcm), chunk_bytes):
                 chunk = pcm[offset : offset + chunk_bytes]
                 if mode == "paced":
@@ -94,10 +98,29 @@ async def benchmark_service(
         first_ms = _delta_ms(
             measurement, "first_chunk_send_monotonic", "first_update_monotonic"
         )
+        capture_first_ms = _delta_ms(
+            measurement, "capture_start_monotonic", "first_update_monotonic"
+        )
+        capture_transcript_ms = _delta_ms(
+            measurement,
+            "capture_start_monotonic",
+            "first_transcript_update_monotonic",
+        )
+        capture_affect_ms = _delta_ms(
+            measurement,
+            "capture_start_monotonic",
+            "first_affect_update_monotonic",
+        )
         if finish_ms is not None:
             finish_latencies.append(finish_ms)
         if first_ms is not None:
             first_update_latencies.append(first_ms)
+        if capture_first_ms is not None:
+            capture_to_first_update_latencies.append(capture_first_ms)
+        if capture_transcript_ms is not None:
+            capture_to_first_transcript_latencies.append(capture_transcript_ms)
+        if capture_affect_ms is not None:
+            capture_to_first_affect_latencies.append(capture_affect_ms)
         metrics = final.get("metrics")
         jobs = metrics.get("jobs", []) if isinstance(metrics, dict) else []
         if isinstance(jobs, list):
@@ -125,6 +148,17 @@ async def benchmark_service(
                 "model_worker_busy_rtf": round(model_busy_rtf, 6),
                 "finish_to_final_ms": None if finish_ms is None else round(finish_ms, 3),
                 "first_chunk_to_first_update_ms": None if first_ms is None else round(first_ms, 3),
+                "capture_start_to_first_update_ms": (
+                    None if capture_first_ms is None else round(capture_first_ms, 3)
+                ),
+                "capture_start_to_first_transcript_ms": (
+                    None
+                    if capture_transcript_ms is None
+                    else round(capture_transcript_ms, 3)
+                ),
+                "capture_start_to_first_affect_ms": (
+                    None if capture_affect_ms is None else round(capture_affect_ms, 3)
+                ),
                 "metrics": metrics if isinstance(metrics, dict) else {},
             }
         )
@@ -139,6 +173,7 @@ async def benchmark_service(
             "samples": samples,
             "duration_ms": round(audio_seconds * 1000),
         },
+        "run_configuration": {"chunk_ms": chunk_ms},
         "service": {
             "protocol": ready.protocol,
             "models": ready.models or {},
@@ -151,6 +186,15 @@ async def benchmark_service(
             "model_worker_busy_rtf_p95": round(_percentile(model_busy_rtfs, 95), 6),
             "finish_to_final_ms": _percentiles(finish_latencies),
             "first_chunk_to_first_update_ms": _percentiles(first_update_latencies),
+            "capture_start_to_first_update_ms": _percentiles(
+                capture_to_first_update_latencies
+            ),
+            "capture_start_to_first_transcript_ms": _percentiles(
+                capture_to_first_transcript_latencies
+            ),
+            "capture_start_to_first_affect_ms": _percentiles(
+                capture_to_first_affect_latencies
+            ),
             "model_queue_wait_ms": _percentiles(queue_waits),
             "model_inference_ms": _percentiles(inference_times),
         },

@@ -3,7 +3,11 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
 import EmotionTimeline from "./components/EmotionTimeline.vue";
 import TranscriptPanel from "./components/TranscriptPanel.vue";
-import { BrowserMicrophoneCapture, listAudioInputs } from "./lib/audioCapture";
+import {
+  BrowserMicrophoneCapture,
+  listAudioInputs,
+  type AudioCaptureInfo,
+} from "./lib/audioCapture";
 import { emotionColor, emotionLabel, formatDuration } from "./lib/display";
 import { loadBootstrap, SpeechTimelineClient } from "./lib/speechClient";
 import type {
@@ -28,6 +32,9 @@ const errorMessage = ref("");
 const notice = ref("");
 const sentBytes = ref(0);
 const inputRms = ref(0);
+const captureInfo = ref<AudioCaptureInfo | null>(null);
+const firstTranscriptLatencyMs = ref<number | null>(null);
+const firstAffectLatencyMs = ref<number | null>(null);
 let limitStopScheduled = false;
 
 const isRecording = computed(() => state.value === "recording");
@@ -56,6 +63,32 @@ const stateText: Record<ConnectionState, string> = {
 
 const transcriberName = computed(() => modelValue("transcriber", "adapter_id") || "Voxtral");
 const affectName = computed(() => modelValue("vocal_affect", "adapter_id") || "Emotion2Vec");
+const transcriberCadence = computed(() => {
+  const delay = numericModelValue("transcriber", "configured_delay_ms");
+  const partial = numericModelValue("transcriber", "partial_decode_interval_ms");
+  return delay !== null && partial !== null
+    ? `delay ${delay} мс · partial ${partial} мс`
+    : "параметры появятся после запуска";
+});
+const captureSummary = computed(() => {
+  if (!captureInfo.value) return "";
+  const info = captureInfo.value;
+  const dsp = [
+    info.echoCancellation && "AEC",
+    info.noiseSuppression && "NS",
+    info.autoGainControl && "AGC",
+  ].filter(Boolean);
+  const sourceRate = info.trackSampleRate ? `${info.trackSampleRate / 1_000} kHz → ` : "";
+  const asrLatency =
+    firstTranscriptLatencyMs.value === null
+      ? "ASR …"
+      : `ASR ${Math.round(firstTranscriptLatencyMs.value)} мс`;
+  const affectLatency =
+    firstAffectLatencyMs.value === null
+      ? "affect …"
+      : `affect ${Math.round(firstAffectLatencyMs.value)} мс`;
+  return `${sourceRate}${info.contextSampleRate / 1_000} kHz · DSP ${dsp.join("+") || "off"} · ${asrLatency} · ${affectLatency}`;
+});
 const identitySummary = computed(() => {
   const identity = objectValue(bootstrap.value?.service, "model_identity");
   if (!identity) return "точные revisions доступны после запуска";
@@ -98,6 +131,9 @@ async function startRecording(): Promise<void> {
   events.value = [];
   sentBytes.value = 0;
   inputRms.value = 0;
+  captureInfo.value = null;
+  firstTranscriptLatencyMs.value = null;
+  firstAffectLatencyMs.value = null;
   limitStopScheduled = false;
   state.value = "connecting";
   const nextClient = new SpeechTimelineClient(bootstrap.value, handleEvent);
@@ -106,7 +142,7 @@ async function startRecording(): Promise<void> {
   capture.value = nextCapture;
   try {
     await nextClient.connectAndStart("ru");
-    await nextCapture.start(selectedDevice.value, 250, {
+    captureInfo.value = await nextCapture.start(selectedDevice.value, 80, {
       onChunk: handleAudioChunk,
       onLevel: (level) => {
         inputRms.value = level;
@@ -150,7 +186,24 @@ async function stopRecording(): Promise<void> {
 function handleEvent(event: SpeechEvent): void {
   events.value = [...events.value.slice(-39), event];
   if (event.type === "speech_timeline.update") {
-    timeline.value = event as unknown as TimelineUpdate;
+    const update = event as unknown as TimelineUpdate;
+    timeline.value = update;
+    if (
+      captureInfo.value &&
+      firstTranscriptLatencyMs.value === null &&
+      update.transcript.revision > 0
+    ) {
+      firstTranscriptLatencyMs.value =
+        performance.now() - captureInfo.value.startedAtMonotonicMs;
+    }
+    if (
+      captureInfo.value &&
+      firstAffectLatencyMs.value === null &&
+      update.vocal_affect.raw_observations.length > 0
+    ) {
+      firstAffectLatencyMs.value =
+        performance.now() - captureInfo.value.startedAtMonotonicMs;
+    }
   } else if (event.type === "utterance.final") {
     finalUtterance.value = event as unknown as FinalUtterance;
     state.value = "complete";
@@ -190,6 +243,13 @@ function modelValue(role: string, field: string): string {
   const models = objectValue(bootstrap.value?.service, "models");
   const model = objectValue(models, role);
   return model ? stringValue(model, field) : "";
+}
+
+function numericModelValue(role: string, field: string): number | null {
+  const models = objectValue(bootstrap.value?.service, "models");
+  const model = objectValue(models, role);
+  const value = model?.[field];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function objectValue(value: unknown, key: string): JsonObject | null {
@@ -261,6 +321,7 @@ function stringValue(value: JsonObject, key: string): string {
           <b class="duration">{{ formatDuration(durationMs) }} / {{ formatDuration(limitMs) }}</b>
         </div>
         <div class="duration-track"><i :style="{ width: `${progress}%` }"></i></div>
+        <p v-if="captureSummary" class="capture-diagnostics">{{ captureSummary }}</p>
         <p v-if="notice" class="notice">{{ notice }}</p>
         <p v-if="errorMessage" class="error-box">{{ errorMessage }}</p>
       </div>
@@ -269,7 +330,7 @@ function stringValue(value: JsonObject, key: string): string {
     <section class="model-strip">
       <div>
         <span>ASR</span>
-        <b>{{ transcriberName }}</b>
+        <b :title="transcriberCadence">{{ transcriberName }} · {{ transcriberCadence }}</b>
       </div>
       <div>
         <span>Vocal affect</span>

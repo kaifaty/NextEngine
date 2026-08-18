@@ -11,7 +11,7 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Phase 1 now implements the resident optional `SpeechTimelineService` with model-neutral Voxtral/emotion2vec adapters, bounded scheduling, three independently revisioned tracks, authenticated loopback WebSocket, CLI microphone client, same-origin Vue diagnostic dashboard and benchmark runner.
+- **Current conclusion:** Phase 1 now implements the resident optional `SpeechTimelineService` with model-neutral Voxtral/emotion2vec adapters, bounded scheduling, three independently revisioned tracks, authenticated loopback WebSocket, 80 ms CLI/browser transport, drift-free browser resampling, same-origin Vue diagnostics and benchmark runner.
 - **Why:** The existing Voxtral wrapper already performs real streaming inside one invocation, while warm emotion2vec inference is fast. Reloading either model per connection/window is the avoidable delay.
 - **Critical limit:** Current Voxtral public APIs return streaming text but no lexical timestamps. `transcribe.cpp` reports timestamp kind `NONE`; its Voxtral `audio_committed_ms` remains zero during feed and is not a text boundary.
 - **Implementation plan:** `docs/plans/2026-08-18-speech-timeline-service-implementation.md` has approved scope `A/A/A/A`: standalone authenticated localhost WebSocket, explicit finish first and honest `utterance` alignment; VAD/model-slot remain later increments.
@@ -45,11 +45,12 @@
 | `docs/plans/2026-08-18-conversation-service-phase-2.md` | proposed Phase 2 sequence | Defines LLM/TTS worker topology, context seam, evidence and two pending scope choices without tool calling or strategic integration. |
 | `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` | proposed Phase 3 sequence | Maps actual models to engine-owned roles, validators, owners and fallbacks; shadow-integrates the strategic model and freezes consumer-backed catalogs. |
 | `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` | deferred Phase 4 sequence | Reopens exact Phase 3 catalogs, then builds corpus, measures/fine-tunes FunctionGemma and integrates it shadow-first. |
-| `codex/speech-timeline-service`, Phase 1 fake suite | 50 Python service tests + 14 preserved Voxtral probe tests pass | Auth/version/size/state/fault/dashboard boundaries, second-session residency, cadence, no-word-span fusion and client/benchmark paths are executable without weights. |
+| `codex/speech-timeline-service`, Phase 1 fake suite | 52 Python service tests + 14 preserved Voxtral probe tests pass | Auth/version/size/state/fault/dashboard boundaries, second-session residency, cadence, no-word-span fusion and client/benchmark paths are executable without weights. |
 | Joint RTX 3080 run, exact artifacts, 2026-08-18 | 2 × 4.5 s paced turns; load counts Voxtral/emotion `1/1`; worker-busy RTF p95 `0.690`; first chunk→update p95 `1.363 s`; finish→final p95 `0.970 s`; process peak `5870 MiB` VRAM | Both CUDA models remain resident with >1 GiB headroom; explicit-finish vertical passes. Report: `/tmp/nextengine-speech-timeline-phase1-benchmark.json` (external, content-free). |
 | 30 s paced soak, 2026-08-18 | worker-busy RTF `0.530`; first update `1.136 s`; finish→final `1.352 s`; no reload | Paced streaming remains faster than realtime without unbounded ASR backlog. Direct internal scheduler saturation still fails closed. |
 | Vue dashboard + turn-bound regression, 2026-08-18 | Browser source builds with pinned Vue/Vite/TypeScript; same-origin HTTP/bootstrap and WebSocket-origin tests pass; CLI/browser auto-finalize at the advertised 30 s/960,000-byte bound; overflow emits one terminal `TURN_TOO_LARGE` | The diagnostic view can expose transcript/raw affect/smoothed fusion without token copy-paste or repeated overflow spam. |
 | Real 30 s unpaced ingress after browser overload report, 2026-08-18 | completed in `15.478 s`; worker-busy RTF `0.515`; first update `0.597 s`; scheduler max useful depth `4`, overloads `0`, model load counts `1/1` | A bounded two-ASR-job admission semaphore absorbs transient transport bursts without expanding the model scheduler or failing a live turn. External content-free report: `/tmp/nextengine-speech-backpressure-30s.json`. |
+| Optimized 80 ms paced ingress, partial decode 240 ms, 2026-08-18 | 3 × 10.44 s; first affect p95 `1.094 s`, first ASR revision p95 `1.806 s`, finish→final p95 `0.810 s`, worker-busy RTF p95 `0.594`, max queue depth `2`, overloads `0`; 44.1/48 kHz 12 s resampler checks have zero sample drift | Keep model delay 480 ms for quality, separate partial cadence at 240 ms, and expose ASR/affect latency separately. Report: `/tmp/nextengine-speech-optimized-final.json` (external, content-free). |
 | ADR-005; SPEC-16/ADR-017 | Accepted isolation/fallback boundary; multimodal track remains Deferred Proposed | No direct gameplay mutation or product-shipped claim. |
 
 ## Decisions that constrain the work
@@ -144,6 +145,13 @@
 - **Rejected:** Inline word emotion tags without lexical timing, browser token entry, a separate permissive dev server, silently increasing the bounded turn or scheduler queue, continuing capture after overflow, or treating a transient browser delivery burst as terminal overload.
 - **Consequence:** The UI remains an optional diagnostic projection and not gameplay authority. Conversations longer than 30 s require multiple utterances; bounded VAD remains a later measured increment.
 - **Reconsider when:** A verified aligner supplies lexical timing or an approved multi-utterance consumer requires automatic endpointing.
+
+### D-011 — Separate transport, decode and model-delay clocks
+
+- **Observation/evidence:** The browser's block-local resampler added 94 ms over 12 s at 48 kHz; 80 ms transport plus a 240 ms partial-decode interval reduced paced finish and first-update latency without overload, while the first ASR revision still trails the first 1 s affect window.
+- **Decision:** Keep the Voxtral quality-delay setting at 480 ms, feed 80 ms PCM, request partial decoding every 240 ms, preserve resampler phase across worklet blocks and flush the last block before finish. Report ASR and affect first-result latency separately.
+- **Consequence:** Transport cadence no longer masquerades as model delay, browser audio time stays aligned, and later tuning can change adapter cadence without changing the facade.
+- **Reconsider when:** Representative live Russian WER/revision-churn or RTF degrades, or a runtime exposes a lower-latency quality profile with measured parity.
 
 ## Open hypotheses
 

@@ -86,7 +86,8 @@ view. The final tagged-text form is a later derived consumer view.
 The profile is strict schema version 1 and contains three objects:
 
 - `voxtral`: exact GGUF path, byte size, `sha256:` digest, `transcribe.cpp`
-  root/library/revision, backend, and delay;
+  root/library/revision, backend, model delay, and partial-decode interval
+  (240 ms by default; legacy v1 profiles without the field keep this default);
 - `emotion`: pinned model ID/revision, existing cache directory, device, and
   local-only classification;
 - `service`: loopback port (`0` selects an ephemeral port), external ready-file
@@ -110,7 +111,7 @@ In a second terminal, list inputs and connect the microphone client:
 ```
 
 The client performs the same microphone preflight as the direct Voxtral probe,
-sends 250 ms PCM chunks by default, and renders replaceable transcript and
+sends 80 ms PCM chunks by default, and renders replaceable transcript and
 emotion timeline updates until `utterance.final`. Use Ctrl-C to cancel by
 disconnecting. `--save-wav` remains an explicit diagnostic exception and
 refuses repository paths or overwrite.
@@ -121,6 +122,9 @@ limit and finalize the turn automatically. `TURN_TOO_LARGE` means a client sent
 beyond that boundary; the service treats it as one terminal input error. It is
 not a model failure. Longer conversation must be split into utterances (and
 later may use bounded VAD) instead of increasing an unbounded in-memory turn.
+The browser asks for a 16 kHz audio context, uses a stateful fallback resampler,
+disables browser AEC/noise suppression/AGC for ASR fidelity, batches worklet
+messages to 20 ms, and flushes the final partial block before `session.finish`.
 Transient browser/audio bursts are flow-controlled at the service's bounded
 ASR ingress instead of being expanded into an unbounded model queue.
 

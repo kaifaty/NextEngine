@@ -40,7 +40,7 @@ def parser() -> argparse.ArgumentParser:
     )
     microphone.add_argument("--ready-file", type=Path)
     microphone.add_argument("--device", default="default")
-    microphone.add_argument("--chunk-ms", type=int, default=250)
+    microphone.add_argument("--chunk-ms", type=int, default=80)
     microphone.add_argument("--duration", type=float)
     microphone.add_argument("--locale", default="ru")
     microphone.add_argument("--probe-seconds", type=int, default=2)
@@ -54,7 +54,7 @@ def parser() -> argparse.ArgumentParser:
     benchmark.add_argument("--audio", type=Path, required=True)
     benchmark.add_argument("--mode", choices=("paced", "unpaced"), default="paced")
     benchmark.add_argument("--runs", type=int, default=2)
-    benchmark.add_argument("--chunk-ms", type=int, default=250)
+    benchmark.add_argument("--chunk-ms", type=int, default=80)
     benchmark.add_argument("--out", type=Path, required=True)
     return root
 
