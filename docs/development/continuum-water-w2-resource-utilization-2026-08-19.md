@@ -1,6 +1,6 @@
 # Continuum water W2 resource-utilization discriminator — 2026-08-19
 
-Status: `REPORT_ONLY / CYCLE_1_COMPLETE_ROOT_EXACT / NO_W2_CREDIT`
+Status: `REPORT_ONLY / CYCLE_2_SHORT_SCALING_ROOT_EXACT / NO_W2_CREDIT`
 
 ## Question
 
@@ -87,12 +87,101 @@ density/divergence iteration counts and short trajectory root
 `41390c922ca043cb5daff987fef0457fe8be9e0fa08a9d8c852e38ee5884329f`.
 Cycle 1 therefore survives its hypothesis and exact-root discriminator.
 
-## Risk and next discriminator
+## Cycle 2 — deterministic worker substrate
 
 The cycle-1 mean is about `881.1 ms`. Even an impossible perfect division by
 all `32` logical CPUs would be about `27.5 ms`, far above the standalone
 `4 ms` target. This is not a percentile verdict and does not close W2, but it
-means parallel scheduling alone cannot be assumed sufficient. Cycle 2 must
-now implement stable logical partitions with canonical merge, compare serial
-and worker `1/2/4/8` roots, and apply the two-cycle stop rule without changing
-sample count, cadence, thresholds or CPU authority.
+means parallel scheduling alone cannot be assumed sufficient.
+
+Commit `c2915cfe599d635ede5d31cf923c52447c92333f` implements the smallest
+crate-private worker candidate. It pins Rayon `1.12.0`, creates one local
+bounded pool of at most eight threads and always decomposes row work into `64`
+logical partitions. Worker count schedules those partitions; it does not
+change partition boundaries, admitted-neighbor order, row-local floating-point
+reduction order, global convergence reductions or canonical publication.
+There is no public worker contract and no shared jobs/resource framework.
+
+Parallel work is limited to independently indexed operations:
+
+- canonical neighbor discovery writes partition-private fallibly allocated
+  index fragments, then merges them by logical ordinal;
+- kernel sampling writes disjoint preallocated neighbor ranges;
+- density factors, pressure acceleration and matrix action write their exact
+  canonical row slots;
+- convergence, KKT, curvature, impulse and publication reductions retain the
+  serial order.
+
+The original serial functions remain the oracle and fallback. Fallible vector
+reservations preserve their typed allocation error, worker errors are selected
+in canonical partition order, and a failed candidate never replaces the prior
+frame. Under the unit-test unwind profile an injected worker panic becomes
+`WATER_WORKER_FAILURE`; under the frozen `water-oracle` `panic=abort` profile a
+panic is process-fatal before publication, so it is fail-stop but cannot emit
+an in-process structured report. Changing that frozen panic policy would
+require an explicit profile reclosure and was not smuggled into W2.
+
+The complete crate suite passes `91/91`, strict Clippy passes, and
+`boundary-scan` passes all six checks. Focused tests compare the serial step
+against worker counts `1/2/4/8`, compare logical partition counts
+`1/7/64/127`, and inject both returned errors and panics before publication.
+
+## Clean short scaling matrix
+
+The clean exact-profile binary for `c2915cf` has SHA-256
+`da6be3d85aaac1acb795d28975c3035cb7b185cbc1b6ab1a53ebf9116eeacbe5`.
+It was built with Rust `1.97.1` (`8bab26f4f`, LLVM `22.1.6`), the frozen
+`water-oracle` flags and target `x86_64-unknown-linux-gnu`. THOTH reports an
+AMD Ryzen 9 3950X with `16` cores / `32` logical CPUs and one NUMA node.
+
+Each row below is one clean invocation of the fixed one-warm-up,
+three-measured-substep sealed-48k diagnostic. Speedup is relative to the
+serial invocation in this same adjacent matrix, not to a historical run.
+
+| Execution | Mean outer step | Speedup | Reconstruction mean | Density mean | Whole-command CPU | Peak RSS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| serial oracle | `837.264 ms` | `1.000×` | `396.735 ms` | `392.097 ms` | `100%` | `92,776 KiB` |
+| 1 worker / 64 partitions | `841.645 ms` | `0.995×` | `395.830 ms` | `395.606 ms` | `100%` | `106,200 KiB` |
+| 2 workers / 64 partitions | `488.813 ms` | `1.713×` | `215.064 ms` | `231.187 ms` | `162%` | `104,844 KiB` |
+| 4 workers / 64 partitions | `325.059 ms` | `2.576×` | `123.686 ms` | `162.078 ms` | `243%` | `105,404 KiB` |
+| 8 workers / 64 partitions | `269.643 ms` | `3.105×` | `77.473 ms` | `152.119 ms` | `372%` | `104,860 KiB` |
+
+All five invocations have one identical initial root, warm-up root, three-frame
+root vector, density iteration vector `40/36/36`, divergence iteration vector
+`1/1/1`, final root and short trajectory root
+`41390c922ca043cb5daff987fef0457fe8be9e0fa08a9d8c852e38ee5884329f`.
+The reports bind commit `c2915cf...` and `CLEAN` tree state.
+Artifacts are `/tmp/nextengine-w2-c2915cf-{serial,workers1,workers2,workers4,workers8}.json`
+with matching `.time.txt` files:
+
+| Execution | Report SHA-256 | `/usr/bin/time -v` SHA-256 |
+| --- | --- | --- |
+| serial | `649336e68bbec13b4a9abd00f5e769eb6202b94cb4c7061dcf0e1ec741e82696` | `53490826caa55223b57dcee32ada85e02c31364222bd1bc2f0ba16c6dfdeb7a1` |
+| 1 worker | `a8685e281d8de52c3f78b05878535e86578c5dbf5d66477891ea9f421b826543` | `e129b755c50a91b342d31b634a18a68aa3512312124accfe43fe5b1909baef6b` |
+| 2 workers | `38485e1bbd4149714739cc2bc913745ca3e3e8f8da13b084b98e2905e60795d1` | `78ecb3098029b964daa6cd419fcd5429dc4f42b167ba13e24bdaa43cdd70b31b` |
+| 4 workers | `436a56cb9b94fa856d1926fd0c20603bbb9c6d0b3386ba149d944361a9b10a20` | `55de33c48f82c36e6a11c7d9d3cdacb7bc8b74cdfb6407eef2681cf7fde34317` |
+| 8 workers | `b30a7a4e87bc2bcd4ab4c2c718054ccfb75cb9e9dfafc1cea3f06253a3656f11` | `b0a4fdb1f0888592d6c9dd2db4530c1c33c8fad4ca4f8013e223dcc83a054499` |
+
+The 8-worker reconstruction scales `5.121×`, while density scales only
+`2.578×` and improves by merely `1.066×` from four to eight workers. A bounded
+dirty-tree counterfactual with `16` logical partitions preserves every root
+but regresses the mean to `285.404 ms`; the fixed `64`-partition design is
+therefore retained. This rejects fragment granularity as the leading remaining
+cause. Repeated pressure-operator memory traffic, per-iteration barriers and
+the still-serial vector/global reductions are the next causal boundary.
+
+## Decision boundary
+
+The best short mean is still `67.41×` the `4 ms` p95 ceiling. Even the
+optimistic scheduling-only projection obtained by dividing the current serial
+mean by all `32` logical CPUs is `26.16 ms`, or `6.54×` the ceiling. Therefore
+scheduling tuning cannot make the frozen algorithm meet its named target.
+
+This short diagnostic is not the formal W2 percentile workload, does not prove
+all-scenario/full-trajectory worker equality and grants no ProductCheck
+credit. The expensive `10k/50k/100k` windows are intentionally not run merely
+to obtain a more precise failure. The next action is an explicit decision:
+keep this track `RESEARCH_ONLY`, or authorize a new algorithm/data-layout
+profile with new roots and renewed correctness evidence. Reducing the sample
+count, changing 240 Hz cadence/budgets or promoting GPU authority remains a
+separate product/architecture decision, not an optimization result.

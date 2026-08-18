@@ -31,8 +31,24 @@ result in bounded flattened scratch instead of repeating grid admission and
 temporary row allocation. At clean commit `e15c5e2`, all short-run roots and
 iterations remain exact, reconstruction is `1.801×` faster and the whole step
 is `1.375×` faster. Density/reconstruction now jointly own `94.73%`; cycle 2
-must partition both without changing row or reduction order. See the
+partitions both without changing row or reduction order. See the
 [resource-utilization discriminator](../../development/continuum-water-w2-resource-utilization-2026-08-19.md).
+
+Cycle 2 at clean commit `c2915cf` uses a crate-private local pool, `64` stable
+logical partitions and canonical indexed placement. The serial oracle and all
+row-local/global reduction orders remain intact. The short sealed-48k matrix
+has exact initial, per-step, final and trajectory roots for serial and workers
+`1/2/4/8`; an 8-worker step falls to `269.643 ms`, a `3.105×` adjacent-run
+speedup, while reconstruction scales `5.121×` and density only `2.578×`.
+Whole-command utilization reaches `372%` CPU and peak RSS is `104,860 KiB`.
+
+This remains `REPORT_ONLY / NO_W2_CREDIT`: full W0B trajectory equality and
+the formal percentile windows were not run. The short mean still misses the
+`4 ms` target by `67.41×`, and even perfect division of the current serial
+mean across all `32` logical CPUs would leave `26.16 ms`. Long gate repetitions
+are deferred pending an explicit choice between `STOP_RESEARCH_ONLY` and a new
+algorithm/data-layout profile; another scheduler-only tuning pass is not an
+evidence-backed next step.
 
 ## Correctness-preserving parallel plan
 
@@ -56,6 +72,12 @@ Exact requirements:
   roots, iterations or terminal diagnostics;
 - an allocation, worker panic or fragment-capacity fault rejects the complete
   run with no partial frame.
+
+The frozen exact profile uses `panic=abort`: an unexpected panic therefore
+terminates the isolated run before publication. The unwind test profile also
+proves the structured `WATER_WORKER_FAILURE` path. Requiring a structured
+in-process report after an exact-profile panic would change the frozen profile
+and needs a separate reclosure.
 
 ## Named performance workload
 

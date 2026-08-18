@@ -65,7 +65,7 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
                          └─ W0H Accelerated pressure profile CLOSED / W1_AUTHORIZED
                              └─ W0I External reference attestation CLOSED / W1_AUTHORIZED
                                  └─ W1 Serial CPU oracle + external corpus COMPLETE / LINUX_PASS
-                                     ├─ W2 Deterministic parallel CPU + benchmark IN_PROGRESS / PROFILING
+                                     ├─ W2 Deterministic parallel CPU + benchmark IN_PROGRESS / SHORT MISS
                                      │   └─ W3 One-pass PhysX coupling            NOT_STARTED
                                      │       └─ W4 Basin + crate + debug view     NOT_STARTED
                                      │           └─ W5 Exact active persistence   NOT_STARTED
@@ -196,13 +196,19 @@ W2 begins with the Linux-only `profile-w2-linux` diagnostic. Its fixed
 `continuum-water-50k-stage-profile.v0` projection runs one warm-up and three
 measured sealed-48k substeps, reports decode-through-publication stage times,
 and records a short trajectory root. Timing is outside canonical state and
-roots; the diagnostic is explicitly `NO_W2_CREDIT`. The clean baseline and
-worker implementation remain pending. The clean serial baseline then records
+roots; the diagnostic is explicitly `NO_W2_CREDIT`. The clean serial baseline records
 `100%` of one CPU, about `1.212 s` per measured sealed-48k substep,
 reconstruction at `61.15%` and density at `34.90%`. W2 cycle 1 now removes the
 duplicate canonical neighbor discovery and per-row temporary allocations; its
 clean measurement preserves every short-run root, makes reconstruction
-`1.801×` and the whole step `1.375×` faster. Cycle 2 stable workers are next.
+`1.801×` and the whole step `1.375×` faster. Cycle 2 adds a private local pool
+with `64` stable logical partitions. A clean serial/worker-`1/2/4/8` matrix
+preserves every short root and iteration vector; eight workers reduce the
+adjacent serial mean from `837.264` to `269.643 ms` (`3.105×`) and raise
+whole-command utilization to `372%`. Density scales only `2.578×`, and the
+best short mean remains `67.41×` above the `4 ms` ceiling. Formal full-corpus
+worker equality and percentile runs are not claimed or run; W2 now requires an
+explicit stop-versus-new-profile decision before more expensive execution.
 
 Commit `74730e208cfeb70b05a3ec44b2bb9c2f5002fe97` implements the serial oracle.
 On a clean exact-profile run, `CW-FREEFALL-001` passes all 97 canonical frames
