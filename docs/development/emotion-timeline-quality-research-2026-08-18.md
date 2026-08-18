@@ -73,6 +73,39 @@ basic-emotion classifications. A candidate must improve the agreed quality
 measure without violating the resident latency/VRAM envelope; otherwise retain
 the base model.
 
+## First held-out Russian calibration screen
+
+`Aniemore/resd` is now used only as an external, held-out calibration artifact,
+not as a training input. The external manifest
+`/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v1/manifest.json`
+selects ten deterministic, actor-stratified test clips for each of the seven
+RESD labels. It contains 70 normalised 16 kHz mono WAV files (6 m 11 s total),
+the source revision `8db7068a7717e48d829c2baa32e4908972611138`, file hashes,
+and the explicit label map. The dataset's card declares MIT; raw files and the
+manifest remain outside Git.
+
+The pinned `emotion2vec_plus_base` checkpoint was loaded once on the local RTX
+3080 and measured against whole normalised utterances. Of the 60 clips with an
+exact class mapping, top-1 matched 28 (`46.7%`): angry `7/10`, disgusted
+`5/10`, fearful `6/10`, happy `3/10`, neutral `3/10`, sad `4/10`. The ten RESD
+`enthusiasm` clips are intentionally unscored because the checkpoint exposes no
+equivalent label; it predicted `other` for six of them. Mean model-only
+inference was 27.6 ms per clip after load, maximum 341 ms. The complete,
+content-free report is
+`/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v1/emotion2vec-plus-base-report.v1.json`
+with SHA-256
+`587b3e704e2d01604c0a365d5bc7924aae926dfe45a961bb610f97331ce0326e`.
+
+This is a small acted-speech screen, not a deployment-quality or probability
+calibration claim: it does not exercise streaming VAD admission, overlapping
+windows, smoothing or natural microphone speech. It does establish that the
+base checkpoint must not be treated as a reliable Russian basic-emotion
+classifier, especially for happy and neutral. Do not retune VAD thresholds or
+change the public label semantics to improve this score. The next comparison
+must replay the same frozen clips through the full speech-only timeline path,
+then compare base and large on the identical manifest and report abstentions
+separately.
+
 ## Model shortlist (research, not an approval to install)
 
 1. **`emotion2vec/emotion2vec_plus_large` — first A/B candidate.** It preserves
@@ -116,8 +149,8 @@ evaluation manifest is therefore the release criterion. [ACL paper](https://acla
 
 ## Next smallest action
 
-Restart the resident service with this build, calibrate the actual microphone
-while quiet, then record a small labelled live checklist. Use the emitted final
-diagnostics to establish the base line. Only then download and benchmark the
-pinned `emotion2vec_plus_large` candidate through the existing replaceable
-adapter boundary.
+Replay the frozen RESD-70 manifest through the resident VAD/window/smoothing
+path and add per-clip admission, final-label and abstention measurements. Then
+run the same evaluation for the pinned `emotion2vec_plus_large` candidate.
+Keep the actual-microphone quiet-room calibration and a separate labelled live
+checklist: the acted RESD screen does not replace them.
