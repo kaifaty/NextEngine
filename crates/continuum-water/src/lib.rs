@@ -41,6 +41,11 @@ pub fn run_xtask(
         {
             calibration::run_initialization_xtask(repository_root, arguments)
         }
+        (Some(material), Some(command))
+            if material == "water" && command == "evaluate-hydro-redesign" =>
+        {
+            calibration::run_redesign_xtask(repository_root, arguments)
+        }
         _ => oracle::run_xtask(
             repository_root,
             material.into_iter().chain(command).chain(arguments),

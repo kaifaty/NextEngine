@@ -365,7 +365,7 @@ pub(super) fn ghost_cell_shell(geometry: Geometry) -> Result<Vec<BoundarySample>
     lattice_complement_shell(geometry, 1, CANDIDATE_ID)
 }
 
-fn support_complete_lattice_complement(
+pub(super) fn support_complete_lattice_complement(
     geometry: Geometry,
 ) -> Result<Vec<BoundarySample>, WaterError> {
     lattice_complement_shell(geometry, 2, SUPPORT_COMPLETE_CANDIDATE_ID)

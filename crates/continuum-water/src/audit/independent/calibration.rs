@@ -1,10 +1,13 @@
 #![forbid(unsafe_code)]
 
+use sha2::{Digest, Sha256};
+
 use crate::audit::{AuditBoundaryInput, SELECTED_ROWS, scalar_bits};
 use crate::calibration::{
     BoundaryFeatureContribution, CandidateCalibrationComputation, DIAGNOSTIC_CHECKPOINTS,
     DIAGNOSTIC_MAX_ITERATIONS, DensityContributionRow, ExtendedDensityCheckpoint,
-    ExtendedDensityTrace, HydroCalibrationTrace,
+    ExtendedDensityTrace, HydroCalibrationTrace, PressureOperatorDiagonalProbe,
+    PressureOperatorProbe, ProjectedPcgFirstStepProbe,
 };
 
 use super::*;
@@ -26,6 +29,298 @@ pub(crate) fn compute_support_complete() -> Result<CandidateCalibrationComputati
     let positions = generate_fluid()?;
     let boundary_positions = generate_support_complete_boundary()?;
     compute_lattice_candidate(&positions, boundary_positions, "support-complete")
+}
+
+pub(crate) fn compute_support_complete_pressure_probe() -> Result<PressureOperatorProbe, WaterError>
+{
+    let positions = generate_fluid()?;
+    let boundary_positions = generate_support_complete_boundary()?;
+    let boundary_volumes = filled(boundary_positions.len(), REST_VOLUME)?;
+    let rows = reconstruct(&positions, &boundary_positions, &boundary_volumes)?;
+    let (vector_u, vector_v) = pressure_probe_vectors(positions.len())?;
+    let action_u = pressure_operator(&rows, &vector_u)?;
+    let action_v = pressure_operator(&rows, &vector_v)?;
+    let u_dot_b_u = pressure_dot(&vector_u, &action_u, "independent probe u dot B u")?;
+    let v_dot_b_v = pressure_dot(&vector_v, &action_v, "independent probe v dot B v")?;
+    let u_dot_b_v = pressure_dot(&vector_u, &action_v, "independent probe u dot B v")?;
+    let v_dot_b_u = pressure_dot(&vector_v, &action_u, "independent probe v dot B u")?;
+    let mut selected_u_action_bits = reserved(SELECTED_ROWS.len())?;
+    let mut selected_v_action_bits = reserved(SELECTED_ROWS.len())?;
+    let mut diagonals = reserved(SELECTED_ROWS.len())?;
+    for (sample_id, _role) in SELECTED_ROWS {
+        let index = usize::try_from(sample_id)
+            .map_err(|_| WaterError::new(AUDIT_INVALID, "pressure probe id overflow"))?;
+        selected_u_action_bits.push(scalar_bits(action_u[index]));
+        selected_v_action_bits.push(scalar_bits(action_v[index]));
+        let mut basis = filled(positions.len(), 0.0)?;
+        basis[index] = 1.0;
+        let diagonal_action = pressure_operator(&rows, &basis)?[index];
+        let factor_derived = if rows[index].alpha > 0.0 {
+            finite(
+                DT2 / rows[index].alpha,
+                "independent factor-derived pressure diagonal",
+            )?
+        } else {
+            0.0
+        };
+        diagonals.push(PressureOperatorDiagonalProbe {
+            sample_id,
+            action_bits: scalar_bits(diagonal_action),
+            factor_derived_bits: scalar_bits(factor_derived),
+            relative_difference_ppb: pressure_relative_difference_ppb(
+                diagonal_action,
+                factor_derived,
+                "independent pressure diagonal relative difference",
+            )?,
+        });
+    }
+    Ok(PressureOperatorProbe {
+        vector_u_action_root: pressure_action_root(&action_u),
+        vector_v_action_root: pressure_action_root(&action_v),
+        selected_u_action_bits,
+        selected_v_action_bits,
+        u_dot_b_u_bits: scalar_bits(u_dot_b_u),
+        v_dot_b_v_bits: scalar_bits(v_dot_b_v),
+        u_dot_b_v_bits: scalar_bits(u_dot_b_v),
+        v_dot_b_u_bits: scalar_bits(v_dot_b_u),
+        symmetry_relative_difference_ppb: pressure_relative_difference_ppb(
+            u_dot_b_v,
+            v_dot_b_u,
+            "independent pressure symmetry relative difference",
+        )?,
+        diagonals,
+    })
+}
+
+pub(crate) fn compute_support_complete_projected_pcg_first_step_probe()
+-> Result<ProjectedPcgFirstStepProbe, WaterError> {
+    let positions = generate_fluid()?;
+    let boundary_positions = generate_support_complete_boundary()?;
+    let boundary_volumes = filled(boundary_positions.len(), REST_VOLUME)?;
+    let rows = reconstruct(&positions, &boundary_positions, &boundary_volumes)?;
+    let count = positions.len();
+    let gravity_y = finite(DT * -GRAVITY, "independent PCG gravity velocity")?;
+    let velocities = filled(count, F3::new(0.0, gravity_y, 0.0))?;
+    let mut right_hand_side = filled(count, 0.0)?;
+    let mut preconditioner = filled(count, 0.0)?;
+    for index in 0..count {
+        let delta = divergence_source(index, &rows, &velocities)?;
+        let rho_adv = finite(
+            rows[index].rho_ratio + (DT * delta),
+            "independent PCG advected density ratio",
+        )?;
+        right_hand_side[index] = finite(rho_adv - 1.0, "independent PCG right-hand side")?;
+        preconditioner[index] = finite(
+            rows[index].alpha * INV_DT2,
+            "independent PCG diagonal preconditioner",
+        )?;
+    }
+    let mut multiplier = filled(count, 0.0)?;
+    let mut residual = filled(count, 0.0)?;
+    residual.copy_from_slice(&right_hand_side);
+    let mut active = filled(count, false)?;
+    let mut preconditioned = filled(count, 0.0)?;
+    for index in 0..count {
+        active[index] = residual[index] > 0.0;
+        preconditioned[index] = if active[index] {
+            finite(
+                preconditioner[index] * residual[index],
+                "independent PCG initial preconditioned residual",
+            )?
+        } else {
+            0.0
+        };
+    }
+    let mut direction = filled(count, 0.0)?;
+    direction.copy_from_slice(&preconditioned);
+    let mut residual_dot_preconditioned = pressure_dot(
+        &residual,
+        &preconditioned,
+        "independent PCG initial residual product",
+    )?;
+    let mut error_ppb = pressure_density_residual_ppb(&residual)?;
+    let mut accepted_iteration = 0_u8;
+    for iteration in 1..=50_u8 {
+        if residual_dot_preconditioned > SOLVER_EPSILON {
+            let action = pressure_operator(&rows, &direction)?;
+            let direction_dot_action = pressure_dot(
+                &direction,
+                &action,
+                "independent PCG direction action product",
+            )?;
+            if direction_dot_action <= SOLVER_EPSILON {
+                break;
+            }
+            let step = finite(
+                residual_dot_preconditioned / direction_dot_action,
+                "independent PCG step",
+            )?;
+            let mut projection_changed = false;
+            for index in 0..count {
+                let candidate = finite(
+                    multiplier[index] + (step * direction[index]),
+                    "independent PCG multiplier candidate",
+                )?;
+                if candidate > 0.0 {
+                    multiplier[index] = candidate;
+                } else {
+                    projection_changed |= candidate < 0.0;
+                    multiplier[index] = 0.0;
+                }
+            }
+            let multiplier_action = pressure_operator(&rows, &multiplier)?;
+            for index in 0..count {
+                residual[index] = finite(
+                    right_hand_side[index] - multiplier_action[index],
+                    "independent PCG residual",
+                )?;
+            }
+            error_ppb = pressure_density_residual_ppb(&residual)?;
+            if iteration >= DENSITY_MIN_ITERATIONS && error_ppb <= DENSITY_THRESHOLD_PPB {
+                accepted_iteration = iteration;
+                break;
+            }
+            let mut active_changed = false;
+            for index in 0..count {
+                let next_active = multiplier[index] > 0.0 || residual[index] > 0.0;
+                active_changed |= next_active != active[index];
+                active[index] = next_active;
+                preconditioned[index] = if next_active {
+                    finite(
+                        preconditioner[index] * residual[index],
+                        "independent PCG preconditioned residual",
+                    )?
+                } else {
+                    0.0
+                };
+            }
+            let next_residual_dot_preconditioned = pressure_dot(
+                &residual,
+                &preconditioned,
+                "independent PCG next residual product",
+            )?;
+            let beta = if projection_changed
+                || active_changed
+                || residual_dot_preconditioned <= SOLVER_EPSILON
+            {
+                0.0
+            } else {
+                finite(
+                    next_residual_dot_preconditioned / residual_dot_preconditioned,
+                    "independent PCG beta",
+                )?
+            };
+            for index in 0..count {
+                direction[index] = if active[index] {
+                    finite(
+                        preconditioned[index] + (beta * direction[index]),
+                        "independent PCG direction",
+                    )?
+                } else {
+                    0.0
+                };
+            }
+            residual_dot_preconditioned = next_residual_dot_preconditioned;
+        } else {
+            error_ppb = pressure_density_residual_ppb(&residual)?;
+            if iteration >= DENSITY_MIN_ITERATIONS && error_ppb <= DENSITY_THRESHOLD_PPB {
+                accepted_iteration = iteration;
+                break;
+            }
+        }
+    }
+    if accepted_iteration == 0 {
+        return Err(WaterError::new(
+            DENSITY_NONCONVERGENCE,
+            format!("independent projected PCG iteration 50 ended at {error_ppb} ppb"),
+        ));
+    }
+    let mut maximum_multiplier = 0.0;
+    for value in multiplier {
+        if value > maximum_multiplier {
+            maximum_multiplier = value;
+        }
+    }
+    Ok(ProjectedPcgFirstStepProbe {
+        density_iterations: accepted_iteration,
+        density_error_ppb: error_ppb,
+        maximum_multiplier_bits: scalar_bits(maximum_multiplier),
+    })
+}
+
+fn pressure_probe_vectors(count: usize) -> Result<(Vec<f64>, Vec<f64>), WaterError> {
+    let mut vector_u = filled(count, 0.0)?;
+    let mut vector_v = filled(count, 0.0)?;
+    for index in 0..count {
+        let id = u32::try_from(index)
+            .map_err(|_| WaterError::new(AUDIT_INVALID, "pressure probe id overflow"))?;
+        if id % 5 == 0 {
+            vector_u[index] = f64::from((id % 7) + 1) / 1024.0;
+        }
+        if id % 11 == 0 {
+            let magnitude = f64::from((id % 13) + 1) / 2048.0;
+            vector_v[index] = if id % 22 == 0 { magnitude } else { -magnitude };
+        }
+    }
+    Ok((vector_u, vector_v))
+}
+
+fn pressure_operator(rows: &[Row], multiplier: &[f64]) -> Result<Vec<f64>, WaterError> {
+    let acceleration = pressure_acceleration(rows, multiplier)?;
+    let matrix = matrix_action(rows, &acceleration)?;
+    let mut result = reserved(matrix.len())?;
+    for value in matrix {
+        result.push(finite(
+            -(DT2 * value),
+            "independent positive pressure operator",
+        )?);
+    }
+    Ok(result)
+}
+
+fn pressure_dot(left: &[f64], right: &[f64], phase: &str) -> Result<f64, WaterError> {
+    if left.len() != right.len() {
+        return Err(WaterError::new(
+            AUDIT_INVALID,
+            format!("{phase} vector length mismatch"),
+        ));
+    }
+    let mut result = 0.0;
+    for (left, right) in left.iter().zip(right) {
+        result = finite(result + (left * right), phase)?;
+    }
+    Ok(result)
+}
+
+fn pressure_action_root(values: &[f64]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"nextengine.continuum-water.pressure-action-probe.v1\0");
+    for value in values {
+        hasher.update(value.to_bits().to_le_bytes());
+    }
+    crate::hash::hex(&hasher.finalize().into())
+}
+
+fn pressure_relative_difference_ppb(left: f64, right: f64, phase: &str) -> Result<i64, WaterError> {
+    let denominator = left.abs().max(right.abs()).max(SOLVER_EPSILON);
+    let relative = finite((left - right).abs() / denominator, phase)?;
+    quantize_ppb(relative)
+}
+
+fn pressure_density_residual_ppb(residual: &[f64]) -> Result<i64, WaterError> {
+    let mut error_sum = 0.0;
+    for value in residual {
+        let compression = if *value > 0.0 { *value } else { 0.0 };
+        error_sum = finite(
+            error_sum + compression,
+            "independent PCG density error reduction",
+        )?;
+    }
+    let mean = finite(
+        error_sum / (residual.len() as f64),
+        "independent PCG density error mean",
+    )?;
+    quantize_ppb(mean)
 }
 
 fn compute_lattice_candidate(

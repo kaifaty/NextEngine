@@ -23,10 +23,12 @@ use crate::{boundary, profile, scenario, solver};
 
 mod candidate;
 mod initialization;
+mod redesign;
 mod volume_map_candidate;
 
 pub(crate) use candidate::HYDRO_SOAK_STEPS;
 pub(crate) use initialization::run_xtask as run_initialization_xtask;
+pub(crate) use redesign::run_xtask as run_redesign_xtask;
 
 pub(crate) fn run_candidate_xtask(
     repository_root: &Path,
@@ -115,6 +117,50 @@ pub(crate) struct ExtendedDensityTrace {
 pub(crate) struct CandidateCalibrationComputation {
     pub(crate) boundary: Vec<AuditBoundaryInput>,
     pub(crate) trace: HydroCalibrationTrace,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct PressureOperatorDiagonalProbe {
+    pub(crate) sample_id: u32,
+    pub(crate) action_bits: String,
+    pub(crate) factor_derived_bits: String,
+    pub(crate) relative_difference_ppb: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct PressureOperatorProbe {
+    pub(crate) vector_u_action_root: String,
+    pub(crate) vector_v_action_root: String,
+    pub(crate) selected_u_action_bits: Vec<String>,
+    pub(crate) selected_v_action_bits: Vec<String>,
+    pub(crate) u_dot_b_u_bits: String,
+    pub(crate) v_dot_b_v_bits: String,
+    pub(crate) u_dot_b_v_bits: String,
+    pub(crate) v_dot_b_u_bits: String,
+    pub(crate) symmetry_relative_difference_ppb: i64,
+    pub(crate) diagonals: Vec<PressureOperatorDiagonalProbe>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct ProjectedPcgFirstStepProbe {
+    pub(crate) density_iterations: u8,
+    pub(crate) density_error_ppb: i64,
+    pub(crate) maximum_multiplier_bits: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct ContactProjectionCase {
+    pub(crate) id: &'static str,
+    pub(crate) position_um: Vec3i,
+    pub(crate) velocity_before_bits: [String; 3],
+    pub(crate) velocity_after_bits: [String; 3],
+    pub(crate) fluid_impulse_bits: [String; 3],
+    pub(crate) active_components: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct ContactProjectionProbe {
+    pub(crate) cases: Vec<ContactProjectionCase>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

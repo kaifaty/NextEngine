@@ -20,14 +20,21 @@ use crate::profile::{
 };
 use crate::scenario::{validate_capacity, validate_sample_identity};
 
+mod constraint;
 mod diagnostic;
 mod neighborhood;
 mod reconstruction;
 mod statistics;
 
+use constraint::{
+    VelocityProjectionResult, checked_dot, density_pressure_operator, project_predictive_outer_box,
+    solve_density_projected_pcg,
+};
 pub(crate) use diagnostic::{
-    counterfactual_substep, production_hydro_audit, production_hydro_calibration,
-    production_volume_map_calibration,
+    contact_constrained_substep_with_limit, contact_pcg_constrained_substep,
+    counterfactual_substep, production_contact_projection_probe, production_hydro_audit,
+    production_hydro_calibration, production_pressure_operator_probe,
+    production_projected_pcg_first_step_probe, production_volume_map_calibration,
 };
 use neighborhood::{admitted_boundary, admitted_fluid, build_boundary_grid, build_fluid_grid};
 use statistics::density_ratio_percentiles;
@@ -100,6 +107,18 @@ pub(crate) struct StepOutcome {
     pub(crate) frame: AcceptedFrame,
     pub(crate) summary: StepSummary,
     pub(crate) boundary_impulses: [Vec3f; 2],
+}
+
+#[derive(Clone, Copy)]
+enum TerminalVelocityProjection {
+    None,
+    PredictiveOuterBox,
+}
+
+#[derive(Clone, Copy)]
+enum DensitySolveMethod {
+    RelaxedJacobi,
+    ProjectedPreconditionedConjugateGradient,
 }
 
 #[derive(Clone, Copy)]
@@ -238,9 +257,34 @@ fn substep_with_boundary_limit(
     scenario_root: &[u8; 32],
     density_maximum_iterations: u8,
 ) -> Result<StepOutcome, WaterError> {
+    substep_with_boundary_projection_limit(
+        prior,
+        geometry,
+        boundary,
+        execution_profile_root,
+        scenario_root,
+        density_maximum_iterations,
+        TerminalVelocityProjection::None,
+        DensitySolveMethod::RelaxedJacobi,
+    )
+    .map(|(outcome, _projection)| outcome)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn substep_with_boundary_projection_limit(
+    prior: &AcceptedFrame,
+    geometry: Geometry,
+    boundary: BoundaryInput<'_>,
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+    density_maximum_iterations: u8,
+    velocity_projection: TerminalVelocityProjection,
+    density_method: DensitySolveMethod,
+) -> Result<(StepOutcome, VelocityProjectionResult), WaterError> {
     let mut state = decode(&prior.samples)?;
     if state.samples.is_empty() {
-        return publish_empty(prior.step, execution_profile_root, scenario_root, geometry);
+        return publish_empty(prior.step, execution_profile_root, scenario_root, geometry)
+            .map(|outcome| (outcome, VelocityProjectionResult::default()));
     }
     let reconstruction = reconstruct_boundary(&state, boundary)?;
     let density_percentiles = density_ratio_percentiles(&reconstruction.rho_ratio)?;
@@ -250,12 +294,28 @@ fn substep_with_boundary_limit(
         velocity.y = checked_scalar(velocity.y + (DT * -GRAVITY_MAGNITUDE), "gravity velocity y")?;
         (*velocity).checked(&format!("gravity sample {}", state.samples[index].id))?;
     }
-    let density = solve_density_with_limit(
-        &reconstruction,
-        &mut state.velocities,
-        None,
-        density_maximum_iterations,
-    )?;
+    let density = match density_method {
+        DensitySolveMethod::RelaxedJacobi => solve_density_with_limit(
+            &reconstruction,
+            &mut state.velocities,
+            None,
+            density_maximum_iterations,
+        )?,
+        DensitySolveMethod::ProjectedPreconditionedConjugateGradient => {
+            solve_density_projected_pcg(
+                &reconstruction,
+                &mut state.velocities,
+                density_maximum_iterations,
+            )?
+        }
+    };
+
+    let projection = match velocity_projection {
+        TerminalVelocityProjection::None => VelocityProjectionResult::default(),
+        TerminalVelocityProjection::PredictiveOuterBox => {
+            project_predictive_outer_box(geometry, &state.positions, &mut state.velocities)?
+        }
+    };
 
     for index in 0..state.samples.len() {
         let displacement = state.velocities[index]
@@ -274,32 +334,38 @@ fn substep_with_boundary_limit(
     crate::boundary::validate_transition(geometry, &prior.samples, &samples)?;
     let frame_root = hash::frame_root(execution_profile_root, scenario_root, next_step, &samples)?;
     let centre_of_mass_um = centre_of_mass(&samples)?;
-    Ok(StepOutcome {
-        frame: AcceptedFrame {
-            step: next_step,
-            samples,
-            frame_root,
+    Ok((
+        StepOutcome {
+            frame: AcceptedFrame {
+                step: next_step,
+                samples,
+                frame_root,
+            },
+            summary: StepSummary {
+                step: next_step,
+                frame_root: hash::hex(&frame_root),
+                density_iterations: density.iterations,
+                density_error_ppb: density.error_ppb,
+                density_maximum_multiplier_bits: format!(
+                    "0x{:016x}",
+                    density.maximum_multiplier_bits
+                ),
+                density_ratio_p50_ppb: density_percentiles[0],
+                density_ratio_p95_ppb: density_percentiles[1],
+                density_ratio_p99_ppb: density_percentiles[2],
+                divergence_iterations: divergence.iterations,
+                divergence_error_ppb: divergence.error_ppb,
+                divergence_maximum_multiplier_bits: format!(
+                    "0x{:016x}",
+                    divergence.maximum_multiplier_bits
+                ),
+                maximum_penetration_um,
+                centre_of_mass_um,
+            },
+            boundary_impulses: [divergence.boundary_impulse, density.boundary_impulse],
         },
-        summary: StepSummary {
-            step: next_step,
-            frame_root: hash::hex(&frame_root),
-            density_iterations: density.iterations,
-            density_error_ppb: density.error_ppb,
-            density_maximum_multiplier_bits: format!("0x{:016x}", density.maximum_multiplier_bits),
-            density_ratio_p50_ppb: density_percentiles[0],
-            density_ratio_p95_ppb: density_percentiles[1],
-            density_ratio_p99_ppb: density_percentiles[2],
-            divergence_iterations: divergence.iterations,
-            divergence_error_ppb: divergence.error_ppb,
-            divergence_maximum_multiplier_bits: format!(
-                "0x{:016x}",
-                divergence.maximum_multiplier_bits
-            ),
-            maximum_penetration_um,
-            centre_of_mass_um,
-        },
-        boundary_impulses: [divergence.boundary_impulse, density.boundary_impulse],
-    })
+        projection,
+    ))
 }
 
 fn publish_empty(

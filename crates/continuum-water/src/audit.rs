@@ -483,6 +483,21 @@ pub(crate) fn independent_support_complete_hydro_calibration()
     independent::compute_support_complete_calibration()
 }
 
+pub(crate) fn independent_support_complete_pressure_probe()
+-> Result<crate::calibration::PressureOperatorProbe, WaterError> {
+    independent::compute_support_complete_pressure_probe()
+}
+
+pub(crate) fn independent_support_complete_projected_pcg_first_step_probe()
+-> Result<crate::calibration::ProjectedPcgFirstStepProbe, WaterError> {
+    independent::compute_support_complete_projected_pcg_first_step_probe()
+}
+
+pub(crate) fn independent_contact_projection_probe()
+-> Result<crate::calibration::ContactProjectionProbe, WaterError> {
+    independent::compute_contact_projection_probe()
+}
+
 pub(crate) fn independent_volume_map_hydro_calibration()
 -> Result<crate::calibration::HydroCalibrationTrace, WaterError> {
     independent::compute_volume_map_calibration()

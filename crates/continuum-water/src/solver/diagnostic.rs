@@ -5,13 +5,17 @@ use crate::audit::{
     DensityIterationRowTrace, HydroAuditTrace, HydroRowTrace, SELECTED_ROWS,
     production_fluid_input, scalar_bits, vector_bits,
 };
+use crate::calibration::{ContactProjectionCase, ContactProjectionProbe};
 use crate::error::{AUDIT_INVALID, DENSITY_NONCONVERGENCE, WaterError};
 
 use super::*;
 
 mod calibration;
 
-pub(crate) use calibration::{production_hydro_calibration, production_volume_map_calibration};
+pub(crate) use calibration::{
+    production_hydro_calibration, production_pressure_operator_probe,
+    production_projected_pcg_first_step_probe, production_volume_map_calibration,
+};
 
 pub(crate) fn counterfactual_substep(
     prior: &AcceptedFrame,
@@ -37,6 +41,166 @@ pub(crate) fn counterfactual_substep(
         scenario_root,
         density_maximum_iterations,
     )
+}
+
+pub(crate) struct ContactConstrainedStepOutcome {
+    pub(crate) outcome: StepOutcome,
+    pub(crate) projection: VelocityProjectionResult,
+}
+
+pub(crate) fn contact_constrained_substep_with_limit(
+    prior: &AcceptedFrame,
+    geometry: Geometry,
+    boundary: &[BoundarySample],
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+    density_maximum_iterations: u8,
+) -> Result<ContactConstrainedStepOutcome, WaterError> {
+    if density_maximum_iterations < DENSITY_MIN_ITERATIONS {
+        return Err(WaterError::new(
+            AUDIT_INVALID,
+            format!(
+                "contact counterfactual density ceiling {density_maximum_iterations} is below the minimum"
+            ),
+        ));
+    }
+    if geometry.aperture.is_some() {
+        return Err(WaterError::new(
+            AUDIT_INVALID,
+            "predictive outer-box contact does not define internal aperture contact",
+        ));
+    }
+    let (outcome, projection) = substep_with_boundary_projection_limit(
+        prior,
+        geometry,
+        BoundaryInput::Particles(boundary),
+        execution_profile_root,
+        scenario_root,
+        density_maximum_iterations,
+        TerminalVelocityProjection::PredictiveOuterBox,
+        DensitySolveMethod::RelaxedJacobi,
+    )?;
+    Ok(ContactConstrainedStepOutcome {
+        outcome,
+        projection,
+    })
+}
+
+pub(crate) fn contact_pcg_constrained_substep(
+    prior: &AcceptedFrame,
+    geometry: Geometry,
+    boundary: &[BoundarySample],
+    execution_profile_root: &[u8; 32],
+    scenario_root: &[u8; 32],
+    density_maximum_iterations: u8,
+) -> Result<ContactConstrainedStepOutcome, WaterError> {
+    if density_maximum_iterations < DENSITY_MIN_ITERATIONS {
+        return Err(WaterError::new(
+            AUDIT_INVALID,
+            format!(
+                "projected PCG density ceiling {density_maximum_iterations} is below the minimum"
+            ),
+        ));
+    }
+    if geometry.aperture.is_some() {
+        return Err(WaterError::new(
+            AUDIT_INVALID,
+            "predictive outer-box contact does not define internal aperture contact",
+        ));
+    }
+    let (outcome, projection) = substep_with_boundary_projection_limit(
+        prior,
+        geometry,
+        BoundaryInput::Particles(boundary),
+        execution_profile_root,
+        scenario_root,
+        density_maximum_iterations,
+        TerminalVelocityProjection::PredictiveOuterBox,
+        DensitySolveMethod::ProjectedPreconditionedConjugateGradient,
+    )?;
+    Ok(ContactConstrainedStepOutcome {
+        outcome,
+        projection,
+    })
+}
+
+pub(crate) fn production_contact_projection_probe() -> Result<ContactProjectionProbe, WaterError> {
+    let geometry = Geometry {
+        bounds: crate::model::Box3i {
+            min: Vec3i::new(0, 0, 0),
+            max: Vec3i::new(1_000_000, 1_000_000, 1_000_000),
+        },
+        aperture: None,
+    };
+    let inputs = [
+        (
+            "lower-face-inward",
+            Vec3i::new(25_000, 500_000, 500_000),
+            Vec3i::new(-200_000, 0, 0),
+        ),
+        (
+            "lower-face-separating",
+            Vec3i::new(25_000, 500_000, 500_000),
+            Vec3i::new(200_000, 0, 0),
+        ),
+        (
+            "upper-face-inward",
+            Vec3i::new(500_000, 975_000, 500_000),
+            Vec3i::new(0, 300_000, 0),
+        ),
+        (
+            "lower-edge-inward",
+            Vec3i::new(25_000, 25_000, 500_000),
+            Vec3i::new(-100_000, -200_000, 50_000),
+        ),
+        (
+            "mixed-corner-inward",
+            Vec3i::new(975_000, 25_000, 975_000),
+            Vec3i::new(100_000, -200_000, 300_000),
+        ),
+        (
+            "admitted-shallow-position",
+            Vec3i::new(24_000, 500_000, 500_000),
+            Vec3i::new(0, 0, 0),
+        ),
+        (
+            "interior-no-hit",
+            Vec3i::new(30_000, 500_000, 500_000),
+            Vec3i::new(-1_000_000, 0, 0),
+        ),
+        (
+            "interior-predicted-hit",
+            Vec3i::new(26_000, 500_000, 500_000),
+            Vec3i::new(-1_000_000, 0, 0),
+        ),
+    ];
+    let mut cases = Vec::new();
+    cases
+        .try_reserve_exact(inputs.len())
+        .map_err(audit_reserve_error)?;
+    for (id, position_um, velocity_um_s) in inputs {
+        let position = Vec3f::new(
+            decode_micrometres(position_um.x)?,
+            decode_micrometres(position_um.y)?,
+            decode_micrometres(position_um.z)?,
+        );
+        let before = Vec3f::new(
+            decode_velocity(velocity_um_s.x)?,
+            decode_velocity(velocity_um_s.y)?,
+            decode_velocity(velocity_um_s.z)?,
+        );
+        let mut velocities = [before];
+        let projection = project_predictive_outer_box(geometry, &[position], &mut velocities)?;
+        cases.push(ContactProjectionCase {
+            id,
+            position_um,
+            velocity_before_bits: vector_bits(before),
+            velocity_after_bits: vector_bits(velocities[0]),
+            fluid_impulse_bits: vector_bits(projection.fluid_impulse),
+            active_components: projection.active_components,
+        });
+    }
+    Ok(ContactProjectionProbe { cases })
 }
 
 pub(super) struct DensityRecorder {

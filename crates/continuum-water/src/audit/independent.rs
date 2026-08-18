@@ -12,14 +12,18 @@ use super::{
 };
 
 mod calibration;
+mod contact;
 mod initialization;
 mod volume_map;
 
 pub(crate) use calibration::{
     compute as compute_calibration, compute_ghost as compute_ghost_calibration,
     compute_support_complete as compute_support_complete_calibration,
+    compute_support_complete_pressure_probe,
+    compute_support_complete_projected_pcg_first_step_probe,
     compute_volume_map as compute_volume_map_calibration,
 };
+pub(crate) use contact::compute as compute_contact_projection_probe;
 pub(crate) use initialization::compute as compute_zero_velocity_settling;
 
 const FLUID_COUNT: usize = 6_000;

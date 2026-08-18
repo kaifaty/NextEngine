@@ -1,15 +1,150 @@
 #![forbid(unsafe_code)]
 
+use sha2::{Digest, Sha256};
+
 use crate::audit::{SELECTED_ROWS, scalar_bits};
 use crate::calibration::{
     BoundaryFeatureContribution, DIAGNOSTIC_CHECKPOINTS, DIAGNOSTIC_MAX_ITERATIONS,
     DensityContributionRow, ExtendedDensityCheckpoint, ExtendedDensityTrace, HydroCalibrationTrace,
+    PressureOperatorDiagonalProbe, PressureOperatorProbe, ProjectedPcgFirstStepProbe,
 };
 use crate::error::{AUDIT_INVALID, WaterError};
 use crate::model::Geometry;
 use crate::profile::{PARTICLE_RADIUS_UM, quantize_ppb, quantize_scaled};
 
 use super::super::*;
+
+pub(crate) fn production_pressure_operator_probe(
+    samples: &[CanonicalSample],
+    boundary: &[BoundarySample],
+) -> Result<PressureOperatorProbe, WaterError> {
+    let state = decode(samples)?;
+    let reconstruction = reconstruct(&state, boundary)?;
+    let (vector_u, vector_v) = pressure_probe_vectors(&state.samples)?;
+    let action_u = density_pressure_operator(&reconstruction, &vector_u)?;
+    let action_v = density_pressure_operator(&reconstruction, &vector_v)?;
+    let u_dot_b_u = checked_dot(&vector_u, &action_u, "pressure probe u dot B u")?;
+    let v_dot_b_v = checked_dot(&vector_v, &action_v, "pressure probe v dot B v")?;
+    let u_dot_b_v = checked_dot(&vector_u, &action_v, "pressure probe u dot B v")?;
+    let v_dot_b_u = checked_dot(&vector_v, &action_u, "pressure probe v dot B u")?;
+    let mut selected_u_action_bits = Vec::new();
+    let mut selected_v_action_bits = Vec::new();
+    let mut diagonals = Vec::new();
+    selected_u_action_bits
+        .try_reserve_exact(SELECTED_ROWS.len())
+        .map_err(super::audit_reserve_error)?;
+    selected_v_action_bits
+        .try_reserve_exact(SELECTED_ROWS.len())
+        .map_err(super::audit_reserve_error)?;
+    diagonals
+        .try_reserve_exact(SELECTED_ROWS.len())
+        .map_err(super::audit_reserve_error)?;
+    for (sample_id, _role) in SELECTED_ROWS {
+        let index = state
+            .samples
+            .binary_search_by_key(&sample_id, |sample| sample.id)
+            .map_err(|_| {
+                WaterError::new(
+                    AUDIT_INVALID,
+                    format!("pressure probe sample {sample_id} is missing"),
+                )
+            })?;
+        selected_u_action_bits.push(scalar_bits(action_u[index]));
+        selected_v_action_bits.push(scalar_bits(action_v[index]));
+        let mut basis = filled_vec(state.samples.len(), 0.0)?;
+        basis[index] = 1.0;
+        let diagonal_action = density_pressure_operator(&reconstruction, &basis)?[index];
+        let factor_derived = if reconstruction.alpha[index] > 0.0 {
+            checked_scalar(
+                DT2 / reconstruction.alpha[index],
+                "pressure probe factor-derived diagonal",
+            )?
+        } else {
+            0.0
+        };
+        diagonals.push(PressureOperatorDiagonalProbe {
+            sample_id,
+            action_bits: scalar_bits(diagonal_action),
+            factor_derived_bits: scalar_bits(factor_derived),
+            relative_difference_ppb: relative_difference_ppb(
+                diagonal_action,
+                factor_derived,
+                "pressure probe diagonal relative difference",
+            )?,
+        });
+    }
+    Ok(PressureOperatorProbe {
+        vector_u_action_root: pressure_action_root(&action_u),
+        vector_v_action_root: pressure_action_root(&action_v),
+        selected_u_action_bits,
+        selected_v_action_bits,
+        u_dot_b_u_bits: scalar_bits(u_dot_b_u),
+        v_dot_b_v_bits: scalar_bits(v_dot_b_v),
+        u_dot_b_v_bits: scalar_bits(u_dot_b_v),
+        v_dot_b_u_bits: scalar_bits(v_dot_b_u),
+        symmetry_relative_difference_ppb: relative_difference_ppb(
+            u_dot_b_v,
+            v_dot_b_u,
+            "pressure probe symmetry relative difference",
+        )?,
+        diagonals,
+    })
+}
+
+pub(crate) fn production_projected_pcg_first_step_probe(
+    samples: &[CanonicalSample],
+    boundary: &[BoundarySample],
+) -> Result<ProjectedPcgFirstStepProbe, WaterError> {
+    let mut state = decode(samples)?;
+    let reconstruction = reconstruct(&state, boundary)?;
+    let _divergence = solve_divergence(&reconstruction, &mut state.velocities)?;
+    for velocity in &mut state.velocities {
+        velocity.y = checked_scalar(
+            velocity.y + (DT * -GRAVITY_MAGNITUDE),
+            "PCG probe gravity velocity y",
+        )?;
+    }
+    let result = solve_density_projected_pcg(&reconstruction, &mut state.velocities, 50)?;
+    Ok(ProjectedPcgFirstStepProbe {
+        density_iterations: result.iterations,
+        density_error_ppb: result.error_ppb,
+        maximum_multiplier_bits: format!("0x{:016x}", result.maximum_multiplier_bits),
+    })
+}
+
+fn pressure_probe_vectors(samples: &[CanonicalSample]) -> Result<(Vec<f64>, Vec<f64>), WaterError> {
+    let mut vector_u = filled_vec(samples.len(), 0.0)?;
+    let mut vector_v = filled_vec(samples.len(), 0.0)?;
+    for (index, sample) in samples.iter().enumerate() {
+        if sample.id % 5 == 0 {
+            vector_u[index] = f64::from((sample.id % 7) + 1) / 1024.0;
+        }
+        if sample.id % 11 == 0 {
+            let magnitude = f64::from((sample.id % 13) + 1) / 2048.0;
+            vector_v[index] = if sample.id % 22 == 0 {
+                magnitude
+            } else {
+                -magnitude
+            };
+        }
+    }
+    Ok((vector_u, vector_v))
+}
+
+fn pressure_action_root(values: &[f64]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"nextengine.continuum-water.pressure-action-probe.v1\0");
+    for value in values {
+        hasher.update(value.to_bits().to_le_bytes());
+    }
+    crate::hash::hex(&hasher.finalize().into())
+}
+
+fn relative_difference_ppb(left: f64, right: f64, phase: &str) -> Result<i64, WaterError> {
+    let denominator = left.abs().max(right.abs()).max(SOLVER_EPSILON);
+    let relative = checked_scalar((left - right).abs() / denominator, phase)?;
+    quantize_ppb(relative)
+}
 
 pub(crate) fn production_hydro_calibration(
     samples: &[CanonicalSample],
