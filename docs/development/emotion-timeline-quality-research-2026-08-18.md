@@ -209,6 +209,50 @@ inference alone: stable emotion jobs measured 21/24 ms p50/p95. Report
 The remaining acceptance evidence is a labelled user-microphone checklist.
 [model card](https://huggingface.co/Aniemore/wavlm-emotion-russian-resd)
 
+## Next Russian SER candidates — 2026-08-19 research
+
+`nikatonika/aniemore-audio-finetuned` is the first direct A/B candidate. It is
+a standard local `WavLMForSequenceClassification` checkpoint at revision
+`3928ed3f29ffd09a4249d00b76ea44c9c8b7bb6d`, publishes a safetensors weight
+file, needs no remote code, accepts 16 kHz normalized audio, and exposes
+`Angry`, `Disgusted`, `Happy`, `Neutral`, `Sad`, `Scared`, `Surprised`. Its
+training claim is Russian Dusha + EmoGator with a natural class distribution,
+which is relevant because RESD is acted while Dusha includes real podcast
+speech. Its reported 0.860 accuracy / 0.858 macro-F1 is only a self-reported
+1,575-sample validation split, so it is not comparable to the frozen RESD
+screen or a generalization claim. The card is sparse (missing YAML metadata and
+formal citation); moreover it calls the base `wavlm-base-plus`, while its own
+config has WavLM Large dimensions (1,024 hidden, 24 layers), identical to the
+current candidate. Treat that as a provenance/documentation warning, not proof
+of incorrect weights. Its CC-BY-4.0 licence requires attribution and the
+claimed Dusha/EmoGator upstream terms still need classification before any
+distribution. [model card](https://huggingface.co/nikatonika/aniemore-audio-finetuned)
+
+The controlled screen is: fetch only `config.json`,
+`preprocessor_config.json` and `model.safetensors` at that revision outside
+Git; hash the weights; then run the existing RESD-70 v2 direct harness over the
+six common classes. `Scared → fearful` and the other five common labels map
+directly; RESD `enthusiasm` and the candidate's `Surprised` remain explicit
+non-comparable labels. Do not alter VAD, smoothing, thresholds or the current
+WavLM profile until this cheap gate passes. If it does, generalize the WavLM
+adapter's declared profile label map rather than hard-coding this new head.
+
+`Aniemore/wav2vec2-emotion-v1-crosslingual` (revision
+`6634a4213bbc63f2e9613f4d827a1d29e3b5e0da`) is the secondary generalization
+candidate. It is a standard no-remote-code safetensors Wav2Vec2 model under
+Apache-2.0 and keeps the seven Aniemore labels. Its self-reported RESD macro-F1
+falls to 0.534, but mapped Dusha podcast macro-F1 rises to 0.345 from the
+current WavLM's 0.112; the card explicitly says these models trade acted
+accuracy for spontaneous speech and need neutral-threshold calibration. It is
+worth testing only after `nikatonika` or against a new natural-microphone set,
+not as an automatic replacement. [model card](https://huggingface.co/Aniemore/wav2vec2-emotion-v1-crosslingual)
+
+Do not test the apparently stronger Aniemore audio-text fusion variants in this
+increment: their `auto_map` points to repository Python (`custom_code`), which
+violates the current no-remote-code local-model boundary, and their reported
+Dusha macro-F1 is lower than the current audio-only WavLM. HuBERT and legacy
+Wav2Vec2 RESD checkpoints are also lower on their own spontaneous-Dusha rows.
+
 ## Model shortlist (research, not an approval to install)
 
 1. **`emotion2vec/emotion2vec_plus_large` — first A/B candidate.** It preserves
@@ -255,4 +299,6 @@ evaluation manifest is therefore the release criterion. [ACL paper](https://acla
 Do not retry `emotion2vec_plus_large` on the full path unless the product
 weighting changes. Keep the WavLM profile running for actual-microphone
 quiet-room calibration and a labelled checklist: the acted RESD screen does
-not replace them.
+not replace them. Before that checklist, the user-requested `nikatonika`
+candidate may take one exact direct RESD-70 v2 A/B; retain the current WavLM
+profile unless it wins the declared comparable label screen.
