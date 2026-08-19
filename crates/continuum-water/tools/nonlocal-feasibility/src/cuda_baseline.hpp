@@ -22,30 +22,41 @@ enum class HandoffMode {
     PointerSwapO1,
 };
 
+enum class TermKernelMode {
+    RuntimeV0,
+    SpecializedO2,
+};
+
 const char* accumulation_identity(AccumulationMode mode);
 AccumulationMode parse_accumulation_identity(const std::string& identity);
 const char* handoff_identity(HandoffMode mode);
 HandoffMode parse_handoff_identity(const std::string& identity);
+const char* term_kernel_identity(TermKernelMode mode);
+TermKernelMode parse_term_kernel_identity(const std::string& identity);
 
 CommandReport run_cuda_self_test(
     AccumulationMode mode = AccumulationMode::SourceAtomicV0,
-    HandoffMode handoff = HandoffMode::CopyV0);
+    HandoffMode handoff = HandoffMode::CopyV0,
+    TermKernelMode term_kernels = TermKernelMode::RuntimeV0);
 CommandReport run_cuda_check(
     const Profile& profile,
     int iterations,
     AccumulationMode mode = AccumulationMode::SourceAtomicV0,
-    HandoffMode handoff = HandoffMode::CopyV0);
+    HandoffMode handoff = HandoffMode::CopyV0,
+    TermKernelMode term_kernels = TermKernelMode::RuntimeV0);
 CommandReport run_cuda_repeatability(
     const Profile& profile,
     int iterations,
     int runs,
     AccumulationMode mode,
-    HandoffMode handoff = HandoffMode::CopyV0);
+    HandoffMode handoff = HandoffMode::CopyV0,
+    TermKernelMode term_kernels = TermKernelMode::RuntimeV0);
 CommandReport run_cuda_benchmark(
     const Profile& profile,
     int warmup,
     int runs,
     AccumulationMode mode = AccumulationMode::SourceAtomicV0,
-    HandoffMode handoff = HandoffMode::CopyV0);
+    HandoffMode handoff = HandoffMode::CopyV0,
+    TermKernelMode term_kernels = TermKernelMode::RuntimeV0);
 
 } // namespace nextengine::nonlocal

@@ -483,6 +483,80 @@ __global__ void accumulate_viscosity_term_gather_directed(
     }
 }
 
+template <bool BulkEnabled, bool ShearEnabled>
+__global__ void accumulate_viscosity_term_gather_specialized(
+    const float3* reference,
+    const float3* current,
+    const int* offsets,
+    const int* neighbors,
+    float* source,
+    float* matrix,
+    int count,
+    float rest_density,
+    float lambda,
+    float mu,
+    float horizon,
+    float time_step,
+    float scale) {
+    static_assert(BulkEnabled || ShearEnabled, "inactive viscosity has no kernel launch");
+    const int particle = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle >= count) {
+        return;
+    }
+    // NR2-O2 closes the viscosity mask at compilation. The combined variant
+    // deliberately preserves the runtime kernel's expression order.
+    const float alpha = BulkEnabled ? lambda * time_step / rest_density : 0.0F;
+    const float beta = ShearEnabled ? mu * time_step / rest_density : 0.0F;
+    float3 local_source = make_float3(0.0F, 0.0F, 0.0F);
+    float local_matrix[9] = {};
+    for (int slot = offsets[particle]; slot < offsets[particle + 1]; ++slot) {
+        const int neighbor = neighbors[slot];
+        const float3 reference_delta = subtract3(reference[neighbor], reference[particle]);
+        const float radius = length3(reference_delta);
+        if (radius <= CUDA_PAIR_EPSILON) {
+            continue;
+        }
+        const float3 direction = multiply3(1.0F / radius, reference_delta);
+        const float components[3] = {direction.x, direction.y, direction.z};
+        const float weight = device_cubic_weight(radius, horizon, scale);
+        float pair_matrix[9];
+        for (int row = 0; row < 3; ++row) {
+            for (int column = 0; column < 3; ++column) {
+                const int component = 3 * row + column;
+                const float normal = components[row] * components[column];
+                if constexpr (BulkEnabled && ShearEnabled) {
+                    const float tangent = (row == column ? 1.0F : 0.0F) - normal;
+                    pair_matrix[component] =
+                        alpha * weight * normal + beta * weight * tangent;
+                } else if constexpr (BulkEnabled) {
+                    pair_matrix[component] = alpha * weight * normal;
+                } else {
+                    const float tangent = (row == column ? 1.0F : 0.0F) - normal;
+                    pair_matrix[component] = beta * weight * tangent;
+                }
+                local_matrix[component] += pair_matrix[component];
+                local_matrix[component] += pair_matrix[component];
+            }
+        }
+        const float3 local = subtract3(
+            matrix_vector(pair_matrix, current[neighbor]),
+            matrix_vector(pair_matrix, reference_delta));
+        const float3 incoming_reference_delta =
+            subtract3(reference[particle], reference[neighbor]);
+        const float3 incoming_reverse = add3(
+            matrix_vector(pair_matrix, current[neighbor]),
+            matrix_vector(pair_matrix, incoming_reference_delta));
+        local_source = add3(local_source, local);
+        local_source = add3(local_source, incoming_reverse);
+    }
+    source[3 * particle] += local_source.x;
+    source[3 * particle + 1] += local_source.y;
+    source[3 * particle + 2] += local_source.z;
+    for (int component = 0; component < 9; ++component) {
+        matrix[9 * particle + component] += local_matrix[component];
+    }
+}
+
 __device__ float surface_positive_cuda(float radius, float rest_spacing) {
     const float q = radius / rest_spacing;
     if (q <= 1.0F) {
@@ -909,6 +983,18 @@ std::string executable_hash() {
     return sha256_hex(bytes);
 }
 
+std::uint64_t executable_bytes() {
+    std::ifstream input("/proc/self/exe", std::ios::binary | std::ios::ate);
+    if (!input) {
+        throw std::runtime_error("cannot open /proc/self/exe for binary size");
+    }
+    const std::streampos size = input.tellg();
+    if (size < 0) {
+        throw std::runtime_error("cannot determine /proc/self/exe size");
+    }
+    return static_cast<std::uint64_t>(size);
+}
+
 std::string ordered_output_digest(const OracleResult& state) {
     std::ostringstream data;
     data << std::setprecision(17) << "density:" << state.density.size() << '|';
@@ -955,10 +1041,12 @@ public:
     CudaBaseline(
         const Fixture& fixture,
         AccumulationMode accumulation_mode,
-        HandoffMode handoff_mode)
+        HandoffMode handoff_mode,
+        TermKernelMode term_kernel_mode)
         : fixture_(fixture),
           accumulation_mode_(accumulation_mode),
           handoff_mode_(handoff_mode),
+          term_kernel_mode_(term_kernel_mode),
           count_(static_cast<int>(fixture.particles.size())),
           grid_(describe_grid(fixture)),
           pair_capacity_(fixture.particles.size() <= 256U
@@ -973,6 +1061,12 @@ public:
             && accumulation_mode_ != AccumulationMode::GatherDirectedR0) {
             throw std::invalid_argument(
                 "pointer-swap-o1 requires nuv-gather-directed-r0 accumulation");
+        }
+        if (term_kernel_mode_ == TermKernelMode::SpecializedO2
+            && (accumulation_mode_ != AccumulationMode::GatherDirectedR0
+                || handoff_mode_ != HandoffMode::PointerSwapO1)) {
+            throw std::invalid_argument(
+                "nuv-terms-specialized-o2 requires gather accumulation and pointer-swap-o1");
         }
         allocate_device_storage();
         upload_fixture();
@@ -1062,13 +1156,48 @@ public:
             if (fixture_.terms.bulk_viscosity || fixture_.terms.shear_viscosity) {
                 timed(intervals, EventInterval::Stage::Viscosity, [&] {
                     if (accumulation_mode_ == AccumulationMode::GatherDirectedR0) {
-                        accumulate_viscosity_term_gather_directed<<<blocks_for(count_), THREADS>>>(
-                            reference_, current_, neighbor_offsets_, neighbors_, source_, matrix_,
-                            count_, static_cast<float>(fixture_.rest_density),
-                            static_cast<float>(fixture_.lambda), static_cast<float>(fixture_.mu),
-                            static_cast<float>(fixture_.horizon),
-                            static_cast<float>(fixture_.time_step), kernel_scale_,
-                            fixture_.terms.bulk_viscosity, fixture_.terms.shear_viscosity);
+                        if (term_kernel_mode_ == TermKernelMode::SpecializedO2) {
+                            if (fixture_.terms.bulk_viscosity
+                                && fixture_.terms.shear_viscosity) {
+                                accumulate_viscosity_term_gather_specialized<true, true>
+                                    <<<blocks_for(count_), THREADS>>>(
+                                        reference_, current_, neighbor_offsets_, neighbors_, source_,
+                                        matrix_, count_, static_cast<float>(fixture_.rest_density),
+                                        static_cast<float>(fixture_.lambda),
+                                        static_cast<float>(fixture_.mu),
+                                        static_cast<float>(fixture_.horizon),
+                                        static_cast<float>(fixture_.time_step), kernel_scale_);
+                            } else if (fixture_.terms.bulk_viscosity) {
+                                accumulate_viscosity_term_gather_specialized<true, false>
+                                    <<<blocks_for(count_), THREADS>>>(
+                                        reference_, current_, neighbor_offsets_, neighbors_, source_,
+                                        matrix_, count_, static_cast<float>(fixture_.rest_density),
+                                        static_cast<float>(fixture_.lambda),
+                                        static_cast<float>(fixture_.mu),
+                                        static_cast<float>(fixture_.horizon),
+                                        static_cast<float>(fixture_.time_step), kernel_scale_);
+                            } else {
+                                accumulate_viscosity_term_gather_specialized<false, true>
+                                    <<<blocks_for(count_), THREADS>>>(
+                                        reference_, current_, neighbor_offsets_, neighbors_, source_,
+                                        matrix_, count_, static_cast<float>(fixture_.rest_density),
+                                        static_cast<float>(fixture_.lambda),
+                                        static_cast<float>(fixture_.mu),
+                                        static_cast<float>(fixture_.horizon),
+                                        static_cast<float>(fixture_.time_step), kernel_scale_);
+                            }
+                        } else {
+                            accumulate_viscosity_term_gather_directed
+                                <<<blocks_for(count_), THREADS>>>(
+                                    reference_, current_, neighbor_offsets_, neighbors_, source_,
+                                    matrix_, count_, static_cast<float>(fixture_.rest_density),
+                                    static_cast<float>(fixture_.lambda),
+                                    static_cast<float>(fixture_.mu),
+                                    static_cast<float>(fixture_.horizon),
+                                    static_cast<float>(fixture_.time_step), kernel_scale_,
+                                    fixture_.terms.bulk_viscosity,
+                                    fixture_.terms.shear_viscosity);
+                        }
                     } else {
                         accumulate_viscosity_term<<<blocks_for(count_), THREADS>>>(
                             reference_, current_, neighbor_offsets_, neighbors_, source_, matrix_,
@@ -1438,6 +1567,7 @@ private:
     Fixture fixture_;
     AccumulationMode accumulation_mode_ = AccumulationMode::SourceAtomicV0;
     HandoffMode handoff_mode_ = HandoffMode::CopyV0;
+    TermKernelMode term_kernel_mode_ = TermKernelMode::RuntimeV0;
     int count_ = 0;
     GridDescription grid_;
     std::size_t pair_capacity_ = 0;
@@ -1815,7 +1945,30 @@ HandoffMode parse_handoff_identity(const std::string& identity) {
     throw std::invalid_argument("unknown handoff identity: " + identity);
 }
 
-CommandReport run_cuda_self_test(AccumulationMode mode, HandoffMode handoff) {
+const char* term_kernel_identity(TermKernelMode mode) {
+    switch (mode) {
+    case TermKernelMode::RuntimeV0:
+        return "nuv-terms-runtime-v0";
+    case TermKernelMode::SpecializedO2:
+        return "nuv-terms-specialized-o2";
+    }
+    throw std::invalid_argument("unknown term-kernel mode");
+}
+
+TermKernelMode parse_term_kernel_identity(const std::string& identity) {
+    if (identity == "nuv-terms-runtime-v0") {
+        return TermKernelMode::RuntimeV0;
+    }
+    if (identity == "nuv-terms-specialized-o2") {
+        return TermKernelMode::SpecializedO2;
+    }
+    throw std::invalid_argument("unknown term-kernel identity: " + identity);
+}
+
+CommandReport run_cuda_self_test(
+    AccumulationMode mode,
+    HandoffMode handoff,
+    TermKernelMode term_kernels) {
     const Profile& profile = find_profile("nuv-tiny-oracle.v0");
     const Tolerances tolerances = profile.tolerances;
     const std::vector<Fixture> fixtures = oracle_fixtures();
@@ -1824,9 +1977,11 @@ CommandReport run_cuda_self_test(AccumulationMode mode, HandoffMode handoff) {
     output << "{\"schema\":\"nextengine.nonlocal.cuda_oracle_check.v0\""
            << ",\"accumulation_identity\":\"" << accumulation_identity(mode)
            << "\",\"handoff_identity\":\"" << handoff_identity(handoff)
+           << "\",\"term_kernel_identity\":\"" << term_kernel_identity(term_kernels)
            << "\",\"binary_sha256\":\"" << executable_hash()
            << "\",\"command\":\"nonlocal-feasibility --self-test --accumulation "
            << accumulation_identity(mode) << " --handoff " << handoff_identity(handoff)
+           << " --term-kernels " << term_kernel_identity(term_kernels)
            << "\",\"profile_id\":\"" << profile.id
            << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
            << "\",\"device\":" << device_json()
@@ -1837,7 +1992,7 @@ CommandReport run_cuda_self_test(AccumulationMode mode, HandoffMode handoff) {
     for (std::size_t index = 0; index < fixtures.size(); ++index) {
         const Fixture& fixture = fixtures[index];
         const OracleResult cpu = run_cpu_oracle(fixture);
-        CudaBaseline baseline(fixture, mode, handoff);
+        CudaBaseline baseline(fixture, mode, handoff, term_kernels);
         const CapturedRun gpu = baseline.execute(true);
         CapturedRun reused_second = gpu;
         CapturedRun reused_third = gpu;
@@ -1861,8 +2016,10 @@ CommandReport run_cuda_self_test(AccumulationMode mode, HandoffMode handoff) {
             && reuse_third.passed;
 
         CapturedRun copy_reference = gpu;
-        if (handoff == HandoffMode::PointerSwapO1) {
-            CudaBaseline copy_baseline(fixture, mode, HandoffMode::CopyV0);
+        if (handoff == HandoffMode::PointerSwapO1
+            && term_kernels == TermKernelMode::RuntimeV0) {
+            CudaBaseline copy_baseline(
+                fixture, mode, HandoffMode::CopyV0, TermKernelMode::RuntimeV0);
             copy_reference = copy_baseline.execute(true);
         }
         const Comparison copy_comparison =
@@ -1871,6 +2028,21 @@ CommandReport run_cuda_self_test(AccumulationMode mode, HandoffMode handoff) {
             && copy_reference.offsets == gpu.offsets && copy_reference.neighbors == gpu.neighbors
             && copy_reference.device_memory_bytes == gpu.device_memory_bytes
             && copy_comparison.passed;
+
+        CapturedRun term_reference = gpu;
+        if (term_kernels == TermKernelMode::SpecializedO2) {
+            CudaBaseline runtime_baseline(
+                fixture, mode, handoff, TermKernelMode::RuntimeV0);
+            term_reference = runtime_baseline.execute(true);
+        }
+        const Comparison term_correspondence =
+            compare_results(fixture, term_reference.state, gpu.state, tolerances);
+        const bool term_baseline_exact =
+            ordered_output_digest(term_reference.state) == output_digest;
+        const bool term_baseline_correspondence = term_correspondence.passed
+            && term_reference.offsets == gpu.offsets
+            && term_reference.neighbors == gpu.neighbors
+            && term_reference.device_memory_bytes == gpu.device_memory_bytes;
         const bool neighbors_passed = exact_fixture_neighbors(fixture, gpu)
             && valid_symmetric_neighbors(gpu, fixture.particles.size())
             && exact_fixture_neighbors(fixture, reused_second)
@@ -1887,8 +2059,11 @@ CommandReport run_cuda_self_test(AccumulationMode mode, HandoffMode handoff) {
             && !reused_second.local_solve_failed && !reused_third.local_solve_failed;
         const bool passed = comparison.passed && neighbors_passed && momentum_passed
             && finite_passed && local_solve_passed
-            && (handoff != HandoffMode::PointerSwapO1
-                || (reused_instance_exact && copy_baseline_exact));
+            && (handoff != HandoffMode::PointerSwapO1 || reused_instance_exact)
+            && (term_kernels != TermKernelMode::RuntimeV0
+                || handoff != HandoffMode::PointerSwapO1 || copy_baseline_exact)
+            && (term_kernels != TermKernelMode::SpecializedO2
+                || term_baseline_correspondence);
         all_passed = all_passed && passed;
         if (index != 0) {
             output << ',';
@@ -1899,15 +2074,31 @@ CommandReport run_cuda_self_test(AccumulationMode mode, HandoffMode handoff) {
                << (neighbors_passed ? "true" : "false");
         if (handoff == HandoffMode::PointerSwapO1) {
             output << ",\"reused_instance_runs\":3,\"reused_instance_exact\":"
-                   << (reused_instance_exact ? "true" : "false")
-                   << ",\"copy_baseline_exact\":"
-                   << (copy_baseline_exact ? "true" : "false")
-                   << ",\"ordered_output_sha256\":[\"" << output_digest << "\",\""
+                   << (reused_instance_exact ? "true" : "false");
+            if (term_kernels == TermKernelMode::RuntimeV0) {
+                output << ",\"copy_baseline_exact\":"
+                       << (copy_baseline_exact ? "true" : "false");
+            } else {
+                output << ",\"copy_baseline_exact\":null";
+            }
+            output << ",\"ordered_output_sha256\":[\"" << output_digest << "\",\""
                    << second_digest << "\",\"" << third_digest << "\"]";
         } else {
             output << ",\"reused_instance_runs\":1,\"reused_instance_exact\":null"
                       ",\"copy_baseline_exact\":null,\"ordered_output_sha256\":[\""
                    << output_digest << "\"]";
+        }
+        if (term_kernels == TermKernelMode::SpecializedO2) {
+            output << ",\"term_baseline_correspondence\":"
+                   << (term_baseline_correspondence ? "true" : "false")
+                   << ",\"term_baseline_exact\":"
+                   << (term_baseline_exact ? "true" : "false")
+                   << ",\"term_baseline_output_sha256\":\""
+                   << ordered_output_digest(term_reference.state) << "\"";
+        } else {
+            output << ",\"term_baseline_correspondence\":null"
+                      ",\"term_baseline_exact\":null"
+                      ",\"term_baseline_output_sha256\":null";
         }
         output << ",\"csr_sha256\":\"" << topology_digest << "\",\"finite\":"
                << (finite_passed ? "true" : "false")
@@ -1942,15 +2133,16 @@ CommandReport run_cuda_check(
     const Profile& profile,
     int iterations,
     AccumulationMode mode,
-    HandoffMode handoff) {
+    HandoffMode handoff,
+    TermKernelMode term_kernels) {
     if (profile.id == "nuv-tiny-oracle.v0") {
-        return run_cuda_self_test(mode, handoff);
+        return run_cuda_self_test(mode, handoff, term_kernels);
     }
     if (iterations < 1 || iterations > 100) {
         throw std::invalid_argument("check iterations must be inside 1..=100");
     }
     const Fixture fixture = performance_fixture(profile, iterations);
-    CudaBaseline baseline(fixture, mode, handoff);
+    CudaBaseline baseline(fixture, mode, handoff, term_kernels);
     const CapturedRun first = baseline.execute(true);
     const CapturedRun second = baseline.execute(true);
     const Comparison repeated =
@@ -1967,8 +2159,10 @@ CommandReport run_cuda_check(
         && repeated_neighbors_identical && repeated.passed;
 
     CapturedRun copy_reference = first;
-    if (handoff == HandoffMode::PointerSwapO1) {
-        CudaBaseline copy_baseline(fixture, mode, HandoffMode::CopyV0);
+    if (handoff == HandoffMode::PointerSwapO1
+        && term_kernels == TermKernelMode::RuntimeV0) {
+        CudaBaseline copy_baseline(
+            fixture, mode, HandoffMode::CopyV0, TermKernelMode::RuntimeV0);
         copy_reference = copy_baseline.execute(true);
     }
     const Comparison copy_correspondence =
@@ -1977,6 +2171,19 @@ CommandReport run_cuda_check(
         && copy_reference.offsets == first.offsets && copy_reference.neighbors == first.neighbors
         && copy_reference.device_memory_bytes == first.device_memory_bytes
         && copy_correspondence.passed;
+    CapturedRun term_reference = first;
+    if (term_kernels == TermKernelMode::SpecializedO2) {
+        CudaBaseline runtime_baseline(fixture, mode, handoff, TermKernelMode::RuntimeV0);
+        term_reference = runtime_baseline.execute(true);
+    }
+    const Comparison term_correspondence =
+        compare_results(fixture, term_reference.state, first.state, profile.tolerances);
+    const bool term_baseline_exact =
+        ordered_output_digest(term_reference.state) == first_digest;
+    const bool term_baseline_correspondence = term_correspondence.passed
+        && term_reference.offsets == first.offsets
+        && term_reference.neighbors == first.neighbors
+        && term_reference.device_memory_bytes == first.device_memory_bytes;
     const bool passed = finite_state(first.state) && finite_state(second.state)
         && !first.local_solve_failed && !second.local_solve_failed && neighbors_passed
         && first.state.normalized_momentum_residual
@@ -1984,8 +2191,11 @@ CommandReport run_cuda_check(
         && second.state.normalized_momentum_residual
             <= profile.tolerances.normalized_momentum_residual
         && repeated.passed
-        && (handoff != HandoffMode::PointerSwapO1
-            || (reused_instance_exact && copy_baseline_exact));
+        && (handoff != HandoffMode::PointerSwapO1 || reused_instance_exact)
+        && (term_kernels != TermKernelMode::RuntimeV0
+            || handoff != HandoffMode::PointerSwapO1 || copy_baseline_exact)
+        && (term_kernels != TermKernelMode::SpecializedO2
+            || term_baseline_correspondence);
 
     std::ostringstream output;
     output << std::setprecision(17);
@@ -1993,10 +2203,12 @@ CommandReport run_cuda_check(
            << (passed ? "PASS" : "FAIL") << "\",\"profile_id\":\"" << profile.id
            << "\",\"accumulation_identity\":\"" << accumulation_identity(mode)
            << "\",\"handoff_identity\":\"" << handoff_identity(handoff)
+           << "\",\"term_kernel_identity\":\"" << term_kernel_identity(term_kernels)
            << "\",\"binary_sha256\":\"" << executable_hash()
            << "\",\"command\":\"nonlocal-feasibility --check " << profile.id
            << " --iterations " << iterations << " --accumulation "
            << accumulation_identity(mode) << " --handoff " << handoff_identity(handoff)
+           << " --term-kernels " << term_kernel_identity(term_kernels)
            << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
            << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
            << "\",\"iterations\":" << iterations << ",\"samples\":"
@@ -2013,10 +2225,31 @@ CommandReport run_cuda_check(
            << first.state.normalized_momentum_residual << ','
            << second.state.normalized_momentum_residual
            << "],\"reused_instance_exact\":"
-           << (reused_instance_exact ? "true" : "false")
-           << ",\"copy_baseline_exact\":"
-           << (copy_baseline_exact ? "true" : "false")
-           << ",\"ordered_output_sha256\":[\"" << first_digest << "\",\""
+           << (reused_instance_exact ? "true" : "false") << ",\"copy_baseline_exact\":";
+    if (term_kernels == TermKernelMode::RuntimeV0) {
+        output << (copy_baseline_exact ? "true" : "false");
+    } else {
+        output << "null";
+    }
+    output << ",\"term_baseline_correspondence\":";
+    if (term_kernels == TermKernelMode::SpecializedO2) {
+        output << (term_baseline_correspondence ? "true" : "false");
+    } else {
+        output << "null";
+    }
+    output << ",\"term_baseline_exact\":";
+    if (term_kernels == TermKernelMode::SpecializedO2) {
+        output << (term_baseline_exact ? "true" : "false");
+    } else {
+        output << "null";
+    }
+    output << ",\"term_baseline_output_sha256\":";
+    if (term_kernels == TermKernelMode::SpecializedO2) {
+        output << '"' << ordered_output_digest(term_reference.state) << '"';
+    } else {
+        output << "null";
+    }
+    output << ",\"ordered_output_sha256\":[\"" << first_digest << "\",\""
            << second_digest
            << "\"],\"repeated_output_discrepancy\":{\"density\":";
     append_discrepancy(output, repeated.density);
@@ -2044,7 +2277,8 @@ CommandReport run_cuda_repeatability(
     int iterations,
     int runs,
     AccumulationMode mode,
-    HandoffMode handoff) {
+    HandoffMode handoff,
+    TermKernelMode term_kernels) {
     if (profile.id == "nuv-tiny-oracle.v0") {
         throw std::invalid_argument("repeatability requires a fixed performance profile");
     }
@@ -2082,7 +2316,7 @@ CommandReport run_cuda_repeatability(
         {
             // Deliberately reconstruct and reallocate the complete baseline for
             // every RC1 cold repeat, then reset from the immutable fixture.
-            CudaBaseline baseline(fixture, mode, handoff);
+            CudaBaseline baseline(fixture, mode, handoff, term_kernels);
             captured = baseline.execute(true);
         }
         const std::string output_digest = ordered_output_digest(captured.state);
@@ -2119,8 +2353,10 @@ CommandReport run_cuda_repeatability(
     }
 
     CapturedRun copy_reference = first;
-    if (handoff == HandoffMode::PointerSwapO1) {
-        CudaBaseline copy_baseline(fixture, mode, HandoffMode::CopyV0);
+    if (handoff == HandoffMode::PointerSwapO1
+        && term_kernels == TermKernelMode::RuntimeV0) {
+        CudaBaseline copy_baseline(
+            fixture, mode, HandoffMode::CopyV0, TermKernelMode::RuntimeV0);
         copy_reference = copy_baseline.execute(true);
     }
     const Comparison copy_correspondence =
@@ -2131,20 +2367,39 @@ CommandReport run_cuda_repeatability(
         && copy_reference.device_memory_bytes == first.device_memory_bytes
         && copy_correspondence.passed;
 
+    CapturedRun term_reference = first;
+    if (term_kernels == TermKernelMode::SpecializedO2) {
+        CudaBaseline runtime_baseline(fixture, mode, handoff, TermKernelMode::RuntimeV0);
+        term_reference = runtime_baseline.execute(true);
+    }
+    const Comparison term_correspondence =
+        compare_results(fixture, term_reference.state, first.state, profile.tolerances);
+    const bool term_baseline_exact =
+        ordered_output_digest(term_reference.state) == first_output_digest;
+    const bool term_baseline_correspondence = term_correspondence.passed
+        && term_reference.offsets == first.offsets
+        && term_reference.neighbors == first.neighbors
+        && term_reference.device_memory_bytes == first.device_memory_bytes;
+
     const bool passed = exact_output_digest && exact_csr && memory_identical
         && correspondence_passed && finite_passed && local_solve_passed && momentum_passed
         && topology_passed
-        && (handoff != HandoffMode::PointerSwapO1 || copy_baseline_exact);
+        && (term_kernels != TermKernelMode::RuntimeV0
+            || handoff != HandoffMode::PointerSwapO1 || copy_baseline_exact)
+        && (term_kernels != TermKernelMode::SpecializedO2
+            || term_baseline_correspondence);
     std::ostringstream output;
     output << std::setprecision(17);
     output << "{\"schema\":\"nextengine.nonlocal.cuda_repeatability.v0\",\"status\":\""
            << (passed ? "PASS" : "FAIL") << "\",\"profile_id\":\"" << profile.id
            << "\",\"accumulation_identity\":\"" << accumulation_identity(mode)
            << "\",\"handoff_identity\":\"" << handoff_identity(handoff)
+           << "\",\"term_kernel_identity\":\"" << term_kernel_identity(term_kernels)
            << "\",\"binary_sha256\":\"" << executable_hash()
            << "\",\"command\":\"nonlocal-feasibility --repeatability " << profile.id
            << " --iterations " << iterations << " --runs " << runs << " --accumulation "
            << accumulation_identity(mode) << " --handoff " << handoff_identity(handoff)
+           << " --term-kernels " << term_kernel_identity(term_kernels)
            << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
            << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
            << "\",\"iterations\":" << iterations << ",\"runs\":" << runs
@@ -2155,10 +2410,31 @@ CommandReport run_cuda_repeatability(
            << first_memory_bytes << ",\"exact_output_digest\":"
            << (exact_output_digest ? "true" : "false") << ",\"exact_csr\":"
            << (exact_csr ? "true" : "false") << ",\"memory_identical\":"
-           << (memory_identical ? "true" : "false")
-           << ",\"copy_baseline_exact\":"
-           << (copy_baseline_exact ? "true" : "false")
-           << ",\"correspondence_passed\":"
+           << (memory_identical ? "true" : "false") << ",\"copy_baseline_exact\":";
+    if (term_kernels == TermKernelMode::RuntimeV0) {
+        output << (copy_baseline_exact ? "true" : "false");
+    } else {
+        output << "null";
+    }
+    output << ",\"term_baseline_correspondence\":";
+    if (term_kernels == TermKernelMode::SpecializedO2) {
+        output << (term_baseline_correspondence ? "true" : "false");
+    } else {
+        output << "null";
+    }
+    output << ",\"term_baseline_exact\":";
+    if (term_kernels == TermKernelMode::SpecializedO2) {
+        output << (term_baseline_exact ? "true" : "false");
+    } else {
+        output << "null";
+    }
+    output << ",\"term_baseline_output_sha256\":";
+    if (term_kernels == TermKernelMode::SpecializedO2) {
+        output << '"' << ordered_output_digest(term_reference.state) << '"';
+    } else {
+        output << "null";
+    }
+    output << ",\"correspondence_passed\":"
            << (correspondence_passed ? "true" : "false") << ",\"finite\":"
            << (finite_passed ? "true" : "false") << ",\"local_solve_failed\":"
            << (local_solve_passed ? "false" : "true") << ",\"momentum_passed\":"
@@ -2203,27 +2479,29 @@ CommandReport run_cuda_benchmark(
     int warmup,
     int runs,
     AccumulationMode mode,
-    HandoffMode handoff) {
+    HandoffMode handoff,
+    TermKernelMode term_kernels) {
     if (profile.id == "nuv-tiny-oracle.v0") {
         throw std::invalid_argument("benchmark requires a fixed performance profile");
     }
     if (warmup < 0 || warmup > 100 || runs < 1 || runs > 1000) {
         throw std::invalid_argument("benchmark counts exceed bounded limits");
     }
-    const CommandReport self_test = run_cuda_self_test(mode, handoff);
+    const CommandReport self_test = run_cuda_self_test(mode, handoff, term_kernels);
     if (!self_test.passed) {
         std::ostringstream failure;
         failure << "{\"schema\":\"nextengine.nonlocal.cuda_benchmark.v0\","
                    "\"status\":\"FAIL\",\"reason\":\"self_test_preflight_failed\","
                    "\"accumulation_identity\":\""
                 << accumulation_identity(mode) << "\",\"handoff_identity\":\""
-                << handoff_identity(handoff) << "\",\"binary_sha256\":\""
+                << handoff_identity(handoff) << "\",\"term_kernel_identity\":\""
+                << term_kernel_identity(term_kernels) << "\",\"binary_sha256\":\""
                 << executable_hash() << "\"}";
         return {false, failure.str()};
     }
 
     const Fixture fixture = performance_fixture(profile, profile.fixed_iterations);
-    CudaBaseline baseline(fixture, mode, handoff);
+    CudaBaseline baseline(fixture, mode, handoff, term_kernels);
     const CapturedRun before = baseline.execute(true);
     for (int run = 0; run < warmup; ++run) {
         const CapturedRun warm = baseline.execute(false);
@@ -2276,10 +2554,13 @@ CommandReport run_cuda_benchmark(
            << (passed ? "PASS" : "FAIL") << "\",\"profile_id\":\"" << profile.id
            << "\",\"accumulation_identity\":\"" << accumulation_identity(mode)
            << "\",\"handoff_identity\":\"" << handoff_identity(handoff)
+           << "\",\"term_kernel_identity\":\"" << term_kernel_identity(term_kernels)
            << "\",\"binary_sha256\":\"" << executable_hash()
-           << "\",\"command\":\"nonlocal-feasibility --benchmark " << profile.id
+           << "\",\"binary_bytes\":" << executable_bytes()
+           << ",\"command\":\"nonlocal-feasibility --benchmark " << profile.id
            << " --warmup " << warmup << " --runs " << runs << " --accumulation "
            << accumulation_identity(mode) << " --handoff " << handoff_identity(handoff)
+           << " --term-kernels " << term_kernel_identity(term_kernels)
            << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
            << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
            << "\",\"fixed_iterations\":" << profile.fixed_iterations

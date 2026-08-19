@@ -26,13 +26,17 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --self-test --accumulation nuv-gather-directed-r0 \
   --handoff pointer-swap-o1
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --self-test --accumulation nuv-gather-directed-r0 \
+  --handoff pointer-swap-o1 --term-kernels nuv-terms-specialized-o2
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --repeatability nuv-surface-16k.v0 --iterations 20 --runs 10 \
   --accumulation nuv-gather-directed-r0 --handoff pointer-swap-o1
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --check nuv-water-48k.v0 --iterations 5
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --benchmark nuv-water-48k.v0 --warmup 5 --runs 50 \
-  --accumulation nuv-gather-directed-r0 --handoff pointer-swap-o1
+  --accumulation nuv-gather-directed-r0 --handoff pointer-swap-o1 \
+  --term-kernels nuv-terms-specialized-o2
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -42,4 +46,7 @@ Commands without `--accumulation` retain the frozen `source-atomic-v0`
 baseline. `nuv-gather-directed-r0` selects the NR1-RC1 owner-only directed
 gather counterfactual explicitly. Commands without `--handoff` retain the
 `copy-v0` state handoff. `pointer-swap-o1` is valid only with the directed
-gather path and selects the report-only NR2-O1 candidate explicitly.
+gather path and selects the report-only NR2-O1 candidate explicitly. Commands
+without `--term-kernels` retain `nuv-terms-runtime-v0`.
+`nuv-terms-specialized-o2` is valid only with directed gather plus pointer
+swap and selects the report-only NR2-O2 candidate.
