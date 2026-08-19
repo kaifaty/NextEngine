@@ -114,7 +114,20 @@ The profile is strict schema version 1 and contains three objects:
 
 The ready file is created with mode `0600`, contains the random session token,
 and is removed on clean shutdown. Raw PCM, transcripts, and model outputs are
-not written by the service.
+not written by default.
+
+For an explicit local microphone investigation, an operator may add the
+following `service` profile field. The service then writes only completed
+utterances as 16 kHz mono WAV to the external directory, retains at most five,
+serves them only through the same loopback dashboard, and never writes a
+transcript or model output beside them.
+
+```json
+"diagnostic_audio": {
+  "root": "/home/you/.cache/nextengine/speech-timeline-diagnostics",
+  "max_records": 5
+}
+```
 
 ### Russian WavLM candidate profile
 
