@@ -1,6 +1,6 @@
 # NR2-O2 — Compile-time viscosity term specialization
 
-Status: `SPECIFIED / IMPLEMENTATION_NOT_STARTED / REPORT_ONLY`
+Status: `EXECUTED / O2_RETAINED_TERM_SPECIALIZATION / O3_NEXT / REPORT_ONLY`
 
 Prerequisite:
 [NR2-O1 evidence](../../development/nonlocal-continuum-nr2-o1-evidence-2026-08-20.md)
@@ -31,6 +31,15 @@ term kernels  = nuv-terms-specialized-o2
 and JSON report. Commands without it preserve `nuv-terms-runtime-v0`.
 `nuv-terms-specialized-o2` is rejected at construction unless the retained
 gather and pointer-swap identities are also selected.
+
+Execution closure: the
+[O2 evidence](../../development/nonlocal-continuum-nr2-o2-evidence-2026-08-20.md)
+passes the complete correctness matrix with exact runtime/candidate outputs
+and unchanged device memory. The required adjacent viscosity p95 decreases on
+all profiles and total p95 decreases on both HN-3 denominators. Same-process
+Nsight Systems attribution confirms lower specialised viscosity-kernel mean;
+Nsight Compute counters are explicitly unavailable under
+`ERR_NVGPUCTRPERM`. O2 exits `O2_RETAINED_TERM_SPECIALIZATION` and admits O3.
 
 ## Audited specialization boundary
 

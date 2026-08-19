@@ -1,6 +1,6 @@
 # NR2/NR3 — Nonlocal GPU optimization discriminators
 
-Status: `SPECIFIED / O1_RETAINED_POINTER_SWAP / O2_NEXT / REPORT_ONLY`
+Status: `SPECIFIED / O2_RETAINED_TERM_SPECIALIZATION / O3_NEXT / REPORT_ONLY`
 
 The source-atomic [NR1 evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md)
 did not authorize this ladder. The separately specified
@@ -8,9 +8,11 @@ did not authorize this ladder. The separately specified
 has now exited `NR1_RECLOSED_GATHER_DIRECTED`; its
 [execution report](../../development/nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md)
 unblocked O1. The [O1 execution report](../../development/nonlocal-continuum-nr2-o1-evidence-2026-08-20.md)
-retains `nuv-gather-directed-r0 + pointer-swap-o1` as the O2 input. RC1 and O1
-timings remain bounded observations until the ordered ladder and required
-profiler captures are complete.
+retains `nuv-gather-directed-r0 + pointer-swap-o1` as the O2 input. The
+[O2 execution report](../../development/nonlocal-continuum-nr2-o2-evidence-2026-08-20.md)
+now retains `nuv-terms-specialized-o2` as the O3 input. RC1, O1 and O2 timings
+remain bounded observations until the ordered ladder and final retained-path
+profiler capture are complete.
 
 ## Outcome
 
@@ -82,7 +84,20 @@ full `3x3` representation remains.
 O2 is rejected if one compiled profile produces a different CPU/GPU oracle
 result from the general-kernel control beyond the frozen tolerance.
 
+Execution closure: `O2_RETAINED_TERM_SPECIALIZATION`. Tiny masks, stiff
+surface, reused-instance and full controls are exact against the runtime
+identity; device memory is unchanged. Required adjacent viscosity p95 falls
+on all three profiles, and total p95 falls `2.770%` on water-48k and `9.072%`
+on viscous-16k. Same-process Nsight Systems reports `5.886%` and `1.539%`
+lower mean viscosity-launch time respectively. Hardware counters are explicitly
+unavailable under `ERR_NVGPUCTRPERM`; no occupancy/throughput values are
+inferred. O3 starts from gather/swap/specialized, with runtime term dispatch
+kept as its rollback comparator.
+
 ### O3 — Accumulation-layout tournament
+
+Input identity:
+`nuv-gather-directed-r0 + pointer-swap-o1 + nuv-terms-specialized-o2`.
 
 Benchmark three explicit layouts where supported:
 

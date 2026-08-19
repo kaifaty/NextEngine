@@ -1,6 +1,6 @@
 # Nonlocal continuum — bounded research roadmap
 
-Status: `NR2_O1_RETAINED_POINTER_SWAP / O2_NEXT / NO_W2_CREDIT`
+Status: `NR2_O2_RETAINED_TERM_SPECIALIZATION / O3_NEXT / NO_W2_CREDIT`
 
 This directory specifies a report-only evaluation of the method described in
 *A Nonlocal Unified Variational Framework for Free Surface Flows*. The work is
@@ -33,7 +33,7 @@ of this experiment.
 NR0 Research contract and source audit       SPECIFIED / DOCUMENTATION
  └─ NR1 Source-faithful baseline + CPU oracle  BASELINE_MISMATCH
      └─ NR1-RC1 owner-only gather reclosure    RECLOSED / PASS
-         └─ NR2 Fixed-iteration optimization O1 RETAINED / O2 NEXT
+         └─ NR2 Fixed-iteration optimization O2 RETAINED / O3 NEXT
              └─ NR3 Algorithm-changing probes NOT_STARTED / CONDITIONAL
                  └─ NR4 Architecture decision NOT_STARTED
 ```
@@ -43,7 +43,7 @@ NR0 Research contract and source audit       SPECIFIED / DOCUMENTATION
 | NR0 | [Research contract](00-research-contract.md) and [source audit](../../development/nonlocal-unified-continuum-source-audit-2026-08-19.md) | hypotheses, provenance, fixtures, metrics and stop states are explicit | documentation only |
 | NR1 | [Baseline and oracle](01-source-faithful-baseline-and-oracle.md) and [evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | tiny, water and viscous controls pass; stiff surface repeated-output control fails | report only |
 | NR1-RC1 | [Deterministic accumulation reclosure](03-nr1-deterministic-accumulation-reclosure.md), [candidate research](../../development/nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md) and [execution evidence](../../development/nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md) | `nuv-gather-directed-r0` passes CPU algebra, 11/11 CUDA tiny cases, exact two-/twenty-iteration surface repeats and all full controls | report only |
-| NR2 | [GPU optimization discriminators](02-gpu-optimization-discriminators.md), [O1 pointer-swap contract](04-nr2-o1-pointer-swap.md), [O1 evidence](../../development/nonlocal-continuum-nr2-o1-evidence-2026-08-20.md) and [O2 term-specialization contract](05-nr2-o2-term-specialization.md) | O1 retains exact pointer-swap handoff with unchanged memory and `1.1091x` HN-3 adjacent total-p95 geometric speedup; O2 is specified next | report only |
+| NR2 | [GPU optimization discriminators](02-gpu-optimization-discriminators.md), [O1 pointer-swap contract](04-nr2-o1-pointer-swap.md), [O1 evidence](../../development/nonlocal-continuum-nr2-o1-evidence-2026-08-20.md), [O2 term-specialization contract](05-nr2-o2-term-specialization.md) and [O2 evidence](../../development/nonlocal-continuum-nr2-o2-evidence-2026-08-20.md) | O2 retains exact compile-time viscosity specialization with unchanged memory, same-process profiler attribution and `1.0635x` O2-only HN-3 adjacent total-p95 geometric speedup; O3 is next | report only |
 | NR3 | [Algorithm-changing probes](02-gpu-optimization-discriminators.md#nr3-algorithm-changing-probes) | a separately labelled convergence/algorithm candidate passes its own oracle | no fixed-iteration credit |
 | NR4 | [Decision contract](00-research-contract.md#decision-states) | exactly one predeclared decision state is selected from complete evidence | may authorize a later Proposed reclosure only |
 

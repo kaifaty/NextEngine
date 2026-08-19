@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `NR2_O1_RETAINED_POINTER_SWAP / O2_NEXT / REPORT_ONLY` |
+| Status | `NR2_O2_RETAINED_TERM_SPECIALIZATION / O3_NEXT / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-research` |
 | Scope | Source-faithful Nonlocal/SISSM baseline and bounded GPU optimization research |
@@ -30,6 +30,15 @@
   `8.313 ms` viscous-16k. Handoff p95 decreases on all profiles; total p95
   decreases `12.105%` water-48k and `7.505%` viscous-16k, retaining O1 with a
   `1.1091x` HN-3 geometric-mean speedup.
+- O2 is specified at `e3f6af5` and implemented at `053e1e7` as
+  `nuv-terms-specialized-o2`. It is exact against runtime term dispatch across
+  tiny masks, stiff surface and all full controls, with unchanged memory.
+  Required adjacent total p95 is `1.903 ms` water-16k, `3.595 ms` water-48k
+  and `6.608 ms` viscous-16k; O2-only HN-3 geometric-mean speedup is `1.0635x`.
+- Same-process Nsight Systems attribution reports `5.886%` lower water-48k
+  and `1.539%` lower viscous-16k specialised viscosity-launch mean. Nsight
+  Compute counters are explicitly unavailable under `ERR_NVGPUCTRPERM`; no
+  occupancy or throughput is inferred.
 - The experiment does not replace DFSPH, change SPEC-38/ADR-076, add GPU
   authority or inherit `CONTINUUM-WATER-REF-P1` credit.
 - The standalone CPU `f64` oracle and source-shaped CUDA `f32` baseline live
@@ -39,9 +48,10 @@
   existing `4/6 ms` production gate.
 - Pairwise Descent remains unavailable as a public paper/code input and is not
   implemented.
-- O1 is retained. O2 term specialization is next from
-  `nuv-gather-directed-r0 + pointer-swap-o1`; freeze its exact candidate
-  identities and oracle/adjacent rollback gates before changing code.
+- O2 is retained. O3 accumulation-layout work is next from
+  `nuv-gather-directed-r0 + pointer-swap-o1 + nuv-terms-specialized-o2`.
+  Specify the tournament identities, capacity bounds and rollback gates before
+  changing accumulation layout.
 
 ## Decisions
 
@@ -117,32 +127,45 @@
 - **Constraint:** the `1.1091x` adjacent geometric-mean speedup is O1-only. It
   grants no aggregate NR2, profiler, NR4, runtime, W2 or production credit.
 
+### D-NR-008 — Retain compile-time viscosity specialization
+
+- **Decision:** retain `nuv-terms-specialized-o2` as the O3 input while keeping
+  `nuv-terms-runtime-v0` explicitly selectable as the rollback comparator.
+- **Reason:** the complete correctness matrix is exact, memory is unchanged,
+  the frozen adjacent p95 rules pass and same-process profiler attribution
+  confirms lower viscosity-launch mean on water-48k and viscous-16k.
+- **Constraint:** short-process timing is sensitive to GPU clock state; only
+  the viscosity-kernel attribution is credited. The `1.0635x` adjacent HN-3
+  result is O2-only and grants no aggregate NR2, NR4, W2 or production credit.
+
 ## Evidence and sources
 
 | Evidence | Status | Consequence |
 |---|---|---|
 | [Source audit](../nonlocal-unified-continuum-source-audit-2026-08-19.md) | `PRIMARY_SOURCES_INSPECTED` | formulas/code are sufficient for a bounded experiment; universal-solver claim rejected |
-| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `NR2_O1_RETAINED_POINTER_SWAP / O2_NEXT` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
+| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `NR2_O2_RETAINED_TERM_SPECIALIZATION / O3_NEXT` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
 | [Research contract](../../plans/nonlocal-continuum/00-research-contract.md) | `SPECIFIED` | freezes hypotheses, workloads, measurement scope and terminal states |
 | [Baseline/oracle specification](../../plans/nonlocal-continuum/01-source-faithful-baseline-and-oracle.md) | `EXECUTED / BASELINE_MISMATCH` | source-shaped NR1 may not enter NR2 |
 | [NR1 evidence](../nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | `BASELINE_MISMATCH` | tiny/water/viscous reproduce; surface atomics amplify repeated `f32` order noise beyond state tolerances |
 | [Accumulation reclosure research](../nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md) | `GATHER_DIRECTED_SELECTED` | formula closure, CUDA determinism limits and fragment memory select owner-only gather first |
 | [NR1-RC1 specification](../../plans/nonlocal-continuum/03-nr1-deterministic-accumulation-reclosure.md) | `EXECUTED / NR1_RECLOSED_GATHER_DIRECTED` | freezes and closes candidate identity, unchanged dimensions and ordered gates |
 | [NR1-RC1 evidence](../nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md) | `NR1_RECLOSED_GATHER_DIRECTED / NR2_UNBLOCKED` | exact surface repeats support the atomic-order diagnosis; full controls and bounded adjacent costs pass |
-| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `O1_RETAINED_POINTER_SWAP / O2_NEXT` | continue in order from the exact gather/swap candidate |
+| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `O2_RETAINED_TERM_SPECIALIZATION / O3_NEXT` | continue in order from the exact gather/swap/specialized candidate |
 | [O1 specification](../../plans/nonlocal-continuum/04-nr2-o1-pointer-swap.md) and [evidence](../nonlocal-continuum-nr2-o1-evidence-2026-08-20.md) | `EXECUTED / O1_RETAINED_POINTER_SWAP` | exact reused/copy correspondence, unchanged memory and adjacent retention gates pass |
+| [O2 specification](../../plans/nonlocal-continuum/05-nr2-o2-term-specialization.md) and [evidence](../nonlocal-continuum-nr2-o2-evidence-2026-08-20.md) | `EXECUTED / O2_RETAINED_TERM_SPECIALIZATION` | exact runtime/specialized correspondence, unchanged memory, adjacent gates and same-process profiler attribution pass; counters unavailable explicitly |
 | Pairwise Descent paper/code | `TO_APPEAR / NOT_AUDITABLE` | do not implement or infer formulas |
 
 ## Next action
 
-1. Specify NR2 O2 term-specialized identities and the general-kernel rollback
-   comparison before implementation; do not combine O2 with O3 layout work.
-2. Start O2 from `nuv-gather-directed-r0 + pointer-swap-o1`, rerun the complete
-   correctness matrix, then run adjacent candidate timing.
-3. Take the required profiler capture after O2 and attribute active-term pair
-   work, launch/branch cost and remaining stage ownership.
-4. Preserve `copy-v0`, `source-atomic-v0`, all NR1/RC1 hashes and the O1 binary
-   boundary. Do not infer NR2-SPEEDUP, NR4 or production authority from O1.
+1. Specify the O3 accumulation-layout tournament from the retained
+   gather/swap/specialized identity before implementation.
+2. Freeze pair identity, evaluation count, fragment-memory capacity, stable
+   reduction order and per-layout correctness/rollback gates independently of
+   the old source-atomic surface failure.
+3. Preserve runtime term dispatch, copy handoff, source-atomic, RC1, O1 and O2
+   evidence boundaries. Do not add their non-adjacent percentages.
+4. Keep O3 report-only; do not infer NR2-SPEEDUP, NR4, W2 or production
+   authority from the retained O2 result.
 
 ## Do not retry or infer
 
@@ -158,12 +181,15 @@
 
 ## Handoff
 
-- **Current change:** O1 specification `30ec167`, implementation `b192f0a`,
-  final harness checkpoint `d7ef06a`, binary `a9a8b7ad...7d74`; original
-  atomic and RC1 evidence is unchanged.
-- **Executable checks:** build and legacy tiny PASS; gather/swap tiny 11/11,
-  surface i2/i20 ten-repeat, reused-instance and copy correspondence exact;
-  all full controls and adjacent 5+50 timings PASS.
-- **Remaining uncertainty:** O2–O6 retained attribution, final fixed-work
-  speedup after ordered optimization, profiler counter evidence and NR4
+- **Current change:** O2 specification `e3f6af5`, implementation `053e1e7`,
+  binary `ae444274...c389`; original atomic, RC1 and O1 evidence is unchanged.
+- **Executable checks:** build, both legacy tiny identities and specialised
+  tiny 11/11 PASS; invalid identity combinations reject; surface i2/i20
+  ten-repeat, reused-instance, runtime correspondence and all full controls
+  are exact; adjacent 5+50 timing gates PASS.
+- **Profiler:** Nsight Systems same-process viscosity attribution is complete;
+  Nsight Compute counter collection is explicitly unavailable under
+  `ERR_NVGPUCTRPERM` and recorded by two hashed command logs.
+- **Remaining uncertainty:** O3–O6 retained attribution, final fixed-work
+  speedup after ordered optimization, privileged counter evidence and NR4
   product interpretation.
