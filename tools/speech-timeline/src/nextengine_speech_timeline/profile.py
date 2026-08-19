@@ -15,7 +15,10 @@ from .adapters.voxtral_transcribe_cpp import VoxtralTranscriberAdapter
 from .adapters.wavlm_russian_resd import (
     ADAPTER_ID as WAVLM_RUSSIAN_RESD_ADAPTER_ID,
     DEFAULT_LABEL_MAP,
+    GENERIC_AUDIO_ADAPTER_ID as TRANSFORMERS_AUDIO_CLASSIFICATION_ADAPTER_ID,
+    GENERIC_AUDIO_MODEL_TYPES,
     GENERIC_ADAPTER_ID as WAVLM_AUDIO_CLASSIFICATION_ADAPTER_ID,
+    WAVLM_MODEL_TYPES,
     WEIGHTS_FILENAME as WAVLM_WEIGHTS_FILENAME,
     WavlmAffectAdapter,
     WavlmRussianResdAffectAdapter,
@@ -26,7 +29,8 @@ from .session import SessionBounds
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 EMOTION2VEC_ADAPTER_ID = "emotion2vec-plus/1"
 WAVLM_ADAPTER_IDS = {WAVLM_RUSSIAN_RESD_ADAPTER_ID, WAVLM_AUDIO_CLASSIFICATION_ADAPTER_ID}
-SUPPORTED_EMOTION_ADAPTERS = {EMOTION2VEC_ADAPTER_ID, *WAVLM_ADAPTER_IDS}
+TRANSFORMERS_AUDIO_ADAPTER_IDS = {*WAVLM_ADAPTER_IDS, TRANSFORMERS_AUDIO_CLASSIFICATION_ADAPTER_ID}
+SUPPORTED_EMOTION_ADAPTERS = {EMOTION2VEC_ADAPTER_ID, *TRANSFORMERS_AUDIO_ADAPTER_IDS}
 
 
 class ProfileError(RuntimeError):
@@ -194,7 +198,7 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
         raise ProfileError(f"transcribe.cpp library does not exist: {profile.voxtral.library}")
     if not profile.emotion.cache_dir.is_dir():
         raise ProfileError(f"emotion cache directory does not exist: {profile.emotion.cache_dir}")
-    if profile.emotion.adapter_id in WAVLM_ADAPTER_IDS:
+    if profile.emotion.adapter_id in TRANSFORMERS_AUDIO_ADAPTER_IDS:
         if profile.emotion.weights_sha256 is None:
             raise ProfileError("WavLM emotion profile requires emotion.weights_sha256")
         if profile.emotion.label_map is None:
@@ -242,7 +246,7 @@ def build_adapters(
             local_files_only=True,
         )
         return transcriber, Emotion2VecAffectAdapter(probe)
-    if profile.emotion.adapter_id in WAVLM_ADAPTER_IDS:
+    if profile.emotion.adapter_id in TRANSFORMERS_AUDIO_ADAPTER_IDS:
         assert profile.emotion.weights_sha256 is not None
         assert profile.emotion.label_map is not None
         return transcriber, WavlmAffectAdapter(
@@ -253,6 +257,11 @@ def build_adapters(
             profile.emotion.weights_sha256,
             dict(profile.emotion.label_map),
             profile.emotion.adapter_id,
+            (
+                GENERIC_AUDIO_MODEL_TYPES
+                if profile.emotion.adapter_id == TRANSFORMERS_AUDIO_CLASSIFICATION_ADAPTER_ID
+                else WAVLM_MODEL_TYPES
+            ),
         )
     raise AssertionError(f"unsupported validated emotion adapter: {profile.emotion.adapter_id}")
 

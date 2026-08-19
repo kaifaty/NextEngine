@@ -24,7 +24,10 @@ from .base import AdapterError, AffectObservation, AudioWindow
 
 ADAPTER_ID = "transformers-wavlm-russian-ser/1"
 GENERIC_ADAPTER_ID = "transformers-wavlm-audio-classification/1"
+GENERIC_AUDIO_ADAPTER_ID = "transformers-audio-classification/1"
 MODEL_TYPE = "wavlm"
+WAVLM_MODEL_TYPES = frozenset({MODEL_TYPE})
+GENERIC_AUDIO_MODEL_TYPES = frozenset({"wavlm", "wav2vec2"})
 WEIGHTS_FILENAME = "model.safetensors"
 SAMPLE_RATE_HZ = 16_000
 MAX_INPUT_SECONDS = 12
@@ -62,9 +65,11 @@ class WavlmAffectAdapter:
         weights_sha256: str,
         label_map: Mapping[str, str] = DEFAULT_LABEL_MAP,
         adapter_id: str = ADAPTER_ID,
+        model_types: frozenset[str] = WAVLM_MODEL_TYPES,
     ) -> None:
         self._label_map = _validate_label_map(label_map)
         self._adapter_id = adapter_id
+        self._model_types = _validate_model_types(model_types)
         self._model_id = model_id
         self._model_revision = model_revision
         self._cache_dir = cache_dir.expanduser().resolve()
@@ -95,7 +100,7 @@ class WavlmAffectAdapter:
                 local_files_only=True,
                 trust_remote_code=False,
             )
-            upstream_labels = _validate_config(config, self._label_map)
+            upstream_labels = _validate_config(config, self._label_map, self._model_types)
             feature_extractor = AutoFeatureExtractor.from_pretrained(
                 snapshot,
                 local_files_only=True,
@@ -226,9 +231,24 @@ def _validate_label_map(label_map: Mapping[str, str]) -> dict[str, str]:
     return normalized
 
 
-def _validate_config(config: Any, label_map: Mapping[str, str] = DEFAULT_LABEL_MAP) -> tuple[str, ...]:
-    if getattr(config, "model_type", None) != MODEL_TYPE:
-        raise AdapterError(f"expected model_type={MODEL_TYPE!r}")
+def _validate_model_types(model_types: frozenset[str]) -> frozenset[str]:
+    if (
+        not isinstance(model_types, frozenset)
+        or not model_types
+        or not model_types.issubset(GENERIC_AUDIO_MODEL_TYPES)
+    ):
+        raise AdapterError("unsupported Transformers audio-classification model family")
+    return model_types
+
+
+def _validate_config(
+    config: Any,
+    label_map: Mapping[str, str] = DEFAULT_LABEL_MAP,
+    model_types: frozenset[str] = WAVLM_MODEL_TYPES,
+) -> tuple[str, ...]:
+    supported_model_types = _validate_model_types(model_types)
+    if getattr(config, "model_type", None) not in supported_model_types:
+        raise AdapterError(f"expected model_type in {sorted(supported_model_types)!r}")
     raw_labels = getattr(config, "id2label", None)
     if not isinstance(raw_labels, Mapping):
         raise AdapterError("WavLM config has no id2label mapping")
