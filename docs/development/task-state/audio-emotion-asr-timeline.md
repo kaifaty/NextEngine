@@ -18,7 +18,7 @@
 - **Phase 2 plan:** `docs/plans/2026-08-18-conversation-service-phase-2.md` adds a `ConversationService` facade for large-LLM dialogue and TTS only; two Phase 2 scope choices remain pending.
 - **Phase 3 plan:** `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` now starts with 3A: one existing character, push-to-talk, session-local persona/history, subtitles/TTS and no world/internal-model/tool context. 3B-3D then harden proven boundaries, shadow-integrate the strategic model and freeze catalogs.
 - **Phase 4 plan:** `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` fine-tunes FunctionGemma only after Phase 3 freezes a consumer-backed strategic catalog and corpus seed.
-- **Next action:** User records comparable normal and whispered phrases through the explicit five-WAV local diagnostic buffer; inspect their VAD admission, RMS/peak and resulting ASR/affect before changing thresholds. Retain crosslingual, Nikatonika, prior WavLM and base profiles as rollback. LLM/TTS and FunctionGemma remain out of scope.
+- **Next action:** Specify an in-process, model-neutral streaming `AudioPreprocessor` seam that accepts captured PCM and returns clock-preserving ASR/affect branches; it must not create or require a virtual system audio device. Then compare normal and whispered user phrases through the explicit five-WAV diagnostic buffer, recording VAD admission, RMS/peak, ASR and affect before selecting a denoiser. Retain crosslingual, Nikatonika, prior WavLM and base profiles as rollback. LLM/TTS and FunctionGemma remain out of scope.
 - **Current blocker:** No service implementation blocker. A meaningful live-microphone quality/latency run requires a user-spoken utterance; automated evidence uses the external 4.5 s Russian WAV and 30 s paced soak.
 - **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated word timestamps from text arrival time.
 - **Reconsider when:** A model/runtime exposes better timed lexical units, or measured model-slot boundary error is too high and justifies a final aligner.
@@ -172,6 +172,15 @@
 - **Consequence:** The former ~172 MiB cumulative Python PCM-copy path is removed; remaining delay is attributable to model work and serialized priority contention rather than growing wrapper payloads.
 - **Reconsider when:** A replacement model lacks stateful streaming, retained audio or per-update compute grows with turn duration, or a measured live run shows wrapper/transport backpressure.
 
+### D-014 — Embedded PCM preprocessing; no virtual capture-device dependency
+
+- **Observation:** The eventual consumer is an embedded game host, not a Linux-only diagnostic application. The user explicitly rejected creating a PipeWire or other virtual microphone as part of the product path.
+- **Decision:** A future preprocessing adapter accepts host-captured PCM and produces timestamp/length-preserving derived PCM branches. It is in-process or a declared bounded host service; it never installs, creates or depends on a system virtual audio device. Its public seam stays model-neutral and reports exact algorithm/model identity, configuration, delay and bypass state.
+- **Consequence:** A native Rust DSP implementation remains admissible, but it must expose a stream API and run resident rather than launching a file/CLI processor per chunk. The ASR branch may use denoising and bounded speech-aware gain. The affect branch remains raw by default and can use enhanced PCM only after an A/B quality gate; both retain the same sample-clock bounds.
+- **Rejected:** PipeWire/LADSPA virtual microphone as the integration path; global AGC or a one-size-fits-all enhanced stream for affect; per-window CLI/file filtering.
+- **Remaining uncertainty:** Whether DeepFilterNet or an RNNoise-compatible Rust implementation improves whispered Russian ASR without measurable affect degradation on the intended microphone environment.
+- **Reconsider when:** An in-process comparison demonstrates no useful benefit, a measured resource/latency envelope fails, or a cross-platform host boundary requires a revised adapter process contract.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -219,16 +228,17 @@ Read in precedence order:
 
 ## Smallest next action
 
-1. Run one user-spoken turn through the same-origin Vue dashboard; record capture-to-first-update and subjective ASR/affect sanity without persisting audio by default.
-2. Confirm the two unresolved Phase 2 choices and execute its Commit A without merging LLM/TTS implementation into `SpeechTimelineService`.
-3. Keep VAD and Voxtral model-slot timing as separately measured increments; do not fabricate word spans meanwhile.
-4. After Phase 2 evidence, implement Phase 3A first: clean `reference-alpha`
+1. Design and prototype the bounded in-process `AudioPreprocessor` seam around captured PCM, with `bypass`, `asr_enhanced` and raw-affect branches; retain one integer acoustic clock and report preprocessing delay/configuration.
+2. Run comparable normal and whispered user turns through the same-origin Vue dashboard; record capture-to-first-update, VAD admission, objective levels and subjective ASR/affect sanity without persisting audio by default.
+3. Confirm the two unresolved Phase 2 choices and execute its Commit A without merging LLM/TTS implementation into `SpeechTimelineService`.
+4. Keep VAD and Voxtral model-slot timing as separately measured increments; do not fabricate word spans meanwhile.
+5. After Phase 2 evidence, implement Phase 3A first: clean `reference-alpha`
    relay keeper, semantic presentation-only dialogue open, fake then real
    `ConversationClient`, push-to-talk, subtitles/TTS, three-turn residency and
    fault/resource evidence.
-5. Only after 3A closes, execute 3B capability hardening and 3C strategic-model
+6. Only after 3A closes, execute 3B capability hardening and 3C strategic-model
    audit/shadow integration; do not add world/memory/tool context to 3A.
-6. Do not start Phase 4 until 3D freezes consumer-backed
+7. Do not start Phase 4 until 3D freezes consumer-backed
     `NeuralCapabilityCatalog` and `StrategicSemanticCatalog` revisions plus the
     external corpus/evaluation seed.
 
@@ -240,6 +250,7 @@ Read in precedence order:
 - Treating text arrival/commit time as acoustic word time.
 - Emitting inline word emotion tags while capability is `none`/`utterance`.
 - Recreating the Voxtral wrapper in this branch instead of using the tested `e839a38` source.
+- Creating, installing or requiring PipeWire, a virtual microphone or another system audio device for the embedded path.
 
 ## Handoff
 
