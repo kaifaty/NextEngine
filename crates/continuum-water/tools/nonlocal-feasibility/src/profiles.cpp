@@ -103,6 +103,7 @@ std::string canonical_profile_json(const Profile& profile) {
            << ",\"samples\":" << profile.samples
            << ",\"initialization_order\":\"lexicographic_z_y_x\""
            << ",\"geometry\":\"" << profile.geometry << "\""
+           << ",\"origin_m\":[0,0,0]"
            << ",\"spacing_m\":" << profile.spacing
            << ",\"mass_kg\":" << profile.mass
            << ",\"horizon_m\":" << profile.horizon
