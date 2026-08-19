@@ -158,10 +158,12 @@ water and viscous fixed controls reproduce; the required stiff surface control
 does not satisfy repeated-output correctness. Tolerances are not widened and
 the failing timing is not promoted.
 
-Under the current stage contract NR2 is blocked. The recommended reclosure is
-to retain `source-atomic-v0` as the immutable failed denominator and specify a
-separate deterministic gather/segmented pair-accumulation remediation identity.
+Under the current stage contract NR2 is blocked. The initial recommendation
+was to retain `source-atomic-v0` as the immutable failed denominator and
+research a separately identified deterministic gather/segmented remediation.
 That candidate must first pass the same tiny cases and the two-iteration
-surface discriminator before any optimization timing. Implementing it now as
-if NR1 had passed would erase the distinction between source reproduction and
-the planned O2 accumulation change.
+surface discriminator before any optimization timing. Implementing it as if
+NR1 had passed would erase the distinction between source reproduction and the
+planned O3 accumulation change. The subsequent
+[reclosure research](nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md)
+selects owner-only directed gather as the first separately specified candidate.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `NR1_BASELINE_MISMATCH / NR2_BLOCKED / REPORT_ONLY` |
+| Status | `NR1_BASELINE_MISMATCH / NR1-RC1_SPECIFIED / NR2_BLOCKED / REPORT_ONLY` |
 | Updated | `2026-08-19` |
 | Task key | `nonlocal-continuum-research` |
 | Scope | Source-faithful Nonlocal/SISSM baseline and bounded GPU optimization research |
@@ -28,6 +28,9 @@
   existing `4/6 ms` production gate.
 - Pairwise Descent remains unavailable as a public paper/code input and is not
   implemented.
+- The bounded accumulation research selects `nuv-gather-directed-r0`: one
+  owner thread reconstructs outgoing plus incoming directed contributions in
+  frozen CSR order without floating atomics or pair-fragment storage.
 
 ## Decisions
 
@@ -66,26 +69,43 @@
 - **Reconsider when:** a committed reclosure gives the remediation a separate
   identity and requires surface correctness before timing.
 
+### D-NR-005 — Reclose with owner-only directed gather first
+
+- **Decision:** specify `nuv-gather-directed-r0` as NR1-RC1; keep stable
+  segmented reduction only as a separately bounded fallback.
+- **Reason:** gather is real-arithmetic equivalent over the frozen symmetric
+  CSR, removes the shared floating write implicated by NR1 and needs no
+  endpoint-fragment capacity. At 48k, a segmented full-matrix fragment layout
+  would consume `235.409 MiB` of values plus at least `19.617 MiB` of owner
+  keys before sort/reduction scratch, versus `31.209 MiB` for all NR1 buffers.
+- **Reconsider when:** CPU scatter/gather algebra mismatches, owner-only output
+  still varies, or the correctness-valid adjacent cost rules out a credible
+  NR2 route.
+
 ## Evidence and sources
 
 | Evidence | Status | Consequence |
 |---|---|---|
 | [Source audit](../nonlocal-unified-continuum-source-audit-2026-08-19.md) | `PRIMARY_SOURCES_INSPECTED` | formulas/code are sufficient for a bounded experiment; universal-solver claim rejected |
-| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `NR1_BASELINE_MISMATCH / NR2_BLOCKED` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
+| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `NR1_BASELINE_MISMATCH / NR1-RC1_SPECIFIED / NR2_BLOCKED` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
 | [Research contract](../../plans/nonlocal-continuum/00-research-contract.md) | `SPECIFIED` | freezes hypotheses, workloads, measurement scope and terminal states |
 | [Baseline/oracle specification](../../plans/nonlocal-continuum/01-source-faithful-baseline-and-oracle.md) | `EXECUTED / BASELINE_MISMATCH` | source-shaped NR1 may not enter NR2 |
 | [NR1 evidence](../nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | `BASELINE_MISMATCH` | tiny/water/viscous reproduce; surface atomics amplify repeated `f32` order noise beyond state tolerances |
-| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `BLOCKED_BY_NR1` | cannot begin under the current baseline gate |
+| [Accumulation reclosure research](../nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md) | `GATHER_DIRECTED_SELECTED` | formula closure, CUDA determinism limits and fragment memory select owner-only gather first |
+| [NR1-RC1 specification](../../plans/nonlocal-continuum/03-nr1-deterministic-accumulation-reclosure.md) | `SPECIFIED / NOT_STARTED` | freezes candidate identity, exact unchanged dimensions, ordered correctness gates and stop states |
+| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `BLOCKED_BY_NR1-RC1` | cannot begin until owner-only gather reclosure passes |
 | Pairwise Descent paper/code | `TO_APPEAR / NOT_AUDITABLE` | do not implement or infer formulas |
 
 ## Next action
 
-1. Do not begin NR2 under the current contract or widen the frozen tolerances.
-2. If research continues, reclose a separate deterministic gather/segmented
-   accumulation remediation identity while retaining `source-atomic-v0` as the
-   failed denominator.
-3. Require that candidate to pass the existing tiny matrix and the
-   two-iteration surface discriminator before any performance run.
+1. Implement only NR1-RC1 `nuv-gather-directed-r0`; do not begin NR2 or widen
+   the frozen tolerances.
+2. First prove CPU scatter/gather algebra on the eleven tiny cases, then pass
+   the CUDA tiny matrix.
+3. Require ten byte-identical repeats of the known two-iteration surface-16k
+   discriminator before the 20-iteration control or any performance run.
+4. Preserve `source-atomic-v0` and all NR1 hashes as the failed source-shaped
+   record; do not use its surface timing as evidence.
 
 ## Do not retry or infer
 
@@ -106,5 +126,5 @@
 - **Executable checks:** build PASS; CPU/CUDA self-test PASS; water 16k/48k and
   viscous 16k 5+50 benchmarks PASS; surface 16k benchmark FAIL as recorded;
   Nsight attribution complete.
-- **Remaining uncertainty:** deterministic accumulation correctness and cost,
+- **Remaining uncertainty:** directed-gather correctness and cost,
   retained NR2 speedup, optimized 48k cutoff and any final NR4 interpretation.

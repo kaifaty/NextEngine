@@ -1,6 +1,6 @@
 # Nonlocal unified continuum source audit — 2026-08-19
 
-Status: `REPORT_ONLY / PRIMARY_SOURCES_INSPECTED / IMPLEMENTATION_NOT_STARTED`
+Status: `REPORT_ONLY / PRIMARY_SOURCES_INSPECTED / NR1_EXECUTED`
 
 ## Question
 

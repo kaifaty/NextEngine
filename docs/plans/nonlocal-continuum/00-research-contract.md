@@ -19,7 +19,7 @@ candidate authority and ADR-076's solver-family decision remain in force.
 |---|---|---|---|
 | `HN-1` | The published pair terms and one SISSM update can be reproduced independently | any sign, symmetry, finite-value or tolerance failure in a tiny exact fixture | CPU `f64` pair and one-iteration oracle |
 | `HN-2` | The source-shaped baseline is dominated by repeated density/pair traversal, atomics or state copies rather than launch overhead alone | profiler attributes no material share to those stages | NR1 stage timing and one profiler capture |
-| `HN-3` | Persistent buffers, term specialization and a better accumulation layout can provide at least `2.0x` fixed-iteration speedup | optimized fixed-iteration geometric-mean speedup is below `2.0x` on both declared workloads | adjacent NR1/NR2 reports |
+| `HN-3` | Persistent buffers, term specialization and a better accumulation layout can provide at least `2.0x` fixed-iteration speedup | optimized fixed-iteration geometric-mean speedup is below `2.0x` on both declared workloads | adjacent `source-atomic-v0`/NR2 reports on the water-48k and viscous-16k profiles where that denominator passed correctness |
 | `HN-4` | Clean-water 48k can approach the existing product scale | optimized fixed five-iteration p95 including neighbor construction remains above `8 ms` | 48k water feasibility window |
 | `HN-5` | If 48k fails, Nonlocal can still be useful as a local high-fidelity material domain | neither declared 16k material profile fits `8 ms` without correctness failure | 16k water and viscous/surface profiles |
 
@@ -143,6 +143,14 @@ NR1 may enter NR2 only when:
 - the baseline report separates the declared stages;
 - a profiler capture supports or falsifies `HN-2`;
 - no upstream framework dependency is required by the standalone binary.
+
+The NR1 surface mismatch prevents direct entry. The separately identified
+[NR1-RC1 accumulation reclosure](03-nr1-deterministic-accumulation-reclosure.md)
+may satisfy this gate only as `nuv-gather-directed-r0`; it cannot relabel
+`source-atomic-v0` as passing. The original HN-3 denominator remains usable
+only for the two declared speed workloads on which the atomic implementation
+passed correctness. Surface timing from that implementation receives no
+correctness or performance credit.
 
 NR2 continues to NR4 when its ordered optimization ladder is complete or an
 early stop rule fires. NR3 is optional and begins only after the fixed-iteration

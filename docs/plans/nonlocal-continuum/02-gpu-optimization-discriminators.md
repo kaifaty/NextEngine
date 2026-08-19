@@ -1,10 +1,11 @@
 # NR2/NR3 — Nonlocal GPU optimization discriminators
 
-Status: `SPECIFIED / BLOCKED_BY_NR1_SURFACE_MISMATCH / REPORT_ONLY`
+Status: `SPECIFIED / BLOCKED_BY_NR1-RC1 / REPORT_ONLY`
 
 The [NR1 evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md)
-does not authorize this ladder. A separately identified deterministic
-accumulation remediation must be reclosed before O1/O2 timing begins.
+does not authorize this ladder. The separately specified
+[NR1-RC1 owner-only gather](03-nr1-deterministic-accumulation-reclosure.md)
+must exit `NR1_RECLOSED_GATHER_DIRECTED` before O1/O2 timing begins.
 
 ## Outcome
 
@@ -70,14 +71,16 @@ Benchmark three explicit layouts where supported:
 
 | ID | Pair work | Writes | Principal risk |
 |---|---|---|---|
-| `scatter-atomic` | directed/source-shaped | reverse endpoint atomics | contention and nondeterministic addition order |
-| `gather-directed` | contribution evaluated for each endpoint | owner-only writes | doubled arithmetic |
+| `scatter-atomic` | directed/source-shaped reference on correctness-passing profiles only | reverse endpoint atomics | contention and nondeterministic addition order; cannot be retained for surface |
+| `gather-directed` | same directed CSR; owner reconstructs outgoing and incoming endpoint terms | owner-only writes | neighbor density reads and a different but defined `f32` association |
 | `unique-pair-segmented` | one undirected pair | pair fragments then stable segmented reduction | fragment memory and reduction/setup cost |
 
 All layouts consume the same sorted neighbor/pair identity and produce the
 same mathematical source/matrix within the fixed tolerance. Performance alone
 does not retain a layout whose conservation residual or run-to-run numeric
-spread exceeds the declared bound.
+spread exceeds the declared bound. `gather-directed` enters this tournament
+only after RC1 correctness; its RC1 timing is an adjacent observation, not an
+NR2 retained-speedup claim by itself.
 
 The tournament report includes atomic transactions if counters are available,
 bytes/pair, pair evaluations, temporary memory and stage p95. Lack of privileged

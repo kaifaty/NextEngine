@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W2_CURRENT_PROFILES_MISS / NONLOCAL_NR1_BASELINE_MISMATCH / NR2_BLOCKED` |
+| Status | `W2_CURRENT_PROFILES_MISS / NONLOCAL_NR1_BASELINE_MISMATCH / NR1-RC1_SPECIFIED / NR2_BLOCKED` |
 | Updated | `2026-08-19` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -33,9 +33,11 @@
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
 - **Next action:** keep the rooted water profile unchanged and do not begin
-  Nonlocal NR2 until a deterministic accumulation remediation is separately
-  reclosed. NR1 tiny/water/viscous controls pass, but the stiff surface profile
-  violates repeated state tolerances from iteration two. The
+  Nonlocal NR2 until the separately identified `nuv-gather-directed-r0`
+  accumulation remediation passes CPU algebra, tiny CUDA and ten-repeat
+  two-/twenty-iteration stiff-surface gates. NR1 tiny/water/viscous controls
+  pass, but the source-atomic surface profile violates repeated state
+  tolerances from iteration two. The
   crate-private `64`-partition worker path is short-root exact for
   serial/`1/2/4/8` and reaches `3.105×`, but sealed-48k still averages
   `269.643 ms`. A clean standalone RTX 3080 discriminator then measures the
@@ -87,9 +89,10 @@
 | [W2 resource-utilization discriminator](../continuum-water-w2-resource-utilization-2026-08-19.md) | `CYCLE_2_SHORT_ROOT_EXACT / 3.105X / NO_W2_CREDIT` | Workers `1/2/4/8` preserve the short root; `269.643 ms` is still `67.41×` the target, so an architecture decision precedes long gates |
 | [W2 algorithm/data-structure research](../continuum-water-w2-algorithms-and-data-structures-research-2026-08-19.md) | `DRAFT_RESEARCH / OPTIONS_NOT_SELECTED / NO_W2_CREDIT` | Separates exact DFSPH layout probes, multilevel-QP research and a new particle-grid profile; records ranked bounded experiments without selecting one |
 | [W2 GPU feasibility discriminator](../continuum-water-w2-gpu-feasibility-2026-08-19.md) | `DIRECT_GRAPH_PORT_MISSES_4MS / GPU_ARCHITECTURE_UNDECIDED / NO_W2_CREDIT` | Clean RTX 3080 proxy p95 is `37.398 ms` `f64` and `18.015 ms` mixed before mandatory omitted stages; direct backend transfer is rejected as a 4 ms solution, while broader GPU/solver research remains open |
-| [Nonlocal primary-source audit](../nonlocal-unified-continuum-source-audit-2026-08-19.md) | `PRIMARY_SOURCES_INSPECTED / IMPLEMENTATION_NOT_STARTED` | Confirms a published CUDA/SISSM baseline and concrete optimization targets while rejecting universal-solver and immediate-integration claims |
-| [Nonlocal bounded research roadmap](../../plans/nonlocal-continuum/README.md) | `NR0_SPECIFIED / NO_W2_CREDIT` | Selects a standalone fixed-work baseline/oracle and ordered optimization spike; DFSPH roots and authority remain unchanged |
+| [Nonlocal primary-source audit](../nonlocal-unified-continuum-source-audit-2026-08-19.md) | `PRIMARY_SOURCES_INSPECTED / NR1_EXECUTED` | Confirms a published CUDA/SISSM baseline and concrete optimization targets while rejecting universal-solver and immediate-integration claims |
+| [Nonlocal bounded research roadmap](../../plans/nonlocal-continuum/README.md) | `NR1_BASELINE_MISMATCH / NR1-RC1_SPECIFIED / NO_W2_CREDIT` | Selects a standalone fixed-work baseline/oracle and owner-only accumulation reclosure; DFSPH roots and authority remain unchanged |
 | [Nonlocal NR1 baseline evidence](../nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | `BASELINE_MISMATCH / NR2_BLOCKED` | Tiny/water/viscous controls pass; source-shaped surface atomics amplify repeated `f32` order noise beyond state tolerances |
+| [Nonlocal accumulation reclosure research](../nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md) and [NR1-RC1 plan](../../plans/nonlocal-continuum/03-nr1-deterministic-accumulation-reclosure.md) | `GATHER_DIRECTED_SELECTED / SPECIFIED` | Owner-only directed gather is the smallest no-fragment test of the ordering hypothesis; NR2 remains blocked pending execution |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-WATER-REF-P1` | `PASS / LINUX_W1_PASS / RESEARCH_ONLY` | Admits W2 work; does not imply performance, coupling, persistence, runtime or production readiness |
@@ -213,8 +216,11 @@
 1. Do not start NR2 timing: NR1 records `BASELINE_MISMATCH`, not
    `BASELINE_REPRODUCED`.
 2. If the Nonlocal branch continues, first reclose a distinct deterministic
-   gather/segmented accumulation remediation and require the two-iteration
-   stiff-surface control to pass before timing.
+   `nuv-gather-directed-r0` accumulation remediation specified in the
+   [NR1-RC1 plan](../../plans/nonlocal-continuum/03-nr1-deterministic-accumulation-reclosure.md)
+   and require ten exact repeats of the two-iteration stiff-surface control
+   before timing. Stable segmented reduction is a fallback, not the first
+   implementation.
 3. Do not run long percentile/corpus repetitions merely to refine the current
    CPU/direct-GPU miss or a failed Nonlocal feasibility cutoff.
 4. Keep Windows equality explicitly deferred for production promotion; do not
