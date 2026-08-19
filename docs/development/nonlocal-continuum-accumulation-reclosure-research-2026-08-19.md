@@ -1,6 +1,10 @@
 # Nonlocal accumulation reclosure research — 2026-08-19
 
-Status: `RESEARCH_COMPLETE / GATHER_DIRECTED_SELECTED / IMPLEMENTATION_NOT_STARTED / NR2_BLOCKED`
+Status: `RESEARCH_COMPLETE / GATHER_DIRECTED_SELECTED / IMPLEMENTED / NR1_RECLOSED`
+
+Execution result:
+[NR1-RC1 reclosure evidence](nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md)
+records every ordered gate PASS and unblocks NR2 at O1.
 
 ## Question
 
@@ -219,11 +223,9 @@ or become canonical authority.
 
 ## Conclusion
 
-The architectural response remains correct: preserve the failed source-shaped
-baseline, reclose a separately named deterministic accumulation candidate, and
-keep NR2 blocked until the stiff surface control passes. The research now
-narrows that candidate from “gather/segmented” to **owner-only directed
-gather**. It is the only option considered that preserves the real-arithmetic
-pair semantics, eliminates the observed shared-write order, requires no
-pair-fragment capacity and provides a cheap counterfactual test of the leading
-failure hypothesis.
+The architectural response was validated: preserve the failed source-shaped
+baseline and reclose a separately named deterministic accumulation candidate.
+The selected **owner-only directed gather** passes the stiff-surface control,
+requires no pair-fragment capacity and supports the leading shared-write-order
+hypothesis on the frozen environment. NR2 is therefore unblocked; the original
+comparison remains research rationale rather than retained optimization credit.

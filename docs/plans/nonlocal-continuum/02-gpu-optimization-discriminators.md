@@ -1,11 +1,15 @@
 # NR2/NR3 — Nonlocal GPU optimization discriminators
 
-Status: `SPECIFIED / BLOCKED_BY_NR1-RC1 / REPORT_ONLY`
+Status: `SPECIFIED / UNBLOCKED_BY_NR1-RC1 / O1_NEXT / REPORT_ONLY`
 
-The [NR1 evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md)
-does not authorize this ladder. The separately specified
+The source-atomic [NR1 evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md)
+did not authorize this ladder. The separately specified
 [NR1-RC1 owner-only gather](03-nr1-deterministic-accumulation-reclosure.md)
-must exit `NR1_RECLOSED_GATHER_DIRECTED` before O1/O2 timing begins.
+has now exited `NR1_RECLOSED_GATHER_DIRECTED`; its
+[execution report](../../development/nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md)
+unblocks O1. `nuv-gather-directed-r0` is the correctness baseline for retained
+NR2 candidates. Its adjacent RC1 timings remain observations until the ordered
+ladder and required profiler captures are complete.
 
 ## Outcome
 

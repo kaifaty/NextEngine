@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `NR1_BASELINE_MISMATCH / NR1-RC1_SPECIFIED / NR2_BLOCKED / REPORT_ONLY` |
+| Status | `NR1_RECLOSED_GATHER_DIRECTED / NR2_UNBLOCKED / O1_NEXT / REPORT_ONLY` |
 | Updated | `2026-08-19` |
 | Task key | `nonlocal-continuum-research` |
 | Scope | Source-faithful Nonlocal/SISSM baseline and bounded GPU optimization research |
@@ -14,11 +14,17 @@
 - Branch/worktree: `codex/nonlocal-continuum-n0` at
   `/home/kaifaty/Documents/NextEngine-nonlocal-continuum-n0`, based on merged
   continuum checkpoint `fe223f9`.
-- NR1 is implemented at `107839b`; the independent CPU and CUDA tiny oracle
-  passes all 11 cases. Water 16k/48k and viscous 16k fixed controls pass.
-- The stiff surface 16k control is finite but fails repeated-output gates from
-  iteration two despite byte-identical neighbor CSR. NR1 therefore records
-  `BASELINE_MISMATCH`, not `BASELINE_REPRODUCED`.
+- The original NR1 source-atomic record at `107839b` remains
+  `BASELINE_MISMATCH`. Its tiny/water/viscous controls pass, while stiff
+  surface varies from iteration two despite byte-identical CSR.
+- NR1-RC1 is implemented at `c3ba007` as the separate
+  `nuv-gather-directed-r0` identity. CPU scatter/gather and CUDA tiny pass
+  11/11; surface-16k produces one exact output digest across ten cold repeats
+  at both two and twenty iterations; all full controls pass.
+- RC1 adjacent p95 is `2.632 ms` water-16k, `4.630 ms` water-48k and
+  `8.693 ms` viscous-16k. Versus the same-binary atomic denominators, the
+  water-48k/viscous p95 geometric-mean speedup is `3.116x`, with no additional
+  device memory. These are observations, not retained NR2 credit.
 - The experiment does not replace DFSPH, change SPEC-38/ADR-076, add GPU
   authority or inherit `CONTINUUM-WATER-REF-P1` credit.
 - The standalone CPU `f64` oracle and source-shaped CUDA `f32` baseline live
@@ -28,9 +34,9 @@
   existing `4/6 ms` production gate.
 - Pairwise Descent remains unavailable as a public paper/code input and is not
   implemented.
-- The bounded accumulation research selects `nuv-gather-directed-r0`: one
-  owner thread reconstructs outgoing plus incoming directed contributions in
-  frozen CSR order without floating atomics or pair-fragment storage.
+- NR2 is unblocked. O1 is next: retain gather correctness while replacing the
+  per-iteration device-to-device position handoff with an explicitly audited
+  pointer swap; do not skip to O2/O3 or claim NR4 from RC1 timing alone.
 
 ## Decisions
 
@@ -68,6 +74,9 @@
   velocity bounds from iteration two while fixtures and CSR remain identical.
 - **Reconsider when:** a committed reclosure gives the remediation a separate
   identity and requires surface correctness before timing.
+- **Closure:** RC1 satisfies the reconsideration condition without changing
+  the old record. `source-atomic-v0` stays failed for stiff surface and remains
+  an HN-3 denominator only on its correctness-passing profiles.
 
 ### D-NR-005 — Reclose with owner-only directed gather first
 
@@ -81,31 +90,44 @@
 - **Reconsider when:** CPU scatter/gather algebra mismatches, owner-only output
   still varies, or the correctness-valid adjacent cost rules out a credible
   NR2 route.
+- **Closure:** none occurred. All ordered gates pass, no pair-fragment/device
+  array was added, and adjacent timing improves rather than rejects the route.
+
+### D-NR-006 — Admit gather as the NR2 correctness baseline
+
+- **Decision:** exit `NR1_RECLOSED_GATHER_DIRECTED`, unblock NR2 and start at
+  O1 with `nuv-gather-directed-r0` as the correctness-valid baseline.
+- **Reason:** independent CPU algebra, 11/11 CUDA tiny fixtures, exact stiff
+  surface repeats and the three full controls all pass unchanged gates.
+- **Constraint:** RC1 speedups do not become retained NR2 or NR4 evidence until
+  the ordered ladder and required profiler captures are complete.
 
 ## Evidence and sources
 
 | Evidence | Status | Consequence |
 |---|---|---|
 | [Source audit](../nonlocal-unified-continuum-source-audit-2026-08-19.md) | `PRIMARY_SOURCES_INSPECTED` | formulas/code are sufficient for a bounded experiment; universal-solver claim rejected |
-| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `NR1_BASELINE_MISMATCH / NR1-RC1_SPECIFIED / NR2_BLOCKED` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
+| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `NR1_RECLOSED_GATHER_DIRECTED / NR2_UNBLOCKED / O1_NEXT` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
 | [Research contract](../../plans/nonlocal-continuum/00-research-contract.md) | `SPECIFIED` | freezes hypotheses, workloads, measurement scope and terminal states |
 | [Baseline/oracle specification](../../plans/nonlocal-continuum/01-source-faithful-baseline-and-oracle.md) | `EXECUTED / BASELINE_MISMATCH` | source-shaped NR1 may not enter NR2 |
 | [NR1 evidence](../nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | `BASELINE_MISMATCH` | tiny/water/viscous reproduce; surface atomics amplify repeated `f32` order noise beyond state tolerances |
 | [Accumulation reclosure research](../nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md) | `GATHER_DIRECTED_SELECTED` | formula closure, CUDA determinism limits and fragment memory select owner-only gather first |
-| [NR1-RC1 specification](../../plans/nonlocal-continuum/03-nr1-deterministic-accumulation-reclosure.md) | `SPECIFIED / NOT_STARTED` | freezes candidate identity, exact unchanged dimensions, ordered correctness gates and stop states |
-| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `BLOCKED_BY_NR1-RC1` | cannot begin until owner-only gather reclosure passes |
+| [NR1-RC1 specification](../../plans/nonlocal-continuum/03-nr1-deterministic-accumulation-reclosure.md) | `EXECUTED / NR1_RECLOSED_GATHER_DIRECTED` | freezes and closes candidate identity, unchanged dimensions and ordered gates |
+| [NR1-RC1 evidence](../nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md) | `NR1_RECLOSED_GATHER_DIRECTED / NR2_UNBLOCKED` | exact surface repeats support the atomic-order diagnosis; full controls and bounded adjacent costs pass |
+| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `UNBLOCKED / O1_NEXT` | begin with pointer-swap/persistent-state O1 from the gather correctness baseline |
 | Pairwise Descent paper/code | `TO_APPEAR / NOT_AUDITABLE` | do not implement or infer formulas |
 
 ## Next action
 
-1. Implement only NR1-RC1 `nuv-gather-directed-r0`; do not begin NR2 or widen
-   the frozen tolerances.
-2. First prove CPU scatter/gather algebra on the eleven tiny cases, then pass
-   the CUDA tiny matrix.
-3. Require ten byte-identical repeats of the known two-iteration surface-16k
-   discriminator before the 20-iteration control or any performance run.
-4. Preserve `source-atomic-v0` and all NR1 hashes as the failed source-shaped
-   record; do not use its surface timing as evidence.
+1. Implement only NR2 O1 from `nuv-gather-directed-r0`: replace the current
+   per-iteration device-to-device `current -> next` handoff with a bounded
+   pointer swap while retaining explicit reset/fixture semantics.
+2. Run the full O1 adjacent correctness/timing protocol before O2; retain O1
+   only if it improves the declared stage/total and introduces no stale state.
+3. Preserve `source-atomic-v0`, all original NR1 hashes and the RC1 binary/hash
+   boundary. Do not use the invalid atomic surface timing as evidence.
+4. Do not infer NR2-SPEEDUP, an NR4 reclosure candidate or production
+   authority from the promising RC1 adjacent observation alone.
 
 ## Do not retry or infer
 
@@ -121,10 +143,11 @@
 
 ## Handoff
 
-- **Current change:** CPU oracle `5e77bbc`, CUDA baseline `107839b`, bounded NR1
-  evidence and task/roadmap transition.
-- **Executable checks:** build PASS; CPU/CUDA self-test PASS; water 16k/48k and
-  viscous 16k 5+50 benchmarks PASS; surface 16k benchmark FAIL as recorded;
-  Nsight attribution complete.
-- **Remaining uncertainty:** directed-gather correctness and cost,
-  retained NR2 speedup, optimized 48k cutoff and any final NR4 interpretation.
+- **Current change:** CPU gather `23a7f73`, CUDA/report reclosure `c3ba007`,
+  binary `adb663d7...dc1a`; original source-atomic evidence is unchanged.
+- **Executable checks:** build PASS; CPU scatter/gather and CUDA gather tiny
+  11/11 PASS; surface two-/twenty-iteration ten-repeat digests exact; water
+  16k/48k and viscous 16k controls PASS; adjacent 5+50 timings PASS.
+- **Remaining uncertainty:** O1–O6 retained attribution, final fixed-work
+  speedup after ordered optimization, profiler counter evidence and NR4
+  product interpretation.

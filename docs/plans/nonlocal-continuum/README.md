@@ -1,6 +1,6 @@
 # Nonlocal continuum — bounded research roadmap
 
-Status: `NR1_BASELINE_MISMATCH / NR1-RC1_SPECIFIED / NR2_BLOCKED / NO_W2_CREDIT`
+Status: `NR1_RECLOSED_GATHER_DIRECTED / NR2_UNBLOCKED / O1_NEXT / NO_W2_CREDIT`
 
 This directory specifies a report-only evaluation of the method described in
 *A Nonlocal Unified Variational Framework for Free Surface Flows*. The work is
@@ -32,8 +32,8 @@ of this experiment.
 ```text
 NR0 Research contract and source audit       SPECIFIED / DOCUMENTATION
  └─ NR1 Source-faithful baseline + CPU oracle  BASELINE_MISMATCH
-     └─ NR1-RC1 owner-only gather reclosure    SPECIFIED / NOT_STARTED
-         └─ NR2 Fixed-iteration optimization BLOCKED_BY_RC1
+     └─ NR1-RC1 owner-only gather reclosure    RECLOSED / PASS
+         └─ NR2 Fixed-iteration optimization UNBLOCKED / O1 NEXT
              └─ NR3 Algorithm-changing probes NOT_STARTED / CONDITIONAL
                  └─ NR4 Architecture decision NOT_STARTED
 ```
@@ -42,8 +42,8 @@ NR0 Research contract and source audit       SPECIFIED / DOCUMENTATION
 |---|---|---|---|
 | NR0 | [Research contract](00-research-contract.md) and [source audit](../../development/nonlocal-unified-continuum-source-audit-2026-08-19.md) | hypotheses, provenance, fixtures, metrics and stop states are explicit | documentation only |
 | NR1 | [Baseline and oracle](01-source-faithful-baseline-and-oracle.md) and [evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | tiny, water and viscous controls pass; stiff surface repeated-output control fails | report only |
-| NR1-RC1 | [Deterministic accumulation reclosure](03-nr1-deterministic-accumulation-reclosure.md) and [candidate research](../../development/nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md) | owner-only directed gather passes the tiny matrix and known two-/twenty-iteration surface controls | report only |
-| NR2 | [GPU optimization discriminators](02-gpu-optimization-discriminators.md) | `BLOCKED`: begins only after `NR1_RECLOSED_GATHER_DIRECTED` | report only |
+| NR1-RC1 | [Deterministic accumulation reclosure](03-nr1-deterministic-accumulation-reclosure.md), [candidate research](../../development/nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md) and [execution evidence](../../development/nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md) | `nuv-gather-directed-r0` passes CPU algebra, 11/11 CUDA tiny cases, exact two-/twenty-iteration surface repeats and all full controls | report only |
+| NR2 | [GPU optimization discriminators](02-gpu-optimization-discriminators.md) | `UNBLOCKED`: O1 starts from the correctness-valid gather successor; RC1 timings are observations, not retained NR2 credit | report only |
 | NR3 | [Algorithm-changing probes](02-gpu-optimization-discriminators.md#nr3-algorithm-changing-probes) | a separately labelled convergence/algorithm candidate passes its own oracle | no fixed-iteration credit |
 | NR4 | [Decision contract](00-research-contract.md#decision-states) | exactly one predeclared decision state is selected from complete evidence | may authorize a later Proposed reclosure only |
 

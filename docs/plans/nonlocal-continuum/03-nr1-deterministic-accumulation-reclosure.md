@@ -1,9 +1,12 @@
 # NR1-RC1 — Deterministic accumulation reclosure
 
-Status: `SPECIFIED / IMPLEMENTATION_NOT_STARTED / NR2_BLOCKED / REPORT_ONLY`
+Status: `EXECUTED / NR1_RECLOSED_GATHER_DIRECTED / NR2_UNBLOCKED / REPORT_ONLY`
 
 Research basis:
 [accumulation reclosure research](../../development/nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md).
+
+Execution evidence:
+[NR1-RC1 reclosure report](../../development/nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md).
 
 ## Outcome
 
