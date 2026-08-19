@@ -12,6 +12,7 @@ namespace {
 void print_usage() {
     std::cerr << "usage: nonlocal-feasibility --describe-profile <profile-id>\n"
               << "       nonlocal-feasibility --cpu-self-test\n"
+              << "       nonlocal-feasibility --cpu-gather-self-test\n"
               << "       nonlocal-feasibility --self-test\n"
               << "       nonlocal-feasibility --check <profile-id> --iterations <count>\n"
               << "       nonlocal-feasibility --benchmark <profile-id> --warmup <count> "
@@ -45,6 +46,11 @@ int main(int argc, char** argv) {
             }
             std::cout << nextengine::nonlocal::cpu_self_test_json(reports) << '\n';
             return passed ? 0 : 1;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--cpu-gather-self-test") {
+            const auto report = nextengine::nonlocal::run_cpu_gather_self_test();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
         }
         if (argc == 2 && std::string(argv[1]) == "--self-test") {
             const auto report = nextengine::nonlocal::run_cuda_self_test();

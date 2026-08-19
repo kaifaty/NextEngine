@@ -61,9 +61,16 @@ struct OracleCaseReport {
     OracleResult result;
 };
 
+struct CpuGatherSelfTestReport {
+    bool passed = false;
+    std::string json;
+};
+
 std::vector<Fixture> oracle_fixtures();
 OracleResult run_cpu_oracle(const Fixture& fixture);
+OracleResult run_cpu_gather_oracle(const Fixture& fixture);
 std::vector<OracleCaseReport> run_cpu_self_test();
 std::string cpu_self_test_json(const std::vector<OracleCaseReport>& reports);
+CpuGatherSelfTestReport run_cpu_gather_self_test();
 
 } // namespace nextengine::nonlocal

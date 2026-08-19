@@ -18,6 +18,7 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --describe-profile nuv-water-48k.v0
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --cpu-self-test
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --cpu-gather-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --check nuv-water-48k.v0 --iterations 5

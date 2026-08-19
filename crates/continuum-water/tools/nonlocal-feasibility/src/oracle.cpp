@@ -247,6 +247,117 @@ void accumulate_surface_tension(
     }
 }
 
+void gather_incompressibility(
+    const Fixture& fixture,
+    const NeighborLists& neighbors,
+    const std::vector<Vec3>& current,
+    const std::vector<double>& density,
+    double scale,
+    std::vector<Vec3>& source,
+    std::vector<Mat3>& matrix) {
+    // NR1-RC1 independent owner-only transcription of Eqs. (7, 26). For
+    // owner i, reverse(j,i) must use j's density ratio rather than i's.
+    const double coefficient =
+        fixture.kappa * fixture.time_step * fixture.time_step / fixture.rest_density;
+    for (std::size_t i = 0; i < current.size(); ++i) {
+        const double own_ratio =
+            std::max(density[i], fixture.rest_density) / fixture.rest_density;
+        for (std::size_t j : neighbors[i]) {
+            const double radius = norm(current[i] - current[j]);
+            if (radius <= PAIR_EPSILON) {
+                continue;
+            }
+            const double neighbor_ratio =
+                std::max(density[j], fixture.rest_density) / fixture.rest_density;
+            const double a = coefficient * cubic_gradient(radius, fixture.horizon, scale) / radius;
+            const double diagonal = -a;
+            const Vec3 local = (-a) * current[j]
+                + (own_ratio * a) * (current[j] - current[i]);
+            const Vec3 incoming_reverse = (-a) * current[j]
+                + (neighbor_ratio * a) * (current[j] - current[i]);
+            source[i] += local;
+            source[i] += incoming_reverse;
+            for (int axis = 0; axis < 3; ++axis) {
+                matrix[i](axis, axis) += diagonal;
+                matrix[i](axis, axis) += diagonal;
+            }
+        }
+    }
+}
+
+void gather_viscosity(
+    const Fixture& fixture,
+    const NeighborLists& neighbors,
+    const std::vector<Vec3>& reference,
+    const std::vector<Vec3>& current,
+    double scale,
+    std::vector<Vec3>& source,
+    std::vector<Mat3>& matrix) {
+    // NR1-RC1 owner-only transcription of Eq. (10). Evaluate both named
+    // endpoint expressions; do not replace them with a multiplied value.
+    const double alpha = fixture.terms.bulk_viscosity
+        ? fixture.lambda * fixture.time_step / fixture.rest_density
+        : 0.0;
+    const double beta = fixture.terms.shear_viscosity
+        ? fixture.mu * fixture.time_step / fixture.rest_density
+        : 0.0;
+    for (std::size_t i = 0; i < current.size(); ++i) {
+        for (std::size_t j : neighbors[i]) {
+            const Vec3 reference_delta = reference[j] - reference[i];
+            const double radius = norm(reference_delta);
+            if (radius <= PAIR_EPSILON) {
+                continue;
+            }
+            const Vec3 direction = reference_delta / radius;
+            const Mat3 normal = outer(direction, direction);
+            const Mat3 tangent = Mat3::identity() - normal;
+            const double weight = cubic_weight(radius, fixture.horizon, scale);
+            const Mat3 pair_matrix = (alpha * weight) * normal + (beta * weight) * tangent;
+            const Vec3 local = pair_matrix * current[j] - pair_matrix * reference_delta;
+            const Vec3 incoming_reference_delta = reference[i] - reference[j];
+            const Vec3 incoming_reverse =
+                pair_matrix * current[j] + pair_matrix * incoming_reference_delta;
+            source[i] += local;
+            source[i] += incoming_reverse;
+            matrix[i] += pair_matrix;
+            matrix[i] += pair_matrix;
+        }
+    }
+}
+
+void gather_surface_tension(
+    const Fixture& fixture,
+    const NeighborLists& neighbors,
+    const std::vector<Vec3>& current,
+    std::vector<Vec3>& source,
+    std::vector<Mat3>& matrix) {
+    // NR1-RC1 owner-only transcription of Eq. (14). The incoming expression
+    // reconstructs reverse(j,i) while retaining the two directed additions.
+    const double coefficient = fixture.gamma * fixture.time_step * fixture.time_step;
+    for (std::size_t i = 0; i < current.size(); ++i) {
+        for (std::size_t j : neighbors[i]) {
+            const double radius = norm(current[i] - current[j]);
+            if (radius <= PAIR_EPSILON) {
+                continue;
+            }
+            const double positive = surface_positive(radius, fixture.spacing);
+            const double negative = surface_negative(radius, fixture.spacing);
+            const double diagonal = coefficient * positive / radius;
+            const double signed_coefficient = coefficient * negative / radius;
+            const Vec3 local = diagonal * current[j]
+                + signed_coefficient * (current[j] - current[i]);
+            const Vec3 incoming_reverse = diagonal * current[j]
+                + signed_coefficient * (current[j] - current[i]);
+            source[i] += local;
+            source[i] += incoming_reverse;
+            for (int axis = 0; axis < 3; ++axis) {
+                matrix[i](axis, axis) += diagonal;
+                matrix[i](axis, axis) += diagonal;
+            }
+        }
+    }
+}
+
 EnergyComponents calculate_energies(
     const Fixture& fixture,
     const NeighborLists& neighbors,
@@ -558,6 +669,289 @@ OracleResult run_cpu_oracle(const Fixture& fixture) {
         result.maximum_degree = std::max(result.maximum_degree, list.size());
     }
     return result;
+}
+
+OracleResult run_cpu_gather_oracle(const Fixture& fixture) {
+    if (fixture.particles.empty() || fixture.particles.size() > 256) {
+        throw std::invalid_argument("gather oracle fixture sample count is outside 1..=256");
+    }
+    if (fixture.iterations < 1 || fixture.iterations > 4) {
+        throw std::invalid_argument("gather oracle fixture iteration count is outside 1..=4");
+    }
+
+    std::vector<Vec3> reference;
+    std::vector<Vec3> predicted;
+    reference.reserve(fixture.particles.size());
+    predicted.reserve(fixture.particles.size());
+    for (const Particle& particle : fixture.particles) {
+        reference.push_back(particle.position);
+        predicted.push_back(particle.position
+            + (particle.velocity + fixture.gravity * fixture.time_step) * fixture.time_step);
+    }
+
+    const NeighborLists neighbors = build_neighbors(reference, fixture.horizon);
+    if (!symmetric_neighbors(neighbors)) {
+        throw std::runtime_error("gather fixture neighbor membership is not symmetric");
+    }
+    const double scale = cubic_scale(fixture.spacing, fixture.horizon);
+    std::vector<Vec3> current = predicted;
+    std::vector<double> density;
+    std::vector<Vec3> source;
+    std::vector<Mat3> matrix;
+    std::vector<Vec3> linearization_position;
+
+    for (int iteration = 0; iteration < fixture.iterations; ++iteration) {
+        linearization_position = current;
+        density = summation_density(current, neighbors, fixture.mass, fixture.horizon, scale);
+        source.assign(current.size(), {});
+        matrix.assign(current.size(), {});
+        if (fixture.terms.incompressibility) {
+            gather_incompressibility(
+                fixture, neighbors, current, density, scale, source, matrix);
+        }
+        if (fixture.terms.bulk_viscosity || fixture.terms.shear_viscosity) {
+            gather_viscosity(
+                fixture, neighbors, reference, current, scale, source, matrix);
+        }
+        if (fixture.terms.surface_tension) {
+            gather_surface_tension(fixture, neighbors, current, source, matrix);
+        }
+
+        std::vector<Vec3> next(current.size());
+        for (std::size_t i = 0; i < current.size(); ++i) {
+            if (fixture.particles[i].fixed) {
+                next[i] = reference[i];
+            } else {
+                next[i] = inverse_without_regularization(Mat3::identity() + matrix[i])
+                    * (predicted[i] + source[i]);
+            }
+        }
+        current = std::move(next);
+    }
+
+    const std::vector<double> final_density =
+        summation_density(current, neighbors, fixture.mass, fixture.horizon, scale);
+    OracleResult result;
+    result.density = final_density;
+    result.source = std::move(source);
+    result.local_matrix = std::move(matrix);
+    result.predicted_position = predicted;
+    result.linearization_position = linearization_position;
+    result.next_position = current;
+    result.energy = calculate_energies(
+        fixture, neighbors, reference, predicted, current, final_density, scale);
+    result.final_velocity.resize(current.size());
+    Vec3 total_pair_impulse{};
+    double pair_impulse_scale = 0.0;
+    for (std::size_t i = 0; i < current.size(); ++i) {
+        const Vec3 matrix_position = result.local_matrix[i] * linearization_position[i];
+        const Vec3 pair_impulse = result.source[i] - matrix_position;
+        total_pair_impulse += pair_impulse;
+        pair_impulse_scale += norm(result.source[i]) + norm(matrix_position);
+        result.final_velocity[i] = fixture.particles[i].fixed
+            ? Vec3{}
+            : (current[i] - reference[i]) / fixture.time_step;
+    }
+    result.normalized_momentum_residual =
+        norm(total_pair_impulse) / std::max(pair_impulse_scale, 1.0e-30);
+    for (const auto& list : neighbors) {
+        result.directed_pairs += list.size();
+        result.maximum_degree = std::max(result.maximum_degree, list.size());
+    }
+    return result;
+}
+
+CpuGatherSelfTestReport run_cpu_gather_self_test() {
+    struct Maximums {
+        double density_absolute = 0.0;
+        double density_relative = 0.0;
+        double normalized_energy_absolute = 0.0;
+        double normalized_energy_relative = 0.0;
+        double normalized_source_absolute = 0.0;
+        double normalized_source_relative = 0.0;
+        double normalized_matrix_absolute = 0.0;
+        double normalized_matrix_relative = 0.0;
+        double position_absolute = 0.0;
+        double velocity_absolute = 0.0;
+    };
+
+    const Tolerances tolerances = find_profile("nuv-tiny-oracle.v0").tolerances;
+    const auto relative_error = [](double expected, double actual) {
+        return std::abs(expected - actual)
+            / std::max({std::abs(expected), std::abs(actual), 1.0e-30});
+    };
+    std::ostringstream cases;
+    cases << std::setprecision(17) << '[';
+    bool all_passed = true;
+    const std::vector<Fixture> fixtures = oracle_fixtures();
+    for (std::size_t case_index = 0; case_index < fixtures.size(); ++case_index) {
+        const Fixture& fixture = fixtures[case_index];
+        bool passed = true;
+        std::string failure;
+        Maximums maximums;
+        double energy_scale = std::max(
+            static_cast<double>(fixture.particles.size()) * fixture.mass * fixture.spacing
+                * fixture.spacing / (fixture.time_step * fixture.time_step),
+            1.0e-30);
+        double source_scale = fixture.spacing;
+        double matrix_scale = 1.0;
+        OracleResult scatter;
+        OracleResult gather;
+        try {
+            scatter = run_cpu_oracle(fixture);
+            gather = run_cpu_gather_oracle(fixture);
+            const double scatter_energy[5] = {
+                scatter.energy.inertia,
+                scatter.energy.incompressibility,
+                scatter.energy.bulk_viscosity,
+                scatter.energy.shear_viscosity,
+                scatter.energy.surface_tension,
+            };
+            const double gather_energy[5] = {
+                gather.energy.inertia,
+                gather.energy.incompressibility,
+                gather.energy.bulk_viscosity,
+                gather.energy.shear_viscosity,
+                gather.energy.surface_tension,
+            };
+            for (double value : scatter_energy) {
+                energy_scale = std::max(energy_scale, std::abs(value));
+            }
+            for (std::size_t i = 0; i < scatter.source.size(); ++i) {
+                source_scale = std::max(source_scale,
+                    std::max({std::abs(scatter.source[i].x), std::abs(scatter.source[i].y),
+                        std::abs(scatter.source[i].z)}));
+                for (double value : scatter.local_matrix[i].v) {
+                    matrix_scale = std::max(matrix_scale, std::abs(value));
+                }
+            }
+            if (!result_is_finite(scatter) || !result_is_finite(gather)
+                || scatter.directed_pairs != gather.directed_pairs
+                || scatter.maximum_degree != gather.maximum_degree) {
+                passed = false;
+                failure = "finite_or_topology_mismatch";
+            }
+            for (std::size_t i = 0; passed && i < scatter.density.size(); ++i) {
+                const double density_absolute = std::abs(scatter.density[i] - gather.density[i]);
+                const double density_relative =
+                    relative_error(scatter.density[i], gather.density[i]);
+                maximums.density_absolute =
+                    std::max(maximums.density_absolute, density_absolute);
+                maximums.density_relative =
+                    std::max(maximums.density_relative, density_relative);
+                passed = density_absolute <= tolerances.density_absolute
+                    || density_relative <= tolerances.density_relative;
+
+                const double scatter_source[3] = {
+                    scatter.source[i].x, scatter.source[i].y, scatter.source[i].z};
+                const double gather_source[3] = {
+                    gather.source[i].x, gather.source[i].y, gather.source[i].z};
+                const double scatter_position[3] = {scatter.next_position[i].x,
+                    scatter.next_position[i].y, scatter.next_position[i].z};
+                const double gather_position[3] = {gather.next_position[i].x,
+                    gather.next_position[i].y, gather.next_position[i].z};
+                const double scatter_velocity[3] = {scatter.final_velocity[i].x,
+                    scatter.final_velocity[i].y, scatter.final_velocity[i].z};
+                const double gather_velocity[3] = {gather.final_velocity[i].x,
+                    gather.final_velocity[i].y, gather.final_velocity[i].z};
+                for (int component = 0; component < 3; ++component) {
+                    const double source_absolute =
+                        std::abs(scatter_source[component] - gather_source[component])
+                        / source_scale;
+                    const double source_relative =
+                        relative_error(scatter_source[component], gather_source[component]);
+                    maximums.normalized_source_absolute =
+                        std::max(maximums.normalized_source_absolute, source_absolute);
+                    maximums.normalized_source_relative =
+                        std::max(maximums.normalized_source_relative, source_relative);
+                    passed = passed
+                        && (source_absolute <= tolerances.normalized_absolute
+                            || source_relative <= tolerances.normalized_relative);
+                    maximums.position_absolute = std::max(maximums.position_absolute,
+                        std::abs(scatter_position[component] - gather_position[component]));
+                    maximums.velocity_absolute = std::max(maximums.velocity_absolute,
+                        std::abs(scatter_velocity[component] - gather_velocity[component]));
+                }
+                passed = passed
+                    && maximums.position_absolute <= tolerances.position_absolute
+                    && maximums.velocity_absolute <= tolerances.velocity_absolute;
+                for (int component = 0; component < 9; ++component) {
+                    const double matrix_absolute = std::abs(
+                        scatter.local_matrix[i].v[component]
+                        - gather.local_matrix[i].v[component])
+                        / matrix_scale;
+                    const double matrix_relative = relative_error(
+                        scatter.local_matrix[i].v[component],
+                        gather.local_matrix[i].v[component]);
+                    maximums.normalized_matrix_absolute =
+                        std::max(maximums.normalized_matrix_absolute, matrix_absolute);
+                    maximums.normalized_matrix_relative =
+                        std::max(maximums.normalized_matrix_relative, matrix_relative);
+                    passed = passed
+                        && (matrix_absolute <= tolerances.normalized_absolute
+                            || matrix_relative <= tolerances.normalized_relative);
+                }
+            }
+            for (int component = 0; passed && component < 5; ++component) {
+                const double energy_absolute =
+                    std::abs(scatter_energy[component] - gather_energy[component]) / energy_scale;
+                const double energy_relative =
+                    relative_error(scatter_energy[component], gather_energy[component]);
+                maximums.normalized_energy_absolute =
+                    std::max(maximums.normalized_energy_absolute, energy_absolute);
+                maximums.normalized_energy_relative =
+                    std::max(maximums.normalized_energy_relative, energy_relative);
+                passed = energy_absolute <= tolerances.normalized_absolute
+                    || energy_relative <= tolerances.normalized_relative;
+            }
+            passed = passed
+                && scatter.normalized_momentum_residual
+                    <= tolerances.normalized_momentum_residual
+                && gather.normalized_momentum_residual
+                    <= tolerances.normalized_momentum_residual;
+            if (!passed && failure.empty()) {
+                failure = "frozen_tolerance_mismatch";
+            }
+        } catch (const std::exception& error) {
+            passed = false;
+            failure = std::string("exception:") + error.what();
+        }
+        all_passed = all_passed && passed;
+        if (case_index != 0) {
+            cases << ',';
+        }
+        cases << "{\"name\":\"" << fixture.name << "\",\"passed\":"
+              << (passed ? "true" : "false") << ",\"failure\":\"" << failure
+              << "\",\"maximum_discrepancy\":{\"density_absolute\":"
+              << maximums.density_absolute << ",\"density_relative\":"
+              << maximums.density_relative << ",\"normalized_energy_absolute\":"
+              << maximums.normalized_energy_absolute
+              << ",\"normalized_energy_relative\":"
+              << maximums.normalized_energy_relative
+              << ",\"normalized_source_absolute\":"
+              << maximums.normalized_source_absolute
+              << ",\"normalized_source_relative\":"
+              << maximums.normalized_source_relative
+              << ",\"normalized_matrix_absolute\":"
+              << maximums.normalized_matrix_absolute
+              << ",\"normalized_matrix_relative\":"
+              << maximums.normalized_matrix_relative << ",\"position_absolute\":"
+              << maximums.position_absolute << ",\"velocity_absolute\":"
+              << maximums.velocity_absolute
+              << "},\"normalized_momentum_residual\":["
+              << scatter.normalized_momentum_residual << ','
+              << gather.normalized_momentum_residual << "]}";
+    }
+    cases << ']';
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.cpu_gather_algebra.v0\""
+           << ",\"accumulation_identity\":\"nuv-gather-directed-r0\""
+           << ",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(find_profile("nuv-tiny-oracle.v0")))
+           << "\",\"case_count\":" << fixtures.size() << ",\"cases\":" << cases.str()
+           << ",\"status\":\"" << (all_passed ? "PASS" : "FAIL") << "\"}";
+    return {all_passed, output.str()};
 }
 
 std::vector<OracleCaseReport> run_cpu_self_test() {
