@@ -62,6 +62,9 @@ selectable as its adjacent rollback baseline.
 
 ### O2 — Term-specialized kernels
 
+Execution contract:
+[NR2-O2 compile-time viscosity specialization](05-nr2-o2-term-specialization.md).
+
 Compile or dispatch closed kernels for the actual active term sets:
 
 ```text
