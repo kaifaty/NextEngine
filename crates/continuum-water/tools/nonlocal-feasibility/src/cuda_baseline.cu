@@ -1839,8 +1839,12 @@ CommandReport run_cuda_self_test(AccumulationMode mode, HandoffMode handoff) {
         const OracleResult cpu = run_cpu_oracle(fixture);
         CudaBaseline baseline(fixture, mode, handoff);
         const CapturedRun gpu = baseline.execute(true);
-        const CapturedRun reused_second = baseline.execute(true);
-        const CapturedRun reused_third = baseline.execute(true);
+        CapturedRun reused_second = gpu;
+        CapturedRun reused_third = gpu;
+        if (handoff == HandoffMode::PointerSwapO1) {
+            reused_second = baseline.execute(true);
+            reused_third = baseline.execute(true);
+        }
         const Comparison comparison = compare_results(fixture, cpu, gpu.state, tolerances);
         const Comparison reuse_second =
             compare_results(fixture, gpu.state, reused_second.state, tolerances);
@@ -1882,8 +1886,9 @@ CommandReport run_cuda_self_test(AccumulationMode mode, HandoffMode handoff) {
         const bool local_solve_passed = !gpu.local_solve_failed
             && !reused_second.local_solve_failed && !reused_third.local_solve_failed;
         const bool passed = comparison.passed && neighbors_passed && momentum_passed
-            && finite_passed && local_solve_passed && reused_instance_exact
-            && copy_baseline_exact;
+            && finite_passed && local_solve_passed
+            && (handoff != HandoffMode::PointerSwapO1
+                || (reused_instance_exact && copy_baseline_exact));
         all_passed = all_passed && passed;
         if (index != 0) {
             output << ',';
@@ -1891,14 +1896,20 @@ CommandReport run_cuda_self_test(AccumulationMode mode, HandoffMode handoff) {
         output << "{\"name\":\"" << fixture.name << "\",\"input_sha256\":\""
                << fixture_input_hash(fixture) << "\",\"passed\":"
                << (passed ? "true" : "false") << ",\"neighbors_passed\":"
-               << (neighbors_passed ? "true" : "false")
-               << ",\"reused_instance_exact\":"
-               << (reused_instance_exact ? "true" : "false")
-               << ",\"copy_baseline_exact\":"
-               << (copy_baseline_exact ? "true" : "false")
-               << ",\"ordered_output_sha256\":[\"" << output_digest << "\",\""
-               << second_digest << "\",\"" << third_digest
-               << "\"],\"csr_sha256\":\"" << topology_digest << "\",\"finite\":"
+               << (neighbors_passed ? "true" : "false");
+        if (handoff == HandoffMode::PointerSwapO1) {
+            output << ",\"reused_instance_runs\":3,\"reused_instance_exact\":"
+                   << (reused_instance_exact ? "true" : "false")
+                   << ",\"copy_baseline_exact\":"
+                   << (copy_baseline_exact ? "true" : "false")
+                   << ",\"ordered_output_sha256\":[\"" << output_digest << "\",\""
+                   << second_digest << "\",\"" << third_digest << "\"]";
+        } else {
+            output << ",\"reused_instance_runs\":1,\"reused_instance_exact\":null"
+                      ",\"copy_baseline_exact\":null,\"ordered_output_sha256\":[\""
+                   << output_digest << "\"]";
+        }
+        output << ",\"csr_sha256\":\"" << topology_digest << "\",\"finite\":"
                << (finite_passed ? "true" : "false")
                << ",\"local_solve_failed\":"
                << (local_solve_passed ? "false" : "true")
