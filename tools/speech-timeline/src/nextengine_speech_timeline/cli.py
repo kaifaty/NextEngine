@@ -105,9 +105,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 model_identity={
                     "voxtral_sha256": profile.voxtral.model_sha256,
                     "transcribe_revision": profile.voxtral.runtime_revision,
+                    "emotion_adapter_id": profile.emotion.adapter_id,
                     "emotion_model_id": profile.emotion.model_id,
                     "emotion_revision": profile.emotion.model_revision,
                     "emotion_classification": profile.emotion.classification,
+                    **(
+                        {"emotion_weights_sha256": profile.emotion.weights_sha256}
+                        if profile.emotion.weights_sha256 is not None
+                        else {}
+                    ),
                 },
             )
             return asyncio.run(_serve(service, profile.service.ready_file))

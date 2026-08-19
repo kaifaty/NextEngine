@@ -11,10 +11,17 @@ from nextengine_emotion_probe.probe import EmotionProbe
 
 from .adapters.emotion2vec import Emotion2VecAffectAdapter
 from .adapters.voxtral_transcribe_cpp import VoxtralTranscriberAdapter
+from .adapters.wavlm_russian_resd import (
+    ADAPTER_ID as WAVLM_RUSSIAN_RESD_ADAPTER_ID,
+    WEIGHTS_FILENAME as WAVLM_WEIGHTS_FILENAME,
+    WavlmRussianResdAffectAdapter,
+)
 from .session import SessionBounds
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+EMOTION2VEC_ADAPTER_ID = "emotion2vec-plus/1"
+SUPPORTED_EMOTION_ADAPTERS = {EMOTION2VEC_ADAPTER_ID, WAVLM_RUSSIAN_RESD_ADAPTER_ID}
 
 
 class ProfileError(RuntimeError):
@@ -36,11 +43,13 @@ class VoxtralProfile:
 
 @dataclass(frozen=True)
 class EmotionProfile:
+    adapter_id: str
     model_id: str
     model_revision: str
     cache_dir: Path
     device: str
     classification: str
+    weights_sha256: str | None
 
 
 @dataclass(frozen=True)
@@ -88,9 +97,10 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
         {"partial_decode_interval_ms"},
         "voxtral",
     )
-    emotion = _object(
+    emotion = _object_with_optional(
         root["emotion"],
         {"model_id", "model_revision", "cache_dir", "device", "classification"},
+        {"adapter_id", "weights_sha256"},
         "emotion",
     )
     service = _object(
@@ -114,6 +124,11 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
             ),
         ),
         emotion=EmotionProfile(
+            adapter_id=_choice(
+                emotion.get("adapter_id", EMOTION2VEC_ADAPTER_ID),
+                "emotion.adapter_id",
+                SUPPORTED_EMOTION_ADAPTERS,
+            ),
             model_id=_string(emotion["model_id"], "model_id", 256),
             model_revision=_string(emotion["model_revision"], "model_revision", 128),
             cache_dir=_path(emotion["cache_dir"], "cache_dir"),
@@ -122,6 +137,11 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
                 emotion["classification"],
                 "classification",
                 {"unclassified_local_only", "classified_local_only"},
+            ),
+            weights_sha256=(
+                _sha256(emotion["weights_sha256"], "emotion.weights_sha256")
+                if "weights_sha256" in emotion
+                else None
             ),
         ),
         service=ServiceProfile(
@@ -160,6 +180,12 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
         raise ProfileError(f"transcribe.cpp library does not exist: {profile.voxtral.library}")
     if not profile.emotion.cache_dir.is_dir():
         raise ProfileError(f"emotion cache directory does not exist: {profile.emotion.cache_dir}")
+    if profile.emotion.adapter_id == WAVLM_RUSSIAN_RESD_ADAPTER_ID:
+        if profile.emotion.weights_sha256 is None:
+            raise ProfileError("WavLM emotion profile requires emotion.weights_sha256")
+        _validate_wavlm_weights(profile.emotion)
+    elif profile.emotion.weights_sha256 is not None:
+        raise ProfileError("emotion.weights_sha256 is only valid for the WavLM adapter")
     try:
         result = subprocess.run(
             ["git", "-C", str(profile.voxtral.transcribe_root), "rev-parse", "HEAD"],
@@ -182,7 +208,7 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
 
 def build_adapters(
     profile: SpeechTimelineProfile,
-) -> tuple[VoxtralTranscriberAdapter, Emotion2VecAffectAdapter]:
+) -> tuple[VoxtralTranscriberAdapter, Emotion2VecAffectAdapter | WavlmRussianResdAffectAdapter]:
     transcriber = VoxtralTranscriberAdapter(
         profile.voxtral.model_path,
         profile.voxtral.transcribe_root,
@@ -191,14 +217,25 @@ def build_adapters(
         delay_ms=profile.voxtral.delay_ms,
         partial_decode_interval_ms=profile.voxtral.partial_decode_interval_ms,
     )
-    probe = EmotionProbe(
-        profile.emotion.model_id,
-        profile.emotion.model_revision,
-        profile.emotion.cache_dir,
-        profile.emotion.device,
-        local_files_only=True,
-    )
-    return transcriber, Emotion2VecAffectAdapter(probe)
+    if profile.emotion.adapter_id == EMOTION2VEC_ADAPTER_ID:
+        probe = EmotionProbe(
+            profile.emotion.model_id,
+            profile.emotion.model_revision,
+            profile.emotion.cache_dir,
+            profile.emotion.device,
+            local_files_only=True,
+        )
+        return transcriber, Emotion2VecAffectAdapter(probe)
+    if profile.emotion.adapter_id == WAVLM_RUSSIAN_RESD_ADAPTER_ID:
+        assert profile.emotion.weights_sha256 is not None
+        return transcriber, WavlmRussianResdAffectAdapter(
+            profile.emotion.model_id,
+            profile.emotion.model_revision,
+            profile.emotion.cache_dir,
+            profile.emotion.device,
+            profile.emotion.weights_sha256,
+        )
+    raise AssertionError(f"unsupported validated emotion adapter: {profile.emotion.adapter_id}")
 
 
 def _object(value: object, keys: set[str], name: str) -> dict[str, Any]:
@@ -259,6 +296,31 @@ def _sha256(value: object, name: str) -> str:
     if result.lower() != result:
         raise ProfileError(f"{name} must use lowercase hexadecimal digits")
     return result
+
+
+def _validate_wavlm_weights(emotion: EmotionProfile) -> None:
+    assert emotion.weights_sha256 is not None
+    model_directory = f"models--{emotion.model_id.replace('/', '--')}"
+    weights = (
+        emotion.cache_dir
+        / model_directory
+        / "snapshots"
+        / emotion.model_revision
+        / WAVLM_WEIGHTS_FILENAME
+    )
+    if not weights.is_file():
+        raise ProfileError(f"pinned WavLM weights do not exist: {weights}")
+    resolved_weights = weights.resolve()
+    try:
+        resolved_weights.relative_to(emotion.cache_dir)
+    except ValueError as error:
+        raise ProfileError("pinned WavLM weights resolve outside the emotion cache") from error
+    digest = hashlib.sha256()
+    with resolved_weights.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    if f"sha256:{digest.hexdigest()}" != emotion.weights_sha256:
+        raise ProfileError("WavLM model.safetensors SHA-256 does not match the profile")
 
 
 def _require_external(path: Path, name: str) -> None:

@@ -5,6 +5,7 @@ import type { AffectObservation, AffectSegment, SpeechActivitySegment } from "..
 import { emotionColor, emotionLabel, formatTime } from "../lib/display";
 
 const props = defineProps<{
+  adapterName: string;
   segments: AffectSegment[];
   speechActivity: SpeechActivitySegment[];
   observations: AffectObservation[];
@@ -62,7 +63,7 @@ function activityStyle(segment: SpeechActivitySegment): Record<string, string> {
   <section class="panel affect-panel">
     <header class="panel-header">
       <div>
-        <p class="eyebrow">Emotion2Vec · observed expression</p>
+        <p class="eyebrow">{{ adapterName }} · observed expression</p>
         <h2>Эмоциональный таймлайн</h2>
       </div>
       <span class="tag">rev {{ revision }}</span>

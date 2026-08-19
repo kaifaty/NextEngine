@@ -131,6 +131,71 @@ class ProfileTests(unittest.TestCase):
             with self.assertRaises(ProfileError):
                 load_profile(profile)
 
+    def test_wavlm_profile_requires_the_pinned_external_weights(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            model = root / "model.gguf"
+            model.write_bytes(b"voxtral")
+            library = root / "libtranscribe.so"
+            library.write_bytes(b"runtime")
+            transcribe_root = root / "transcribe.cpp"
+            transcribe_root.mkdir()
+            cache = root / "emotion-cache"
+            weights = (
+                cache
+                / "models--Aniemore--wavlm-emotion-russian-resd"
+                / "snapshots"
+                / ("b" * 40)
+                / "model.safetensors"
+            )
+            weights.parent.mkdir(parents=True)
+            weights.write_bytes(b"wavlm")
+            revision = "a" * 40
+            profile_path = root / "profile.json"
+            profile_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "voxtral": {
+                            "model_path": str(model),
+                            "model_size_bytes": model.stat().st_size,
+                            "model_sha256": f"sha256:{hashlib.sha256(model.read_bytes()).hexdigest()}",
+                            "transcribe_root": str(transcribe_root),
+                            "library": str(library),
+                            "runtime_revision": revision,
+                            "backend": "cuda",
+                            "delay_ms": 480,
+                        },
+                        "emotion": {
+                            "adapter_id": "transformers-wavlm-russian-ser/1",
+                            "model_id": "Aniemore/wavlm-emotion-russian-resd",
+                            "model_revision": "b" * 40,
+                            "cache_dir": str(cache),
+                            "device": "cpu",
+                            "classification": "unclassified_local_only",
+                            "weights_sha256": f"sha256:{hashlib.sha256(weights.read_bytes()).hexdigest()}",
+                        },
+                        "service": {
+                            "port": 0,
+                            "ready_file": str(root / "ready.json"),
+                            "max_frame_bytes": 32_000,
+                            "max_turn_bytes": 960_000,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            completed = subprocess.CompletedProcess(
+                ["git"], 0, stdout=f"{revision}\n", stderr=""
+            )
+            with patch(
+                "nextengine_speech_timeline.profile.subprocess.run",
+                return_value=completed,
+            ):
+                profile = load_profile(profile_path)
+        self.assertEqual(profile.emotion.adapter_id, "transformers-wavlm-russian-ser/1")
+        self.assertEqual(profile.emotion.weights_sha256, f"sha256:{hashlib.sha256(b'wavlm').hexdigest()}")
+
 
 if __name__ == "__main__":
     unittest.main()

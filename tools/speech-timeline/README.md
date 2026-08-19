@@ -10,10 +10,12 @@ The project is the model-neutral home for the resident speech timeline service.
 diagnostics. Model weights, runtime builds, ready files, tokens, and captured
 audio stay outside the repository.
 
-The default model is `emotion2vec/emotion2vec_plus_base`, pinned to Hugging Face
-revision `b318240bfe67db81a8c572ecb37ce9c3759b81c9`. Model weights and the Python
-environment belong outside the repository under
-`~/.cache/nextengine/emotion2vec-plus-base/`.
+The backwards-compatible default profile selects
+`emotion2vec/emotion2vec_plus_base`, pinned to Hugging Face revision
+`b318240bfe67db81a8c572ecb37ce9c3759b81c9`. The facade can also select the
+Russian RESD WavLM candidate, `Aniemore/wavlm-emotion-russian-resd`, without
+changing the timeline protocol. Model weights and the Python environment belong
+outside the repository under `~/.cache/nextengine/`.
 
 ## Install
 
@@ -76,7 +78,8 @@ The dashboard deliberately keeps these representations separate:
 
 - stable and tentative Voxtral transcript revisions;
 - VAD speech/no-speech segments on the same 16 kHz sample clock;
-- raw emotion2vec score windows on the 16 kHz sample clock;
+- raw score windows from the selected vocal-affect adapter on the 16 kHz sample
+  clock;
 - smoothed observed-expression segments;
 - the final utterance-level fusion result and exact model lineage.
 
@@ -90,7 +93,7 @@ serialization/send timings, and browser-side slow-event diagnostics.
 
 Emotion scores remain uncalibrated observations. The resident service applies
 an energy-VAD gate (20 ms frames, 2-frame start hysteresis, 400 ms hangover,
-200 ms pre-roll) and runs emotion2vec only when a window contains at least
+200 ms pre-roll) and runs the selected affect model only when a window contains at least
 600 ms and 35% voiced coverage. Silence is emitted as `no_speech`, never as a
 model-derived `neutral` label. The gate is a replaceable baseline; a Silero or
 WebRTC adapter can be evaluated behind the same activity contract later.
@@ -104,13 +107,43 @@ The profile is strict schema version 1 and contains three objects:
   root/library/revision, backend, model delay, and partial-decode interval
   (240 ms by default; legacy v1 profiles without the field keep this default);
 - `emotion`: pinned model ID/revision, existing cache directory, device, and
-  local-only classification;
+  local-only classification. `adapter_id` is optional for legacy v1 profiles
+  and defaults to `emotion2vec-plus/1`.
 - `service`: loopback port (`0` selects an ephemeral port), external ready-file
   path, and aligned frame/turn byte ceilings.
 
 The ready file is created with mode `0600`, contains the random session token,
 and is removed on clean shutdown. Raw PCM, transcripts, and model outputs are
 not written by the service.
+
+### Russian WavLM candidate profile
+
+`transformers-wavlm-russian-ser/1` is a second, replaceable adapter for
+`Aniemore/wavlm-emotion-russian-resd`. It uses the stock Transformers WavLM
+implementation with `trust_remote_code=False`; it never downloads at service
+startup. The cache must already contain the exact `config.json`,
+`preprocessor_config.json`, and `model.safetensors` at the pinned revision.
+The profile validates the weight digest before Voxtral or WavLM loads, so an
+incomplete or altered cache fails closed.
+
+```json
+{
+  "adapter_id": "transformers-wavlm-russian-ser/1",
+  "model_id": "Aniemore/wavlm-emotion-russian-resd",
+  "model_revision": "7a4ca18b34adff59b56b451acc7ff44fc43a12dc",
+  "cache_dir": "/home/you/.cache/nextengine/aniemore-wavlm-russian-resd/models",
+  "device": "cuda",
+  "classification": "unclassified_local_only",
+  "weights_sha256": "sha256:dabf15d84b451195346b8050102a7243b3f92276064195f6e34b65aaa06a12ab"
+}
+```
+
+The adapter normalizes WavLM's seven native head labels to the timeline
+vocabulary: `angry`, `disgusted`, `enthusiasm`, `fearful`, `happy`, `neutral`,
+and `sad`. These remain uncalibrated observations of vocal expression, not
+probabilities of a speaker's internal state. To roll back, remove `adapter_id`
+and `weights_sha256` (or set `adapter_id` to `emotion2vec-plus/1`) in an
+otherwise valid base profile, then restart the resident service.
 
 In a second terminal, list inputs and connect the microphone client:
 
@@ -178,7 +211,7 @@ returned as one terminal protocol error rather than leaving the client waiting.
 
 `evaluate-affect` replays a previously prepared external calibration manifest
 through the public resident WebSocket path. This exercises the production VAD,
-emotion-window cadence and final smoothing rather than calling emotion2vec
+emotion-window cadence and final smoothing rather than calling an adapter
 directly. It verifies every local WAV hash before use and writes only clip IDs,
 source labels, final expression/admission diagnostics, timing and model lineage;
 audio and ASR transcripts are omitted. The command is evaluation only: it never

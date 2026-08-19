@@ -438,6 +438,7 @@ function stringValue(value: JsonObject, key: string): string {
         :timing-precision="timeline?.transcript.timing_precision ?? 'utterance'"
       />
       <EmotionTimeline
+        :adapter-name="affectName"
         :segments="timeline?.vocal_affect.segments ?? []"
         :speech-activity="timeline?.vocal_affect.speech_activity ?? []"
         :observations="timeline?.vocal_affect.raw_observations ?? []"

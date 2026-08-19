@@ -1,6 +1,7 @@
 const LABELS: Record<string, string> = {
   angry: "Злость",
   disgusted: "Отвращение",
+  enthusiasm: "Воодушевление",
   fearful: "Страх",
   happy: "Радость",
   neutral: "Нейтрально",
@@ -13,6 +14,7 @@ const LABELS: Record<string, string> = {
 const COLORS: Record<string, string> = {
   angry: "#ff665e",
   disgusted: "#ab79ec",
+  enthusiasm: "#e895d5",
   fearful: "#7189ff",
   happy: "#f5ca58",
   neutral: "#66c6b8",
