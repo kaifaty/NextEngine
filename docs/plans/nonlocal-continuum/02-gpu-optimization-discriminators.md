@@ -1,15 +1,16 @@
 # NR2/NR3 — Nonlocal GPU optimization discriminators
 
-Status: `SPECIFIED / UNBLOCKED_BY_NR1-RC1 / O1_NEXT / REPORT_ONLY`
+Status: `SPECIFIED / O1_RETAINED_POINTER_SWAP / O2_NEXT / REPORT_ONLY`
 
 The source-atomic [NR1 evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md)
 did not authorize this ladder. The separately specified
 [NR1-RC1 owner-only gather](03-nr1-deterministic-accumulation-reclosure.md)
 has now exited `NR1_RECLOSED_GATHER_DIRECTED`; its
 [execution report](../../development/nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md)
-unblocks O1. `nuv-gather-directed-r0` is the correctness baseline for retained
-NR2 candidates. Its adjacent RC1 timings remain observations until the ordered
-ladder and required profiler captures are complete.
+unblocked O1. The [O1 execution report](../../development/nonlocal-continuum-nr2-o1-evidence-2026-08-20.md)
+retains `nuv-gather-directed-r0 + pointer-swap-o1` as the O2 input. RC1 and O1
+timings remain bounded observations until the ordered ladder and required
+profiler captures are complete.
 
 ## Outcome
 
@@ -52,6 +53,12 @@ Replace per-step/per-iteration resize, assignment and full state copies with:
 No pair, arithmetic expression, term, iteration or accumulation order changes.
 Reject O1 if memory grows beyond the declared capacity model or if a stale
 field can survive a reset self-test.
+
+Execution closure: `O1_RETAINED_POINTER_SWAP`. Copy/swap outputs and CSR are
+exact across cold and reused odd/even controls, memory is unchanged, handoff
+p95 decreases on every profile, and total p95 decreases on both HN-3
+denominators. O2 starts from the retained swap identity; `copy-v0` remains
+selectable as its adjacent rollback baseline.
 
 ### O2 — Term-specialized kernels
 
@@ -205,7 +212,8 @@ cutoff is not W2 or ProductCheck PASS.
 
 ## Evidence summary
 
-The checked-in NR2/NR3 report lists every attempted candidate, before/after
+The checked-in [O1 report](../../development/nonlocal-continuum-nr2-o1-evidence-2026-08-20.md)
+records the first retained candidate. Each NR2/NR3 report lists before/after
 commit, exact command, correctness result, stage/total percentiles, profiler
 attribution, memory, conclusion and rollback status. Raw reports and captures
 remain external and hash-bound.

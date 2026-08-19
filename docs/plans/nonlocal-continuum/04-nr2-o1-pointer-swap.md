@@ -1,10 +1,14 @@
 # NR2-O1 — Persistent state and pointer-swap handoff
 
-Status: `SPECIFIED / IMPLEMENTATION_NOT_STARTED / REPORT_ONLY`
+Status: `EXECUTED / O1_RETAINED_POINTER_SWAP / O2_NEXT / REPORT_ONLY`
 
 Prerequisite:
 [NR1-RC1 reclosure evidence](../../development/nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md)
 exits `NR1_RECLOSED_GATHER_DIRECTED` and admits O1.
+
+Execution:
+[NR2-O1 evidence](../../development/nonlocal-continuum-nr2-o1-evidence-2026-08-20.md)
+passes every correctness and retention gate and admits O2.
 
 ## Outcome
 
@@ -142,3 +146,14 @@ Term specialization, accumulation changes, clear removal/fusion, CUDA Graphs,
 cell sorting, precision changes, convergence changes, warm start, profiler
 capture, production integration, runtime/public contracts, Windows execution
 and NR4 selection.
+
+## Execution closure
+
+O1 exited `O1_RETAINED_POINTER_SWAP` on the Linux RTX 3080 evidence host.
+Copy/swap ordered outputs and CSR were exact, odd/even reused-instance controls
+passed, and memory was unchanged. Handoff p95 decreased on all three profiles;
+total p95 decreased `12.105%` on water-48k and `7.505%` on viscous-16k. The
+retained identity for O2 is `nuv-gather-directed-r0 + pointer-swap-o1`.
+
+This closure is report-only. It does not grant profiler, aggregate NR2, NR4,
+runtime, W2 or production credit.
