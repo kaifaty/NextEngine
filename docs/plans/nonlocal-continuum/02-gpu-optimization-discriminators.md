@@ -39,6 +39,9 @@ required after every small buffer cleanup.
 
 ### O1 — Persistent state and pointer swap
 
+Execution contract:
+[NR2-O1 pointer-swap handoff](04-nr2-o1-pointer-swap.md).
+
 Replace per-step/per-iteration resize, assignment and full state copies with:
 
 - capacity-admitted persistent SoA buffers;
