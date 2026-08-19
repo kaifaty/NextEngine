@@ -49,7 +49,7 @@ emitted in the NR1 machine-readable report before timings are accepted.
 
 | Profile ID | Lattice / samples | Active terms | `kappa/lambda/mu/gamma` | Fixed iterations |
 |---|---:|---|---|---:|
-| `nuv-tiny-oracle.v0` | named `2..=256` fixtures | individually selected and full | per named case | `1..=4` |
+| `nuv-tiny-oracle.v0` | named `1..=256` fixtures | individually selected and full | per named case | `1..=4` |
 | `nuv-water-16k.v0` | `40 x 20 x 20 = 16,000` | incompressibility + bulk viscosity | `1 / 1.5 / 0 / 0` | `5` |
 | `nuv-water-48k.v0` | `80 x 40 x 15 = 48,000` | incompressibility + bulk viscosity | `1 / 1.5 / 0 / 0` | `5` |
 | `nuv-viscous-16k.v0` | `40 x 20 x 20 = 16,000` | incompressibility + bulk/shear viscosity | `1 / 200 / 1 / 0` | `20` |
