@@ -1,6 +1,10 @@
 # NR2/NR3 — Nonlocal GPU optimization discriminators
 
-Status: `SPECIFIED / NOT_STARTED / REPORT_ONLY`
+Status: `SPECIFIED / BLOCKED_BY_NR1_SURFACE_MISMATCH / REPORT_ONLY`
+
+The [NR1 evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md)
+does not authorize this ladder. A separately identified deterministic
+accumulation remediation must be reclosed before O1/O2 timing begins.
 
 ## Outcome
 

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W2_CURRENT_PROFILES_MISS / NONLOCAL_NR0_SPECIFIED / NR1_NEXT` |
+| Status | `W2_CURRENT_PROFILES_MISS / NONLOCAL_NR1_BASELINE_MISMATCH / NR2_BLOCKED` |
 | Updated | `2026-08-19` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -32,8 +32,10 @@
 - **Authority:** private `f64` solve, ties-to-even canonical sample
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
-- **Next action:** execute the explicitly authorized bounded Nonlocal NR1
-  baseline/oracle experiment without changing the rooted water profile. The
+- **Next action:** keep the rooted water profile unchanged and do not begin
+  Nonlocal NR2 until a deterministic accumulation remediation is separately
+  reclosed. NR1 tiny/water/viscous controls pass, but the stiff surface profile
+  violates repeated state tolerances from iteration two. The
   crate-private `64`-partition worker path is short-root exact for
   serial/`1/2/4/8` and reaches `3.105×`, but sealed-48k still averages
   `269.643 ms`. A clean standalone RTX 3080 discriminator then measures the
@@ -41,9 +43,9 @@
   mixed arithmetic versus the complete `4 ms` target. The GPU reaches `100%`
   SM utilization and the dependent pressure/matrix traversals dominate, so do
   not spend a long run or launch-only tuning merely refining this miss. The
-  [Nonlocal research contract](../../plans/nonlocal-continuum/00-research-contract.md)
-  now freezes a source-faithful fixed-work baseline, independent oracle,
-  optimization ladder and explicit 48k/local-domain/stop outcomes.
+  [NR1 evidence](../nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md)
+  records water-48k p95 `13.875 ms`, water-16k `5.944 ms`, viscous-16k
+  `20.039 ms`, and `BASELINE_MISMATCH` for surface-16k.
 - **Activation gate:** `CONTINUUM-WATER-REF-P1=PASS` is satisfied in the
   dedicated worktree and its checkpoint is merged into mainline by `fe223f9`.
   R8 is active only as isolated W2 research; W3 integration remains blocked by
@@ -51,7 +53,8 @@
 - **Current uncertainty:** Windows/Linux equality, 50k performance, dynamic
   rigid reaction, fast impact and added-mass behavior remain open. Nonlocal
   formula reproduction, bottleneck attribution and the 48k/16k scale gates
-  also have no local evidence yet. W1 supplies only Linux serial correctness;
+  now have bounded local evidence; optimized fixed-work speedup and final
+  48k/local-domain decisions remain unknown. W1 supplies only Linux serial correctness;
   every later `CONTINUUM-*` ProductCheck is `NOT_RUN`.
 - **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
   hidden warm-start/float continuation, iterative coupling, sleep before exact
@@ -86,6 +89,7 @@
 | [W2 GPU feasibility discriminator](../continuum-water-w2-gpu-feasibility-2026-08-19.md) | `DIRECT_GRAPH_PORT_MISSES_4MS / GPU_ARCHITECTURE_UNDECIDED / NO_W2_CREDIT` | Clean RTX 3080 proxy p95 is `37.398 ms` `f64` and `18.015 ms` mixed before mandatory omitted stages; direct backend transfer is rejected as a 4 ms solution, while broader GPU/solver research remains open |
 | [Nonlocal primary-source audit](../nonlocal-unified-continuum-source-audit-2026-08-19.md) | `PRIMARY_SOURCES_INSPECTED / IMPLEMENTATION_NOT_STARTED` | Confirms a published CUDA/SISSM baseline and concrete optimization targets while rejecting universal-solver and immediate-integration claims |
 | [Nonlocal bounded research roadmap](../../plans/nonlocal-continuum/README.md) | `NR0_SPECIFIED / NO_W2_CREDIT` | Selects a standalone fixed-work baseline/oracle and ordered optimization spike; DFSPH roots and authority remain unchanged |
+| [Nonlocal NR1 baseline evidence](../nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | `BASELINE_MISMATCH / NR2_BLOCKED` | Tiny/water/viscous controls pass; source-shaped surface atomics amplify repeated `f32` order noise beyond state tolerances |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-WATER-REF-P1` | `PASS / LINUX_W1_PASS / RESEARCH_ONLY` | Admits W2 work; does not imply performance, coupling, persistence, runtime or production readiness |
@@ -182,7 +186,7 @@
 | H2: 50k water fits the current THOTH budget without a new rooted algorithm/authority profile | bounded sealed region, `3.105×` CPU-worker speedup and strong GPU reconstruction acceleration | short 8-worker CPU mean is `269.643 ms`; clean direct GPU proxy p95 is still `37.398 ms` `f64` / `18.015 ms` mixed before omitted stages | `REJECTED_FOR_CURRENT_CPU_AND_DIRECT_GPU_PROFILES`; decide stop versus new rooted profile |
 | H3: one-pass coupling is stable for the basin crate | narrow consumer and fixed cadence | fast impact/added-mass behavior is unmeasured | W3 float/impact corpus and reaction closure |
 | H4: one Drucker-Prager profile covers the first wheel scenario | established dry-sand model | exact source material and curve thresholds are not selected | Package 10T calibration closure |
-| H5: source-faithful Nonlocal/SISSM can justify a separately rooted continuum profile | unified terms, published CUDA code and fixed-work optimization opportunities | published examples are not real-time at world scale; no Next Engine oracle or local timing exists | NR1 baseline/oracle, then NR2 fixed-iteration optimization and NR4 decision |
+| H5: source-faithful Nonlocal/SISSM can justify a separately rooted continuum profile | tiny oracle passes; water-16k p95 is `5.944 ms`; profiler assigns `89.8%` of kernel time to viscosity/incompressibility pair passes | water-48k p95 is `13.875 ms`, viscous-16k `20.039 ms`, and stiff surface repeated state diverges beyond tolerance | reclose deterministic accumulation remediation or retain `BASELINE_MISMATCH` stop |
 
 ## Required context
 
@@ -206,10 +210,11 @@
 
 ## Next action
 
-1. Implement NR1 as a standalone tool with an independent CPU `f64` oracle and
-   source-shaped fixed-iteration CUDA `f32` baseline.
-2. Do not start NR2 timing until tiny pair/iteration controls pass and the NR1
-   report records `BASELINE_REPRODUCED`.
+1. Do not start NR2 timing: NR1 records `BASELINE_MISMATCH`, not
+   `BASELINE_REPRODUCED`.
+2. If the Nonlocal branch continues, first reclose a distinct deterministic
+   gather/segmented accumulation remediation and require the two-iteration
+   stiff-surface control to pass before timing.
 3. Do not run long percentile/corpus repetitions merely to refine the current
    CPU/direct-GPU miss or a failed Nonlocal feasibility cutoff.
 4. Keep Windows equality explicitly deferred for production promotion; do not

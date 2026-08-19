@@ -1,6 +1,8 @@
 # NR1 — Source-faithful baseline and independent oracle
 
-Status: `SPECIFIED / NOT_STARTED / REPORT_ONLY`
+Status: `EXECUTED / BASELINE_MISMATCH / REPORT_ONLY`
+
+Execution evidence: [NR1 baseline report](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md).
 
 ## Outcome
 

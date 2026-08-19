@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `NR0_SPECIFIED / NR1_IMPLEMENTATION_NEXT / REPORT_ONLY` |
+| Status | `NR1_BASELINE_MISMATCH / NR2_BLOCKED / REPORT_ONLY` |
 | Updated | `2026-08-19` |
 | Task key | `nonlocal-continuum-research` |
 | Scope | Source-faithful Nonlocal/SISSM baseline and bounded GPU optimization research |
@@ -14,12 +14,15 @@
 - Branch/worktree: `codex/nonlocal-continuum-n0` at
   `/home/kaifaty/Documents/NextEngine-nonlocal-continuum-n0`, based on merged
   continuum checkpoint `fe223f9`.
-- NR0 is documentation-only. The research contract, source audit, baseline
-  specification and optimization ladder are frozen for implementation review.
+- NR1 is implemented at `107839b`; the independent CPU and CUDA tiny oracle
+  passes all 11 cases. Water 16k/48k and viscous 16k fixed controls pass.
+- The stiff surface 16k control is finite but fails repeated-output gates from
+  iteration two despite byte-identical neighbor CSR. NR1 therefore records
+  `BASELINE_MISMATCH`, not `BASELINE_REPRODUCED`.
 - The experiment does not replace DFSPH, change SPEC-38/ADR-076, add GPU
   authority or inherit `CONTINUUM-WATER-REF-P1` credit.
-- NR1 implements a standalone CPU `f64` oracle plus source-shaped CUDA `f32`
-  baseline under `crates/continuum-water/tools/nonlocal-feasibility`.
+- The standalone CPU `f64` oracle and source-shaped CUDA `f32` baseline live
+  under `crates/continuum-water/tools/nonlocal-feasibility`.
 - Primary fixed-iteration discriminator: 48k water, five iterations, total p95
   including neighbor construction. `<= 8 ms` is a research cutoff, not the
   existing `4/6 ms` production gate.
@@ -53,33 +56,43 @@
 - **Reason:** preserve the 50k gate while still testing the formulation's
   strongest material-coupling use case.
 
+### D-NR-004 — Preserve the failed atomic baseline
+
+- **Decision:** record `source-atomic-v0` as `BASELINE_MISMATCH` and block NR2;
+  do not relabel deterministic gather/segmented accumulation as the same NR1
+  implementation.
+- **Reason:** the 20-iteration surface profile exceeds repeated position and
+  velocity bounds from iteration two while fixtures and CSR remain identical.
+- **Reconsider when:** a committed reclosure gives the remediation a separate
+  identity and requires surface correctness before timing.
+
 ## Evidence and sources
 
 | Evidence | Status | Consequence |
 |---|---|---|
 | [Source audit](../nonlocal-unified-continuum-source-audit-2026-08-19.md) | `PRIMARY_SOURCES_INSPECTED` | formulas/code are sufficient for a bounded experiment; universal-solver claim rejected |
-| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `BOUNDED_SPIKE_SELECTED` | defines NR0–NR4 and no-credit relationship to W2 |
+| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `NR1_BASELINE_MISMATCH / NR2_BLOCKED` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
 | [Research contract](../../plans/nonlocal-continuum/00-research-contract.md) | `SPECIFIED` | freezes hypotheses, workloads, measurement scope and terminal states |
-| [Baseline/oracle specification](../../plans/nonlocal-continuum/01-source-faithful-baseline-and-oracle.md) | `NOT_STARTED` | next implementation boundary |
-| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `NOT_STARTED` | begins only after NR1 baseline reproduction |
+| [Baseline/oracle specification](../../plans/nonlocal-continuum/01-source-faithful-baseline-and-oracle.md) | `EXECUTED / BASELINE_MISMATCH` | source-shaped NR1 may not enter NR2 |
+| [NR1 evidence](../nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | `BASELINE_MISMATCH` | tiny/water/viscous reproduce; surface atomics amplify repeated `f32` order noise beyond state tolerances |
+| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `BLOCKED_BY_NR1` | cannot begin under the current baseline gate |
 | Pairwise Descent paper/code | `TO_APPEAR / NOT_AUDITABLE` | do not implement or infer formulas |
 
 ## Next action
 
-1. Create the standalone tool skeleton and exact machine-readable profile
-   record without importing PeriDyno.
-2. Implement the CPU `f64` pair/one-iteration oracle and make every tiny case
-   pass before CUDA timing work.
-3. Implement the source-shaped fixed-iteration CUDA baseline and bind its
-   report schema/self-test.
-4. Run only bounded NR1 controls; do not begin NR2 until the checked-in NR1
-   evidence summary records `BASELINE_REPRODUCED`.
+1. Do not begin NR2 under the current contract or widen the frozen tolerances.
+2. If research continues, reclose a separate deterministic gather/segmented
+   accumulation remediation identity while retaining `source-atomic-v0` as the
+   failed denominator.
+3. Require that candidate to pass the existing tiny matrix and the
+   two-iteration surface discriminator before any performance run.
 
 ## Do not retry or infer
 
 - direct APG graph port or scheduler-only tuning as a 4 ms solution;
 - full PeriDyno integration;
 - lower precision without the oracle matrix;
+- another source-atomic surface run as a correctness remedy;
 - position-delta-only convergence;
 - hidden warm-start state;
 - Pairwise Descent without a public primary source;
@@ -88,8 +101,10 @@
 
 ## Handoff
 
-- **Current change:** documentation/specification only.
-- **Executable checks:** `NotRun(NoExecutableChange)`.
-- **Remaining uncertainty:** formula reproduction, numerical tolerances,
-  baseline bottleneck attribution, fixed-iteration speedup and both scale gates
-  have no local evidence yet.
+- **Current change:** CPU oracle `5e77bbc`, CUDA baseline `107839b`, bounded NR1
+  evidence and task/roadmap transition.
+- **Executable checks:** build PASS; CPU/CUDA self-test PASS; water 16k/48k and
+  viscous 16k 5+50 benchmarks PASS; surface 16k benchmark FAIL as recorded;
+  Nsight attribution complete.
+- **Remaining uncertainty:** deterministic accumulation correctness and cost,
+  retained NR2 speedup, optimized 48k cutoff and any final NR4 interpretation.

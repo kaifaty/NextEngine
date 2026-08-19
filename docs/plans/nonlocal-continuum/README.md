@@ -1,6 +1,6 @@
 # Nonlocal continuum — bounded research roadmap
 
-Status: `DRAFT_RESEARCH / BOUNDED_SPIKE_SELECTED / NO_W2_CREDIT`
+Status: `NR1_BASELINE_MISMATCH / NR2_BLOCKED / NO_W2_CREDIT`
 
 This directory specifies a report-only evaluation of the method described in
 *A Nonlocal Unified Variational Framework for Free Surface Flows*. The work is
@@ -31,8 +31,8 @@ of this experiment.
 
 ```text
 NR0 Research contract and source audit       SPECIFIED / DOCUMENTATION
- └─ NR1 Source-faithful baseline + CPU oracle  NOT_STARTED
-     └─ NR2 Fixed-iteration GPU optimization NOT_STARTED
+ └─ NR1 Source-faithful baseline + CPU oracle  BASELINE_MISMATCH
+     └─ NR2 Fixed-iteration GPU optimization BLOCKED_BY_NR1
          └─ NR3 Algorithm-changing probes    NOT_STARTED / CONDITIONAL
              └─ NR4 Architecture decision    NOT_STARTED
 ```
@@ -40,8 +40,8 @@ NR0 Research contract and source audit       SPECIFIED / DOCUMENTATION
 | Stage | Specification | Exit evidence | Credit |
 |---|---|---|---|
 | NR0 | [Research contract](00-research-contract.md) and [source audit](../../development/nonlocal-unified-continuum-source-audit-2026-08-19.md) | hypotheses, provenance, fixtures, metrics and stop states are explicit | documentation only |
-| NR1 | [Baseline and oracle](01-source-faithful-baseline-and-oracle.md) | independent CPU checks plus reproducible fixed-iteration GPU reports | report only |
-| NR2 | [GPU optimization discriminators](02-gpu-optimization-discriminators.md) | each optimization has an adjacent baseline, correctness result and bounded timing | report only |
+| NR1 | [Baseline and oracle](01-source-faithful-baseline-and-oracle.md) and [evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | tiny, water and viscous controls pass; stiff surface repeated-output control fails | report only |
+| NR2 | [GPU optimization discriminators](02-gpu-optimization-discriminators.md) | `BLOCKED`: requires an explicit remediation reclosure after NR1 surface mismatch | report only |
 | NR3 | [Algorithm-changing probes](02-gpu-optimization-discriminators.md#nr3-algorithm-changing-probes) | a separately labelled convergence/algorithm candidate passes its own oracle | no fixed-iteration credit |
 | NR4 | [Decision contract](00-research-contract.md#decision-states) | exactly one predeclared decision state is selected from complete evidence | may authorize a later Proposed reclosure only |
 
