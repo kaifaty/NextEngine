@@ -23,12 +23,16 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --self-test --accumulation nuv-gather-directed-r0
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --self-test --accumulation nuv-gather-directed-r0 \
+  --handoff pointer-swap-o1
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --repeatability nuv-surface-16k.v0 --iterations 20 --runs 10 \
-  --accumulation nuv-gather-directed-r0
+  --accumulation nuv-gather-directed-r0 --handoff pointer-swap-o1
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --check nuv-water-48k.v0 --iterations 5
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
-  --benchmark nuv-water-48k.v0 --warmup 5 --runs 50
+  --benchmark nuv-water-48k.v0 --warmup 5 --runs 50 \
+  --accumulation nuv-gather-directed-r0 --handoff pointer-swap-o1
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -36,4 +40,6 @@ and profiler captures stay outside Git.
 
 Commands without `--accumulation` retain the frozen `source-atomic-v0`
 baseline. `nuv-gather-directed-r0` selects the NR1-RC1 owner-only directed
-gather counterfactual explicitly.
+gather counterfactual explicitly. Commands without `--handoff` retain the
+`copy-v0` state handoff. `pointer-swap-o1` is valid only with the directed
+gather path and selects the report-only NR2-O1 candidate explicitly.

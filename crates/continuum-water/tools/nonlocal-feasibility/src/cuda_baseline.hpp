@@ -17,24 +17,35 @@ enum class AccumulationMode {
     GatherDirectedR0,
 };
 
+enum class HandoffMode {
+    CopyV0,
+    PointerSwapO1,
+};
+
 const char* accumulation_identity(AccumulationMode mode);
 AccumulationMode parse_accumulation_identity(const std::string& identity);
+const char* handoff_identity(HandoffMode mode);
+HandoffMode parse_handoff_identity(const std::string& identity);
 
 CommandReport run_cuda_self_test(
-    AccumulationMode mode = AccumulationMode::SourceAtomicV0);
+    AccumulationMode mode = AccumulationMode::SourceAtomicV0,
+    HandoffMode handoff = HandoffMode::CopyV0);
 CommandReport run_cuda_check(
     const Profile& profile,
     int iterations,
-    AccumulationMode mode = AccumulationMode::SourceAtomicV0);
+    AccumulationMode mode = AccumulationMode::SourceAtomicV0,
+    HandoffMode handoff = HandoffMode::CopyV0);
 CommandReport run_cuda_repeatability(
     const Profile& profile,
     int iterations,
     int runs,
-    AccumulationMode mode);
+    AccumulationMode mode,
+    HandoffMode handoff = HandoffMode::CopyV0);
 CommandReport run_cuda_benchmark(
     const Profile& profile,
     int warmup,
     int runs,
-    AccumulationMode mode = AccumulationMode::SourceAtomicV0);
+    AccumulationMode mode = AccumulationMode::SourceAtomicV0,
+    HandoffMode handoff = HandoffMode::CopyV0);
 
 } // namespace nextengine::nonlocal

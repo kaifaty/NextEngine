@@ -952,9 +952,13 @@ std::string csr_digest(const CapturedRun& run) {
 
 class CudaBaseline {
 public:
-    CudaBaseline(const Fixture& fixture, AccumulationMode accumulation_mode)
+    CudaBaseline(
+        const Fixture& fixture,
+        AccumulationMode accumulation_mode,
+        HandoffMode handoff_mode)
         : fixture_(fixture),
           accumulation_mode_(accumulation_mode),
+          handoff_mode_(handoff_mode),
           count_(static_cast<int>(fixture.particles.size())),
           grid_(describe_grid(fixture)),
           pair_capacity_(fixture.particles.size() <= 256U
@@ -964,6 +968,11 @@ public:
               static_cast<float>(fixture.spacing), static_cast<float>(fixture.horizon))) {
         if (count_ <= 0) {
             throw std::invalid_argument("CUDA fixture is empty");
+        }
+        if (handoff_mode_ == HandoffMode::PointerSwapO1
+            && accumulation_mode_ != AccumulationMode::GatherDirectedR0) {
+            throw std::invalid_argument(
+                "pointer-swap-o1 requires nuv-gather-directed-r0 accumulation");
         }
         allocate_device_storage();
         upload_fixture();
@@ -1097,9 +1106,14 @@ public:
                     reference_, predicted_, fixed_, source_, matrix_, next_, error_flag_, count_);
             });
             timed(intervals, EventInterval::Stage::Handoff, [&] {
-                check_cuda(
-                    cudaMemcpyAsync(current_, next_, count_ * sizeof(float3), cudaMemcpyDeviceToDevice),
-                    "handoff next position");
+                if (handoff_mode_ == HandoffMode::PointerSwapO1) {
+                    std::swap(current_, next_);
+                } else {
+                    check_cuda(cudaMemcpyAsync(
+                                   current_, next_, count_ * sizeof(float3),
+                                   cudaMemcpyDeviceToDevice),
+                        "handoff next position");
+                }
             });
         }
         timed(intervals, EventInterval::Stage::Density, [&] {
@@ -1423,6 +1437,7 @@ private:
 
     Fixture fixture_;
     AccumulationMode accumulation_mode_ = AccumulationMode::SourceAtomicV0;
+    HandoffMode handoff_mode_ = HandoffMode::CopyV0;
     int count_ = 0;
     GridDescription grid_;
     std::size_t pair_capacity_ = 0;
@@ -1780,7 +1795,27 @@ AccumulationMode parse_accumulation_identity(const std::string& identity) {
     throw std::invalid_argument("unknown accumulation identity: " + identity);
 }
 
-CommandReport run_cuda_self_test(AccumulationMode mode) {
+const char* handoff_identity(HandoffMode mode) {
+    switch (mode) {
+    case HandoffMode::CopyV0:
+        return "copy-v0";
+    case HandoffMode::PointerSwapO1:
+        return "pointer-swap-o1";
+    }
+    throw std::invalid_argument("unknown handoff mode");
+}
+
+HandoffMode parse_handoff_identity(const std::string& identity) {
+    if (identity == "copy-v0") {
+        return HandoffMode::CopyV0;
+    }
+    if (identity == "pointer-swap-o1") {
+        return HandoffMode::PointerSwapO1;
+    }
+    throw std::invalid_argument("unknown handoff identity: " + identity);
+}
+
+CommandReport run_cuda_self_test(AccumulationMode mode, HandoffMode handoff) {
     const Profile& profile = find_profile("nuv-tiny-oracle.v0");
     const Tolerances tolerances = profile.tolerances;
     const std::vector<Fixture> fixtures = oracle_fixtures();
@@ -1788,9 +1823,11 @@ CommandReport run_cuda_self_test(AccumulationMode mode) {
     output << std::setprecision(17);
     output << "{\"schema\":\"nextengine.nonlocal.cuda_oracle_check.v0\""
            << ",\"accumulation_identity\":\"" << accumulation_identity(mode)
+           << "\",\"handoff_identity\":\"" << handoff_identity(handoff)
            << "\",\"binary_sha256\":\"" << executable_hash()
            << "\",\"command\":\"nonlocal-feasibility --self-test --accumulation "
-           << accumulation_identity(mode) << "\",\"profile_id\":\"" << profile.id
+           << accumulation_identity(mode) << " --handoff " << handoff_identity(handoff)
+           << "\",\"profile_id\":\"" << profile.id
            << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
            << "\",\"device\":" << device_json()
            << ",\"normalization\":{\"energy\":\"max(N*m*dx^2/dt^2,max_abs_cpu_energy)\""
@@ -1800,15 +1837,53 @@ CommandReport run_cuda_self_test(AccumulationMode mode) {
     for (std::size_t index = 0; index < fixtures.size(); ++index) {
         const Fixture& fixture = fixtures[index];
         const OracleResult cpu = run_cpu_oracle(fixture);
-        CudaBaseline baseline(fixture, mode);
+        CudaBaseline baseline(fixture, mode, handoff);
         const CapturedRun gpu = baseline.execute(true);
+        const CapturedRun reused_second = baseline.execute(true);
+        const CapturedRun reused_third = baseline.execute(true);
         const Comparison comparison = compare_results(fixture, cpu, gpu.state, tolerances);
+        const Comparison reuse_second =
+            compare_results(fixture, gpu.state, reused_second.state, tolerances);
+        const Comparison reuse_third =
+            compare_results(fixture, gpu.state, reused_third.state, tolerances);
+        const std::string output_digest = ordered_output_digest(gpu.state);
+        const std::string second_digest = ordered_output_digest(reused_second.state);
+        const std::string third_digest = ordered_output_digest(reused_third.state);
+        const std::string topology_digest = csr_digest(gpu);
+        const bool reused_instance_exact = output_digest == second_digest
+            && output_digest == third_digest && gpu.offsets == reused_second.offsets
+            && gpu.offsets == reused_third.offsets && gpu.neighbors == reused_second.neighbors
+            && gpu.neighbors == reused_third.neighbors && reuse_second.passed
+            && reuse_third.passed;
+
+        CapturedRun copy_reference = gpu;
+        if (handoff == HandoffMode::PointerSwapO1) {
+            CudaBaseline copy_baseline(fixture, mode, HandoffMode::CopyV0);
+            copy_reference = copy_baseline.execute(true);
+        }
+        const Comparison copy_comparison =
+            compare_results(fixture, copy_reference.state, gpu.state, tolerances);
+        const bool copy_baseline_exact = ordered_output_digest(copy_reference.state) == output_digest
+            && copy_reference.offsets == gpu.offsets && copy_reference.neighbors == gpu.neighbors
+            && copy_reference.device_memory_bytes == gpu.device_memory_bytes
+            && copy_comparison.passed;
         const bool neighbors_passed = exact_fixture_neighbors(fixture, gpu)
-            && valid_symmetric_neighbors(gpu, fixture.particles.size());
+            && valid_symmetric_neighbors(gpu, fixture.particles.size())
+            && exact_fixture_neighbors(fixture, reused_second)
+            && exact_fixture_neighbors(fixture, reused_third);
         const bool momentum_passed = gpu.state.normalized_momentum_residual
-            <= tolerances.normalized_momentum_residual;
+                <= tolerances.normalized_momentum_residual
+            && reused_second.state.normalized_momentum_residual
+                <= tolerances.normalized_momentum_residual
+            && reused_third.state.normalized_momentum_residual
+                <= tolerances.normalized_momentum_residual;
+        const bool finite_passed = finite_state(gpu.state) && finite_state(reused_second.state)
+            && finite_state(reused_third.state);
+        const bool local_solve_passed = !gpu.local_solve_failed
+            && !reused_second.local_solve_failed && !reused_third.local_solve_failed;
         const bool passed = comparison.passed && neighbors_passed && momentum_passed
-            && finite_state(gpu.state) && !gpu.local_solve_failed;
+            && finite_passed && local_solve_passed && reused_instance_exact
+            && copy_baseline_exact;
         all_passed = all_passed && passed;
         if (index != 0) {
             output << ',';
@@ -1816,10 +1891,17 @@ CommandReport run_cuda_self_test(AccumulationMode mode) {
         output << "{\"name\":\"" << fixture.name << "\",\"input_sha256\":\""
                << fixture_input_hash(fixture) << "\",\"passed\":"
                << (passed ? "true" : "false") << ",\"neighbors_passed\":"
-               << (neighbors_passed ? "true" : "false") << ",\"finite\":"
-               << (finite_state(gpu.state) ? "true" : "false")
+               << (neighbors_passed ? "true" : "false")
+               << ",\"reused_instance_exact\":"
+               << (reused_instance_exact ? "true" : "false")
+               << ",\"copy_baseline_exact\":"
+               << (copy_baseline_exact ? "true" : "false")
+               << ",\"ordered_output_sha256\":[\"" << output_digest << "\",\""
+               << second_digest << "\",\"" << third_digest
+               << "\"],\"csr_sha256\":\"" << topology_digest << "\",\"finite\":"
+               << (finite_passed ? "true" : "false")
                << ",\"local_solve_failed\":"
-               << (gpu.local_solve_failed ? "true" : "false")
+               << (local_solve_passed ? "false" : "true")
                << ",\"directed_pairs\":" << gpu.state.directed_pairs
                << ",\"maximum_degree\":" << gpu.state.maximum_degree
                << ",\"normalized_momentum_residual\":"
@@ -1848,15 +1930,16 @@ CommandReport run_cuda_self_test(AccumulationMode mode) {
 CommandReport run_cuda_check(
     const Profile& profile,
     int iterations,
-    AccumulationMode mode) {
+    AccumulationMode mode,
+    HandoffMode handoff) {
     if (profile.id == "nuv-tiny-oracle.v0") {
-        return run_cuda_self_test(mode);
+        return run_cuda_self_test(mode, handoff);
     }
     if (iterations < 1 || iterations > 100) {
         throw std::invalid_argument("check iterations must be inside 1..=100");
     }
     const Fixture fixture = performance_fixture(profile, iterations);
-    CudaBaseline baseline(fixture, mode);
+    CudaBaseline baseline(fixture, mode, handoff);
     const CapturedRun first = baseline.execute(true);
     const CapturedRun second = baseline.execute(true);
     const Comparison repeated =
@@ -1867,23 +1950,42 @@ CommandReport run_cuda_check(
         && valid_symmetric_neighbors(first, fixture.particles.size())
         && first.state.directed_pairs <= profile.max_directed_pairs
         && first.state.maximum_degree <= profile.max_neighbors;
+    const std::string first_digest = ordered_output_digest(first.state);
+    const std::string second_digest = ordered_output_digest(second.state);
+    const bool reused_instance_exact = first_digest == second_digest
+        && repeated_neighbors_identical && repeated.passed;
+
+    CapturedRun copy_reference = first;
+    if (handoff == HandoffMode::PointerSwapO1) {
+        CudaBaseline copy_baseline(fixture, mode, HandoffMode::CopyV0);
+        copy_reference = copy_baseline.execute(true);
+    }
+    const Comparison copy_correspondence =
+        compare_results(fixture, copy_reference.state, first.state, profile.tolerances);
+    const bool copy_baseline_exact = ordered_output_digest(copy_reference.state) == first_digest
+        && copy_reference.offsets == first.offsets && copy_reference.neighbors == first.neighbors
+        && copy_reference.device_memory_bytes == first.device_memory_bytes
+        && copy_correspondence.passed;
     const bool passed = finite_state(first.state) && finite_state(second.state)
         && !first.local_solve_failed && !second.local_solve_failed && neighbors_passed
         && first.state.normalized_momentum_residual
             <= profile.tolerances.normalized_momentum_residual
         && second.state.normalized_momentum_residual
             <= profile.tolerances.normalized_momentum_residual
-        && repeated.passed;
+        && repeated.passed
+        && (handoff != HandoffMode::PointerSwapO1
+            || (reused_instance_exact && copy_baseline_exact));
 
     std::ostringstream output;
     output << std::setprecision(17);
     output << "{\"schema\":\"nextengine.nonlocal.cuda_full_control.v0\",\"status\":\""
            << (passed ? "PASS" : "FAIL") << "\",\"profile_id\":\"" << profile.id
            << "\",\"accumulation_identity\":\"" << accumulation_identity(mode)
+           << "\",\"handoff_identity\":\"" << handoff_identity(handoff)
            << "\",\"binary_sha256\":\"" << executable_hash()
            << "\",\"command\":\"nonlocal-feasibility --check " << profile.id
            << " --iterations " << iterations << " --accumulation "
-           << accumulation_identity(mode)
+           << accumulation_identity(mode) << " --handoff " << handoff_identity(handoff)
            << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
            << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
            << "\",\"iterations\":" << iterations << ",\"samples\":"
@@ -1899,7 +2001,13 @@ CommandReport run_cuda_check(
            << ",\"normalized_momentum_residual\":["
            << first.state.normalized_momentum_residual << ','
            << second.state.normalized_momentum_residual
-           << "],\"repeated_output_discrepancy\":{\"density\":";
+           << "],\"reused_instance_exact\":"
+           << (reused_instance_exact ? "true" : "false")
+           << ",\"copy_baseline_exact\":"
+           << (copy_baseline_exact ? "true" : "false")
+           << ",\"ordered_output_sha256\":[\"" << first_digest << "\",\""
+           << second_digest
+           << "\"],\"repeated_output_discrepancy\":{\"density\":";
     append_discrepancy(output, repeated.density);
     output << ",\"energy\":";
     append_discrepancy(output, repeated.energy);
@@ -1924,7 +2032,8 @@ CommandReport run_cuda_repeatability(
     const Profile& profile,
     int iterations,
     int runs,
-    AccumulationMode mode) {
+    AccumulationMode mode,
+    HandoffMode handoff) {
     if (profile.id == "nuv-tiny-oracle.v0") {
         throw std::invalid_argument("repeatability requires a fixed performance profile");
     }
@@ -1962,7 +2071,7 @@ CommandReport run_cuda_repeatability(
         {
             // Deliberately reconstruct and reallocate the complete baseline for
             // every RC1 cold repeat, then reset from the immutable fixture.
-            CudaBaseline baseline(fixture, mode);
+            CudaBaseline baseline(fixture, mode, handoff);
             captured = baseline.execute(true);
         }
         const std::string output_digest = ordered_output_digest(captured.state);
@@ -1998,18 +2107,33 @@ CommandReport run_cuda_repeatability(
         }
     }
 
+    CapturedRun copy_reference = first;
+    if (handoff == HandoffMode::PointerSwapO1) {
+        CudaBaseline copy_baseline(fixture, mode, HandoffMode::CopyV0);
+        copy_reference = copy_baseline.execute(true);
+    }
+    const Comparison copy_correspondence =
+        compare_results(fixture, copy_reference.state, first.state, profile.tolerances);
+    const bool copy_baseline_exact = ordered_output_digest(copy_reference.state)
+            == first_output_digest
+        && copy_reference.offsets == first.offsets && copy_reference.neighbors == first.neighbors
+        && copy_reference.device_memory_bytes == first.device_memory_bytes
+        && copy_correspondence.passed;
+
     const bool passed = exact_output_digest && exact_csr && memory_identical
         && correspondence_passed && finite_passed && local_solve_passed && momentum_passed
-        && topology_passed;
+        && topology_passed
+        && (handoff != HandoffMode::PointerSwapO1 || copy_baseline_exact);
     std::ostringstream output;
     output << std::setprecision(17);
     output << "{\"schema\":\"nextengine.nonlocal.cuda_repeatability.v0\",\"status\":\""
            << (passed ? "PASS" : "FAIL") << "\",\"profile_id\":\"" << profile.id
            << "\",\"accumulation_identity\":\"" << accumulation_identity(mode)
+           << "\",\"handoff_identity\":\"" << handoff_identity(handoff)
            << "\",\"binary_sha256\":\"" << executable_hash()
            << "\",\"command\":\"nonlocal-feasibility --repeatability " << profile.id
            << " --iterations " << iterations << " --runs " << runs << " --accumulation "
-           << accumulation_identity(mode)
+           << accumulation_identity(mode) << " --handoff " << handoff_identity(handoff)
            << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
            << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
            << "\",\"iterations\":" << iterations << ",\"runs\":" << runs
@@ -2021,6 +2145,8 @@ CommandReport run_cuda_repeatability(
            << (exact_output_digest ? "true" : "false") << ",\"exact_csr\":"
            << (exact_csr ? "true" : "false") << ",\"memory_identical\":"
            << (memory_identical ? "true" : "false")
+           << ",\"copy_baseline_exact\":"
+           << (copy_baseline_exact ? "true" : "false")
            << ",\"correspondence_passed\":"
            << (correspondence_passed ? "true" : "false") << ",\"finite\":"
            << (finite_passed ? "true" : "false") << ",\"local_solve_failed\":"
@@ -2065,26 +2191,28 @@ CommandReport run_cuda_benchmark(
     const Profile& profile,
     int warmup,
     int runs,
-    AccumulationMode mode) {
+    AccumulationMode mode,
+    HandoffMode handoff) {
     if (profile.id == "nuv-tiny-oracle.v0") {
         throw std::invalid_argument("benchmark requires a fixed performance profile");
     }
     if (warmup < 0 || warmup > 100 || runs < 1 || runs > 1000) {
         throw std::invalid_argument("benchmark counts exceed bounded limits");
     }
-    const CommandReport self_test = run_cuda_self_test(mode);
+    const CommandReport self_test = run_cuda_self_test(mode, handoff);
     if (!self_test.passed) {
         std::ostringstream failure;
         failure << "{\"schema\":\"nextengine.nonlocal.cuda_benchmark.v0\","
                    "\"status\":\"FAIL\",\"reason\":\"self_test_preflight_failed\","
                    "\"accumulation_identity\":\""
-                << accumulation_identity(mode) << "\",\"binary_sha256\":\""
+                << accumulation_identity(mode) << "\",\"handoff_identity\":\""
+                << handoff_identity(handoff) << "\",\"binary_sha256\":\""
                 << executable_hash() << "\"}";
         return {false, failure.str()};
     }
 
     const Fixture fixture = performance_fixture(profile, profile.fixed_iterations);
-    CudaBaseline baseline(fixture, mode);
+    CudaBaseline baseline(fixture, mode, handoff);
     const CapturedRun before = baseline.execute(true);
     for (int run = 0; run < warmup; ++run) {
         const CapturedRun warm = baseline.execute(false);
@@ -2111,13 +2239,16 @@ CommandReport run_cuda_benchmark(
         && valid_symmetric_neighbors(before, fixture.particles.size())
         && before.state.directed_pairs <= profile.max_directed_pairs
         && before.state.maximum_degree <= profile.max_neighbors;
+    const bool repeated_output_exact = ordered_output_digest(before.state)
+        == ordered_output_digest(after.state);
     const bool passed = finite_state(before.state) && finite_state(after.state)
         && !before.local_solve_failed && !after.local_solve_failed && neighbors_passed
         && repeated.passed
         && before.state.normalized_momentum_residual
             <= profile.tolerances.normalized_momentum_residual
         && after.state.normalized_momentum_residual
-            <= profile.tolerances.normalized_momentum_residual;
+            <= profile.tolerances.normalized_momentum_residual
+        && (handoff != HandoffMode::PointerSwapO1 || repeated_output_exact);
 
     const auto collect = [&](auto member) {
         std::vector<double> values;
@@ -2133,10 +2264,11 @@ CommandReport run_cuda_benchmark(
     output << "{\"schema\":\"nextengine.nonlocal.cuda_benchmark.v0\",\"status\":\""
            << (passed ? "PASS" : "FAIL") << "\",\"profile_id\":\"" << profile.id
            << "\",\"accumulation_identity\":\"" << accumulation_identity(mode)
+           << "\",\"handoff_identity\":\"" << handoff_identity(handoff)
            << "\",\"binary_sha256\":\"" << executable_hash()
            << "\",\"command\":\"nonlocal-feasibility --benchmark " << profile.id
            << " --warmup " << warmup << " --runs " << runs << " --accumulation "
-           << accumulation_identity(mode)
+           << accumulation_identity(mode) << " --handoff " << handoff_identity(handoff)
            << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
            << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
            << "\",\"fixed_iterations\":" << profile.fixed_iterations
@@ -2149,6 +2281,8 @@ CommandReport run_cuda_benchmark(
            << ",\"repeated_neighbors_identical\":"
            << (repeated_neighbors_identical ? "true" : "false")
            << ",\"repeated_output_passed\":" << (repeated.passed ? "true" : "false")
+           << ",\"repeated_output_exact\":"
+           << (repeated_output_exact ? "true" : "false")
            << ",\"normalized_momentum_residual\":["
            << before.state.normalized_momentum_residual << ','
            << after.state.normalized_momentum_residual << "],\"device\":" << device_json()
