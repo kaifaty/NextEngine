@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-11 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
-| Заменяет | SPEC-11 2.2; adds fail-closed, path-free read-only creator projection and diff confinement |
+| Версия | 2.4 |
+| Последняя проверка | 2026-08-19 |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
+| Заменяет | SPEC-11 2.3; adds confined fresh-output creator-template generation and validation-before-publication |
 
 ## Назначение
 
@@ -59,6 +59,13 @@ file path/size/hash bounded и exact; symbolic links, traversal, unknown/changed
 files, unsupported format, activation/run mismatch и missing/empty root
 `NOTICE` отклоняют весь package. Проверка package никогда не выдаёт gameplay
 capability и не доверяет записанному run proof без повторного production run.
+
+Public creator template также принимает только отсутствующий destination под
+существующим real parent. Он пишет фиксированный built-in CC0 file set в
+private sibling staging, production-loads/cooks его до rename и не принимает
+arbitrary local/remote templates, merge/overwrite или identity override.
+Existing file/directory/symlink и publication race оставляют caller bytes
+неизменными.
 
 Public inspect/diff принимает только полностью validated authoring или package
 operand. Package operand проходит тот же exact inventory/NOTICE/activation и

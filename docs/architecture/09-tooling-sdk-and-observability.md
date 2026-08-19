@@ -4,16 +4,16 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 4.5 |
-| Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
-| Заменяет | SPEC-09 4.4; adds the bounded R6c source-neutral creator inspect/diff commands and separately versioned read-only reports without changing R6a/R6b commands or reports |
+| Версия | 4.6 |
+| Последняя проверка | 2026-08-19 |
+| Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
+| Заменяет | SPEC-09 4.5; adds the bounded R6d built-in RPG starter and atomic cold-project creation command without changing existing report shapes |
 
 ## Scope and authority
 
 Current tooling has two distinct surfaces: repository-owned `xtask` plus
 standard Cargo tests/lints, and the bounded public creator binary `next` from
-ADR-083/084/085. Both run production application/content/persistence paths and emit
+ADR-083/084/085/086. Both run production application/content/persistence paths and emit
 bounded structured reports. Tool output, telemetry, captures and profiles are
 diagnostics; they never become gameplay authority.
 
@@ -22,8 +22,8 @@ Tooling owns command parsing, stable machine-readable report envelopes, local
 output publication and performance evidence. Test/verification crates are not
 production dependencies and receive no mutation backdoor.
 
-The only current public `next` commands are project validate, cook, run,
-package, inspect and diff below. There is no current MCP tool protocol, public scenario/capture command, live
+The only current public `next` commands are project create, validate, cook,
+run, package, inspect and diff below. There is no current MCP tool protocol, public scenario/capture command, live
 inspector API, `AuthoringContextBundle`, `AgentChangeSet` or agent policy
 contract. Those remain later consumer-driven R6 possibilities and cannot be
 required by current runtime.
@@ -85,6 +85,7 @@ operations under ADR-082, not part of the current Linux handoff loop.
 The current public creator commands are:
 
 ```text
+next project create --template rpg-starter --project-id <namespaced-id> --output <new-project-directory>
 next project validate --project <project-directory>
 next project cook --project <project-directory> --output <content-store-directory>
 next project run --project <project-directory>
@@ -96,7 +97,9 @@ next project diff (--base-project <directory> | --base-package <directory>) (--c
 ```
 
 The workspace source-build spelling is `cargo run --locked -p next_cli --`
-followed by the same arguments. All commands use the project-declared identity
+followed by the same arguments. Create renders the one built-in current-only
+RPG starter into an absent directory, namespaces its project-owned identifiers,
+and validates/cooks it before atomic publication. All subsequent commands use the project-declared identity
 and the production V7 loader/cooker. Cook additionally publishes through
 `ContentStore` and reopens through production activation. Run crosses generic
 Runtime/Application Session plus final save-on-close for one bounded headless
@@ -135,6 +138,12 @@ Creator project references are confined to the explicitly selected project
 root after symlink resolution. Creator cook accepts only a new/empty or
 recognizable ContentStore root; symlink and unrelated nonempty outputs fail
 with `CREATOR_OUTPUT_INVALID` before publication.
+
+Creator template output must also be absent below an existing real parent. The
+fixed four-file starter is rendered into a private sibling, loaded and cooked
+through Project Authoring V7, then renamed once. It never accepts an arbitrary
+template path, follows a remote source, merges with caller files or overrides
+the identity of existing authoring.
 
 Creator package output must be absent. The command stages beside the resolved
 destination, validates and runs the staged bytes, then publishes one complete
@@ -257,10 +266,11 @@ without affecting gameplay. A deterministic retry mismatch is
 
 Focused tooling tests cover command parsing, exact report schemas, atomic
 output, current-only rejection, creator project-root/output confinement,
-location-independent repeated inspect, authoring/package empty diff, localized
-record drift and boundary scan. `content-package` reopens both the reference
-project and the independent creator fixture and compares its source/package
-projections; `host-check` covers the workspace. The
+deterministic fresh RPG starter creation, location-independent repeated
+inspect, authoring/package empty diff, localized record drift and boundary
+scan. `content-package` reopens both the reference project and the independent
+creator fixture, generates another namespaced project, and compares their
+source/package projections; `host-check` covers the workspace. The
 `performance` command covers V5 reports/baselines and all eight
 scenario routes; platform/GPU availability may legitimately yield typed
 `NOT_RUN` without claiming success for that scenario.

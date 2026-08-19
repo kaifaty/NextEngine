@@ -17,6 +17,7 @@ mod inspection;
 mod package;
 mod report;
 mod runtime;
+mod template;
 
 pub use inspection::*;
 pub use report::*;
@@ -34,6 +35,7 @@ const PROJECT_RUN_COMMAND: &str = "project.run";
 const PROJECT_PACKAGE_COMMAND: &str = "project.package";
 const PROJECT_INSPECT_COMMAND: &str = "project.inspect";
 const PROJECT_DIFF_COMMAND: &str = "project.diff";
+const PROJECT_CREATE_COMMAND: &str = "project.create";
 const CONTENT_CURRENT_FILE: &str = "CURRENT";
 static PREFLIGHT_ORDINAL: AtomicU64 = AtomicU64::new(0);
 
@@ -66,6 +68,11 @@ impl CreatorCliReportV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum CreatorCommand {
+    Create {
+        template: OsString,
+        project_id: OsString,
+        output: PathBuf,
+    },
     Validate {
         project: PathBuf,
     },
@@ -92,15 +99,10 @@ enum CreatorCommand {
     },
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-enum CreatorProjectInput {
-    Project(PathBuf),
-    Package(PathBuf),
-}
-
 impl CreatorCommand {
     const fn name(&self) -> &'static str {
         match self {
+            Self::Create { .. } => PROJECT_CREATE_COMMAND,
             Self::Validate { .. } => PROJECT_VALIDATE_COMMAND,
             Self::Cook { .. } => PROJECT_COOK_COMMAND,
             Self::RunProject { .. } | Self::RunPackage { .. } => PROJECT_RUN_COMMAND,
@@ -112,7 +114,9 @@ impl CreatorCommand {
 
     const fn report_kind(&self) -> CreatorReportKind {
         match self {
-            Self::Validate { .. } | Self::Cook { .. } => CreatorReportKind::Project,
+            Self::Create { .. } | Self::Validate { .. } | Self::Cook { .. } => {
+                CreatorReportKind::Project
+            }
             Self::RunProject { .. } | Self::RunPackage { .. } => CreatorReportKind::Run,
             Self::Package { .. } => CreatorReportKind::Package,
             Self::Inspect { .. } => CreatorReportKind::Inspect,
@@ -146,6 +150,8 @@ enum CreatorFailure {
     PackageInvalid,
     PackageNoticeInvalid,
     PackageUnsupported,
+    TemplateOutputInvalid,
+    TemplateInvalid,
 }
 
 impl CreatorFailure {
@@ -220,6 +226,16 @@ impl CreatorFailure {
                 "UNSUPPORTED_CREATOR_PACKAGE_FORMAT",
                 "creator-package",
                 "creator.package.unsupported-format",
+            ),
+            Self::TemplateOutputInvalid => (
+                "CREATOR_TEMPLATE_OUTPUT_INVALID",
+                "creator-template",
+                "creator.template.output-invalid",
+            ),
+            Self::TemplateInvalid => (
+                "CREATOR_TEMPLATE_INVALID",
+                "creator-template",
+                "creator.template.invalid",
             ),
         };
         CreatorDiagnosticV1 {
@@ -327,6 +343,7 @@ enum CreatorSuccess {
 
 #[derive(Clone, Copy)]
 enum CreatorAction {
+    Create,
     Validate,
     Cook,
     Run,
@@ -353,7 +370,13 @@ fn parse_arguments(
             CreatorFailure::Argument,
         ));
     };
-    let (action, command_name, report_kind) = if action == OsStr::new("validate") {
+    let (action, command_name, report_kind) = if action == OsStr::new("create") {
+        (
+            CreatorAction::Create,
+            PROJECT_CREATE_COMMAND,
+            CreatorReportKind::Project,
+        )
+    } else if action == OsStr::new("validate") {
         (
             CreatorAction::Validate,
             PROJECT_VALIDATE_COMMAND,
@@ -404,6 +427,8 @@ fn parse_arguments(
     let mut base_package = None;
     let mut candidate_project = None;
     let mut candidate_package = None;
+    let mut template = None;
+    let mut project_id = None;
     while let Some(flag) = arguments.next() {
         let Some(value) = arguments.next() else {
             return Err((command_name, report_kind, CreatorFailure::Argument));
@@ -425,6 +450,10 @@ fn parse_arguments(
             candidate_project = Some(PathBuf::from(value));
         } else if flag == OsStr::new("--candidate-package") && candidate_package.is_none() {
             candidate_package = Some(PathBuf::from(value));
+        } else if flag == OsStr::new("--template") && template.is_none() {
+            template = Some(value);
+        } else if flag == OsStr::new("--project-id") && project_id.is_none() {
+            project_id = Some(value);
         } else {
             return Err((command_name, report_kind, CreatorFailure::Argument));
         }
@@ -435,24 +464,66 @@ fn parse_arguments(
         && candidate_project.is_none()
         && candidate_package.is_none();
     let result = match action {
-        CreatorAction::Validate if package.is_none() && output.is_none() && no_diff_inputs => {
+        CreatorAction::Create if project.is_none() && package.is_none() && no_diff_inputs => {
+            template
+                .zip(project_id)
+                .zip(output)
+                .map(|((template, project_id), output)| CreatorCommand::Create {
+                    template,
+                    project_id,
+                    output,
+                })
+        }
+        CreatorAction::Validate
+            if package.is_none()
+                && output.is_none()
+                && no_diff_inputs
+                && template.is_none()
+                && project_id.is_none() =>
+        {
             project.map(|project| CreatorCommand::Validate { project })
         }
-        CreatorAction::Cook if package.is_none() && no_diff_inputs => project
-            .zip(output)
-            .map(|(project, output)| CreatorCommand::Cook { project, output }),
-        CreatorAction::Run if output.is_none() && no_diff_inputs => match (project, package) {
-            (Some(project), None) => Some(CreatorCommand::RunProject { project }),
-            (None, Some(package)) => Some(CreatorCommand::RunPackage { package }),
-            _ => None,
-        },
-        CreatorAction::Package if package.is_none() && no_diff_inputs => project
-            .zip(output)
-            .map(|(project, output)| CreatorCommand::Package { project, output }),
-        CreatorAction::Inspect if output.is_none() && no_diff_inputs => {
+        CreatorAction::Cook
+            if package.is_none()
+                && no_diff_inputs
+                && template.is_none()
+                && project_id.is_none() =>
+        {
+            project
+                .zip(output)
+                .map(|(project, output)| CreatorCommand::Cook { project, output })
+        }
+        CreatorAction::Run
+            if output.is_none() && no_diff_inputs && template.is_none() && project_id.is_none() =>
+        {
+            match (project, package) {
+                (Some(project), None) => Some(CreatorCommand::RunProject { project }),
+                (None, Some(package)) => Some(CreatorCommand::RunPackage { package }),
+                _ => None,
+            }
+        }
+        CreatorAction::Package
+            if package.is_none()
+                && no_diff_inputs
+                && template.is_none()
+                && project_id.is_none() =>
+        {
+            project
+                .zip(output)
+                .map(|(project, output)| CreatorCommand::Package { project, output })
+        }
+        CreatorAction::Inspect
+            if output.is_none() && no_diff_inputs && template.is_none() && project_id.is_none() =>
+        {
             exclusive_project_input(project, package).map(|input| CreatorCommand::Inspect { input })
         }
-        CreatorAction::Diff if project.is_none() && package.is_none() && output.is_none() => {
+        CreatorAction::Diff
+            if project.is_none()
+                && package.is_none()
+                && output.is_none()
+                && template.is_none()
+                && project_id.is_none() =>
+        {
             exclusive_project_input(base_project, base_package)
                 .zip(exclusive_project_input(
                     candidate_project,
@@ -465,19 +536,13 @@ fn parse_arguments(
     result.ok_or((command_name, report_kind, CreatorFailure::Argument))
 }
 
-fn exclusive_project_input(
-    project: Option<PathBuf>,
-    package: Option<PathBuf>,
-) -> Option<CreatorProjectInput> {
-    match (project, package) {
-        (Some(project), None) => Some(CreatorProjectInput::Project(project)),
-        (None, Some(package)) => Some(CreatorProjectInput::Package(package)),
-        _ => None,
-    }
-}
-
 fn execute_command(command: CreatorCommand) -> Result<CreatorSuccess, CreatorFailure> {
     match command {
+        CreatorCommand::Create {
+            template,
+            project_id,
+            output,
+        } => create_project(&template, &project_id, &output).map(CreatorSuccess::Project),
         CreatorCommand::Validate { project } => {
             validate_project(&project).map(CreatorSuccess::Project)
         }
@@ -498,6 +563,21 @@ fn execute_command(command: CreatorCommand) -> Result<CreatorSuccess, CreatorFai
                 .map_err(|_| CreatorFailure::ReportInvalid)
         }
     }
+}
+
+fn create_project(
+    template_id: &OsStr,
+    project_id: &OsStr,
+    output: &Path,
+) -> Result<CreatorProjectDetailsV1, CreatorFailure> {
+    let created =
+        template::create_project(template_id, project_id, output).map_err(map_template_failure)?;
+    project_details(
+        &created.cooked,
+        created.neutral_record_count,
+        created.publication_file_count,
+        "created-and-validated",
+    )
 }
 
 fn validate_project(project: &Path) -> Result<CreatorProjectDetailsV1, CreatorFailure> {
@@ -609,6 +689,16 @@ fn map_package_failure(error: package::CreatorPackageError) -> CreatorFailure {
     }
 }
 
+fn map_template_failure(error: template::CreatorTemplateError) -> CreatorFailure {
+    match error {
+        template::CreatorTemplateError::Argument => CreatorFailure::Argument,
+        template::CreatorTemplateError::OutputInvalid => CreatorFailure::TemplateOutputInvalid,
+        template::CreatorTemplateError::Invalid | template::CreatorTemplateError::Storage => {
+            CreatorFailure::TemplateInvalid
+        }
+    }
+}
+
 fn preflight_publication(
     publication: &next_assets::ContentPublicationV1,
 ) -> Result<(), CreatorFailure> {
@@ -683,54 +773,6 @@ fn ensure_managed_output_root(output: &Path) -> Result<(), CreatorFailure> {
     Ok(())
 }
 
-pub(crate) fn project_identity_from_cooked(cooked: &CookedProjectV7) -> CreatorProjectIdentityV1 {
-    CreatorProjectIdentityV1 {
-        project_id: cooked.project_lock.project_id.as_str().to_owned(),
-        project_revision: cooked.project_lock.project_revision,
-        authoring_sha256: cooked.project_lock.authoring_sha256.to_hex(),
-        project_lock_sha256: cooked.project_lock.project_lock_sha256.to_hex(),
-        schema_registry_sha256: cooked
-            .schema_registry
-            .schema_registry_manifest_sha256
-            .to_hex(),
-        content_manifest_sha256: cooked.content_manifest.content_manifest_sha256.to_hex(),
-        world_partition_sha256: cooked
-            .world_partition
-            .world_partition_manifest_sha256
-            .to_hex(),
-        mechanics_lock_sha256: cooked
-            .rpg_definitions
-            .mechanics_lock
-            .mechanics_lock_sha256
-            .to_hex(),
-    }
-}
-
-pub(crate) fn project_identity_from_activated(
-    activated: &next_contracts::project::ActivatedProjectV8,
-) -> CreatorProjectIdentityV1 {
-    CreatorProjectIdentityV1 {
-        project_id: activated.project_lock.project_id.as_str().to_owned(),
-        project_revision: activated.project_lock.project_revision,
-        authoring_sha256: activated.project_lock.authoring_sha256.to_hex(),
-        project_lock_sha256: activated.project_lock.project_lock_sha256.to_hex(),
-        schema_registry_sha256: activated
-            .schema_registry
-            .schema_registry_manifest_sha256
-            .to_hex(),
-        content_manifest_sha256: activated.content_manifest.content_manifest_sha256.to_hex(),
-        world_partition_sha256: activated
-            .world_partition
-            .world_partition_manifest_sha256
-            .to_hex(),
-        mechanics_lock_sha256: activated
-            .rpg_definitions
-            .mechanics_lock
-            .mechanics_lock_sha256
-            .to_hex(),
-    }
-}
-
 fn project_details(
     cooked: &CookedProjectV7,
     neutral_record_count: usize,
@@ -786,7 +828,23 @@ mod tests {
     }
 
     #[test]
-    fn parser_accepts_only_the_six_bounded_operations() {
+    fn parser_accepts_only_the_seven_bounded_operations() {
+        assert!(matches!(
+            parse_arguments(args(&[
+                "project",
+                "create",
+                "--template",
+                "rpg-starter",
+                "--project-id",
+                "org.example.game",
+                "--output",
+                "sample",
+            ])),
+            Ok(CreatorCommand::Create { template, project_id, output })
+                if template == OsStr::new("rpg-starter")
+                    && project_id == OsStr::new("org.example.game")
+                    && output.as_path() == Path::new("sample")
+        ));
         assert!(matches!(
             parse_arguments(args(&["project", "validate", "--project", "sample"])),
             Ok(CreatorCommand::Validate { project })
@@ -866,6 +924,17 @@ mod tests {
                 && candidate.as_path() == Path::new("after")
         ));
         assert!(parse_arguments(args(&["project", "diff"])).is_err());
+        assert!(
+            parse_arguments(args(&[
+                "project",
+                "create",
+                "--template",
+                "rpg-starter",
+                "--project-id",
+                "org.example.game",
+            ]))
+            .is_err()
+        );
         assert!(
             parse_arguments(args(&[
                 "project",

@@ -5,6 +5,24 @@ R6 creator workflow. It is deliberately small, but it exercises the current
 authoring closure: character, item, ability, dialogue, quest, relationship,
 interaction, three streamed chunks, minimal render content and world services.
 
+## Cold authoring
+
+Create a new independently namespaced copy of this RPG starter in an absent
+directory:
+
+```text
+cargo run --locked -p next_cli -- project create --template rpg-starter --project-id org.example.my-rpg --output target/my-rpg
+```
+
+The command writes `project.authoring.json`, `NOTICE`, `README.md` and the
+referenced CC0 source only after the generated Project Authoring V7 document
+loads and cooks successfully. Edit the generated manifest to change its one
+NPC, ability, quest/dialogue interaction and three streamed chunks; project-
+owned IDs are already under the requested namespace. Create never merges with
+or overwrites an existing destination.
+
+## Existing project workflow
+
 From the repository root:
 
 ```text

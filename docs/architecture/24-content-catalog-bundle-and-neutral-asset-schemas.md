@@ -4,16 +4,20 @@
 |---|---|
 | ID | SPEC-24 |
 | Статус | Accepted |
-| Версия | 3.0 |
-| Последняя проверка | 2026-08-18 |
+| Версия | 3.1 |
+| Последняя проверка | 2026-08-19 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-044](adr/044-neutral-text-catalog-and-locale-fallback.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
-| Заменяет | SPEC-24 2.9; adds the stable-ID Creator Project Projection V1 inspection boundary without changing neutral schemas or package bytes |
+| Дополнительные зависимости V3.1 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
+| Заменяет | SPEC-24 3.0; records the R6d reusable RPG starter as ordinary namespaced Project Authoring V7 content without changing neutral schemas or package bytes |
 
 ## Scope
 
 This SPEC describes content contracts exercised by the current cooker,
 reference project, independent creator project, private ContentStore, public
-current-only creator package and its source-neutral read-only projection. It intentionally removes speculative archive
+current-only creator package, built-in RPG starter and its source-neutral
+read-only projection. The starter creates ordinary Project Authoring V7 with
+one character/ability/quest closure and three chunks; it adds no content schema
+or runtime authority. It intentionally removes speculative archive
 ABI, target-profile resolver, capability-scoring/fallback plans and full future
 navigation/collision/world schema listings. Git history retains those designs;
 a future production consumer must reintroduce only the fields it demonstrates.
@@ -227,7 +231,10 @@ profile/correctives and render catalog. It additionally builds the creator
 package twice, verifies byte-identical manifests, rejects changed/linked/
 unsupported inputs and reruns the actual packaged ContentStore with the same
 project/runtime/final-save proof. It additionally inspects authoring/package
-through the public CLI and requires an empty stable-ID diff. Malformed version/hash/bounds,
+through the public CLI and requires an empty stable-ID diff. It also creates a
+fresh namespaced RPG starter, checks its one character,
+ability and quest plus three chunks, then runs/packages/inspects it through the
+same public closure with an empty authoring/package diff. Malformed version/hash/bounds,
 mapping/weights/driver/delta/LOD data, duplicate, cycle, missing dependency and
 forbidden-type cases publish nothing.
 Renderer-facing changes additionally run `platform`/`visual-smoke`; gameplay

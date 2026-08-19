@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 3.4 |
-| Последняя проверка | 2026-08-18 |
+| Версия | 3.5 |
+| Последняя проверка | 2026-08-19 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
-| Заменяет | SPEC-15 3.3; adds deterministic source/package inspection, drift localization and invalid-operand evidence while leaving public scenario/minimize/capture commands unpromoted |
+| Дополнительные зависимости V3.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
+| Заменяет | SPEC-15 3.4; adds deterministic cold-project generation and complete generated-project lifecycle evidence while leaving public scenario/minimize/capture commands unpromoted |
 
 ## Назначение
 
@@ -152,8 +153,8 @@ loss, encoder absence или quota overflow оставляет replay/diagnostic
 ## Current command surface
 
 Current supported entry points are `cargo run -p xtask -- <ProductCheck>`,
-focused crate tests and the ADR-083/084/085 public `next project
-validate/cook/run/package/inspect/diff` commands. A public `next` scenario/minimize/capture
+focused crate tests and the ADR-083/084/085/086 public `next project
+create/validate/cook/run/package/inspect/diff` commands. A public `next` scenario/minimize/capture
 command, GUI projection or MCP protocol is not a current contract. Tool output хранится только в явном
 local output directory, ignored by source control by default. Удаление
 локальных debug artifacts не меняет source, package или product status.
@@ -173,6 +174,12 @@ and localizes one controlled neutral-record edit by stable asset/package/root
 identity while unrelated schemas, dependencies and chunks remain unchanged.
 Tampered package inspection fails before any partial view; a valid non-empty
 diff remains a successful read-only observation.
+
+The matrix also creates the same namespaced `rpg-starter` in isolated roots,
+requires byte-identical source trees, checks the one NPC/ability/quest and
+three-chunk authoring closure, then validates, runs, packages, reruns and
+source/package-diffs the generated project through the existing public paths.
+Occupied or invalid destinations remain untouched.
 
 The focused `animation-root-motion` entry point uses 1,000 independently
 activated ten-cycle neutral generations so receipt/snapshot history length is

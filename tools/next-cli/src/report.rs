@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use next_project::CookedProjectV7;
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum CreatorCommandReportV1 {
@@ -75,6 +77,54 @@ pub struct CreatorProjectIdentityV1 {
     pub content_manifest_sha256: String,
     pub world_partition_sha256: String,
     pub mechanics_lock_sha256: String,
+}
+
+pub(crate) fn project_identity_from_cooked(cooked: &CookedProjectV7) -> CreatorProjectIdentityV1 {
+    CreatorProjectIdentityV1 {
+        project_id: cooked.project_lock.project_id.as_str().to_owned(),
+        project_revision: cooked.project_lock.project_revision,
+        authoring_sha256: cooked.project_lock.authoring_sha256.to_hex(),
+        project_lock_sha256: cooked.project_lock.project_lock_sha256.to_hex(),
+        schema_registry_sha256: cooked
+            .schema_registry
+            .schema_registry_manifest_sha256
+            .to_hex(),
+        content_manifest_sha256: cooked.content_manifest.content_manifest_sha256.to_hex(),
+        world_partition_sha256: cooked
+            .world_partition
+            .world_partition_manifest_sha256
+            .to_hex(),
+        mechanics_lock_sha256: cooked
+            .rpg_definitions
+            .mechanics_lock
+            .mechanics_lock_sha256
+            .to_hex(),
+    }
+}
+
+pub(crate) fn project_identity_from_activated(
+    activated: &next_contracts::project::ActivatedProjectV8,
+) -> CreatorProjectIdentityV1 {
+    CreatorProjectIdentityV1 {
+        project_id: activated.project_lock.project_id.as_str().to_owned(),
+        project_revision: activated.project_lock.project_revision,
+        authoring_sha256: activated.project_lock.authoring_sha256.to_hex(),
+        project_lock_sha256: activated.project_lock.project_lock_sha256.to_hex(),
+        schema_registry_sha256: activated
+            .schema_registry
+            .schema_registry_manifest_sha256
+            .to_hex(),
+        content_manifest_sha256: activated.content_manifest.content_manifest_sha256.to_hex(),
+        world_partition_sha256: activated
+            .world_partition
+            .world_partition_manifest_sha256
+            .to_hex(),
+        mechanics_lock_sha256: activated
+            .rpg_definitions
+            .mechanics_lock
+            .mechanics_lock_sha256
+            .to_hex(),
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::PathBuf;
 
 use next_contracts::content::{NeutralRecordKindV1, NeutralRecordV1};
 use next_contracts::platform::PresentationTargetKindV1;
@@ -7,6 +8,23 @@ use next_contracts::project::{
 };
 use next_project::CookedProjectV7;
 use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum CreatorProjectInput {
+    Project(PathBuf),
+    Package(PathBuf),
+}
+
+pub(crate) fn exclusive_project_input(
+    project: Option<PathBuf>,
+    package: Option<PathBuf>,
+) -> Option<CreatorProjectInput> {
+    match (project, package) {
+        (Some(project), None) => Some(CreatorProjectInput::Project(project)),
+        (None, Some(package)) => Some(CreatorProjectInput::Package(package)),
+        _ => None,
+    }
+}
 
 use crate::{
     CreatorCommandFailureReportV1, CreatorProjectIdentityV1, project_identity_from_activated,

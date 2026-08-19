@@ -4,8 +4,8 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.28 |
-| Последняя проверка | 2026-08-18 |
+| Версия | 2.29 |
+| Последняя проверка | 2026-08-19 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
 Назначение — не дать агенту (или человеку) начать изменение, не прочитав
@@ -81,11 +81,11 @@ Check column применяется перед final handoff/readiness claim, н
 | Future narrative director or divine-standing proposal | [SPEC-31](31-autonomous-quest-lifecycle-and-narrative-director.md) | ADR-029/ADR-031 (Superseded; historical context), ADR-046 | none until a production consumer exists |
 | Luau/Wasm scripting, plugins, mod packages, gameplay mechanics authoring | [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | ADR-008, ADR-014 | content-package |
 | Player interaction, UI, camera, localization, accessibility | [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md) | ADR-019, ADR-044 | play |
-| Project composition, creator authoring, exact lock and atomic activation | [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md) | ADR-018, ADR-046, ADR-048, ADR-083, ADR-084, ADR-085; ADR-073/074 for the current cognition/activity roots and profile successors | focused creator CLI matrix, fast, content-package |
+| Project composition, creator authoring, exact lock and atomic activation | [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md) | ADR-018, ADR-046, ADR-048, ADR-083, ADR-084, ADR-085, ADR-086; ADR-073/074 for the current cognition/activity roots and profile successors | focused creator CLI matrix, fast, content-package |
 | Platform host, application session, presentation authority, Save/Load/close | [SPEC-29](29-platform-host-and-application-session.md) | ADR-028, ADR-035, ADR-047, ADR-082 for active/deferred host policy | play, persistence-replay, platform |
 | Current performance budgets and evidence | [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md) for R5 | ADR-016, ADR-036, ADR-038, ADR-045, ADR-049, ADR-060, ADR-061, ADR-062, ADR-063, ADR-082; ADR-074 for R4 tier cognition | performance |
 | Future generic scheduler/resource framework after bounded R3 (Proposed track) | [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md) | ADR-046, ADR-051 (scope exclusion) | none until a second production consumer exists |
-| Tooling, creator CLI/SDK, observability | [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md) | ADR-083, ADR-084 and ADR-085 for the current public creator surface | fast; content-package for creator/content workflow |
+| Tooling, creator CLI/SDK, observability | [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md) | ADR-083, ADR-084, ADR-085 and ADR-086 for the current public creator surface | fast; content-package for creator/content workflow |
 | Gothic importer boundary, neutral artifacts | [SPEC-10](10-gothic-importer-boundary.md) | ADR-001 | content-package |
 | Security, licensing, governance, secrets, provenance | [SPEC-11](11-security-licensing-and-governance.md) | ADR-001 | fast |
 | Audio and current bounded World Services graph/query/activity | [SPEC-08](08-audio-navigation-and-world-services.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md) | ADR-072 for graph/population changes; ADR-074 for activity/bulk/tier cognition | play; content-package/persistence-replay and conditional r4-100npc report when graph/population/activity changes |

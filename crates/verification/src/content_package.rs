@@ -18,6 +18,8 @@ use next_render::{RenderTargetV1, build_b0_frame_plan};
 
 use crate::scratch::ScratchContext;
 
+mod creator_template;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContentPackageCheckReport {
     pub records: usize,
@@ -349,6 +351,7 @@ struct CreatorProjectEvidence {
 fn verify_creator_project(
     scratch: &ScratchContext,
 ) -> Result<CreatorProjectEvidence, ContentPackageCheckError> {
+    creator_template::verify(scratch)?;
     let project_directory =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../projects/creator-smoke");
     let source = load_project_authoring_v7(&project_directory)?;

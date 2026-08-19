@@ -4,11 +4,11 @@
 |---|---|
 | ID | GLOSSARY-001 |
 | Статус | Accepted |
-| Версия | 4.6 |
-| Последняя проверка | 2026-08-18 |
+| Версия | 4.7 |
+| Последняя проверка | 2026-08-19 |
 | Нормативные зависимости | INDEX-001, [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-056](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V4.0 | [SPEC-36](36-functional-tissue-condition-and-injury.md), [SPEC-37](37-character-embodiment-and-surface-deformation.md), [ADR-075](adr/075-product-grounded-functional-anatomy-and-character-embodiment.md) |
-| Заменяет | GLOSSARY-001 4.5; adds the source-neutral Creator Project Projection V1 term |
+| Заменяет | GLOSSARY-001 4.6; adds the current-only RPG Starter V1 term |
 
 Термины ниже имеют одинаковый смысл во всех RFC, schemas, CLI и diagnostics. Публичные контракты MUST использовать эти имена или явно версионированные производные.
 
@@ -26,6 +26,7 @@
 | **AssetId** | Стабильная ссылка на логический asset; конкретная cooked revision определяется manifest и content hash. |
 | **ContentHash** | SHA-256 канонических cooked bytes и параметров cooker, используемый для immutable bundle addressing. |
 | **ProjectAuthoringV7** | Current editable `nextengine.project-authoring.v7` intent consumed only by the cooker; it carries typed body-schema, routine, 100-record population/navigation, cognition and systemic activity catalogs and is not runtime authority. |
+| **RPG Starter V1** | Built-in current-only four-file Project Authoring V7 template created only at an absent destination after deterministic namespace substitution and production load/cook validation; it is authoring input, not runtime or gameplay authority. |
 | **ProjectLockV3** | Current immutable exact project closure over authoring, schema/content/world/mechanics and runtime/launch/platform profile hashes plus allowed presentation targets; it contains no resolver, recovery or storage policy. |
 | **ActivatedProjectV8** | Complete validated current project closure atomically published from one exact `ProjectLockV3`, all referenced manifests/records and exact body-schema/routine/population/navigation/cognition/activity catalog bindings. |
 | **CreatorProjectProjectionV1** | Tool-owned current-only immutable read-only view of one fully validated cooked or activated project: exact composition roots, schemas, stable-ID asset/dependency/world-chunk inventories and locked mechanics capabilities. It excludes source paths/properties/private storage and is diagnostic, not project or gameplay authority. |

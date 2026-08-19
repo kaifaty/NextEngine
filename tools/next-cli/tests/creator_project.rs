@@ -109,6 +109,207 @@ fn generation_count(output_root: &Path) -> usize {
 }
 
 #[test]
+fn rpg_starter_creates_a_deterministic_independent_project_and_completes_the_toolchain() {
+    let scratch = TestDirectory::new("rpg-starter");
+    let first_project = scratch.path().join("first-project");
+    let second_project = scratch.path().join("second-project");
+    let project_id = OsStr::new("org.example.rpg-starter");
+    for output in [&first_project, &second_project] {
+        let created = next(&[
+            OsStr::new("project"),
+            OsStr::new("create"),
+            OsStr::new("--template"),
+            OsStr::new("rpg-starter"),
+            OsStr::new("--project-id"),
+            project_id,
+            OsStr::new("--output"),
+            output.as_os_str(),
+        ]);
+        assert!(created.status.success());
+        assert!(!text(&created).contains(output.to_string_lossy().as_ref()));
+        let CreatorCommandReportV1::Pass(pass) = report(&created) else {
+            panic!("RPG starter creates");
+        };
+        assert_eq!(pass.command, "project.create");
+        assert_eq!(pass.details.project_id, "org.example.rpg-starter");
+        assert_eq!(pass.details.neutral_record_count, 10);
+        assert_eq!(pass.details.world_chunk_count, 3);
+        assert_eq!(pass.details.publication_state, "created-and-validated");
+    }
+    for relative in [
+        "project.authoring.json",
+        "NOTICE",
+        "README.md",
+        "assets/original-source.txt",
+    ] {
+        assert_eq!(
+            fs::read(first_project.join(relative)).expect("read first generated file"),
+            fs::read(second_project.join(relative)).expect("read second generated file")
+        );
+    }
+
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &fs::read(first_project.join("project.authoring.json")).expect("read starter manifest"),
+    )
+    .expect("decode starter manifest");
+    assert_eq!(manifest["project"]["project_id"], "org.example.rpg-starter");
+    let records = manifest["records"].as_array().expect("starter records");
+    for required_kind in [
+        "character-definition",
+        "ability-definition",
+        "quest-definition",
+    ] {
+        assert_eq!(
+            records
+                .iter()
+                .filter(|record| record["kind"] == required_kind)
+                .count(),
+            1
+        );
+    }
+    assert_eq!(
+        manifest["partition"]["chunks"]
+            .as_array()
+            .expect("starter chunks")
+            .len(),
+        3
+    );
+
+    let validated = next(&[
+        OsStr::new("project"),
+        OsStr::new("validate"),
+        OsStr::new("--project"),
+        first_project.as_os_str(),
+    ]);
+    assert!(validated.status.success());
+    let CreatorCommandReportV1::Pass(validated) = report(&validated) else {
+        panic!("generated project validates");
+    };
+    let run = next(&[
+        OsStr::new("project"),
+        OsStr::new("run"),
+        OsStr::new("--project"),
+        first_project.as_os_str(),
+    ]);
+    assert!(run.status.success());
+    let CreatorRunCommandReportV1::Pass(run) = run_report(&run) else {
+        panic!("generated project runs");
+    };
+    assert_eq!(run.details.runtime.ticks, 1);
+    assert_eq!(
+        run.details.project.project_lock_sha256,
+        validated.details.project_lock_sha256
+    );
+
+    let package_root = scratch.path().join("generated-package");
+    let packaged = next(&[
+        OsStr::new("project"),
+        OsStr::new("package"),
+        OsStr::new("--project"),
+        first_project.as_os_str(),
+        OsStr::new("--output"),
+        package_root.as_os_str(),
+    ]);
+    assert!(packaged.status.success());
+    let CreatorPackageCommandReportV1::Pass(packaged) = package_report(&packaged) else {
+        panic!("generated project packages");
+    };
+    let package_run = next(&[
+        OsStr::new("project"),
+        OsStr::new("run"),
+        OsStr::new("--package"),
+        package_root.as_os_str(),
+    ]);
+    let CreatorRunCommandReportV1::Pass(package_run) = run_report(&package_run) else {
+        panic!("generated package runs");
+    };
+    assert_eq!(packaged.details.runtime, package_run.details.runtime);
+
+    let diff = next(&[
+        OsStr::new("project"),
+        OsStr::new("diff"),
+        OsStr::new("--base-project"),
+        first_project.as_os_str(),
+        OsStr::new("--candidate-package"),
+        package_root.as_os_str(),
+    ]);
+    assert!(diff.status.success());
+    let CreatorDiffCommandReportV1::Pass(diff) = diff_report(&diff) else {
+        panic!("generated authoring/package diff succeeds");
+    };
+    assert!(!diff.details.different);
+}
+
+#[test]
+fn rpg_starter_rejects_invalid_requests_and_preserves_existing_output() {
+    let scratch = TestDirectory::new("rpg-starter-failures");
+    let existing = scratch.path().join("existing");
+    fs::create_dir(&existing).expect("create existing template output");
+    let sentinel = existing.join("keep.txt");
+    fs::write(&sentinel, b"keep template output").expect("write template sentinel");
+    let failed = next(&[
+        OsStr::new("project"),
+        OsStr::new("create"),
+        OsStr::new("--template"),
+        OsStr::new("rpg-starter"),
+        OsStr::new("--project-id"),
+        OsStr::new("org.example.game"),
+        OsStr::new("--output"),
+        existing.as_os_str(),
+    ]);
+    assert!(!failed.status.success());
+    let CreatorCommandReportV1::Fail(failure) = report(&failed) else {
+        panic!("existing template output fails");
+    };
+    assert_eq!(failure.diagnostic.code, "CREATOR_TEMPLATE_OUTPUT_INVALID");
+    assert_eq!(
+        fs::read(&sentinel).expect("read template sentinel"),
+        b"keep template output"
+    );
+
+    let existing_file = scratch.path().join("existing-file");
+    fs::write(&existing_file, b"keep template file").expect("write existing template file");
+    let failed = next(&[
+        OsStr::new("project"),
+        OsStr::new("create"),
+        OsStr::new("--template"),
+        OsStr::new("rpg-starter"),
+        OsStr::new("--project-id"),
+        OsStr::new("org.example.game"),
+        OsStr::new("--output"),
+        existing_file.as_os_str(),
+    ]);
+    assert!(!failed.status.success());
+    assert_eq!(
+        fs::read(&existing_file).expect("read existing template file"),
+        b"keep template file"
+    );
+
+    for (template, project_id, output_name) in [
+        ("unknown", "org.example.game", "unknown-template"),
+        ("rpg-starter", "Invalid Project", "invalid-project-id"),
+    ] {
+        let output = scratch.path().join(output_name);
+        let failed = next(&[
+            OsStr::new("project"),
+            OsStr::new("create"),
+            OsStr::new("--template"),
+            OsStr::new(template),
+            OsStr::new("--project-id"),
+            OsStr::new(project_id),
+            OsStr::new("--output"),
+            output.as_os_str(),
+        ]);
+        assert!(!failed.status.success());
+        let CreatorCommandReportV1::Fail(failure) = report(&failed) else {
+            panic!("invalid template request fails");
+        };
+        assert_eq!(failure.diagnostic.code, "CREATOR_CLI_ARGUMENT_INVALID");
+        assert!(!output.exists());
+    }
+}
+
+#[test]
 fn creator_project_validate_is_deterministic_and_side_effect_free() {
     let project = creator_project();
     let args = [
@@ -704,6 +905,33 @@ fn symlink_source_escape_and_symlink_output_are_rejected() {
     assert_eq!(
         fs::read_dir(&actual_output)
             .expect("read actual output")
+            .count(),
+        0
+    );
+
+    let actual_template_output = scratch.path().join("actual-template-output");
+    fs::create_dir(&actual_template_output).expect("create actual template output");
+    let linked_template_output = scratch.path().join("linked-template-output");
+    symlink(&actual_template_output, &linked_template_output)
+        .expect("create template output symlink");
+    let linked_template = next(&[
+        OsStr::new("project"),
+        OsStr::new("create"),
+        OsStr::new("--template"),
+        OsStr::new("rpg-starter"),
+        OsStr::new("--project-id"),
+        OsStr::new("org.example.game"),
+        OsStr::new("--output"),
+        linked_template_output.as_os_str(),
+    ]);
+    assert!(!linked_template.status.success());
+    let CreatorCommandReportV1::Fail(failure) = report(&linked_template) else {
+        panic!("symlink template output fails");
+    };
+    assert_eq!(failure.diagnostic.code, "CREATOR_TEMPLATE_OUTPUT_INVALID");
+    assert_eq!(
+        fs::read_dir(&actual_template_output)
+            .expect("read actual template output")
             .count(),
         0
     );

@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-085 |
 | Status | Accepted |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-18 |
-| Last verified | 2026-08-18 |
+| Last verified | 2026-08-19 |
 | Normative dependencies | [SPEC-01](../01-system-architecture.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-018](018-authoritative-project-composition-and-configuration.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](048-direct-exact-project-lock.md), [ADR-082](082-linux-first-development-and-deferred-windows-host.md), [ADR-083](083-public-creator-project-cli-vertical.md), [ADR-084](084-public-creator-run-and-project-package-vertical.md) |
 | Supersedes | Narrowly supersedes ADR-046/084 statements that public creator inspect/diff has no current consumer or remains the next unimplemented creator boundary. Existing validate/cook/run/package commands and their three report contracts are unchanged. |
-| Superseded by | not superseded |
+| Superseded by | Narrowly [ADR-086](086-public-creator-rpg-starter-template.md) for the later reusable-template/cold-authoring boundary; inspect/diff semantics remain current. |
 
 ## Context
 
@@ -106,9 +106,9 @@ authority. No creator command receives a direct mutation sink from this ADR.
 An author or CI job can now review exact runnable composition, compare a local
 edit to a known package, verify that packaging introduced no domain drift and
 identify a changed asset/package/root by stable ID without understanding private
-storage. This completes the bounded R6c inspection increment and further reduces
-B-09, but templates, cold-authoring documentation, scenarios/minimization,
-replay inspection and the broader SDK remain open.
+storage. This completes the bounded R6c inspection increment. ADR-086
+subsequently completes template/cold-authoring; scenarios/minimization, replay
+inspection and the broader SDK remain open.
 
 ## Relevant product checks
 
@@ -138,13 +138,14 @@ replay inspection and the broader SDK remain open.
 
 ## Consequences and next boundary
 
-- The public creator surface now has six operations and five separately
-  versioned report families.
+- The R6c public creator surface had six operations and five separately
+  versioned report families; ADR-086 later adds the seventh operation without a
+  new report family.
 - Authoring and package share one exact source-neutral project projection.
 - Valid drift is machine-readable success; invalid input remains fail-closed.
-- R6 and B-09 remain open. The next bounded R6 increment should provide a
-  reusable project template plus a documented cold-authoring exercise before
-  scenario/minimization broadens lifecycle and mutation.
+- R6 and B-09 remain open. ADR-086 provides the reusable project template and
+  cold-authoring exercise; scenario/minimization is the next bounded lifecycle
+  and mutation surface.
 - Linux is the active implementation host. Windows/THOTH and paired shipping
   evidence remain `NotRun(WindowsHostDeferred)` under ADR-082.
 
