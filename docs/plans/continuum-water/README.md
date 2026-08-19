@@ -1,6 +1,6 @@
 # Continuum water — standalone implementation roadmap
 
-Status: `RESEARCH_ONLY / NOT_ACTIVE`; post-v1 isolated program. Governing candidate
+Status: `RESEARCH_ONLY / ACTIVE_W2_RESEARCH / INTEGRATION_BLOCKED`; post-v1 isolated program. Governing candidate
 architecture: [SPEC-38](../../architecture/38-continuum-material-physics.md)
 and [ADR-076](../../architecture/adr/076-continuum-material-physics-track.md),
 with [ADR-081](../../architecture/adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md)
@@ -33,12 +33,13 @@ now passes twice at one clean Linux commit with exact target-local equality:
 `CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS`. The result remains
 `RESEARCH_ONLY`; every later continuum ProductCheck is still `NOT_RUN`.
 
-This directory is the resume and execution surface for a dedicated water
-worktree. The W1 entry condition has passed here, but the main
-[Next Engine roadmap](../../roadmap.md) keeps the track inactive until the
-evidence checkpoint is explicitly merged and activated. Progress here cannot
-change the current PhysX, save/replay or public-contract baseline by
-implication.
+The W1 evidence and W2 feasibility checkpoints were merged into the mainline
+history by merge commit `fe223f9`. The main [Next Engine roadmap](../../roadmap.md)
+therefore records an active isolated W2 research track, not production
+integration. The measured CPU and direct-GPU profiles still miss the 50k stop
+target, so W3 and every runtime/public-contract change remain blocked. The
+explicitly selected [Nonlocal research branch](../nonlocal-continuum/README.md)
+is report-only and cannot inherit W1 roots or W2 credit.
 
 ## Selected product result
 
@@ -65,12 +66,13 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
                          └─ W0H Accelerated pressure profile CLOSED / W1_AUTHORIZED
                              └─ W0I External reference attestation CLOSED / W1_AUTHORIZED
                                  └─ W1 Serial CPU oracle + external corpus COMPLETE / LINUX_PASS
-                                     ├─ W2 Deterministic parallel CPU + benchmark IN_PROGRESS / SHORT MISS
+                                     ├─ W2 Performance architecture research ACTIVE / CURRENT PROFILES MISS
                                      │   └─ W3 One-pass PhysX coupling            NOT_STARTED
                                      │       └─ W4 Basin + crate + debug view     NOT_STARTED
                                      │           └─ W5 Exact active persistence   NOT_STARTED
                                      │               └─ W6 Production promotion   NOT_STARTED
-                                     └─ WG Optional GPU correspondence mirror     NOT_STARTED / NON_BLOCKING
+                                     ├─ WG Optional GPU correspondence mirror     DIRECT-PORT REPORT / NON_BLOCKING
+                                     └─ NR Nonlocal continuum spike              SPECIFIED / NO W2 CREDIT
 ```
 
 | Stage | Specification | Exit evidence | Blocks |
@@ -84,13 +86,14 @@ W0A Product and evidence scope                    COMPLETE / DOCUMENTATION
 | W0G | [Impact energy-contract reclosure](00g-impact-energy-contract-reclosure.md) | Reversible absolute drift and static-impact energy-excess semantics rooted without changing W0F operations | W1 resume |
 | W0H | [Accelerated pressure-profile reclosure](00h-accelerated-pressure-profile-reclosure.md) | Same W0F pressure QP closes under a rooted fixed APG schedule with independent compression/KKT equality | W1 resume |
 | W0I | [External reference geometry attestation](00i-external-reference-geometry-attestation.md) | Geometry-safe external profile and three exact reference hashes frozen without changing W0F/G/H | W1 resume |
-| W1 | [Serial CPU DFSPH oracle](01-serial-cpu-dfsph-oracle.md) | `CONTINUUM-WATER-REF-P1 = PASS` on the same-target reference profile | evidence merge, explicit track activation, W2, WG |
+| W1 | [Serial CPU DFSPH oracle](01-serial-cpu-dfsph-oracle.md) | `CONTINUUM-WATER-REF-P1 = PASS` on the same-target reference profile | W2, WG and bounded alternative research |
 | W2 | [Deterministic parallel CPU and performance](02-deterministic-parallel-and-performance.md) | Worker/order exactness and standalone `50k` THOTH stop-target PASS | W3 |
 | W3 | [One-pass PhysX coupling](03-one-pass-physx-coupling.md) | `CONTINUUM-COUPLING-P1 = PASS` under one composition DAG, exact exchange tuple and one PhysX integration | W4 |
 | W4 | [Basin, crate and debug presentation](04-basin-crate-debug-presentation.md) | Production command loop and presentation-independence pass | W5 |
 | W5 | [Exact active persistence](05-exact-active-persistence.md) | `CONTINUUM-PERSISTENCE-P1 = PASS` with scheduled checkpoint epochs | W6 |
 | W6 | [Production promotion](06-production-promotion.md) | Consumer-backed Accepted decision, explicit fault/capacity profiles and successor combined budget PASS | shipped claim |
 | WG | [GPU correspondence mirror](wg-gpu-correspondence.md) | `CONTINUUM-MIRROR-P1` report for named devices | no authority or promotion stage |
+| NR | [Nonlocal continuum research](../nonlocal-continuum/README.md) | one NR4 decision from independently reproduced fixed-work evidence | no direct W2 or promotion credit |
 
 ## Program invariants
 
@@ -311,10 +314,9 @@ gate.
    and the hash-frozen W0B closure.
 2. Record stage state and exact evidence links in this roadmap/task-state;
    never mark a PASS from a type, fixture, compilation or report-only run.
-3. After W1 PASS, merge the evidence checkpoint and change the main R8 row from
-   `PLANNED / NOT_ACTIVE` to an active integration track. Before that event the
-   main roadmap contains only this experimental pointer. W1 now passes in the
-   dedicated worktree, so this merge/activation is the current handoff.
+3. The W1/W2 checkpoint is merged at `fe223f9`; the main R8 row may therefore
+   show active isolated research. Integration remains blocked because W2 has
+   no performance PASS. A report-only solver spike does not change that state.
 4. Each stage is a coherent commit boundary. Failed evidence leaves the stage
    open and records the smallest discriminator; it does not relax thresholds.
 5. Treat the `4/6 ms` 50k number as a standalone stop target. Production also
