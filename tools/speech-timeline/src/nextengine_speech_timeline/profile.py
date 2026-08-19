@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import subprocess
@@ -11,7 +12,11 @@ from typing import Any
 from nextengine_emotion_probe.probe import EmotionProbe
 
 from .adapters.dpdfnet import ADAPTER_ID as DPDFNET_ADAPTER_ID
-from .adapters.dpdfnet import DpdfNetAudioPreprocessor, SUPPORTED_MODELS as DPDFNET_MODELS
+from .adapters.dpdfnet import (
+    DpdfNetAudioPreprocessor,
+    SpeechAwareGainConfig,
+    SUPPORTED_MODELS as DPDFNET_MODELS,
+)
 from .adapters.emotion2vec import Emotion2VecAffectAdapter
 from .adapters.voxtral_transcribe_cpp import VoxtralTranscriberAdapter
 from .adapters.wavlm_russian_resd import (
@@ -75,6 +80,7 @@ class AudioPreprocessorProfile:
     model_size_bytes: int
     model_sha256: str
     routing: str
+    gain_config: SpeechAwareGainConfig
 
 
 @dataclass(frozen=True)
@@ -137,7 +143,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
         "emotion",
     )
     audio_preprocessor = (
-        _object(
+        _object_with_optional(
             root["audio_preprocessor"],
             {
                 "adapter_id",
@@ -149,9 +155,27 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
                 "model_sha256",
                 "routing",
             },
+            {"gain"},
             "audio_preprocessor",
         )
         if "audio_preprocessor" in root
+        else None
+    )
+    gain = (
+        _object(
+            audio_preprocessor["gain"],
+            {
+                "enabled",
+                "activation_threshold_dbfs",
+                "target_dbfs",
+                "max_gain_db",
+                "attack_ms",
+                "release_ms",
+                "limiter_peak_dbfs",
+            },
+            "audio_preprocessor.gain",
+        )
+        if audio_preprocessor is not None and "gain" in audio_preprocessor
         else None
     )
     service = _object_with_optional(
@@ -241,6 +265,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
                     "audio_preprocessor.routing",
                     {"asr_only"},
                 ),
+                gain_config=_gain_config(gain),
             )
             if audio_preprocessor is not None
             else None
@@ -380,6 +405,7 @@ def build_adapters(
             model_revision=profile.audio_preprocessor.model_revision,
             model_name=profile.audio_preprocessor.model_name,
             onnx_path=profile.audio_preprocessor.model_path,
+            gain_config=profile.audio_preprocessor.gain_config,
         )
     return transcriber, affect, preprocessor
 
@@ -416,6 +442,43 @@ def _positive_int(value: object, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ProfileError(f"{name} must be a positive integer")
     return value
+
+
+def _bool(value: object, name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ProfileError(f"{name} must be a boolean")
+    return value
+
+
+def _finite_float(value: object, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ProfileError(f"{name} must be a finite number")
+    result = float(value)
+    if not math.isfinite(result):
+        raise ProfileError(f"{name} must be a finite number")
+    return result
+
+
+def _gain_config(value: dict[str, Any] | None) -> SpeechAwareGainConfig:
+    if value is None:
+        return SpeechAwareGainConfig()
+    try:
+        return SpeechAwareGainConfig(
+            enabled=_bool(value["enabled"], "audio_preprocessor.gain.enabled"),
+            activation_threshold_dbfs=_finite_float(
+                value["activation_threshold_dbfs"],
+                "audio_preprocessor.gain.activation_threshold_dbfs",
+            ),
+            target_dbfs=_finite_float(value["target_dbfs"], "audio_preprocessor.gain.target_dbfs"),
+            max_gain_db=_finite_float(value["max_gain_db"], "audio_preprocessor.gain.max_gain_db"),
+            attack_ms=_positive_int(value["attack_ms"], "audio_preprocessor.gain.attack_ms"),
+            release_ms=_positive_int(value["release_ms"], "audio_preprocessor.gain.release_ms"),
+            limiter_peak_dbfs=_finite_float(
+                value["limiter_peak_dbfs"], "audio_preprocessor.gain.limiter_peak_dbfs"
+            ),
+        )
+    except ValueError as error:
+        raise ProfileError(f"invalid audio_preprocessor.gain: {error}") from error
 
 
 def _bounded_int(value: object, name: str, minimum: int, maximum: int) -> int:

@@ -127,6 +127,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                             "audio_preprocessor_model_name": profile.audio_preprocessor.model_name,
                             "audio_preprocessor_model_sha256": profile.audio_preprocessor.model_sha256,
                             "audio_preprocessor_routing": profile.audio_preprocessor.routing,
+                            "audio_preprocessor_gain": profile.audio_preprocessor.gain_config.as_dict(),
                         }
                         if profile.audio_preprocessor is not None
                         else {}

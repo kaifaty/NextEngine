@@ -21,6 +21,7 @@ export interface DiagnosticAudioRecord {
   byte_length: number;
   duration_ms: number;
   created_at_unix_ms: number;
+  enhanced_available: boolean;
 }
 
 export interface AffectSegment {

@@ -123,6 +123,8 @@ select:focus { border-color: rgba(101, 224, 194, .55); }
 .diagnostic-audio-panel .panel-header { margin-bottom: 10px; }
 .diagnostic-audio-list { display: grid; gap: 8px; margin-top: 14px; }
 .diagnostic-audio-row { display: grid; grid-template-columns: minmax(150px, .55fr) minmax(230px, 1fr); gap: 14px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; color: var(--soft); font-size: 12px; }
+.diagnostic-audio-variants { display: grid; gap: 8px; }
+.diagnostic-audio-variants label { display: grid; grid-template-columns: minmax(120px, .35fr) minmax(200px, 1fr); gap: 8px; align-items: center; }
 .diagnostic-audio-row audio { width: 100%; height: 32px; }
 .event-console { margin-top: 18px; padding: 0; overflow: hidden; }
 .event-console summary { padding: 15px 18px; color: var(--muted); font-size: 11px; cursor: pointer; list-style: none; }
@@ -153,7 +155,7 @@ select:focus { border-color: rgba(101, 224, 194, .55); }
   .model-strip > div { border-right: 0; border-bottom: 1px solid var(--border); }
   .content-grid { grid-template-columns: minmax(0, 1fr); }
   .final-card { grid-template-columns: 1fr; }
-  .diagnostic-audio-row { grid-template-columns: 1fr; gap: 7px; }
+  .diagnostic-audio-row, .diagnostic-audio-variants label { grid-template-columns: 1fr; gap: 7px; }
   .final-expression { border-left: 0; border-top: 3px solid var(--emotion); padding: 14px 0 0; }
   .footer-note { flex-direction: column; align-items: center; gap: 7px; }
 }

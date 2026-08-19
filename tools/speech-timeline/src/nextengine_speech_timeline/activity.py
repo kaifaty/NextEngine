@@ -75,11 +75,12 @@ class VoiceActivityConfig:
         if not 500 <= duration_ms <= 10_000:
             raise ValueError("VAD calibration duration must be between 500 and 10000 ms")
         base = cls()
-        speech_threshold = max(base.speech_threshold_dbfs, min(-18.0, floor + 15.0))
-        silence_threshold = max(
-            base.silence_threshold_dbfs,
-            min(speech_threshold - 3.0, floor + 6.0),
-        )
+        # A quiet-room measurement may lower the gate below the generic
+        # -45 dBFS default. This is necessary for a close, quiet whisper while
+        # remaining relative to the measured microphone noise rather than
+        # globally treating every low-energy room as speech.
+        speech_threshold = max(-68.0, min(-18.0, floor + 9.0))
+        silence_threshold = max(-76.0, min(speech_threshold - 3.0, floor + 4.0))
         return cls(
             speech_threshold_dbfs=speech_threshold,
             silence_threshold_dbfs=silence_threshold,

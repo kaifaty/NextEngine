@@ -201,7 +201,13 @@ class SpeechTimelineWebSocketService:
             filename = path.removeprefix(audio_prefix)
             if not filename.endswith(".wav") or "/" in filename:
                 return self._http_error(HTTPStatus.NOT_FOUND)
-            payload = self.diagnostic_audio.read(filename[:-4])
+            if filename.endswith(".asr.wav"):
+                record_id = filename.removesuffix(".asr.wav")
+                variant = "asr_enhanced"
+            else:
+                record_id = filename[:-4]
+                variant = "raw"
+            payload = self.diagnostic_audio.read(record_id, variant=variant)
             if payload is None:
                 return self._http_error(HTTPStatus.NOT_FOUND)
             return self._http_response(

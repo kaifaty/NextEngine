@@ -26,6 +26,7 @@ class DiagnosticAudioRecord:
     byte_length: int
     duration_ms: int
     created_at_unix_ms: int
+    enhanced_available: bool
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -33,6 +34,7 @@ class DiagnosticAudioRecord:
             "byte_length": self.byte_length,
             "duration_ms": self.duration_ms,
             "created_at_unix_ms": self.created_at_unix_ms,
+            "enhanced_available": self.enhanced_available,
         }
 
 
@@ -59,18 +61,26 @@ class DiagnosticAudioStore:
             "enabled": True,
             "max_records": self.max_records,
             "list_path": "/api/diagnostic-audio",
+            "variants": ["raw", "asr_enhanced"],
         }
 
-    def record(self, pcm: bytes) -> DiagnosticAudioRecord:
+    def record(self, pcm: bytes, *, asr_enhanced_pcm: bytes | None = None) -> DiagnosticAudioRecord:
         if not pcm or len(pcm) % 2:
             raise DiagnosticAudioError("diagnostic WAV requires non-empty aligned PCM")
         if len(pcm) > 960_000:
             raise DiagnosticAudioError("diagnostic WAV exceeds the service turn bound")
+        if asr_enhanced_pcm is not None:
+            if not asr_enhanced_pcm or len(asr_enhanced_pcm) % 2:
+                raise DiagnosticAudioError("enhanced diagnostic WAV requires non-empty aligned PCM")
+            if len(asr_enhanced_pcm) != len(pcm):
+                raise DiagnosticAudioError("enhanced diagnostic WAV must preserve the raw sample clock")
         with self._lock:
             self.start()
             record_id = secrets.token_hex(16)
             target = self._path(record_id)
             temporary = self.root / f".{_PREFIX}{record_id}.tmp"
+            enhanced_target = self._enhanced_path(record_id)
+            enhanced_temporary = self.root / f".{_PREFIX}{record_id}.asr.tmp"
             try:
                 with wave.open(str(temporary), "wb") as destination:
                     destination.setnchannels(1)
@@ -78,9 +88,19 @@ class DiagnosticAudioStore:
                     destination.setframerate(SAMPLE_RATE_HZ)
                     destination.writeframes(pcm)
                 os.chmod(temporary, 0o600)
+                if asr_enhanced_pcm is not None:
+                    with wave.open(str(enhanced_temporary), "wb") as destination:
+                        destination.setnchannels(1)
+                        destination.setsampwidth(2)
+                        destination.setframerate(SAMPLE_RATE_HZ)
+                        destination.writeframes(asr_enhanced_pcm)
+                    os.chmod(enhanced_temporary, 0o600)
+                    os.replace(enhanced_temporary, enhanced_target)
                 os.replace(temporary, target)
             except OSError as error:
                 temporary.unlink(missing_ok=True)
+                enhanced_temporary.unlink(missing_ok=True)
+                enhanced_target.unlink(missing_ok=True)
                 raise DiagnosticAudioError(f"cannot persist diagnostic WAV: {error}") from error
             record = self._record_from_path(target)
             self._prune_locked()
@@ -90,11 +110,13 @@ class DiagnosticAudioStore:
         with self._lock:
             return [self._record_from_path(path) for path in self._paths_locked()]
 
-    def read(self, record_id: str) -> bytes | None:
+    def read(self, record_id: str, *, variant: str = "raw") -> bytes | None:
         with self._lock:
             if not _valid_record_id(record_id):
                 return None
-            path = self._path(record_id)
+            if variant not in {"raw", "asr_enhanced"}:
+                return None
+            path = self._path(record_id) if variant == "raw" else self._enhanced_path(record_id)
             if not path.is_file() or path.is_symlink():
                 return None
             try:
@@ -118,9 +140,13 @@ class DiagnosticAudioStore:
         )
         for path in paths[self.max_records :]:
             path.unlink(missing_ok=True)
+            self._enhanced_path(path.stem.removeprefix(_PREFIX)).unlink(missing_ok=True)
 
     def _path(self, record_id: str) -> Path:
         return self.root / f"{_PREFIX}{record_id}.wav"
+
+    def _enhanced_path(self, record_id: str) -> Path:
+        return self.root / f"{_PREFIX}{record_id}.asr.wav"
 
     @staticmethod
     def _record_from_path(path: Path) -> DiagnosticAudioRecord:
@@ -131,6 +157,10 @@ class DiagnosticAudioStore:
             byte_length=stat.st_size,
             duration_ms=max(0, (stat.st_size - 44) * 1_000 // (SAMPLE_RATE_HZ * 2)),
             created_at_unix_ms=stat.st_mtime_ns // 1_000_000,
+            enhanced_available=(
+                (path.parent / f"{path.stem}.asr.wav").is_file()
+                and not (path.parent / f"{path.stem}.asr.wav").is_symlink()
+            ),
         )
 
 

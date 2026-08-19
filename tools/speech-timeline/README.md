@@ -115,8 +115,9 @@ an optional preprocessing branch:
 - `audio_preprocessor` (optional): a separately pinned, hash-validated
   streaming ONNX model and explicit routing. The current
   `dpdfnet-streaming/1` adapter is trial-only and permits only `asr_only`;
-  VAD, vocal affect, diagnostics and the original sample clock remain on raw
-  PCM.
+  VAD, vocal affect and the original sample clock remain on raw PCM. When
+  explicit diagnostics are enabled, raw and ASR-enhanced WAV are retained as
+  separate, clearly labelled variants.
 
 ### DPDFNet ASR-only trial
 
@@ -139,17 +140,33 @@ commit and digest, then add this object to the existing profile:
   "model_path": "/home/you/.cache/nextengine/dpdfnet-0.6.0/onnx/dpdfnet2.onnx",
   "model_size_bytes": 10178747,
   "model_sha256": "sha256:4f0ee28935b4a32abecc717d745416976565834d839601acf43031094b4dc94c",
-  "routing": "asr_only"
+  "routing": "asr_only",
+  "gain": {
+    "enabled": true,
+    "activation_threshold_dbfs": -75.0,
+    "target_dbfs": -26.0,
+    "max_gain_db": 32.0,
+    "attack_ms": 40,
+    "release_ms": 160,
+    "limiter_peak_dbfs": -1.0
+  }
 }
 ```
 
 The adapter never auto-downloads a model at service startup. Its ONNX session
-uses CPU execution with a reported 20 ms causal algorithmic delay. Final
-metrics expose per-chunk p50/p95 preprocessing time, input/output sample
-counts and flush time; the ready payload exposes the exact adapter/model
-lineage. Denoising is not gain control: a quiet whisper can become cleaner but
-not louder. Compare normal and whispered phrases with the same microphone and
-raw diagnostic WAV before calling it an ASR improvement. Remove the whole
+uses CPU execution with a reported 20 ms causal delay. The optional gain is a
+20-ms speech-aware stage after denoising: it raises only frames above the
+post-denoising gate, smooths attack/release and hard-limits peaks. It adds at
+most 20 ms of buffering; it does not change VAD/affect input or enable an
+unbounded global AGC. Final metrics expose per-chunk p50/p95 preprocessing
+time, input/output sample counts and flush time; the ready payload exposes the
+exact adapter/model/gain lineage.
+
+For a whisper test, first use **Калибровать тишину** in the dashboard while
+remaining silent. The calibrated VAD gate becomes relative to that measured
+noise floor and can admit quiet speech without globally treating all low-level
+audio as speech. Each completed diagnostic turn then exposes both **Raw
+микрофон** and **ASR: DPDFNet + gain** WAV players. Remove the whole
 `audio_preprocessor` object and restart to return to raw PCM immediately.
 
 The ready file is created with mode `0600`, contains the random session token,
@@ -158,9 +175,11 @@ not written by default.
 
 For an explicit local microphone investigation, an operator may add the
 following `service` profile field. The service then writes only completed
-utterances as 16 kHz mono WAV to the external directory, retains at most five,
-serves them only through the same loopback dashboard, and never writes a
-transcript or model output beside them.
+utterances as 16 kHz mono raw WAV to the external directory, retains at most
+five, and serves them only through the same loopback dashboard. When an
+ASR-only preprocessor is enabled, each raw WAV may also receive a matching
+ASR-enhanced WAV for listening comparison; no transcript or model output is
+written beside either file.
 
 ```json
 "diagnostic_audio": {

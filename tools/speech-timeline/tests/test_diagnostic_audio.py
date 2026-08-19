@@ -25,6 +25,17 @@ class DiagnosticAudioStoreTests(unittest.TestCase):
             self.assertGreater(len(payload), 44)
             self.assertIsNone(store.read("../not-a-record"))
 
+    def test_retains_a_clock_matched_asr_enhanced_variant_with_the_raw_wav(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            store = DiagnosticAudioStore(Path(temporary), max_records=5)
+            raw = b"\x10\x00" * 800
+            enhanced = b"\x20\x00" * 800
+            record = store.record(raw, asr_enhanced_pcm=enhanced)
+            self.assertTrue(record.enhanced_available)
+            self.assertEqual(store.read(record.record_id, variant="asr_enhanced")[44:], enhanced)
+            with self.assertRaisesRegex(Exception, "preserve the raw sample clock"):
+                store.record(raw, asr_enhanced_pcm=enhanced[:-2])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -73,6 +73,15 @@ const stateText: Record<ConnectionState, string> = {
 
 const transcriberName = computed(() => modelValue("transcriber", "adapter_id") || "Voxtral");
 const affectName = computed(() => modelValue("vocal_affect", "adapter_id") || "Emotion2Vec");
+const preprocessorSummary = computed(() => {
+  const model = objectValue(objectValue(bootstrap.value?.service, "models"), "audio_preprocessor");
+  if (!model) return "raw PCM";
+  const adapter = stringValue(model, "adapter_id") || "audio preprocessor";
+  const gain = objectValue(model, "gain");
+  return gain?.enabled === true
+    ? `${adapter} · шумоподавление + усиление`
+    : `${adapter} · шумоподавление`;
+});
 const transcriberCadence = computed(() => {
   const delay = numericModelValue("transcriber", "configured_delay_ms");
   const partial = numericModelValue("transcriber", "partial_decode_interval_ms");
@@ -101,8 +110,8 @@ const captureSummary = computed(() => {
 });
 const calibrationSummary = computed(() => {
   const result = calibration.value;
-  if (!result) return "VAD: пороги по умолчанию — для шумного места выполните калибровку тишины.";
-  return `VAD: шум ${result.noiseFloorDbfs.toFixed(1)} dBFS · пик ${result.peakDbfs.toFixed(1)} dBFS · ${result.durationMs / 1_000} с`;
+  if (!result) return "VAD: для тихой речи сначала нажмите «Калибровать тишину» в полной тишине.";
+  return `VAD: whisper-aware · шум ${result.noiseFloorDbfs.toFixed(1)} dBFS · пик ${result.peakDbfs.toFixed(1)} dBFS · ${result.durationMs / 1_000} с`;
 });
 const identitySummary = computed(() => {
   const identity = objectValue(bootstrap.value?.service, "model_identity");
@@ -435,6 +444,10 @@ function stringValue(value: JsonObject, key: string): string {
         <b>{{ affectName }}</b>
       </div>
       <div>
+        <span>ASR signal</span>
+        <b>{{ preprocessorSummary }}</b>
+      </div>
+      <div>
         <span>Lineage</span>
         <b>{{ identitySummary }}</b>
       </div>
@@ -485,11 +498,20 @@ function stringValue(value: JsonObject, key: string): string {
         </div>
         <button class="icon-button" title="Обновить записи" @click="refreshDiagnosticAudio">↻</button>
       </div>
-      <p class="muted-copy">Хранятся только последние пять WAV в локальном диагностическом каталоге.</p>
+      <p class="muted-copy">Хранятся только последние пять raw-WAV и, когда включён preprocessing, их ASR-вариант.</p>
       <div v-if="diagnosticAudio.length" class="diagnostic-audio-list">
         <div v-for="(record, index) in diagnosticAudio" :key="record.id" class="diagnostic-audio-row">
           <span>Запись {{ diagnosticAudio.length - index }} · {{ formatDuration(record.duration_ms) }}</span>
-          <audio controls preload="metadata" :src="`/api/diagnostic-audio/${record.id}.wav`"></audio>
+          <div class="diagnostic-audio-variants">
+            <label>
+              <span>Raw микрофон</span>
+              <audio controls preload="metadata" :src="`/api/diagnostic-audio/${record.id}.wav`"></audio>
+            </label>
+            <label v-if="record.enhanced_available">
+              <span>ASR: DPDFNet + gain</span>
+              <audio controls preload="metadata" :src="`/api/diagnostic-audio/${record.id}.asr.wav`"></audio>
+            </label>
+          </div>
         </div>
       </div>
       <p v-else class="muted-copy">Завершите запись — она появится здесь.</p>

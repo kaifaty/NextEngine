@@ -267,6 +267,7 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
             runtime,
             ready_file=Path(self.temp.name) / "preprocessed-ready.json",
             port=0,
+            diagnostic_audio=DiagnosticAudioStore(self.diagnostic_audio_root),
         )
         await service.start()
         try:
@@ -281,6 +282,18 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(metrics["enabled"])
             self.assertEqual(metrics["input_samples"], 4_000)
             self.assertEqual(metrics["output_samples"], 4_000)
+            records = service.diagnostic_audio.list_records() if service.diagnostic_audio else []
+            self.assertEqual(len(records), 1)
+            self.assertTrue(records[0].enhanced_available)
+
+            def load_enhanced() -> bytes:
+                with urlopen(
+                    service.dashboard_uri + f"api/diagnostic-audio/{records[0].record_id}.asr.wav",
+                    timeout=2,
+                ) as response:
+                    return response.read()
+
+            self.assertTrue((await asyncio.to_thread(load_enhanced)).startswith(b"RIFF"))
         finally:
             await service.close()
 
@@ -417,7 +430,7 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
             )
             started = json.loads(await websocket.recv())
             activity = started["vocal_activity"]
-            self.assertEqual(activity["speech_threshold_dbfs"], -35.0)
+            self.assertEqual(activity["speech_threshold_dbfs"], -41.0)
             self.assertEqual(activity["calibration"]["noise_floor_dbfs"], -50.0)
             await websocket.send(b"\0\0" * 4_000)
             await websocket.send(

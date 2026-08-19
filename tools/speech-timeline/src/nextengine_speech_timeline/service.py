@@ -161,6 +161,8 @@ class SpeechConnection:
         self._release = release
         self._diagnostic_audio = diagnostic_audio
         self._diagnostic_audio_saved = False
+        self._diagnostic_asr_pcm = bytearray()
+        self._diagnostic_asr_pcm_invalid = False
         self._transcriber_session: Any = None
         self._asr_tasks: set[asyncio.Task[None]] = set()
         self._emotion_tasks: set[asyncio.Task[None]] = set()
@@ -270,6 +272,7 @@ class SpeechConnection:
             await self._fail("AUDIO_PREPROCESSOR_FAILURE", _bounded_error(error))
             return
         if asr_pcm:
+            self._append_diagnostic_asr_pcm(asr_pcm)
             self._spawn(
                 self._asr_push_with_backpressure(
                     generation,
@@ -342,6 +345,7 @@ class SpeechConnection:
                 flush=True,
             )
             if tail_pcm:
+                self._append_diagnostic_asr_pcm(tail_pcm)
                 await self._asr_push(
                     generation,
                     max(0, total_samples - len(tail_pcm) // 2),
@@ -430,7 +434,12 @@ class SpeechConnection:
             snapshot = self.timeline.snapshot()
         if self._diagnostic_audio is not None:
             try:
-                await asyncio.to_thread(self._diagnostic_audio.record, self.session.pcm_bytes)
+                enhanced_pcm = self._diagnostic_enhanced_pcm()
+                await asyncio.to_thread(
+                    self._diagnostic_audio.record,
+                    self.session.pcm_bytes,
+                    asr_enhanced_pcm=enhanced_pcm,
+                )
                 self._diagnostic_audio_saved = True
             except BaseException as error:
                 logger.warning("speech.diagnostic_audio_save_failed kind=%s", type(error).__name__)
@@ -555,6 +564,31 @@ class SpeechConnection:
                 round(end_sample * 1_000 / 16_000),
                 elapsed_ms,
             )
+
+    def _append_diagnostic_asr_pcm(self, pcm: bytes) -> None:
+        if self._diagnostic_audio is None or self.runtime.audio_preprocessor is None:
+            return
+        if self._diagnostic_asr_pcm_invalid:
+            return
+        if len(self._diagnostic_asr_pcm) + len(pcm) > self.session.bounds.max_turn_bytes:
+            self._diagnostic_asr_pcm_invalid = True
+            logger.warning("speech.diagnostic_enhanced_audio_overflow session_id=%s", self.session.session_id)
+            return
+        self._diagnostic_asr_pcm.extend(pcm)
+
+    def _diagnostic_enhanced_pcm(self) -> bytes | None:
+        if self.runtime.audio_preprocessor is None or self._diagnostic_asr_pcm_invalid:
+            return None
+        raw_length = len(self.session.pcm_bytes)
+        if len(self._diagnostic_asr_pcm) != raw_length:
+            logger.warning(
+                "speech.diagnostic_enhanced_audio_clock_mismatch session_id=%s raw_bytes=%d enhanced_bytes=%d",
+                self.session.session_id,
+                raw_length,
+                len(self._diagnostic_asr_pcm),
+            )
+            return None
+        return bytes(self._diagnostic_asr_pcm)
 
     async def _affect_observe(
         self,

@@ -52,8 +52,15 @@ export async function loadDiagnosticAudio(): Promise<DiagnosticAudioRecord[]> {
     const duration = integer(item.duration_ms);
     const size = integer(item.byte_length);
     const created = integer(item.created_at_unix_ms);
+    const enhancedAvailable = item.enhanced_available === true;
     return duration >= 0 && size >= 44 && created >= 0
-      ? [{ id: item.id, duration_ms: duration, byte_length: size, created_at_unix_ms: created }]
+      ? [{
+          id: item.id,
+          duration_ms: duration,
+          byte_length: size,
+          created_at_unix_ms: created,
+          enhanced_available: enhancedAvailable,
+        }]
       : [];
   });
 }
