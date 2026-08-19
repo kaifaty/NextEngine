@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 from typing import Any
 
@@ -13,7 +14,10 @@ from .adapters.emotion2vec import Emotion2VecAffectAdapter
 from .adapters.voxtral_transcribe_cpp import VoxtralTranscriberAdapter
 from .adapters.wavlm_russian_resd import (
     ADAPTER_ID as WAVLM_RUSSIAN_RESD_ADAPTER_ID,
+    DEFAULT_LABEL_MAP,
+    GENERIC_ADAPTER_ID as WAVLM_AUDIO_CLASSIFICATION_ADAPTER_ID,
     WEIGHTS_FILENAME as WAVLM_WEIGHTS_FILENAME,
+    WavlmAffectAdapter,
     WavlmRussianResdAffectAdapter,
 )
 from .session import SessionBounds
@@ -21,7 +25,8 @@ from .session import SessionBounds
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 EMOTION2VEC_ADAPTER_ID = "emotion2vec-plus/1"
-SUPPORTED_EMOTION_ADAPTERS = {EMOTION2VEC_ADAPTER_ID, WAVLM_RUSSIAN_RESD_ADAPTER_ID}
+WAVLM_ADAPTER_IDS = {WAVLM_RUSSIAN_RESD_ADAPTER_ID, WAVLM_AUDIO_CLASSIFICATION_ADAPTER_ID}
+SUPPORTED_EMOTION_ADAPTERS = {EMOTION2VEC_ADAPTER_ID, *WAVLM_ADAPTER_IDS}
 
 
 class ProfileError(RuntimeError):
@@ -50,6 +55,7 @@ class EmotionProfile:
     device: str
     classification: str
     weights_sha256: str | None
+    label_map: tuple[tuple[str, str], ...] | None
 
 
 @dataclass(frozen=True)
@@ -100,13 +106,18 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
     emotion = _object_with_optional(
         root["emotion"],
         {"model_id", "model_revision", "cache_dir", "device", "classification"},
-        {"adapter_id", "weights_sha256"},
+        {"adapter_id", "weights_sha256", "label_map"},
         "emotion",
     )
     service = _object(
         root["service"],
         {"port", "ready_file", "max_frame_bytes", "max_turn_bytes"},
         "service",
+    )
+    adapter_id = _choice(
+        emotion.get("adapter_id", EMOTION2VEC_ADAPTER_ID),
+        "emotion.adapter_id",
+        SUPPORTED_EMOTION_ADAPTERS,
     )
     profile = SpeechTimelineProfile(
         voxtral=VoxtralProfile(
@@ -124,11 +135,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
             ),
         ),
         emotion=EmotionProfile(
-            adapter_id=_choice(
-                emotion.get("adapter_id", EMOTION2VEC_ADAPTER_ID),
-                "emotion.adapter_id",
-                SUPPORTED_EMOTION_ADAPTERS,
-            ),
+            adapter_id=adapter_id,
             model_id=_string(emotion["model_id"], "model_id", 256),
             model_revision=_string(emotion["model_revision"], "model_revision", 128),
             cache_dir=_path(emotion["cache_dir"], "cache_dir"),
@@ -141,6 +148,13 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
             weights_sha256=(
                 _sha256(emotion["weights_sha256"], "emotion.weights_sha256")
                 if "weights_sha256" in emotion
+                else None
+            ),
+            label_map=(
+                _label_map(emotion["label_map"], "emotion.label_map")
+                if "label_map" in emotion
+                else tuple(DEFAULT_LABEL_MAP.items())
+                if adapter_id == WAVLM_RUSSIAN_RESD_ADAPTER_ID
                 else None
             ),
         ),
@@ -180,12 +194,14 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
         raise ProfileError(f"transcribe.cpp library does not exist: {profile.voxtral.library}")
     if not profile.emotion.cache_dir.is_dir():
         raise ProfileError(f"emotion cache directory does not exist: {profile.emotion.cache_dir}")
-    if profile.emotion.adapter_id == WAVLM_RUSSIAN_RESD_ADAPTER_ID:
+    if profile.emotion.adapter_id in WAVLM_ADAPTER_IDS:
         if profile.emotion.weights_sha256 is None:
             raise ProfileError("WavLM emotion profile requires emotion.weights_sha256")
+        if profile.emotion.label_map is None:
+            raise ProfileError("generic WavLM emotion profile requires emotion.label_map")
         _validate_wavlm_weights(profile.emotion)
-    elif profile.emotion.weights_sha256 is not None:
-        raise ProfileError("emotion.weights_sha256 is only valid for the WavLM adapter")
+    elif profile.emotion.weights_sha256 is not None or profile.emotion.label_map is not None:
+        raise ProfileError("emotion weights and label map are only valid for a WavLM adapter")
     try:
         result = subprocess.run(
             ["git", "-C", str(profile.voxtral.transcribe_root), "rev-parse", "HEAD"],
@@ -226,14 +242,17 @@ def build_adapters(
             local_files_only=True,
         )
         return transcriber, Emotion2VecAffectAdapter(probe)
-    if profile.emotion.adapter_id == WAVLM_RUSSIAN_RESD_ADAPTER_ID:
+    if profile.emotion.adapter_id in WAVLM_ADAPTER_IDS:
         assert profile.emotion.weights_sha256 is not None
-        return transcriber, WavlmRussianResdAffectAdapter(
+        assert profile.emotion.label_map is not None
+        return transcriber, WavlmAffectAdapter(
             profile.emotion.model_id,
             profile.emotion.model_revision,
             profile.emotion.cache_dir,
             profile.emotion.device,
             profile.emotion.weights_sha256,
+            dict(profile.emotion.label_map),
+            profile.emotion.adapter_id,
         )
     raise AssertionError(f"unsupported validated emotion adapter: {profile.emotion.adapter_id}")
 
@@ -296,6 +315,23 @@ def _sha256(value: object, name: str) -> str:
     if result.lower() != result:
         raise ProfileError(f"{name} must use lowercase hexadecimal digits")
     return result
+
+
+def _label_map(value: object, name: str) -> tuple[tuple[str, str], ...]:
+    if not isinstance(value, dict) or not 1 <= len(value) <= 32:
+        raise ProfileError(f"{name} must be an object with between 1 and 32 labels")
+    result: list[tuple[str, str]] = []
+    normalized: set[str] = set()
+    for source, target in value.items():
+        source_name = _string(source, f"{name} source label", 128)
+        target_name = _string(target, f"{name}.{source_name}", 64)
+        if re.fullmatch(r"[a-z][a-z0-9_-]*", target_name) is None:
+            raise ProfileError(f"{name} values must be lowercase timeline labels")
+        if target_name in normalized:
+            raise ProfileError(f"{name} values must be unique")
+        normalized.add(target_name)
+        result.append((source_name, target_name))
+    return tuple(result)
 
 
 def _validate_wavlm_weights(emotion: EmotionProfile) -> None:

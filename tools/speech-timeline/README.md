@@ -145,6 +145,27 @@ probabilities of a speaker's internal state. To roll back, remove `adapter_id`
 and `weights_sha256` (or set `adapter_id` to `emotion2vec-plus/1`) in an
 otherwise valid base profile, then restart the resident service.
 
+For a trial of another stock `WavLMForSequenceClassification` checkpoint, use
+`transformers-wavlm-audio-classification/1` and include an explicit one-to-one
+`label_map` from the checkpoint's exact `config.json` labels to lowercase
+timeline labels. The service validates both the pinned head and the map before
+loading; it does not guess label order or use model-repository Python.
+
+```json
+{
+  "adapter_id": "transformers-wavlm-audio-classification/1",
+  "label_map": {
+    "Angry": "angry",
+    "Disgusted": "disgusted",
+    "Happy": "happy",
+    "Neutral": "neutral",
+    "Sad": "sad",
+    "Scared": "fearful",
+    "Surprised": "surprised"
+  }
+}
+```
+
 In a second terminal, list inputs and connect the microphone client:
 
 ```bash

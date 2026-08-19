@@ -10,10 +10,12 @@ import torch
 from nextengine_speech_timeline.adapters.base import AdapterError, AudioWindow
 from nextengine_speech_timeline.adapters.wavlm_russian_resd import (
     ADAPTER_ID,
+    GENERIC_ADAPTER_ID,
     MAX_INPUT_SAMPLES,
     NORMALIZED_LABELS,
     UPSTREAM_LABELS,
     WavlmRussianResdAffectAdapter,
+    WavlmAffectAdapter,
     _validate_config,
     normalize_probabilities,
 )
@@ -75,6 +77,37 @@ class WavlmRussianResdAdapterTests(unittest.TestCase):
             normalize_probabilities(np.ones(6, dtype=np.float64))
         with self.assertRaises(AdapterError):
             normalize_probabilities(np.array([np.nan] * len(UPSTREAM_LABELS)))
+
+    def test_generic_wavlm_head_uses_its_explicit_profile_map(self) -> None:
+        label_map = {
+            "Angry": "angry",
+            "Disgusted": "disgusted",
+            "Happy": "happy",
+            "Neutral": "neutral",
+            "Sad": "sad",
+            "Scared": "fearful",
+            "Surprised": "surprised",
+        }
+        config = SimpleNamespace(
+            model_type="wavlm",
+            id2label={index: label for index, label in enumerate(label_map)},
+        )
+        labels = _validate_config(config, label_map)
+        scores = normalize_probabilities(
+            np.array([0.1, 0.1, 0.3, 0.2, 0.1, 0.1, 0.1]), labels, label_map
+        )
+        adapter = WavlmAffectAdapter(
+            "nikatonika/aniemore-audio-finetuned",
+            "a" * 40,
+            Path("/tmp"),
+            "cpu",
+            "sha256:" + "b" * 64,
+            label_map,
+            GENERIC_ADAPTER_ID,
+        )
+        self.assertEqual(max(scores, key=scores.get), "happy")
+        self.assertEqual(adapter.capabilities().adapter_id, GENERIC_ADAPTER_ID)
+        self.assertEqual(set(adapter.capabilities().labels), set(label_map.values()))
 
     def test_input_over_twelve_seconds_fails_closed(self) -> None:
         invalid = window(MAX_INPUT_SAMPLES + 1)

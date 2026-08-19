@@ -23,6 +23,7 @@ from .base import AdapterError, AffectObservation, AudioWindow
 
 
 ADAPTER_ID = "transformers-wavlm-russian-ser/1"
+GENERIC_ADAPTER_ID = "transformers-wavlm-audio-classification/1"
 MODEL_TYPE = "wavlm"
 WEIGHTS_FILENAME = "model.safetensors"
 SAMPLE_RATE_HZ = 16_000
@@ -40,10 +41,17 @@ UPSTREAM_LABELS = MappingProxyType(
     }
 )
 NORMALIZED_LABELS = frozenset(UPSTREAM_LABELS.values())
+DEFAULT_LABEL_MAP = UPSTREAM_LABELS
 
 
-class WavlmRussianResdAffectAdapter:
-    """Normalizes a pinned WavLM Russian SER checkpoint behind the affect API."""
+class WavlmAffectAdapter:
+    """Normalizes a pinned stock-Transformers WavLM classification head.
+
+    The profile owns the mapping from its immutable upstream head labels to
+    engine timeline labels. This lets an operator trial another standard WavLM
+    checkpoint without accepting repository Python or weakening the existing
+    RESD-specific adapter contract.
+    """
 
     def __init__(
         self,
@@ -52,7 +60,11 @@ class WavlmRussianResdAffectAdapter:
         cache_dir: Path,
         device: str,
         weights_sha256: str,
+        label_map: Mapping[str, str] = DEFAULT_LABEL_MAP,
+        adapter_id: str = ADAPTER_ID,
     ) -> None:
+        self._label_map = _validate_label_map(label_map)
+        self._adapter_id = adapter_id
         self._model_id = model_id
         self._model_revision = model_revision
         self._cache_dir = cache_dir.expanduser().resolve()
@@ -61,6 +73,7 @@ class WavlmRussianResdAffectAdapter:
         self._device: str | None = None
         self._feature_extractor: Any | None = None
         self._model: Any | None = None
+        self._upstream_labels: tuple[str, ...] | None = None
         self._warmup_count = 0
         self._load_count = 0
 
@@ -82,7 +95,7 @@ class WavlmRussianResdAffectAdapter:
                 local_files_only=True,
                 trust_remote_code=False,
             )
-            _validate_config(config)
+            upstream_labels = _validate_config(config, self._label_map)
             feature_extractor = AutoFeatureExtractor.from_pretrained(
                 snapshot,
                 local_files_only=True,
@@ -101,6 +114,7 @@ class WavlmRussianResdAffectAdapter:
         self._device = runtime_device
         self._feature_extractor = feature_extractor
         self._model = model
+        self._upstream_labels = upstream_labels
         self._load_count += 1
         return ModelLoadEvidence(
             elapsed_ms=round((time.perf_counter() - started) * 1000),
@@ -120,12 +134,12 @@ class WavlmRussianResdAffectAdapter:
 
     def capabilities(self) -> AffectCapabilities:
         return AffectCapabilities(
-            adapter_id=ADAPTER_ID,
+            adapter_id=self._adapter_id,
             model_id=self._model_id,
             model_revision=self._model_revision,
             device=self._device or self._requested_device,
             sample_rate_hz=SAMPLE_RATE_HZ,
-            labels=tuple(sorted(NORMALIZED_LABELS)),
+            labels=tuple(sorted(set(self._label_map.values()))),
             semantics="uncalibrated_observed_expression",
         )
 
@@ -135,6 +149,7 @@ class WavlmRussianResdAffectAdapter:
         assert self._model is not None
         assert self._feature_extractor is not None
         assert self._device is not None
+        upstream_labels = self._upstream_labels or tuple(self._label_map)
         try:
             import torch
 
@@ -156,7 +171,7 @@ class WavlmRussianResdAffectAdapter:
             elapsed_ms = round((time.perf_counter() - started) * 1000)
         except (RuntimeError, ValueError, TypeError) as error:
             raise AdapterError(f"WavLM affect inference failed: {error}") from error
-        scores = normalize_probabilities(probabilities)
+        scores = normalize_probabilities(probabilities, upstream_labels, self._label_map)
         top_label = max(scores, key=lambda label: (scores[label], label))
         return AffectObservation(
             model_id=self._model_id,
@@ -198,7 +213,20 @@ class WavlmRussianResdAffectAdapter:
             raise AdapterError("WavLM model.safetensors SHA-256 does not match the profile")
 
 
-def _validate_config(config: Any) -> None:
+def _validate_label_map(label_map: Mapping[str, str]) -> dict[str, str]:
+    if not isinstance(label_map, Mapping) or not 1 <= len(label_map) <= 32:
+        raise AdapterError("WavLM label map must contain between 1 and 32 labels")
+    normalized: dict[str, str] = {}
+    for source, target in label_map.items():
+        if not isinstance(source, str) or not source or not isinstance(target, str) or not target:
+            raise AdapterError("WavLM label map must use non-empty string labels")
+        if source in normalized or target in normalized.values():
+            raise AdapterError("WavLM label map must be one-to-one")
+        normalized[source] = target
+    return normalized
+
+
+def _validate_config(config: Any, label_map: Mapping[str, str] = DEFAULT_LABEL_MAP) -> tuple[str, ...]:
     if getattr(config, "model_type", None) != MODEL_TYPE:
         raise AdapterError(f"expected model_type={MODEL_TYPE!r}")
     raw_labels = getattr(config, "id2label", None)
@@ -213,9 +241,11 @@ def _validate_config(config: Any) -> None:
         if not isinstance(label, str):
             raise AdapterError("WavLM config label is invalid")
         labels[numeric_index] = label
-    expected = {index: label for index, label in enumerate(UPSTREAM_LABELS)}
-    if labels != expected:
-        raise AdapterError("WavLM config labels do not match the supported Russian RESD head")
+    expected = set(_validate_label_map(label_map))
+    expected_indices = set(range(len(expected)))
+    if set(labels) != expected_indices or set(labels.values()) != expected:
+        raise AdapterError("WavLM config labels do not match the profile label map")
+    return tuple(labels[index] for index in range(len(labels)))
 
 
 def _validate_window(window: AudioWindow) -> None:
@@ -231,22 +261,33 @@ def _validate_window(window: AudioWindow) -> None:
         raise AdapterError("audio window contains non-finite samples")
 
 
-def normalize_probabilities(probabilities: np.ndarray) -> dict[str, float]:
+def normalize_probabilities(
+    probabilities: np.ndarray,
+    upstream_labels: tuple[str, ...] = tuple(UPSTREAM_LABELS),
+    label_map: Mapping[str, str] = DEFAULT_LABEL_MAP,
+) -> dict[str, float]:
+    validated_map = _validate_label_map(label_map)
     values = np.asarray(probabilities, dtype=np.float64)
-    if values.shape != (len(UPSTREAM_LABELS),):
+    if values.shape != (len(upstream_labels),):
         raise AdapterError("WavLM score vector has an unexpected shape")
+    if set(upstream_labels) != set(validated_map) or len(set(upstream_labels)) != len(upstream_labels):
+        raise AdapterError("WavLM score vector labels do not match the profile label map")
     if not np.isfinite(values).all():
         raise AdapterError("WavLM score vector contains non-finite values")
     scores = {
-        normalized: float(values[index])
-        for index, normalized in enumerate(UPSTREAM_LABELS.values())
+        validated_map[label]: float(values[index])
+        for index, label in enumerate(upstream_labels)
     }
-    if set(scores) != NORMALIZED_LABELS:
+    if set(scores) != set(validated_map.values()):
         raise AdapterError("WavLM score vector does not cover every supported label")
     total = sum(scores.values())
     if not math.isfinite(total) or not 0.999 <= total <= 1.001:
         raise AdapterError("WavLM score vector is not a probability distribution")
     return scores
+
+
+# The old public class name and adapter id retain the frozen RESD contract.
+WavlmRussianResdAffectAdapter = WavlmAffectAdapter
 
 
 def _sha256_file(path: Path) -> str:

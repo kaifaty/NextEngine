@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
 
-from nextengine_speech_timeline.profile import ProfileError, load_profile
+from nextengine_speech_timeline.profile import ProfileError, load_profile, validate_profile_artifacts
 
 
 class ProfileTests(unittest.TestCase):
@@ -193,6 +194,16 @@ class ProfileTests(unittest.TestCase):
                 return_value=completed,
             ):
                 profile = load_profile(profile_path)
+            generic_without_map = replace(
+                profile,
+                emotion=replace(
+                    profile.emotion,
+                    adapter_id="transformers-wavlm-audio-classification/1",
+                    label_map=None,
+                ),
+            )
+            with self.assertRaisesRegex(ProfileError, "requires emotion.label_map"):
+                validate_profile_artifacts(generic_without_map)
         self.assertEqual(profile.emotion.adapter_id, "transformers-wavlm-russian-ser/1")
         self.assertEqual(profile.emotion.weights_sha256, f"sha256:{hashlib.sha256(b'wavlm').hexdigest()}")
 
