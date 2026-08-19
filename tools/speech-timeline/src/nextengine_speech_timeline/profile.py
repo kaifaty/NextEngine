@@ -10,6 +10,8 @@ from typing import Any
 
 from nextengine_emotion_probe.probe import EmotionProbe
 
+from .adapters.dpdfnet import ADAPTER_ID as DPDFNET_ADAPTER_ID
+from .adapters.dpdfnet import DpdfNetAudioPreprocessor, SUPPORTED_MODELS as DPDFNET_MODELS
 from .adapters.emotion2vec import Emotion2VecAffectAdapter
 from .adapters.voxtral_transcribe_cpp import VoxtralTranscriberAdapter
 from .adapters.wavlm_russian_resd import (
@@ -31,6 +33,7 @@ EMOTION2VEC_ADAPTER_ID = "emotion2vec-plus/1"
 WAVLM_ADAPTER_IDS = {WAVLM_RUSSIAN_RESD_ADAPTER_ID, WAVLM_AUDIO_CLASSIFICATION_ADAPTER_ID}
 TRANSFORMERS_AUDIO_ADAPTER_IDS = {*WAVLM_ADAPTER_IDS, TRANSFORMERS_AUDIO_CLASSIFICATION_ADAPTER_ID}
 SUPPORTED_EMOTION_ADAPTERS = {EMOTION2VEC_ADAPTER_ID, *TRANSFORMERS_AUDIO_ADAPTER_IDS}
+SUPPORTED_AUDIO_PREPROCESSORS = {DPDFNET_ADAPTER_ID}
 
 
 class ProfileError(RuntimeError):
@@ -63,6 +66,18 @@ class EmotionProfile:
 
 
 @dataclass(frozen=True)
+class AudioPreprocessorProfile:
+    adapter_id: str
+    model_id: str
+    model_revision: str
+    model_name: str
+    model_path: Path
+    model_size_bytes: int
+    model_sha256: str
+    routing: str
+
+
+@dataclass(frozen=True)
 class ServiceProfile:
     port: int
     ready_file: Path
@@ -75,6 +90,7 @@ class ServiceProfile:
 class SpeechTimelineProfile:
     voxtral: VoxtralProfile
     emotion: EmotionProfile
+    audio_preprocessor: AudioPreprocessorProfile | None
     service: ServiceProfile
 
 
@@ -91,7 +107,12 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
         value = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ProfileError(f"invalid profile JSON: {error}") from error
-    root = _object(value, {"schema_version", "voxtral", "emotion", "service"}, "profile")
+    root = _object_with_optional(
+        value,
+        {"schema_version", "voxtral", "emotion", "service"},
+        {"audio_preprocessor"},
+        "profile",
+    )
     if root["schema_version"] != 1:
         raise ProfileError("profile schema_version must be 1")
     voxtral = _object_with_optional(
@@ -114,6 +135,24 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
         {"model_id", "model_revision", "cache_dir", "device", "classification"},
         {"adapter_id", "weights_sha256", "label_map"},
         "emotion",
+    )
+    audio_preprocessor = (
+        _object(
+            root["audio_preprocessor"],
+            {
+                "adapter_id",
+                "model_id",
+                "model_revision",
+                "model_name",
+                "model_path",
+                "model_size_bytes",
+                "model_sha256",
+                "routing",
+            },
+            "audio_preprocessor",
+        )
+        if "audio_preprocessor" in root
+        else None
     )
     service = _object_with_optional(
         root["service"],
@@ -169,6 +208,42 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
                 if adapter_id == WAVLM_RUSSIAN_RESD_ADAPTER_ID
                 else None
             ),
+        ),
+        audio_preprocessor=(
+            AudioPreprocessorProfile(
+                adapter_id=_choice(
+                    audio_preprocessor["adapter_id"],
+                    "audio_preprocessor.adapter_id",
+                    SUPPORTED_AUDIO_PREPROCESSORS,
+                ),
+                model_id=_string(audio_preprocessor["model_id"], "audio_preprocessor.model_id", 256),
+                model_revision=_string(
+                    audio_preprocessor["model_revision"],
+                    "audio_preprocessor.model_revision",
+                    128,
+                ),
+                model_name=_choice(
+                    audio_preprocessor["model_name"],
+                    "audio_preprocessor.model_name",
+                    DPDFNET_MODELS,
+                ),
+                model_path=_path(audio_preprocessor["model_path"], "audio_preprocessor.model_path"),
+                model_size_bytes=_positive_int(
+                    audio_preprocessor["model_size_bytes"],
+                    "audio_preprocessor.model_size_bytes",
+                ),
+                model_sha256=_sha256(
+                    audio_preprocessor["model_sha256"],
+                    "audio_preprocessor.model_sha256",
+                ),
+                routing=_choice(
+                    audio_preprocessor["routing"],
+                    "audio_preprocessor.routing",
+                    {"asr_only"},
+                ),
+            )
+            if audio_preprocessor is not None
+            else None
         ),
         service=ServiceProfile(
             port=_port(service["port"]),
@@ -229,6 +304,8 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
         _validate_wavlm_weights(profile.emotion)
     elif profile.emotion.weights_sha256 is not None or profile.emotion.label_map is not None:
         raise ProfileError("emotion weights and label map are only valid for a WavLM adapter")
+    if profile.audio_preprocessor is not None:
+        _validate_audio_preprocessor(profile.audio_preprocessor)
     try:
         result = subprocess.run(
             ["git", "-C", str(profile.voxtral.transcribe_root), "rev-parse", "HEAD"],
@@ -255,7 +332,11 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
 
 def build_adapters(
     profile: SpeechTimelineProfile,
-) -> tuple[VoxtralTranscriberAdapter, Emotion2VecAffectAdapter | WavlmRussianResdAffectAdapter]:
+) -> tuple[
+    VoxtralTranscriberAdapter,
+    Emotion2VecAffectAdapter | WavlmRussianResdAffectAdapter,
+    DpdfNetAudioPreprocessor | None,
+]:
     transcriber = VoxtralTranscriberAdapter(
         profile.voxtral.model_path,
         profile.voxtral.transcribe_root,
@@ -272,11 +353,11 @@ def build_adapters(
             profile.emotion.device,
             local_files_only=True,
         )
-        return transcriber, Emotion2VecAffectAdapter(probe)
-    if profile.emotion.adapter_id in TRANSFORMERS_AUDIO_ADAPTER_IDS:
+        affect = Emotion2VecAffectAdapter(probe)
+    elif profile.emotion.adapter_id in TRANSFORMERS_AUDIO_ADAPTER_IDS:
         assert profile.emotion.weights_sha256 is not None
         assert profile.emotion.label_map is not None
-        return transcriber, WavlmAffectAdapter(
+        affect = WavlmAffectAdapter(
             profile.emotion.model_id,
             profile.emotion.model_revision,
             profile.emotion.cache_dir,
@@ -290,7 +371,17 @@ def build_adapters(
                 else WAVLM_MODEL_TYPES
             ),
         )
-    raise AssertionError(f"unsupported validated emotion adapter: {profile.emotion.adapter_id}")
+    else:
+        raise AssertionError(f"unsupported validated emotion adapter: {profile.emotion.adapter_id}")
+    preprocessor = None
+    if profile.audio_preprocessor is not None:
+        preprocessor = DpdfNetAudioPreprocessor(
+            model_id=profile.audio_preprocessor.model_id,
+            model_revision=profile.audio_preprocessor.model_revision,
+            model_name=profile.audio_preprocessor.model_name,
+            onnx_path=profile.audio_preprocessor.model_path,
+        )
+    return transcriber, affect, preprocessor
 
 
 def _object(value: object, keys: set[str], name: str) -> dict[str, Any]:
@@ -399,6 +490,25 @@ def _validate_wavlm_weights(emotion: EmotionProfile) -> None:
             digest.update(chunk)
     if f"sha256:{digest.hexdigest()}" != emotion.weights_sha256:
         raise ProfileError("WavLM model.safetensors SHA-256 does not match the profile")
+
+
+def _validate_audio_preprocessor(preprocessor: AudioPreprocessorProfile) -> None:
+    model = preprocessor.model_path
+    _require_external(model, "audio preprocessor model")
+    if not model.is_file():
+        raise ProfileError(f"audio preprocessor model does not exist: {model}")
+    actual_size = model.stat().st_size
+    if actual_size != preprocessor.model_size_bytes:
+        raise ProfileError(
+            "audio preprocessor model size mismatch: "
+            f"expected {preprocessor.model_size_bytes}, got {actual_size}"
+        )
+    digest = hashlib.sha256()
+    with model.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    if f"sha256:{digest.hexdigest()}" != preprocessor.model_sha256:
+        raise ProfileError("audio preprocessor model SHA-256 does not match the profile")
 
 
 def _require_external(path: Path, name: str) -> None:

@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Resident speech timeline service and isolated emotion2vec+ probe"
 requires-python = "==3.12.*"
 dependencies = [
+    "dpdfnet==0.6.0",
     "funasr==1.4.2",
     "huggingface-hub==1.27.0",
     "numpy==2.5.2",

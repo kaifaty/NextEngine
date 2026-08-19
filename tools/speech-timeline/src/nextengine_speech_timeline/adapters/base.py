@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING, Mapping, Protocol
 
 if TYPE_CHECKING:
     import numpy as np
@@ -9,6 +9,30 @@ if TYPE_CHECKING:
 
 class AdapterError(RuntimeError):
     """Typed failure at a replaceable model boundary."""
+
+
+class AudioPreprocessor(Protocol):
+    """Resident, stateful PCM preprocessor on the service's 16 kHz clock.
+
+    It is intentionally separate from ASR and vocal-affect adapters.  A
+    concrete implementation may feed a cleaned stream to ASR, but raw PCM
+    remains available to VAD, affect and diagnostics until an explicit A/B
+    result proves that enhancement preserves their acoustic evidence.
+    """
+
+    def load(self) -> Mapping[str, object]: ...
+
+    def warmup(self) -> Mapping[str, object]: ...
+
+    def capabilities(self) -> Mapping[str, object]: ...
+
+    def reset(self) -> None: ...
+
+    def process_pcm(self, pcm: bytes) -> bytes: ...
+
+    def flush(self) -> bytes: ...
+
+    def close(self) -> None: ...
 
 
 @dataclass(frozen=True)

@@ -132,6 +132,78 @@ class ProfileTests(unittest.TestCase):
             with self.assertRaises(ProfileError):
                 load_profile(profile)
 
+    def test_optional_audio_preprocessor_requires_pinned_external_onnx(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            model = root / "model.gguf"
+            model.write_bytes(b"voxtral")
+            library = root / "libtranscribe.so"
+            library.write_bytes(b"runtime")
+            transcribe_root = root / "transcribe.cpp"
+            transcribe_root.mkdir()
+            cache = root / "emotion-cache"
+            cache.mkdir()
+            preprocessor_model = root / "dpdfnet2.onnx"
+            preprocessor_model.write_bytes(b"pinned-onnx")
+            revision = "a" * 40
+            profile_path = root / "profile.json"
+            profile_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "voxtral": {
+                            "model_path": str(model),
+                            "model_size_bytes": model.stat().st_size,
+                            "model_sha256": f"sha256:{hashlib.sha256(model.read_bytes()).hexdigest()}",
+                            "transcribe_root": str(transcribe_root),
+                            "library": str(library),
+                            "runtime_revision": revision,
+                            "backend": "cuda",
+                            "delay_ms": 480,
+                        },
+                        "emotion": {
+                            "model_id": "emotion/model",
+                            "model_revision": "b" * 40,
+                            "cache_dir": str(cache),
+                            "device": "cpu",
+                            "classification": "unclassified_local_only",
+                        },
+                        "audio_preprocessor": {
+                            "adapter_id": "dpdfnet-streaming/1",
+                            "model_id": "Ceva-IP/DPDFNet",
+                            "model_revision": "c" * 40,
+                            "model_name": "dpdfnet2",
+                            "model_path": str(preprocessor_model),
+                            "model_size_bytes": preprocessor_model.stat().st_size,
+                            "model_sha256": f"sha256:{hashlib.sha256(preprocessor_model.read_bytes()).hexdigest()}",
+                            "routing": "asr_only",
+                        },
+                        "service": {
+                            "port": 0,
+                            "ready_file": str(root / "ready.json"),
+                            "max_frame_bytes": 32_000,
+                            "max_turn_bytes": 960_000,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            completed = subprocess.CompletedProcess(
+                ["git"], 0, stdout=f"{revision}\n", stderr=""
+            )
+            with patch(
+                "nextengine_speech_timeline.profile.subprocess.run",
+                return_value=completed,
+            ):
+                profile = load_profile(profile_path)
+            self.assertIsNotNone(profile.audio_preprocessor)
+            assert profile.audio_preprocessor is not None
+            self.assertEqual(profile.audio_preprocessor.model_name, "dpdfnet2")
+            damaged = preprocessor_model.write_bytes(b"altered.onx")
+            self.assertGreater(damaged, 0)
+            with self.assertRaisesRegex(ProfileError, "SHA-256"):
+                validate_profile_artifacts(profile)
+
     def test_wavlm_profile_requires_the_pinned_external_weights(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

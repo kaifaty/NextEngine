@@ -96,8 +96,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         try:
             profile = load_profile(arguments.profile)
-            transcriber, affect = build_adapters(profile)
-            runtime = SpeechTimelineRuntime(transcriber, affect)
+            transcriber, affect, audio_preprocessor = build_adapters(profile)
+            runtime = SpeechTimelineRuntime(transcriber, affect, audio_preprocessor)
             diagnostic_audio = (
                 DiagnosticAudioStore(
                     profile.service.diagnostic_audio_root,
@@ -119,6 +119,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "emotion_model_id": profile.emotion.model_id,
                     "emotion_revision": profile.emotion.model_revision,
                     "emotion_classification": profile.emotion.classification,
+                    **(
+                        {
+                            "audio_preprocessor_adapter_id": profile.audio_preprocessor.adapter_id,
+                            "audio_preprocessor_model_id": profile.audio_preprocessor.model_id,
+                            "audio_preprocessor_revision": profile.audio_preprocessor.model_revision,
+                            "audio_preprocessor_model_name": profile.audio_preprocessor.model_name,
+                            "audio_preprocessor_model_sha256": profile.audio_preprocessor.model_sha256,
+                            "audio_preprocessor_routing": profile.audio_preprocessor.routing,
+                        }
+                        if profile.audio_preprocessor is not None
+                        else {}
+                    ),
                     **(
                         {"emotion_weights_sha256": profile.emotion.weights_sha256}
                         if profile.emotion.weights_sha256 is not None

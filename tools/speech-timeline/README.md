@@ -101,7 +101,8 @@ Phase 1 doesn't fabricate word timestamps, so emotional tags aren't attached
 to individual words in this view. The final tagged-text form is a later derived
 consumer view.
 
-The profile is strict schema version 1 and contains three objects:
+The profile is strict schema version 1 and contains three required objects plus
+an optional preprocessing branch:
 
 - `voxtral`: exact GGUF path, byte size, `sha256:` digest, `transcribe.cpp`
   root/library/revision, backend, model delay, and partial-decode interval
@@ -111,6 +112,45 @@ The profile is strict schema version 1 and contains three objects:
   and defaults to `emotion2vec-plus/1`.
 - `service`: loopback port (`0` selects an ephemeral port), external ready-file
   path, and aligned frame/turn byte ceilings.
+- `audio_preprocessor` (optional): a separately pinned, hash-validated
+  streaming ONNX model and explicit routing. The current
+  `dpdfnet-streaming/1` adapter is trial-only and permits only `asr_only`;
+  VAD, vocal affect, diagnostics and the original sample clock remain on raw
+  PCM.
+
+### DPDFNet ASR-only trial
+
+`dpdfnet-streaming/1` is a local CPU streaming preprocessor for a controlled
+ASR A/B trial. It does not create a PipeWire/PulseAudio virtual device: the
+service accepts PCM from the host and keeps exactly one causal DPDFNet stream
+per utterance on a dedicated CPU worker. The model is loaded once at startup,
+its recurrent state resets between utterances, and the causal tail is drained
+at finish so the ASR branch keeps the captured 16 kHz sample count.
+
+Download the exact model outside the repository, record both the Hugging Face
+commit and digest, then add this object to the existing profile:
+
+```json
+"audio_preprocessor": {
+  "adapter_id": "dpdfnet-streaming/1",
+  "model_id": "Ceva-IP/DPDFNet",
+  "model_revision": "dd6818d00f50c836fed43a6243ebe49116de5964",
+  "model_name": "dpdfnet2",
+  "model_path": "/home/you/.cache/nextengine/dpdfnet-0.6.0/onnx/dpdfnet2.onnx",
+  "model_size_bytes": 10178747,
+  "model_sha256": "sha256:4f0ee28935b4a32abecc717d745416976565834d839601acf43031094b4dc94c",
+  "routing": "asr_only"
+}
+```
+
+The adapter never auto-downloads a model at service startup. Its ONNX session
+uses CPU execution with a reported 20 ms causal algorithmic delay. Final
+metrics expose per-chunk p50/p95 preprocessing time, input/output sample
+counts and flush time; the ready payload exposes the exact adapter/model
+lineage. Denoising is not gain control: a quiet whisper can become cleaner but
+not louder. Compare normal and whispered phrases with the same microphone and
+raw diagnostic WAV before calling it an ASR improvement. Remove the whole
+`audio_preprocessor` object and restart to return to raw PCM immediately.
 
 The ready file is created with mode `0600`, contains the random session token,
 and is removed on clean shutdown. Raw PCM, transcripts, and model outputs are

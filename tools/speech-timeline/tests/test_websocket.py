@@ -42,8 +42,10 @@ class FakeTranscriberSession:
         self.revision = 0
         self.finalize_count = 0
         self.closed = False
+        self.pushed_samples: list[object] = []
 
     def push_pcm(self, samples: object) -> TranscriptRevision:
+        self.pushed_samples.append(samples)
         if self.owner.push_delay:
             time.sleep(self.owner.push_delay)
         self.revision += 1
@@ -131,6 +133,38 @@ class FakeAffect:
             top_label="neutral",
             inference_elapsed_ms=1,
         )
+
+
+class FakeAudioPreprocessor:
+    def __init__(self) -> None:
+        self.load_count = 0
+        self.reset_count = 0
+        self.process_count = 0
+        self.flush_count = 0
+
+    def load(self) -> dict[str, int]:
+        self.load_count += 1
+        return {"load_count": self.load_count, "elapsed_ms": 0}
+
+    def warmup(self) -> dict[str, int]:
+        return {"elapsed_ms": 0}
+
+    def capabilities(self) -> dict[str, object]:
+        return {"adapter_id": "fake-audio-preprocessor/1", "routes": ["asr"]}
+
+    def reset(self) -> None:
+        self.reset_count += 1
+
+    def process_pcm(self, pcm: bytes) -> bytes:
+        self.process_count += 1
+        return b"\x00\x10" * (len(pcm) // 2)
+
+    def flush(self) -> bytes:
+        self.flush_count += 1
+        return b""
+
+    def close(self) -> None:
+        return None
 
 
 class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
@@ -224,6 +258,72 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         activity = updates[-1]["vocal_affect"]["speech_activity"]
         self.assertEqual(activity[0]["state"], "no_speech")
         self.assertEqual(updates[-1]["vocal_affect"]["raw_observations"], [])
+
+    async def test_audio_preprocessor_is_resident_and_routes_only_asr(self) -> None:
+        preprocessor = FakeAudioPreprocessor()
+        transcriber = FakeTranscriber()
+        runtime = SpeechTimelineRuntime(transcriber, FakeAffect(), preprocessor)
+        service = SpeechTimelineWebSocketService(
+            runtime,
+            ready_file=Path(self.temp.name) / "preprocessed-ready.json",
+            port=0,
+        )
+        await service.start()
+        try:
+            events = await self._run_turn_against(service, "preprocessed-turn")
+            final = next(item for item in events if item["type"] == "utterance.final")
+            self.assertEqual(preprocessor.load_count, 1)
+            self.assertEqual(preprocessor.reset_count, 1)
+            self.assertEqual(preprocessor.process_count, 1)
+            self.assertEqual(preprocessor.flush_count, 1)
+            self.assertEqual(transcriber.sessions[0].pushed_samples[0][0], 0.125)
+            metrics = final["metrics"]["audio_preprocessor"]
+            self.assertTrue(metrics["enabled"])
+            self.assertEqual(metrics["input_samples"], 4_000)
+            self.assertEqual(metrics["output_samples"], 4_000)
+        finally:
+            await service.close()
+
+    async def _run_turn_against(
+        self, service: SpeechTimelineWebSocketService, session_id: str
+    ) -> list[dict[str, object]]:
+        async with connect(service.uri, compression=None) as websocket:
+            await websocket.send(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "type": "client.hello",
+                        "token": service.token,
+                    }
+                )
+            )
+            await websocket.recv()
+            await websocket.send(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "type": "session.start",
+                        "session_id": session_id,
+                        "locale": "ru",
+                        "sample_rate_hz": 16_000,
+                        "encoding": "pcm_s16le",
+                        "channels": 1,
+                    }
+                )
+            )
+            await websocket.recv()
+            await websocket.send(b"\0\0" * 4_000)
+            await websocket.send(
+                json.dumps(
+                    {"schema_version": 1, "type": "session.finish", "session_id": session_id}
+                )
+            )
+            events = []
+            while True:
+                event_value = json.loads(await asyncio.wait_for(websocket.recv(), 2))
+                events.append(event_value)
+                if event_value["type"] == "utterance.final":
+                    return events
 
     async def test_last_five_diagnostic_wavs_are_listed_and_playable(self) -> None:
         for index in range(6):

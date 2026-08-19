@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, is_dataclass, replace
 import logging
+import time
 from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 
 from .adapters.base import AudioWindow
@@ -36,13 +38,20 @@ class SpeechTimelineRuntime:
         self,
         transcriber: Any,
         affect_analyzer: Any,
+        audio_preprocessor: Any | None = None,
         *,
         activity_factory: Callable[[], VoiceActivityDetector] = EnergyVoiceActivityDetector,
     ) -> None:
         self.transcriber = transcriber
         self.affect_analyzer = affect_analyzer
+        self.audio_preprocessor = audio_preprocessor
         self.activity_factory = activity_factory
         self.scheduler = ModelScheduler()
+        self._preprocessor_executor = (
+            ThreadPoolExecutor(max_workers=1, thread_name_prefix="nextengine-audio-preprocessor")
+            if audio_preprocessor is not None
+            else None
+        )
         self._ready: dict[str, object] | None = None
         self._closed = False
         self.resources = ResourceMonitor()
@@ -71,6 +80,13 @@ class SpeechTimelineRuntime:
             }
 
         self._ready = self.scheduler.call_blocking(load_and_warm)
+        if self.audio_preprocessor is not None:
+            preprocessor_load, preprocessor_warmup = self._preprocessor_blocking(
+                lambda: (self.audio_preprocessor.load(), self.audio_preprocessor.warmup())
+            )
+            self._ready["audio_preprocessor"] = _value(self.audio_preprocessor.capabilities())
+            self._ready["load"]["audio_preprocessor"] = _value(preprocessor_load)
+            self._ready["warmup"]["audio_preprocessor"] = _value(preprocessor_warmup)
         self.resources.start()
         self._ready["resources"] = self.resources.snapshot()
         return self._ready
@@ -80,9 +96,47 @@ class SpeechTimelineRuntime:
             return
         self._closed = True
         self.resources.stop()
+        if self.audio_preprocessor is not None:
+            try:
+                self._preprocessor_blocking(self.audio_preprocessor.close)
+            finally:
+                assert self._preprocessor_executor is not None
+                self._preprocessor_executor.shutdown(wait=True, cancel_futures=True)
         if hasattr(self.transcriber, "close"):
             self.scheduler.call_blocking(self.transcriber.close)
         self.scheduler.close()
+
+    async def reset_audio_preprocessor(self) -> None:
+        if self.audio_preprocessor is None:
+            return
+        await self._preprocessor_call(self.audio_preprocessor.reset)
+
+    async def preprocess_pcm(self, pcm: bytes) -> tuple[bytes, int]:
+        if self.audio_preprocessor is None:
+            return pcm, 0
+        return await self._preprocessor_call(lambda: self.audio_preprocessor.process_pcm(pcm))
+
+    async def flush_audio_preprocessor(self) -> tuple[bytes, int]:
+        if self.audio_preprocessor is None:
+            return b"", 0
+        return await self._preprocessor_call(self.audio_preprocessor.flush)
+
+    def _preprocessor_blocking(self, function: Callable[[], T]) -> T:
+        if self._preprocessor_executor is None:
+            raise RuntimeError("audio preprocessor worker is unavailable")
+        return self._preprocessor_executor.submit(function).result()
+
+    async def _preprocessor_call(self, function: Callable[[], T]) -> tuple[T, int]:
+        if self._preprocessor_executor is None:
+            raise RuntimeError("audio preprocessor worker is unavailable")
+
+        def timed() -> tuple[T, int]:
+            started = time.perf_counter_ns()
+            result = function()
+            return result, round((time.perf_counter_ns() - started) / 1_000_000)
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._preprocessor_executor, timed)
 
 
 class SpeechConnection:
@@ -124,6 +178,10 @@ class SpeechConnection:
         self._event_max_bytes = 0
         self._event_encode_ms = 0
         self._event_send_ms: list[int] = []
+        self._preprocessor_input_samples = 0
+        self._preprocessor_output_samples = 0
+        self._preprocessor_stream_elapsed_ms: list[int] = []
+        self._preprocessor_flush_ms: int | None = None
 
     async def start(
         self,
@@ -137,6 +195,7 @@ class SpeechConnection:
             if vad_calibration is not None:
                 self._apply_vad_calibration(vad_calibration)
             generation = self.session.start(session_id, locale)
+            await self.runtime.reset_audio_preprocessor()
             self._transcriber_session = await self._execute(
                 JobPriority.STARTUP,
                 generation,
@@ -187,6 +246,7 @@ class SpeechConnection:
         try:
             activity_changed = self.activity.feed_pcm16(frame.start_sample, frame.payload)
         except BaseException as error:
+            self._asr_slots.release()
             await self._fail("VAD_FAILURE", _bounded_error(error))
             return
         if activity_changed:
@@ -194,15 +254,35 @@ class SpeechConnection:
                 self.activity.timeline(frame.end_sample)
             )
             await self.events.put(self._timeline_event(activity_snapshot))
-        self._spawn(
-            self._asr_push_with_backpressure(
+        try:
+            asr_pcm, elapsed_ms = await self.runtime.preprocess_pcm(frame.payload)
+            self._record_preprocessor_metric(
                 generation,
                 frame.start_sample,
                 frame.end_sample,
-                frame.payload,
-            ),
-            self._asr_tasks,
-        )
+                len(frame.payload) // 2,
+                len(asr_pcm) // 2,
+                elapsed_ms,
+                flush=False,
+            )
+        except BaseException as error:
+            self._asr_slots.release()
+            await self._fail("AUDIO_PREPROCESSOR_FAILURE", _bounded_error(error))
+            return
+        if asr_pcm:
+            self._spawn(
+                self._asr_push_with_backpressure(
+                    generation,
+                    frame.start_sample,
+                    frame.end_sample,
+                    asr_pcm,
+                ),
+                self._asr_tasks,
+            )
+        else:
+            # Causal preprocessors may emit no PCM before their first complete
+            # window; this input still consumed its bounded ASR ingress slot.
+            self._asr_slots.release()
         requests = self.cadence.advance(
             frame.end_sample,
             eligible=lambda start, end: self.activity.window(start, end).eligible_for_affect,
@@ -250,6 +330,29 @@ class SpeechConnection:
             return
         generation = self.session.generation
         total_samples = self.session.total_samples
+        try:
+            tail_pcm, flush_elapsed_ms = await self.runtime.flush_audio_preprocessor()
+            self._record_preprocessor_metric(
+                generation,
+                max(0, total_samples - len(tail_pcm) // 2),
+                total_samples,
+                0,
+                len(tail_pcm) // 2,
+                flush_elapsed_ms,
+                flush=True,
+            )
+            if tail_pcm:
+                await self._asr_push(
+                    generation,
+                    max(0, total_samples - len(tail_pcm) // 2),
+                    total_samples,
+                    tail_pcm,
+                )
+        except BaseException as error:
+            await self._fail("AUDIO_PREPROCESSOR_FAILURE", _bounded_error(error))
+            return
+        if self.session.state is SessionState.FAILED:
+            return
         self.activity.flush()
         activity_segments = self.activity.timeline(total_samples)
         final_span = self.activity.latest_speech_span(total_samples)
@@ -414,6 +517,44 @@ class SpeechConnection:
             return
         except BaseException as error:
             await self._fail("SERVICE_OVERLOADED" if isinstance(error, SchedulerOverloaded) else "MODEL_FAILURE", _bounded_error(error))
+
+    def _record_preprocessor_metric(
+        self,
+        generation: int,
+        start_sample: int,
+        end_sample: int,
+        input_samples: int,
+        output_samples: int,
+        elapsed_ms: int,
+        *,
+        flush: bool,
+    ) -> None:
+        if self.runtime.audio_preprocessor is None:
+            return
+        self._preprocessor_input_samples += input_samples
+        self._preprocessor_output_samples += output_samples
+        if flush:
+            self._preprocessor_flush_ms = elapsed_ms
+        else:
+            self._preprocessor_stream_elapsed_ms.append(elapsed_ms)
+        self._job_metrics.append(
+            ModelJobMetric(
+                session_generation=generation,
+                job_kind="audio_preprocessor_flush" if flush else "audio_preprocessor",
+                audio_start_sample=start_sample,
+                audio_end_sample=end_sample,
+                queue_wait_ms=0,
+                inference_ms=elapsed_ms,
+            )
+        )
+        if elapsed_ms >= 80:
+            logger.info(
+                "speech.preprocessor_slow session_id=%s kind=%s audio_end_ms=%d inference_ms=%d",
+                self.session.session_id,
+                "flush" if flush else "stream",
+                round(end_sample * 1_000 / 16_000),
+                elapsed_ms,
+            )
 
     async def _affect_observe(
         self,
@@ -586,6 +727,11 @@ class SpeechConnection:
             "model_load_count": {
                 "transcriber": getattr(self.runtime.transcriber, "load_count", None),
                 "vocal_affect": getattr(self.runtime.affect_analyzer, "load_count", None),
+                "audio_preprocessor": (
+                    getattr(self.runtime.audio_preprocessor, "load_count", None)
+                    if self.runtime.audio_preprocessor is not None
+                    else None
+                ),
             },
             "resources": self.runtime.resources.snapshot(),
             "ingress": {
@@ -602,6 +748,14 @@ class SpeechConnection:
                     else 0.0
                 ),
                 "segments": len(activity_segments),
+            },
+            "audio_preprocessor": {
+                "enabled": self.runtime.audio_preprocessor is not None,
+                "input_samples": self._preprocessor_input_samples,
+                "output_samples": self._preprocessor_output_samples,
+                "stream_p50_ms": _percentile_int(self._preprocessor_stream_elapsed_ms, 50),
+                "stream_p95_ms": _percentile_int(self._preprocessor_stream_elapsed_ms, 95),
+                "flush_ms": self._preprocessor_flush_ms,
             },
             "vocal_affect": self.timeline.affect_diagnostics(),
             "events": {

@@ -19,3 +19,19 @@ def pcm16le_to_float32_array(data: bytes) -> array.array:
 def pcm16le_to_float32(data: bytes) -> np.ndarray:
     samples = pcm16le_to_float32_array(data)
     return np.frombuffer(samples, dtype=np.float32).copy()
+
+
+def float32_to_pcm16le(samples: np.ndarray) -> bytes:
+    """Encode finite mono float samples as canonical little-endian PCM16.
+
+    This is deliberately a bounded conversion at the model seam: an optional
+    audio preprocessor cannot hand invalid values or a platform-native endian
+    representation to ASR.
+    """
+    values = np.asarray(samples, dtype=np.float32)
+    if values.ndim != 1:
+        raise ValueError("audio samples must be a one-dimensional mono array")
+    if not np.isfinite(values).all():
+        raise ValueError("audio samples must be finite")
+    pcm = np.clip(np.rint(values * 32768.0), -32768, 32767).astype("<i2", copy=False)
+    return pcm.tobytes()
