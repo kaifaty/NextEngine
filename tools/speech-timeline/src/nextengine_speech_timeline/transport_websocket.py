@@ -16,6 +16,7 @@ from websockets.exceptions import ConnectionClosed
 from websockets.http11 import Request, Response
 
 from . import SERVICE_PROTOCOL
+from .diagnostic_audio import DiagnosticAudioStore
 from .protocol import (
     MAX_JSON_BYTES,
     ClientHello,
@@ -42,12 +43,14 @@ class SpeechTimelineWebSocketService:
         port: int = 0,
         bounds: SessionBounds | None = None,
         model_identity: dict[str, object] | None = None,
+        diagnostic_audio: DiagnosticAudioStore | None = None,
     ) -> None:
         self.runtime = runtime
         self.ready_file = ready_file.expanduser().resolve()
         self.port = port
         self.bounds = bounds or SessionBounds()
         self.model_identity = model_identity or {}
+        self.diagnostic_audio = diagnostic_audio
         self.token = secrets.token_hex(32)
         self._server: Server | None = None
         self._active_lock = asyncio.Lock()
@@ -72,6 +75,8 @@ class SpeechTimelineWebSocketService:
         if self._server is not None:
             raise RuntimeError("service is already started")
         startup = self.runtime.start()
+        if self.diagnostic_audio is not None:
+            self.diagnostic_audio.start()
         self._server = await serve(
             self._handle,
             "127.0.0.1",
@@ -99,6 +104,9 @@ class SpeechTimelineWebSocketService:
                 "channels": 1,
                 "max_active_sessions": 1,
             },
+            diagnostic_audio=(
+                self.diagnostic_audio.capabilities() if self.diagnostic_audio is not None else {"enabled": False}
+            ),
         )
         try:
             self._write_ready_file(
@@ -165,6 +173,41 @@ class SpeechTimelineWebSocketService:
                 HTTPStatus.OK,
                 body,
                 content_type="application/json; charset=utf-8",
+                cache_control="no-store",
+            )
+
+        if path == "/api/diagnostic-audio":
+            if self.diagnostic_audio is None:
+                return self._http_error(HTTPStatus.NOT_FOUND)
+            body = json.dumps(
+                {
+                    "schema_version": 1,
+                    "records": [item.as_dict() for item in self.diagnostic_audio.list_records()],
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            return self._http_response(
+                HTTPStatus.OK,
+                body,
+                content_type="application/json; charset=utf-8",
+                cache_control="no-store",
+            )
+
+        audio_prefix = "/api/diagnostic-audio/"
+        if path.startswith(audio_prefix):
+            if self.diagnostic_audio is None:
+                return self._http_error(HTTPStatus.NOT_FOUND)
+            filename = path.removeprefix(audio_prefix)
+            if not filename.endswith(".wav") or "/" in filename:
+                return self._http_error(HTTPStatus.NOT_FOUND)
+            payload = self.diagnostic_audio.read(filename[:-4])
+            if payload is None:
+                return self._http_error(HTTPStatus.NOT_FOUND)
+            return self._http_response(
+                HTTPStatus.OK,
+                payload,
+                content_type="audio/wav",
                 cache_control="no-store",
             )
 
@@ -279,7 +322,13 @@ class SpeechTimelineWebSocketService:
                 self._active = None
 
     async def _handle(self, websocket: ServerConnection) -> None:
-        connection = SpeechConnection(self.runtime, self.bounds, self._claim, self._release)
+        connection = SpeechConnection(
+            self.runtime,
+            self.bounds,
+            self._claim,
+            self._release,
+            diagnostic_audio=self.diagnostic_audio,
+        )
         sender: asyncio.Task[None] | None = None
         try:
             try:

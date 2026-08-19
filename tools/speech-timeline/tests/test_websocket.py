@@ -22,6 +22,7 @@ from nextengine_speech_timeline.benchmark import (
     evaluate_affect_calibration,
     load_affect_calibration_manifest,
 )
+from nextengine_speech_timeline.diagnostic_audio import DiagnosticAudioStore
 from nextengine_speech_timeline.microphone_client import ReadyInfo, run_websocket_session
 from nextengine_speech_timeline.metrics import ModelJobMetric
 from nextengine_speech_timeline.protocol import MAX_JSON_BYTES, encode_event, event
@@ -136,12 +137,14 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.temp = tempfile.TemporaryDirectory()
         self.ready_file = Path(self.temp.name) / "ready.json"
+        self.diagnostic_audio_root = Path(self.temp.name) / "diagnostic-audio"
         self.transcriber = FakeTranscriber()
         self.affect = FakeAffect()
         self.service = SpeechTimelineWebSocketService(
             SpeechTimelineRuntime(self.transcriber, self.affect),
             ready_file=self.ready_file,
             port=0,
+            diagnostic_audio=DiagnosticAudioStore(self.diagnostic_audio_root),
         )
         await self.service.start()
         self.ready = json.loads(self.ready_file.read_text(encoding="utf-8"))
@@ -221,6 +224,27 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         activity = updates[-1]["vocal_affect"]["speech_activity"]
         self.assertEqual(activity[0]["state"], "no_speech")
         self.assertEqual(updates[-1]["vocal_affect"]["raw_observations"], [])
+
+    async def test_last_five_diagnostic_wavs_are_listed_and_playable(self) -> None:
+        for index in range(6):
+            await self.run_turn(f"diagnostic-{index}")
+
+        def listing() -> list[dict[str, object]]:
+            with urlopen(self.service.dashboard_uri + "api/diagnostic-audio", timeout=2) as response:
+                return json.loads(response.read())["records"]
+
+        records = await asyncio.to_thread(listing)
+        self.assertEqual(len(records), 5)
+        audio_id = records[0]["id"]
+        def load_audio() -> tuple[bytes, str]:
+            with urlopen(
+                self.service.dashboard_uri + f"api/diagnostic-audio/{audio_id}.wav", timeout=2
+            ) as response:
+                return response.read(), response.headers.get_content_type()
+
+        payload, content_type = await asyncio.to_thread(load_audio)
+        self.assertEqual(content_type, "audio/wav")
+        self.assertTrue(payload.startswith(b"RIFF"))
 
     async def test_held_out_calibration_uses_websocket_vad_timeline_and_omits_text(self) -> None:
         root = Path(self.temp.name) / "calibration"

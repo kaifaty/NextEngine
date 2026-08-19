@@ -1,4 +1,5 @@
 import type {
+  DiagnosticAudioRecord,
   DashboardBootstrap,
   JsonObject,
   ServiceBounds,
@@ -36,6 +37,25 @@ export async function loadBootstrap(): Promise<DashboardBootstrap> {
     throw new Error("dashboard bootstrap is incomplete");
   }
   return value as unknown as DashboardBootstrap;
+}
+
+export async function loadDiagnosticAudio(): Promise<DiagnosticAudioRecord[]> {
+  const response = await fetch("/api/diagnostic-audio", { cache: "no-store" });
+  if (response.status === 404) return [];
+  if (!response.ok) throw new Error("не удалось получить диагностические записи");
+  const payload: unknown = await response.json();
+  if (!isObject(payload) || !Array.isArray(payload.records)) {
+    throw new Error("сервис вернул неверный список диагностических записей");
+  }
+  return payload.records.flatMap((item): DiagnosticAudioRecord[] => {
+    if (!isObject(item) || typeof item.id !== "string") return [];
+    const duration = integer(item.duration_ms);
+    const size = integer(item.byte_length);
+    const created = integer(item.created_at_unix_ms);
+    return duration >= 0 && size >= 44 && created >= 0
+      ? [{ id: item.id, duration_ms: duration, byte_length: size, created_at_unix_ms: created }]
+      : [];
+  });
 }
 
 export class SpeechTimelineClient {

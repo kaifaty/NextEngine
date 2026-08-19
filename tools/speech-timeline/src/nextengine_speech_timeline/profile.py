@@ -67,6 +67,8 @@ class ServiceProfile:
     port: int
     ready_file: Path
     bounds: SessionBounds
+    diagnostic_audio_root: Path | None
+    diagnostic_audio_max_records: int | None
 
 
 @dataclass(frozen=True)
@@ -113,10 +115,16 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
         {"adapter_id", "weights_sha256", "label_map"},
         "emotion",
     )
-    service = _object(
+    service = _object_with_optional(
         root["service"],
         {"port", "ready_file", "max_frame_bytes", "max_turn_bytes"},
+        {"diagnostic_audio"},
         "service",
+    )
+    diagnostic_audio = (
+        _object(service["diagnostic_audio"], {"root", "max_records"}, "service.diagnostic_audio")
+        if "diagnostic_audio" in service
+        else None
     )
     adapter_id = _choice(
         emotion.get("adapter_id", EMOTION2VEC_ADAPTER_ID),
@@ -168,6 +176,21 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
             bounds=SessionBounds(
                 max_frame_bytes=_positive_int(service["max_frame_bytes"], "max_frame_bytes"),
                 max_turn_bytes=_positive_int(service["max_turn_bytes"], "max_turn_bytes"),
+            ),
+            diagnostic_audio_root=(
+                _path(diagnostic_audio["root"], "service.diagnostic_audio.root")
+                if diagnostic_audio is not None
+                else None
+            ),
+            diagnostic_audio_max_records=(
+                _bounded_int(
+                    diagnostic_audio["max_records"],
+                    "service.diagnostic_audio.max_records",
+                    1,
+                    5,
+                )
+                if diagnostic_audio is not None
+                else None
             ),
         ),
     )
@@ -224,6 +247,10 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
         raise ProfileError("ready-file parent directory does not exist")
     if profile.service.ready_file.exists():
         raise ProfileError("ready file already exists")
+    if profile.service.diagnostic_audio_root is not None:
+        _require_external(profile.service.diagnostic_audio_root, "diagnostic audio root")
+        if not profile.service.diagnostic_audio_root.parent.is_dir():
+            raise ProfileError("diagnostic audio root parent directory does not exist")
 
 
 def build_adapters(
@@ -297,6 +324,12 @@ def _path(value: object, name: str) -> Path:
 def _positive_int(value: object, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         raise ProfileError(f"{name} must be a positive integer")
+    return value
+
+
+def _bounded_int(value: object, name: str, minimum: int, maximum: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
+        raise ProfileError(f"{name} must be between {minimum} and {maximum}")
     return value
 
 

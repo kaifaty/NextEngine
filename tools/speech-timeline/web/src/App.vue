@@ -11,9 +11,10 @@ import {
   type NoiseCalibration,
 } from "./lib/audioCapture";
 import { emotionColor, emotionLabel, formatDuration } from "./lib/display";
-import { loadBootstrap, SpeechTimelineClient } from "./lib/speechClient";
+import { loadBootstrap, loadDiagnosticAudio, SpeechTimelineClient } from "./lib/speechClient";
 import type {
   ConnectionState,
+  DiagnosticAudioRecord,
   DashboardBootstrap,
   FinalUtterance,
   JsonObject,
@@ -38,6 +39,7 @@ const captureInfo = ref<AudioCaptureInfo | null>(null);
 const firstTranscriptLatencyMs = ref<number | null>(null);
 const firstAffectLatencyMs = ref<number | null>(null);
 const calibration = ref<NoiseCalibration | null>(null);
+const diagnosticAudio = ref<DiagnosticAudioRecord[]>([]);
 let limitStopScheduled = false;
 
 const isRecording = computed(() => state.value === "recording");
@@ -53,6 +55,9 @@ const currentExpression = computed(
     finalUtterance.value?.observed_vocal_expression ??
     timeline.value?.fusion.observed_vocal_expression ??
     "unknown",
+);
+const diagnosticAudioEnabled = computed(
+  () => objectValue(bootstrap.value?.service, "diagnostic_audio")?.enabled === true,
 );
 
 const stateText: Record<ConnectionState, string> = {
@@ -112,6 +117,7 @@ const identitySummary = computed(() => {
 onMounted(async () => {
   try {
     bootstrap.value = await loadBootstrap();
+    await refreshDiagnosticAudio();
     await refreshDevices();
     state.value = "ready";
   } catch (error) {
@@ -248,6 +254,7 @@ function handleEvent(event: SpeechEvent): void {
     state.value = "complete";
     client.value?.close();
     client.value = null;
+    void refreshDiagnosticAudio();
   } else if (event.type === "error" && event.terminal === true) {
     const code = typeof event.code === "string" ? event.code : "UNKNOWN_ERROR";
     const detail = typeof event.detail === "string" ? event.detail : "";
@@ -260,6 +267,14 @@ function handleEvent(event: SpeechEvent): void {
       handlingMs: Math.round(handlingMs),
       eventCount: events.value.length,
     });
+  }
+}
+
+async function refreshDiagnosticAudio(): Promise<void> {
+  try {
+    diagnosticAudio.value = await loadDiagnosticAudio();
+  } catch (error) {
+    console.warn("[speech-timeline] diagnostic_audio_list_failed", error);
   }
 }
 
@@ -462,6 +477,24 @@ function stringValue(value: JsonObject, key: string): string {
       </div>
     </section>
 
+    <section v-if="diagnosticAudioEnabled" class="panel diagnostic-audio-panel">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Explicit local diagnostic retention</p>
+          <h2>Последние записи</h2>
+        </div>
+        <button class="icon-button" title="Обновить записи" @click="refreshDiagnosticAudio">↻</button>
+      </div>
+      <p class="muted-copy">Хранятся только последние пять WAV в локальном диагностическом каталоге.</p>
+      <div v-if="diagnosticAudio.length" class="diagnostic-audio-list">
+        <div v-for="(record, index) in diagnosticAudio" :key="record.id" class="diagnostic-audio-row">
+          <span>Запись {{ diagnosticAudio.length - index }} · {{ formatDuration(record.duration_ms) }}</span>
+          <audio controls preload="metadata" :src="`/api/diagnostic-audio/${record.id}.wav`"></audio>
+        </div>
+      </div>
+      <p v-else class="muted-copy">Завершите запись — она появится здесь.</p>
+    </section>
+
     <details class="event-console">
       <summary>Протокол и последние события <span>{{ events.length }}</span></summary>
       <pre>{{ JSON.stringify(events, null, 2) }}</pre>
@@ -469,7 +502,7 @@ function stringValue(value: JsonObject, key: string): string {
 
     <footer class="footer-note">
       <span>16 kHz · mono · PCM S16LE</span>
-      <span>raw audio не сохраняется</span>
+      <span>{{ diagnosticAudioEnabled ? "последние 5 WAV локально сохранены" : "raw audio не сохраняется" }}</span>
       <span>localhost-only diagnostic</span>
     </footer>
   </main>

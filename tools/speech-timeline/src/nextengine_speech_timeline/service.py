@@ -9,6 +9,7 @@ from .adapters.base import AudioWindow
 from .activity import EnergyVoiceActivityDetector, VoiceActivityConfig, VoiceActivityDetector
 from .adapters.voxtral_transcribe_cpp import TranscriberConfig, TranscriptRevision
 from .audio import pcm16le_to_float32, pcm16le_to_float32_array
+from .diagnostic_audio import DiagnosticAudioStore
 from .metrics import ModelJobMetric, ResourceMonitor
 from .protocol import VadCalibration, event
 from .scheduler import (
@@ -93,6 +94,8 @@ class SpeechConnection:
         bounds: SessionBounds,
         claim: Callable[[SpeechConnection], Awaitable[bool]],
         release: Callable[[SpeechConnection], Awaitable[None]],
+        *,
+        diagnostic_audio: DiagnosticAudioStore | None = None,
     ) -> None:
         self.runtime = runtime
         self.session = SpeechSession(bounds)
@@ -102,6 +105,8 @@ class SpeechConnection:
         self.events: asyncio.Queue[dict[str, object]] = asyncio.Queue(maxsize=64)
         self._claim = claim
         self._release = release
+        self._diagnostic_audio = diagnostic_audio
+        self._diagnostic_audio_saved = False
         self._transcriber_session: Any = None
         self._asr_tasks: set[asyncio.Task[None]] = set()
         self._emotion_tasks: set[asyncio.Task[None]] = set()
@@ -320,6 +325,12 @@ class SpeechConnection:
             snapshot = self.timeline.apply_affect(final_affect)
         else:
             snapshot = self.timeline.snapshot()
+        if self._diagnostic_audio is not None:
+            try:
+                await asyncio.to_thread(self._diagnostic_audio.record, self.session.pcm_bytes)
+                self._diagnostic_audio_saved = True
+            except BaseException as error:
+                logger.warning("speech.diagnostic_audio_save_failed kind=%s", type(error).__name__)
         self.session.complete(session_id)
         self.runtime.scheduler.invalidate_generation(generation)
         self._cancel_tasks(self._emotion_tasks)
@@ -600,6 +611,10 @@ class SpeechConnection:
                 "encode_total_ms": self._event_encode_ms,
                 "send_p50_ms": _percentile_int(self._event_send_ms, 50),
                 "send_p95_ms": _percentile_int(self._event_send_ms, 95),
+            },
+            "diagnostic_audio": {
+                "saved": self._diagnostic_audio_saved,
+                "enabled": self._diagnostic_audio is not None,
             },
         }
 

@@ -18,6 +18,7 @@ from .benchmark import (
     load_benchmark_wav,
     write_report,
 )
+from .diagnostic_audio import DiagnosticAudioStore
 from .microphone_client import (
     ClientError,
     ReadyInfo,
@@ -97,11 +98,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             profile = load_profile(arguments.profile)
             transcriber, affect = build_adapters(profile)
             runtime = SpeechTimelineRuntime(transcriber, affect)
+            diagnostic_audio = (
+                DiagnosticAudioStore(
+                    profile.service.diagnostic_audio_root,
+                    profile.service.diagnostic_audio_max_records or 5,
+                )
+                if profile.service.diagnostic_audio_root is not None
+                else None
+            )
             service = SpeechTimelineWebSocketService(
                 runtime,
                 ready_file=profile.service.ready_file,
                 port=profile.service.port,
                 bounds=profile.service.bounds,
+                diagnostic_audio=diagnostic_audio,
                 model_identity={
                     "voxtral_sha256": profile.voxtral.model_sha256,
                     "transcribe_revision": profile.voxtral.runtime_revision,

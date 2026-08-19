@@ -16,6 +16,13 @@ export interface DashboardBootstrap {
   service: JsonObject;
 }
 
+export interface DiagnosticAudioRecord {
+  id: string;
+  byte_length: number;
+  duration_ms: number;
+  created_at_unix_ms: number;
+}
+
 export interface AffectSegment {
   start_sample: number;
   end_sample: number;
