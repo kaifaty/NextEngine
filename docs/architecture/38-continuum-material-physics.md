@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-38 |
 | Status | Proposed |
-| Version | 1.3 |
-| Last verified | 2026-08-17 |
+| Version | 1.6 |
+| Last verified | 2026-08-18 |
 | Normative dependencies | [SPEC-00](00-product-contract.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-076](adr/076-continuum-material-physics-track.md), [ADR-081](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) |
-| Candidate revision note | Version 1.3 applies ADR-081 float-execution, exchange-identity, checkpoint-epoch, capacity, fault-domain, budget and neural-shadow guardrails |
+| Candidate revision note | Version 1.6 binds the W0H fixed accelerated pressure algorithm and projected-KKT gate over unchanged W0F physical operations and W0G energy semantics while retaining ADR-081 promotion guardrails and Proposed status |
 | Related Proposed tracks | [SPEC-43](43-thermochemical-material-processes.md), [SPEC-44](44-neural-assisted-world-simulation.md), [ADR-079](adr/079-thermochemical-material-process-track.md), [ADR-080](adr/080-neural-assistance-as-bounded-proposals.md) |
 
 ## Status and scope
@@ -87,14 +87,32 @@ The first profile is a clean, fixed-resolution baseline:
 | Uniform particle mass | `0.125 kg` |
 | Fixed cadence | `240 Hz` (`1/240 s`) |
 | Gravity magnitude | `9.81 m/s²` toward `-Y` |
-| Density solve | minimum `2`, maximum `20`, mean error `<= 0.01%` |
+| Density solve | cold-started, diagonally scaled accelerated projected gradient with fixed step `0.25`, momentum `(iteration-1)/(iteration+2)` and one pressure-operator application per iteration; minimum `2`, maximum `50`; mean positive compression and mean projected-KKT error each `<= 0.01%`; directional curvature `<= 4` |
 | Divergence solve | minimum `1`, maximum `20`, mean error `<= 0.1%` |
 | Hard active capacity | `50,000` samples |
+| Static analytical-boundary capacity | `32,768` samples; dynamic rigid samples use a separate later capacity |
 
 V1 enables no warm start, surface tension, viscosity/vorticity model,
 adaptive split/merge or variable time step. Analytical plane and box
 boundaries are part of the reference solver rather than deferred to rigid
 coupling. A capability/profile mismatch fails before region activation.
+
+W0H changes only the algorithm used to solve W0F's existing non-negative
+pressure quadratic program. A zero inverse-diagonal coordinate has multiplier
+fixed to zero while its unscaled residual remains in both convergence metrics.
+The step is fixed: backtracking, adaptive selection and hidden pressure
+continuation are not part of the profile. W0F geometry/support/contact and W0G
+energy semantics remain immutable parent inputs.
+
+The W0F successor represents static density support as a two-layer
+`REST_VOLUME` lattice complement. Internal axis-aligned plane patches use
+stable feature IDs, closed rectangular openings and side-oriented support so
+that one side cannot see the other side's ghost samples. The same exact
+integer geometry filters fluid-neighbor visibility, generates density support,
+classifies openings and supplies swept-sphere contact features. Contact runs
+after pressure and before integration, resolves outer faces plus internal
+faces and aperture edges in stable feature order, reports per-feature impulse,
+and performs no post-integration clamp, retry or positional repair.
 
 ## One-pass rigid coupling candidate
 
@@ -236,7 +254,7 @@ recorded command trace without test-only mutation.
 
 | Check | Required result |
 |---|---|
-| `CONTINUUM-WATER-REF-P1` | Exact sample count/mass; mean solver bounds; no nonfinite/non-convergence; boundary-centre penetration `<= 2.5 mm`; normalized external-work-aware impulse/energy residual `<= 1%`; dam-break/reference normalized RMSE `<= 5%` and maximum error `<= 10%`; repeat/insertion permutations have the same target-local root. |
+| `CONTINUUM-WATER-REF-P1` | Exact sample count/mass; mean positive compression and projected-KKT residual each `<= 0.01%` within `2..=50` pressure-operator applications; no nonfinite/non-convergence; boundary-centre penetration `<= 2.5 mm`; normalized impulse residual `<= 1%`; W0G absolute energy drift `<= 1%` for reversible/control scenarios and positive energy excess `<= 1%` for named static-impact scenarios with deficit/stage accounting; mandatory hydro/dam-break/orifice reference RMSE `<= 5%` and maximum error `<= 10%`; repeat/insertion permutations have the same target-local root. |
 | `CONTINUUM-COUPLING-P1` | One-pass reaction closure, crate float/impact and failure cases publish one complete composite result or none; no second rigid writer. |
 | `CONTINUUM-PERSISTENCE-P1` | Exact active save/restart continuation matches uninterrupted roots; corrupt/stale/capacity cases fail before mutation. |
 | `CONTINUUM-MIRROR-P1` | Optional GPU aggregate correspondence passes its predeclared metrics without an authority claim. |

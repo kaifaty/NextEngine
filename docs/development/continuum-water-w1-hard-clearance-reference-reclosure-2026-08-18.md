@@ -1,0 +1,223 @@
+# Continuum water W1 hard-clearance reference reclosure — 2026-08-18
+
+Status: `LINUX_W1_PASS / CONTINUUM-WATER-REF-P1=PASS / RESEARCH_ONLY`.
+
+## Outcome
+
+The frozen W0H solver is retained. The W1 dam-break mismatch was caused by an
+external reference that violated the candidate's hard geometry, not by the
+W0H pressure equations. An independently implemented C++ hard-contact
+extension of pinned SPlisHSPlasH produces geometry-admissible dam-break and
+orifice curves that unchanged W0H passes under the original `5%` RMSE and
+`10%` maximum-error thresholds.
+
+No solver coefficient, curve formula, time alignment, output interval or
+threshold changed. W0F, W0G and W0H remain immutable. W0I freezes the new
+external provenance/output hashes and the W1 runner rejects any other required
+reference in production-credit mode.
+
+The comparison runs below used a dirty research tree and the explicit
+`diagnostic-frozen-observe-energy` mode; they remain architecture
+discriminators rather than corpus evidence. The later clean closure runs at
+commit `e00999e96f0f55ae02426e806457f625d0a4844f` attest the same three files,
+pass every blocking scenario and issue `CONTINUUM-WATER-REF-P1=PASS`.
+
+## Counterexample to the old reference
+
+The original support-complete SPlisHSPlasH files had SHA-256 values:
+
+- hydro: `886af72d70ee3ad114bea9d5f381cf75cbb4393a51788f869c6edf8f8b64c03f`;
+- dam-break: `67931a638ece5782109bb111c227f7c8a493fdffc263eaeaea381dcad5a5d6bc`.
+
+Their raw binary64 positions were checked directly against the W0F outer-box
+clearance rule.
+
+| Scenario | First `>2.5 mm` penetration | First centre escape | Maximum equivalent penetration |
+|---|---:|---:|---:|
+| hydro | step 24 | step 936 | `25.687 mm` at step 984 |
+| dam-break | step 4 | step 28 | `30.365 mm` at step 188 |
+
+The old dam-break height is therefore partly a curve of particles occupying
+states that Next Engine must reject. A no-contact W0H counterfactual follows
+that curve more closely but also violates geometry. Every tested hard-contact
+variant lowers the splash height.
+
+The strongest geometry-safe density-barrier candidate passed hydro with
+`0.6508873%` maximum energy drift, `2.5 mm` maximum canonical penetration and
+47 pressure-operator applications. It still missed the invalid dam-break
+height by `15.4494%`. Moving its continuation beyond the first exterior
+lattice layer reduced terminal contact loss from approximately `26.35%` to
+`0.068%`, yet worsened the height maximum error to `19.1356%`. This falsified
+contact activation location as the cause and stopped further density-map or
+barrier tuning.
+
+## Independent hard-contact extension
+
+The external checkout is pinned to SPlisHSPlasH commit
+`eccce86155776f6ac52d5080b1f720a52bf29450`. The comparator remains outside
+Next Engine and uses no Rust implementation code. It saves the pre-step
+position by stable particle ID, lets SPlisHSPlasH perform its DFSPH step, then
+projects the resulting velocity before replacing the terminal position with
+`x_n + dt * v_projected`.
+
+Outer contact clamps each velocity component to the exact radius-offset box.
+The orifice extension independently sweeps against the internal plane, four
+edge capsules and four corner spheres with a fixed eight-hit schedule. It
+fails immediately if the final position violates `25 mm` clearance or if the
+straight accepted transition crosses the wall outside the radius-safe opening.
+The adapter also executes six fixed face/aperture contact vectors before the
+orifice run.
+
+One continuous-float edge case was found during the 24-step discriminator. A
+particle resting a fraction of an ulp inside the contact plane produced a
+slightly negative time of impact. Next Engine cannot retain that state because
+every step republishes integer micrometres. The external guard now handles an
+already touching or microscopically embedded inward state at `t=0`; clearance
+validation remains unchanged.
+
+## Boundary-profile discriminator
+
+The external solver cannot express W0F's per-fluid-side oriented internal
+density support without invasive solver changes. Four profiles were evaluated
+before the full reference run.
+
+| Profile | 24-step result | Decision |
+|---|---|---|
+| symmetric four-layer internal support | density up to `3.43 rho0`, speed up to `72 m/s`, unsafe final chord rejected | reject |
+| surface Akinci wall | density up to about `2.64 rho0`, speed up to `106 m/s`, both solvers repeatedly capped | reject |
+| native regular Akinci wall | density up to about `2.70 rho0`, speed about `38 m/s`, both solvers repeatedly capped | reject |
+| source-side two-layer support | hard geometry pass, speed at most about `4.14 m/s` through step 24 | select for aggregate transfer only |
+
+The selected orifice profile is intentionally narrow: the receiver is empty at
+step zero, and W1 consumes only the chamber-count transfer curve. It does not
+validate a general two-sided Akinci wall, local densities or particle
+identity. The later low-density value near `318.31 kg/m³` is approximately an
+isolated particle's self contribution and is recorded as a limitation of the
+external comparator.
+
+## Reproducible external artifacts
+
+Build facts:
+
+| Fact | Value |
+|---|---|
+| upstream tracked adaptation diff | `4effa812553649c89135ca9515aaac410e47eca1fe250890766c0d6183165a4b` |
+| comparator source | `f87a598a03b1893646de8188c393b41c262fb335e4f980a3672ea099d8461c11` |
+| comparator binary | `ee0e12ea5ef6afc6090a6404a259d75769bae28448119edc9764a96bb705d0aa` |
+| compiler | GCC `15.2.0` |
+| CMake profile | `Release`, `USE_DOUBLE_PRECISION=ON`, `USE_AVX=OFF` |
+| execution | `OMP_NUM_THREADS=1`, fixed `1/240 s`, CFL off |
+
+Each final file was generated twice with the final binary and matched byte for
+byte.
+
+| Scenario | Outputs | Bytes | SHA-256 |
+|---|---:|---:|---|
+| hydro | 51 | 7,344,252 | `84ae867f5b336cd0bd51be6f29a6a2a1f27f702c424f1dbd0a8f735b9f4bb435` |
+| dam-break | 181 | 26,064,772 | `853d965489a40082a024aeee5a19f98aef054417014af8556fa212687d88d12c` |
+| orifice | 181 | 26,064,772 | `60e9b3538d621ef1a3f1ae77569640740df471fbe4e5ef8eaa813d3751930849` |
+
+The files remain outside Git at `/tmp/cwref-*-hard-contact-final.bin`. The W0I
+attestation projection containing the source, binary, semantic-profile and
+output hashes has root
+`186e1e31c0aa2636525bbc54e4fe4335b8432e7e99eddf3221d08e0380b65c90`.
+
+## W0H comparison
+
+| Scenario/metric | Result | Frozen threshold |
+|---|---:|---:|
+| hydro maximum absolute energy drift | `3,377,402 ppb` | `<=10,000,000 ppb` |
+| hydro maximum canonical penetration | `0 um` | `<=2,500 um` |
+| dam-break front RMSE / maximum | `3,156,528 / 8,418,750 ppb` | `<=50,000,000 / 100,000,000 ppb` |
+| dam-break height RMSE / maximum | `23,295,631 / 64,657,000 ppb` | `<=50,000,000 / 100,000,000 ppb` |
+| orifice transfer RMSE / maximum | `1,624,230 / 3,000,000 ppb` | `<=50,000,000 / 100,000,000 ppb` |
+
+The dam-break maxima occur at steps 144 and 488; the orifice maximum occurs at
+step 556. The W1 report now includes those steps and candidate/reference values
+without changing the reductions.
+
+Diagnostic report SHA-256 values are:
+
+- hydro `740f5e1c69397ca743a61a9a62859eb4ce3cbcfe85ff32616c52933534cbb6d3`;
+- dam-break `8e2f041ad5dd542ce272410ecc1006f5dfdb80b0ff7ea85cd6def22bc5157b98`;
+- orifice `4d5bf729f0b53a70cdf1d16aa82df4bae9ec40801e339cd37b450f1f249161f9`.
+
+## Clean W1 closure
+
+The exact Linux oracle profile was built at clean commit
+`e00999e96f0f55ae02426e806457f625d0a4844f` for
+`x86_64-unknown-linux-gnu`, with the frozen `water-oracle` Rust flags and
+report schema `nextengine.continuum-water.w1-linux-serial.v4`. Before the
+positive corpus, the old dam-break file was supplied to normal
+`frozen-successor` mode. It failed before trajectory execution with
+`WATER_REFERENCE_CORPUS_MISMATCH`; `primary` remained null. That negative
+report has SHA-256
+`4cec7eea7badbfbb71a09264ff9af95e5020d3ba673162cb4d8aa691112c616d`.
+
+The complete seven-scenario Linux corpus then ran twice from the same clean
+commit and binary.
+
+| Evidence | Run 1 | Run 2 |
+|---|---|---|
+| terminal result | `CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS` | `CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS` |
+| report SHA-256 | `7adc168805774fec3df4cc7355175c72fe6b3de6114ff1c51935660f2858941c` | `ee78e40d2cda0e179c19f0e1a3eeef017ebcdb376d0087861a9c43817ac52e0e` |
+| corpus run root | `d38d6bc8a8e98e87402202a926685dbe4867e3de6a7d8679362885be46e96835` | `d38d6bc8a8e98e87402202a926685dbe4867e3de6a7d8679362885be46e96835` |
+| required references | `3/3 PASS`, exact SHA attested | `3/3 PASS`, exact SHA attested |
+| scenarios | `7/7 PASS` | `7/7 PASS` |
+
+The report files differ only in recursively named diagnostic
+`wall_clock_nanoseconds` fields. After removing only those fields, the
+canonical sorted JSON projections are byte-identical and both hash to
+`2dffa4e3ea12638c3cb3c5f1be43c3ebddea3213a967c4ed3bb8054d5252a0bf`.
+
+| Scenario | Reproduced primary trajectory root |
+|---|---|
+| `CW-HYDRO-001` | `6520b80423785d73c575c4ca463a62ddc226c35f4ea6bf2fca51c125ca5920c3` |
+| `CW-FREEFALL-001` | `6cecc22b6562ffa2270d629d0139e2ee02533a9ae36bb31f21f41cab4053d585` |
+| `CW-DAMBREAK-001` | `b593f9909bf4a551d04c26c13e1c4f4be60af6556fa710740d309167b4ec48d2` |
+| `CW-STILL-001` | `eef96436fbbf1e295acf6b65eedd2bddfdeff19bb6fc7d627ce21d8bea967289` |
+| `CW-ORIFICE-001` | `6ec92511a89591ba86530c41c1cb7747ab74caffd4e34d56795f6f03b72db4c8` |
+| `CW-SEALED-001` | `384241fb872c08160999f9ef356f2a4fede4baeb98abee73324e11404dee45c7` |
+| `CW-ORDER-001` | `315449df441718739bc985882bb58a5b131e51748b6e18af6ee77cf5fcda0a7c` |
+
+Every declared repeat root equals its primary root. All three
+`CW-ORDER-001` identity/reverse/affine permutation roots also equal the
+primary root. Timing remains diagnostic and supplies no performance claim.
+
+The repository source-layout scan subsequently found that
+`oracle/successor.rs` had reached `1,008` lines over its `1,000`-line limit.
+Commit `fa12d3956a2a5d5b6127a9e31cbb664221b01afc` moves the unchanged
+attestation policy into a private 21-line module; no solver or report rule
+changes. Its exact-profile binary has SHA-256
+`ecacda58df9e880d224d8efebd62238c7a34e1f3a8ede4adb87be4eeb9053f6e`.
+The old dam-break file again fails before trajectory execution; that negative
+report has SHA-256
+`d8d5eff44f958f380f3996eb0c2397f9cff34c4575c155b65bad01bee703066d`.
+
+One complete clean regression on `fa12d395` passes all seven scenarios,
+attests all three required files and reproduces every scenario root and corpus
+root above. Its report SHA-256 is
+`16cff32fc21667e5214571dd88b8821dde932789fad9bec21e143651aadd6f08`.
+A second full `fa12d395` run was explicitly stopped by the user because each
+serial corpus consumes about 42 minutes while using one core; it produces no
+evidence and is not labelled `PASS`. W1 closure therefore rests on the two
+complete same-commit `e00999e` runs plus one complete final-code regression at
+`fa12d395`. W2 replaces further redundant whole-corpus repetition with
+declared worker-count/root equality and performance evidence.
+
+## Decision and next action
+
+1. Retain W0H APG and sequential analytical contact unchanged.
+2. Reject the old non-clearance reference files and all density/barrier solver
+   branches tested against them.
+3. Require exact W0I reference hashes before a `frozen-successor` trajectory;
+   permit alternatives only in explicit no-credit research mode.
+4. Accept the two clean same-target runs above as the W1 Linux serial exit:
+   `CONTINUUM-WATER-REF-P1=PASS / LINUX_W1_PASS / RESEARCH_ONLY`.
+5. Accept the complete `fa12d395` regression as non-regression of the final
+   source layout; do not claim that its deliberately stopped second run passed.
+6. Continue next with W2 deterministic parallel equality and the standalone
+   `10k/50k/100k` performance discriminator. Do not infer production,
+   coupling, persistence or integrated-budget readiness from W1.
+7. Keep Windows outside current W1 scope and explicitly deferred for
+   production promotion. Do not infer cross-target evidence from this result.

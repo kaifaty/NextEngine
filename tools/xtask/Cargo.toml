@@ -18,6 +18,7 @@ goblin.workspace = true
 next_assets.workspace = true
 next_application.workspace = true
 next_contracts.workspace = true
+next_continuum_water.workspace = true
 next_motor.workspace = true
 next_project.workspace = true
 next_presentation.workspace = true
