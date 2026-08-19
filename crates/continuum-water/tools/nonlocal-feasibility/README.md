@@ -21,6 +21,11 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --cpu-gather-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --self-test --accumulation nuv-gather-directed-r0
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --repeatability nuv-surface-16k.v0 --iterations 20 --runs 10 \
+  --accumulation nuv-gather-directed-r0
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --check nuv-water-48k.v0 --iterations 5
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --benchmark nuv-water-48k.v0 --warmup 5 --runs 50
@@ -28,3 +33,7 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
 and profiler captures stay outside Git.
+
+Commands without `--accumulation` retain the frozen `source-atomic-v0`
+baseline. `nuv-gather-directed-r0` selects the NR1-RC1 owner-only directed
+gather counterfactual explicitly.

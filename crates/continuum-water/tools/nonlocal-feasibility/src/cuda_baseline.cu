@@ -10,7 +10,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <fstream>
 #include <iomanip>
+#include <iterator>
 #include <limits>
 #include <numeric>
 #include <sstream>
@@ -288,6 +290,58 @@ __global__ void accumulate_density_term(
     atomic_add_diagonal(matrix, particle, local_diagonal);
 }
 
+__global__ void accumulate_density_term_gather_directed(
+    const float3* current,
+    const float* density,
+    const int* offsets,
+    const int* neighbors,
+    float* source,
+    float* matrix,
+    int count,
+    float rest_density,
+    float kappa,
+    float horizon,
+    float time_step,
+    float scale) {
+    const int particle = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle >= count) {
+        return;
+    }
+    // NR1-RC1: one thread owns particle i and reconstructs both directed
+    // endpoint contributions in the frozen CSR order. The incoming reverse
+    // term is reverse(j,i), so its density ratio belongs to j.
+    const float own_ratio = fmaxf(density[particle], rest_density) / rest_density;
+    const float coefficient = kappa * time_step * time_step / rest_density;
+    const float3 own = current[particle];
+    float3 local_source = make_float3(0.0F, 0.0F, 0.0F);
+    float local_diagonal = 0.0F;
+    for (int slot = offsets[particle]; slot < offsets[particle + 1]; ++slot) {
+        const int neighbor = neighbors[slot];
+        const float3 other = current[neighbor];
+        const float radius = length3(subtract3(own, other));
+        if (radius <= CUDA_PAIR_EPSILON) {
+            continue;
+        }
+        const float neighbor_ratio = fmaxf(density[neighbor], rest_density) / rest_density;
+        const float a = coefficient * device_cubic_gradient(radius, horizon, scale) / radius;
+        const float diagonal = -a;
+        const float3 local = add3(
+            multiply3(-a, other), multiply3(own_ratio * a, subtract3(other, own)));
+        const float3 incoming_reverse = add3(
+            multiply3(-a, other), multiply3(neighbor_ratio * a, subtract3(other, own)));
+        local_source = add3(local_source, local);
+        local_source = add3(local_source, incoming_reverse);
+        local_diagonal += diagonal;
+        local_diagonal += diagonal;
+    }
+    source[3 * particle] += local_source.x;
+    source[3 * particle + 1] += local_source.y;
+    source[3 * particle + 2] += local_source.z;
+    matrix[9 * particle] += local_diagonal;
+    matrix[9 * particle + 4] += local_diagonal;
+    matrix[9 * particle + 8] += local_diagonal;
+}
+
 __device__ void build_normal_tangent(float3 direction, float* normal, float* tangent) {
     const float components[3] = {direction.x, direction.y, direction.z};
     for (int row = 0; row < 3; ++row) {
@@ -365,6 +419,70 @@ __global__ void accumulate_viscosity_term(
     }
 }
 
+__global__ void accumulate_viscosity_term_gather_directed(
+    const float3* reference,
+    const float3* current,
+    const int* offsets,
+    const int* neighbors,
+    float* source,
+    float* matrix,
+    int count,
+    float rest_density,
+    float lambda,
+    float mu,
+    float horizon,
+    float time_step,
+    float scale,
+    bool bulk_enabled,
+    bool shear_enabled) {
+    const int particle = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle >= count) {
+        return;
+    }
+    // NR1-RC1 independent CUDA transcription of the owner-only Eq. (10)
+    // reconstruction. Keep the two named endpoint evaluations explicit.
+    const float alpha = bulk_enabled ? lambda * time_step / rest_density : 0.0F;
+    const float beta = shear_enabled ? mu * time_step / rest_density : 0.0F;
+    float3 local_source = make_float3(0.0F, 0.0F, 0.0F);
+    float local_matrix[9] = {};
+    for (int slot = offsets[particle]; slot < offsets[particle + 1]; ++slot) {
+        const int neighbor = neighbors[slot];
+        const float3 reference_delta = subtract3(reference[neighbor], reference[particle]);
+        const float radius = length3(reference_delta);
+        if (radius <= CUDA_PAIR_EPSILON) {
+            continue;
+        }
+        const float3 direction = multiply3(1.0F / radius, reference_delta);
+        float normal[9];
+        float tangent[9];
+        build_normal_tangent(direction, normal, tangent);
+        const float weight = device_cubic_weight(radius, horizon, scale);
+        float pair_matrix[9];
+        for (int component = 0; component < 9; ++component) {
+            pair_matrix[component] =
+                alpha * weight * normal[component] + beta * weight * tangent[component];
+            local_matrix[component] += pair_matrix[component];
+            local_matrix[component] += pair_matrix[component];
+        }
+        const float3 local = subtract3(
+            matrix_vector(pair_matrix, current[neighbor]),
+            matrix_vector(pair_matrix, reference_delta));
+        const float3 incoming_reference_delta =
+            subtract3(reference[particle], reference[neighbor]);
+        const float3 incoming_reverse = add3(
+            matrix_vector(pair_matrix, current[neighbor]),
+            matrix_vector(pair_matrix, incoming_reference_delta));
+        local_source = add3(local_source, local);
+        local_source = add3(local_source, incoming_reverse);
+    }
+    source[3 * particle] += local_source.x;
+    source[3 * particle + 1] += local_source.y;
+    source[3 * particle + 2] += local_source.z;
+    for (int component = 0; component < 9; ++component) {
+        matrix[9 * particle + component] += local_matrix[component];
+    }
+}
+
 __device__ float surface_positive_cuda(float radius, float rest_spacing) {
     const float q = radius / rest_spacing;
     if (q <= 1.0F) {
@@ -434,6 +552,56 @@ __global__ void accumulate_surface_term(
     }
     atomic_add_vec(source, particle, local_source);
     atomic_add_diagonal(matrix, particle, local_diagonal);
+}
+
+__global__ void accumulate_surface_term_gather_directed(
+    const float3* current,
+    const int* offsets,
+    const int* neighbors,
+    float* source,
+    float* matrix,
+    int count,
+    float gamma,
+    float rest_spacing,
+    float time_step) {
+    const int particle = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle >= count) {
+        return;
+    }
+    // NR1-RC1 owner-only Eq. (14) reconstruction. The local and incoming
+    // reverse additions intentionally remain separate rather than multiplied.
+    const float coefficient = gamma * time_step * time_step;
+    const float3 own = current[particle];
+    float3 local_source = make_float3(0.0F, 0.0F, 0.0F);
+    float local_diagonal = 0.0F;
+    for (int slot = offsets[particle]; slot < offsets[particle + 1]; ++slot) {
+        const int neighbor = neighbors[slot];
+        const float3 other = current[neighbor];
+        const float radius = length3(subtract3(own, other));
+        if (radius <= CUDA_PAIR_EPSILON) {
+            continue;
+        }
+        const float positive = surface_positive_cuda(radius, rest_spacing);
+        const float negative = surface_negative_cuda(radius, rest_spacing);
+        const float diagonal = coefficient * positive / radius;
+        const float signed_coefficient = coefficient * negative / radius;
+        const float3 local = add3(
+            multiply3(diagonal, other),
+            multiply3(signed_coefficient, subtract3(other, own)));
+        const float3 incoming_reverse = add3(
+            multiply3(diagonal, other),
+            multiply3(signed_coefficient, subtract3(other, own)));
+        local_source = add3(local_source, local);
+        local_source = add3(local_source, incoming_reverse);
+        local_diagonal += diagonal;
+        local_diagonal += diagonal;
+    }
+    source[3 * particle] += local_source.x;
+    source[3 * particle + 1] += local_source.y;
+    source[3 * particle + 2] += local_source.z;
+    matrix[9 * particle] += local_diagonal;
+    matrix[9 * particle + 4] += local_diagonal;
+    matrix[9 * particle + 8] += local_diagonal;
 }
 
 __device__ bool inverse_matrix_vector(const float* raw, float3 rhs, float3& output) {
@@ -728,10 +896,65 @@ std::string fixture_input_hash(const Fixture& fixture) {
     return sha256_hex(data.str());
 }
 
+std::string executable_hash() {
+    std::ifstream input("/proc/self/exe", std::ios::binary);
+    if (!input) {
+        throw std::runtime_error("cannot open /proc/self/exe for binary hash");
+    }
+    const std::string bytes{
+        std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+    if (input.bad()) {
+        throw std::runtime_error("cannot read /proc/self/exe for binary hash");
+    }
+    return sha256_hex(bytes);
+}
+
+std::string ordered_output_digest(const OracleResult& state) {
+    std::ostringstream data;
+    data << std::setprecision(17) << "density:" << state.density.size() << '|';
+    for (double value : state.density) {
+        data << value << ',';
+    }
+    data << "|source:" << state.source.size() << '|';
+    for (Vec3 value : state.source) {
+        data << value.x << ',' << value.y << ',' << value.z << ';';
+    }
+    data << "|matrix:" << state.local_matrix.size() << '|';
+    for (const Mat3& value : state.local_matrix) {
+        for (double component : value.v) {
+            data << component << ',';
+        }
+        data << ';';
+    }
+    data << "|position:" << state.next_position.size() << '|';
+    for (Vec3 value : state.next_position) {
+        data << value.x << ',' << value.y << ',' << value.z << ';';
+    }
+    data << "|velocity:" << state.final_velocity.size() << '|';
+    for (Vec3 value : state.final_velocity) {
+        data << value.x << ',' << value.y << ',' << value.z << ';';
+    }
+    return sha256_hex(data.str());
+}
+
+std::string csr_digest(const CapturedRun& run) {
+    std::ostringstream data;
+    data << "offsets:" << run.offsets.size() << '|';
+    for (int value : run.offsets) {
+        data << value << ',';
+    }
+    data << "|neighbors:" << run.neighbors.size() << '|';
+    for (int value : run.neighbors) {
+        data << value << ',';
+    }
+    return sha256_hex(data.str());
+}
+
 class CudaBaseline {
 public:
-    explicit CudaBaseline(const Fixture& fixture)
+    CudaBaseline(const Fixture& fixture, AccumulationMode accumulation_mode)
         : fixture_(fixture),
+          accumulation_mode_(accumulation_mode),
           count_(static_cast<int>(fixture.particles.size())),
           grid_(describe_grid(fixture)),
           pair_capacity_(fixture.particles.size() <= 256U
@@ -810,30 +1033,59 @@ public:
             });
             if (fixture_.terms.incompressibility) {
                 timed(intervals, EventInterval::Stage::Incompressibility, [&] {
-                    accumulate_density_term<<<blocks_for(count_), THREADS>>>(
-                        current_, density_, neighbor_offsets_, neighbors_, source_, matrix_, count_,
-                        static_cast<float>(fixture_.rest_density), static_cast<float>(fixture_.kappa),
-                        static_cast<float>(fixture_.horizon),
-                        static_cast<float>(fixture_.time_step), kernel_scale_);
+                    if (accumulation_mode_ == AccumulationMode::GatherDirectedR0) {
+                        accumulate_density_term_gather_directed<<<blocks_for(count_), THREADS>>>(
+                            current_, density_, neighbor_offsets_, neighbors_, source_, matrix_, count_,
+                            static_cast<float>(fixture_.rest_density),
+                            static_cast<float>(fixture_.kappa),
+                            static_cast<float>(fixture_.horizon),
+                            static_cast<float>(fixture_.time_step), kernel_scale_);
+                    } else {
+                        accumulate_density_term<<<blocks_for(count_), THREADS>>>(
+                            current_, density_, neighbor_offsets_, neighbors_, source_, matrix_, count_,
+                            static_cast<float>(fixture_.rest_density),
+                            static_cast<float>(fixture_.kappa),
+                            static_cast<float>(fixture_.horizon),
+                            static_cast<float>(fixture_.time_step), kernel_scale_);
+                    }
                 });
             }
             if (fixture_.terms.bulk_viscosity || fixture_.terms.shear_viscosity) {
                 timed(intervals, EventInterval::Stage::Viscosity, [&] {
-                    accumulate_viscosity_term<<<blocks_for(count_), THREADS>>>(
-                        reference_, current_, neighbor_offsets_, neighbors_, source_, matrix_, count_,
-                        static_cast<float>(fixture_.rest_density),
-                        static_cast<float>(fixture_.lambda), static_cast<float>(fixture_.mu),
-                        static_cast<float>(fixture_.horizon),
-                        static_cast<float>(fixture_.time_step), kernel_scale_,
-                        fixture_.terms.bulk_viscosity, fixture_.terms.shear_viscosity);
+                    if (accumulation_mode_ == AccumulationMode::GatherDirectedR0) {
+                        accumulate_viscosity_term_gather_directed<<<blocks_for(count_), THREADS>>>(
+                            reference_, current_, neighbor_offsets_, neighbors_, source_, matrix_,
+                            count_, static_cast<float>(fixture_.rest_density),
+                            static_cast<float>(fixture_.lambda), static_cast<float>(fixture_.mu),
+                            static_cast<float>(fixture_.horizon),
+                            static_cast<float>(fixture_.time_step), kernel_scale_,
+                            fixture_.terms.bulk_viscosity, fixture_.terms.shear_viscosity);
+                    } else {
+                        accumulate_viscosity_term<<<blocks_for(count_), THREADS>>>(
+                            reference_, current_, neighbor_offsets_, neighbors_, source_, matrix_,
+                            count_, static_cast<float>(fixture_.rest_density),
+                            static_cast<float>(fixture_.lambda), static_cast<float>(fixture_.mu),
+                            static_cast<float>(fixture_.horizon),
+                            static_cast<float>(fixture_.time_step), kernel_scale_,
+                            fixture_.terms.bulk_viscosity, fixture_.terms.shear_viscosity);
+                    }
                 });
             }
             if (fixture_.terms.surface_tension) {
                 timed(intervals, EventInterval::Stage::Surface, [&] {
-                    accumulate_surface_term<<<blocks_for(count_), THREADS>>>(
-                        current_, neighbor_offsets_, neighbors_, source_, matrix_, count_,
-                        static_cast<float>(fixture_.gamma), static_cast<float>(fixture_.spacing),
-                        static_cast<float>(fixture_.time_step));
+                    if (accumulation_mode_ == AccumulationMode::GatherDirectedR0) {
+                        accumulate_surface_term_gather_directed<<<blocks_for(count_), THREADS>>>(
+                            current_, neighbor_offsets_, neighbors_, source_, matrix_, count_,
+                            static_cast<float>(fixture_.gamma),
+                            static_cast<float>(fixture_.spacing),
+                            static_cast<float>(fixture_.time_step));
+                    } else {
+                        accumulate_surface_term<<<blocks_for(count_), THREADS>>>(
+                            current_, neighbor_offsets_, neighbors_, source_, matrix_, count_,
+                            static_cast<float>(fixture_.gamma),
+                            static_cast<float>(fixture_.spacing),
+                            static_cast<float>(fixture_.time_step));
+                    }
                 });
             }
             timed(intervals, EventInterval::Stage::Update, [&] {
@@ -1170,6 +1422,7 @@ private:
     }
 
     Fixture fixture_;
+    AccumulationMode accumulation_mode_ = AccumulationMode::SourceAtomicV0;
     int count_ = 0;
     GridDescription grid_;
     std::size_t pair_capacity_ = 0;
@@ -1497,7 +1750,9 @@ std::string device_json() {
            << properties.major << '.' << properties.minor << "\",\"multiprocessors\":"
            << properties.multiProcessorCount << ",\"global_memory_bytes\":"
            << properties.totalGlobalMem << ",\"driver_version\":" << driver
-           << ",\"runtime_version\":" << runtime << ",\"compiler_version\":\""
+           << ",\"runtime_version\":" << runtime << ",\"cccl_cub_version\":\""
+           << CUB_VERSION / 100000 << '.' << (CUB_VERSION / 100) % 1000 << '.'
+           << CUB_VERSION % 100 << "\",\"compiler_version\":\""
            << __CUDACC_VER_MAJOR__ << '.' << __CUDACC_VER_MINOR__ << '.'
            << __CUDACC_VER_BUILD__ << "\"}";
     return output.str();
@@ -1505,13 +1760,39 @@ std::string device_json() {
 
 } // namespace
 
-CommandReport run_cuda_self_test() {
-    const Tolerances tolerances = find_profile("nuv-tiny-oracle.v0").tolerances;
+const char* accumulation_identity(AccumulationMode mode) {
+    switch (mode) {
+    case AccumulationMode::SourceAtomicV0:
+        return "source-atomic-v0";
+    case AccumulationMode::GatherDirectedR0:
+        return "nuv-gather-directed-r0";
+    }
+    throw std::invalid_argument("unknown accumulation mode");
+}
+
+AccumulationMode parse_accumulation_identity(const std::string& identity) {
+    if (identity == "source-atomic-v0") {
+        return AccumulationMode::SourceAtomicV0;
+    }
+    if (identity == "nuv-gather-directed-r0") {
+        return AccumulationMode::GatherDirectedR0;
+    }
+    throw std::invalid_argument("unknown accumulation identity: " + identity);
+}
+
+CommandReport run_cuda_self_test(AccumulationMode mode) {
+    const Profile& profile = find_profile("nuv-tiny-oracle.v0");
+    const Tolerances tolerances = profile.tolerances;
     const std::vector<Fixture> fixtures = oracle_fixtures();
     std::ostringstream output;
     output << std::setprecision(17);
-    output << "{\"schema\":\"nextengine.nonlocal.cuda_oracle_check.v0\",\"device\":"
-           << device_json()
+    output << "{\"schema\":\"nextengine.nonlocal.cuda_oracle_check.v0\""
+           << ",\"accumulation_identity\":\"" << accumulation_identity(mode)
+           << "\",\"binary_sha256\":\"" << executable_hash()
+           << "\",\"command\":\"nonlocal-feasibility --self-test --accumulation "
+           << accumulation_identity(mode) << "\",\"profile_id\":\"" << profile.id
+           << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
+           << "\",\"device\":" << device_json()
            << ",\"normalization\":{\"energy\":\"max(N*m*dx^2/dt^2,max_abs_cpu_energy)\""
            << ",\"source\":\"max(dx,max_abs_cpu_source)\""
            << ",\"matrix\":\"max(1,max_abs_cpu_matrix)\"},\"cases\":[";
@@ -1519,7 +1800,7 @@ CommandReport run_cuda_self_test() {
     for (std::size_t index = 0; index < fixtures.size(); ++index) {
         const Fixture& fixture = fixtures[index];
         const OracleResult cpu = run_cpu_oracle(fixture);
-        CudaBaseline baseline(fixture);
+        CudaBaseline baseline(fixture, mode);
         const CapturedRun gpu = baseline.execute(true);
         const Comparison comparison = compare_results(fixture, cpu, gpu.state, tolerances);
         const bool neighbors_passed = exact_fixture_neighbors(fixture, gpu)
@@ -1564,15 +1845,18 @@ CommandReport run_cuda_self_test() {
     return {all_passed, output.str()};
 }
 
-CommandReport run_cuda_check(const Profile& profile, int iterations) {
+CommandReport run_cuda_check(
+    const Profile& profile,
+    int iterations,
+    AccumulationMode mode) {
     if (profile.id == "nuv-tiny-oracle.v0") {
-        return run_cuda_self_test();
+        return run_cuda_self_test(mode);
     }
     if (iterations < 1 || iterations > 100) {
         throw std::invalid_argument("check iterations must be inside 1..=100");
     }
     const Fixture fixture = performance_fixture(profile, iterations);
-    CudaBaseline baseline(fixture);
+    CudaBaseline baseline(fixture, mode);
     const CapturedRun first = baseline.execute(true);
     const CapturedRun second = baseline.execute(true);
     const Comparison repeated =
@@ -1595,6 +1879,11 @@ CommandReport run_cuda_check(const Profile& profile, int iterations) {
     output << std::setprecision(17);
     output << "{\"schema\":\"nextengine.nonlocal.cuda_full_control.v0\",\"status\":\""
            << (passed ? "PASS" : "FAIL") << "\",\"profile_id\":\"" << profile.id
+           << "\",\"accumulation_identity\":\"" << accumulation_identity(mode)
+           << "\",\"binary_sha256\":\"" << executable_hash()
+           << "\",\"command\":\"nonlocal-feasibility --check " << profile.id
+           << " --iterations " << iterations << " --accumulation "
+           << accumulation_identity(mode)
            << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
            << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
            << "\",\"iterations\":" << iterations << ",\"samples\":"
@@ -1631,22 +1920,171 @@ CommandReport run_cuda_check(const Profile& profile, int iterations) {
     return {passed, output.str()};
 }
 
-CommandReport run_cuda_benchmark(const Profile& profile, int warmup, int runs) {
+CommandReport run_cuda_repeatability(
+    const Profile& profile,
+    int iterations,
+    int runs,
+    AccumulationMode mode) {
+    if (profile.id == "nuv-tiny-oracle.v0") {
+        throw std::invalid_argument("repeatability requires a fixed performance profile");
+    }
+    if (iterations < 1 || iterations > 100) {
+        throw std::invalid_argument("repeatability iterations must be inside 1..=100");
+    }
+    if (runs < 2 || runs > 100) {
+        throw std::invalid_argument("repeatability runs must be inside 2..=100");
+    }
+
+    const Fixture fixture = performance_fixture(profile, iterations);
+    CapturedRun first;
+    std::string first_output_digest;
+    std::string first_csr_digest;
+    std::size_t first_memory_bytes = 0;
+    std::vector<std::string> output_digests;
+    std::vector<std::string> csr_digests;
+    std::vector<double> total_timings;
+    std::vector<double> momentum_residuals;
+    output_digests.reserve(static_cast<std::size_t>(runs));
+    csr_digests.reserve(static_cast<std::size_t>(runs));
+    total_timings.reserve(static_cast<std::size_t>(runs));
+    momentum_residuals.reserve(static_cast<std::size_t>(runs));
+
+    bool exact_output_digest = true;
+    bool exact_csr = true;
+    bool memory_identical = true;
+    bool correspondence_passed = true;
+    bool finite_passed = true;
+    bool local_solve_passed = true;
+    bool momentum_passed = true;
+    bool topology_passed = true;
+    for (int run = 0; run < runs; ++run) {
+        CapturedRun captured;
+        {
+            // Deliberately reconstruct and reallocate the complete baseline for
+            // every RC1 cold repeat, then reset from the immutable fixture.
+            CudaBaseline baseline(fixture, mode);
+            captured = baseline.execute(true);
+        }
+        const std::string output_digest = ordered_output_digest(captured.state);
+        const std::string current_csr_digest = csr_digest(captured);
+        output_digests.push_back(output_digest);
+        csr_digests.push_back(current_csr_digest);
+        total_timings.push_back(captured.timing.total);
+        momentum_residuals.push_back(captured.state.normalized_momentum_residual);
+
+        finite_passed = finite_passed && finite_state(captured.state);
+        local_solve_passed = local_solve_passed && !captured.local_solve_failed;
+        momentum_passed = momentum_passed
+            && captured.state.normalized_momentum_residual
+                <= profile.tolerances.normalized_momentum_residual;
+        topology_passed = topology_passed
+            && valid_symmetric_neighbors(captured, fixture.particles.size())
+            && captured.state.directed_pairs <= profile.max_directed_pairs
+            && captured.state.maximum_degree <= profile.max_neighbors;
+
+        if (run == 0) {
+            first = captured;
+            first_output_digest = output_digest;
+            first_csr_digest = current_csr_digest;
+            first_memory_bytes = captured.device_memory_bytes;
+        } else {
+            exact_output_digest = exact_output_digest && output_digest == first_output_digest;
+            exact_csr = exact_csr && current_csr_digest == first_csr_digest
+                && captured.offsets == first.offsets && captured.neighbors == first.neighbors;
+            memory_identical =
+                memory_identical && captured.device_memory_bytes == first_memory_bytes;
+            correspondence_passed = correspondence_passed
+                && compare_results(fixture, first.state, captured.state, profile.tolerances).passed;
+        }
+    }
+
+    const bool passed = exact_output_digest && exact_csr && memory_identical
+        && correspondence_passed && finite_passed && local_solve_passed && momentum_passed
+        && topology_passed;
+    std::ostringstream output;
+    output << std::setprecision(17);
+    output << "{\"schema\":\"nextengine.nonlocal.cuda_repeatability.v0\",\"status\":\""
+           << (passed ? "PASS" : "FAIL") << "\",\"profile_id\":\"" << profile.id
+           << "\",\"accumulation_identity\":\"" << accumulation_identity(mode)
+           << "\",\"binary_sha256\":\"" << executable_hash()
+           << "\",\"command\":\"nonlocal-feasibility --repeatability " << profile.id
+           << " --iterations " << iterations << " --runs " << runs << " --accumulation "
+           << accumulation_identity(mode)
+           << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
+           << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
+           << "\",\"iterations\":" << iterations << ",\"runs\":" << runs
+           << ",\"reset_to_fixture_each_run\":true,\"samples\":"
+           << fixture.particles.size() << ",\"directed_pairs\":"
+           << first.state.directed_pairs << ",\"maximum_degree\":"
+           << first.state.maximum_degree << ",\"device_memory_bytes\":"
+           << first_memory_bytes << ",\"exact_output_digest\":"
+           << (exact_output_digest ? "true" : "false") << ",\"exact_csr\":"
+           << (exact_csr ? "true" : "false") << ",\"memory_identical\":"
+           << (memory_identical ? "true" : "false")
+           << ",\"correspondence_passed\":"
+           << (correspondence_passed ? "true" : "false") << ",\"finite\":"
+           << (finite_passed ? "true" : "false") << ",\"local_solve_failed\":"
+           << (local_solve_passed ? "false" : "true") << ",\"momentum_passed\":"
+           << (momentum_passed ? "true" : "false") << ",\"topology_passed\":"
+           << (topology_passed ? "true" : "false") << ",\"csr_sha256\":\""
+           << first_csr_digest
+           << "\",\"ordered_output_digest_fields\":[\"density\",\"source\",\"matrix\","
+              "\"final_position\",\"final_velocity\"],\"ordered_output_sha256\":[";
+    for (std::size_t index = 0; index < output_digests.size(); ++index) {
+        if (index != 0) {
+            output << ',';
+        }
+        output << '\"' << output_digests[index] << '\"';
+    }
+    output << "],\"csr_sha256_per_run\":[";
+    for (std::size_t index = 0; index < csr_digests.size(); ++index) {
+        if (index != 0) {
+            output << ',';
+        }
+        output << '\"' << csr_digests[index] << '\"';
+    }
+    output << "],\"normalized_momentum_residual\":[";
+    for (std::size_t index = 0; index < momentum_residuals.size(); ++index) {
+        if (index != 0) {
+            output << ',';
+        }
+        output << momentum_residuals[index];
+    }
+    output << "],\"raw_total_ms\":[";
+    for (std::size_t index = 0; index < total_timings.size(); ++index) {
+        if (index != 0) {
+            output << ',';
+        }
+        output << total_timings[index];
+    }
+    output << "],\"device\":" << device_json() << '}';
+    return {passed, output.str()};
+}
+
+CommandReport run_cuda_benchmark(
+    const Profile& profile,
+    int warmup,
+    int runs,
+    AccumulationMode mode) {
     if (profile.id == "nuv-tiny-oracle.v0") {
         throw std::invalid_argument("benchmark requires a fixed performance profile");
     }
     if (warmup < 0 || warmup > 100 || runs < 1 || runs > 1000) {
         throw std::invalid_argument("benchmark counts exceed bounded limits");
     }
-    const CommandReport self_test = run_cuda_self_test();
+    const CommandReport self_test = run_cuda_self_test(mode);
     if (!self_test.passed) {
-        return {false,
-            "{\"schema\":\"nextengine.nonlocal.cuda_benchmark.v0\","
-            "\"status\":\"FAIL\",\"reason\":\"self_test_preflight_failed\"}"};
+        std::ostringstream failure;
+        failure << "{\"schema\":\"nextengine.nonlocal.cuda_benchmark.v0\","
+                   "\"status\":\"FAIL\",\"reason\":\"self_test_preflight_failed\","
+                   "\"accumulation_identity\":\""
+                << accumulation_identity(mode) << "\",\"binary_sha256\":\""
+                << executable_hash() << "\"}";
+        return {false, failure.str()};
     }
 
     const Fixture fixture = performance_fixture(profile, profile.fixed_iterations);
-    CudaBaseline baseline(fixture);
+    CudaBaseline baseline(fixture, mode);
     const CapturedRun before = baseline.execute(true);
     for (int run = 0; run < warmup; ++run) {
         const CapturedRun warm = baseline.execute(false);
@@ -1694,6 +2132,11 @@ CommandReport run_cuda_benchmark(const Profile& profile, int warmup, int runs) {
     output << std::setprecision(17);
     output << "{\"schema\":\"nextengine.nonlocal.cuda_benchmark.v0\",\"status\":\""
            << (passed ? "PASS" : "FAIL") << "\",\"profile_id\":\"" << profile.id
+           << "\",\"accumulation_identity\":\"" << accumulation_identity(mode)
+           << "\",\"binary_sha256\":\"" << executable_hash()
+           << "\",\"command\":\"nonlocal-feasibility --benchmark " << profile.id
+           << " --warmup " << warmup << " --runs " << runs << " --accumulation "
+           << accumulation_identity(mode)
            << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
            << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
            << "\",\"fixed_iterations\":" << profile.fixed_iterations
