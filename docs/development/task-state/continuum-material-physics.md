@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W2_CYCLE2_SHORT_ROOT_EXACT_3_105X_ARCH_DECISION_NEXT` |
+| Status | `W2_GPU_DIRECT_PORT_4MS_MISS_ARCH_DECISION_NEXT` |
 | Updated | `2026-08-19` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -33,10 +33,14 @@
   position/velocity after every 240 Hz substep, and the next substep starts
   from that state. CPU is canonical; GPU is optional mirror only.
 - **Next action:** choose `STOP_RESEARCH_ONLY` or explicitly authorize a new
-  algorithm/data-layout profile. The crate-private `64`-partition worker path
-  is short-root exact for serial/`1/2/4/8` and reaches `3.105×`, but sealed-48k
-  still averages `269.643 ms` versus the `4 ms` target. Do not spend a long
-  run merely refining that miss, and do not start PhysX/public/GPU work first.
+  rooted algorithm/data-layout/precision and authority profile. The
+  crate-private `64`-partition worker path is short-root exact for
+  serial/`1/2/4/8` and reaches `3.105×`, but sealed-48k still averages
+  `269.643 ms`. A clean standalone RTX 3080 discriminator then measures the
+  dominant direct graph port at p95 `37.398 ms` in `f64` and `18.015 ms` in
+  mixed arithmetic versus the complete `4 ms` target. The GPU reaches `100%`
+  SM utilization and the dependent pressure/matrix traversals dominate, so do
+  not spend a long run or launch-only tuning merely refining this miss.
 - **Activation gate:** `CONTINUUM-WATER-REF-P1=PASS` is satisfied in the
   dedicated worktree. The main R8 row remains `PLANNED / NOT_ACTIVE` until the
   evidence checkpoint is explicitly merged and the track is activated.
@@ -73,6 +77,7 @@
 | [W0I external reference attestation](../../plans/continuum-water/00i-external-reference-geometry-attestation.md) | `REFERENCE_GEOMETRY_ATTESTATION_FROZEN / W1_AUTHORIZED / RESEARCH_ONLY` | Rejects geometry-violating external trajectories, freezes three exact hard-clearance reference hashes and leaves W0F/G/H unchanged |
 | [W1 hard-clearance reference evidence](../continuum-water-w1-hard-clearance-reference-reclosure-2026-08-18.md) | `LINUX_W1_PASS / CONTINUUM-WATER-REF-P1=PASS` | Two clean complete runs attest all required references, pass 7/7 scenarios and reproduce the same corpus/report projection roots |
 | [W2 resource-utilization discriminator](../continuum-water-w2-resource-utilization-2026-08-19.md) | `CYCLE_2_SHORT_ROOT_EXACT / 3.105X / NO_W2_CREDIT` | Workers `1/2/4/8` preserve the short root; `269.643 ms` is still `67.41×` the target, so an architecture decision precedes long gates |
+| [W2 GPU feasibility discriminator](../continuum-water-w2-gpu-feasibility-2026-08-19.md) | `DIRECT_GRAPH_PORT_MISSES_4MS / GPU_ARCHITECTURE_UNDECIDED / NO_W2_CREDIT` | Clean RTX 3080 proxy p95 is `37.398 ms` `f64` and `18.015 ms` mixed before mandatory omitted stages; direct backend transfer is rejected as a 4 ms solution, while broader GPU/solver research remains open |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-WATER-REF-P1` | `PASS / LINUX_W1_PASS / RESEARCH_ONLY` | Admits W2 work; does not imply performance, coupling, persistence, runtime or production readiness |
@@ -166,7 +171,7 @@
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: fixed-point-boundary CPU DFSPH passes the Linux clean-water corpus | Two clean complete runs at `e00999e` pass 7/7 scenarios, attest 3/3 required references and reproduce the exact corpus and normalized report roots | No counterexample under the frozen Linux W1 profile | `CLOSED / LINUX_W1_PASS` |
-| H2: 50k CPU water fits the current THOTH budget | bounded sealed region and `3.105×` worker speedup | short 8-worker mean is `269.643 ms`; ideal serial/32 is still `26.16 ms` | short feasibility rejected; decide stop versus new rooted profile |
+| H2: 50k water fits the current THOTH budget without a new rooted algorithm/authority profile | bounded sealed region, `3.105×` CPU-worker speedup and strong GPU reconstruction acceleration | short 8-worker CPU mean is `269.643 ms`; clean direct GPU proxy p95 is still `37.398 ms` `f64` / `18.015 ms` mixed before omitted stages | `REJECTED_FOR_CURRENT_CPU_AND_DIRECT_GPU_PROFILES`; decide stop versus new rooted profile |
 | H3: one-pass coupling is stable for the basin crate | narrow consumer and fixed cadence | fast impact/added-mass behavior is unmeasured | W3 float/impact corpus and reaction closure |
 | H4: one Drucker-Prager profile covers the first wheel scenario | established dry-sand model | exact source material and curve thresholds are not selected | Package 10T calibration closure |
 
@@ -191,8 +196,9 @@
 
 1. Preserve and explicitly merge the W1 evidence checkpoint when authorized;
    do not relabel the still-inactive main R8 row by implication.
-2. Do not run long percentile/corpus repetitions merely to refine the measured
-   `67.41×` miss; decide whether W2 stops or a new algorithm/profile is rooted.
+2. Do not run long percentile/corpus repetitions merely to refine the CPU or
+   direct-GPU miss; decide whether W2 stops or a new
+   algorithm/data-layout/precision and authority profile is rooted.
 3. Keep Windows equality explicitly deferred for production promotion; do not
    infer it from Linux worker equality.
 4. Do not start W3 PhysX coupling, runtime/public contracts, persistence or
@@ -201,6 +207,9 @@
 ## Do not retry
 
 - Add continuum types to `crates/contracts` during W1.
+- Treat a direct flattened-neighbor CUDA port, CUDA graphs or launch fusion
+  alone as sufficient for `4 ms`; measured work is dominated by the dependent
+  pressure/matrix graph traversals, not reductions or idle hardware.
 - Use SPlisHSPlasH source as a linked/copied engine implementation.
 - Skip W2's deterministic parallel/equality gates or add GPU authority before
   W2 closes.
@@ -244,5 +253,10 @@
   stopped second full run has no status. W2 checkpoint `c2915cf` passes 91/91
   crate tests, Clippy and boundary scan; its clean short serial/1/2/4/8 roots
   match exactly. Broad `host-check` was not run.
+- **GPU discriminator:** clean CUDA commit `01a4c18` passes its exact
+  sealed-lattice self-test. A 50-run APG40 proxy reports p95 `37.398 ms` `f64`
+  and `18.015 ms` mixed; Nsight Systems attributes the solve primarily to the
+  pressure and matrix traversals. It is `REPORT_ONLY`, has no root or
+  ProductCheck credit, and does not change CPU authority.
 - **Remaining risk:** full-trajectory and Windows worker equality, formal
   percentiles, dynamic coupling, persistence and terrain evidence remain open.
