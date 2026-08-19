@@ -176,10 +176,8 @@
 
 - **Observation:** The eventual consumer is an embedded game host, not a Linux-only diagnostic application. The user explicitly rejected creating a PipeWire or other virtual microphone as part of the product path.
 - **Decision:** A future preprocessing adapter accepts host-captured PCM and produces timestamp/length-preserving derived PCM branches. It is in-process or a declared bounded host service; it never installs, creates or depends on a system virtual audio device. Its public seam stays model-neutral and reports exact algorithm/model identity, configuration, delay and bypass state.
-- **Consequence:** A native Rust DSP implementation remains admissible, but it must expose a stream API and run resident rather than launching a file/CLI processor per chunk. The ASR branch may use denoising and bounded speech-aware gain. The affect branch remains raw by default and can use enhanced PCM only after an A/B quality gate; both retain the same sample-clock bounds.
-- **Rejected:** PipeWire/LADSPA virtual microphone as the integration path; global AGC or a one-size-fits-all enhanced stream for affect; per-window CLI/file filtering.
-- **Remaining uncertainty:** Whether DeepFilterNet or an RNNoise-compatible Rust implementation improves whispered Russian ASR without measurable affect degradation on the intended microphone environment.
-- **Reconsider when:** An in-process comparison demonstrates no useful benefit, a measured resource/latency envelope fails, or a cross-platform host boundary requires a revised adapter process contract.
+- **Consequence:** A native Rust DSP implementation must expose a resident stream API; ASR may use enhanced PCM and bounded speech-aware gain, while affect remains raw until an A/B gate. `DPDFNet` through local Rust-capable `sherpa-onnx` is the first candidate, with DeepFilterNet/RNNoise as alternatives; see [research](../audio-preprocessing-models-research-2026-08-19.md).
+- **Rejected/reconsider:** No virtual device, global AGC/shared affect stream or per-window CLI filtering. Reconsider only if the in-process A/B trial has no benefit, fails its resource/latency envelope, or a cross-platform host boundary requires a different adapter contract.
 
 ## Open hypotheses
 
@@ -195,36 +193,25 @@
 Read in precedence order:
 
 1. `docs/architecture/agent-routing.md`
-2. `docs/architecture/adr/005-offline-first-ai-process-boundary.md`
-3. `docs/architecture/06-ai-agents-perception-and-memory.md`
-4. `docs/architecture/32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md`
-5. `docs/architecture/adr/056-deterministic-strategic-agent-and-belief-driven-goap.md`
-6. `docs/architecture/adr/073-deterministic-cognition-owner-vertical.md`
-7. `docs/architecture/adr/074-systemic-strategic-agent-owner-vertical.md`
-8. `docs/architecture/16-text-canonical-multimodal-dialogue-and-model-packs.md`
-9. `docs/architecture/adr/017-text-canonical-multimodal-dialogue-and-replaceable-model-packs.md`
-10. `docs/architecture/33-behavior-policy-training-evaluation-and-deployment-lifecycle.md`
-11. `docs/architecture/34-model-training-environments-trajectories-and-consolidation-lifecycle.md`
-12. `docs/architecture/adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md`
-13. `docs/architecture/adr/053-engine-native-model-training-and-immutable-artifact-boundary.md`
-14. `docs/architecture/adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md`
-15. `docs/architecture/18-player-interaction-ui-camera-localization-and-accessibility.md`
-16. `docs/architecture/29-platform-host-and-application-session.md`
-17. `docs/architecture/30-presentation-extraction-and-render-content.md`
-18. `docs/architecture/08-audio-navigation-and-world-services.md`
-19. `docs/architecture/adr/019-canonical-player-actions-and-presentation-authority.md`
-20. `docs/architecture/adr/044-neutral-text-catalog-and-locale-fallback.md`
-21. `docs/architecture/adr/047-simple-application-session-and-save-on-close.md`
-22. `docs/architecture/adr/028-platform-session-and-presentation-authority.md`
-23. `docs/architecture/09-tooling-sdk-and-observability.md`
-24. `docs/architecture/11-security-licensing-and-governance.md`
-25. `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md`
-26. `docs/plans/2026-08-18-speech-timeline-service-implementation.md`
-27. `docs/plans/2026-08-18-conversation-service-phase-2.md`
-28. `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md`
-29. `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md`
-30. `e839a38:lab/scripts/voxtral_microphone.py` and its tests
-31. `tools/speech-timeline/README.md` and implementation
+2. `docs/architecture/adr/005-offline-first-ai-process-boundary.md`; `docs/architecture/06-ai-agents-perception-and-memory.md`
+3. `docs/architecture/32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md`; `docs/architecture/adr/056-deterministic-strategic-agent-and-belief-driven-goap.md`
+4. `docs/architecture/adr/073-deterministic-cognition-owner-vertical.md`; `docs/architecture/adr/074-systemic-strategic-agent-owner-vertical.md`
+5. `docs/architecture/16-text-canonical-multimodal-dialogue-and-model-packs.md`; `docs/architecture/adr/017-text-canonical-multimodal-dialogue-and-replaceable-model-packs.md`
+6. `docs/architecture/33-behavior-policy-training-evaluation-and-deployment-lifecycle.md`; `docs/architecture/34-model-training-environments-trajectories-and-consolidation-lifecycle.md`
+7. `docs/architecture/adr/050-hierarchical-npc-cognition-and-learned-behavior-policy-boundary.md`; `docs/architecture/adr/053-engine-native-model-training-and-immutable-artifact-boundary.md`
+8. `docs/architecture/adr/054-bounded-strategic-adaptation-and-two-tier-sleep.md`; `docs/architecture/18-player-interaction-ui-camera-localization-and-accessibility.md`
+9. `docs/architecture/29-platform-host-and-application-session.md`; `docs/architecture/30-presentation-extraction-and-render-content.md`
+10. `docs/architecture/08-audio-navigation-and-world-services.md`; `docs/architecture/adr/019-canonical-player-actions-and-presentation-authority.md`
+11. `docs/architecture/adr/044-neutral-text-catalog-and-locale-fallback.md`; `docs/architecture/adr/047-simple-application-session-and-save-on-close.md`
+12. `docs/architecture/adr/028-platform-session-and-presentation-authority.md`; `docs/architecture/09-tooling-sdk-and-observability.md`
+13. `docs/architecture/11-security-licensing-and-governance.md`
+14. `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md`
+15. `docs/plans/2026-08-18-speech-timeline-service-implementation.md`
+16. `docs/plans/2026-08-18-conversation-service-phase-2.md`
+17. `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md`
+18. `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md`
+19. `e839a38:lab/scripts/voxtral_microphone.py` and its tests
+20. `tools/speech-timeline/README.md` and implementation
 
 ## Smallest next action
 
