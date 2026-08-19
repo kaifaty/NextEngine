@@ -6,12 +6,12 @@ This note concerns only the optional Phase 1 vocal-expression diagnostic.
 It neither promotes SPEC-16/ADR-017 nor changes the later LLM, TTS or
 FunctionGemma scope.
 
-**Decision:** retain `emotion2vec_plus_base` in the current live service until
-an integrated candidate completes a joint resource/latency screen and a
-labelled microphone check. A pinned Russian WavLM candidate has now passed the
-quality gates below; it is the next adapter-integration candidate, not an
-unqualified default. Do not replace a model based on a model-card headline or
-a subjective single microphone recording.
+**Decision:** the service now exposes the pinned Russian WavLM candidate behind
+the replaceable affect facade. It passes the frozen RESD quality gate and the
+one-process Voxtral+WavLM screen below, but is still a local diagnostic profile
+rather than an unqualified shipped default. Keep `emotion2vec_plus_base` as
+the rollback profile; do not choose a model from a model-card headline or one
+subjective microphone recording.
 
 ## Observed failure and correction
 
@@ -182,21 +182,32 @@ two-hop smoothing admission. The report is
 `/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v2/aniemore-wavlm-russian-resd-affect-timeline-report.v1.json`,
 SHA-256 `8fdfc51f47474c1888b575f2d5c62b9e238a21bb60db071bb065c0106c8e572f`.
 
-**Scope limit:** the currently running base service already holds Voxtral in
-the 10 GiB GPU. To avoid an overlapping second Voxtral allocation, the trial
-used an ASR scheduler stub. It does **not** claim joint Voxtral+WavLM latency,
-ASR quality or a deployable profile. The reported 328.7/912.6 ms unpaced
-finish-to-final p50/p95 are likewise not Live latency. The existing user-facing
-base service remained live and unchanged.
+The actual adapter is now `transformers-wavlm-russian-ser/1`. It loads only the
+pinned local files with stock Transformers and `trust_remote_code=False`,
+checks `model.safetensors` against the digest above, and fails preflight if the
+snapshot/config/feature extractor is missing or outside the declared cache.
+Its seven native labels are normalized to the timeline vocabulary, preserving
+`enthusiasm` rather than silently treating it as `happy`.
 
-**Decision:** promote this exact WavLM revision to the next adapter-integration
-experiment. Preserve its seven-label native vocabulary (including
-`enthusiasm`) in model capabilities; do not silently remap it to `happy`.
-Before selecting it in the live profile, implement the replaceable adapter,
-run a one-process Voxtral+WavLM residency/latency screen after deliberately
-stopping the base service, and measure a small labelled microphone set. Keep
-the base service as the rollback path until all three checks pass. [model
-card](https://huggingface.co/Aniemore/wavlm-emotion-russian-resd)
+A real one-process Voxtral+WavLM service then replayed the exact same 70 clips
+through public WebSocket framing, VAD, serialized scheduler, ASR and final
+smoothing. All 70 were admitted and observed; it scored 45/60 (`75.0%`) on the
+six-class common map, with two final abstentions (one neutral, one enthusiasm).
+Its readiness report measured 2.6 s Voxtral load + 4.4 s WavLM load and 4,924
+MiB resident process VRAM, leaving 3,382 MiB free on the RTX 3080. The
+privacy-preserving report is
+`/home/kaifaty/.cache/nextengine/emotion-calibration/resd-70-v2/aniemore-wavlm-russian-resd-joint-timeline-report.v1.json`,
+SHA-256 `5add6a8be7b10c18245f6c24a3e481b3c7d54e2d1148fdcf14645ef59cf090e7`.
+Its 3.136/6.805 s finish-to-final p50/p95 uses unpaced burst ingress and must
+not be presented as Live latency. A separate two-run paced 5 s joint check
+measured worker-busy RTF p95 `0.609`, finish-to-final p95 `761 ms`, but first
+affect p95 `2.352 s` (first transcript `2.276 s`). That is capture-start UX on
+this WAV, including VAD/window accumulation and shared scheduling, not WavLM
+inference alone: stable emotion jobs measured 21/24 ms p50/p95. Report
+`/tmp/nextengine-speech-timeline-wavlm-paced-5s.json`, SHA-256
+`371a2a9012d07abc9b382bc86d9f992e052d3a2dc35ed9a6925f2f7687352582`.
+The remaining acceptance evidence is a labelled user-microphone checklist.
+[model card](https://huggingface.co/Aniemore/wavlm-emotion-russian-resd)
 
 ## Model shortlist (research, not an approval to install)
 
@@ -242,7 +253,6 @@ evaluation manifest is therefore the release criterion. [ACL paper](https://acla
 ## Next smallest action
 
 Do not retry `emotion2vec_plus_large` on the full path unless the product
-weighting changes. Select the next Russian-capable candidate, pin it and apply
-the same direct gate before any resident-service swap. Keep a separate paced
-latency benchmark plus actual-microphone quiet-room calibration and a labelled
-live checklist: the acted RESD screen does not replace them.
+weighting changes. Keep the WavLM profile running for actual-microphone
+quiet-room calibration and a labelled checklist: the acted RESD screen does
+not replace them.
