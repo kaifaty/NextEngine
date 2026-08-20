@@ -1078,6 +1078,7 @@ struct SmoothSolve {
     std::string failure;
     std::vector<Vec3> position;
     std::vector<Vec3> displacement;
+    std::vector<Vec3> last_step;
     Evaluation support;
     int outer_trials = 0;
     int accepted_trials = 0;
@@ -1682,6 +1683,7 @@ SmoothSolve solve_smooth_step(
         const std::vector<Vec3> step = trust_step(
             result.position, boundary, current.gradient, time_step,
             trust_radius, result.hvp_calls, negative_curvature);
+        result.last_step = step;
         if (negative_curvature) {
             ++result.negative_curvature_exits;
         }
@@ -2408,6 +2410,7 @@ struct ReactionTrace {
     std::vector<Vec3> final_velocity;
     ReactionCapture precontact;
     ReactionCapture contact;
+    ReactionCapture energy_floor;
 };
 
 struct ReactionReplay {
@@ -2470,6 +2473,16 @@ ReactionTrace run_reaction_trace(
                 step.smooth.numerical_energy_floor;
             result.failure_scaled_residual =
                 step.smooth.final_scaled_displacement_residual;
+            if (step.smooth.failure
+                == "REACTION_BELOW_ENERGY_RESOLUTION") {
+                result.energy_floor.valid = true;
+                result.energy_floor.position = result.final_position;
+                result.energy_floor.velocity = result.final_velocity;
+                result.energy_floor.time_step = time_step;
+                result.energy_floor.ordinary = step;
+                result.energy_floor.state_sha256 = hash_smoke_state(
+                    result.final_position, result.final_velocity);
+            }
             return result;
         }
         ++result.steps;
@@ -2889,6 +2902,311 @@ void append_displacement_level(
     output << '}';
 }
 
+struct DifferenceProbe {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    std::string state_sha256;
+    int substeps_per_frame = 0;
+    int failing_substep = 0;
+    double predicted_reduction = 0.0;
+    double inherited_energy_floor = 0.0;
+    double correction_norm_dx = 0.0;
+    int changed_position_components = 0;
+    int nonzero_correction_components = 0;
+    double minimum_step_ulp_ratio = std::numeric_limits<double>::infinity();
+    double maximum_step_ulp_ratio = 0.0;
+    int current_active_centers = 0;
+    int trial_active_centers = 0;
+    std::size_t current_pairs = 0;
+    std::size_t trial_pairs = 0;
+    bool topology_exact = false;
+    double maximum_density_change = 0.0;
+    double maximum_compression_change = 0.0;
+    double legacy_total_difference = 0.0;
+    double factored_potential_difference = 0.0;
+    double factored_inertia_difference = 0.0;
+    double factored_total_difference = 0.0;
+    long double extended_total_difference = 0.0L;
+    double factored_error_bound = 0.0;
+    bool factored_correspondence = false;
+    bool positive_sign_certified = false;
+    double current_reaction_defect = 0.0;
+    double current_reaction_limit = 0.0;
+    double trial_reaction_defect = 0.0;
+    double trial_reaction_limit = 0.0;
+    double residual_reduction_ratio = 0.0;
+    bool trial_reaction_converged = false;
+};
+
+double compression_from_density(double density) {
+    return std::max(density / REST_DENSITY - 1.0, 0.0);
+}
+
+Vec3 owned_reaction_defect(
+    const std::vector<Vec3>& displacement,
+    const std::vector<Vec3>& predicted_displacement,
+    const Evaluation& support,
+    double time_step) {
+    Vec3 actual;
+    for (std::size_t i = 0; i < displacement.size(); ++i) {
+        actual += MASS / time_step
+            * (displacement[i] - predicted_displacement[i]);
+    }
+    const Vec3 fluid_gradient = sum_values(
+        support.gradient, 0U, displacement.size());
+    return actual + time_step * fluid_gradient;
+}
+
+double owned_reaction_limit(
+    const std::vector<Vec3>& displacement,
+    const std::vector<Vec3>& predicted_displacement,
+    const Evaluation& support,
+    const std::vector<Vec3>& velocity,
+    Vec3 gravity,
+    double time_step) {
+    Vec3 actual;
+    for (std::size_t i = 0; i < displacement.size(); ++i) {
+        actual += MASS / time_step
+            * (displacement[i] - predicted_displacement[i]);
+    }
+    const Vec3 model = -time_step * sum_values(
+        support.gradient, 0U, displacement.size());
+    const double scale = std::max({
+        norm(actual) + norm(model),
+        static_cast<double>(displacement.size()) * MASS * time_step
+            * norm(gravity),
+        1.0e-12,
+    });
+    return 1.0e-9 * scale
+        + displacement_forward_bound(velocity, gravity, time_step);
+}
+
+DifferenceProbe difference_probe(
+    const std::string& name,
+    const SmokeFixture& fixture,
+    const ReactionTrace& trace) {
+    DifferenceProbe result;
+    result.name = name;
+    result.substeps_per_frame = trace.substeps_per_frame;
+    result.failing_substep = trace.steps;
+    if (!trace.energy_floor.valid) {
+        result.failure = "MISSING_ENERGY_FLOOR_CAPTURE";
+        return result;
+    }
+    const ReactionCapture& capture = trace.energy_floor;
+    const SmoothSolve& smooth = capture.ordinary.smooth;
+    result.state_sha256 = capture.state_sha256;
+    result.predicted_reduction = smooth.last_predicted_reduction;
+    result.inherited_energy_floor = smooth.numerical_energy_floor;
+    result.current_reaction_defect = smooth.reaction_stationarity_defect;
+    result.current_reaction_limit = smooth.reaction_mixed_limit;
+    if (smooth.displacement.size() != capture.position.size()
+        || smooth.last_step.size() != capture.position.size()) {
+        result.failure = "CAPTURE_SHAPE";
+        return result;
+    }
+
+    std::vector<Vec3> predicted_displacement(capture.position.size());
+    std::vector<Vec3> trial_displacement = smooth.displacement;
+    std::vector<Vec3> trial_position(capture.position.size());
+    for (std::size_t i = 0; i < capture.position.size(); ++i) {
+        predicted_displacement[i] = capture.time_step
+            * (capture.velocity[i]
+                + capture.time_step * fixture.gravity);
+        trial_displacement[i] += smooth.last_step[i];
+        trial_position[i] = capture.position[i] + trial_displacement[i];
+        for (int axis = 0; axis < 3; ++axis) {
+            const double p = component(smooth.last_step[i], axis);
+            if (p == 0.0) {
+                continue;
+            }
+            ++result.nonzero_correction_components;
+            const double old_value = component(smooth.position[i], axis);
+            const double new_value = component(trial_position[i], axis);
+            result.changed_position_components += old_value != new_value
+                ? 1 : 0;
+            double ulp = std::nextafter(old_value,
+                std::numeric_limits<double>::infinity()) - old_value;
+            if (!(ulp > 0.0) || !std::isfinite(ulp)) {
+                ulp = std::numeric_limits<double>::denorm_min();
+            }
+            const double ratio = std::abs(p) / ulp;
+            result.minimum_step_ulp_ratio = std::min(
+                result.minimum_step_ulp_ratio, ratio);
+            result.maximum_step_ulp_ratio = std::max(
+                result.maximum_step_ulp_ratio, ratio);
+        }
+    }
+    if (result.nonzero_correction_components == 0) {
+        result.minimum_step_ulp_ratio = 0.0;
+    }
+    result.correction_norm_dx = vector_norm(smooth.last_step) / SPACING;
+
+    std::vector<Vec3> y_star(capture.position.size());
+    for (std::size_t i = 0; i < capture.position.size(); ++i) {
+        y_star[i] = capture.position[i] + predicted_displacement[i];
+    }
+    const SmoothEvaluation current = smooth_evaluate(
+        smooth.position, y_star, fixture.boundary, capture.time_step);
+    const SmoothEvaluation trial = smooth_evaluate(
+        trial_position, y_star, fixture.boundary, capture.time_step);
+    result.legacy_total_difference = current.total - trial.total;
+    result.current_active_centers = static_cast<int>(
+        current.support.active_centers);
+    result.trial_active_centers = static_cast<int>(
+        trial.support.active_centers);
+    result.current_pairs = current.support.fluid_pairs
+        + current.support.boundary_pairs;
+    result.trial_pairs = trial.support.fluid_pairs
+        + trial.support.boundary_pairs;
+    result.topology_exact = result.current_active_centers
+            == result.trial_active_centers
+        && result.current_pairs == result.trial_pairs;
+
+    const double inertia_scale = MASS
+        / (capture.time_step * capture.time_step);
+    double absolute_term_sum = 0.0;
+    double local_error_sum = 0.0;
+    long double extended = 0.0L;
+    for (std::size_t i = 0; i < capture.position.size(); ++i) {
+        const double c0 = compression_from_density(
+            current.support.density[i]);
+        const double c1 = compression_from_density(
+            trial.support.density[i]);
+        result.maximum_density_change = std::max(
+            result.maximum_density_change,
+            std::abs(current.support.density[i]
+                - trial.support.density[i]));
+        result.maximum_compression_change = std::max(
+            result.maximum_compression_change, std::abs(c0 - c1));
+        const double term = 0.5 * KAPPA * (c0 - c1) * (c0 + c1);
+        result.factored_potential_difference += term;
+        const double magnitude = 0.5 * std::abs(KAPPA)
+            * (std::abs(c0) + std::abs(c1))
+            * (std::abs(c0) + std::abs(c1));
+        absolute_term_sum += std::abs(term);
+        local_error_sum += gamma_factor(4U) * magnitude;
+        extended += 0.5L * static_cast<long double>(KAPPA)
+            * (static_cast<long double>(c0) - static_cast<long double>(c1))
+            * (static_cast<long double>(c0) + static_cast<long double>(c1));
+
+        for (int axis = 0; axis < 3; ++axis) {
+            const double p = component(smooth.last_step[i], axis);
+            const double d = component(smooth.displacement[i], axis)
+                - component(predicted_displacement[i], axis);
+            const double inertia_term = -0.5 * inertia_scale * p
+                * (2.0 * d + p);
+            result.factored_inertia_difference += inertia_term;
+            const double inertia_magnitude = 0.5 * inertia_scale
+                * std::abs(p) * (2.0 * std::abs(d) + std::abs(p));
+            absolute_term_sum += std::abs(inertia_term);
+            local_error_sum += gamma_factor(5U) * inertia_magnitude;
+            extended += -0.5L * static_cast<long double>(inertia_scale)
+                * static_cast<long double>(p)
+                * (2.0L * static_cast<long double>(d)
+                    + static_cast<long double>(p));
+        }
+    }
+    result.factored_total_difference =
+        result.factored_potential_difference
+        + result.factored_inertia_difference;
+    result.extended_total_difference = extended;
+    const std::size_t terms = 4U * capture.position.size();
+    result.factored_error_bound = local_error_sum
+        + gamma_factor(std::max<std::size_t>(terms, 2U) - 1U)
+            * absolute_term_sum;
+    result.factored_correspondence = std::abs(
+        static_cast<long double>(result.factored_total_difference)
+            - result.extended_total_difference)
+        <= static_cast<long double>(result.factored_error_bound);
+    result.positive_sign_certified = result.factored_correspondence
+        && result.factored_total_difference
+            - result.factored_error_bound > 0.0
+        && result.extended_total_difference > 0.0L;
+
+    result.trial_reaction_defect = norm(owned_reaction_defect(
+        trial_displacement, predicted_displacement,
+        trial.support, capture.time_step));
+    result.trial_reaction_limit = owned_reaction_limit(
+        trial_displacement, predicted_displacement, trial.support,
+        capture.velocity, fixture.gravity, capture.time_step);
+    result.residual_reduction_ratio = result.trial_reaction_defect
+        / std::max(result.current_reaction_defect, 1.0e-300);
+    result.trial_reaction_converged = std::isfinite(
+        result.trial_reaction_defect)
+        && result.trial_reaction_defect <= result.trial_reaction_limit;
+    result.passed = result.predicted_reduction > 0.0
+        && result.predicted_reduction <= result.inherited_energy_floor
+        && result.current_reaction_defect > result.current_reaction_limit
+        && result.factored_correspondence
+        && result.topology_exact
+        && std::isfinite(result.residual_reduction_ratio);
+    if (!result.passed) {
+        result.failure = "PROBE_INVARIANT";
+    }
+    return result;
+}
+
+void append_difference_probe(
+    std::ostringstream& output, const DifferenceProbe& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name << '\"'
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL") << '\"'
+           << ",\"failure\":\"" << value.failure << '\"'
+           << ",\"state_sha256\":\"" << value.state_sha256 << '\"'
+           << ",\"substeps_per_frame\":" << value.substeps_per_frame
+           << ",\"failing_substep\":" << value.failing_substep
+           << ",\"predicted_reduction\":" << value.predicted_reduction
+           << ",\"inherited_energy_floor\":"
+           << value.inherited_energy_floor
+           << ",\"representation\":{\"correction_norm_dx\":"
+           << value.correction_norm_dx
+           << ",\"nonzero_correction_components\":"
+           << value.nonzero_correction_components
+           << ",\"changed_position_components\":"
+           << value.changed_position_components
+           << ",\"minimum_step_ulp_ratio\":"
+           << value.minimum_step_ulp_ratio
+           << ",\"maximum_step_ulp_ratio\":"
+           << value.maximum_step_ulp_ratio << '}'
+           << ",\"topology\":{\"current_active_centers\":"
+           << value.current_active_centers
+           << ",\"trial_active_centers\":" << value.trial_active_centers
+           << ",\"current_pairs\":" << value.current_pairs
+           << ",\"trial_pairs\":" << value.trial_pairs
+           << ",\"exact\":" << (value.topology_exact ? "true" : "false")
+           << ",\"maximum_density_change\":"
+           << value.maximum_density_change
+           << ",\"maximum_compression_change\":"
+           << value.maximum_compression_change << '}'
+           << ",\"energy\":{\"legacy_total_difference\":"
+           << value.legacy_total_difference
+           << ",\"factored_potential_difference\":"
+           << value.factored_potential_difference
+           << ",\"factored_inertia_difference\":"
+           << value.factored_inertia_difference
+           << ",\"factored_total_difference\":"
+           << value.factored_total_difference
+           << ",\"extended_total_difference\":"
+           << value.extended_total_difference
+           << ",\"factored_error_bound\":"
+           << value.factored_error_bound
+           << ",\"correspondence\":"
+           << (value.factored_correspondence ? "true" : "false")
+           << ",\"positive_sign_certified\":"
+           << (value.positive_sign_certified ? "true" : "false") << '}'
+           << ",\"stationarity\":{\"current_defect\":"
+           << value.current_reaction_defect
+           << ",\"current_limit\":" << value.current_reaction_limit
+           << ",\"trial_defect\":" << value.trial_reaction_defect
+           << ",\"trial_limit\":" << value.trial_reaction_limit
+           << ",\"reduction_ratio\":" << value.residual_reduction_ratio
+           << ",\"trial_converged\":"
+           << (value.trial_reaction_converged ? "true" : "false")
+           << "}}";
+}
+
 } // namespace
 
 SplitBoundaryReport run_boundary_composition_smoke_controls() {
@@ -3178,6 +3496,108 @@ SplitBoundaryReport run_displacement_ownership_controls() {
     report << "]"
            << ",\"candidate_selected\":" << (passed ? "true" : "false")
            << ",\"b3r_design_authorized\":" << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_finite_precision_merit_controls() {
+    const SplitBoundaryReport parent = run_displacement_ownership_controls();
+    const bool parent_exact = !parent.passed
+        && sha256_hex(parent.json)
+            == "6dede55270ca21c583ba83f5eebb740b0c0adf0e4b2a61cd00eb941906e4d259";
+    const SmokeFixture face_fixture = make_face_smoke_fixture();
+    const SmokeFixture corner_fixture = make_corner_smoke_fixture();
+    constexpr std::array<int, 3> counts = {96, 192, 384};
+    std::array<DifferenceProbe, 6> probes;
+    for (std::size_t i = 0; i < counts.size(); ++i) {
+        const ReactionTrace trace = run_reaction_trace(
+            face_fixture, counts[i], true, true);
+        probes[i] = difference_probe(
+            "face-" + std::to_string(counts[i]), face_fixture, trace);
+    }
+    for (std::size_t i = 0; i < counts.size(); ++i) {
+        const ReactionTrace trace = run_reaction_trace(
+            corner_fixture, counts[i], true, true);
+        probes[i + counts.size()] = difference_probe(
+            "corner-" + std::to_string(counts[i]), corner_fixture, trace);
+    }
+
+    bool probes_valid = true;
+    bool all_factored = true;
+    bool all_stationarity = true;
+    bool any_unmaterialized = false;
+    for (const DifferenceProbe& probe : probes) {
+        probes_valid = probes_valid && probe.passed;
+        all_factored = all_factored && probe.positive_sign_certified;
+        all_stationarity = all_stationarity
+            && probe.topology_exact
+            && probe.trial_reaction_defect < probe.current_reaction_defect
+            && probe.trial_reaction_converged;
+        any_unmaterialized = any_unmaterialized
+            || probe.changed_position_components
+                < probe.nonzero_correction_components
+            || (probe.correction_norm_dx > 0.0
+                && probe.maximum_density_change == 0.0);
+    }
+    const std::string classification = all_factored
+        ? "FACTORED_OBJECTIVE_DIFFERENCE_CANDIDATE"
+        : all_stationarity
+            ? "FLOOR_STATIONARITY_MERIT_CANDIDATE"
+            : any_unmaterialized
+                ? "LOCAL_GEOMETRY_OWNERSHIP_REQUIRED"
+                : "NUMERICAL_GLOBALIZATION_STOP";
+    const bool passed = parent_exact && probes_valid;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B3D2_PARENT";
+    } else if (!probes_valid) {
+        first_failure = "NSR3B3D2_PROBE_INVARIANT";
+    }
+
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << classification;
+    for (const DifferenceProbe& probe : probes) {
+        material << '|' << probe.name << ':'
+                 << probe.state_sha256 << ':'
+                 << probe.factored_total_difference << ':'
+                 << probe.factored_error_bound << ':'
+                 << probe.positive_sign_certified << ':'
+                 << probe.changed_position_components << ':'
+                 << probe.nonzero_correction_components << ':'
+                 << probe.trial_reaction_defect << ':'
+                 << probe.trial_reaction_limit;
+    }
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b3d2_merit.v1\""
+           << ",\"identity\":\"finite-precision-merit-discriminator-r0\""
+           << ",\"parent_b3d1_result_sha256\":\"f9ed6a83170eff4c965b8c573eac0dd6f308beb41a6f7fcc365f8ad2b11a2ec7\""
+           << ",\"parent_b3d1_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '\"'
+           << ",\"first_failure\":\"" << first_failure << '\"'
+           << ",\"classification\":\"" << classification << '\"'
+           << ",\"probes\":[";
+    for (std::size_t i = 0; i < probes.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_difference_probe(report, probes[i]);
+    }
+    report << ']'
+           << ",\"factored_candidate_selected\":"
+           << (all_factored && passed ? "true" : "false")
+           << ",\"stationarity_candidate_selected\":"
+           << (!all_factored && all_stationarity && passed
+                   ? "true" : "false")
+           << ",\"b3_retry_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"historical_hash_check_required\":true"
            << ",\"repeatability_check_required\":true"

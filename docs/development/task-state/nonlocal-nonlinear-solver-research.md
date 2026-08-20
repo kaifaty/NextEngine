@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3D1_FAIL_ENERGY_RESOLUTION / NSR3B3D2_FROZEN_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B3D2_PASS_STATIONARITY_SELECTED / NSR3B3D3_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -142,10 +142,19 @@
   reaction residual remains `1.10x--23.6x` above its mixed limit.
 - **Current decision:** preserve D1 FAIL and retain displacement ownership as
   a representation candidate only. Do not accept an unresolved energy step.
-- **Current action:** implement the frozen D2 six-state discriminator for
-  factored objective difference, endpoint representation and residual merit.
-- **Next gate:** D2 must resolve the same objective decrement without changing
-  the reaction tolerance, objective or contact semantics before B3R design.
+- **Current conclusion:** D2's factored endpoint arithmetic matches extended
+  precision, but three of six endpoint changes are certifiably negative;
+  density/compression quantization dominates the `1e-24--1e-20` model signal.
+- **Current conclusion:** all six unchanged-topology trial steps reduce the
+  impulse stationarity residual to `0.0030--0.6279` of its prior value and
+  finish below the unchanged reaction limit.
+- **Current decision:** select `FLOOR_STATIONARITY_MERIT_CANDIDATE` for one
+  separately frozen full-trajectory experiment. Do not relabel D1 or energy
+  ascent as descent.
+- **Current action:** freeze D3 with a one-step stationarity acceptance only at
+  the inherited active energy-floor exit.
+- **Next gate:** D3 must complete all six fixed trajectories, retain D1
+  correspondence and publish the exact frequency/cost of floor-merit accepts.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -408,6 +417,20 @@
   difference implementation must replay D1 exactly until the first floor and
   must retain displacement ownership and all reaction/contact gates.
 
+### D-025 -- Switch merit, not physics, at unresolved energy scale
+
+- **Observation:** direct endpoint energy is certifiably negative in three of
+  six D2 states because coordinate/density quantization exceeds the model
+  decrement. The same trial retains topology and reaches the existing impulse
+  stationarity limit in all six states.
+- **Decision:** reject factored energy as a universal floor repair. Test one
+  bounded acceptance of decreasing `0.5*||h*grad F||^2` only when the old
+  energy-floor predicate fires and the trial already satisfies reaction
+  closure.
+- **Consequence:** this changes numerical globalization, not the objective or
+  physical model. D3 must fail closed on any nonconverged residual trial and
+  remains report-only until a later B3 retry independently passes.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -420,12 +443,12 @@
 
 ## Exact next action
 
-1. Derive the algebraic objective decrement for compression and inertia terms
-   without subtracting two accumulated totals.
-2. Derive a binary64 absolute error bound for that arithmetic graph and freeze
-   exact sign/ambiguity behavior before implementation.
-3. Replay the six D1 first-floor states; only then consider a full trajectory
-   candidate. Preserve B3 and D1 failures unchanged.
+1. Freeze the full-trajectory D3 stationarity-floor contract without changing
+   any physical, reaction or contact threshold.
+2. Implement the one-trial floor acceptance and charge its support/gradient
+   evaluation and all ordinary nonlinear work.
+3. Run fixed `96/192/384` face/corner trajectories and old-path regressions;
+   only a PASS may authorize B3R design.
 
 ## Reconsideration triggers
 
