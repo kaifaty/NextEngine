@@ -1,6 +1,6 @@
 # Nonlocal continuum — performance reclosure roadmap
 
-Status: `ACTIVE / NP0_COMPLETE / NP1_P1_P2_RETAINED / P3_NEXT / REPORT_ONLY / NO_W2_CREDIT`
+Status: `ACTIVE / NP0_COMPLETE / NP1_P1_P2_RETAINED / P3_ROLLED_BACK / P4_NEXT / REPORT_ONLY / NO_W2_CREDIT`
 
 This roadmap follows the closed
 [NR4 `NONLOCAL_48K_RECLOSURE_CANDIDATE` decision](../../development/nonlocal-continuum-nr4-decision-2026-08-20.md).
@@ -43,8 +43,8 @@ NR4 48k feasibility decision                    COMPLETE
       └─ NP1 exact-work GPU tournament          IN_PROGRESS
           ├─ P1 pair-term traversal fusion       COMPLETE / RETAINED
           ├─ P2 compact CSR and memory path      COMPLETE / RETAINED
-          ├─ P3 dynamic locality tournament      NEXT
-          └─ P4 certified neighbor reuse
+          ├─ P3 dynamic locality tournament      COMPLETE / NOT RETAINED
+          └─ P4 certified neighbor reuse         NEXT
               ├─ NP4 fixed-work decision path   BLOCKED_BY_EVIDENCE
               ├─ NP2 algorithmic work reduction CONDITIONAL
               │   ├─ residual/adaptive exit
@@ -72,7 +72,10 @@ P1 is retained by its
 [exact-work evidence](../../development/nonlocal-continuum-np1-p1-evidence-2026-08-20.md);
 P2 is retained by its
 [exact-work evidence](../../development/nonlocal-continuum-np1-p2-evidence-2026-08-20.md);
-P3 now uses fused traversal plus compact CSR as its adjacent denominator.
+P3 is closed by its
+[exact-work evidence](../../development/nonlocal-continuum-np1-p3-evidence-2026-08-20.md):
+permuted locality improved strongly, but coupled regression forced a P2
+rollback. P4 uses fused traversal plus compact CSR as its denominator.
 
 ### NP0 — Reclose the measured workload
 

@@ -1,6 +1,6 @@
 # NP1-P3 — dynamic cell-local storage
 
-Status: `SPECIFIED / IMPLEMENTATION_NEXT / EXACT_WORK / REPORT_ONLY`
+Status: `COMPLETE / NOT_RETAINED / P2_ROLLBACK / P4_INPUT / EXACT_WORK / REPORT_ONLY`
 
 ## Hypothesis
 
@@ -109,3 +109,7 @@ If these gates pass, retain P3 only behind an explicit disordered-storage
 selection boundary; P2 stable remains the coherent/default rollback. If the
 permuted gain cannot amortize remap or advected/coupled regression exceeds its
 bound, record P3 as a negative result and proceed to P4 with P2.
+
+P3 proved a `1.779x` permuted gain but failed the two coupled non-regression
+gates, so it is not retained. See the
+[dated evidence](../../development/nonlocal-continuum-np1-p3-evidence-2026-08-20.md).

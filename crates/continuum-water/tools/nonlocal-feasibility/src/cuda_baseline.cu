@@ -277,7 +277,7 @@ __global__ void gather_immutable_storage(
     sorted_fixed[storage] = fixed[sample];
 }
 
-template <bool Fill>
+template <bool Fill, typename NeighborIndex = int>
 __global__ void visit_grid_neighbors_cell_sorted(
     const float3* logical_position,
     const int* sorted_indices,
@@ -287,7 +287,7 @@ __global__ void visit_grid_neighbors_cell_sorted(
     const int* cell_end,
     int* counts,
     const int* offsets,
-    int* neighbors,
+    NeighborIndex* neighbors,
     int count,
     float3 origin,
     float horizon,
@@ -333,7 +333,8 @@ __global__ void visit_grid_neighbors_cell_sorted(
                     if (dot3(delta, delta) <= support_squared) {
                         if constexpr (Fill) {
                             if (cursor < offsets[storage_owner + 1]) {
-                                neighbors[cursor++] = sample_to_storage[candidate_sample];
+                                neighbors[cursor++] = static_cast<NeighborIndex>(
+                                    sample_to_storage[candidate_sample]);
                             } else {
                                 atomicExch(error_flag, 1);
                             }
@@ -347,6 +348,22 @@ __global__ void visit_grid_neighbors_cell_sorted(
     if constexpr (!Fill) {
         counts[storage_owner] = degree;
     }
+}
+
+__global__ void scatter_dynamic_state(
+    const float3* physical_position,
+    const float3* physical_velocity,
+    const int* storage_to_sample,
+    float3* logical_position,
+    float3* logical_velocity,
+    int count) {
+    const int storage = blockIdx.x * blockDim.x + threadIdx.x;
+    if (storage >= count) {
+        return;
+    }
+    const int sample = storage_to_sample[storage];
+    logical_position[sample] = physical_position[storage];
+    logical_velocity[sample] = physical_velocity[storage];
 }
 
 __global__ void finish_offsets(const int* counts, int* offsets, int count) {
@@ -1473,6 +1490,7 @@ struct GridDescription {
 };
 
 struct StageTiming {
+    double storage_remap = 0.0;
     double prediction = 0.0;
     double neighbor_construction = 0.0;
     double density = 0.0;
@@ -1515,6 +1533,7 @@ struct CapturedRun {
 
 struct EventInterval {
     enum class Stage {
+        StorageRemap,
         Prediction,
         Neighbor,
         Density,
@@ -1786,6 +1805,11 @@ enum class NeighborEncodingMode {
     CompactU16P2,
 };
 
+enum class DynamicStorageMode {
+    Retained,
+    DynamicCellLocalP3,
+};
+
 class CudaBaseline {
 public:
     CudaBaseline(
@@ -1795,7 +1819,8 @@ public:
         TermKernelMode term_kernel_mode,
         StorageMode storage_mode = StorageMode::StableSampleV0,
         PairTraversalMode pair_traversal_mode = PairTraversalMode::SeparateRetained,
-        NeighborEncodingMode neighbor_encoding_mode = NeighborEncodingMode::U32Retained)
+        NeighborEncodingMode neighbor_encoding_mode = NeighborEncodingMode::U32Retained,
+        DynamicStorageMode dynamic_storage_mode = DynamicStorageMode::Retained)
         : fixture_(fixture),
           accumulation_mode_(accumulation_mode),
           handoff_mode_(handoff_mode),
@@ -1803,6 +1828,7 @@ public:
           storage_mode_(storage_mode),
           pair_traversal_mode_(pair_traversal_mode),
           neighbor_encoding_mode_(neighbor_encoding_mode),
+          dynamic_storage_mode_(dynamic_storage_mode),
           count_(static_cast<int>(fixture.particles.size())),
           grid_(describe_grid(fixture)),
           pair_capacity_(fixture.pair_capacity != 0U
@@ -1862,6 +1888,14 @@ public:
         if (neighbor_encoding_mode_ == NeighborEncodingMode::CompactU16P2
             && pair_traversal_mode_ != PairTraversalMode::FusedOwnerTermsP1) {
             throw std::invalid_argument("compact-csr-u16-p2 requires fused-owner-terms-p1");
+        }
+        if (dynamic_storage_mode_ == DynamicStorageMode::DynamicCellLocalP3
+            && (storage_mode_ != StorageMode::StableSampleV0
+                || pair_traversal_mode_ != PairTraversalMode::FusedOwnerTermsP1
+                || neighbor_encoding_mode_ != NeighborEncodingMode::CompactU16P2
+                || !compact_neighbor_ids_)) {
+            throw std::invalid_argument(
+                "dynamic-cell-local-p3 requires stable P1 plus eligible compact P2");
         }
         allocate_device_storage();
         upload_fixture();
@@ -1923,19 +1957,25 @@ public:
         if (advance && !fixture_.advected) {
             throw std::invalid_argument("state advance requires an advected fixture");
         }
-        const float3* solver_reference = storage_mode_ == StorageMode::CellSortedO4
+        const float3* solver_reference = uses_cell_local_storage()
             ? sorted_reference_ : reference_;
-        const float3* solver_initial_velocity = storage_mode_ == StorageMode::CellSortedO4
+        const float3* solver_initial_velocity = uses_cell_local_storage()
             ? sorted_initial_velocity_ : initial_velocity_;
-        const std::uint8_t* solver_fixed = storage_mode_ == StorageMode::CellSortedO4
+        const std::uint8_t* solver_fixed = uses_cell_local_storage()
             ? sorted_fixed_ : fixed_;
         std::vector<EventInterval> intervals;
-        intervals.reserve(static_cast<std::size_t>(4 + 7 * fixture_.iterations));
+        intervals.reserve(static_cast<std::size_t>(5 + 7 * fixture_.iterations));
         cudaEvent_t total_begin{};
         cudaEvent_t total_end{};
         check_cuda(cudaEventCreate(&total_begin), "cudaEventCreate(total begin)");
         check_cuda(cudaEventCreate(&total_end), "cudaEventCreate(total end)");
         check_cuda(cudaEventRecord(total_begin), "cudaEventRecord(total begin)");
+
+        if (dynamic_storage_mode_ == DynamicStorageMode::DynamicCellLocalP3) {
+            timed(intervals, EventInterval::Stage::StorageRemap, [&] {
+                enqueue_dynamic_storage_remap();
+            });
+        }
 
         timed(intervals, EventInterval::Stage::Prediction, [&] {
             check_cuda(cudaMemsetAsync(error_flag_, 0, sizeof(int)), "reset local solve flag");
@@ -2197,20 +2237,31 @@ public:
         }
         if (advance) {
             timed(intervals, EventInterval::Stage::Handoff, [&] {
-                check_cuda(cudaMemcpyAsync(
-                               reference_, current_, static_cast<std::size_t>(count_) * sizeof(float3),
-                               cudaMemcpyDeviceToDevice),
-                    "publish dynamic reference positions");
-                check_cuda(cudaMemcpyAsync(
-                               initial_velocity_, final_velocity_,
-                               static_cast<std::size_t>(count_) * sizeof(float3),
-                               cudaMemcpyDeviceToDevice),
-                    "publish dynamic velocity");
+                if (dynamic_storage_mode_ == DynamicStorageMode::DynamicCellLocalP3) {
+                    scatter_dynamic_state<<<blocks_for(count_), THREADS>>>(
+                        current_, final_velocity_, storage_to_sample_, reference_,
+                        initial_velocity_, count_);
+                } else {
+                    check_cuda(cudaMemcpyAsync(
+                                   reference_, current_,
+                                   static_cast<std::size_t>(count_) * sizeof(float3),
+                                   cudaMemcpyDeviceToDevice),
+                        "publish dynamic reference positions");
+                    check_cuda(cudaMemcpyAsync(
+                                   initial_velocity_, final_velocity_,
+                                   static_cast<std::size_t>(count_) * sizeof(float3),
+                                   cudaMemcpyDeviceToDevice),
+                        "publish dynamic velocity");
+                }
             });
         }
         check_cuda(cudaGetLastError(), "enqueue CUDA baseline");
         check_cuda(cudaEventRecord(total_end), "cudaEventRecord(total end)");
         check_cuda(cudaEventSynchronize(total_end), "cudaEventSynchronize(total end)");
+
+        if (capture && uses_cell_local_storage()) {
+            capture_storage_map();
+        }
 
         CapturedRun result;
         result.device_memory_bytes = device_memory_bytes_;
@@ -2233,7 +2284,7 @@ public:
                 "copy O3 layout flag");
             result.reverse_map_valid = layout_failed == 0;
         }
-        if (storage_mode_ == StorageMode::CellSortedO4) {
+        if (uses_cell_local_storage()) {
             int storage_failed = 0;
             check_cuda(cudaMemcpy(
                            &storage_failed, storage_error_flag_, sizeof(int), cudaMemcpyDeviceToHost),
@@ -2258,6 +2309,11 @@ public:
     }
 
 private:
+    bool uses_cell_local_storage() const {
+        return storage_mode_ == StorageMode::CellSortedO4
+            || dynamic_storage_mode_ == DynamicStorageMode::DynamicCellLocalP3;
+    }
+
     template <bool Bulk, bool Shear, bool Surface>
     void enqueue_fused_owner_terms(const float3* solver_reference) {
         if (compact_neighbor_ids_) {
@@ -2319,7 +2375,7 @@ private:
         if (fixture_.advected) {
             allocate(captured_reference_, count);
         }
-        if (storage_mode_ == StorageMode::CellSortedO4) {
+        if (uses_cell_local_storage()) {
             const std::size_t before_storage = device_memory_bytes_;
             allocate(sorted_reference_, count);
             allocate(sorted_initial_velocity_, count);
@@ -2380,21 +2436,25 @@ private:
         if (storage_failed != 0) {
             throw std::runtime_error("O4 storage-map construction failed");
         }
+        capture_storage_map();
+    }
+
+    void capture_storage_map() {
         storage_to_sample_host_.resize(static_cast<std::size_t>(count_));
         sample_to_storage_host_.resize(static_cast<std::size_t>(count_));
         check_cuda(cudaMemcpy(
                        storage_to_sample_host_.data(), storage_to_sample_,
                        storage_to_sample_host_.size() * sizeof(int), cudaMemcpyDeviceToHost),
-            "copy O4 storage-to-sample map");
+            "copy storage-to-sample map");
         check_cuda(cudaMemcpy(
                        sample_to_storage_host_.data(), sample_to_storage_,
                        sample_to_storage_host_.size() * sizeof(int), cudaMemcpyDeviceToHost),
-            "copy O4 sample-to-storage map");
+            "copy sample-to-storage map");
         for (int storage = 0; storage < count_; ++storage) {
             const int sample = storage_to_sample_host_[static_cast<std::size_t>(storage)];
             if (sample < 0 || sample >= count_
                 || sample_to_storage_host_[static_cast<std::size_t>(sample)] != storage) {
-                throw std::runtime_error("O4 host map is not a bounded bijection");
+                throw std::runtime_error("storage map is not a bounded bijection");
             }
         }
         storage_to_sample_sha256_ =
@@ -2498,21 +2558,48 @@ private:
             keys_sorted_, cell_start_, cell_end_, count_);
     }
 
-    void enqueue_neighbor_construction() {
+    void enqueue_dynamic_storage_remap() {
         check_cuda(cudaMemsetAsync(neighbor_error_flag_, 0, sizeof(int)),
-            "reset neighbor build flag");
+            "reset P3 grid flag");
+        check_cuda(cudaMemsetAsync(storage_error_flag_, 0, sizeof(int)),
+            "reset P3 storage flag");
         enqueue_grid_sort();
-        if (storage_mode_ == StorageMode::CellSortedO4) {
-            check_cuda(cudaMemsetAsync(storage_error_flag_, 0, sizeof(int)),
-                "reset O4 storage flag");
-            validate_storage_map<<<blocks_for(count_), THREADS>>>(
-                keys_sorted_, indices_sorted_, storage_to_sample_, sample_to_storage_,
-                storage_error_flag_, count_);
-            visit_grid_neighbors_cell_sorted<false><<<blocks_for(count_), THREADS>>>(
-                reference_, indices_sorted_, storage_to_sample_, sample_to_storage_, cell_start_,
-                cell_end_, neighbor_counts_, nullptr, nullptr, count_, grid_.origin,
-                static_cast<float>(fixture_.horizon), grid_.dimensions,
-                neighbor_error_flag_);
+        initialize_storage_map<<<blocks_for(count_), THREADS>>>(
+            keys_sorted_, indices_sorted_, storage_to_sample_, sample_to_storage_,
+            storage_error_flag_, count_);
+        gather_immutable_storage<<<blocks_for(count_), THREADS>>>(
+            reference_, initial_velocity_, fixed_, storage_to_sample_, sorted_reference_,
+            sorted_initial_velocity_, sorted_fixed_, count_);
+    }
+
+    void enqueue_neighbor_construction() {
+        if (dynamic_storage_mode_ != DynamicStorageMode::DynamicCellLocalP3) {
+            check_cuda(cudaMemsetAsync(neighbor_error_flag_, 0, sizeof(int)),
+                "reset neighbor build flag");
+            enqueue_grid_sort();
+        }
+        if (uses_cell_local_storage()) {
+            if (storage_mode_ == StorageMode::CellSortedO4) {
+                check_cuda(cudaMemsetAsync(storage_error_flag_, 0, sizeof(int)),
+                    "reset O4 storage flag");
+                validate_storage_map<<<blocks_for(count_), THREADS>>>(
+                    keys_sorted_, indices_sorted_, storage_to_sample_, sample_to_storage_,
+                    storage_error_flag_, count_);
+            }
+            if (compact_neighbor_ids_) {
+                visit_grid_neighbors_cell_sorted<false, std::uint16_t>
+                    <<<blocks_for(count_), THREADS>>>(
+                        reference_, indices_sorted_, storage_to_sample_, sample_to_storage_,
+                        cell_start_, cell_end_, neighbor_counts_, nullptr, nullptr, count_,
+                        grid_.origin, static_cast<float>(fixture_.horizon), grid_.dimensions,
+                        neighbor_error_flag_);
+            } else {
+                visit_grid_neighbors_cell_sorted<false, int><<<blocks_for(count_), THREADS>>>(
+                    reference_, indices_sorted_, storage_to_sample_, sample_to_storage_, cell_start_,
+                    cell_end_, neighbor_counts_, nullptr, nullptr, count_, grid_.origin,
+                    static_cast<float>(fixture_.horizon), grid_.dimensions,
+                    neighbor_error_flag_);
+            }
         } else {
             if (compact_neighbor_ids_) {
                 visit_grid_neighbors<false, std::uint16_t><<<blocks_for(count_), THREADS>>>(
@@ -2532,12 +2619,21 @@ private:
         finish_offsets<<<1, 1>>>(neighbor_counts_, neighbor_offsets_, count_);
         clamp_neighbor_offsets<<<blocks_for(count_ + 1), THREADS>>>(
             neighbor_offsets_, count_, static_cast<int>(pair_capacity_), neighbor_error_flag_);
-        if (storage_mode_ == StorageMode::CellSortedO4) {
-            visit_grid_neighbors_cell_sorted<true><<<blocks_for(count_), THREADS>>>(
-                reference_, indices_sorted_, storage_to_sample_, sample_to_storage_, cell_start_,
-                cell_end_, nullptr, neighbor_offsets_, neighbors_, count_, grid_.origin,
-                static_cast<float>(fixture_.horizon), grid_.dimensions,
-                neighbor_error_flag_);
+        if (uses_cell_local_storage()) {
+            if (compact_neighbor_ids_) {
+                visit_grid_neighbors_cell_sorted<true, std::uint16_t>
+                    <<<blocks_for(count_), THREADS>>>(
+                        reference_, indices_sorted_, storage_to_sample_, sample_to_storage_,
+                        cell_start_, cell_end_, nullptr, neighbor_offsets_, compact_neighbors_,
+                        count_, grid_.origin, static_cast<float>(fixture_.horizon),
+                        grid_.dimensions, neighbor_error_flag_);
+            } else {
+                visit_grid_neighbors_cell_sorted<true, int><<<blocks_for(count_), THREADS>>>(
+                    reference_, indices_sorted_, storage_to_sample_, sample_to_storage_, cell_start_,
+                    cell_end_, nullptr, neighbor_offsets_, neighbors_, count_, grid_.origin,
+                    static_cast<float>(fixture_.horizon), grid_.dimensions,
+                    neighbor_error_flag_);
+            }
         } else {
             if (compact_neighbor_ids_) {
                 visit_grid_neighbors<true, std::uint16_t><<<blocks_for(count_), THREADS>>>(
@@ -2557,6 +2653,9 @@ private:
 
     static void add_stage_time(StageTiming& timing, EventInterval::Stage stage, double milliseconds) {
         switch (stage) {
+        case EventInterval::Stage::StorageRemap:
+            timing.storage_remap += milliseconds;
+            break;
         case EventInterval::Stage::Prediction:
             timing.prediction += milliseconds;
             break;
@@ -2710,7 +2809,7 @@ private:
         }
         result.physical_csr_sha256 =
             csr_vectors_digest(physical_offsets, physical_neighbors);
-        if (storage_mode_ == StorageMode::CellSortedO4) {
+        if (uses_cell_local_storage()) {
             result.offsets.resize(static_cast<std::size_t>(count_) + 1U);
             result.offsets[0] = 0;
             for (int sample = 0; sample < count_; ++sample) {
@@ -2772,7 +2871,7 @@ private:
         Vec3 total_pair_impulse{};
         double pair_impulse_scale = 0.0;
         for (int particle = 0; particle < count_; ++particle) {
-            const int physical = storage_mode_ == StorageMode::CellSortedO4
+            const int physical = uses_cell_local_storage()
                 ? sample_to_storage_host_[static_cast<std::size_t>(particle)] : particle;
             const auto convert = [](float3 value) {
                 return Vec3{value.x, value.y, value.z};
@@ -2812,7 +2911,7 @@ private:
             state.maximum_degree = std::max(
                 state.maximum_degree,
                 static_cast<std::size_t>(result.offsets[particle + 1] - result.offsets[particle]));
-            const int physical = storage_mode_ == StorageMode::CellSortedO4
+            const int physical = uses_cell_local_storage()
                 ? sample_to_storage_host_[static_cast<std::size_t>(particle)] : particle;
             state.energy.inertia += energy[5 * physical];
             state.energy.incompressibility += energy[5 * physical + 1];
@@ -2835,6 +2934,7 @@ private:
     StorageMode storage_mode_ = StorageMode::StableSampleV0;
     PairTraversalMode pair_traversal_mode_ = PairTraversalMode::SeparateRetained;
     NeighborEncodingMode neighbor_encoding_mode_ = NeighborEncodingMode::U32Retained;
+    DynamicStorageMode dynamic_storage_mode_ = DynamicStorageMode::Retained;
     bool compact_neighbor_ids_ = false;
     int count_ = 0;
     GridDescription grid_;
@@ -3128,7 +3228,8 @@ void append_discrepancy(std::ostringstream& output, const Discrepancy& discrepan
 }
 
 void append_timing(std::ostringstream& output, const StageTiming& timing) {
-    output << "{\"prediction_ms\":" << timing.prediction
+    output << "{\"storage_remap_ms\":" << timing.storage_remap
+           << ",\"prediction_ms\":" << timing.prediction
            << ",\"neighbor_construction_ms\":" << timing.neighbor_construction
            << ",\"density_ms\":" << timing.density
            << ",\"buffer_reset_ms\":" << timing.buffer_reset
@@ -3184,7 +3285,9 @@ Statistics collect_statistics(
 void append_stage_statistics(
     std::ostringstream& output,
     const std::vector<StageTiming>& timings) {
-    output << "{\"prediction\":";
+    output << "{\"storage_remap\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::storage_remap));
+    output << ",\"prediction\":";
     append_statistics(output, collect_statistics(timings, &StageTiming::prediction));
     output << ",\"neighbor_construction\":";
     append_statistics(output, collect_statistics(timings, &StageTiming::neighbor_construction));
@@ -5572,6 +5675,69 @@ bool p2_stiff_i2_preflight() {
         && compact_memory_correspondence(fixture, retained_run, candidate_run);
 }
 
+bool p3_memory_correspondence(
+    const Fixture& fixture,
+    const CapturedRun& retained,
+    const CapturedRun& candidate) {
+    const std::size_t expected_storage = 33U * fixture.particles.size() + sizeof(int);
+    return candidate.neighbor_id_bytes == sizeof(std::uint16_t)
+        && candidate.storage_memory_bytes == expected_storage
+        && candidate.device_memory_bytes == retained.device_memory_bytes + expected_storage;
+}
+
+P1Preflight p3_tiny_preflight() {
+    P1Preflight result;
+    const Tolerances tolerances;
+    for (const Fixture& fixture : oracle_fixtures()) {
+        if (!fixture.terms.incompressibility
+            || !(fixture.terms.bulk_viscosity || fixture.terms.shear_viscosity
+                || fixture.terms.surface_tension)) {
+            continue;
+        }
+        const OracleResult cpu = run_cpu_gather_oracle(fixture);
+        CudaBaseline retained(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1, NeighborEncodingMode::CompactU16P2);
+        CudaBaseline candidate(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1, NeighborEncodingMode::CompactU16P2,
+            DynamicStorageMode::DynamicCellLocalP3);
+        const CapturedRun retained_run = retained.execute(true);
+        const CapturedRun candidate_run = candidate.execute(true);
+        const bool passed = exact_p1_correspondence(
+                fixture, retained_run, candidate_run, tolerances)
+            && compare_results(fixture, cpu, candidate_run.state, tolerances).passed
+            && exact_fixture_neighbors(fixture, candidate_run)
+            && p3_memory_correspondence(fixture, retained_run, candidate_run)
+            && !candidate_run.storage_to_sample_sha256.empty()
+            && !candidate_run.sample_to_storage_sha256.empty();
+        if (!passed) {
+            result.passed = false;
+            if (result.first_failure.empty()) {
+                result.first_failure = fixture.name;
+            }
+        }
+    }
+    return result;
+}
+
+bool p3_stiff_i2_preflight() {
+    const Profile& profile = find_profile("nuv-surface-stiff-16k-i2.v1");
+    const Fixture fixture = performance_fixture(profile, 2);
+    CudaBaseline retained(
+        fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+        PairTraversalMode::FusedOwnerTermsP1, NeighborEncodingMode::CompactU16P2);
+    CudaBaseline candidate(
+        fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+        PairTraversalMode::FusedOwnerTermsP1, NeighborEncodingMode::CompactU16P2,
+        DynamicStorageMode::DynamicCellLocalP3);
+    const CapturedRun retained_run = retained.execute(true);
+    const CapturedRun candidate_run = candidate.execute(true);
+    return exact_p1_correspondence(
+               fixture, retained_run, candidate_run, profile.tolerances)
+        && p3_memory_correspondence(fixture, retained_run, candidate_run);
+}
+
 } // namespace
 
 CommandReport run_cuda_p1_check(
@@ -5999,6 +6165,253 @@ CommandReport run_cuda_p2_tournament(
     append_raw_totals(output, timings[1]);
     output << "}},\"device\":" << device_json() << '}';
     return {trace_exact && trace_memory_exact, output.str()};
+}
+
+CommandReport run_cuda_p3_check(
+    const Profile& profile,
+    int iterations) {
+    if (profile.record_version != 1 || iterations < 1 || iterations > 100
+        || profile.id == "nuv-water-100k-report.v1") {
+        throw std::invalid_argument(
+            "P3 check requires an eligible v1 profile and 1..=100 iterations");
+    }
+    const CommandReport p2_check = run_cuda_p2_check(profile, iterations);
+    const P1Preflight tiny = p3_tiny_preflight();
+    const bool stiff_i2 = p3_stiff_i2_preflight();
+    const Fixture fixture = performance_fixture(profile, iterations);
+    CudaBaseline retained(
+        fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+        PairTraversalMode::FusedOwnerTermsP1, NeighborEncodingMode::CompactU16P2);
+    CudaBaseline candidate(
+        fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+        PairTraversalMode::FusedOwnerTermsP1, NeighborEncodingMode::CompactU16P2,
+        DynamicStorageMode::DynamicCellLocalP3);
+    const CapturedRun retained_run = retained.execute(true);
+    const CapturedRun candidate_run = candidate.execute(true);
+    const bool exact = exact_p1_correspondence(
+        fixture, retained_run, candidate_run, profile.tolerances);
+    const bool memory_exact = p3_memory_correspondence(
+        fixture, retained_run, candidate_run);
+    const bool maps_valid = candidate_run.storage_map_valid
+        && !candidate_run.storage_to_sample_sha256.empty()
+        && !candidate_run.sample_to_storage_sha256.empty();
+    const bool passed = p2_check.passed && tiny.passed && stiff_i2
+        && exact && memory_exact && maps_valid;
+
+    std::ostringstream output;
+    output << std::setprecision(17);
+    output << "{\"schema\":\"nextengine.nonlocal.p3_check.v1\",\"status\":\""
+           << (passed ? "PASS" : "FAIL") << "\",\"candidate_class\":\"EXACT_WORK\""
+           << ",\"candidate_identity\":\"dynamic-cell-local-p3\",\"profile_id\":\""
+           << profile.id << "\",\"iterations\":" << iterations
+           << ",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
+           << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
+           << "\",\"binary_sha256\":\"" << executable_hash()
+           << "\",\"correctness\":{\"p2_check_passed\":"
+           << (p2_check.passed ? "true" : "false")
+           << ",\"tiny_cpu_oracle_passed\":" << (tiny.passed ? "true" : "false")
+           << ",\"tiny_first_failure\":\"" << tiny.first_failure
+           << "\",\"stiff_surface_i2_passed\":" << (stiff_i2 ? "true" : "false")
+           << ",\"target_exact\":" << (exact ? "true" : "false")
+           << ",\"memory_exact\":" << (memory_exact ? "true" : "false")
+           << ",\"maps_valid\":" << (maps_valid ? "true" : "false") << '}'
+           << ",\"retained\":{\"ordered_output_sha256\":\""
+           << ordered_output_digest(retained_run.state) << "\",\"logical_csr_sha256\":\""
+           << csr_digest(retained_run) << "\",\"device_memory_bytes\":"
+           << retained_run.device_memory_bytes << ",\"timing\":";
+    append_timing(output, retained_run.timing);
+    output << "},\"candidate\":{\"ordered_output_sha256\":\""
+           << ordered_output_digest(candidate_run.state)
+           << "\",\"logical_csr_sha256\":\"" << csr_digest(candidate_run)
+           << "\",\"device_memory_bytes\":" << candidate_run.device_memory_bytes
+           << ",\"storage_memory_bytes\":" << candidate_run.storage_memory_bytes
+           << ",\"storage_to_sample_sha256\":\""
+           << candidate_run.storage_to_sample_sha256
+           << "\",\"sample_to_storage_sha256\":\""
+           << candidate_run.sample_to_storage_sha256 << "\",\"timing\":";
+    append_timing(output, candidate_run.timing);
+    output << "},\"device\":" << device_json() << '}';
+    return {passed, output.str()};
+}
+
+CommandReport run_cuda_p3_tournament(
+    const Profile& profile,
+    int warmup,
+    int runs) {
+    if (profile.record_version != 1 || warmup != 32 || runs != 96
+        || profile.id == "nuv-water-100k-report.v1") {
+        throw std::invalid_argument(
+            "P3 tournament requires eligible v1 --warmup 32 --runs 96");
+    }
+    if (profile.id == "nuv-surface-stiff-16k-i2.v1") {
+        throw std::invalid_argument("P3 tournament requires an adjacent decision profile");
+    }
+    const CommandReport check = run_cuda_p3_check(profile, profile.fixed_iterations);
+    const Fixture fixture = performance_fixture(profile, profile.fixed_iterations);
+    CudaBaseline retained(
+        fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+        PairTraversalMode::FusedOwnerTermsP1, NeighborEncodingMode::CompactU16P2);
+    CudaBaseline candidate(
+        fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+        PairTraversalMode::FusedOwnerTermsP1, NeighborEncodingMode::CompactU16P2,
+        DynamicStorageMode::DynamicCellLocalP3);
+
+    bool trace_exact = check.passed;
+    bool trace_memory_exact = true;
+    bool trace_maps_valid = true;
+    int first_trace_mismatch = -1;
+    std::ostringstream trace_material;
+    std::string prior_state_digest = fixture_input_hash(fixture);
+    retained.reset_seed();
+    candidate.reset_seed();
+    const int trace_length = profile.advected ? profile.trace_length : 1;
+    CapturedRun retained_seed;
+    CapturedRun candidate_seed;
+    for (int step = 0; step < trace_length; ++step) {
+        CapturedRun retained_run = retained.execute(true, profile.advected);
+        CapturedRun candidate_run = candidate.execute(true, profile.advected);
+        const bool step_exact = exact_p1_correspondence(
+            fixture, retained_run, candidate_run, profile.tolerances);
+        const bool step_memory = p3_memory_correspondence(
+            fixture, retained_run, candidate_run);
+        const bool step_maps = candidate_run.storage_map_valid
+            && !candidate_run.storage_to_sample_sha256.empty()
+            && !candidate_run.sample_to_storage_sha256.empty();
+        if ((!step_exact || !step_memory || !step_maps) && first_trace_mismatch < 0) {
+            first_trace_mismatch = step;
+        }
+        trace_exact = trace_exact && step_exact;
+        trace_memory_exact = trace_memory_exact && step_memory;
+        trace_maps_valid = trace_maps_valid && step_maps;
+        const std::string logical_csr_sha256 = csr_digest(retained_run);
+        const std::string membership_sha256 =
+            canonical_lattice_csr_digest(fixture, retained_run);
+        const std::string output_sha256 = ordered_output_digest(retained_run.state);
+        const std::string state_sha256 = handoff_digest(retained_run.state);
+        trace_material << step << '|' << prior_state_digest << '|' << logical_csr_sha256
+                       << '|' << membership_sha256 << '|' << output_sha256 << '|'
+                       << state_sha256 << '|' << candidate_run.storage_to_sample_sha256 << '|'
+                       << candidate_run.sample_to_storage_sha256 << '|';
+        prior_state_digest = state_sha256;
+        if (step == 0) {
+            retained_seed = std::move(retained_run);
+            candidate_seed = std::move(candidate_run);
+        }
+    }
+    const std::string trace_sha256 = sha256_hex(trace_material.str());
+    constexpr int CONDITIONING_RUNS = 256;
+    std::array<CudaBaseline*, 2> implementations = {&retained, &candidate};
+    const auto execute_round = [&](int round, bool capture, std::vector<StageTiming>* timings) {
+        for (int position = 0; position < 2; ++position) {
+            const int identity = (round + position) % 2;
+            CapturedRun run = implementations[static_cast<std::size_t>(identity)]->execute(
+                capture, profile.advected);
+            if (run.local_solve_failed || !run.neighbor_build_valid
+                || !run.storage_map_valid) {
+                throw std::runtime_error("P3 identity failed during tournament");
+            }
+            if (timings != nullptr) {
+                timings[identity].push_back(run.timing);
+            }
+        }
+        if (profile.advected && (round + 1) % profile.trace_length == 0) {
+            retained.reset_seed();
+            candidate.reset_seed();
+        }
+    };
+
+    retained.reset_seed();
+    candidate.reset_seed();
+    for (int round = 0; round < CONDITIONING_RUNS; ++round) {
+        execute_round(round, false, nullptr);
+    }
+    retained.reset_seed();
+    candidate.reset_seed();
+    for (int round = 0; round < warmup; ++round) {
+        execute_round(round, false, nullptr);
+    }
+    if (profile.advected) {
+        retained.reset_seed();
+        candidate.reset_seed();
+    }
+    std::vector<StageTiming> timings[2];
+    timings[0].reserve(static_cast<std::size_t>(runs));
+    timings[1].reserve(static_cast<std::size_t>(runs));
+    for (int round = 0; round < runs; ++round) {
+        execute_round(round, false, timings);
+    }
+
+    const Statistics retained_total = collect_statistics(timings[0], &StageTiming::total);
+    const Statistics candidate_total = collect_statistics(timings[1], &StageTiming::total);
+    const Statistics retained_pair = statistics(pair_stage_values(timings[0], true));
+    const Statistics candidate_pair = statistics(pair_stage_values(timings[1], true));
+    const double total_speedup = retained_total.p95 / candidate_total.p95;
+    const double pair_speedup = retained_pair.p95 / candidate_pair.p95;
+    const bool improvement_gate = total_speedup >= 1.05;
+    const bool regression_gate = candidate_total.p95 <= retained_total.p95 * 1.02;
+    const bool permuted_profile = profile.id == "nuv-water-50k-permuted.v1";
+    const bool coherent_control = profile.id == "nuv-water-50k-coherent.v1";
+    const bool profile_gate = permuted_profile ? improvement_gate
+        : (coherent_control ? true : regression_gate);
+    const bool select_candidate_for_profile = improvement_gate;
+    const std::size_t added_memory = candidate_seed.device_memory_bytes
+        - retained_seed.device_memory_bytes;
+
+    std::ostringstream output;
+    output << std::setprecision(17);
+    output << "{\"schema\":\"nextengine.nonlocal.p3_tournament.v1\",\"status\":\""
+           << (trace_exact && trace_memory_exact && trace_maps_valid ? "PASS" : "FAIL")
+           << "\",\"candidate_class\":\"EXACT_WORK\""
+           << ",\"candidate_identity\":\"dynamic-cell-local-p3\",\"profile_id\":\""
+           << profile.id << "\",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(profile)) << "\",\"input_sha256\":\""
+           << fixture_input_hash(fixture) << "\",\"trace_sha256\":\"" << trace_sha256
+           << "\",\"binary_sha256\":\"" << executable_hash()
+           << "\",\"command\":\"nonlocal-feasibility --p3-tournament " << profile.id
+           << " --warmup 32 --runs 96\",\"conditioning_runs\":" << CONDITIONING_RUNS
+           << ",\"warmup_rounds\":" << warmup << ",\"measured_rounds\":" << runs
+           << ",\"rotation\":[[\"retained-p2\",\"candidate-p3\"],"
+              "[\"candidate-p3\",\"retained-p2\"]]"
+           << ",\"correctness\":{\"check_passed\":" << (check.passed ? "true" : "false")
+           << ",\"trace_exact\":" << (trace_exact ? "true" : "false")
+           << ",\"trace_memory_exact\":" << (trace_memory_exact ? "true" : "false")
+           << ",\"trace_maps_valid\":" << (trace_maps_valid ? "true" : "false")
+           << ",\"first_trace_mismatch\":" << first_trace_mismatch
+           << ",\"retained_seed_output_sha256\":\""
+           << ordered_output_digest(retained_seed.state)
+           << "\",\"candidate_seed_output_sha256\":\""
+           << ordered_output_digest(candidate_seed.state)
+           << "\",\"logical_csr_sha256\":\"" << csr_digest(retained_seed)
+           << "\",\"storage_to_sample_sha256\":\""
+           << candidate_seed.storage_to_sample_sha256
+           << "\",\"sample_to_storage_sha256\":\""
+           << candidate_seed.sample_to_storage_sha256 << "\"}"
+           << ",\"retention\":{\"coherent_negative_control\":"
+           << (coherent_control ? "true" : "false")
+           << ",\"improvement_gate\":" << (improvement_gate ? "true" : "false")
+           << ",\"regression_gate\":" << (regression_gate ? "true" : "false")
+           << ",\"profile_gate\":" << (profile_gate ? "true" : "false")
+           << ",\"select_candidate_for_profile\":"
+           << (select_candidate_for_profile ? "true" : "false")
+           << ",\"total_p95_speedup\":" << total_speedup
+           << ",\"pair_stage_p95_speedup\":" << pair_speedup
+           << ",\"retained_total_p95_ms\":" << retained_total.p95
+           << ",\"candidate_total_p95_ms\":" << candidate_total.p95
+           << ",\"retained_pair_stage_p95_ms\":" << retained_pair.p95
+           << ",\"candidate_pair_stage_p95_ms\":" << candidate_pair.p95 << '}'
+           << ",\"memory\":{\"retained_bytes\":" << retained_seed.device_memory_bytes
+           << ",\"candidate_bytes\":" << candidate_seed.device_memory_bytes
+           << ",\"added_storage_bytes\":" << added_memory << '}'
+           << ",\"identities\":{\"retained_p2\":{\"statistics\":";
+    append_stage_statistics(output, timings[0]);
+    output << ",\"raw_total_ms\":";
+    append_raw_totals(output, timings[0]);
+    output << "},\"candidate_p3\":{\"statistics\":";
+    append_stage_statistics(output, timings[1]);
+    output << ",\"raw_total_ms\":";
+    append_raw_totals(output, timings[1]);
+    output << "}},\"device\":" << device_json() << '}';
+    return {trace_exact && trace_memory_exact && trace_maps_valid, output.str()};
 }
 
 } // namespace nextengine::nonlocal

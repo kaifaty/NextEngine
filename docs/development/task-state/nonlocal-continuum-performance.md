@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_IMPLEMENTATION / NP1_P3 / REPORT_ONLY` |
+| Status | `ACTIVE_IMPLEMENTATION / NP1_P4 / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-performance` |
 | Scope | Design and execute a representative exact-50k Nonlocal performance reclosure |
@@ -11,14 +11,13 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** P2 is retained with exact traces and direct compact
-  construction. Coherent/advected 50k adjacent p95 are `3.8496/3.0927 ms`;
-  their p99 are `3.9403/3.1808 ms`. This is not the final decision campaign.
-- **Why:** compact IDs improve total p95 by `8.4–28.0%`, save `6.144–19.2 MB`
-  and preserve exact P1 arithmetic; 100k falls back exactly to `u32`.
-- **Next action:** implement the specified P3 dynamic cell-local storage on
-  P1+P2, including canonical scatter and all sort/map costs in total timing.
-- **Current blocker:** None for P3.
+- **Current conclusion:** P3 is exact and gives `1.779x` on permuted 50k, but
+  is not retained because viscous/surface controls regress `2.11/3.15%`.
+- **Why:** the complete remap is valuable for deliberately disordered IDs but
+  not a safe universal layer without a separately proven cheap classifier.
+- **Next action:** specify P4 certified Verlet-skin neighbor reuse on retained
+  P2, including exact active-horizon filtering and rebuild certificates.
+- **Current blocker:** None for P4.
 - **Do not retry:** O3 endpoint pre-addition or coherent-lattice O4 tuning;
   their numeric/performance failures are closed evidence.
 - **Reconsider when:** a v1 dynamic profile exposes materially different
@@ -39,7 +38,8 @@
 | [P1 evidence](../nonlocal-continuum-np1-p1-evidence-2026-08-20.md) | `P1_RETAINED / P2_NEXT` | exact trace equality, no spills, adjacent speedups and raw hashes frozen |
 | [P2 specification](../../plans/nonlocal-continuum-performance/03-np1-p2-compact-csr.md) | `COMPLETE / RETAINED / P3_INPUT` | direct compact construction, exact fallback and rollback gate frozen |
 | [P2 evidence](../nonlocal-continuum-np1-p2-evidence-2026-08-20.md) | `P2_RETAINED / P3_NEXT` | exact compact/fallback paths, adjacent speedups and memory receipts frozen |
-| [P3 specification](../../plans/nonlocal-continuum-performance/04-np1-p3-dynamic-cell-local.md) | `SPECIFIED / IMPLEMENTATION_NEXT` | stable identity, timed remap/scatter and conditional rollback gate frozen |
+| [P3 specification](../../plans/nonlocal-continuum-performance/04-np1-p3-dynamic-cell-local.md) | `COMPLETE / NOT_RETAINED / P2_ROLLBACK` | stable identity, timed remap/scatter and conditional rollback gate frozen |
+| [P3 evidence](../nonlocal-continuum-np1-p3-evidence-2026-08-20.md) | `P3_NOT_RETAINED / P2_ROLLBACK / P4_NEXT` | exact dynamic remap and positive/negative locality boundary frozen |
 
 ## Decisions that still constrain the work
 

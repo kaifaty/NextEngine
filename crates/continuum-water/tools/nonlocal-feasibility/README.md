@@ -62,6 +62,10 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --p2-check nuv-water-100k-report.v1 --iterations 5
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --p2-tournament nuv-water-50k-advected.v1 --warmup 32 --runs 96
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --p3-check nuv-surface-stiff-16k-i2.v1 --iterations 2
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --p3-tournament nuv-water-50k-permuted.v1 --warmup 32 --runs 96
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -140,3 +144,9 @@ with `compact-csr-u16-p2`. Eligible fixtures build directly into a 16-bit
 neighbor array; row offsets remain checked 32-bit values. Capture widens IDs
 outside timing for representation-neutral logical CSR hashing. Profiles above
 65,535 samples explicitly fall back to the retained 32-bit representation.
+
+`--p3-check` and `--p3-tournament` add `dynamic-cell-local-p3` to retained P2.
+Every solve radix-sorts stable material IDs by horizon cell, gathers physical
+SoA state, executes the exact P1+P2 arithmetic and scatters an advected result
+back to stable-ID order. Sort, map, gather and scatter are timed. Captures
+validate inverse maps and remap output/CSR to canonical IDs outside timing.
