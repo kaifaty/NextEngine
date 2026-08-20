@@ -12,5 +12,6 @@ struct SplitBoundaryReport {
 SplitBoundaryReport run_split_static_boundary_controls();
 SplitBoundaryReport run_boundary_composition_smoke_controls();
 SplitBoundaryReport run_boundary_reaction_accuracy_controls();
+SplitBoundaryReport run_displacement_ownership_controls();
 
 } // namespace nextengine::nonlocal::fcr

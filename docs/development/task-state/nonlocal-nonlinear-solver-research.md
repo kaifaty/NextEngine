@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_DISPLACEMENT_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B3D1_FAIL_ENERGY_RESOLUTION / NSR3B3D2_DIFFERENCE_RESEARCH` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -133,12 +133,19 @@
   the computed forward bound, but cumulative `|x|/h` bounds exceed the
   `1e-10*M*c` budget at 192/384 substeps. The certificate is correctly
   rejected; B3 retry remains blocked.
-- **Current decision:** retain transient accepted displacement as the next
-  candidate source for velocity, rather than subtracting world positions.
-- **Current action:** implement frozen B3D1 displacement ownership and its
-  `|delta|/h` forward-error/correspondence gates.
-- **Next gate:** B3D1 must close inactive cumulative certification and retain
-  active reaction-aware accuracy before B3R can be designed.
+- **Current conclusion:** D1 displacement ownership removes the diagnosed
+  `|x|/h` cancellation on every completed prefix; its cumulative bound is
+  only `2.90e-12--1.36e-11`, versus up to `4.03e-7` previously.
+- **Current conclusion:** D1 nevertheless fails all six full traces at
+  `REACTION_BELOW_ENERGY_RESOLUTION`. Required predicted decreases are
+  `4.55e-24--1.25e-20`, while the inherited absolute floor is `2.27e-13` and
+  reaction residual remains `1.10x--23.6x` above its mixed limit.
+- **Current decision:** preserve D1 FAIL and retain displacement ownership as
+  a representation candidate only. Do not accept an unresolved energy step.
+- **Current action:** derive and freeze a per-term objective-difference
+  discriminator with a binary64 sign/error certificate.
+- **Next gate:** D2 must resolve the same objective decrement without changing
+  the reaction tolerance, objective or contact semantics before B3R design.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -387,6 +394,20 @@
 - **Consequence:** no public state changes. B3 remains failed until D1 proves
   the representation and a separately frozen B3R passes composition.
 
+### D-024 -- Preserve D1 failure and remove total-energy cancellation
+
+- **Observation:** displacement ownership lowers the completed-prefix
+  reconstruction bound by roughly four orders, and both inherited active
+  replays still pass. Full traces instead stop when the predicted objective
+  decrement is `1e7--1e10` below the inherited `max(|E|,1)` energy floor while
+  reaction closure is not yet satisfied.
+- **Decision:** preserve D1 FAIL. Research a direct difference form for every
+  unchanged objective term and require a derived roundoff interval to prove
+  the sign used by the trust ratio.
+- **Consequence:** no threshold relaxation or B3 retry is authorized. A direct
+  difference implementation must replay D1 exactly until the first floor and
+  must retain displacement ownership and all reaction/contact gates.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -399,12 +420,12 @@
 
 ## Exact next action
 
-1. Implement displacement-owned prediction, accepted trust correction and
-   contact correction in the report-only oracle.
-2. Re-run B3D fixed ladders and active captures with the new bound, exact
-   transient storage and old-path correspondence.
-3. Select a B3R input or preserve B3 FAIL without changing physical/contact
-   semantics.
+1. Derive the algebraic objective decrement for compression and inertia terms
+   without subtracting two accumulated totals.
+2. Derive a binary64 absolute error bound for that arithmetic graph and freeze
+   exact sign/ambiguity behavior before implementation.
+3. Replay the six D1 first-floor states; only then consider a full trajectory
+   candidate. Preserve B3 and D1 failures unchanged.
 
 ## Reconsideration triggers
 

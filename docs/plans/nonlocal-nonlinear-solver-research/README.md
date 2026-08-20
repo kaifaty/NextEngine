@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FROZEN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / REPORT_ONLY`
 
 Candidate identity:
 
@@ -233,3 +233,9 @@ The follow-up [D1 research](../../development/nonlocal-nsr3b3d1-displacement-own
 selects transient substep displacement as the next falsifiable representation.
 Its [frozen contract](03b3d1-displacement-ownership-contract.md) must remove
 world-position cancellation and retain the reaction-aware result before B3R.
+D1 removes the diagnosed cancellation on every completed prefix, but all six
+fixed trajectories stop at `REACTION_BELOW_ENERGY_RESOLUTION`; see the
+[dated evidence](../../development/nonlocal-nsr3b3d1-displacement-ownership-evidence-2026-08-21.md).
+Preserve D1 FAIL. Research a direct per-term objective-difference evaluator
+with a derived roundoff certificate before attempting B3R; do not weaken the
+reaction gate or reinterpret the inherited absolute energy floor as success.

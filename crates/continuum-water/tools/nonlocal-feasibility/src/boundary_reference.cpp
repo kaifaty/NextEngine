@@ -96,6 +96,7 @@ struct LayerControl {
 
 struct SweepResult {
     Vec3 position;
+    Vec3 displacement;
     Vec3 velocity;
     Vec3 fluid_impulse;
     Vec3 reaction;
@@ -1076,6 +1077,7 @@ struct SmoothSolve {
     bool passed = false;
     std::string failure;
     std::vector<Vec3> position;
+    std::vector<Vec3> displacement;
     Evaluation support;
     int outer_trials = 0;
     int accepted_trials = 0;
@@ -1098,6 +1100,7 @@ struct SmokeStep {
     std::string failure;
     std::vector<Vec3> position;
     std::vector<Vec3> velocity;
+    std::vector<Vec3> displacement;
     Vec3 fluid_support_impulse;
     Vec3 support_reaction;
     Vec3 fluid_contact_impulse;
@@ -1305,6 +1308,38 @@ double reconstruction_forward_bound(
         component_bound.z += MASS * local_gamma
             * (std::abs(predicted.z) / time_step
                 + std::abs(position[i].z) / time_step
+                + std::abs(v_star.z));
+        component_magnitude.x += std::abs(computed.x);
+        component_magnitude.y += std::abs(computed.y);
+        component_magnitude.z += std::abs(computed.z);
+    }
+    component_bound.x += summation_gamma * component_magnitude.x;
+    component_bound.y += summation_gamma * component_magnitude.y;
+    component_bound.z += summation_gamma * component_magnitude.z;
+    return norm(component_bound);
+}
+
+double displacement_forward_bound(
+    const std::vector<Vec3>& velocity,
+    Vec3 gravity,
+    double time_step) {
+    const double local_gamma = gamma_factor(4U);
+    const double summation_gamma = gamma_factor(
+        std::max<std::size_t>(velocity.size(), 2U) - 1U);
+    Vec3 component_bound;
+    Vec3 component_magnitude;
+    for (Vec3 value : velocity) {
+        const Vec3 v_star = value + time_step * gravity;
+        const Vec3 displacement = time_step * v_star;
+        const Vec3 computed = MASS * (displacement / time_step - v_star);
+        component_bound.x += MASS * local_gamma
+            * (std::abs(displacement.x) / time_step
+                + std::abs(v_star.x));
+        component_bound.y += MASS * local_gamma
+            * (std::abs(displacement.y) / time_step
+                + std::abs(v_star.y));
+        component_bound.z += MASS * local_gamma
+            * (std::abs(displacement.z) / time_step
                 + std::abs(v_star.z));
         component_magnitude.x += std::abs(computed.x);
         component_magnitude.y += std::abs(computed.y);
@@ -1569,14 +1604,18 @@ SmoothSolve solve_smooth_step(
     const std::vector<Vec3>& boundary,
     Vec3 gravity,
     double time_step,
-    bool reaction_aware = false) {
+    bool reaction_aware = false,
+    bool owned_displacement = false) {
     std::vector<Vec3> y_star(position.size());
+    std::vector<Vec3> predicted_displacement(position.size());
     for (std::size_t i = 0; i < position.size(); ++i) {
-        y_star[i] = position[i]
-            + time_step * (velocity[i] + time_step * gravity);
+        predicted_displacement[i] = time_step
+            * (velocity[i] + time_step * gravity);
+        y_star[i] = position[i] + predicted_displacement[i];
     }
     SmoothSolve result;
     result.position = y_star;
+    result.displacement = predicted_displacement;
     SmoothEvaluation current = smooth_evaluate(
         result.position, y_star, boundary, time_step);
     if (current.support.active_centers == 0U) {
@@ -1604,8 +1643,9 @@ SmoothSolve solve_smooth_step(
             current.support.gradient, 0U, position.size());
         Vec3 actual_impulse;
         for (std::size_t i = 0; i < position.size(); ++i) {
-            const Vec3 smooth_velocity =
-                (result.position[i] - position[i]) / time_step;
+            const Vec3 smooth_velocity = owned_displacement
+                ? result.displacement[i] / time_step
+                : (result.position[i] - position[i]) / time_step;
             actual_impulse += MASS * (
                 smooth_velocity - velocity[i] - time_step * gravity);
         }
@@ -1619,8 +1659,11 @@ SmoothSolve solve_smooth_step(
             1.0e-12,
         });
         result.reaction_mixed_limit = 1.0e-9 * impulse_scale
-            + reconstruction_forward_bound(
-                position, velocity, gravity, time_step);
+            + (owned_displacement
+                    ? displacement_forward_bound(
+                        velocity, gravity, time_step)
+                    : reconstruction_forward_bound(
+                        position, velocity, gravity, time_step));
         const bool ordinary_converged =
             result.final_gradient_norm <= 1.0e-10
             || result.final_scaled_displacement_residual <= 1.0e-8;
@@ -1666,8 +1709,18 @@ SmoothSolve solve_smooth_step(
             result.convergence_stop = "NUMERICAL_ENERGY_FLOOR";
             return result;
         }
-        const std::vector<Vec3> trial_position =
-            add_scaled(result.position, step, 1.0);
+        std::vector<Vec3> trial_displacement = result.displacement;
+        std::vector<Vec3> trial_position;
+        if (owned_displacement) {
+            trial_displacement = add_scaled(
+                result.displacement, step, 1.0);
+            trial_position.resize(position.size());
+            for (std::size_t i = 0; i < position.size(); ++i) {
+                trial_position[i] = position[i] + trial_displacement[i];
+            }
+        } else {
+            trial_position = add_scaled(result.position, step, 1.0);
+        }
         SmoothEvaluation trial = smooth_evaluate(
             trial_position, y_star, boundary, time_step);
         const double actual = current.total - trial.total;
@@ -1684,6 +1737,9 @@ SmoothSolve solve_smooth_step(
             result.minimum_accepted_ratio = std::min(
                 result.minimum_accepted_ratio, ratio);
             result.position = trial_position;
+            if (owned_displacement) {
+                result.displacement = trial_displacement;
+            }
             current = std::move(trial);
         } else {
             ++result.rejected_trials;
@@ -1743,18 +1799,66 @@ SweepResult sweep_lower_planes(
     return result;
 }
 
+SweepResult sweep_lower_planes_owned(
+    Vec3 start,
+    Vec3 smooth_displacement,
+    const std::array<bool, 3>& lower_contact,
+    double time_step) {
+    SweepResult result;
+    result.displacement = smooth_displacement;
+    const Vec3 tentative = start + smooth_displacement;
+    const Vec3 incoming_velocity = smooth_displacement / time_step;
+    constexpr std::array<int, 3> feature = {0, 2, 4};
+    for (int axis = 0; axis < 3; ++axis) {
+        if (!lower_contact[static_cast<std::size_t>(axis)]) {
+            continue;
+        }
+        const double start_value = component(start, axis);
+        const double tentative_value = component(tentative, axis);
+        const double displacement = component(smooth_displacement, axis);
+        if (tentative_value < RADIUS && displacement < 0.0) {
+            const double toi = (RADIUS - start_value) / displacement;
+            if (!std::isfinite(toi) || toi < 0.0 || toi > 1.0) {
+                throw std::runtime_error("invalid D1 lower-plane TOI");
+            }
+            set_component(result.displacement, axis,
+                RADIUS - start_value);
+            result.features.push_back(feature[static_cast<std::size_t>(axis)]);
+            result.earliest_time_of_impact = std::min(
+                result.earliest_time_of_impact, toi);
+        }
+    }
+    std::sort(result.features.begin(), result.features.end());
+    result.position = start + result.displacement;
+    result.velocity = result.displacement / time_step;
+    result.fluid_impulse = MASS * (result.velocity - incoming_velocity);
+    result.reaction = -result.fluid_impulse;
+    for (int axis = 0; axis < 3; ++axis) {
+        if (lower_contact[static_cast<std::size_t>(axis)]) {
+            result.maximum_penetration = std::max(
+                result.maximum_penetration,
+                RADIUS - component(result.position, axis));
+        }
+    }
+    result.maximum_penetration = std::max(result.maximum_penetration, 0.0);
+    return result;
+}
+
 SmokeStep execute_smoke_step(
     const SmokeFixture& fixture,
     const std::vector<Vec3>& position,
     const std::vector<Vec3>& velocity,
     double time_step,
     bool enforce_ledger = true,
-    bool reaction_aware = false) {
+    bool reaction_aware = false,
+    bool owned_displacement = false) {
     SmokeStep result;
     result.position = position;
     result.velocity = velocity;
+    result.displacement.resize(position.size());
     result.smooth = solve_smooth_step(position, velocity,
-        fixture.boundary, fixture.gravity, time_step, reaction_aware);
+        fixture.boundary, fixture.gravity, time_step,
+        reaction_aware, owned_displacement);
     if (!result.smooth.passed) {
         result.failure = "SMOOTH_SOLVE:" + result.smooth.failure;
         return result;
@@ -1781,18 +1885,30 @@ SmokeStep execute_smoke_step(
     Vec3 actual_support_impulse;
     Vec3 reconstruction_defect;
     for (std::size_t i = 0; i < position.size(); ++i) {
-        smooth_velocity[i] = (result.smooth.position[i] - position[i])
-            / time_step;
+        smooth_velocity[i] = owned_displacement
+            ? result.smooth.displacement[i] / time_step
+            : (result.smooth.position[i] - position[i]) / time_step;
         const Vec3 v_star = velocity[i] + time_step * fixture.gravity;
         actual_support_impulse += MASS * (smooth_velocity[i] - v_star);
-        const Vec3 predicted = position[i] + time_step * v_star;
-        reconstruction_defect += MASS
-            * ((predicted - position[i]) / time_step - v_star);
-        const SweepResult contact = sweep_lower_planes(
-            position[i], result.smooth.position[i],
-            fixture.lower_contact, time_step);
+        if (owned_displacement) {
+            const Vec3 predicted_displacement = time_step * v_star;
+            reconstruction_defect += MASS
+                * (predicted_displacement / time_step - v_star);
+        } else {
+            const Vec3 predicted = position[i] + time_step * v_star;
+            reconstruction_defect += MASS
+                * ((predicted - position[i]) / time_step - v_star);
+        }
+        const SweepResult contact = owned_displacement
+            ? sweep_lower_planes_owned(position[i],
+                result.smooth.displacement[i],
+                fixture.lower_contact, time_step)
+            : sweep_lower_planes(position[i], result.smooth.position[i],
+                fixture.lower_contact, time_step);
         result.position[i] = contact.position;
         result.velocity[i] = contact.velocity;
+        result.displacement[i] = owned_displacement
+            ? contact.displacement : contact.position - position[i];
         result.fluid_contact_impulse += contact.fluid_impulse;
         result.contact_reaction += contact.reaction;
         result.maximum_penetration = std::max(
@@ -1811,8 +1927,10 @@ SmokeStep execute_smoke_step(
     result.stationarity_defect =
         actual_support_impulse - result.fluid_support_impulse;
     result.reconstruction_defect = reconstruction_defect;
-    result.reconstruction_fp_bound = reconstruction_forward_bound(
-        position, velocity, fixture.gravity, time_step);
+    result.reconstruction_fp_bound = owned_displacement
+        ? displacement_forward_bound(velocity, fixture.gravity, time_step)
+        : reconstruction_forward_bound(
+            position, velocity, fixture.gravity, time_step);
     result.contact_defect =
         result.fluid_contact_impulse + result.contact_reaction;
     std::sort(result.contact_features.begin(), result.contact_features.end());
@@ -1832,13 +1950,29 @@ SmokeStep execute_smoke_step(
         result.fluid_contact_impulse + result.contact_reaction) <= 1.0e-12;
     bool reconstructed = true;
     for (std::size_t i = 0; i < position.size(); ++i) {
-        reconstructed = reconstructed
-            && result.velocity[i].x
-                == (result.position[i].x - position[i].x) / time_step
-            && result.velocity[i].y
-                == (result.position[i].y - position[i].y) / time_step
-            && result.velocity[i].z
-                == (result.position[i].z - position[i].z) / time_step;
+        if (owned_displacement) {
+            reconstructed = reconstructed
+                && result.position[i].x
+                    == position[i].x + result.displacement[i].x
+                && result.position[i].y
+                    == position[i].y + result.displacement[i].y
+                && result.position[i].z
+                    == position[i].z + result.displacement[i].z
+                && result.velocity[i].x
+                    == result.displacement[i].x / time_step
+                && result.velocity[i].y
+                    == result.displacement[i].y / time_step
+                && result.velocity[i].z
+                    == result.displacement[i].z / time_step;
+        } else {
+            reconstructed = reconstructed
+                && result.velocity[i].x
+                    == (result.position[i].x - position[i].x) / time_step
+                && result.velocity[i].y
+                    == (result.position[i].y - position[i].y) / time_step
+                && result.velocity[i].z
+                    == (result.position[i].z - position[i].z) / time_step;
+        }
     }
     const bool finite_state =
         std::all_of(result.position.begin(), result.position.end(),
@@ -2262,6 +2396,11 @@ struct ReactionTrace {
     Vec3 signed_cumulative_defect;
     double cumulative_l1_defect = 0.0;
     double direct_terminal_defect = 0.0;
+    double failure_reaction_defect = 0.0;
+    double failure_reaction_limit = 0.0;
+    double failure_predicted_reduction = 0.0;
+    double failure_energy_floor = 0.0;
+    double failure_scaled_residual = 0.0;
     Vec3 support_reaction;
     Vec3 contact_reaction;
     Vec3 gravity_impulse;
@@ -2302,7 +2441,10 @@ std::string hash_smoke_state(
 }
 
 ReactionTrace run_reaction_trace(
-    const SmokeFixture& fixture, int substeps_per_frame) {
+    const SmokeFixture& fixture,
+    int substeps_per_frame,
+    bool owned_displacement = false,
+    bool reaction_aware = false) {
     ReactionTrace result;
     result.substeps_per_frame = substeps_per_frame;
     result.final_position = fixture.position;
@@ -2314,10 +2456,20 @@ ReactionTrace run_reaction_trace(
     for (int substep = 0; substep < total_substeps; ++substep) {
         const SmokeStep step = execute_smoke_step(fixture,
             result.final_position, result.final_velocity,
-            time_step, false, false);
+            time_step, false, reaction_aware, owned_displacement);
         if (!step.passed) {
             result.failure = "SUBSTEP_" + std::to_string(substep)
                 + ':' + step.failure;
+            result.failure_reaction_defect =
+                step.smooth.reaction_stationarity_defect;
+            result.failure_reaction_limit =
+                step.smooth.reaction_mixed_limit;
+            result.failure_predicted_reduction =
+                step.smooth.last_predicted_reduction;
+            result.failure_energy_floor =
+                step.smooth.numerical_energy_floor;
+            result.failure_scaled_residual =
+                step.smooth.final_scaled_displacement_residual;
             return result;
         }
         ++result.steps;
@@ -2406,7 +2558,8 @@ ReactionTrace run_reaction_trace(
 ReactionReplay replay_reaction_aware(
     std::string name,
     const SmokeFixture& fixture,
-    const ReactionCapture& capture) {
+    const ReactionCapture& capture,
+    bool owned_displacement = false) {
     ReactionReplay result;
     result.name = std::move(name);
     result.state_sha256 = capture.state_sha256;
@@ -2420,7 +2573,7 @@ ReactionReplay replay_reaction_aware(
         capture.ordinary.stationarity_defect);
     const SmokeStep reaction = execute_smoke_step(fixture,
         capture.position, capture.velocity, capture.time_step,
-        false, true);
+        false, true, owned_displacement);
     result.reaction_outer_trials = reaction.smooth.outer_trials;
     result.reaction_hvp_calls = reaction.smooth.hvp_calls;
     result.reaction_stationarity_defect =
@@ -2440,8 +2593,10 @@ ReactionReplay replay_reaction_aware(
     for (std::size_t i = 0; i < capture.position.size(); ++i) {
         ordinary_velocity[i] = (capture.ordinary.smooth.position[i]
             - capture.position[i]) / capture.time_step;
-        reaction_velocity[i] = (reaction.smooth.position[i]
-            - capture.position[i]) / capture.time_step;
+        reaction_velocity[i] = owned_displacement
+            ? reaction.smooth.displacement[i] / capture.time_step
+            : (reaction.smooth.position[i]
+                - capture.position[i]) / capture.time_step;
     }
     result.velocity_change_c = rms_difference(
         ordinary_velocity, reaction_velocity) / std::sqrt(KAPPA / MASS);
@@ -2668,6 +2823,72 @@ void append_smoke_case(
            << (value.terminal_contacts_exact ? "true" : "false") << "}}";
 }
 
+struct DisplacementLevel {
+    bool passed = false;
+    int substeps_per_frame = 0;
+    ReactionTrace baseline;
+    ReactionTrace candidate;
+    double final_position_difference_dx = 0.0;
+    double final_velocity_difference_c = 0.0;
+};
+
+DisplacementLevel displacement_level(
+    const SmokeFixture& fixture, int substeps_per_frame) {
+    DisplacementLevel result;
+    result.substeps_per_frame = substeps_per_frame;
+    result.baseline = run_reaction_trace(fixture, substeps_per_frame);
+    result.candidate = run_reaction_trace(
+        fixture, substeps_per_frame, true, true);
+    if (result.baseline.steps == result.candidate.steps
+        && result.baseline.steps
+            == SMOKE_FRAMES * substeps_per_frame) {
+        result.final_position_difference_dx = rms_difference(
+            result.baseline.final_position,
+            result.candidate.final_position) / SPACING;
+        result.final_velocity_difference_c = rms_difference(
+            result.baseline.final_velocity,
+            result.candidate.final_velocity)
+            / std::sqrt(KAPPA / MASS);
+    } else {
+        result.final_position_difference_dx =
+            std::numeric_limits<double>::infinity();
+        result.final_velocity_difference_c =
+            std::numeric_limits<double>::infinity();
+    }
+    result.passed = result.baseline.passed && result.candidate.passed
+        && result.candidate.inactive_certified
+        && result.candidate.maximum_active_mixed_ratio <= 1.0
+        && result.final_position_difference_dx <= 1.0e-5
+        && result.final_velocity_difference_c <= 1.0e-5;
+    return result;
+}
+
+void append_displacement_level(
+    std::ostringstream& output, const DisplacementLevel& value) {
+    output << std::setprecision(17)
+           << "{\"substeps_per_frame\":" << value.substeps_per_frame
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL") << '"'
+           << ",\"final_position_difference_dx\":"
+           << value.final_position_difference_dx
+           << ",\"final_velocity_difference_c\":"
+           << value.final_velocity_difference_c
+           << ",\"baseline\":";
+    append_reaction_trace(output, value.baseline);
+    output << ",\"candidate\":";
+    append_reaction_trace(output, value.candidate);
+    output << ",\"candidate_failure_diagnostic\":{\"reaction_defect\":"
+           << value.candidate.failure_reaction_defect
+           << ",\"reaction_limit\":"
+           << value.candidate.failure_reaction_limit
+           << ",\"predicted_reduction\":"
+           << value.candidate.failure_predicted_reduction
+           << ",\"energy_floor\":"
+           << value.candidate.failure_energy_floor
+           << ",\"scaled_residual\":"
+           << value.candidate.failure_scaled_residual << '}';
+    output << '}';
+}
+
 } // namespace
 
 SplitBoundaryReport run_boundary_composition_smoke_controls() {
@@ -2849,6 +3070,120 @@ SplitBoundaryReport run_boundary_reaction_accuracy_controls() {
            << ",\"result_sha256\":\""
            << sha256_hex(material.str()) << "\"}";
     return {diagnostic_valid, report.str()};
+}
+
+SplitBoundaryReport run_displacement_ownership_controls() {
+    const SplitBoundaryReport parent =
+        run_boundary_reaction_accuracy_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "d514d3085585c58ab61aa40c03d9b96c5d56c44bdcf40c6e0b72817f6ea1c16e";
+    const SmokeFixture face_fixture = make_face_smoke_fixture();
+    const SmokeFixture corner_fixture = make_corner_smoke_fixture();
+    constexpr std::array<int, 3> counts = {96, 192, 384};
+    std::array<DisplacementLevel, 3> face;
+    std::array<DisplacementLevel, 3> corner;
+    bool levels_passed = true;
+    for (std::size_t i = 0; i < counts.size(); ++i) {
+        face[i] = displacement_level(face_fixture, counts[i]);
+        corner[i] = displacement_level(corner_fixture, counts[i]);
+        levels_passed = levels_passed
+            && face[i].passed && corner[i].passed;
+    }
+    const ReactionReplay face_replay = replay_reaction_aware(
+        "face-precontact-192-owned", face_fixture,
+        face[1].baseline.precontact, true);
+    const ReactionReplay corner_replay = replay_reaction_aware(
+        "corner-contact-192-owned", corner_fixture,
+        corner[1].baseline.contact, true);
+    const bool storage_valid = 24U * face_fixture.position.size()
+            == sizeof(Vec3) * face_fixture.position.size()
+        && 24U * corner_fixture.position.size()
+            == sizeof(Vec3) * corner_fixture.position.size();
+    const bool passed = parent_exact && levels_passed
+        && face_replay.passed && corner_replay.passed
+        && storage_valid;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B3D1_PARENT";
+    } else if (!levels_passed) {
+        first_failure = "NSR3B3D1_DISPLACEMENT_CERTIFICATE";
+    } else if (!face_replay.passed) {
+        first_failure = "NSR3B3D1_FACE_REACTION";
+    } else if (!corner_replay.passed) {
+        first_failure = "NSR3B3D1_CORNER_REACTION";
+    } else if (!storage_valid) {
+        first_failure = "NSR3B3D1_STORAGE";
+    }
+    const std::string disposition = passed
+        ? "DISPLACEMENT_OWNED_REACTION_CANDIDATE"
+        : !levels_passed
+            ? "DISPLACEMENT_CERTIFICATE_REJECTED"
+            : "REACTION_AWARE_DISPLACEMENT_REJECTED";
+
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << disposition << '|' << face_replay.passed << ':'
+             << face_replay.reaction_stationarity_defect << '|'
+             << corner_replay.passed << ':'
+             << corner_replay.reaction_stationarity_defect;
+    for (const DisplacementLevel& value : face) {
+        material << '|' << value.substeps_per_frame << ':' << value.passed
+                 << ':' << value.candidate.cumulative_fp_bound << ':'
+                 << value.final_position_difference_dx << ':'
+                 << value.final_velocity_difference_c;
+    }
+    for (const DisplacementLevel& value : corner) {
+        material << '|' << value.substeps_per_frame << ':' << value.passed
+                 << ':' << value.candidate.cumulative_fp_bound << ':'
+                 << value.final_position_difference_dx << ':'
+                 << value.final_velocity_difference_c;
+    }
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b3d1_displacement.v1\""
+           << ",\"identity\":\"owned-substep-displacement-r0\""
+           << ",\"parent_b3d_result_sha256\":\"e99cda02f945e8402e6f4ca30742853c1fa29f1c845ed5c8a24db180877fa3b1\""
+           << ",\"parent_b3d_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"transient_storage\":{\"bytes_per_fluid_sample\":24"
+           << ",\"face_bytes\":"
+           << 24U * face_fixture.position.size()
+           << ",\"corner_bytes\":"
+           << 24U * corner_fixture.position.size()
+           << ",\"valid\":" << (storage_valid ? "true" : "false") << '}'
+           << ",\"levels\":{\"face\":[";
+    for (std::size_t i = 0; i < face.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_displacement_level(report, face[i]);
+    }
+    report << "],\"corner\":[";
+    for (std::size_t i = 0; i < corner.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_displacement_level(report, corner[i]);
+    }
+    report << "]},\"reaction_aware_replays\":[";
+    append_reaction_replay(report, face_replay);
+    report << ',';
+    append_reaction_replay(report, corner_replay);
+    report << "]"
+           << ",\"candidate_selected\":" << (passed ? "true" : "false")
+           << ",\"b3r_design_authorized\":" << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
 }
 
 } // namespace nextengine::nonlocal::fcr
