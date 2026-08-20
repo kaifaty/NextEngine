@@ -1,6 +1,6 @@
 # FCR3-B1 — SISSM term-localized coupling discriminator
 
-Status: `FROZEN FOR IMPLEMENTATION / REPORT_ONLY`
+Status: `PASS / ISOLATED_PRESSURE_SELECTED / REPORT_ONLY`
 
 ## Fixture
 
@@ -34,3 +34,7 @@ as FCR3-B. Performance is reported but does not gate this localization run.
 Two reports must be byte-identical and FCR0–FCR2 remain unchanged. The result
 authorizes one implementation remediation only inside the selected scope. It
 does not authorize Chebyshev or profile reclosure.
+
+The discriminator selected `isolated-P`: `P`, `PV`, `PS` and `PVS` fail,
+while `V`, `S` and `VS` pass. See the
+[dated evidence](../../development/nonlocal-continuum-fcr3b1-term-local-evidence-2026-08-20.md).

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / FCR3B_V1_FAIL / TERM_LOCAL_NEXT` |
+| Status | `ACTIVE / FCR3B1_PRESSURE_SELECTED / PAPER_LITERAL_SPLIT_NEXT` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-formula-reclosure` |
 | Scope | Prove or reject a separately rooted energy/force-consistent Nonlocal continuum identity through algebra, physical, CUDA and performance gates |
@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Corrected SISSM passes isolated terms but fails combined gradient/cost; one minimal-combination discriminator is required.
-- **Why:** combined ends at `3.68e-3` versus FCR2 `3.31e-6`, while every isolated term passes its quality gate.
-- **Next action:** Run the frozen tetrahedron with each term and pairwise term combination to localize the first coupling failure.
+- **Current conclusion:** The minimal fast-iteration failure is pressure-only; viscosity, surface and `VS` pass unchanged gates.
+- **Why:** pressure-only ends at `4.72e-3` versus FCR2 `6.47e-8`, and every mask containing pressure fails.
+- **Next action:** Freeze and run one paper-literal Nonlocal Eq. 20/26 pressure split against the released-code/SISPH split used by v1.
 - **Current blocker:** None.
 - **Do not retry:** Repairing or retuning `nuv-basin-48k-static-support-h3-physical.v4`; its formula identity, coefficients and roots are closed historical evidence.
 - **Reconsider when:** Only a reviewed upstream erratum can change source interpretation; it still cannot relabel old roots.
@@ -31,6 +31,7 @@
 | `docs/development/nonlocal-continuum-fcr3a-block-evidence-2026-08-20.md` | `FAIL` | Pure block v1 rejected; exactly one hybrid v2 remediation allowed |
 | `docs/development/nonlocal-continuum-fcr3a-hybrid-evidence-2026-08-20.md` | `FAIL` | Conditioning branch closed; FCR3-B corrected SISSM is next |
 | `docs/development/nonlocal-continuum-fcr3b-sissm-v1-evidence-2026-08-20.md` | `FAIL` | Isolated terms pass; one term-localized combined discriminator authorized |
+| `docs/development/nonlocal-continuum-fcr3b1-term-local-evidence-2026-08-20.md` | `PASS / isolated-P` | One pressure-only paper-literal remediation authorized |
 
 ## Decisions that still constrain the work
 
@@ -80,7 +81,7 @@
 | --- | --- | --- | --- |
 | H1: compression-only is the stable free-surface rule | SISPH text, both author code paths, standard negative-pressure clamp | printed Eq. 7 is two-sided | FCR1 underdense pair and free-surface patch |
 | H2: one directed visit plus endpoint scatter is the clean coefficient implementation | Eq. 12/13 pair state and exact momentum closure | current neighbor graph likely stores both directions | FCR1 enumerated two-particle graph |
-| H3: corrected identity can converge at product cadence | unified coupling and SISSM stability examples | no unconditional convergence; product `dt` is larger than paper examples | FCR2/FCR3 residual and accepted-step sweeps |
+| H3: corrected identity can converge at product cadence | unified coupling and SISSM stability examples | released-code/SISPH pressure split stalls above the reference gate on the tetrahedron | paper-literal Eq. 20/26 pressure split |
 
 ## Required context
 
@@ -94,9 +95,9 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Execute pressure, viscosity, surface and the three pairwise combinations on the unchanged tetrahedron.
-2. Identify the first minimal combination that fails FCR2 quality.
-3. Permit remediation only inside that term coupling; do not tune material coefficients.
+1. Transcribe literal Nonlocal Eq. 20 and Eq. 26 pressure coefficients on the unchanged tetrahedron.
+2. Compare it with the v1 split under the same 80-iteration reference/objective gate.
+3. Stop the fast-solver branch if this sole pressure remediation fails; do not tune material coefficients or iteration count.
 
 ## Do not retry
 
@@ -107,7 +108,7 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** branch `codex/nonlocal-continuum-n0`; corrected SISSM v1 committed at `db27ad7`; failure evidence/roadmap update is the current change.
-- **Checks:** FCR3-B v1 FAIL twice byte-identically; all isolated term cases pass; FCR2 PASS unchanged.
+- **Workspace state:** branch `codex/nonlocal-continuum-n0`; FCR3-B1 implementation committed at `ee91248`; evidence/roadmap update is the current change.
+- **Checks:** FCR3-B1 PASS twice byte-identically; `isolated-P` selected; FCR0–FCR2 PASS unchanged.
 - **Remaining risk:** Pair enumeration, nonlinear convergence, coefficient calibration and corrected CUDA cost remain open.
 - **Promotion needed:** Roadmap/evidence updates at each material gate; architecture promotion remains forbidden.

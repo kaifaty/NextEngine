@@ -1,6 +1,6 @@
 # Nonlocal continuum — formula reclosure roadmap
 
-Status: `ACTIVE / FCR2_PASS / FCR3_NEXT / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `ACTIVE / FCR2_PASS / FCR3B1_PRESSURE_SELECTED / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
 
 This roadmap is a new research lineage. It does not repair or relabel the
 stopped source-shaped profile `nuv-basin-48k-static-support-h3-physical.v4`.
@@ -90,6 +90,8 @@ FCR2 now passes and supplies the slow
 [variational-reference evidence](../../development/nonlocal-continuum-fcr2-reference-evidence-2026-08-20.md).
 It also exposes severe stiffness in pressure/combined cases. FCR3-A's
 pure-block and sole hybrid paths are now closed negative evidence.
-The active next action is the separately frozen
-[FCR3-B corrected SISSM discriminator](03b-corrected-sissm-contract.md),
-directly observed by the FCR2 objective. Profile selection remains blocked.
+FCR3-B v1 failed, and the frozen FCR3-B1 discriminator selected pressure as
+the minimal failing scope in its
+[dated evidence](../../development/nonlocal-continuum-fcr3b1-term-local-evidence-2026-08-20.md).
+The active next action is one pressure-only, paper-literal Eq. 20/26
+remediation. Profile selection remains blocked.

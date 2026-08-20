@@ -1,6 +1,6 @@
 # FCR3-B — corrected SISSM/reference correspondence
 
-Status: `V1 FAIL / TERM_LOCAL_DISCRIMINATOR NEXT / REPORT_ONLY`
+Status: `V1 FAIL / ISOLATED_PRESSURE_SELECTED / REPORT_ONLY`
 
 Predecessor: FCR2 reference `PASS`; FCR3-A conditioning branch `CLOSED FAIL`.
 
@@ -90,4 +90,6 @@ not authorize coefficient tuning or profile sweeps.
 
 V1 fails combined gradient/cost while all isolated term controls pass. See
 the [exact evidence](../../development/nonlocal-continuum-fcr3b-sissm-v1-evidence-2026-08-20.md).
-The one allowed term-localized combination discriminator is now active.
+The one allowed term-localized discriminator subsequently selected the
+pressure split as the minimal failing scope. See the
+[FCR3-B1 evidence](../../development/nonlocal-continuum-fcr3b1-term-local-evidence-2026-08-20.md).
