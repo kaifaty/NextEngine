@@ -247,16 +247,22 @@ watch(selectedDevice, () => {
   calibration.value = null;
 });
 
-watch(
-  [selectedAsrModel, asrDelayPresets],
-  () => {
-    const configured = numericValue(selectedTranscriber.value, "configured_delay_ms");
-    selectedAsrDelayMs.value =
-      configured !== null && asrDelayPresets.value.includes(configured)
-        ? configured
-        : asrDelayPresets.value[0] ?? null;
-  },
-);
+watch(selectedAsrModel, resetAsrDelayToConfigured);
+
+watch(asrDelayPresets, (presets) => {
+  const selected = selectedAsrDelayMs.value;
+  if (selected === null || !presets.includes(selected)) {
+    resetAsrDelayToConfigured();
+  }
+});
+
+function resetAsrDelayToConfigured(): void {
+  const configured = numericValue(selectedTranscriber.value, "configured_delay_ms");
+  selectedAsrDelayMs.value =
+    configured !== null && asrDelayPresets.value.includes(configured)
+      ? configured
+      : asrDelayPresets.value[0] ?? null;
+}
 
 async function refreshDevices(): Promise<void> {
   devices.value = await listAudioInputs();
