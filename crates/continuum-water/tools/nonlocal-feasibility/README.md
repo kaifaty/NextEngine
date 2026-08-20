@@ -21,6 +21,8 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --manufactured-multistep-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
   --temporal-stiffness-diagnostic
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
+  --floor-limited-temporal-oracle
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --describe-profile nuv-water-48k.v0
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --cpu-self-test

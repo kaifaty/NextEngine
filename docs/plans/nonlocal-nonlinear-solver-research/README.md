@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_DESIGN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_DESIGN / REPORT_ONLY`
 
 Candidate identity:
 
@@ -137,3 +137,7 @@ Preserve B1D as invalid and design a floor-limited B1D1 oracle next.
 That oracle is frozen in
 [NSR3-B1D1](03b1d1-floor-limited-oracle-contract.md); it retains the arithmetic
 floor and removes only the ordinary early scale stop.
+B1D1 passes and confirms temporal stiffness with negligible nonlinear-solver
+sensitivity; see the
+[dated evidence](../../development/nonlocal-nsr3b1d1-floor-oracle-evidence-2026-08-20.md).
+Freeze a multi-fixture acoustic substep-policy gate next; B2 remains blocked.

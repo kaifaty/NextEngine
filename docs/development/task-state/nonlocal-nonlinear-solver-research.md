@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1D_INVALID / NSR3B1D1_FLOOR_ORACLE_DESIGN` |
+| Status | `ACTIVE / NSR3B1D1_PASS / NSR3B1S_SUBSTEP_POLICY_DESIGN` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -35,11 +35,15 @@
 - **Current conclusion:** the B1D main ladder reaches final ratios
   `q_x=1.559/1.744` and `q_v=1.554/1.741`, but the strict replicas that disable
   the energy-floor stop fail at `MINIMUM_TRUST_RADIUS`.
-- **Current action:** preserve invalid B1D and freeze a B1D1 sensitivity oracle
-  that removes only the early scale stop while retaining the arithmetic floor.
-- **Next gate:** B1D1 must exact-overlap the main ladder and separate nonlinear
-  stopping error from the D3--D4 temporal difference. B1 and B2 remain FAIL /
-  blocked regardless until a separate selection contract is justified.
+- **Current conclusion:** B1D1 exact-overlaps all five main levels; its D3
+  floor-oracle differences are only `5.53e-5 / 5.35e-5` of temporal position /
+  velocity differences, and D4 is bit-exact.
+- **Current decision:** temporal stiffness is confirmed. The first-order-like
+  regime appears below acoustic Courant about one and is clear below `0.516`.
+- **Current action:** freeze B1S across multiple amplitudes and bulk-modulus
+  scales before selecting a conservative acoustic substep policy.
+- **Next gate:** a policy must predict bounded substeps and reproduce resolved
+  references without changing B1/B1D history. B2 remains blocked.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -126,6 +130,15 @@
 - **Consequence:** do not weaken the selected arithmetic stop or claim that
   smaller trust radii increase binary64 accuracy.
 
+### D-009 -- Confirm temporal stiffness with the arithmetic floor retained
+
+- **Observation:** floor-limited D3 differs from ordinary D3 by about `5e-5`
+  of the D3--D4 temporal difference; D4 is bit-exact. Both oracle runs finish.
+- **Decision:** select `TEMPORAL_STIFFNESS_CONFIRMED` as the B1D1 disposition
+  and use acoustic Courant as the B1S policy variable.
+- **Consequence:** do not treat implicit stability as accuracy. B1S must test
+  the policy beyond the single amplitude/coefficient point before B2.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -138,12 +151,12 @@
 
 ## Exact next action
 
-1. Freeze B1D1 with exact B1D main-ladder overlap.
-2. Re-run D3/D4 with scale-stop suppressed and energy-floor stop retained.
-3. Bound floor-oracle versus main final position/velocity differences against
-   the already observed D3--D4 temporal differences.
-4. Only then classify temporal stiffness versus integration reclosure; keep
-   B1 FAIL and B2 blocked.
+1. Freeze B1S coefficient/amplitude matrix and substep-count formula.
+2. Predeclare a conservative Courant target and resolved-reference levels.
+3. Compare policy trajectories, invariant/work bounds and exact repeat across
+   the matrix; include zero-pressure and free-flight degeneracies.
+4. Select/reject only a report-only substep policy, then decide whether a new
+   multi-step gate can authorize B2.
 
 ## Reconsideration triggers
 

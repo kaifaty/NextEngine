@@ -5522,6 +5522,9 @@ struct MultistepRun {
     int total_objective_evaluations = 0;
     int total_hvp_calls = 0;
     int total_pair_builds = 0;
+    int total_numerical_floor_stops = 0;
+    int total_raw_gradient_stops = 0;
+    int total_scaled_displacement_stops = 0;
     int maximum_outer_trials = 0;
     int maximum_rejected_trials = 0;
     int maximum_hvp_calls = 0;
@@ -5683,6 +5686,12 @@ MultistepRun run_multistep(
             solve.solve.objective_evaluations;
         result.total_hvp_calls += solve.solve.hvp_calls;
         result.total_pair_builds += solve.pair_builds;
+        result.total_numerical_floor_stops +=
+            solve.solve.numerical_floor_stops;
+        result.total_raw_gradient_stops +=
+            solve.solve.convergence_stop == "RAW_GRADIENT" ? 1 : 0;
+        result.total_scaled_displacement_stops +=
+            solve.solve.convergence_stop == "SCALED_DISPLACEMENT" ? 1 : 0;
         result.maximum_outer_trials = std::max(
             result.maximum_outer_trials, solve.solve.outer_trials);
         result.maximum_rejected_trials = std::max(
@@ -6336,6 +6345,268 @@ TemporalStiffnessDiagnostic temporal_stiffness_diagnostic() {
             ? "ASYMPTOTIC_REGIME_OBSERVED"
             : "NO_ASYMPTOTIC_REGIME_AT_C0P129";
     result.passed = result.validity_passed;
+    return result;
+}
+
+TemporalLevel make_floor_limited_temporal_level(
+    double time_step, double acoustic_wave_speed) {
+    const Config config = physical_multistep_config(time_step);
+    std::vector<Vec3> position = centered_lattice(7, config.spacing);
+    for (Vec3& value : position) {
+        value = 0.99 * value;
+    }
+    const Vec3 initial_center = average(position);
+    TemporalLevel result;
+    result.time_step = time_step;
+    result.acoustic_courant =
+        time_step * acoustic_wave_speed / config.spacing;
+    result.run = run_multistep(config, position,
+        std::vector<Vec3>(position.size()),
+        static_cast<int>(std::llround(0.05 / time_step)), false,
+        true, 0.0);
+    result.rms_radius = rms_radius_about_center(result.run.position);
+    result.rms_speed = rms_relative_speed(result.run.velocity);
+    result.kinetic_energy =
+        relative_kinetic_energy(config, result.run.velocity);
+    result.pressure_exit_time =
+        pressure_active_exit_time(result.run, time_step);
+    result.normalized_center_drift = maximum_normalized_center_drift(
+        result.run, initial_center, config.spacing);
+    return result;
+}
+
+bool exact_b1d_main_overlap(const std::array<TemporalLevel, 5>& levels) {
+    const std::array<const char*, 5> state = {
+        "7f667eb41a86e1c840630ff8d81da5a258a759a6106442c2407f28ac5069028e",
+        "3611e20b08b5b400599b4a46edfa765ef1783d033456d9221bb505b1f3eda1b5",
+        "1ea70858651d4d548a49934be6cb3054945cc35af38b0d58e87807be33cf1bed",
+        "7078e43076b2209bd99fdb879e9294869223fe0792aceaa3b31b668620bf7442",
+        "3f320beae99be233c5675ff58656f38d6d533638e3104503410b10d7b0ed4c04",
+    };
+    const std::array<int, 5> steps = {48, 96, 192, 384, 768};
+    const std::array<int, 5> outer = {59, 14, 20, 24, 46};
+    const std::array<int, 5> accepted = {59, 14, 20, 24, 46};
+    const std::array<int, 5> evaluations = {107, 110, 212, 408, 814};
+    const std::array<int, 5> hvp = {120, 30, 40, 48, 92};
+    const std::array<int, 5> pair_builds = {155, 206, 404, 792, 1582};
+    const std::array<int, 5> max_outer = {10, 6, 4, 3, 2};
+    const std::array<int, 5> max_hvp = {22, 13, 8, 6, 4};
+    const std::array<double, 5> rms_radius = {
+        0.18283038237912211,
+        0.18689165663253796,
+        0.19067902061536393,
+        0.19318344728051465,
+        0.19463469052832796,
+    };
+    const std::array<double, 5> rms_speed = {
+        0.43353697919866402,
+        0.56798440525792315,
+        0.69379904189524166,
+        0.77495570476642417,
+        0.8215886220790517,
+    };
+    const std::array<double, 5> kinetic = {
+        4.0292705706323177,
+        6.9158722264597161,
+        10.319093057088816,
+        12.874426632003663,
+        14.47048108299412,
+    };
+    const std::array<double, 5> exit_time = {
+        0.0031250000000000002,
+        0.0020833333333333333,
+        0.0018229166666666667,
+        0.0018229166666666667,
+        0.0017578125,
+    };
+    const std::array<double, 5> center_drift = {
+        5.157623052278392e-16,
+        6.3416126392291555e-16,
+        2.3745614744111542e-15,
+        2.5166774225595801e-15,
+        3.3325307369518189e-16,
+    };
+    const std::array<double, 5> scaled_residual = {
+        6.4276490284564593e-9,
+        7.7145634125635067e-9,
+        7.7642953905452552e-9,
+        7.9753874151301836e-9,
+        4.26685749162269e-10,
+    };
+    const std::array<double, 5> momentum = {
+        2.3171599749710689e-15,
+        3.7163468417334267e-15,
+        8.3184877664114232e-15,
+        1.6620009271471234e-14,
+        3.7925748872932176e-14,
+    };
+    for (std::size_t i = 0; i < levels.size(); ++i) {
+        const MultistepRun& run = levels[i].run;
+        if (hash_phase_state(run.position, run.velocity) != state[i]
+            || run.completed_steps != steps[i]
+            || run.total_outer_trials != outer[i]
+            || run.total_accepted_trials != accepted[i]
+            || run.total_rejected_trials != 0
+            || run.total_objective_evaluations != evaluations[i]
+            || run.total_hvp_calls != hvp[i]
+            || run.total_pair_builds != pair_builds[i]
+            || run.maximum_outer_trials != max_outer[i]
+            || run.maximum_rejected_trials != 0
+            || run.maximum_hvp_calls != max_hvp[i]
+            || run.maximum_pairs != 12111
+            || run.maximum_neighbors != 122
+            || run.maximum_hessian_tape_bytes != 2150744
+            || run.maximum_density_ratio != 1.0308294231753403
+            || run.final_active_pressure_centers != 0
+            || levels[i].rms_radius != rms_radius[i]
+            || levels[i].rms_speed != rms_speed[i]
+            || levels[i].kinetic_energy != kinetic[i]
+            || levels[i].pressure_exit_time != exit_time[i]
+            || levels[i].normalized_center_drift != center_drift[i]
+            || run.maximum_final_scaled_displacement_residual
+                != scaled_residual[i]
+            || run.accumulated_momentum_residual != momentum[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+struct FloorLimitedOracleDiagnostic {
+    std::array<TemporalLevel, 5> main_levels;
+    std::array<TemporalLevel, 2> oracle_levels;
+    std::array<double, 4> position_difference{};
+    std::array<double, 4> velocity_difference{};
+    std::array<double, 3> position_ratio{};
+    std::array<double, 3> velocity_ratio{};
+    std::array<double, 4> radius_change{};
+    std::array<double, 4> speed_change{};
+    std::array<double, 4> kinetic_change{};
+    std::array<double, 2> oracle_position_difference{};
+    std::array<double, 2> oracle_velocity_difference{};
+    double initial_maximum_density_ratio = 0.0;
+    bool main_overlap_exact = false;
+    bool oracle_valid = false;
+    bool sensitivity_valid = false;
+    bool asymptotic_regime_observed = false;
+    bool passed = false;
+    std::string first_failure;
+    std::string disposition;
+};
+
+FloorLimitedOracleDiagnostic floor_limited_oracle_diagnostic() {
+    FloorLimitedOracleDiagnostic result;
+    const Config anchor = physical_multistep_config();
+    const double effective_bulk_modulus =
+        anchor.kappa * anchor.rest_density / anchor.mass;
+    const double acoustic_wave_speed = std::sqrt(
+        effective_bulk_modulus / anchor.rest_density);
+    const std::array<double, 5> time_steps = {
+        1.0 / 960.0,
+        1.0 / 1920.0,
+        1.0 / 3840.0,
+        1.0 / 7680.0,
+        1.0 / 15360.0,
+    };
+    std::vector<Vec3> initial = centered_lattice(7, anchor.spacing);
+    for (Vec3& value : initial) {
+        value = 0.99 * value;
+    }
+    result.initial_maximum_density_ratio =
+        maximum_density_ratio(anchor, initial);
+    for (std::size_t i = 0; i < result.main_levels.size(); ++i) {
+        result.main_levels[i] = make_temporal_level(
+            time_steps[i], false, acoustic_wave_speed);
+    }
+    result.oracle_levels[0] = make_floor_limited_temporal_level(
+        time_steps[3], acoustic_wave_speed);
+    result.oracle_levels[1] = make_floor_limited_temporal_level(
+        time_steps[4], acoustic_wave_speed);
+    for (std::size_t i = 0; i < result.position_difference.size(); ++i) {
+        result.position_difference[i] = mass_weighted_rms_position_error(
+            result.main_levels[i].run.position,
+            result.main_levels[i + 1].run.position);
+        result.velocity_difference[i] = mass_weighted_rms_position_error(
+            result.main_levels[i].run.velocity,
+            result.main_levels[i + 1].run.velocity);
+        result.radius_change[i] = std::abs(
+            result.main_levels[i].rms_radius
+                - result.main_levels[i + 1].rms_radius);
+        result.speed_change[i] = std::abs(
+            result.main_levels[i].rms_speed
+                - result.main_levels[i + 1].rms_speed);
+        result.kinetic_change[i] = std::abs(
+            result.main_levels[i].kinetic_energy
+                - result.main_levels[i + 1].kinetic_energy);
+    }
+    for (std::size_t i = 0; i < result.position_ratio.size(); ++i) {
+        result.position_ratio[i] = result.position_difference[i]
+            / result.position_difference[i + 1];
+        result.velocity_ratio[i] = result.velocity_difference[i]
+            / result.velocity_difference[i + 1];
+    }
+    for (std::size_t i = 0; i < result.oracle_levels.size(); ++i) {
+        result.oracle_position_difference[i] =
+            mass_weighted_rms_position_error(
+                result.main_levels[i + 3].run.position,
+                result.oracle_levels[i].run.position);
+        result.oracle_velocity_difference[i] =
+            mass_weighted_rms_position_error(
+                result.main_levels[i + 3].run.velocity,
+                result.oracle_levels[i].run.velocity);
+    }
+    result.main_overlap_exact = exact_b1d_main_overlap(result.main_levels);
+    result.oracle_valid = true;
+    int numerical_floor_stops = 0;
+    for (const TemporalLevel& level : result.oracle_levels) {
+        result.oracle_valid = result.oracle_valid
+            && temporal_level_valid(
+                level, result.initial_maximum_density_ratio);
+        numerical_floor_stops += level.run.total_numerical_floor_stops;
+    }
+    result.oracle_valid = result.oracle_valid
+        && numerical_floor_stops > 0;
+    constexpr double temporal_position_difference =
+        0.0022880058867231971;
+    constexpr double temporal_velocity_difference =
+        0.04678768432527124;
+    result.sensitivity_valid = result.oracle_valid;
+    for (std::size_t i = 0; i < result.oracle_levels.size(); ++i) {
+        result.sensitivity_valid = result.sensitivity_valid
+            && result.oracle_position_difference[i]
+                <= 0.1 * temporal_position_difference
+            && result.oracle_velocity_difference[i]
+                <= 0.1 * temporal_velocity_difference;
+    }
+    const auto ratio_in_range = [](double value) {
+        return value >= 1.5 && value <= 2.5;
+    };
+    result.asymptotic_regime_observed = result.main_overlap_exact
+        && ratio_in_range(result.position_ratio[1])
+        && ratio_in_range(result.position_ratio[2])
+        && ratio_in_range(result.velocity_ratio[1])
+        && ratio_in_range(result.velocity_ratio[2])
+        && result.position_difference[1] > result.position_difference[2]
+        && result.position_difference[2] > result.position_difference[3]
+        && result.velocity_difference[1] > result.velocity_difference[2]
+        && result.velocity_difference[2] > result.velocity_difference[3]
+        && result.radius_change[2] > result.radius_change[3]
+        && result.speed_change[2] > result.speed_change[3]
+        && result.kinetic_change[2] > result.kinetic_change[3];
+    result.passed = result.main_overlap_exact
+        && result.oracle_valid && result.sensitivity_valid;
+    if (!result.main_overlap_exact) {
+        result.first_failure = "NSR3B1D1_MAIN_OVERLAP";
+    } else if (!result.oracle_valid) {
+        result.first_failure = "NSR3B1D1_ORACLE_VALIDITY";
+    } else if (!result.sensitivity_valid) {
+        result.first_failure = "NSR3B1D1_SOLVER_SENSITIVITY";
+    }
+    result.disposition = !result.passed
+        ? "INVALID_DIAGNOSTIC"
+        : result.asymptotic_regime_observed
+            ? "TEMPORAL_STIFFNESS_CONFIRMED"
+            : "NO_ASYMPTOTIC_REGIME_AT_C0P129";
     return result;
 }
 
@@ -7901,6 +8172,125 @@ ReferenceSolverReport run_temporal_stiffness_diagnostic_controls() {
            << ",\"integration_reclosure_required\":"
            << (diagnostic.passed
                     && !diagnostic.asymptotic_regime_observed
+                ? "true" : "false")
+           << ",\"boundary_design_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(result_material.str()) << "\"}";
+    return {diagnostic.passed, report.str()};
+}
+
+ReferenceSolverReport run_floor_limited_temporal_oracle_controls() {
+    const FloorLimitedOracleDiagnostic diagnostic =
+        floor_limited_oracle_diagnostic();
+    std::ostringstream result_material;
+    result_material << std::setprecision(17)
+                    << (diagnostic.passed ? "PASS|" : "FAIL|")
+                    << diagnostic.first_failure << '|'
+                    << diagnostic.disposition << '|'
+                    << (diagnostic.main_overlap_exact
+                            ? "OVERLAP" : "MISMATCH");
+    for (const TemporalLevel& level : diagnostic.main_levels) {
+        result_material << '|'
+                        << hash_phase_state(
+                            level.run.position, level.run.velocity);
+    }
+    for (std::size_t i = 0; i < diagnostic.oracle_levels.size(); ++i) {
+        const TemporalLevel& level = diagnostic.oracle_levels[i];
+        result_material << '|'
+                        << hash_phase_state(
+                            level.run.position, level.run.velocity) << ':'
+                        << diagnostic.oracle_position_difference[i] << ':'
+                        << diagnostic.oracle_velocity_difference[i] << ':'
+                        << level.run.total_numerical_floor_stops;
+    }
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b1d1_floor_oracle.v1\""
+           << ",\"identity\":\"nuv-variational-fcr2\""
+           << ",\"solver_identity\":\"nuv-newton-krylov-r0\""
+           << ",\"parent_b1d_result_sha256\":\""
+           << "9efcae39dcb56868457ca2105796c8cbab661a7e62d5d33ede1f01dc36fadf28\""
+           << ",\"status\":\""
+           << (diagnostic.passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << diagnostic.first_failure << '"'
+           << ",\"disposition\":\"" << diagnostic.disposition << '"'
+           << ",\"main_overlap_exact\":"
+           << (diagnostic.main_overlap_exact ? "true" : "false")
+           << ",\"oracle_valid\":"
+           << (diagnostic.oracle_valid ? "true" : "false")
+           << ",\"sensitivity_valid\":"
+           << (diagnostic.sensitivity_valid ? "true" : "false")
+           << ",\"asymptotic_regime_observed\":"
+           << (diagnostic.asymptotic_regime_observed ? "true" : "false")
+           << ",\"thresholds\":{\"temporal_position_difference\":"
+           << "0.0022880058867231971"
+           << ",\"temporal_velocity_difference\":"
+           << "0.04678768432527124"
+           << ",\"maximum_solver_sensitivity_fraction\":0.1"
+           << ",\"oracle_scaled_displacement_limit\":0"
+           << ",\"oracle_numerical_floor_stop\":true}"
+           << ",\"main_levels\":[";
+    for (std::size_t i = 0; i < diagnostic.main_levels.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        const TemporalLevel& level = diagnostic.main_levels[i];
+        report << "{\"name\":\"D" << i << "\",\"dt\":"
+               << level.time_step
+               << ",\"state_sha256\":\""
+               << hash_phase_state(
+                    level.run.position, level.run.velocity) << '"'
+               << ",\"outer_trials\":"
+               << level.run.total_outer_trials
+               << ",\"accepted_trials\":"
+               << level.run.total_accepted_trials
+               << ",\"hvp_calls\":" << level.run.total_hvp_calls
+               << '}';
+    }
+    report << "],\"adjacent\":{\"position_difference\":";
+    append_double_array(report, diagnostic.position_difference.data(),
+        diagnostic.position_difference.size());
+    report << ",\"velocity_difference\":";
+    append_double_array(report, diagnostic.velocity_difference.data(),
+        diagnostic.velocity_difference.size());
+    report << ",\"position_ratio\":";
+    append_double_array(report, diagnostic.position_ratio.data(),
+        diagnostic.position_ratio.size());
+    report << ",\"velocity_ratio\":";
+    append_double_array(report, diagnostic.velocity_ratio.data(),
+        diagnostic.velocity_ratio.size());
+    report << "},\"floor_limited_oracles\":[";
+    for (std::size_t i = 0; i < diagnostic.oracle_levels.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        const TemporalLevel& level = diagnostic.oracle_levels[i];
+        report << "{\"name\":\"D" << i + 3 << "-floor\",\"dt\":"
+               << level.time_step
+               << ",\"position_difference\":"
+               << diagnostic.oracle_position_difference[i]
+               << ",\"velocity_difference\":"
+               << diagnostic.oracle_velocity_difference[i]
+               << ",\"numerical_floor_stops\":"
+               << level.run.total_numerical_floor_stops
+               << ",\"raw_gradient_stops\":"
+               << level.run.total_raw_gradient_stops
+               << ",\"scaled_displacement_stops\":"
+               << level.run.total_scaled_displacement_stops
+               << ",\"work\":";
+        append_multistep_work(report, level.run);
+        report << '}';
+    }
+    report << ']'
+           << ",\"b1_remains_failed\":true"
+           << ",\"b1d_remains_invalid\":true"
+           << ",\"substep_design_authorized\":"
+           << (diagnostic.passed
+                    && diagnostic.asymptotic_regime_observed
                 ? "true" : "false")
            << ",\"boundary_design_authorized\":false"
            << ",\"runtime_authority\":false"

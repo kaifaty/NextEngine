@@ -29,5 +29,6 @@ ReferenceSolverReport run_dimensional_profile_controls();
 ReferenceSolverReport run_normalized_kernel_reclosure_controls();
 ReferenceSolverReport run_manufactured_multistep_controls();
 ReferenceSolverReport run_temporal_stiffness_diagnostic_controls();
+ReferenceSolverReport run_floor_limited_temporal_oracle_controls();
 
 } // namespace nextengine::nonlocal::fcr
