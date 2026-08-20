@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / FCR3A_CLOSED_FAIL / FCR3B_SISSM_NEXT` |
+| Status | `ACTIVE / FCR3B_V1_FAIL / TERM_LOCAL_NEXT` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-formula-reclosure` |
 | Scope | Prove or reject a separately rooted energy/force-consistent Nonlocal continuum identity through algebra, physical, CUDA and performance gates |
@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Local block and its sole hybrid remediation are rejected; corrected SISSM must now be evaluated directly against FCR2.
-- **Why:** hybrid cuts backtracks `3788→164` but combined gradient is `7.19e-3` versus reference `3.31e-6`; repeated switch tuning is forbidden.
-- **Next action:** Implement the frozen corrected SISSM split with exact-objective Armijo observation as FCR3-B.
+- **Current conclusion:** Corrected SISSM passes isolated terms but fails combined gradient/cost; one minimal-combination discriminator is required.
+- **Why:** combined ends at `3.68e-3` versus FCR2 `3.31e-6`, while every isolated term passes its quality gate.
+- **Next action:** Run the frozen tetrahedron with each term and pairwise term combination to localize the first coupling failure.
 - **Current blocker:** None.
 - **Do not retry:** Repairing or retuning `nuv-basin-48k-static-support-h3-physical.v4`; its formula identity, coefficients and roots are closed historical evidence.
 - **Reconsider when:** Only a reviewed upstream erratum can change source interpretation; it still cannot relabel old roots.
@@ -30,6 +30,7 @@
 | `docs/development/nonlocal-continuum-fcr2-reference-evidence-2026-08-20.md` | `PASS / CONDITIONING_RISK` | Slow CPU objective authority selected; FCR3-A required before profile sweep |
 | `docs/development/nonlocal-continuum-fcr3a-block-evidence-2026-08-20.md` | `FAIL` | Pure block v1 rejected; exactly one hybrid v2 remediation allowed |
 | `docs/development/nonlocal-continuum-fcr3a-hybrid-evidence-2026-08-20.md` | `FAIL` | Conditioning branch closed; FCR3-B corrected SISSM is next |
+| `docs/development/nonlocal-continuum-fcr3b-sissm-v1-evidence-2026-08-20.md` | `FAIL` | Isolated terms pass; one term-localized combined discriminator authorized |
 
 ## Decisions that still constrain the work
 
@@ -93,9 +94,9 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Derive corrected SISSM coefficients from the FCR0 energies and FCR1 pair rule.
-2. Freeze one overshoot/acceptance policy and compare every iteration to the FCR2 objective and gradient.
-3. Do not return to block phase lengths or weakened gradient gates.
+1. Execute pressure, viscosity, surface and the three pairwise combinations on the unchanged tetrahedron.
+2. Identify the first minimal combination that fails FCR2 quality.
+3. Permit remediation only inside that term coupling; do not tune material coefficients.
 
 ## Do not retry
 
@@ -106,7 +107,7 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** branch `codex/nonlocal-continuum-n0`; hybrid v2 implementation committed at `6f92c1b`; closure evidence/roadmap update is the current change.
-- **Checks:** FCR3-A v1/v2 FAIL twice byte-identically at frozen quality gates; FCR2 PASS unchanged.
+- **Workspace state:** branch `codex/nonlocal-continuum-n0`; corrected SISSM v1 committed at `db27ad7`; failure evidence/roadmap update is the current change.
+- **Checks:** FCR3-B v1 FAIL twice byte-identically; all isolated term cases pass; FCR2 PASS unchanged.
 - **Remaining risk:** Pair enumeration, nonlinear convergence, coefficient calibration and corrected CUDA cost remain open.
 - **Promotion needed:** Roadmap/evidence updates at each material gate; architecture promotion remains forbidden.

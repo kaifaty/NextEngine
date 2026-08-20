@@ -1,6 +1,6 @@
 # FCR3-B — corrected SISSM/reference correspondence
 
-Status: `FROZEN FOR IMPLEMENTATION / REPORT_ONLY`
+Status: `V1 FAIL / TERM_LOCAL_DISCRIMINATOR NEXT / REPORT_ONLY`
 
 Predecessor: FCR2 reference `PASS`; FCR3-A conditioning branch `CLOSED FAIL`.
 
@@ -87,3 +87,7 @@ must be byte-identical and FCR0–FCR2/frozen old controls unchanged.
 Passing authorizes a separately frozen Chebyshev A/B and then FCR3-C profile
 reclosure. Failure allows at most one term-localized discriminator; it does
 not authorize coefficient tuning or profile sweeps.
+
+V1 fails combined gradient/cost while all isolated term controls pass. See
+the [exact evidence](../../development/nonlocal-continuum-fcr3b-sissm-v1-evidence-2026-08-20.md).
+The one allowed term-localized combination discriminator is now active.
