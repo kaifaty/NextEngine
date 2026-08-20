@@ -14,6 +14,8 @@ The frozen hypotheses, profile families, measurement rules and terminal states
 are in the [performance research contract](00-performance-research-contract.md).
 The exact generator, trace and persistent-runner contract is in the
 [NP0 corpus specification](01-np0-corpus-and-baseline.md).
+P1 arithmetic, timing and rollback rules are frozen in the
+[fused owner-term specification](02-np1-p1-fused-owner-terms.md).
 
 ## Outcome
 

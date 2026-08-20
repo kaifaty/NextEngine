@@ -17,9 +17,9 @@
 - **Why:** coherent/permuted physics and canonical topology match, yet the
   permutation makes p95 `1.94x` slower. Pair traversal/memory remains the
   dominant first target; the v1 trace changes membership after step two.
-- **Next action:** specify the arithmetic association for
-  `fused-owner-terms-p1`, implement it behind a selectable rollback identity,
-  then run tiny/stiff/full correspondence before an adjacent tournament.
+- **Next action:** implement the specified `fused-owner-terms-p1` behind a
+  selectable rollback identity, then run tiny/stiff/full correspondence before
+  an adjacent tournament.
 - **Current blocker:** None for P1.
 - **Do not retry:** O3 endpoint pre-addition or coherent-lattice O4 tuning;
   their numeric/performance failures are closed evidence.
@@ -37,6 +37,7 @@
 | [Research contract](../../plans/nonlocal-continuum-performance/00-performance-research-contract.md) | `SPECIFIED` | v1 families, measurement tiers and NP4 states frozen |
 | [NP0 corpus specification](../../plans/nonlocal-continuum-performance/01-np0-corpus-and-baseline.md) | `COMPLETE / NP1_INPUT` | seven generators and hashes frozen |
 | [NP0 evidence](../nonlocal-continuum-np0-evidence-2026-08-20.md) | `NP0_COMPLETE / NP1_P1_AUTHORIZED` | conditioned denominator, HP-1 confirmation and stiff-dynamic negative frozen |
+| [P1 specification](../../plans/nonlocal-continuum-performance/02-np1-p1-fused-owner-terms.md) | `SPECIFIED / IMPLEMENTATION_NEXT` | exact per-term association, timing attribution and rollback gate frozen |
 
 ## Decisions that still constrain the work
 
@@ -142,12 +143,10 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Freeze P1's per-term accumulators and retained combine order in a short
-   implementation specification.
-2. Implement one-CSR owner fusion without crossing density's global barrier.
-3. Pass CPU term oracle, stiff i2, exact fixed-frame output/CSR and dynamic
+1. Implement one-CSR owner fusion without crossing density's global barrier.
+2. Pass CPU term oracle, stiff i2, exact fixed-frame output/CSR and dynamic
    trace correspondence.
-4. Run conditioned 32/96 alternating adjacent tournaments on coherent,
+3. Run conditioned 32/96 alternating adjacent tournaments on coherent,
    permuted, advected and viscous controls; retain only if the NP1 gate passes.
 
 ## Do not retry
