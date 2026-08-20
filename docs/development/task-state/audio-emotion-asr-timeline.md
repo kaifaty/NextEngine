@@ -11,16 +11,16 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The game-facing route must emit stateful streaming transcript revisions while the player speaks. GigaAM-v3 remains useful as a final-only quality reference but is ineligible as the primary dialogue ASR. The next bounded candidate is `nvidia/nemotron-3.5-asr-streaming-0.6b` at a 320 ms initial `ru-RU` profile; see `docs/development/streaming-asr-intent-prewarm-research-2026-08-20.md`.
+- **Current conclusion:** The game-facing route must emit stateful streaming transcript revisions while the player speaks. GigaAM-v3 remains the strongest local Russian quality reference but is final-only. Nemotron 3.5 proved genuinely stateful and fast, then failed the available Russian microphone quality screen and was removed from the active resident profile.
 - **Why:** The existing Voxtral wrapper already performs real streaming inside one invocation, while warm emotion2vec inference is fast. Reloading either model per connection/window is the avoidable delay.
 - **Critical limit:** Current Voxtral public APIs return streaming text but no lexical timestamps. `transcribe.cpp` reports timestamp kind `NONE`; its Voxtral `audio_committed_ms` remains zero during feed and is not a text boundary.
 - **Implementation plan:** `docs/plans/2026-08-18-speech-timeline-service-implementation.md` has approved scope `A/A/A/A`: standalone authenticated localhost WebSocket, explicit finish first and honest `utterance` alignment; VAD/model-slot remain later increments.
 - **Phase 2 plan:** `docs/plans/2026-08-18-conversation-service-phase-2.md` adds a `ConversationService` facade for large-LLM dialogue and TTS only; two Phase 2 scope choices remain pending.
 - **Phase 3 plan:** `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` now starts with 3A: one existing character, push-to-talk, session-local persona/history, subtitles/TTS and no world/internal-model/tool context. 3B-3D then harden proven boundaries, shadow-integrate the strategic model and freeze catalogs.
 - **Phase 4 plan:** `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` fine-tunes FunctionGemma only after Phase 3 freezes a consumer-backed strategic catalog and corpus seed.
-- **Next action:** Pin and smoke-test Nemotron 3.5 through a true cache-aware `ru-RU` stream at 320 ms, then replay the same frozen normal/whisper/noise corpus against it and Voxtral. Measure first useful partial, revision churn, endpoint-to-final, WER/CER, empty-rate, duration-slope and resources before adding its facade adapter.
-- **Current blocker:** No tested route yet combines the GigaAM take's apparent whisper coverage with verified stateful partial revisions and admitted RTX 3080 residency. Nemotron is the strongest current candidate, not yet local evidence.
-- **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated GigaAM streaming partials or whole-prefix redecoding presented as native streaming; authoritative actions/TTS from provisional text; RMS/retained energy as the quality oracle; more gain or stronger denoising on the same failed clip.
+- **Next action:** Freeze a small reference-transcribed Russian microphone set and use it to select the next native-streaming candidate against GigaAM and Voxtral. Require WER/CER, empty-rate, first useful partial, revision churn, endpoint-to-final, duration-slope and resident resources before another model enters the active profile.
+- **Current blocker:** No tested route yet combines the GigaAM take's Russian/whisper quality with verified stateful partial revisions and admitted RTX 3080 residency. Nemotron does not close that gap.
+- **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated GigaAM streaming partials or whole-prefix redecoding presented as native streaming; authoritative actions/TTS from provisional text; RMS/retained energy as the quality oracle; more gain or stronger denoising on the same failed clip; Nemotron prompt/context/quantization tuning without new labelled evidence.
 - **Reconsider when:** A model/runtime exposes better timed lexical units, or measured model-slot boundary error is too high and justifies a final aligner.
 
 ## Current evidence
@@ -196,22 +196,22 @@
 - **Observation:** Waiting for GigaAM inference at button release makes the complete utterance part of response latency and prevents early intent preparation. The current GigaAM adapter buffers all audio; it is not an online decoder.
 - **Decision:** A game-facing ASR MUST expose bounded stateful partial revisions and per-chunk work that does not grow with elapsed utterance duration. Use provisional text only to prefill static context, classify an uncertain intent, retrieve immutable context or build a cancelable LLM draft keyed to transcript revision. Final canonical text remains the admission boundary.
 - **Rejected:** Final-only ASR as the primary route, repeated decoding of a growing waveform, tool/gameplay execution, commitments, subtitle admission or TTS from provisional text.
-- **Consequence:** Push-to-talk may remain as an endpoint fallback, but ASR and speculative preparation run continuously while it is held. A changed partial cancels or rolls back its draft; only a final-compatible result may be reused. Nemotron 3.5 is the next experiment; GigaAM remains a quality reference.
+- **Consequence:** Push-to-talk may remain as an endpoint fallback, but ASR and speculative preparation run continuously while it is held. A changed partial cancels or rolls back its draft; only a final-compatible result may be reused. GigaAM remains a quality reference while a stronger native-streaming Russian route is sought.
 - **Reconsider when:** A direct audio-to-intent route provides equivalent versioned/cancelable semantics and passes the same final-authority and latency checks.
 
-### D-017 — Isolate resident Nemotron runtime and expose it as the third ASR route
+### D-017 — Isolate Nemotron for measurement, then reject it from the active Russian profile
 
-- **Observation/evidence:** Pinned Nemotron 3.5 Q8 and NeMo-Speech.cpp decode correctly alone, but loading their patched `libggml` after Voxtral's incompatible library with the same SONAME fails on `ggml_fused_relpos_attn`. A resident spawned worker removes that collision. Two paced Russian turns then kept `asr_push` at `1/5 ms` p50/p95, finish at `12–14 ms`, worker-busy RTF `0.082–0.117`, and produced first transcript revisions at `1.211 s` and `2.015 s` according to speech content. The service and worker held `6008 + 1162 MiB`; total device headroom remained `1345 MiB` and did not fall on the second turn.
-- **Decision:** Advertise `nemotron-3.5-streaming` behind the existing per-turn facade with 80 ms input, trained `R=1`/160 ms lookahead, tentative partials and final-only commit. Keep one spawned, prewarmed worker resident for the service lifetime; the parent scheduler remains the sole caller and final text remains the admission boundary.
-- **Rejected:** Same-address-space `dlopen`, per-turn subprocess/model load, unverified `dlmopen`, replacing the common timeline schema, or promoting Nemotron on two unlabelled recordings.
-- **Consequence/uncertainty:** The Vue dashboard now compares Voxtral, final-only GigaAM and streaming Nemotron without vendor types or reloads. Process failure is bounded and typed. Russian quality, revision churn and whisper/noise WER remain unmeasured; the 10-GiB headroom margin is only about 1.3 GiB on this host.
-- **Reconsider when:** Upstream runtimes stop colliding, the worker boundary violates a measured latency/resource gate, or a labelled paired evaluation selects a different primary route.
+- **Observation/evidence:** Pinned Nemotron 3.5 Q8 and NeMo-Speech.cpp require a spawned resident worker because Voxtral's incompatible `libggml` shares the same SONAME. The worker was fast (`asr_push` `1/5 ms` p50/p95; busy RTF `0.082–0.117`) but used about `1162 MiB` VRAM and left only `1345 MiB` headroom. On the same 12.104 s processed microphone take, GigaAM produced `Знает кот, что у него хвостик есть один`; Nemotron produced materially corrupted Russian with `ru`, `ru-RU`, `auto`, streaming `R=1/6/13`, and offline decoding. The official unquantized FP32 Transformers checkpoint reproduced the corruption, so neither Q8 nor NeMo-Speech.cpp explains the failure. With Nemotron resident, starting Voxtral also failed a 768 MiB CUDA allocation.
+- **Decision:** Keep the model-neutral adapter and pinned experiment available, but do not load or advertise `nemotron-3.5-streaming` in the active comparison profile. It fails the current Russian microphone quality gate and worsens coexistence on the 10-GiB host.
+- **Rejected:** Same-address-space `dlopen`, per-turn subprocess/model load, unverified `dlmopen`, model promotion based on throughput alone, and further prompt/right-context/quantization tuning on this candidate without a new labelled result that falsifies the observed failure.
+- **Consequence/uncertainty:** Active residency returns to Voxtral plus final-only GigaAM, avoiding Nemotron's worker VRAM cost. One take is not a population WER estimate, but the cross-runtime/cross-precision controls are sufficient to reject promotion; the future frozen Russian set will quantify candidates rather than rescue this one.
+- **Reconsider when:** A materially revised upstream checkpoint or a reproducible labelled Russian evaluation beats the active references within the same latency/resource envelope.
 
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: configured speech models fit and remain faster than realtime under serialized joint load | Three-route profile confirmed on the current host: resident service plus isolated Nemotron use `7170 MiB`, retain `1345 MiB` device headroom, and Nemotron worker-busy RTF is `0.082–0.117` on two paced turns. | One host and two unlabelled Russian takes are not a deployment envelope; the headroom margin is narrow. | Repeat on the frozen labelled dialogue set and after any artifact/runtime/device change. |
+| H1: the selected speech models fit and remain faster than realtime under serialized joint load | Voxtral plus GigaAM had already run resident; the isolated Nemotron worker itself was faster than realtime. | Three-way residency left only `1345 MiB`, and a later Voxtral stream failed a 768 MiB CUDA allocation while Nemotron was resident. | Re-measure the two-route active profile, then require a peak-residency gate for each new candidate. |
 | H2: Voxtral token slots are accurate enough for clause-level affect attachment | Training uses explicitly aligned 80 ms audio/text streams. | Public APIs omit timing; slot offset/grouping error is unknown. | Expose token/control slots and compare to manually aligned Russian words. |
 | H3: utterance-grade context already improves downstream LLM responses | It preserves vocal evidence honestly without timestamp invention. | Mixed emotion inside a turn may be smeared. | Blind downstream response evaluation: text-only versus turn affect versus timed spans. |
 | H4: 1 s/250 ms emotion windows give useful Live transitions | Frozen RESD-70 v2 passes `70/70` VAD admissions/observations; WavLM's real one-process path is `45/60`, and its stable emotion jobs are `21/24 ms` p50/p95. | The paced WAV's `2.352 s` capture-start first-affect metric and acted clips do not measure microphone acoustics or transition boundary quality; `nikatonika` claims an incomparable internal validation score. | Direct-screen the candidate on the frozen six-class map, then run a labelled user-microphone checklist before changing any default; evaluate neural VAD only if a separate calibrated live gate fails. |
@@ -244,8 +244,8 @@ Read in precedence order:
 
 ## Smallest next action
 
-1. Freeze comparable reference-transcribed normal/whisper/noise Russian takes externally and report paired WER/CER, empty-rate, revision churn and latency for Nemotron, Voxtral and final-only GigaAM across the same front-end routes.
-2. Repeat Nemotron resource/latency evidence on that set; do not promote it from the current two unlabelled takes despite its successful streaming and residency gates.
+1. Freeze comparable reference-transcribed normal/whisper/noise Russian takes externally and report paired WER/CER, empty-rate, revision churn and latency for candidate native-streaming ASR, Voxtral and final-only GigaAM across the same front-end routes.
+2. Keep Nemotron out of the active profile; reconsider only a materially revised checkpoint or contradictory labelled evidence, not another prompt/context/quantization permutation.
 3. Extend Phase 2 contracts with transcript-revision-keyed cancellation and speculative immutable prewarm before implementing a real LLM; final canonical text remains the sole admission boundary.
 4. Keep VAD and Voxtral model-slot timing as separately measured increments; do not fabricate word spans meanwhile.
 5. After Phase 2 evidence, implement Phase 3A first: clean `reference-alpha`
@@ -269,6 +269,7 @@ Read in precedence order:
 - Creating, installing or requiring PipeWire, a virtual microphone or another system audio device for the embedded path.
 - Treating louder processed whisper, RMS, SNR proxy or DNSMOS alone as proof that ASR/affect quality improved.
 - Loading Voxtral's and NeMo-Speech.cpp's incompatible `libggml` builds into the same address space; their shared SONAMEs do not imply ABI compatibility.
+- Spending another tuning cycle on Nemotron 3.5 for Russian without new labelled evidence; `ru`/`ru-RU`/`auto`, `R=1/6/13`, offline mode, Q8 and official FP32 all failed the same microphone control.
 
 ## Handoff
 
