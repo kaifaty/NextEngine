@@ -1,6 +1,6 @@
 # Nonlocal continuum — bounded research roadmap
 
-Status: `NR2_O3_SEGMENTED_NUMERIC_MISMATCH / GATHER_RETAINED / O4_SPECIFICATION_NEXT / NO_W2_CREDIT`
+Status: `NR2_O4_SPECIFIED / IMPLEMENTATION_NEXT / GATHER_RETAINED / NO_W2_CREDIT`
 
 This directory specifies a report-only evaluation of the method described in
 *A Nonlocal Unified Variational Framework for Free Surface Flows*. The work is
@@ -33,7 +33,7 @@ of this experiment.
 NR0 Research contract and source audit       SPECIFIED / DOCUMENTATION
  └─ NR1 Source-faithful baseline + CPU oracle  BASELINE_MISMATCH
      └─ NR1-RC1 owner-only gather reclosure    RECLOSED / PASS
-         └─ NR2 Fixed-iteration optimization O3 REJECTED / O4 SPEC NEXT
+         └─ NR2 Fixed-iteration optimization O3 REJECTED / O4 SPECIFIED
              └─ NR3 Algorithm-changing probes NOT_STARTED / CONDITIONAL
                  └─ NR4 Architecture decision NOT_STARTED
 ```
@@ -43,7 +43,7 @@ NR0 Research contract and source audit       SPECIFIED / DOCUMENTATION
 | NR0 | [Research contract](00-research-contract.md) and [source audit](../../development/nonlocal-unified-continuum-source-audit-2026-08-19.md) | hypotheses, provenance, fixtures, metrics and stop states are explicit | documentation only |
 | NR1 | [Baseline and oracle](01-source-faithful-baseline-and-oracle.md) and [evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | tiny, water and viscous controls pass; stiff surface repeated-output control fails | report only |
 | NR1-RC1 | [Deterministic accumulation reclosure](03-nr1-deterministic-accumulation-reclosure.md), [candidate research](../../development/nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md) and [execution evidence](../../development/nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md) | `nuv-gather-directed-r0` passes CPU algebra, 11/11 CUDA tiny cases, exact two-/twenty-iteration surface repeats and all full controls | report only |
-| NR2 | [GPU optimization discriminators](02-gpu-optimization-discriminators.md), [O1 pointer-swap contract](04-nr2-o1-pointer-swap.md), [O1 evidence](../../development/nonlocal-continuum-nr2-o1-evidence-2026-08-20.md), [O2 term-specialization contract](05-nr2-o2-term-specialization.md), [O2 evidence](../../development/nonlocal-continuum-nr2-o2-evidence-2026-08-20.md), [O3 layout contract](06-nr2-o3-accumulation-layout-tournament.md) and [O3 evidence](../../development/nonlocal-continuum-nr2-o3-evidence-2026-08-20.md) | O2 remains retained. O3 unique-pair segmented passes tiny/reverse/work/capacity and exact repeatability but fails retained-gather stiff-surface correspondence at i2; no O3 timing or speedup is credited. O4 specification starts from gather/swap/specialized | report only |
+| NR2 | [GPU optimization discriminators](02-gpu-optimization-discriminators.md), [O1 pointer-swap contract](04-nr2-o1-pointer-swap.md), [O1 evidence](../../development/nonlocal-continuum-nr2-o1-evidence-2026-08-20.md), [O2 term-specialization contract](05-nr2-o2-term-specialization.md), [O2 evidence](../../development/nonlocal-continuum-nr2-o2-evidence-2026-08-20.md), [O3 layout contract](06-nr2-o3-accumulation-layout-tournament.md), [O3 evidence](../../development/nonlocal-continuum-nr2-o3-evidence-2026-08-20.md) and [O4 locality contract](07-nr2-o4-cell-sorted-locality.md) | O2 remains retained. O3 fails retained-gather stiff-surface correspondence and receives no timing credit. O4 freezes a storage-only cell-order candidate with bit-exact logical CSR/arithmetic and same-process retention gates | report only |
 | NR3 | [Algorithm-changing probes](02-gpu-optimization-discriminators.md#nr3-algorithm-changing-probes) | a separately labelled convergence/algorithm candidate passes its own oracle | no fixed-iteration credit |
 | NR4 | [Decision contract](00-research-contract.md#decision-states) | exactly one predeclared decision state is selected from complete evidence | may authorize a later Proposed reclosure only |
 

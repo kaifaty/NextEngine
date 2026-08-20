@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `NR2_O3_SEGMENTED_NUMERIC_MISMATCH / GATHER_RETAINED / O4_SPECIFICATION_NEXT / REPORT_ONLY` |
+| Status | `NR2_O4_SPECIFIED / IMPLEMENTATION_NEXT / GATHER_RETAINED / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-research` |
 | Scope | Source-faithful Nonlocal/SISSM baseline and bounded GPU optimization research |
@@ -57,7 +57,10 @@
   The ordered stop gate selects `O3_SEGMENTED_NUMERIC_MISMATCH`; no O3
   tournament or speedup is admissible.
 - O2 gather/swap/specialized remains retained. The failed O3 identity remains
-  report-only/selectable for diagnosis, and O4 specification is next.
+  report-only/selectable for diagnosis. O4 is now frozen as the independent
+  `cell-sorted-o4` storage identity: stable packed-cell order and physical
+  state locality may change, while remapped fields and logical CSR must remain
+  bit-exact.
 
 ## Decisions
 
@@ -160,7 +163,7 @@
 | Evidence | Status | Consequence |
 |---|---|---|
 | [Source audit](../nonlocal-unified-continuum-source-audit-2026-08-19.md) | `PRIMARY_SOURCES_INSPECTED` | formulas/code are sufficient for a bounded experiment; universal-solver claim rejected |
-| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `O3_SEGMENTED_NUMERIC_MISMATCH / O4_SPECIFICATION_NEXT` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
+| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `O4_SPECIFIED / IMPLEMENTATION_NEXT` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
 | [Research contract](../../plans/nonlocal-continuum/00-research-contract.md) | `SPECIFIED` | freezes hypotheses, workloads, measurement scope and terminal states |
 | [Baseline/oracle specification](../../plans/nonlocal-continuum/01-source-faithful-baseline-and-oracle.md) | `EXECUTED / BASELINE_MISMATCH` | source-shaped NR1 may not enter NR2 |
 | [NR1 evidence](../nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | `BASELINE_MISMATCH` | tiny/water/viscous reproduce; surface atomics amplify repeated `f32` order noise beyond state tolerances |
@@ -171,12 +174,13 @@
 | [O1 specification](../../plans/nonlocal-continuum/04-nr2-o1-pointer-swap.md) and [evidence](../nonlocal-continuum-nr2-o1-evidence-2026-08-20.md) | `EXECUTED / O1_RETAINED_POINTER_SWAP` | exact reused/copy correspondence, unchanged memory and adjacent retention gates pass |
 | [O2 specification](../../plans/nonlocal-continuum/05-nr2-o2-term-specialization.md) and [evidence](../nonlocal-continuum-nr2-o2-evidence-2026-08-20.md) | `EXECUTED / O2_RETAINED_TERM_SPECIALIZATION` | exact runtime/specialized correspondence, unchanged memory, adjacent gates and same-process profiler attribution pass; counters unavailable explicitly |
 | [O3 specification](../../plans/nonlocal-continuum/06-nr2-o3-accumulation-layout-tournament.md) and [evidence](../nonlocal-continuum-nr2-o3-evidence-2026-08-20.md) | `EXECUTED / O3_SEGMENTED_NUMERIC_MISMATCH` | tiny/reverse/work/capacity and exact repeatability pass; stiff-surface i2 gather correspondence fails before admissible timing |
+| [O4 specification](../../plans/nonlocal-continuum/07-nr2-o4-cell-sorted-locality.md) | `SPECIFIED / IMPLEMENTATION_NEXT` | freezes stable packed-cell maps, storage-only state reordering, bit-exact logical output/CSR, capacity and same-process retention gates |
 | Pairwise Descent paper/code | `TO_APPEAR / NOT_AUDITABLE` | do not implement or infer formulas |
 
 ## Next action
 
-1. Specify O4 stable cell sorting and neighbor locality against the retained
-   gather/swap/specialized identity before implementation.
+1. Implement O4 stable cell sorting and neighbor locality exactly against the
+   frozen gather/swap/specialized identity.
 2. Preserve the O3 numeric-mismatch boundary; do not rerun its tournament or
    change endpoint association/tolerances without a new specification.
 3. Preserve runtime term dispatch, copy handoff, source-atomic, RC1, O1 and O2

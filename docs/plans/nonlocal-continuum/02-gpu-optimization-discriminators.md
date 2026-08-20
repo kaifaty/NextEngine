@@ -1,6 +1,6 @@
 # NR2/NR3 — Nonlocal GPU optimization discriminators
 
-Status: `SPECIFIED / O3_SEGMENTED_NUMERIC_MISMATCH / GATHER_RETAINED / O4_SPECIFICATION_NEXT / REPORT_ONLY`
+Status: `SPECIFIED / O4_SPECIFIED / IMPLEMENTATION_NEXT / GATHER_RETAINED / REPORT_ONLY`
 
 The source-atomic [NR1 evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md)
 did not authorize this ladder. The separately specified
@@ -136,6 +136,9 @@ segmented identity stays selectable for diagnosis, while O4 receives the
 unchanged gather/swap/specialized stack.
 
 ### O4 — Cell sorting and neighbor locality
+
+Execution contract:
+[NR2-O4 stable cell-sorted locality](07-nr2-o4-cell-sorted-locality.md).
 
 Build particles in stable cell order and use compact CSR/SoA neighbor ranges.
 The profile binds:
