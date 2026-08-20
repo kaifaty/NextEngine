@@ -37,6 +37,7 @@
 | [NPR0 boundary contract](../../plans/nonlocal-continuum-production/01-static-boundary-discriminator.md) | `SPLIT_STATIC_BOUNDARY_SELECTED` | two-layer support and swept contact are separate mandatory operations |
 | [NPR0 boundary research](../nonlocal-continuum-npr0-boundary-research-2026-08-20.md) | `GHOST_SUPPORT_NOT_CONTACT` | full support forces u32 CSR fallback; upstream boundary is not production sealing |
 | [NPR0 boundary evidence](../nonlocal-continuum-npr0-static-boundary-evidence-2026-08-20.md) | `TINY_CORPUS_AUTHORIZED` | both support profiles execute exactly; negative contact discriminator selects split schedule |
+| [NPR0 tiny corpus](../../plans/nonlocal-continuum-production/02-tiny-physical-corpus.md) | `SPECIFIED` | metrics and immutable selection rule precede execution |
 | Later `CONTINUUM-*` ProductChecks | `NOT_RUN` | no production claim |
 
 ## Decisions that still constrain the work
