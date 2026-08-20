@@ -3,12 +3,17 @@
 | Field | Value |
 | --- | --- |
 | Date | 2026-08-20 |
-| Status | Bounded research; next adapter experiment selected, product adoption unproven |
+| Status | Superseded candidate selection; Nemotron failed the Russian microphone gate |
 | Scope | Russian local streaming ASR for early dialogue preparation in the one-character demo |
-| Selected experiment | `nvidia/nemotron-3.5-asr-streaming-0.6b`, `ru-RU`, 320 ms initial chunk profile |
+| Selected experiment | Completed and rejected; see current task-state D-017 |
 | Controls | Current Voxtral Realtime streaming route; current GigaAM-v3 final-only quality reference |
 
 ## Decision
+
+> Update: the selected Nemotron experiment was implemented and proved truly
+> streaming, but failed the local Russian quality gate across prompt, context,
+> runtime and precision controls. It is no longer resident. The next bounded
+> feasibility research is [GigaAM-v3 native streaming adaptation](gigaam-native-streaming-feasibility-2026-08-20.md).
 
 The game-facing ASR profile must be natively stateful and emit replaceable
 partial transcript revisions while the player is speaking. A final-only model
@@ -170,4 +175,3 @@ set; official FLEURS numbers cannot substitute for that evidence.
 - [NVIDIA NeMo-Speech.cpp server](https://github.com/NVIDIA/NeMo-Speech.cpp/blob/main/docs/server.md) — resident engine registry, loopback service and realtime PCM16 WebSocket.
 - [NVIDIA NeMo-Speech.cpp ASR configuration](https://github.com/NVIDIA/NeMo-Speech.cpp/blob/main/docs/asr/configuration.md) — cache-aware RNNT context, endpointing and bounded streaming configuration.
 - [GigaAM official repository](https://github.com/salute-developers/GigaAM) — current public load/file/ONNX inference surfaces used to bound the GigaAM claim.
-
