@@ -53,7 +53,7 @@ engine-integrated model сможет стать ещё одним typed context 
 
 1. один authenticated localhost WebSocket facade;
 2. один active conversation session и последовательные turns;
-3. finalized `UtteranceFinal` из Phase 1 как единственный audio-derived input;
+3. revisioned streaming transcript from Phase 1 for cancelable prewarm, while finalized `UtteranceFinal` remains the only admitted audio-derived input;
 4. одну replaceable local LLM role;
 5. structured affect context отдельно от canonical user text;
 6. streamed subtitle revisions с explicit finality;
@@ -218,8 +218,11 @@ Terminal alternatives: `Cancelled`, `Rejected`, `FallbackCompleted` и
 
 Rules:
 
-- только `UtteranceFinal` запускает LLM;
-- partial ASR MAY prewarm a selected worker but cannot publish assistant text;
+- partial ASR MAY prefill static context and start a bounded speculative
+  intent/context/draft branch keyed to the exact transcript revision;
+- a changed partial cancels or rolls back incompatible speculative work;
+- only `UtteranceFinal` may admit/reuse a compatible result and publish
+  assistant text;
 - turn/candidate revision cannot regress;
 - stale worker result is discarded;
 - TTS starts sentence-by-sentence only after sentence validation;
@@ -298,6 +301,12 @@ Priority order:
 6. remaining LLM/TTS continuation;
 7. optional metrics/debug work.
 
+At dialogue open the supervisor may prefill the immutable persona, policy and
+bounded history. While the player speaks, conservative stable-prefix revisions
+may trigger immutable retrieval or an unpresented LLM draft. This work has a
+bounded restart cadence and no tool/gameplay authority. Final text compatibility
+is checked before any sentence reaches validation, subtitles or TTS.
+
 Queues are bounded per role. ASR final, admitted sentence and TTS chunk are
 never silently dropped. Queue overflow terminates the turn with a typed outcome
 instead of accumulating unbounded latency.
@@ -311,6 +320,8 @@ Initial one-session targets are measurements, not product promises:
 | admitted sentence → first PCM p95 | ≤500 ms |
 | TTS real-time factor | ≤0.5 |
 | utterance final → first PCM end-to-end p95 | ≤1,500 ms |
+| speech onset → first useful ASR partial p95 | ≤800 ms (selected streaming profile) |
+| utterance final → first admitted sentence with prewarm p95 | report against prewarm-disabled control |
 | resource headroom | ≥1 GiB physical VRAM and bounded RAM profile |
 
 Cold start, first warm turn and second warm turn are reported separately.

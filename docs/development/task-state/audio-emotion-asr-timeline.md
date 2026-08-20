@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PHASE_1_IMPLEMENTED`; RAW remains the protocol fallback while the dashboard exposes measured signal routes and selectable Voxtral/GigaAM ASR A/B |
+| Status | `PHASE_1_IMPLEMENTED`; true streaming is now required for the game-facing ASR, while GigaAM remains a final-only quality reference |
 | Updated | `2026-08-20` |
 | Task key | `audio-emotion-asr-timeline` |
 | Scope | Phase 1 prototypes Voxtral/emotion2vec; Phase 2 adds replaceable LLM/TTS; Phase 3A proves them in a one-character simple-dialogue scene before 3B-3D boundary/internal-model work; prerequisite-gated Phase 4 fine-tunes FunctionGemma. |
@@ -11,16 +11,16 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Phase 1 implements the resident model-neutral timeline service. Voxtral Realtime and pinned GigaAM-v3 e2e RNNT are now selectable behind the same turn contract and stay resident together; the dashboard shows the selected model, streaming capability and per-model turn bound. On the exact 15-s user recording containing whispered then normal speech, GigaAM returned both repeated phrases while prior Voxtral testing omitted the whisper. This is promising A/B evidence, not enough to change the default without a fixed normal/whisper/noise corpus and WER/CER.
+- **Current conclusion:** The game-facing route must emit stateful streaming transcript revisions while the player speaks. GigaAM-v3 remains useful as a final-only quality reference but is ineligible as the primary dialogue ASR. The next bounded candidate is `nvidia/nemotron-3.5-asr-streaming-0.6b` at a 320 ms initial `ru-RU` profile; see `docs/development/streaming-asr-intent-prewarm-research-2026-08-20.md`.
 - **Why:** The existing Voxtral wrapper already performs real streaming inside one invocation, while warm emotion2vec inference is fast. Reloading either model per connection/window is the avoidable delay.
 - **Critical limit:** Current Voxtral public APIs return streaming text but no lexical timestamps. `transcribe.cpp` reports timestamp kind `NONE`; its Voxtral `audio_committed_ms` remains zero during feed and is not a text boundary.
 - **Implementation plan:** `docs/plans/2026-08-18-speech-timeline-service-implementation.md` has approved scope `A/A/A/A`: standalone authenticated localhost WebSocket, explicit finish first and honest `utterance` alignment; VAD/model-slot remain later increments.
 - **Phase 2 plan:** `docs/plans/2026-08-18-conversation-service-phase-2.md` adds a `ConversationService` facade for large-LLM dialogue and TTS only; two Phase 2 scope choices remain pending.
 - **Phase 3 plan:** `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` now starts with 3A: one existing character, push-to-talk, session-local persona/history, subtitles/TTS and no world/internal-model/tool context. 3B-3D then harden proven boundaries, shadow-integrate the strategic model and freeze catalogs.
 - **Phase 4 plan:** `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` fine-tunes FunctionGemma only after Phase 3 freezes a consumer-backed strategic catalog and corpus seed.
-- **Next action:** Let the user switch Voxtral/GigaAM on identical live and saved takes, then freeze a small reference-transcribed Russian normal/whisper/noise corpus and report paired WER/CER, empty-rate and latency. Evaluate neural VAD and render-reference AEC only as independent increments; see `docs/development/speech-input-front-end-research-2026-08-20.md`.
-- **Current blocker:** Model selection is now executable, but one mixed whisper/normal clip cannot estimate ASR quality or justify changing the default. GigaAM is final-only with a 25-s turn bound, so latency and quality must be compared separately from Voxtral's streaming partials.
-- **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated GigaAM streaming partials or word timestamps; RMS/retained energy as the quality oracle; more gain or stronger denoising on the same failed clip.
+- **Next action:** Pin and smoke-test Nemotron 3.5 through a true cache-aware `ru-RU` stream at 320 ms, then replay the same frozen normal/whisper/noise corpus against it and Voxtral. Measure first useful partial, revision churn, endpoint-to-final, WER/CER, empty-rate, duration-slope and resources before adding its facade adapter.
+- **Current blocker:** No tested route yet combines the GigaAM take's apparent whisper coverage with verified stateful partial revisions and admitted RTX 3080 residency. Nemotron is the strongest current candidate, not yet local evidence.
+- **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated GigaAM streaming partials or whole-prefix redecoding presented as native streaming; authoritative actions/TTS from provisional text; RMS/retained energy as the quality oracle; more gain or stronger denoising on the same failed clip.
 - **Reconsider when:** A model/runtime exposes better timed lexical units, or measured model-slot boundary error is too high and justifies a final aligner.
 
 ## Current evidence
@@ -59,6 +59,7 @@
 | Pinned `Aniemore/wavlm-emotion-russian-resd` integration, 2026-08-19 | Exact standard-Transformers revision `7a4ca18b34adff59b56b451acc7ff44fc43a12dc` (safetensors SHA-256 `dabf15d84b451195346b8050102a7243b3f92276064195f6e34b65aaa06a12ab`) now has a local-only, no-remote-code adapter. Real Voxtral+WavLM WebSocket/VAD/scheduler/full-ASR replay completed all `70/70` v2 clips, admitted/observed all, and scored `45/60` (`75.0%`) on the six-class map, with two abstentions. Ready residency is 4,924 MiB process VRAM / 3,382 MiB free after 2.6 s Voxtral + 4.4 s WavLM loads; a two-run paced 5 s check has worker RTF p95 `0.609`, finish→final `761 ms`, capture-start→first affect `2.352 s`, stable emotion inference `21/24 ms` p50/p95. Direct/stub/joint/paced report SHA-256: `ed66c8e250695daf13805ef61888ed976f1aa35562ce1ab96fa93db1834c3489`, `8fdfc51f47474c1888b575f2d5c62b9e238a21bb60db071bb065c0106c8e572f`, `5add6a8be7b10c18245f6c24a3e481b3c7d54e2d1148fdcf14645ef59cf090e7`, `371a2a9012d07abc9b382bc86d9f992e052d3a2dc35ed9a6925f2f7687352582`. | The WavLM profile is accepted for local diagnostic use, preserving `enthusiasm`; no architecture/default-product promotion is claimed. Keep base as rollback, and do not call the unpaced joint p95 6.805 s result Live latency; first-affect timing needs microphone validation. |
 | Pinned DPDFNet whisper-preserving discriminator, 2026-08-20 | Exact external 6.944-s WAV SHA-256 `e25a9a1ad8fd1d11c1e208222063b9ef1866869471343f255ff62d5c5417c7ae`: raw/gain-only/full-DPDF/final-whisper RMS `−46.47/−26.75/−29.01/−33.62` dBFS; nonzero ratios `0.8198/0.8198/0.4154/0.7749`; final whisper preprocess p95 `14 ms`, flush `3 ms`, exact `111,104` samples. Voxtral final text was empty for every route. | The aligned 12 dB dry safety floor closes complete over-suppression and stays real-time, but successful +19.72 dB gain did not restore recognition. Keep all processed routes diagnostic; next compare against whisper-capable ASR/adaptation on reference-transcribed Russian clips rather than tuning more gain. Detailed evidence: [research](../speech-input-front-end-research-2026-08-20.md). |
 | Pinned selectable `ai-sage/GigaAM-v3` integration, 2026-08-20 | Exact revision `7655ad717f8122257385bb4b2f373db3697e8680` is loaded offline beside Voxtral and selected per turn through the same WebSocket facade. On the saved 15-s whisper-then-normal take it returned both repeated phrases. The paced public-service run used 5,882 MiB process VRAM, worker-busy RTF `0.083`, finish→final `593 ms`, and capture→final `15.712 s`; no fabricated partials are emitted. External content-free report: `/tmp/nextengine-gigaam-last-recording-benchmark.json`. | Keep Voxtral as the streaming default and GigaAM as a final-only, 25-s diagnostic A/B candidate. The result falsifies a wrapper-only explanation for this take but does not establish general quality; compare paired WER/CER and empty-rate before promotion. |
+| Official Nemotron 3.5 ASR evidence, checked 2026-08-20 | The 600M cache-aware FastConformer-RNNT lists `ru-RU` as transcription-ready, processes non-overlapping chunks with cached encoder state and exposes 80/160/320/560/1120 ms profiles. Official normalized Russian FLEURS WER with LangID is `10.84/10.73/9.87/9.60/9.17%`; the official C++ runtime exposes resident realtime PCM16 WebSocket and native integration surfaces. | Select a pinned 320 ms local experiment. Do not infer whisper quality, RTX 3080 latency/headroom or redistribution admission from the model card. Research: [streaming ASR and intent prewarm](../streaming-asr-intent-prewarm-research-2026-08-20.md). |
 | ADR-005; SPEC-16/ADR-017 | Accepted isolation/fallback boundary; multimodal track remains Deferred Proposed | No direct gameplay mutation or product-shipped claim. |
 
 ## Decisions that constrain the work
@@ -190,6 +191,14 @@
 - **Consequence:** The dashboard and benchmark can perform repeatable A/B comparisons without changing consumers. GigaAM's capture-to-first-text time necessarily includes the utterance duration; finish-to-final and WER/CER must be reported separately.
 - **Reconsider when:** A fixed Russian normal/whisper/noise set shows a reproducible quality/latency winner, or a GigaAM runtime exposes verified bounded streaming revisions.
 
+### D-016 — Native streaming gates the game route; partials permit only cancelable prewarm
+
+- **Observation:** Waiting for GigaAM inference at button release makes the complete utterance part of response latency and prevents early intent preparation. The current GigaAM adapter buffers all audio; it is not an online decoder.
+- **Decision:** A game-facing ASR MUST expose bounded stateful partial revisions and per-chunk work that does not grow with elapsed utterance duration. Use provisional text only to prefill static context, classify an uncertain intent, retrieve immutable context or build a cancelable LLM draft keyed to transcript revision. Final canonical text remains the admission boundary.
+- **Rejected:** Final-only ASR as the primary route, repeated decoding of a growing waveform, tool/gameplay execution, commitments, subtitle admission or TTS from provisional text.
+- **Consequence:** Push-to-talk may remain as an endpoint fallback, but ASR and speculative preparation run continuously while it is held. A changed partial cancels or rolls back its draft; only a final-compatible result may be reused. Nemotron 3.5 is the next experiment; GigaAM remains a quality reference.
+- **Reconsider when:** A direct audio-to-intent route provides equivalent versioned/cancelable semantics and passes the same final-authority and latency checks.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -217,18 +226,19 @@ Read in precedence order:
 12. `docs/architecture/adr/028-platform-session-and-presentation-authority.md`; `docs/architecture/09-tooling-sdk-and-observability.md`
 13. `docs/architecture/11-security-licensing-and-governance.md`
 14. `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md`
-15. `docs/plans/2026-08-18-speech-timeline-service-implementation.md`
-16. `docs/plans/2026-08-18-conversation-service-phase-2.md`
-17. `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md`
-18. `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md`
-19. `e839a38:lab/scripts/voxtral_microphone.py` and its tests
-20. `tools/speech-timeline/README.md` and implementation
+15. `docs/development/streaming-asr-intent-prewarm-research-2026-08-20.md`
+16. `docs/plans/2026-08-18-speech-timeline-service-implementation.md`
+17. `docs/plans/2026-08-18-conversation-service-phase-2.md`
+18. `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md`
+19. `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md`
+20. `e839a38:lab/scripts/voxtral_microphone.py` and its tests
+21. `tools/speech-timeline/README.md` and implementation
 
 ## Smallest next action
 
-1. User-test both selectable ASR routes on identical normal, whisper and noisy takes; compare route-labelled saved WAVs and distinguish streaming first-text latency from final-only finish latency.
-2. Freeze comparable reference-transcribed normal/whisper/noise Russian takes externally and report paired WER/CER, empty-rate and latency for Voxtral and GigaAM across the same front-end routes; the existing clips reject further gain-only tuning but do not select the product default.
-3. Confirm the two unresolved Phase 2 choices and execute its Commit A without merging LLM/TTS implementation into `SpeechTimelineService`.
+1. Pin and run the official Nemotron 3.5 `ru-RU` 320 ms cache-aware streaming control outside the repository; record exact artifact/runtime hashes, licenses, first-partial/final latency and RTX 3080 resources.
+2. Freeze comparable reference-transcribed normal/whisper/noise Russian takes externally and report paired WER/CER, empty-rate, revision churn and latency for Nemotron, Voxtral and final-only GigaAM across the same front-end routes.
+3. Extend Phase 2 contracts with transcript-revision-keyed cancellation and speculative immutable prewarm before implementing a real LLM; final canonical text remains the sole admission boundary.
 4. Keep VAD and Voxtral model-slot timing as separately measured increments; do not fabricate word spans meanwhile.
 5. After Phase 2 evidence, implement Phase 3A first: clean `reference-alpha`
    relay keeper, semantic presentation-only dialogue open, fake then real

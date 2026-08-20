@@ -61,9 +61,11 @@ art/animation pipeline не нужна.
 
 1. Игрок подходит к relay keeper и нажимает `Interact`.
 2. Открывается bounded dialogue panel с явным состоянием микрофона.
-3. Игрок удерживает push-to-talk, говорит одну реплику и отпускает кнопку.
-4. Provisional ASR отображается как заменяемый текст и не считается финальным
-   вводом.
+3. Игрок удерживает push-to-talk; PCM и stateful ASR обрабатываются непрерывно,
+   а отпускание кнопки только принудительно завершает реплику.
+4. Provisional ASR отображается как заменяемый текст и может запускать только
+   отменяемый prewarm/черновик по revision identity; финальным вводом и
+   gameplay authority он не считается.
 5. Финальный transcript и vocal-affect observation образуют один
    `ConversationTurnRequest`.
 6. LLM возвращает простой разговорный ответ от фиксированной demo persona.
@@ -553,20 +555,23 @@ Phase 3A завершена, когда одновременно:
    conversation turn;
 4. the LLM request contains only the fixed demo persona, current session
    history, current utterance/affect and response constraints;
-5. no world context, NPC memory, internal model, tool schema or FunctionGemma
+5. streaming partials may prefill or draft work, but every incompatible
+   revision cancels it and only the final-compatible branch can be reused;
+6. no world context, NPC memory, internal model, tool schema or FunctionGemma
    data reaches the request;
-6. validated character text appears in subtitles and admitted sentences reach
+7. validated character text appears in subtitles and admitted sentences reach
    TTS/`AudioScene` without giving audio gameplay authority;
-7. at least three sequential turns complete without model reload;
-8. leaving/cancelling in every async state prevents late output from reopening
+8. at least three sequential turns complete without model reload;
+9. leaving/cancelling in every async state prevents late output from reopening
    the dialogue;
-9. `ai-host`, ASR/affect, LLM and TTS failure paths have visible bounded
+10. `ai-host`, ASR/affect, LLM and TTS failure paths have visible bounded
    fallbacks and never make the game unplayable;
-10. authoritative world roots and the authored dialogue offer node are
+11. authoritative world roots and the authored dialogue offer node are
     identical before and after the demo conversation;
-11. cold/warm latency, queue, reload, RAM and VRAM measurements are reported
+12. cold/warm latency, first useful partial, endpoint-to-final, prewarm reuse/
+    cancellation, queue, reload, RAM and VRAM measurements are reported
     against the exact model/profile identities;
-12. raw audio, prompts, transcripts and generated voice are not persisted or
+13. raw audio, prompts, transcripts and generated voice are not persisted or
     logged by default, and risk-scoped checks pass or have explicit `NOT_RUN`
     reasons.
 
