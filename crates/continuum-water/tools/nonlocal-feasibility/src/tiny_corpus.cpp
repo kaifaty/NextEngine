@@ -59,13 +59,17 @@ struct ProfileResult {
     double hydro_mean_positive_compression = 0.0;
 };
 
-Fixture base_fixture(const Profile& profile, std::string name) {
+Fixture base_fixture(
+    const Profile& profile,
+    std::string name,
+    double horizon = HORIZON,
+    int iterations = ITERATIONS) {
     Fixture fixture;
     fixture.name = std::move(name);
     fixture.rest_density = REST_DENSITY;
     fixture.spacing = SPACING;
     fixture.mass = MASS;
-    fixture.horizon = HORIZON;
+    fixture.horizon = horizon;
     fixture.time_step = TIME_STEP;
     fixture.gravity = profile.gravity;
     fixture.kappa = profile.kappa;
@@ -73,7 +77,7 @@ Fixture base_fixture(const Profile& profile, std::string name) {
     fixture.mu = profile.mu;
     fixture.gamma = profile.gamma;
     fixture.terms = profile.terms;
-    fixture.iterations = ITERATIONS;
+    fixture.iterations = iterations;
     return fixture;
 }
 
@@ -245,7 +249,10 @@ void append_features(std::ostringstream& output, const std::vector<int>& feature
     output << ']';
 }
 
-CaseResult run_free_fall(const Profile& profile) {
+CaseResult run_free_fall(
+    const Profile& profile,
+    int iterations = ITERATIONS,
+    double horizon = HORIZON) {
     Particle particle{{0.0, 1.0, 0.0}, {}, false};
     Vec3 expected_position = particle.position;
     Vec3 expected_velocity{};
@@ -253,7 +260,7 @@ CaseResult run_free_fall(const Profile& profile) {
     double maximum_velocity_error = 0.0;
     bool finite_all = true;
     for (int step = 0; step < 16; ++step) {
-        Fixture fixture = base_fixture(profile, "TPF-1");
+        Fixture fixture = base_fixture(profile, "TPF-1", horizon, iterations);
         fixture.particles = {particle};
         const OracleResult result = run_cpu_gather_oracle(fixture);
         finite_all = finite_all && finite_result(result);
@@ -304,9 +311,7 @@ CaseResult run_hydro(
     bool finite_all = true;
     std::vector<Particle> final_all;
     for (int step = 0; step < 24; ++step) {
-        Fixture fixture = base_fixture(profile, "TPH-1");
-        fixture.iterations = iterations;
-        fixture.horizon = horizon;
+        Fixture fixture = base_fixture(profile, "TPH-1", horizon, iterations);
         fixture.particles = fluid;
         const std::size_t boundary_count =
             append_lattice_complement(fixture, box, boundary_layers);
@@ -332,7 +337,8 @@ CaseResult run_hydro(
             maximum_speed = std::max(maximum_speed, norm(contact.velocity));
         }
         final_all = fluid;
-        Fixture support = base_fixture(profile, "TPH-1-density");
+        Fixture support =
+            base_fixture(profile, "TPH-1-density", horizon, iterations);
         support.particles = final_all;
         append_lattice_complement(support, box, boundary_layers);
         final_all = std::move(support.particles);
@@ -395,7 +401,10 @@ CaseResult run_hydro(
     return {passed, failure, json.str()};
 }
 
-CaseResult run_reversible(const Profile& profile) {
+CaseResult run_reversible(
+    const Profile& profile,
+    int iterations = ITERATIONS,
+    double horizon = HORIZON) {
     const Vec3 uniform_velocity{0.2, -0.1, 0.15};
     std::vector<Particle> particles;
     for (int x = 0; x < 2; ++x) {
@@ -410,11 +419,13 @@ CaseResult run_reversible(const Profile& profile) {
         }
     }
     const std::vector<Particle> initial = particles;
-    Fixture forward = base_fixture(profile, "TPR-1-forward");
+    Fixture forward =
+        base_fixture(profile, "TPR-1-forward", horizon, iterations);
     forward.gravity = {};
     forward.particles = particles;
     const OracleResult first = run_cpu_gather_oracle(forward);
-    Fixture reverse = base_fixture(profile, "TPR-1-reverse");
+    Fixture reverse =
+        base_fixture(profile, "TPR-1-reverse", horizon, iterations);
     reverse.gravity = {};
     for (std::size_t index = 0; index < particles.size(); ++index) {
         reverse.particles.push_back({
@@ -446,7 +457,11 @@ CaseResult run_reversible(const Profile& profile) {
     return {passed, passed ? "" : "reversible_rigid_mode", json.str()};
 }
 
-CaseResult run_wall(const Profile& profile) {
+CaseResult run_wall(
+    const Profile& profile,
+    int iterations = ITERATIONS,
+    double horizon = HORIZON,
+    int boundary_layers = 2) {
     const Box box{{0.0, 0.0, 0.0}, {0.1, 0.1, 0.1}, {2, 2, 2}};
     const std::array<Vec3, 2> starts = {
         Vec3{RADIUS, 0.075, RADIUS},
@@ -468,10 +483,15 @@ CaseResult run_wall(const Profile& profile) {
     std::ostringstream cases;
     cases << '[';
     for (std::size_t case_index = 0; case_index < starts.size(); ++case_index) {
-        Fixture fixture = base_fixture(profile, "TPW-1");
+        Fixture fixture =
+            base_fixture(profile, "TPW-1", horizon, iterations);
         fixture.particles.push_back({starts[case_index], velocities[case_index], false});
-        const std::size_t boundary_count = append_lattice_complement(fixture, box);
-        if (boundary_count != 208U || fixture.particles.size() != 209U) {
+        const std::size_t boundary_count =
+            append_lattice_complement(fixture, box, boundary_layers);
+        const std::size_t outer = static_cast<std::size_t>(2 + 2 * boundary_layers);
+        const std::size_t expected_boundary = outer * outer * outer - 8U;
+        if (boundary_count != expected_boundary
+            || fixture.particles.size() != expected_boundary + 1U) {
             throw std::runtime_error("TPW-1 support count mismatch");
         }
         const OracleResult tentative = run_cpu_gather_oracle(fixture);
@@ -513,14 +533,19 @@ CaseResult run_wall(const Profile& profile) {
     return {passed, passed ? "" : "face_or_corner_contact", json.str()};
 }
 
-ProfileResult evaluate_profile(const Profile& profile) {
+ProfileResult evaluate_profile(
+    const Profile& profile,
+    int iterations = ITERATIONS,
+    double horizon = HORIZON,
+    int boundary_layers = 2) {
     ProfileResult result;
     result.id = profile.id;
     result.profile_sha256 = sha256_hex(canonical_profile_json(profile));
-    result.free_fall = run_free_fall(profile);
-    result.hydro = run_hydro(profile, result.hydro_mean_positive_compression);
-    result.reversible = run_reversible(profile);
-    result.wall = run_wall(profile);
+    result.free_fall = run_free_fall(profile, iterations, horizon);
+    result.hydro = run_hydro(profile, result.hydro_mean_positive_compression,
+        iterations, horizon, boundary_layers);
+    result.reversible = run_reversible(profile, iterations, horizon);
+    result.wall = run_wall(profile, iterations, horizon, boundary_layers);
     const std::array<const CaseResult*, 4> cases = {
         &result.free_fall, &result.hydro, &result.reversible, &result.wall};
     result.passed = true;
@@ -686,6 +711,60 @@ CpuTinyCorpusReport run_cpu_hydro_remediation() {
            << ",\"tiny_corpus_rerun_required\":"
            << (candidate_iterations != 0 ? "true" : "false")
            << ",\"npr1_authorized\":false,\"runtime_authority\":false}"
+           << ",\"result_sha256\":\"" << sha256_hex(root.str()) << "\"}";
+    return {true, output.str()};
+}
+
+CpuTinyCorpusReport run_cpu_h3_profile_corpus() {
+    const Profile profile =
+        find_profile("nuv-basin-48k-static-support-h3-physical.v4");
+    constexpr std::size_t expected_boundary_samples = 38856U;
+    constexpr std::size_t expected_total_samples = 86856U;
+    constexpr std::size_t expected_max_neighbors = 123U;
+    constexpr std::size_t expected_max_pairs = 10683288U;
+    const bool profile_exact = profile.record_version == 4
+        && profile.samples == 48000U && profile.max_samples == 50000U
+        && profile.spacing == 0.05 && profile.mass == 0.125
+        && profile.horizon == 0.15 && profile.time_step == 1.0 / 240.0
+        && profile.kappa == 9196.875 && profile.lambda == 360.0
+        && profile.mu == 0.0 && profile.gamma == 0.0
+        && profile.fixed_iterations == 16
+        && profile.static_boundary_layers == 3
+        && profile.static_boundary_samples == expected_boundary_samples
+        && profile.max_static_boundary_samples == expected_boundary_samples
+        && profile.samples + profile.static_boundary_samples == expected_total_samples
+        && profile.max_neighbors == expected_max_neighbors
+        && profile.max_directed_pairs == expected_max_pairs;
+    if (!profile_exact) {
+        throw std::runtime_error("v4 h3 profile does not match frozen discriminator");
+    }
+
+    const ProfileResult result = evaluate_profile(
+        profile, profile.fixed_iterations, profile.horizon,
+        profile.static_boundary_layers);
+    const std::string disposition = result.passed
+        ? "V4_TINY_CORPUS_PASS"
+        : "NONLOCAL_PRODUCTION_RESEARCH_STOP";
+    const std::string profile_hash = sha256_hex(canonical_profile_json(profile));
+    std::ostringstream root;
+    root << std::setprecision(17)
+         << profile_hash << '|' << profile_exact << '|' << result.passed << '|'
+         << result.first_failure << '|' << result.free_fall.json << '|'
+         << result.hydro.json << '|' << result.reversible.json << '|'
+         << result.wall.json << '|' << disposition;
+
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.cpu_h3_profile_corpus.v1\""
+           << ",\"identity\":\"npr0-h3-profile-corpus-r0\""
+           << ",\"status\":\"PASS\",\"command_passed\":true"
+           << ",\"profile_exact\":true,\"profile\":";
+    append_profile(output, result);
+    output << ",\"selection\":{\"disposition\":\"" << disposition
+           << "\",\"selected_profile_id\":\""
+           << (result.passed ? profile.id : "")
+           << "\",\"gpu_preflight_required\":true"
+           << ",\"runtime_authority\":false,\"npr1_authorized\":false}"
            << ",\"result_sha256\":\"" << sha256_hex(root.str()) << "\"}";
     return {true, output.str()};
 }

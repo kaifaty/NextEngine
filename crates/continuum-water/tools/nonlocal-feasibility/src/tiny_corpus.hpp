@@ -11,5 +11,6 @@ struct CpuTinyCorpusReport {
 
 CpuTinyCorpusReport run_cpu_tiny_physical_corpus();
 CpuTinyCorpusReport run_cpu_hydro_remediation();
+CpuTinyCorpusReport run_cpu_h3_profile_corpus();
 
 } // namespace nextengine::nonlocal

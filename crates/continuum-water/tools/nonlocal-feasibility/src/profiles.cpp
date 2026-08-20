@@ -126,6 +126,25 @@ Profile product_static_support_profile(
     return profile;
 }
 
+Profile product_h3_support_profile() {
+    Profile profile = product_static_support_profile(
+        "nuv-basin-48k-static-support-h3-physical.v4", 9196.875, 360.0,
+        "hydro_head_h3_support_remediation");
+    profile.record_version = 4;
+    profile.horizon = 0.15;
+    profile.fixed_iterations = 16;
+    profile.static_boundary_samples = 38856;
+    profile.max_static_boundary_samples = 38856;
+    profile.static_boundary_layers = 3;
+    profile.max_neighbors = 123;
+    profile.max_directed_pairs =
+        (profile.samples + profile.static_boundary_samples) * profile.max_neighbors;
+    profile.geometry =
+        "spec38_sealed_extent_three_layer_outer_lattice_h3_physical_candidate";
+    profile.boundary = "three_layer_fixed_ghost_density_support_no_contact";
+    return profile;
+}
+
 std::string bool_json(bool value) { return value ? "true" : "false"; }
 
 } // namespace
@@ -204,6 +223,7 @@ const std::vector<Profile>& profiles() {
         product_static_support_profile(
             "nuv-basin-48k-static-support-derived.v3", 576.0, 360.0,
             "dimensionally_derived_coefficient_hypothesis"),
+        product_h3_support_profile(),
     };
     return values;
 }
@@ -330,6 +350,8 @@ std::string production_profile_audit_json() {
     const std::string spec_support_id = "nuv-basin-48k-spec-support.v2";
     const std::string static_control_id = "nuv-basin-48k-static-support-control.v3";
     const std::string static_derived_id = "nuv-basin-48k-static-support-derived.v3";
+    const std::string h3_candidate_id =
+        "nuv-basin-48k-static-support-h3-physical.v4";
     const Profile& retained_48k = find_profile(retained_48k_id);
     const Profile& retained_50k = find_profile(retained_50k_id);
     const Profile& source_scale = find_profile(source_scale_id);
@@ -337,6 +359,7 @@ std::string production_profile_audit_json() {
     const Profile& spec_support = find_profile(spec_support_id);
     const Profile& static_control = find_profile(static_control_id);
     const Profile& static_derived = find_profile(static_derived_id);
+    const Profile& h3_candidate = find_profile(h3_candidate_id);
 
     const auto append_profile = [](std::ostringstream& output, const Profile& profile) {
         const std::string canonical = canonical_profile_json(profile);
@@ -358,9 +381,9 @@ std::string production_profile_audit_json() {
 
     std::ostringstream output;
     output << std::setprecision(17);
-    output << "{\"schema\":\"nextengine.nonlocal.production-profile-audit.v1\""
+    output << "{\"schema\":\"nextengine.nonlocal.production-profile-audit.v2\""
            << ",\"command_status\":\"PASS\""
-           << ",\"semantic_status\":\"PROFILE_RECLOSURE_REQUIRED\""
+           << ",\"semantic_status\":\"H3_SUPPORT_REMEDIATION_CANDIDATE\""
            << ",\"retained_profiles\":[";
     append_profile(output, retained_48k);
     output << ',';
@@ -375,6 +398,8 @@ std::string production_profile_audit_json() {
     append_profile(output, static_control);
     output << ',';
     append_profile(output, static_derived);
+    output << ',';
+    append_profile(output, h3_candidate);
     output << "]"
            << ",\"product_expectation\":{\"samples_nominal\":48000"
            << ",\"samples_hard_capacity\":50000,\"lattice\":[80,15,40]"
@@ -384,6 +409,18 @@ std::string production_profile_audit_json() {
            << ",\"static_boundary_samples\":24704"
            << ",\"static_boundary_capacity\":32768"
            << ",\"boundary\":\"two_layer_support_plus_swept_contact\"}"
+           << ",\"remediation_candidate\":{\"profile_id\":\""
+           << h3_candidate.id << "\",\"horizon_m\":" << h3_candidate.horizon
+           << ",\"horizon_over_spacing\":"
+           << h3_candidate.horizon / h3_candidate.spacing
+           << ",\"static_boundary_samples\":"
+           << h3_candidate.static_boundary_samples
+           << ",\"static_boundary_capacity\":"
+           << h3_candidate.max_static_boundary_samples
+           << ",\"total_solver_samples\":"
+           << h3_candidate.samples + h3_candidate.static_boundary_samples
+           << ",\"fixed_iterations\":" << h3_candidate.fixed_iterations
+           << ",\"runtime_authority\":false,\"npr1_authorized\":false}"
            << ",\"mismatch\":{\"spacing_scale_from_retained_48k\":"
            << source_scale.spacing / retained_48k.spacing
            << ",\"mass_scale_from_retained_48k\":"
