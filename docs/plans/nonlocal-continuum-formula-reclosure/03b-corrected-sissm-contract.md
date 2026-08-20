@@ -1,6 +1,6 @@
 # FCR3-B — corrected SISSM/reference correspondence
 
-Status: `V1 FAIL / ISOLATED_PRESSURE_SELECTED / REPORT_ONLY`
+Status: `CLOSED / FCR3B2_NON_DESCENT / FORMULA_RECLOSURE_STOP`
 
 Predecessor: FCR2 reference `PASS`; FCR3-A conditioning branch `CLOSED FAIL`.
 
@@ -93,3 +93,6 @@ the [exact evidence](../../development/nonlocal-continuum-fcr3b-sissm-v1-evidenc
 The one allowed term-localized discriminator subsequently selected the
 pressure split as the minimal failing scope. See the
 [FCR3-B1 evidence](../../development/nonlocal-continuum-fcr3b1-term-local-evidence-2026-08-20.md).
+Its sole frozen Chebyshev remediation then failed at an exact non-descent
+boundary, closing this fast-SISSM lineage. See the
+[FCR3-B2 evidence](../../development/nonlocal-continuum-fcr3b2-chebyshev-evidence-2026-08-20.md).

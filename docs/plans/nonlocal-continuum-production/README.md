@@ -135,6 +135,14 @@ derivatives and coefficient factors. It must restart coefficient derivation,
 NPR0 profile selection, physical reclosure and performance measurement. The
 v4 profile cannot be repaired in place.
 
+That successor investigation has now run separately as
+`nuv-variational-fcr1`. Its FCR0-FCR2 formula and slow binary64 objective
+reference pass, but its bounded fast-solver branch stops at FCR3-B2: corrected
+SISSM is pressure-limited and the one frozen Chebyshev remediation becomes
+non-descent. This does not change the production stop; it narrows the next
+reopen condition to a separately specified, globally safeguarded nonlinear
+optimizer with reproducible primary formulas or code.
+
 ## Stop states
 
 - `NONLOCAL_PRODUCT_PROFILE_CANDIDATE`: NPR0 selects one bounded profile for

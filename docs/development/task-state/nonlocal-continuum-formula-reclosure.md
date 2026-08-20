@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / FCR3B1_PRESSURE_SELECTED / CHEBYSHEV_NEXT` |
+| Status | `STOPPED / FORMULA_RECLOSURE_STOP / FAST_SOLVER_GATE_FAILED` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-formula-reclosure` |
 | Scope | Prove or reject a separately rooted energy/force-consistent Nonlocal continuum identity through algebra, physical, CUDA and performance gates |
@@ -11,12 +11,12 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The minimal fast-iteration failure is pressure-only; viscosity, surface and `VS` pass unchanged gates.
-- **Why:** pressure-only ends at `4.72e-3` versus FCR2 `6.47e-8`, and every mask containing pressure fails.
-- **Next action:** Run one pressure-activated SISPH Chebyshev recurrence with frozen `spectral_radius=0.9` and the unchanged exact-objective safeguard.
-- **Current blocker:** None.
+- **Current conclusion:** The corrected energy has a slow bounded f64 oracle, but no admissible fast solver in this lineage.
+- **Why:** v1 stalls on pressure quality; the sole frozen Chebyshev remediation creates non-descent directions in every pressure-bearing case.
+- **Next action:** None in this roadmap. Reopen only with a separately specified nonlinear method and primary formula/code evidence.
+- **Current blocker:** Terminal roadmap gate; no in-scope fast-solver remediation remains.
 - **Do not retry:** Repairing or retuning `nuv-basin-48k-static-support-h3-physical.v4`; its formula identity, coefficients and roots are closed historical evidence.
-- **Reconsider when:** Only a reviewed upstream erratum can change source interpretation; it still cannot relabel old roots.
+- **Reconsider when:** A new nonlinear solver has complete primary formulas or reproducible code; it still cannot relabel old roots.
 
 ## Current evidence
 
@@ -31,7 +31,8 @@
 | `docs/development/nonlocal-continuum-fcr3a-block-evidence-2026-08-20.md` | `FAIL` | Pure block v1 rejected; exactly one hybrid v2 remediation allowed |
 | `docs/development/nonlocal-continuum-fcr3a-hybrid-evidence-2026-08-20.md` | `FAIL` | Conditioning branch closed; FCR3-B corrected SISSM is next |
 | `docs/development/nonlocal-continuum-fcr3b-sissm-v1-evidence-2026-08-20.md` | `FAIL` | Isolated terms pass; one term-localized combined discriminator authorized |
-| `docs/development/nonlocal-continuum-fcr3b1-term-local-evidence-2026-08-20.md` | `PASS / isolated-P` | One pressure-only paper-literal remediation authorized |
+| `docs/development/nonlocal-continuum-fcr3b1-term-local-evidence-2026-08-20.md` | `PASS / isolated-P` | One pressure-only Chebyshev remediation authorized |
+| `docs/development/nonlocal-continuum-fcr3b2-chebyshev-evidence-2026-08-20.md` | `FAIL / non-descent` | `FORMULA_RECLOSURE_STOP`; FCR3-C through FCR7 blocked |
 
 ## Decisions that still constrain the work
 
@@ -75,13 +76,23 @@
 - **Uncertainty:** Whether corrected SISSM can match the reference efficiently at product cadence.
 - **Reconsider when:** A stronger independently verified nonlinear reference replaces Armijo without weakening the gates.
 
+### D-005 — Stop the current fast-SISSM lineage
+
+- **Observation:** v1 is pressure-limited and the one frozen `rho=0.9` Chebyshev remediation produces non-descent directions after 2-7 iterations.
+- **Evidence:** FCR3-B1/B2 raw hashes and the exact objective safeguard.
+- **Decision:** Select `FORMULA_RECLOSURE_STOP`; retain FCR2 only as a slow research oracle.
+- **Rejected alternatives:** spectral-radius sweep, silent v1 fallback, larger iteration cap, relaxed gradient gate and coefficient tuning.
+- **Consequences:** FCR3-C through FCR7 and all integration/performance promotion are blocked.
+- **Uncertainty:** A different globally convergent nonlinear optimizer may still make the corrected energy practical.
+- **Reconsider when:** A separately reviewed solver contract is backed by complete primary formulas or reproducible code, preferably the announced pairwise-descent method after publication.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: compression-only is the stable free-surface rule | SISPH text, both author code paths, standard negative-pressure clamp | printed Eq. 7 is two-sided | FCR1 underdense pair and free-surface patch |
 | H2: one directed visit plus endpoint scatter is the clean coefficient implementation | Eq. 12/13 pair state and exact momentum closure | current neighbor graph likely stores both directions | FCR1 enumerated two-particle graph |
-| H3: corrected identity can converge at product cadence | unified coupling and SISPH Chebyshev results | unaccelerated pressure split stalls above the reference gate on the tetrahedron | frozen pressure-activated Chebyshev candidate |
+| H3: corrected identity can converge at product cadence | unified coupling examples | v1 stalls and fixed SISPH Chebyshev becomes non-descent | rejected for this solver lineage; new optimizer required |
 
 ## Required context
 
@@ -95,9 +106,9 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Apply the frozen `spectral_radius=0.9` recurrence only when pressure is active.
-2. Run unchanged FCR3-B cases and all seven term masks under the same 80-iteration reference/objective gate.
-3. Stop the fast-solver branch if this sole pressure remediation fails; do not sweep the radius or tune coefficients/iteration count.
+1. Preserve the exact negative evidence and slow FCR2 oracle.
+2. Monitor the announced Semi-Implicit Pairwise Descent paper/code; do not infer its method from the title.
+3. Start a new solver lineage only after a separate contract explicitly supersedes D-005.
 
 ## Do not retry
 
@@ -105,10 +116,11 @@ Read these sources in precedence order before acting:
 - Surface `m/r0` as an assumed paper repair — the physical-distance normalization was not frozen; reconsider only with new primary evidence.
 - Product-scale or long corpus runs before tiny gates — they cannot distinguish algebra errors cheaply.
 - Block v1, hybrid v2 or alternate block switch points — exact fixed-budget gradient failures close this branch.
+- Chebyshev spectral-radius sweeps or larger iteration caps — the frozen remediation is non-descent and closes this lineage.
 
 ## Handoff
 
-- **Workspace state:** branch `codex/nonlocal-continuum-n0`; FCR3-B1 implementation committed at `ee91248`; evidence/roadmap update is the current change.
-- **Checks:** FCR3-B1 PASS twice byte-identically; `isolated-P` selected; FCR0–FCR2 PASS unchanged.
-- **Remaining risk:** Pair enumeration, nonlinear convergence, coefficient calibration and corrected CUDA cost remain open.
-- **Promotion needed:** Roadmap/evidence updates at each material gate; architecture promotion remains forbidden.
+- **Workspace state:** branch `codex/nonlocal-continuum-n0`; FCR3-B2 implementation committed at `2b99afb`; final stop evidence/roadmap update is the current change.
+- **Checks:** FCR3-B2 FAIL twice byte-identically at pressure non-descent; FCR0–FCR2 and frozen v1/B1 reports unchanged.
+- **Remaining risk:** A production-capable nonlinear optimizer is unproven; profile, CUDA and cost are intentionally not evaluated.
+- **Promotion needed:** None. Architecture/runtime promotion remains forbidden.

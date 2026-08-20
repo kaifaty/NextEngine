@@ -1,6 +1,6 @@
 # FCR3-B2 — pressure-activated Chebyshev remediation
 
-Status: `FROZEN FOR IMPLEMENTATION / REPORT_ONLY`
+Status: `FAIL / NON_DESCENT / FORMULA_RECLOSURE_STOP`
 
 Predecessor: FCR3-B1 `PASS / isolated-P`.
 
@@ -54,3 +54,8 @@ profile reclosure remains blocked until the original aggregate objective
 evaluation gate is closed. Failure closes the current fast-SISSM branch as
 `FORMULA_RECLOSURE_STOP`; it does not authorize tuning `spectral_radius`, the
 iteration cap, coefficients or tolerances.
+
+The frozen candidate fails with `NON_DESCENT_SISSM_DIRECTION` in every
+pressure-bearing control. See the
+[dated evidence](../../development/nonlocal-continuum-fcr3b2-chebyshev-evidence-2026-08-20.md).
+The failure branch is selected; FCR3-B3 is not authorized.

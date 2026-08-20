@@ -1,6 +1,6 @@
 # Nonlocal continuum — formula reclosure roadmap
 
-Status: `ACTIVE / FCR2_PASS / FCR3B1_PRESSURE_SELECTED / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `STOPPED / FORMULA_RECLOSURE_STOP / FCR3B2_NON_DESCENT / NO_RUNTIME_AUTHORITY`
 
 This roadmap is a new research lineage. It does not repair or relabel the
 stopped source-shaped profile `nuv-basin-48k-static-support-h3-physical.v4`.
@@ -94,6 +94,10 @@ FCR3-B v1 failed, and the frozen FCR3-B1 discriminator selected pressure as
 the minimal failing scope in its
 [dated evidence](../../development/nonlocal-continuum-fcr3b1-term-local-evidence-2026-08-20.md).
 Primary-equation reinspection confirms v1 already has the correct pressure
-split. The active next action is the single frozen
-[pressure-activated Chebyshev remediation](03b2-pressure-chebyshev-contract.md).
-Profile selection remains blocked.
+split. The single frozen
+[pressure-activated Chebyshev remediation](03b2-pressure-chebyshev-contract.md)
+now fails reproducibly: the fixed SISPH recurrence produces
+non-descent directions in every pressure-bearing control. The exact
+[FCR3-B2 evidence](../../development/nonlocal-continuum-fcr3b2-chebyshev-evidence-2026-08-20.md)
+selects `FORMULA_RECLOSURE_STOP`. FCR3-C through FCR7 are not executed. FCR2
+remains a slow research oracle only.
