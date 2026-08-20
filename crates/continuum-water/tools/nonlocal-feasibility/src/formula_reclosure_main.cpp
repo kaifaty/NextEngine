@@ -26,7 +26,8 @@ int main(int argc, char** argv) {
                          "--hessian-tape-benchmark|"
                          "--dimensional-profile-self-test|"
                          "--normalized-kernel-reclosure-self-test|"
-                         "--manufactured-multistep-self-test\n";
+                         "--manufactured-multistep-self-test|"
+                         "--temporal-stiffness-diagnostic\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -163,6 +164,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--temporal-stiffness-diagnostic") {
+            const nextengine::nonlocal::fcr::ReferenceSolverReport report =
+                nextengine::nonlocal::fcr::
+                    run_temporal_stiffness_diagnostic_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -180,7 +188,8 @@ int main(int argc, char** argv) {
                      "--hessian-tape-benchmark|"
                      "--dimensional-profile-self-test|"
                      "--normalized-kernel-reclosure-self-test|"
-                     "--manufactured-multistep-self-test\n";
+                     "--manufactured-multistep-self-test|"
+                     "--temporal-stiffness-diagnostic\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1_FAIL / NSR3B1D_TEMPORAL_STIFFNESS_DESIGN` |
+| Status | `ACTIVE / NSR3B1D_INVALID / NSR3B1D1_FLOOR_ORACLE_DESIGN` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -32,10 +32,14 @@
 - **Current diagnosis:** the tested acoustic Courant numbers are
   `8.25 / 4.13 / 2.06`; stability and nonlinear convergence did not establish
   trajectory accuracy.
-- **Current action:** freeze an independent B1D acoustic-Courant ladder and
-  distinguish an unresolved transient from a faulty state transition.
-- **Next gate:** B1D may explain the failure but cannot retroactively pass B1;
-  B2 remains blocked until a new multi-step selection contract is justified.
+- **Current conclusion:** the B1D main ladder reaches final ratios
+  `q_x=1.559/1.744` and `q_v=1.554/1.741`, but the strict replicas that disable
+  the energy-floor stop fail at `MINIMUM_TRUST_RADIUS`.
+- **Current action:** preserve invalid B1D and freeze a B1D1 sensitivity oracle
+  that removes only the early scale stop while retaining the arithmetic floor.
+- **Next gate:** B1D1 must exact-overlap the main ladder and separate nonlinear
+  stopping error from the D3--D4 temporal difference. B1 and B2 remain FAIL /
+  blocked regardless until a separate selection contract is justified.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -112,6 +116,16 @@
 - **Consequence:** static-boundary and physical-trajectory work stays blocked;
   implicit stability cannot be used as evidence of temporal accuracy.
 
+### D-008 -- Reject the floor-disabled sensitivity oracle
+
+- **Observation:** the main acoustic ladder exhibits plausible first-order
+  convergence, but both strict replicas hit `MINIMUM_TRUST_RADIUS` after the
+  numerical-floor stop is disabled.
+- **Decision:** B1D is invalid as a diagnostic; its main-ladder trend is not a
+  selection result. Preserve it and test a floor-limited oracle under B1D1.
+- **Consequence:** do not weaken the selected arithmetic stop or claim that
+  smaller trust radii increase binary64 accuracy.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -124,12 +138,12 @@
 
 ## Exact next action
 
-1. Freeze a B1D ladder in acoustic Courant rather than arbitrary frame steps.
-2. Hold geometry, coefficients, horizon, solver and terminal time constant.
-3. Measure trajectory differences, active-set exit time, impulse and energy
-   across sufficiently small steps without changing the failed B1 report.
-4. Decide whether to design a substep policy/new multi-step gate or stop for a
-   formula/integration reclosure; keep B2 blocked meanwhile.
+1. Freeze B1D1 with exact B1D main-ladder overlap.
+2. Re-run D3/D4 with scale-stop suppressed and energy-floor stop retained.
+3. Bound floor-oracle versus main final position/velocity differences against
+   the already observed D3--D4 temporal differences.
+4. Only then classify temporal stiffness versus integration reclosure; keep
+   B1 FAIL and B2 blocked.
 
 ## Reconsideration triggers
 

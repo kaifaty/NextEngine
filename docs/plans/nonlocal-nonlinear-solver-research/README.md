@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_DESIGN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_DESIGN / REPORT_ONLY`
 
 Candidate identity:
 
@@ -130,3 +130,7 @@ boundaries and physical trajectories remain blocked.
 The diagnostic is now frozen in
 [NSR3-B1D](03b1d-temporal-stiffness-contract.md); it extends the same fixture
 to Courant `0.129` and cannot retroactively change the B1 result.
+Its main ladder shows a first-order-like trend, but the floor-disabled strict
+oracle fails at minimum trust radius; see the
+[dated evidence](../../development/nonlocal-nsr3b1d-temporal-stiffness-evidence-2026-08-20.md).
+Preserve B1D as invalid and design a floor-limited B1D1 oracle next.
