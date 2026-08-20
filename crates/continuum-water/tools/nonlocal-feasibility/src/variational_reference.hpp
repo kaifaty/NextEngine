@@ -27,5 +27,6 @@ ReferenceSolverReport run_hvp_workspace_stream_controls();
 ReferenceSolverReport run_hessian_tape_controls();
 ReferenceSolverReport run_dimensional_profile_controls();
 ReferenceSolverReport run_normalized_kernel_reclosure_controls();
+ReferenceSolverReport run_manufactured_multistep_controls();
 
 } // namespace nextengine::nonlocal::fcr

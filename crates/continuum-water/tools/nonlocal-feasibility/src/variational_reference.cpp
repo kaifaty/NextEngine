@@ -3530,9 +3530,19 @@ struct NeighborhoodTrustResult {
         bool valid_model = false;
         bool accepted = false;
         std::string inner_reason;
+        std::string current_state_sha256;
     };
     std::vector<TrialTrace> trace;
 };
+
+std::string hash_positions(const std::vector<Vec3>& position) {
+    std::ostringstream material;
+    material << std::setprecision(17);
+    for (Vec3 value : position) {
+        material << value.x << ',' << value.y << ',' << value.z << '|';
+    }
+    return sha256_hex(material.str());
+}
 
 struct MembershipDelta {
     std::size_t additions = 0;
@@ -3979,6 +3989,7 @@ NeighborhoodTrustResult solve_neighborhood_trust_region(
             trace.predicted_reduction = predicted_reduction;
             trace.energy_floor = numerical_energy_floor(current);
             trace.inner_reason = step.reason;
+            trace.current_state_sha256 = hash_positions(y);
         }
         if (valid_model) {
             for (std::size_t i = 0; i < trial.size(); ++i) {
@@ -5492,6 +5503,605 @@ bool same_sissm_candidate(const SissmCase& lhs, const SissmCase& rhs) {
     return true;
 }
 
+struct MultistepRun {
+    bool completed = true;
+    bool solver_valid = true;
+    bool positive_reductions = true;
+    bool rejected_state_immutable = true;
+    bool capacity_valid = true;
+    int requested_steps = 0;
+    int completed_steps = 0;
+    int total_outer_trials = 0;
+    int total_accepted_trials = 0;
+    int total_rejected_trials = 0;
+    int total_objective_evaluations = 0;
+    int total_hvp_calls = 0;
+    int total_pair_builds = 0;
+    int maximum_outer_trials = 0;
+    int maximum_rejected_trials = 0;
+    int maximum_hvp_calls = 0;
+    int initial_active_pressure_centers = 0;
+    int final_active_pressure_centers = 0;
+    int maximum_active_pressure_centers = 0;
+    std::size_t maximum_pairs = 0;
+    std::size_t maximum_neighbors = 0;
+    std::size_t maximum_hessian_tape_bytes = 0;
+    double total_mass = 0.0;
+    double maximum_density_ratio = 0.0;
+    double maximum_material_energy = 0.0;
+    double accumulated_momentum_residual = 0.0;
+    std::string failure;
+    std::vector<Vec3> position;
+    std::vector<Vec3> velocity;
+    std::vector<std::vector<Vec3>> position_history;
+    std::vector<std::vector<Vec3>> velocity_history;
+    std::vector<std::string> step_signatures;
+};
+
+Config physical_multistep_config(double time_step = 1.0 / 240.0) {
+    Config config;
+    config.time_step = time_step;
+    config.kernel_scale = reference_lattice_kernel_scale(
+        config.spacing, config.horizon);
+    config.kappa = 1226.25;
+    config.lambda = 1.413823172873555e-5;
+    config.mu = 0.0;
+    config.gamma = 0.0;
+    return config;
+}
+
+std::vector<Vec3> centered_lattice(int side, double spacing) {
+    std::vector<Vec3> result;
+    result.reserve(static_cast<std::size_t>(side * side * side));
+    const double center = 0.5 * static_cast<double>(side - 1);
+    for (int z = 0; z < side; ++z) {
+        for (int y = 0; y < side; ++y) {
+            for (int x = 0; x < side; ++x) {
+                result.push_back({
+                    (static_cast<double>(x) - center) * spacing,
+                    (static_cast<double>(y) - center) * spacing,
+                    (static_cast<double>(z) - center) * spacing,
+                });
+            }
+        }
+    }
+    return result;
+}
+
+int pressure_active_count(
+    const Config& config, const std::vector<Vec3>& position) {
+    return active_count(pressure_active_signature(config, position));
+}
+
+double maximum_density_ratio(
+    const Config& config, const std::vector<Vec3>& position) {
+    const std::vector<double> value = densities(config, position);
+    return *std::max_element(value.begin(), value.end())
+        / config.rest_density;
+}
+
+bool trace_has_positive_reductions(
+    const NeighborhoodTrustResult& result) {
+    for (const NeighborhoodTrustResult::TrialTrace& trace : result.trace) {
+        if (trace.accepted
+            && (!trace.valid_model || trace.predicted_reduction <= 0.0
+                || trace.actual_reduction <= 0.0 || trace.ratio < 0.1)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool trace_preserves_rejected_state(
+    const NeighborhoodTrustResult& result) {
+    for (std::size_t i = 0; i < result.trace.size(); ++i) {
+        if (result.trace[i].accepted) {
+            continue;
+        }
+        const std::string next_state = i + 1 < result.trace.size()
+            ? result.trace[i + 1].current_state_sha256
+            : hash_positions(result.solve.position);
+        if (result.trace[i].current_state_sha256 != next_state) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::string multistep_signature(
+    const Config& config, const NeighborhoodTrustResult& result) {
+    std::ostringstream material;
+    material << result.solve.convergence_stop << '|'
+             << result.solve.outer_trials << '|'
+             << result.solve.accepted_trials << '|'
+             << result.solve.rejected_trials << '|'
+             << result.solve.hvp_calls << '|'
+             << pressure_active_count(config, result.solve.position) << '|';
+    for (const NeighborhoodTrustResult::TrialTrace& trace : result.trace) {
+        material << trace.current_active << ':' << trace.trial_active << ':'
+                 << (trace.accepted ? 1 : 0) << ':' << trace.inner_reason
+                 << ':' << trace.inner_hvp_calls << '|';
+    }
+    return material.str();
+}
+
+std::string hash_phase_state(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity) {
+    std::ostringstream material;
+    material << std::setprecision(17);
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        material << position[i].x << ',' << position[i].y << ','
+                 << position[i].z << ';' << velocity[i].x << ','
+                 << velocity[i].y << ',' << velocity[i].z << '|';
+    }
+    return sha256_hex(material.str());
+}
+
+MultistepRun run_multistep(
+    const Config& config,
+    std::vector<Vec3> position,
+    std::vector<Vec3> velocity,
+    int steps,
+    bool capture_history) {
+    MultistepRun result;
+    result.requested_steps = steps;
+    result.total_mass = config.mass * static_cast<double>(position.size());
+    result.position = position;
+    result.velocity = velocity;
+    result.initial_active_pressure_centers =
+        pressure_active_count(config, position);
+    result.final_active_pressure_centers =
+        result.initial_active_pressure_centers;
+    result.maximum_active_pressure_centers =
+        result.initial_active_pressure_centers;
+    result.maximum_density_ratio = maximum_density_ratio(config, position);
+    if (capture_history) {
+        result.position_history.push_back(position);
+        result.velocity_history.push_back(velocity);
+    }
+    for (int step = 0; step < steps; ++step) {
+        const NeighborhoodTrustResult solve =
+            solve_neighborhood_trust_region(config, position, velocity,
+                true, true, false, true, true, false);
+        result.total_outer_trials += solve.solve.outer_trials;
+        result.total_accepted_trials += solve.solve.accepted_trials;
+        result.total_rejected_trials += solve.solve.rejected_trials;
+        result.total_objective_evaluations +=
+            solve.solve.objective_evaluations;
+        result.total_hvp_calls += solve.solve.hvp_calls;
+        result.total_pair_builds += solve.pair_builds;
+        result.maximum_outer_trials = std::max(
+            result.maximum_outer_trials, solve.solve.outer_trials);
+        result.maximum_rejected_trials = std::max(
+            result.maximum_rejected_trials, solve.solve.rejected_trials);
+        result.maximum_hvp_calls = std::max(
+            result.maximum_hvp_calls, solve.solve.hvp_calls);
+        result.maximum_pairs = std::max(
+            result.maximum_pairs, solve.maximum_pairs);
+        result.maximum_neighbors = std::max(
+            result.maximum_neighbors, solve.maximum_neighbors);
+        result.maximum_hessian_tape_bytes = std::max(
+            result.maximum_hessian_tape_bytes,
+            solve.maximum_hessian_tape_bytes);
+        result.positive_reductions = result.positive_reductions
+            && trace_has_positive_reductions(solve);
+        result.rejected_state_immutable = result.rejected_state_immutable
+            && trace_preserves_rejected_state(solve);
+        result.capacity_valid = result.capacity_valid
+            && solve.maximum_pairs <= 80 * position.size()
+            && solve.maximum_neighbors <= 160
+            && solve.maximum_hessian_tape_bytes
+                <= solve.hessian_tape_capacity_bytes;
+        result.solver_valid = result.solver_valid && solve.solve.succeeded
+            && solve.solve.monotonic && solve.solve.failure.empty();
+        if (!result.solver_valid || solve.solve.position.size() != position.size()) {
+            result.completed = false;
+            result.failure = solve.solve.failure.empty()
+                ? "INVALID_SOLVER_RESULT" : solve.solve.failure;
+            break;
+        }
+        std::vector<Vec3> next_velocity(position.size());
+        for (std::size_t i = 0; i < position.size(); ++i) {
+            next_velocity[i] =
+                (solve.solve.position[i] - position[i]) / config.time_step;
+        }
+        result.maximum_material_energy = std::max(
+            result.maximum_material_energy,
+            std::abs(solve.solve.final.pressure)
+                + std::abs(solve.solve.final.viscosity)
+                + std::abs(solve.solve.final.surface));
+        result.accumulated_momentum_residual +=
+            solve.solve.final.internal_momentum_residual;
+        position = solve.solve.position;
+        velocity = next_velocity;
+        ++result.completed_steps;
+        result.final_active_pressure_centers =
+            pressure_active_count(config, position);
+        result.maximum_active_pressure_centers = std::max(
+            result.maximum_active_pressure_centers,
+            result.final_active_pressure_centers);
+        result.maximum_density_ratio = std::max(
+            result.maximum_density_ratio,
+            maximum_density_ratio(config, position));
+        result.step_signatures.push_back(
+            multistep_signature(config, solve));
+        if (capture_history) {
+            result.position_history.push_back(position);
+            result.velocity_history.push_back(velocity);
+        }
+    }
+    result.position = position;
+    result.velocity = velocity;
+    result.completed = result.completed && result.completed_steps == steps;
+    return result;
+}
+
+struct FreeFlightControl {
+    MultistepRun run;
+    double maximum_position_error = 0.0;
+    double maximum_velocity_error = 0.0;
+    bool passed = false;
+};
+
+FreeFlightControl free_flight_multistep_control() {
+    Config config = physical_multistep_config();
+    config.gravity = {0.0, -9.81, 0.0};
+    const Vec3 initial_position = {0.25, -0.1, 0.4};
+    const Vec3 initial_velocity = {1.2, 0.7, -0.35};
+    FreeFlightControl result;
+    result.run = run_multistep(
+        config, {initial_position}, {initial_velocity}, 240, true);
+    for (std::size_t step = 0;
+         step < result.run.position_history.size(); ++step) {
+        const double n = static_cast<double>(step);
+        const Vec3 expected_velocity =
+            initial_velocity + n * config.time_step * config.gravity;
+        const Vec3 expected_position = initial_position
+            + n * config.time_step * initial_velocity
+            + 0.5 * n * (n + 1.0) * config.time_step
+                * config.time_step * config.gravity;
+        result.maximum_position_error = std::max(
+            result.maximum_position_error,
+            vector_relative_error(
+                result.run.position_history[step][0], expected_position));
+        result.maximum_velocity_error = std::max(
+            result.maximum_velocity_error,
+            vector_relative_error(
+                result.run.velocity_history[step][0], expected_velocity));
+    }
+    result.passed = result.run.completed && result.run.solver_valid
+        && result.run.total_outer_trials == 0
+        && result.run.total_hvp_calls == 0
+        && result.maximum_position_error <= 1.0e-11
+        && result.maximum_velocity_error <= 1.0e-11;
+    return result;
+}
+
+struct RigidTranslationControl {
+    MultistepRun run;
+    double maximum_position_error = 0.0;
+    double maximum_velocity_error = 0.0;
+    double maximum_center_of_mass_error = 0.0;
+    bool passed = false;
+};
+
+RigidTranslationControl rigid_translation_multistep_control() {
+    const Config config = physical_multistep_config();
+    const std::vector<Vec3> initial = centered_lattice(4, config.spacing);
+    const Vec3 translation_velocity = {0.37, -0.21, 0.13};
+    std::vector<Vec3> velocity(initial.size(), translation_velocity);
+    RigidTranslationControl result;
+    result.run = run_multistep(config, initial, velocity, 240, true);
+    const Vec3 initial_center = average(initial);
+    for (std::size_t step = 0;
+         step < result.run.position_history.size(); ++step) {
+        const Vec3 offset = static_cast<double>(step)
+            * config.time_step * translation_velocity;
+        for (std::size_t i = 0; i < initial.size(); ++i) {
+            result.maximum_position_error = std::max(
+                result.maximum_position_error,
+                norm(result.run.position_history[step][i]
+                    - (initial[i] + offset)));
+            result.maximum_velocity_error = std::max(
+                result.maximum_velocity_error,
+                norm(result.run.velocity_history[step][i]
+                    - translation_velocity));
+        }
+        result.maximum_center_of_mass_error = std::max(
+            result.maximum_center_of_mass_error,
+            norm(average(result.run.position_history[step])
+                - (initial_center + offset)));
+    }
+    result.passed = result.run.completed && result.run.solver_valid
+        && result.run.positive_reductions
+        && result.run.rejected_state_immutable
+        && result.run.maximum_active_pressure_centers == 0
+        && result.run.maximum_material_energy <= 1.0e-12
+        && result.run.accumulated_momentum_residual <= 1.0e-12
+        && result.maximum_position_error <= 1.0e-11
+        && result.maximum_velocity_error <= 1.0e-11
+        && result.maximum_center_of_mass_error <= 1.0e-11;
+    return result;
+}
+
+struct GalileanControl {
+    MultistepRun reference;
+    MultistepRun boosted;
+    double maximum_position_error = 0.0;
+    double maximum_velocity_error = 0.0;
+    bool signatures_exact = false;
+    bool passed = false;
+};
+
+GalileanControl galilean_multistep_control() {
+    const CombinedFixture source = combined_fixture();
+    Config config = physical_multistep_config();
+    config.kappa = 200.0;
+    config.lambda = 20.0;
+    double center_density = config.mass
+        * configured_cubic_weight(config, 0.0);
+    for (std::size_t i = 1; i < source.x.size(); ++i) {
+        center_density += config.mass * configured_cubic_weight(
+            config, norm(source.x[0] - source.x[i]));
+    }
+    config.rest_density = center_density / 1.1;
+    const Vec3 boost = {0.6, -0.3, 0.2};
+    std::vector<Vec3> boosted_velocity = source.velocity;
+    for (Vec3& value : boosted_velocity) {
+        value += boost;
+    }
+    GalileanControl result;
+    result.reference = run_multistep(
+        config, source.x, source.velocity, 32, true);
+    result.boosted = run_multistep(
+        config, source.x, boosted_velocity, 32, true);
+    const std::size_t history_size = std::min(
+        result.reference.position_history.size(),
+        result.boosted.position_history.size());
+    for (std::size_t step = 0; step < history_size; ++step) {
+        const Vec3 offset = static_cast<double>(step)
+            * config.time_step * boost;
+        for (std::size_t i = 0; i < source.x.size(); ++i) {
+            result.maximum_position_error = std::max(
+                result.maximum_position_error,
+                norm(result.boosted.position_history[step][i] - offset
+                    - result.reference.position_history[step][i]));
+            result.maximum_velocity_error = std::max(
+                result.maximum_velocity_error,
+                norm(result.boosted.velocity_history[step][i] - boost
+                    - result.reference.velocity_history[step][i]));
+        }
+    }
+    result.signatures_exact = result.reference.step_signatures
+        == result.boosted.step_signatures;
+    result.passed = result.reference.completed && result.boosted.completed
+        && result.reference.solver_valid && result.boosted.solver_valid
+        && result.reference.positive_reductions
+        && result.boosted.positive_reductions
+        && result.reference.rejected_state_immutable
+        && result.boosted.rejected_state_immutable
+        && result.signatures_exact
+        && result.maximum_position_error <= 1.0e-10
+        && result.maximum_velocity_error <= 1.0e-10;
+    return result;
+}
+
+double mass_weighted_rms_position_error(
+    const std::vector<Vec3>& lhs,
+    const std::vector<Vec3>& rhs) {
+    double squared = 0.0;
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        squared += norm_squared(lhs[i] - rhs[i]);
+    }
+    return std::sqrt(squared / static_cast<double>(lhs.size()));
+}
+
+struct CompressionControl {
+    std::array<MultistepRun, 3> runs;
+    std::array<double, 3> time_steps{};
+    int initial_active_pressure_centers = 0;
+    double initial_maximum_density_ratio = 0.0;
+    double coarse_error = 0.0;
+    double fine_error = 0.0;
+    double convergence_ratio = 0.0;
+    double maximum_normalized_center_of_mass_drift = 0.0;
+    double maximum_accumulated_momentum_residual = 0.0;
+    double effective_bulk_modulus = 0.0;
+    double acoustic_wave_speed = 0.0;
+    std::array<double, 3> acoustic_courant{};
+    bool passed = false;
+};
+
+CompressionControl compression_multistep_control() {
+    CompressionControl result;
+    result.time_steps = {
+        1.0 / 240.0, 1.0 / 480.0, 1.0 / 960.0,
+    };
+    const Config anchor = physical_multistep_config();
+    result.effective_bulk_modulus =
+        anchor.kappa * anchor.rest_density / anchor.mass;
+    result.acoustic_wave_speed = std::sqrt(
+        result.effective_bulk_modulus / anchor.rest_density);
+    for (std::size_t i = 0; i < result.acoustic_courant.size(); ++i) {
+        result.acoustic_courant[i] = result.time_steps[i]
+            * result.acoustic_wave_speed / anchor.spacing;
+    }
+    for (std::size_t level = 0; level < result.runs.size(); ++level) {
+        const Config config = physical_multistep_config(
+            result.time_steps[level]);
+        std::vector<Vec3> position = centered_lattice(7, config.spacing);
+        for (Vec3& value : position) {
+            value = 0.99 * value;
+        }
+        if (level == 0) {
+            result.initial_active_pressure_centers =
+                pressure_active_count(config, position);
+            result.initial_maximum_density_ratio =
+                maximum_density_ratio(config, position);
+        }
+        const Vec3 initial_center = average(position);
+        const int steps = static_cast<int>(std::llround(
+            0.05 / config.time_step));
+        result.runs[level] = run_multistep(
+            config, position, std::vector<Vec3>(position.size()),
+            steps, false);
+        result.maximum_normalized_center_of_mass_drift = std::max(
+            result.maximum_normalized_center_of_mass_drift,
+            norm(average(result.runs[level].position) - initial_center)
+                / config.spacing);
+        result.maximum_accumulated_momentum_residual = std::max(
+            result.maximum_accumulated_momentum_residual,
+            result.runs[level].accumulated_momentum_residual);
+    }
+    result.coarse_error = mass_weighted_rms_position_error(
+        result.runs[0].position, result.runs[1].position);
+    result.fine_error = mass_weighted_rms_position_error(
+        result.runs[1].position, result.runs[2].position);
+    result.convergence_ratio = result.coarse_error / result.fine_error;
+    bool run_gates = true;
+    for (const MultistepRun& run : result.runs) {
+        run_gates = run_gates && run.completed && run.solver_valid
+            && run.positive_reductions && run.rejected_state_immutable
+            && run.capacity_valid && run.maximum_outer_trials <= 32
+            && run.maximum_rejected_trials <= 8
+            && run.maximum_hvp_calls <= 128
+            && run.maximum_density_ratio
+                <= result.initial_maximum_density_ratio + 1.0e-6
+            && run.final_active_pressure_centers
+                < result.initial_active_pressure_centers;
+    }
+    result.passed = run_gates
+        && result.maximum_normalized_center_of_mass_drift <= 1.0e-11
+        && result.maximum_accumulated_momentum_residual <= 1.0e-10
+        && result.fine_error > 1.0e-14
+        && result.convergence_ratio >= 1.5;
+    return result;
+}
+
+Vec3 rotate_about_z(Vec3 value, double angle) {
+    const double cosine = std::cos(angle);
+    const double sine = std::sin(angle);
+    return {
+        cosine * value.x - sine * value.y,
+        sine * value.x + cosine * value.y,
+        value.z,
+    };
+}
+
+double accumulated_rotation_viscosity(double time_step, double mu) {
+    Config config = physical_multistep_config(time_step);
+    config.kappa = 0.0;
+    config.mu = mu;
+    const std::vector<Vec3> reference =
+        centered_lattice(4, config.spacing);
+    const int steps = static_cast<int>(std::llround(0.25 / time_step));
+    double energy = 0.0;
+    for (int step = 0; step < steps; ++step) {
+        std::vector<Vec3> x(reference.size());
+        std::vector<Vec3> y(reference.size());
+        const double angle = 2.0 * static_cast<double>(step) * time_step;
+        const double next_angle =
+            2.0 * static_cast<double>(step + 1) * time_step;
+        for (std::size_t i = 0; i < reference.size(); ++i) {
+            x[i] = rotate_about_z(reference[i], angle);
+            y[i] = rotate_about_z(reference[i], next_angle);
+        }
+        energy += evaluate(config, x, y, y).viscosity;
+    }
+    return energy;
+}
+
+struct RotationControl {
+    std::array<double, 3> selected_energy{};
+    std::array<double, 3> comparator_energy{};
+    std::array<double, 2> selected_ratio{};
+    std::array<double, 2> comparator_ratio{};
+    bool passed = false;
+};
+
+RotationControl rotation_objectivity_control() {
+    const std::array<double, 3> time_steps = {
+        1.0 / 240.0, 1.0 / 480.0, 1.0 / 960.0,
+    };
+    constexpr double lambda = 1.413823172873555e-5;
+    RotationControl result;
+    for (std::size_t i = 0; i < time_steps.size(); ++i) {
+        result.selected_energy[i] =
+            accumulated_rotation_viscosity(time_steps[i], 0.0);
+        result.comparator_energy[i] =
+            accumulated_rotation_viscosity(time_steps[i], lambda);
+    }
+    for (std::size_t i = 0; i < result.selected_ratio.size(); ++i) {
+        result.selected_ratio[i] =
+            result.selected_energy[i] / result.selected_energy[i + 1];
+        result.comparator_ratio[i] =
+            result.comparator_energy[i] / result.comparator_energy[i + 1];
+    }
+    result.passed = std::all_of(
+            result.selected_energy.begin(), result.selected_energy.end(),
+            [](double value) { return std::isfinite(value) && value > 0.0; })
+        && std::all_of(
+            result.comparator_energy.begin(), result.comparator_energy.end(),
+            [](double value) { return std::isfinite(value) && value > 0.0; })
+        && std::all_of(
+            result.selected_ratio.begin(), result.selected_ratio.end(),
+            [](double value) { return value >= 3.5 && value <= 4.5; })
+        && std::all_of(
+            result.comparator_ratio.begin(), result.comparator_ratio.end(),
+            [](double value) { return value >= 0.8 && value <= 1.2; });
+    return result;
+}
+
+void append_multistep_work(
+    std::ostringstream& output, const MultistepRun& value) {
+    output << "{\"completed\":" << (value.completed ? "true" : "false")
+           << ",\"solver_valid\":"
+           << (value.solver_valid ? "true" : "false")
+           << ",\"positive_reductions\":"
+           << (value.positive_reductions ? "true" : "false")
+           << ",\"rejected_state_immutable\":"
+           << (value.rejected_state_immutable ? "true" : "false")
+           << ",\"capacity_valid\":"
+           << (value.capacity_valid ? "true" : "false")
+           << ",\"failure\":\"" << value.failure << '"'
+           << ",\"requested_steps\":" << value.requested_steps
+           << ",\"completed_steps\":" << value.completed_steps
+           << ",\"total_outer_trials\":" << value.total_outer_trials
+           << ",\"total_accepted_trials\":"
+           << value.total_accepted_trials
+           << ",\"total_rejected_trials\":"
+           << value.total_rejected_trials
+           << ",\"total_objective_evaluations\":"
+           << value.total_objective_evaluations
+           << ",\"total_hvp_calls\":" << value.total_hvp_calls
+           << ",\"total_pair_builds\":" << value.total_pair_builds
+           << ",\"maximum_outer_trials\":"
+           << value.maximum_outer_trials
+           << ",\"maximum_rejected_trials\":"
+           << value.maximum_rejected_trials
+           << ",\"maximum_hvp_calls\":" << value.maximum_hvp_calls
+           << ",\"initial_active_pressure_centers\":"
+           << value.initial_active_pressure_centers
+           << ",\"final_active_pressure_centers\":"
+           << value.final_active_pressure_centers
+           << ",\"maximum_active_pressure_centers\":"
+           << value.maximum_active_pressure_centers
+           << ",\"maximum_pairs\":" << value.maximum_pairs
+           << ",\"maximum_neighbors\":" << value.maximum_neighbors
+           << ",\"maximum_hessian_tape_bytes\":"
+           << value.maximum_hessian_tape_bytes
+           << ",\"total_mass\":" << value.total_mass
+           << ",\"maximum_density_ratio\":"
+           << value.maximum_density_ratio
+           << ",\"maximum_material_energy\":"
+           << value.maximum_material_energy
+           << ",\"accumulated_momentum_residual\":"
+           << value.accumulated_momentum_residual
+           << ",\"state_sha256\":\""
+           << hash_phase_state(value.position, value.velocity) << "\"}";
+}
+
 } // namespace
 
 ReferenceSolverReport run_reference_solver_controls() {
@@ -6696,6 +7306,171 @@ ReferenceSolverReport run_normalized_kernel_reclosure_controls() {
            << hash_neighborhood_trust_state(tape.a2) << "\"}"
            << ",\"historical_hash_check_required\":true"
            << ",\"selected\":" << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(result_material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_manufactured_multistep_controls() {
+    const FreeFlightControl free_flight =
+        free_flight_multistep_control();
+    const RigidTranslationControl translation =
+        rigid_translation_multistep_control();
+    const GalileanControl galilean = galilean_multistep_control();
+    const CompressionControl compression =
+        compression_multistep_control();
+    const RotationControl rotation = rotation_objectivity_control();
+    const bool passed = free_flight.passed && translation.passed
+        && galilean.passed && compression.passed && rotation.passed;
+    std::string first_failure;
+    if (!free_flight.passed) {
+        first_failure = "NSR3B1_FREE_FLIGHT";
+    } else if (!translation.passed) {
+        first_failure = "NSR3B1_RIGID_TRANSLATION";
+    } else if (!galilean.passed) {
+        first_failure = "NSR3B1_GALILEAN_COVARIANCE";
+    } else if (!compression.passed) {
+        first_failure = "NSR3B1_COMPRESSION_RELAXATION";
+    } else if (!rotation.passed) {
+        first_failure = "NSR3B1_ROTATION_OBJECTIVITY";
+    }
+
+    std::ostringstream result_material;
+    result_material << std::setprecision(17)
+                    << (passed ? "PASS|" : "FAIL|") << first_failure
+                    << '|' << free_flight.maximum_position_error << ':'
+                    << free_flight.maximum_velocity_error << ':'
+                    << hash_phase_state(
+                        free_flight.run.position, free_flight.run.velocity)
+                    << '|' << translation.maximum_position_error << ':'
+                    << translation.maximum_velocity_error << ':'
+                    << hash_phase_state(
+                        translation.run.position, translation.run.velocity)
+                    << '|' << galilean.maximum_position_error << ':'
+                    << galilean.maximum_velocity_error << ':'
+                    << (galilean.signatures_exact ? "EXACT" : "MISMATCH")
+                    << ':' << hash_phase_state(
+                        galilean.reference.position,
+                        galilean.reference.velocity)
+                    << '|' << compression.coarse_error << ':'
+                    << compression.fine_error << ':'
+                    << compression.convergence_ratio;
+    for (const MultistepRun& run : compression.runs) {
+        result_material << ':'
+                        << hash_phase_state(run.position, run.velocity);
+    }
+    for (double value : rotation.selected_energy) {
+        result_material << '|' << value;
+    }
+    for (double value : rotation.comparator_energy) {
+        result_material << '|' << value;
+    }
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b1_multistep.v1\""
+           << ",\"identity\":\"nuv-variational-fcr2\""
+           << ",\"solver_identity\":\"nuv-newton-krylov-r0\""
+           << ",\"solver_storage\":\"outer-state-hessian-tape-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"thresholds\":{\"trajectory_error\":1e-11"
+           << ",\"galilean_error\":1e-10"
+           << ",\"center_of_mass_normalized\":1e-11"
+           << ",\"accumulated_momentum\":1e-10"
+           << ",\"maximum_outer_trials_per_step\":32"
+           << ",\"maximum_rejected_trials_per_step\":8"
+           << ",\"maximum_hvp_calls_per_step\":128"
+           << ",\"minimum_step_doubling_ratio\":1.5}"
+           << ",\"cases\":[{\"name\":\"B1-FF\",\"status\":\""
+           << (free_flight.passed ? "PASS" : "FAIL")
+           << "\",\"maximum_position_error\":"
+           << free_flight.maximum_position_error
+           << ",\"maximum_velocity_error\":"
+           << free_flight.maximum_velocity_error << ",\"work\":";
+    append_multistep_work(report, free_flight.run);
+    report << "},{\"name\":\"B1-RT\",\"status\":\""
+           << (translation.passed ? "PASS" : "FAIL")
+           << "\",\"maximum_position_error\":"
+           << translation.maximum_position_error
+           << ",\"maximum_velocity_error\":"
+           << translation.maximum_velocity_error
+           << ",\"maximum_center_of_mass_error\":"
+           << translation.maximum_center_of_mass_error << ",\"work\":";
+    append_multistep_work(report, translation.run);
+    report << "},{\"name\":\"B1-GC\",\"status\":\""
+           << (galilean.passed ? "PASS" : "FAIL")
+           << "\",\"maximum_position_error\":"
+           << galilean.maximum_position_error
+           << ",\"maximum_velocity_error\":"
+           << galilean.maximum_velocity_error
+           << ",\"signatures_exact\":"
+           << (galilean.signatures_exact ? "true" : "false")
+           << ",\"reference_work\":";
+    append_multistep_work(report, galilean.reference);
+    report << ",\"boosted_work\":";
+    append_multistep_work(report, galilean.boosted);
+    report << "},{\"name\":\"B1-CR\",\"status\":\""
+           << (compression.passed ? "PASS" : "FAIL")
+           << "\",\"initial_active_pressure_centers\":"
+           << compression.initial_active_pressure_centers
+           << ",\"initial_maximum_density_ratio\":"
+           << compression.initial_maximum_density_ratio
+           << ",\"coarse_error\":" << compression.coarse_error
+           << ",\"fine_error\":" << compression.fine_error
+           << ",\"convergence_ratio\":"
+           << compression.convergence_ratio
+           << ",\"maximum_normalized_center_of_mass_drift\":"
+           << compression.maximum_normalized_center_of_mass_drift
+           << ",\"maximum_accumulated_momentum_residual\":"
+           << compression.maximum_accumulated_momentum_residual
+           << ",\"effective_bulk_modulus_pa\":"
+           << compression.effective_bulk_modulus
+           << ",\"acoustic_wave_speed_m_per_s\":"
+           << compression.acoustic_wave_speed
+           << ",\"acoustic_courant\":["
+           << compression.acoustic_courant[0] << ','
+           << compression.acoustic_courant[1] << ','
+           << compression.acoustic_courant[2] << ']'
+           << ",\"levels\":[";
+    for (std::size_t i = 0; i < compression.runs.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        report << "{\"dt\":" << compression.time_steps[i]
+               << ",\"work\":";
+        append_multistep_work(report, compression.runs[i]);
+        report << '}';
+    }
+    report << "]},{\"name\":\"B1-RO\",\"status\":\""
+           << (rotation.passed ? "PASS" : "FAIL")
+           << "\",\"selected_energy\":[";
+    for (std::size_t i = 0; i < rotation.selected_energy.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        report << rotation.selected_energy[i];
+    }
+    report << "],\"selected_halving_ratio\":["
+           << rotation.selected_ratio[0] << ','
+           << rotation.selected_ratio[1]
+           << "],\"positive_mu_comparator_energy\":[";
+    for (std::size_t i = 0; i < rotation.comparator_energy.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        report << rotation.comparator_energy[i];
+    }
+    report << "],\"positive_mu_comparator_halving_ratio\":["
+           << rotation.comparator_ratio[0] << ','
+           << rotation.comparator_ratio[1] << "]}]"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"boundary_design_authorized\":"
+           << (passed ? "true" : "false")
            << ",\"runtime_authority\":false"
            << ",\"result_sha256\":\""
            << sha256_hex(result_material.str()) << "\"}";

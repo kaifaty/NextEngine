@@ -15,6 +15,10 @@ Build outside the repository and run the bounded CPU controls:
 cmake -S crates/continuum-water/tools/nonlocal-feasibility \
   -B /tmp/nextengine-nonlocal-feasibility-build -G Ninja
 cmake --build /tmp/nextengine-nonlocal-feasibility-build
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
+  --normalized-kernel-reclosure-self-test
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
+  --manufactured-multistep-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --describe-profile nuv-water-48k.v0
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --cpu-self-test

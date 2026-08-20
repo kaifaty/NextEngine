@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_DESIGN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_DESIGN / REPORT_ONLY`
 
 Candidate identity:
 
@@ -121,6 +121,9 @@ lattice normalization reconstructs density correctly, so B0 selects
 B0R passes the common-scale density, gradient, HVP, dense-Hessian, trust and
 Hessian-tape gates; see the
 [dated evidence](../../development/nonlocal-nsr3b0r-kernel-normalization-evidence-2026-08-20.md).
-This selects only `FCR2_NORMALIZED_OBJECTIVE_CANDIDATE`. Freeze NSR3-B1
-manufactured multi-step controls next; static boundaries and physical
-trajectories remain blocked.
+This selects only `FCR2_NORMALIZED_OBJECTIVE_CANDIDATE`. The separately frozen
+NSR3-B1 manufactured multi-step run passes four invariance/objectivity cases
+but fails compression step doubling at ratio `0.8865`; see the
+[dated evidence](../../development/nonlocal-nsr3b1-multistep-evidence-2026-08-20.md).
+Preserve that failure and design an acoustic-Courant diagnostic next. Static
+boundaries and physical trajectories remain blocked.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B0R_PASS / NSR3B1_MULTISTEP_DESIGN` |
+| Status | `ACTIVE / NSR3B1_FAIL / NSR3B1D_TEMPORAL_STIFFNESS_DESIGN` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -26,10 +26,16 @@
 - **Current conclusion:** `lattice-normalized-cubic-v1` passes density,
   gradient, HVP, dense, trust and A1/A2 tape correspondence under the new
   `nuv-variational-fcr2` identity; FCR1 hashes remain byte-identical.
-- **Current action:** freeze manufactured multi-step state transitions,
-  invariants and step-doubling gates before implementing them.
-- **Next gate:** NSR3-B1 must prove time integration, translation/objectivity,
-  conservation, exact repeat and convergence without any wall model.
+- **Current conclusion:** B1 passes free flight, rigid translation, Galilean
+  covariance and rotation objectivity, but the `7x7x7` relaxation has
+  step-doubling ratio `0.8865` and therefore fails exactly as frozen.
+- **Current diagnosis:** the tested acoustic Courant numbers are
+  `8.25 / 4.13 / 2.06`; stability and nonlinear convergence did not establish
+  trajectory accuracy.
+- **Current action:** freeze an independent B1D acoustic-Courant ladder and
+  distinguish an unresolved transient from a faulty state transition.
+- **Next gate:** B1D may explain the failure but cannot retroactively pass B1;
+  B2 remains blocked until a new multi-step selection contract is justified.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -96,6 +102,16 @@
 - **Consequence:** coefficient anchors may now enter manufactured controls,
   but no hydro, boundary, CUDA or runtime claim is unlocked.
 
+### D-007 -- Preserve the B1 temporal-convergence failure
+
+- **Observation:** four invariance/objectivity controls pass, and all three
+  compression runs are finite, conservative and solver-converged, but their
+  final-position step-doubling ratio is `0.8865` rather than `>=1.5`.
+- **Decision:** keep B1 FAIL and do not alter its time steps or threshold.
+  Diagnose acoustic stiffness under a separately rooted B1D contract.
+- **Consequence:** static-boundary and physical-trajectory work stays blocked;
+  implicit stability cannot be used as evidence of temporal accuracy.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -108,11 +124,12 @@
 
 ## Exact next action
 
-1. Freeze state ownership and exact recurrence for each B1 manufactured case.
-2. Freeze mass, momentum, energy/work, objectivity and step-doubling metrics.
-3. Implement short report-only multi-step execution with FCR2+A2.
-4. Keep static boundaries and named physical trajectories blocked until B1
-   passes.
+1. Freeze a B1D ladder in acoustic Courant rather than arbitrary frame steps.
+2. Hold geometry, coefficients, horizon, solver and terminal time constant.
+3. Measure trajectory differences, active-set exit time, impulse and energy
+   across sufficiently small steps without changing the failed B1 report.
+4. Decide whether to design a substep policy/new multi-step gate or stop for a
+   formula/integration reclosure; keep B2 blocked meanwhile.
 
 ## Reconsideration triggers
 

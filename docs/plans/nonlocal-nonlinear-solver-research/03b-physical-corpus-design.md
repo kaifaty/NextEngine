@@ -24,7 +24,10 @@ it does not select water coefficients or a boundary model.
    [frozen boundary-free contract](03b1-manufactured-multistep-contract.md):
    free flight, rigid translation, Galilean covariance, uniform
    compression/relaxation and rotating-material objectivity; exact repeat,
-   mass/momentum and step-doubling evidence.
+   mass/momentum and step-doubling evidence. The frozen execution fails only
+   compression step doubling; preserve the
+   [negative evidence](../../development/nonlocal-nsr3b1-multistep-evidence-2026-08-20.md)
+   and diagnose temporal stiffness before changing this roadmap.
 3. **NSR3-B2 static boundary formula.** Re-derive wall energy/contact and its
    gradient/HVP under the corrected objective; pass pair/edge/corner finite
    differences before trajectories.
