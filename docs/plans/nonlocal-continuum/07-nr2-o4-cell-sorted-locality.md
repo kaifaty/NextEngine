@@ -1,6 +1,6 @@
 # NR2-O4 — Stable cell-sorted storage and neighbor locality
 
-Status: `SPECIFIED / IMPLEMENTATION_NEXT / REPORT_ONLY`
+Status: `EXECUTED / O4_RETAINED_STABLE_SAMPLE / NR2_FIXED_WORK_COMPLETE / REPORT_ONLY`
 
 Prerequisite:
 [NR2-O3 evidence](../../development/nonlocal-continuum-nr2-o3-evidence-2026-08-20.md)
@@ -210,9 +210,18 @@ memory while remaining below O3's larger layout threshold. Stage values are
 not added to O1/O2 percentages or compared across binaries.
 
 After O4, apply the parent NR2 early-stop rules using one same-process
-aggregate comparison of the final retained stack against the original
-correctness-valid gather/copy/runtime stack. O3 is excluded. Only if the
-fixed-work ladder remains open may O5 receive the retained O4 result.
+aggregate comparison of the final retained stack against the original HN-3
+`source-atomic-v0 + copy-v0 + nuv-terms-runtime-v0` denominator on its two
+correctness-valid profiles. O3 is excluded. Only if the fixed-work ladder
+remains open may O5 receive the retained O4 result.
+
+Execution closure:
+[O4 evidence](../../development/nonlocal-continuum-nr2-o4-evidence-2026-08-20.md)
+passes every exactness/storage/capacity gate but records a `0.938546x`
+denominator geometric-mean candidate speedup. O4 exits
+`O4_RETAINED_STABLE_SAMPLE`. The final retained NR2 stack reaches `3.27688x`
+against HN-3 and water-48k p95 `4.019520 ms`; final profiling leaves no
+untested O5 stage at `20%`, so fixed-work research closes for NR4.
 
 ## Exit states
 

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `NR2_O4_SPECIFIED / IMPLEMENTATION_NEXT / GATHER_RETAINED / REPORT_ONLY` |
+| Status | `NR2_FIXED_WORK_COMPLETE / O4_STABLE_SAMPLE_RETAINED / NR4_DECISION_NEXT / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-research` |
 | Scope | Source-faithful Nonlocal/SISSM baseline and bounded GPU optimization research |
@@ -61,6 +61,20 @@
   `cell-sorted-o4` storage identity: stable packed-cell order and physical
   state locality may change, while remapped fields and logical CSR must remain
   bit-exact.
+- O4 implementation at `bba32c6` passes tiny 11/11, cold stiff-surface i2/i20,
+  all full controls, exact maps/logical CSR and capacity. It regresses total
+  p95 on every same-process profile; HN-3 geometric-mean O4 speedup is
+  `0.938546x`, so `stable-sample-v0` remains retained.
+- Final retained gather/swap/specialized/stable-sample same-process p95 is
+  `2.075040 ms` water-16k, `4.019520 ms` water-48k and `7.084416 ms`
+  viscous-16k. Against the admitted source-atomic HN-3 denominators this is
+  `3.27688x` geometric mean, passing the fixed-work speed and 48k/local
+  research cutoffs.
+- Final Nsight Systems attribution assigns about `84.0%` of water-48k and
+  `94.3%` of viscous-16k GPU kernel time to already-tested density,
+  incompressibility and viscosity pair kernels. O5 has no untested `20%`
+  stage and is not admitted; optional O6 has no bounded packed-field
+  hypothesis. NR2 fixed work is complete and NR4 decision is next.
 
 ## Decisions
 
@@ -158,29 +172,44 @@
   another segmented family without a new specification. No O3 timing or
   speedup is credited.
 
+### D-NR-010 — Retain stable sample storage and close NR2 fixed work
+
+- **Decision:** preserve `cell-sorted-o4` as exact negative evidence, retain
+  `stable-sample-v0`, and close the fixed-work ladder at
+  gather/pointer-swap/specialized/stable-sample for NR4.
+- **Reason:** all O4 correctness/capacity gates pass, but the candidate
+  regresses all three adjacent total and pair-stage p95 results. The frozen
+  lattice input is already spatially coherent, while cell sorting worsens
+  tail neighbor-storage distance and adds mapping overhead.
+- **Constraint:** the final `3.27688x` HN-3 result and `4.019520 ms` water-48k
+  p95 are research evidence only. They authorize an NR4 decision, not runtime
+  integration, W2 credit, GPU authority or a production profile.
+
 ## Evidence and sources
 
 | Evidence | Status | Consequence |
 |---|---|---|
 | [Source audit](../nonlocal-unified-continuum-source-audit-2026-08-19.md) | `PRIMARY_SOURCES_INSPECTED` | formulas/code are sufficient for a bounded experiment; universal-solver claim rejected |
-| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `O4_SPECIFIED / IMPLEMENTATION_NEXT` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
+| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `NR2_FIXED_WORK_COMPLETE / NR4_DECISION_NEXT` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
 | [Research contract](../../plans/nonlocal-continuum/00-research-contract.md) | `SPECIFIED` | freezes hypotheses, workloads, measurement scope and terminal states |
 | [Baseline/oracle specification](../../plans/nonlocal-continuum/01-source-faithful-baseline-and-oracle.md) | `EXECUTED / BASELINE_MISMATCH` | source-shaped NR1 may not enter NR2 |
 | [NR1 evidence](../nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | `BASELINE_MISMATCH` | tiny/water/viscous reproduce; surface atomics amplify repeated `f32` order noise beyond state tolerances |
 | [Accumulation reclosure research](../nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md) | `GATHER_DIRECTED_SELECTED` | formula closure, CUDA determinism limits and fragment memory select owner-only gather first |
 | [NR1-RC1 specification](../../plans/nonlocal-continuum/03-nr1-deterministic-accumulation-reclosure.md) | `EXECUTED / NR1_RECLOSED_GATHER_DIRECTED` | freezes and closes candidate identity, unchanged dimensions and ordered gates |
 | [NR1-RC1 evidence](../nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md) | `NR1_RECLOSED_GATHER_DIRECTED / NR2_UNBLOCKED` | exact surface repeats support the atomic-order diagnosis; full controls and bounded adjacent costs pass |
-| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `O3_SEGMENTED_NUMERIC_MISMATCH / O4_SPECIFICATION_NEXT` | keep gather/swap/specialized and specify locality-only O4 next |
+| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `NR2_FIXED_WORK_COMPLETE / NR4_NEXT` | final retained gather/swap/specialized/stable stack passes HN-3 and research cutoffs; O5/O6 are not admitted |
 | [O1 specification](../../plans/nonlocal-continuum/04-nr2-o1-pointer-swap.md) and [evidence](../nonlocal-continuum-nr2-o1-evidence-2026-08-20.md) | `EXECUTED / O1_RETAINED_POINTER_SWAP` | exact reused/copy correspondence, unchanged memory and adjacent retention gates pass |
 | [O2 specification](../../plans/nonlocal-continuum/05-nr2-o2-term-specialization.md) and [evidence](../nonlocal-continuum-nr2-o2-evidence-2026-08-20.md) | `EXECUTED / O2_RETAINED_TERM_SPECIALIZATION` | exact runtime/specialized correspondence, unchanged memory, adjacent gates and same-process profiler attribution pass; counters unavailable explicitly |
 | [O3 specification](../../plans/nonlocal-continuum/06-nr2-o3-accumulation-layout-tournament.md) and [evidence](../nonlocal-continuum-nr2-o3-evidence-2026-08-20.md) | `EXECUTED / O3_SEGMENTED_NUMERIC_MISMATCH` | tiny/reverse/work/capacity and exact repeatability pass; stiff-surface i2 gather correspondence fails before admissible timing |
-| [O4 specification](../../plans/nonlocal-continuum/07-nr2-o4-cell-sorted-locality.md) | `SPECIFIED / IMPLEMENTATION_NEXT` | freezes stable packed-cell maps, storage-only state reordering, bit-exact logical output/CSR, capacity and same-process retention gates |
+| [O4 specification](../../plans/nonlocal-continuum/07-nr2-o4-cell-sorted-locality.md) | `EXECUTED / O4_RETAINED_STABLE_SAMPLE` | freezes and closes stable packed-cell maps, storage-only state reordering, bit-exact logical output/CSR, capacity and same-process retention gates |
+| [O4/final NR2 evidence](../nonlocal-continuum-nr2-o4-evidence-2026-08-20.md) | `O4_RETAINED_STABLE_SAMPLE / NR2_FIXED_WORK_COMPLETE` | exact O4 candidate is slower; retained stack passes HN-3 and 48k/local research cutoffs; final profiler closes fixed-work attribution |
 | Pairwise Descent paper/code | `TO_APPEAR / NOT_AUDITABLE` | do not implement or infer formulas |
 
 ## Next action
 
-1. Implement O4 stable cell sorting and neighbor locality exactly against the
-   frozen gather/swap/specialized identity.
+1. Execute NR4 and select exactly one predeclared decision state from the
+   complete NR0–NR2 evidence; current metrics satisfy the numerical conditions
+   for `NONLOCAL_48K_RECLOSURE_CANDIDATE`, subject to the architecture review.
 2. Preserve the O3 numeric-mismatch boundary; do not rerun its tournament or
    change endpoint association/tolerances without a new specification.
 3. Preserve runtime term dispatch, copy handoff, source-atomic, RC1, O1 and O2
@@ -202,16 +231,15 @@
 
 ## Handoff
 
-- **Current change:** O3 implementation `ffa3b02` adds the isolated segmented
-  identity, reverse/work/capacity reporting and rotating tournament command;
-  evidence selects `O3_SEGMENTED_NUMERIC_MISMATCH` and retains O2 gather.
-- **Executable checks:** final build and both legacy tiny identities PASS
-  11/11; candidate tiny PASS 11/11 plus bulk-only smoke; invalid combinations
-  reject; surface i2 candidate repeatability is exact 10/10 with exact CSR
-  and reverse map but retained-gather correspondence FAILS.
-- **Profiler:** Nsight Systems same-process viscosity attribution is complete;
-  Nsight Compute counter collection is explicitly unavailable under
-  `ERR_NVGPUCTRPERM` and recorded by two hashed command logs.
-- **Remaining uncertainty:** O4–O6 retained attribution, final fixed-work
-  speedup after ordered optimization, privileged counter evidence and NR4
-  product interpretation.
+- **Current change:** O4 implementation `bba32c6` plus aggregate comparator
+  `879b8b3`/`37e68f1` preserve exact stable-ID outputs while measuring physical
+  cell storage. Evidence retains stable sample order and closes NR2.
+- **Executable checks:** final clean build; default, retained and O4 tiny each
+  PASS 11/11; cold surface i2/i20 exact 10/10; water-16k/48k and viscous-16k
+  full controls exact; all map, capacity and same-process tournament gates
+  pass before the negative O4 retention decision.
+- **Profiler:** final-binary Nsight Systems captures are complete for
+  water-48k and viscous-16k. Nsight Compute counter collection remains
+  explicitly unavailable under the recorded `ERR_NVGPUCTRPERM` boundary.
+- **Remaining uncertainty:** NR4 product interpretation, new Proposed
+  reclosure roots/corpus and the eventual runtime integration decision.

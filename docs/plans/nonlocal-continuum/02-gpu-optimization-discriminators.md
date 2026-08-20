@@ -1,6 +1,6 @@
 # NR2/NR3 — Nonlocal GPU optimization discriminators
 
-Status: `SPECIFIED / O4_SPECIFIED / IMPLEMENTATION_NEXT / GATHER_RETAINED / REPORT_ONLY`
+Status: `EXECUTED / NR2_FIXED_WORK_COMPLETE / O4_STABLE_SAMPLE_RETAINED / NR4_NEXT / REPORT_ONLY`
 
 The source-atomic [NR1 evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md)
 did not authorize this ladder. The separately specified
@@ -152,6 +152,15 @@ The profile binds:
 Storage reordering may improve memory locality but cannot change fixture
 identity, pair membership or report order. Generic unordered-hash iteration is
 forbidden.
+
+Execution closure: the
+[O4 report](../../development/nonlocal-continuum-nr2-o4-evidence-2026-08-20.md)
+passes bit-exact logical correspondence and capacity, but cell-sorted storage
+regresses all three adjacent totals and exits `O4_RETAINED_STABLE_SAMPLE`.
+The final retained stack passes HN-3 at `3.27688x` geometric mean and the 48k
+research cutoff at `4.019520 ms` p95. Final profiler attribution leaves no
+untested O5 stage owning `20%`; O5 is not admitted and optional O6 is not
+funded without a bounded packed-field hypothesis. NR2 proceeds to NR4.
 
 ### O5 — Clear/pass/launch reduction
 
