@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B2_PASS / NSR3B3_SMOKE_CONTRACT_DESIGN` |
+| Status | `ACTIVE / NSR3B2_PASS / NSR3B3_SMOKE_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -101,8 +101,12 @@
   not authorize an SPD-only solve or removal of trust-region safeguards.
 - **Current decision:** select `SPLIT_STATIC_BOUNDARY_FORMULA_CANDIDATE`.
   Support/reaction and nonpenetration/contact remain different operations.
-- **Current action:** freeze B3 tiny smoke-trajectory composition, including
-  contact ordering, spectrum/support rebuild and independent fine reference.
+- **Current conclusion:** primary algorithms do not supply an inherited split
+  order. B3 selects `smooth solve -> swept contact -> velocity reconstruction
+  -> rebuild` as a falsifiable engine-side hypothesis; SAM's CCD-initialized
+  contact energy remains a different solver identity.
+- **Current action:** implement the frozen B3 face/corner trajectory with
+  fine-state ownership, fixed references and separate support/contact ledgers.
 - **Next gate:** B3 must prove time composition without weakening B1R1 error
   gates before hydrostatic or other physical-corpus execution.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
@@ -309,6 +313,18 @@
   HVP, and neither hydrostatic execution nor an SPD-only shortcut is
   authorized.
 
+### D-020 -- Test post-solve contact as an explicit operator split
+
+- **Observation:** NUV has no collision stage; SAM uses CCD to initialize a
+  separate bulk-plus-contact SISPH solve. Pre-sweeping FCR2's inertia target
+  would hide contact impulse and still not prevent a later crossing.
+- **Decision:** B3 solves the unchanged smooth objective first, then sweeps
+  the accepted segment, reconstructs velocity and invalidates every smooth
+  cache before the next substep.
+- **Consequence:** impact-order reduction and post-contact nonstationarity are
+  measured rather than denied. Failure may justify one newly identified
+  ordering remediation or a separately rooted unified-contact objective.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -321,12 +337,12 @@
 
 ## Exact next action
 
-1. Freeze one tiny gravity-loaded face/corner trajectory and exact operation
-   order for fine-state-owned adaptive substeps plus hard contact.
-2. Define independent fixed-step reference, nonpenetration, reaction/impulse,
-   active-set, negative-curvature and capacity gates before implementation.
-3. Execute B3 only after the contract is frozen; do not promote the result to
-   hydrostatic, CUDA or runtime authority.
+1. Implement the frozen post-solve sweep on exact face/corner lattice
+   fixtures without exposing a runtime API.
+2. Execute adaptive fine-owned and fixed `96/192/384` trajectories, preserving
+   exact support/contact impulse fields and cache epochs.
+3. Select or reject B3 without changing coefficients, event tolerances or the
+   physical-corpus boundary.
 
 ## Reconsideration triggers
 
