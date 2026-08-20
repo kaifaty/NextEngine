@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1R_FAIL / NSR3B1R1_FINE_STATE_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B1R1_PASS / NSR3B2_STATIC_BOUNDARY_RESEARCH` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -75,10 +75,18 @@
   remaining horizon.
 - **Current decision:** reject `TRANSACTIONAL_COARSE_STATE_R0`. A local error
   gate is not a global trajectory bound when the coarse state owns commit.
-- **Current action:** implement frozen B1R1 with fine state ownership; it adds
-  no solver execution and reduces the accounting multiplier to `1.5x/1.75x`.
-- **Next gate:** B1R1 must pass the unchanged full-horizon references and caps
-  before B2 may be designed.
+- **Current conclusion:** B1R1 passes all full-horizon cases at
+  `0.0296--0.0468dx` position and `0.000305--0.000483c` velocity error while
+  executing exactly the same work as failed B1R.
+- **Current cost:** fine ownership reduces discarded substeps from
+  `100/237/252` to `50/140/149`; depth-zero/one execution multipliers are
+  `1.5x/1.75x` accepted work.
+- **Current decision:** select `NSR_MULTISTEP_CANDIDATE`. The coarse trajectory
+  is an error probe; the fine trajectory owns the committed transition.
+- **Current action:** research and freeze B2 static boundary support/contact
+  formula, ownership and derivative oracles under the corrected objective.
+- **Next gate:** B2 design must separate density support from nonpenetration
+  and prove gradient/HVP/reaction semantics before any boundary trajectory.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -239,6 +247,17 @@
   if it fails, the next design must allocate horizon-aware error or use a
   higher-order accepted state.
 
+### D-016 -- Commit the fine member of a passing error pair
+
+- **Observation:** B1R1 preserves every reference and first-frame observable,
+  executes no additional work, and passes all global accuracy gates. The 3%
+  case improves from `0.13446dx` to `0.04684dx`.
+- **Decision:** select fine-state ownership and `NSR_MULTISTEP_CANDIDATE` for
+  report-only CPU research.
+- **Consequence:** B2 static-boundary formula design is authorized. The coarse
+  probe remains charged as discarded work; no boundary, CUDA, runtime or
+  production execution is authorized.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -251,9 +270,10 @@
 
 ## Exact next action
 
-1. Re-run transactional composition and publish the changed state/work
-   ownership without crediting additional execution.
-2. Reclose/reject multi-step selection; authorize B2 design only on PASS.
+1. Audit prior boundary research against the FCR2 normalized objective and
+   selected fine-owned transition.
+2. Freeze separate support, nonpenetration, reaction and derivative oracles.
+3. Implement only the bounded B2 static-boundary formula discriminator.
 
 ## Reconsideration triggers
 

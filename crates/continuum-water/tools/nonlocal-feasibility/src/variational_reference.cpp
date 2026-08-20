@@ -7964,6 +7964,7 @@ struct TransactionalFrame {
     int refinement_depth = -1;
     int accepted_substeps = 0;
     int comparator_substeps = 0;
+    int error_probe_substeps = 0;
     int controller_substeps = 0;
     int discarded_substeps = 0;
     int accepted_nonlinear_hvp_calls = 0;
@@ -7978,7 +7979,13 @@ struct TransactionalFrame {
     std::string start_state_sha256;
     std::string accepted_state_sha256;
     std::string comparator_state_sha256;
+    std::string error_probe_state_sha256;
     bool passed = false;
+};
+
+enum class TransactionalStateOwnership {
+    Coarse,
+    Fine,
 };
 
 struct TransactionalControllerRun {
@@ -8010,7 +8017,8 @@ struct TransactionalControllerRun {
 };
 
 TransactionalControllerRun run_transactional_controller(
-    double compression_factor) {
+    double compression_factor,
+    TransactionalStateOwnership ownership) {
     constexpr double frame_time = 1.0 / 240.0;
     constexpr int frame_count = 12;
     constexpr double spectral_target = 0.15;
@@ -8080,9 +8088,9 @@ TransactionalControllerRun run_transactional_controller(
             frame.gate = embedded_interval_gate(
                 levels[0], levels[1], anchor.spacing,
                 std::sqrt(anchor.kappa / anchor.mass));
-            int accepted_level = frame.gate.passed ? 0 : -1;
+            int passing_coarse_level = frame.gate.passed ? 0 : -1;
             for (int depth = 1;
-                 accepted_level < 0 && depth <= 2; ++depth) {
+                 passing_coarse_level < 0 && depth <= 2; ++depth) {
                 levels.push_back(make_transactional_temporal_level(
                     anchor, position, velocity,
                     frame.initial_substeps * (1 << (depth + 1))));
@@ -8091,10 +8099,10 @@ TransactionalControllerRun run_transactional_controller(
                     levels[static_cast<std::size_t>(depth + 1)],
                     anchor.spacing, std::sqrt(anchor.kappa / anchor.mass));
                 if (frame.gate.passed) {
-                    accepted_level = depth;
+                    passing_coarse_level = depth;
                 }
             }
-            frame.refinement_depth = accepted_level;
+            frame.refinement_depth = passing_coarse_level;
             frame.candidates_valid = frame.spectrum_valid;
             for (const TemporalLevel& level : levels) {
                 frame.candidates_valid = frame.candidates_valid
@@ -8116,17 +8124,35 @@ TransactionalControllerRun run_transactional_controller(
                     result.maximum_density_ratio,
                     level.run.maximum_density_ratio);
             }
-            if (accepted_level >= 0) {
+            if (passing_coarse_level >= 0) {
+                const int accepted_level = ownership
+                        == TransactionalStateOwnership::Fine
+                    ? passing_coarse_level + 1
+                    : passing_coarse_level;
                 frame.accepted_substeps = frame.initial_substeps
                     * (1 << accepted_level);
-                frame.comparator_substeps = 2 * frame.accepted_substeps;
+                frame.comparator_substeps = ownership
+                        == TransactionalStateOwnership::Coarse
+                    ? 2 * frame.accepted_substeps : 0;
+                frame.error_probe_substeps = frame.initial_substeps
+                    * (1 << passing_coarse_level);
                 frame.accepted_nonlinear_hvp_calls =
                     levels[static_cast<std::size_t>(accepted_level)]
                         .run.total_hvp_calls;
-                frame.comparator_state_sha256 = hash_phase_state(
-                    levels[static_cast<std::size_t>(accepted_level + 1)]
+                const int comparator_level = ownership
+                        == TransactionalStateOwnership::Coarse
+                    ? accepted_level + 1 : -1;
+                if (comparator_level >= 0) {
+                    frame.comparator_state_sha256 = hash_phase_state(
+                        levels[static_cast<std::size_t>(comparator_level)]
+                            .run.position,
+                        levels[static_cast<std::size_t>(comparator_level)]
+                            .run.velocity);
+                }
+                frame.error_probe_state_sha256 = hash_phase_state(
+                    levels[static_cast<std::size_t>(passing_coarse_level)]
                         .run.position,
-                    levels[static_cast<std::size_t>(accepted_level + 1)]
+                    levels[static_cast<std::size_t>(passing_coarse_level)]
                         .run.velocity);
             }
             frame.discarded_substeps = frame.controller_substeps
@@ -8137,7 +8163,9 @@ TransactionalControllerRun run_transactional_controller(
         }
         frame.transaction_immutable = frame.start_state_sha256
             == hash_phase_state(position, velocity);
-        const int accepted_level = fast_path ? 0 : frame.refinement_depth;
+        const int accepted_level = fast_path ? 0
+            : frame.refinement_depth
+                + (ownership == TransactionalStateOwnership::Fine ? 1 : 0);
         frame.passed = accepted_level >= 0
             && frame.candidates_valid && frame.transaction_immutable
             && frame.accepted_substeps <= 192
@@ -8271,11 +8299,13 @@ struct TransactionalCompositionCase {
 };
 
 TransactionalCompositionCase transactional_composition_case(
-    double compression_factor) {
+    double compression_factor,
+    TransactionalStateOwnership ownership) {
     const Config anchor = physical_multistep_config();
     TransactionalCompositionCase result;
     result.compression_factor = compression_factor;
-    result.controller = run_transactional_controller(compression_factor);
+    result.controller = run_transactional_controller(
+        compression_factor, ownership);
     result.reference = transactional_reference_ladder(
         compression_factor,
         result.controller.initial_maximum_density_ratio);
@@ -8403,7 +8433,8 @@ TransactionalCompositionDiagnostic transactional_composition_diagnostic() {
     TransactionalCompositionDiagnostic result;
     const std::array<double, 3> compression = {0.99, 0.98, 0.97};
     for (std::size_t i = 0; i < compression.size(); ++i) {
-        result.cases[i] = transactional_composition_case(compression[i]);
+        result.cases[i] = transactional_composition_case(
+            compression[i], TransactionalStateOwnership::Coarse);
     }
     result.degenerate = transactional_degenerate_control();
     result.passed = result.degenerate.passed;
@@ -8420,6 +8451,105 @@ TransactionalCompositionDiagnostic transactional_composition_diagnostic() {
         result.first_failure = "NSR3B1R_DEGENERATE";
     }
     return result;
+}
+
+TransactionalCompositionDiagnostic fine_ownership_composition_diagnostic() {
+    TransactionalCompositionDiagnostic result;
+    const std::array<double, 3> compression = {0.99, 0.98, 0.97};
+    for (std::size_t i = 0; i < compression.size(); ++i) {
+        result.cases[i] = transactional_composition_case(
+            compression[i], TransactionalStateOwnership::Fine);
+    }
+    result.degenerate = transactional_degenerate_control();
+    result.passed = result.degenerate.passed;
+    for (const TransactionalCompositionCase& value : result.cases) {
+        result.passed = result.passed && value.passed;
+        if (!value.passed && result.first_failure.empty()) {
+            std::ostringstream name;
+            name << std::setprecision(17)
+                 << "NSR3B1R1_CASE:c=" << value.compression_factor;
+            result.first_failure = name.str();
+        }
+    }
+    if (!result.degenerate.passed && result.first_failure.empty()) {
+        result.first_failure = "NSR3B1R1_DEGENERATE";
+    }
+    return result;
+}
+
+bool exact_b1r_reference_overlap(
+    const TransactionalCompositionDiagnostic& diagnostic) {
+    const std::array<std::array<const char*, 3>, 3> expected = {{
+        {{"b42a251b0fb4d58ea8b95eeb7ac903dfd7c2baa142cefd0105c1f664f58c1322",
+          "f1449f805c3d434a6ade34560921546c75e9722d8b24529794e0a7b29e7571d9",
+          "ec85a44c05c9a178df7eac1f89c2fffcdd812167f47e433be2947e9f1aee40e1"}},
+        {{"4f2283d2e3c1460974e82278349828fc82b03893558b73c653365052bf2f5710",
+          "1350868ff041e21f8b219514b34d202b79099642ba58cc55705b85590a2bd031",
+          "565a7915471499b033d0c5ba91b8460bbd4aebe78b4e38f7af6a515fc184e6c3"}},
+        {{"69bd49186c10045e19d879fee24f83d24c7187b10033b03689b4ab970bc00e49",
+          "942a8cbf2f9c423b20c4f4375d24050fbec48076875d77cde1c523f8d73fd9fb",
+          "40808f4bf13aea27ab702827e44ad0d3eab80cf96ba8c09b17e8d2ec12a82319"}},
+    }};
+    for (std::size_t i = 0; i < diagnostic.cases.size(); ++i) {
+        for (std::size_t level = 0; level < 3; ++level) {
+            const MultistepRun& run =
+                diagnostic.cases[i].reference.levels[level];
+            if (hash_phase_state(run.position, run.velocity)
+                != expected[i][level]) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool exact_b1r_first_frame_overlap(
+    const TransactionalCompositionDiagnostic& diagnostic) {
+    const std::array<int, 3> active = {81, 117, 125};
+    const std::array<int, 3> initial_substeps = {39, 43, 46};
+    const std::array<double, 3> omega = {
+        1394.7981264016228,
+        1543.2081723641402,
+        1644.3833539159266,
+    };
+    const std::array<double, 3> position_difference = {
+        0.00012126490266390053,
+        0.00016348380202751295,
+        0.00027772202128967087,
+    };
+    const std::array<double, 3> velocity_difference = {
+        0.03978386209331565,
+        0.05320800547223193,
+        0.089527668197617233,
+    };
+    const std::array<double, 3> kinetic_difference = {
+        0.093246456509547715,
+        0.048760025291667168,
+        0.047119851456047641,
+    };
+    const std::array<double, 3> exit_difference = {
+        0.00010683760683760689,
+        2.4224806201550387e-05,
+        2.2644927536231898e-05,
+    };
+    for (std::size_t i = 0; i < diagnostic.cases.size(); ++i) {
+        if (diagnostic.cases[i].controller.frames.empty()) {
+            return false;
+        }
+        const TransactionalFrame& frame =
+            diagnostic.cases[i].controller.frames.front();
+        if (frame.start_active_pressure_centers != active[i]
+            || frame.initial_substeps != initial_substeps[i]
+            || frame.spectral_hvp_calls != 48
+            || frame.maximum_eigenfrequency != omega[i]
+            || frame.gate.position_difference != position_difference[i]
+            || frame.gate.velocity_difference != velocity_difference[i]
+            || frame.gate.relative_kinetic_error != kinetic_difference[i]
+            || frame.gate.pressure_exit_time_error != exit_difference[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void append_double_array(
@@ -10698,7 +10828,8 @@ ReferenceSolverReport run_embedded_spectral_error_controller_controls() {
 
 void append_transactional_frame(
     std::ostringstream& report,
-    const TransactionalFrame& frame) {
+    const TransactionalFrame& frame,
+    bool fine_ownership = false) {
     report << std::setprecision(17)
            << "{\"frame\":" << frame.frame
            << ",\"status\":\"" << (frame.passed ? "PASS" : "FAIL") << '"'
@@ -10714,6 +10845,8 @@ void append_transactional_frame(
            << ",\"refinement_depth\":" << frame.refinement_depth
            << ",\"accepted_substeps\":" << frame.accepted_substeps
            << ",\"comparator_substeps\":" << frame.comparator_substeps
+           << (fine_ownership ? ",\"error_probe_substeps\":" : "")
+           << (fine_ownership ? std::to_string(frame.error_probe_substeps) : "")
            << ",\"controller_substeps\":" << frame.controller_substeps
            << ",\"discarded_substeps\":" << frame.discarded_substeps
            << ",\"accepted_nonlinear_hvp_calls\":"
@@ -10746,17 +10879,25 @@ void append_transactional_frame(
            << ",\"accepted_state_sha256\":\""
            << frame.accepted_state_sha256 << '"'
            << ",\"comparator_state_sha256\":\""
-           << frame.comparator_state_sha256 << "\"}";
+           << frame.comparator_state_sha256 << '"';
+    if (fine_ownership) {
+        report << ",\"error_probe_state_sha256\":\""
+               << frame.error_probe_state_sha256 << '"';
+    }
+    report << '}';
 }
 
 void append_transactional_case(
     std::ostringstream& report,
-    const TransactionalCompositionCase& value) {
+    const TransactionalCompositionCase& value,
+    bool fine_ownership = false) {
     const TransactionalControllerRun& controller = value.controller;
     report << std::setprecision(17)
            << "{\"name\":\"compression-" << value.compression_factor
            << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL") << '"'
            << ",\"compression_factor\":" << value.compression_factor
+           << (fine_ownership
+                    ? ",\"accepted_state_ownership\":\"fine\"" : "")
            << ",\"controller\":{\"status\":\""
            << (controller.passed ? "PASS" : "FAIL") << '"'
            << ",\"first_failure\":\"" << controller.first_failure << '"'
@@ -10803,7 +10944,8 @@ void append_transactional_case(
         if (i != 0) {
             report << ',';
         }
-        append_transactional_frame(report, controller.frames[i]);
+        append_transactional_frame(
+            report, controller.frames[i], fine_ownership);
     }
     report << "]},\"reference\":{\"status\":\""
            << (value.reference.passed ? "PASS" : "FAIL") << '"'
@@ -10917,7 +11059,7 @@ ReferenceSolverReport run_transactional_multistep_controller_controls() {
         if (i != 0) {
             report << ',';
         }
-        append_transactional_case(report, diagnostic.cases[i]);
+        append_transactional_case(report, diagnostic.cases[i], false);
     }
     report << "],\"degenerate\":{\"status\":\""
            << (diagnostic.degenerate.passed ? "PASS" : "FAIL") << '"'
@@ -10950,6 +11092,141 @@ ReferenceSolverReport run_transactional_multistep_controller_controls() {
            << ",\"result_sha256\":\""
            << sha256_hex(result_material.str()) << "\"}";
     return {diagnostic.passed, report.str()};
+}
+
+ReferenceSolverReport run_fine_state_ownership_controls() {
+    const TransactionalCompositionDiagnostic diagnostic =
+        fine_ownership_composition_diagnostic();
+    const bool reference_overlap_exact =
+        exact_b1r_reference_overlap(diagnostic);
+    const bool first_frame_overlap_exact =
+        exact_b1r_first_frame_overlap(diagnostic);
+    const bool passed = diagnostic.passed
+        && reference_overlap_exact && first_frame_overlap_exact;
+    const std::string first_failure = !diagnostic.first_failure.empty()
+        ? diagnostic.first_failure
+        : !reference_overlap_exact
+            ? "NSR3B1R1_REFERENCE_OVERLAP"
+            : !first_frame_overlap_exact
+                ? "NSR3B1R1_FIRST_FRAME_OVERLAP" : "";
+    std::ostringstream result_material;
+    result_material << std::setprecision(17)
+                    << (passed ? "PASS|" : "FAIL|")
+                    << first_failure << '|'
+                    << reference_overlap_exact << ':'
+                    << first_frame_overlap_exact;
+    for (const TransactionalCompositionCase& value : diagnostic.cases) {
+        result_material << '|' << value.compression_factor << ':'
+                        << value.controller.passed << ':'
+                        << value.reference.passed << ':'
+                        << value.controller.active_spectrum_frames << ':'
+                        << value.controller.total_spectral_hvp_calls << ':'
+                        << value.controller.total_accepted_substeps << ':'
+                        << value.controller.total_controller_substeps << ':'
+                        << value.controller.total_discarded_substeps << ':'
+                        << value.controller.total_accepted_nonlinear_hvp_calls
+                        << ':'
+                        << value.controller.total_controller_nonlinear_hvp_calls
+                        << ':'
+                        << value.controller.total_discarded_nonlinear_hvp_calls
+                        << ':' << value.reference.position_ratio
+                        << ':' << value.reference.velocity_ratio
+                        << ':' << value.normalized_position_error
+                        << ':' << value.normalized_velocity_error
+                        << ':' << value.relative_kinetic_error
+                        << ':' << hash_phase_state(
+                            value.controller.position,
+                            value.controller.velocity);
+        for (const TransactionalFrame& frame : value.controller.frames) {
+            result_material << ':' << frame.start_state_sha256
+                            << ':' << frame.error_probe_state_sha256
+                            << ':' << frame.accepted_state_sha256
+                            << ':' << frame.error_probe_substeps
+                            << ':' << frame.accepted_substeps
+                            << ':' << frame.controller_substeps
+                            << ':' << frame.spectral_hvp_calls;
+        }
+        for (const MultistepRun& level : value.reference.levels) {
+            result_material << ':' << hash_phase_state(
+                level.position, level.velocity);
+        }
+    }
+    result_material << '|' << diagnostic.degenerate.passed << ':'
+                    << diagnostic.degenerate.free_flight_fast_frames << ':'
+                    << diagnostic.degenerate.translation_fast_frames << ':'
+                    << diagnostic.degenerate.free_position_error << ':'
+                    << diagnostic.degenerate.free_velocity_error << ':'
+                    << diagnostic.degenerate.translation_position_error << ':'
+                    << diagnostic.degenerate.translation_velocity_error;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b1r1_fine_state.v1\""
+           << ",\"identity\":\"nuv-variational-fcr2\""
+           << ",\"solver_identity\":\"nuv-newton-krylov-r0\""
+           << ",\"parent_b1r_result_sha256\":\""
+           << "377941cd110c07c265b882d8025d40daf0d22383847649c96ddd771a528346db\""
+           << ",\"candidate\":\"transactional-fine-state-r0\""
+           << ",\"accepted_state_ownership\":\"fine-member-of-passing-pair\""
+           << ",\"status\":\""
+           << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"parent_reference_overlap_exact\":"
+           << (reference_overlap_exact ? "true" : "false")
+           << ",\"parent_first_frame_overlap_exact\":"
+           << (first_frame_overlap_exact ? "true" : "false")
+           << ",\"macro_frames\":12"
+           << ",\"frame_time\":0.0041666666666666666"
+           << ",\"terminal_time\":0.050000000000000003"
+           << ",\"spectral_target\":0.14999999999999999"
+           << ",\"reference_substeps_per_frame\":[96,192,384]"
+           << ",\"theoretical_execution_multipliers\":[1.5,1.75,1.875]"
+           << ",\"thresholds\":{\"minimum_ratio\":1.5"
+           << ",\"maximum_ratio\":2.5"
+           << ",\"maximum_position_error_dx\":0.05"
+           << ",\"maximum_velocity_error_c\":0.001"
+           << ",\"maximum_relative_kinetic_error\":0.15"
+           << ",\"maximum_accepted_substeps_per_frame\":192"
+           << ",\"maximum_executed_trajectory_substeps_per_frame\":384"
+           << ",\"maximum_controller_substeps_per_frame\":768}"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < diagnostic.cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_transactional_case(report, diagnostic.cases[i], true);
+    }
+    report << "],\"degenerate\":{\"status\":\""
+           << (diagnostic.degenerate.passed ? "PASS" : "FAIL") << '"'
+           << ",\"free_flight_fast_frames\":"
+           << diagnostic.degenerate.free_flight_fast_frames
+           << ",\"translation_fast_frames\":"
+           << diagnostic.degenerate.translation_fast_frames
+           << ",\"spectral_hvp_calls\":"
+           << diagnostic.degenerate.spectral_hvp_calls
+           << ",\"error_probe_substeps\":"
+           << diagnostic.degenerate.comparator_substeps
+           << ",\"nonlinear_hvp_calls\":"
+           << diagnostic.degenerate.nonlinear_hvp_calls
+           << ",\"free_position_error\":"
+           << diagnostic.degenerate.free_position_error
+           << ",\"free_velocity_error\":"
+           << diagnostic.degenerate.free_velocity_error
+           << ",\"translation_position_error\":"
+           << diagnostic.degenerate.translation_position_error
+           << ",\"translation_velocity_error\":"
+           << diagnostic.degenerate.translation_velocity_error << '}'
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b2_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"boundary_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(result_material.str()) << "\"}";
+    return {passed, report.str()};
 }
 
 } // namespace nextengine::nonlocal::fcr
