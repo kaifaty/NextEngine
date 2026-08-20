@@ -1524,6 +1524,29 @@ SmoothEvaluation smooth_evaluate(
     return result;
 }
 
+SmoothEvaluation smooth_evaluate_owned(
+    const std::vector<Vec3>& y,
+    const std::vector<Vec3>& displacement,
+    const std::vector<Vec3>& predicted_displacement,
+    const std::vector<Vec3>& boundary,
+    double time_step) {
+    if (y.size() != displacement.size()
+        || y.size() != predicted_displacement.size()) {
+        throw std::invalid_argument("owned smooth state size mismatch");
+    }
+    SmoothEvaluation result;
+    result.support = evaluate(y, boundary);
+    result.total = result.support.energy;
+    result.gradient = fluid_part(result.support.gradient, y.size());
+    const double inertia_scale = MASS / (time_step * time_step);
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        const Vec3 error = displacement[i] - predicted_displacement[i];
+        result.total += 0.5 * inertia_scale * norm_squared(error);
+        result.gradient[i] += inertia_scale * error;
+    }
+    return result;
+}
+
 std::vector<Vec3> smooth_hvp(
     const std::vector<Vec3>& y,
     const std::vector<Vec3>& boundary,
@@ -1614,7 +1637,8 @@ SmoothSolve solve_smooth_step(
     double time_step,
     bool reaction_aware = false,
     bool owned_displacement = false,
-    bool floor_stationarity_merit = false) {
+    bool floor_stationarity_merit = false,
+    bool fully_owned_inertia = false) {
     std::vector<Vec3> y_star(position.size());
     std::vector<Vec3> predicted_displacement(position.size());
     for (std::size_t i = 0; i < position.size(); ++i) {
@@ -1625,8 +1649,10 @@ SmoothSolve solve_smooth_step(
     SmoothSolve result;
     result.position = y_star;
     result.displacement = predicted_displacement;
-    SmoothEvaluation current = smooth_evaluate(
-        result.position, y_star, boundary, time_step);
+    SmoothEvaluation current = fully_owned_inertia
+        ? smooth_evaluate_owned(result.position, result.displacement,
+            predicted_displacement, boundary, time_step)
+        : smooth_evaluate(result.position, y_star, boundary, time_step);
     if (current.support.active_centers == 0U) {
         result.passed = true;
         result.support = std::move(current.support);
@@ -1720,8 +1746,12 @@ SmoothSolve solve_smooth_step(
                         trial_position[i] = position[i]
                             + trial_displacement[i];
                     }
-                    SmoothEvaluation trial = smooth_evaluate(
-                        trial_position, y_star, boundary, time_step);
+                    SmoothEvaluation trial = fully_owned_inertia
+                        ? smooth_evaluate_owned(trial_position,
+                            trial_displacement, predicted_displacement,
+                            boundary, time_step)
+                        : smooth_evaluate(trial_position, y_star,
+                            boundary, time_step);
                     result.floor_trial_topology_exact =
                         current.support.active_centers
                             == trial.support.active_centers
@@ -1767,8 +1797,16 @@ SmoothSolve solve_smooth_step(
                     if (result.floor_trial_topology_exact && finite_trial
                         && result.floor_trial_reaction_defect
                             < result.reaction_stationarity_defect
-                        && result.floor_trial_reaction_defect
-                            <= result.floor_trial_reaction_limit) {
+                        && (fully_owned_inertia
+                            || result.floor_trial_reaction_defect
+                                <= result.floor_trial_reaction_limit)) {
+                        if (fully_owned_inertia
+                            && result.floor_merit_accepts >= 4) {
+                            result.failure =
+                                "FLOOR_STATIONARITY_ITERATION_LIMIT";
+                            result.support = std::move(current.support);
+                            return result;
+                        }
                         ++result.floor_merit_accepts;
                         ++result.accepted_trials;
                         result.position = std::move(trial_position);
@@ -1781,11 +1819,16 @@ SmoothSolve solve_smooth_step(
                             result.floor_trial_reaction_defect;
                         result.reaction_mixed_limit =
                             result.floor_trial_reaction_limit;
-                        result.support = std::move(trial.support);
-                        result.passed = true;
-                        result.convergence_stop =
-                            "FLOOR_STATIONARITY_MERIT";
-                        return result;
+                        if (result.floor_trial_reaction_defect
+                            <= result.floor_trial_reaction_limit) {
+                            result.support = std::move(trial.support);
+                            result.passed = true;
+                            result.convergence_stop =
+                                "FLOOR_STATIONARITY_MERIT";
+                            return result;
+                        }
+                        current = std::move(trial);
+                        continue;
                     }
                 }
                 result.failure = "REACTION_BELOW_ENERGY_RESOLUTION";
@@ -1810,8 +1853,10 @@ SmoothSolve solve_smooth_step(
         } else {
             trial_position = add_scaled(result.position, step, 1.0);
         }
-        SmoothEvaluation trial = smooth_evaluate(
-            trial_position, y_star, boundary, time_step);
+        SmoothEvaluation trial = fully_owned_inertia
+            ? smooth_evaluate_owned(trial_position, trial_displacement,
+                predicted_displacement, boundary, time_step)
+            : smooth_evaluate(trial_position, y_star, boundary, time_step);
         const double actual = current.total - trial.total;
         const double ratio = predicted > 0.0 ? actual / predicted
                                              : -std::numeric_limits<double>::infinity();
@@ -1941,14 +1986,16 @@ SmokeStep execute_smoke_step(
     bool enforce_ledger = true,
     bool reaction_aware = false,
     bool owned_displacement = false,
-    bool floor_stationarity_merit = false) {
+    bool floor_stationarity_merit = false,
+    bool fully_owned_inertia = false) {
     SmokeStep result;
     result.position = position;
     result.velocity = velocity;
     result.displacement.resize(position.size());
     result.smooth = solve_smooth_step(position, velocity,
         fixture.boundary, fixture.gravity, time_step,
-        reaction_aware, owned_displacement, floor_stationarity_merit);
+        reaction_aware, owned_displacement, floor_stationarity_merit,
+        fully_owned_inertia);
     if (!result.smooth.passed) {
         result.failure = "SMOOTH_SOLVE:" + result.smooth.failure;
         return result;
@@ -2480,6 +2527,7 @@ struct ReactionTrace {
     int rejected_trials = 0;
     int floor_merit_trials = 0;
     int floor_merit_accepts = 0;
+    int maximum_floor_accepts_per_solve = 0;
     double maximum_floor_residual_ratio = 0.0;
     bool floor_conditions_exact = true;
     double maximum_stationarity_defect = 0.0;
@@ -2550,7 +2598,8 @@ ReactionTrace run_reaction_trace(
     int substeps_per_frame,
     bool owned_displacement = false,
     bool reaction_aware = false,
-    bool floor_stationarity_merit = false) {
+    bool floor_stationarity_merit = false,
+    bool fully_owned_inertia = false) {
     ReactionTrace result;
     result.substeps_per_frame = substeps_per_frame;
     result.final_position = fixture.position;
@@ -2563,7 +2612,7 @@ ReactionTrace run_reaction_trace(
         const SmokeStep step = execute_smoke_step(fixture,
             result.final_position, result.final_velocity,
             time_step, false, reaction_aware, owned_displacement,
-            floor_stationarity_merit);
+            floor_stationarity_merit, fully_owned_inertia);
         if (!step.passed) {
             result.failure = "SUBSTEP_" + std::to_string(substep)
                 + ':' + step.failure;
@@ -2609,6 +2658,9 @@ ReactionTrace run_reaction_trace(
         result.rejected_trials += step.smooth.rejected_trials;
         result.floor_merit_trials += step.smooth.floor_merit_trials;
         result.floor_merit_accepts += step.smooth.floor_merit_accepts;
+        result.maximum_floor_accepts_per_solve = std::max(
+            result.maximum_floor_accepts_per_solve,
+            step.smooth.floor_merit_accepts);
         if (step.smooth.floor_merit_trials > 0) {
             result.maximum_floor_residual_ratio = std::max(
                 result.maximum_floor_residual_ratio,
@@ -3637,6 +3689,98 @@ void append_owned_gradient_probe(
            << "}}";
 }
 
+struct OwnedResidualLevel {
+    bool passed = false;
+    int substeps_per_frame = 0;
+    ReactionTrace ordinary;
+    ReactionTrace candidate;
+    double final_position_difference_dx = 0.0;
+    double final_velocity_difference_c = 0.0;
+    int hvp_limit = 0;
+    std::string final_state_sha256;
+};
+
+OwnedResidualLevel owned_residual_level(
+    const SmokeFixture& fixture, int substeps_per_frame) {
+    OwnedResidualLevel result;
+    result.substeps_per_frame = substeps_per_frame;
+    result.ordinary = run_reaction_trace(fixture, substeps_per_frame);
+    result.candidate = run_reaction_trace(
+        fixture, substeps_per_frame, true, true, true, true);
+    result.hvp_limit = static_cast<int>(std::floor(
+        2.5 * static_cast<double>(result.ordinary.hvp_calls)
+            + 4.0 * static_cast<double>(result.candidate.active_steps)));
+    if (result.ordinary.steps == result.candidate.steps
+        && result.candidate.steps
+            == SMOKE_FRAMES * substeps_per_frame) {
+        result.final_position_difference_dx = rms_difference(
+            result.ordinary.final_position,
+            result.candidate.final_position) / SPACING;
+        result.final_velocity_difference_c = rms_difference(
+            result.ordinary.final_velocity,
+            result.candidate.final_velocity)
+            / std::sqrt(KAPPA / MASS);
+        result.final_state_sha256 = hash_smoke_state(
+            result.candidate.final_position,
+            result.candidate.final_velocity);
+    } else {
+        result.final_position_difference_dx =
+            std::numeric_limits<double>::infinity();
+        result.final_velocity_difference_c =
+            std::numeric_limits<double>::infinity();
+    }
+    result.passed = result.ordinary.passed && result.candidate.passed
+        && result.candidate.inactive_certified
+        && result.candidate.maximum_active_mixed_ratio <= 1.0
+        && result.final_position_difference_dx <= 1.0e-5
+        && result.final_velocity_difference_c <= 1.0e-5
+        && result.candidate.floor_merit_accepts > 0
+        && result.candidate.floor_merit_trials
+            == result.candidate.floor_merit_accepts
+        && result.candidate.maximum_floor_accepts_per_solve <= 4
+        && result.candidate.floor_conditions_exact
+        && result.candidate.hvp_calls <= result.hvp_limit;
+    return result;
+}
+
+void append_owned_residual_level(
+    std::ostringstream& output, const OwnedResidualLevel& value) {
+    output << std::setprecision(17)
+           << "{\"substeps_per_frame\":" << value.substeps_per_frame
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL") << '\"'
+           << ",\"final_position_difference_dx\":"
+           << value.final_position_difference_dx
+           << ",\"final_velocity_difference_c\":"
+           << value.final_velocity_difference_c
+           << ",\"final_state_sha256\":\""
+           << value.final_state_sha256 << '\"'
+           << ",\"ordinary_work\":{\"outer_trials\":"
+           << value.ordinary.outer_trials
+           << ",\"hvp_calls\":" << value.ordinary.hvp_calls
+           << ",\"rejected_trials\":"
+           << value.ordinary.rejected_trials << '}'
+           << ",\"candidate_work\":{\"outer_trials\":"
+           << value.candidate.outer_trials
+           << ",\"hvp_calls\":" << value.candidate.hvp_calls
+           << ",\"hvp_limit\":" << value.hvp_limit
+           << ",\"rejected_trials\":"
+           << value.candidate.rejected_trials
+           << ",\"floor_merit_trials\":"
+           << value.candidate.floor_merit_trials
+           << ",\"floor_merit_accepts\":"
+           << value.candidate.floor_merit_accepts
+           << ",\"maximum_floor_accepts_per_solve\":"
+           << value.candidate.maximum_floor_accepts_per_solve
+           << ",\"maximum_floor_residual_ratio\":"
+           << value.candidate.maximum_floor_residual_ratio
+           << ",\"floor_conditions_exact\":"
+           << (value.candidate.floor_conditions_exact ? "true" : "false")
+           << '}'
+           << ",\"candidate_trace\":";
+    append_reaction_trace(output, value.candidate);
+    output << '}';
+}
+
 } // namespace
 
 SplitBoundaryReport run_boundary_composition_smoke_controls() {
@@ -4208,6 +4352,95 @@ SplitBoundaryReport run_owned_gradient_controls() {
                    == "OWNED_INERTIA_GRADIENT_CANDIDATE"
                    ? "true" : "false")
            << ",\"b3_retry_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_owned_residual_trajectory_controls() {
+    const SplitBoundaryReport parent = run_owned_gradient_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "36f91802d114ba87124d00303c6ac413fbc09d4cd792f4262636e9816a5680ca";
+    const SmokeFixture face_fixture = make_face_smoke_fixture();
+    const SmokeFixture corner_fixture = make_corner_smoke_fixture();
+    constexpr std::array<int, 3> counts = {96, 192, 384};
+    std::array<OwnedResidualLevel, 3> face;
+    std::array<OwnedResidualLevel, 3> corner;
+    bool levels_passed = true;
+    for (std::size_t i = 0; i < counts.size(); ++i) {
+        face[i] = owned_residual_level(face_fixture, counts[i]);
+        corner[i] = owned_residual_level(corner_fixture, counts[i]);
+        levels_passed = levels_passed
+            && face[i].passed && corner[i].passed;
+    }
+    const bool passed = parent_exact && levels_passed;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B3D5_PARENT";
+    } else if (!levels_passed) {
+        first_failure = "NSR3B3D5_TRAJECTORY_GATE";
+    }
+    const std::string disposition = passed
+        ? "OWNED_RESIDUAL_TRAJECTORY_CANDIDATE"
+        : "OWNED_RESIDUAL_TRAJECTORY_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << disposition;
+    for (const OwnedResidualLevel& value : face) {
+        material << "|F:" << value.substeps_per_frame << ':'
+                 << value.passed << ':'
+                 << value.candidate.floor_merit_accepts << ':'
+                 << value.candidate.maximum_floor_accepts_per_solve << ':'
+                 << value.candidate.hvp_calls << ':'
+                 << value.final_position_difference_dx << ':'
+                 << value.final_velocity_difference_c << ':'
+                 << value.final_state_sha256;
+    }
+    for (const OwnedResidualLevel& value : corner) {
+        material << "|C:" << value.substeps_per_frame << ':'
+                 << value.passed << ':'
+                 << value.candidate.floor_merit_accepts << ':'
+                 << value.candidate.maximum_floor_accepts_per_solve << ':'
+                 << value.candidate.hvp_calls << ':'
+                 << value.final_position_difference_dx << ':'
+                 << value.final_velocity_difference_c << ':'
+                 << value.final_state_sha256;
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b3d5_trajectory.v1\""
+           << ",\"identity\":\"owned-residual-trajectory-r0\""
+           << ",\"parent_b3d4_result_sha256\":\"bdf5b7eaa1f215e14ebb05500ffa2495b8cb3fccd19aa4b369514464086aae34\""
+           << ",\"parent_b3d4_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '\"'
+           << ",\"first_failure\":\"" << first_failure << '\"'
+           << ",\"disposition\":\"" << disposition << '\"'
+           << ",\"levels\":{\"face\":[";
+    for (std::size_t i = 0; i < face.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_owned_residual_level(report, face[i]);
+    }
+    report << "],\"corner\":[";
+    for (std::size_t i = 0; i < corner.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_owned_residual_level(report, corner[i]);
+    }
+    report << "]}"
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b3r_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"physical_corpus_execution_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"historical_hash_check_required\":true"
            << ",\"repeatability_check_required\":true"

@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_FROZEN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / REPORT_ONLY`
 
 Candidate identity:
 
@@ -271,3 +271,7 @@ Freeze a capped full-trajectory D5 candidate next.
 The fully owned, four-accept maximum candidate is frozen in
 [NSR3-B3D5](03b3d5-owned-residual-trajectory-contract.md). It has no residual
 line search and fails closed on non-decrease or a fifth required merit step.
+D5 passes all six trajectories with at most two floor accepts per solve, exact
+topology and all reaction/arithmetic/correspondence gates; see the
+[dated evidence](../../development/nonlocal-nsr3b3d5-owned-residual-trajectory-evidence-2026-08-21.md).
+This authorizes a separately frozen B3R composition retry only.

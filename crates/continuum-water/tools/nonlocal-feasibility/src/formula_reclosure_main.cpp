@@ -42,7 +42,8 @@ int main(int argc, char** argv) {
                          "--displacement-ownership-self-test|"
                          "--finite-precision-merit-self-test|"
                          "--floor-stationarity-trajectory-self-test|"
-                         "--owned-gradient-self-test\n";
+                         "--owned-gradient-self-test|"
+                         "--owned-residual-trajectory-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -282,6 +283,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--owned-residual-trajectory-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_owned_residual_trajectory_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -314,7 +322,8 @@ int main(int argc, char** argv) {
                      "--displacement-ownership-self-test|"
                      "--finite-precision-merit-self-test|"
                      "--floor-stationarity-trajectory-self-test|"
-                     "--owned-gradient-self-test\n";
+                     "--owned-gradient-self-test|"
+                     "--owned-residual-trajectory-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

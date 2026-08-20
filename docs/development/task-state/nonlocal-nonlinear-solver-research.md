@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3D4_PASS_OWNED_GRADIENT / NSR3B3D5_FROZEN_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B3D5_PASS_OWNED_RESIDUAL / NSR3B3R_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -163,10 +163,17 @@
   the unchanged reaction limit after their first correction.
 - **Current decision:** select `BOUNDED_OWNED_RESIDUAL_ITERATION_REQUIRED`.
   The full inertia gradient, reaction and velocity must share `delta`.
-- **Current action:** implement frozen D5 fully owned inertia and capped
-  residual trajectory phase.
-- **Next gate:** D5 must complete all fixed traces within iteration/HVP caps or
-  preserve the exact first non-decrease/limit failure.
+- **Current conclusion:** D5 completes all six fixed boundary traces; no solve
+  needs more than two floor accepts, all active/inactive/momentum/contact and
+  `1e-5 dx/c` correspondence gates pass.
+- **Current cost:** candidate HVP work is `2.01x--2.87x` the ordinary trace;
+  this is bounded correctness evidence, not a performance result.
+- **Current decision:** select `OWNED_RESIDUAL_TRAJECTORY_CANDIDATE` and
+  authorize a separately frozen B3R retry only.
+- **Current action:** freeze B3R using the exact B3 controller/reference and
+  D5 numerical state/globalization, with the original ledger unchanged.
+- **Next gate:** B3R must pass face/corner adaptive composition and fixed
+  reference gates before any physical corpus execution.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -466,6 +473,17 @@
   residual strictly decreases. It cannot change pressure/contact physics or
   inherit B3 authority before a later retry passes.
 
+### D-028 -- Select bounded owned-residual boundary trajectories
+
+- **Observation:** D5 completes every fixed trace with at most two merit
+  accepts per solve, zero rejected trials, certified inactive arithmetic and
+  active reaction ratios below one. Final state changes stay below `1e-5`.
+- **Decision:** select `OWNED_RESIDUAL_TRAJECTORY_CANDIDATE` and freeze B3R
+  against the untouched B3 composition/ledger/reference contract.
+- **Consequence:** numerical boundary trajectories are now credible enough for
+  one adaptive composition retry. Physical corpus, CUDA and runtime remain
+  blocked until B3R independently passes.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -478,10 +496,11 @@
 
 ## Exact next action
 
-1. Freeze D5 iteration, residual-decrease and HVP caps before execution.
-2. Implement fully owned inertia energy/gradient plus the bounded floor phase.
-3. Run six trajectories and historical regressions; only PASS authorizes B3R
-   design.
+1. Freeze B3R with the original B3 face/corner fixtures, adaptive controller,
+   fixed references and momentum ledger.
+2. Thread the exact D5 candidate through fine-state-owned adaptive execution.
+3. Preserve all parent hashes; only B3R PASS may authorize a physical-corpus
+   contract.
 
 ## Reconsideration triggers
 
