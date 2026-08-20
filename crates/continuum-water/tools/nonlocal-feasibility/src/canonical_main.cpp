@@ -1,6 +1,7 @@
 #include "canonical.hpp"
 
 #include "sha256.hpp"
+#include "term_controls.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -138,12 +139,25 @@ std::string run_self_test() {
 
 int main(int argc, char** argv) {
     try {
-        if (argc != 2 || std::string(argv[1]) != "--self-test") {
-            std::cerr << "usage: nonlocal-npr1-canonical --self-test\n";
+        if (argc != 2) {
+            std::cerr << "usage: nonlocal-npr1-canonical "
+                         "--self-test|--term-self-test\n";
             return 2;
         }
-        std::cout << run_self_test() << '\n';
-        return 0;
+        const std::string command = argv[1];
+        if (command == "--self-test") {
+            std::cout << run_self_test() << '\n';
+            return 0;
+        }
+        if (command == "--term-self-test") {
+            const nextengine::nonlocal::npr1::TermControlReport report =
+                nextengine::nonlocal::npr1::run_term_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        std::cerr << "usage: nonlocal-npr1-canonical "
+                     "--self-test|--term-self-test\n";
+        return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-npr1-canonical: " << error.what() << '\n';
         return 1;

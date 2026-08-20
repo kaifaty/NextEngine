@@ -31,6 +31,7 @@ add_executable(
     src/canonical.cpp
     src/canonical_main.cpp
     src/sha256.cpp
+    src/term_controls.cpp
 )
 target_compile_features(nonlocal-npr1-canonical PRIVATE cxx_std_17)
 target_compile_options(
