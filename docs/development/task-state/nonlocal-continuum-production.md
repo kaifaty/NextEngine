@@ -42,6 +42,7 @@
 | [NPR0 tiny-corpus evidence](../nonlocal-continuum-npr0-tiny-corpus-evidence-2026-08-20.md) | `PROFILE_RECLOSURE_REMEDIATION_1` | other tiny cases pass; hydro compression rejects both coefficient profiles |
 | [NPR0 hydro remediation](../../plans/nonlocal-continuum-production/03-hydro-remediation-1.md) | `EXECUTED` | h2 fails through 50 iterations; h3 first passes at 16 |
 | [NPR0 hydro-remediation evidence](../nonlocal-continuum-npr0-hydro-remediation-evidence-2026-08-20.md) | `H3_SUPPORT_REMEDIATION_CANDIDATE` | h3/16 requires explicit capacity/profile reclosure and full-corpus rerun |
+| [NPR0 v4 discriminator](../../plans/nonlocal-continuum-production/04-h3-support-profile-discriminator.md) | `SPECIFIED` | exact h3 profile, capacity, preflights, corpus rerun and terminal dispositions are frozen |
 | Later `CONTINUUM-*` ProductChecks | `NOT_RUN` | no production claim |
 
 ## Decisions that still constrain the work
