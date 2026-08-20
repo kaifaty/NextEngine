@@ -19,6 +19,8 @@ void print_usage() {
                  "--handoff <identity>\n"
               << "       nonlocal-feasibility --self-test --accumulation <identity> "
                  "--handoff <identity> --term-kernels <identity>\n"
+              << "       nonlocal-feasibility --self-test --accumulation <identity> "
+                 "--handoff <identity> --term-kernels <identity> --storage <identity>\n"
               << "       nonlocal-feasibility --check <profile-id> --iterations <count>\n"
               << "       nonlocal-feasibility --check <profile-id> --iterations <count> "
                  "--accumulation <identity>\n"
@@ -26,6 +28,9 @@ void print_usage() {
                  "--accumulation <identity> --handoff <identity>\n"
               << "       nonlocal-feasibility --check <profile-id> --iterations <count> "
                  "--accumulation <identity> --handoff <identity> --term-kernels <identity>\n"
+              << "       nonlocal-feasibility --check <profile-id> --iterations <count> "
+                 "--accumulation <identity> --handoff <identity> --term-kernels <identity> "
+                 "--storage <identity>\n"
               << "       nonlocal-feasibility --repeatability <profile-id> --iterations <count> "
                  "--runs <count> --accumulation <identity>\n"
               << "       nonlocal-feasibility --repeatability <profile-id> --iterations <count> "
@@ -33,6 +38,9 @@ void print_usage() {
               << "       nonlocal-feasibility --repeatability <profile-id> --iterations <count> "
                  "--runs <count> --accumulation <identity> --handoff <identity> "
                  "--term-kernels <identity>\n"
+              << "       nonlocal-feasibility --repeatability <profile-id> --iterations <count> "
+                 "--runs <count> --accumulation <identity> --handoff <identity> "
+                 "--term-kernels <identity> --storage <identity>\n"
               << "       nonlocal-feasibility --benchmark <profile-id> --warmup <count> "
                  "--runs <count>\n"
               << "       nonlocal-feasibility --benchmark <profile-id> --warmup <count> "
@@ -42,7 +50,12 @@ void print_usage() {
               << "       nonlocal-feasibility --benchmark <profile-id> --warmup <count> "
                  "--runs <count> --accumulation <identity> --handoff <identity> "
                  "--term-kernels <identity>\n"
+              << "       nonlocal-feasibility --benchmark <profile-id> --warmup <count> "
+                 "--runs <count> --accumulation <identity> --handoff <identity> "
+                 "--term-kernels <identity> --storage <identity>\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
+                 "--runs 96\n"
+              << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
                  "--runs 96\n";
 }
 
@@ -111,6 +124,19 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (argc == 10 && std::string(argv[1]) == "--self-test"
+            && std::string(argv[2]) == "--accumulation"
+            && std::string(argv[4]) == "--handoff"
+            && std::string(argv[6]) == "--term-kernels"
+            && std::string(argv[8]) == "--storage") {
+            const auto report = nextengine::nonlocal::run_cuda_self_test(
+                nextengine::nonlocal::parse_accumulation_identity(argv[3]),
+                nextengine::nonlocal::parse_handoff_identity(argv[5]),
+                nextengine::nonlocal::parse_term_kernel_identity(argv[7]),
+                nextengine::nonlocal::parse_storage_identity(argv[9]));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (argc == 5 && std::string(argv[1]) == "--check"
             && std::string(argv[3]) == "--iterations") {
             const auto report = nextengine::nonlocal::run_cuda_check(
@@ -155,6 +181,22 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (argc == 13 && std::string(argv[1]) == "--check"
+            && std::string(argv[3]) == "--iterations"
+            && std::string(argv[5]) == "--accumulation"
+            && std::string(argv[7]) == "--handoff"
+            && std::string(argv[9]) == "--term-kernels"
+            && std::string(argv[11]) == "--storage") {
+            const auto report = nextengine::nonlocal::run_cuda_check(
+                nextengine::nonlocal::find_profile(argv[2]),
+                bounded_integer(argv[4], "iteration count"),
+                nextengine::nonlocal::parse_accumulation_identity(argv[6]),
+                nextengine::nonlocal::parse_handoff_identity(argv[8]),
+                nextengine::nonlocal::parse_term_kernel_identity(argv[10]),
+                nextengine::nonlocal::parse_storage_identity(argv[12]));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (argc == 9 && std::string(argv[1]) == "--repeatability"
             && std::string(argv[3]) == "--iterations"
             && std::string(argv[5]) == "--runs"
@@ -194,6 +236,24 @@ int main(int argc, char** argv) {
                 nextengine::nonlocal::parse_accumulation_identity(argv[8]),
                 nextengine::nonlocal::parse_handoff_identity(argv[10]),
                 nextengine::nonlocal::parse_term_kernel_identity(argv[12]));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 15 && std::string(argv[1]) == "--repeatability"
+            && std::string(argv[3]) == "--iterations"
+            && std::string(argv[5]) == "--runs"
+            && std::string(argv[7]) == "--accumulation"
+            && std::string(argv[9]) == "--handoff"
+            && std::string(argv[11]) == "--term-kernels"
+            && std::string(argv[13]) == "--storage") {
+            const auto report = nextengine::nonlocal::run_cuda_repeatability(
+                nextengine::nonlocal::find_profile(argv[2]),
+                bounded_integer(argv[4], "iteration count"),
+                bounded_integer(argv[6], "run count"),
+                nextengine::nonlocal::parse_accumulation_identity(argv[8]),
+                nextengine::nonlocal::parse_handoff_identity(argv[10]),
+                nextengine::nonlocal::parse_term_kernel_identity(argv[12]),
+                nextengine::nonlocal::parse_storage_identity(argv[14]));
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
@@ -245,9 +305,35 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (argc == 15 && std::string(argv[1]) == "--benchmark"
+            && std::string(argv[3]) == "--warmup" && std::string(argv[5]) == "--runs"
+            && std::string(argv[7]) == "--accumulation"
+            && std::string(argv[9]) == "--handoff"
+            && std::string(argv[11]) == "--term-kernels"
+            && std::string(argv[13]) == "--storage") {
+            const auto report = nextengine::nonlocal::run_cuda_benchmark(
+                nextengine::nonlocal::find_profile(argv[2]),
+                bounded_integer(argv[4], "warmup count"),
+                bounded_integer(argv[6], "run count"),
+                nextengine::nonlocal::parse_accumulation_identity(argv[8]),
+                nextengine::nonlocal::parse_handoff_identity(argv[10]),
+                nextengine::nonlocal::parse_term_kernel_identity(argv[12]),
+                nextengine::nonlocal::parse_storage_identity(argv[14]));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (argc == 7 && std::string(argv[1]) == "--layout-tournament"
             && std::string(argv[3]) == "--warmup" && std::string(argv[5]) == "--runs") {
             const auto report = nextengine::nonlocal::run_cuda_layout_tournament(
+                nextengine::nonlocal::find_profile(argv[2]),
+                bounded_integer(argv[4], "warmup count"),
+                bounded_integer(argv[6], "run count"));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 7 && std::string(argv[1]) == "--locality-tournament"
+            && std::string(argv[3]) == "--warmup" && std::string(argv[5]) == "--runs") {
+            const auto report = nextengine::nonlocal::run_cuda_locality_tournament(
                 nextengine::nonlocal::find_profile(argv[2]),
                 bounded_integer(argv[4], "warmup count"),
                 bounded_integer(argv[6], "run count"));

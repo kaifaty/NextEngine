@@ -42,6 +42,12 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --handoff pointer-swap-o1 --term-kernels nuv-terms-specialized-o2
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --layout-tournament nuv-water-16k.v0 --warmup 32 --runs 96
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --self-test --accumulation nuv-gather-directed-r0 \
+  --handoff pointer-swap-o1 --term-kernels nuv-terms-specialized-o2 \
+  --storage cell-sorted-o4
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --locality-tournament nuv-water-48k.v0 --warmup 32 --runs 96
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -57,6 +63,13 @@ without `--term-kernels` retain `nuv-terms-runtime-v0`.
 gather or the O3 segmented layout. On directed gather it selects the retained
 report-only NR2-O2 path.
 
+Commands without `--storage` retain stable fixture/sample order.
+`cell-sorted-o4` is valid only with retained gather, pointer swap and O2 term
+specialization. It stores solver fields in stable packed-cell order while
+remapping captures and logical CSR back to sample-ID order. Map setup, exact
+map/CSR digests, memory and neighbor-storage distances are reported
+separately.
+
 `nuv-unique-pair-segmented-o3` selects the report-only NR2-O3 candidate and
 is valid only with `pointer-swap-o1` plus `nuv-terms-specialized-o2`. It keeps
 the frozen CSR, builds and validates an immutable symmetric reverse-slot map,
@@ -70,3 +83,8 @@ segmented instances, then rotates their order `A/G/S`, `G/S/A`, `S/A/G` for
 integration. The O3 execution record rejected the candidate at the stiff
 surface correspondence gate, so retained work continues to use
 `nuv-gather-directed-r0 + pointer-swap-o1 + nuv-terms-specialized-o2`.
+
+`--locality-tournament` co-resides stable-sample and cell-sorted instances and
+alternates their order for 32 warm-up and 96 measured rounds. Exact remapped
+output/CSR, storage capacity and before/after state are required before its
+same-process timings are admissible.
