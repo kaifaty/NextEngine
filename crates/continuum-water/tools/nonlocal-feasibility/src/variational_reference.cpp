@@ -6838,6 +6838,544 @@ AcousticSubstepPolicyDiagnostic acoustic_substep_policy_diagnostic() {
     return result;
 }
 
+bool jacobi_eigensystem(
+    const std::vector<double>& matrix,
+    std::size_t dimension,
+    std::vector<double>& eigenvalues,
+    std::vector<double>& eigenvectors,
+    int& pivots) {
+    std::vector<double> value(matrix.size());
+    eigenvectors.assign(dimension * dimension, 0.0);
+    for (std::size_t row = 0; row < dimension; ++row) {
+        eigenvectors[row * dimension + row] = 1.0;
+        for (std::size_t column = 0; column < dimension; ++column) {
+            value[row * dimension + column] = 0.5
+                * (matrix[row * dimension + column]
+                    + matrix[column * dimension + row]);
+        }
+    }
+    const int maximum_pivots = static_cast<int>(64 * dimension * dimension);
+    pivots = 0;
+    for (; pivots < maximum_pivots; ++pivots) {
+        std::size_t p = 0;
+        std::size_t q = 0;
+        double largest = 0.0;
+        for (std::size_t row = 0; row < dimension; ++row) {
+            for (std::size_t column = row + 1;
+                 column < dimension; ++column) {
+                const double candidate =
+                    std::abs(value[row * dimension + column]);
+                if (candidate > largest) {
+                    largest = candidate;
+                    p = row;
+                    q = column;
+                }
+            }
+        }
+        double maximum_diagonal = 0.0;
+        for (std::size_t i = 0; i < dimension; ++i) {
+            maximum_diagonal = std::max(
+                maximum_diagonal, std::abs(value[i * dimension + i]));
+        }
+        if (largest <= 1.0e-12 * std::max(maximum_diagonal, 1.0)) {
+            std::vector<std::size_t> order(dimension);
+            for (std::size_t i = 0; i < dimension; ++i) {
+                order[i] = i;
+            }
+            std::sort(order.begin(), order.end(),
+                [&](std::size_t lhs, std::size_t rhs) {
+                    return value[lhs * dimension + lhs]
+                        < value[rhs * dimension + rhs];
+                });
+            eigenvalues.resize(dimension);
+            std::vector<double> sorted_vectors(
+                dimension * dimension);
+            for (std::size_t column = 0; column < dimension; ++column) {
+                eigenvalues[column] = value[
+                    order[column] * dimension + order[column]];
+                for (std::size_t row = 0; row < dimension; ++row) {
+                    sorted_vectors[row * dimension + column] =
+                        eigenvectors[row * dimension + order[column]];
+                }
+            }
+            eigenvectors = std::move(sorted_vectors);
+            return all_finite(eigenvalues) && all_finite(eigenvectors);
+        }
+        const double app = value[p * dimension + p];
+        const double aqq = value[q * dimension + q];
+        const double apq = value[p * dimension + q];
+        const double tau = (aqq - app) / (2.0 * apq);
+        const double tangent = tau >= 0.0
+            ? 1.0 / (tau + std::sqrt(1.0 + tau * tau))
+            : -1.0 / (-tau + std::sqrt(1.0 + tau * tau));
+        const double cosine = 1.0 / std::sqrt(1.0 + tangent * tangent);
+        const double sine = tangent * cosine;
+        for (std::size_t k = 0; k < dimension; ++k) {
+            if (k != p && k != q) {
+                const double akp = value[k * dimension + p];
+                const double akq = value[k * dimension + q];
+                const double next_kp = cosine * akp - sine * akq;
+                const double next_kq = sine * akp + cosine * akq;
+                value[k * dimension + p] = next_kp;
+                value[p * dimension + k] = next_kp;
+                value[k * dimension + q] = next_kq;
+                value[q * dimension + k] = next_kq;
+            }
+            const double vector_kp =
+                eigenvectors[k * dimension + p];
+            const double vector_kq =
+                eigenvectors[k * dimension + q];
+            eigenvectors[k * dimension + p] =
+                cosine * vector_kp - sine * vector_kq;
+            eigenvectors[k * dimension + q] =
+                sine * vector_kp + cosine * vector_kq;
+        }
+        value[p * dimension + p] = cosine * cosine * app
+            - 2.0 * sine * cosine * apq + sine * sine * aqq;
+        value[q * dimension + q] = sine * sine * app
+            + 2.0 * sine * cosine * apq + cosine * cosine * aqq;
+        value[p * dimension + q] = 0.0;
+        value[q * dimension + p] = 0.0;
+    }
+    return false;
+}
+
+struct PressureTangentOperator {
+    Config config;
+    std::vector<Vec3> position;
+    std::vector<ParticlePair> pairs;
+    std::vector<std::vector<std::size_t>> adjacency;
+    NeighborhoodHessianTape tape;
+    NeighborhoodHvpWorkspace workspace;
+    int calls = 0;
+    bool valid = false;
+};
+
+PressureTangentOperator make_pressure_tangent_operator(
+    Config config, std::vector<Vec3> position) {
+    config.lambda = 0.0;
+    config.mu = 0.0;
+    config.gamma = 0.0;
+    PressureTangentOperator result;
+    result.config = config;
+    result.position = std::move(position);
+    result.pairs = build_cell_pairs(
+        result.position, result.config.horizon);
+    result.adjacency = build_pair_adjacency(
+        result.position.size(), result.pairs);
+    build_reference_hessian_tape(result.config, result.position,
+        result.pairs, result.tape);
+    result.valid = build_current_hessian_tape(result.config,
+        result.position, result.pairs, result.adjacency, result.tape)
+        && neighborhood_capacity_valid(
+            result.position.size(), result.pairs, result.adjacency)
+        && hessian_tape_storage_bytes(result.tape)
+            <= hessian_tape_storage_limit(
+                result.position.size(), result.pairs.size());
+    return result;
+}
+
+std::vector<Vec3> apply_pressure_tangent(
+    PressureTangentOperator& pressure,
+    const std::vector<Vec3>& direction) {
+    const std::vector<Vec3>& full = apply_hessian_with_tape(
+        pressure.config, direction, pressure.adjacency,
+        pressure.tape, pressure.workspace);
+    std::vector<Vec3> result = full;
+    for (std::size_t i = 0; i < result.size(); ++i) {
+        result[i] += -pressure.tape.inertia_scale * direction[i];
+    }
+    ++pressure.calls;
+    return result;
+}
+
+std::vector<Vec3> deterministic_lanczos_start(std::size_t particles) {
+    std::vector<Vec3> result(particles);
+    for (std::size_t particle = 0; particle < particles; ++particle) {
+        double* component[3] = {
+            &result[particle].x,
+            &result[particle].y,
+            &result[particle].z,
+        };
+        for (std::size_t axis = 0; axis < 3; ++axis) {
+            const double r = static_cast<double>(3 * particle + axis + 1);
+            *component[axis] = std::sin(r * std::sqrt(2.0))
+                + std::cos(r * std::sqrt(3.0));
+        }
+    }
+    const Vec3 translation = average(result);
+    for (Vec3& value : result) {
+        value = value - translation;
+    }
+    const double scale = vector_norm(result);
+    for (Vec3& value : result) {
+        value = value / scale;
+    }
+    return result;
+}
+
+struct LanczosMaximumEigenvalue {
+    bool finite = false;
+    bool jacobi_converged = false;
+    int iterations = 0;
+    int operator_calls = 0;
+    int jacobi_pivots = 0;
+    double eigenvalue = 0.0;
+    double relative_ritz_residual = 0.0;
+    double orthogonality_error = 0.0;
+};
+
+LanczosMaximumEigenvalue lanczos_maximum_eigenvalue(
+    PressureTangentOperator& pressure, int maximum_iterations) {
+    LanczosMaximumEigenvalue result;
+    std::vector<std::vector<Vec3>> basis;
+    basis.push_back(deterministic_lanczos_start(
+        pressure.position.size()));
+    std::vector<Vec3> previous(pressure.position.size());
+    std::vector<double> alpha;
+    std::vector<double> beta;
+    double previous_beta = 0.0;
+    for (int iteration = 0; iteration < maximum_iterations; ++iteration) {
+        const std::vector<Vec3>& current = basis.back();
+        std::vector<Vec3> residual =
+            apply_pressure_tangent(pressure, current);
+        if (iteration != 0) {
+            for (std::size_t i = 0; i < residual.size(); ++i) {
+                residual[i] += -previous_beta * previous[i];
+            }
+        }
+        const double diagonal = vector_dot(current, residual);
+        for (std::size_t i = 0; i < residual.size(); ++i) {
+            residual[i] += -diagonal * current[i];
+        }
+        for (int pass = 0; pass < 2; ++pass) {
+            for (const std::vector<Vec3>& vector : basis) {
+                const double projection = vector_dot(vector, residual);
+                for (std::size_t i = 0; i < residual.size(); ++i) {
+                    residual[i] += -projection * vector[i];
+                }
+            }
+        }
+        const double next_beta = vector_norm(residual);
+        alpha.push_back(diagonal);
+        beta.push_back(next_beta);
+        result.iterations = iteration + 1;
+        if (!std::isfinite(diagonal) || !std::isfinite(next_beta)
+            || !all_finite(residual)) {
+            result.operator_calls = pressure.calls;
+            return result;
+        }
+        if (next_beta <= 1.0e-14
+            || iteration + 1 == maximum_iterations) {
+            break;
+        }
+        previous = current;
+        previous_beta = next_beta;
+        for (Vec3& value : residual) {
+            value = value / next_beta;
+        }
+        basis.push_back(std::move(residual));
+    }
+    const std::size_t dimension = alpha.size();
+    std::vector<double> tridiagonal(dimension * dimension);
+    for (std::size_t i = 0; i < dimension; ++i) {
+        tridiagonal[i * dimension + i] = alpha[i];
+        if (i + 1 < dimension) {
+            tridiagonal[i * dimension + i + 1] = beta[i];
+            tridiagonal[(i + 1) * dimension + i] = beta[i];
+        }
+    }
+    std::vector<double> eigenvalues;
+    std::vector<double> eigenvectors;
+    result.jacobi_converged = jacobi_eigensystem(
+        tridiagonal, dimension, eigenvalues, eigenvectors,
+        result.jacobi_pivots);
+    if (result.jacobi_converged && !eigenvalues.empty()) {
+        result.eigenvalue = eigenvalues.back();
+        const double last_component =
+            eigenvectors[(dimension - 1) * dimension + dimension - 1];
+        result.relative_ritz_residual =
+            std::abs(beta.back() * last_component)
+            / std::max(std::abs(result.eigenvalue), 1.0);
+    }
+    for (std::size_t i = 0; i < basis.size(); ++i) {
+        for (std::size_t j = 0; j < basis.size(); ++j) {
+            const double target = i == j ? 1.0 : 0.0;
+            result.orthogonality_error = std::max(
+                result.orthogonality_error,
+                std::abs(vector_dot(basis[i], basis[j]) - target));
+        }
+    }
+    result.operator_calls = pressure.calls;
+    result.finite = result.jacobi_converged
+        && std::isfinite(result.eigenvalue)
+        && std::isfinite(result.relative_ritz_residual)
+        && std::isfinite(result.orthogonality_error);
+    return result;
+}
+
+struct PressureDenseOracle {
+    bool passed = false;
+    std::size_t dimension = 0;
+    int active_pressure_centers = 0;
+    double dense_maximum_eigenvalue = 0.0;
+    double lanczos_maximum_eigenvalue = 0.0;
+    double eigenvalue_error = 0.0;
+    double symmetry_error = 0.0;
+    double dense_product_error = 0.0;
+    LanczosMaximumEigenvalue lanczos;
+};
+
+PressureDenseOracle pressure_dense_oracle() {
+    const CombinedFixture source = combined_fixture();
+    Config config = physical_multistep_config();
+    config.kappa = 200.0;
+    double center_density = config.mass
+        * configured_cubic_weight(config, 0.0);
+    for (std::size_t i = 1; i < source.x.size(); ++i) {
+        center_density += config.mass * configured_cubic_weight(
+            config, norm(source.x[0] - source.x[i]));
+    }
+    config.rest_density = center_density / 1.1;
+    PressureTangentOperator dense_operator =
+        make_pressure_tangent_operator(config, source.x);
+    PressureDenseOracle result;
+    result.dimension = 3 * source.x.size();
+    result.active_pressure_centers =
+        pressure_active_count(config, source.x);
+    std::vector<double> dense(result.dimension * result.dimension);
+    for (std::size_t column = 0; column < result.dimension; ++column) {
+        std::vector<double> basis(result.dimension);
+        basis[column] = 1.0;
+        const std::vector<double> image = flatten(
+            apply_pressure_tangent(dense_operator, unflatten(basis)));
+        for (std::size_t row = 0; row < result.dimension; ++row) {
+            dense[row * result.dimension + column] = image[row];
+        }
+    }
+    double asymmetry_squared = 0.0;
+    double dense_squared = 0.0;
+    for (std::size_t row = 0; row < result.dimension; ++row) {
+        for (std::size_t column = 0; column < result.dimension; ++column) {
+            const double value = dense[row * result.dimension + column];
+            const double difference = value
+                - dense[column * result.dimension + row];
+            asymmetry_squared += difference * difference;
+            dense_squared += value * value;
+        }
+    }
+    result.symmetry_error = std::sqrt(asymmetry_squared)
+        / std::max(std::sqrt(dense_squared), 1.0);
+    std::vector<double> eigenvalues;
+    std::vector<double> eigenvectors;
+    int pivots = 0;
+    const bool dense_converged = jacobi_eigensystem(
+        dense, result.dimension, eigenvalues, eigenvectors, pivots);
+    if (!eigenvalues.empty()) {
+        result.dense_maximum_eigenvalue = eigenvalues.back();
+    }
+    PressureTangentOperator lanczos_operator =
+        make_pressure_tangent_operator(config, source.x);
+    result.lanczos = lanczos_maximum_eigenvalue(
+        lanczos_operator, static_cast<int>(result.dimension));
+    result.lanczos_maximum_eigenvalue = result.lanczos.eigenvalue;
+    result.eigenvalue_error = relative_error(
+        result.dense_maximum_eigenvalue,
+        result.lanczos_maximum_eigenvalue);
+    const std::vector<Vec3> direction = deterministic_lanczos_start(
+        source.x.size());
+    const std::vector<double> flat_direction = flatten(direction);
+    const std::vector<double> operator_product = flatten(
+        apply_pressure_tangent(dense_operator, direction));
+    std::vector<double> dense_product(result.dimension);
+    for (std::size_t row = 0; row < result.dimension; ++row) {
+        for (std::size_t column = 0; column < result.dimension; ++column) {
+            dense_product[row] += dense[row * result.dimension + column]
+                * flat_direction[column];
+        }
+    }
+    std::vector<double> difference(result.dimension);
+    for (std::size_t i = 0; i < result.dimension; ++i) {
+        difference[i] = dense_product[i] - operator_product[i];
+    }
+    result.dense_product_error = flat_norm(difference)
+        / std::max({flat_norm(dense_product),
+            flat_norm(operator_product), 1.0});
+    result.passed = dense_operator.valid && lanczos_operator.valid
+        && dense_converged && result.lanczos.finite
+        && result.active_pressure_centers > 0
+        && result.symmetry_error <= 2.0e-12
+        && result.dense_product_error <= 2.0e-12
+        && result.eigenvalue_error <= 1.0e-10;
+    return result;
+}
+
+struct PressureSpectrumCase {
+    double compression_factor = 0.0;
+    double kappa_factor = 0.0;
+    int particles = 0;
+    int active_pressure_centers = 0;
+    std::size_t pairs = 0;
+    std::size_t maximum_neighbors = 0;
+    double maximum_eigenvalue = 0.0;
+    double maximum_eigenfrequency = 0.0;
+    double spectral_amplification = 0.0;
+    double translation_null_residual = 0.0;
+    LanczosMaximumEigenvalue lanczos;
+    bool passed = false;
+};
+
+PressureSpectrumCase make_pressure_spectrum_case(
+    double compression_factor, double kappa_factor) {
+    Config config = physical_multistep_config();
+    config.kappa *= kappa_factor;
+    std::vector<Vec3> position = centered_lattice(7, config.spacing);
+    for (Vec3& value : position) {
+        value = compression_factor * value;
+    }
+    PressureTangentOperator pressure =
+        make_pressure_tangent_operator(config, position);
+    PressureSpectrumCase result;
+    result.compression_factor = compression_factor;
+    result.kappa_factor = kappa_factor;
+    result.particles = static_cast<int>(position.size());
+    result.active_pressure_centers =
+        pressure_active_count(config, position);
+    result.pairs = pressure.pairs.size();
+    result.maximum_neighbors = maximum_neighbor_count(pressure.adjacency);
+    std::vector<Vec3> translation(position.size(), {1.0, -0.5, 0.25});
+    const std::vector<Vec3> translation_image =
+        apply_pressure_tangent(pressure, translation);
+    const double translation_image_norm = vector_norm(translation_image);
+    const int calls_before = pressure.calls;
+    result.lanczos = lanczos_maximum_eigenvalue(pressure, 48);
+    result.lanczos.operator_calls = pressure.calls - calls_before;
+    result.maximum_eigenvalue = result.lanczos.eigenvalue;
+    result.translation_null_residual = translation_image_norm
+        / (std::max(std::abs(result.maximum_eigenvalue), 1.0)
+            * std::max(vector_norm(translation), 1.0));
+    result.maximum_eigenfrequency = std::sqrt(
+        std::max(result.maximum_eigenvalue, 0.0) / config.mass);
+    result.spectral_amplification = config.spacing * std::sqrt(
+        std::max(result.maximum_eigenvalue, 0.0) / config.kappa);
+    result.passed = pressure.valid && result.active_pressure_centers > 0
+        && result.pairs <= 80 * position.size()
+        && result.maximum_neighbors <= 160
+        && result.lanczos.finite
+        && result.maximum_eigenvalue > 0.0
+        && result.lanczos.relative_ritz_residual <= 1.0e-8
+        && result.lanczos.orthogonality_error <= 1.0e-10
+        && result.translation_null_residual <= 1.0e-12;
+    return result;
+}
+
+struct PressureSpectrumNullControl {
+    int active_pressure_centers = 0;
+    double maximum_eigenvalue = 0.0;
+    double hvp_norm = 0.0;
+    LanczosMaximumEigenvalue lanczos;
+    bool passed = false;
+};
+
+PressureSpectrumNullControl pressure_spectrum_null_control() {
+    Config config = physical_multistep_config();
+    const std::vector<Vec3> position =
+        centered_lattice(7, config.spacing);
+    PressureTangentOperator pressure =
+        make_pressure_tangent_operator(config, position);
+    PressureSpectrumNullControl result;
+    result.active_pressure_centers =
+        pressure_active_count(config, position);
+    const std::vector<Vec3> direction =
+        deterministic_lanczos_start(position.size());
+    result.hvp_norm = vector_norm(
+        apply_pressure_tangent(pressure, direction));
+    result.lanczos = lanczos_maximum_eigenvalue(pressure, 48);
+    result.maximum_eigenvalue = result.lanczos.eigenvalue;
+    result.passed = pressure.valid && result.active_pressure_centers == 0
+        && result.hvp_norm <= 1.0e-12
+        && std::abs(result.maximum_eigenvalue) <= 1.0e-12
+        && result.lanczos.finite;
+    return result;
+}
+
+struct PressureSpectrumDiagnostic {
+    PressureDenseOracle dense;
+    std::array<PressureSpectrumCase, 6> cases;
+    PressureSpectrumNullControl null_control;
+    double amplification_099 = 0.0;
+    double amplification_098 = 0.0;
+    bool kappa_scaling_valid = false;
+    bool passed = false;
+    std::string first_failure;
+};
+
+PressureSpectrumDiagnostic pressure_spectrum_diagnostic() {
+    PressureSpectrumDiagnostic result;
+    result.dense = pressure_dense_oracle();
+    const std::array<double, 2> compression = {0.99, 0.98};
+    const std::array<double, 3> stiffness = {0.25, 1.0, 4.0};
+    std::size_t index = 0;
+    for (double compression_factor : compression) {
+        for (double kappa_factor : stiffness) {
+            result.cases[index++] = make_pressure_spectrum_case(
+                compression_factor, kappa_factor);
+        }
+    }
+    result.null_control = pressure_spectrum_null_control();
+    result.kappa_scaling_valid = true;
+    for (std::size_t amplitude = 0; amplitude < 2; ++amplitude) {
+        const std::size_t base = 3 * amplitude;
+        for (std::size_t i = 0; i < 2; ++i) {
+            result.kappa_scaling_valid = result.kappa_scaling_valid
+                && relative_error(
+                    result.cases[base + i + 1].maximum_eigenvalue,
+                    4.0 * result.cases[base + i].maximum_eigenvalue)
+                    <= 1.0e-10
+                && relative_error(
+                    result.cases[base + i + 1].maximum_eigenfrequency,
+                    2.0 * result.cases[base + i].maximum_eigenfrequency)
+                    <= 1.0e-10
+                && relative_error(
+                    result.cases[base + i + 1].spectral_amplification,
+                    result.cases[base + i].spectral_amplification)
+                    <= 1.0e-10;
+        }
+    }
+    for (std::size_t i = 0; i < 3; ++i) {
+        result.amplification_099 +=
+            result.cases[i].spectral_amplification / 3.0;
+        result.amplification_098 +=
+            result.cases[i + 3].spectral_amplification / 3.0;
+    }
+    result.passed = result.dense.passed && result.null_control.passed
+        && result.kappa_scaling_valid
+        && result.amplification_098 > result.amplification_099;
+    if (!result.dense.passed) {
+        result.first_failure = "NSR3B1S1_DENSE_ORACLE";
+    }
+    for (const PressureSpectrumCase& value : result.cases) {
+        result.passed = result.passed && value.passed;
+        if (!value.passed && result.first_failure.empty()) {
+            std::ostringstream name;
+            name << std::setprecision(17)
+                 << "NSR3B1S1_MATRIX:c=" << value.compression_factor
+                 << ":k=" << value.kappa_factor;
+            result.first_failure = name.str();
+        }
+    }
+    if (!result.null_control.passed && result.first_failure.empty()) {
+        result.first_failure = "NSR3B1S1_NULL_CONTROL";
+    } else if (!result.kappa_scaling_valid
+        && result.first_failure.empty()) {
+        result.first_failure = "NSR3B1S1_KAPPA_SCALING";
+    } else if (result.amplification_098 <= result.amplification_099
+        && result.first_failure.empty()) {
+        result.first_failure = "NSR3B1S1_AMPLITUDE_ORDER";
+    }
+    return result;
+}
+
 void append_double_array(
     std::ostringstream& output, const double* begin, std::size_t size) {
     output << '[';
@@ -8657,6 +9195,131 @@ ReferenceSolverReport run_acoustic_substep_policy_controls() {
            << (diagnostic.passed ? "true" : "false")
            << ",\"b1r_design_authorized\":"
            << (diagnostic.passed ? "true" : "false")
+           << ",\"boundary_design_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(result_material.str()) << "\"}";
+    return {diagnostic.passed, report.str()};
+}
+
+ReferenceSolverReport run_pressure_tangent_spectrum_controls() {
+    const PressureSpectrumDiagnostic diagnostic =
+        pressure_spectrum_diagnostic();
+    std::ostringstream result_material;
+    result_material << std::setprecision(17)
+                    << (diagnostic.passed ? "PASS|" : "FAIL|")
+                    << diagnostic.first_failure << '|'
+                    << diagnostic.dense.dense_maximum_eigenvalue << ':'
+                    << diagnostic.dense.lanczos_maximum_eigenvalue << '|'
+                    << diagnostic.amplification_099 << ':'
+                    << diagnostic.amplification_098;
+    for (const PressureSpectrumCase& value : diagnostic.cases) {
+        result_material << '|' << value.compression_factor << ':'
+                        << value.kappa_factor << ':'
+                        << value.maximum_eigenvalue << ':'
+                        << value.maximum_eigenfrequency << ':'
+                        << value.spectral_amplification << ':'
+                        << value.lanczos.relative_ritz_residual << ':'
+                        << value.lanczos.operator_calls;
+    }
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b1s1_pressure_spectrum.v1\""
+           << ",\"identity\":\"nuv-variational-fcr2\""
+           << ",\"parent_b1s_result_sha256\":\""
+           << "1537a691dfa821c6ccc7ce168c4d4c74868b10db95075a615eaf887f443eabee\""
+           << ",\"candidate\":\"pressure-tangent-spectral-premise-r0\""
+           << ",\"status\":\""
+           << (diagnostic.passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << diagnostic.first_failure << '"'
+           << ",\"thresholds\":{\"maximum_lanczos_iterations\":48"
+           << ",\"maximum_ritz_residual\":1e-8"
+           << ",\"maximum_orthogonality_error\":1e-10"
+           << ",\"dense_eigenvalue_error\":1e-10"
+           << ",\"dense_symmetry_error\":2e-12"
+           << ",\"dense_product_error\":2e-12}"
+           << ",\"dense_oracle\":{\"status\":\""
+           << (diagnostic.dense.passed ? "PASS" : "FAIL") << '"'
+           << ",\"dimension\":" << diagnostic.dense.dimension
+           << ",\"active_pressure_centers\":"
+           << diagnostic.dense.active_pressure_centers
+           << ",\"dense_maximum_eigenvalue\":"
+           << diagnostic.dense.dense_maximum_eigenvalue
+           << ",\"lanczos_maximum_eigenvalue\":"
+           << diagnostic.dense.lanczos_maximum_eigenvalue
+           << ",\"eigenvalue_error\":"
+           << diagnostic.dense.eigenvalue_error
+           << ",\"symmetry_error\":"
+           << diagnostic.dense.symmetry_error
+           << ",\"dense_product_error\":"
+           << diagnostic.dense.dense_product_error
+           << ",\"lanczos_iterations\":"
+           << diagnostic.dense.lanczos.iterations
+           << ",\"lanczos_operator_calls\":"
+           << diagnostic.dense.lanczos.operator_calls
+           << ",\"ritz_residual\":"
+           << diagnostic.dense.lanczos.relative_ritz_residual
+           << ",\"orthogonality_error\":"
+           << diagnostic.dense.lanczos.orthogonality_error << "}"
+           << ",\"matrix\":[";
+    for (std::size_t i = 0; i < diagnostic.cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        const PressureSpectrumCase& value = diagnostic.cases[i];
+        report << "{\"name\":\"compression-" << value.compression_factor
+               << "-kappa-" << value.kappa_factor << "\",\"status\":\""
+               << (value.passed ? "PASS" : "FAIL") << '"'
+               << ",\"compression_factor\":" << value.compression_factor
+               << ",\"kappa_factor\":" << value.kappa_factor
+               << ",\"particles\":" << value.particles
+               << ",\"active_pressure_centers\":"
+               << value.active_pressure_centers
+               << ",\"pairs\":" << value.pairs
+               << ",\"maximum_neighbors\":"
+               << value.maximum_neighbors
+               << ",\"maximum_eigenvalue\":"
+               << value.maximum_eigenvalue
+               << ",\"maximum_eigenfrequency\":"
+               << value.maximum_eigenfrequency
+               << ",\"spectral_amplification\":"
+               << value.spectral_amplification
+               << ",\"translation_null_residual\":"
+               << value.translation_null_residual
+               << ",\"lanczos_iterations\":"
+               << value.lanczos.iterations
+               << ",\"operator_calls\":"
+               << value.lanczos.operator_calls
+               << ",\"ritz_residual\":"
+               << value.lanczos.relative_ritz_residual
+               << ",\"orthogonality_error\":"
+               << value.lanczos.orthogonality_error << '}';
+    }
+    report << "],\"kappa_scaling_valid\":"
+           << (diagnostic.kappa_scaling_valid ? "true" : "false")
+           << ",\"mean_spectral_amplification_0p99\":"
+           << diagnostic.amplification_099
+           << ",\"mean_spectral_amplification_0p98\":"
+           << diagnostic.amplification_098
+           << ",\"null_control\":{\"status\":\""
+           << (diagnostic.null_control.passed ? "PASS" : "FAIL") << '"'
+           << ",\"active_pressure_centers\":"
+           << diagnostic.null_control.active_pressure_centers
+           << ",\"hvp_norm\":" << diagnostic.null_control.hvp_norm
+           << ",\"maximum_eigenvalue\":"
+           << diagnostic.null_control.maximum_eigenvalue
+           << ",\"operator_calls\":"
+           << diagnostic.null_control.lanczos.operator_calls << "}"
+           << ",\"disposition\":\""
+           << (diagnostic.passed
+                    ? "SPECTRAL_POLICY_PREMISE_VALID"
+                    : "SPECTRAL_POLICY_PREMISE_REJECTED") << '"'
+           << ",\"b1s2_design_authorized\":"
+           << (diagnostic.passed ? "true" : "false")
+           << ",\"trajectory_policy_selected\":false"
            << ",\"boundary_design_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"historical_hash_check_required\":true"

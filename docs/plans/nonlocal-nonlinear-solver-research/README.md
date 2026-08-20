@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_DESIGN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_DESIGN / REPORT_ONLY`
 
 Candidate identity:
 
@@ -151,3 +151,7 @@ Diagnose the finite-state pressure tangent spectrum before another policy.
 The bounded matrix-free/dense diagnostic is frozen in
 [NSR3-B1S1](03b1s1-pressure-tangent-spectrum-contract.md); it selects no
 trajectory target and must publish its operator cost.
+B1S1 passes: dense and Lanczos agree, stiffness scaling is exact, and spectral
+amplification captures the amplitude increase; see the
+[dated evidence](../../development/nonlocal-nsr3b1s1-pressure-spectrum-evidence-2026-08-20.md).
+Freeze a spectral trajectory policy next, with 48-HVP estimate cost explicit.

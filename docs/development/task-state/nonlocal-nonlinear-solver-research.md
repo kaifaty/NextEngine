@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1S_FAIL / NSR3B1S1_TANGENT_SPECTRUM_DESIGN` |
+| Status | `ACTIVE / NSR3B1S1_PASS / NSR3B1S2_SPECTRAL_POLICY_DESIGN` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -46,10 +46,13 @@
 - **Current diagnosis:** normalized error is amplitude-dependent but nearly
   invariant across `kappa` scale, pointing to missing finite-state tangent
   stiffness rather than the `sqrt(kappa)` scaling itself.
-- **Current action:** freeze a pressure-only maximum-eigenfrequency diagnostic
-  with dense tiny and deterministic matrix-free correspondence.
-- **Next gate:** B1S1 must decide whether a spectral local-frequency policy is
-  well-defined and bounded before any new substep candidate. B2 stays blocked.
+- **Current conclusion:** dense/Lanczos `lambda_max` agrees to `7.6e-16`;
+  eigenvalues scale exactly with `kappa`, while finite-state amplification
+  increases from `0.7041` to `0.7790` between the two amplitudes.
+- **Current action:** freeze B1S2 `dt*omega_max` target, substep/cost caps and
+  unchanged six-case trajectory gates before execution.
+- **Next gate:** the spectral policy must repair the B1S amplitude failure
+  without hiding 48-HVP estimation cost. B1R/B2 stay blocked.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -155,6 +158,16 @@
 - **Consequence:** do not hide amplitude dependence in a tuned global safety
   factor; B1S1 must expose its source and computational cost.
 
+### D-011 -- Validate the pressure spectral-policy premise
+
+- **Observation:** pressure `lambda_max` has dense/matrix-free correspondence,
+  exact `kappa` scaling, null translation modes and a reproducible 10.6%
+  amplitude increase in nondimensional amplification.
+- **Decision:** authorize B1S2 design around `dt*omega_max`, not around linear
+  `dt*c/dx`; retain the 48-HVP estimate as explicit policy overhead.
+- **Consequence:** no policy is selected yet, and a cheaper estimator cannot
+  inherit correctness without a separate correspondence gate.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -167,12 +180,12 @@
 
 ## Exact next action
 
-1. Freeze B1S1 pressure-only HVP and eigenvalue conventions.
-2. Prove deterministic Lanczos/power estimates against a dense tiny Hessian.
-3. Measure amplitude and `kappa` scaling on the six B1S initial states plus
-   inactive/translation null controls.
-4. Select/stop a spectral-policy premise; do not execute another trajectory
-   policy until the spectrum result is fixed.
+1. Freeze B1S2 spectral target and exact substep formula before trajectories.
+2. Reuse the B1S six cases and `n/2n/4n` accuracy/reference convention.
+3. Charge 48 HVP calls per active spectral estimate separately from solver
+   work and publish the base/high-stiffness counts.
+4. Select/reject a report-only spectral substep policy, then design B1R only
+   on PASS.
 
 ## Reconsideration triggers
 
