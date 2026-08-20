@@ -42,6 +42,7 @@ target_compile_options(
 
 add_executable(
     nonlocal-formula-reclosure
+    src/formula_discriminators.cpp
     src/formula_reclosure.cpp
     src/formula_reclosure_main.cpp
     src/sha256.cpp
