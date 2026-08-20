@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1S2_FAIL / NSR3B1S3_ERROR_CONTROLLER_DESIGN` |
-| Updated | `2026-08-20` |
+| Status | `ACTIVE / NSR3B1S3_PASS / NSR3B1R_TRANSACTIONAL_COMPOSITION_DESIGN` |
+| Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
 | Definition of done | NSR0--NSR6 select a production-roadmap candidate or stop at an exact reproducible boundary |
@@ -54,10 +54,19 @@
   spectra, convergence and every other physical gate pass.
 - **Current decision:** spectrum is retained as an initial-step estimator, not
   selected as a standalone error policy.
-- **Current action:** freeze a bounded embedded `n/2n/4n` error controller and
-  add an unseen 3% compression holdout before implementation.
-- **Next gate:** B1S3 must meet the unchanged errors by measured refinement and
-  expose accepted plus discarded work. B1R/B2 stay blocked.
+- **Current conclusion:** B1S3 accepts the initial spectral count for every 1%
+  case, doubles it for every 2% case, and also passes the unseen 3% holdout at
+  92 accepted substeps with `0.000903905c` velocity difference.
+- **Current cost:** the online step-doubling controller executes `3x` accepted
+  substeps at depth zero and `3.5x` at depth one. The holdout discards 230 of
+  322 controller substeps and 242 of 348 nonlinear HVP calls.
+- **Current decision:** select `EMBEDDED_SPECTRAL_ERROR_CONTROLLER_R0` only for
+  report-only CPU research. It is an accuracy mechanism, not yet an efficient
+  production policy.
+- **Current action:** freeze B1R transactional composition over the original
+  `0.05 s` multi-step horizon, with an independently finer reference.
+- **Next gate:** B1R must bound accumulated error and publish recurring
+  spectrum/comparator work before B2 may be designed.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -183,6 +192,18 @@
 - **Consequence:** B1S3 must publish discarded comparator work and pass a new
   amplitude holdout before any multi-step selection.
 
+### D-013 -- Select measured refinement, retain its cost as a blocker
+
+- **Observation:** B1S3 passes all six parent cases and the unseen 3%
+  compression holdout. It automatically refines the amplitude-dependent row,
+  preserves every parent phase hash and is byte-repeatable.
+- **Decision:** select `EMBEDDED_SPECTRAL_ERROR_CONTROLLER_R0` for report-only
+  research and use it to design B1R; do not call it a production controller.
+- **Consequence:** accepted state ownership is now defined, but repeated
+  macro-frame composition and the `3x--3.5x` speculative-work multiplier must
+  be tested before B2. Later performance research must reduce or amortize the
+  comparator, not omit it.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -195,12 +216,12 @@
 
 ## Exact next action
 
-1. Freeze B1S3 acceptance state, tolerance norm and maximum refinement count.
-2. Reuse the six B1S2 ladders and add a 3% holdout at base stiffness.
-3. Separate accepted substeps, comparator substeps, spectral HVP and discarded
-   work; preserve exact state/reference roots.
-4. Select/reject only an embedded report-only controller, then design B1R on
-   PASS.
+1. Freeze B1R macro-frame transaction, state rollback and spectrum cadence.
+2. Compose accepted states through the original `0.05 s` horizon without
+   borrowing comparator state.
+3. Compare against an independently finer trajectory and publish recurring
+   spectral, accepted and discarded work.
+4. Reclose/reject B1 multi-step selection; authorize B2 design only on PASS.
 
 ## Reconsideration triggers
 

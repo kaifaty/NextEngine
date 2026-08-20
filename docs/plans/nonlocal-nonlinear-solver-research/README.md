@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_DESIGN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_DESIGN / REPORT_ONLY`
 
 Candidate identity:
 
@@ -165,3 +165,9 @@ Design an embedded error controller with a new amplitude holdout next.
 The controller is frozen in
 [NSR3-B1S3](03b1s3-embedded-error-controller-contract.md), including accepted
 state ownership, discarded comparator work and a new `0.97dx` holdout.
+B1S3 passes all parent cases and the holdout without fitting a new safety
+factor; see the
+[dated evidence](../../development/nonlocal-nsr3b1s3-embedded-controller-evidence-2026-08-21.md).
+It selects only a report-only error controller. Freeze B1R next to test its
+transactional composition over the original full multi-step horizon and to
+expose the recurring comparator cost before B2 boundary design.

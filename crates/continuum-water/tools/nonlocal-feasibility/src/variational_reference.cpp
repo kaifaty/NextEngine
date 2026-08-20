@@ -7531,6 +7531,349 @@ SpectralSubstepPolicyDiagnostic spectral_substep_policy_diagnostic() {
     return result;
 }
 
+struct EmbeddedIntervalGate {
+    double position_difference = 0.0;
+    double velocity_difference = 0.0;
+    double normalized_position_error = 0.0;
+    double normalized_velocity_error = 0.0;
+    double relative_kinetic_error = 0.0;
+    double pressure_exit_time_error = 0.0;
+    bool passed = false;
+};
+
+EmbeddedIntervalGate embedded_interval_gate(
+    const TemporalLevel& coarse,
+    const TemporalLevel& fine,
+    double spacing,
+    double wave_speed) {
+    EmbeddedIntervalGate result;
+    result.position_difference = mass_weighted_rms_position_error(
+        coarse.run.position, fine.run.position);
+    result.velocity_difference = mass_weighted_rms_position_error(
+        coarse.run.velocity, fine.run.velocity);
+    result.normalized_position_error =
+        result.position_difference / spacing;
+    result.normalized_velocity_error =
+        result.velocity_difference / wave_speed;
+    result.relative_kinetic_error = std::abs(
+        coarse.kinetic_energy - fine.kinetic_energy)
+        / std::max(std::abs(fine.kinetic_energy), 1.0e-30);
+    result.pressure_exit_time_error = std::abs(
+        coarse.pressure_exit_time - fine.pressure_exit_time);
+    const double time_allowance = coarse.time_step
+        + 32.0 * std::numeric_limits<double>::epsilon()
+            * std::max({coarse.pressure_exit_time,
+                fine.pressure_exit_time, coarse.time_step});
+    result.passed = result.position_difference > 0.0
+        && result.velocity_difference > 0.0
+        && std::isfinite(result.position_difference)
+        && std::isfinite(result.velocity_difference)
+        && result.normalized_position_error <= 0.05
+        && result.normalized_velocity_error <= 0.001
+        && result.relative_kinetic_error <= 0.15
+        && result.pressure_exit_time_error <= time_allowance;
+    return result;
+}
+
+struct EmbeddedControllerDecision {
+    bool passed = false;
+    int refinement_depth = -1;
+    int accepted_level = -1;
+    int comparator_level = -1;
+    int initial_substeps_per_frame = 0;
+    int accepted_substeps_per_frame = 0;
+    int comparator_substeps_per_frame = 0;
+    int executed_substeps_per_frame = 0;
+    int discarded_substeps_per_frame = 0;
+    int accepted_nonlinear_hvp_calls = 0;
+    int executed_nonlinear_hvp_calls = 0;
+    int discarded_nonlinear_hvp_calls = 0;
+    int validation_substeps_per_frame = 0;
+    int validation_nonlinear_hvp_calls = 0;
+    int validation_only_substeps_per_frame = 0;
+    int validation_only_nonlinear_hvp_calls = 0;
+    double final_position_ratio = 0.0;
+    double final_velocity_ratio = 0.0;
+    EmbeddedIntervalGate accepted_gate;
+    std::string accepted_state_sha256;
+    std::string comparator_state_sha256;
+};
+
+EmbeddedControllerDecision decide_embedded_controller(
+    const std::vector<TemporalLevel>& levels,
+    int initial_substeps,
+    double spacing,
+    double wave_speed) {
+    EmbeddedControllerDecision result;
+    result.initial_substeps_per_frame = initial_substeps;
+    std::vector<EmbeddedIntervalGate> gates;
+    for (std::size_t i = 0; i + 1 < levels.size(); ++i) {
+        gates.push_back(embedded_interval_gate(
+            levels[i], levels[i + 1], spacing, wave_speed));
+    }
+    for (std::size_t level = 0; level < levels.size(); ++level) {
+        result.validation_substeps_per_frame +=
+            initial_substeps * (1 << level);
+        result.validation_nonlinear_hvp_calls +=
+            levels[level].run.total_hvp_calls;
+    }
+    const std::size_t maximum_gate = std::min<std::size_t>(gates.size(), 3);
+    for (std::size_t i = 0; i < maximum_gate; ++i) {
+        if (gates[i].passed) {
+            result.refinement_depth = static_cast<int>(i);
+            result.accepted_level = static_cast<int>(i);
+            result.comparator_level = static_cast<int>(i + 1);
+            result.accepted_gate = gates[i];
+            result.passed = true;
+            break;
+        }
+    }
+    if (!result.passed) {
+        return result;
+    }
+    result.accepted_substeps_per_frame =
+        initial_substeps * (1 << result.accepted_level);
+    result.comparator_substeps_per_frame =
+        initial_substeps * (1 << result.comparator_level);
+    for (int level = 0; level <= result.comparator_level; ++level) {
+        result.executed_substeps_per_frame +=
+            initial_substeps * (1 << level);
+        result.executed_nonlinear_hvp_calls +=
+            levels[static_cast<std::size_t>(level)].run.total_hvp_calls;
+    }
+    result.accepted_nonlinear_hvp_calls =
+        levels[static_cast<std::size_t>(result.accepted_level)]
+            .run.total_hvp_calls;
+    result.discarded_substeps_per_frame =
+        result.executed_substeps_per_frame
+        - result.accepted_substeps_per_frame;
+    result.discarded_nonlinear_hvp_calls =
+        result.executed_nonlinear_hvp_calls
+        - result.accepted_nonlinear_hvp_calls;
+    result.validation_only_substeps_per_frame =
+        result.validation_substeps_per_frame
+        - result.executed_substeps_per_frame;
+    result.validation_only_nonlinear_hvp_calls =
+        result.validation_nonlinear_hvp_calls
+        - result.executed_nonlinear_hvp_calls;
+    result.accepted_state_sha256 = hash_phase_state(
+        levels[static_cast<std::size_t>(result.accepted_level)].run.position,
+        levels[static_cast<std::size_t>(result.accepted_level)].run.velocity);
+    result.comparator_state_sha256 = hash_phase_state(
+        levels[static_cast<std::size_t>(result.comparator_level)].run.position,
+        levels[static_cast<std::size_t>(result.comparator_level)].run.velocity);
+    if (result.comparator_level + 1 < static_cast<int>(levels.size())) {
+        const double next_position = mass_weighted_rms_position_error(
+            levels[static_cast<std::size_t>(result.comparator_level)]
+                .run.position,
+            levels[static_cast<std::size_t>(result.comparator_level + 1)]
+                .run.position);
+        const double next_velocity = mass_weighted_rms_position_error(
+            levels[static_cast<std::size_t>(result.comparator_level)]
+                .run.velocity,
+            levels[static_cast<std::size_t>(result.comparator_level + 1)]
+                .run.velocity);
+        result.final_position_ratio =
+            result.accepted_gate.position_difference / next_position;
+        result.final_velocity_ratio =
+            result.accepted_gate.velocity_difference / next_velocity;
+    } else if (result.accepted_level > 0) {
+        const EmbeddedIntervalGate previous = gates[
+            static_cast<std::size_t>(result.accepted_level - 1)];
+        result.final_position_ratio = previous.position_difference
+            / result.accepted_gate.position_difference;
+        result.final_velocity_ratio = previous.velocity_difference
+            / result.accepted_gate.velocity_difference;
+    }
+    result.passed = result.passed
+        && result.accepted_substeps_per_frame <= 192
+        && result.comparator_substeps_per_frame <= 768
+        && result.final_position_ratio >= 1.5
+        && result.final_position_ratio <= 2.5
+        && result.final_velocity_ratio >= 1.5
+        && result.final_velocity_ratio <= 2.5;
+    return result;
+}
+
+bool exact_b1s2_phase_overlap(
+    const SpectralSubstepPolicyDiagnostic& parent) {
+    const std::array<std::array<const char*, 3>, 6> expected = {{
+        {{"9b79f36499ea38cc87b58862d775be0f7081b5ccf8f46946e1e21cfecbfe482a",
+          "3a899890806fa767eac2bb85a68293d77cbd959e11f14f59ffede953f8f31605",
+          "a9b1d30709cca5d3e99f883cfc36f2816a4d477c1654085f6c24436f8151ea83"}},
+        {{"8cb753b085db9de238486e36acd78754799981bce2e6b6389184d5e47f8cbdf0",
+          "c9a2d458456fdb0f9de6153cf3225340c577d94b2ce695f7f9d01547dc2d10da",
+          "bd502c72086fb4f63b980d29de753a648a24938f8d6ee3821b1f27d015ab8ab2"}},
+        {{"4e4baab83f506ef8101761220e298a092ecda6fa9cc51158042a9b50d0afefd8",
+          "a2bccf890465e58dbfe0acd849b2ec493649a46dbe2f811b7118233f3c1947ab",
+          "16894d13ad4c8d7c1703f3d5f93637378cd65844f60cce3a58bb6ff1fd63ca03"}},
+        {{"4ecbfcb78e3aab7044a12e9fbc5b4f7bbc75797889cecb248bf71271d58374b6",
+          "73b51248f1446b7809b78cf02e4b1c81476493b13779befa1f7020034ad9bf6b",
+          "8fc4ad1182319fbb4c83e5e969fcc41391a30ea3d6a231d9d5f26cb1c5cb17ef"}},
+        {{"b69f12a04c8fccd72754ccd20551a8ad08a7a6cf2539216fface653180f38888",
+          "0065baef915ca7658fb59defc9d5863d807d73728d65fe35615cfef84676ef47",
+          "969f1e8d549097b15e26b4a9612e84f348888f668342c60e4540ab41165d63f2"}},
+        {{"907ac68ea30f83ee52f2338254505646b975990717ca6c0cb1c813c5852deb1a",
+          "9740a06555f213c30836c979b6c331901a4d57789edebea68368223ebb251ecd",
+          "ff84cb7cfa869df78d145761a3d9eacfd5158016d529e0eb82cbbb19ca7786c1"}},
+    }};
+    for (std::size_t i = 0; i < parent.cases.size(); ++i) {
+        for (std::size_t level = 0; level < 3; ++level) {
+            const MultistepRun& run =
+                parent.cases[i].trajectory.levels[level].run;
+            if (hash_phase_state(run.position, run.velocity)
+                != expected[i][level]) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+struct EmbeddedControllerCase {
+    double compression_factor = 0.0;
+    double kappa_factor = 0.0;
+    double maximum_eigenfrequency = 0.0;
+    int spectral_hvp_calls = 0;
+    int initial_substeps = 0;
+    EmbeddedControllerDecision decision;
+    bool holdout = false;
+    bool executed_levels_valid = false;
+    bool passed = false;
+};
+
+struct EmbeddedControllerDiagnostic {
+    bool parent_overlap_exact = false;
+    std::array<EmbeddedControllerCase, 6> parent_cases;
+    EmbeddedControllerCase holdout;
+    AcousticDegenerateControl degenerate;
+    int inactive_active_pressure_centers = -1;
+    int inactive_substeps = -1;
+    int inactive_spectral_hvp_calls = -1;
+    bool inactive_passed = false;
+    bool passed = false;
+    std::string first_failure;
+};
+
+EmbeddedControllerDiagnostic embedded_controller_diagnostic() {
+    constexpr double frame_time = 1.0 / 240.0;
+    constexpr double spectral_target = 0.15;
+    const Config anchor = physical_multistep_config();
+    EmbeddedControllerDiagnostic result;
+    const SpectralSubstepPolicyDiagnostic parent =
+        spectral_substep_policy_diagnostic();
+    result.parent_overlap_exact = exact_b1s2_phase_overlap(parent);
+    for (std::size_t i = 0; i < parent.cases.size(); ++i) {
+        const SpectralSubstepPolicyCase& source = parent.cases[i];
+        EmbeddedControllerCase& value = result.parent_cases[i];
+        value.compression_factor = source.trajectory.compression_factor;
+        value.kappa_factor = source.trajectory.kappa_factor;
+        value.maximum_eigenfrequency =
+            source.spectrum.maximum_eigenfrequency;
+        value.spectral_hvp_calls = source.spectrum.lanczos.operator_calls;
+        value.initial_substeps = source.trajectory.policy_substeps;
+        std::vector<TemporalLevel> levels(
+            source.trajectory.levels.begin(),
+            source.trajectory.levels.end());
+        value.executed_levels_valid = true;
+        for (const TemporalLevel& level : levels) {
+            value.executed_levels_valid = value.executed_levels_valid
+                && temporal_level_valid(level,
+                    source.trajectory.initial_maximum_density_ratio);
+        }
+        value.decision = decide_embedded_controller(levels,
+            value.initial_substeps, anchor.spacing,
+            source.trajectory.wave_speed);
+        value.passed = source.spectrum.passed
+            && value.executed_levels_valid && value.decision.passed;
+    }
+
+    result.holdout.compression_factor = 0.97;
+    result.holdout.kappa_factor = 1.0;
+    result.holdout.holdout = true;
+    const PressureSpectrumCase holdout_spectrum =
+        make_pressure_spectrum_case(0.97, 1.0);
+    result.holdout.maximum_eigenfrequency =
+        holdout_spectrum.maximum_eigenfrequency;
+    result.holdout.spectral_hvp_calls =
+        holdout_spectrum.lanczos.operator_calls;
+    result.holdout.initial_substeps = std::max(1,
+        static_cast<int>(std::ceil(frame_time
+            * holdout_spectrum.maximum_eigenfrequency / spectral_target)));
+    std::vector<TemporalLevel> holdout_levels;
+    for (int level = 0; level < 3; ++level) {
+        holdout_levels.push_back(make_policy_temporal_level(
+            0.97, 1.0, result.holdout.initial_substeps * (1 << level)));
+    }
+    EmbeddedControllerDecision provisional = decide_embedded_controller(
+        holdout_levels, result.holdout.initial_substeps,
+        anchor.spacing, std::sqrt(anchor.kappa / anchor.mass));
+    if (!provisional.passed && holdout_levels.size() < 4) {
+        holdout_levels.push_back(make_policy_temporal_level(
+            0.97, 1.0, result.holdout.initial_substeps * 8));
+    }
+    result.holdout.decision = decide_embedded_controller(
+        holdout_levels, result.holdout.initial_substeps,
+        anchor.spacing, std::sqrt(anchor.kappa / anchor.mass));
+    std::vector<Vec3> holdout_initial = centered_lattice(7, anchor.spacing);
+    for (Vec3& value : holdout_initial) {
+        value = 0.97 * value;
+    }
+    const double holdout_initial_maximum_density_ratio =
+        maximum_density_ratio(anchor, holdout_initial);
+    result.holdout.executed_levels_valid = true;
+    for (const TemporalLevel& level : holdout_levels) {
+        result.holdout.executed_levels_valid =
+            result.holdout.executed_levels_valid
+            && temporal_level_valid(
+                level, holdout_initial_maximum_density_ratio);
+    }
+    result.holdout.passed = holdout_spectrum.passed
+        && result.holdout.spectral_hvp_calls == 48
+        && result.holdout.initial_substeps * 8 <= 768
+        && result.holdout.executed_levels_valid
+        && result.holdout.decision.passed;
+    result.degenerate = acoustic_degenerate_control();
+    Config inactive_config = physical_multistep_config();
+    const std::vector<Vec3> inactive = centered_lattice(
+        7, inactive_config.spacing);
+    result.inactive_active_pressure_centers =
+        pressure_active_count(inactive_config, inactive);
+    result.inactive_substeps =
+        result.inactive_active_pressure_centers == 0 ? 1 : -1;
+    result.inactive_spectral_hvp_calls = 0;
+    result.inactive_passed =
+        result.inactive_active_pressure_centers == 0
+        && result.inactive_substeps == 1
+        && result.inactive_spectral_hvp_calls == 0;
+    result.passed = result.parent_overlap_exact
+        && result.holdout.passed && result.degenerate.passed
+        && result.inactive_passed;
+    if (!result.parent_overlap_exact) {
+        result.first_failure = "NSR3B1S3_PARENT_OVERLAP";
+    }
+    for (const EmbeddedControllerCase& value : result.parent_cases) {
+        result.passed = result.passed && value.passed;
+        if (!value.passed && result.first_failure.empty()) {
+            std::ostringstream name;
+            name << std::setprecision(17)
+                 << "NSR3B1S3_PARENT:c=" << value.compression_factor
+                 << ":k=" << value.kappa_factor;
+            result.first_failure = name.str();
+        }
+    }
+    if (!result.holdout.passed && result.first_failure.empty()) {
+        result.first_failure = "NSR3B1S3_HOLDOUT";
+    } else if (!result.degenerate.passed
+        && result.first_failure.empty()) {
+        result.first_failure = "NSR3B1S3_DEGENERATE";
+    } else if (!result.inactive_passed
+        && result.first_failure.empty()) {
+        result.first_failure = "NSR3B1S3_INACTIVE";
+    }
+    return result;
+}
+
 void append_double_array(
     std::ostringstream& output, const double* begin, std::size_t size) {
     output << '[';
@@ -9615,6 +9958,183 @@ ReferenceSolverReport run_spectral_substep_policy_controls() {
            << ",\"0p98\":43}"
            << ",\"high_stiffness_substeps_per_frame\":{\"0p99\":78"
            << ",\"0p98\":86}"
+           << ",\"candidate_selected\":"
+           << (diagnostic.passed ? "true" : "false")
+           << ",\"b1r_design_authorized\":"
+           << (diagnostic.passed ? "true" : "false")
+           << ",\"boundary_design_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(result_material.str()) << "\"}";
+    return {diagnostic.passed, report.str()};
+}
+
+void append_embedded_controller_case(
+    std::ostringstream& report,
+    const EmbeddedControllerCase& value) {
+    const EmbeddedControllerDecision& decision = value.decision;
+    report << std::setprecision(17)
+           << "{\"name\":\"compression-" << value.compression_factor
+           << "-kappa-" << value.kappa_factor << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL") << '"'
+           << ",\"holdout\":" << (value.holdout ? "true" : "false")
+           << ",\"compression_factor\":" << value.compression_factor
+           << ",\"kappa_factor\":" << value.kappa_factor
+           << ",\"maximum_eigenfrequency\":"
+           << value.maximum_eigenfrequency
+           << ",\"spectral_hvp_calls\":" << value.spectral_hvp_calls
+           << ",\"initial_substeps_per_frame\":"
+           << value.initial_substeps
+           << ",\"executed_levels_valid\":"
+           << (value.executed_levels_valid ? "true" : "false")
+           << ",\"controller\":{\"status\":\""
+           << (decision.passed ? "PASS" : "FAIL") << '"'
+           << ",\"refinement_depth\":" << decision.refinement_depth
+           << ",\"accepted_level\":" << decision.accepted_level
+           << ",\"comparator_level\":" << decision.comparator_level
+           << ",\"accepted_substeps_per_frame\":"
+           << decision.accepted_substeps_per_frame
+           << ",\"comparator_substeps_per_frame\":"
+           << decision.comparator_substeps_per_frame
+           << ",\"controller_executed_substeps_per_frame\":"
+           << decision.executed_substeps_per_frame
+           << ",\"controller_discarded_substeps_per_frame\":"
+           << decision.discarded_substeps_per_frame
+           << ",\"accepted_nonlinear_hvp_calls\":"
+           << decision.accepted_nonlinear_hvp_calls
+           << ",\"controller_executed_nonlinear_hvp_calls\":"
+           << decision.executed_nonlinear_hvp_calls
+           << ",\"controller_discarded_nonlinear_hvp_calls\":"
+           << decision.discarded_nonlinear_hvp_calls
+           << ",\"validation_substeps_per_frame\":"
+           << decision.validation_substeps_per_frame
+           << ",\"validation_nonlinear_hvp_calls\":"
+           << decision.validation_nonlinear_hvp_calls
+           << ",\"validation_only_substeps_per_frame\":"
+           << decision.validation_only_substeps_per_frame
+           << ",\"validation_only_nonlinear_hvp_calls\":"
+           << decision.validation_only_nonlinear_hvp_calls
+           << ",\"position_difference\":"
+           << decision.accepted_gate.position_difference
+           << ",\"velocity_difference\":"
+           << decision.accepted_gate.velocity_difference
+           << ",\"normalized_position_error_dx\":"
+           << decision.accepted_gate.normalized_position_error
+           << ",\"normalized_velocity_error_c\":"
+           << decision.accepted_gate.normalized_velocity_error
+           << ",\"relative_kinetic_error\":"
+           << decision.accepted_gate.relative_kinetic_error
+           << ",\"pressure_exit_time_error\":"
+           << decision.accepted_gate.pressure_exit_time_error
+           << ",\"final_position_ratio\":"
+           << decision.final_position_ratio
+           << ",\"final_velocity_ratio\":"
+           << decision.final_velocity_ratio
+           << ",\"accepted_state_sha256\":\""
+           << decision.accepted_state_sha256 << '"'
+           << ",\"comparator_state_sha256\":\""
+           << decision.comparator_state_sha256 << "\"}}";
+}
+
+ReferenceSolverReport run_embedded_spectral_error_controller_controls() {
+    const EmbeddedControllerDiagnostic diagnostic =
+        embedded_controller_diagnostic();
+    std::ostringstream result_material;
+    result_material << std::setprecision(17)
+                    << (diagnostic.passed ? "PASS|" : "FAIL|")
+                    << diagnostic.first_failure << '|'
+                    << (diagnostic.parent_overlap_exact
+                            ? "PARENT_EXACT" : "PARENT_CHANGED") << '|'
+                    << (diagnostic.inactive_passed
+                            ? "INACTIVE_PASS" : "INACTIVE_FAIL");
+    const auto append_result_case = [&result_material](
+        const EmbeddedControllerCase& value) {
+        const EmbeddedControllerDecision& decision = value.decision;
+        result_material << '|' << value.compression_factor << ':'
+                        << value.kappa_factor << ':'
+                        << value.maximum_eigenfrequency << ':'
+                        << value.spectral_hvp_calls << ':'
+                        << value.initial_substeps << ':'
+                        << value.executed_levels_valid << ':'
+                        << decision.passed << ':'
+                        << decision.refinement_depth << ':'
+                        << decision.accepted_substeps_per_frame << ':'
+                        << decision.comparator_substeps_per_frame << ':'
+                        << decision.executed_substeps_per_frame << ':'
+                        << decision.discarded_substeps_per_frame << ':'
+                        << decision.accepted_nonlinear_hvp_calls << ':'
+                        << decision.executed_nonlinear_hvp_calls << ':'
+                        << decision.discarded_nonlinear_hvp_calls << ':'
+                        << decision.validation_substeps_per_frame << ':'
+                        << decision.validation_nonlinear_hvp_calls << ':'
+                        << decision.validation_only_substeps_per_frame << ':'
+                        << decision.validation_only_nonlinear_hvp_calls << ':'
+                        << decision.accepted_gate.normalized_position_error
+                        << ':'
+                        << decision.accepted_gate.normalized_velocity_error
+                        << ':'
+                        << decision.accepted_gate.relative_kinetic_error
+                        << ':'
+                        << decision.accepted_gate.pressure_exit_time_error
+                        << ':' << decision.final_position_ratio
+                        << ':' << decision.final_velocity_ratio
+                        << ':' << decision.accepted_state_sha256
+                        << ':' << decision.comparator_state_sha256;
+    };
+    for (const EmbeddedControllerCase& value : diagnostic.parent_cases) {
+        append_result_case(value);
+    }
+    append_result_case(diagnostic.holdout);
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b1s3_embedded_controller.v1\""
+           << ",\"identity\":\"nuv-variational-fcr2\""
+           << ",\"solver_identity\":\"nuv-newton-krylov-r0\""
+           << ",\"parent_b1s2_result_sha256\":\""
+           << "ce64874a7f891bae7e4f6387d8d444b556a15c26734e6bbc8b7dfd05f9115081\""
+           << ",\"candidate\":\"embedded-spectral-error-controller-r0\""
+           << ",\"status\":\""
+           << (diagnostic.passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << diagnostic.first_failure << '"'
+           << ",\"parent_overlap_exact\":"
+           << (diagnostic.parent_overlap_exact ? "true" : "false")
+           << ",\"spectral_target\":0.14999999999999999"
+           << ",\"frame_time\":0.0041666666666666666"
+           << ",\"terminal_time\":0.012500000000000001"
+           << ",\"thresholds\":{\"minimum_ratio\":1.5"
+           << ",\"maximum_ratio\":2.5"
+           << ",\"maximum_position_error_dx\":0.05"
+           << ",\"maximum_velocity_error_c\":0.001"
+           << ",\"maximum_relative_kinetic_error\":0.15"
+           << ",\"maximum_refinement_depth\":2"
+           << ",\"maximum_accepted_substeps_per_frame\":192"
+           << ",\"maximum_validation_substeps_per_frame\":768}"
+           << ",\"accepted_state_policy\":\"coarse-member-of-passing-pair\""
+           << ",\"comparator_policy\":\"discarded-validation-work\""
+           << ",\"parent_matrix\":[";
+    for (std::size_t i = 0; i < diagnostic.parent_cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_embedded_controller_case(report, diagnostic.parent_cases[i]);
+    }
+    report << "],\"holdout\":";
+    append_embedded_controller_case(report, diagnostic.holdout);
+    report << ",\"degenerate\":{\"status\":\""
+           << (diagnostic.degenerate.passed ? "PASS" : "FAIL") << '"'
+           << ",\"kappa_zero_substeps\":"
+           << diagnostic.degenerate.free_flight_substeps
+           << ",\"kappa_zero_spectral_hvp_calls\":0"
+           << ",\"inactive_status\":\""
+           << (diagnostic.inactive_passed ? "PASS" : "FAIL") << '"'
+           << ",\"inactive_active_pressure_centers\":"
+           << diagnostic.inactive_active_pressure_centers
+           << ",\"inactive_substeps\":" << diagnostic.inactive_substeps
+           << ",\"inactive_spectral_hvp_calls\":"
+           << diagnostic.inactive_spectral_hvp_calls << '}'
            << ",\"candidate_selected\":"
            << (diagnostic.passed ? "true" : "false")
            << ",\"b1r_design_authorized\":"
