@@ -168,11 +168,18 @@ async function startRecording(): Promise<void> {
   firstAffectLatencyMs.value = null;
   limitStopScheduled = false;
   state.value = "connecting";
-  const nextClient = new SpeechTimelineClient(bootstrap.value, handleEvent);
-  client.value = nextClient;
+  client.value = null;
+  let nextClient: SpeechTimelineClient | null = null;
   const nextCapture = new BrowserMicrophoneCapture();
   capture.value = nextCapture;
   try {
+    // The resident service rotates its ephemeral WebSocket token on restart.
+    // Refresh immediately before every session so a long-lived dashboard tab
+    // never attempts authentication with its mount-time token.
+    const freshBootstrap = await loadBootstrap();
+    bootstrap.value = freshBootstrap;
+    nextClient = new SpeechTimelineClient(freshBootstrap, handleEvent);
+    client.value = nextClient;
     await nextClient.connectAndStart(
       "ru",
       calibration.value
@@ -191,7 +198,7 @@ async function startRecording(): Promise<void> {
     await refreshDevices();
     state.value = "recording";
   } catch (error) {
-    nextClient.cancel();
+    nextClient?.cancel();
     await nextCapture.stop().catch(() => undefined);
     fail(error);
   }

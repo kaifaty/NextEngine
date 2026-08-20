@@ -146,8 +146,8 @@
 
 ### D-010 — Same-origin diagnostic UI and terminal turn bounds
 
-- **Observation:** Raw protocol JSON obscures independent revisions, while an overlong open microphone previously produced repeated nonterminal `TURN_TOO_LARGE` events after the 30 s in-memory ceiling.
-- **Decision:** Serve a bundled Vue dashboard from the loopback speech process, keep transcript/raw affect/smoothed fusion as separate views on the sample clock, fetch the ephemeral token only through same-origin bootstrap, auto-finalize clients at the advertised bound, make actual overflow terminal exactly once, and apply bounded ASR admission backpressure before the GPU scheduler.
+- **Observation:** Raw protocol JSON obscures independent revisions, an overlong open microphone previously produced repeated nonterminal `TURN_TOO_LARGE` events after the 30 s in-memory ceiling, and a dashboard tab surviving service restart retained the old rotated token and failed its next hello with `AUTH_FAILED`.
+- **Decision:** Serve a bundled Vue dashboard from the loopback speech process, keep transcript/raw affect/smoothed fusion as separate views on the sample clock, fetch the ephemeral token only through no-store same-origin bootstrap at mount and immediately before each session (so service restarts cannot leave a stale token), auto-finalize clients at the advertised bound, make actual overflow terminal exactly once, and apply bounded ASR admission backpressure before the GPU scheduler.
 - **Rejected:** Inline word emotion tags without lexical timing, browser token entry, a separate permissive dev server, silently increasing the bounded turn or scheduler queue, continuing capture after overflow, or treating a transient browser delivery burst as terminal overload.
 - **Consequence:** The UI remains an optional diagnostic projection and not gameplay authority. Conversations longer than 30 s require multiple utterances; bounded VAD remains a later measured increment.
 - **Reconsider when:** A verified aligner supplies lexical timing or an approved multi-utterance consumer requires automatic endpointing.
