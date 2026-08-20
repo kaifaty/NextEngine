@@ -19,6 +19,7 @@ void print_usage() {
               << "       nonlocal-feasibility --cpu-scale-law-self-test\n"
               << "       nonlocal-feasibility --cpu-boundary-discriminator\n"
               << "       nonlocal-feasibility --cpu-tiny-physical-corpus\n"
+              << "       nonlocal-feasibility --cpu-hydro-remediation\n"
               << "       nonlocal-feasibility --self-test\n"
               << "       nonlocal-feasibility --self-test --accumulation <identity>\n"
               << "       nonlocal-feasibility --self-test --accumulation <identity> "
@@ -132,6 +133,11 @@ int main(int argc, char** argv) {
         }
         if (argc == 2 && std::string(argv[1]) == "--cpu-tiny-physical-corpus") {
             const auto report = nextengine::nonlocal::run_cpu_tiny_physical_corpus();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--cpu-hydro-remediation") {
+            const auto report = nextengine::nonlocal::run_cpu_hydro_remediation();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

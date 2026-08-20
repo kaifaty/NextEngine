@@ -77,8 +77,10 @@ Fixture base_fixture(const Profile& profile, std::string name) {
     return fixture;
 }
 
-std::size_t append_two_layer_complement(Fixture& fixture, const Box& box) {
-    constexpr int layers = 2;
+std::size_t append_lattice_complement(Fixture& fixture, const Box& box, int layers = 2) {
+    if (layers < 1 || layers > 3) {
+        throw std::invalid_argument("boundary layer count is outside 1..=3");
+    }
     const std::size_t before = fixture.particles.size();
     for (int x = -layers; x < box.cells[0] + layers; ++x) {
         for (int y = -layers; y < box.cells[1] + layers; ++y) {
@@ -197,15 +199,15 @@ double cubic_weight(double radius, double horizon) {
     return alpha * (2.0 / 3.0 - q * q + 0.5 * q * q * q);
 }
 
-double cubic_scale() {
-    const int half_resolution = static_cast<int>(HORIZON / SPACING + 1.0);
+double cubic_scale(double horizon) {
+    const int half_resolution = static_cast<int>(horizon / SPACING + 1.0);
     double total = 0.0;
     for (int x = -half_resolution; x <= half_resolution; ++x) {
         for (int y = -half_resolution; y <= half_resolution; ++y) {
             for (int z = -half_resolution; z <= half_resolution; ++z) {
                 const Vec3 offset{x * SPACING, y * SPACING, z * SPACING};
                 total += SPACING * SPACING * SPACING
-                    * cubic_weight(norm(offset), HORIZON);
+                    * cubic_weight(norm(offset), horizon);
             }
         }
     }
@@ -214,13 +216,14 @@ double cubic_scale() {
 
 std::vector<double> independent_density(
     const std::vector<Particle>& particles,
-    std::size_t fluid_count) {
-    const double scale = cubic_scale();
+    std::size_t fluid_count,
+    double horizon) {
+    const double scale = cubic_scale(horizon);
     std::vector<double> density(fluid_count, 0.0);
     for (std::size_t i = 0; i < fluid_count; ++i) {
         for (const Particle& particle : particles) {
             density[i] += MASS
-                * cubic_weight(norm(particles[i].position - particle.position), HORIZON)
+                * cubic_weight(norm(particles[i].position - particle.position), horizon)
                 * scale;
         }
     }
@@ -274,7 +277,12 @@ CaseResult run_free_fall(const Profile& profile) {
     return {passed, passed ? "" : "exact_free_fall", json.str()};
 }
 
-CaseResult run_hydro(const Profile& profile, double& mean_positive_compression) {
+CaseResult run_hydro(
+    const Profile& profile,
+    double& mean_positive_compression,
+    int iterations = ITERATIONS,
+    double horizon = HORIZON,
+    int boundary_layers = 2) {
     const Box box{{0.0, 0.0, 0.0}, {0.1, 0.2, 0.1}, {2, 4, 2}};
     std::vector<Particle> fluid;
     for (int x = 0; x < 2; ++x) {
@@ -297,9 +305,15 @@ CaseResult run_hydro(const Profile& profile, double& mean_positive_compression) 
     std::vector<Particle> final_all;
     for (int step = 0; step < 24; ++step) {
         Fixture fixture = base_fixture(profile, "TPH-1");
+        fixture.iterations = iterations;
+        fixture.horizon = horizon;
         fixture.particles = fluid;
-        const std::size_t boundary_count = append_two_layer_complement(fixture, box);
-        if (boundary_count != 272U || fixture.particles.size() != 280U) {
+        const std::size_t boundary_count =
+            append_lattice_complement(fixture, box, boundary_layers);
+        const std::size_t expected_boundary =
+            boundary_layers == 2 ? 272U : 624U;
+        if (boundary_count != expected_boundary
+            || fixture.particles.size() != expected_boundary + fluid.size()) {
             throw std::runtime_error("TPH-1 support count mismatch");
         }
         const OracleResult tentative = run_cpu_gather_oracle(fixture);
@@ -320,10 +334,11 @@ CaseResult run_hydro(const Profile& profile, double& mean_positive_compression) 
         final_all = fluid;
         Fixture support = base_fixture(profile, "TPH-1-density");
         support.particles = final_all;
-        append_two_layer_complement(support, box);
+        append_lattice_complement(support, box, boundary_layers);
         final_all = std::move(support.particles);
     }
-    const std::vector<double> density = independent_density(final_all, fluid.size());
+    const std::vector<double> density =
+        independent_density(final_all, fluid.size(), horizon);
     double maximum_positive_compression = 0.0;
     mean_positive_compression = 0.0;
     for (double value : density) {
@@ -363,7 +378,11 @@ CaseResult run_hydro(const Profile& profile, double& mean_positive_compression) 
          << ",\"first_failure\":\"" << failure << "\",\"fluid_samples\":"
          << fluid.size() << ",\"fluid_mass_kg\":"
          << static_cast<double>(fluid.size()) * MASS
-         << ",\"static_boundary_samples\":272,\"total_solver_samples\":280"
+         << ",\"static_boundary_samples\":" << final_all.size() - fluid.size()
+         << ",\"total_solver_samples\":" << final_all.size()
+         << ",\"iterations\":" << iterations
+         << ",\"horizon_m\":" << horizon
+         << ",\"boundary_layers\":" << boundary_layers
          << ",\"mean_positive_compression\":" << mean_positive_compression
          << ",\"maximum_positive_compression\":" << maximum_positive_compression
          << ",\"maximum_penetration_m\":" << maximum_penetration
@@ -451,7 +470,7 @@ CaseResult run_wall(const Profile& profile) {
     for (std::size_t case_index = 0; case_index < starts.size(); ++case_index) {
         Fixture fixture = base_fixture(profile, "TPW-1");
         fixture.particles.push_back({starts[case_index], velocities[case_index], false});
-        const std::size_t boundary_count = append_two_layer_complement(fixture, box);
+        const std::size_t boundary_count = append_lattice_complement(fixture, box);
         if (boundary_count != 208U || fixture.particles.size() != 209U) {
             throw std::runtime_error("TPW-1 support count mismatch");
         }
@@ -577,6 +596,98 @@ CpuTinyCorpusReport run_cpu_tiny_physical_corpus() {
            << (!selected.empty() ? "true" : "false") << "}"
            << ",\"result_sha256\":\"" << sha256_hex(root.str()) << "\"}";
     return {command_passed, output.str()};
+}
+
+CpuTinyCorpusReport run_cpu_hydro_remediation() {
+    struct Candidate {
+        const char* identity;
+        double kappa;
+        double horizon;
+        int boundary_layers;
+        std::array<CaseResult, 5> cases;
+        int first_passing_iterations = 0;
+    };
+    constexpr std::array<int, 5> iteration_counts = {4, 8, 16, 32, 50};
+    std::array<Candidate, 3> candidates = {{
+        {"algebraic-cadence-h2", 576.0, 0.10, 2, {}, 0},
+        {"hydro-head-h2", 9196.875, 0.10, 2, {}, 0},
+        {"hydro-head-h3", 9196.875, 0.15, 3, {}, 0},
+    }};
+    const Profile base =
+        find_profile("nuv-basin-48k-static-support-derived.v3");
+    for (Candidate& candidate : candidates) {
+        Profile profile = base;
+        profile.kappa = candidate.kappa;
+        for (std::size_t index = 0; index < iteration_counts.size(); ++index) {
+            double mean_positive_compression = 0.0;
+            candidate.cases[index] = run_hydro(profile, mean_positive_compression,
+                iteration_counts[index], candidate.horizon, candidate.boundary_layers);
+            if (candidate.cases[index].passed
+                && candidate.first_passing_iterations == 0) {
+                candidate.first_passing_iterations = iteration_counts[index];
+            }
+        }
+    }
+
+    std::string disposition;
+    int candidate_iterations = 0;
+    if (candidates[1].first_passing_iterations != 0) {
+        disposition = "H2_PHYSICAL_KAPPA_CANDIDATE";
+        candidate_iterations = candidates[1].first_passing_iterations;
+    } else if (candidates[2].first_passing_iterations != 0) {
+        disposition = "H3_SUPPORT_REMEDIATION_CANDIDATE";
+        candidate_iterations = candidates[2].first_passing_iterations;
+    } else {
+        disposition = "PROFILE_RECLOSURE_REMEDIATION_2";
+    }
+
+    std::ostringstream root;
+    root << std::setprecision(17);
+    for (const Candidate& candidate : candidates) {
+        root << candidate.identity << '|' << candidate.kappa << '|'
+             << candidate.horizon << '|' << candidate.boundary_layers << '|'
+             << candidate.first_passing_iterations << '|';
+        for (const CaseResult& result : candidate.cases) {
+            root << result.passed << '|' << result.first_failure << '|'
+                 << result.json << '|';
+        }
+    }
+    root << disposition << '|' << candidate_iterations;
+
+    std::ostringstream output;
+    output << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.cpu_hydro_remediation.v1\""
+           << ",\"identity\":\"npr0-hydro-remediation-r1\""
+           << ",\"status\":\"PASS\",\"gate\":0.0001"
+           << ",\"iteration_counts\":[4,8,16,32,50]"
+           << ",\"candidates\":[";
+    for (std::size_t candidate_index = 0;
+         candidate_index < candidates.size(); ++candidate_index) {
+        if (candidate_index != 0U) {
+            output << ',';
+        }
+        const Candidate& candidate = candidates[candidate_index];
+        output << "{\"identity\":\"" << candidate.identity << "\",\"kappa\":"
+               << candidate.kappa << ",\"lambda\":360,\"horizon_m\":"
+               << candidate.horizon << ",\"horizon_over_spacing\":"
+               << candidate.horizon / SPACING << ",\"boundary_layers\":"
+               << candidate.boundary_layers << ",\"first_passing_iterations\":"
+               << candidate.first_passing_iterations << ",\"runs\":[";
+        for (std::size_t index = 0; index < candidate.cases.size(); ++index) {
+            if (index != 0U) {
+                output << ',';
+            }
+            output << candidate.cases[index].json;
+        }
+        output << "]}";
+    }
+    output << "],\"disposition\":{\"status\":\"" << disposition
+           << "\",\"candidate_iterations\":" << candidate_iterations
+           << ",\"tiny_corpus_rerun_required\":"
+           << (candidate_iterations != 0 ? "true" : "false")
+           << ",\"npr1_authorized\":false,\"runtime_authority\":false}"
+           << ",\"result_sha256\":\"" << sha256_hex(root.str()) << "\"}";
+    return {true, output.str()};
 }
 
 } // namespace nextengine::nonlocal

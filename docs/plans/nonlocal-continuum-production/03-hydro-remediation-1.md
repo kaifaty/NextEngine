@@ -62,6 +62,14 @@ Run the unchanged TPH-1 geometry/contact/density metric for 24 substeps:
 | hydro-head-h2 | 9196.875 | 2 | 4, 8, 16, 32, 50 |
 | hydro-head-h3 | 9196.875 | 3 | 4, 8, 16, 32, 50 |
 
+The h2 rows use two rooted support layers; the h3 row uses three, so each
+row covers its entire interaction horizon. In the tiny basin this means 272
+and 624 boundary samples respectively. At full product scale, the exact h3
+lattice complement would contain 38,856 boundary samples
+(`86*26*46 - 80*20*40`) and exceed the current 32,768 boundary-sample
+capacity. Therefore an h3 pass is evidence for a support-ratio redesign, not
+a directly deployable profile.
+
 Every row reports mean/maximum positive compression, maximum speed,
 horizontal COM drift, penetration, fixed-support displacement and finite
 status. The 1e-4 mean-positive-compression gate is unchanged.
@@ -82,4 +90,3 @@ No wall-clock value participates in the outcome.
 
 Performance, adaptive stopping, line search and GPU timing remain blocked
 until the full tiny corpus selects one physical profile.
-
