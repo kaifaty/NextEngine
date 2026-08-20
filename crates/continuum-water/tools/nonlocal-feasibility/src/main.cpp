@@ -55,6 +55,9 @@ void print_usage() {
                  "--term-kernels <identity> --storage <identity>\n"
               << "       nonlocal-feasibility --np0-baseline <profile-id> --warmup <count> "
                  "--runs <count>\n"
+              << "       nonlocal-feasibility --p1-check <profile-id> --iterations <count>\n"
+              << "       nonlocal-feasibility --p1-tournament <profile-id> --warmup 32 "
+                 "--runs 96\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
               << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
@@ -329,6 +332,23 @@ int main(int argc, char** argv) {
         if (argc == 7 && std::string(argv[1]) == "--np0-baseline"
             && std::string(argv[3]) == "--warmup" && std::string(argv[5]) == "--runs") {
             const auto report = nextengine::nonlocal::run_cuda_np0_baseline(
+                nextengine::nonlocal::find_profile(argv[2]),
+                bounded_integer(argv[4], "warmup count"),
+                bounded_integer(argv[6], "run count"));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 5 && std::string(argv[1]) == "--p1-check"
+            && std::string(argv[3]) == "--iterations") {
+            const auto report = nextengine::nonlocal::run_cuda_p1_check(
+                nextengine::nonlocal::find_profile(argv[2]),
+                bounded_integer(argv[4], "iteration count"));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 7 && std::string(argv[1]) == "--p1-tournament"
+            && std::string(argv[3]) == "--warmup" && std::string(argv[5]) == "--runs") {
+            const auto report = nextengine::nonlocal::run_cuda_p1_tournament(
                 nextengine::nonlocal::find_profile(argv[2]),
                 bounded_integer(argv[4], "warmup count"),
                 bounded_integer(argv[6], "run count"));

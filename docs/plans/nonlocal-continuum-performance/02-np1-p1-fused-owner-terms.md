@@ -1,6 +1,6 @@
 # NP1-P1 — fused owner-term traversal
 
-Status: `SPECIFIED / IMPLEMENTATION_NEXT / EXACT_WORK / REPORT_ONLY`
+Status: `COMPLETE / RETAINED / P2_INPUT / EXACT_WORK / REPORT_ONLY`
 
 ## Hypothesis
 
@@ -98,3 +98,6 @@ p95 improves by at least `10%` or exact-50k total p95 improves by at least
 `5%`, while neither coherent nor advected total regresses by more than `2%`.
 Otherwise record the negative result, keep the retained NP0 stack and proceed
 to P2 only if the roadmap's consecutive-low-gain stop rule still permits it.
+
+P1 passed this gate on 2026-08-20 and is retained. See the
+[dated evidence](../../development/nonlocal-continuum-np1-p1-evidence-2026-08-20.md).

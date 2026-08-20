@@ -74,6 +74,13 @@ CommandReport run_cuda_np0_baseline(
     const Profile& profile,
     int warmup,
     int runs);
+CommandReport run_cuda_p1_check(
+    const Profile& profile,
+    int iterations);
+CommandReport run_cuda_p1_tournament(
+    const Profile& profile,
+    int warmup,
+    int runs);
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,
     int warmup,

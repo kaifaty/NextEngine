@@ -54,6 +54,10 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --np0-baseline nuv-water-50k-coherent.v1 --warmup 64 --runs 512
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --np0-baseline nuv-water-50k-advected.v1 --warmup 64 --runs 512
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --p1-check nuv-surface-stiff-16k-i2.v1 --iterations 2
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --p1-tournament nuv-water-50k-advected.v1 --warmup 32 --runs 96
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -116,3 +120,13 @@ The dynamic surface performance profile uses `gamma=100`; the independent
 rejected combination `gamma=1000`, 20 iterations and 32 sequential substeps
 exceeded its bounded CSR at step one and is not a supported performance
 profile.
+
+`--p1-check` and `--p1-tournament` select the exact-work
+`fused-owner-terms-p1` traversal on top of the retained NP0 identity. Density
+remains a separate global barrier. Enabled post-density terms share one owner
+CSR visit but retain independent f32 accumulators and the original
+incompressibility/viscosity/surface commit order. The check requires exact
+tiny/stiff/target output and CSR. The tournament co-resides retained and P1
+instances, conditions both, alternates their order and advances dynamic traces
+in lockstep. P1 adds no device storage and remains selectable as a rollback
+layer for P2.

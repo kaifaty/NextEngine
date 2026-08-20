@@ -1,6 +1,6 @@
 # NP0–NP4 — Nonlocal performance reclosure contract
 
-Status: `ACTIVE / NP0_COMPLETE / NP1_P1_NEXT / REPORT_ONLY / NO_W2_CREDIT`
+Status: `ACTIVE / NP0_COMPLETE / NP1_P1_RETAINED / P2_NEXT / REPORT_ONLY / NO_W2_CREDIT`
 
 ## Scope
 

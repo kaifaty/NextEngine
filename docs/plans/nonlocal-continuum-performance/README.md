@@ -1,6 +1,6 @@
 # Nonlocal continuum — performance reclosure roadmap
 
-Status: `ACTIVE / NP0_COMPLETE / NP1_P1_NEXT / REPORT_ONLY / NO_W2_CREDIT`
+Status: `ACTIVE / NP0_COMPLETE / NP1_P1_RETAINED / P2_NEXT / REPORT_ONLY / NO_W2_CREDIT`
 
 This roadmap follows the closed
 [NR4 `NONLOCAL_48K_RECLOSURE_CANDIDATE` decision](../../development/nonlocal-continuum-nr4-decision-2026-08-20.md).
@@ -37,8 +37,8 @@ root work, PhysX coupling, persistence and the ADR-081 combined
 NR4 48k feasibility decision                    COMPLETE
   └─ NP0 exact-50k/dynamic workload reclosure   COMPLETE
       └─ NP1 exact-work GPU tournament          IN_PROGRESS
-          ├─ P1 pair-term traversal fusion       NEXT
-          ├─ P2 compact CSR and memory path
+          ├─ P1 pair-term traversal fusion       COMPLETE / RETAINED
+          ├─ P2 compact CSR and memory path      NEXT
           ├─ P3 dynamic locality tournament
           └─ P4 certified neighbor reuse
               ├─ NP4 fixed-work decision path   BLOCKED_BY_EVIDENCE
@@ -64,6 +64,9 @@ NP0 is complete. Its implementation and hashes are frozen in the
 [NP0 corpus specification](01-np0-corpus-and-baseline.md), and its timings,
 negative result and raw-report hashes are in the
 [dated evidence](../../development/nonlocal-continuum-np0-evidence-2026-08-20.md).
+P1 is retained by its
+[exact-work evidence](../../development/nonlocal-continuum-np1-p1-evidence-2026-08-20.md);
+P2 now uses the fused traversal as its adjacent denominator.
 
 ### NP0 — Reclose the measured workload
 

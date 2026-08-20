@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_IMPLEMENTATION / NP1_P1 / REPORT_ONLY` |
+| Status | `ACTIVE_IMPLEMENTATION / NP1_P2 / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-performance` |
 | Scope | Design and execute a representative exact-50k Nonlocal performance reclosure |
@@ -11,16 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** NP0 is complete and reproducible. Exact-50k p99
-  passes 6 ms, but conditioned p95 remains `4.849–4.869 ms` coherent and
-  `4.470–4.495 ms` advected, so the 4 ms target is not met.
-- **Why:** coherent/permuted physics and canonical topology match, yet the
-  permutation makes p95 `1.94x` slower. Pair traversal/memory remains the
-  dominant first target; the v1 trace changes membership after step two.
-- **Next action:** implement the specified `fused-owner-terms-p1` behind a
-  selectable rollback identity, then run tiny/stiff/full correspondence before
-  an adjacent tournament.
-- **Current blocker:** None for P1.
+- **Current conclusion:** P1 is retained with exact traces, no added memory,
+  `1.19–1.30x` total and `1.42–2.06x` pair-stage p95 speedup. Exact-50k
+  adjacent totals remain above 4 ms, so compact CSR is next.
+- **Why:** removing redundant post-density CSR traversal satisfies HP-2 alone,
+  while permuted storage remains `2.06x` slower in the retained pair stage.
+- **Next action:** specify and implement checked `u16` neighbor IDs with `u32`
+  offsets for `<=65,535` samples, leaving the 100k profile on `u32`.
+- **Current blocker:** None for P2.
 - **Do not retry:** O3 endpoint pre-addition or coherent-lattice O4 tuning;
   their numeric/performance failures are closed evidence.
 - **Reconsider when:** a v1 dynamic profile exposes materially different
@@ -37,7 +35,8 @@
 | [Research contract](../../plans/nonlocal-continuum-performance/00-performance-research-contract.md) | `SPECIFIED` | v1 families, measurement tiers and NP4 states frozen |
 | [NP0 corpus specification](../../plans/nonlocal-continuum-performance/01-np0-corpus-and-baseline.md) | `COMPLETE / NP1_INPUT` | seven generators and hashes frozen |
 | [NP0 evidence](../nonlocal-continuum-np0-evidence-2026-08-20.md) | `NP0_COMPLETE / NP1_P1_AUTHORIZED` | conditioned denominator, HP-1 confirmation and stiff-dynamic negative frozen |
-| [P1 specification](../../plans/nonlocal-continuum-performance/02-np1-p1-fused-owner-terms.md) | `SPECIFIED / IMPLEMENTATION_NEXT` | exact per-term association, timing attribution and rollback gate frozen |
+| [P1 specification](../../plans/nonlocal-continuum-performance/02-np1-p1-fused-owner-terms.md) | `COMPLETE / RETAINED / P2_INPUT` | exact per-term association, timing attribution and rollback gate frozen |
+| [P1 evidence](../nonlocal-continuum-np1-p1-evidence-2026-08-20.md) | `P1_RETAINED / P2_NEXT` | exact trace equality, no spills, adjacent speedups and raw hashes frozen |
 
 ## Decisions that still constrain the work
 
@@ -143,11 +142,11 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Implement one-CSR owner fusion without crossing density's global barrier.
-2. Pass CPU term oracle, stiff i2, exact fixed-frame output/CSR and dynamic
-   trace correspondence.
-3. Run conditioned 32/96 alternating adjacent tournaments on coherent,
-   permuted, advected and viscous controls; retain only if the NP1 gate passes.
+1. Freeze P2 capacity/encoding/fallback and exact decode semantics.
+2. Implement `u16` neighbor storage for bounded v1 profiles behind a rollback
+   identity; offsets remain `u32`, 100k remains `u32`.
+3. Pass the P1 exact corpus, memory accounting and conditioned adjacent
+   tournaments before retention.
 
 ## Do not retry
 
@@ -160,11 +159,11 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** NP0 implementation/evidence are ready for checkpoint;
-  P1 code has not started.
+- **Workspace state:** P1 implementation/evidence are ready for checkpoint;
+  P2 code has not started.
 - **Checks:** CPU, CPU-gather, retained CUDA self-tests, v0 repeatability, all
   v1 adjacent controls and duplicate exact-50k decisions pass.
-- **Remaining risk:** fixed-work p95 misses by `11–18%`; P1 arithmetic
-  association and later P2 memory encoding are not yet proven.
+- **Remaining risk:** P1 alternating exact-50k totals still exceed 4 ms; P2
+  decode cost and dynamic locality are not yet proven.
 - **Promotion needed:** none for NP0 research; later Proposed solver/profile
   reclosure only after NP4 evidence.
