@@ -93,5 +93,7 @@ pure-block and sole hybrid paths are now closed negative evidence.
 FCR3-B v1 failed, and the frozen FCR3-B1 discriminator selected pressure as
 the minimal failing scope in its
 [dated evidence](../../development/nonlocal-continuum-fcr3b1-term-local-evidence-2026-08-20.md).
-The active next action is one pressure-only, paper-literal Eq. 20/26
-remediation. Profile selection remains blocked.
+Primary-equation reinspection confirms v1 already has the correct pressure
+split. The active next action is the single frozen
+[pressure-activated Chebyshev remediation](03b2-pressure-chebyshev-contract.md).
+Profile selection remains blocked.

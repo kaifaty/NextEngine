@@ -45,8 +45,9 @@ nonlocal-formula-reclosure --sissm-term-local-self-test
 
 ## Consequence
 
-Exactly one pressure-only remediation is authorized. It must compare the
-released-code/SISPH conservative split used by v1 with the literal Nonlocal
-Eq. 20/26 split, without changing material coefficients, tolerances, geometry
-or the 80-iteration budget. Chebyshev, profile reclosure, CUDA and runtime
-promotion remain blocked.
+Exactly one pressure-only remediation is authorized. Visual reinspection of
+the primary equations confirms that v1 already matches the Nonlocal Eq. 20/26
+and SISPH Eq. 13/14 split. The remediation is therefore the fixed,
+pressure-activated Chebyshev recurrence specified by FCR3-B2, without
+changing material coefficients, tolerances, geometry or the 80-iteration
+budget. Profile reclosure, CUDA and runtime promotion remain blocked.

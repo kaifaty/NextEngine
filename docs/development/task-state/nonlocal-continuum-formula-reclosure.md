@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / FCR3B1_PRESSURE_SELECTED / PAPER_LITERAL_SPLIT_NEXT` |
+| Status | `ACTIVE / FCR3B1_PRESSURE_SELECTED / CHEBYSHEV_NEXT` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-formula-reclosure` |
 | Scope | Prove or reject a separately rooted energy/force-consistent Nonlocal continuum identity through algebra, physical, CUDA and performance gates |
@@ -13,7 +13,7 @@
 
 - **Current conclusion:** The minimal fast-iteration failure is pressure-only; viscosity, surface and `VS` pass unchanged gates.
 - **Why:** pressure-only ends at `4.72e-3` versus FCR2 `6.47e-8`, and every mask containing pressure fails.
-- **Next action:** Freeze and run one paper-literal Nonlocal Eq. 20/26 pressure split against the released-code/SISPH split used by v1.
+- **Next action:** Run one pressure-activated SISPH Chebyshev recurrence with frozen `spectral_radius=0.9` and the unchanged exact-objective safeguard.
 - **Current blocker:** None.
 - **Do not retry:** Repairing or retuning `nuv-basin-48k-static-support-h3-physical.v4`; its formula identity, coefficients and roots are closed historical evidence.
 - **Reconsider when:** Only a reviewed upstream erratum can change source interpretation; it still cannot relabel old roots.
@@ -81,7 +81,7 @@
 | --- | --- | --- | --- |
 | H1: compression-only is the stable free-surface rule | SISPH text, both author code paths, standard negative-pressure clamp | printed Eq. 7 is two-sided | FCR1 underdense pair and free-surface patch |
 | H2: one directed visit plus endpoint scatter is the clean coefficient implementation | Eq. 12/13 pair state and exact momentum closure | current neighbor graph likely stores both directions | FCR1 enumerated two-particle graph |
-| H3: corrected identity can converge at product cadence | unified coupling and SISSM stability examples | released-code/SISPH pressure split stalls above the reference gate on the tetrahedron | paper-literal Eq. 20/26 pressure split |
+| H3: corrected identity can converge at product cadence | unified coupling and SISPH Chebyshev results | unaccelerated pressure split stalls above the reference gate on the tetrahedron | frozen pressure-activated Chebyshev candidate |
 
 ## Required context
 
@@ -95,9 +95,9 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Transcribe literal Nonlocal Eq. 20 and Eq. 26 pressure coefficients on the unchanged tetrahedron.
-2. Compare it with the v1 split under the same 80-iteration reference/objective gate.
-3. Stop the fast-solver branch if this sole pressure remediation fails; do not tune material coefficients or iteration count.
+1. Apply the frozen `spectral_radius=0.9` recurrence only when pressure is active.
+2. Run unchanged FCR3-B cases and all seven term masks under the same 80-iteration reference/objective gate.
+3. Stop the fast-solver branch if this sole pressure remediation fails; do not sweep the radius or tune coefficients/iteration count.
 
 ## Do not retry
 
