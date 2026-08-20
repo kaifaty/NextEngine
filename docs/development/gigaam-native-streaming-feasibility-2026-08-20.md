@@ -6,7 +6,7 @@
 | Status | Bounded research; implementation and training are not authorized |
 | Scope | Preserve GigaAM-v3 Russian quality while producing bounded stateful partial ASR for dialogue prewarm |
 | Installed control | `ai-sage/GigaAM-v3`, revision `7655ad717f8122257385bb4b2f373db3697e8680`, `e2e_rnnt` |
-| Upstream inspected | `salute-developers/GigaAM` commit `7447938d791c4f3e643386ee22c33777004293a5` |
+| Upstream inspected | `salute-developers/GigaAM` commit `7447938d791c4f3e643386ee22c33777004293a5`; all public branches/history and open PRs checked `2026-08-20` |
 
 ## Conclusion
 
@@ -24,11 +24,13 @@ paper reports fixed-chunk streaming experiments and uses a small convolution
 kernel compatible with bounded future context. This makes adaptation much more
 promising than converting an arbitrary full-context Conformer from scratch.
 
-The missing part is substantial: the current public repository does not ship
+The missing part is substantial: the current official repository does not ship
 chunk/causal training controls, cache-aware encoder inference, or a stateful
 streaming decode API. Upstream issue 18 requesting streaming inference remains
-open. We would have to implement and validate those pieces ourselves before
-fine-tuning can be evaluated honestly.
+open. A maintainer also confirmed in issue 70 that the released checkpoints
+were fine-tuned in full-context mode and that enabling local attention only at
+inference can noticeably degrade quality. A useful derivative therefore needs
+streaming-aware fine-tuning, not only an inference mask or wrapper.
 
 For the game prototype, the lowest-risk near-term design is two-pass:
 
@@ -40,6 +42,63 @@ native streaming ASR -> replaceable partial text -> cancelable intent/LLM prewar
 This hides dialogue latency while retaining GigaAM as the final Russian quality
 authority. A trained GigaAM streaming student can replace the first pass later
 without changing the facade.
+
+## Full upstream audit: what is new
+
+The official `main` at `7447938` and its seven published branches contain no
+native streaming encoder or cache-aware inference surface. Searching the full
+public history found only offline long-form/chunking work and the open MLX pull
+request described below. The repository has no published Git tags or GitHub
+releases; model releases remain on Hugging Face.
+
+The following recent upstream work is useful but does not change that result:
+
+- issue 70 provides the missing authoritative clarification: the published
+  checkpoints were trained full-context; the paper's local-attention graph used
+  a matching training regime; `transcribe_longform` plus VAD is the maintainer's
+  recommendation for long files;
+- PR 62 adds Apple MLX live-microphone demos, but its source calls the path
+  `pseudo-streaming` and re-runs an offline model over a sliding/growing buffer;
+- PR 73 fixes ONNX RNN-T decoder-state view retention, aligns the symbol limit
+  with the PyTorch path and exposes token frames. These are valuable runtime and
+  timing fixes inside complete decodes, not persistent encoder caches;
+- PR 85 proposes an optional Silero VAD backend for `transcribe_longform`;
+- PR 86 proposes utterance/segment/word confidence and raw token log-probability
+  output. It is explicitly uncalibrated, but would still help revision gating,
+  final-pass routing and pseudo-label filtering.
+
+The most relevant new community implementation is
+[`ekhodzitsky/gigastt`](https://github.com/ekhodzitsky/gigastt), linked from
+official issue 76 but not maintained or endorsed by Salute. Version `2.18.0` at
+commit `7bc17f438ebd4daaf8956aa2373cf77635bff41c` is an MIT Rust/ONNX Runtime
+server/crate with WebSocket partials, C ABI and CPU/CUDA/CoreML providers. It
+implements bounded buffered emulation over the offline GigaAM-v3 RNN-T:
+
+```text
+100 ms transport frames
+  -> accumulate 0.8 s of new audio
+  -> re-encode a retained window capped at 2.5 s
+  -> fresh RNN-T decode for the overlapping window
+  -> suppress the 1.5 s already-emitted left context
+  -> replace live tail / commit stable prefix
+  -> VAD or blank-run endpoint
+```
+
+This avoids the duration-slope failure of growing-buffer re-decode, but it is
+not native streaming: the offline encoder and fresh decoder recompute the
+overlapping window. The project's own 100-clip paired measurements report
+`WER_batch -> WER_stream` of `4.97 -> 19.46` on Golos crowd and
+`4.82 -> 15.42` on Golos far-field, a regression of `+14.49` and `+10.60`
+percentage points respectively. Author-reported warm Apple M1 CPU latency is
+TTFP p50 `1.653 s` on crowd and `0.820 s` on far-field, with per-partial compute
+and queue lag p50 `51/41 ms`. These numbers are not verified on our RTX 3080,
+microphone or whisper corpus.
+
+`gigastt` is therefore a high-value immediate baseline behind the existing
+facade, advertised honestly as `buffered_emulation`. It may be sufficient for
+cancelable early-intent prewarm while final GigaAM remains authoritative. Its
+published streaming quality gap prevents promoting it as the canonical ASR
+without a local paired evaluation.
 
 ## What the current checkpoint actually does
 
@@ -113,20 +172,25 @@ Do not start with a large training run.
 1. Freeze a small reference-transcribed Russian microphone set with normal,
    whisper, noise, pauses and short/long utterances. Record offline GigaAM WER,
    empty-rate and endpoint-to-final latency as the quality ceiling.
-2. Implement the paper's fixed chunk attention and chunkwise-causal convolution
+2. Benchmark pinned `gigastt` as a no-training `buffered_emulation` control.
+   Measure first useful partial, revision churn, WER/CER, empty-rate, duration
+   slope and final agreement against current Voxtral and offline GigaAM through
+   the same front-end routes. Do not relabel it native streaming.
+3. Implement the paper's fixed chunk attention and chunkwise-causal convolution
    geometry behind a new experimental model/runtime identifier. First prove
    that its full-context mode reproduces the pinned checkpoint.
-3. Add state objects for feature framing, subsampling tails, per-layer
+4. Add state objects for feature framing, subsampling tails, per-layer
    attention/convolution caches and RNN-T predictor state. Prove that feeding
    the same WAV in different transport frame sizes produces the same final
    hypothesis and that per-chunk work has no duration slope.
-4. Evaluate untrained 1 s and 2 s chunk modes. This tests how much of the
-   dynamically chunked SSL capability survived full-context ASR fine-tuning.
-5. Only if the architecture control is correct, fine-tune one fixed-latency
+5. Evaluate untrained 1 s and 2 s chunk modes only as negative controls. The
+   maintainer's full-context clarification means an inference-only switch is
+   expected to regress, but the measurement still bounds the starting point.
+6. Only if the architecture control is correct, fine-tune one fixed-latency
    checkpoint. Start with the ordinary character RNN-T output for provisional
    text; punctuation and normalization are not required for intent prewarm and
    can remain in the final `e2e_rnnt` pass.
-6. Compare the streaming student, current Voxtral and offline GigaAM through
+7. Compare the streaming student, `gigastt`, current Voxtral and offline GigaAM through
    the same facade and frozen corpus. Promote nothing based on a microphone
    impression or borrowed benchmark.
 
@@ -187,5 +251,9 @@ encoder's attention and convolution behavior is the primary boundary.
 - [Official GigaAM repository](https://github.com/salute-developers/GigaAM) — current inference and fine-tuning implementation.
 - [Official fine-tuning guide](https://github.com/salute-developers/GigaAM/blob/main/train_utils/README.md) — available RNN-T training and memory controls.
 - [Open upstream streaming request](https://github.com/salute-developers/GigaAM/issues/18) — streaming inference is not yet a shipped public API.
+- [Maintainer clarification on chunkwise inference](https://github.com/salute-developers/GigaAM/issues/70#issuecomment-4372753044) — released checkpoints are full-context and inference-only local attention can degrade quality.
+- [MLX pseudo-streaming PR](https://github.com/salute-developers/GigaAM/pull/62) — community sliding-buffer microphone implementation for Apple Silicon.
+- [ONNX RNN-T decoder-state fix PR](https://github.com/salute-developers/GigaAM/pull/73) — state-view memory fix and token-frame output within offline decode.
+- [Token-confidence PR](https://github.com/salute-developers/GigaAM/pull/86) — proposed uncalibrated confidence surfaces.
+- [`gigastt` implementation](https://github.com/ekhodzitsky/gigastt) and [streaming protocol/results](https://github.com/ekhodzitsky/gigastt/blob/main/docs/benchmarks.md#streaming-measurement-protocol) — bounded Rust/ONNX buffered-emulation baseline and paired WER/latency evidence.
 - [Stateful Conformer with cache-based inference](https://arxiv.org/abs/2312.17279) — bounded context and activation-cache design for true streaming Conformers.
-
