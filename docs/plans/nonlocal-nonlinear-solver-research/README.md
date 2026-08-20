@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FROZEN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_DESIGN / REPORT_ONLY`
 
 Candidate identity:
 
@@ -212,3 +212,10 @@ The bounded [B3 contract](03b3-boundary-composition-smoke-contract.md) freezes
 face/corner impact fixtures, fine-state ownership, fixed references, separate
 support/contact impulse ledgers and mandatory cache invalidation before any
 trajectory code.
+B3 stops at its first momentum-ledger failure before face contact; see the
+[dated evidence](../../development/nonlocal-nsr3b3-boundary-smoke-evidence-2026-08-21.md).
+The selected scale-aware trajectory stop does not certify virtual reaction at
+the stricter local tolerance, and very fine inactive steps expose a separate
+relative-roundoff floor. Preserve B3 FAIL and design B3D to distinguish a
+reaction-aware solve from a mixed absolute/relative certificate before any
+second composition attempt.

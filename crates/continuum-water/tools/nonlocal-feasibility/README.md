@@ -37,6 +37,8 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --fine-state-ownership-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
   --split-static-boundary-self-test
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
+  --boundary-composition-smoke-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --describe-profile nuv-water-48k.v0
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --cpu-self-test
@@ -232,6 +234,13 @@ fluid HVP and virtual support reaction. It also compares two/three layers and
 runs independent face/edge/corner swept-contact controls. PASS is a bounded
 formula candidate only; it does not execute a boundary trajectory or authorize
 runtime integration.
+
+`--boundary-composition-smoke-self-test` executes the separately frozen B3
+post-solve swept-contact hypothesis. Its current expected semantic result is
+FAIL at `MOMENTUM_LEDGER`: the selected scale-aware smooth stop does not yet
+certify the virtual support reaction at the stricter per-substep tolerance.
+The command preserves that negative boundary and grants no physical-corpus or
+runtime authority.
 
 The v3 static-support profiles add the exact 24,704-sample two-layer outer
 complement to 48,000 fluid samples. Their 72,704 total solver indices

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B2_PASS / NSR3B3_SMOKE_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B3_FAIL / NSR3B3D_REACTION_DIAGNOSTIC_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -109,10 +109,23 @@
   a geometry-ownership bug: a wall-owned third layer is at `a+R-3dx`, so every
   nonpenetrating centre remains at `r>=H`. Fluid-relative ghost anchoring would
   contribute about `5.6e-5 rho0` at contact and is explicitly rejected.
-- **Current action:** implement the frozen B3 face/corner trajectory with
-  fine-state ownership, fixed references and separate support/contact ledgers.
-- **Next gate:** B3 must prove time composition without weakening B1R1 error
-  gates before hydrostatic or other physical-corpus execution.
+- **Current conclusion:** B3 reproducibly fails its first face candidate at
+  the per-substep momentum ledger before contact: absolute `5.67e-8 kg m/s`,
+  normalized `1.48e-7` versus `1e-9` required.
+- **Current conclusion:** the corrected C2 scale-aware/floor transcription
+  removes the preliminary reject-limit defect. The remaining failure is a
+  mismatch between trajectory displacement stopping and reaction accuracy,
+  not a pressure/contact formula mismatch.
+- **Current conclusion:** the fixed ladder exposes two effects: active support
+  can pass the `1e-8` displacement stop with `5.52e-3` relative ledger error,
+  while inactive very-fine steps reach a relative binary64 reconstruction
+  floor despite piconewton-second absolute defects.
+- **Current decision:** preserve B3 FAIL and do not loosen the ledger or
+  globally tighten the solver without a cost/accuracy discriminator.
+- **Current action:** freeze B3D reaction-accuracy diagnostics with complete
+  non-aborting ledgers and a charged reaction-aware-stop counterfactual.
+- **Next gate:** B3D must derive a sound reaction certificate or select an
+  affordable stricter solve before B3 can be retried.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -329,6 +342,17 @@
   measured rather than denied. Failure may justify one newly identified
   ordering remediation or a separately rooted unified-contact objective.
 
+### D-021 -- Separate trajectory convergence from reaction authority
+
+- **Observation:** B3's face control fails the support momentum ledger before
+  any contact. The selected scale-aware stop can accept an active state whose
+  virtual reaction does not close reconstructed momentum at `1e-9`; inactive
+  tiny steps also make a purely relative ledger ill-conditioned.
+- **Decision:** preserve B3 FAIL. Diagnose signed/absolute/cumulative defects
+  and a charged reaction-aware stop before changing either solver or ledger.
+- **Consequence:** B2 algebra remains selected, but no static-boundary
+  trajectory, reaction authority or physical-corpus execution is authorized.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -341,12 +365,12 @@
 
 ## Exact next action
 
-1. Implement the frozen post-solve sweep on exact face/corner lattice
-   fixtures without exposing a runtime API.
-2. Execute adaptive fine-owned and fixed `96/192/384` trajectories, preserving
-   exact support/contact impulse fields and cache epochs.
-3. Select or reject B3 without changing coefficients, event tolerances or the
-   physical-corpus boundary.
+1. Freeze B3D observables for stationarity, reconstruction and contact ledger
+   components over non-aborting substep ladders.
+2. Compare the selected trajectory stop with one reaction-aware-stop
+   counterfactual and charge all additional HVP work.
+3. Derive a certificate or stop condition before freezing any B3 remediation;
+   keep the physical corpus blocked.
 
 ## Reconsideration triggers
 
