@@ -155,3 +155,6 @@ B1S1 passes: dense and Lanczos agree, stiffness scaling is exact, and spectral
 amplification captures the amplitude increase; see the
 [dated evidence](../../development/nonlocal-nsr3b1s1-pressure-spectrum-evidence-2026-08-20.md).
 Freeze a spectral trajectory policy next, with 48-HVP estimate cost explicit.
+That policy gate is frozen in
+[NSR3-B1S2](03b1s2-spectral-substep-policy-contract.md) at spectral target
+`0.15`; expected base/high costs are `39/43` and `78/86` substeps per frame.
