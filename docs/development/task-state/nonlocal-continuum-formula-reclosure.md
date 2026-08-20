@@ -13,7 +13,7 @@
 
 - **Current conclusion:** A slow corrected f64 variational reference passes tiny physics; efficient SISSM convergence and product calibration remain unknown.
 - **Why:** FCR2 passes all seven cases and full-gradient closure, but pressure/combined controls need accepted alphas down to `4.66e-10` and hundreds of backtracks.
-- **Next action:** Specify FCR3-A SISSM/reference correspondence and conditioning gates before any product-profile sweep.
+- **Next action:** Implement FCR3-A block-Jacobi/Gauss–Newton conditioning A/B before SISSM or any product-profile sweep.
 - **Current blocker:** None.
 - **Do not retry:** Repairing or retuning `nuv-basin-48k-static-support-h3-physical.v4`; its formula identity, coefficients and roots are closed historical evidence.
 - **Reconsider when:** Only a reviewed upstream erratum can change source interpretation; it still cannot relabel old roots.
@@ -91,9 +91,9 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Freeze FCR3-A's corrected SISSM split, overshoot policy and reference-comparison metrics.
-2. Compare objective/residual progress on the exact FCR2 active cases and identify the first conditioning boundary.
-3. Start h2/h3/coefficient/cadence reclosure only if SISSM passes the bounded correspondence gate.
+1. Implement the frozen FCR3-A local-curvature blocks without changing objective or acceptance.
+2. Require the exact backtrack/alpha/objective/gradient A/B gates on the FCR2 stiff cases.
+3. Specify corrected SISSM/Chebyshev correspondence only if FCR3-A passes.
 
 ## Do not retry
 
