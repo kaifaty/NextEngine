@@ -1,6 +1,6 @@
 # Nonlocal continuum — productionization roadmap
 
-Status: `ACTIVE / NPR0_COMPLETE / NPR1_NEXT / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `ACTIVE / NPR1_A_CANONICAL / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
 
 This roadmap starts from the completed
 [fixed-work performance decision](../../development/nonlocal-continuum-performance-decision-2026-08-20.md).
@@ -58,7 +58,7 @@ NPR0 therefore precedes any production correctness or integration claim.
 ```text
 completed fixed-work performance baseline
   -> NPR0 product-profile bridge/boundary                COMPLETE
-      -> NPR1 independent physical/correctness reclosure NEXT
+      -> NPR1 independent physical/correctness reclosure ACTIVE
           -> NPR2 canonical-authority decision           NOT_STARTED
               -> NPR3 private owner/admission/fault path  NOT_STARTED
                   -> NPR4 one-pass PhysX coupling         NOT_STARTED
@@ -120,8 +120,10 @@ P1/P2 preflights and all four h3-consistent tiny cases. NPR0 therefore selects
 one report-only `NONLOCAL_PRODUCT_PROFILE_CANDIDATE` and NPR1 becomes the next
 stage. Runtime, public contracts and production authority remain blocked.
 
-NPR1, runtime integration and public contracts are blocked until NPR0 selects
-one profile. This is an evidence dependency, not unfinished hidden work.
+NPR1 is now specified by the
+[physical/canonical reclosure contract](05-npr1-physical-correctness-contract.md).
+Its first step is the isolated binary64 canonical publication boundary.
+Runtime integration and public contracts remain blocked through NPR2.
 
 ## Stop states
 
