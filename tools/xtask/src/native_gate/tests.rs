@@ -654,22 +654,6 @@ fn comparison_requires_two_complete_pass_reports() {
 }
 
 #[test]
-fn package_failure_diagnostics_are_valid_native_gate_codes() {
-    for code in [
-        NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID,
-        NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING,
-        NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED,
-        NATIVE_GATE_PACKAGE_SMOKE_TIMEOUT,
-    ] {
-        validate_diagnostic(&NativeGateDiagnosticV1 {
-            code: code.to_owned(),
-            message: "controlled package failure".to_owned(),
-        })
-        .expect("package diagnostic is allowlisted");
-    }
-}
-
-#[test]
 fn comparison_rejects_commit_lock_and_toolchain_mismatches() {
     let windows = report(WINDOWS_TARGET_TRIPLE);
 

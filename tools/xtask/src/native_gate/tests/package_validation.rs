@@ -1,6 +1,22 @@
 use super::*;
 
 #[test]
+fn package_failure_diagnostics_are_valid_native_gate_codes() {
+    for code in [
+        NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID,
+        NATIVE_GATE_PACKAGE_RUNTIME_DEPENDENCY_MISSING,
+        NATIVE_GATE_PACKAGE_RUNTIME_ABI_UNSUPPORTED,
+        NATIVE_GATE_PACKAGE_SMOKE_TIMEOUT,
+    ] {
+        validate_diagnostic(&NativeGateDiagnosticV1 {
+            code: code.to_owned(),
+            message: "controlled package failure".to_owned(),
+        })
+        .expect("package diagnostic is allowlisted");
+    }
+}
+
+#[test]
 fn bundle_validation_rejects_tampered_package_before_accepting_pass_report() {
     let bundle = TempBundle::new();
     let mut report = report(WINDOWS_TARGET_TRIPLE);
