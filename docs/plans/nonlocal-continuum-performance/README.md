@@ -1,6 +1,6 @@
 # Nonlocal continuum — performance reclosure roadmap
 
-Status: `ACTIVE / NP0_COMPLETE / NP1_P2_FINALIST / P3_P4_ROLLED_BACK / FIXED_WORK_DECISION_NEXT / REPORT_ONLY / NO_W2_CREDIT`
+Status: `COMPLETE / NONLOCAL_50K_FIXED_WORK_RECLOSURE_CANDIDATE / REPORT_ONLY / NO_W2_CREDIT`
 
 This roadmap follows the closed
 [NR4 `NONLOCAL_48K_RECLOSURE_CANDIDATE` decision](../../development/nonlocal-continuum-nr4-decision-2026-08-20.md).
@@ -47,13 +47,13 @@ NR4 48k feasibility decision                    COMPLETE
           ├─ P2 compact CSR and memory path      COMPLETE / RETAINED
           ├─ P3 dynamic locality tournament      COMPLETE / NOT RETAINED
           └─ P4 certified neighbor reuse         COMPLETE / CORRECTNESS STOP
-              ├─ NP4 fixed-work decision path   NEXT
-              ├─ NP2 algorithmic work reduction CONDITIONAL
+              ├─ NP4 fixed-work decision path   COMPLETE / SELECTED
+              ├─ NP2 algorithmic work reduction NOT ACTIVATED
               │   ├─ residual/adaptive exit
               │   ├─ safeguarded Anderson probe
               │   └─ Pairwise Descent watch gate
               │       └─ NP4 algorithm decision path
-              └─ NP3 scale reduction            CONDITIONAL / SEPARATE_CREDIT
+              └─ NP3 scale reduction            NOT ACTIVATED / SEPARATE CREDIT
 ```
 
 | Stage | Required output | Exit gate | Credit |
@@ -81,7 +81,10 @@ rollback. P4 used fused traversal plus compact CSR as its denominator.
 P4 is closed by its
 [correctness evidence](../../development/nonlocal-continuum-np1-p4-evidence-2026-08-20.md):
 geometric coverage passed, but dynamic cell-order drift forced the P2 rollback.
-The P1+P2 finalist now proceeds to the fixed-work decision campaign.
+The P1+P2 finalist passed two fresh 512-sample decision campaigns per exact-50k
+profile. NP4 selects
+[`NONLOCAL_50K_FIXED_WORK_RECLOSURE_CANDIDATE`](../../development/nonlocal-continuum-performance-decision-2026-08-20.md).
+The conditional NP2/NP3 rescue branches are not activated.
 
 ### NP0 — Reclose the measured workload
 

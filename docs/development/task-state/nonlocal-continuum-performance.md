@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_MEASUREMENT / NP4_FIXED_WORK_DECISION / REPORT_ONLY` |
+| Status | `COMPLETE / NONLOCAL_50K_FIXED_WORK_RECLOSURE_CANDIDATE / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-performance` |
 | Scope | Design and execute a representative exact-50k Nonlocal performance reclosure |
@@ -11,14 +11,15 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** P4 stops before timing: step-1 membership count is
-  covered, but cell migration changes ordered CSR and f32 output. P2 is the
-  complete NP1 finalist.
-- **Why:** a displacement certificate proves pair coverage, not preservation
-  of the retained current-cell traversal order.
-- **Next action:** run the frozen 64-warm-up/512-sample P1+P2 decision campaign
-  on coherent and advected exact-50k, then select NP4 or enter conditional NP2.
-- **Current blocker:** None for the fixed-work decision.
+- **Current conclusion:** NP4 selects
+  `NONLOCAL_50K_FIXED_WORK_RECLOSURE_CANDIDATE`. Worst fresh-process p95/p99
+  are `3.2112/3.2273 ms` coherent and `3.1490/3.1895 ms` advected.
+- **Why:** P1+P2 passes exact traces, capacity and the standalone `4/6 ms`
+  decision gate twice per profile; conditional NP2/NP3 are not activated.
+- **Next action:** outside this roadmap, draft a separate Proposed solver
+  reclosure and broader SPEC-38/integration corpus before any runtime claim.
+- **Current blocker:** Runtime authority, integration and Windows remain
+  explicitly outside this completed report-only roadmap.
 - **Do not retry:** O3 endpoint pre-addition or coherent-lattice O4 tuning;
   their numeric/performance failures are closed evidence.
 - **Reconsider when:** a v1 dynamic profile exposes materially different
@@ -43,6 +44,7 @@
 | [P3 evidence](../nonlocal-continuum-np1-p3-evidence-2026-08-20.md) | `P3_NOT_RETAINED / P2_ROLLBACK / P4_NEXT` | exact dynamic remap and positive/negative locality boundary frozen |
 | [P4 specification](../../plans/nonlocal-continuum-performance/05-np1-p4-certified-verlet-reuse.md) | `COMPLETE / CORRECTNESS_STOP / P2_ROLLBACK` | fixed skin, conservative certificate, canonical filter and rollback frozen |
 | [P4 evidence](../nonlocal-continuum-np1-p4-evidence-2026-08-20.md) | `P4_CORRECTNESS_STOP / P2_FINALIST` | reproduced active-order mismatch and rejected alternatives frozen |
+| [NP4 decision](../nonlocal-continuum-performance-decision-2026-08-20.md) | `NONLOCAL_50K_FIXED_WORK_RECLOSURE_CANDIDATE` | roadmap complete; later Proposed reclosure authorized, no W2/runtime credit |
 
 ## Decisions that still constrain the work
 

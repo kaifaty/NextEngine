@@ -7078,4 +7078,141 @@ CommandReport run_cuda_p4_tournament(
     return {trace_exact && trace_memory_exact && transitions_valid, output.str()};
 }
 
+CommandReport run_cuda_p2_decision(
+    const Profile& profile,
+    int warmup,
+    int runs) {
+    if ((profile.id != "nuv-water-50k-coherent.v1"
+            && profile.id != "nuv-water-50k-advected.v1")
+        || warmup != 64 || runs != 512) {
+        throw std::invalid_argument(
+            "P2 decision requires exact-50k coherent/advected --warmup 64 --runs 512");
+    }
+    const CommandReport check = run_cuda_p2_check(profile, profile.fixed_iterations);
+    const Fixture fixture = performance_fixture(profile, profile.fixed_iterations);
+    bool trace_exact = check.passed;
+    bool trace_memory_exact = true;
+    int first_trace_mismatch = -1;
+    std::ostringstream trace_material;
+    std::string prior_state_digest = fixture_input_hash(fixture);
+    CapturedRun finalist_seed;
+    {
+        CudaBaseline retained(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1);
+        CudaBaseline finalist(
+            fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+            PairTraversalMode::FusedOwnerTermsP1, NeighborEncodingMode::CompactU16P2);
+        retained.reset_seed();
+        finalist.reset_seed();
+        const int trace_length = profile.advected ? profile.trace_length : 1;
+        for (int step = 0; step < trace_length; ++step) {
+            CapturedRun retained_run = retained.execute(true, profile.advected);
+            CapturedRun finalist_run = finalist.execute(true, profile.advected);
+            const bool step_exact = exact_p1_correspondence(
+                fixture, retained_run, finalist_run, profile.tolerances);
+            const bool step_memory = compact_memory_correspondence(
+                fixture, retained_run, finalist_run);
+            if ((!step_exact || !step_memory) && first_trace_mismatch < 0) {
+                first_trace_mismatch = step;
+            }
+            trace_exact = trace_exact && step_exact;
+            trace_memory_exact = trace_memory_exact && step_memory;
+            const std::string logical_csr_sha256 = csr_digest(finalist_run);
+            const std::string membership_sha256 =
+                canonical_lattice_csr_digest(fixture, finalist_run);
+            const std::string output_sha256 = ordered_output_digest(finalist_run.state);
+            const std::string state_sha256 = handoff_digest(finalist_run.state);
+            trace_material << step << '|' << prior_state_digest << '|' << logical_csr_sha256
+                           << '|' << membership_sha256 << '|' << output_sha256 << '|'
+                           << state_sha256 << '|';
+            prior_state_digest = state_sha256;
+            if (step == 0) {
+                finalist_seed = std::move(finalist_run);
+            }
+        }
+    }
+    const std::string trace_sha256 = sha256_hex(trace_material.str());
+
+    CudaBaseline finalist(
+        fixture, P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE,
+        PairTraversalMode::FusedOwnerTermsP1, NeighborEncodingMode::CompactU16P2);
+    constexpr int CONDITIONING_RUNS = 256;
+    const auto execute_epoch_step = [&](int index, bool capture) {
+        CapturedRun run = finalist.execute(capture, profile.advected);
+        if (run.local_solve_failed || !run.neighbor_build_valid) {
+            throw std::runtime_error("P2 finalist failed during decision campaign");
+        }
+        if (profile.advected && (index + 1) % profile.trace_length == 0) {
+            finalist.reset_seed();
+        }
+        return run;
+    };
+    finalist.reset_seed();
+    for (int run = 0; run < CONDITIONING_RUNS; ++run) {
+        execute_epoch_step(run, false);
+    }
+    finalist.reset_seed();
+    for (int run = 0; run < warmup; ++run) {
+        execute_epoch_step(run, false);
+    }
+    finalist.reset_seed();
+    std::vector<StageTiming> timings;
+    timings.reserve(static_cast<std::size_t>(runs));
+    bool measurement_valid = true;
+    int failed_measurement = -1;
+    for (int run = 0; run < runs; ++run) {
+        const CapturedRun measured = execute_epoch_step(run, false);
+        if (measured.local_solve_failed || !measured.neighbor_build_valid) {
+            measurement_valid = false;
+            failed_measurement = run;
+            break;
+        }
+        timings.push_back(measured.timing);
+    }
+    const bool correctness = trace_exact && trace_memory_exact
+        && measurement_valid && timings.size() == static_cast<std::size_t>(runs);
+    const Statistics total = collect_statistics(timings, &StageTiming::total);
+    const bool p95_gate = total.p95 <= 4.0;
+    const bool p99_gate = total.p99 <= 6.0;
+    const bool decision_gate = correctness && p95_gate && p99_gate;
+
+    std::ostringstream output;
+    output << std::setprecision(17);
+    output << "{\"schema\":\"nextengine.nonlocal.p2_decision.v1\",\"status\":\""
+           << (correctness ? "PASS" : "FAIL") << "\",\"candidate_class\":\"EXACT_WORK\""
+           << ",\"candidate_identity\":\"fused-owner-terms-p1+compact-csr-u16-p2\""
+           << ",\"profile_id\":\"" << profile.id << "\",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(profile)) << "\",\"input_sha256\":\""
+           << fixture_input_hash(fixture) << "\",\"trace_sha256\":\"" << trace_sha256
+           << "\",\"binary_sha256\":\"" << executable_hash()
+           << "\",\"command\":\"nonlocal-feasibility --p2-decision " << profile.id
+           << " --warmup 64 --runs 512\",\"conditioning_runs\":" << CONDITIONING_RUNS
+           << ",\"warmup_runs\":" << warmup << ",\"measured_runs\":" << runs
+           << ",\"correctness\":{\"p2_check_passed\":"
+           << (check.passed ? "true" : "false")
+           << ",\"trace_exact\":" << (trace_exact ? "true" : "false")
+           << ",\"trace_memory_exact\":" << (trace_memory_exact ? "true" : "false")
+           << ",\"first_trace_mismatch\":" << first_trace_mismatch
+           << ",\"measurement_valid\":" << (measurement_valid ? "true" : "false")
+           << ",\"failed_measurement_index\":" << failed_measurement
+           << ",\"seed_output_sha256\":\"" << ordered_output_digest(finalist_seed.state)
+           << "\",\"seed_logical_csr_sha256\":\"" << csr_digest(finalist_seed) << "\"}"
+           << ",\"decision\":{\"p95_limit_ms\":4,\"p99_limit_ms\":6"
+           << ",\"p95_gate\":" << (p95_gate ? "true" : "false")
+           << ",\"p99_gate\":" << (p99_gate ? "true" : "false")
+           << ",\"decision_gate\":" << (decision_gate ? "true" : "false")
+           << ",\"p95_ms\":" << total.p95 << ",\"p99_ms\":" << total.p99 << '}'
+           << ",\"capacity\":{\"device_memory_bytes\":" << finalist_seed.device_memory_bytes
+           << ",\"neighbor_id_bytes\":" << finalist_seed.neighbor_id_bytes
+           << ",\"directed_pairs\":" << finalist_seed.state.directed_pairs
+           << ",\"maximum_degree\":" << finalist_seed.state.maximum_degree << '}'
+           << ",\"statistics\":";
+    append_stage_statistics(output, timings);
+    output << ",\"raw_total_ms\":";
+    append_raw_totals(output, timings);
+    output << ",\"device\":" << device_json() << '}';
+    return {correctness, output.str()};
+}
+
 } // namespace nextengine::nonlocal

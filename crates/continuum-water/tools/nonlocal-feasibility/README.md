@@ -70,6 +70,8 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --p4-check nuv-water-50k-advected.v1 --iterations 5
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --p4-tournament nuv-water-50k-advected.v1 --warmup 32 --runs 96
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --p2-decision nuv-water-50k-advected.v1 --warmup 64 --runs 512
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -161,3 +163,9 @@ double-precision maximum-displacement certificate proves coverage. Every CSR
 consumer applies the retained `h` predicate; captures distinguish candidate
 superset CSR from exact active logical CSR. Cache state is invalidated at each
 explicit trace reset.
+
+`--p2-decision` accepts only coherent or advected exact-50k v1 water. It first
+replays exact P1/P2 trace correspondence, releases the comparator, then runs a
+single P2 finalist instance through 256 conditioning, 64 formal warm-up and
+512 measured executions. It reports raw totals and the standalone `4/6 ms`
+p95/p99 gate; it does not grant runtime or W2 authority.
