@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3D5_PASS_OWNED_RESIDUAL / NSR3B3R_DESIGN` |
+| Status | `ACTIVE / NSR3B3D5_PASS_OWNED_RESIDUAL / NSR3B3R_FROZEN_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -170,8 +170,8 @@
   this is bounded correctness evidence, not a performance result.
 - **Current decision:** select `OWNED_RESIDUAL_TRAJECTORY_CANDIDATE` and
   authorize a separately frozen B3R retry only.
-- **Current action:** freeze B3R using the exact B3 controller/reference and
-  D5 numerical state/globalization, with the original ledger unchanged.
+- **Current action:** implement frozen B3R through the exact adaptive and
+  fixed-reference paths with the original strict ledger unchanged.
 - **Next gate:** B3R must pass face/corner adaptive composition and fixed
   reference gates before any physical corpus execution.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
