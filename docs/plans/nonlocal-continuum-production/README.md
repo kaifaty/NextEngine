@@ -1,6 +1,6 @@
 # Nonlocal continuum — productionization roadmap
 
-Status: `ACTIVE / NPR0_PROFILE_BRIDGE / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `ACTIVE / NPR0_BOUNDARY_DISCRIMINATOR / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
 
 This roadmap starts from the completed
 [fixed-work performance decision](../../development/nonlocal-continuum-performance-decision-2026-08-20.md).
@@ -57,7 +57,7 @@ NPR0 therefore precedes any production correctness or integration claim.
 
 ```text
 completed fixed-work performance baseline
-  -> NPR0 product-profile bridge                         ACTIVE
+  -> NPR0 product-profile bridge/boundary                ACTIVE
       -> NPR1 independent physical/correctness reclosure NOT_STARTED
           -> NPR2 canonical-authority decision           NOT_STARTED
               -> NPR3 private owner/admission/fault path  NOT_STARTED
@@ -103,10 +103,12 @@ Accepted decision explicitly changes the shipping contract.
 ## Immediate queue
 
 NPR0 is specified by the
-[profile reclosure contract](00-profile-reclosure-contract.md). Its first
-implementation adds hash-bound scale/cadence/support bridge profiles and a
-machine-readable audit to the quarantined feasibility tool. Next it runs
-small exact/finiteness controls before any sealed-boundary implementation.
+[profile reclosure contract](00-profile-reclosure-contract.md). The hash-bound
+scale/cadence/support bridge, machine audit, retained GPU preflights and
+four-iteration scale-law discriminator are complete and recorded in the
+[dated evidence](../../development/nonlocal-continuum-npr0-profile-bridge-evidence-2026-08-20.md).
+The active step now separates static density support from non-penetration and
+specifies the sealed-boundary candidate before adding it to the laboratory.
 
 NPR1, runtime integration and public contracts are blocked until NPR0 selects
 one profile. This is an evidence dependency, not unfinished hidden work.

@@ -1788,9 +1788,12 @@ Fixture performance_fixture(const Profile& profile, int iterations) {
     if (profile.record_version >= 1) {
         fixture.lattice_index_by_sample.reserve(profile.samples);
     }
-    const double center_x = 0.5 * static_cast<double>(profile.lattice_x - 1) * profile.spacing;
-    const double center_y = 0.5 * static_cast<double>(profile.lattice_y - 1) * profile.spacing;
-    const double center_z = 0.5 * static_cast<double>(profile.lattice_z - 1) * profile.spacing;
+    const double center_x = profile.origin.x
+        + 0.5 * static_cast<double>(profile.lattice_x - 1) * profile.spacing;
+    const double center_y = profile.origin.y
+        + 0.5 * static_cast<double>(profile.lattice_y - 1) * profile.spacing;
+    const double center_z = profile.origin.z
+        + 0.5 * static_cast<double>(profile.lattice_z - 1) * profile.spacing;
     for (std::size_t sample = 0; sample < profile.samples; ++sample) {
         const std::size_t lattice =
             profile.initialization_order == InitializationOrder::AffinePermutation
@@ -1805,11 +1808,17 @@ Fixture performance_fixture(const Profile& profile, int iterations) {
             lattice / (static_cast<std::size_t>(profile.lattice_x)
                 * static_cast<std::size_t>(profile.lattice_y)));
         Vec3 position = profile.record_version == 0
-            ? Vec3{x * profile.spacing, y * profile.spacing, z * profile.spacing}
+            ? Vec3{
+                  profile.origin.x + x * profile.spacing,
+                  profile.origin.y + y * profile.spacing,
+                  profile.origin.z + z * profile.spacing}
             : Vec3{
-                  center_x + profile.lattice_scale * (x * profile.spacing - center_x),
-                  center_y + profile.lattice_scale * (y * profile.spacing - center_y),
-                  center_z + profile.lattice_scale * (z * profile.spacing - center_z)};
+                  center_x + profile.lattice_scale
+                      * (profile.origin.x + x * profile.spacing - center_x),
+                  center_y + profile.lattice_scale
+                      * (profile.origin.y + y * profile.spacing - center_y),
+                  center_z + profile.lattice_scale
+                      * (profile.origin.z + z * profile.spacing - center_z)};
         Vec3 velocity{};
         if (profile.advected) {
             const double nx = (position.x - center_x) / std::max(center_x, profile.spacing);
@@ -6297,8 +6306,10 @@ CommandReport run_cuda_p1_tournament(
 CommandReport run_cuda_p2_check(
     const Profile& profile,
     int iterations) {
-    if (profile.record_version != 1 || iterations < 1 || iterations > 100) {
-        throw std::invalid_argument("P2 check requires a v1 profile and 1..=100 iterations");
+    if ((profile.record_version != 1 && profile.record_version != 2)
+        || iterations < 1 || iterations > 100) {
+        throw std::invalid_argument(
+            "P2 check requires a v1/v2 profile and 1..=100 iterations");
     }
     const CommandReport retained_self = run_cuda_self_test(
         P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE);

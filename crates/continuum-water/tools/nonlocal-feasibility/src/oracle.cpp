@@ -954,6 +954,144 @@ CpuGatherSelfTestReport run_cpu_gather_self_test() {
     return {all_passed, output.str()};
 }
 
+CpuScaleLawSelfTestReport run_cpu_scale_law_self_test() {
+    constexpr double length_scale = 10.0;
+    constexpr double time_scale = 25.0 / 6.0;
+    constexpr double tolerance = 5.0e-11;
+
+    Fixture reference;
+    for (const Fixture& fixture : oracle_fixtures()) {
+        if (fixture.name == "tiny_closed_box_iter4") {
+            reference = fixture;
+            break;
+        }
+    }
+    if (reference.particles.empty()) {
+        throw std::runtime_error("scale-law reference fixture is missing");
+    }
+    reference.name = "npr0_scale_law_all_terms_reference";
+    reference.terms.surface_tension = true;
+    reference.gamma = 100.0;
+    reference.iterations = 4;
+
+    Fixture scaled = reference;
+    scaled.name = "npr0_scale_law_all_terms_scaled";
+    scaled.spacing *= length_scale;
+    scaled.horizon *= length_scale;
+    scaled.mass *= length_scale * length_scale * length_scale;
+    scaled.time_step *= time_scale;
+    scaled.gravity = scaled.gravity
+        * (length_scale / (time_scale * time_scale));
+    scaled.kappa *= std::pow(length_scale, 4.0) / (time_scale * time_scale);
+    scaled.lambda *= std::pow(length_scale, 3.0) / time_scale;
+    scaled.mu *= std::pow(length_scale, 3.0) / time_scale;
+    scaled.gamma *= length_scale / (time_scale * time_scale);
+    for (Particle& particle : scaled.particles) {
+        particle.position = particle.position * length_scale;
+        particle.velocity = particle.velocity * (length_scale / time_scale);
+    }
+
+    const OracleResult base = run_cpu_gather_oracle(reference);
+    const OracleResult transformed = run_cpu_gather_oracle(scaled);
+    double density_relative_error = 0.0;
+    double source_normalized_error = 0.0;
+    double matrix_absolute_error = 0.0;
+    double predicted_normalized_error = 0.0;
+    double linearization_normalized_error = 0.0;
+    double position_normalized_error = 0.0;
+    double velocity_normalized_error = 0.0;
+
+    const auto relative_error = [](double expected, double actual, double floor) {
+        return std::abs(expected - actual)
+            / std::max({std::abs(expected), std::abs(actual), floor});
+    };
+    const auto normalized_vec_error = [](Vec3 expected, Vec3 actual, double scale) {
+        return norm(expected - actual) / scale;
+    };
+
+    const bool matching_shapes = base.density.size() == transformed.density.size()
+        && base.source.size() == transformed.source.size()
+        && base.local_matrix.size() == transformed.local_matrix.size()
+        && base.predicted_position.size() == transformed.predicted_position.size()
+        && base.linearization_position.size() == transformed.linearization_position.size()
+        && base.next_position.size() == transformed.next_position.size()
+        && base.final_velocity.size() == transformed.final_velocity.size();
+    if (matching_shapes) {
+        for (std::size_t i = 0; i < base.density.size(); ++i) {
+            density_relative_error = std::max(density_relative_error,
+                relative_error(base.density[i], transformed.density[i], 1.0e-30));
+            source_normalized_error = std::max(source_normalized_error,
+                normalized_vec_error(base.source[i] * length_scale,
+                    transformed.source[i], scaled.spacing));
+            predicted_normalized_error = std::max(predicted_normalized_error,
+                normalized_vec_error(base.predicted_position[i] * length_scale,
+                    transformed.predicted_position[i], scaled.spacing));
+            linearization_normalized_error = std::max(linearization_normalized_error,
+                normalized_vec_error(base.linearization_position[i] * length_scale,
+                    transformed.linearization_position[i], scaled.spacing));
+            position_normalized_error = std::max(position_normalized_error,
+                normalized_vec_error(base.next_position[i] * length_scale,
+                    transformed.next_position[i], scaled.spacing));
+            velocity_normalized_error = std::max(velocity_normalized_error,
+                normalized_vec_error(base.final_velocity[i] * (length_scale / time_scale),
+                    transformed.final_velocity[i], scaled.spacing / scaled.time_step));
+            for (std::size_t component = 0;
+                 component < base.local_matrix[i].v.size(); ++component) {
+                matrix_absolute_error = std::max(matrix_absolute_error,
+                    std::abs(base.local_matrix[i].v[component]
+                        - transformed.local_matrix[i].v[component]));
+            }
+        }
+    }
+    const double momentum_error = std::abs(
+        base.normalized_momentum_residual - transformed.normalized_momentum_residual);
+    const bool passed = matching_shapes && result_is_finite(base)
+        && result_is_finite(transformed)
+        && base.directed_pairs == transformed.directed_pairs
+        && base.maximum_degree == transformed.maximum_degree
+        && density_relative_error <= tolerance && source_normalized_error <= tolerance
+        && matrix_absolute_error <= tolerance && predicted_normalized_error <= tolerance
+        && linearization_normalized_error <= tolerance
+        && position_normalized_error <= tolerance
+        && velocity_normalized_error <= tolerance && momentum_error <= tolerance;
+
+    std::ostringstream output;
+    output << std::setprecision(17);
+    output << "{\"schema\":\"nextengine.nonlocal.cpu_scale_law_self_test.v1\""
+           << ",\"identity\":\"nuv-dimensionless-scale-law-r0\""
+           << ",\"length_scale\":" << length_scale
+           << ",\"time_scale\":" << time_scale
+           << ",\"coefficient_rules\":{\"kappa\":\"s^4/t^2\""
+           << ",\"lambda\":\"s^3/t\",\"mu\":\"s^3/t\""
+           << ",\"gamma\":\"s/t^2\"}"
+           << ",\"scaled_coefficients\":{\"kappa\":" << scaled.kappa
+           << ",\"lambda\":" << scaled.lambda << ",\"mu\":" << scaled.mu
+           << ",\"gamma\":" << scaled.gamma << '}'
+           << ",\"topology\":{\"directed_pairs\":" << transformed.directed_pairs
+           << ",\"maximum_degree\":" << transformed.maximum_degree
+           << ",\"exact\":"
+           << (base.directed_pairs == transformed.directed_pairs
+                   && base.maximum_degree == transformed.maximum_degree ? "true" : "false")
+           << "},\"maximum_scale_aware_error\":{\"density_relative\":"
+           << density_relative_error
+           << ",\"source_over_scaled_spacing\":" << source_normalized_error
+           << ",\"matrix_absolute\":" << matrix_absolute_error
+           << ",\"predicted_position_over_scaled_spacing\":"
+           << predicted_normalized_error
+           << ",\"linearization_position_over_scaled_spacing\":"
+           << linearization_normalized_error
+           << ",\"next_position_over_scaled_spacing\":"
+           << position_normalized_error
+           << ",\"velocity_over_scaled_spacing_per_step\":"
+           << velocity_normalized_error
+           << ",\"momentum_residual_absolute\":" << momentum_error << '}'
+           << ",\"tolerance\":" << tolerance
+           << ",\"energy_similarity_claim\":false"
+           << ",\"scope\":\"algebraic_similarity_only_not_physical_calibration\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << "\"}";
+    return {passed, output.str()};
+}
+
 std::vector<OracleCaseReport> run_cpu_self_test() {
     std::vector<OracleCaseReport> reports;
     for (const Fixture& fixture : oracle_fixtures()) {

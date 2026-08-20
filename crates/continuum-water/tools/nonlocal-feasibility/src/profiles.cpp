@@ -73,6 +73,28 @@ Profile performance_profile_v1(
     return profile;
 }
 
+Profile product_bridge_profile(
+    std::string id,
+    double horizon,
+    double time_step,
+    std::size_t max_neighbors,
+    std::string geometry) {
+    Profile profile = performance_profile_v1(
+        std::move(id), 80, 15, 40, 1.0, 1.5, 0.0, 0.0,
+        {true, true, false, false}, 5);
+    profile.record_version = 2;
+    profile.origin = {0.025, 0.025, 0.025};
+    profile.spacing = 0.05;
+    profile.mass = 0.125;
+    profile.horizon = horizon;
+    profile.time_step = time_step;
+    profile.max_neighbors = max_neighbors;
+    profile.max_directed_pairs = profile.samples * max_neighbors;
+    profile.geometry = std::move(geometry);
+    profile.boundary = "none_profile_bridge_only";
+    return profile;
+}
+
 std::string bool_json(bool value) { return value ? "true" : "false"; }
 
 } // namespace
@@ -136,6 +158,15 @@ const std::vector<Profile>& profiles() {
         performance_profile_v1(
             "nuv-water-100k-report.v1", 100, 50, 20, 1.0, 1.5, 0.0, 0.0,
             {true, true, false, false}, 5),
+        product_bridge_profile(
+            "nuv-basin-48k-source-scale.v2", 0.15, 0.001, 123,
+            "product_axis_basin_lattice_source_horizon_and_cadence"),
+        product_bridge_profile(
+            "nuv-basin-48k-cadence.v2", 0.15, 1.0 / 240.0, 123,
+            "product_axis_basin_lattice_source_horizon_product_cadence"),
+        product_bridge_profile(
+            "nuv-basin-48k-spec-support.v2", 0.10, 1.0 / 240.0, 33,
+            "product_axis_basin_lattice_spec_support_and_cadence"),
     };
     return values;
 }
@@ -175,7 +206,13 @@ std::string canonical_profile_json(const Profile& profile) {
     }
     output
            << ",\"geometry\":\"" << profile.geometry << "\""
-           << ",\"origin_m\":[0,0,0]"
+           << ",\"origin_m\":[";
+    if (profile.record_version >= 2) {
+        output << profile.origin.x << ',' << profile.origin.y << ',' << profile.origin.z;
+    } else {
+        output << "0,0,0";
+    }
+    output << ']'
            << ",\"spacing_m\":" << profile.spacing
            << ",\"mass_kg\":" << profile.mass
            << ",\"horizon_m\":" << profile.horizon
@@ -226,6 +263,76 @@ std::string described_profile_json(const Profile& profile) {
     output << "{\"schema\":\"nextengine.nonlocal.profile.v" << profile.record_version
            << "\",\"profile_sha256\":\""
            << sha256_hex(canonical) << "\",\"profile\":" << canonical << '}';
+    return output.str();
+}
+
+std::string production_profile_audit_json() {
+    const std::string retained_48k_id = "nuv-water-48k.v0";
+    const std::string retained_50k_id = "nuv-water-50k-coherent.v1";
+    const std::string source_scale_id = "nuv-basin-48k-source-scale.v2";
+    const std::string cadence_id = "nuv-basin-48k-cadence.v2";
+    const std::string spec_support_id = "nuv-basin-48k-spec-support.v2";
+    const Profile& retained_48k = find_profile(retained_48k_id);
+    const Profile& retained_50k = find_profile(retained_50k_id);
+    const Profile& source_scale = find_profile(source_scale_id);
+    const Profile& cadence = find_profile(cadence_id);
+    const Profile& spec_support = find_profile(spec_support_id);
+
+    const auto append_profile = [](std::ostringstream& output, const Profile& profile) {
+        const std::string canonical = canonical_profile_json(profile);
+        output << "{\"profile_id\":\"" << profile.id << "\",\"profile_sha256\":\""
+               << sha256_hex(canonical) << "\",\"samples\":" << profile.samples
+               << ",\"lattice\":[" << profile.lattice_x << ',' << profile.lattice_y << ','
+               << profile.lattice_z << "],\"origin_m\":[" << profile.origin.x << ','
+               << profile.origin.y << ',' << profile.origin.z << "],\"spacing_m\":"
+               << profile.spacing << ",\"mass_kg\":" << profile.mass
+               << ",\"horizon_m\":" << profile.horizon << ",\"horizon_over_spacing\":"
+               << profile.horizon / profile.spacing << ",\"time_step_s\":"
+               << profile.time_step << ",\"maximum_neighbors\":"
+               << profile.max_neighbors << ",\"boundary\":\"" << profile.boundary
+               << "\"}";
+    };
+
+    std::ostringstream output;
+    output << std::setprecision(17);
+    output << "{\"schema\":\"nextengine.nonlocal.production-profile-audit.v1\""
+           << ",\"command_status\":\"PASS\""
+           << ",\"semantic_status\":\"PROFILE_RECLOSURE_REQUIRED\""
+           << ",\"retained_profiles\":[";
+    append_profile(output, retained_48k);
+    output << ',';
+    append_profile(output, retained_50k);
+    output << "],\"bridge_profiles\":[";
+    append_profile(output, source_scale);
+    output << ',';
+    append_profile(output, cadence);
+    output << ',';
+    append_profile(output, spec_support);
+    output << "]"
+           << ",\"product_expectation\":{\"samples_nominal\":48000"
+           << ",\"samples_hard_capacity\":50000,\"lattice\":[80,15,40]"
+           << ",\"spacing_m\":0.050000000000000003,\"mass_kg\":0.125"
+           << ",\"horizon_m\":0.10000000000000001,\"time_step_s\":"
+           << 1.0 / 240.0
+           << ",\"boundary\":\"sealed_analytical_basin_not_implemented\"}"
+           << ",\"mismatch\":{\"spacing_scale_from_retained_48k\":"
+           << source_scale.spacing / retained_48k.spacing
+           << ",\"mass_scale_from_retained_48k\":"
+           << source_scale.mass / retained_48k.mass
+           << ",\"time_step_scale_from_source\":"
+           << cadence.time_step / source_scale.time_step
+           << ",\"source_horizon_over_spacing\":"
+           << source_scale.horizon / source_scale.spacing
+           << ",\"product_horizon_over_spacing\":"
+           << spec_support.horizon / spec_support.spacing
+           << ",\"retained_48k_axis_order_matches_product\":false"
+           << ",\"retained_50k_sample_count_matches_nominal\":false"
+           << ",\"retained_boundary_matches_product\":false}"
+           << ",\"open_gates\":{\"coefficient_scale_law_selected\":false"
+           << ",\"sealed_boundary_selected\":false"
+           << ",\"canonical_publication_selected\":false"
+           << ",\"physical_corpus_passed\":false"
+           << ",\"authority_selected\":false}}";
     return output.str();
 }
 

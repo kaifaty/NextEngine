@@ -11,8 +11,10 @@ namespace {
 
 void print_usage() {
     std::cerr << "usage: nonlocal-feasibility --describe-profile <profile-id>\n"
+              << "       nonlocal-feasibility --production-profile-audit\n"
               << "       nonlocal-feasibility --cpu-self-test\n"
               << "       nonlocal-feasibility --cpu-gather-self-test\n"
+              << "       nonlocal-feasibility --cpu-scale-law-self-test\n"
               << "       nonlocal-feasibility --self-test\n"
               << "       nonlocal-feasibility --self-test --accumulation <identity>\n"
               << "       nonlocal-feasibility --self-test --accumulation <identity> "
@@ -96,6 +98,10 @@ int main(int argc, char** argv) {
                       << '\n';
             return 0;
         }
+        if (argc == 2 && std::string(argv[1]) == "--production-profile-audit") {
+            std::cout << nextengine::nonlocal::production_profile_audit_json() << '\n';
+            return 0;
+        }
         if (argc == 2 && std::string(argv[1]) == "--cpu-self-test") {
             const auto reports = nextengine::nonlocal::run_cpu_self_test();
             bool passed = true;
@@ -107,6 +113,11 @@ int main(int argc, char** argv) {
         }
         if (argc == 2 && std::string(argv[1]) == "--cpu-gather-self-test") {
             const auto report = nextengine::nonlocal::run_cpu_gather_self_test();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--cpu-scale-law-self-test") {
+            const auto report = nextengine::nonlocal::run_cpu_scale_law_self_test();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

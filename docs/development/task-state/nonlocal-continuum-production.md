@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NPR0_PROFILE_BRIDGE / REPORT_ONLY` |
+| Status | `ACTIVE / NPR0_BOUNDARY_DISCRIMINATOR / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-production` |
 | Scope | Evidence-gated path from the retained Nonlocal GPU lab to one bounded basin production candidate |
@@ -16,10 +16,10 @@
   basin profile.
 - **Why:** spacing differs by `10×`, time step by `4.1667×`, support ratio is
   `3dx` versus `2dx`, lattice axes differ and the benchmark has no boundary.
-- **Next action:** implement and run the NPR0 machine audit plus ordered
-  scale/cadence/support P1/P2 preflights in the quarantined tool.
-- **Current blocker:** no selected coefficient scale law or sealed Nonlocal
-  boundary profile.
+- **Next action:** specify and run the boundary discriminator: exact two-layer
+  static support, then an adversarial non-penetration control.
+- **Current blocker:** no sealed Nonlocal boundary/contact identity; derived
+  coefficient scaling is algebraically closed but not physically calibrated.
 - **Do not retry:** runtime/public contract integration from the old 50k
   benchmark; it is not product-profile evidence.
 - **Reconsider when:** NPR0 selects one hash-bound basin-scale profile through
@@ -33,6 +33,7 @@
 | [Productionization roadmap](../../plans/nonlocal-continuum-production/README.md) | `ACTIVE / NPR0_PROFILE_BRIDGE` | profile/correctness/authority precede integration |
 | [NPR0 contract](../../plans/nonlocal-continuum-production/00-profile-reclosure-contract.md) | `SPECIFIED` | three one-axis bridge identities precede boundary work |
 | [Roadmap research](../nonlocal-continuum-production-roadmap-research-2026-08-20.md) | `PROFILE_MISMATCH_CONFIRMED` | current 3.2 ms result cannot be relabelled as basin performance |
+| [NPR0 bridge evidence](../nonlocal-continuum-npr0-profile-bridge-evidence-2026-08-20.md) | `NPR0_A_B_SCALE_LAW_COMPLETE` | scale/cadence/support execution and derived scale algebra close; boundary/physics remain open |
 | Later `CONTINUUM-*` ProductChecks | `NOT_RUN` | no production claim |
 
 ## Decisions that still constrain the work
@@ -73,6 +74,10 @@
 | H2: product cadence is stable with the control coefficients | SISSM is semi-implicit | `dt` enters terms differently and grows by `4.1667×` | `nuv-basin-48k-cadence.v2` after H1 |
 | H3: product `h/dx=2` retains adequate support | fewer pairs may reduce cost | paper resolution study uses `h/dx=3`; free surfaces/boundaries may be under-supported | `nuv-basin-48k-spec-support.v2`, then tiny sealed hydro control |
 
+The H1/H2/H3 executable preflights pass finite exact P1/P2 correspondence.
+They remain open as physical hypotheses until the boundary-aware tiny corpus
+and NPR1 reference corpus pass.
+
 ## Required context
 
 1. [Continuum routing](../../architecture/agent-routing.md),
@@ -87,9 +92,12 @@
 
 ## Next action
 
-1. Add v2 scale/cadence/support profiles without changing any v0/v1 JSON.
-2. Add `--production-profile-audit` and verify its stable hash-bound output.
-3. Run ordered retained P1/P2 preflights; stop at the first failure.
+1. Bind the exact SPEC-38 two-layer outer complement as separately counted
+   static density support; preserve the `50,000` fluid capacity.
+2. Run an adversarial high-speed wall case proving whether source-faithful
+   fixed ghosts provide non-penetration.
+3. Specify one contact/energy candidate only from that result, then implement
+   the smallest independent wall-control corpus.
 
 ## Do not retry
 
@@ -103,7 +111,8 @@
 
 - **Workspace state:** dedicated `codex/nonlocal-continuum-n0` worktree; new
   roadmap work is isolated from current runtime.
-- **Checks:** roadmap implementation not yet executed.
+- **Checks:** machine audit, three ordered bridge P2 preflights and the
+  four-iteration binary64 scale-law test pass.
 - **Remaining risk:** scale law, boundary formulation, physical corpus,
   authority, coupling, persistence and integrated budget are open.
 - **Promotion needed:** later consumer-backed Accepted ADR only after NPR7.

@@ -37,6 +37,7 @@ struct Profile {
     int lattice_y = 0;
     int lattice_z = 0;
     std::size_t samples = 0;
+    Vec3 origin{};
     double rest_density = 1000.0;
     double spacing = 0.005;
     double mass = 0.000125;
@@ -68,5 +69,6 @@ const std::vector<Profile>& profiles();
 const Profile& find_profile(const std::string& id);
 std::string canonical_profile_json(const Profile& profile);
 std::string described_profile_json(const Profile& profile);
+std::string production_profile_audit_json();
 
 } // namespace nextengine::nonlocal

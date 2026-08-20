@@ -72,6 +72,12 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --p4-tournament nuv-water-50k-advected.v1 --warmup 32 --runs 96
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --p2-decision nuv-water-50k-advected.v1 --warmup 64 --runs 512
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --production-profile-audit
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --cpu-scale-law-self-test
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --p2-check nuv-basin-48k-source-scale.v2 --iterations 5
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -169,3 +175,18 @@ replays exact P1/P2 trace correspondence, releases the comparator, then runs a
 single P2 finalist instance through 256 conditioning, 64 formal warm-up and
 512 measured executions. It reports raw totals and the standalone `4/6 ms`
 p95/p99 gate; it does not grant runtime or W2 authority.
+
+`--production-profile-audit` starts NPR0 without changing the retained
+performance identities. It hash-binds three boundary-free v2 bridge profiles:
+product geometry/mass at the source `h/dx` and cadence, then product cadence,
+then the SPEC-38 `h/dx`. Its command status validates the audit itself while
+its semantic status remains `PROFILE_RECLOSURE_REQUIRED`. The v2 coefficients
+are unchanged counterfactual controls, not a selected material calibration.
+
+`--cpu-scale-law-self-test` independently checks the algebraic similarity
+transform of the CPU `f64` directed-gather equations on one all-term tiny
+fixture. For length ratio `s` and time ratio `t`, it checks
+`kappa*s^4/t^2`, `lambda*s^3/t`, `mu*s^3/t` and `gamma*s/t^2`, scaled
+position/source, invariant density/matrix and scaled velocity. PASS proves
+only the implemented equation transform; it does not calibrate a product
+material, boundary, energy curve or canonical authority.

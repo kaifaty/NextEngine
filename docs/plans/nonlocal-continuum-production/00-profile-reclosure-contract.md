@@ -1,6 +1,6 @@
 # NPR0 — Nonlocal product-profile reclosure contract
 
-Status: `SPECIFIED / IMPLEMENTATION_NEXT / REPORT_ONLY`
+Status: `NPR0_A_B_SCALE_LAW_COMPLETE / BOUNDARY_NEXT / REPORT_ONLY`
 
 ## Purpose
 
@@ -86,6 +86,11 @@ The minimal physical controls are hydrostatic rest, exact free fall, one
 reversible perturbation and a small wall-contact case. They use an independent
 CPU implementation and predeclared normalized metrics. Visual similarity is
 diagnostic only.
+
+The algebraic scale-law discriminator is complete. Its derived coefficients
+remain a hypothesis until the physical controls pass. The sealed-boundary
+step must treat two-layer density support and non-penetration as distinct
+operations; a fixed ghost shell by itself cannot satisfy the boundary gate.
 
 ## Exit and rollback
 
