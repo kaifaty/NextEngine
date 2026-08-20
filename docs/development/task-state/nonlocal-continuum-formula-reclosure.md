@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / FCR0_SPECIFIED` |
+| Status | `ACTIVE / FCR0_PASS / FCR1_NEXT` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-formula-reclosure` |
 | Scope | Prove or reject a separately rooted energy/force-consistent Nonlocal continuum identity through algebra, physical, CUDA and performance gates |
@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** A new identity `nuv-variational-fcr1` is justified; the stopped v4 identity is not reusable.
-- **Why:** `dW/dr` and viscosity influence mismatches are confirmed, while surface normalization requires a newly explicit physical-distance potential rather than the old assumed `1/r0` repair.
-- **Next action:** Implement and execute the independent strict-f64 FCR0 algebra oracle.
+- **Current conclusion:** `nuv-variational-fcr1` is an algebra candidate; solver and physical validity are still unknown.
+- **Why:** FCR0 passes every energy/force derivative below `1.51e-8`, with byte-identical reports and unchanged old-line controls.
+- **Next action:** Specify and execute FCR1 pair-enumeration and pressure-semantics discriminators.
 - **Current blocker:** None.
 - **Do not retry:** Repairing or retuning `nuv-basin-48k-static-support-h3-physical.v4`; its formula identity, coefficients and roots are closed historical evidence.
 - **Reconsider when:** Only a reviewed upstream erratum can change source interpretation; it still cannot relabel old roots.
@@ -24,7 +24,8 @@
 | --- | --- | --- |
 | `docs/development/nonlocal-continuum-npr1b-term-controls-evidence-2026-08-20.md` | `FAIL` for the stopped source-shaped identity | Old NPR1-C through NPR8 remain blocked |
 | `docs/development/nonlocal-continuum-formula-reclosure-research-2026-08-20.md` | `DECISION` | New identity and formula contract required |
-| `docs/plans/nonlocal-continuum-formula-reclosure/00-formula-contract.md` | `FROZEN FOR IMPLEMENTATION` | FCR0 may be implemented; no physical or runtime claim |
+| `docs/plans/nonlocal-continuum-formula-reclosure/00-formula-contract.md` | `VERIFIED` | FCR0 algebra passes; no physical or runtime claim |
+| `docs/development/nonlocal-continuum-fcr0-algebra-evidence-2026-08-20.md` | `PASS` | `FCR_ALGEBRA_CANDIDATE`; FCR1 authorized |
 
 ## Decisions that still constrain the work
 
@@ -78,9 +79,9 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Add a separate `nonlocal-formula-reclosure` target and independent f64 formula implementation.
-2. Pass all FCR0 derivative/invariance gates twice byte-identically.
-3. Re-run the unchanged NPR1-A pass and frozen NPR1-B fail.
+1. Freeze FCR1's exact two-particle directed/undirected graph cases and underdense free-surface patch.
+2. Select one enumeration rule with analytical coefficient correspondence and one pressure rule with no tensile attraction.
+3. Re-run FCR0 and both frozen old-line controls as non-regression.
 
 ## Do not retry
 
@@ -90,7 +91,7 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** branch `codex/nonlocal-continuum-n0`; old line committed through `1652d1c`; new docs are the current change.
-- **Checks:** Primary-source audit complete; FCR0 implementation not yet run.
+- **Workspace state:** branch `codex/nonlocal-continuum-n0`; FCR0 implementation committed at `0ddf579`; evidence/roadmap update is the current change.
+- **Checks:** FCR0 PASS twice byte-identically; NPR1-A PASS unchanged; NPR1-B frozen FAIL unchanged; retained CUDA self-test PASS.
 - **Remaining risk:** Pair enumeration, nonlinear convergence, coefficient calibration and corrected CUDA cost remain open.
 - **Promotion needed:** Roadmap/evidence updates at each material gate; architecture promotion remains forbidden.

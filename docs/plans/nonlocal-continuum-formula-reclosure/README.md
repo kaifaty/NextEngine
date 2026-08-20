@@ -1,6 +1,6 @@
 # Nonlocal continuum — formula reclosure roadmap
 
-Status: `ACTIVE / FCR0_SPECIFIED / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `ACTIVE / FCR0_PASS / FCR1_NEXT / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
 
 This roadmap is a new research lineage. It does not repair or relabel the
 stopped source-shaped profile `nuv-basin-48k-static-support-h3-physical.v4`.
@@ -81,4 +81,7 @@ FCR0 formula/source closure + independent f64 algebra oracle
 - `FORMULA_RECLOSURE_STOP`: a mandatory gate fails after its bounded
   discriminator/remediation cycle.
 
-The current next action is FCR0 implementation and execution.
+FCR0 is implemented and passes with exact evidence in
+[the dated report](../../development/nonlocal-continuum-fcr0-algebra-evidence-2026-08-20.md).
+The current next action is FCR1: freeze and execute the pair-enumeration and
+pressure-semantics discriminator before implementing a multi-particle solver.

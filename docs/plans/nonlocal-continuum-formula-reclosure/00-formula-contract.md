@@ -1,6 +1,6 @@
 # FCR0 — formula and algebra contract
 
-Status: `FROZEN FOR IMPLEMENTATION / REPORT_ONLY`
+Status: `VERIFIED / FCR0_PASS / REPORT_ONLY`
 
 Candidate identity: `nuv-variational-fcr1`
 
@@ -155,4 +155,6 @@ objective or its declared residual under a bounded step policy.
 8. The stopped `--term-self-test` still fails with its frozen report and the
    NPR1-A canonical self-test still passes unchanged.
 
-Passing selects only `FCR_ALGEBRA_CANDIDATE`.
+The strict-f64 implementation passes. See the
+[FCR0 evidence](../../development/nonlocal-continuum-fcr0-algebra-evidence-2026-08-20.md).
+This selects only `FCR_ALGEBRA_CANDIDATE`.
