@@ -14,9 +14,12 @@ it does not select water coefficients or a boundary model.
 
 ## Ordered physical roadmap
 
-1. **NSR3-B0 dimensional/profile derivation.** Derive units and nondimensional
-   groups for inertia, compression penalty, bulk/shear viscosity and surface
-   energy. Freeze water, viscous and surface controls without visual tuning.
+1. **NSR3-B0 dimensional/profile derivation.** Execute the
+   [frozen eligibility discriminator](03b0-dimensional-profile-contract.md).
+   Derive units and nondimensional groups for inertia, compression penalty,
+   bulk/shear viscosity and surface energy. The current raw cubic must not be
+   hidden by coefficient tuning; a failed normalization requires a new
+   formula identity before profiles can be frozen.
 2. **NSR3-B1 multi-step manufactured controls.** Free flight, rigid
    translation, uniform compression/relaxation and rotating material controls;
    exact repeat, mass/momentum and step-doubling evidence.
@@ -33,10 +36,11 @@ it does not select water coefficients or a boundary model.
 
 - no coefficient may be inherited merely because it passed the stopped v4
   lineage;
+- the density kernel and every one of its derivatives must share one explicit
+  normalization factor;
 - no coefficient is selected from a visual result or best-of-sweep outcome;
 - surface and viscosity profiles are separate from water and cannot donate
   success to it;
 - canonical publication/root design precedes any long run;
 - Windows, moving rigid bodies, PhysX reactions, public schemas, save/replay,
   GPU authority, ML and adaptive split/merge remain out of scope.
-

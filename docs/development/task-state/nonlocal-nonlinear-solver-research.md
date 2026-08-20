@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3A2_PASS / NSR3B0_PROFILE_DERIVATION` |
+| Status | `ACTIVE / NSR3A2_PASS / NSR3B0_NORMALIZATION_DIAGNOSTIC` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -17,10 +17,13 @@
 - **Current conclusion:** `outer-state-hessian-tape-v1` is bit-exact, remains
   inside its linear memory cap, improves build+HVP by `2.05x--2.43x` and total
   solve by `1.36x--1.55x` across 512--4096 particles.
-- **Current action:** derive a dimensional coefficient map and nondimensional
-  profiles directly from the corrected objective and primary source formulas.
-- **Next gate:** NSR3-B0 must freeze water, viscosity and surface controls with
-  explicit units, similarity groups and no visual/best-of-sweep tuning.
+- **Current conclusion:** the unscaled FCR cubic integrates to `1/8`; at
+  `H=3dx` its infinite-lattice density is `0.125224*rho0`. The authors' code
+  applies a missing fixed lattice normalization near `7.985668`.
+- **Current action:** execute the frozen NSR3-B0 dimensional/normalization
+  discriminator without changing FCR1.
+- **Next gate:** prove the gap and derived mappings; expected disposition is a
+  separately named normalized FCR2 identity before any physical profile.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -79,12 +82,12 @@
 
 ## Exact next action
 
-1. Derive SI dimensions for every objective coefficient and state variable.
-2. Map publication parameters into dimensionless groups and identify any
-   coefficient that cannot be reconstructed from an authoritative source.
-3. Freeze separate water, viscosity and surface profiles plus tolerances before
-   implementing multi-step controls.
-4. Proceed to NSR3-B1 only after the profile contract is reviewable.
+1. Implement the independent NSR3-B0 algebra/lattice discriminator.
+2. Preserve all FCR1/NSR raw reports byte-identically.
+3. If the expected normalization gap is reproduced, freeze an FCR2 kernel
+   normalization reclosure rather than tuning material coefficients.
+4. Keep NSR3-B1 blocked until the new identity repeats formula, HVP and trust
+   correspondence.
 
 ## Reconsideration triggers
 
