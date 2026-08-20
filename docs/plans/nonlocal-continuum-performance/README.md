@@ -20,6 +20,8 @@ P2 representation, fallback and capacity rules are frozen in the
 [compact CSR specification](03-np1-p2-compact-csr.md).
 P3 stable-identity, dynamic-remap and conditional-retention rules are frozen
 in the [dynamic cell-local specification](04-np1-p3-dynamic-cell-local.md).
+P4 skin, certificate, canonical-filter and capacity rules are frozen in the
+[certified Verlet-reuse specification](05-np1-p4-certified-verlet-reuse.md).
 
 ## Outcome
 

@@ -15,8 +15,8 @@
   is not retained because viscous/surface controls regress `2.11/3.15%`.
 - **Why:** the complete remap is valuable for deliberately disordered IDs but
   not a safe universal layer without a separately proven cheap classifier.
-- **Next action:** specify P4 certified Verlet-skin neighbor reuse on retained
-  P2, including exact active-horizon filtering and rebuild certificates.
+- **Next action:** implement the specified P4 certified Verlet-skin cache on
+  retained P2, with exact active filtering and forced cache reset per epoch.
 - **Current blocker:** None for P4.
 - **Do not retry:** O3 endpoint pre-addition or coherent-lattice O4 tuning;
   their numeric/performance failures are closed evidence.
@@ -40,6 +40,7 @@
 | [P2 evidence](../nonlocal-continuum-np1-p2-evidence-2026-08-20.md) | `P2_RETAINED / P3_NEXT` | exact compact/fallback paths, adjacent speedups and memory receipts frozen |
 | [P3 specification](../../plans/nonlocal-continuum-performance/04-np1-p3-dynamic-cell-local.md) | `COMPLETE / NOT_RETAINED / P2_ROLLBACK` | stable identity, timed remap/scatter and conditional rollback gate frozen |
 | [P3 evidence](../nonlocal-continuum-np1-p3-evidence-2026-08-20.md) | `P3_NOT_RETAINED / P2_ROLLBACK / P4_NEXT` | exact dynamic remap and positive/negative locality boundary frozen |
+| [P4 specification](../../plans/nonlocal-continuum-performance/05-np1-p4-certified-verlet-reuse.md) | `SPECIFIED / IMPLEMENTATION_NEXT` | fixed skin, conservative certificate, canonical filter and rollback frozen |
 
 ## Decisions that still constrain the work
 
