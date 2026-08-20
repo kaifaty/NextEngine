@@ -182,6 +182,7 @@ async def evaluate_affect_calibration(
                 on_event=lambda _: None,
                 session_id=f"affect-calibration-{index}",
                 measurement=measurement,
+                retain_diagnostic_audio=False,
             )
         except Exception as error:
             rows.append(
@@ -520,6 +521,7 @@ async def benchmark_service(
             asr_audio_route=asr_audio_route,
             asr_model=asr_model,
             asr_delay_ms=asr_delay_ms,
+            retain_diagnostic_audio=False,
         )
         wall_ms = (time.monotonic() - started) * 1000
         wall_times.append(wall_ms)

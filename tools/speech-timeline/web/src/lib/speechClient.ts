@@ -16,7 +16,13 @@ export interface VadCalibrationInput {
   durationMs: number;
 }
 
-export type AsrAudioRoute = "raw" | "gain_only" | "enhanced" | "whisper";
+export type AsrAudioRoute =
+  | "raw"
+  | "gain_only"
+  | "enhanced"
+  | "whisper"
+  | "gtcrn"
+  | "ul_unas";
 export type AsrModelRoute = string;
 
 export async function loadBootstrap(): Promise<DashboardBootstrap> {
@@ -73,6 +79,17 @@ export async function loadDiagnosticAudio(): Promise<DiagnosticAudioRecord[]> {
   });
 }
 
+export async function loadDiagnosticPcm(recordId: string): Promise<Uint8Array> {
+  if (!/^[0-9a-f]{32}$/.test(recordId)) {
+    throw new Error("неверный идентификатор диагностической записи");
+  }
+  const response = await fetch(`/api/diagnostic-audio/${recordId}.wav`, {
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("не удалось загрузить RAW-запись");
+  return parseMonoPcm16Wav(await response.arrayBuffer());
+}
+
 export class SpeechTimelineClient {
   private socket: WebSocket | null = null;
   private sessionId = "";
@@ -97,6 +114,7 @@ export class SpeechTimelineClient {
     asrAudioRoute: AsrAudioRoute,
     asrDelayMs?: number,
     vadCalibration?: VadCalibrationInput,
+    retainDiagnosticAudio = true,
   ): Promise<void> {
     if (this.socket !== null) {
       throw new Error("speech session is already connected");
@@ -129,6 +147,7 @@ export class SpeechTimelineClient {
           asrAudioRoute,
           asrDelayMs,
           vadCalibration,
+          retainDiagnosticAudio,
         );
       socket.onerror = () => {
         if (!this.sessionStarted) {
@@ -222,6 +241,7 @@ export class SpeechTimelineClient {
     asrAudioRoute: AsrAudioRoute,
     asrDelayMs?: number,
     vadCalibration?: VadCalibrationInput,
+    retainDiagnosticAudio = true,
   ): void {
     if (typeof message.data !== "string") {
       this.rejectStart(new Error("service returned an unexpected binary frame"));
@@ -264,6 +284,7 @@ export class SpeechTimelineClient {
         asr_model: asrModel,
         asr_audio_route: asrAudioRoute,
         ...(asrDelayMs === undefined ? {} : { asr_delay_ms: asrDelayMs }),
+        retain_diagnostic_audio: retainDiagnosticAudio,
         ...(vadCalibration
           ? {
               vad_calibration: {
@@ -293,6 +314,45 @@ export class SpeechTimelineClient {
     this.startedResolve = null;
     this.startedReject = null;
   }
+}
+
+function parseMonoPcm16Wav(buffer: ArrayBuffer): Uint8Array {
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+  if (
+    bytes.byteLength < 44 ||
+    ascii(bytes, 0, 4) !== "RIFF" ||
+    ascii(bytes, 8, 4) !== "WAVE"
+  ) {
+    throw new Error("диагностическая запись не является RIFF/WAVE");
+  }
+  let formatValid = false;
+  let pcm: Uint8Array | null = null;
+  for (let offset = 12; offset + 8 <= bytes.byteLength; ) {
+    const id = ascii(bytes, offset, 4);
+    const size = view.getUint32(offset + 4, true);
+    const start = offset + 8;
+    const end = start + size;
+    if (end > bytes.byteLength) throw new Error("WAV-чанк выходит за границы файла");
+    if (id === "fmt " && size >= 16) {
+      formatValid =
+        view.getUint16(start, true) === 1 &&
+        view.getUint16(start + 2, true) === 1 &&
+        view.getUint32(start + 4, true) === 16_000 &&
+        view.getUint16(start + 14, true) === 16;
+    } else if (id === "data") {
+      pcm = bytes.slice(start, end);
+    }
+    offset = end + (size % 2);
+  }
+  if (!formatValid || pcm === null || pcm.byteLength === 0 || pcm.byteLength % 2 !== 0) {
+    throw new Error("WAV должен содержать mono PCM16LE 16 kHz");
+  }
+  return pcm;
+}
+
+function ascii(bytes: Uint8Array, offset: number, length: number): string {
+  return String.fromCharCode(...bytes.subarray(offset, offset + length));
 }
 
 function requireAsrModel(value: unknown, model: AsrModelRoute): void {

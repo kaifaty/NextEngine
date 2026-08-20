@@ -184,6 +184,8 @@ Silero, DPDFNet, DeepFilterNet or RNNoise types remain adapter internals.
 | WebRTC APM | First classical baseline for AEC, moderate NS and a single AGC; standalone 10-ms processing and render-reference API. | C++/FFI integration and tuning; its VAD is not accepted as whisper proof. | Evaluate first when an engine render reference is available. Do not enable every module blindly. |
 | Silero VAD v6 | Small streaming 8/16-kHz neural VAD with ONNX path; repository reports sub-ms processing for 30+ ms chunks on one CPU thread. | General speech detector, not a published whisper-specific guarantee; thresholds and temporal post-processing remain ours. | First neural replacement candidate for the current RMS gate, gated by whisper recall/false alarms. |
 | DPDFNet | Existing fast 16-kHz causal enhancement candidate. | Current pinned online API lacks attenuation control; current double-gain output is subjectively worse than raw. | Keep only as a diagnostic candidate. Re-evaluate with bounded attenuation/wet-dry and one gain stage. |
+| GTCRN | Official 16-kHz streaming graph with 48.2K parameters and explicit recurrent caches; cheap universal denoising candidate. | Published DNS/VCTK speech-enhancement scores do not establish Russian Voxtral WER, whisper preservation or microphone preference. | Integrate as a separate resident ASR-only route and compare identical PCM against RAW. |
+| UL-UNAS | Newer official ultra-lightweight streaming ONNX graph with explicit cache tensors and the same 512/256 spectral clock. | 2026 model with less deployment history; stronger suppression can still remove ASR evidence. | Integrate beside GTCRN as a diagnostic route, never as an inferred upgrade. |
 | DeepFilterNet3 | Full-band 48-kHz real-time Rust implementation with an attenuation-limit control. | More resampling/integration for current 16-kHz ASR; a stronger model can still over-suppress. | Second enhancement A/B candidate after the harness exists. |
 | RNNoise | Small recurrent 48-kHz noise-suppression baseline with permissive code license. | Not whisper-specific and lower-capacity; requires exact model/provenance evaluation. | Low-resource reference, not assumed quality winner. |
 | Whisper-mode classifier | Route/annotation based on sequential spectral evidence. | Adds no missing speech by itself and requires representative Russian microphone data. | Defer until the neural VAD/ASR corpus shows a separable whisper failure. |
@@ -255,6 +257,45 @@ next quality discriminator is a small transcribed Russian normal/whisper corpus
 evaluated across the current route and a whisper-capable ASR/model adaptation.
 The dashboard exposes the new route and exact signal metrics for the user's
 live listening test, but no processed route is promoted as a product default.
+
+### Resident universal-enhancer A/B is implemented
+
+Two additional official streaming graphs are now pinned outside the repository:
+
+- GTCRN revision `502ebfab64da7c4a9af78dcb9c6ceef1ebb01c73`,
+  `gtcrn_simple.onnx`, 535,190 bytes, SHA-256
+  `b4718df6228e7bdf1a8a435cf98f838636eb2fd331acabf86ba87c5192ebcb87`;
+- UL-UNAS revision `00f7c700da43d38347f30a6ccebd86fcbc798e07`,
+  `ulunas_stream_simple.onnx`, 788,967 bytes, SHA-256
+  `f2e804d54d6a88f4f82f44d86c9f1cf646db2509bfca935cfbfc5fcd8cbfac3b`.
+
+The model-neutral adapter validates their exact input/output names, float32
+types and cache shapes before warmup. Both models consume one
+`[1,257,1,2]` spectral frame, use a 512-sample transform and 256-sample hop,
+and keep all recurrent state resident on the dedicated CPU preprocessing
+worker. A causal zero-padded STFT and normalized overlap-add delay output by one
+hop while preserving the exact source sample count at finish. GTCRN uses the
+upstream square-root Hann window; UL-UNAS uses the upstream Hann window.
+
+On one existing 10.784-s external diagnostic take (WAV SHA-256
+`392c6956f569b371a61d635cfa5507b205de39c4efb1d3ca31bfc6223911b051`),
+both service routes returned all 172,544 samples and finite PCM:
+
+| Route | Stream p50/p95 | Flush | ASR RMS | Voxtral final, unreferenced |
+| --- | ---: | ---: | ---: | --- |
+| `raw` | bypass | — | −32.33 dBFS | `Je ne sais pas si vous avez entendu.` |
+| existing `enhanced` | 13/15 ms | 4 ms | −15.77 dBFS | long Russian hallucination-like output |
+| `gtcrn` | 5/7 ms | 1 ms | −32.50 dBFS | `Je ne` |
+| `ul_unas` | 5/7 ms | 1 ms | −33.35 dBFS | empty |
+
+This single unreferenced take proves residency, bounded runtime, cache/clock
+correctness and that stronger enhancement can regress recognition. It does not
+rank quality. In particular, the louder DPDFNet result is not evidence of a
+better transcript. The Vue dashboard therefore replays one retained RAW WAV
+sequentially and real-time paced through RAW, DPDFNet, GTCRN and UL-UNAS. Replay
+turns set `retain_diagnostic_audio=false`, so they no longer evict the source
+from the last-five cache. The table exposes transcript, first partial,
+finalization, preprocessing p95 and optional reference-derived WER/CER.
 
 ## Evaluation protocol: “better than raw” means multiple outcomes
 
@@ -353,6 +394,8 @@ The only TTS-related work here is providing its render samples to future AEC.
 - Lin, Patel, Scharenborg: [pseudo-whispered augmentation for whispered ASR](https://arxiv.org/abs/2311.05179).
 - [Silero VAD](https://github.com/snakers4/silero-vad),
   [DPDFNet](https://github.com/ceva-ip/DPDFNet),
+  [GTCRN](https://github.com/Xiaobin-Rong/gtcrn),
+  [UL-UNAS](https://github.com/Xiaobin-Rong/ul-unas),
   [DeepFilterNet](https://github.com/Rikorose/DeepFilterNet), and
   [RNNoise](https://github.com/xiph/rnnoise) official repositories.
 - Microsoft: [DNS Challenge P.835 plus word accuracy methodology](https://github.com/microsoft/DNS-Challenge),
@@ -363,9 +406,8 @@ The only TTS-related work here is providing its render samples to future AEC.
 
 ## Smallest next action
 
-Use quiet calibration and let the user listen to one new microphone turn through
-the implemented `whisper` route beside its stored RAW variant. Then freeze a
-small reference-transcribed Russian normal/whisper set and compare the current
-front-end against a whisper-capable ASR or adaptation. The exact clip above has
-already falsified another gain/denoiser-only tweak; Silero VAD and
-render-reference AEC remain separate, independently measured increments.
+Use the dashboard's identical-PCM replay on a known Russian phrase and enter its
+reference text to collect RAW/DPDFNet/GTCRN/UL-UNAS WER/CER plus latency. Repeat
+on a small normal/whisper/noise set rather than tuning to the unreferenced take
+above. The prior quiet clip already falsified another gain-only tweak; Silero
+VAD and render-reference AEC remain separate, independently measured increments.

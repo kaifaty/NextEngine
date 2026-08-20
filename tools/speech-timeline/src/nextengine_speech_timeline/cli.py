@@ -167,6 +167,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                     ),
                     **(
                         {
+                            "audio_enhancers": [
+                                {
+                                    "adapter_id": enhancer.adapter_id,
+                                    "model_id": enhancer.model_id,
+                                    "model_revision": enhancer.model_revision,
+                                    "model_sha256": enhancer.model_sha256,
+                                    "routing": enhancer.routing,
+                                }
+                                for enhancer in profile.audio_enhancers
+                            ]
+                        }
+                        if profile.audio_enhancers
+                        else {}
+                    ),
+                    **(
+                        {
                             "gigastt_model_id": profile.gigastt.model_id,
                             "gigastt_model_revision": profile.gigastt.model_revision,
                             "gigastt_runtime_version": profile.gigastt.runtime_version,

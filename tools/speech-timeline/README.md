@@ -92,10 +92,11 @@ The same selection is available to repeatable microphone/benchmark runs as
 `--asr-delay-ms 480|960|2400`; content-free benchmark reports record the
 selected value in `run_configuration`.
 The protocol defaults to `raw`. If the profile contains an audio preprocessor,
-the dashboard exposes four explicit per-utterance choices: **RAW**,
-**Gain only**, the previous full **DPDFNet** route, and the new
-whisper-preserving **Whisper** route. The dashboard preselects Whisper for the
-current microphone trial; unsupported routes never fall back silently.
+the dashboard exposes its explicit per-utterance routes: **RAW**, **Gain only**,
+full **DPDFNet**, whisper-preserving **Whisper**, and any separately configured
+**GTCRN** / **UL-UNAS** models. The dashboard preselects Whisper for the current
+microphone trial; unsupported routes never fall back silently and no enhancer
+is promoted over RAW without paired WER/CER evidence.
 
 The dashboard deliberately keeps these representations separate:
 
@@ -154,6 +155,9 @@ optional ASR/preprocessing branches:
   VAD, vocal affect and the original sample clock remain on raw PCM. When
   explicit diagnostics are enabled, raw and ASR-enhanced WAV are retained as
   separate, clearly labelled variants.
+- `audio_enhancers` (optional): at most one pinned GTCRN and one pinned UL-UNAS
+  streaming ONNX graph. Both are ASR-only, resident CPU routes behind the same
+  facade; the profile validates exact file size and SHA-256 before startup.
 
 ### Selectable GigaAM-v3 ASR
 
@@ -341,6 +345,53 @@ turn exposes both **Raw микрофон** and a route-labelled **ASR** WAV when
 processing. Select **RAW · контроль** to bypass preprocessing immediately;
 removing the whole `audio_preprocessor` object removes all three candidates
 after restart.
+
+### GTCRN and UL-UNAS universal enhancement trial
+
+The same facade can host the official streaming ONNX graphs from
+[`Xiaobin-Rong/gtcrn`](https://github.com/Xiaobin-Rong/gtcrn) and
+[`Xiaobin-Rong/ul-unas`](https://github.com/Xiaobin-Rong/ul-unas). They remain
+CPU-resident beside DPDFNet and own distinct `gtcrn` / `ul_unas` routes. The
+adapter validates the published tensor/cache shapes, executes one complex STFT
+frame at a time and reconstructs PCM with normalized overlap-add. Its 512-sample
+window and 256-sample hop report 32 ms algorithmic latency and preserve the
+captured sample count exactly after flush. VAD and vocal affect still receive
+RAW PCM.
+
+Copy the exact upstream ONNX files outside the repository and add this bounded
+top-level list to the profile:
+
+```json
+"audio_enhancers": [
+  {
+    "adapter_id": "gtcrn-onnx-streaming/1",
+    "model_id": "Xiaobin-Rong/gtcrn",
+    "model_revision": "502ebfab64da7c4a9af78dcb9c6ceef1ebb01c73",
+    "model_path": "/home/you/.cache/nextengine/audio-enhancers/gtcrn/502ebfab64da7c4a9af78dcb9c6ceef1ebb01c73/gtcrn_simple.onnx",
+    "model_size_bytes": 535190,
+    "model_sha256": "sha256:b4718df6228e7bdf1a8a435cf98f838636eb2fd331acabf86ba87c5192ebcb87",
+    "routing": "asr_only"
+  },
+  {
+    "adapter_id": "ul-unas-onnx-streaming/1",
+    "model_id": "Xiaobin-Rong/ul-unas",
+    "model_revision": "00f7c700da43d38347f30a6ccebd86fcbc798e07",
+    "model_path": "/home/you/.cache/nextengine/audio-enhancers/ul-unas/00f7c700da43d38347f30a6ccebd86fcbc798e07/ulunas_stream_simple.onnx",
+    "model_size_bytes": 788967,
+    "model_sha256": "sha256:f2e804d54d6a88f4f82f44d86c9f1cf646db2509bfca935cfbfc5fcd8cbfac3b",
+    "routing": "asr_only"
+  }
+]
+```
+
+The dashboard's diagnostic list can replay one retained RAW WAV sequentially
+through RAW, DPDFNet, GTCRN and UL-UNAS using the selected ASR and identical
+80-ms PCM chunks. Replay is real-time paced to keep scheduler load comparable
+and explicitly disables diagnostic retention, so it cannot evict the source
+recording. The result table reports transcript, first-partial and finalization
+latency, preprocessing p95 and signal levels. Supplying the known transcript
+also computes WER and CER in the browser. This is an evaluation surface, not an
+automatic route selector.
 
 The ready file is created with mode `0600`, contains the random session token,
 and is removed on clean shutdown. Raw PCM, transcripts, and model outputs are

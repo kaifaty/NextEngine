@@ -18,9 +18,9 @@
 - **Phase 2 plan:** `docs/plans/2026-08-18-conversation-service-phase-2.md` adds a `ConversationService` facade for large-LLM dialogue and TTS only; two Phase 2 scope choices remain pending.
 - **Phase 3 plan:** `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` now starts with 3A: one existing character, push-to-talk, session-local persona/history, subtitles/TTS and no world/internal-model/tool context. 3B-3D then harden proven boundaries, shadow-integrate the strategic model and freeze catalogs.
 - **Phase 4 plan:** `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` fine-tunes FunctionGemma only after Phase 3 freezes a consumer-backed strategic catalog and corpus seed.
-- **Next action:** Freeze a small reference-transcribed Russian normal/whisper/noise set and run paired WER/CER, empty-rate, useful-partial and churn evaluation through the now-integrated `gigastt`, Voxtral and offline GigaAM routes. Use that result to decide whether the bounded 1 s/2 s native GigaAM chunk/cache feasibility spike is justified. Do not train before architecture parity and zero-training negative controls.
+- **Next action:** Use the identical-PCM Vue replay with entered reference text to measure RAW/DPDFNet/GTCRN/UL-UNAS WER/CER and latency on a small Russian normal/whisper/noise set, then run the same ASR corpus through `gigastt`, Voxtral and offline GigaAM. Do not promote an enhancer or train before paired evidence and zero-training negative controls.
 - **Current blocker:** No tested route yet combines the GigaAM take's Russian/whisper quality with verified stateful partial revisions and admitted RTX 3080 residency. Nemotron does not close that gap.
-- **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated GigaAM streaming partials or whole-prefix redecoding presented as native streaming; authoritative actions/TTS from provisional text; RMS/retained energy as the quality oracle; more gain or stronger denoising on the same failed clip; Nemotron prompt/context/quantization tuning without new labelled evidence; benchmark replays against a retention-enabled last-five profile until a diagnostic-retention opt-out exists.
+- **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated GigaAM streaming partials or whole-prefix redecoding presented as native streaming; authoritative actions/TTS from provisional text; RMS/retained energy as the quality oracle; more gain or stronger denoising on the same failed clip; Nemotron prompt/context/quantization tuning without new labelled evidence.
 - **Reconsider when:** A model/runtime exposes better timed lexical units, or measured model-slot boundary error is too high and justifies a final aligner.
 
 ## Current evidence
@@ -33,7 +33,7 @@
 | `e839a38:docs/development/voxtral-mini-4b-realtime-2602-research-2026-08-17.md` | Q4_K_M ~4080 MiB process VRAM, ~3x realtime, 1.2–1.4 s model load | Plausible resident ASR on the 10 GiB host; joint peak remains mandatory evidence. |
 | `transcribe.cpp` commit `9315160` | Voxtral capability `TIMESTAMPS_NONE`; whole-text segment; feed cursor is not lexical time | Baseline fusion grade is `utterance`, not word. |
 | Official Voxtral/vLLM protocol | 80 ms aligned model slots but public Realtime events carry only text delta/final | Test a private token-slot adapter; keep timing capability explicit. |
-| `tools/speech-timeline` ASR route contract, 2026-08-20 | protocol defaults to `raw`; dashboard/CLI expose raw, gain-only, full-DPDF and whisper-preserving A/B; focused protocol/WebSocket tests prove raw bypasses `reset/process/flush` while processed routes preserve the sample clock | DPDFNet presence no longer silently changes ASR input; identical external WAVs can be replayed through each advertised route with lineage, signal levels and timing metrics. |
+| `tools/speech-timeline` ASR route contract, 2026-08-20 | protocol defaults to `raw`; dashboard/CLI expose raw, gain-only, full-DPDF, whisper-preserving, GTCRN and UL-UNAS routes. The pinned CPU ONNX graphs load once, validate explicit cache shapes and preserve the sample clock; on one 172,544-sample take GTCRN/UL-UNAS preprocessing was 5/7 ms p50/p95 with 1 ms flush. Sequential real-time Vue replay feeds identical RAW PCM and opts out of diagnostic retention. | Multiple universal enhancement candidates can now be compared without changing VAD/affect input or evicting the source WAV. The unreferenced take regressed under both new routes, so no route is promoted; entered reference text and paired WER/CER are the next gate. Detailed evidence: [front-end research](../speech-input-front-end-research-2026-08-20.md). |
 | `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md` | bounded pair/facade research complete | Supersedes the prior SimulStreaming ASR selection and defines staged implementation/evidence. |
 | User confirmation `A/A/A/A`, 2026-08-18 | first implementation scope approved | Standalone / explicit finish / utterance MVP / authenticated localhost WebSocket; no engine-facing IPC, mandatory VAD or model-slot gate. |
 | `docs/plans/2026-08-18-speech-timeline-service-implementation.md` | approved implementation sequence | Defines the smallest resident vertical and commit/test boundaries; it does not promote SPEC-16. |
@@ -181,7 +181,7 @@
 ### D-014 — Embedded PCM preprocessing; no virtual capture-device dependency
 
 - **Observation:** The eventual consumer is an embedded game host, not a Linux-only diagnostic application. The user explicitly rejected creating a PipeWire or other virtual microphone as part of the product path.
-- **Decision:** A preprocessing adapter accepts host-captured PCM and produces timestamp/length-preserving derived PCM branches. It is in-process or a declared bounded host service; it never installs, creates or depends on a system virtual audio device. Its public seam stays model-neutral and reports exact algorithm/model identity, configuration, delay and bypass state. The implemented protocol defaults to `raw`; a configured resident preprocessor advertises explicit `gain_only`, full `enhanced` and attenuation-limited `whisper` routes, receives the calibrated noise floor only for its gain gate, and otherwise receives no per-turn calls.
+- **Decision:** A preprocessing adapter accepts host-captured PCM and produces timestamp/length-preserving derived PCM branches. It is in-process or a declared bounded host service; it never installs, creates or depends on a system virtual audio device. Its public seam stays model-neutral and reports exact algorithm/model identity, configuration, delay and bypass state. The implemented protocol defaults to `raw`; configured resident delegates advertise explicit `gain_only`, full `enhanced`, attenuation-limited `whisper`, `gtcrn` and `ul_unas` routes. Only the selected delegate receives per-turn PCM; calibrated noise floor affects only the DPDF gain gate.
 - **Consequence:** The local Python prototype exposes the same model-neutral resident seam for evidence only; the future native Rust DSP must expose it directly. Raw is the selected control/fallback. ASR, neural activity and affect use separate derived branches; affect remains raw or AEC-only until its own labelled gate. WebRTC APM/AEC, Silero VAD and conservative DPDFNet/DeepFilterNet/RNNoise routes are independently evaluated; no enhancer is the native default yet. See [front-end research](../speech-input-front-end-research-2026-08-20.md).
 - **Rejected/reconsider:** No virtual device, global AGC/shared affect stream or per-window CLI filtering. Reconsider only if the in-process A/B trial has no benefit, fails its resource/latency envelope, or a cross-platform host boundary requires a different adapter contract.
 
@@ -217,12 +217,10 @@
 - **Consequence/uncertainty:** The UI can now compare early GigaAM-family partials against Voxtral and the stronger final GigaAM take without changing consumers. Local WER/CER, empty-rate and churn remain unknown until the reference-transcribed set exists.
 - **Reconsider when:** A paired labelled Russian evaluation establishes that the buffered route is useful enough for cancelable intent prewarm, or a native cache-aware GigaAM derivative supersedes it.
 
-The live comparison also exposed an operational test-harness defect: completed
-benchmark replays use the same diagnostic-retention path as microphone turns.
-The repeated seven-second control therefore filled the circular last-five list
-and evicted older diagnostic entries. Those evicted entries are not recoverable
-from that cache. Add an explicit non-retaining benchmark mode before the next
-live comparison; do not use the retention-enabled profile as a replay sink.
+The replay-retention defect is closed: `session.start` now carries a strict
+`retain_diagnostic_audio` flag. Microphone turns default to retention when the
+external store is enabled; benchmark/calibration/UI replay explicitly set it to
+false, and integration coverage proves the last-five list remains unchanged.
 
 ## Open hypotheses
 
@@ -261,7 +259,7 @@ Read in precedence order:
 
 ## Smallest next action
 
-1. Freeze comparable reference-transcribed normal/whisper/noise Russian takes externally and report paired WER/CER, empty-rate, revision churn and latency for candidate native-streaming ASR, Voxtral and final-only GigaAM across the same front-end routes.
+1. Freeze comparable reference-transcribed normal/whisper/noise Russian takes externally. First use identical-PCM UI replay to report RAW/DPDFNet/GTCRN/UL-UNAS WER/CER and latency; then report empty-rate, revision churn and latency for candidate native-streaming ASR, Voxtral and final-only GigaAM.
 2. Complete the labelled paired evaluation of the integrated `gigastt` bounded-emulation route. If native GigaAM adaptation is then authorized, prove full-context parity and measure zero-training fixed 1 s/2 s behavior as negative controls before fine-tuning; otherwise retain the two-pass boundary. Keep Nemotron out of the active profile.
 3. Extend Phase 2 contracts with transcript-revision-keyed cancellation and speculative immutable prewarm before implementing a real LLM; final canonical text remains the sole admission boundary.
 4. Keep VAD and Voxtral model-slot timing as separately measured increments; do not fabricate word spans meanwhile.
@@ -290,7 +288,7 @@ Read in precedence order:
 
 ## Handoff
 
-- **Workspace state:** `codex/speech-timeline-service` contains the converged tested wrapper and complete standalone Phase 1 service/client/benchmark implementation; external models, profiles, ready files and reports remain outside Git.
+- **Workspace state:** `tools/speech-timeline` contains the resident Phase 1 service plus selectable DPDFNet/GTCRN/UL-UNAS ASR preprocessing and identical-PCM Vue replay; external models, profiles, ready files, audio and reports remain outside Git.
 - **Checks:** Run the focused Python/lab suites, `git diff --check`, lock consistency and final risk-scoped `host-check` before handoff.
 - **Remaining risk:** User-spoken microphone acceptance, broader Russian ASR quality, VAD/model-slot alignment, emotion transition quality, and emotion2vec+ redistribution terms.
 - **Promotion needed:** None; no Accepted architecture or roadmap change is authorized by this research.

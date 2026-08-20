@@ -398,6 +398,7 @@ class SpeechTimelineWebSocketService:
                             asr_audio_route=client_message.asr_audio_route,
                             asr_model=client_message.asr_model,
                             asr_delay_ms=client_message.asr_delay_ms,
+                            retain_diagnostic_audio=client_message.retain_diagnostic_audio,
                         )
                     elif isinstance(client_message, SessionFinish):
                         await connection.finish(client_message.session_id)

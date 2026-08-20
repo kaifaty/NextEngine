@@ -74,7 +74,7 @@ class ProtocolTests(unittest.TestCase):
             "asr_audio_route": "enhanced",
             "asr_model": "gigaam-v3-e2e-rnnt",
         }
-        for route in ("enhanced", "gain_only", "whisper"):
+        for route in ("enhanced", "gain_only", "whisper", "gtcrn", "ul_unas"):
             value["asr_audio_route"] = route
             start = parse_client_message(json.dumps(value))
             self.assertIsInstance(start, SessionStart)
@@ -86,6 +86,24 @@ class ProtocolTests(unittest.TestCase):
             parse_client_message(json.dumps(value))
         self.assertEqual(caught.exception.code, "INVALID_FIELD")
         value["asr_audio_route"] = ["raw"]
+        with self.assertRaises(ProtocolError):
+            parse_client_message(json.dumps(value))
+
+    def test_diagnostic_retention_is_explicitly_suppressible_for_replay(self) -> None:
+        value = {
+            "schema_version": 1,
+            "type": "session.start",
+            "session_id": "comparison-replay",
+            "locale": "ru",
+            "sample_rate_hz": 16_000,
+            "encoding": "pcm_s16le",
+            "channels": 1,
+            "retain_diagnostic_audio": False,
+        }
+        start = parse_client_message(json.dumps(value))
+        self.assertIsInstance(start, SessionStart)
+        self.assertFalse(start.retain_diagnostic_audio)
+        value["retain_diagnostic_audio"] = 0
         with self.assertRaises(ProtocolError):
             parse_client_message(json.dumps(value))
 

@@ -16,12 +16,16 @@ ASR_AUDIO_ROUTE_RAW = "raw"
 ASR_AUDIO_ROUTE_ENHANCED = "enhanced"
 ASR_AUDIO_ROUTE_GAIN_ONLY = "gain_only"
 ASR_AUDIO_ROUTE_WHISPER = "whisper"
+ASR_AUDIO_ROUTE_GTCRN = "gtcrn"
+ASR_AUDIO_ROUTE_UL_UNAS = "ul_unas"
 ASR_AUDIO_ROUTES = frozenset(
     {
         ASR_AUDIO_ROUTE_RAW,
         ASR_AUDIO_ROUTE_ENHANCED,
         ASR_AUDIO_ROUTE_GAIN_ONLY,
         ASR_AUDIO_ROUTE_WHISPER,
+        ASR_AUDIO_ROUTE_GTCRN,
+        ASR_AUDIO_ROUTE_UL_UNAS,
     }
 )
 
@@ -67,6 +71,7 @@ class SessionStart:
     asr_audio_route: str = ASR_AUDIO_ROUTE_RAW
     asr_model: str | None = None
     asr_delay_ms: int | None = None
+    retain_diagnostic_audio: bool = True
 
 
 @dataclass(frozen=True)
@@ -115,7 +120,13 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
                 "encoding",
                 "channels",
             },
-            optional={"vad_calibration", "asr_audio_route", "asr_model", "asr_delay_ms"},
+            optional={
+                "vad_calibration",
+                "asr_audio_route",
+                "asr_model",
+                "asr_delay_ms",
+                "retain_diagnostic_audio",
+            },
         )
         session_id = _session_id(value.get("session_id"))
         locale_value = value.get("locale")
@@ -158,6 +169,13 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
                     "asr_delay_ms must be positive",
                     terminal=True,
                 )
+        retain_diagnostic_audio = value.get("retain_diagnostic_audio", True)
+        if not isinstance(retain_diagnostic_audio, bool):
+            raise ProtocolError(
+                "INVALID_FIELD",
+                "retain_diagnostic_audio must be a boolean",
+                terminal=True,
+            )
         return SessionStart(
             session_id=session_id,
             locale=locale_value,
@@ -168,6 +186,7 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
             asr_audio_route=asr_audio_route,
             asr_model=asr_model,
             asr_delay_ms=asr_delay_ms,
+            retain_diagnostic_audio=retain_diagnostic_audio,
         )
     if message_type in {"session.finish", "session.cancel"}:
         _require_keys(value, {"schema_version", "type", "session_id"})

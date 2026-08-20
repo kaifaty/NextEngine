@@ -115,6 +115,7 @@ async def run_websocket_session(
     asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
     asr_model: str | None = None,
     asr_delay_ms: int | None = None,
+    retain_diagnostic_audio: bool = True,
 ) -> dict[str, object]:
     if asr_audio_route not in ASR_AUDIO_ROUTES:
         raise ClientError(f"ASR audio route must be one of {sorted(ASR_AUDIO_ROUTES)}")
@@ -210,6 +211,7 @@ async def run_websocket_session(
             "channels": 1,
             "asr_model": selected_model,
             "asr_audio_route": asr_audio_route,
+            "retain_diagnostic_audio": retain_diagnostic_audio,
         }
         if asr_delay_ms is not None:
             start_message["asr_delay_ms"] = asr_delay_ms

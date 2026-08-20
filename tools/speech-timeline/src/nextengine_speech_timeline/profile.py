@@ -21,6 +21,7 @@ from .adapters.dpdfnet import (
     SUPPORTED_MODELS as DPDFNET_MODELS,
 )
 from .adapters.emotion2vec import Emotion2VecAffectAdapter
+from .adapters.base import AudioPreprocessor
 from .adapters.gigaam import (
     MODEL_ROUTE_ID as GIGAAM_MODEL_ROUTE_ID,
     GigaAmTranscriberAdapter,
@@ -35,6 +36,13 @@ from .adapters.nemotron_nemo_speech_cpp import (
     NemotronTranscriberAdapter,
 )
 from .adapters.voxtral_transcribe_cpp import VoxtralTranscriberAdapter
+from .adapters.spectral_onnx import (
+    CompositeAudioPreprocessor,
+    GTCRN_ADAPTER_ID,
+    SPECS_BY_ADAPTER_ID,
+    UL_UNAS_ADAPTER_ID,
+    StreamingSpectralOnnxAudioPreprocessor,
+)
 from .adapters.wavlm_russian_resd import (
     ADAPTER_ID as WAVLM_RUSSIAN_RESD_ADAPTER_ID,
     DEFAULT_LABEL_MAP,
@@ -55,6 +63,7 @@ WAVLM_ADAPTER_IDS = {WAVLM_RUSSIAN_RESD_ADAPTER_ID, WAVLM_AUDIO_CLASSIFICATION_A
 TRANSFORMERS_AUDIO_ADAPTER_IDS = {*WAVLM_ADAPTER_IDS, TRANSFORMERS_AUDIO_CLASSIFICATION_ADAPTER_ID}
 SUPPORTED_EMOTION_ADAPTERS = {EMOTION2VEC_ADAPTER_ID, *TRANSFORMERS_AUDIO_ADAPTER_IDS}
 SUPPORTED_AUDIO_PREPROCESSORS = {DPDFNET_ADAPTER_ID}
+SUPPORTED_AUDIO_ENHANCERS = {GTCRN_ADAPTER_ID, UL_UNAS_ADAPTER_ID}
 VOXTRAL_MODEL_ROUTE_ID = "voxtral-realtime"
 SUPPORTED_ASR_MODEL_ROUTES = {
     VOXTRAL_MODEL_ROUTE_ID,
@@ -156,6 +165,17 @@ class AudioPreprocessorProfile:
 
 
 @dataclass(frozen=True)
+class AudioEnhancerProfile:
+    adapter_id: str
+    model_id: str
+    model_revision: str
+    model_path: Path
+    model_size_bytes: int
+    model_sha256: str
+    routing: str
+
+
+@dataclass(frozen=True)
 class ServiceProfile:
     port: int
     ready_file: Path
@@ -173,6 +193,7 @@ class SpeechTimelineProfile:
     default_asr_model: str
     emotion: EmotionProfile
     audio_preprocessor: AudioPreprocessorProfile | None
+    audio_enhancers: tuple[AudioEnhancerProfile, ...]
     service: ServiceProfile
 
 
@@ -192,7 +213,14 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
     root = _object_with_optional(
         value,
         {"schema_version", "voxtral", "emotion", "service"},
-        {"audio_preprocessor", "gigaam", "gigastt", "nemotron", "default_asr_model"},
+        {
+            "audio_preprocessor",
+            "audio_enhancers",
+            "gigaam",
+            "gigastt",
+            "nemotron",
+            "default_asr_model",
+        },
         "profile",
     )
     if root["schema_version"] != 1:
@@ -319,6 +347,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
         if audio_preprocessor is not None and "gain" in audio_preprocessor
         else None
     )
+    audio_enhancers = _audio_enhancers(root.get("audio_enhancers", []))
     service = _object_with_optional(
         root["service"],
         {"port", "ready_file", "max_frame_bytes", "max_turn_bytes"},
@@ -544,6 +573,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
             if audio_preprocessor is not None
             else None
         ),
+        audio_enhancers=audio_enhancers,
         service=ServiceProfile(
             port=_port(service["port"]),
             ready_file=_path(service["ready_file"], "ready_file"),
@@ -605,6 +635,8 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
         raise ProfileError("emotion weights and label map are only valid for a WavLM adapter")
     if profile.audio_preprocessor is not None:
         _validate_audio_preprocessor(profile.audio_preprocessor)
+    for enhancer in profile.audio_enhancers:
+        _validate_audio_enhancer(enhancer)
     if profile.gigaam is not None:
         _validate_gigaam(profile.gigaam)
     elif profile.default_asr_model == GIGAAM_MODEL_ROUTE_ID:
@@ -646,7 +678,7 @@ def build_adapters(
     ],
     str,
     Emotion2VecAffectAdapter | WavlmRussianResdAffectAdapter,
-    DpdfNetAudioPreprocessor | None,
+    AudioPreprocessor | None,
 ]:
     transcribers: dict[
         str,
@@ -717,19 +749,37 @@ def build_adapters(
         )
     else:
         raise AssertionError(f"unsupported validated emotion adapter: {profile.emotion.adapter_id}")
-    preprocessor = None
+    preprocessors: list[AudioPreprocessor] = []
     if profile.audio_preprocessor is not None:
-        preprocessor = DpdfNetAudioPreprocessor(
-            model_id=profile.audio_preprocessor.model_id,
-            model_revision=profile.audio_preprocessor.model_revision,
-            model_name=profile.audio_preprocessor.model_name,
-            onnx_path=profile.audio_preprocessor.model_path,
-            gain_config=profile.audio_preprocessor.gain_config,
-            gain_placement=profile.audio_preprocessor.gain_placement,
-            whisper_attenuation_limit_db=(
-                profile.audio_preprocessor.whisper_attenuation_limit_db
-            ),
+        preprocessors.append(
+            DpdfNetAudioPreprocessor(
+                model_id=profile.audio_preprocessor.model_id,
+                model_revision=profile.audio_preprocessor.model_revision,
+                model_name=profile.audio_preprocessor.model_name,
+                onnx_path=profile.audio_preprocessor.model_path,
+                gain_config=profile.audio_preprocessor.gain_config,
+                gain_placement=profile.audio_preprocessor.gain_placement,
+                whisper_attenuation_limit_db=(
+                    profile.audio_preprocessor.whisper_attenuation_limit_db
+                ),
+            )
         )
+    for enhancer in profile.audio_enhancers:
+        preprocessors.append(
+            StreamingSpectralOnnxAudioPreprocessor(
+                spec=SPECS_BY_ADAPTER_ID[enhancer.adapter_id],
+                model_id=enhancer.model_id,
+                model_revision=enhancer.model_revision,
+                onnx_path=enhancer.model_path,
+            )
+        )
+    preprocessor: AudioPreprocessor | None
+    if len(preprocessors) == 1:
+        preprocessor = preprocessors[0]
+    elif preprocessors:
+        preprocessor = CompositeAudioPreprocessor(preprocessors)
+    else:
+        preprocessor = None
     return transcribers, profile.default_asr_model, affect, preprocessor
 
 
@@ -908,6 +958,65 @@ def _validate_audio_preprocessor(preprocessor: AudioPreprocessorProfile) -> None
             digest.update(chunk)
     if f"sha256:{digest.hexdigest()}" != preprocessor.model_sha256:
         raise ProfileError("audio preprocessor model SHA-256 does not match the profile")
+
+
+def _audio_enhancers(value: object) -> tuple[AudioEnhancerProfile, ...]:
+    if not isinstance(value, list) or len(value) > len(SUPPORTED_AUDIO_ENHANCERS):
+        raise ProfileError("audio_enhancers must be a bounded list")
+    result: list[AudioEnhancerProfile] = []
+    adapter_ids: set[str] = set()
+    for index, item in enumerate(value):
+        name = f"audio_enhancers[{index}]"
+        enhancer = _object(
+            item,
+            {
+                "adapter_id",
+                "model_id",
+                "model_revision",
+                "model_path",
+                "model_size_bytes",
+                "model_sha256",
+                "routing",
+            },
+            name,
+        )
+        adapter_id = _choice(
+            enhancer["adapter_id"], f"{name}.adapter_id", SUPPORTED_AUDIO_ENHANCERS
+        )
+        if adapter_id in adapter_ids:
+            raise ProfileError("audio_enhancers adapter IDs must be unique")
+        adapter_ids.add(adapter_id)
+        result.append(
+            AudioEnhancerProfile(
+                adapter_id=adapter_id,
+                model_id=_string(enhancer["model_id"], f"{name}.model_id", 256),
+                model_revision=_string(
+                    enhancer["model_revision"], f"{name}.model_revision", 128
+                ),
+                model_path=_path(enhancer["model_path"], f"{name}.model_path"),
+                model_size_bytes=_positive_int(
+                    enhancer["model_size_bytes"], f"{name}.model_size_bytes"
+                ),
+                model_sha256=_sha256(
+                    enhancer["model_sha256"], f"{name}.model_sha256"
+                ),
+                routing=_choice(
+                    enhancer["routing"], f"{name}.routing", {"asr_only"}
+                ),
+            )
+        )
+    return tuple(result)
+
+
+def _validate_audio_enhancer(enhancer: AudioEnhancerProfile) -> None:
+    model = enhancer.model_path
+    _require_external(model, f"{enhancer.adapter_id} model")
+    if not model.is_file() or model.is_symlink():
+        raise ProfileError(f"audio enhancer model does not exist: {model}")
+    if model.stat().st_size != enhancer.model_size_bytes:
+        raise ProfileError(f"{enhancer.adapter_id} model size does not match the profile")
+    if _file_sha256(model) != enhancer.model_sha256:
+        raise ProfileError(f"{enhancer.adapter_id} model SHA-256 does not match the profile")
 
 
 def _validate_gigaam(gigaam: GigaAmProfile) -> None:

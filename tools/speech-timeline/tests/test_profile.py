@@ -402,6 +402,8 @@ class ProfileTests(unittest.TestCase):
             cache.mkdir()
             preprocessor_model = root / "dpdfnet2.onnx"
             preprocessor_model.write_bytes(b"pinned-onnx")
+            gtcrn_model = root / "gtcrn.onnx"
+            gtcrn_model.write_bytes(b"pinned-gtcrn")
             revision = "a" * 40
             profile_path = root / "profile.json"
             profile_path.write_text(
@@ -435,6 +437,17 @@ class ProfileTests(unittest.TestCase):
                             "model_sha256": f"sha256:{hashlib.sha256(preprocessor_model.read_bytes()).hexdigest()}",
                             "routing": "asr_only",
                         },
+                        "audio_enhancers": [
+                            {
+                                "adapter_id": "gtcrn-onnx-streaming/1",
+                                "model_id": "Xiaobin-Rong/gtcrn",
+                                "model_revision": "d" * 40,
+                                "model_path": str(gtcrn_model),
+                                "model_size_bytes": gtcrn_model.stat().st_size,
+                                "model_sha256": f"sha256:{hashlib.sha256(gtcrn_model.read_bytes()).hexdigest()}",
+                                "routing": "asr_only",
+                            }
+                        ],
                         "service": {
                             "port": 0,
                             "ready_file": str(root / "ready.json"),
@@ -460,6 +473,11 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(
                 profile.audio_preprocessor.whisper_attenuation_limit_db,
                 12.0,
+            )
+            self.assertEqual(len(profile.audio_enhancers), 1)
+            self.assertEqual(
+                profile.audio_enhancers[0].adapter_id,
+                "gtcrn-onnx-streaming/1",
             )
             damaged = preprocessor_model.write_bytes(b"altered.onx")
             self.assertGreater(damaged, 0)

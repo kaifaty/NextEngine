@@ -298,6 +298,7 @@ class SpeechConnection:
         self._preprocessor_stream_elapsed_ms: list[int] = []
         self._preprocessor_flush_ms: int | None = None
         self._asr_audio_route = ASR_AUDIO_ROUTE_RAW
+        self._retain_diagnostic_audio = True
         self._raw_signal_level = _PcmSignalLevel()
         self._asr_signal_level = _PcmSignalLevel()
 
@@ -309,6 +310,7 @@ class SpeechConnection:
         asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
         asr_model: str | None = None,
         asr_delay_ms: int | None = None,
+        retain_diagnostic_audio: bool = True,
     ) -> None:
         if asr_audio_route not in self.runtime.available_asr_audio_routes:
             raise SessionError(
@@ -354,6 +356,7 @@ class SpeechConnection:
             raise SessionError("SERVICE_BUSY", "another speech session is active")
         try:
             self._asr_audio_route = asr_audio_route
+            self._retain_diagnostic_audio = retain_diagnostic_audio
             if vad_calibration is not None:
                 self._apply_vad_calibration(vad_calibration)
             generation = self.session.start(session_id, locale)
@@ -387,6 +390,7 @@ class SpeechConnection:
                 asr_model=self._asr_model,
                 asr_delay_ms=self._asr_delay_ms,
                 asr_audio_route=self._asr_audio_route,
+                retain_diagnostic_audio=self._retain_diagnostic_audio,
                 vocal_activity=self.activity.capabilities(),
             )
         )
@@ -618,7 +622,7 @@ class SpeechConnection:
             snapshot = self.timeline.apply_affect(final_affect)
         else:
             snapshot = self.timeline.snapshot()
-        if self._diagnostic_audio is not None:
+        if self._diagnostic_audio is not None and self._retain_diagnostic_audio:
             try:
                 enhanced_pcm = self._diagnostic_enhanced_pcm()
                 await asyncio.to_thread(
@@ -1025,6 +1029,7 @@ class SpeechConnection:
             "diagnostic_audio": {
                 "saved": self._diagnostic_audio_saved,
                 "enabled": self._diagnostic_audio is not None,
+                "retention_requested": self._retain_diagnostic_audio,
             },
         }
 

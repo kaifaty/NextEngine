@@ -527,6 +527,7 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         asr_model: str | None = None,
         asr_delay_ms: int | None = None,
         vad_noise_floor_dbfs: float | None = None,
+        retain_diagnostic_audio: bool | None = None,
     ) -> list[dict[str, object]]:
         async with connect(service.uri, compression=None) as websocket:
             await websocket.send(
@@ -559,6 +560,8 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
                     "noise_floor_dbfs": vad_noise_floor_dbfs,
                     "duration_ms": 2_000,
                 }
+            if retain_diagnostic_audio is not None:
+                start["retain_diagnostic_audio"] = retain_diagnostic_audio
             await websocket.send(json.dumps(start))
             started = json.loads(await websocket.recv())
             await websocket.send(b"\0\0" * 4_000)
@@ -573,6 +576,21 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
                 events.append(event_value)
                 if event_value["type"] == "utterance.final":
                     return events
+
+    async def test_replay_can_suppress_diagnostic_retention(self) -> None:
+        before = self.service.diagnostic_audio.list_records() if self.service.diagnostic_audio else []
+        events = await self._run_turn_against(
+            self.service,
+            "non-retained-replay",
+            retain_diagnostic_audio=False,
+        )
+        final = next(item for item in events if item["type"] == "utterance.final")
+        self.assertFalse(final["metrics"]["diagnostic_audio"]["saved"])
+        self.assertFalse(
+            final["metrics"]["diagnostic_audio"]["retention_requested"]
+        )
+        after = self.service.diagnostic_audio.list_records() if self.service.diagnostic_audio else []
+        self.assertEqual(len(after), len(before))
 
     async def test_last_five_diagnostic_wavs_are_listed_and_playable(self) -> None:
         for index in range(6):
