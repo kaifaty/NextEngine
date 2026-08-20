@@ -18,5 +18,6 @@ SplitBoundaryReport run_floor_stationarity_trajectory_controls();
 SplitBoundaryReport run_owned_gradient_controls();
 SplitBoundaryReport run_owned_residual_trajectory_controls();
 SplitBoundaryReport run_owned_boundary_composition_controls();
+SplitBoundaryReport run_closed_box_eligibility_controls();
 
 } // namespace nextengine::nonlocal::fcr

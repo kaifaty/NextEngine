@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3R_PASS_STATIC_BOUNDARY / NSR3B4_CORPUS_RESEARCH` |
+| Status | `ACTIVE / NSR3B4A_PASS_CLOSED_BOX / NSR3B4B_TINY_PRESSURE_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -177,11 +177,27 @@
   `96/0` spectral HVPs; speculative substeps remain `36/6`.
 - **Current decision:** select `STATIC_BOUNDARY_SMOKE_CANDIDATE` and authorize
   B4 physical-corpus contract design only.
-- **Current action:** research a minimal physical corpus that separates
-  hydrostatic support, free-surface release and impact/contact behavior without
-  jumping to product scale.
-- **Next gate:** freeze B4 dimensions, observables, references, time horizons
-  and stop rules before running any new physical scene.
+- **Current conclusion:** the paper's Poiseuille control uses fixed ghost
+  particles in the viscous neighbor solve and a constant inlet. The current
+  split wall is pressure support plus frictionless contact, so viscosity needs
+  a separate wall/inlet formula contract before that analytical comparison.
+- **Current conclusion:** Pairwise Descent paper/code remains `to appear` on
+  the authors' official page; no algorithm is inferred from its title.
+- **Current conclusion:** B4A passes exact closed-box two/three-layer
+  correspondence, all six face/corner sweeps and free-surface separation.
+  The 108 missing air cells contribute zero wall support; top density reaches
+  `0.7337rho0` while the bottom reconstructs rest density to `3.33e-15`.
+- **Current cost:** the existing boundary all-pairs path would perform
+  `52.9M/116.3M/74.1M/2.338B` candidate checks per objective evaluation for
+  hydro/dam/orifice-outer/sealed, before trust HVPs or embedded refinement.
+- **Current decision:** select `CLOSED_BOX_FREE_SURFACE_ELIGIBLE`; pressure-only
+  tiny controls may proceed, but nominal execution requires a joint
+  fluid/support cell neighborhood.
+- **Current action:** freeze B4B tiny pressure-only hydrostatic and
+  release/impact dimensions, observables, reference ladder, horizon and first
+  failure before trajectory implementation.
+- **Next gate:** execute B4B only after its aggregate and cost contract is
+  frozen; do not add viscosity, surface tension or internal aperture.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -503,6 +519,20 @@
   bounded face/corner smoke fixtures. Hydrostatic equilibrium, free-surface
   release, larger topology and long-horizon drift remain untested.
 
+### D-030 -- Decompose physical reclosure and select closed-box eligibility
+
+- **Observation:** pressure trajectories, viscous wall conditions, surface
+  calibration, internal aperture, canonical publication and scalable
+  neighborhoods have different missing prerequisites. A nominal monolithic
+  run could not attribute failure. The current brute-force boundary path also
+  reaches billions of candidate checks per objective evaluation.
+- **Decision:** split B4 into pressure-water, scalable/canonical, aperture,
+  viscosity and surface lineages. Select the passing B4A box-owned support /
+  free-surface topology and proceed to a tiny pressure-only B4B contract.
+- **Consequence:** B4B may use the bounded brute-force oracle. Nominal runs
+  require joint cell neighborhoods and restored exact references; Poiseuille
+  requires a new fixed-wall/inlet viscous contract.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -515,10 +545,11 @@
 
 ## Exact next action
 
-1. Research B4 corpus cases and observables without changing the selected
-   numerical solver.
-2. Freeze bounded hydrostatic, release/impact and free-surface reference gates.
-3. Execute only after dimensional/capacity/time-horizon costs are explicit.
+1. Freeze B4B hydrostatic and release/impact fixture dimensions, aggregate
+   observables, fixed reference ladder and exact horizon.
+2. Keep `lambda=mu=gamma=0` and the selected B3R numerical solver unchanged.
+3. Execute only the tiny B4B oracle; joint neighborhood/canonical work remains
+   mandatory before nominal B4E.
 
 ## Reconsideration triggers
 

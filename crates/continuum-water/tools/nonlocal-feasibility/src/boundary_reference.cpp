@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <iomanip>
 #include <limits>
@@ -4692,6 +4693,503 @@ SplitBoundaryReport run_owned_boundary_composition_controls() {
            << ",\"b4_contract_design_authorized\":"
            << (passed ? "true" : "false")
            << ",\"physical_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr std::array<int, 3> B4A_BOX_CELLS = {6, 6, 6};
+constexpr Vec3 B4A_BOX_MIN{0.0, 0.0, 0.0};
+constexpr Vec3 B4A_BOX_MAX{0.3, 0.3, 0.3};
+
+std::vector<Vec3> make_box_owned_shell(
+    std::array<int, 3> cells, int layers) {
+    if (layers <= 0) {
+        throw std::invalid_argument("B4A shell layers must be positive");
+    }
+    std::vector<Vec3> result;
+    for (int z = -layers; z < cells[2] + layers; ++z) {
+        for (int y = -layers; y < cells[1] + layers; ++y) {
+            for (int x = -layers; x < cells[0] + layers; ++x) {
+                if (!inside_cells(x, y, z, cells)) {
+                    result.push_back(lattice_position(x, y, z));
+                }
+            }
+        }
+    }
+    return result;
+}
+
+std::vector<Vec3> make_lattice_fluid(std::array<int, 3> cells) {
+    std::vector<Vec3> result;
+    for (int z = 0; z < cells[2]; ++z) {
+        for (int y = 0; y < cells[1]; ++y) {
+            for (int x = 0; x < cells[0]; ++x) {
+                result.push_back(lattice_position(x, y, z));
+            }
+        }
+    }
+    return result;
+}
+
+bool point_inside_open_box(Vec3 value, Vec3 low, Vec3 high) {
+    return value.x > low.x && value.x < high.x
+        && value.y > low.y && value.y < high.y
+        && value.z > low.z && value.z < high.z;
+}
+
+bool contains_exact(const std::vector<Vec3>& values, Vec3 candidate) {
+    return std::any_of(values.begin(), values.end(),
+        [candidate](Vec3 value) {
+            return value.x == candidate.x
+                && value.y == candidate.y
+                && value.z == candidate.z;
+        });
+}
+
+struct B4ALayerControl {
+    bool passed = false;
+    std::size_t two_layer_count = 0;
+    std::size_t three_layer_count = 0;
+    double density_error = 0.0;
+    double energy_error = 0.0;
+    double gradient_error = 0.0;
+    double hvp_error = 0.0;
+    double reaction_error = 0.0;
+};
+
+B4ALayerControl b4a_layer_control() {
+    Fixture two;
+    two.name = "b4a-filled-box-two-layer";
+    two.cells = B4A_BOX_CELLS;
+    two.fluid = make_lattice_fluid(B4A_BOX_CELLS);
+    two.boundary = make_box_owned_shell(B4A_BOX_CELLS, 2);
+    Fixture three = two;
+    three.name = "b4a-filled-box-three-layer";
+    three.boundary = make_box_owned_shell(B4A_BOX_CELLS, 3);
+
+    const std::vector<Vec3> compressed = compressed_fluid(two, 0.99);
+    const Evaluation value_two = evaluate(compressed, two.boundary);
+    const Evaluation value_three = evaluate(compressed, three.boundary);
+    const std::vector<Vec3> direction =
+        deterministic_direction(compressed.size());
+    std::vector<Vec3> direction_two(
+        compressed.size() + two.boundary.size());
+    std::vector<Vec3> direction_three(
+        compressed.size() + three.boundary.size());
+    std::copy(direction.begin(), direction.end(), direction_two.begin());
+    std::copy(direction.begin(), direction.end(), direction_three.begin());
+    const std::vector<Vec3> hvp_two = fluid_part(
+        apply_hessian(compressed, two.boundary, direction_two),
+        compressed.size());
+    const std::vector<Vec3> hvp_three = fluid_part(
+        apply_hessian(compressed, three.boundary, direction_three),
+        compressed.size());
+
+    B4ALayerControl result;
+    result.two_layer_count = two.boundary.size();
+    result.three_layer_count = three.boundary.size();
+    for (std::size_t i = 0; i < value_two.density.size(); ++i) {
+        result.density_error = std::max(result.density_error,
+            relative_error(value_two.density[i], value_three.density[i]));
+    }
+    result.energy_error = relative_error(
+        value_two.energy, value_three.energy);
+    result.gradient_error = vector_relative_error(
+        fluid_part(value_two.gradient, compressed.size()),
+        fluid_part(value_three.gradient, compressed.size()));
+    result.hvp_error = vector_relative_error(hvp_two, hvp_three);
+    const Vec3 reaction_two = sum_values(value_two.gradient,
+        compressed.size(), value_two.gradient.size());
+    const Vec3 reaction_three = sum_values(value_three.gradient,
+        compressed.size(), value_three.gradient.size());
+    result.reaction_error = norm(reaction_two - reaction_three)
+        / std::max({norm(reaction_two), norm(reaction_three), 1.0e-30});
+    result.passed = result.two_layer_count == 784U
+        && result.three_layer_count == 1512U
+        && value_two.active_centers > 0U
+        && value_three.active_centers == value_two.active_centers
+        && result.density_error <= LAYER_LIMIT
+        && result.energy_error <= LAYER_LIMIT
+        && result.gradient_error <= LAYER_LIMIT
+        && result.hvp_error <= LAYER_LIMIT
+        && result.reaction_error <= LAYER_LIMIT;
+    return result;
+}
+
+struct B4AFreeSurfaceControl {
+    bool passed = false;
+    std::size_t fluid_count = 0;
+    std::size_t support_count = 0;
+    std::size_t missing_air_count = 0;
+    std::size_t support_inside_box = 0;
+    std::size_t missing_air_as_support = 0;
+    std::size_t active_centers = 0;
+    double maximum_density_ratio = 0.0;
+    double bottom_density_error = 0.0;
+    double minimum_top_density_ratio = std::numeric_limits<double>::infinity();
+};
+
+B4AFreeSurfaceControl b4a_free_surface_control() {
+    constexpr std::array<int, 3> fluid_cells = {6, 3, 6};
+    const std::vector<Vec3> fluid = make_lattice_fluid(fluid_cells);
+    const std::vector<Vec3> support =
+        make_box_owned_shell(B4A_BOX_CELLS, 2);
+    const Evaluation value = evaluate(fluid, support);
+
+    B4AFreeSurfaceControl result;
+    result.fluid_count = fluid.size();
+    result.support_count = support.size();
+    result.active_centers = value.active_centers;
+    for (Vec3 boundary : support) {
+        result.support_inside_box += point_inside_open_box(
+            boundary, B4A_BOX_MIN, B4A_BOX_MAX) ? 1U : 0U;
+    }
+    for (int z = 0; z < B4A_BOX_CELLS[2]; ++z) {
+        for (int y = fluid_cells[1]; y < B4A_BOX_CELLS[1]; ++y) {
+            for (int x = 0; x < B4A_BOX_CELLS[0]; ++x) {
+                ++result.missing_air_count;
+                result.missing_air_as_support += contains_exact(
+                    support, lattice_position(x, y, z)) ? 1U : 0U;
+            }
+        }
+    }
+    for (std::size_t i = 0; i < value.density.size(); ++i) {
+        const std::size_t y = (i / static_cast<std::size_t>(fluid_cells[0]))
+            % static_cast<std::size_t>(fluid_cells[1]);
+        const double ratio = value.density[i] / REST_DENSITY;
+        result.maximum_density_ratio = std::max(
+            result.maximum_density_ratio, ratio);
+        if (y == 0U) {
+            result.bottom_density_error = std::max(
+                result.bottom_density_error, std::abs(ratio - 1.0));
+        }
+        if (y == 2U) {
+            result.minimum_top_density_ratio = std::min(
+                result.minimum_top_density_ratio, ratio);
+        }
+    }
+    result.passed = result.fluid_count == 108U
+        && result.support_count == 784U
+        && result.missing_air_count == 108U
+        && result.support_inside_box == 0U
+        && result.missing_air_as_support == 0U
+        && result.active_centers == 0U
+        && result.maximum_density_ratio <= 1.0 + 1.0e-12
+        && result.bottom_density_error <= 1.0e-12
+        && result.minimum_top_density_ratio < 1.0;
+    return result;
+}
+
+SweepResult sweep_box_owned(
+    Vec3 start, Vec3 smooth_displacement, Vec3 low, Vec3 high,
+    double time_step) {
+    SweepResult result;
+    result.displacement = smooth_displacement;
+    const Vec3 tentative = start + smooth_displacement;
+    const Vec3 incoming_velocity = smooth_displacement / time_step;
+    constexpr std::array<int, 3> low_feature = {0, 2, 4};
+    constexpr std::array<int, 3> high_feature = {1, 3, 5};
+    for (int axis = 0; axis < 3; ++axis) {
+        const double start_value = component(start, axis);
+        const double displacement = component(smooth_displacement, axis);
+        const double tentative_value = component(tentative, axis);
+        const double low_value = component(low, axis);
+        const double high_value = component(high, axis);
+        if (tentative_value < low_value && displacement < 0.0) {
+            const double toi = (low_value - start_value) / displacement;
+            if (!std::isfinite(toi) || toi < 0.0 || toi > 1.0) {
+                throw std::runtime_error("invalid B4A lower box TOI");
+            }
+            set_component(result.displacement, axis,
+                low_value - start_value);
+            result.features.push_back(
+                low_feature[static_cast<std::size_t>(axis)]);
+            result.earliest_time_of_impact = std::min(
+                result.earliest_time_of_impact, toi);
+        } else if (tentative_value > high_value && displacement > 0.0) {
+            const double toi = (high_value - start_value) / displacement;
+            if (!std::isfinite(toi) || toi < 0.0 || toi > 1.0) {
+                throw std::runtime_error("invalid B4A upper box TOI");
+            }
+            set_component(result.displacement, axis,
+                high_value - start_value);
+            result.features.push_back(
+                high_feature[static_cast<std::size_t>(axis)]);
+            result.earliest_time_of_impact = std::min(
+                result.earliest_time_of_impact, toi);
+        }
+    }
+    std::sort(result.features.begin(), result.features.end());
+    result.position = start + result.displacement;
+    result.velocity = result.displacement / time_step;
+    result.fluid_impulse = MASS * (result.velocity - incoming_velocity);
+    result.reaction = -result.fluid_impulse;
+    for (int axis = 0; axis < 3; ++axis) {
+        result.maximum_penetration = std::max(result.maximum_penetration,
+            std::max(component(low, axis) - component(result.position, axis),
+                component(result.position, axis) - component(high, axis)));
+    }
+    result.maximum_penetration = std::max(result.maximum_penetration, 0.0);
+    return result;
+}
+
+struct B4AContactCase {
+    std::string name;
+    bool passed = false;
+    std::vector<int> expected;
+    SweepResult sweep;
+};
+
+B4AContactCase b4a_contact_case(
+    std::string name, Vec3 start, Vec3 displacement,
+    std::vector<int> expected) {
+    B4AContactCase result;
+    result.name = std::move(name);
+    result.expected = std::move(expected);
+    const Vec3 low{RADIUS, RADIUS, RADIUS};
+    const Vec3 high{
+        B4A_BOX_MAX.x - RADIUS,
+        B4A_BOX_MAX.y - RADIUS,
+        B4A_BOX_MAX.z - RADIUS,
+    };
+    result.sweep = sweep_box_owned(
+        start, displacement, low, high, TIME_STEP);
+    const bool active = !result.expected.empty();
+    result.passed = result.sweep.features == result.expected
+        && result.sweep.maximum_penetration <= 1.0e-12
+        && norm(result.sweep.fluid_impulse + result.sweep.reaction)
+            <= 1.0e-12
+        && finite(result.sweep.position)
+        && finite(result.sweep.velocity)
+        && (!active
+            || (result.sweep.earliest_time_of_impact >= 0.0
+                && result.sweep.earliest_time_of_impact <= 1.0));
+    return result;
+}
+
+std::array<B4AContactCase, 11> b4a_contact_controls() {
+    return {
+        b4a_contact_case("x-minus", {0.075, 0.15, 0.15}, {-0.1, 0.0, 0.0}, {0}),
+        b4a_contact_case("x-plus", {0.225, 0.15, 0.15}, {0.1, 0.0, 0.0}, {1}),
+        b4a_contact_case("y-minus", {0.15, 0.075, 0.15}, {0.0, -0.1, 0.0}, {2}),
+        b4a_contact_case("y-plus", {0.15, 0.225, 0.15}, {0.0, 0.1, 0.0}, {3}),
+        b4a_contact_case("z-minus", {0.15, 0.15, 0.075}, {0.0, 0.0, -0.1}, {4}),
+        b4a_contact_case("z-plus", {0.15, 0.15, 0.225}, {0.0, 0.0, 0.1}, {5}),
+        b4a_contact_case("lower-corner", {0.075, 0.075, 0.075}, {-0.1, -0.1, -0.1}, {0, 2, 4}),
+        b4a_contact_case("upper-corner", {0.225, 0.225, 0.225}, {0.1, 0.1, 0.1}, {1, 3, 5}),
+        b4a_contact_case("exact-graze", {0.1, RADIUS, 0.1}, {0.05, 0.0, 0.0}, {}),
+        b4a_contact_case("moving-away", {RADIUS, 0.15, 0.15}, {0.05, 0.0, 0.0}, {}),
+        b4a_contact_case("complete-box-crossing", {0.15, 0.15, 0.15}, {0.4, 0.0, 0.0}, {1}),
+    };
+}
+
+struct B4ACostProjection {
+    std::string name;
+    std::uint64_t fluid = 0;
+    std::array<std::uint64_t, 3> box_cells{};
+    std::uint64_t support = 0;
+    std::uint64_t checks = 0;
+    std::uint64_t expected_support = 0;
+    std::uint64_t expected_checks = 0;
+    bool passed = false;
+};
+
+std::uint64_t checked_product(std::array<std::uint64_t, 3> values) {
+    return values[0] * values[1] * values[2];
+}
+
+B4ACostProjection b4a_cost_projection(
+    std::string name, std::uint64_t fluid,
+    std::array<std::uint64_t, 3> cells,
+    std::uint64_t expected_support,
+    std::uint64_t expected_checks) {
+    B4ACostProjection result;
+    result.name = std::move(name);
+    result.fluid = fluid;
+    result.box_cells = cells;
+    result.support = checked_product({
+        cells[0] + 4U, cells[1] + 4U, cells[2] + 4U})
+        - checked_product(cells);
+    result.checks = fluid * (fluid - 1U) / 2U
+        + fluid * result.support;
+    result.expected_support = expected_support;
+    result.expected_checks = expected_checks;
+    result.passed = result.support == expected_support
+        && result.checks == expected_checks;
+    return result;
+}
+
+void append_b4a_contact(
+    std::ostringstream& output, const B4AContactCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL") << "\",\"features\":[";
+    for (std::size_t i = 0; i < value.sweep.features.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << value.sweep.features[i];
+    }
+    output << "],\"expected\":[";
+    for (std::size_t i = 0; i < value.expected.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << value.expected[i];
+    }
+    output << "],\"time_of_impact\":"
+           << value.sweep.earliest_time_of_impact
+           << ",\"maximum_penetration_m\":"
+           << value.sweep.maximum_penetration
+           << ",\"impulse_closure\":"
+           << norm(value.sweep.fluid_impulse + value.sweep.reaction) << '}';
+}
+
+void append_b4a_cost(
+    std::ostringstream& output, const B4ACostProjection& value) {
+    output << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL") << "\",\"fluid\":"
+           << value.fluid << ",\"box_cells\":["
+           << value.box_cells[0] << ',' << value.box_cells[1] << ','
+           << value.box_cells[2] << "],\"outer_support\":"
+           << value.support << ",\"candidate_checks_per_evaluation\":"
+           << value.checks << '}';
+}
+
+} // namespace
+
+SplitBoundaryReport run_closed_box_eligibility_controls() {
+    const SplitBoundaryReport parent =
+        run_owned_boundary_composition_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "792dceb540d7998d62f9c290b4e4215832ec9e1a6ba6ecf9e16b3200f1e30da9";
+    const B4ALayerControl layer = b4a_layer_control();
+    const B4AFreeSurfaceControl free_surface =
+        b4a_free_surface_control();
+    const std::array<B4AContactCase, 11> contacts =
+        b4a_contact_controls();
+    const std::array<B4ACostProjection, 4> costs = {
+        b4a_cost_projection("hydro", 6000U, {20U, 20U, 20U},
+            5824U, 52941000U),
+        b4a_cost_projection("dam-break", 6000U, {80U, 20U, 20U},
+            16384U, 116301000U),
+        b4a_cost_projection("orifice-outer-only", 6000U,
+            {40U, 20U, 20U}, 9344U, 74061000U),
+        b4a_cost_projection("sealed-product", 48000U,
+            {80U, 20U, 40U}, 24704U, 2337768000U),
+    };
+    const bool contacts_passed = std::all_of(
+        contacts.begin(), contacts.end(),
+        [](const B4AContactCase& value) { return value.passed; });
+    const bool costs_passed = std::all_of(
+        costs.begin(), costs.end(),
+        [](const B4ACostProjection& value) { return value.passed; });
+    const bool passed = parent_exact && layer.passed
+        && free_surface.passed && contacts_passed && costs_passed;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4A_PARENT";
+    } else if (!layer.passed) {
+        first_failure = "NSR3B4A_LAYER_TOPOLOGY";
+    } else if (!free_surface.passed) {
+        first_failure = "NSR3B4A_FREE_SURFACE_SEPARATION";
+    } else if (!contacts_passed) {
+        first_failure = "NSR3B4A_BOX_CONTACT";
+    } else if (!costs_passed) {
+        first_failure = "NSR3B4A_COST_PROJECTION";
+    }
+    const std::string disposition = passed
+        ? "CLOSED_BOX_FREE_SURFACE_ELIGIBLE"
+        : "CLOSED_BOX_FREE_SURFACE_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << disposition << '|'
+             << layer.two_layer_count << ':' << layer.three_layer_count
+             << ':' << layer.density_error << ':' << layer.energy_error
+             << ':' << layer.gradient_error << ':' << layer.hvp_error
+             << ':' << layer.reaction_error << '|'
+             << free_surface.fluid_count << ':'
+             << free_surface.support_count << ':'
+             << free_surface.missing_air_count << ':'
+             << free_surface.maximum_density_ratio << ':'
+             << free_surface.bottom_density_error << ':'
+             << free_surface.minimum_top_density_ratio;
+    for (const B4AContactCase& value : contacts) {
+        material << "|C:" << value.name << ':' << value.passed << ':'
+                 << value.sweep.earliest_time_of_impact;
+    }
+    for (const B4ACostProjection& value : costs) {
+        material << "|K:" << value.name << ':' << value.support << ':'
+                 << value.checks;
+    }
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4a_eligibility.v1\""
+           << ",\"identity\":\"free-surface-closed-box-eligibility-r0\""
+           << ",\"parent_b3r_result_sha256\":\"2310c531dc7ab8883e83ab015742ce439d7923c21687eef9fac8f6b0014a0d10\""
+           << ",\"parent_b3r_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"terms\":{\"incompressibility\":true,\"viscosity\":false,\"surface_tension\":false}"
+           << ",\"layer_control\":{\"status\":\""
+           << (layer.passed ? "PASS" : "FAIL")
+           << "\",\"two_layer_support\":" << layer.two_layer_count
+           << ",\"three_layer_support\":" << layer.three_layer_count
+           << ",\"density_error\":" << layer.density_error
+           << ",\"energy_error\":" << layer.energy_error
+           << ",\"gradient_error\":" << layer.gradient_error
+           << ",\"hvp_error\":" << layer.hvp_error
+           << ",\"reaction_error\":" << layer.reaction_error << '}'
+           << ",\"free_surface_control\":{\"status\":\""
+           << (free_surface.passed ? "PASS" : "FAIL")
+           << "\",\"fluid_samples\":" << free_surface.fluid_count
+           << ",\"support_samples\":" << free_surface.support_count
+           << ",\"missing_air_samples\":"
+           << free_surface.missing_air_count
+           << ",\"support_inside_box\":"
+           << free_surface.support_inside_box
+           << ",\"missing_air_as_support\":"
+           << free_surface.missing_air_as_support
+           << ",\"active_pressure_centers\":"
+           << free_surface.active_centers
+           << ",\"maximum_density_ratio\":"
+           << free_surface.maximum_density_ratio
+           << ",\"bottom_density_error\":"
+           << free_surface.bottom_density_error
+           << ",\"minimum_top_density_ratio\":"
+           << free_surface.minimum_top_density_ratio << '}'
+           << ",\"contact_controls\":[";
+    for (std::size_t i = 0; i < contacts.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_b4a_contact(report, contacts[i]);
+    }
+    report << "],\"nominal_cost_projection\":[";
+    for (std::size_t i = 0; i < costs.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_b4a_cost(report, costs[i]);
+    }
+    report << ']'
+           << ",\"nominal_runner_requirement\":\"JOINT_CELL_NEIGHBORHOOD_REQUIRED_BEFORE_NOMINAL\""
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4b_contract_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"physical_trajectory_execution_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"historical_hash_check_required\":true"
            << ",\"repeatability_check_required\":true"

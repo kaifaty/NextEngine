@@ -31,11 +31,22 @@ it does not select water coefficients or a boundary model.
 3. **NSR3-B2 static boundary formula.** Re-derive wall energy/contact and its
    gradient/HVP under the corrected objective; pass pair/edge/corner finite
    differences before trajectories.
-4. **NSR3-B3 smoke trajectories.** Small hydro, still tank, dam-break and
-   sealed/orifice analogues; exact repeat and capacity before nominal runs.
-5. **NSR4 nominal physical corpus.** Reuse the attested DFSPH hydro, dam-break
-   and orifice aggregate curves plus analytical free-flight and Poiseuille
-   controls. Compare aggregate observables, never particle identity.
+4. **NSR3-B3 boundary composition.** Face/corner impact with exact support and
+   contact reactions. B3R now passes after displacement-owned inertia and
+   bounded residual globalization; it is not a hydro/dam-break smoke.
+5. **NSR3-B4A closed-box eligibility.** Prove box-owned support, free-surface
+   separation, all six analytical faces and the nominal all-pairs cost
+   boundary. B4A passes and selects a joint cell neighborhood before nominal
+   execution.
+6. **NSR3-B4B tiny pressure-water corpus.** Hydrostatic support and
+   release/impact only, with `lambda=mu=gamma=0`, aggregate observables and an
+   independent fixed refinement ladder.
+7. **NSR4 scalable pressure corpus.** Joint fluid/support neighborhood,
+   canonical accepted-step publication and restored attested DFSPH hydro /
+   dam-break references precede nominal runs.
+8. **Separate B4O/B4V/B4S lineages.** Internal aperture, viscous wall /
+   Poiseuille and macroscopic surface calibration have distinct formulas and
+   gates; none may donate success to pressure-water.
 
 ## Fixed guardrails
 
