@@ -20,7 +20,7 @@
 | **RPG framework** | Generic доменная модель персонажей, предметов, квестов, диалогов, фракций и интерактивных объектов. |
 | **Backend** | Заменяемая реализация engine-owned interface. Vendor-типы не входят в interface. |
 | **DeveloperHostTier** | Поддержанный host для portable source/tool development и локальных ProductCheck, не создающий shipping-platform claim; v1 включает `macOS-aarch64` по ADR-011. |
-| **ActiveDevelopmentHost** | Native host, на котором выполняется текущий короткий implementation/ProductCheck loop. По ADR-082 это `x86_64-unknown-linux-gnu`; роль не удаляет Windows из v1 shipping targets и не создаёт hard timing/release claim. |
+| **ActiveDevelopmentHost** | Native host, на котором выполняется текущий короткий implementation/ProductCheck loop. По ADR-090 это `x86_64-unknown-linux-gnu`, одновременно единственная v1 shipping target; роль сама по себе не создаёт hard timing/release claim. |
 | **TrainingCapabilityStatus** | `Available`, `Unavailable` либо `Rejected` для exact hardware/backend profile; сообщает только доступность bounded training run и не выводится из наличия model file. |
 | **RuntimeEntityId** | Эфемерный идентификатор живой ECS entity. Действует только в пределах одного runtime instance и не сериализуется. |
 | **PersistentId** | Стабильный 128-bit opaque ID сущности или логического объекта между save/load, chunks и replay. Не кодирует ECS layout или vendor handle. |

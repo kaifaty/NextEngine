@@ -9,14 +9,18 @@
 | Последняя проверка | 2026-07-25 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md) |
 | Заменяет | отсутствует |
-| Заменён | частично [ADR-030](030-product-first-development-and-lightweight-validation.md) |
+| Заменён | частично [ADR-030](030-product-first-development-and-lightweight-validation.md) и [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md) |
 
 ## Частичное supersession ADR-030
 
 [ADR-030](030-product-first-development-and-lightweight-validation.md)
 заменяет прежние process clauses этого ADR. Product scope, Apache-2.0 engine
-license, repository/importer boundary и Windows/Linux v1 targets сохраняются.
+license и repository/importer boundary сохраняются.
 Release work использует обычные license, provenance и protected-data checks.
+
+[ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md) узко заменяет
+platform clause: Linux x86_64 является единственной v1 shipping target, а
+Windows отложен вне текущего scope на неопределённый срок.
 
 ## Контекст
 

@@ -4,15 +4,15 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.57 |
+| Версия | 2.58 |
 | Последняя проверка | 2026-08-20 |
-| Заменяет | INDEX-001 2.56; records the governed external Creator SDK beta workflow and R6/B-09 closure |
+| Заменяет | INDEX-001 2.57; makes Linux the sole v1/R7 target and records Windows as indefinitely out of scope under ADR-090 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
-engine. Rust остаётся portable core, Windows x86_64 и Linux x86_64 — v1 shipping
-targets, native Linux x86_64 — текущий active development host, Windows host
-execution отложен до explicit pre-R7 bring-up, а Apple Silicon macOS —
+engine. Rust остаётся portable core, native Linux x86_64 — единственная v1
+shipping target и текущий active development/release host. Windows находится
+вне текущего scope indefinitely, а Apple Silicon macOS остаётся
 developer-host tier.
 
 ## Product-first precedence
@@ -80,8 +80,8 @@ durable publication, а `game`, `headless` и runtime-bearing `tools` входя
 | `play` | Gameplay, runtime, UI, input, renderer или composition | representative app/headless flow запускается, загружает проект и выполняет затронутый игровой цикл |
 | `persistence-replay` | Commands, IDs, authoritative state, scheduling, save schema или migrations | save→load продолжает мир; focused replay/deterministic comparison проходит; corrupt input отвергается до mutation |
 | `content-package` | Asset schema, cooker, importer boundary, package/plugin или distribution | representative content/package validates и cooks/loads; bounds/hash/version, protected-data и basic license-notice checks проходят |
-| `platform` | Только renderer, packaging, host integration или OS-specific change | targeted smoke на текущем Linux host; Windows target evidence отложено до bring-up |
-| `performance` | Только material hot-path, physics, renderer, I/O или model-runtime change | Linux targeted report без изменения authoritative result; Windows/THOTH hard gate остаётся deferred release evidence |
+| `platform` | Только renderer, packaging, host integration или OS-specific change | targeted smoke на текущем Linux host; Windows target не входит в текущую release matrix |
+| `performance` | Только material hot-path, physics, renderer, I/O или model-runtime change | Linux targeted report без изменения authoritative result; отдельная Linux hard authority остаётся R7c work |
 
 Focused checks используются во время итерации; широкий local check запускается
 перед handoff, когда он существует и релевантен. Недоступная GPU, encoder, RTX
@@ -239,7 +239,7 @@ traceability — навигационная карта, не admission authority
 | ADR-033 | [PhysX grounded-capsule parity и ограниченная FFI-граница](adr/033-physx-grounded-capsule-parity-ffi-boundary.md) | Superseded by ADR-058 |
 | ADR-034 | [Player targeting replay V5 и exact mapping provenance](adr/034-player-targeting-replay-v5-and-mapping-provenance.md) | Accepted; legacy V4/V1 retention superseded by ADR-046 |
 | ADR-035 | [Bounded live recovery, platform-host binding и presentation cut](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md) | Accepted host binding and presentation cut; checkpoint/archive recovery clauses superseded by ADR-047 |
-| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted frozen release design; Windows/THOTH execution is deferred by ADR-082, allocator clauses are superseded by ADR-049, preflight thresholds by ADR-060/ADR-061, driver/R5 workload details by ADR-062 and relative evidence unit by ADR-063 |
+| ADR-036 | [THOTH reference performance profile и hard timing authority](adr/036-thoth-reference-performance-profile.md) | Accepted historical Windows profile outside current v1 authority under ADR-090; allocator clauses are superseded by ADR-049, preflight thresholds by ADR-060/ADR-061, driver/R5 workload details by ADR-062 and relative evidence unit by ADR-063 |
 | ADR-037 | [Packed session object storage](adr/037-packed-session-object-storage.md) | Superseded by ADR-047 |
 | ADR-038 | [Versioned production-worker handoff diagnostic](adr/038-versioned-production-worker-handoff-diagnostic.md) | Accepted; узко заменяет diagnostic-scenario часть ADR-036 без изменения THOTH hard timing authority или B-12 closure |
 | ADR-039 | [Tooling-only process-wide System GlobalAlloc measurement boundary](adr/039-tooling-only-process-wide-system-global-allocator-measurement.md) | Superseded by ADR-049 |
@@ -261,12 +261,12 @@ traceability — навигационная карта, не admission authority
 | ADR-055 | [Mamba-2 physical motion foundation profile](adr/055-mamba2-physical-motion-foundation-profile.md) | Superseded by ADR-057; current authority ADR-066 |
 | ADR-056 | [Deterministic Strategic Agent and belief-driven GOAP](adr/056-deterministic-strategic-agent-and-belief-driven-goap.md) | Accepted; belief-driven Utility + bounded GOAP closes R4/v1 without learned models |
 | ADR-057 | [Hierarchical learnable Motor System and policy-family architecture](adr/057-hierarchical-learnable-motor-system-and-policy-family-architecture.md) | Superseded by ADR-066 |
-| ADR-058 | [PhysX-only deterministic humanoid training substrate](adr/058-physx-only-deterministic-humanoid-training-substrate.md) | Accepted sole production backend and fixed-humanoid Stage 0; cutover/completion require Windows/Linux and replay/performance gates |
+| ADR-058 | [PhysX-only deterministic humanoid training substrate](adr/058-physx-only-deterministic-humanoid-training-substrate.md) | Accepted sole production backend and fixed-humanoid Stage 0; optional current-target promotion requires Linux replay/performance/correspondence gates, while Windows is outside v1 under ADR-090 |
 | ADR-059 | [Event-sourced PhysX continuation reconstruction](adr/059-event-sourced-physx-continuation-reconstruction.md) | Accepted bounded reset + post-safety effort prefix; partially supersedes ADR-058 direct continuation-import assumption |
-| ADR-060 | [Relaxed THOTH performance preflight](adr/060-relaxed-thoth-performance-preflight.md) | Accepted deferred 10 GiB free-RAM threshold; THOTH is no longer the active development host under ADR-082, below-15% load and methodology v5 are superseded by ADR-061 |
-| ADR-061 | [Forty-percent THOTH load preflight](adr/061-forty-percent-thoth-load-preflight.md) | Accepted deferred CPU/GPU start-load below 40%; methodology identity is superseded by ADR-063 and execution by ADR-082 |
-| ADR-062 | [R5 PhysX humanoid performance authority](adr/062-r5-physx-humanoid-performance-authority.md) | Accepted 16-slot 23-DoF PhysX workload, 1/4/8-worker budgets and driver 610.88; Windows hard execution is deferred by ADR-082 and single-run relative gate/methodology v7 are superseded by ADR-063 |
-| ADR-063 | [Run-level performance evidence and fixed gate batches](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) | Accepted Performance V5/methodology v8 and fixed-batch design; Windows hard execution is deferred by ADR-082 |
+| ADR-060 | [Relaxed THOTH performance preflight](adr/060-relaxed-thoth-performance-preflight.md) | Accepted historical THOTH 10 GiB free-RAM threshold outside current v1 authority under ADR-090; below-15% load and methodology v5 are superseded by ADR-061 |
+| ADR-061 | [Forty-percent THOTH load preflight](adr/061-forty-percent-thoth-load-preflight.md) | Accepted historical THOTH CPU/GPU start-load threshold; methodology identity is superseded by ADR-063 and Windows execution is outside current scope under ADR-090 |
+| ADR-062 | [R5 PhysX humanoid performance authority](adr/062-r5-physx-humanoid-performance-authority.md) | Accepted 16-slot 23-DoF PhysX workload and historical Windows budgets/driver; Windows hard authority is outside current scope under ADR-090 and single-run relative gate/methodology v7 are superseded by ADR-063 |
+| ADR-063 | [Run-level performance evidence and fixed gate batches](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) | Accepted Performance V5/methodology v8 and fixed-batch design; historical Windows hard execution is outside current scope under ADR-090, while R7c must define Linux authority |
 | ADR-064 | [Canonical flat-command locomotion environment](adr/064-canonical-flat-command-locomotion-environment.md) | Accepted engine-owned 23-DoF flat locomotion commands, root-local observation, Q16 reward, partial reset/checkpoint lifecycle, protocol/mirror v2 boundary; no learned-policy claim |
 | ADR-065 | [Curriculum flat-command locomotion profile](adr/065-curriculum-flat-command-locomotion-profile.md) | Accepted engine-owned episode-ordinal curriculum, sharper Q16 reward/support shaping and full-stage held-out evaluation; V1 remains unchanged and learned quality remains unproven |
 | ADR-066 | [Contact-centric physical skills and morphology-conditioned motor architecture](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) | Accepted no-text physical-skill hierarchy, heterogeneous BodySchema, `PhysicalActionChunk`, family graph-controller and deterministic rollout boundaries; exact learned profiles remain Proposed |
@@ -285,7 +285,7 @@ traceability — навигационная карта, не admission authority
 | ADR-079 | [Thermochemical material-process track](adr/079-thermochemical-material-process-track.md) | Proposed enthalpy-first parcel owner, partially narrowed by ADR-081; no current schema/runtime claim |
 | ADR-080 | [Neural assistance as bounded proposals](adr/080-neural-assistance-as-bounded-proposals.md) | Proposed report/shadow-only research after classical promotion, narrowed by ADR-081 |
 | ADR-081 | [World-dynamics gap closure and promotion guardrails](adr/081-world-dynamics-gap-closure-and-promotion-guardrails.md) | Accepted promotion guardrails for successor scheduling, composition, exact continuation, float execution, fault/capacity/budget semantics and domain closures; no current runtime/schema activation |
-| ADR-082 | [Linux-first development and deferred Windows host](adr/082-linux-first-development-and-deferred-windows-host.md) | Accepted active Linux development/report host; Windows/THOTH execution and paired release evidence deferred until explicit pre-R7 bring-up |
+| ADR-082 | [Linux-first development and deferred Windows host](adr/082-linux-first-development-and-deferred-windows-host.md) | Superseded by ADR-090; historical transition to the Linux active host |
 | ADR-083 | [Public creator project CLI vertical](adr/083-public-creator-project-cli-vertical.md) | Accepted bounded `next project validate/cook`, Creator Command Report V1, confined atomic output and independent creator project |
 | ADR-084 | [Public creator run and project-package vertical](adr/084-public-creator-run-and-project-package-vertical.md) | Accepted bounded generic one-tick creator run, exact current project package, separate reports and packaged-byte verification |
 | ADR-085 | [Public creator project inspect and diff vertical](adr/085-public-creator-project-inspect-and-diff-vertical.md) | Accepted bounded source-neutral immutable projection, authoring/package inspect and directional success-on-difference report |
@@ -293,6 +293,7 @@ traceability — навигационная карта, не admission authority
 | ADR-087 | [Public creator runtime scenario and prefix minimization](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) | Accepted exact-project-bound tick scenario, path-free final-proof assertions and failure-preserving fresh-output prefix minimization |
 | ADR-088 | [Public replay first-divergence and bounded domain inspection](adr/088-public-replay-first-divergence-and-domain-inspection.md) | Accepted current Replay V10 exact-project validation, production first-divergence and one-tick runtime/world/physics/owner projections |
 | ADR-089 | [Governed external creator SDK workflow](adr/089-governed-external-creator-sdk-workflow.md) | Accepted canonical beta guide, edited cold-start public lifecycle and externally visible byte-identical Luau/Wasm examples; no new command or report |
+| ADR-090 | [Linux-only v1 and indefinitely deferred Windows](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) | Accepted sole Linux v1/R7 shipping boundary, dormant Windows scope and bounded R7a–R7e release outcomes |
 
 ## Proposed tracks
 

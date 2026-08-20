@@ -132,8 +132,8 @@ prior evidence.
 - R6 and B-09 close on the existing bounded beta surface. Future creator work
   requires a concrete consumer and a new roadmap slot; it does not reopen R6
   by default.
-- Linux remains the active development host. Windows/THOTH remain
-  `NotRun(WindowsHostDeferred)` under ADR-082.
+- Linux remains the active development and sole v1 shipping host. Windows/THOTH
+  are outside current scope indefinitely under ADR-090.
 
 ## Supersession
 

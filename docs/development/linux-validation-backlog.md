@@ -13,11 +13,11 @@
 и прежней Windows-first policy. Он больше не является execution queue и не
 принимает новые items.
 
-[ADR-082](../architecture/adr/082-linux-first-development-and-deferred-windows-host.md)
-сделал native Linux x86_64 текущим development host. Затронутые Linux checks
-теперь выполняются inline с work package, а native Windows действия
-накапливаются в [Windows validation backlog](windows-validation-backlog.md) до
-explicit pre-R7 bring-up. Текущее состояние этапов остаётся в
+[ADR-090](../architecture/adr/090-linux-only-v1-and-indefinitely-deferred-windows.md)
+делает native Linux x86_64 единственной current v1 target. Затронутые Linux
+checks выполняются inline с work package, а бывший
+[Windows validation backlog](windows-validation-backlog.md) архивирован вне
+current scope indefinitely. Текущее состояние этапов остаётся в
 [roadmap](../roadmap.md).
 
 Всё ниже заголовка «Historical Windows-first snapshot» является исторической

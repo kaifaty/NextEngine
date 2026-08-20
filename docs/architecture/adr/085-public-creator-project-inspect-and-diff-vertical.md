@@ -146,8 +146,8 @@ inspection and the broader SDK remain open.
 - R6 and B-09 remain open. ADR-086 provides the reusable project template and
   cold-authoring exercise; scenario/minimization is the next bounded lifecycle
   and mutation surface.
-- Linux is the active implementation host. Windows/THOTH and paired shipping
-  evidence remain `NotRun(WindowsHostDeferred)` under ADR-082.
+- Linux is the active implementation and sole v1 shipping host. Windows/THOTH
+  and paired evidence are outside current scope under ADR-090.
 
 ## Supersession
 

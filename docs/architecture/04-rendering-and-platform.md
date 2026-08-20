@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.5 |
-| Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
-| Заменяет | SPEC-04 2.4; moves active renderer development/report evidence to Linux while preserving deferred Windows release targets |
+| Версия | 2.6 |
+| Последняя проверка | 2026-08-20 |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
+| Заменяет | SPEC-04 2.5; makes native Linux the sole current shipping/platform package target and moves Windows outside v1 indefinitely |
 
 ## Technical authority boundary
 
@@ -118,13 +118,16 @@ required GLIBC и все внешние runtime prerequisites; manifest такж
 exact `project_lock_sha256`. Earlier package artifacts current runtime rejects
 typed unsupported and never migrates in place.
 
-Windows x86_64 MSVC profile использует dynamic system VC++ x64 runtime и
-системный Vulkan loader `vulkan-1.dll`; выбранная loader ABI strategy требует
-Vulkan API 1.3. Linux x86_64 GNU profile использует Ubuntu 22.04 / glibc 2.35
+Linux x86_64 GNU profile использует Ubuntu 22.04 / glibc 2.35
 как minimum baseline, системный loader `libvulkan.so.1`, Vulkan API 1.3 и
-активную X11 либо Wayland desktop session. На обеих targets Vulkan ICD/GPU
-driver является внешним user-installed prerequisite; loader и driver MUST NOT
-включаться в package. SDL3 для R1 компонуется статически.
+активную X11 либо Wayland desktop session. Vulkan ICD/GPU driver является
+внешним user-installed prerequisite; loader и driver MUST NOT включаться в
+package. SDL3 компонуется статически.
+
+Существующий Windows x86_64 MSVC profile остаётся dormant implementation
+detail и не является v1 package/support promise. Его dynamic VC++ runtime и
+`vulkan-1.dll` rules применимы только если будущий superseding ADR вернёт
+Windows в shipping scope.
 
 Packaging check MUST сверять заявленные direct dependencies с PE64/ELF64
 binary. ELF с machine-local `RPATH`/`RUNPATH`, non-standard x86_64 GNU
@@ -136,7 +139,8 @@ Copied release binaries MUST запускаться из package с очищен
 loader overrides. Linux smoke MAY сохранить только desktop-session variables,
 то есть `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR`,
 `DBUS_SESSION_BUS_ADDRESS`, `XAUTHORITY`, необходимые выбранному X11/Wayland
-host; Windows smoke MAY сохранить `SYSTEMROOT`/`WINDIR`. Каждый smoke имеет
+host. Dormant Windows smoke MAY сохранить `SYSTEMROOT`/`WINDIR`, но не входит
+в текущую release matrix. Каждый smoke имеет
 30-second timeout и bounded output.
 Runtime profile, dependency, ABI и timeout failures используют стабильные коды
 `NATIVE_GATE_PACKAGE_RUNTIME_PROFILE_INVALID`,
@@ -150,9 +154,9 @@ Debug layers/RenderDoc markers MAY быть optional package, но их отсу
 ## B0 performance profile
 
 Текущий development check выполняет B0 workload на native Linux и сохраняет
-timing только как `REPORT_ONLY`. Hard B0 design следует ADR-036 и принимается
-только на полном `ref-win-thoth-v1` в `release`, но ADR-082 откладывает этот
-Windows execution до explicit pre-R7 bring-up:
+timing только как `REPORT_ONLY`. Historical hard B0 design и числовые budgets
+ADR-036/THOTH не переносятся на Linux автоматически. R7c должен принять exact
+Linux release profile и его числовую policy до hard release claim:
 
 - primary `1920×1080`: `p95 <= 14,000 us`, `p99 <= 16,670 us`;
 - fallback `b0-safe-720p30`, `1280×720`: `p99 <= 33,330 us`.
@@ -186,12 +190,12 @@ workload.
 
 | ID | Scenario | Expected behavior | Fallback |
 |---|---|---|---|
-| `RENDER-P1` | Run an engine-owned Vulkan B0 gameplay scene on the active Linux target with the selected binding adapter; run Windows later during explicit bring-up. | No validation errors or leaked objects; Linux timing is `REPORT_ONLY`, deferred THOTH primary/fallback evidence remains unclaimed, and no binding/vendor type escapes the renderer backend. | Fix or replace the adapter behind the same `RenderDevice`; select declared `b0-safe-720p30` at launch without hiding primary failure or changing gameplay. |
-| `SHADER-P1` | Compile the offline `ShaderInterface` matrix with the selected compiler chain. | VS/FS/compute SPIR-V, canonical reflection and platform-neutral artifact keys match across Win/Linux; layouts match exactly; unavailable optional task/mesh or ray-query paths remain unloaded. | Replace the compiler adapter behind the same interface and reject incompatible shader assets. |
+| `RENDER-P1` | Run an engine-owned Vulkan B0 gameplay scene on the active Linux target with the selected binding adapter. | No validation errors or leaked objects; development timing is `REPORT_ONLY` until R7c, and no binding/vendor type escapes the renderer backend. | Fix or replace the adapter behind the same `RenderDevice`; select declared `b0-safe-720p30` at launch without hiding primary failure or changing gameplay. |
+| `SHADER-P1` | Compile the offline `ShaderInterface` matrix with the selected compiler chain. | VS/FS/compute SPIR-V, canonical reflection and platform-neutral artifact keys are stable on Linux; layouts match exactly; unavailable optional task/mesh or ray-query paths remain unloaded. | Replace the compiler adapter behind the same interface and reject incompatible shader assets. |
 | `RENDER-ASH-P1` | Exercise the B0 scene through the proposed ash adapter. | The renderer behavior matches `RENDER-P1` and no ash type crosses the backend boundary. | Keep the internal/generated binding adapter. |
 | `SHADER-SLANG-P1` | Exercise the shader matrix through the proposed Slang adapter. | The behavior matches `SHADER-P1` and source mapping exists for every compiled entry. | Keep the verified GLSL/HLSL-to-SPIR-V compiler adapter. |
 | `PLATFORM-P1` | Repeated create/resize/fullscreen/focus/input/surface lifecycle on supported desktop hosts. | No crash or leak; normalized event ordering is stable and native handles remain private. | Use the thin native adapter behind the same platform contract. |
 | `RENDER-02` | Force `no RT`, `no mesh shader` and bounded descriptors. | The representative scene remains complete and playable with no missing required material or geometry. Optional screenshots or image diffs may help diagnose regressions but are not the correctness oracle. | Disable the unsupported enhanced path and use the cooked B0 path. |
 | `RENDER-03` | Inject swapchain and device loss at representative frame boundaries. | Interactive target recreation or clean suspension/exit completes without authoritative-state corruption; incomplete private cache state is never exposed. | Stop recovery attempts, preserve the last complete save/session state and exit cleanly. |
-| `PACKAGE-01` | Install and run a clean Win/Linux package. | `PackageManifestV4` matches exact project lock, PE/ELF imports and the declared ABI baseline; isolated copied `game`/`headless` launches pass and missing runtime prerequisites have stable diagnostics. | Do not distribute the broken target package; repair its loader/dependency declaration. |
+| `PACKAGE-01` | Install and run a clean Linux package. | `PackageManifestV4` matches exact project lock, ELF imports and the declared glibc baseline; isolated copied `game`/`headless` launches pass and missing runtime prerequisites have stable diagnostics. | Do not distribute the broken package; repair its loader/dependency declaration. |
 | `RENDER-04` | Optionally run a developer capture through the displayless offscreen target. | No window/display/surface/swapchain dependency is created; replay gameplay hash remains unchanged and repeated normalized frame output is stable for the selected profile. | Disable capture tooling and fix the target abstraction; normal game/headless operation remains available. |

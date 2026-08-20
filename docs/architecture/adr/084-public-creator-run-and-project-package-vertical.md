@@ -22,9 +22,9 @@ but execution still constructed `ReferenceGameDriverV2` and therefore required
 reference-alpha roles, identities and presentation content.
 
 R6b needs a real second-project consumer without freezing the later inspector,
-scenario, template or full SDK surfaces. A native standalone Windows/Linux
-game bundle is also too broad: target binaries, renderer dependencies and
-paired release evidence remain the R7 package boundary.
+scenario, template or full SDK surfaces. A native standalone game bundle is
+also too broad: target binaries and renderer dependencies remain the R7 Linux
+package boundary under ADR-090.
 
 ## Decision
 
@@ -139,8 +139,8 @@ cold-authoring exercise remain open. ADR-085 later closes only diff/inspect.
 - **Package source files only.** Rejected: recipients would depend on local
   cooker behavior and would not receive the exact validated generation.
 - **Build a native standalone game from `next project package`.** Rejected for
-  this increment: target runtime inventory, desktop dependencies and paired
-  Windows/Linux release evidence belong to R7.
+  this increment: target runtime inventory, desktop dependencies and Linux
+  release evidence belong to R7.
 - **Overwrite an existing package directory atomically.** Rejected: a public
   creator command cannot infer ownership of arbitrary caller content. A fresh
   destination is the bounded safe rule.
@@ -156,8 +156,8 @@ cold-authoring exercise remain open. ADR-085 later closes only diff/inspect.
 - The next bounded R6 increment should add read-only project diff/inspect over
   this same creator/package fixture before templates and scenarios widen the
   mutation surface; ADR-085 later fulfills that increment.
-- Native Linux remains the active development host. Windows execution and
-  paired shipping evidence remain `NotRun(WindowsHostDeferred)` under ADR-082.
+- Native Linux remains the active development and sole v1 shipping host.
+  Windows execution is outside current scope indefinitely under ADR-090.
 
 ## Supersession
 

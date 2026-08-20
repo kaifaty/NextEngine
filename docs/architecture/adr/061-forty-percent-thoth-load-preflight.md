@@ -9,7 +9,7 @@
 | Last verified | 2026-08-10 |
 | Normative dependencies | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-049](049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](060-relaxed-thoth-performance-preflight.md) |
 | Supersedes | Narrowly supersedes the ADR-060 CPU/GPU load threshold of below 15% and its methodology-v5 identity. The ADR-060 minimum of 10 GiB free RAM remains Accepted. |
-| Superseded by | [ADR-063](063-run-level-performance-evidence-and-fixed-gate-batches.md) supersedes the methodology identity and adds per-run environment boundaries after ADR-062. [ADR-082](082-linux-first-development-and-deferred-windows-host.md) defers THOTH execution until Windows bring-up; the below-40% start-load and 10 GiB free-RAM admission remain Accepted for that future hard evidence. |
+| Superseded by | [ADR-063](063-run-level-performance-evidence-and-fixed-gate-batches.md) supersedes the methodology identity and adds per-run environment boundaries after ADR-062. [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md) removes THOTH execution from current v1/R7 authority; these thresholds remain historical and are not automatically a Linux R7c profile. |
 
 ## Context
 

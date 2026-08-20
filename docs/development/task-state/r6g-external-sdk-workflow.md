@@ -19,8 +19,8 @@
   of one NPC/ability/quest and three chunks. Source audit showed that ordinary
   public JSON edits plus existing commands close the remaining workflow gap;
   a new editor/patch API would be speculative.
-- **Next action:** Plan R7 only after an explicit pre-R7 Windows bring-up
-  decision under ADR-082; no further R6 implementation remains.
+- **Next action:** Begin Linux-only R7a release-authority work under ADR-090;
+  no further R6 implementation remains.
 - **Current blocker:** None.
 - **Do not retry:** Do not add a graphical editor, MCP contract, hidden Rust
   authoring helper or second project/replay schema; none has a concrete R6g
@@ -86,15 +86,15 @@ Read these sources in precedence order before acting:
   changed.
 - `performance`: `NOT_RUN / NoEstablishedHotPathChanged`; the change is cold
   tooling, documentation and reference-source placement.
-- Windows/THOTH: `NOT_RUN / WindowsHostDeferred`; ADR-082 keeps the active
-  development host on Linux until an explicit pre-R7 bring-up decision.
+- Windows/THOTH: `NOT_RUN / OutOfScopeIndefinite`; ADR-090 removes Windows
+  execution from current v1/R7 scope.
 
 ## Next action
 
 1. Keep R6/B-09 closed unless a concrete future consumer proves a missing
    creator contract.
-2. Before R7 implementation, make the explicit Windows bring-up decision
-   already recorded in ADR-082 and the roadmap.
+2. Start R7a by replacing the old two-target release aggregation with an honest
+   Linux-only versioned closure; do not reopen R6.
 
 ## Do not retry
 

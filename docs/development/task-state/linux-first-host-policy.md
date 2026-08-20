@@ -2,39 +2,37 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `COMPLETE` |
-| Updated | 2026-08-18 |
+| Status | `SUPERSEDED / ADR-090` |
+| Updated | 2026-08-20 |
 | Task key | `linux-first-host-policy` |
-| Scope | Make native Linux x86_64 the active development host, execute R2 renderer evidence there, and defer Windows/THOTH work without removing Windows from v1 shipping targets |
+| Scope | Historical ADR-082 transition that made Linux active while retaining a deferred Windows v1 target; the retained-Windows boundary is superseded by ADR-090 |
 | Definition of done | Accepted policy, specs, routing, roadmap and developer guidance agree; R2 executes through SDL3/ash on Linux with native process counters; mapped Linux checks pass; deferred Windows work has one bounded backlog |
-| Authority | Working context only; ADR-082, Accepted SPECs, `docs/roadmap.md` and exact check outputs outrank this file |
+| Authority | Historical working context only; ADR-090, current Accepted SPECs, `docs/roadmap.md` and exact check outputs outrank this file |
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Linux is the only active development host. Windows,
-  THOTH hard timing and same-commit compare are deferred until an explicit
-  pre-R7 bring-up.
+- **Current conclusion:** Superseded by ADR-090. Linux remains the active host
+  and becomes the only v1 shipping target; Windows/THOTH/paired work is outside
+  current scope indefinitely rather than queued for pre-R7 bring-up.
 - **Implementation:** `r2-alpha-render.v3` runs six real Vulkan windows on
   Linux when xtask is built with `desktop-sdl-ash`; Linux peak RSS and process
   I/O come from procfs. The outer report may pass while its timing verdict
   remains `REPORT_ONLY`.
-- **Boundary:** Windows remains a v1 shipping target. B-01, B-12, paired native
-  evidence and PhysX Stage 0 readiness stay open release claims, not current
-  R5/R6 handoff blockers.
-- **Next action:** return to the R5 completion audit and select its next bounded
-  Linux work package. Keep the Windows backlog dormant until an explicit
-  pre-R7 bring-up ADR.
+- **Boundary:** Historical results below retain their exact-run meaning, but
+  this file no longer defines current platform or R7 policy.
+- **Next action:** Use
+  [linux-only v1 task state](linux-only-v1-release-policy.md) and ADR-090; do
+  not reactivate the former Windows backlog from this historical state.
 
 ## Decisions
 
 1. Linux checks execute inline with every affected work package.
-2. Windows-specific actions accumulate in
-   [Windows validation backlog](../windows-validation-backlog.md) and do not run
-   until a superseding bring-up ADR.
+2. The former [Windows validation backlog](../windows-validation-backlog.md) is
+   archived outside current scope; do not add new actions to it.
 3. Historical Windows and Linux target reports retain exact-commit meaning
    only.
-4. Linux performance remains development evidence; it does not inherit THOTH
-   budgets or close B-12.
+4. Linux performance remains development evidence until R7c accepts a Linux
+   hard profile; it does not inherit THOTH budgets or close B-12.
 5. Only the R2 scenario identity advances from v2 to v3; Performance V5 wire
    and methodology v8 remain unchanged.
 

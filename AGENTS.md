@@ -37,7 +37,7 @@
 - Next Engine is an independent, AI-first open-source engine and toolchain for systemic single-player RPGs. It is not an OpenGothic port and not a general-purpose engine.
 - Prioritize a playable game and fast iteration.
 - Rust is the portable core language. Use the repository-pinned Rust 1.97.1 toolchain and keep workspace `unsafe_code` forbidden unless an Accepted ADR creates one small reviewed FFI/backend boundary.
-- Windows x86_64 and Linux x86_64 are the v1 shipping targets. Native Linux x86_64 is the current active development host; Windows execution is deferred until an explicit pre-R7 bring-up and must not be scheduled or required for current Linux work. Apple Silicon macOS is a developer host, not a shipping promise.
+- Native Linux x86_64 GNU/Vulkan is the only v1 shipping target and the active development/release host. Windows x86_64 is `OUT_OF_SCOPE / INDEFINITELY_DEFERRED`: do not schedule it, accumulate release blockers for it, or infer current support from historical evidence. Windows re-entry requires a new Accepted ADR and a separate roadmap slot. Apple Silicon macOS is a developer host, not a shipping promise.
 - Required roots are `game`, deterministic `headless` and `tools`. `ai-host` and displayless capture are optional.
 - Keep the game correct and playable offline. Network, LLM, renderer frame rate and optional plugins must not determine simulation correctness.
 
@@ -76,7 +76,7 @@
 - For a localized code change, run formatting/static analysis and focused tests for the affected package or boundary. `cargo run -p xtask -- host-check` is the broad workspace `fast` command; use it for cross-cutting changes, public contracts, workspace/build configuration, changes whose affected package set is uncertain, or when a plan/user explicitly requires it. It is not a default for simple edits.
 - For gameplay changes run `play`; for state changes run `persistence-replay`; for content/tool changes run `content-package`.
 - Run `platform` or `performance` only when the affected feature triggers the corresponding conditional check.
-- Run affected desktop/platform/performance checks on the active Linux host. Record Windows-dependent checks as deferred target/release evidence; do not attempt them or treat their absence as a blocker for the current Linux feature-development handoff.
+- Run affected desktop/platform/performance checks on the active Linux host. Windows-dependent checks are outside current v1/R7 scope: do not attempt them or treat their absence as a Linux handoff/release blocker. Historical Windows results remain exact-commit records only.
 - Screenshots, captures, profiles and minimized replays are optional debugging aids.
 - Testability remains a code property: scenarios use production inputs and probes read immutable public projections. Test-only mutation backdoors remain forbidden.
 

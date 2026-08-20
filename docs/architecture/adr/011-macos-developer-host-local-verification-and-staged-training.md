@@ -9,16 +9,19 @@
 | Последняя проверка | 2026-07-25 |
 | Нормативные зависимости | [ADR-001](001-product-repository-license-and-platforms.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-14](../14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-066](066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) |
 | Заменяет | отсутствует; уточняет platform scope ADR-001 без добавления shipping target |
-| Заменён | частично [ADR-030](030-product-first-development-and-lightweight-validation.md) |
+| Заменён | частично [ADR-030](030-product-first-development-and-lightweight-validation.md) и [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md) |
 
 ## Частичное supersession ADR-030
 
 [ADR-030](030-product-first-development-and-lightweight-validation.md)
 заменяет прежний формальный lifecycle проверок. Apple Silicon macOS остаётся
-developer-host tier, Windows/Linux остаются v1 shipping targets, а MPS/CPU
+developer-host tier, а MPS/CPU
 smoke используется как ограниченная проверка train/export toolchain. Learned
 policy допускается в игровой путь только после релевантных compatibility,
 runtime и safety checks и всегда имеет deterministic fallback.
+
+ADR-090 узко заменяет platform statement: native Linux x86_64 — единственная
+v1 shipping target; Windows находится вне текущего scope indefinitely.
 
 ## Контекст
 
@@ -32,8 +35,8 @@ CI orchestration. ADR-001 не включает macOS в v1 shipping platforms, 
 ## Решение
 
 - `macOS aarch64` является `DeveloperHostTier`, а не shipping target.
-- Windows x86_64 и Linux x86_64 остаются единственными v1 shipping targets;
-  macOS package не входит в v1 scope.
+- Linux x86_64 остаётся единственной v1 shipping target; Windows и macOS
+  packages не входят в текущий v1 scope.
 - `cargo run -p xtask -- host-check` является основным широким локальным check
   перед handoff. Будущая CI может запускать те же project-owned команды, но не
   создаёт альтернативную semantics.

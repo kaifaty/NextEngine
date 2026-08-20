@@ -4,13 +4,14 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 4.9 |
+| Версия | 5.0 |
 | Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V4.7 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V4.8 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
 | Дополнительные зависимости V4.9 | [ADR-089](adr/089-governed-external-creator-sdk-workflow.md) |
-| Заменяет | SPEC-09 4.8; closes the governed external creator-beta workflow and documentation without changing command or report contracts |
+| Дополнительные зависимости V5.0 | [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
+| Заменяет | SPEC-09 4.9; removes Windows/THOTH from current release tooling authority and assigns Linux-only closure/performance evolution to R7 |
 
 ## Scope and authority
 
@@ -85,8 +86,9 @@ The active desktop performance route is:
 cargo run --locked --release -p xtask --features desktop-sdl-ash -- performance --scenario r2-alpha-render --mode report
 ```
 
-Windows/THOTH commands remain implemented but are deferred target/release
-operations under ADR-082, not part of the current Linux handoff loop.
+Windows/THOTH commands remain implemented as dormant utilities, but ADR-090
+places them outside current v1/R7 scope indefinitely. They are not part of the
+Linux handoff or release loop and create no active backlog.
 
 The current public creator commands are:
 
@@ -255,9 +257,10 @@ cannot become a hard PASS. A baseline consists of exactly ten clean release
 reports with one independent run each. One hard-gate command executes a fixed
 three-run batch and publishes one aggregate V5 report. Relative statistics use
 per-run p95 observations; raw frames are never treated as independent runs.
-Only complete THOTH evidence with a compatible V5 baseline may produce hard
-timing PASS. Its execution is deferred until Windows bring-up; B-12 remains an
-R7/release blocker and does not block current Linux R5 implementation.
+Only complete THOTH evidence with a compatible V5 baseline may produce a hard
+verdict under the historical Windows profile. ADR-090 removes that profile
+from current v1/R7 authority. R7c must accept a distinct Linux release profile
+and compatible evidence before Linux timing can become release-gating.
 
 THOTH preflight admits CPU and GPU load strictly below 40% and at least 10 GiB
 free physical RAM before every independent run. CPU clock and GPU thermal
@@ -304,9 +307,9 @@ cost metrics, lockstep frame p95/p99, 1/4/8-worker scaling, checkpoint/restore,
 replay-prefix overhead, process peak memory, logical bytes/slot and exact
 worker/profiler root parity. CPU PhysX reports zero engine-owned device
 residency and does not fabricate Vulkan queries. Exact workload and budgets are
-ADR-062 authority. Until Windows execution is explicitly resumed and ten
-compatible clean runs plus a hard gate exist, its clean calibration remains
-`REPORT_ONLY` and does not close B-12.
+ADR-062 authority for the historical profile. Current Linux calibration stays
+`REPORT_ONLY` until R7c accepts a Linux release fingerprint, compatible clean
+baseline and hard gate; Windows execution is neither required nor scheduled.
 Calibration automation uses `--require-ready-preflight`: if the exact internal
 host probe is not ready, the command publishes typed `NOT_RUN` before starting
 the representative workload. The flag does not wait, relax thresholds or

@@ -4,9 +4,10 @@
 |---|---|
 | ID | SPEC-00 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последнее изменение | 2026-08-08 |
-| Нормативные зависимости | [INDEX-001](README.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md) |
+| Версия | 2.3 |
+| Последнее изменение | 2026-08-20 |
+| Нормативные зависимости | [INDEX-001](README.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
+| Заменяет | SPEC-00 2.2; makes native Linux x86_64 the sole v1 shipping target and moves Windows outside current scope indefinitely |
 
 ## Назначение
 
@@ -24,7 +25,7 @@ single-player RPG. Продукт строится вокруг playable loop, g
 
 V1 MUST:
 
-1. запускать один cooked project на Windows x86_64 и Linux x86_64;
+1. запускать один cooked project в native Linux x86_64 package;
 2. иметь interactive `game`, deterministic `headless` и `tools`;
 3. реализовывать generic Character, Item, Quest, Dialogue, Faction,
    InteractiveObject и streamed world без legacy runtime types;
@@ -106,7 +107,7 @@ captures, profiles и minimized replay можно сохранить для от
 
 - full editor;
 - multiplayer/network-authoritative simulation;
-- consoles, mobile и macOS shipping;
+- Windows, macOS, consoles и mobile shipping;
 - universal renderer/backend marketplace;
 - runtime model training;
 - branching/counterfactual replay; v1 requires read-only replay of recorded

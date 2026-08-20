@@ -4,9 +4,9 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-20 |
-| Текущая точка | R3, reference-project vertical, functional R4, procedural R5a–R5j и bounded R6 Creator beta остаются `COMPLETE`. [R6a creator project CLI](development/task-state/r6a-creator-project-cli.md), [R6b creator run/package](development/task-state/r6b-creator-run-package.md), [R6c creator inspect/diff](development/task-state/r6c-creator-project-inspect-diff.md), [R6d RPG starter](development/task-state/r6d-creator-project-template.md), [R6e creator scenario](development/task-state/r6e-creator-runtime-scenario.md), [R6f replay/domain inspection](development/task-state/r6f-replay-domain-inspection.md) и [R6g external SDK workflow](development/task-state/r6g-external-sdk-workflow.md) завершены. The canonical Creator SDK beta guide and `content-package` now govern one real post-create JSON edit through public validate/cook/run/package/inspect/diff; byte-identical Luau/Wasm example sources are externally visible. R6/B-09 close without a GUI, MCP, replay capture, arbitrary project-local extension ingestion or private mutation backdoor; later breadth requires a concrete consumer. Native Linux x86_64 remains the active development host under ADR-082. The next planned stage is R7, but Windows/THOTH, same-commit compare, B-12 and PhysX Stage 0 readiness remain deferred until explicit pre-R7 Windows bring-up. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
-| Host policy checkpoint | `LINUX_ACTIVE / WINDOWS_DEFERRED`: current Linux hardware target проходит desktop/package paths и является единственным текущим developer host. Прежние Windows target-local results остаются historical exact-commit evidence; новые Windows runs сейчас не планируются. R3a/B-04, R3b/B-06 и R4a–R4d increments `COMPLETE`. Same-commit Windows/Linux pair, B-01, B-12, paired release evidence и v1 shipping остаются открытыми до отдельного bring-up, но не блокируют текущую Linux разработку. |
-| R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. Current Linux `r2-alpha-render.v3` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют прежний gameplay result. B-12 открыт как deferred R7 gate. |
+| Текущая точка | R1–R6 завершены на current Linux product boundary. [R6a creator project CLI](development/task-state/r6a-creator-project-cli.md), [R6b creator run/package](development/task-state/r6b-creator-run-package.md), [R6c creator inspect/diff](development/task-state/r6c-creator-project-inspect-diff.md), [R6d RPG starter](development/task-state/r6d-creator-project-template.md), [R6e creator scenario](development/task-state/r6e-creator-runtime-scenario.md), [R6f replay/domain inspection](development/task-state/r6f-replay-domain-inspection.md) и [R6g external SDK workflow](development/task-state/r6g-external-sdk-workflow.md) завершены. ADR-090 makes native Linux x86_64 the sole v1 shipping/release target and moves Windows/THOTH/paired evidence outside current scope indefinitely. R7 is ready to start with R7a versioned Linux-only release aggregation; B-12 remains open as a Linux performance-authority task, not a Windows gate. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
+| Host policy checkpoint | `LINUX_V1_ONLY / WINDOWS_OUT_OF_SCOPE_INDEFINITE`: current Linux hardware target проходит desktop/package paths and is the sole active development/release target. Historical Windows results retain exact-commit meaning only. No Windows runs, THOTH calibration, same-commit compare or live Windows backlog are scheduled or required for R7/v1. Re-entry requires a new Accepted ADR and separate roadmap slot. |
+| R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v3` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. B-12 is now the R7c Linux hard-performance authority gap. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
 | Источники | Accepted SPEC/ADR, текущий workspace и локальные ProductCheck |
 | World-dynamics guardrail | ADR-081 Accepted: successor stage/DAG, scheduled PhysX checkpoint epochs, exact float/identity, capacity/fault/budget closure and shadow-only neural rules apply to every post-v1 physical-world track without activating it |
@@ -36,7 +36,7 @@ Roadmap намеренно не содержит календарных обещ
 | Статус | Значение |
 |---|---|
 | `DONE_LOCAL` | Реализация и релевантные checks проходят на developer host; это не shipping claim. |
-| `DONE_LOCAL_LINUX` | Implementation/checkpoint завершён на текущем active Linux host; Windows/release claims остаются отдельными и deferred. |
+| `DONE_LOCAL_LINUX` | Implementation/checkpoint завершён на current Linux host; final R7 exact-commit release claim остаётся отдельным. |
 | `DONE_LOCAL_WINDOWS` | Historical Windows implementation/checkpoint завершён на своём exact commit; статус не является текущей execution policy и не переносится на новые commits. |
 | `NEXT` | Следующий этап критического пути. |
 | `PLANNED` | Нужен для v1, но зависит от более ранних этапов. |
@@ -149,12 +149,12 @@ animation и reusable systemic quest conditions относятся к R3–R5.
 | Content/cooker | Data-first `projects/reference-alpha` проходит typed V7/V8 authoring/cook/direct-lock activation; package содержит 123 canonical entries, 37 roots и 64 chunk bindings. Independent `projects/creator-smoke` uses only file-backed public authoring data, deterministically cooks/activates 18 entries, 16 roots and three chunks, runs through the generic application path and builds an exact current Creator Project Package V1 with required NOTICE. The cold Creator SDK workflow creates, edits, validates, cooks and packages another namespace through public commands. | Нет broad animation graph/retarget content or polygon navmesh; further templates/inspectors/scenarios require concrete consumers. |
 | World/streaming | R3 partition and R4a–R4d world consumers реализованы: exact pinned generation, 4 regions/64 chunks, derived calendar, separate routine/population/activity/Agent/Memory owners, 16/32/52 cadence, 64-node graph, bounded bulk time and joint publication | Нет generic interest/eviction, physical corridor following or broad jobs/economy framework; эти gaps не входят в bounded R4 closure. |
 | Jobs/resources | R3 использует private bounded workers (default 2, max 4), immutable revision-bound request/result и channel 64; generic subsystem не принят | Shared scheduler/resource contract появляется только при доказанной второй production потребности; SPEC-23 остаётся Proposed. |
-| Physics | PhysX 5.9.0 остаётся выбранным production backend; current procedural reference profile имеет upright capsule, at most one fixed-local carried box, static/dynamic Box, sensors, exact contacts/`ClosestPoint` and checkpoint reconstruction. R5j proves trip/carry/melee through the production catalog without a second body owner. | General attachment/drop, mass transfer, active articulation cutover, broader shape/query consumers and Windows/Linux Stage 0 evidence remain post-baseline or deferred. |
+| Physics | PhysX 5.9.0 остаётся выбранным production backend; current procedural reference profile имеет upright capsule, at most one fixed-local carried box, static/dynamic Box, sensors, exact contacts/`ClosestPoint` and checkpoint reconstruction. R5j proves trip/carry/melee through the production catalog without a second body owner. | General attachment/drop, mass transfer, active articulation cutover, broader shape/query consumers and optional learned Stage 0 promotion evidence remain post-baseline. |
 | Animation/motor | Completed R5a–R5j procedural baseline активирует shared player/NPC skeleton/clip owner, exact neutral sampling, identity retarget, presentation-only foot IK, fixed-tick root proposal, physics-validated capsule application, exact project-backed `BodySchemaV1` projections, stateless player capsule controller, shared exact base-skinning profile and separate deformation/work LOD selectors. R5h closes `ANIM-ROOT-MOTION-P1`; R5i closes `ANIM-LOD-P1`; R5j closes bounded `PHYS-P6` through repeated low-riser trip, visible compound-load clearance, exact blocked-contact restart and contact-driven melee outcomes. During Physics-owned fall the controller clamps horizontal intent to zero and resumes held cardinal input after landing. Replay V10 owner arity не меняется. Отдельный deterministic 23-DoF standing/flat-command substrate and curriculum V2 CPU environments remain; R141 learned lineage is stopped. | General graph/non-identity retarget/physical IK, creator-authored/multi-profile animation LOD, injury/severity surfaces, active articulation, learned/general SPEC-27 corpora, Isaac GPU correspondence and release cross-target evidence are optional, post-baseline or deferred to their declared gates. |
 | Agent AI | Bounded R4c/R4d core current: one production subject uses revision-bound Epistemic/Drive views, semantic beliefs/speech, Q16 Utility/emergency, bounded GOAP, private tasks, commitment/activity/systemic settlement and separate Agent/Memory owners; 100 records produce exact four-kind tier work | Нет broad episodic/social memory, bargaining or macro-economy. SPEC-33/34 и ADR-050/053/054 остаются optional R8 research. |
 | Navigation/audio | Baseline audio vertical и R4b engine-owned graph/query current: 64 chunk-bound nodes, four region tiles, deterministic Dijkstra and route-hash-bound abstract transfer | Gaps: chunked long-clip streaming payload, zone reverb fallback, polygon navmesh cooker, dynamic overlays and physical path-following adapter. |
 | Player experience | Keyboard/mouse и generic controller используют одинаковые action IDs с keyboard fallback; persisted targeting, third-person camera, semantic HUD/inventory/journal/dialogue/pause flow, localization, subtitles и preferences проходят automated Windows checks. HUD получил цветовой health meter, objective и отдельный presentation-only next-action panel, который выводится из immutable RPG snapshot для accept/pickup/equip/combat/relay/return/complete; Save показывает `Saved`, а Load оставляет восстановленный world на паузе с `Loaded - press Resume`. | Worker-to-desktop regression покрывает quest accept, explicit Save, визуально различимое изменение, sequence-zero Load cut, Load confirmation, продолжение новой epoch после явного Resume и реальное authoritative WASD movement с exact загруженной input-context revision. Свежий 20–30-minute run зафиксирован как `PASS`. Accessibility profiles и capability-scoped extension panels остаются вне R2 gate. |
-| Presentation/render | Exact revision-bound `PresentationSnapshotV3`, typed camera, offline SPIR-V, seven-binding B0 scene и Windows recovery/package path реализованы; R5g atomically publishes exact player/NPC `CharacterSkinningPresentationRecordV1` records, applies canonical sparse correctives before bounded fixed-point LBS and uploads complete per-frame dynamic vertex streams with corrected→base→bind and optional no-shadow fallbacks. R5i maps complete sampled/held/bind animation work into that unchanged surface, omits explicit no-pose characters and retains the prior complete snapshot on invalid closure. Full/Reduced/Base/Held/Culled plus 30/60/144 Hz permutations preserve authoritative roots. Humanoid/blade/relay retain distinct materials and all prior scene/UI behavior. Engine-owned relay-approach kit (tiled path, platform, two ruined pillars, four-rock field) добавляет читаемый маршрут и landmarks одним batched draw; relay collider точно следует видимым geometry. Contract-preserving B0+ shader выводит flat geometry normal из world-position varying и применяет fixed sun/ambient + depth fog без смены locked position/UV ABI. Current Linux hardware-GPU B0/platform/package path passes on `d15c11a…`. | Нет authored smooth normals, injury/VFX consumption, creator-authored/multi-profile animation or injury LOD, production art/animation polish, clean ten-run THOTH hard evidence и paired same-commit target proof. |
+| Presentation/render | Exact revision-bound `PresentationSnapshotV3`, typed camera, offline SPIR-V, seven-binding B0 scene and historical Windows plus current Linux recovery/package paths are implemented; R5g atomically publishes exact player/NPC `CharacterSkinningPresentationRecordV1` records, applies canonical sparse correctives before bounded fixed-point LBS and uploads complete per-frame dynamic vertex streams with corrected→base→bind and optional no-shadow fallbacks. R5i maps complete sampled/held/bind animation work into that unchanged surface, omits explicit no-pose characters and retains the prior complete snapshot on invalid closure. Full/Reduced/Base/Held/Culled plus 30/60/144 Hz permutations preserve authoritative roots. Humanoid/blade/relay retain distinct materials and all prior scene/UI behavior. Engine-owned relay-approach kit (tiled path, platform, two ruined pillars, four-rock field) добавляет читаемый маршрут и landmarks одним batched draw; relay collider точно следует видимым geometry. Contract-preserving B0+ shader выводит flat geometry normal из world-position varying и применяет fixed sun/ambient + depth fog без смены locked position/UV ABI. Current Linux hardware-GPU B0/platform/package path passes on `d15c11a…`. | Нет authored smooth normals, injury/VFX consumption, creator-authored/multi-profile animation or injury LOD, production art/animation polish and accepted R7c Linux hard-performance evidence. |
 | Tooling | Repository `xtask`, fixed R5 checks and public R6a–R6g Creator SDK beta workflow are implemented with a cold edited RPG starter, path-free JSON, exact package/runtime proof, source-neutral projection, failure-preserving prefix minimization and production Replay V10 first-divergence plus bounded runtime/world/physics/owner inspection. | Нет broader RPG/live inspectors, arbitrary command/fault/capture/recording breadth or fresh clean ten-run V5 THOTH baselines; future creator breadth requires a concrete consumer. |
 | Autonomous narrative | Proposed intent only | Вернуться только с конкретным player-visible production consumer после R3. |
 
@@ -168,7 +168,7 @@ V1 следует оценивать по [SPEC-00](architecture/00-product-cont
 
 Для v1 обязательны:
 
-- один устанавливаемый cooked project на Windows x86_64 и Linux x86_64;
+- один устанавливаемый cooked project на native Linux x86_64;
 - связанный movement → interaction → combat → dialogue → quest loop;
 - `game`, deterministic `headless` и creator/runtime tools;
 - save/load/replay и offline correctness;
@@ -190,7 +190,7 @@ V1 следует оценивать по [SPEC-00](architecture/00-product-cont
 - learned motor policy, Isaac Lab, PhysX или другой vendor physics backend;
 - ray tracing, mesh shaders, HDR, advanced VFX и displayless capture;
 - Gothic importer;
-- full editor, multiplayer, consoles, mobile или macOS shipping.
+- full editor, multiplayer, Windows/macOS/consoles/mobile shipping.
 
 Рекомендуемый v1 physical scope: устойчивый capsule/procedural controller,
 skeletal presentation, retargeting и basic IK. Full articulation и learned
@@ -201,7 +201,7 @@ motor policy входят в v1 только если их собственны�
 
 ```mermaid
 flowchart LR
-    R0["R0 Bootstrap<br/>DONE_LOCAL"] --> R1["R1 Native developer preview<br/>IN_PROGRESS"]
+    R0["R0 Bootstrap<br/>DONE_LOCAL"] --> R1["R1 Native developer preview<br/>COMPLETE"]
     R1 --> R2["R2 Playable alpha"]
     R2 --> R3["R3 Scalable content and streaming"]
     R3 --> R4["R4 Systemic living world"]
@@ -218,13 +218,13 @@ flowchart LR
 | Этап | Статус | Размер | Product outcome |
 |---|---|---:|---|
 | R0. Walking skeleton | `DONE_LOCAL` | — | Узкий deterministic slice доказал end-to-end architecture. |
-| R1. Native developer preview | `IN_PROGRESS / LINUX_PASS / WINDOWS_DEFERRED` | S–M | Linux package работает на active host; paired Windows release half отложена до pre-R7 bring-up. |
-| R2. Playable alpha | `COMPLETE / LINUX_ACTIVE / HISTORICAL_WINDOWS_ACCEPTED` | L | Data-first slice, current Linux production checks и historical Windows package/20–30-minute acceptance проходят; paired release closure не заявляется. |
+| R1. Native developer preview | `COMPLETE / LINUX_NATIVE_PASS` | S–M | Linux package работает на единственной current v1 target; former paired Windows half removed from current scope by ADR-090. |
+| R2. Playable alpha | `COMPLETE / LINUX_ACTIVE / WINDOWS_HISTORICAL_ONLY` | L | Data-first slice and current Linux production checks pass; historical Windows package/acceptance is retained only as exact-commit history. |
 | R3. Scalable content and streaming | `COMPLETE` | XL | Private packaged vertical и bounded 4-region/64-chunk project проходят cook/load/unload/save/restart и report-only workload без hard-coded two-chunk assumptions. |
-| R4. Systemic living world | `COMPLETE / LOCAL FUNCTIONAL` | XL | R4a routine, R4b population/navigation, R4c cognition and bounded R4d systemic owners pass production/failure/persistence/tier/bulk checks; B-12 and cross-target gates remain separate. |
+| R4. Systemic living world | `COMPLETE / LOCAL FUNCTIONAL` | XL | R4a routine, R4b population/navigation, R4c cognition and bounded R4d systemic owners pass production/failure/persistence/tier/bulk checks; B-12 remains separate R7c work. |
 | R5. Physical character integration | `COMPLETE / PROCEDURAL_BASELINE / R5A–R5J_COMPLETE / R&D_LINEAGE_STOPPED` | XL | R5a–R5i provide the current exact animation, motor, skinning and bounded-LOD path. R5j closes mandatory `PHYS-P6` trip/carry/contact-driven-melee evidence with actual compound-shape contacts, positive capsule clearance and exact blocked-contact restart. General graph/non-identity retarget/physical IK, active articulation and learned routes remain optional or post-baseline. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
 | R6. Creator beta | `COMPLETE / R6G_SDK_WORKFLOW` | L–XL | Canonical external guide plus governed edited cold-start, project/package lifecycle, scenario minimization, Replay V10 first-divergence/domain inspection and externally visible Luau/Wasm examples close the bounded beta without a private bootstrap. |
-| R7. V1 release candidate | `PLANNED` | L | Полный v1 scope стабилизирован и упакован для Windows/Linux. |
+| R7. V1 release candidate | `PLANNED / LINUX_ONLY / R7A_NEXT` | L | Полный v1 scope стабилизируется, измеряется и упаковывается для native Linux x86_64; Windows does not block or participate. |
 | R8. Post-v1 tracks | `DEFERRED` | отдельные программы | Optional AI/narrative/importer/advanced rendering не размывают v1. |
 
 ## R0 — Walking skeleton
@@ -237,54 +237,47 @@ path.
 **Доказанный результат:** M0–M11, локальные `play`, `persistence-replay`,
 `content-package`, portable `platform`, `performance` и `v1-closure`.
 
-**Открытый риск:** этот этап доказан на Apple Silicon developer host.
-Windows/Linux execution не считается выполненным и перенесён в R1.
+**Открытый риск:** этот этап первоначально доказан на Apple Silicon developer
+host; current native Linux execution is completed in R1.
 
 **Правило сохранения:** каждый следующий этап расширяет текущий slice
 вертикально. Переписывание contracts/runtime без нового player-facing outcome
 не является roadmap progress.
 
-## R1 — Native Windows/Linux developer preview
+## R1 — Native Linux developer preview
 
-**Статус:** `IN_PROGRESS / LINUX_PASS / WINDOWS_DEFERRED`. Native gate harness,
-historical Windows Desktop B0 hardening и minimal render-content implementation
-реализованы. Current native Linux hardware checkpoint
-`d15c11a23f9b62a91fa2cc7e400f6ab8409e1766` имеет отдельный full-gate `PASS`:
-all eight checks, NVIDIA/Wayland platform path, package ABI audit и packaged
-`game`/`headless` launch проходят. Paired same-commit Windows report и compare
-ещё не выполнены и сейчас не планируются. Exact Linux checkpoint сохраняется в
-[Linux catch-up task state](development/task-state/linux-validation-catch-up.md),
-а отложенные Windows действия — в
-[Windows validation backlog](development/windows-validation-backlog.md).
+**Статус:** `COMPLETE / LINUX_NATIVE_PASS`. Native gate harness, SDL3/ash B0
+hardening and minimal render-content implementation are present. Native Linux
+hardware checkpoint `d15c11a23f9b62a91fa2cc7e400f6ab8409e1766` has a
+target-local full-gate `PASS`: all eight checks, NVIDIA/Wayland platform path,
+package ABI audit and packaged `game`/`headless` launch pass. Exact evidence is
+retained in [Linux catch-up task state](development/task-state/linux-validation-catch-up.md).
 
-**Текущая execution policy:** native Linux x86_64/GNU/Vulkan — active
-development host и приоритет текущих work packages. Затронутые Linux checks
-выполняются inline. Native Windows x86_64/MSVC/Vulkan, THOTH hard evidence и
-same-commit compare отложены до explicit pre-R7 bring-up; они не запускаются и
-не блокируют текущий Linux feature handoff. Standalone Linux `PASS` по-прежнему
-не закрывает R1/B-01 или v1 без будущего matching Windows report и compare.
+**Текущая execution policy:** native Linux x86_64/GNU/Vulkan is the active
+development host and sole v1 target under ADR-090. A paired Windows report is
+not missing R1 work. The former
+[Windows validation backlog](development/windows-validation-backlog.md) is a
+dormant historical checklist outside the current roadmap.
 
 **Цель:** превратить portable local closure в честно запускаемый native
 developer package.
 
 **Основной scope:**
 
-- стабилизировать private SDL3/ash B0 adapter на Windows x86_64 и Linux x86_64;
+- стабилизировать private SDL3/ash B0 adapter на Linux x86_64;
 - закрыть window/input/focus/resize/fullscreen/surface/device-loss lifecycle;
 - проверить platform normalization без влияния native timestamps на simulation;
 - собрать atomic distribution с `game`, `headless`, exact cooked project и
   notices;
 - запустить release `headless` и bounded interactive release `game` из
   созданного package;
-- сравнить project/content/state/ledger roots между target reports.
+- bind project/content/state/ledger roots to the exact Linux target report.
 
 **Критерии успеха:**
 
-- на обеих targets проходят `host-check`, `play`, `persistence-replay`,
-  `content-package`, `platform`, `performance` и `v1-closure`;
-- каждый `v1-closure` сообщает `PASS` для native target текущего host и честный
-  `NOT_RUN` для другого target; успешный same-commit `native-gate-compare`
-  выставляет `native_gate_ready = true`;
+- на Linux проходят `host-check`, `play`, `persistence-replay`,
+  `content-package`, `platform`, target-local `performance` execution and the
+  current target closure;
 - `v1-package` создаёт installable directory и оба release binaries запускаются
   против exact packaged lock;
 - B0 scene обрабатывает real input и типовые lifecycle transitions без
@@ -292,19 +285,18 @@ developer package.
 - package не содержит machine-local paths, protected data, credentials или
   отсутствующие notices.
 
-**Deferred release blockers:**
+**Release blockers transferred to R7:**
 
-- paired native Windows/Linux `PASS` reports и package на одном exact commit
-  после явного Windows bring-up;
-- SDL3/ash candidate должен пройти target smoke; cross-compilation недостаточно;
-- любой cross-target canonical/hash mismatch;
+- R7a must version the old two-target aggregate before it can claim Linux-only
+  release readiness;
+- SDL3/ash candidate должен пройти exact Linux target smoke;
 - packaging/runtime dependency, которая не включена или не диагностируется.
 
 **Не блокируют этап:** PhysX, Slang, RT, learned policy, `ai-host`, capture и
 Gothic importer.
 
 **Основные источники:** SPEC-04, SPEC-12, SPEC-17, SPEC-29, SPEC-30, ADR-003,
-ADR-028, ADR-030.
+ADR-028, ADR-030, ADR-090.
 
 ## R2 — Playable product alpha
 
@@ -446,17 +438,15 @@ enforcement относится к representative R4 mechanics scope и явно 
 - `play`, `persistence-replay`, `content-package` и native `platform` проходят
   для alpha project.
 
-**Открытые ограничения вне historical Windows R2 closure:** Linux теперь
-является active development host по ADR-082; R1 same-commit Windows pair и
-B-12 hard evidence отложены до pre-R7 bring-up и не блокируют текущие Linux
-increments.
+**Открытые ограничения вне R2 closure:** Linux is the sole current v1 target
+under ADR-090. B-12 remains only as the future R7c Linux hard-performance
+authority; Windows evidence is historical and outside current scope.
 
 Automated production path, lawful content/provenance, отсутствие hidden
 UI/camera mutation и ручной representative loop подтверждены. Архитектурный
 cleanup, R3, functional R4a–R4d, procedural R5a–R5j and R6a–R6g Creator SDK
-beta are complete. The next planned stage is R7; its first active slot requires
-an explicit Windows bring-up decision rather than silently running deferred
-Windows/THOTH work from the Linux workflow.
+beta are complete. The next planned stage is R7; its first active slot is R7a,
+the versioned Linux-only release aggregation and target closure.
 
 **Scope guard:** editor, advanced renderer, photoreal assets и procedural world
 generation не входят в этот этап.
@@ -534,8 +524,8 @@ intent и не является принятым R3 contract.
 ## R4 — Systemic living world
 
 **Статус:** `COMPLETE / LOCAL FUNCTIONAL`. R4a–R4d завершены и приняты;
-bounded systemic Strategic Agent vertical is current under ADR-074. B-12 and
-paired Windows/Linux evidence remain open release/performance gates. Bounded
+bounded systemic Strategic Agent vertical is current under ADR-074. B-12
+remains separate Linux R7c performance work. Bounded
 R5 training lineage stays stopped at R141 without retry/downstream authority.
 
 **Цель:** перейти от scripted encounter к offline world, где NPC и world state
@@ -683,7 +673,7 @@ R4/v1.
   perception/memory update, а owner rejection не раскрывает hidden truth;
 - fixed seed, owner revisions and project profile дают exact goal, GOAP plan,
   task transitions, command/event and state roots в `game`/`headless`,
-  save/restart/replay locally; paired Windows/Linux parity remains B-01/R7;
+  save/restart/replay locally; no cross-target claim is required for current v1;
 - emergency детерминированно прерывает цель и приводит к exact resume/replan;
   missing/stale affordance и route failure дают typed safe fallback без partial
   mutation;
@@ -840,12 +830,11 @@ policy дала
 выявил, что v7 bootstrap ошибочно считал correlated frames independent.
 ADR-063 и Performance V5/v8 исправляют evidence unit: baseline хранит 10
 independent runs, hard gate является fixed three-run batch, relative bootstrap
-работает по whole-run p95. Fresh v8 calibration/gate ещё не запускались.
-Windows hard `PASS` и Isaac correspondence остаются deferred Stage 0/release
-evidence. Current R5 work вместо этого запускает affected Linux
-platform/replay/report-only performance inline; отсутствие Windows run не
-блокирует текущий Linux handoff. Это не объявляет Stage 0 ready и не закрывает
-Windows/B-12/v1 claims.
+работает по whole-run p95. Fresh compatible Linux calibration/gate ещё не
+запускались. R7c must accept the Linux release profile before those runs;
+Isaac correspondence remains optional Stage 0 evidence. Current work runs
+affected Linux platform/replay/report-only performance inline. This does not
+declare Stage 0 ready or close B-12/v1.
 
 **Canonical flat-command environment checkpoint (2026-08-10):** ADR-064
 принял bounded consumer `nextengine.motor.env.humanoid-flat-command.v1` без
@@ -854,7 +843,7 @@ start/stop, translation, strafe/diagonal и yaw command schedule, root-local
 84-value observation, ten-component Q16 reward, separate termination/truncation,
 independent partial reset и byte-exact checkpoint continuation. `motor-lab` v2,
 Python raw-int client, внешний NPZ v2 recorder и Isaac descriptor/mirror v2
-реализованы. Локально прошли `host-check`, `play`, PhysX
+реализованы. Historical checkpoint passed `host-check`, `play`, PhysX
 `persistence-replay`, Windows `platform`, native BODY/PHYS/MOTOR suites и
 native `MODEL-DATAPLANE-P1`; Rust/Python mirror golden тоже прошёл. Single dirty
 native `r5-physics-16` report сохранил exact worker root и прошёл absolute
@@ -1856,15 +1845,38 @@ ADR-087, ADR-088, ADR-089.
 
 ## R7 — V1 release candidate and release
 
-**Цель:** стабилизировать выбранный product scope, а не добавлять новые
-архитектурные подсистемы.
+**Статус:** `PLANNED / LINUX_ONLY / R7A_NEXT`.
+
+**Цель:** стабилизировать и выпустить выбранный Linux product scope, а не
+добавлять новые архитектурные подсистемы. Windows находится вне current scope
+indefinitely under ADR-090 and does not gate any R7 package.
+
+**Порядок work packages:**
+
+1. **R7a — Linux release authority:** version current two-target
+   `v1-closure`/native-gate aggregate so one exact complete Linux target bundle
+   can produce an honest release-ready verdict. Preserve fail-closed old-version
+   handling; never fabricate or silently ignore a Windows result.
+2. **R7b — release package and clean install:** freeze the representative
+   project, build the reproducible Linux package, audit ELF/glibc/Vulkan/SDL
+   prerequisites and run copied `game`, `headless` and tools in isolated state.
+3. **R7c — Linux performance authority:** accept an exact Linux release host
+   fingerprint and numeric policy, then collect compatible clean baselines and
+   fixed gates for required representative workloads. Historical THOTH budgets
+   are not inherited automatically.
+4. **R7d — final product hardening:** close only release-blocking gameplay,
+   save/load/replay, corrupted-input, long-session, renderer/input/audio,
+   lifecycle/recovery and offline-fallback defects.
+5. **R7e — distribution closure:** notices, provenance, dependency inventory,
+   protected-data scan, getting-started/troubleshooting, versioning,
+   reproducible manifest and final Linux acceptance run.
 
 **Основной scope:**
 
 - feature/content freeze и закрытие только release-blocking defects;
 - final representative cooked project и clean-install packages;
 - save/schema compatibility matrix и upgrade/rollback documentation;
-- Windows/Linux performance, input, renderer, audio and lifecycle hardening;
+- Linux performance, input, renderer, audio and lifecycle hardening;
 - accessibility baseline, source locale and fallback behavior;
 - license notices, provenance, dependency inventory and protected-data scan;
 - user/developer getting-started, package authoring and troubleshooting docs;
@@ -1874,8 +1886,7 @@ ADR-087, ADR-088, ADR-089.
 **Критерии успеха:**
 
 - все 16 MUST из SPEC-00 покрыты observable product behavior;
-- final exact commit проходит релевантные checks на native Windows x86_64 и
-  Linux x86_64;
+- final exact commit проходит релевантные checks на native Linux x86_64;
 - fresh packages запускают `game`, `headless` and tools, activate exact cooked
   lock, save/load and complete the representative loop;
 - no open release-blocking data-loss, security, deterministic divergence,
@@ -1883,19 +1894,20 @@ ADR-087, ADR-088, ADR-089.
 - target performance profiles соблюдены либо качество снижено только через
   declared non-authoritative/LOD fallback;
 - package содержит required notices and no forbidden artifacts;
-- все `NOT_RUN` перечислены как non-claims; shipping-required target check не
-  может оставаться `NOT_RUN`.
+- все `NOT_RUN` перечислены как non-claims; required Linux check не может
+  оставаться `NOT_RUN`. Windows is not a required target/non-claim.
 
 **Hard blockers:**
 
-- незакрытый R1 target/package gate;
+- незавершённый R7a Linux-only release aggregate или R7b package gate;
+- незакрытая R7c Linux performance authority/evidence;
 - незавершённый representative content slice;
 - incompatible save without migration/export path;
 - P0/P1 data-loss, security, determinism, offline or installation defect;
 - неизвестная provenance любого distributed artifact.
 
-**Основные источники:** SPEC-00, SPEC-11, SPEC-12, SPEC-15, SPEC-17, SPEC-29,
-ADR-001, ADR-030.
+**Основные источники:** SPEC-00, SPEC-04, SPEC-09, SPEC-11, SPEC-12, SPEC-15,
+SPEC-17, SPEC-29, ADR-001, ADR-030, ADR-090.
 
 ## R8 — Post-v1 programs
 
@@ -1904,14 +1916,14 @@ ADR-001, ADR-030.
 
 | Track | Architecture status | Entry condition |
 |---|---|---|
-| Learned strategic/tactical behavior policies and training data plane | SPEC-33/34 and ADR-050/053/054 `Proposed`; ADR-056 deterministic fallback `Accepted` | R4 deterministic Strategic Agent substrate shipped; promote each role only with its production consumer, immutable bundle, multi-seed quality, Windows/Linux applied-decision parity and complete fallback. Joint suite only for a profile activating both roles. |
+| Learned strategic/tactical behavior policies and training data plane | SPEC-33/34 and ADR-050/053/054 `Proposed`; ADR-056 deterministic fallback `Accepted` | R4 deterministic Strategic Agent substrate shipped; promote each role only with its production consumer, immutable bundle, multi-seed quality, exact Linux applied-decision evidence and complete fallback. Cross-target parity applies only if a future ADR reintroduces another shipping target. Joint suite only for a profile activating both roles. |
 | Autonomous quest lifecycle, Narrative Director and divine agency | SPEC-31 `Proposed`; ADR-029/ADR-031 superseded ADR-046 | Вернуться только при наличии конкретного player-visible production consumer; deterministic template fallback реализуется первым. |
 | Text-canonical multimodal dialogue/model packs | SPEC-16/ADR-017 `Proposed` | Явное решение о promotion, privacy/budget policy и text-only fallback. |
 | External `ai-host` | Optional | Stable bounded process protocol, recorded-input replay and complete in-process fallback. |
 | Learned Motor System policy families and full articulation | ADR-066 no-text contact-centric system shape `Accepted`; exact chunks, graph/adapter/expert, training/distillation/rollout profiles and unconsumed wire schemas remain `Proposed` | R5 reference/procedural baseline and consumer-backed BodySchema exist. Promote each family/profile independently only with exact observation/action/state/chunk replay, runtime/training correspondence, multi-seed quality, retention, target parity and declared animation/procedural fallback. |
-| PhysX deterministic humanoid substrate | ADR-058/059/062/063/064/065/067 `Accepted`; immutable standing/flat-command V1 and curriculum V2 CPU environments exist, Stage 0 evidence remains incomplete | Complete the PhysX-only Windows/Linux platform/replay gates, fresh ten-run V5 R5 baseline, one fixed three-run hard performance PASS and Isaac GPU correspondence; no reference backend fallback exists. |
+| PhysX deterministic humanoid substrate | ADR-058/059/062/063/064/065/067 `Accepted`; immutable standing/flat-command V1 and curriculum V2 CPU environments exist, Stage 0 evidence remains incomplete | Complete the applicable Linux platform/replay gates, accepted Linux hard-performance baseline/gate and Isaac GPU correspondence; Windows applies only after a future target re-entry. No reference backend fallback exists. |
 | Functional anatomy, treatment and visible character embodiment | PRODUCT-FA-001, SPEC-18/36/37 and ADR-075 product/ownership/treatment/agency/severity/LOD boundary `Accepted`; exact condition, fracture/surface, UI, controller and performance profiles `Proposed` | R5 authored skinned fallback exists; promote one unilateral lower-limb vertical with player/NPC parity, staged treatment, qualitative body UI, retained-vs-detached distinction, exact save/replay and 16/64/distant workload evidence. |
-| Local continuum materials: water, deformable terrain, mud and off-road coupling | `PLANNED / NOT_ACTIVE`; SPEC-38/ADR-076 `Proposed`; water `RESEARCH_ONLY`: original W0B `INVALIDATED_BY_RC1`, W0C/W0D closed, W0E local survivor, W0F geometry/QP roots frozen, W0G impact-energy roots frozen, W0H accelerated-pressure roots frozen, W0I reference-attestation root frozen, W1 `LINUX_W1_PASS / CONTINUUM-WATER-REF-P1=PASS`; W2 short scaling `IN_PROGRESS / NO_PRODUCTCHECK_CREDIT`; later ProductChecks `NOT_RUN` | W0F binds shared integer outer/internal geometry, two-layer density support, swept contact and a `32,768` static capacity. W0G retains absolute drift for equilibrium/control scenarios and blocks positive energy excess for named impact cases. Sealed-48k then falsified the globally restarting active-set PCG within its 50-operator budget; W0H keeps the same pressure QP and ceiling, roots fixed-step diagonal-scaled APG, and requires both compression and projected-KKT convergence. W0I rejects the old geometry-violating external trajectories and freezes three twice-reproduced hard-clearance reference hashes without changing W0F/G/H. At clean commit `e00999e`, two complete seven-scenario Linux runs attest all three references, pass every blocking rule and reproduce corpus root `d38d6bc8...e96835`; normalized reports match exactly after excluding only diagnostic wall-clock fields. Windows is outside current W1 scope and deferred, not waived, for promotion. W2 cycle 1 preserves every short-run root while removing duplicate neighbor discovery: reconstruction is `1.801×` and the whole sealed-48k step `1.375×` faster. Cycle 2 adds `64` stable logical partitions; clean serial/worker-`1/2/4/8` short roots and iterations match, while eight workers deliver `3.105×`, `372%` whole-command CPU and a `269.643 ms` mean. That remains `67.41×` above the `4 ms` target, so full trajectory/percentile credit is open and an explicit stop-versus-new-profile decision precedes more long runs or integration. Independent terrain closure remains Package 10T. Main-roadmap activation awaits explicit evidence merge/activation; promotion also requires exact cross-target and exchange identity, one composition DAG/PhysX integration, scheduled epochs, worst-case admission, primary-session fault domain and successor combined budget. |
+| Local continuum materials: water, deformable terrain, mud and off-road coupling | `PLANNED / NOT_ACTIVE`; SPEC-38/ADR-076 `Proposed`; water `RESEARCH_ONLY`: original W0B `INVALIDATED_BY_RC1`, W0C/W0D closed, W0E local survivor, W0F geometry/QP roots frozen, W0G impact-energy roots frozen, W0H accelerated-pressure roots frozen, W0I reference-attestation root frozen, W1 `LINUX_W1_PASS / CONTINUUM-WATER-REF-P1=PASS`; W2 short scaling `IN_PROGRESS / NO_PRODUCTCHECK_CREDIT`; later ProductChecks `NOT_RUN` | W0F binds shared integer outer/internal geometry, two-layer density support, swept contact and a `32,768` static capacity. W0G retains absolute drift for equilibrium/control scenarios and blocks positive energy excess for named impact cases. Sealed-48k then falsified the globally restarting active-set PCG within its 50-operator budget; W0H keeps the same pressure QP and ceiling, roots fixed-step diagonal-scaled APG, and requires both compression and projected-KKT convergence. W0I rejects the old geometry-violating external trajectories and freezes three twice-reproduced hard-clearance reference hashes without changing W0F/G/H. At clean commit `e00999e`, two complete seven-scenario Linux runs attest all three references, pass every blocking rule and reproduce corpus root `d38d6bc8...e96835`; normalized reports match exactly after excluding only diagnostic wall-clock fields. Windows is outside current scope and not a promotion blocker unless a future ADR reintroduces it. W2 cycle 1 preserves every short-run root while removing duplicate neighbor discovery: reconstruction is `1.801×` and the whole sealed-48k step `1.375×` faster. Cycle 2 adds `64` stable logical partitions; clean serial/worker-`1/2/4/8` short roots and iterations match, while eight workers deliver `3.105×`, `372%` whole-command CPU and a `269.643 ms` mean. That remains `67.41×` above the `4 ms` target, so full trajectory/percentile credit is open and an explicit stop-versus-new-profile decision precedes more long runs or integration. Independent terrain closure remains Package 10T. Main-roadmap activation awaits explicit evidence merge/activation; promotion also requires exact current-target and exchange identity, one composition DAG/PhysX integration, scheduled epochs, worst-case admission, primary-session fault domain and successor combined budget. |
 | Layered physical world and living structural vegetation | `PLANNED / NOT_ACTIVE`; SPEC-39/SPEC-40/ADR-077 `Proposed`; V0B `OPEN` | Freeze the float profile, stable one-body/shape proxies and one-use contact/work receipts. Fracture publishes `PendingFracture`; Outcome owns next-substep rigid topology. Epoch/fault/capacity/combined-budget gates apply. |
 | World-substrate composition and arcane physical magic | `PLANNED / NOT_ACTIVE`; SPEC-41/SPEC-42/ADR-078 `Proposed`; A0A `COMPLETE`, A0B `OPEN` | The current schedule is unchanged; a successor `WorldDynamicsStep` owns the closed DAG. A0B must freeze the full analytical maximum debit. Epoch, capacity, whole-session fault and combined-budget gates apply. |
 | Thermochemical material processes | `PLANNED / NOT_ACTIVE`; SPEC-43/ADR-079 `Proposed`; T0A `COMPLETE`, T0B `OPEN` | T0B includes one signed sub-LSB residual per interface. Successor scheduling, exact exchange identity, atomic parcel topology, capacity/fault and combined-budget gates apply. |
@@ -1990,13 +2002,10 @@ and notices добавляются вместе с happy path.
 ### Platform
 
 Linux checks запускаются вместе с каждым work package, который меняет
-platform, renderer, physics, packaging or performance. Требующие native
-Windows host действия добавляются в
-[Windows backlog](development/windows-validation-backlog.md) и не выполняются
-до explicit pre-R7 bring-up. Отсутствие Windows run не блокирует текущую Linux
-development, но R1/R7/v1 claim, требующий paired evidence, остаётся открытым.
-Накопленные Windows checks нельзя молча считать пройденными по historical
-result или переносить за release gate.
+platform, renderer, physics, packaging or performance. Windows находится вне
+current v1/R7 scope indefinitely; Windows-specific actions не накапливаются в
+active backlog и не блокируют Linux release. Historical Windows checks нельзя
+считать current support или переносить на новый commit.
 
 ### Physical R&D
 
@@ -2029,9 +2038,9 @@ reference, coupling or persistence path.
 
 | ID | Blocker | Блокирует закрытие | Условие снятия |
 |---|---|---|---|
-| B-01 | `DEFERRED / WINDOWS_HOST_NOT_ACTIVE`: current Linux target bundle на clean `d15c11a…` имеет full hardware-GPU `PASS`, но Windows report/package и cross-target compare отсутствуют. Standalone target evidence не закрывает R1/R7; Windows execution сейчас не планируется. | R1, R7 | После explicit pre-R7 Windows bring-up выбрать новый exact clean release candidate commit, выполнить обе target halves и `native-gate-compare`; требуется `native_gate_ready = true`. |
-| B-02 | `CLOSED / TARGET-LOCAL`: Windows SDL3/ash B0 и current Linux NVIDIA/Wayland B0 независимо проходят real Vulkan frame, lifecycle/recovery, normalized input, audio route и packaged `game`/`headless` launch. Linux full-gate evidence — `d15c11a…`. | — | Закрыт как implementation/platform gap 2026-08-18. Same-commit pairing остаётся только B-01 и не переоткрывает B-02. |
-| B-03 | `CLOSED / WINDOWS_ACCEPTED`: lawful 51-record `projects/reference-alpha`, scripted flow, persistence recovery, package smoke и manual acceptance проходят. Полный representative run без debug commands зафиксирован 2026-08-08 для `r2-reference-alpha-visual-v5` с immutable package/game/project-lock hashes; Save → world change → Load → Resume, rollback/WASD, collisions, UI, resize/fullscreen подтверждены. | — | Закрыт. Повторять acceptance после material package/runtime changes; Linux/R1 и B-12 остаются отдельными открытыми gates. |
+| B-01 | `CLOSED / REMOVED_FROM_V1_SCOPE_BY_ADR_090`: current Linux target bundle on clean `d15c11a…` has full hardware-GPU `PASS`. The former missing Windows report/package/cross-target compare no longer belongs to R1/R7/v1. | — | Closed as a planning blocker by the Linux-only product decision, not by fabricated cross-target evidence. Historical target reports retain exact-commit meaning; Windows re-entry requires a separate future ADR/stage. |
+| B-02 | `CLOSED / TARGET-LOCAL`: historical Windows SDL3/ash B0 and current Linux NVIDIA/Wayland B0 independently passed real Vulkan frame, lifecycle/recovery, normalized input, audio route and packaged `game`/`headless` launch. Linux full-gate evidence is `d15c11a…`. | — | Closed as the implementation/platform gap on 2026-08-18. Historical same-commit pairing is outside current scope and does not reopen B-02. |
+| B-03 | `CLOSED / HISTORICAL_WINDOWS_ACCEPTANCE`: lawful 51-record `projects/reference-alpha`, scripted flow, persistence recovery, package smoke and manual acceptance passed on the recorded Windows package. The 2026-08-08 run retains immutable package/game/project-lock hashes and Save → change → Load → Resume, rollback/WASD, collision, UI and lifecycle evidence. | — | Historical exact-commit evidence only. R7d repeats applicable acceptance on the final Linux package after material changes; B-12 remains separate R7c work. |
 | B-04 | `CLOSED`: production `relay-station → frontier` проходит pinned bounded packaged fetch/decode/validate и paired fixed-stage commit; worker/fault/restore permutations сохраняют declared roots. | — | Закрыт 2026-08-08 по ADR-051 и ProductCheck. Generic scheduler, pins/leases и eviction framework не приняты и не требовались. |
 | B-05 | `DEFERRED / NOT_CURRENT_BLOCKER`: публично поддерживаемого persisted v1 predecessor ещё нет | — | После объявления первого public v1 и появления реального successor определить минимальный compatibility/export/migration path и copy-on-write fault check. Alpha legacy не мигрируется. |
 | B-06 | `CLOSED`: production project содержит 4 regions/64 chunks и проходит canonical packaged load/unload, save в `Requested`, process restart, exact pinned reactivation и completion с uninterrupted root. | — | Закрыт 2026-08-09 по focused Assets/Project/World/Runtime/Verification tests и ProductCheck. Generic scheduler, placement catalog, residency и eviction framework не вводились и не требовались. |
@@ -2040,7 +2049,7 @@ reference, coupling or persistence path.
 | B-09 | `CLOSED / R6G_CREATOR_SDK_WORKFLOW`: public path-free project create/validate/cook/run/package/inspect/diff, scenario validate/run/minimize and Replay V10 validate/inspect cover an independent project lifecycle, exact source/package closure, shortest failure-preserving action prefix, production first divergence and bounded runtime/world/physics/owner projections. The canonical external guide is governed by a real post-create JSON edit through the complete public lifecycle, and exact Luau/Wasm sources are externally visible without changing package identity. No tool-only replay model, private owner bytes, ID override, assertion weakening or mutable inspector backdoor exists. | — | Closed under ADR-089. Broader inspectors, GUI/MCP, replay capture and arbitrary project-local extension ingestion require concrete future consumers and do not reopen R6 by default. |
 | B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
 | B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Current creator examples are governed by R6/B-09 and do not create a staffing gate. | R2, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
-| B-12 | `DEFERRED / R7_RELEASE / LINUX_REPORT_ONLY_ACTIVE`: Performance V5 methodology v8 and frozen THOTH `610.88` fingerprint remain current design. Representative R2 v3, R3, `r4-100npc.v1` and `r5-physics-16.v1` workloads exist. Linux runs are current `REPORT_ONLY` development evidence; historical R4 timing/root facts remain unchanged. No fresh V5 ten-run Windows baselines or fixed three-run v8 hard gates exist, and they are not scheduled during Linux-first R5/R6 work. | R7 | After explicit Windows bring-up, collect ten valid clean release V5 runs for each required representative workload, compatible baselines and one fixed three-run Windows hard `PASS`; retain applicable Linux representative runs as `REPORT_ONLY`. Historical failures/reports cannot be retried or relabelled. |
+| B-12 | `OPEN / R7C_LINUX_RELEASE_PERFORMANCE`: Performance V5 methodology and representative R2 v3, R3, `r4-100npc.v1` and `r5-physics-16.v1` workloads exist; current Linux runs are `REPORT_ONLY`. Frozen THOTH `610.88` remains historical Windows design outside v1 scope and cannot be reused as Linux authority. | R7c | Accept an exact Linux release fingerprint and numeric policy, then collect compatible clean baselines and one fixed hard gate for each required workload without retry-to-green. Historical Windows or Linux reports cannot be relabelled. |
 | B-13 | `OPTIONAL R8 GAP / NOT V1 BLOCKER`: нет canonical behavior-training data plane, vendor-neutral evaluator, trained strategic/tactical bundles и runtime-training parity. | — | Возвращается только для optional R8 production profile. Каждая activated role проходит applicable SPEC-33/34 and ADR-050/053/054 data/provenance/export/multi-seed/parity/fallback checks; joint suite нужна только профилю с обеими roles. Отсутствие этого трека не блокирует R4/v1 и сохраняет deterministic ADR-056 path. |
 
 ## Решения, которые нужно принять вовремя
@@ -2056,7 +2065,7 @@ reference, coupling or persistence path.
 | Optional behavior evaluator и learned bundles | до первого R8 production promotion | Engine-owned vendor-neutral boundary, per-role immutable bundles, exact applied-decision parity and deterministic fallback; concrete CUDA/DirectML/provider type остаётся private. |
 | V1 physical scope | до R5 content production | Capsule/procedural + skeletal/IK mandatory; learned/full articulation optional. |
 | Functional-anatomy release gate | after R5 authored baseline, before scheduling its production vertical | Approved post-baseline signature direction; keep non-blocking for current v1 unless a later explicit scope decision promotes the measured lower-limb vertical. |
-| PhysX cutover evidence | до Stage 0/default-readiness claim | Backend choice resolved by ADR-058: PhysX 5.9.0 only. Continue affected Linux report checks inline; defer Windows half, R5 hard performance and correspondence evidence until the explicit Stage 0/pre-R7 bring-up. Missing SDK fails typed before activation. |
+| PhysX cutover evidence | до optional Stage 0/default-readiness claim | Backend choice resolved by ADR-058: PhysX 5.9.0 only. Continue affected Linux checks inline; any future learned/default promotion must close its Linux hard-performance and correspondence evidence. Windows is outside current scope. Missing SDK fails typed before activation. |
 | Creator surface | до R6 | Stable CLI/JSON first; graphical editor after real creator workflow data. |
 | Narrative/LLM priority | после R7 scope freeze | Template/deterministic behavior first; external model only as optional candidate source. |
 
@@ -2064,11 +2073,11 @@ reference, coupling or persistence path.
 
 General Linux validation has exact hardware checkpoint `d15c11a…`, and
 LNX-003/004/005 are complete. Linux-specific checks now run inline with each
-affected work package. Native Windows/THOTH and paired actions accumulate in
-[Windows validation backlog](development/windows-validation-backlog.md) and do
-not occupy the next R5/R6 implementation WIP slot. Both same-commit target
-reports and successful compare remain mandatory before closing R1/B-01, but
-are deferred until explicit pre-R7 bring-up.
+affected work package. Native Windows/THOTH and paired actions are outside the
+current roadmap indefinitely; the former
+[Windows validation backlog](development/windows-validation-backlog.md) is
+dormant historical context, not active debt. R1/B-01 are closed on the
+Linux-only product boundary. The next WIP slot is R7a.
 
 Следующие work packages рекомендуется выполнять в этом порядке:
 
@@ -2669,20 +2678,19 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    inspection are complete. The canonical external guide, governed edited
    cold-start lifecycle and externally visible byte-identical Luau/Wasm
    examples close the bounded creator beta under ADR-089.
-15. **Deferred Windows bring-up and release checkpoint
-   (`DEFERRED / PRE-R7`):** отдельный Accepted ADR возвращает Windows в active
-   matrix и фиксирует current host/toolchain/driver profile. Затем новый clean
-   candidate получает ten-run R2–R5 baselines/fixed hard gates, Windows v1
-   package, matching Linux half и same-commit compare. До этого Windows runs не
-   запускаются, а v1 shipping не заявляется.
+15. **R7a Linux-only release authority (`PLANNED / NEXT`):** audit the current
+   two-target `v1-closure`, native-gate and package reports; choose the smallest
+   versioned aggregate that lets one complete native Linux bundle produce an
+   honest release verdict while rejecting/reclassifying old report versions.
+   Existing target-local reports and the dormant comparator should remain
+   unchanged where possible. No synthetic Windows slot or historical relabel.
 
 Каждый package должен быть отдельным product increment с focused checks. R6a
 creator validate/cook, R6b creator run/package and R6c read-only project
 inspect/diff and R6d reusable template/cold-authoring exercise are complete;
 R6e public scenario validate/run/minimize, R6f Replay V10 first-divergence/
 bounded domain inspection and R6g external SDK workflow/documentation are also
-complete. R7 remains planned; active implementation waits for an explicit
-pre-R7 Windows bring-up decision under ADR-082.
+complete. R7 remains planned and can start immediately with R7a under ADR-090.
 Bounded training lineage remains stopped and does not run in parallel. SPEC-23 stays
 Proposed: завершённый R3/R4
 начинает универсальный scheduler design без второго concrete production
@@ -2704,4 +2712,4 @@ product scope:
 
 Главный показатель прогресса — не число contracts или crates, а то, насколько
 более богатый проект можно запустить, пройти, сохранить, воспроизвести,
-расширить публичным SDK и упаковать на обе shipping platforms.
+расширить публичным SDK и упаковать как проверенный Linux product.

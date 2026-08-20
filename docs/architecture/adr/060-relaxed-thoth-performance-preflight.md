@@ -9,7 +9,7 @@
 | Last verified | 2026-08-10 |
 | Normative dependencies | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-049](049-performance-evidence-without-allocator-instrumentation.md) |
 | Supersedes | Narrowly supersedes the ADR-036 THOTH hard-run preflight thresholds of CPU/GPU load below 5% and at least 20 GiB free RAM. It also supersedes the ADR-049 current methodology identity while preserving the Performance V4 wire shape. |
-| Superseded by | The below-15% CPU/GPU threshold and methodology-v5 identity are superseded by [ADR-061](061-forty-percent-thoth-load-preflight.md). [ADR-082](082-linux-first-development-and-deferred-windows-host.md) supersedes the statement that THOTH is the active development host and defers this preflight until Windows bring-up. The 10 GiB free-RAM threshold remains Accepted for that future hard evidence. |
+| Superseded by | The below-15% CPU/GPU threshold and methodology-v5 identity are superseded by [ADR-061](061-forty-percent-thoth-load-preflight.md). [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md) removes THOTH from current v1/R7 authority. The 10 GiB rule remains historical THOTH evidence and is not automatically a Linux R7c threshold. |
 
 > Current load admission is below 40% with methodology v6 under ADR-061. The
 > below-15% load values below are retained as decision history; the 10 GiB RAM

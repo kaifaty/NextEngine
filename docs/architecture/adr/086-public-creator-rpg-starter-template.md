@@ -130,8 +130,8 @@ inspectors and the broader SDK remain open.
 - R6 and B-09 remain open. ADR-087 subsequently adds public scenario
   validate/run/prefix-minimize; read-only replay first-divergence and bounded
   domain inspection are now the next increment.
-- Linux is the active implementation host. Windows/THOTH remain
-  `NotRun(WindowsHostDeferred)` under ADR-082.
+- Linux is the active implementation and sole v1 shipping host. Windows/THOTH
+  are outside current scope indefinitely under ADR-090.
 
 ## Supersession
 

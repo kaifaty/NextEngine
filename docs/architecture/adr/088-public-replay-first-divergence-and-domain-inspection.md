@@ -145,8 +145,8 @@ breadth; R6f is not a live editor/debugger or replay authoring system.
 - The generated persistence replay fixture governs the public consumer without
   making verification a production dependency or checking in private owner
   bytes.
-- Linux is the active implementation host. Windows/THOTH remain
-  `NotRun(WindowsHostDeferred)` under ADR-082.
+- Linux is the active implementation and sole v1 shipping host. Windows/THOTH
+  are outside current scope indefinitely under ADR-090.
 - R6/B-09 remain open for the remaining SDK workflow and only concrete future
   domain consumers may extend the fixed projection set.
 

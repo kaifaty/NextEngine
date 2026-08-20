@@ -152,8 +152,8 @@ work.
 - Existing one-tick project run/package evidence remains byte-compatible.
 - R6 and B-09 stay open. R6f should add read-only replay first-divergence and
   bounded domain inspection before the remaining SDK documentation closure.
-- Linux is the active implementation host. Windows/THOTH remain
-  `NotRun(WindowsHostDeferred)` under ADR-082.
+- Linux is the active implementation and sole v1 shipping host. Windows/THOTH
+  are outside current scope indefinitely under ADR-090.
 
 ## Supersession
 

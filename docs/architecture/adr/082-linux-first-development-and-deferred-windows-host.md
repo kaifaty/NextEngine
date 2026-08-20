@@ -3,13 +3,13 @@
 | Поле | Значение |
 |---|---|
 | ID | ADR-082 |
-| Статус | Accepted |
+| Статус | Superseded |
 | Версия | 1.0 |
 | Дата решения | 2026-08-18 |
 | Последняя проверка | 2026-08-18 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-04](../04-rendering-and-platform.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-29](../29-platform-host-and-application-session.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-063](063-run-level-performance-evidence-and-fixed-gate-batches.md) |
 | Заменяет | Узко заменяет Windows-first execution policy и трактовку THOTH как active development host в ADR-036/060/061, а также требование выполнять Windows/THOTH evidence как текущий R5 development gate. Shipping targets, THOTH fingerprint/budgets, Performance V5/v8, native comparator и exact Windows/Linux release evidence сохраняются, но откладываются до явного Windows bring-up перед R7. |
-| Заменён | не заменён |
+| Заменён | [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md), который сохраняет Linux active-host policy, но удаляет Windows из R7/v1 scope на неопределённый срок |
 
 ## Контекст
 

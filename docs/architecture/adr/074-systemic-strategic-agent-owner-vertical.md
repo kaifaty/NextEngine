@@ -131,8 +131,8 @@ no-job and no-money branches are typed and non-partial.
 This closes the bounded deterministic R4d product increment without an LLM or
 learned policy. It does not implement generic scheduling, a jobs marketplace,
 macroeconomics, physical corridor following, broad social/episodic memory or
-optional R8 learned behavior. It also does not close B-12, paired
-Windows/Linux evidence or v1 shipping.
+optional R8 learned behavior. It also does not close B-12 or v1 shipping;
+Windows is outside current scope under ADR-090.
 
 ## Relevant product checks
 

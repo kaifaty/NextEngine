@@ -37,9 +37,9 @@ the supported creator path.
 - the repository-pinned Rust 1.97.1 toolchain;
 - native Linux x86_64 for the active development workflow.
 
-Windows remains a v1 shipping target, but Windows/THOTH execution is deferred
-until the explicit pre-R7 bring-up. A Linux creator-beta pass is not a Windows
-or release-readiness claim.
+Linux x86_64 is the sole current v1 shipping target. Windows/THOTH execution is
+outside the roadmap indefinitely under ADR-090; a Linux creator-beta pass is
+still development evidence rather than a release-readiness claim.
 
 Run every command below from the repository root. The source-build spelling is
 `cargo run --locked -p next_cli --` followed by the documented `next`

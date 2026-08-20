@@ -4,11 +4,11 @@
 |---|---|
 | ID | SPEC-29 |
 | Статус | Accepted |
-| Версия | 3.3 |
+| Версия | 3.4 |
 | Последняя проверка | 2026-08-20 |
-| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md) |
+| Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
 | Дополнительные зависимости V3.3 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
-| Заменяет | SPEC-29 3.2; adds a separately bounded creator scenario tick path through the existing Application Session and save-on-close contract while preserving one-tick project run |
+| Заменяет | SPEC-29 3.3; preserves session semantics while making native Linux the sole current interactive/release host |
 
 ## Platform boundary
 
@@ -173,6 +173,6 @@ authoring/package roots and shortest failure-preserving prefixes. Shared
 application/runtime/save changes also run `play` and
 `persistence-replay`; this does not claim interactive creator support.
 
-Current interactive host evidence is collected on native Linux. Windows host
-execution is deferred under ADR-082; its absence leaves Windows/R1/R7 claims
-open but does not block a Linux feature-development handoff.
+Current interactive and release host evidence is collected on native Linux.
+Windows host execution is outside current v1/R7 scope indefinitely under
+ADR-090; its absence does not create a Linux non-claim or blocker.

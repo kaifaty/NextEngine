@@ -9,7 +9,7 @@
 | Last verified | 2026-08-10 |
 | Normative dependencies | [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-036](036-thoth-reference-performance-profile.md), [ADR-045](045-low-overhead-hard-performance-evidence.md), [ADR-049](049-performance-evidence-without-allocator-instrumentation.md), [ADR-061](061-forty-percent-thoth-load-preflight.md), [ADR-062](062-r5-physx-humanoid-performance-authority.md) |
 | Supersedes | The ADR-036 raw-sample relative-bootstrap rule and the ADR-062 single-candidate-run gate semantics. Absolute budgets, the 5% relative threshold, exact roots, ten-run calibration, THOTH fingerprint, preflight thresholds and no-retry policy remain Accepted. |
-| Superseded by | [ADR-082](082-linux-first-development-and-deferred-windows-host.md) narrowly defers Windows/THOTH execution and B-12 to explicit pre-R7 bring-up; Performance V5/v8 run boundaries, fixed batch semantics and evidence validation remain Accepted. |
+| Superseded by | [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md) removes Windows/THOTH from current v1/R7 authority and assigns a distinct Linux hard profile to R7c; Performance V5/v8 run boundaries, fixed batch semantics and evidence validation remain Accepted. |
 
 ## Context
 

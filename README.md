@@ -15,11 +15,11 @@ fallbacks keep the game working when they are not.
 
 > **Project status:** Next Engine is in active pre-1.0 development. A playable
 > Linux reference alpha and its deterministic headless counterpart work
-> locally. Windows host bring-up is intentionally deferred while development
-> continues on Linux. The bounded procedural physical-character baseline is
+> locally. Linux x86_64 is the only current v1 target; Windows support is out
+> of scope and deferred indefinitely. The bounded procedural physical-character baseline is
 > complete; the public creator project/template/scenario/replay workflow and
-> independent project-package/projection slice are available, while paired
-> release evidence, hard release performance, broader consumer-driven editor
+> independent project-package/projection slice are available, while versioned
+> Linux release closure, hard release performance, broader consumer-driven editor
 > tooling, and v1 are not. See the
 > [roadmap](docs/roadmap.md) for the current stage and open blockers.
 
@@ -81,10 +81,10 @@ systemic RPG:
 6. physical characters with a shipping-capable procedural fallback;
 7. practical local tools for cooking, validating, inspecting, and packaging a
    project;
-8. native Windows x86_64 and Linux x86_64 releases.
+8. a native Linux x86_64 release with a reproducible clean-install package.
 
-A full editor, multiplayer, consoles, mobile platforms, macOS shipping,
-runtime model training, and a bundled Gothic importer are outside the v1 scope.
+A full editor, multiplayer, Windows/macOS/consoles/mobile shipping, runtime
+model training, and a bundled Gothic importer are outside the v1 scope.
 
 ## Try the current alpha
 
@@ -102,10 +102,10 @@ Run the same reference project without a window or renderer:
 cargo run -p next_headless
 ```
 
-This is a source build and may take a while on its first run. Linux and Windows
-remain v1 shipping targets, but Windows is not an active development host and
-the same-commit release gate remains deferred. A Linux development run is not
-by itself a supported release.
+This is a source build and may take a while on its first run. Linux is the sole
+current v1 shipping target. Windows is outside the active roadmap indefinitely;
+existing Windows code and historical results do not constitute current
+support. A development run is not by itself a supported release.
 
 ## Try the creator workflow
 

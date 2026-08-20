@@ -4,14 +4,15 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 3.8 |
+| Версия | 3.9 |
 | Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V3.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V3.6 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V3.7 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
 | Дополнительные зависимости V3.8 | [ADR-089](adr/089-governed-external-creator-sdk-workflow.md) |
-| Заменяет | SPEC-15 3.7; closes the externally documented and governed cold creator workflow while recording/capture/live-inspector breadth remains unpromoted |
+| Дополнительные зависимости V3.9 | [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
+| Заменяет | SPEC-15 3.8; makes native Linux the only current interactive/release scenario target and removes Windows evidence from R7/v1 requirements |
 
 ## Назначение
 
@@ -253,10 +254,10 @@ snapshot prove melee contact/outcome coupling. The complete generation is run
 twice and compared exactly. No test-only pose mutation, attachment owner,
 backend handle or direct health write is exposed.
 
-Local interactive scenarios run on the active native Linux host. Windows
-scenario execution remains deferred target/release evidence and is not part of
-the current feature-development handoff; no historical Windows result is
-inferred for a newer commit.
+Local interactive and release scenarios run on the active native Linux host.
+Windows scenario execution is outside current v1/R7 scope indefinitely; no
+historical Windows result is inferred as current support or required for a
+Linux handoff.
 
 ## Fixture hygiene
 

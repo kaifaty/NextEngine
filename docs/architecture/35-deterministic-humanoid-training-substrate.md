@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 2.2 |
-| Последняя проверка | 2026-08-18 |
-| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md) |
-| Заменяет | SPEC-35 2.1; separates current Linux development evidence from deferred Windows/Stage 0 release evidence |
+| Версия | 2.3 |
+| Последняя проверка | 2026-08-20 |
+| Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
+| Заменяет | SPEC-35 2.2; keeps Stage 0 optional and moves Windows/cross-target readiness outside current v1 scope indefinitely |
 | Дополнительные зависимости V1.9 | [ADR-069](adr/069-biomechanics-body-schema-v2-and-solver-projection.md), [ADR-070](adr/070-biomechanics-reference-tracking-training-environment.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 
 ## Назначение и ownership
@@ -289,12 +289,11 @@ Stage 0 runs `fast`, `host-check`, `play`, `persistence-replay`,
 `MOTOR-STATE`, `MOTOR-ENV-P1`, `MOTOR-LOCOMOTION-ENV-P1`, `MODEL-DATAPLANE`
 and `MODEL-MIRROR`.
 
-Exact/stability/correspondence thresholds are normative in ADR-058. Current R5
-development uses Linux focused/platform/report-only evidence and may continue
-without a Windows run. Stage 0 shipping/default-readiness remains incomplete
-until a future explicit Windows bring-up restores the PhysX-only
-Windows/Linux, hard-performance and correspondence matrix. Missing deferred
-target evidence is `NotRun(WindowsHostDeferred)` and blocks only that
-readiness/release claim, not the current Linux implementation handoff. Passing
-this SPEC permits policy training; it does not prove PPO quality, learned Motor
-MVP or R5 completion.
+Exact/stability/correspondence thresholds are normative in ADR-058. Current
+development uses Linux focused/platform/report-only evidence. Stage 0 learned
+default-readiness remains optional and outside the procedural v1 baseline; a
+future Linux promotion must complete its applicable PhysX, hard-performance
+and correspondence matrix. Windows/cross-target evidence is outside current
+scope under ADR-090 and can return only through a separate future product
+decision. Passing this SPEC permits policy training; it does not prove PPO
+quality, learned Motor MVP, R5 completion or v1 release readiness.

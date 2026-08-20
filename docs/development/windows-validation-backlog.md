@@ -2,37 +2,35 @@
 
 | Поле | Значение |
 |---|---|
-| Статус | `DEFERRED / PRE-R7` operational checklist, не нормативная архитектура |
-| Последнее обновление | 2026-08-18 |
+| Статус | `ARCHIVED / OUT_OF_SCOPE_INDEFINITE` historical checklist, не active roadmap queue |
+| Последнее обновление | 2026-08-20 |
 | Active development host | Native Linux x86_64 GNU/Vulkan |
-| Deferred target | Native Windows x86_64 MSVC/Vulkan |
+| Out-of-scope target | Native Windows x86_64 MSVC/Vulkan |
 
 ## Назначение
 
-Этот документ хранит bounded действия, которые требуют native Windows host.
-По [ADR-082](../architecture/adr/082-linux-first-development-and-deferred-windows-host.md)
-Windows остаётся v1 shipping target, но сейчас не запускается и не является
-условием handoff для Linux feature-development.
+Этот документ сохраняет historical bounded действия, которые требовали native
+Windows host. По [ADR-090](../architecture/adr/090-linux-only-v1-and-indefinitely-deferred-windows.md)
+Windows больше не является v1/R7 target и отложен вне current scope на
+неопределённый срок.
 
-Текущий roadmap продолжается на Linux. Отсутствие Windows run не превращается
-в `PASS`: Windows-specific, THOTH, paired Windows/Linux и release claims
-остаются `NotRun(WindowsHostDeferred)` либо открытыми до explicit pre-R7
-bring-up.
+Очередь ниже не является active debt, release blocker или обещанием поддержки.
+Отсутствие Windows run не превращается в `PASS`, но и не является Linux v1
+non-claim. Исторические Windows результаты сохраняют только exact-commit
+meaning.
 
 ## Execution policy
 
 1. Частые и затронутые `fast`, `play`, `persistence-replay`,
    `content-package`, `platform` и report-only `performance` checks выполняются
    на Linux вместе с work package.
-2. Изменение Windows-specific кода или общего
-   platform/renderer/physics/package/performance boundary добавляет ровно один
-   bounded item в очередь ниже, если существующий item его не покрывает.
-3. До отдельного bring-up Windows commands и THOTH calibration/hard gates не
-   запускаются. Их отсутствие не блокирует текущие R5/R6 Linux increments.
+2. Новые work packages не добавляют Windows follow-up в этот файл.
+3. Windows commands и THOTH calibration/hard gates не запускаются в current
+   roadmap. Их отсутствие не блокирует Linux handoff или release.
 4. Historical Windows packages/reports действуют только для записанного exact
    commit и не переносятся на новый changeset.
-5. Перед R7/v1 выбирается новый clean release-candidate commit. Обе native
-   halves, packages и `native-gate-compare` выполняются на этом exact commit.
+5. R7/v1 использует только native Linux release candidate; paired compare не
+   участвует.
 6. Cross-compilation, Wine и VM smoke могут помогать диагностике, но не
    заменяют native Windows target evidence.
 7. Generated reports, packages, state, logs и caches не коммитятся.
@@ -41,22 +39,23 @@ bring-up.
 
 | ID | Статус | Когда активировать | Действие на Windows | Открытый claim |
 |---|---|---|---|---|
-| `WIN-001` | `DEFERRED` | Explicit pre-R7 Windows bring-up | На выбранном clean commit выполнить полный `native-gate-run`, перенести complete target bundle, выполнить matching Linux half и `native-gate-compare`. | R1/B-01 и paired release evidence |
-| `WIN-002` | `DEFERRED` | После фиксации нового THOTH host/toolchain/driver profile | Собрать десять valid clean release Performance V5 runs для каждого required R2–R5 workload и затем один fixed three-run v8 hard gate без retry-to-green. | B-12/R7 hard performance |
-| `WIN-003` | `DEFERRED` | После material package/runtime change либо release-candidate freeze | Пересобрать Windows package и повторить representative R2 manual visual/session acceptance на current content. | Current Windows player-facing acceptance |
-| `WIN-004` | `DEFERRED` | PhysX Stage 0 readiness review | Выполнить Windows half platform/replay/R5 performance matrix и required correspondence route на принятом SDK/profile. | PhysX Stage 0/default-readiness |
+| `WIN-001` | `ARCHIVED` | Future ADR-090 re-entry decision only | Historical full native-gate/pair recipe. | No current claim |
+| `WIN-002` | `ARCHIVED` | Future ADR-090 re-entry decision only | Historical THOTH baseline/gate recipe. | No current claim; B-12 is now Linux R7c |
+| `WIN-003` | `ARCHIVED` | Future ADR-090 re-entry decision only | Historical Windows package/manual acceptance recipe. | No current claim |
+| `WIN-004` | `ARCHIVED` | Future ADR-090 re-entry decision only | Historical Windows Stage 0 matrix recipe. | No current claim |
 
-## Bring-up entry conditions
+## Re-entry conditions
 
-Windows work начинается только после нового Accepted ADR, который:
+Windows work can return only after a new product decision and Accepted ADR that:
 
-- явно возвращает Windows в active target matrix;
+- explicitly adds Windows shipping/support scope and a separate roadmap slot;
 - фиксирует exact native host, OS/toolchain, GPU/driver и THOTH applicability;
-- определяет новый clean candidate commit и совместимость historical evidence;
+- identifies an available native owner/host and treats historical evidence as
+  historical rather than compatible by default;
 - перечисляет applicable ProductChecks и output locations;
 - сохраняет Linux current checks и запрещает перенос exact-commit results.
 
-После этого backlog items переводятся в active task state по одному. Уже
+Only then may selected items become a new active task state. Уже
 опубликованный `FAIL` сохраняется; повтор выполняется только как новый run с
 новым identity/output и не relabel-ит прежний evidence.
 
@@ -65,5 +64,5 @@ Windows work начинается только после нового Accepted 
 - Linux hardware correctness не является Windows correctness.
 - Linux `REPORT_ONLY` timing не является THOTH hard timing.
 - Historical Windows `PASS` не подтверждает текущий commit.
-- Отложенные `WIN-*` items не блокируют текущую Linux R5/R6 разработку, но
-  соответствующие R1/R7/v1 claims остаются открытыми.
+- Archived `WIN-*` items do not block current Linux development, R7 or v1 and
+  do not constitute a support commitment.

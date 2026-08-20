@@ -4,14 +4,15 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 4.8 |
+| Версия | 4.9 |
 | Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V4.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V4.6 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V4.7 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
 | Дополнительные зависимости V4.8 | [ADR-089](adr/089-governed-external-creator-sdk-workflow.md) |
-| Заменяет | SPEC-12 4.7; governs the edited external creator SDK workflow inside `content-package` without a new global category |
+| Дополнительные зависимости V4.9 | [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
+| Заменяет | SPEC-12 4.8; replaces paired Windows/Linux release gating with an explicit versioned Linux-only R7 closure while retaining fail-closed target evidence |
 
 ## Назначение
 
@@ -116,30 +117,30 @@ bytes or manifest identity. GUI/MCP/live mutation and arbitrary project-local
 extension ingestion remain outside this bounded matrix.
 
 `cargo run -p xtask -- v1-closure` агрегирует реализованные v1 checks, exact
-project/content/mechanics/extension roots и target package descriptors. На
-developer host недоступный Windows/Linux runtime check или desktop smoke остаётся
-`NotRun(reason)` и делает `shipping_ready = false`; portable local success не
-подменяет target product evidence.
+project/content/mechanics/extension roots и target package descriptors.
+Текущая реализованная версия всё ещё содержит прежнюю двух-target форму и не
+может быть вручную relabel-нута. R7a MUST version-нуть aggregate так, чтобы
+complete native Linux target evidence могло честно определить Linux-only
+`shipping_ready`, а missing Windows slot больше не существовал в новой
+release semantics.
 
-## Active Linux check policy
+## Linux-only check and release policy
 
-Native Linux x86_64 является текущим active development host по ADR-082.
+Native Linux x86_64 является active development host и единственной v1
+shipping target по ADR-090.
 Затронутые Linux-capable checks выполняются в том же work package, а не
 переносятся в асинхронный backlog. Desktop renderer/performance check явно
 включает `desktop-sdl-ash` и использует подключённый X11/Wayland Vulkan path.
 
-Windows execution отложен до explicit pre-R7 bring-up. Текущий Linux handoff
-не запускает и не требует Windows, THOTH calibration или paired comparator;
-эти claims остаются открытыми с `NotRun(WindowsHostDeferred)`. Исторический
-Windows result не переносится на новый commit. Этот порядок не удаляет Windows
-из v1 shipping matrix.
+Windows execution находится вне текущего scope indefinitely. Linux handoff и
+release не запускают и не требуют Windows, THOTH calibration или paired
+comparator. Исторический Windows result не переносится на новый commit и не
+является current support.
 
-## Deferred native Windows/Linux release gate
+## Versioned native Linux release gate
 
-После явного Windows bring-up R1/R7 native evidence собирается существующими
-ProductCheck, а не новым видом глобального допуска. На native Windows x86_64 и
-Linux x86_64 hosts с
-Vulkan-capable driver один и тот же clean commit выполняет:
+R7 native evidence собирается существующими ProductCheck на native Linux
+x86_64 host с Vulkan-capable driver. Один clean commit выполняет:
 
 ```text
 cargo run --locked -p xtask --features desktop-sdl-ash -- native-gate-run --output artifacts/native-gate/<commit>
@@ -157,24 +158,16 @@ report с сохранённым пройденным prefix и
 smoke-state и другие transient files публиковать запрещено. Существующий output
 не перезаписывается.
 
-После ручного переноса обоих target каталогов их сравнивает:
+R7a advances the aggregate report/closure version so the complete Linux
+target bundle, exact project roots and required Linux package checks determine
+the new release verdict. Missing, failed or mismatched Linux evidence remains
+fail-closed. The existing Windows/Linux comparator MAY remain a dormant
+historical utility, but it cannot set or block the Linux-only R7 verdict.
 
-```text
-cargo run --locked -p xtask -- native-gate-compare --windows <windows-target-report.json> --linux <linux-target-report.json> --output <cross-target-report.json>
-```
-
-Comparator MUST принимать ровно один Windows и один Linux `PASS` report одного
-commit/toolchain/lock, проверять target-local package и exact platform-neutral
-roots и fail closed при отсутствующем target, несовпадении commit или root.
-Windows и Linux package descriptors сравниваются каждый только со своим
-одноимённым slot во втором report; descriptors разных OS между собой, binary
-hashes, package-manifest hashes и timings не являются cross-target oracle.
-
-Каждый отдельный `v1-closure` сохраняет `PASS` только для native target
-текущего host и честный `NotRun(reason)` для другого target; поэтому его
-`shipping_ready` остаётся false. Только успешный cross-target compare MAY
-выставить `native_gate_ready = true`. Он не переписывает исходные check results
-и сам по себе не объявляет весь roadmap stage или v1 завершённым.
+До реализации R7a старая двух-target `v1-closure` остаётся точным старым
+report: её `shipping_ready = false` нельзя переименовать в success текстовой
+политикой. После R7a новый report MUST reject or explicitly classify the old
+version rather than silently reinterpret its target slots.
 
 ## Documentation-only cheap path
 
@@ -311,10 +304,9 @@ Platform check выбирает затронутую границу с учёт�
   `persistence-replay`;
 - Linux adapter/package и shared renderer/platform change проверяются сейчас
   на active Linux host;
-- Windows-only adapter/package result остаётся
-  `NotRun(WindowsHostDeferred)` и записывается в Windows backlog;
-- paired shared-renderer release claim проверяется на обоих shipping targets
-  только после explicit Windows bring-up;
+- Windows-only adapter/package work находится вне current scope и не
+  записывается как обязательный backlog либо Linux release non-claim;
+- cross-target comparison остаётся dormant utility и не входит в v1 criteria;
 - macOS developer-host run подтверждает только portable development scope.
 
 Если нужный host недоступен, результат записывается как `NotRun(reason)`, а
@@ -332,12 +324,13 @@ authoritative outcome, считается failure независимо от ск
 variance MAY привести к повторному измерению по той же declared методике, но
 не к retry-to-green функциональных или deterministic failures.
 
-Current development timing выполняется на Linux и всегда остаётся
-`REPORT_ONLY`; Linux native build/platform/replay/hash correctness обязательны
-для затронутой области. Hard timing design следует ADR-036/ADR-045/ADR-049:
-только `release`, compatible baseline и полный `ref-win-thoth-v1` могут дать
-timing `PASS`/`FAIL`, но ADR-082 откладывает такой run до Windows bring-up и
-делает B-12 R7/release blocker. Несовместимый host, driver/BIOS/power plan/toolchain/content/
+Current development timing выполняется на Linux и остаётся `REPORT_ONLY` до
+R7c; Linux native build/platform/replay/hash correctness обязательны для
+затронутой области. Historical hard timing design ADR-036/ADR-045/ADR-049
+остаётся exact только для `ref-win-thoth-v1` и не является current release
+authority. R7c MUST определить Linux release fingerprint, budgets и compatible
+baseline/gate; до этого B-12 остаётся открытым Linux performance blocker.
+Несовместимый host, driver/BIOS/power plan/toolchain/content/
 methodology, недостаточный idle/free-memory/thermal preflight или
 неimplemented representative workload возвращает `NOT_RUN`. V5 hard evidence
 дополнительно требует canonical logical resource charges, peak working set,
