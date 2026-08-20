@@ -51,6 +51,13 @@ struct Profile {
     EnabledTerms terms;
     int fixed_iterations = 1;
     std::size_t max_samples = 0;
+    std::size_t static_boundary_samples = 0;
+    std::size_t max_static_boundary_samples = 0;
+    int static_boundary_layers = 0;
+    Vec3 basin_min{};
+    Vec3 basin_max{};
+    double particle_radius = 0.0;
+    std::string contact;
     std::size_t max_neighbors = 0;
     std::size_t max_directed_pairs = 0;
     std::string geometry;

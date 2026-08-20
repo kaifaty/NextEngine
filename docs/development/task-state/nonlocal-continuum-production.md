@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NPR0_BOUNDARY_DISCRIMINATOR / REPORT_ONLY` |
+| Status | `ACTIVE / NPR0_TINY_PHYSICAL_CORPUS / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-production` |
 | Scope | Evidence-gated path from the retained Nonlocal GPU lab to one bounded basin production candidate |
@@ -16,10 +16,10 @@
   basin profile.
 - **Why:** spacing differs by `10×`, time step by `4.1667×`, support ratio is
   `3dx` versus `2dx`, lattice axes differ and the benchmark has no boundary.
-- **Next action:** specify and run the boundary discriminator: exact two-layer
-  static support, then an adversarial non-penetration control.
-- **Current blocker:** no sealed Nonlocal boundary/contact identity; derived
-  coefficient scaling is algebraically closed but not physically calibrated.
+- **Next action:** declare metrics and run the control/derived binary64 tiny
+  physical corpus.
+- **Current blocker:** split static support/contact is selected, but neither
+  coefficient profile has passed physical calibration.
 - **Do not retry:** runtime/public contract integration from the old 50k
   benchmark; it is not product-profile evidence.
 - **Reconsider when:** NPR0 selects one hash-bound basin-scale profile through
@@ -34,6 +34,9 @@
 | [NPR0 contract](../../plans/nonlocal-continuum-production/00-profile-reclosure-contract.md) | `SPECIFIED` | three one-axis bridge identities precede boundary work |
 | [Roadmap research](../nonlocal-continuum-production-roadmap-research-2026-08-20.md) | `PROFILE_MISMATCH_CONFIRMED` | current 3.2 ms result cannot be relabelled as basin performance |
 | [NPR0 bridge evidence](../nonlocal-continuum-npr0-profile-bridge-evidence-2026-08-20.md) | `NPR0_A_B_SCALE_LAW_COMPLETE` | scale/cadence/support execution and derived scale algebra close; boundary/physics remain open |
+| [NPR0 boundary contract](../../plans/nonlocal-continuum-production/01-static-boundary-discriminator.md) | `SPLIT_STATIC_BOUNDARY_SELECTED` | two-layer support and swept contact are separate mandatory operations |
+| [NPR0 boundary research](../nonlocal-continuum-npr0-boundary-research-2026-08-20.md) | `GHOST_SUPPORT_NOT_CONTACT` | full support forces u32 CSR fallback; upstream boundary is not production sealing |
+| [NPR0 boundary evidence](../nonlocal-continuum-npr0-static-boundary-evidence-2026-08-20.md) | `TINY_CORPUS_AUTHORIZED` | both support profiles execute exactly; negative contact discriminator selects split schedule |
 | Later `CONTINUUM-*` ProductChecks | `NOT_RUN` | no production claim |
 
 ## Decisions that still constrain the work
@@ -92,12 +95,10 @@ and NPR1 reference corpus pass.
 
 ## Next action
 
-1. Bind the exact SPEC-38 two-layer outer complement as separately counted
-   static density support; preserve the `50,000` fluid capacity.
-2. Run an adversarial high-speed wall case proving whether source-faithful
-   fixed ghosts provide non-penetration.
-3. Specify one contact/energy candidate only from that result, then implement
-   the smallest independent wall-control corpus.
+1. Freeze the tiny physical-corpus metrics before execution.
+2. Run unchanged-control and dimensionally-derived profiles through free fall,
+   hydrostatic rest, reversible perturbation and face/corner contact.
+3. Select exactly one profile or record the first bounded remediation.
 
 ## Do not retry
 
@@ -111,8 +112,9 @@ and NPR1 reference corpus pass.
 
 - **Workspace state:** dedicated `codex/nonlocal-continuum-n0` worktree; new
   roadmap work is isolated from current runtime.
-- **Checks:** machine audit, three ordered bridge P2 preflights and the
-  four-iteration binary64 scale-law test pass.
+- **Checks:** machine audit, three ordered bridge P2 preflights, four-iteration
+  scale law, two full static-support P2 preflights and the negative boundary
+  discriminator pass.
 - **Remaining risk:** scale law, boundary formulation, physical corpus,
   authority, coupling, persistence and integrated budget are open.
 - **Promotion needed:** later consumer-backed Accepted ADR only after NPR7.

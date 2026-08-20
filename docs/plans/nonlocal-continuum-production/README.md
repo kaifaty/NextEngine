@@ -1,6 +1,6 @@
 # Nonlocal continuum — productionization roadmap
 
-Status: `ACTIVE / NPR0_BOUNDARY_DISCRIMINATOR / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `ACTIVE / NPR0_TINY_PHYSICAL_CORPUS / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
 
 This roadmap starts from the completed
 [fixed-work performance decision](../../development/nonlocal-continuum-performance-decision-2026-08-20.md).
@@ -107,8 +107,11 @@ NPR0 is specified by the
 scale/cadence/support bridge, machine audit, retained GPU preflights and
 four-iteration scale-law discriminator are complete and recorded in the
 [dated evidence](../../development/nonlocal-continuum-npr0-profile-bridge-evidence-2026-08-20.md).
-The active step now separates static density support from non-penetration and
-specifies the sealed-boundary candidate before adding it to the laboratory.
+The [static boundary discriminator](01-static-boundary-discriminator.md) now
+selects separate rooted density support and swept contact. Full static-support
+GPU preflights and the tiny negative wall discriminator are implemented. The
+active step is the predeclared binary64 tiny physical corpus that decides
+between unchanged-control and dimensionally-derived coefficients.
 
 NPR1, runtime integration and public contracts are blocked until NPR0 selects
 one profile. This is an evidence dependency, not unfinished hidden work.

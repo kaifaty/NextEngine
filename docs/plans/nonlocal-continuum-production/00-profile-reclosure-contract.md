@@ -1,6 +1,6 @@
 # NPR0 — Nonlocal product-profile reclosure contract
 
-Status: `NPR0_A_B_SCALE_LAW_COMPLETE / BOUNDARY_NEXT / REPORT_ONLY`
+Status: `NPR0_STATIC_BOUNDARY_SELECTED / TINY_CORPUS_NEXT / REPORT_ONLY`
 
 ## Purpose
 
@@ -91,6 +91,12 @@ The algebraic scale-law discriminator is complete. Its derived coefficients
 remain a hypothesis until the physical controls pass. The sealed-boundary
 step must treat two-layer density support and non-penetration as distinct
 operations; a fixed ghost shell by itself cannot satisfy the boundary gate.
+
+NPR0-D selected that split and is specified in the
+[static-boundary contract](01-static-boundary-discriminator.md). Both full
+support profiles pass exact GPU execution preflight, and the negative wall
+fixture confirms that fixed ghosts do not provide contact. The tiny physical
+corpus is now the remaining NPR0 selection gate.
 
 ## Exit and rollback
 

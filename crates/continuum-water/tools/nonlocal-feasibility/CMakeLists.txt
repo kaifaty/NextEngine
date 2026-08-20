@@ -5,6 +5,7 @@ project(nextengine_nonlocal_feasibility LANGUAGES CUDA CXX)
 add_executable(
     nonlocal-feasibility
     src/main.cpp
+    src/boundary_discriminator.cpp
     src/cuda_baseline.cu
     src/oracle.cpp
     src/profiles.cpp

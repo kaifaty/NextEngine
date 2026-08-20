@@ -1762,6 +1762,55 @@ float host_cuda_kernel_scale(float spacing, float horizon) {
     return 1.0F / total;
 }
 
+int exact_lattice_span(double minimum, double maximum, double spacing) {
+    const double cells = (maximum - minimum) / spacing;
+    const long long rounded = std::llround(cells);
+    if (rounded <= 0 || std::abs(cells - static_cast<double>(rounded)) > 1.0e-12
+        || rounded > std::numeric_limits<int>::max()) {
+        throw std::invalid_argument("static boundary extent is not an exact lattice span");
+    }
+    return static_cast<int>(rounded);
+}
+
+void append_static_outer_complement(const Profile& profile, Fixture& fixture) {
+    if (profile.static_boundary_samples == 0U) {
+        return;
+    }
+    if (profile.record_version < 3 || profile.static_boundary_layers <= 0
+        || profile.static_boundary_samples > profile.max_static_boundary_samples) {
+        throw std::invalid_argument("invalid v3 static boundary profile");
+    }
+    const int x_count = exact_lattice_span(
+        profile.basin_min.x, profile.basin_max.x, profile.spacing);
+    const int y_count = exact_lattice_span(
+        profile.basin_min.y, profile.basin_max.y, profile.spacing);
+    const int z_count = exact_lattice_span(
+        profile.basin_min.z, profile.basin_max.z, profile.spacing);
+    const int layers = profile.static_boundary_layers;
+    const std::size_t before = fixture.particles.size();
+    for (int x = -layers; x < x_count + layers; ++x) {
+        for (int y = -layers; y < y_count + layers; ++y) {
+            for (int z = -layers; z < z_count + layers; ++z) {
+                if (x >= 0 && x < x_count && y >= 0 && y < y_count
+                    && z >= 0 && z < z_count) {
+                    continue;
+                }
+                const Vec3 position{
+                    profile.basin_min.x + profile.particle_radius + x * profile.spacing,
+                    profile.basin_min.y + profile.particle_radius + y * profile.spacing,
+                    profile.basin_min.z + profile.particle_radius + z * profile.spacing,
+                };
+                const int lattice_index = static_cast<int>(fixture.particles.size());
+                fixture.particles.push_back({position, {}, true});
+                fixture.lattice_index_by_sample.push_back(lattice_index);
+            }
+        }
+    }
+    if (fixture.particles.size() - before != profile.static_boundary_samples) {
+        throw std::runtime_error("static boundary sample count does not match profile");
+    }
+}
+
 Fixture performance_fixture(const Profile& profile, int iterations) {
     if (profile.id == "nuv-tiny-oracle.v0") {
         throw std::invalid_argument("tiny profile is a fixture matrix, not one performance block");
@@ -1784,9 +1833,10 @@ Fixture performance_fixture(const Profile& profile, int iterations) {
     fixture.grid_margin = profile.grid_margin;
     fixture.advected = profile.advected;
     fixture.trace_length = profile.trace_length;
-    fixture.particles.reserve(profile.samples);
+    fixture.particles.reserve(profile.samples + profile.static_boundary_samples);
     if (profile.record_version >= 1) {
-        fixture.lattice_index_by_sample.reserve(profile.samples);
+        fixture.lattice_index_by_sample.reserve(
+            profile.samples + profile.static_boundary_samples);
     }
     const double center_x = profile.origin.x
         + 0.5 * static_cast<double>(profile.lattice_x - 1) * profile.spacing;
@@ -1835,6 +1885,7 @@ Fixture performance_fixture(const Profile& profile, int iterations) {
             fixture.lattice_index_by_sample.push_back(static_cast<int>(lattice));
         }
     }
+    append_static_outer_complement(profile, fixture);
     return fixture;
 }
 
@@ -6306,10 +6357,11 @@ CommandReport run_cuda_p1_tournament(
 CommandReport run_cuda_p2_check(
     const Profile& profile,
     int iterations) {
-    if ((profile.record_version != 1 && profile.record_version != 2)
+    if ((profile.record_version != 1 && profile.record_version != 2
+            && profile.record_version != 3)
         || iterations < 1 || iterations > 100) {
         throw std::invalid_argument(
-            "P2 check requires a v1/v2 profile and 1..=100 iterations");
+            "P2 check requires a v1/v2/v3 profile and 1..=100 iterations");
     }
     const CommandReport retained_self = run_cuda_self_test(
         P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE);

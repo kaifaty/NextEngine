@@ -77,7 +77,11 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --cpu-scale-law-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --cpu-boundary-discriminator
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --p2-check nuv-basin-48k-source-scale.v2 --iterations 5
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --p2-check nuv-basin-48k-static-support-derived.v3 --iterations 5
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -190,3 +194,16 @@ fixture. For length ratio `s` and time ratio `t`, it checks
 position/source, invariant density/matrix and scaled velocity. PASS proves
 only the implemented equation transform; it does not calibrate a product
 material, boundary, energy curve or canonical authority.
+
+The CPU boundary discriminator independently builds a two-layer complement
+around a tiny box and sends one high-speed sample through the bottom wall.
+PASS requires the fixed ghost-only solve to expose penetration and the
+separately evaluated SPEC-38 swept-sphere counterfactual to stop it with exact
+fluid/reaction impulse closure. Its semantic result is
+SPLIT_BOUNDARY_REQUIRED: support samples are not a contact mechanism.
+
+The v3 static-support profiles add the exact 24,704-sample two-layer outer
+complement to 48,000 fluid samples. Their 72,704 total solver indices
+deliberately exceed u16; P2 must report an explicit checked u32 fallback.
+The GPU preflight evaluates density/constitutive support only. It does not
+execute the external swept contact or claim a sealed production step.

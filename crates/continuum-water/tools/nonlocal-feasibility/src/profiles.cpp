@@ -95,6 +95,37 @@ Profile product_bridge_profile(
     return profile;
 }
 
+Profile product_static_support_profile(
+    std::string id,
+    double kappa,
+    double lambda,
+    std::string coefficient_identity) {
+    Profile profile = performance_profile_v1(
+        std::move(id), 80, 15, 40, kappa, lambda, 0.0, 0.0,
+        {true, true, false, false}, 5);
+    profile.record_version = 3;
+    profile.origin = {-1.975, 0.025, -0.975};
+    profile.spacing = 0.05;
+    profile.mass = 0.125;
+    profile.horizon = 0.10;
+    profile.time_step = 1.0 / 240.0;
+    profile.max_samples = 50000;
+    profile.static_boundary_samples = 24704;
+    profile.max_static_boundary_samples = 32768;
+    profile.static_boundary_layers = 2;
+    profile.basin_min = {-2.0, 0.0, -1.0};
+    profile.basin_max = {2.0, 1.0, 1.0};
+    profile.particle_radius = 0.025;
+    profile.max_neighbors = 33;
+    profile.max_directed_pairs =
+        (profile.samples + profile.static_boundary_samples) * profile.max_neighbors;
+    profile.geometry = "spec38_sealed_extent_two_layer_outer_lattice_"
+        + std::move(coefficient_identity);
+    profile.boundary = "two_layer_fixed_ghost_density_support_no_contact";
+    profile.contact = "analytical_swept_sphere_external_not_in_gpu_preflight";
+    return profile;
+}
+
 std::string bool_json(bool value) { return value ? "true" : "false"; }
 
 } // namespace
@@ -167,6 +198,12 @@ const std::vector<Profile>& profiles() {
         product_bridge_profile(
             "nuv-basin-48k-spec-support.v2", 0.10, 1.0 / 240.0, 33,
             "product_axis_basin_lattice_spec_support_and_cadence"),
+        product_static_support_profile(
+            "nuv-basin-48k-static-support-control.v3", 1.0, 1.5,
+            "source_coefficient_control"),
+        product_static_support_profile(
+            "nuv-basin-48k-static-support-derived.v3", 576.0, 360.0,
+            "dimensionally_derived_coefficient_hypothesis"),
     };
     return values;
 }
@@ -231,7 +268,15 @@ std::string canonical_profile_json(const Profile& profile) {
            << ",\"surface_tension\":" << bool_json(profile.terms.surface_tension) << '}'
            << ",\"fixed_iterations\":" << profile.fixed_iterations
            << ",\"capacity\":{\"max_samples\":" << profile.max_samples
-           << ",\"max_neighbors\":" << profile.max_neighbors
+           << ",\"max_neighbors\":" << profile.max_neighbors;
+    if (profile.record_version >= 3) {
+        output << ",\"static_boundary_samples\":" << profile.static_boundary_samples
+               << ",\"max_static_boundary_samples\":"
+               << profile.max_static_boundary_samples
+               << ",\"total_solver_samples\":"
+               << profile.samples + profile.static_boundary_samples;
+    }
+    output
            << ",\"max_directed_pairs\":" << profile.max_directed_pairs << '}'
            << ",\"numeric_modes\":{\"cpu_oracle\":\"ieee754_binary64\""
            << ",\"cuda_baseline\":\"ieee754_binary32\"}"
@@ -253,7 +298,18 @@ std::string canonical_profile_json(const Profile& profile) {
            << (profile.record_version == 0
                    ? "\"neighbor membership is frozen from the initial position\","
                    : "\"neighbor membership is rebuilt from each substep reference and frozen within its nonlinear solve\",")
-           << "\"surface pairwise function is bidirectional\"]}";
+           << "\"surface pairwise function is bidirectional\"]";
+    if (profile.record_version >= 3) {
+        output << ",\"static_boundary\":{\"layers\":"
+               << profile.static_boundary_layers << ",\"basin_min_m\":["
+               << profile.basin_min.x << ',' << profile.basin_min.y << ','
+               << profile.basin_min.z << "],\"basin_max_m\":["
+               << profile.basin_max.x << ',' << profile.basin_max.y << ','
+               << profile.basin_max.z << "],\"particle_radius_m\":"
+               << profile.particle_radius << ",\"contact\":\"" << profile.contact
+               << "\"}";
+    }
+    output << '}';
     return output.str();
 }
 
@@ -272,11 +328,15 @@ std::string production_profile_audit_json() {
     const std::string source_scale_id = "nuv-basin-48k-source-scale.v2";
     const std::string cadence_id = "nuv-basin-48k-cadence.v2";
     const std::string spec_support_id = "nuv-basin-48k-spec-support.v2";
+    const std::string static_control_id = "nuv-basin-48k-static-support-control.v3";
+    const std::string static_derived_id = "nuv-basin-48k-static-support-derived.v3";
     const Profile& retained_48k = find_profile(retained_48k_id);
     const Profile& retained_50k = find_profile(retained_50k_id);
     const Profile& source_scale = find_profile(source_scale_id);
     const Profile& cadence = find_profile(cadence_id);
     const Profile& spec_support = find_profile(spec_support_id);
+    const Profile& static_control = find_profile(static_control_id);
+    const Profile& static_derived = find_profile(static_derived_id);
 
     const auto append_profile = [](std::ostringstream& output, const Profile& profile) {
         const std::string canonical = canonical_profile_json(profile);
@@ -289,8 +349,11 @@ std::string production_profile_audit_json() {
                << ",\"horizon_m\":" << profile.horizon << ",\"horizon_over_spacing\":"
                << profile.horizon / profile.spacing << ",\"time_step_s\":"
                << profile.time_step << ",\"maximum_neighbors\":"
-               << profile.max_neighbors << ",\"boundary\":\"" << profile.boundary
-               << "\"}";
+               << profile.max_neighbors << ",\"static_boundary_samples\":"
+               << profile.static_boundary_samples << ",\"total_solver_samples\":"
+               << profile.samples + profile.static_boundary_samples
+               << ",\"boundary\":\"" << profile.boundary << "\",\"contact\":\""
+               << profile.contact << "\"}";
     };
 
     std::ostringstream output;
@@ -308,13 +371,19 @@ std::string production_profile_audit_json() {
     append_profile(output, cadence);
     output << ',';
     append_profile(output, spec_support);
+    output << ',';
+    append_profile(output, static_control);
+    output << ',';
+    append_profile(output, static_derived);
     output << "]"
            << ",\"product_expectation\":{\"samples_nominal\":48000"
            << ",\"samples_hard_capacity\":50000,\"lattice\":[80,15,40]"
            << ",\"spacing_m\":0.050000000000000003,\"mass_kg\":0.125"
            << ",\"horizon_m\":0.10000000000000001,\"time_step_s\":"
            << 1.0 / 240.0
-           << ",\"boundary\":\"sealed_analytical_basin_not_implemented\"}"
+           << ",\"static_boundary_samples\":24704"
+           << ",\"static_boundary_capacity\":32768"
+           << ",\"boundary\":\"two_layer_support_plus_swept_contact\"}"
            << ",\"mismatch\":{\"spacing_scale_from_retained_48k\":"
            << source_scale.spacing / retained_48k.spacing
            << ",\"mass_scale_from_retained_48k\":"
@@ -328,8 +397,10 @@ std::string production_profile_audit_json() {
            << ",\"retained_48k_axis_order_matches_product\":false"
            << ",\"retained_50k_sample_count_matches_nominal\":false"
            << ",\"retained_boundary_matches_product\":false}"
-           << ",\"open_gates\":{\"coefficient_scale_law_selected\":false"
-           << ",\"sealed_boundary_selected\":false"
+           << ",\"open_gates\":{\"coefficient_scale_law_derived\":true"
+           << ",\"coefficient_scale_law_physically_selected\":false"
+           << ",\"static_density_support_selected\":true"
+           << ",\"sealed_contact_implemented\":false"
            << ",\"canonical_publication_selected\":false"
            << ",\"physical_corpus_passed\":false"
            << ",\"authority_selected\":false}}";
