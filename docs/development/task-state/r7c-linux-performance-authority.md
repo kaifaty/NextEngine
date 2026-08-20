@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / V6_IMPLEMENTED / CLEAN_EVIDENCE_NEXT` |
+| Status | `ACTIVE / R3_BASELINE_DEFECT_FIXED / CLEAN_EVIDENCE_NEXT` |
 | Updated | 2026-08-21 |
 | Task key | `r7c-linux-performance-authority` |
 | Scope | Accept one exact Linux release-performance profile and numeric policy, then collect compatible ten-run baselines and fixed three-run hard gates for the representative R2, R3, R4 and R5 workloads |
@@ -13,15 +13,17 @@
 
 - **Current conclusion:** ADR-091 accepts exact Linux profile
   `ref-linux-b550i-3950x-rtx3080-v1`, canonical R2–R5 budgets and strict
-  Performance V6/methodology v9. The tooling and R4 production optimization are
-  implemented; compatible clean baseline/gate collection is next.
+  Performance V6/methodology v9. The first clean R3 calibration exposed a
+  workload-boundary defect: R3 did not declare that its CPU-only observation
+  window has zero device residency, so strict baseline publication rejected
+  otherwise valid reports.
 - **Why:** Diagnostic R3/R5 already passed their accepted rows and exact-root
   closure. Cached immutable catalog revisions reduce R4 navigation from roughly
   `4.24/4.79 ms` to `0.67/0.76 ms` and integrated production ticks from
   `15.43/16.10 ms` to `2.25/2.39 ms` p95/p99 without root changes.
-- **Next action:** Commit the accepted implementation/doc boundary, then collect
-  ten clean reports and one fixed three-run gate for each R2–R5 workload on that
-  exact commit. Preserve every completed set without retry-to-green.
+- **Next action:** Publish the verified no-device workload fix as a new clean
+  commit. Start a fresh exact-commit evidence set; retain the rejected
+  `368d216` set as negative evidence rather than retrying it.
 - **Current blocker:** R2 only: the Linux session currently exposes no active
   physical display (`xrandr` 0×0, empty Mutter display state, NVIDIA display
   inactive), so the production Vulkan workload correctly returns `NOT_RUN`.
@@ -42,6 +44,8 @@
 | R4 pre-optimization diagnostic | Exact roots and zero defer/drop/starvation/fabrication, but navigation `4,236/4,793 us` and integrated `15,425/16,100 us` exceed ADR-016 | Optimize; do not widen budgets |
 | R4 optimized V6 diagnostic | Outer `PASS`, no diagnostics; navigation `668/760 us`, cognition `23/29 us`, integrated `2,252/2,391 us`; roots unchanged | R4 is ready for clean ten-run evidence |
 | R2 desktop prerequisite | GNOME/Wayland variables exist, but no active display is published by Xwayland/Mutter/NVIDIA | Keep R2 `NOT_RUN` until the physical monitor is OS-visible |
+| R3 clean calibration on `368d216` | Ten reports are clean, ready, exact-root and individually within `867,328–896,795 us`, but baseline publication rejects all ten because device/Vulkan unavailability was left attached to the CPU-only workload | Preserve the set; fix the workload resource declaration and collect a new set on a new commit |
+| R3 resource-boundary fix | Focused contract test passes; a production diagnostic reports `device_resident_bytes = 0`, zero Vulkan queries, no unavailable counters and no diagnostics | New clean R3 evidence may be collected after commit |
 
 ## Decisions that constrain the work
 
@@ -100,9 +104,10 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-Commit the implemented V6/ADR-091 boundary. Collect R3/R4/R5 clean ten-run
-baselines and fixed gates without concurrent workload activity. Once the
-physical display is OS-visible, collect R2 on the same exact commit.
+Commit the verified no-device workload declaration. Collect fresh R3/R4/R5
+clean ten-run baselines and fixed gates without concurrent
+workload activity. Once the physical display is OS-visible, collect R2 on the
+same exact commit.
 
 ## Do not retry
 
@@ -112,12 +117,16 @@ physical display is OS-visible, collect R2 on the same exact commit.
 - A virtual/software R2 display or headless substitute — it cannot prove the
   production presentation path.
 - Any unchanged calibration/gate retry after a completed negative result.
+- Baseline publication from the rejected `368d216` R3 set after changing only
+  the publisher. The workload must emit complete evidence itself on a new clean
+  commit.
 
 ## Handoff
 
-- **Workspace state:** ADR-091, aligned SPEC/index/routing/traceability/roadmap,
-  Performance V6/v9 and R4 cached-revision fast path are implemented but not
-  yet checkpointed for clean evidence.
+- **Workspace state:** The ADR-091/V6/R4 boundary is commit `368d216`. Its first
+  clean R3 set found a missing CPU-only device declaration. The reusable fix is
+  implemented and verified but not yet committed; it requires a new clean
+  evidence set.
 - **Checks:** Focused contracts/world/agent/verification tests pass; xtask
   performance lib tests pass `46/46`; workspace clippy is warning-free and the
   broad Linux `host-check` passes. Optimized dirty-worktree R4 report passes

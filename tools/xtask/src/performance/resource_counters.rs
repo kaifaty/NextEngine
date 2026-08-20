@@ -130,6 +130,14 @@ pub struct PerformanceResourceCountersV4 {
 }
 
 impl PerformanceResourceCountersV4 {
+    pub fn declare_no_device_workload(&mut self) {
+        self.device_resident_bytes = Some(0);
+        self.unavailable.retain(|diagnostic| {
+            !diagnostic.starts_with("Vulkan timestamps require")
+                && !diagnostic.starts_with("device residency requires")
+        });
+    }
+
     pub fn validate_report_evidence(&self) -> Result<(), Vec<String>> {
         match &self.logical_resource_charges {
             Some(charges) => charges.validate(),

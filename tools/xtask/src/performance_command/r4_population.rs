@@ -28,11 +28,7 @@ pub(super) fn performance_report(
     let report =
         next_verification::run_population_performance_check().map_err(|error| error.to_string())?;
     let mut resource_counters = xtask::performance::finish_process_counters(&counters_before);
-    resource_counters.device_resident_bytes = Some(0);
-    resource_counters.unavailable.retain(|diagnostic| {
-        !diagnostic.starts_with("Vulkan timestamps require")
-            && !diagnostic.starts_with("device residency requires")
-    });
+    resource_counters.declare_no_device_workload();
 
     let mut recorded_spans = if profiling_enabled {
         Vec::with_capacity(

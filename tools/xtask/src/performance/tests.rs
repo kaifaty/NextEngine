@@ -287,6 +287,30 @@ fn v4_hard_counters_require_complete_low_overhead_evidence() {
 }
 
 #[test]
+fn no_device_workload_declares_zero_residency_without_fabricating_timestamps() {
+    let mut counters = PerformanceResourceCountersV4 {
+        process_peak_working_set_bytes: Some(1024),
+        device_resident_bytes: None,
+        io_read_bytes: Some(128),
+        io_write_bytes: Some(64),
+        logical_resource_charges: Some(logical_resource_charges()),
+        vulkan_timestamp_queries: 0,
+        unavailable: vec![
+            "device residency requires a representative Vulkan workload".to_owned(),
+            "Vulkan timestamps require a representative render workload".to_owned(),
+        ],
+    };
+
+    counters.declare_no_device_workload();
+
+    assert_eq!(counters.device_resident_bytes, Some(0));
+    assert!(counters.unavailable.is_empty());
+    counters
+        .validate_for_hard_timing(PerformanceScenarioV1::R3MultiregionStreaming)
+        .expect("CPU-only streaming evidence is complete");
+}
+
+#[test]
 fn r5_physics_methodology_binds_the_production_humanoid_workload() {
     let scenario = PerformanceScenarioV1::R5Physics16;
     let methodology = methodology_for(scenario);

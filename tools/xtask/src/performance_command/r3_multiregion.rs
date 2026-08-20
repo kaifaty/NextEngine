@@ -84,6 +84,7 @@ pub(super) fn performance_report(
             0,
         )?,
     );
+    resource_counters.declare_no_device_workload();
     run.resource_counters = resource_counters;
     run.content_hash = content_hash;
     run.scenario_hash = performance_scenario_hash(request.scenario);
