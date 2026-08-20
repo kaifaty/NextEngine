@@ -7229,14 +7229,11 @@ struct PressureSpectrumCase {
     bool passed = false;
 };
 
-PressureSpectrumCase make_pressure_spectrum_case(
-    double compression_factor, double kappa_factor) {
-    Config config = physical_multistep_config();
-    config.kappa *= kappa_factor;
-    std::vector<Vec3> position = centered_lattice(7, config.spacing);
-    for (Vec3& value : position) {
-        value = compression_factor * value;
-    }
+PressureSpectrumCase make_pressure_spectrum_for_state(
+    Config config,
+    const std::vector<Vec3>& position,
+    double compression_factor,
+    double kappa_factor) {
     PressureTangentOperator pressure =
         make_pressure_tangent_operator(config, position);
     PressureSpectrumCase result;
@@ -7271,6 +7268,18 @@ PressureSpectrumCase make_pressure_spectrum_case(
         && result.lanczos.orthogonality_error <= 1.0e-10
         && result.translation_null_residual <= 1.0e-12;
     return result;
+}
+
+PressureSpectrumCase make_pressure_spectrum_case(
+    double compression_factor, double kappa_factor) {
+    Config config = physical_multistep_config();
+    config.kappa *= kappa_factor;
+    std::vector<Vec3> position = centered_lattice(7, config.spacing);
+    for (Vec3& value : position) {
+        value = compression_factor * value;
+    }
+    return make_pressure_spectrum_for_state(
+        config, position, compression_factor, kappa_factor);
 }
 
 struct PressureSpectrumNullControl {
@@ -7870,6 +7879,545 @@ EmbeddedControllerDiagnostic embedded_controller_diagnostic() {
     } else if (!result.inactive_passed
         && result.first_failure.empty()) {
         result.first_failure = "NSR3B1S3_INACTIVE";
+    }
+    return result;
+}
+
+bool inactive_material_fast_path_eligible(
+    const Config& config,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity,
+    double frame_time) {
+    if (pressure_active_count(config, position) != 0
+        || position.size() != velocity.size()
+        || !all_finite(position) || !all_finite(velocity)) {
+        return false;
+    }
+    const std::vector<ParticlePair> pairs = build_cell_pairs(
+        position, config.horizon);
+    for (const ParticlePair& pair : pairs) {
+        const double velocity_scale = std::max({1.0,
+            norm(velocity[pair.i]), norm(velocity[pair.j])});
+        const double allowance = 32.0
+            * std::numeric_limits<double>::epsilon() * velocity_scale;
+        if (norm(velocity[pair.i] - velocity[pair.j]) > allowance) {
+            return false;
+        }
+    }
+    std::vector<Vec3> predicted(position.size());
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        const Vec3 next_velocity = velocity[i] + frame_time * config.gravity;
+        predicted[i] = position[i] + frame_time * next_velocity;
+    }
+    return all_finite(predicted)
+        && pressure_active_count(config, predicted) == 0;
+}
+
+TemporalLevel make_transactional_temporal_level(
+    const Config& anchor,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity,
+    int substeps_per_frame) {
+    constexpr double frame_time = 1.0 / 240.0;
+    Config config = anchor;
+    config.time_step = frame_time
+        / static_cast<double>(substeps_per_frame);
+    TemporalLevel result;
+    result.time_step = config.time_step;
+    result.acoustic_courant = config.time_step
+        * std::sqrt(config.kappa / config.mass) / config.spacing;
+    result.run = run_multistep(config, position, velocity,
+        substeps_per_frame, false);
+    result.rms_radius = rms_radius_about_center(result.run.position);
+    result.rms_speed = rms_relative_speed(result.run.velocity);
+    result.kinetic_energy = relative_kinetic_energy(
+        config, result.run.velocity);
+    result.pressure_exit_time = pressure_active_exit_time(
+        result.run, config.time_step);
+    result.normalized_center_drift = result.run.maximum_center_of_mass_drift
+        / config.spacing;
+    return result;
+}
+
+bool transactional_candidate_valid(
+    const MultistepRun& run,
+    double initial_maximum_density_ratio) {
+    return run.completed && run.solver_valid
+        && run.positive_reductions && run.rejected_state_immutable
+        && run.capacity_valid
+        && run.maximum_outer_trials <= 32
+        && run.maximum_rejected_trials <= 8
+        && run.maximum_hvp_calls <= 128
+        && run.maximum_density_ratio
+            <= initial_maximum_density_ratio + 1.0e-6
+        && all_finite(run.position) && all_finite(run.velocity);
+}
+
+struct TransactionalFrame {
+    int frame = 0;
+    int start_active_pressure_centers = 0;
+    bool fast_path = false;
+    bool spectrum_valid = false;
+    int spectral_hvp_calls = 0;
+    double maximum_eigenfrequency = 0.0;
+    int initial_substeps = 0;
+    int refinement_depth = -1;
+    int accepted_substeps = 0;
+    int comparator_substeps = 0;
+    int controller_substeps = 0;
+    int discarded_substeps = 0;
+    int accepted_nonlinear_hvp_calls = 0;
+    int controller_nonlinear_hvp_calls = 0;
+    int discarded_nonlinear_hvp_calls = 0;
+    int maximum_outer_trials = 0;
+    int maximum_rejected_trials = 0;
+    int maximum_hvp_calls = 0;
+    EmbeddedIntervalGate gate;
+    bool candidates_valid = false;
+    bool transaction_immutable = false;
+    std::string start_state_sha256;
+    std::string accepted_state_sha256;
+    std::string comparator_state_sha256;
+    bool passed = false;
+};
+
+struct TransactionalControllerRun {
+    double compression_factor = 0.0;
+    double initial_maximum_density_ratio = 0.0;
+    int initial_active_pressure_centers = 0;
+    int final_active_pressure_centers = 0;
+    int active_spectrum_frames = 0;
+    int fast_path_frames = 0;
+    int total_spectral_hvp_calls = 0;
+    int total_accepted_substeps = 0;
+    int total_controller_substeps = 0;
+    int total_discarded_substeps = 0;
+    int total_accepted_nonlinear_hvp_calls = 0;
+    int total_controller_nonlinear_hvp_calls = 0;
+    int total_discarded_nonlinear_hvp_calls = 0;
+    int maximum_controller_substeps_per_frame = 0;
+    int maximum_outer_trials = 0;
+    int maximum_rejected_trials = 0;
+    int maximum_hvp_calls = 0;
+    double maximum_density_ratio = 0.0;
+    double normalized_center_of_mass_drift = 0.0;
+    double accumulated_momentum_residual = 0.0;
+    std::vector<TransactionalFrame> frames;
+    std::vector<Vec3> position;
+    std::vector<Vec3> velocity;
+    bool passed = false;
+    std::string first_failure;
+};
+
+TransactionalControllerRun run_transactional_controller(
+    double compression_factor) {
+    constexpr double frame_time = 1.0 / 240.0;
+    constexpr int frame_count = 12;
+    constexpr double spectral_target = 0.15;
+    Config anchor = physical_multistep_config();
+    std::vector<Vec3> position = centered_lattice(7, anchor.spacing);
+    for (Vec3& value : position) {
+        value = compression_factor * value;
+    }
+    std::vector<Vec3> velocity(position.size());
+    const Vec3 initial_center = average(position);
+    TransactionalControllerRun result;
+    result.compression_factor = compression_factor;
+    result.initial_active_pressure_centers =
+        pressure_active_count(anchor, position);
+    result.initial_maximum_density_ratio =
+        maximum_density_ratio(anchor, position);
+    result.maximum_density_ratio = result.initial_maximum_density_ratio;
+    result.frames.reserve(frame_count);
+    for (int frame_index = 0; frame_index < frame_count; ++frame_index) {
+        TransactionalFrame frame;
+        frame.frame = frame_index;
+        frame.start_active_pressure_centers =
+            pressure_active_count(anchor, position);
+        frame.start_state_sha256 = hash_phase_state(position, velocity);
+        const bool fast_path = inactive_material_fast_path_eligible(
+            anchor, position, velocity, frame_time);
+        frame.fast_path = fast_path;
+        std::vector<TemporalLevel> levels;
+        if (fast_path) {
+            frame.initial_substeps = 1;
+            levels.push_back(make_transactional_temporal_level(
+                anchor, position, velocity, 1));
+            frame.refinement_depth = 0;
+            frame.accepted_substeps = 1;
+            frame.controller_substeps = 1;
+            frame.accepted_nonlinear_hvp_calls =
+                levels[0].run.total_hvp_calls;
+            frame.controller_nonlinear_hvp_calls =
+                frame.accepted_nonlinear_hvp_calls;
+            frame.candidates_valid = transactional_candidate_valid(
+                levels[0].run, result.initial_maximum_density_ratio)
+                && levels[0].run.total_hvp_calls == 0;
+        } else {
+            if (frame.start_active_pressure_centers > 0) {
+                const PressureSpectrumCase spectrum =
+                    make_pressure_spectrum_for_state(anchor, position,
+                        compression_factor, 1.0);
+                frame.spectrum_valid = spectrum.passed;
+                frame.spectral_hvp_calls =
+                    spectrum.lanczos.operator_calls;
+                frame.spectrum_valid = frame.spectrum_valid
+                    && frame.spectral_hvp_calls == 48;
+                frame.maximum_eigenfrequency =
+                    spectrum.maximum_eigenfrequency;
+                frame.initial_substeps = std::max(1,
+                    static_cast<int>(std::ceil(frame_time
+                        * frame.maximum_eigenfrequency
+                        / spectral_target)));
+            } else {
+                frame.spectrum_valid = true;
+                frame.initial_substeps = 1;
+            }
+            levels.push_back(make_transactional_temporal_level(
+                anchor, position, velocity, frame.initial_substeps));
+            levels.push_back(make_transactional_temporal_level(
+                anchor, position, velocity, 2 * frame.initial_substeps));
+            frame.gate = embedded_interval_gate(
+                levels[0], levels[1], anchor.spacing,
+                std::sqrt(anchor.kappa / anchor.mass));
+            int accepted_level = frame.gate.passed ? 0 : -1;
+            for (int depth = 1;
+                 accepted_level < 0 && depth <= 2; ++depth) {
+                levels.push_back(make_transactional_temporal_level(
+                    anchor, position, velocity,
+                    frame.initial_substeps * (1 << (depth + 1))));
+                frame.gate = embedded_interval_gate(
+                    levels[static_cast<std::size_t>(depth)],
+                    levels[static_cast<std::size_t>(depth + 1)],
+                    anchor.spacing, std::sqrt(anchor.kappa / anchor.mass));
+                if (frame.gate.passed) {
+                    accepted_level = depth;
+                }
+            }
+            frame.refinement_depth = accepted_level;
+            frame.candidates_valid = frame.spectrum_valid;
+            for (const TemporalLevel& level : levels) {
+                frame.candidates_valid = frame.candidates_valid
+                    && transactional_candidate_valid(
+                        level.run, result.initial_maximum_density_ratio);
+                frame.controller_substeps += level.run.requested_steps;
+                frame.controller_nonlinear_hvp_calls +=
+                    level.run.total_hvp_calls;
+                frame.maximum_outer_trials = std::max(
+                    frame.maximum_outer_trials,
+                    level.run.maximum_outer_trials);
+                frame.maximum_rejected_trials = std::max(
+                    frame.maximum_rejected_trials,
+                    level.run.maximum_rejected_trials);
+                frame.maximum_hvp_calls = std::max(
+                    frame.maximum_hvp_calls,
+                    level.run.maximum_hvp_calls);
+                result.maximum_density_ratio = std::max(
+                    result.maximum_density_ratio,
+                    level.run.maximum_density_ratio);
+            }
+            if (accepted_level >= 0) {
+                frame.accepted_substeps = frame.initial_substeps
+                    * (1 << accepted_level);
+                frame.comparator_substeps = 2 * frame.accepted_substeps;
+                frame.accepted_nonlinear_hvp_calls =
+                    levels[static_cast<std::size_t>(accepted_level)]
+                        .run.total_hvp_calls;
+                frame.comparator_state_sha256 = hash_phase_state(
+                    levels[static_cast<std::size_t>(accepted_level + 1)]
+                        .run.position,
+                    levels[static_cast<std::size_t>(accepted_level + 1)]
+                        .run.velocity);
+            }
+            frame.discarded_substeps = frame.controller_substeps
+                - frame.accepted_substeps;
+            frame.discarded_nonlinear_hvp_calls =
+                frame.controller_nonlinear_hvp_calls
+                - frame.accepted_nonlinear_hvp_calls;
+        }
+        frame.transaction_immutable = frame.start_state_sha256
+            == hash_phase_state(position, velocity);
+        const int accepted_level = fast_path ? 0 : frame.refinement_depth;
+        frame.passed = accepted_level >= 0
+            && frame.candidates_valid && frame.transaction_immutable
+            && frame.accepted_substeps <= 192
+            && frame.comparator_substeps <= 384
+            && frame.controller_substeps <= 768;
+        if (!frame.passed) {
+            result.first_failure = "NSR3B1R_FRAME_"
+                + std::to_string(frame_index);
+            result.frames.push_back(std::move(frame));
+            break;
+        }
+        const MultistepRun& accepted =
+            levels[static_cast<std::size_t>(accepted_level)].run;
+        frame.accepted_state_sha256 = hash_phase_state(
+            accepted.position, accepted.velocity);
+        result.total_spectral_hvp_calls += frame.spectral_hvp_calls;
+        result.active_spectrum_frames +=
+            frame.spectral_hvp_calls > 0 ? 1 : 0;
+        result.fast_path_frames += frame.fast_path ? 1 : 0;
+        result.total_accepted_substeps += frame.accepted_substeps;
+        result.total_controller_substeps += frame.controller_substeps;
+        result.total_discarded_substeps += frame.discarded_substeps;
+        result.total_accepted_nonlinear_hvp_calls +=
+            frame.accepted_nonlinear_hvp_calls;
+        result.total_controller_nonlinear_hvp_calls +=
+            frame.controller_nonlinear_hvp_calls;
+        result.total_discarded_nonlinear_hvp_calls +=
+            frame.discarded_nonlinear_hvp_calls;
+        result.maximum_controller_substeps_per_frame = std::max(
+            result.maximum_controller_substeps_per_frame,
+            frame.controller_substeps);
+        result.maximum_outer_trials = std::max(
+            result.maximum_outer_trials, frame.maximum_outer_trials);
+        result.maximum_rejected_trials = std::max(
+            result.maximum_rejected_trials, frame.maximum_rejected_trials);
+        result.maximum_hvp_calls = std::max(
+            result.maximum_hvp_calls, frame.maximum_hvp_calls);
+        result.accumulated_momentum_residual +=
+            accepted.accumulated_momentum_residual;
+        position = accepted.position;
+        velocity = accepted.velocity;
+        result.normalized_center_of_mass_drift = std::max(
+            result.normalized_center_of_mass_drift,
+            norm(average(position) - initial_center) / anchor.spacing);
+        result.frames.push_back(std::move(frame));
+    }
+    result.position = position;
+    result.velocity = velocity;
+    result.final_active_pressure_centers =
+        pressure_active_count(anchor, position);
+    result.passed = result.frames.size() == frame_count
+        && std::all_of(result.frames.begin(), result.frames.end(),
+            [](const TransactionalFrame& frame) { return frame.passed; })
+        && result.normalized_center_of_mass_drift <= 1.0e-11
+        && result.accumulated_momentum_residual <= 1.0e-10
+        && result.maximum_density_ratio
+            <= result.initial_maximum_density_ratio + 1.0e-6
+        && result.final_active_pressure_centers
+            < result.initial_active_pressure_centers;
+    if (!result.passed && result.first_failure.empty()) {
+        result.first_failure = "NSR3B1R_CONTROLLER_GLOBAL";
+    }
+    return result;
+}
+
+struct TransactionalReferenceLadder {
+    std::array<int, 3> substeps_per_frame = {96, 192, 384};
+    std::array<MultistepRun, 3> levels;
+    std::array<double, 2> position_difference{};
+    std::array<double, 2> velocity_difference{};
+    double position_ratio = 0.0;
+    double velocity_ratio = 0.0;
+    bool passed = false;
+};
+
+TransactionalReferenceLadder transactional_reference_ladder(
+    double compression_factor,
+    double initial_maximum_density_ratio) {
+    constexpr double frame_time = 1.0 / 240.0;
+    constexpr int frame_count = 12;
+    TransactionalReferenceLadder result;
+    for (std::size_t level = 0; level < result.levels.size(); ++level) {
+        Config config = physical_multistep_config(frame_time
+            / static_cast<double>(result.substeps_per_frame[level]));
+        std::vector<Vec3> position = centered_lattice(7, config.spacing);
+        for (Vec3& value : position) {
+            value = compression_factor * value;
+        }
+        result.levels[level] = run_multistep(config, position,
+            std::vector<Vec3>(position.size()),
+            frame_count * result.substeps_per_frame[level], false);
+    }
+    for (std::size_t i = 0; i < 2; ++i) {
+        result.position_difference[i] = mass_weighted_rms_position_error(
+            result.levels[i].position, result.levels[i + 1].position);
+        result.velocity_difference[i] = mass_weighted_rms_position_error(
+            result.levels[i].velocity, result.levels[i + 1].velocity);
+    }
+    result.position_ratio = result.position_difference[0]
+        / result.position_difference[1];
+    result.velocity_ratio = result.velocity_difference[0]
+        / result.velocity_difference[1];
+    result.passed = result.position_difference[1] > 0.0
+        && result.velocity_difference[1] > 0.0
+        && std::isfinite(result.position_ratio)
+        && std::isfinite(result.velocity_ratio)
+        && result.position_ratio >= 1.5 && result.position_ratio <= 2.5
+        && result.velocity_ratio >= 1.5 && result.velocity_ratio <= 2.5;
+    for (const MultistepRun& level : result.levels) {
+        result.passed = result.passed && transactional_candidate_valid(
+            level, initial_maximum_density_ratio)
+            && level.maximum_center_of_mass_drift
+                / physical_multistep_config().spacing <= 1.0e-11
+            && level.accumulated_momentum_residual <= 1.0e-10
+            && level.final_active_pressure_centers
+                < level.initial_active_pressure_centers;
+    }
+    return result;
+}
+
+struct TransactionalCompositionCase {
+    double compression_factor = 0.0;
+    TransactionalControllerRun controller;
+    TransactionalReferenceLadder reference;
+    double position_error = 0.0;
+    double velocity_error = 0.0;
+    double normalized_position_error = 0.0;
+    double normalized_velocity_error = 0.0;
+    double relative_kinetic_error = 0.0;
+    bool passed = false;
+};
+
+TransactionalCompositionCase transactional_composition_case(
+    double compression_factor) {
+    const Config anchor = physical_multistep_config();
+    TransactionalCompositionCase result;
+    result.compression_factor = compression_factor;
+    result.controller = run_transactional_controller(compression_factor);
+    result.reference = transactional_reference_ladder(
+        compression_factor,
+        result.controller.initial_maximum_density_ratio);
+    const MultistepRun& reference = result.reference.levels.back();
+    result.position_error = mass_weighted_rms_position_error(
+        result.controller.position, reference.position);
+    result.velocity_error = mass_weighted_rms_position_error(
+        result.controller.velocity, reference.velocity);
+    result.normalized_position_error = result.position_error / anchor.spacing;
+    result.normalized_velocity_error = result.velocity_error
+        / std::sqrt(anchor.kappa / anchor.mass);
+    const double controller_kinetic = relative_kinetic_energy(
+        anchor, result.controller.velocity);
+    const double reference_kinetic = relative_kinetic_energy(
+        anchor, reference.velocity);
+    result.relative_kinetic_error = std::abs(
+        controller_kinetic - reference_kinetic)
+        / std::max(std::abs(reference_kinetic), 1.0e-30);
+    result.passed = result.controller.passed && result.reference.passed
+        && result.normalized_position_error <= 0.05
+        && result.normalized_velocity_error <= 0.001
+        && result.relative_kinetic_error <= 0.15;
+    return result;
+}
+
+struct TransactionalDegenerateControl {
+    int free_flight_fast_frames = 0;
+    int translation_fast_frames = 0;
+    int spectral_hvp_calls = 0;
+    int comparator_substeps = 0;
+    int nonlinear_hvp_calls = 0;
+    double free_position_error = 0.0;
+    double free_velocity_error = 0.0;
+    double translation_position_error = 0.0;
+    double translation_velocity_error = 0.0;
+    bool passed = false;
+};
+
+TransactionalDegenerateControl transactional_degenerate_control() {
+    constexpr double frame_time = 1.0 / 240.0;
+    constexpr int frame_count = 12;
+    TransactionalDegenerateControl result;
+    Config free_config = physical_multistep_config(frame_time);
+    free_config.gravity = {0.0, -9.81, 0.0};
+    const Vec3 free_initial_position = {0.25, -0.1, 0.4};
+    const Vec3 free_initial_velocity = {1.2, 0.7, -0.35};
+    std::vector<Vec3> free_position = {free_initial_position};
+    std::vector<Vec3> free_velocity = {free_initial_velocity};
+    bool controls_valid = true;
+    for (int frame = 0; frame < frame_count; ++frame) {
+        const bool eligible = inactive_material_fast_path_eligible(
+            free_config, free_position, free_velocity, frame_time);
+        const MultistepRun run = run_multistep(
+            free_config, free_position, free_velocity, 1, false);
+        controls_valid = controls_valid && eligible && run.completed
+            && run.solver_valid && run.total_hvp_calls == 0;
+        result.free_flight_fast_frames += eligible ? 1 : 0;
+        result.nonlinear_hvp_calls += run.total_hvp_calls;
+        free_position = run.position;
+        free_velocity = run.velocity;
+    }
+    const double n = static_cast<double>(frame_count);
+    const Vec3 expected_free_velocity = free_initial_velocity
+        + n * frame_time * free_config.gravity;
+    const Vec3 expected_free_position = free_initial_position
+        + n * frame_time * free_initial_velocity
+        + 0.5 * n * (n + 1.0) * frame_time * frame_time
+            * free_config.gravity;
+    result.free_position_error = vector_relative_error(
+        free_position[0], expected_free_position);
+    result.free_velocity_error = vector_relative_error(
+        free_velocity[0], expected_free_velocity);
+
+    Config translation_config = physical_multistep_config(frame_time);
+    const std::vector<Vec3> translation_initial = centered_lattice(
+        4, translation_config.spacing);
+    const Vec3 translation_velocity = {0.37, -0.21, 0.13};
+    std::vector<Vec3> translation_position = translation_initial;
+    std::vector<Vec3> translation_velocities(
+        translation_position.size(), translation_velocity);
+    for (int frame = 0; frame < frame_count; ++frame) {
+        const bool eligible = inactive_material_fast_path_eligible(
+            translation_config, translation_position,
+            translation_velocities, frame_time);
+        const MultistepRun run = run_multistep(translation_config,
+            translation_position, translation_velocities, 1, false);
+        controls_valid = controls_valid && eligible && run.completed
+            && run.solver_valid && run.total_hvp_calls == 0;
+        result.translation_fast_frames += eligible ? 1 : 0;
+        result.nonlinear_hvp_calls += run.total_hvp_calls;
+        translation_position = run.position;
+        translation_velocities = run.velocity;
+    }
+    const Vec3 translation_offset = n * frame_time * translation_velocity;
+    for (std::size_t i = 0; i < translation_initial.size(); ++i) {
+        result.translation_position_error = std::max(
+            result.translation_position_error,
+            norm(translation_position[i]
+                - (translation_initial[i] + translation_offset)));
+        result.translation_velocity_error = std::max(
+            result.translation_velocity_error,
+            norm(translation_velocities[i] - translation_velocity));
+    }
+    result.passed = controls_valid
+        && result.free_flight_fast_frames == frame_count
+        && result.translation_fast_frames == frame_count
+        && result.spectral_hvp_calls == 0
+        && result.comparator_substeps == 0
+        && result.nonlinear_hvp_calls == 0
+        && result.free_position_error <= 1.0e-11
+        && result.free_velocity_error <= 1.0e-11
+        && result.translation_position_error <= 1.0e-11
+        && result.translation_velocity_error <= 1.0e-11;
+    return result;
+}
+
+struct TransactionalCompositionDiagnostic {
+    std::array<TransactionalCompositionCase, 3> cases;
+    TransactionalDegenerateControl degenerate;
+    bool passed = false;
+    std::string first_failure;
+};
+
+TransactionalCompositionDiagnostic transactional_composition_diagnostic() {
+    TransactionalCompositionDiagnostic result;
+    const std::array<double, 3> compression = {0.99, 0.98, 0.97};
+    for (std::size_t i = 0; i < compression.size(); ++i) {
+        result.cases[i] = transactional_composition_case(compression[i]);
+    }
+    result.degenerate = transactional_degenerate_control();
+    result.passed = result.degenerate.passed;
+    for (const TransactionalCompositionCase& value : result.cases) {
+        result.passed = result.passed && value.passed;
+        if (!value.passed && result.first_failure.empty()) {
+            std::ostringstream name;
+            name << std::setprecision(17)
+                 << "NSR3B1R_CASE:c=" << value.compression_factor;
+            result.first_failure = name.str();
+        }
+    }
+    if (!result.degenerate.passed && result.first_failure.empty()) {
+        result.first_failure = "NSR3B1R_DEGENERATE";
     }
     return result;
 }
@@ -10140,6 +10688,262 @@ ReferenceSolverReport run_embedded_spectral_error_controller_controls() {
            << ",\"b1r_design_authorized\":"
            << (diagnostic.passed ? "true" : "false")
            << ",\"boundary_design_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(result_material.str()) << "\"}";
+    return {diagnostic.passed, report.str()};
+}
+
+void append_transactional_frame(
+    std::ostringstream& report,
+    const TransactionalFrame& frame) {
+    report << std::setprecision(17)
+           << "{\"frame\":" << frame.frame
+           << ",\"status\":\"" << (frame.passed ? "PASS" : "FAIL") << '"'
+           << ",\"start_active_pressure_centers\":"
+           << frame.start_active_pressure_centers
+           << ",\"fast_path\":" << (frame.fast_path ? "true" : "false")
+           << ",\"spectrum_valid\":"
+           << (frame.spectrum_valid ? "true" : "false")
+           << ",\"spectral_hvp_calls\":" << frame.spectral_hvp_calls
+           << ",\"maximum_eigenfrequency\":"
+           << frame.maximum_eigenfrequency
+           << ",\"initial_substeps\":" << frame.initial_substeps
+           << ",\"refinement_depth\":" << frame.refinement_depth
+           << ",\"accepted_substeps\":" << frame.accepted_substeps
+           << ",\"comparator_substeps\":" << frame.comparator_substeps
+           << ",\"controller_substeps\":" << frame.controller_substeps
+           << ",\"discarded_substeps\":" << frame.discarded_substeps
+           << ",\"accepted_nonlinear_hvp_calls\":"
+           << frame.accepted_nonlinear_hvp_calls
+           << ",\"controller_nonlinear_hvp_calls\":"
+           << frame.controller_nonlinear_hvp_calls
+           << ",\"discarded_nonlinear_hvp_calls\":"
+           << frame.discarded_nonlinear_hvp_calls
+           << ",\"maximum_outer_trials\":" << frame.maximum_outer_trials
+           << ",\"maximum_rejected_trials\":"
+           << frame.maximum_rejected_trials
+           << ",\"maximum_hvp_calls\":" << frame.maximum_hvp_calls
+           << ",\"gate\":{\"position_difference\":"
+           << frame.gate.position_difference
+           << ",\"velocity_difference\":" << frame.gate.velocity_difference
+           << ",\"normalized_position_error_dx\":"
+           << frame.gate.normalized_position_error
+           << ",\"normalized_velocity_error_c\":"
+           << frame.gate.normalized_velocity_error
+           << ",\"relative_kinetic_error\":"
+           << frame.gate.relative_kinetic_error
+           << ",\"pressure_exit_time_error\":"
+           << frame.gate.pressure_exit_time_error
+           << ",\"passed\":" << (frame.gate.passed ? "true" : "false")
+           << "},\"candidates_valid\":"
+           << (frame.candidates_valid ? "true" : "false")
+           << ",\"transaction_immutable\":"
+           << (frame.transaction_immutable ? "true" : "false")
+           << ",\"start_state_sha256\":\"" << frame.start_state_sha256 << '"'
+           << ",\"accepted_state_sha256\":\""
+           << frame.accepted_state_sha256 << '"'
+           << ",\"comparator_state_sha256\":\""
+           << frame.comparator_state_sha256 << "\"}";
+}
+
+void append_transactional_case(
+    std::ostringstream& report,
+    const TransactionalCompositionCase& value) {
+    const TransactionalControllerRun& controller = value.controller;
+    report << std::setprecision(17)
+           << "{\"name\":\"compression-" << value.compression_factor
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL") << '"'
+           << ",\"compression_factor\":" << value.compression_factor
+           << ",\"controller\":{\"status\":\""
+           << (controller.passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << controller.first_failure << '"'
+           << ",\"initial_active_pressure_centers\":"
+           << controller.initial_active_pressure_centers
+           << ",\"final_active_pressure_centers\":"
+           << controller.final_active_pressure_centers
+           << ",\"initial_maximum_density_ratio\":"
+           << controller.initial_maximum_density_ratio
+           << ",\"maximum_density_ratio\":"
+           << controller.maximum_density_ratio
+           << ",\"active_spectrum_frames\":"
+           << controller.active_spectrum_frames
+           << ",\"fast_path_frames\":" << controller.fast_path_frames
+           << ",\"total_spectral_hvp_calls\":"
+           << controller.total_spectral_hvp_calls
+           << ",\"total_accepted_substeps\":"
+           << controller.total_accepted_substeps
+           << ",\"total_controller_substeps\":"
+           << controller.total_controller_substeps
+           << ",\"total_discarded_substeps\":"
+           << controller.total_discarded_substeps
+           << ",\"total_accepted_nonlinear_hvp_calls\":"
+           << controller.total_accepted_nonlinear_hvp_calls
+           << ",\"total_controller_nonlinear_hvp_calls\":"
+           << controller.total_controller_nonlinear_hvp_calls
+           << ",\"total_discarded_nonlinear_hvp_calls\":"
+           << controller.total_discarded_nonlinear_hvp_calls
+           << ",\"maximum_controller_substeps_per_frame\":"
+           << controller.maximum_controller_substeps_per_frame
+           << ",\"maximum_outer_trials\":"
+           << controller.maximum_outer_trials
+           << ",\"maximum_rejected_trials\":"
+           << controller.maximum_rejected_trials
+           << ",\"maximum_hvp_calls\":" << controller.maximum_hvp_calls
+           << ",\"normalized_center_of_mass_drift\":"
+           << controller.normalized_center_of_mass_drift
+           << ",\"accumulated_momentum_residual\":"
+           << controller.accumulated_momentum_residual
+           << ",\"final_state_sha256\":\""
+           << hash_phase_state(controller.position, controller.velocity)
+           << "\",\"frames\":[";
+    for (std::size_t i = 0; i < controller.frames.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_transactional_frame(report, controller.frames[i]);
+    }
+    report << "]},\"reference\":{\"status\":\""
+           << (value.reference.passed ? "PASS" : "FAIL") << '"'
+           << ",\"substeps_per_frame\":[96,192,384]"
+           << ",\"position_difference\":";
+    append_double_array(report, value.reference.position_difference.data(), 2);
+    report << ",\"velocity_difference\":";
+    append_double_array(report, value.reference.velocity_difference.data(), 2);
+    report << ",\"position_ratio\":" << value.reference.position_ratio
+           << ",\"velocity_ratio\":" << value.reference.velocity_ratio
+           << ",\"levels\":[";
+    for (std::size_t i = 0; i < value.reference.levels.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        report << "{\"substeps_per_frame\":"
+               << value.reference.substeps_per_frame[i]
+               << ",\"state_sha256\":\""
+               << hash_phase_state(value.reference.levels[i].position,
+                    value.reference.levels[i].velocity)
+               << "\",\"work\":";
+        append_multistep_work(report, value.reference.levels[i]);
+        report << '}';
+    }
+    report << "]},\"controller_reference_error\":{\"position\":"
+           << value.position_error << ",\"velocity\":"
+           << value.velocity_error << ",\"position_dx\":"
+           << value.normalized_position_error << ",\"velocity_c\":"
+           << value.normalized_velocity_error
+           << ",\"relative_kinetic\":" << value.relative_kinetic_error
+           << "}}";
+}
+
+ReferenceSolverReport run_transactional_multistep_controller_controls() {
+    const TransactionalCompositionDiagnostic diagnostic =
+        transactional_composition_diagnostic();
+    std::ostringstream result_material;
+    result_material << std::setprecision(17)
+                    << (diagnostic.passed ? "PASS|" : "FAIL|")
+                    << diagnostic.first_failure;
+    for (const TransactionalCompositionCase& value : diagnostic.cases) {
+        result_material << '|' << value.compression_factor << ':'
+                        << value.controller.passed << ':'
+                        << value.reference.passed << ':'
+                        << value.controller.active_spectrum_frames << ':'
+                        << value.controller.fast_path_frames << ':'
+                        << value.controller.total_spectral_hvp_calls << ':'
+                        << value.controller.total_accepted_substeps << ':'
+                        << value.controller.total_controller_substeps << ':'
+                        << value.controller.total_discarded_substeps << ':'
+                        << value.controller.total_accepted_nonlinear_hvp_calls
+                        << ':'
+                        << value.controller.total_controller_nonlinear_hvp_calls
+                        << ':'
+                        << value.controller.total_discarded_nonlinear_hvp_calls
+                        << ':' << value.reference.position_ratio
+                        << ':' << value.reference.velocity_ratio
+                        << ':' << value.normalized_position_error
+                        << ':' << value.normalized_velocity_error
+                        << ':' << value.relative_kinetic_error
+                        << ':' << hash_phase_state(
+                            value.controller.position,
+                            value.controller.velocity);
+        for (const TransactionalFrame& frame : value.controller.frames) {
+            result_material << ':' << frame.start_state_sha256
+                            << ':' << frame.accepted_state_sha256
+                            << ':' << frame.comparator_state_sha256
+                            << ':' << frame.accepted_substeps
+                            << ':' << frame.controller_substeps
+                            << ':' << frame.spectral_hvp_calls;
+        }
+        for (const MultistepRun& level : value.reference.levels) {
+            result_material << ':' << hash_phase_state(
+                level.position, level.velocity);
+        }
+    }
+    result_material << '|' << diagnostic.degenerate.passed << ':'
+                    << diagnostic.degenerate.free_flight_fast_frames << ':'
+                    << diagnostic.degenerate.translation_fast_frames << ':'
+                    << diagnostic.degenerate.free_position_error << ':'
+                    << diagnostic.degenerate.free_velocity_error << ':'
+                    << diagnostic.degenerate.translation_position_error << ':'
+                    << diagnostic.degenerate.translation_velocity_error;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b1r_transactional_multistep.v1\""
+           << ",\"identity\":\"nuv-variational-fcr2\""
+           << ",\"solver_identity\":\"nuv-newton-krylov-r0\""
+           << ",\"parent_b1s3_result_sha256\":\""
+           << "fc3e0cff38f748f5cfd09803f2e0b2df2dd65069c91ef33938dd01245ab3b5c1\""
+           << ",\"candidate\":\"transactional-multistep-controller-r0\""
+           << ",\"status\":\""
+           << (diagnostic.passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << diagnostic.first_failure << '"'
+           << ",\"macro_frames\":12"
+           << ",\"frame_time\":0.0041666666666666666"
+           << ",\"terminal_time\":0.050000000000000003"
+           << ",\"spectral_target\":0.14999999999999999"
+           << ",\"reference_substeps_per_frame\":[96,192,384]"
+           << ",\"thresholds\":{\"minimum_ratio\":1.5"
+           << ",\"maximum_ratio\":2.5"
+           << ",\"maximum_position_error_dx\":0.05"
+           << ",\"maximum_velocity_error_c\":0.001"
+           << ",\"maximum_relative_kinetic_error\":0.15"
+           << ",\"maximum_accepted_substeps_per_frame\":192"
+           << ",\"maximum_comparator_substeps_per_frame\":384"
+           << ",\"maximum_controller_substeps_per_frame\":768}"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < diagnostic.cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_transactional_case(report, diagnostic.cases[i]);
+    }
+    report << "],\"degenerate\":{\"status\":\""
+           << (diagnostic.degenerate.passed ? "PASS" : "FAIL") << '"'
+           << ",\"free_flight_fast_frames\":"
+           << diagnostic.degenerate.free_flight_fast_frames
+           << ",\"translation_fast_frames\":"
+           << diagnostic.degenerate.translation_fast_frames
+           << ",\"spectral_hvp_calls\":"
+           << diagnostic.degenerate.spectral_hvp_calls
+           << ",\"comparator_substeps\":"
+           << diagnostic.degenerate.comparator_substeps
+           << ",\"nonlinear_hvp_calls\":"
+           << diagnostic.degenerate.nonlinear_hvp_calls
+           << ",\"free_position_error\":"
+           << diagnostic.degenerate.free_position_error
+           << ",\"free_velocity_error\":"
+           << diagnostic.degenerate.free_velocity_error
+           << ",\"translation_position_error\":"
+           << diagnostic.degenerate.translation_position_error
+           << ",\"translation_velocity_error\":"
+           << diagnostic.degenerate.translation_velocity_error << '}'
+           << ",\"candidate_selected\":"
+           << (diagnostic.passed ? "true" : "false")
+           << ",\"b2_design_authorized\":"
+           << (diagnostic.passed ? "true" : "false")
+           << ",\"boundary_execution_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"historical_hash_check_required\":true"
            << ",\"repeatability_check_required\":true"

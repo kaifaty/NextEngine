@@ -31,6 +31,8 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --spectral-substep-policy-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
   --embedded-spectral-error-controller-self-test
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
+  --transactional-multistep-controller-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --describe-profile nuv-water-48k.v0
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --cpu-self-test

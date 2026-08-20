@@ -43,7 +43,8 @@ An inactive snapshot may take one macro step with zero spectrum/comparator
 work only when its uniform-acceleration free-flight prediction is also
 pressure-inactive and every supported pair has non-negative relative radial
 velocity **and zero relative velocity under the selected viscosity model**
-(within the existing binary64 exact/finite comparison). Otherwise it enters
+(within `32*epsilon*max(1,|v_i|,|v_j|)`, solely to admit roundoff from an
+already accepted rigid translation). Otherwise it enters
 the embedded path with initial `n=1`. This extra condition is required because
 pressure inactivity alone does not disable bulk viscosity. The fast path must
 end pressure-inactive and retain the exact free-flight solution.

@@ -32,7 +32,8 @@ int main(int argc, char** argv) {
                          "--acoustic-substep-policy-self-test|"
                          "--pressure-tangent-spectrum-self-test|"
                          "--spectral-substep-policy-self-test|"
-                         "--embedded-spectral-error-controller-self-test\n";
+                         "--embedded-spectral-error-controller-self-test|"
+                         "--transactional-multistep-controller-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -211,6 +212,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--transactional-multistep-controller-self-test") {
+            const nextengine::nonlocal::fcr::ReferenceSolverReport report =
+                nextengine::nonlocal::fcr::
+                    run_transactional_multistep_controller_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -234,7 +242,8 @@ int main(int argc, char** argv) {
                      "--acoustic-substep-policy-self-test|"
                      "--pressure-tangent-spectrum-self-test|"
                      "--spectral-substep-policy-self-test|"
-                     "--embedded-spectral-error-controller-self-test\n";
+                     "--embedded-spectral-error-controller-self-test|"
+                     "--transactional-multistep-controller-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

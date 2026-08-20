@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1S3_PASS / NSR3B1R_TRANSACTIONAL_COMPOSITION_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B1R_FAIL / NSR3B1R1_FINE_STATE_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -69,8 +69,16 @@
   bulk viscosity remains selected. The B1R one-step fast path additionally
   requires zero relative bond velocity; relaxation frames use measured `1/2`
   refinement instead.
-- **Next gate:** B1R must bound accumulated error and publish recurring
-  spectrum/comparator work before B2 may be designed.
+- **Current conclusion:** all B1R local transactions and independent
+  references pass, but coarse-state composition ends at `0.072--0.134dx`
+  position error; the first active-frame velocity error propagates through the
+  remaining horizon.
+- **Current decision:** reject `TRANSACTIONAL_COARSE_STATE_R0`. A local error
+  gate is not a global trajectory bound when the coarse state owns commit.
+- **Current action:** freeze B1R1 with fine comparator state ownership; it adds
+  no solver execution and reduces the accounting multiplier to `1.5x/1.75x`.
+- **Next gate:** B1R1 must pass the unchanged full-horizon references and caps
+  before B2 may be designed.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -219,6 +227,18 @@
   relaxing material states enter the embedded `n=1` path even after pressure
   switches off.
 
+### D-015 -- Reject coarse-state ownership under composition
+
+- **Observation:** 36 local frame transactions pass and fixed references
+  converge at order about 1.95, yet all three composed coarse-state paths miss
+  the global position gate. Degenerate controls and solver work remain valid.
+- **Decision:** preserve B1R FAIL and test ownership of the already computed
+  fine member under B1R1; do not loosen the global error budget.
+- **Consequence:** B2 stays blocked. If fine ownership passes, comparator work
+  becomes accepted work and speculative overhead falls without extra solves;
+  if it fails, the next design must allocate horizon-aware error or use a
+  higher-order accepted state.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -231,11 +251,11 @@
 
 ## Exact next action
 
-1. Compose accepted states through the original `0.05 s` horizon without
-   borrowing comparator state.
-2. Compare against an independently finer trajectory and publish recurring
-   spectral, accepted and discarded work.
-3. Reclose/reject B1 multi-step selection; authorize B2 design only on PASS.
+1. Freeze fine-state commit while retaining the B1R cases, gates and
+   independent references exactly.
+2. Re-run transactional composition and publish the changed state/work
+   ownership without crediting additional execution.
+3. Reclose/reject multi-step selection; authorize B2 design only on PASS.
 
 ## Reconsideration triggers
 
