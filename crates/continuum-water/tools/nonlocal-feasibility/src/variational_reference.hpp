@@ -13,5 +13,6 @@ ReferenceSolverReport run_reference_solver_controls();
 ReferenceSolverReport run_conditioning_controls();
 ReferenceSolverReport run_sissm_controls();
 ReferenceSolverReport run_sissm_term_local_controls();
+ReferenceSolverReport run_sissm_pressure_chebyshev_controls();
 
 } // namespace nextengine::nonlocal::fcr

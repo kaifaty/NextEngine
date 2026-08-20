@@ -78,6 +78,11 @@ enum class Preconditioner {
     BlockThenInertialWarm,
 };
 
+enum class SissmAcceleration {
+    None,
+    PressureChebyshev,
+};
+
 double relative_error(double lhs, double rhs) {
     return std::abs(lhs - rhs)
         / std::max({std::abs(lhs), std::abs(rhs), 1.0e-30});
@@ -500,11 +505,15 @@ SolveResult solve(
 SolveResult solve_sissm(
     const Config& config,
     const std::vector<Vec3>& x,
-    const std::vector<Vec3>& velocity) {
+    const std::vector<Vec3>& velocity,
+    SissmAcceleration acceleration = SissmAcceleration::None) {
     constexpr double armijo = 1.0e-4;
     constexpr int maximum_backtracks = 40;
+    constexpr double chebyshev_spectral_radius = 0.9;
     const std::vector<Vec3> y_star = predict(config, x, velocity);
     std::vector<Vec3> y = y_star;
+    std::vector<Vec3> previous_y = y;
+    double chebyshev_omega = 1.0;
     Evaluation current = evaluate(config, x, y_star, y);
     SolveResult result;
     result.initial = current;
@@ -610,12 +619,29 @@ SolveResult solve_sissm(
             }
         }
 
+        std::vector<Vec3> raw_candidate(y.size());
         std::vector<Vec3> candidate(y.size());
         std::vector<Vec3> direction(y.size());
         for (std::size_t i = 0; i < y.size(); ++i) {
-            candidate[i] = inverse_without_regularization(
+            raw_candidate[i] = inverse_without_regularization(
                 Mat3::identity() + local_matrix[i])
                 * (y_star[i] + source[i]);
+        }
+        const bool apply_chebyshev =
+            acceleration == SissmAcceleration::PressureChebyshev
+            && config.kappa > 0.0 && iteration > 0;
+        if (apply_chebyshev) {
+            const double radius_squared = chebyshev_spectral_radius
+                * chebyshev_spectral_radius;
+            chebyshev_omega = iteration == 1
+                ? 2.0 / (2.0 - radius_squared)
+                : 4.0 / (4.0 - radius_squared * chebyshev_omega);
+        }
+        for (std::size_t i = 0; i < y.size(); ++i) {
+            candidate[i] = apply_chebyshev
+                ? previous_y[i]
+                    + chebyshev_omega * (raw_candidate[i] - previous_y[i])
+                : raw_candidate[i];
             direction[i] = candidate[i] - y[i];
         }
         const double slope = vector_dot(current.gradient, direction);
@@ -654,6 +680,7 @@ SolveResult solve_sissm(
             * std::max({std::abs(current.total), std::abs(trial_evaluation.total), 1.0});
         result.monotonic = result.monotonic
             && trial_evaluation.total <= current.total + allowance;
+        previous_y = y;
         y = trial;
         current = trial_evaluation;
         result.minimum_alpha = std::min(result.minimum_alpha, alpha);
@@ -997,7 +1024,8 @@ struct SissmCase {
     bool passed = false;
 };
 
-SissmCase make_sissm_compression_case() {
+SissmCase make_sissm_compression_case(
+    SissmAcceleration acceleration = SissmAcceleration::None) {
     Config config;
     config.kappa = 500.0;
     const std::vector<Vec3> x = {{-0.025, 0.0, 0.0}, {0.025, 0.0, 0.0}};
@@ -1006,14 +1034,16 @@ SissmCase make_sissm_compression_case() {
     SissmCase result;
     result.name = "compressed_pair";
     result.baseline = solve(config, x, velocity);
-    result.candidate = solve_sissm(config, x, velocity);
+    result.candidate = solve_sissm(config, x, velocity, acceleration);
     result.direction_preserved =
         norm(result.candidate.position[0] - result.candidate.position[1])
         > norm(x[0] - x[1]) + OBSERVABLE_FLOOR;
     return result;
 }
 
-SissmCase make_sissm_viscosity_case(bool shear) {
+SissmCase make_sissm_viscosity_case(
+    bool shear,
+    SissmAcceleration acceleration = SissmAcceleration::None) {
     Config config;
     config.lambda = shear ? 0.0 : 100.0;
     config.mu = shear ? 100.0 : 0.0;
@@ -1026,7 +1056,7 @@ SissmCase make_sissm_viscosity_case(bool shear) {
     SissmCase result;
     result.name = shear ? "shear_viscosity_pair" : "normal_viscosity_pair";
     result.baseline = solve(config, x, velocity);
-    result.candidate = solve_sissm(config, x, velocity);
+    result.candidate = solve_sissm(config, x, velocity, acceleration);
     const Vec3 final_relative =
         result.candidate.velocity[0] - result.candidate.velocity[1];
     const double initial_component = shear
@@ -1040,7 +1070,9 @@ SissmCase make_sissm_viscosity_case(bool shear) {
     return result;
 }
 
-SissmCase make_sissm_surface_case(bool attractive) {
+SissmCase make_sissm_surface_case(
+    bool attractive,
+    SissmAcceleration acceleration = SissmAcceleration::None) {
     Config config;
     config.gamma = 1000.0;
     const double initial_distance = (attractive ? 1.7 : 0.8) * config.spacing;
@@ -1053,7 +1085,7 @@ SissmCase make_sissm_surface_case(bool attractive) {
     result.name = attractive
         ? "surface_attractive_pair" : "surface_repulsive_pair";
     result.baseline = solve(config, x, velocity);
-    result.candidate = solve_sissm(config, x, velocity);
+    result.candidate = solve_sissm(config, x, velocity, acceleration);
     const double final_distance =
         norm(result.candidate.position[0] - result.candidate.position[1]);
     result.direction_preserved = attractive
@@ -1062,19 +1094,22 @@ SissmCase make_sissm_surface_case(bool attractive) {
     return result;
 }
 
-SissmCase make_sissm_combined_case() {
+SissmCase make_sissm_combined_case(
+    SissmAcceleration acceleration = SissmAcceleration::None) {
     const CombinedFixture fixture = combined_fixture();
     SissmCase result;
     result.name = "combined_tetrahedron";
     result.baseline = solve(fixture.config, fixture.x, fixture.velocity);
     result.candidate = solve_sissm(
-        fixture.config, fixture.x, fixture.velocity);
+        fixture.config, fixture.x, fixture.velocity, acceleration);
     result.direction_preserved =
         result.candidate.final.total < result.candidate.initial.total;
     return result;
 }
 
-SissmCase make_sissm_mask_case(const std::string& mask) {
+SissmCase make_sissm_mask_case(
+    const std::string& mask,
+    SissmAcceleration acceleration = SissmAcceleration::None) {
     CombinedFixture fixture = combined_fixture();
     if (mask.find('P') == std::string::npos) {
         fixture.config.kappa = 0.0;
@@ -1090,7 +1125,7 @@ SissmCase make_sissm_mask_case(const std::string& mask) {
     result.name = mask;
     result.baseline = solve(fixture.config, fixture.x, fixture.velocity);
     result.candidate = solve_sissm(
-        fixture.config, fixture.x, fixture.velocity);
+        fixture.config, fixture.x, fixture.velocity, acceleration);
     result.direction_preserved =
         result.candidate.final.total < result.candidate.initial.total;
     return result;
@@ -1128,6 +1163,28 @@ void append_sissm_case(std::ostringstream& output, const SissmCase& value) {
            << ",\"iterations\":" << value.candidate.iterations
            << ",\"backtracks\":" << value.candidate.backtracks
            << ",\"minimum_alpha\":" << value.candidate.minimum_alpha << "}}";
+}
+
+bool same_sissm_candidate(const SissmCase& lhs, const SissmCase& rhs) {
+    if (lhs.candidate.succeeded != rhs.candidate.succeeded
+        || lhs.candidate.monotonic != rhs.candidate.monotonic
+        || lhs.candidate.iterations != rhs.candidate.iterations
+        || lhs.candidate.backtracks != rhs.candidate.backtracks
+        || lhs.candidate.minimum_alpha != rhs.candidate.minimum_alpha
+        || lhs.candidate.final.total != rhs.candidate.final.total
+        || lhs.candidate.final.gradient_norm != rhs.candidate.final.gradient_norm
+        || lhs.candidate.failure != rhs.candidate.failure
+        || lhs.candidate.position.size() != rhs.candidate.position.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < lhs.candidate.position.size(); ++i) {
+        if (lhs.candidate.position[i].x != rhs.candidate.position[i].x
+            || lhs.candidate.position[i].y != rhs.candidate.position[i].y
+            || lhs.candidate.position[i].z != rhs.candidate.position[i].z) {
+            return false;
+        }
+    }
+    return true;
 }
 
 } // namespace
@@ -1401,6 +1458,116 @@ ReferenceSolverReport run_sissm_term_local_controls() {
     for (const SissmCase& value : cases) {
         result_material += '|' + value.name + ':'
             + (value.passed ? "PASS" : "FAIL") + ':'
+            + std::to_string(value.candidate.final.gradient_norm);
+    }
+    report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_sissm_pressure_chebyshev_controls() {
+    constexpr SissmAcceleration acceleration =
+        SissmAcceleration::PressureChebyshev;
+    std::array<SissmCase, 6> cases = {
+        make_sissm_compression_case(acceleration),
+        make_sissm_viscosity_case(false, acceleration),
+        make_sissm_viscosity_case(true, acceleration),
+        make_sissm_surface_case(false, acceleration),
+        make_sissm_surface_case(true, acceleration),
+        make_sissm_combined_case(acceleration),
+    };
+    for (SissmCase& value : cases) {
+        value.passed = sissm_quality_passed(value);
+    }
+
+    const std::array<std::string, 7> masks = {
+        "P", "V", "S", "PV", "PS", "VS", "PVS",
+    };
+    std::array<SissmCase, 7> mask_cases;
+    for (std::size_t i = 0; i < masks.size(); ++i) {
+        mask_cases[i] = make_sissm_mask_case(masks[i], acceleration);
+        mask_cases[i].passed = sissm_quality_passed(mask_cases[i]);
+    }
+
+    const std::array<std::size_t, 3> nonpressure_indices = {1, 2, 5};
+    bool nonpressure_unchanged = true;
+    for (std::size_t index : nonpressure_indices) {
+        const SissmCase v1 = make_sissm_mask_case(masks[index]);
+        nonpressure_unchanged = nonpressure_unchanged
+            && same_sissm_candidate(mask_cases[index], v1);
+    }
+
+    const std::array<std::size_t, 3> stiff_indices = {0, 3, 5};
+    int baseline_evaluations = 0;
+    int candidate_evaluations = 0;
+    for (std::size_t index : stiff_indices) {
+        baseline_evaluations +=
+            cases[index].baseline.iterations + cases[index].baseline.backtracks;
+        candidate_evaluations +=
+            cases[index].candidate.iterations + cases[index].candidate.backtracks;
+    }
+
+    std::string first_failure;
+    for (const SissmCase& value : cases) {
+        if (!value.passed && first_failure.empty()) {
+            first_failure = value.candidate.failure.empty()
+                ? "FCR3B2_CASE_QUALITY_FAILED:" + value.name
+                : "FCR3B2_" + value.candidate.failure + ':' + value.name;
+        }
+    }
+    for (const SissmCase& value : mask_cases) {
+        if (!value.passed && first_failure.empty()) {
+            first_failure = value.candidate.failure.empty()
+                ? "FCR3B2_MASK_QUALITY_FAILED:" + value.name
+                : "FCR3B2_" + value.candidate.failure + ':' + value.name;
+        }
+    }
+    if (first_failure.empty() && !nonpressure_unchanged) {
+        first_failure = "FCR3B2_NONPRESSURE_PATH_CHANGED";
+    }
+    const bool passed = first_failure.empty();
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.formula_reclosure_fcr3b2.v1\""
+           << ",\"identity\":\"nuv-variational-fcr1\""
+           << ",\"candidate\":\"pressure-chebyshev-rho-0.9-armijo-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"spectral_radius\":0.90000000000000002"
+           << ",\"nonpressure_unchanged\":"
+           << (nonpressure_unchanged ? "true" : "false")
+           << ",\"performance_report\":{\"baseline_stiff_evaluations\":"
+           << baseline_evaluations
+           << ",\"candidate_stiff_evaluations\":" << candidate_evaluations
+           << ",\"gating\":false},\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_sissm_case(report, cases[i]);
+    }
+    report << "],\"masks\":[";
+    for (std::size_t i = 0; i < mask_cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_sissm_case(report, mask_cases[i]);
+    }
+    report << "]"
+           << ",\"cost_localization_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"profile_reclosure_authorized\":false"
+           << ",\"runtime_authority\":false";
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure + '|' + std::to_string(baseline_evaluations) + '|'
+        + std::to_string(candidate_evaluations) + '|'
+        + (nonpressure_unchanged ? "UNCHANGED" : "CHANGED");
+    for (const SissmCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + std::to_string(value.candidate.final.gradient_norm);
+    }
+    for (const SissmCase& value : mask_cases) {
+        result_material += '|' + value.name + ':'
             + std::to_string(value.candidate.final.gradient_norm);
     }
     report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
