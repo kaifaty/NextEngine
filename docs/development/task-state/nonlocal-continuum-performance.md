@@ -16,8 +16,8 @@
   their p99 are `3.9403/3.1808 ms`. This is not the final decision campaign.
 - **Why:** compact IDs improve total p95 by `8.4–28.0%`, save `6.144–19.2 MB`
   and preserve exact P1 arithmetic; 100k falls back exactly to `u32`.
-- **Next action:** specify P3 dynamic cell-local storage on top of P1+P2,
-  including dynamic remap and all sort/map costs in the timed region.
+- **Next action:** implement the specified P3 dynamic cell-local storage on
+  P1+P2, including canonical scatter and all sort/map costs in total timing.
 - **Current blocker:** None for P3.
 - **Do not retry:** O3 endpoint pre-addition or coherent-lattice O4 tuning;
   their numeric/performance failures are closed evidence.
@@ -39,6 +39,7 @@
 | [P1 evidence](../nonlocal-continuum-np1-p1-evidence-2026-08-20.md) | `P1_RETAINED / P2_NEXT` | exact trace equality, no spills, adjacent speedups and raw hashes frozen |
 | [P2 specification](../../plans/nonlocal-continuum-performance/03-np1-p2-compact-csr.md) | `COMPLETE / RETAINED / P3_INPUT` | direct compact construction, exact fallback and rollback gate frozen |
 | [P2 evidence](../nonlocal-continuum-np1-p2-evidence-2026-08-20.md) | `P2_RETAINED / P3_NEXT` | exact compact/fallback paths, adjacent speedups and memory receipts frozen |
+| [P3 specification](../../plans/nonlocal-continuum-performance/04-np1-p3-dynamic-cell-local.md) | `SPECIFIED / IMPLEMENTATION_NEXT` | stable identity, timed remap/scatter and conditional rollback gate frozen |
 
 ## Decisions that still constrain the work
 

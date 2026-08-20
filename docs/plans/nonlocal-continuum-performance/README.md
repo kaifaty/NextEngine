@@ -18,6 +18,8 @@ P1 arithmetic, timing and rollback rules are frozen in the
 [fused owner-term specification](02-np1-p1-fused-owner-terms.md).
 P2 representation, fallback and capacity rules are frozen in the
 [compact CSR specification](03-np1-p2-compact-csr.md).
+P3 stable-identity, dynamic-remap and conditional-retention rules are frozen
+in the [dynamic cell-local specification](04-np1-p3-dynamic-cell-local.md).
 
 ## Outcome
 
