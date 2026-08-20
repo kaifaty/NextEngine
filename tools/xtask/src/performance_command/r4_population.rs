@@ -14,7 +14,7 @@ const R4_INTEGRATED_P99_MICROSECONDS_MAX: u64 = 12_000;
 
 pub(super) fn performance_report(
     request: &PerformanceArguments,
-    mut run: xtask::performance::PerformanceRunV5,
+    mut run: xtask::performance::PerformanceRunV6,
     project_composition_lock_hash: String,
     profiling_enabled: bool,
     compare_baseline: bool,
@@ -230,7 +230,12 @@ pub(super) fn performance_report(
         run.diagnostics.push(error);
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;
     }
-    if let Err(diagnostics) = run.validate_report_evidence() {
+    let evidence_validation = if request.mode == xtask::performance::PerformanceModeV1::Gate {
+        run.validate_hard_evidence()
+    } else {
+        run.validate_report_evidence()
+    };
+    if let Err(diagnostics) = evidence_validation {
         run.diagnostics.extend(diagnostics);
         run.verdict = xtask::performance::PerformanceVerdict::NotRun;
     }

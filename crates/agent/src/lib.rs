@@ -5,7 +5,7 @@ mod tier_cadence;
 
 pub use tier_cadence::{
     TIER_COGNITION_MAX_WORK_ITEMS_V1, TierCognitionServiceReportV1, TierCognitionWorkItemV1,
-    TierCognitionWorkKindV1, dispatch_tier_cognition_v1,
+    TierCognitionWorkKindV1, dispatch_tier_cognition_prevalidated_v1, dispatch_tier_cognition_v1,
 };
 
 use std::error::Error;

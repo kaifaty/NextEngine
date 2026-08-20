@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.7 |
+| Версия | 2.8 |
 | Последняя проверка | 2026-08-21 |
-| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
-| Заменяет | SPEC-04 2.6; advances the current Linux package to strict V5 with a frozen authoring source and copied public-tool validation receipt |
+| Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md), [ADR-091](adr/091-linux-release-performance-authority.md) |
+| Заменяет | SPEC-04 2.7; accepts the exact Linux R2 hard-performance profile while preserving the production Vulkan/display requirement and existing frame budgets |
 
 ## Technical authority boundary
 
@@ -170,10 +170,9 @@ Debug layers/RenderDoc markers MAY быть optional package, но их отсу
 
 ## B0 performance profile
 
-Текущий development check выполняет B0 workload на native Linux и сохраняет
-timing только как `REPORT_ONLY`. Historical hard B0 design и числовые budgets
-ADR-036/THOTH не переносятся на Linux автоматически. R7c должен принять exact
-Linux release profile и его числовую policy до hard release claim:
+Текущий development check выполняет B0 workload на native Linux в report mode.
+ADR-091 отдельно принял exact Linux release profile и сохранил следующие
+product-facing frame budgets как hard R7c policy:
 
 - primary `1920×1080`: `p95 <= 14,000 us`, `p99 <= 16,670 us`;
 - fallback `b0-safe-720p30`, `1280×720`: `p99 <= 33,330 us`.
@@ -197,17 +196,19 @@ Production workload `r2-alpha-render.v3` загружает `projects/reference-
 UI/dialogue отдельно для primary и fallback. Каждый run сохраняет свои 600
 warm-up и 3 600 measured samples, exact Vulkan timestamp-query accounting,
 canonical logical resource charges, process/device counters и authoritative
-roots. Report mode может завершить внешний ProductCheck как `PASS` только с
-вложенным `REPORT_ONLY`; hard timing `PASS` по-прежнему требует clean commit,
-полного THOTH fingerprint, compatible ten-run baseline и всех preflight checks
-ADR-036/ADR-045. Статические render fixtures остаются smoke и не подменяют этот
-workload.
+roots. Report mode завершает внешний ProductCheck с вложенным `REPORT_ONLY`.
+Hard timing `PASS` требует clean commit, exact
+`ref-linux-b550i-3950x-rtx3080-v1` fingerprint, compatible ten-run Performance
+V6 baseline, fixed three-run gate и всех ADR-091 preflight checks. Реальный
+X11/Wayland display и production NVIDIA Vulkan adapter обязательны; virtual or
+software display даёт `NOT_RUN`. Статические render fixtures остаются smoke и
+не подменяют этот workload.
 
 ## Product checks
 
 | ID | Scenario | Expected behavior | Fallback |
 |---|---|---|---|
-| `RENDER-P1` | Run an engine-owned Vulkan B0 gameplay scene on the active Linux target with the selected binding adapter. | No validation errors or leaked objects; development timing is `REPORT_ONLY` until R7c, and no binding/vendor type escapes the renderer backend. | Fix or replace the adapter behind the same `RenderDevice`; select declared `b0-safe-720p30` at launch without hiding primary failure or changing gameplay. |
+| `RENDER-P1` | Run an engine-owned Vulkan B0 gameplay scene on the active Linux target with the selected binding adapter. | No validation errors or leaked objects; report mode remains diagnostic, while ADR-091 clean baseline/gate evidence enforces the hard release timings; no binding/vendor type escapes the renderer backend. | Fix or replace the adapter behind the same `RenderDevice`; select declared `b0-safe-720p30` at launch without hiding primary failure or changing gameplay. |
 | `SHADER-P1` | Compile the offline `ShaderInterface` matrix with the selected compiler chain. | VS/FS/compute SPIR-V, canonical reflection and platform-neutral artifact keys are stable on Linux; layouts match exactly; unavailable optional task/mesh or ray-query paths remain unloaded. | Replace the compiler adapter behind the same interface and reject incompatible shader assets. |
 | `RENDER-ASH-P1` | Exercise the B0 scene through the proposed ash adapter. | The renderer behavior matches `RENDER-P1` and no ash type crosses the backend boundary. | Keep the internal/generated binding adapter. |
 | `SHADER-SLANG-P1` | Exercise the shader matrix through the proposed Slang adapter. | The behavior matches `SHADER-P1` and source mapping exists for every compiled entry. | Keep the verified GLSL/HLSL-to-SPIR-V compiler adapter. |

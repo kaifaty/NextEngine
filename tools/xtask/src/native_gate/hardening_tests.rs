@@ -56,7 +56,7 @@ enum CheckMutation {
 #[test]
 fn comparable_roots_are_bound_to_typed_check_reports() {
     let bundle = TempBundle::new();
-    let mut target = report(WINDOWS_TARGET_TRIPLE);
+    let mut target = report(LINUX_TARGET_TRIPLE);
     materialize_check_reports(&bundle, &mut target);
     fs::create_dir(bundle.root.join("package")).expect("package placeholder");
     {

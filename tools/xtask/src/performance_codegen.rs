@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::performance::{
     PERFORMANCE_METHODOLOGY_VERSION, PERFORMANCE_RUN_SCHEMA_VERSION, PerformanceModeV1,
-    PerformanceRunV5, PerformanceScenarioV1, PerformanceVerdict, nearest_rank_percentile,
-    validate_thoth_fingerprint,
+    PerformanceRunV6, PerformanceScenarioV1, PerformanceVerdict, nearest_rank_percentile,
+    validate_linux_release_fingerprint,
 };
 
 mod statistics;
@@ -206,7 +206,7 @@ impl CodegenRunProvenanceV1 {
 #[derive(Clone, Debug)]
 pub struct CodegenScenarioRunSetV1 {
     pub scenario: PerformanceScenarioV1,
-    pub runs: Vec<PerformanceRunV5>,
+    pub runs: Vec<PerformanceRunV6>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -406,7 +406,7 @@ pub fn compare_codegen_run_sets(
     })
 }
 
-fn first_run(sets: &[CodegenScenarioRunSetV1]) -> Option<&PerformanceRunV5> {
+fn first_run(sets: &[CodegenScenarioRunSetV1]) -> Option<&PerformanceRunV6> {
     sets.iter().find_map(|set| set.runs.first())
 }
 
@@ -451,7 +451,7 @@ fn validate_run_group(
     set: &CodegenScenarioRunSetV1,
     expected_profile: &str,
     side: &str,
-    global_anchor: Option<&PerformanceRunV5>,
+    global_anchor: Option<&PerformanceRunV6>,
     diagnostics: &mut Vec<String>,
 ) {
     let prefix = format!("{side}:{}", set.scenario.as_str());
@@ -492,7 +492,7 @@ fn validate_run_group(
         }
         match &run.target_fingerprint {
             Some(fingerprint) => {
-                for diagnostic in validate_thoth_fingerprint(fingerprint) {
+                for diagnostic in validate_linux_release_fingerprint(fingerprint) {
                     diagnostics.push(format!(
                         "CODEGEN_FINGERPRINT_INVALID: {run_prefix}: {diagnostic}"
                     ));
@@ -643,7 +643,7 @@ fn combined_bootstrap_scenario(
 }
 
 fn metric_run_p95s(
-    runs: &[PerformanceRunV5],
+    runs: &[PerformanceRunV6],
 ) -> Result<BTreeMap<String, (String, Vec<u64>)>, String> {
     let mut metrics = BTreeMap::<String, (String, Vec<u64>)>::new();
     for run in runs {
@@ -962,7 +962,7 @@ LLVM version: 22.1.6"
     fn codegen_run_validation_requires_v4_resource_evidence() {
         let set = CodegenScenarioRunSetV1 {
             scenario: PerformanceScenarioV1::R2AlphaRender,
-            runs: vec![PerformanceRunV5::empty(
+            runs: vec![PerformanceRunV6::empty(
                 PerformanceScenarioV1::R2AlphaRender,
                 PerformanceModeV1::Report,
                 "release",

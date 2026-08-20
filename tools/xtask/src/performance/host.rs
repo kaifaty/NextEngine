@@ -6,8 +6,8 @@ use std::process::Command;
 use serde::Deserialize;
 
 use super::{
-    PerformancePreflightV1, PerformanceResourceCountersV4, PerformanceTargetFingerprintV1,
-    THOTH_TARGET_ID,
+    LINUX_RELEASE_TARGET_ID, PerformancePreflightV1, PerformanceResourceCountersV4,
+    PerformanceTargetFingerprintV1,
 };
 
 #[derive(Debug, Deserialize)]
@@ -427,15 +427,20 @@ fn parse_linux_root_device_id(value: &str) -> Result<&str, String> {
         .ok_or_else(|| "PERF_LINUX_ROOT_DEVICE_UNAVAILABLE".to_owned())
 }
 
-pub fn validate_thoth_fingerprint(fingerprint: &PerformanceTargetFingerprintV1) -> Vec<String> {
+pub fn validate_linux_release_fingerprint(
+    fingerprint: &PerformanceTargetFingerprintV1,
+) -> Vec<String> {
     let mut diagnostics = Vec::new();
     let normalized_cpu = normalize(&fingerprint.cpu_model);
     let normalized_gpu = normalize(&fingerprint.gpu_model);
     let normalized_os = normalize(&fingerprint.os_name);
-    if fingerprint.target_id != THOTH_TARGET_ID {
+    if fingerprint.target_id != LINUX_RELEASE_TARGET_ID {
         diagnostics.push("PERF_TARGET_ID_MISMATCH".to_owned());
     }
-    if !fingerprint.hostname.eq_ignore_ascii_case("THOTH") {
+    if !fingerprint
+        .hostname
+        .eq_ignore_ascii_case("kaifaty-B550I-AORUS-PRO-AX")
+    {
         diagnostics.push("PERF_HOSTNAME_MISMATCH".to_owned());
     }
     if !normalized_cpu.contains("amdryzen93950x")
@@ -447,21 +452,26 @@ pub fn validate_thoth_fingerprint(fingerprint: &PerformanceTargetFingerprintV1) 
     if !normalized_gpu.contains("nvidiageforcertx3080") || fingerprint.gpu_vram_mib != 10_240 {
         diagnostics.push("PERF_GPU_MISMATCH".to_owned());
     }
-    if fingerprint.ram_bytes < 31 * 1024 * 1024 * 1024 {
+    if fingerprint.ram_bytes < 30 * 1024 * 1024 * 1024 {
         diagnostics.push("PERF_RAM_MISMATCH".to_owned());
     }
-    if !normalize(&fingerprint.storage_model).contains("wds100t1x0e00afy0")
-        || fingerprint.storage_bytes < 1_000_000_000_000
+    if !normalize(&fingerprint.storage_model).contains("samsungmzvl2512hcjq00bh1")
+        || fingerprint.storage_bytes < 512_000_000_000
     {
         diagnostics.push("PERF_STORAGE_MISMATCH".to_owned());
     }
-    if !normalized_os.contains("windows11pro") || fingerprint.os_build != "26200" {
+    if normalized_os != "linuxubuntu2604lts"
+        || fingerprint.os_build != "26.04; kernel 7.0.0-29-generic"
+    {
         diagnostics.push("PERF_OS_MISMATCH".to_owned());
     }
-    if fingerprint.gpu_driver != "610.88" {
+    if fingerprint.bios_version != "F16e" {
+        diagnostics.push("PERF_BIOS_MISMATCH".to_owned());
+    }
+    if fingerprint.gpu_driver != "610.43.02" {
         diagnostics.push("PERF_GPU_DRIVER_MISMATCH".to_owned());
     }
-    if normalize(&fingerprint.power_plan) != "amdryzenhighperformance" {
+    if fingerprint.power_plan != "linux-governor:performance" {
         diagnostics.push("PERF_POWER_PLAN_MISMATCH".to_owned());
     }
     diagnostics

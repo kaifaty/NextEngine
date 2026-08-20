@@ -1,15 +1,18 @@
-use std::cmp::Reverse;
-use std::collections::{BTreeMap, BinaryHeap};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use next_contracts::canonical::sha256;
-use next_contracts::ids::{ContentHash, PersistentId, SchemaId, content_hash_from_bytes};
+use next_contracts::ids::{ContentHash, PersistentId, content_hash_from_bytes};
 use next_contracts::world_population::{
     NavigationCapabilityV1, NavigationQueryV1, NavigationRoutePlanV1, PopulationCadenceClassV1,
     PopulationTierV1, WorldNavigationCatalogV1, WorldPopulationCatalogV1, WorldPopulationChangedV1,
     WorldPopulationCommandV1, WorldPopulationContractError, WorldPopulationSnapshotV1,
 };
+
+mod routing;
+
+pub use routing::route_query;
+use routing::route_query_prevalidated;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PopulationNavigationServiceReportV1 {
@@ -25,6 +28,8 @@ pub struct PopulationNavigationServiceReportV1 {
 pub struct WorldPopulationOwnerV1 {
     population_catalog_or_none: Option<WorldPopulationCatalogV1>,
     navigation_catalog_or_none: Option<WorldNavigationCatalogV1>,
+    population_revision_or_none: Option<ContentHash>,
+    navigation_revision_or_none: Option<ContentHash>,
     snapshot_or_none: Option<WorldPopulationSnapshotV1>,
 }
 
@@ -33,6 +38,8 @@ impl WorldPopulationOwnerV1 {
         Self {
             population_catalog_or_none: None,
             navigation_catalog_or_none: None,
+            population_revision_or_none: None,
+            navigation_revision_or_none: None,
             snapshot_or_none: None,
         }
     }
@@ -47,9 +54,13 @@ impl WorldPopulationOwnerV1 {
         }
         let snapshot =
             WorldPopulationSnapshotV1::initial(&population_catalog, &navigation_catalog)?;
+        let population_revision = population_catalog.revision(&navigation_catalog)?;
+        let navigation_revision = navigation_catalog.revision()?;
         let value = Self {
             population_catalog_or_none: Some(population_catalog),
             navigation_catalog_or_none: Some(navigation_catalog),
+            population_revision_or_none: Some(population_revision),
+            navigation_revision_or_none: Some(navigation_revision),
             snapshot_or_none: Some(snapshot),
         };
         value.validate(next_simulation_tick)?;
@@ -62,9 +73,14 @@ impl WorldPopulationOwnerV1 {
         snapshot: WorldPopulationSnapshotV1,
         next_simulation_tick: u64,
     ) -> Result<Self, WorldPopulationOwnerError> {
+        population_catalog.validate_against_navigation(&navigation_catalog)?;
+        let population_revision = population_catalog.revision(&navigation_catalog)?;
+        let navigation_revision = navigation_catalog.revision()?;
         let value = Self {
             population_catalog_or_none: Some(population_catalog),
             navigation_catalog_or_none: Some(navigation_catalog),
+            population_revision_or_none: Some(population_revision),
+            navigation_revision_or_none: Some(navigation_revision),
             snapshot_or_none: Some(snapshot),
         };
         value.validate(next_simulation_tick)?;
@@ -82,6 +98,16 @@ impl WorldPopulationOwnerV1 {
     }
 
     #[must_use]
+    pub const fn population_revision_or_none(&self) -> Option<ContentHash> {
+        self.population_revision_or_none
+    }
+
+    #[must_use]
+    pub const fn navigation_revision_or_none(&self) -> Option<ContentHash> {
+        self.navigation_revision_or_none
+    }
+
+    #[must_use]
     pub const fn snapshot_or_none(&self) -> Option<&WorldPopulationSnapshotV1> {
         self.snapshot_or_none.as_ref()
     }
@@ -90,13 +116,27 @@ impl WorldPopulationOwnerV1 {
         match (
             &self.population_catalog_or_none,
             &self.navigation_catalog_or_none,
+            self.population_revision_or_none,
+            self.navigation_revision_or_none,
             &self.snapshot_or_none,
         ) {
-            (Some(population), Some(navigation), Some(snapshot)) => {
-                snapshot.validate_against(population, navigation, next_simulation_tick)?;
+            (
+                Some(population),
+                Some(navigation),
+                Some(population_revision),
+                Some(navigation_revision),
+                Some(snapshot),
+            ) => {
+                snapshot.validate_against_prevalidated_revisions(
+                    population,
+                    navigation,
+                    next_simulation_tick,
+                    population_revision,
+                    navigation_revision,
+                )?;
                 Ok(())
             }
-            (None, None, None) => Ok(()),
+            (None, None, None, None, None) => Ok(()),
             _ => Err(WorldPopulationOwnerError::ProjectMismatch),
         }
     }
@@ -105,13 +145,14 @@ impl WorldPopulationOwnerV1 {
         &self,
         query: &NavigationQueryV1,
     ) -> Result<NavigationRoutePlanV1, WorldPopulationOwnerError> {
-        route_query(
-            self.navigation_catalog_or_none
-                .as_ref()
-                .ok_or(WorldPopulationOwnerError::ProjectMismatch)?,
-            query,
-        )
-        .map_err(Into::into)
+        let navigation = self
+            .navigation_catalog_or_none
+            .as_ref()
+            .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
+        let navigation_revision = self
+            .navigation_revision_or_none
+            .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
+        route_query_prevalidated(navigation, query, navigation_revision).map_err(Into::into)
     }
 
     pub fn service_tick(
@@ -138,7 +179,19 @@ impl WorldPopulationOwnerV1 {
             .navigation_catalog_or_none
             .as_ref()
             .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
-        snapshot.validate_against(population, navigation, simulation_tick)?;
+        let population_revision = self
+            .population_revision_or_none
+            .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
+        let navigation_revision = self
+            .navigation_revision_or_none
+            .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
+        snapshot.validate_against_prevalidated_revisions(
+            population,
+            navigation,
+            simulation_tick,
+            population_revision,
+            navigation_revision,
+        )?;
         let mut active_due = 0_u32;
         let mut near_due = 0_u32;
         let mut background_due = 0_u32;
@@ -173,12 +226,12 @@ impl WorldPopulationOwnerV1 {
             let query = NavigationQueryV1 {
                 schema_version: next_contracts::world_population::WORLD_POPULATION_SCHEMA_VERSION,
                 catalog_asset_id: navigation.catalog_asset_id,
-                graph_revision: navigation.revision()?,
+                graph_revision: navigation_revision,
                 start_node_id: record.current_node_id.clone(),
                 goal_node_id: definition.navigation_goal_node_id.clone(),
                 capability: NavigationCapabilityV1::AbstractTransfer,
             };
-            let plan = route_query(navigation, &query)?;
+            let plan = route_query_prevalidated(navigation, &query, navigation_revision)?;
             root_preimage.extend_from_slice(definition.subject_id.as_bytes());
             root_preimage.extend_from_slice(plan.plan_hash.as_bytes());
             query_count = query_count
@@ -212,7 +265,19 @@ impl WorldPopulationOwnerV1 {
             .navigation_catalog_or_none
             .as_ref()
             .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
-        snapshot.validate_against(population, navigation, simulation_tick)?;
+        let population_revision = self
+            .population_revision_or_none
+            .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
+        let navigation_revision = self
+            .navigation_revision_or_none
+            .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
+        snapshot.validate_against_prevalidated_revisions(
+            population,
+            navigation,
+            simulation_tick,
+            population_revision,
+            navigation_revision,
+        )?;
         let start = population.courier_transition_start_tick;
         let Some(ordinal) = simulation_tick
             .checked_sub(start)
@@ -223,12 +288,11 @@ impl WorldPopulationOwnerV1 {
         let record = snapshot
             .record(population.courier_subject_id)
             .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
-        let catalog_revision = population.revision(navigation)?;
         let command = match ordinal {
             0 => tier_command(
                 population,
                 record,
-                catalog_revision,
+                population_revision,
                 simulation_tick,
                 PopulationTierV1::Dormant,
                 PopulationTierV1::Abstract,
@@ -241,7 +305,7 @@ impl WorldPopulationOwnerV1 {
             2 => tier_command(
                 population,
                 record,
-                catalog_revision,
+                population_revision,
                 simulation_tick,
                 PopulationTierV1::Abstract,
                 PopulationTierV1::Simulated,
@@ -249,7 +313,7 @@ impl WorldPopulationOwnerV1 {
             3 => tier_command(
                 population,
                 record,
-                catalog_revision,
+                population_revision,
                 simulation_tick,
                 PopulationTierV1::Simulated,
                 PopulationTierV1::Active,
@@ -257,7 +321,7 @@ impl WorldPopulationOwnerV1 {
             4 => tier_command(
                 population,
                 record,
-                catalog_revision,
+                population_revision,
                 simulation_tick,
                 PopulationTierV1::Active,
                 PopulationTierV1::Simulated,
@@ -265,7 +329,7 @@ impl WorldPopulationOwnerV1 {
             5 => tier_command(
                 population,
                 record,
-                catalog_revision,
+                population_revision,
                 simulation_tick,
                 PopulationTierV1::Simulated,
                 PopulationTierV1::Abstract,
@@ -273,7 +337,7 @@ impl WorldPopulationOwnerV1 {
             6 => tier_command(
                 population,
                 record,
-                catalog_revision,
+                population_revision,
                 simulation_tick,
                 PopulationTierV1::Abstract,
                 PopulationTierV1::Dormant,
@@ -297,7 +361,19 @@ impl WorldPopulationOwnerV1 {
             .navigation_catalog_or_none
             .as_ref()
             .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
-        snapshot.validate_against(population, navigation, simulation_tick)?;
+        let population_revision = self
+            .population_revision_or_none
+            .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
+        let navigation_revision = self
+            .navigation_revision_or_none
+            .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
+        snapshot.validate_against_prevalidated_revisions(
+            population,
+            navigation,
+            simulation_tick,
+            population_revision,
+            navigation_revision,
+        )?;
         let definition = population
             .definition(subject_id)
             .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
@@ -313,12 +389,12 @@ impl WorldPopulationOwnerV1 {
         let query = NavigationQueryV1 {
             schema_version: next_contracts::world_population::WORLD_POPULATION_SCHEMA_VERSION,
             catalog_asset_id: navigation.catalog_asset_id,
-            graph_revision: navigation.revision()?,
+            graph_revision: navigation_revision,
             start_node_id: record.current_node_id.clone(),
             goal_node_id: definition.navigation_goal_node_id.clone(),
             capability: NavigationCapabilityV1::AbstractTransfer,
         };
-        let plan = route_query(navigation, &query)?;
+        let plan = route_query_prevalidated(navigation, &query, navigation_revision)?;
         let target_region_id = navigation
             .region_for_node(&definition.navigation_goal_node_id)
             .ok_or(WorldPopulationContractError::NodeUnavailable)?
@@ -327,9 +403,9 @@ impl WorldPopulationOwnerV1 {
             subject_id,
             expected_record_revision: record.record_revision,
             catalog_asset_id: population.catalog_asset_id,
-            catalog_revision: population.revision(navigation)?,
+            catalog_revision: population_revision,
             navigation_catalog_asset_id: navigation.catalog_asset_id,
-            navigation_catalog_revision: navigation.revision()?,
+            navigation_catalog_revision: navigation_revision,
             route_plan_hash: plan.plan_hash,
             source_region_id: record.current_region_id.clone(),
             source_node_id: record.current_node_id.clone(),
@@ -409,12 +485,20 @@ impl WorldPopulationOwnerV1 {
             }
         };
         record.record_revision = next_revision;
-        snapshot.validate_against(
+        let population_revision = self
+            .population_revision_or_none
+            .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
+        let navigation_revision = self
+            .navigation_revision_or_none
+            .ok_or(WorldPopulationOwnerError::ProjectMismatch)?;
+        snapshot.validate_against_prevalidated_revisions(
             population,
             navigation,
             simulation_tick
                 .checked_add(1)
                 .ok_or(WorldPopulationOwnerError::TickExhausted)?,
+            population_revision,
+            navigation_revision,
         )?;
         Ok(event)
     }
@@ -428,6 +512,8 @@ impl WorldPopulationOwnerV1 {
         validate_snapshot_set(
             self.population_catalog_or_none.as_ref(),
             self.navigation_catalog_or_none.as_ref(),
+            self.population_revision_or_none,
+            self.navigation_revision_or_none,
             next_snapshot_or_none.as_ref(),
             next_simulation_tick,
         )?;
@@ -454,6 +540,8 @@ impl WorldPopulationOwnerV1 {
         validate_snapshot_set(
             self.population_catalog_or_none.as_ref(),
             self.navigation_catalog_or_none.as_ref(),
+            self.population_revision_or_none,
+            self.navigation_revision_or_none,
             prepared.next_snapshot_or_none.as_ref(),
             prepared.next_simulation_tick,
         )?;
@@ -522,21 +610,18 @@ struct WorldPopulationOwnerBaseV1 {
 
 impl WorldPopulationOwnerBaseV1 {
     fn capture(owner: &WorldPopulationOwnerV1) -> Result<Self, WorldPopulationOwnerError> {
-        let population_revision_or_none = match (
+        match (
             owner.population_catalog_or_none.as_ref(),
             owner.navigation_catalog_or_none.as_ref(),
+            owner.population_revision_or_none,
+            owner.navigation_revision_or_none,
         ) {
-            (Some(population), Some(navigation)) => Some(population.revision(navigation)?),
-            (None, None) => None,
+            (Some(_), Some(_), Some(_), Some(_)) | (None, None, None, None) => {}
             _ => return Err(WorldPopulationOwnerError::ProjectMismatch),
-        };
+        }
         Ok(Self {
-            population_revision_or_none,
-            navigation_revision_or_none: owner
-                .navigation_catalog_or_none
-                .as_ref()
-                .map(WorldNavigationCatalogV1::revision)
-                .transpose()?,
+            population_revision_or_none: owner.population_revision_or_none,
+            navigation_revision_or_none: owner.navigation_revision_or_none,
             snapshot_or_none: owner.snapshot_or_none.clone(),
         })
     }
@@ -584,94 +669,37 @@ impl ValidatedWorldPopulationPublicationV1 {
 fn validate_snapshot_set(
     population: Option<&WorldPopulationCatalogV1>,
     navigation: Option<&WorldNavigationCatalogV1>,
+    population_revision: Option<ContentHash>,
+    navigation_revision: Option<ContentHash>,
     snapshot: Option<&WorldPopulationSnapshotV1>,
     next_simulation_tick: u64,
 ) -> Result<(), WorldPopulationOwnerError> {
-    match (population, navigation, snapshot) {
-        (Some(population), Some(navigation), Some(snapshot)) => {
-            snapshot.validate_against(population, navigation, next_simulation_tick)?;
+    match (
+        population,
+        navigation,
+        population_revision,
+        navigation_revision,
+        snapshot,
+    ) {
+        (
+            Some(population),
+            Some(navigation),
+            Some(population_revision),
+            Some(navigation_revision),
+            Some(snapshot),
+        ) => {
+            snapshot.validate_against_prevalidated_revisions(
+                population,
+                navigation,
+                next_simulation_tick,
+                population_revision,
+                navigation_revision,
+            )?;
             Ok(())
         }
-        (None, None, None) => Ok(()),
+        (None, None, None, None, None) => Ok(()),
         _ => Err(WorldPopulationOwnerError::ProjectMismatch),
     }
-}
-
-pub fn route_query(
-    catalog: &WorldNavigationCatalogV1,
-    query: &NavigationQueryV1,
-) -> Result<NavigationRoutePlanV1, WorldPopulationContractError> {
-    catalog.validate()?;
-    if query.schema_version != next_contracts::world_population::WORLD_POPULATION_SCHEMA_VERSION
-        || query.catalog_asset_id != catalog.catalog_asset_id
-        || query.graph_revision != catalog.revision()?
-    {
-        return Err(WorldPopulationContractError::RouteStale);
-    }
-    if catalog.node(&query.start_node_id).is_none() || catalog.node(&query.goal_node_id).is_none() {
-        return Err(WorldPopulationContractError::NodeUnavailable);
-    }
-    if query.start_node_id == query.goal_node_id {
-        return NavigationRoutePlanV1::new(query.clone(), vec![query.start_node_id.clone()], 0);
-    }
-
-    let mut distances = BTreeMap::<SchemaId, u64>::new();
-    let mut predecessors = BTreeMap::<SchemaId, SchemaId>::new();
-    let mut pending = BinaryHeap::new();
-    distances.insert(query.start_node_id.clone(), 0);
-    pending.push(Reverse((0_u64, query.start_node_id.clone())));
-    while let Some(Reverse((distance, node_id))) = pending.pop() {
-        if distances.get(&node_id).copied() != Some(distance) {
-            continue;
-        }
-        if node_id == query.goal_node_id {
-            break;
-        }
-        for edge in &catalog.edges {
-            if edge.capability != query.capability {
-                continue;
-            }
-            let neighbour = if edge.node_low == node_id {
-                Some(&edge.node_high)
-            } else if edge.node_high == node_id {
-                Some(&edge.node_low)
-            } else {
-                None
-            };
-            let Some(neighbour) = neighbour else {
-                continue;
-            };
-            let candidate = distance
-                .checked_add(u64::from(edge.cost))
-                .ok_or(WorldPopulationContractError::RoutePlanInvalid)?;
-            if distances
-                .get(neighbour)
-                .is_none_or(|current| candidate < *current)
-            {
-                distances.insert(neighbour.clone(), candidate);
-                predecessors.insert(neighbour.clone(), node_id.clone());
-                pending.push(Reverse((candidate, neighbour.clone())));
-            }
-        }
-    }
-    let total_cost = distances
-        .get(&query.goal_node_id)
-        .copied()
-        .ok_or(WorldPopulationContractError::RouteUnavailable)?;
-    let mut reversed = vec![query.goal_node_id.clone()];
-    while reversed.last() != Some(&query.start_node_id) {
-        let previous = predecessors
-            .get(
-                reversed
-                    .last()
-                    .ok_or(WorldPopulationContractError::RoutePlanInvalid)?,
-            )
-            .ok_or(WorldPopulationContractError::RoutePlanInvalid)?
-            .clone();
-        reversed.push(previous);
-    }
-    reversed.reverse();
-    NavigationRoutePlanV1::new(query.clone(), reversed, total_cost)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -715,7 +743,7 @@ impl From<WorldPopulationContractError> for WorldPopulationOwnerError {
 
 #[cfg(test)]
 mod tests {
-    use next_contracts::ids::AssetId;
+    use next_contracts::ids::{AssetId, SchemaId};
     use next_contracts::world_population::{
         WORLD_POPULATION_ACTIVE_COUNT_V1, WORLD_POPULATION_BACKGROUND_COUNT_V1,
         WORLD_POPULATION_COUNT_V1, WORLD_POPULATION_NEAR_COUNT_V1, WorldNavigationEdgeV1,

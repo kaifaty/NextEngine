@@ -4,14 +4,15 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 5.0 |
-| Последняя проверка | 2026-08-20 |
+| Версия | 5.1 |
+| Последняя проверка | 2026-08-21 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V4.7 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V4.8 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
 | Дополнительные зависимости V4.9 | [ADR-089](adr/089-governed-external-creator-sdk-workflow.md) |
 | Дополнительные зависимости V5.0 | [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
-| Заменяет | SPEC-09 4.9; removes Windows/THOTH from current release tooling authority and assigns Linux-only closure/performance evolution to R7 |
+| Дополнительные зависимости V5.1 | [ADR-091](adr/091-linux-release-performance-authority.md) |
+| Заменяет | SPEC-09 5.0; advances current Linux release evidence to strict Performance V6/methodology v9 with canonical metric policy |
 
 ## Scope and authority
 
@@ -233,15 +234,15 @@ required samples or an unowned gameplay span invalidates the affected evidence
 rather than hiding loss. Screenshots/video/audio are optional human debugging
 evidence, not correctness or release authority.
 
-## Performance V5
+## Performance V6
 
-Current tooling serializes `PerformanceRunV5`,
+Current tooling serializes `PerformanceRunV6`,
 `PerformanceResourceCountersV4`, `PerformanceMetricV1`,
-`PerformanceBaselineV5` and the closed verdict. The methodology ID is
-`nextengine-performance-v8`; V2/V3/V4 readers and allocator instrumentation
-are removed.
+`PerformanceBaselineV6` with budget-bearing baseline metric V2 and the closed
+verdict. The methodology ID is `nextengine-performance-v9`; V5 and older
+readers plus allocator instrumentation are removed from the current path.
 
-V5 retains:
+V6 retains:
 
 - all raw samples, explicit independent-run lengths and nearest-rank
   per-run p50/p95/p99;
@@ -253,21 +254,22 @@ V5 retains:
 - profiler integrity and exact authoritative roots.
 
 Unavailable required counters are explicit `NOT_RUN`; report-only evidence
-cannot become a hard PASS. A baseline consists of exactly ten clean release
+cannot become a hard PASS. Only metrics enumerated by the canonical scenario
+policy carry an absolute budget and participate in absolute/relative verdicts;
+diagnostic counters remain strict evidence without accidental
+lower-is-better gating. A baseline consists of exactly ten clean release
 reports with one independent run each. One hard-gate command executes a fixed
-three-run batch and publishes one aggregate V5 report. Relative statistics use
+three-run batch and publishes one aggregate V6 report. Relative statistics use
 per-run p95 observations; raw frames are never treated as independent runs.
-Only complete THOTH evidence with a compatible V5 baseline may produce a hard
-verdict under the historical Windows profile. ADR-090 removes that profile
-from current v1/R7 authority. R7c must accept a distinct Linux release profile
-and compatible evidence before Linux timing can become release-gating.
+Only complete evidence from `ref-linux-b550i-3950x-rtx3080-v1` with a
+compatible V6 baseline may produce the current hard verdict. Historical
+THOTH/V5 evidence remains outside current v1/R7 authority.
 
-THOTH preflight admits CPU and GPU load strictly below 40% and at least 10 GiB
-free physical RAM before every independent run. CPU clock and GPU thermal
-checks remain unchanged. Postflight checks free RAM, clock and thermal state,
-while retaining but not idle-gating utilization caused by the workload itself.
-Missing boundary evidence, 40% start load or less than 10 GiB free RAM
-invalidates hard evidence under ADR-061/063.
+ADR-091 Linux preflight admits CPU and GPU load strictly below 40% and at least
+10 GiB free physical RAM before every independent run. CPU clock must be at
+least 80% of maximum and GPU thermal slowdown must be false. Postflight checks
+free RAM, clock and thermal state while retaining but not idle-gating workload
+utilization. Missing boundary evidence invalidates hard evidence.
 
 The eight current scenario families are:
 
@@ -280,7 +282,7 @@ The eight current scenario families are:
 7. `r4-100npc`;
 8. `r5-physics-16`.
 
-Each uses its current V5 methodology hash and existing workload semantics.
+Each uses its current V6/v9 methodology hash and existing workload semantics.
 `r2-alpha-render.v3` runs exploration, combat and UI/dialogue for primary 1080p
 and fallback 720p profiles through the production project/Vulkan path on the
 active Linux desktop host. Report mode remains `REPORT_ONLY`; it records
@@ -289,16 +291,16 @@ does not require or synthesize a THOTH baseline.
 
 `r3-multiregion-streaming` runs 1,000 canonical transitions across the current
 four-region/64-chunk route, reports the `streaming_world` span and logical
-staging charge, and remains `REPORT_ONLY`. It does not imply a generic
-scheduler/resource framework or close B-12.
+staging charge, and has a hard 1,500,000 us whole-workload p95/p99 ceiling. It
+does not imply a generic scheduler/resource framework.
 
 `r4-100npc.v1` runs 1,000 warm-up and 10,000 measured production ticks over
 the exact 16/32/52 population, one graph query per due record and the four
 tier-cognition work kinds. It publishes due/work counters, queue bounds,
 zero-fabrication evidence and exact activity/Agent/application/ledger roots.
-The historical unsupported-host report remains `NOT_RUN`; a new current Linux
-run may produce only `REPORT_ONLY`. Cognition dispatch was within its report
-row while navigation and integrated tails exceeded theirs.
+Report mode remains diagnostic. Gate mode enforces the unchanged ADR-016
+navigation `1,250/1,500 us`, cognition `1,250/1,500 us` and integrated
+`8,000/12,000 us` p95/p99 rows on the exact ADR-091 Linux host.
 
 `r5-physics-16.v1` executes sixteen independent production PhysX 5.9.0
 23-DoF humanoids at 240 Hz physics / 60 Hz motor with fixed standing control.
@@ -307,9 +309,8 @@ cost metrics, lockstep frame p95/p99, 1/4/8-worker scaling, checkpoint/restore,
 replay-prefix overhead, process peak memory, logical bytes/slot and exact
 worker/profiler root parity. CPU PhysX reports zero engine-owned device
 residency and does not fabricate Vulkan queries. Exact workload and budgets are
-ADR-062 authority for the historical profile. Current Linux calibration stays
-`REPORT_ONLY` until R7c accepts a Linux release fingerprint, compatible clean
-baseline and hard gate; Windows execution is neither required nor scheduled.
+ADR-062 workload identity and rows are accepted independently for the ADR-091
+Linux profile. Windows execution is neither required nor scheduled.
 Calibration automation uses `--require-ready-preflight`: if the exact internal
 host probe is not ready, the command publishes typed `NOT_RUN` before starting
 the representative workload. The flag does not wait, relax thresholds or
@@ -333,7 +334,7 @@ boundary scan. `content-package` reopens both the reference project and the inde
 creator fixture, generates and edits another namespaced project, executes its
 complete public lifecycle, and compares source/package projections; it also runs/minimizes the tracked creator scenario
 from authoring/package bytes. `host-check` covers the workspace. The
-`performance` command covers V5 reports/baselines and all eight
+`performance` command covers V6 reports/baselines and all eight
 scenario routes; platform/GPU availability may legitimately yield typed
 `NOT_RUN` without claiming success for that scenario.
 

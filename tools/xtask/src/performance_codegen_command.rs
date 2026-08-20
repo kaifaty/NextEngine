@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use xtask::performance::{PERFORMANCE_REPORT_FILE_NAME, PerformanceRunV5};
+use xtask::performance::{PERFORMANCE_REPORT_FILE_NAME, PerformanceRunV6};
 use xtask::performance_codegen::{
     CODEGEN_BUILD_SCHEMA_VERSION, CODEGEN_RUN_PROVENANCE_SCHEMA_VERSION, CODEGEN_SCENARIOS,
     CodegenBuildProvenanceV1, CodegenCandidateV1, CodegenComparisonV1, CodegenComparisonVerdictV1,
@@ -258,10 +258,11 @@ fn collect_candidate_run(
             "--mode",
             "report",
             "--target",
-            xtask::performance::THOTH_TARGET_ID,
+            xtask::performance::LINUX_RELEASE_TARGET_ID,
             "--output",
         ])
         .arg(output)
+        .arg("--require-ready-preflight")
         .current_dir(root)
         .output()
         .map_err(|error| format!("failed to launch candidate performance run: {error}"))?;
@@ -596,7 +597,7 @@ fn discover_report_paths(scenario_root: &Path) -> Result<Vec<PathBuf>, String> {
         .collect()
 }
 
-fn read_performance_run(path: &Path) -> Result<PerformanceRunV5, String> {
+fn read_performance_run(path: &Path) -> Result<PerformanceRunV6, String> {
     let metadata = fs::symlink_metadata(path)
         .map_err(|error| format!("failed to inspect {}: {error}", path.display()))?;
     if !metadata.file_type().is_file() || metadata.len() > MAX_PERFORMANCE_REPORT_BYTES {

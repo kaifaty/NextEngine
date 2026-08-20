@@ -6,7 +6,7 @@ use super::*;
 pub(super) fn performance_report(
     request: &PerformanceArguments,
     state_root: Option<&Path>,
-    mut run: xtask::performance::PerformanceRunV5,
+    mut run: xtask::performance::PerformanceRunV6,
     content_hash: String,
     profiling_enabled: bool,
     compare_baseline: bool,
@@ -87,9 +87,12 @@ pub(super) fn performance_report(
     run.resource_counters = resource_counters;
     run.content_hash = content_hash;
     run.scenario_hash = performance_scenario_hash(request.scenario);
-    run.metrics = vec![smoke_metric(
-        "r3-multiregion-streaming.total",
-        streaming.elapsed_microseconds,
+    let metric_name = "r3-multiregion-streaming.total";
+    run.metrics = vec![xtask::performance::PerformanceMetricV1::from_samples(
+        metric_name,
+        "microseconds",
+        vec![microseconds_u64(streaming.elapsed_microseconds)?],
+        xtask::performance::canonical_budget_for_metric(request.scenario, metric_name),
     )?];
     run.authoritative_hashes = authoritative_hashes;
     run.verdict = xtask::performance::aggregate_metric_verdict(&run.metrics);

@@ -6,7 +6,7 @@ pub(super) fn performance_report_once(
     state_root: Option<&Path>,
     compare_baseline: bool,
 ) -> Result<CommandReportV1<PerformanceDetailsV1>, String> {
-    let mut run = xtask::performance::PerformanceRunV5::empty(
+    let mut run = xtask::performance::PerformanceRunV6::empty(
         request.scenario,
         request.mode,
         env!("NEXTENGINE_BUILD_PROFILE"),

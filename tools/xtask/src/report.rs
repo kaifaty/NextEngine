@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::performance::PerformanceRunV5;
+use crate::performance::PerformanceRunV6;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -320,7 +320,7 @@ pub struct R5PhysicsPerformanceDetailsV1 {
 #[serde(deny_unknown_fields)]
 pub struct PerformanceDetailsV1 {
     #[serde(default)]
-    pub run: Option<PerformanceRunV5>,
+    pub run: Option<PerformanceRunV6>,
     #[serde(default)]
     pub streaming: Option<StreamingPerformanceDetailsV1>,
     #[serde(default)]

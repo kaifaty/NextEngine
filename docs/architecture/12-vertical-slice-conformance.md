@@ -4,15 +4,16 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 4.9 |
-| Последняя проверка | 2026-08-20 |
+| Версия | 5.0 |
+| Последняя проверка | 2026-08-21 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V4.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V4.6 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V4.7 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
 | Дополнительные зависимости V4.8 | [ADR-089](adr/089-governed-external-creator-sdk-workflow.md) |
 | Дополнительные зависимости V4.9 | [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
-| Заменяет | SPEC-12 4.8; replaces paired Windows/Linux release gating with an explicit versioned Linux-only R7 closure while retaining fail-closed target evidence |
+| Дополнительные зависимости V5.0 | [ADR-091](adr/091-linux-release-performance-authority.md) |
+| Заменяет | SPEC-12 4.9; accepts the fail-closed Linux Performance V6 R2–R5 release gate without restoring Windows scope |
 
 ## Назначение
 
@@ -328,22 +329,21 @@ authoritative outcome, считается failure независимо от ск
 variance MAY привести к повторному измерению по той же declared методике, но
 не к retry-to-green функциональных или deterministic failures.
 
-Current development timing выполняется на Linux и остаётся `REPORT_ONLY` до
-R7c; Linux native build/platform/replay/hash correctness обязательны для
-затронутой области. Historical hard timing design ADR-036/ADR-045/ADR-049
-остаётся exact только для `ref-win-thoth-v1` и не является current release
-authority. R7c MUST определить Linux release fingerprint, budgets и compatible
-baseline/gate; до этого B-12 остаётся открытым Linux performance blocker.
+Current development timing выполняется на Linux в report mode; Linux native
+build/platform/replay/hash correctness обязательны для затронутой области.
+ADR-091 принимает `ref-linux-b550i-3950x-rtx3080-v1`, canonical R2–R5 budgets
+и Performance V6 baseline/gate как current release authority. Historical
+`ref-win-thoth-v1`/V5 evidence не участвует в v1/R7.
 Несовместимый host, driver/BIOS/power plan/toolchain/content/
 methodology, недостаточный idle/free-memory/thermal preflight или
-неimplemented representative workload возвращает `NOT_RUN`. V5 hard evidence
+неimplemented representative workload возвращает `NOT_RUN`. V6 hard evidence
 дополнительно требует canonical logical resource charges, peak working set,
 process I/O, device-allocation ceiling, profiler integrity и exact authoritative
 roots. Allocator-counter fields/readers отсутствуют.
 
-При возобновлении hard evidence ADR-061 sets the THOTH preflight boundary: CPU/GPU load must be below
-40%, free physical RAM must be at least 10 GiB, CPU clock must remain at least
-80% of reported maximum and GPU thermal slowdown must be clear.
+ADR-091 Linux preflight требует CPU/GPU load strictly below 40%, at least 10
+GiB free physical RAM, CPU clock at least 80% of reported maximum и inactive
+GPU thermal slowdown.
 
 Two-role streaming, one-agent, статические render fixtures и live-movement checks
 являются только `smoke/report`. Отдельный representative `r2-alpha-render.v3`
@@ -354,22 +354,23 @@ combat и UI/dialogue выполняются отдельно в primary и fall
 дать outer ProductCheck execution `PASS` с вложенным timing verdict
 `REPORT_ONLY`, но не закрывает absolute budget или B-12. Он запускается с
 `--features desktop-sdl-ash`; disabled feature или недоступная desktop/GPU
-capability даёт typed `NOT_RUN`, не Windows-only fallback. Отдельный streaming-only
+capability даёт typed `NOT_RUN`, не software/Windows fallback. Hard mode требует
+реальный display, exact ADR-091 host, clean ten-run baseline и fixed gate.
+Отдельный streaming-only
 `r3-multiregion-streaming` выполняет 1 000 production packaged transitions по
 canonical four-region/64-chunk route, публикует только `streaming_world` и
-заполняет logical `required_staging_bytes`; он также `REPORT_ONLY`. R2/R3 hard
-gates требуют clean compatible ten-run THOTH evidence. Реализованный
+заполняет logical `required_staging_bytes`; gate mode применяет hard
+1,500,000 us whole-workload p95/p99 ceiling. Реализованный
 `r4-100npc.v1` выполняет 1 000 warm-up и 10 000 measured совместных production
 ticks над exact 16/32/52 population, проверяет один graph query на каждую due
 record, exact four-kind tier-cognition dispatch, zero defer/drop/starvation/
-fabricated outcomes и canonical roots. На несовместимом host его
-hard verdict остаётся `NOT_RUN`; локальные timings являются только report-only
-диагностикой и не закрывают B-12.
+fabricated outcomes и canonical roots. Gate mode применяет canonical ADR-016
+navigation/cognition/integrated rows; несовместимый host остаётся `NOT_RUN`.
 `r5-physics-16.v1` реализован по ADR-062: один run выполняет одинаковые
 sixteen-slot PhysX 23-DoF trajectories при 1/4/8 workers, требует exact
 canonical root parity и отдельно измеряет live cadence, checkpoint/restore and
-resources. Clean calibration без compatible ten-run baseline остаётся
-`REPORT_ONLY`.
+resources. Gate mode применяет ADR-062 rows independently accepted for the
+ADR-091 Linux profile; report mode остаётся `REPORT_ONLY`.
 
 Baseline строится из десяти independent clean runs одного commit, каждый с
 полным start/postflight environment pair. Hard gate является одним fixed batch

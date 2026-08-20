@@ -12,7 +12,7 @@ fn performance_cli_defaults_to_smoke_report() {
 }
 
 #[test]
-fn performance_gate_defaults_to_thoth_and_rejects_duplicate_flags() {
+fn performance_gate_defaults_to_linux_release_profile_and_rejects_duplicate_flags() {
     let request = parse_arguments(
         ["--scenario", "r5-physics-16", "--mode", "gate"]
             .into_iter()
@@ -21,7 +21,7 @@ fn performance_gate_defaults_to_thoth_and_rejects_duplicate_flags() {
     .expect("gate arguments");
     assert_eq!(
         request.target.as_deref(),
-        Some(xtask::performance::THOTH_TARGET_ID)
+        Some(xtask::performance::LINUX_RELEASE_TARGET_ID)
     );
     assert!(
         parse_arguments(
@@ -138,7 +138,7 @@ fn production_worker_details_are_versioned_and_round_trip_strictly() {
         command_identity_index_root: "c".repeat(64),
         command_ledger_hash: "d".repeat(64),
     };
-    let run = xtask::performance::PerformanceRunV5::empty(
+    let run = xtask::performance::PerformanceRunV6::empty(
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak,
         xtask::performance::PerformanceModeV1::Report,
         "release",
@@ -156,7 +156,7 @@ fn production_worker_details_are_versioned_and_round_trip_strictly() {
 }
 
 #[test]
-fn diagnostic_baseline_comparison_cannot_promote_report_only_to_a_gate() {
+fn report_mode_stays_calibration_only_while_representative_gates_are_enabled() {
     for scenario in [
         xtask::performance::PerformanceScenarioV1::Smoke,
         xtask::performance::PerformanceScenarioV1::LongSessionSoak,
@@ -200,25 +200,21 @@ fn diagnostic_baseline_comparison_cannot_promote_report_only_to_a_gate() {
             "PERF_PRODUCTION_WORKER_SOAK_REPORT_ONLY: the production worker soak is diagnostic and cannot gate",
         ),
     );
-    assert_eq!(
-        report_only_gate_diagnostic(
-            xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming,
-        ),
-        Some(
-            "PERF_R3_MULTIREGION_STREAMING_REPORT_ONLY: B-12 and the clean ten-run THOTH hard gate remain open",
-        ),
-    );
-    assert_eq!(
-        report_only_gate_diagnostic(xtask::performance::PerformanceScenarioV1::R4_100Npc),
-        Some("PERF_R4_100NPC_REPORT_ONLY: B-12 and the clean ten-run THOTH hard gate remain open",),
-    );
+    for scenario in [
+        xtask::performance::PerformanceScenarioV1::R2AlphaRender,
+        xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming,
+        xtask::performance::PerformanceScenarioV1::R4_100Npc,
+        xtask::performance::PerformanceScenarioV1::R5Physics16,
+    ] {
+        assert_eq!(report_only_gate_diagnostic(scenario), None);
+    }
 }
 
 #[test]
 fn gate_batch_aggregation_keeps_runs_independent() {
     let mut runs = Vec::new();
     for index in 0_u64..3 {
-        let mut run = xtask::performance::PerformanceRunV5::empty(
+        let mut run = xtask::performance::PerformanceRunV6::empty(
             xtask::performance::PerformanceScenarioV1::R5Physics16,
             xtask::performance::PerformanceModeV1::Gate,
             "release",

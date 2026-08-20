@@ -157,11 +157,17 @@ impl AgentCognitionStageContextV1 {
             .snapshot_or_none()
             .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?;
         self.tier_cognition_report_or_none = Some(
-            next_agent::dispatch_tier_cognition_v1(
+            next_agent::dispatch_tier_cognition_prevalidated_v1(
                 population_catalog,
                 navigation_catalog,
                 population_snapshot,
                 simulation_tick,
+                self.population
+                    .population_revision_or_none()
+                    .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?,
+                self.population
+                    .navigation_revision_or_none()
+                    .ok_or(RuntimeFatalError::AgentCognitionInternalInvariant)?,
             )
             .map_err(|_| RuntimeFatalError::AgentCognitionInternalInvariant)?,
         );

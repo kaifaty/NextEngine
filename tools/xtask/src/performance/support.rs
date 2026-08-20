@@ -2,6 +2,15 @@ use sha2::{Digest, Sha256};
 
 use super::*;
 
+pub(super) fn unique_verbose_field<'a>(toolchain: &'a str, field: &str) -> Option<&'a str> {
+    let prefix = format!("{field}: ");
+    let mut values = toolchain
+        .lines()
+        .filter_map(|line| line.strip_prefix(&prefix));
+    let value = values.next()?;
+    (!value.is_empty() && values.next().is_none()).then_some(value)
+}
+
 pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodologyV1 {
     let mut methodology = PerformanceMethodologyV1 {
         methodology_version: PERFORMANCE_METHODOLOGY_VERSION.to_owned(),
@@ -69,7 +78,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
                 "CPU/GPU frame samples exclude VSync wait, retain every outlier and count primary/fallback deadline misses separately".to_owned(),
                 "project activation and deterministic scenario/presentation extraction precede the observation window; six production Vulkan adapters are prepared, measured and released sequentially so device residency is a true per-run ceiling".to_owned(),
                 "logical charges use the hash-bound r2-alpha-render-v1 accounting profile; physical evidence consists of peak working set, process I/O, device allocation ceilings and Vulkan timestamps".to_owned(),
-                "Linux x86_64 is the active supported development/report host; its timing remains REPORT_ONLY, while Windows/THOTH hard execution is deferred and does not gate current development".to_owned(),
+                "the exact ADR-091 Linux profile is the sole hard release host; report mode remains calibration-only and a fixed compatible gate is required for PASS".to_owned(),
             ];
         }
         PerformanceScenarioV1::R3MultiregionStreaming => {
@@ -78,7 +87,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
                 "1,000 transitions cycle over the canonical manifest-driven four-region/64-chunk route through production packaged I/O and the paired Runtime/World fixed-stage commit".to_owned(),
                 "the measured resource-observation window contains only the prepared streaming workload; project cook/publish/activation, validation/report assembly and scratch cleanup remain outside it".to_owned(),
                 "the production default is two bounded workers; focused streaming checks establish root parity for worker counts 1/2/4".to_owned(),
-                "the workload is report-only while B-12 and the clean ten-run THOTH hard gate remain open".to_owned(),
+                "the ADR-091 hard row bounds the complete 1,000-transition run to 1,500,000 microseconds; release evidence still requires a clean ten-run Linux baseline and fixed three-run gate".to_owned(),
             ];
         }
         PerformanceScenarioV1::R4_100Npc => {
@@ -89,7 +98,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
                 "1,000 warm-up ticks precede 10,000 consecutive measured production Runtime + routine + population + streaming joint ticks at 30 Hz".to_owned(),
                 "an isolated navigation probe records all due engine-owned graph queries per tick; the joint-tick sample independently includes the production stage-6 population service and atomic stage-9 publication".to_owned(),
                 "every due query completes synchronously in deterministic class/PersistentId order; exact due counts and trace roots prove zero deferral, drop and starvation".to_owned(),
-                "the workload and ADR-016 absolute rows are report-only until B-12 receives clean ten-run THOTH calibration and one fixed three-run hard-gate batch".to_owned(),
+                "ADR-091 accepts the unchanged ADR-016 absolute rows on the exact Linux profile; release evidence requires a clean ten-run baseline and one fixed three-run hard-gate batch".to_owned(),
             ];
         }
         PerformanceScenarioV1::R5Physics16 => {
@@ -104,6 +113,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
                 "wall-clock samples never select action, simulation work, ordering, reset or outcome; exact authoritative root parity is required across all worker counts and profiler control".to_owned(),
                 "a hard gate is one immutable batch of three independent workload runs; relative evidence compares per-run p95 values against ten independent calibration-run p95 values".to_owned(),
                 "full load readiness is sampled before every independent run; postflight records memory, clock and thermal integrity without treating the benchmark's own CPU/GPU utilization as external load".to_owned(),
+                "ADR-091 accepts the unchanged absolute rows on the exact Linux release profile; Windows/THOTH evidence remains historical only".to_owned(),
             ];
         }
     }
@@ -294,15 +304,15 @@ pub(super) fn metric_run_percentiles(
 }
 
 fn baseline_metric_run_percentiles(
-    metric: &PerformanceBaselineMetricV1,
+    metric: &PerformanceBaselineMetricV2,
     percentile: u32,
 ) -> Result<Vec<u64>, String> {
     run_percentiles(&metric.raw_samples, &metric.sample_run_lengths, percentile)
 }
 
 pub fn compare_metrics_to_baseline(
-    run: &mut PerformanceRunV5,
-    baseline: &PerformanceBaselineV5,
+    run: &mut PerformanceRunV6,
+    baseline: &PerformanceBaselineV6,
 ) -> Result<(), Vec<String>> {
     if run.mode == PerformanceModeV1::Gate && run.evidence_runs != HARD_GATE_EVIDENCE_RUNS {
         return Err(vec!["PERF_GATE_REQUIRES_THREE_EVIDENCE_RUNS".to_owned()]);
@@ -322,6 +332,14 @@ pub fn compare_metrics_to_baseline(
         };
         if reference.unit != metric.unit {
             diagnostics.push(format!("PERF_BASELINE_UNIT_MISMATCH: {}", metric.name));
+            continue;
+        }
+        if reference.absolute_budget != metric.absolute_budget {
+            diagnostics.push(format!("PERF_BASELINE_BUDGET_MISMATCH: {}", metric.name));
+            continue;
+        }
+        if metric.absolute_budget.is_none() {
+            metric.relative = None;
             continue;
         }
         let candidate_run_p95 = metric_run_percentiles(metric, 95).map_err(|error| vec![error])?;

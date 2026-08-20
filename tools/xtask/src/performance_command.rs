@@ -91,12 +91,6 @@ fn report_only_gate_diagnostic(
         xtask::performance::PerformanceScenarioV1::ProductionWorkerSoak => Some(
             "PERF_PRODUCTION_WORKER_SOAK_REPORT_ONLY: the production worker soak is diagnostic and cannot gate",
         ),
-        xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming => Some(
-            "PERF_R3_MULTIREGION_STREAMING_REPORT_ONLY: B-12 and the clean ten-run THOTH hard gate remain open",
-        ),
-        xtask::performance::PerformanceScenarioV1::R4_100Npc => Some(
-            "PERF_R4_100NPC_REPORT_ONLY: B-12 and the clean ten-run THOTH hard gate remain open",
-        ),
         _ => None,
     }
 }
@@ -141,7 +135,7 @@ pub(crate) fn parse_arguments(
         }
     }
     if request.mode == xtask::performance::PerformanceModeV1::Gate && request.target.is_none() {
-        request.target = Some(xtask::performance::THOTH_TARGET_ID.to_owned());
+        request.target = Some(xtask::performance::LINUX_RELEASE_TARGET_ID.to_owned());
     }
     Ok(request)
 }
@@ -528,7 +522,7 @@ fn median_u64(values: impl Iterator<Item = u64>) -> Result<u64, String> {
 }
 
 fn aggregate_instrumentation(
-    runs: &[&xtask::performance::PerformanceRunV5],
+    runs: &[&xtask::performance::PerformanceRunV6],
 ) -> Result<xtask::performance::PerformanceInstrumentationV1, String> {
     let mut recorded_spans = Vec::new();
     let mut thread_offset = 0_u32;
@@ -588,7 +582,7 @@ fn aggregate_instrumentation(
 }
 
 fn aggregate_resource_counters(
-    runs: &[&xtask::performance::PerformanceRunV5],
+    runs: &[&xtask::performance::PerformanceRunV6],
 ) -> Result<xtask::performance::PerformanceResourceCountersV4, String> {
     let first = &runs[0].resource_counters;
     let mut unavailable = BTreeSet::new();
@@ -651,7 +645,7 @@ fn overhead_basis_points(overhead_nanoseconds: u128, workload_microseconds: u64)
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
-fn populate_performance_identity(root: &Path, run: &mut xtask::performance::PerformanceRunV5) {
+fn populate_performance_identity(root: &Path, run: &mut xtask::performance::PerformanceRunV6) {
     run.commit = env!("NEXTENGINE_BUILD_COMMIT").to_owned();
     run.worktree_clean = match env!("NEXTENGINE_BUILD_WORKTREE_CLEAN") {
         "true" => true,
@@ -738,7 +732,7 @@ fn populate_performance_identity(root: &Path, run: &mut xtask::performance::Perf
 
 fn populate_performance_host(
     request: &PerformanceArguments,
-    run: &mut xtask::performance::PerformanceRunV5,
+    run: &mut xtask::performance::PerformanceRunV6,
 ) {
     let target_id = request.target.as_deref().unwrap_or("observed-host-v1");
     match xtask::performance::inspect_current_host(target_id) {
@@ -753,7 +747,7 @@ fn populate_performance_host(
 
 fn validate_gate_prerequisites(
     request: &PerformanceArguments,
-    run: &mut xtask::performance::PerformanceRunV5,
+    run: &mut xtask::performance::PerformanceRunV6,
 ) {
     if run.build_profile != "release" {
         run.diagnostics
@@ -763,14 +757,17 @@ fn validate_gate_prerequisites(
         run.diagnostics
             .push("PERF_GATE_REQUIRES_CLEAN_COMMIT".to_owned());
     }
-    if request.target.as_deref() != Some(xtask::performance::THOTH_TARGET_ID) {
+    if request.target.as_deref() != Some(xtask::performance::LINUX_RELEASE_TARGET_ID) {
         run.diagnostics
             .push("PERF_GATE_TARGET_UNSUPPORTED".to_owned());
     }
     match &run.target_fingerprint {
-        Some(fingerprint) => run
-            .diagnostics
-            .extend(xtask::performance::validate_thoth_fingerprint(fingerprint)),
+        Some(fingerprint) => {
+            run.diagnostics
+                .extend(xtask::performance::validate_linux_release_fingerprint(
+                    fingerprint,
+                ))
+        }
         None => run
             .diagnostics
             .push("PERF_TARGET_FINGERPRINT_UNAVAILABLE".to_owned()),

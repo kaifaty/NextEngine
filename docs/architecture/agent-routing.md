@@ -4,8 +4,8 @@
 |---|---|
 | ID | ROUTE-001 |
 | Статус | Accepted |
-| Версия | 2.33 |
-| Последняя проверка | 2026-08-20 |
+| Версия | 2.34 |
+| Последняя проверка | 2026-08-21 |
 
 Детерминированная маршрутизация от типа задачи к обязательным документам.
 Назначение — не дать агенту (или человеку) начать изменение, не прочитав
@@ -86,7 +86,7 @@ Check column применяется перед final handoff/readiness claim, н
 | Creator runtime scenario, exact assertions and failure-preserving minimization | [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-29](29-platform-host-and-application-session.md) | ADR-022, ADR-030, ADR-046, ADR-047, ADR-048, ADR-087, ADR-090 | focused creator scenario matrix, fast, play, persistence-replay, content-package, host-check; conditional Linux platform for shared session path |
 | Public Replay V10 validation, first divergence and bounded domain inspection | [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md) | ADR-022, ADR-025, ADR-030, ADR-046, ADR-048, ADR-074, ADR-088, ADR-090 | focused next_cli, fast, persistence-replay, host-check; content-package when authoring/package activation changes |
 | Platform host, application session, presentation authority, Save/Load/close | [SPEC-29](29-platform-host-and-application-session.md) | ADR-028, ADR-035, ADR-047, ADR-090 for Linux-only host policy; ADR-087 for the bounded creator scenario session consumer | play, persistence-replay, platform |
-| Current performance budgets and evidence | [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md) for R5 | ADR-016, ADR-036, ADR-038, ADR-045, ADR-049, ADR-060, ADR-061, ADR-062, ADR-063, ADR-090; ADR-074 for R4 tier cognition | Linux report-only performance until R7c accepts hard authority |
+| Current performance budgets and evidence | [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-35](35-deterministic-humanoid-training-substrate.md) for R5 | ADR-016, ADR-038, ADR-045, ADR-049, ADR-062, ADR-063, ADR-090, ADR-091; ADR-074 for R4 tier cognition | conditional report while iterating; exact ADR-091 ten-run baseline plus fixed three-run gate for R2–R5 release evidence |
 | Future generic scheduler/resource framework after bounded R3 (Proposed track) | [SPEC-23](23-jobs-memory-resource-residency-and-io-backpressure.md) | ADR-046, ADR-051 (scope exclusion) | none until a second production consumer exists |
 | Tooling, creator CLI/SDK, observability | [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [Creator SDK beta](../creator-sdk.md) | ADR-083, ADR-084, ADR-085, ADR-086, ADR-087, ADR-088 and ADR-089 for the current public creator surface and governed external workflow | fast; persistence-replay for replay tooling; content-package for creator/content workflow |
 | Gothic importer boundary, neutral artifacts | [SPEC-10](10-gothic-importer-boundary.md) | ADR-001 | content-package |

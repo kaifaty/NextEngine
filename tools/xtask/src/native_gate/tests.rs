@@ -788,7 +788,7 @@ fn malformed_identity_hashes_and_diagnostics_are_rejected() {
 #[test]
 fn bundle_validation_loads_strict_fail_report_and_hashes_every_present_check() {
     let bundle = TempBundle::new();
-    let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
+    let mut report = controlled_fail_report(LINUX_TARGET_TRIPLE);
     materialize_check_reports(&bundle, &mut report);
     write_target_report(&bundle, &report);
 
@@ -835,9 +835,9 @@ fn bundle_validation_rejects_missing_or_tampered_check_reports() {
 }
 
 #[test]
-fn bundle_validation_rejects_performance_report_without_v5_run() {
+fn bundle_validation_rejects_performance_report_without_v6_run() {
     let bundle = TempBundle::new();
-    let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
+    let mut report = controlled_fail_report(LINUX_TARGET_TRIPLE);
     materialize_check_reports(&bundle, &mut report);
     let index = report
         .checks
@@ -859,15 +859,15 @@ fn bundle_validation_rejects_performance_report_without_v5_run() {
     write_target_report(&bundle, &report);
 
     let error = validate_native_gate_target_bundle(&bundle.report_path())
-        .expect_err("missing V5 performance run");
+        .expect_err("missing V6 performance run");
     assert_eq!(error.code(), NATIVE_GATE_REPORT_INVALID);
-    assert!(error.detail().contains("performance V5 run is missing"));
+    assert!(error.detail().contains("performance V6 run is missing"));
 }
 
 #[test]
 fn bundle_validation_rejects_wrong_performance_run_mode() {
     let bundle = TempBundle::new();
-    let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
+    let mut report = controlled_fail_report(LINUX_TARGET_TRIPLE);
     materialize_check_reports(&bundle, &mut report);
     let index = 5;
     let mut value = check_report_value(NativeGateCheckNameV1::Performance, &report);
@@ -888,28 +888,32 @@ fn bundle_validation_rejects_wrong_performance_run_mode() {
 #[test]
 fn bundle_validation_binds_performance_build_target_and_toolchain() {
     let bundle = TempBundle::new();
-    let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
+    let mut report = controlled_fail_report(LINUX_TARGET_TRIPLE);
     materialize_check_reports(&bundle, &mut report);
     let mut value = check_report_value(NativeGateCheckNameV1::Performance, &report);
     value["details"]["run"]["target_triple"] =
-        serde_json::Value::String(LINUX_TARGET_TRIPLE.to_owned());
+        serde_json::Value::String(WINDOWS_TARGET_TRIPLE.to_owned());
     let toolchain = value["details"]["run"]["toolchain"]
         .as_str()
         .expect("toolchain")
-        .replace(WINDOWS_TARGET_TRIPLE, LINUX_TARGET_TRIPLE);
+        .replace(LINUX_TARGET_TRIPLE, WINDOWS_TARGET_TRIPLE);
     value["details"]["run"]["toolchain"] = serde_json::Value::String(toolchain);
     replace_performance_check_report(&bundle, &mut report, &value);
 
     let error = check_reports::validate_check_reports(&bundle.root, &report)
         .expect_err("run target must bind to the native bundle");
-    assert!(error.detail().contains("performance target triple"));
+    assert!(
+        error
+            .detail()
+            .contains("performance build provenance is invalid: PERF_BUILD_TARGET_UNSUPPORTED")
+    );
 }
 
 #[test]
 fn bundle_validation_rejects_missing_performance_environment_evidence() {
     for field in ["target_fingerprint", "preflight"] {
         let bundle = TempBundle::new();
-        let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
+        let mut report = controlled_fail_report(LINUX_TARGET_TRIPLE);
         materialize_check_reports(&bundle, &mut report);
         let mut value = check_report_value(NativeGateCheckNameV1::Performance, &report);
         value["details"]["run"][field] = serde_json::Value::Null;
@@ -924,7 +928,7 @@ fn bundle_validation_rejects_missing_performance_environment_evidence() {
 #[test]
 fn bundle_validation_rejects_performance_diagnostics() {
     let bundle = TempBundle::new();
-    let mut report = controlled_fail_report(WINDOWS_TARGET_TRIPLE);
+    let mut report = controlled_fail_report(LINUX_TARGET_TRIPLE);
     materialize_check_reports(&bundle, &mut report);
     let mut value = check_report_value(NativeGateCheckNameV1::Performance, &report);
     value["details"]["run"]["diagnostics"] = serde_json::json!(["PERF_RUNTIME_TOOLCHAIN_MISMATCH"]);

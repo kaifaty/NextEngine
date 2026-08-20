@@ -58,11 +58,44 @@ pub fn dispatch_tier_cognition_v1(
     snapshot: &WorldPopulationSnapshotV1,
     simulation_tick: u64,
 ) -> Result<TierCognitionServiceReportV1, StrategicAgentError> {
-    snapshot
-        .validate_against(population, navigation, simulation_tick)
+    population
+        .validate_against_navigation(navigation)
         .map_err(StrategicAgentError::Population)?;
     let population_revision = population
         .revision(navigation)
+        .map_err(StrategicAgentError::Population)?;
+    let navigation_revision = navigation
+        .revision()
+        .map_err(StrategicAgentError::Population)?;
+    dispatch_tier_cognition_prevalidated_v1(
+        population,
+        navigation,
+        snapshot,
+        simulation_tick,
+        population_revision,
+        navigation_revision,
+    )
+}
+
+/// Production fast path for catalogs already validated and revision-pinned by
+/// their immutable owner. The supplied revisions must originate from that
+/// owner boundary.
+pub fn dispatch_tier_cognition_prevalidated_v1(
+    population: &WorldPopulationCatalogV1,
+    navigation: &WorldNavigationCatalogV1,
+    snapshot: &WorldPopulationSnapshotV1,
+    simulation_tick: u64,
+    population_revision: ContentHash,
+    navigation_revision: ContentHash,
+) -> Result<TierCognitionServiceReportV1, StrategicAgentError> {
+    snapshot
+        .validate_against_prevalidated_revisions(
+            population,
+            navigation,
+            simulation_tick,
+            population_revision,
+            navigation_revision,
+        )
         .map_err(StrategicAgentError::Population)?;
     let mut work_items = Vec::new();
     let mut full_evaluation_due = 0_u32;

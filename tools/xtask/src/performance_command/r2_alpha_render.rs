@@ -64,20 +64,12 @@ pub(super) fn append_metrics(
                     .max(sample.gpu_duration_microseconds)
             })
             .collect::<Vec<_>>();
-        let budget = match window.profile {
-            next_verification::R2AlphaRenderProfileV1::Primary1080p => {
-                xtask::performance::PerformanceBudgetV1 {
-                    p95_max: Some(14_000),
-                    p99_max: Some(16_670),
-                }
-            }
-            next_verification::R2AlphaRenderProfileV1::Safe720p30 => {
-                xtask::performance::PerformanceBudgetV1 {
-                    p95_max: None,
-                    p99_max: Some(33_330),
-                }
-            }
-        };
+        let critical_path_name = format!("{prefix}.critical-path");
+        let budget = xtask::performance::canonical_budget_for_metric(
+            xtask::performance::PerformanceScenarioV1::R2AlphaRender,
+            &critical_path_name,
+        )
+        .ok_or_else(|| "R2_ALPHA_RENDER_BUDGET_MISSING".to_owned())?;
         let deadline = budget
             .p99_max
             .ok_or_else(|| "R2_ALPHA_RENDER_DEADLINE_MISSING".to_owned())?;
@@ -89,7 +81,7 @@ pub(super) fn append_metrics(
         )
         .map_err(|error| error.to_string())?;
         metrics.push(xtask::performance::PerformanceMetricV1::from_samples(
-            format!("{prefix}.critical-path"),
+            critical_path_name,
             "microseconds",
             critical_path,
             Some(budget),

@@ -2,21 +2,21 @@ use super::*;
 
 fn fingerprint() -> PerformanceTargetFingerprintV1 {
     PerformanceTargetFingerprintV1 {
-        target_id: THOTH_TARGET_ID.to_owned(),
-        hostname: "THOTH".to_owned(),
+        target_id: LINUX_RELEASE_TARGET_ID.to_owned(),
+        hostname: "kaifaty-B550I-AORUS-PRO-AX".to_owned(),
         cpu_model: "AMD Ryzen 9 3950X 16-Core Processor".to_owned(),
         physical_cores: 16,
         logical_threads: 32,
         gpu_model: "NVIDIA GeForce RTX 3080".to_owned(),
         gpu_vram_mib: 10_240,
         ram_bytes: 32 * 1024 * 1024 * 1024,
-        storage_model: "WDS100T1X0E-00AFY0".to_owned(),
-        storage_bytes: 1_000_204_886_016,
-        os_name: "Microsoft Windows 11 Pro".to_owned(),
-        os_build: "26200".to_owned(),
-        bios_version: "test-bios".to_owned(),
-        gpu_driver: "610.88".to_owned(),
-        power_plan: "AMD Ryzenв„ў High Performance".to_owned(),
+        storage_model: "SAMSUNG MZVL2512HCJQ-00BH1".to_owned(),
+        storage_bytes: 512_110_190_592,
+        os_name: "Linux (Ubuntu 26.04 LTS)".to_owned(),
+        os_build: "26.04; kernel 7.0.0-29-generic".to_owned(),
+        bios_version: "F16e".to_owned(),
+        gpu_driver: "610.43.02".to_owned(),
+        power_plan: "linux-governor:performance".to_owned(),
     }
 }
 
@@ -48,12 +48,12 @@ fn nearest_rank_retains_outliers() {
 }
 
 #[test]
-fn thoth_fingerprint_is_exact_on_invalidating_fields() {
-    assert!(validate_thoth_fingerprint(&fingerprint()).is_empty());
+fn linux_release_fingerprint_is_exact_on_invalidating_fields() {
+    assert!(validate_linux_release_fingerprint(&fingerprint()).is_empty());
     let mut wrong = fingerprint();
     wrong.gpu_driver = "591.85".to_owned();
     assert_eq!(
-        validate_thoth_fingerprint(&wrong),
+        validate_linux_release_fingerprint(&wrong),
         vec!["PERF_GPU_DRIVER_MISMATCH"]
     );
 }
@@ -78,44 +78,44 @@ fn preflight_recomputes_readiness_from_typed_evidence() {
     preflight.free_ram_bytes = Some(MINIMUM_FREE_RAM_BYTES - 1);
     assert_eq!(
         preflight.validate_ready_evidence(),
-        Err(vec!["PERF_FREE_RAM_BELOW_TEN_GIB".to_owned()])
+        Err(vec!["PERF_FREE_RAM_LIMIT_NOT_MET".to_owned()])
     );
 
     preflight.free_ram_bytes = Some(MINIMUM_FREE_RAM_BYTES);
     preflight.cpu_load_percent = Some(PREFLIGHT_LOAD_PERCENT_EXCLUSIVE);
     assert_eq!(
         preflight.validate_ready_evidence(),
-        Err(vec!["PERF_CPU_LOAD_AT_OR_ABOVE_FORTY_PERCENT".to_owned()])
+        Err(vec!["PERF_CPU_LOAD_LIMIT_EXCEEDED".to_owned()])
     );
 
     preflight.cpu_load_percent = Some(PREFLIGHT_LOAD_PERCENT_EXCLUSIVE - 1);
     preflight.gpu_load_percent = Some(PREFLIGHT_LOAD_PERCENT_EXCLUSIVE);
     assert_eq!(
         preflight.validate_ready_evidence(),
-        Err(vec!["PERF_GPU_LOAD_AT_OR_ABOVE_FORTY_PERCENT".to_owned()])
+        Err(vec!["PERF_GPU_LOAD_LIMIT_EXCEEDED".to_owned()])
     );
 }
 
 #[test]
 fn schema_round_trip_rejects_unknown_fields() {
-    let mut run = PerformanceRunV5::empty(
+    let mut run = PerformanceRunV6::empty(
         PerformanceScenarioV1::Smoke,
         PerformanceModeV1::Report,
         "release",
     );
     run.target_fingerprint = Some(fingerprint());
-    assert_eq!(run.schema_version, 5);
+    assert_eq!(run.schema_version, 6);
     assert_eq!(
         run.methodology.methodology_version,
-        "nextengine-performance-v8"
+        "nextengine-performance-v9"
     );
-    assert_eq!(PERFORMANCE_REPORT_FILE_NAME, "performance-report-v5.json");
+    assert_eq!(PERFORMANCE_REPORT_FILE_NAME, "performance-report-v6.json");
     assert_eq!(
         PERFORMANCE_BASELINE_FILE_NAME,
-        "performance-baseline-v5.json"
+        "performance-baseline-v6.json"
     );
     let json = serde_json::to_vec(&run).expect("serialize run");
-    let decoded: PerformanceRunV5 = serde_json::from_slice(&json).expect("decode run");
+    let decoded: PerformanceRunV6 = serde_json::from_slice(&json).expect("decode run");
     assert_eq!(decoded, run);
 
     let mut wrong_hash = run.clone();
@@ -138,7 +138,7 @@ fn schema_round_trip_rejects_unknown_fields() {
         (2, "nextengine-performance-v2"),
         (3, "nextengine-performance-v3"),
     ] {
-        let mut historical: PerformanceRunV5 =
+        let mut historical: PerformanceRunV6 =
             serde_json::from_slice(&json).expect("decode current fixture");
         historical.schema_version = schema_version;
         historical.methodology.methodology_version = methodology_version.to_owned();
@@ -154,8 +154,9 @@ fn schema_round_trip_rejects_unknown_fields() {
         "nextengine-performance-v5",
         "nextengine-performance-v6",
         "nextengine-performance-v7",
+        "nextengine-performance-v8",
     ] {
-        let mut prior_methodology: PerformanceRunV5 =
+        let mut prior_methodology: PerformanceRunV6 =
             serde_json::from_slice(&json).expect("decode current fixture");
         prior_methodology.methodology.methodology_version = prior.to_owned();
         let diagnostics = prior_methodology
@@ -172,21 +173,21 @@ fn schema_round_trip_rejects_unknown_fields() {
         .as_object_mut()
         .expect("run object")
         .insert("unknown".to_owned(), serde_json::Value::Bool(true));
-    assert!(serde_json::from_value::<PerformanceRunV5>(value).is_err());
+    assert!(serde_json::from_value::<PerformanceRunV6>(value).is_err());
 }
 
 #[test]
 fn strict_build_provenance_pins_commit_release_and_host() {
     let commit = "a".repeat(40);
-    let toolchain = pinned_toolchain(PERFORMANCE_WINDOWS_TARGET_TRIPLE);
-    validate_performance_build_provenance(&commit, &toolchain, PERFORMANCE_WINDOWS_TARGET_TRIPLE)
+    let toolchain = pinned_toolchain(PERFORMANCE_LINUX_TARGET_TRIPLE);
+    validate_performance_build_provenance(&commit, &toolchain, PERFORMANCE_LINUX_TARGET_TRIPLE)
         .expect("exact pinned native provenance");
 
     assert_eq!(
         validate_performance_build_provenance(
             "UNKNOWN",
             &toolchain,
-            PERFORMANCE_WINDOWS_TARGET_TRIPLE,
+            PERFORMANCE_LINUX_TARGET_TRIPLE,
         ),
         Err(vec!["PERF_BUILD_COMMIT_INVALID".to_owned()])
     );
@@ -195,7 +196,7 @@ fn strict_build_provenance_pins_commit_release_and_host() {
         validate_performance_build_provenance(
             &commit,
             &wrong_release,
-            PERFORMANCE_WINDOWS_TARGET_TRIPLE,
+            PERFORMANCE_LINUX_TARGET_TRIPLE,
         ),
         Err(vec!["PERF_BUILD_RUSTC_RELEASE_MISMATCH".to_owned()])
     );
@@ -207,13 +208,20 @@ fn strict_build_provenance_pins_commit_release_and_host() {
         validate_performance_build_provenance(
             &commit,
             &wrong_commit,
-            PERFORMANCE_WINDOWS_TARGET_TRIPLE,
+            PERFORMANCE_LINUX_TARGET_TRIPLE,
         ),
         Err(vec!["PERF_BUILD_RUSTC_COMMIT_MISMATCH".to_owned()])
     );
     assert_eq!(
-        validate_performance_build_provenance(&commit, &toolchain, PERFORMANCE_LINUX_TARGET_TRIPLE,),
-        Err(vec!["PERF_BUILD_TOOLCHAIN_HOST_MISMATCH".to_owned()])
+        validate_performance_build_provenance(
+            &commit,
+            &toolchain,
+            PERFORMANCE_WINDOWS_TARGET_TRIPLE,
+        ),
+        Err(vec![
+            "PERF_BUILD_TARGET_UNSUPPORTED".to_owned(),
+            "PERF_BUILD_TOOLCHAIN_HOST_MISMATCH".to_owned(),
+        ])
     );
 }
 
@@ -231,7 +239,7 @@ fn compiled_xtask_provenance_uses_the_pinned_native_toolchain() {
 
 #[test]
 fn command_report_status_is_derived_from_the_nested_verdict() {
-    let mut run = PerformanceRunV5::empty(
+    let mut run = PerformanceRunV6::empty(
         PerformanceScenarioV1::Smoke,
         PerformanceModeV1::Report,
         "debug",
@@ -293,7 +301,7 @@ fn r5_physics_methodology_binds_the_production_humanoid_workload() {
     assert_eq!(
         performance_scenario_hash(scenario),
         sha256_hex(
-            b"nextengine.performance.r5-physics-16.v1:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:fixed-standing-controller:fresh-scene-restore:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
+            b"nextengine.performance.r5-physics-16.v2:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:fixed-standing-controller:fresh-scene-restore:adr062-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v1:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
         )
     );
 }
@@ -313,12 +321,12 @@ fn logical_resource_charge_root_rejects_tampered_totals() {
 
 #[test]
 fn production_worker_scenario_has_distinct_versioned_methodology() {
-    let run = PerformanceRunV5::empty(
+    let run = PerformanceRunV6::empty(
         PerformanceScenarioV1::ProductionWorkerSoak,
         PerformanceModeV1::Report,
         "release",
     );
-    let smoke = PerformanceRunV5::empty(
+    let smoke = PerformanceRunV6::empty(
         PerformanceScenarioV1::Smoke,
         PerformanceModeV1::Report,
         "release",
@@ -350,7 +358,7 @@ fn r2_alpha_render_is_an_available_six_window_workload() {
     assert_eq!(
         performance_scenario_hash(scenario),
         sha256_hex(
-            b"nextengine.performance.r2-alpha-render.v3:reference-alpha:frontier-relay:desktop-views=exploration+combat+ui-dialogue:active-report-host=linux-x86_64:windows-hard-host=deferred:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
+            b"nextengine.performance.r2-alpha-render.v4:reference-alpha:frontier-relay:desktop-views=exploration+combat+ui-dialogue:hard-host=ref-linux-b550i-3950x-rtx3080-v1:profiles=primary-1920x1080+fallback-b0-safe-1280x720p30:each=600-warmup+3600-measured:critical=max-cpu-extract-submit-gpu:retain-all:resource-window=sequential-six-window-production-vulkan:logical-accounting=r2-alpha-render-v1"
         )
     );
     let methodology = methodology_for(scenario);
@@ -364,18 +372,18 @@ fn r2_alpha_render_is_an_available_six_window_workload() {
         methodology
             .notes
             .iter()
-            .any(|note| note.contains("active supported development/report host"))
+            .any(|note| note.contains("sole hard release host"))
     );
 }
 
 #[test]
-fn r4_population_is_an_available_report_only_production_workload() {
+fn r4_population_is_an_available_hard_production_workload() {
     let scenario = PerformanceScenarioV1::R4_100Npc;
     assert_eq!(scenario.unavailable_reason(), None);
     assert_eq!(
         performance_scenario_hash(scenario),
         sha256_hex(
-            b"nextengine.performance.r4-100npc.v1:reference-alpha:npcs=100:cadence=16x3+32x15+52x60:warmup=1000:measured=10000:production-joint-world-services-tick:engine-graph-navigation:exact-due-trace:no-starvation:report-only:logical-accounting=r4-100npc-v1"
+            b"nextengine.performance.r4-100npc.v2:reference-alpha:npcs=100:cadence=16x3+32x15+52x60:warmup=1000:measured=10000:production-joint-world-services-tick:engine-graph-navigation:adr016-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v1:exact-due-trace:no-starvation:logical-accounting=r4-100npc-v1"
         )
     );
     let methodology = methodology_for(scenario);
@@ -394,7 +402,7 @@ fn incompatible_host_is_not_a_conditional_pass() {
     let mut wrong = fingerprint();
     wrong.hostname = "OTHER".to_owned();
     assert_eq!(
-        validate_thoth_fingerprint(&wrong),
+        validate_linux_release_fingerprint(&wrong),
         vec!["PERF_HOSTNAME_MISMATCH"]
     );
 }
@@ -451,6 +459,15 @@ fn dropped_or_unowned_spans_invalidate_instrumentation() {
         instrumentation.validate(),
         Err("UNOWNED_GAMEPLAY_SPAN".to_owned())
     );
+    instrumentation.recorded_spans = ["navigation", "tier-cognition", "runtime-stages"]
+        .into_iter()
+        .map(|category| PerformanceSpanV1 {
+            category: category.to_owned(),
+            thread_index: 0,
+            duration_microseconds: 1,
+        })
+        .collect();
+    assert_eq!(instrumentation.validate(), Ok(()));
 }
 
 #[test]
@@ -479,14 +496,14 @@ fn enabled_instrumentation_requires_parity_and_bounded_overhead_evidence() {
 
 #[test]
 fn baseline_requires_ten_clean_compatible_runs() {
-    let mut run = PerformanceRunV5::empty(
-        PerformanceScenarioV1::R2AlphaRender,
+    let mut run = PerformanceRunV6::empty(
+        PerformanceScenarioV1::R3MultiregionStreaming,
         PerformanceModeV1::Report,
         "release",
     );
     run.commit = "a".repeat(40);
     run.worktree_clean = true;
-    run.target_triple = PERFORMANCE_WINDOWS_TARGET_TRIPLE.to_owned();
+    run.target_triple = PERFORMANCE_LINUX_TARGET_TRIPLE.to_owned();
     run.toolchain = pinned_toolchain(&run.target_triple);
     run.target_fingerprint = Some(fingerprint());
     let ready_environment = PerformancePreflightV1 {
@@ -504,13 +521,10 @@ fn baseline_requires_ten_clean_compatible_runs() {
     run.scenario_hash = performance_scenario_hash(run.scenario);
     run.metrics = vec![
         PerformanceMetricV1::from_samples(
-            "frame",
+            "r3-multiregion-streaming.total",
             "microseconds",
             vec![10, 11, 12],
-            Some(PerformanceBudgetV1 {
-                p95_max: Some(20),
-                p99_max: Some(20),
-            }),
+            canonical_budget_for_metric(run.scenario, "r3-multiregion-streaming.total"),
         )
         .expect("metric"),
     ];
@@ -530,9 +544,9 @@ fn baseline_requires_ten_clean_compatible_runs() {
     run.authoritative_hashes
         .insert("state".to_owned(), "d".repeat(64));
     let runs = vec![run; 10];
-    let baseline = PerformanceBaselineV5::from_runs(&runs).expect("baseline");
+    let baseline = PerformanceBaselineV6::from_runs(&runs).expect("baseline");
     assert_eq!(baseline.calibration_runs, 10);
-    assert_eq!(baseline.target_triple, PERFORMANCE_WINDOWS_TARGET_TRIPLE);
+    assert_eq!(baseline.target_triple, PERFORMANCE_LINUX_TARGET_TRIPLE);
     assert_eq!(baseline.metrics[0].raw_samples.len(), 30);
     assert_eq!(baseline.metrics[0].sample_run_lengths, vec![3; 10]);
 
@@ -546,13 +560,10 @@ fn baseline_requires_ten_clean_compatible_runs() {
     ];
     candidate.metrics = vec![
         PerformanceMetricV1::from_sample_runs(
-            "frame",
+            "r3-multiregion-streaming.total",
             "microseconds",
             vec![vec![11, 12], vec![11, 12], vec![19, 20]],
-            Some(PerformanceBudgetV1 {
-                p95_max: Some(20),
-                p99_max: Some(20),
-            }),
+            canonical_budget_for_metric(candidate.scenario, "r3-multiregion-streaming.total"),
         )
         .expect("candidate metric"),
     ];
@@ -610,19 +621,19 @@ fn malformed_metric_run_boundaries_are_rejected() {
 
 #[test]
 fn baseline_centrally_rejects_an_incompatible_run_wire_version() {
-    let mut run = PerformanceRunV5::empty(
-        PerformanceScenarioV1::R2AlphaRender,
+    let mut run = PerformanceRunV6::empty(
+        PerformanceScenarioV1::R3MultiregionStreaming,
         PerformanceModeV1::Report,
         "release",
     );
     run.schema_version = 1;
     run.commit = "a".repeat(40);
     run.worktree_clean = true;
-    run.target_triple = PERFORMANCE_WINDOWS_TARGET_TRIPLE.to_owned();
+    run.target_triple = PERFORMANCE_LINUX_TARGET_TRIPLE.to_owned();
     run.toolchain = pinned_toolchain(&run.target_triple);
     run.target_fingerprint = Some(fingerprint());
 
-    let diagnostics = PerformanceBaselineV5::from_runs(&vec![run; 10])
+    let diagnostics = PerformanceBaselineV6::from_runs(&vec![run; 10])
         .expect_err("from_runs owns wire admission");
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic == "PERF_BASELINE_RUN_INVALID: 0: PERF_RUN_SCHEMA_MISMATCH"

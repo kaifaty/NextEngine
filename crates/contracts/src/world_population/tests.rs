@@ -159,3 +159,35 @@ fn cadence_distribution_and_active_transfer_boundary_are_exact() {
         "PHYSICAL_TRAVERSAL_REQUIRED"
     );
 }
+
+#[test]
+fn prevalidated_snapshot_path_rejects_revision_mismatch() {
+    let (navigation, population) = fixture();
+    let snapshot =
+        WorldPopulationSnapshotV1::initial(&population, &navigation).expect("initial snapshot");
+    let population_revision = population
+        .revision(&navigation)
+        .expect("population revision");
+    let navigation_revision = navigation.revision().expect("navigation revision");
+
+    assert_eq!(
+        snapshot.validate_against_prevalidated_revisions(
+            &population,
+            &navigation,
+            0,
+            ContentHash::from_bytes([0; 32]),
+            navigation_revision,
+        ),
+        Err(WorldPopulationContractError::SnapshotClosureInvalid)
+    );
+    assert_eq!(
+        snapshot.validate_against_prevalidated_revisions(
+            &population,
+            &navigation,
+            0,
+            population_revision,
+            ContentHash::from_bytes([0; 32]),
+        ),
+        Err(WorldPopulationContractError::SnapshotClosureInvalid)
+    );
+}

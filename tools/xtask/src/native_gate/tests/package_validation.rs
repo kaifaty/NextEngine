@@ -19,7 +19,7 @@ fn package_failure_diagnostics_are_valid_native_gate_codes() {
 #[test]
 fn bundle_validation_rejects_tampered_package_before_accepting_pass_report() {
     let bundle = TempBundle::new();
-    let mut report = report(WINDOWS_TARGET_TRIPLE);
+    let mut report = report(LINUX_TARGET_TRIPLE);
     materialize_check_reports(&bundle, &mut report);
     let package_root = bundle.root.join("package");
     fs::create_dir(&package_root).expect("package directory");

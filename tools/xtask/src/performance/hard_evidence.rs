@@ -1,6 +1,6 @@
 use super::{
-    PerformanceMetricV1, PerformanceRunV5, metric_run_percentiles, nearest_rank_percentile,
-    validate_sample_run_lengths,
+    PerformanceMetricV1, PerformanceRunV6, metric_run_percentiles, nearest_rank_percentile,
+    validate_metric_policy, validate_sample_run_lengths,
 };
 
 impl PerformanceMetricV1 {
@@ -39,18 +39,17 @@ impl PerformanceMetricV1 {
                 }
             }
         }
-        match &self.absolute_budget {
-            Some(budget) if budget.p95_max.is_none() && budget.p99_max.is_none() => {
-                diagnostics.push(format!("PERF_ABSOLUTE_BUDGET_EMPTY: {}", self.name));
-            }
-            None => diagnostics.push(format!("PERF_ABSOLUTE_BUDGET_MISSING: {}", self.name)),
-            Some(_) => {}
+        if let Some(budget) = &self.absolute_budget
+            && budget.p95_max.is_none()
+            && budget.p99_max.is_none()
+        {
+            diagnostics.push(format!("PERF_ABSOLUTE_BUDGET_EMPTY: {}", self.name));
         }
         finish_diagnostics(diagnostics)
     }
 }
 
-impl PerformanceRunV5 {
+impl PerformanceRunV6 {
     pub fn validate_hard_evidence(&self) -> Result<(), Vec<String>> {
         let mut diagnostics = self.validate_wire_version().err().unwrap_or_default();
         if !self.instrumentation.enabled {
@@ -88,6 +87,9 @@ impl PerformanceRunV5 {
             if let Err(errors) = metric.validate_samples_and_budget() {
                 diagnostics.extend(errors);
             }
+        }
+        if let Err(errors) = validate_metric_policy(self.scenario, &self.metrics) {
+            diagnostics.extend(errors);
         }
         let start_samples = usize::try_from(self.evidence_runs).ok();
         let complete_samples = self

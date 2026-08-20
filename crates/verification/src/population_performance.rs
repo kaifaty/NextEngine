@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use next_agent::{
     TIER_COGNITION_MAX_WORK_ITEMS_V1, TierCognitionServiceReportV1, TierCognitionWorkKindV1,
-    dispatch_tier_cognition_v1,
+    dispatch_tier_cognition_prevalidated_v1,
 };
 use next_contracts::canonical::sha256;
 use next_contracts::ids::{CommandLedgerHash, ContentHash, StateRoot, content_hash_from_bytes};
@@ -218,7 +218,7 @@ fn run_prepared_population_workload(
         )?);
 
         let cognition_started = Instant::now();
-        let profiled_tier_report = dispatch_tier_cognition_v1(
+        let profiled_tier_report = dispatch_tier_cognition_prevalidated_v1(
             population.population_catalog_or_none().ok_or_else(|| {
                 PopulationPerformanceErrorV1::new(
                     "profile tier cognition",
@@ -238,6 +238,18 @@ fn run_prepared_population_workload(
                 )
             })?,
             tick,
+            population.population_revision_or_none().ok_or_else(|| {
+                PopulationPerformanceErrorV1::new(
+                    "profile tier cognition",
+                    "population revision is missing",
+                )
+            })?,
+            population.navigation_revision_or_none().ok_or_else(|| {
+                PopulationPerformanceErrorV1::new(
+                    "profile tier cognition",
+                    "navigation revision is missing",
+                )
+            })?,
         )
         .map_err(|error| {
             PopulationPerformanceErrorV1::new("profile tier cognition", error.to_string())

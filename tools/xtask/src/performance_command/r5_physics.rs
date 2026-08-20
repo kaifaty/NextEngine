@@ -51,7 +51,7 @@ const R5_WORKER_BUDGETS: [WorkerBudget; 3] = [
 
 pub(super) fn performance_report(
     request: &PerformanceArguments,
-    mut run: xtask::performance::PerformanceRunV5,
+    mut run: xtask::performance::PerformanceRunV6,
     project_composition_lock_hash: String,
     profiling_enabled: bool,
     compare_baseline: bool,

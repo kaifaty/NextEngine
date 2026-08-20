@@ -260,7 +260,7 @@ fn parse_check_report(
                 .details
                 .run
                 .as_ref()
-                .ok_or_else(|| report_invalid("performance V5 run is missing"))?;
+                .ok_or_else(|| report_invalid("performance V6 run is missing"))?;
             run.validate_wire_version().map_err(|diagnostics| {
                 report_invalid(format!(
                     "performance run wire version is incompatible: {}",
@@ -418,7 +418,7 @@ fn parse_check_report(
 }
 
 fn validate_native_performance_environment(
-    run: &crate::performance::PerformanceRunV5,
+    run: &crate::performance::PerformanceRunV6,
     expected_target: &str,
 ) -> Result<(), NativeGateComparisonError> {
     if !run.diagnostics.is_empty() {
