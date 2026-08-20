@@ -1,5 +1,11 @@
 # Streaming speech-enhancement models for embedded capture — 2026-08-19
 
+> **Selection update (2026-08-20):** DPDFNet remains a reproducible diagnostic
+> candidate, but its current pre/post-gain route is no longer the leading default
+> after the user preferred raw capture. The raw-first, multi-branch evaluation
+> and next experiment are defined in
+> [the speech front-end follow-up](speech-input-front-end-research-2026-08-20.md).
+
 ## Scope and decision boundary
 
 This is a bounded research result for the optional `SpeechTimelineService`
