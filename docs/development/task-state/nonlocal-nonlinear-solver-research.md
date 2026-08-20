@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3D3_FAIL_ONE_TRIAL / NSR3B3D4_GRADIENT_IDENTITY_RESEARCH` |
+| Status | `ACTIVE / NSR3B3D3_FAIL_ONE_TRIAL / NSR3B3D4_FROZEN_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -156,9 +156,8 @@
   about `1e4` but need another iteration; both `/384` trials increase it.
 - **Current decision:** preserve D3 FAIL. Do not generalize the D2 one-step
   result into an unbounded residual solver or hide the fine-level overshoot.
-- **Current action:** diagnose whether the trust gradient's inherited
-  `(y-y*)` inertia term disagrees with the displacement-owned reaction
-  identity at the six D3 failure states.
+- **Current action:** implement frozen D4 legacy/owned gradient identity and
+  one-step counterfactual at the six D3 failure states.
 - **Next gate:** compare legacy/owned gradient residuals and one owned-gradient
   trust trial before selecting iteration, line search or local geometry work.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
