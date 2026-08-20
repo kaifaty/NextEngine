@@ -1,6 +1,6 @@
 # NPR1 — independent physical and canonical reclosure
 
-Status: `SPECIFIED / NPR1-A_NEXT / REPORT_ONLY`
+Status: `ACTIVE / NPR1_A_PASS / NPR1_B_NEXT / REPORT_ONLY`
 
 ## Purpose
 
@@ -58,6 +58,9 @@ Required self-tests include exact half-even vectors, negative zero,
 normal/subnormal values, i64 and lab-bound edges, NaN/infinity, N-1/N/N+1
 sample capacity, duplicate/unsorted SampleId rejection and a hand-computed
 frame root.
+
+NPR1-A now passes. Its exact roots and non-regression checks are recorded in
+the [dated evidence](../../development/nonlocal-continuum-npr1a-canonical-evidence-2026-08-20.md).
 
 ## NPR1-B independent term and convergence controls
 

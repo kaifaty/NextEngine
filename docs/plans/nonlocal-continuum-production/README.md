@@ -1,6 +1,6 @@
 # Nonlocal continuum — productionization roadmap
 
-Status: `ACTIVE / NPR1_A_CANONICAL / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `ACTIVE / NPR1_B_TERM_CONTROLS / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
 
 This roadmap starts from the completed
 [fixed-work performance decision](../../development/nonlocal-continuum-performance-decision-2026-08-20.md).
@@ -122,8 +122,9 @@ stage. Runtime, public contracts and production authority remain blocked.
 
 NPR1 is now specified by the
 [physical/canonical reclosure contract](05-npr1-physical-correctness-contract.md).
-Its first step is the isolated binary64 canonical publication boundary.
-Runtime integration and public contracts remain blocked through NPR2.
+Its isolated binary64 canonical publication boundary now passes; independent
+term/derivative controls are next. Runtime integration and public contracts
+remain blocked through NPR2.
 
 ## Stop states
 

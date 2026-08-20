@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NPR1_A_CANONICAL / REPORT_ONLY` |
+| Status | `ACTIVE / NPR1_B_TERM_CONTROLS / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-production` |
 | Scope | Evidence-gated path from the retained Nonlocal GPU lab to one bounded basin production candidate |
@@ -15,8 +15,8 @@
   profile; it is eligible for NPR1 falsification, not runtime integration.
 - **Why:** v4 passes audit, repeated full-basin exact P1/P2 checks and all four
   h3-consistent tiny cases with declared 38,856 boundary capacity.
-- **Next action:** implement NPR1-A binary64 canonical publication and root
-  self-tests in an isolated target without changing NPR0 arithmetic.
+- **Next action:** implement NPR1-B independent energy/force directional
+  derivatives, invariance and viscosity/surface controls.
 - **Current blocker:** broader physical validity and canonical authority are
   unproven; the one-sided NPR0 hydro metric is insufficient for production.
 - **Do not retry:** runtime/public contract integration from the old 50k
@@ -43,7 +43,8 @@
 | [NPR0 v4 discriminator](../../plans/nonlocal-continuum-production/04-h3-support-profile-discriminator.md) | `EXECUTED` | audit, repeated exact preflights and complete h3 tiny corpus pass |
 | [NPR0 v4 selection evidence](../nonlocal-continuum-npr0-v4-selection-evidence-2026-08-20.md) | `NONLOCAL_PRODUCT_PROFILE_CANDIDATE` | NPR0 complete; exact h3/16 identity enters NPR1 only |
 | [NPR1 research](../nonlocal-continuum-npr1-correctness-research-2026-08-20.md) | `NPR1_CONTRACT_INPUT` | reuse hash-bound water curves; paper visuals are not a numeric oracle |
-| [NPR1 contract](../../plans/nonlocal-continuum-production/05-npr1-physical-correctness-contract.md) | `SPECIFIED / NPR1-A_NEXT` | canonical publication precedes term, smoke and nominal corpus work |
+| [NPR1 contract](../../plans/nonlocal-continuum-production/05-npr1-physical-correctness-contract.md) | `ACTIVE / NPR1-A_PASS` | term, smoke and nominal corpus work remain ordered |
+| [NPR1-A evidence](../nonlocal-continuum-npr1a-canonical-evidence-2026-08-20.md) | `NPR1_A_PASS` | isolated half-even publication and frame/trajectory roots close exactly |
 | Later `CONTINUUM-*` ProductChecks | `NOT_RUN` | no production claim |
 
 ## Decisions that still constrain the work
@@ -103,10 +104,10 @@ and NPR1 reference corpus pass.
 
 ## Next action
 
-1. Implement the isolated NPR1-A binary64 ties-to-even publication and root
-   self-tests without changing retained NPR0 arithmetic.
-2. Implement independent NPR1-B term/derivative controls.
-3. Add the deterministic cell-grid trajectory runner, then execute smoke
+1. Implement independent NPR1-B term/derivative and invariance controls.
+2. Add the deterministic cell-grid trajectory runner and canonical decode-next
+   schedule.
+3. Execute smoke and reference attestation before any nominal corpus.
    before any nominal corpus.
 
 ## Do not retry
