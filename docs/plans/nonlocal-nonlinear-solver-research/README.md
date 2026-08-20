@@ -134,3 +134,6 @@ Its main ladder shows a first-order-like trend, but the floor-disabled strict
 oracle fails at minimum trust radius; see the
 [dated evidence](../../development/nonlocal-nsr3b1d-temporal-stiffness-evidence-2026-08-20.md).
 Preserve B1D as invalid and design a floor-limited B1D1 oracle next.
+That oracle is frozen in
+[NSR3-B1D1](03b1d1-floor-limited-oracle-contract.md); it retains the arithmetic
+floor and removes only the ordinary early scale stop.
