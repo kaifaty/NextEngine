@@ -34,7 +34,7 @@ compression-only active set and common normalized cubic. Each accepted
 position becomes the next reference position; no state is reset between
 steps. Pair support is rebuilt from that reference at every outer state.
 
-Common anchors are:
+Common physical-profile anchors for B1-FF, B1-RT, B1-CR and B1-RO are:
 
 ```text
 rho0   = 1000 kg/m^3
@@ -57,9 +57,9 @@ These values are manufactured controls, not a selected production profile.
 
 ### B1-FF -- exact free flight
 
-One particle, 240 steps, nonzero initial position and velocity, and
-`g=(0,-9.81,0)`. All material terms are zero because no pair exists. At step
-`n`, require the semi-implicit closed form
+One particle at `x0=(0.25,-0.1,0.4) m`, 240 steps, initial velocity
+`v0=(1.2,0.7,-0.35) m/s`, and `g=(0,-9.81,0)`. All material terms are zero
+because no pair exists. At step `n`, require the semi-implicit closed form
 
 ```text
 v_n = v_0 + n dt g
@@ -71,21 +71,27 @@ is admitted.
 
 ### B1-RT -- rigid translation
 
-A `4x4x4` reference lattice runs 240 steps at constant non-axis-aligned
-velocity with `g=0`, pressure/viscosity coefficients present and surface
-disabled. Require maximum offset and velocity error, and center-of-mass drift
-relative to the analytic translation, each `<=1e-11`. Internal momentum and
-material-work residuals are `<=1e-12`. No pressure center may become active.
+A centered `4x4x4` reference lattice at spacing `dx` runs 240 steps at
+constant velocity `v=(0.37,-0.21,0.13) m/s` with `g=0`, pressure/viscosity
+coefficients present and surface disabled. Require maximum offset and velocity
+error, and center-of-mass drift relative to the analytic translation, each
+`<=1e-11`. Internal momentum and material-work residuals are `<=1e-12`. No
+pressure center may become active.
 
 ### B1-GC -- Galilean covariance
 
-Run a normalized pressure-plus-viscosity tetrahedron with surface disabled
-for 32 steps twice: once from its declared velocity state and once with
+Reuse the B0R tetrahedron geometry and velocity field, but explicitly set
+`kappa=200`, `lambda=20`, `mu=0`, `gamma=0` and set its synthetic rest density
+to the first-particle density divided by `1.1`. This exception exists only to
+exercise active pressure and viscosity with four particles; it is not a
+physical profile.
+
+Run it for 32 steps twice: once from its declared velocity state and once with
 uniform velocity `u=(0.6,-0.3,0.2) m/s` added to every sample. After removing
-`n dt u`, maximum
-position and velocity mismatch must be `<=1e-10`. Active-set, accept/reject,
-stop-reason and HVP-count sequences must match exactly. This is covariance,
-not bit identity of translated floating-point coordinates.
+`n dt u`, maximum position and velocity mismatch must be `<=1e-10`.
+Active-set, accept/reject, stop-reason and HVP-count sequences must match
+exactly. This is covariance, not bit identity of translated floating-point
+coordinates.
 
 ### B1-CR -- free compression/relaxation
 
@@ -106,9 +112,9 @@ first-order-or-better convergence; it does not fit a material coefficient.
 
 ### B1-RO -- rigid-rotation objectivity discriminator
 
-Kinematically rotate a centered reference lattice at `omega=2 rad/s` for
-`T=0.25 s`. Evaluate, but do not minimize, accumulated viscosity energy at
-`dt`, `dt/2` and `dt/4`.
+Kinematically rotate a centered `4x4x4` reference lattice at spacing `dx`
+about the z axis at `omega=2 rad/s` for `T=0.25 s`. Evaluate, but do not
+minimize, accumulated viscosity energy at `dt`, `dt/2` and `dt/4`.
 
 With the selected physical control `mu=0`, the finite-step normal increment
 is second order, so accumulated artificial energy must decrease quadratically:
