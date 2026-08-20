@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1S3_PASS / NSR3B1R_TRANSACTIONAL_COMPOSITION_DESIGN` |
+| Status | `ACTIVE / NSR3B1S3_PASS / NSR3B1R_TRANSACTIONAL_COMPOSITION_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -63,8 +63,8 @@
 - **Current decision:** select `EMBEDDED_SPECTRAL_ERROR_CONTROLLER_R0` only for
   report-only CPU research. It is an accuracy mechanism, not yet an efficient
   production policy.
-- **Current action:** freeze B1R transactional composition over the original
-  `0.05 s` multi-step horizon, with an independently finer reference.
+- **Current action:** implement the frozen B1R transactional composition over
+  the original `0.05 s` horizon and fixed `96/192/384` reference ladder.
 - **Next gate:** B1R must bound accumulated error and publish recurring
   spectrum/comparator work before B2 may be designed.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
@@ -216,12 +216,11 @@
 
 ## Exact next action
 
-1. Freeze B1R macro-frame transaction, state rollback and spectrum cadence.
-2. Compose accepted states through the original `0.05 s` horizon without
+1. Compose accepted states through the original `0.05 s` horizon without
    borrowing comparator state.
-3. Compare against an independently finer trajectory and publish recurring
+2. Compare against an independently finer trajectory and publish recurring
    spectral, accepted and discarded work.
-4. Reclose/reject B1 multi-step selection; authorize B2 design only on PASS.
+3. Reclose/reject B1 multi-step selection; authorize B2 design only on PASS.
 
 ## Reconsideration triggers
 

@@ -171,3 +171,7 @@ factor; see the
 It selects only a report-only error controller. Freeze B1R next to test its
 transactional composition over the original full multi-step horizon and to
 expose the recurring comparator cost before B2 boundary design.
+That discriminator is now frozen in
+[NSR3-B1R](03b1r-transactional-controller-contract.md): 12 transactional
+macro frames, current-state spectra, explicit rollback/discarded work and an
+independent fixed `96/192/384` reference ladder.
