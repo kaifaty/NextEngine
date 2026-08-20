@@ -27,6 +27,8 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --acoustic-substep-policy-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
   --pressure-tangent-spectrum-self-test
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
+  --spectral-substep-policy-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --describe-profile nuv-water-48k.v0
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --cpu-self-test

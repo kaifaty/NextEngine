@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_DESIGN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_DESIGN / REPORT_ONLY`
 
 Candidate identity:
 
@@ -158,3 +158,7 @@ Freeze a spectral trajectory policy next, with 48-HVP estimate cost explicit.
 That policy gate is frozen in
 [NSR3-B1S2](03b1s2-spectral-substep-policy-contract.md) at spectral target
 `0.15`; expected base/high costs are `39/43` and `78/86` substeps per frame.
+B1S2 rejects spectrum as a standalone error policy: its 2% row remains just
+over the velocity threshold; see the
+[dated evidence](../../development/nonlocal-nsr3b1s2-spectral-policy-evidence-2026-08-20.md).
+Design an embedded error controller with a new amplitude holdout next.

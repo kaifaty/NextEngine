@@ -32,5 +32,6 @@ ReferenceSolverReport run_temporal_stiffness_diagnostic_controls();
 ReferenceSolverReport run_floor_limited_temporal_oracle_controls();
 ReferenceSolverReport run_acoustic_substep_policy_controls();
 ReferenceSolverReport run_pressure_tangent_spectrum_controls();
+ReferenceSolverReport run_spectral_substep_policy_controls();
 
 } // namespace nextengine::nonlocal::fcr

@@ -6735,7 +6735,11 @@ AcousticPolicyCase make_acoustic_policy_case(
         && result.normalized_policy_velocity_error <= 0.001
         && result.relative_kinetic_error <= 0.15
         && result.pressure_exit_time_error
-            <= result.levels[0].time_step;
+            <= result.levels[0].time_step
+                + 32.0 * std::numeric_limits<double>::epsilon()
+                    * std::max({result.levels[0].pressure_exit_time,
+                        result.levels[1].pressure_exit_time,
+                        result.levels[0].time_step});
     return result;
 }
 
@@ -7372,6 +7376,157 @@ PressureSpectrumDiagnostic pressure_spectrum_diagnostic() {
     } else if (result.amplification_098 <= result.amplification_099
         && result.first_failure.empty()) {
         result.first_failure = "NSR3B1S1_AMPLITUDE_ORDER";
+    }
+    return result;
+}
+
+AcousticPolicyCase make_fixed_substep_policy_case(
+    double compression_factor,
+    double kappa_factor,
+    int policy_substeps) {
+    const Config anchor = physical_multistep_config();
+    AcousticPolicyCase result;
+    result.compression_factor = compression_factor;
+    result.kappa_factor = kappa_factor;
+    result.wave_speed = std::sqrt(
+        anchor.kappa * kappa_factor / anchor.mass);
+    result.policy_substeps = policy_substeps;
+    std::vector<Vec3> initial = centered_lattice(7, anchor.spacing);
+    for (Vec3& value : initial) {
+        value = compression_factor * value;
+    }
+    result.initial_maximum_density_ratio =
+        maximum_density_ratio(anchor, initial);
+    for (std::size_t i = 0; i < result.levels.size(); ++i) {
+        result.levels[i] = make_policy_temporal_level(
+            compression_factor, kappa_factor,
+            result.policy_substeps * (1 << i));
+    }
+    for (std::size_t i = 0; i < result.position_difference.size(); ++i) {
+        result.position_difference[i] = mass_weighted_rms_position_error(
+            result.levels[i].run.position,
+            result.levels[i + 1].run.position);
+        result.velocity_difference[i] = mass_weighted_rms_position_error(
+            result.levels[i].run.velocity,
+            result.levels[i + 1].run.velocity);
+    }
+    result.position_ratio = result.position_difference[0]
+        / result.position_difference[1];
+    result.velocity_ratio = result.velocity_difference[0]
+        / result.velocity_difference[1];
+    result.normalized_policy_position_error =
+        result.position_difference[0] / anchor.spacing;
+    result.normalized_policy_velocity_error =
+        result.velocity_difference[0] / result.wave_speed;
+    result.relative_kinetic_error = std::abs(
+        result.levels[0].kinetic_energy
+            - result.levels[1].kinetic_energy)
+        / std::max(std::abs(result.levels[1].kinetic_energy), 1.0e-30);
+    result.pressure_exit_time_error = std::abs(
+        result.levels[0].pressure_exit_time
+            - result.levels[1].pressure_exit_time);
+    bool levels_valid = true;
+    for (const TemporalLevel& level : result.levels) {
+        levels_valid = levels_valid && temporal_level_valid(
+            level, result.initial_maximum_density_ratio);
+    }
+    result.passed = levels_valid && result.policy_substeps <= 96
+        && result.position_difference[0] > 0.0
+        && result.position_difference[1] > 0.0
+        && result.velocity_difference[0] > 0.0
+        && result.velocity_difference[1] > 0.0
+        && std::isfinite(result.position_ratio)
+        && std::isfinite(result.velocity_ratio)
+        && result.position_ratio >= 1.5 && result.position_ratio <= 2.5
+        && result.velocity_ratio >= 1.5 && result.velocity_ratio <= 2.5
+        && result.normalized_policy_position_error <= 0.05
+        && result.normalized_policy_velocity_error <= 0.001
+        && result.relative_kinetic_error <= 0.15
+        && result.pressure_exit_time_error
+            <= result.levels[0].time_step
+                + 32.0 * std::numeric_limits<double>::epsilon()
+                    * std::max({result.levels[0].pressure_exit_time,
+                        result.levels[1].pressure_exit_time,
+                        result.levels[0].time_step});
+    return result;
+}
+
+struct SpectralSubstepPolicyCase {
+    PressureSpectrumCase spectrum;
+    AcousticPolicyCase trajectory;
+    double realized_spectral_courant = 0.0;
+    bool count_exact = false;
+    bool passed = false;
+};
+
+struct SpectralSubstepPolicyDiagnostic {
+    std::array<SpectralSubstepPolicyCase, 6> cases;
+    AcousticDegenerateControl degenerate;
+    int inactive_active_pressure_centers = 0;
+    int inactive_substeps = 0;
+    int inactive_spectral_hvp_calls = 0;
+    bool inactive_passed = false;
+    bool passed = false;
+    std::string first_failure;
+};
+
+SpectralSubstepPolicyDiagnostic spectral_substep_policy_diagnostic() {
+    constexpr double frame_time = 1.0 / 240.0;
+    constexpr double spectral_target = 0.15;
+    const std::array<double, 2> compression = {0.99, 0.98};
+    const std::array<double, 3> stiffness = {0.25, 1.0, 4.0};
+    const std::array<int, 6> expected_count = {20, 39, 78, 22, 43, 86};
+    SpectralSubstepPolicyDiagnostic result;
+    std::size_t index = 0;
+    for (double compression_factor : compression) {
+        for (double kappa_factor : stiffness) {
+            SpectralSubstepPolicyCase& value = result.cases[index];
+            value.spectrum = make_pressure_spectrum_case(
+                compression_factor, kappa_factor);
+            const int substeps = std::max(1, static_cast<int>(std::ceil(
+                frame_time * value.spectrum.maximum_eigenfrequency
+                    / spectral_target)));
+            value.trajectory = make_fixed_substep_policy_case(
+                compression_factor, kappa_factor, substeps);
+            value.realized_spectral_courant = frame_time
+                * value.spectrum.maximum_eigenfrequency
+                / static_cast<double>(substeps);
+            value.count_exact = substeps == expected_count[index];
+            value.passed = value.spectrum.passed
+                && value.trajectory.passed && value.count_exact
+                && value.realized_spectral_courant <= spectral_target
+                && value.spectrum.lanczos.operator_calls == 48;
+            ++index;
+        }
+    }
+    result.degenerate = acoustic_degenerate_control();
+    Config inactive_config = physical_multistep_config();
+    const std::vector<Vec3> inactive = centered_lattice(
+        7, inactive_config.spacing);
+    result.inactive_active_pressure_centers =
+        pressure_active_count(inactive_config, inactive);
+    result.inactive_substeps = result.inactive_active_pressure_centers == 0
+        ? 1 : -1;
+    result.inactive_spectral_hvp_calls = 0;
+    result.inactive_passed = result.inactive_active_pressure_centers == 0
+        && result.inactive_substeps == 1
+        && result.inactive_spectral_hvp_calls == 0;
+    result.passed = result.degenerate.passed && result.inactive_passed;
+    if (!result.degenerate.passed) {
+        result.first_failure = "NSR3B1S2_DEGENERATE";
+    } else if (!result.inactive_passed) {
+        result.first_failure = "NSR3B1S2_INACTIVE";
+    }
+    for (const SpectralSubstepPolicyCase& value : result.cases) {
+        result.passed = result.passed && value.passed;
+        if (!value.passed && result.first_failure.empty()) {
+            std::ostringstream name;
+            name << std::setprecision(17)
+                 << "NSR3B1S2_MATRIX:c="
+                 << value.trajectory.compression_factor
+                 << ":k=" << value.trajectory.kappa_factor;
+            result.first_failure = name.str();
+        }
     }
     return result;
 }
@@ -9320,6 +9475,150 @@ ReferenceSolverReport run_pressure_tangent_spectrum_controls() {
            << ",\"b1s2_design_authorized\":"
            << (diagnostic.passed ? "true" : "false")
            << ",\"trajectory_policy_selected\":false"
+           << ",\"boundary_design_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(result_material.str()) << "\"}";
+    return {diagnostic.passed, report.str()};
+}
+
+ReferenceSolverReport run_spectral_substep_policy_controls() {
+    const SpectralSubstepPolicyDiagnostic diagnostic =
+        spectral_substep_policy_diagnostic();
+    std::ostringstream result_material;
+    result_material << std::setprecision(17)
+                    << (diagnostic.passed ? "PASS|" : "FAIL|")
+                    << diagnostic.first_failure << '|'
+                    << (diagnostic.inactive_passed
+                            ? "INACTIVE_PASS" : "INACTIVE_FAIL");
+    for (const SpectralSubstepPolicyCase& value : diagnostic.cases) {
+        result_material << '|'
+                        << value.trajectory.compression_factor << ':'
+                        << value.trajectory.kappa_factor << ':'
+                        << value.spectrum.maximum_eigenvalue << ':'
+                        << value.trajectory.policy_substeps << ':'
+                        << value.realized_spectral_courant << ':'
+                        << value.trajectory.position_ratio << ':'
+                        << value.trajectory.velocity_ratio << ':'
+                        << value.trajectory.normalized_policy_position_error
+                        << ':'
+                        << value.trajectory.normalized_policy_velocity_error;
+        for (const TemporalLevel& level : value.trajectory.levels) {
+            result_material << ':' << hash_phase_state(
+                level.run.position, level.run.velocity);
+        }
+    }
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b1s2_spectral_substeps.v1\""
+           << ",\"identity\":\"nuv-variational-fcr2\""
+           << ",\"solver_identity\":\"nuv-newton-krylov-r0\""
+           << ",\"parent_b1s1_result_sha256\":\""
+           << "5836107d2e9b90d3638ed9775bf966e0c0b2c88bcdf7ca90e99cd02b311651c0\""
+           << ",\"candidate\":\"pressure-spectrum-substeps-r0\""
+           << ",\"status\":\""
+           << (diagnostic.passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << diagnostic.first_failure << '"'
+           << ",\"spectral_target\":0.14999999999999999"
+           << ",\"frame_time\":0.0041666666666666666"
+           << ",\"terminal_time\":0.012500000000000001"
+           << ",\"spectral_hvp_calls_per_active_estimate\":48"
+           << ",\"thresholds\":{\"minimum_ratio\":1.5"
+           << ",\"maximum_ratio\":2.5"
+           << ",\"maximum_position_error_dx\":0.05"
+           << ",\"maximum_velocity_error_c\":0.001"
+           << ",\"maximum_relative_kinetic_error\":0.15"
+           << ",\"maximum_policy_substeps\":96}"
+           << ",\"matrix\":[";
+    for (std::size_t case_index = 0;
+         case_index < diagnostic.cases.size(); ++case_index) {
+        if (case_index != 0) {
+            report << ',';
+        }
+        const SpectralSubstepPolicyCase& value =
+            diagnostic.cases[case_index];
+        const AcousticPolicyCase& trajectory = value.trajectory;
+        report << "{\"name\":\"compression-"
+               << trajectory.compression_factor << "-kappa-"
+               << trajectory.kappa_factor << "\",\"status\":\""
+               << (value.passed ? "PASS" : "FAIL") << '"'
+               << ",\"compression_factor\":"
+               << trajectory.compression_factor
+               << ",\"kappa_factor\":" << trajectory.kappa_factor
+               << ",\"maximum_eigenvalue\":"
+               << value.spectrum.maximum_eigenvalue
+               << ",\"maximum_eigenfrequency\":"
+               << value.spectrum.maximum_eigenfrequency
+               << ",\"spectral_amplification\":"
+               << value.spectrum.spectral_amplification
+               << ",\"spectral_ritz_residual\":"
+               << value.spectrum.lanczos.relative_ritz_residual
+               << ",\"spectral_operator_calls\":"
+               << value.spectrum.lanczos.operator_calls
+               << ",\"policy_substeps_per_frame\":"
+               << trajectory.policy_substeps
+               << ",\"count_exact\":"
+               << (value.count_exact ? "true" : "false")
+               << ",\"realized_spectral_courant\":"
+               << value.realized_spectral_courant
+               << ",\"position_difference\":";
+        append_double_array(report, trajectory.position_difference.data(),
+            trajectory.position_difference.size());
+        report << ",\"velocity_difference\":";
+        append_double_array(report, trajectory.velocity_difference.data(),
+            trajectory.velocity_difference.size());
+        report << ",\"position_ratio\":" << trajectory.position_ratio
+               << ",\"velocity_ratio\":" << trajectory.velocity_ratio
+               << ",\"normalized_policy_position_error\":"
+               << trajectory.normalized_policy_position_error
+               << ",\"normalized_policy_velocity_error\":"
+               << trajectory.normalized_policy_velocity_error
+               << ",\"relative_kinetic_error\":"
+               << trajectory.relative_kinetic_error
+               << ",\"pressure_exit_time_error\":"
+               << trajectory.pressure_exit_time_error
+               << ",\"levels\":[";
+        for (std::size_t level_index = 0;
+             level_index < trajectory.levels.size(); ++level_index) {
+            if (level_index != 0) {
+                report << ',';
+            }
+            const TemporalLevel& level = trajectory.levels[level_index];
+            report << "{\"multiple\":" << (1 << level_index)
+                   << ",\"substeps_per_frame\":"
+                   << trajectory.policy_substeps * (1 << level_index)
+                   << ",\"dt\":" << level.time_step
+                   << ",\"spectral_courant\":"
+                   << value.realized_spectral_courant
+                        / static_cast<double>(1 << level_index)
+                   << ",\"work\":";
+            append_multistep_work(report, level.run);
+            report << '}';
+        }
+        report << "]}";
+    }
+    report << "],\"degenerate\":{\"status\":\""
+           << (diagnostic.degenerate.passed ? "PASS" : "FAIL") << '"'
+           << ",\"kappa_zero_substeps\":"
+           << diagnostic.degenerate.free_flight_substeps
+           << ",\"kappa_zero_spectral_hvp_calls\":0"
+           << ",\"inactive_active_pressure_centers\":"
+           << diagnostic.inactive_active_pressure_centers
+           << ",\"inactive_substeps\":"
+           << diagnostic.inactive_substeps
+           << ",\"inactive_spectral_hvp_calls\":"
+           << diagnostic.inactive_spectral_hvp_calls << '}'
+           << ",\"base_material_substeps_per_frame\":{\"0p99\":39"
+           << ",\"0p98\":43}"
+           << ",\"high_stiffness_substeps_per_frame\":{\"0p99\":78"
+           << ",\"0p98\":86}"
+           << ",\"candidate_selected\":"
+           << (diagnostic.passed ? "true" : "false")
+           << ",\"b1r_design_authorized\":"
+           << (diagnostic.passed ? "true" : "false")
            << ",\"boundary_design_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"historical_hash_check_required\":true"

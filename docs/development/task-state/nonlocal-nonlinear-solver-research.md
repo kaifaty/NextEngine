@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1S1_PASS / NSR3B1S2_SPECTRAL_POLICY_DESIGN` |
+| Status | `ACTIVE / NSR3B1S2_FAIL / NSR3B1S3_ERROR_CONTROLLER_DESIGN` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -49,10 +49,15 @@
 - **Current conclusion:** dense/Lanczos `lambda_max` agrees to `7.6e-16`;
   eigenvalues scale exactly with `kappa`, while finite-state amplification
   increases from `0.7041` to `0.7790` between the two amplitudes.
-- **Current action:** freeze B1S2 `dt*omega_max` target, substep/cost caps and
-  unchanged six-case trajectory gates before execution.
-- **Next gate:** the spectral policy must repair the B1S amplitude failure
-  without hiding 48-HVP estimation cost. B1R/B2 stay blocked.
+- **Current conclusion:** spectral target `0.15` passes all 1% cases but the
+  2% row remains `0.05%--2.12%` above the normalized velocity threshold;
+  spectra, convergence and every other physical gate pass.
+- **Current decision:** spectrum is retained as an initial-step estimator, not
+  selected as a standalone error policy.
+- **Current action:** freeze a bounded embedded `n/2n/4n` error controller and
+  add an unseen 3% compression holdout before implementation.
+- **Next gate:** B1S3 must meet the unchanged errors by measured refinement and
+  expose accepted plus discarded work. B1R/B2 stay blocked.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -168,6 +173,16 @@
 - **Consequence:** no policy is selected yet, and a cheaper estimator cannot
   inherit correctness without a separate correspondence gate.
 
+### D-012 -- Reject spectrum as a standalone error estimator
+
+- **Observation:** `dt*omega<=0.15` reproduces every spectrum/count and all
+  convergence gates, but finite-amplitude velocity error remains slightly over
+  limit for the 2% row.
+- **Decision:** retain spectrum only to seed an embedded step-doubling
+  controller; do not fit another global target to the observed matrix.
+- **Consequence:** B1S3 must publish discarded comparator work and pass a new
+  amplitude holdout before any multi-step selection.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -180,12 +195,12 @@
 
 ## Exact next action
 
-1. Freeze B1S2 spectral target and exact substep formula before trajectories.
-2. Reuse the B1S six cases and `n/2n/4n` accuracy/reference convention.
-3. Charge 48 HVP calls per active spectral estimate separately from solver
-   work and publish the base/high-stiffness counts.
-4. Select/reject a report-only spectral substep policy, then design B1R only
-   on PASS.
+1. Freeze B1S3 acceptance state, tolerance norm and maximum refinement count.
+2. Reuse the six B1S2 ladders and add a 3% holdout at base stiffness.
+3. Separate accepted substeps, comparator substeps, spectral HVP and discarded
+   work; preserve exact state/reference roots.
+4. Select/reject only an embedded report-only controller, then design B1R on
+   PASS.
 
 ## Reconsideration triggers
 
