@@ -1,6 +1,6 @@
 # Nonlocal continuum — productionization roadmap
 
-Status: `ACTIVE / NPR0_REMEDIATION_1 / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `ACTIVE / NPR0_SUPPORT_REMEDIATION / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
 
 This roadmap starts from the completed
 [fixed-work performance decision](../../development/nonlocal-continuum-performance-decision-2026-08-20.md).
@@ -113,10 +113,12 @@ GPU preflights and the tiny negative wall discriminator are implemented. The
 active step is the predeclared binary64 tiny physical corpus that decides
 between unchanged-control and dimensionally-derived coefficients.
 
-That corpus has now executed and selected neither profile because both miss
-the hydro compression gate. The active bounded remediation separates iteration
-convergence, support ratio and physical coefficient scaling; NPR1 remains
-blocked.
+That corpus selected neither v3 profile. The frozen hydro remediation then
+rejected h2 through 50 iterations and found one h3/16 support-ratio candidate.
+It is not deployable as-is: exact full-basin three-layer support exceeds the
+current static-boundary capacity. The active step is a named v4
+support/capacity discriminator plus a complete four-case NPR0-E rerun; NPR1
+remains blocked.
 
 NPR1, runtime integration and public contracts are blocked until NPR0 selects
 one profile. This is an evidence dependency, not unfinished hidden work.

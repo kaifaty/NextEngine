@@ -1,6 +1,6 @@
 # NPR0-R1 — hydrostatic remediation
 
-Status: SPECIFIED / IMPLEMENTATION_NEXT / REPORT_ONLY
+Status: EXECUTED / H3_SUPPORT_REMEDIATION_CANDIDATE / NPR1_BLOCKED
 
 ## First failure
 
@@ -90,3 +90,12 @@ No wall-clock value participates in the outcome.
 
 Performance, adaptive stopping, line search and GPU timing remain blocked
 until the full tiny corpus selects one physical profile.
+
+## Execution result
+
+The physical-head h2 row fails through 50 iterations, reaching
+0.0003956033 mean positive compression. The h3 row first passes the unchanged
+gate at 16 iterations with zero positive compression. The frozen disposition
+is therefore `H3_SUPPORT_REMEDIATION_CANDIDATE`, not a selected product
+profile. Exact results and capacity consequences are recorded in the
+[dated evidence](../../development/nonlocal-continuum-npr0-hydro-remediation-evidence-2026-08-20.md).

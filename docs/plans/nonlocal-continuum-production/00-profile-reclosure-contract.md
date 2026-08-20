@@ -1,6 +1,6 @@
 # NPR0 — Nonlocal product-profile reclosure contract
 
-Status: `PROFILE_RECLOSURE_REMEDIATION_1 / NPR1_BLOCKED / REPORT_ONLY`
+Status: `H3_SUPPORT_REMEDIATION_CANDIDATE / NPR1_BLOCKED / REPORT_ONLY`
 
 ## Purpose
 
@@ -95,8 +95,12 @@ operations; a fixed ghost shell by itself cannot satisfy the boundary gate.
 NPR0-D selected that split and is specified in the
 [static-boundary contract](01-static-boundary-discriminator.md). Both full
 support profiles pass exact GPU execution preflight, and the negative wall
-fixture confirms that fixed ghosts do not provide contact. The tiny physical
-corpus is now the remaining NPR0 selection gate.
+fixture confirms that fixed ghosts do not provide contact. The first tiny
+corpus rejected both v3 profiles. Its frozen hydro remediation rejects h2
+through 50 iterations and admits only an h3 support-ratio candidate. Because
+exact three-layer full-basin support exceeds the current static-boundary
+capacity, a named v4 capacity/profile discriminator and complete NPR0-E rerun
+are required. No profile is selected.
 
 ## Exit and rollback
 

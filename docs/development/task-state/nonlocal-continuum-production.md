@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NPR0_REMEDIATION_1 / REPORT_ONLY` |
+| Status | `ACTIVE / NPR0_SUPPORT_REMEDIATION / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-production` |
 | Scope | Evidence-gated path from the retained Nonlocal GPU lab to one bounded basin production candidate |
@@ -16,10 +16,11 @@
   basin profile.
 - **Why:** spacing differs by `10×`, time step by `4.1667×`, support ratio is
   `3dx` versus `2dx`, lattice axes differ and the benchmark has no boundary.
-- **Next action:** run the bounded hydro diagnosis across iteration count,
-  support ratio and constant-gravity/Froude coefficient hypotheses.
-- **Current blocker:** both profiles fail TPH-1 mean positive compression;
-  no profile is selected and NPR1 is blocked.
+- **Next action:** freeze and execute the v4 h3/16 full-capacity profile
+  discriminator, then rerun all four NPR0-E cases with h3-consistent support.
+- **Current blocker:** only the h3/16 diagnostic passes; its 38,856 full-basin
+  boundary samples exceed the current 32,768 capacity. No profile is selected
+  and NPR1 is blocked.
 - **Do not retry:** runtime/public contract integration from the old 50k
   benchmark; it is not product-profile evidence.
 - **Reconsider when:** NPR0 selects one hash-bound basin-scale profile through
@@ -39,7 +40,8 @@
 | [NPR0 boundary evidence](../nonlocal-continuum-npr0-static-boundary-evidence-2026-08-20.md) | `TINY_CORPUS_AUTHORIZED` | both support profiles execute exactly; negative contact discriminator selects split schedule |
 | [NPR0 tiny corpus](../../plans/nonlocal-continuum-production/02-tiny-physical-corpus.md) | `EXECUTED` | immutable selection rule emits remediation and no selected profile |
 | [NPR0 tiny-corpus evidence](../nonlocal-continuum-npr0-tiny-corpus-evidence-2026-08-20.md) | `PROFILE_RECLOSURE_REMEDIATION_1` | other tiny cases pass; hydro compression rejects both coefficient profiles |
-| [NPR0 hydro remediation](../../plans/nonlocal-continuum-production/03-hydro-remediation-1.md) | `SPECIFIED` | iteration/support/physical-kappa matrix is frozen before execution |
+| [NPR0 hydro remediation](../../plans/nonlocal-continuum-production/03-hydro-remediation-1.md) | `EXECUTED` | h2 fails through 50 iterations; h3 first passes at 16 |
+| [NPR0 hydro-remediation evidence](../nonlocal-continuum-npr0-hydro-remediation-evidence-2026-08-20.md) | `H3_SUPPORT_REMEDIATION_CANDIDATE` | h3/16 requires explicit capacity/profile reclosure and full-corpus rerun |
 | Later `CONTINUUM-*` ProductChecks | `NOT_RUN` | no production claim |
 
 ## Decisions that still constrain the work
@@ -98,10 +100,12 @@ and NPR1 reference corpus pass.
 
 ## Next action
 
-1. Sweep fixed iteration counts at product h/dx without changing corpus gates.
-2. Compare source h/dx=3 and a constant-gravity/Froude scale hypothesis.
-3. Select one coherent remediation candidate or stop NPR0 after the allowed
-   second failure.
+1. Specify one v4 identity with kappa=9196.875, lambda=360, h=3dx, three
+   rooted layers, 16 iterations and explicit 38,856 boundary capacity.
+2. Run profile audit and full-basin P1/P2 exact preflights without inheriting
+   v3 performance evidence.
+3. Rerun free fall, hydro, reversible and wall cases with h3-consistent
+   support; either select a bounded NPR1 candidate or stop NPR0.
 
 ## Do not retry
 
@@ -118,6 +122,6 @@ and NPR1 reference corpus pass.
 - **Checks:** machine audit, three ordered bridge P2 preflights, four-iteration
   scale law, two full static-support P2 preflights and the negative boundary
   discriminator pass.
-- **Remaining risk:** scale law, boundary formulation, physical corpus,
+- **Remaining risk:** h3 capacity/cost, full-corpus physical validity,
   authority, coupling, persistence and integrated budget are open.
 - **Promotion needed:** later consumer-backed Accepted ADR only after NPR7.
