@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3_FAIL / NSR3B3D_REACTION_DIAGNOSTIC_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_DISPLACEMENT_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -126,10 +126,19 @@
   `D_reconstruct` and `D_contact`. Only inactive reconstruction may use a
   computed binary64 forward-error bound; active support requires a stricter
   reaction-aware stop.
-- **Current action:** implement the frozen B3D non-aborting replays, forward-
-  error certificate and charged reaction-aware-stop counterfactual.
-- **Next gate:** B3D must derive a sound reaction certificate or select an
-  affordable stricter solve before B3 can be retried.
+- **Current conclusion:** B3D validates the active reaction-aware stop. The
+  corner defect falls from `1.328e-5` to `7.12e-13 kg m/s` for two HVPs with
+  negligible state change.
+- **Current conclusion:** inactive actual defects are only `0.8%--1.4%` of
+  the computed forward bound, but cumulative `|x|/h` bounds exceed the
+  `1e-10*M*c` budget at 192/384 substeps. The certificate is correctly
+  rejected; B3 retry remains blocked.
+- **Current decision:** retain transient accepted displacement as the next
+  candidate source for velocity, rather than subtracting world positions.
+- **Current action:** implement frozen B3D1 displacement ownership and its
+  `|delta|/h` forward-error/correspondence gates.
+- **Next gate:** B3D1 must close inactive cumulative certification and retain
+  active reaction-aware accuracy before B3R can be designed.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -367,6 +376,17 @@
 - **Consequence:** B3 retry remains blocked until both parts pass. An energy-
   floor exit before reaction closure explicitly rejects reaction authority.
 
+### D-023 -- Preserve the substep displacement instead of recovering it
+
+- **Observation:** active reaction-aware replays pass cheaply, but the
+  inactive world-position forward bound grows as `|x|/h` and exceeds the
+  cumulative budget under refinement despite covering actual error tightly.
+- **Decision:** test one transient `delta` that accumulates prediction, trust
+  and contact increments; derive velocity from `delta/h` and position from
+  `x+delta`.
+- **Consequence:** no public state changes. B3 remains failed until D1 proves
+  the representation and a separately frozen B3R passes composition.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -379,12 +399,12 @@
 
 ## Exact next action
 
-1. Implement non-aborting B3D capture of all four defect classes and exact
-   causal state hashes.
-2. Evaluate the computed inactive gamma bound and reaction-aware active replay
-   with exact work accounting.
-3. Select a B3R input or stop reaction authority without changing the B3
-   failure, contact order or physical-corpus boundary.
+1. Implement displacement-owned prediction, accepted trust correction and
+   contact correction in the report-only oracle.
+2. Re-run B3D fixed ladders and active captures with the new bound, exact
+   transient storage and old-path correspondence.
+3. Select a B3R input or preserve B3 FAIL without changing physical/contact
+   semantics.
 
 ## Reconsideration triggers
 
