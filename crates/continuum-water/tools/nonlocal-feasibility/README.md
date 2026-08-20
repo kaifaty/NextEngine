@@ -35,6 +35,8 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --transactional-multistep-controller-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
   --fine-state-ownership-self-test
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
+  --split-static-boundary-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --describe-profile nuv-water-48k.v0
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --cpu-self-test
@@ -223,6 +225,13 @@ PASS requires the fixed ghost-only solve to expose penetration and the
 separately evaluated SPEC-38 swept-sphere counterfactual to stop it with exact
 fluid/reaction impulse closure. Its semantic result is
 SPLIT_BOUNDARY_REQUIRED: support samples are not a contact mechanism.
+
+The separate `--split-static-boundary-self-test` command evaluates the FCR2
+fluid-centred pressure energy with immutable static support, its analytic
+fluid HVP and virtual support reaction. It also compares two/three layers and
+runs independent face/edge/corner swept-contact controls. PASS is a bounded
+formula candidate only; it does not execute a boundary trajectory or authorize
+runtime integration.
 
 The v3 static-support profiles add the exact 24,704-sample two-layer outer
 complement to 48,000 fluid samples. Their 72,704 total solver indices

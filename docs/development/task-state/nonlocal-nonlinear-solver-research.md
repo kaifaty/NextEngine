@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1R1_PASS / NSR3B2_SPLIT_BOUNDARY_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B2_PASS / NSR3B3_SMOKE_CONTRACT_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -89,13 +89,22 @@
 - **Current decision:** B2 uses split static support/contact. Fixed samples
   enter only fluid-centered pressure density; hard swept contact and its
   reaction remain a separate nonsmooth operation.
-- **Current hypothesis:** two layers may remain sufficient at `H=3dx` because
-  the normalized cubic and its first two radial derivatives vanish at `H`;
-  B2 must prove this against a three-layer counterfactual.
-- **Current action:** implement the frozen B2 face/corner derivative,
-  reaction, layer-correspondence and face/edge/corner contact oracles.
-- **Next gate:** B2 design must separate density support from nonpenetration
-  and prove gradient/HVP/reaction semantics before any boundary trajectory.
+- **Current conclusion:** B2 passes gradient, HVP, dense-Hessian, translation,
+  virtual-reaction, capacity and independent contact gates. Its semantic/raw
+  hashes are `80a01b2e...f80` / `d6ba5f8e...9d9`.
+- **Current conclusion:** two and three layers agree exactly on the compressed
+  corner and face-slab controls. The third shell contributes no pair because
+  `W(H)=W'(H)=W''(H)=0`; the two-layer candidate remains bounded at 454
+  samples in the largest derivative fixture.
+- **Current conclusion:** the support pressure Hessian remains indefinite
+  (`lambda_min=-395/-3347` on corner/face controls), so boundary support does
+  not authorize an SPD-only solve or removal of trust-region safeguards.
+- **Current decision:** select `SPLIT_STATIC_BOUNDARY_FORMULA_CANDIDATE`.
+  Support/reaction and nonpenetration/contact remain different operations.
+- **Current action:** freeze B3 tiny smoke-trajectory composition, including
+  contact ordering, spectrum/support rebuild and independent fine reference.
+- **Next gate:** B3 must prove time composition without weakening B1R1 error
+  gates before hydrostatic or other physical-corpus execution.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -289,6 +298,17 @@
 - **Consequence:** PASS preserves the bounded two-layer candidate; mismatch
   stops for profile/capacity reclosure rather than silently raising limits.
 
+### D-019 -- Select split static-boundary formula, retain trust safeguards
+
+- **Observation:** B2's two/three-layer values agree exactly; independent
+  gradient/HVP/dense checks and support/contact reaction closure pass. The
+  pressure Hessian nevertheless contains reproducible negative eigenvalues.
+- **Decision:** select `SPLIT_STATIC_BOUNDARY_FORMULA_CANDIDATE` and proceed
+  only to a tiny B3 composition smoke with the existing trust-region solver.
+- **Consequence:** fixed support is not contact, hard contact has no pressure
+  HVP, and neither hydrostatic execution nor an SPD-only shortcut is
+  authorized.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -301,11 +321,12 @@
 
 ## Exact next action
 
-1. Implement fluid-only support energy and virtual boundary reaction on face
-   and corner fixtures.
-2. Prove gradient/HVP/dense and two-versus-three-layer correspondence.
-3. Run independent face/edge/corner hard-contact and ghost-only negative
-   controls; select/reject B2 without a trajectory.
+1. Freeze one tiny gravity-loaded face/corner trajectory and exact operation
+   order for fine-state-owned adaptive substeps plus hard contact.
+2. Define independent fixed-step reference, nonpenetration, reaction/impulse,
+   active-set, negative-curvature and capacity gates before implementation.
+3. Execute B3 only after the contract is frozen; do not promote the result to
+   hydrostatic, CUDA or runtime authority.
 
 ## Reconsideration triggers
 

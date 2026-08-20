@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_DESIGN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_DESIGN / REPORT_ONLY`
 
 Candidate identity:
 
@@ -9,7 +9,7 @@ nuv-newton-krylov-r0
 ```
 
 This is a new solver lineage over the verified
-`nuv-variational-fcr1` objective. It does not reopen, repair or relabel the
+`nuv-variational-fcr2` objective. It does not reopen, repair or relabel the
 stopped SISSM/Chebyshev lineage. FCR0--FCR3-B2 reports and roots remain exact
 historical evidence. The FCR2 binary64 objective/gradient is the comparison
 oracle; DFSPH remains the water correctness reference.
@@ -197,3 +197,11 @@ The resulting
 [NSR3-B2 contract](03b2-split-static-boundary-contract.md) is frozen with
 fluid-only pressure centers, virtual support reaction, two-versus-three-layer
 correspondence and separate hard-contact oracles.
+B2 passes all derivative, reaction, layer and contact gates; see the
+[dated evidence](../../development/nonlocal-nsr3b2-split-boundary-evidence-2026-08-21.md).
+It selects `SPLIT_STATIC_BOUNDARY_FORMULA_CANDIDATE`: two layers remain exact
+for this `H=3dx` cubic identity, while the required ghost-only negative proves
+that support still cannot provide nonpenetration. The boundary pressure
+Hessian is symmetric but indefinite, so B3 must retain safeguarded trust-region
+handling. Freeze a tiny split-composition smoke trajectory next; hydrostatic,
+product-scale, CUDA and performance execution remain blocked.
