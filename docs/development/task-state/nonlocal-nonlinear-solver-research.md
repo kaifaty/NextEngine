@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3D4_PASS_OWNED_GRADIENT / NSR3B3D5_DESIGN` |
+| Status | `ACTIVE / NSR3B3D4_PASS_OWNED_GRADIENT / NSR3B3D5_FROZEN_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -163,8 +163,8 @@
   the unchanged reaction limit after their first correction.
 - **Current decision:** select `BOUNDED_OWNED_RESIDUAL_ITERATION_REQUIRED`.
   The full inertia gradient, reaction and velocity must share `delta`.
-- **Current action:** freeze a capped D5 full-trajectory residual phase with
-  owned gradient rebuild after every accepted floor-merit step.
+- **Current action:** implement frozen D5 fully owned inertia and capped
+  residual trajectory phase.
 - **Next gate:** D5 must complete all fixed traces within iteration/HVP caps or
   preserve the exact first non-decrease/limit failure.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
