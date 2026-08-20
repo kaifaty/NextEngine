@@ -88,6 +88,8 @@ the explicit surface parameter mapping in
 [its dated evidence](../../development/nonlocal-continuum-fcr1-pair-pressure-evidence-2026-08-20.md).
 FCR2 now passes and supplies the slow
 [variational-reference evidence](../../development/nonlocal-continuum-fcr2-reference-evidence-2026-08-20.md).
-It also exposes severe stiffness in pressure/combined cases. The current next
-action is FCR3-A: corrected SISSM/reference correspondence and conditioning;
-profile selection cannot begin until that preflight passes.
+It also exposes severe stiffness in pressure/combined cases. FCR3-A's
+pure-block and sole hybrid paths are now closed negative evidence.
+The active next action is the separately frozen
+[FCR3-B corrected SISSM discriminator](03b-corrected-sissm-contract.md),
+directly observed by the FCR2 objective. Profile selection remains blocked.

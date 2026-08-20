@@ -13,7 +13,7 @@
 
 - **Current conclusion:** Local block and its sole hybrid remediation are rejected; corrected SISSM must now be evaluated directly against FCR2.
 - **Why:** hybrid cuts backtracks `3788→164` but combined gradient is `7.19e-3` versus reference `3.31e-6`; repeated switch tuning is forbidden.
-- **Next action:** Freeze the corrected SISSM split, overshoot safeguard and objective/reference gates as FCR3-B.
+- **Next action:** Implement the frozen corrected SISSM split with exact-objective Armijo observation as FCR3-B.
 - **Current blocker:** None.
 - **Do not retry:** Repairing or retuning `nuv-basin-48k-static-support-h3-physical.v4`; its formula identity, coefficients and roots are closed historical evidence.
 - **Reconsider when:** Only a reviewed upstream erratum can change source interpretation; it still cannot relabel old roots.
