@@ -148,3 +148,6 @@ B1S rejects that linear policy: all 2% compression cases exceed the velocity
 accuracy limit despite clean self-convergence; see the
 [dated evidence](../../development/nonlocal-nsr3b1s-acoustic-policy-evidence-2026-08-20.md).
 Diagnose the finite-state pressure tangent spectrum before another policy.
+The bounded matrix-free/dense diagnostic is frozen in
+[NSR3-B1S1](03b1s1-pressure-tangent-spectrum-contract.md); it selects no
+trajectory target and must publish its operator cost.
