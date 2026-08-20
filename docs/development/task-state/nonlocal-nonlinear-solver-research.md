@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3D1_FAIL_ENERGY_RESOLUTION / NSR3B3D2_DIFFERENCE_RESEARCH` |
+| Status | `ACTIVE / NSR3B3D1_FAIL_ENERGY_RESOLUTION / NSR3B3D2_FROZEN_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -142,8 +142,8 @@
   reaction residual remains `1.10x--23.6x` above its mixed limit.
 - **Current decision:** preserve D1 FAIL and retain displacement ownership as
   a representation candidate only. Do not accept an unresolved energy step.
-- **Current action:** derive and freeze a per-term objective-difference
-  discriminator with a binary64 sign/error certificate.
+- **Current action:** implement the frozen D2 six-state discriminator for
+  factored objective difference, endpoint representation and residual merit.
 - **Next gate:** D2 must resolve the same objective decrement without changing
   the reaction tolerance, objective or contact semantics before B3R design.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
