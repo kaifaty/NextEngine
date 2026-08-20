@@ -29,8 +29,9 @@
   baseline mismatch, O3 endpoint pre-addition is a numeric mismatch and O4
   cell-sorted storage is exact but slower on the coherent frozen lattice.
 - DFSPH W0F/G/H/I roots and `CONTINUUM-WATER-REF-P1=PASS` remain unchanged.
-- Follow-up performance reclosure work receives a separate task state and does
-  not reopen this completed NR0–NR4 record.
+- Follow-up work is tracked in the separate
+  [performance reclosure task state](nonlocal-continuum-performance.md) and
+  does not reopen this completed NR0–NR4 record.
 
 ## Decisions
 

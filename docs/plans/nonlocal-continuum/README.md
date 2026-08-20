@@ -56,6 +56,11 @@ solver/profile decision with fresh roots and a fresh correctness corpus. It
 does not itself land that decision. W3 coupling, public contracts, persistence
 and production promotion remain blocked.
 
+The separately rooted follow-up is the
+[Nonlocal performance reclosure roadmap](../nonlocal-continuum-performance/README.md).
+It begins at exact-50k/dynamic corpus closure and cannot relabel this 48k
+feasibility result as the production `4/6 ms` gate.
+
 The NR2 `8 ms` threshold is a feasibility cutoff, not the existing `4/6 ms`
 standalone performance PASS. The eventual integrated consumer would still
 need the ADR-081 successor `world-dynamics-step` budget.

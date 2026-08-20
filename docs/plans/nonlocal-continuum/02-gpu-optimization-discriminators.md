@@ -1,6 +1,6 @@
 # NR2/NR3 — Nonlocal GPU optimization discriminators
 
-Status: `EXECUTED / NR2_FIXED_WORK_COMPLETE / O4_STABLE_SAMPLE_RETAINED / NR4_NEXT / REPORT_ONLY`
+Status: `EXECUTED / NR2_FIXED_WORK_COMPLETE / O4_STABLE_SAMPLE_RETAINED / NR4_COMPLETE / REPORT_ONLY`
 
 The source-atomic [NR1 evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md)
 did not authorize this ladder. The separately specified
@@ -11,8 +11,8 @@ unblocked O1. The [O1 execution report](../../development/nonlocal-continuum-nr2
 retains `nuv-gather-directed-r0 + pointer-swap-o1` as the O2 input. The
 [O2 execution report](../../development/nonlocal-continuum-nr2-o2-evidence-2026-08-20.md)
 now retains `nuv-terms-specialized-o2` as the O3 input. RC1, O1 and O2 timings
-remain bounded observations until the ordered ladder and final retained-path
-profiler capture are complete.
+remain bounded adjacent observations; the completed ladder and final retained-
+path profiler capture provide the aggregate fixed-work evidence.
 
 The [O3 execution report](../../development/nonlocal-continuum-nr2-o3-evidence-2026-08-20.md)
 rejects `nuv-unique-pair-segmented-o3` at stiff-surface i2 correspondence.
@@ -160,7 +160,8 @@ regresses all three adjacent totals and exits `O4_RETAINED_STABLE_SAMPLE`.
 The final retained stack passes HN-3 at `3.27688x` geometric mean and the 48k
 research cutoff at `4.019520 ms` p95. Final profiler attribution leaves no
 untested O5 stage owning `20%`; O5 is not admitted and optional O6 is not
-funded without a bounded packed-field hypothesis. NR2 proceeds to NR4.
+funded without a bounded packed-field hypothesis. NR2 handed its retained
+identity to the now-closed NR4 decision.
 
 ### O5 — Clear/pass/launch reduction
 
@@ -266,7 +267,11 @@ attribution, memory, conclusion and rollback status. Raw reports and captures
 remain external and hash-bound.
 
 No percentage is added across non-adjacent runs, devices or profile identities.
-The final NR4 decision cites only complete applicable gates.
+The final
+[NR4 decision](../../development/nonlocal-continuum-nr4-decision-2026-08-20.md)
+selected `NONLOCAL_48K_RECLOSURE_CANDIDATE` from the complete applicable gates.
+Further work belongs to the separate
+[performance reclosure roadmap](../nonlocal-continuum-performance/README.md).
 
 ## Non-goals
 

@@ -76,5 +76,6 @@ The full fixed-work evidence is recorded in
 NR1 source-atomic stiff-surface failure and NR2-O3 numeric mismatch remain
 negative evidence; NR4 does not relabel either result as passing.
 
-The next work item is a separately rooted Nonlocal performance reclosure
-roadmap; it is not part of this closed NR0–NR4 task.
+The next work item is the separately rooted
+[Nonlocal performance reclosure roadmap](../plans/nonlocal-continuum-performance/README.md);
+it is not part of this closed NR0–NR4 task.
