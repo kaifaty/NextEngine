@@ -97,12 +97,23 @@ __global__ void compute_grid_keys(
     int count,
     float3 origin,
     float cell_size,
-    int3 dimensions) {
+    int3 dimensions,
+    int* error_flag) {
     const int index = blockIdx.x * blockDim.x + threadIdx.x;
     if (index >= count) {
         return;
     }
-    keys[index] = cell_key(position[index], origin, cell_size, dimensions);
+    const float3 point = position[index];
+    const float x = (point.x - origin.x) / cell_size;
+    const float y = (point.y - origin.y) / cell_size;
+    const float z = (point.z - origin.z) / cell_size;
+    if (!isfinite(x) || !isfinite(y) || !isfinite(z)
+        || x < 0.0F || x >= static_cast<float>(dimensions.x)
+        || y < 0.0F || y >= static_cast<float>(dimensions.y)
+        || z < 0.0F || z >= static_cast<float>(dimensions.z)) {
+        atomicExch(error_flag, 1);
+    }
+    keys[index] = cell_key(point, origin, cell_size, dimensions);
     indices[index] = index;
 }
 
@@ -136,7 +147,8 @@ __global__ void visit_grid_neighbors(
     int count,
     float3 origin,
     float horizon,
-    int3 dimensions) {
+    int3 dimensions,
+    int* error_flag) {
     const int particle = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle >= count) {
         return;
@@ -174,7 +186,11 @@ __global__ void visit_grid_neighbors(
                     const float3 delta = subtract3(point, position[candidate]);
                     if (dot3(delta, delta) <= support_squared) {
                         if constexpr (Fill) {
-                            neighbors[cursor++] = candidate;
+                            if (cursor < offsets[particle + 1]) {
+                                neighbors[cursor++] = candidate;
+                            } else {
+                                atomicExch(error_flag, 1);
+                            }
                         }
                         ++degree;
                     }
@@ -275,7 +291,8 @@ __global__ void visit_grid_neighbors_cell_sorted(
     int count,
     float3 origin,
     float horizon,
-    int3 dimensions) {
+    int3 dimensions,
+    int* error_flag) {
     const int storage_owner = blockIdx.x * blockDim.x + threadIdx.x;
     if (storage_owner >= count) {
         return;
@@ -315,7 +332,11 @@ __global__ void visit_grid_neighbors_cell_sorted(
                         subtract3(point, logical_position[candidate_sample]);
                     if (dot3(delta, delta) <= support_squared) {
                         if constexpr (Fill) {
-                            neighbors[cursor++] = sample_to_storage[candidate_sample];
+                            if (cursor < offsets[storage_owner + 1]) {
+                                neighbors[cursor++] = sample_to_storage[candidate_sample];
+                            } else {
+                                atomicExch(error_flag, 1);
+                            }
                         }
                         ++degree;
                     }
@@ -331,6 +352,21 @@ __global__ void visit_grid_neighbors_cell_sorted(
 __global__ void finish_offsets(const int* counts, int* offsets, int count) {
     if (blockIdx.x == 0 && threadIdx.x == 0) {
         offsets[count] = count == 0 ? 0 : offsets[count - 1] + counts[count - 1];
+    }
+}
+
+__global__ void clamp_neighbor_offsets(
+    int* offsets,
+    int count,
+    int capacity,
+    int* error_flag) {
+    const int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index > count) {
+        return;
+    }
+    if (offsets[index] > capacity) {
+        offsets[index] = capacity;
+        atomicExch(error_flag, 1);
     }
 }
 
@@ -1311,6 +1347,7 @@ struct CapturedRun {
     bool local_solve_failed = false;
     bool reverse_map_valid = true;
     bool storage_map_valid = true;
+    bool neighbor_build_valid = true;
     std::string storage_to_sample_sha256;
     std::string sample_to_storage_sha256;
     std::string physical_csr_sha256;
@@ -1345,6 +1382,12 @@ GridDescription describe_grid(const Fixture& fixture) {
         maximum.y = std::max(maximum.y, particle.position.y);
         maximum.z = std::max(maximum.z, particle.position.z);
     }
+    minimum.x -= fixture.grid_margin;
+    minimum.y -= fixture.grid_margin;
+    minimum.z -= fixture.grid_margin;
+    maximum.x += fixture.grid_margin;
+    maximum.y += fixture.grid_margin;
+    maximum.z += fixture.grid_margin;
     GridDescription grid;
     grid.origin = make_float3(
         static_cast<float>(minimum.x - fixture.horizon),
@@ -1417,13 +1460,50 @@ Fixture performance_fixture(const Profile& profile, int iterations) {
     fixture.gamma = profile.gamma;
     fixture.terms = profile.terms;
     fixture.iterations = iterations;
+    fixture.pair_capacity = profile.max_directed_pairs;
+    fixture.grid_margin = profile.grid_margin;
+    fixture.advected = profile.advected;
+    fixture.trace_length = profile.trace_length;
     fixture.particles.reserve(profile.samples);
-    for (int z = 0; z < profile.lattice_z; ++z) {
-        for (int y = 0; y < profile.lattice_y; ++y) {
-            for (int x = 0; x < profile.lattice_x; ++x) {
-                fixture.particles.push_back({
-                    {x * profile.spacing, y * profile.spacing, z * profile.spacing}, {}, false});
-            }
+    if (profile.record_version >= 1) {
+        fixture.lattice_index_by_sample.reserve(profile.samples);
+    }
+    const double center_x = 0.5 * static_cast<double>(profile.lattice_x - 1) * profile.spacing;
+    const double center_y = 0.5 * static_cast<double>(profile.lattice_y - 1) * profile.spacing;
+    const double center_z = 0.5 * static_cast<double>(profile.lattice_z - 1) * profile.spacing;
+    for (std::size_t sample = 0; sample < profile.samples; ++sample) {
+        const std::size_t lattice =
+            profile.initialization_order == InitializationOrder::AffinePermutation
+            ? (profile.permutation_multiplier * sample + profile.permutation_offset)
+                % profile.samples
+            : sample;
+        const int x = static_cast<int>(lattice % static_cast<std::size_t>(profile.lattice_x));
+        const int y = static_cast<int>(
+            (lattice / static_cast<std::size_t>(profile.lattice_x))
+            % static_cast<std::size_t>(profile.lattice_y));
+        const int z = static_cast<int>(
+            lattice / (static_cast<std::size_t>(profile.lattice_x)
+                * static_cast<std::size_t>(profile.lattice_y)));
+        Vec3 position = profile.record_version == 0
+            ? Vec3{x * profile.spacing, y * profile.spacing, z * profile.spacing}
+            : Vec3{
+                  center_x + profile.lattice_scale * (x * profile.spacing - center_x),
+                  center_y + profile.lattice_scale * (y * profile.spacing - center_y),
+                  center_z + profile.lattice_scale * (z * profile.spacing - center_z)};
+        Vec3 velocity{};
+        if (profile.advected) {
+            const double nx = (position.x - center_x) / std::max(center_x, profile.spacing);
+            const double ny = (position.y - center_y) / std::max(center_y, profile.spacing);
+            const double nz = (position.z - center_z) / std::max(center_z, profile.spacing);
+            constexpr double PI = 3.141592653589793238462643383279502884;
+            velocity = {
+                -0.20 * ny,
+                0.20 * nx,
+                0.05 * std::sin(PI * nx) * std::sin(PI * ny) * std::cos(PI * nz)};
+        }
+        fixture.particles.push_back({position, velocity, false});
+        if (profile.record_version >= 1) {
+            fixture.lattice_index_by_sample.push_back(static_cast<int>(lattice));
         }
     }
     return fixture;
@@ -1442,6 +1522,14 @@ std::string fixture_input_hash(const Fixture& fixture) {
         data << particle.position.x << ',' << particle.position.y << ',' << particle.position.z
              << ';' << particle.velocity.x << ',' << particle.velocity.y << ','
              << particle.velocity.z << ';' << particle.fixed << '|';
+    }
+    if (!fixture.lattice_index_by_sample.empty()) {
+        data << "v1|pair_capacity:" << fixture.pair_capacity << "|grid_margin:"
+             << fixture.grid_margin << "|advected:" << fixture.advected
+             << "|trace_length:" << fixture.trace_length << "|lattice_index:";
+        for (int index : fixture.lattice_index_by_sample) {
+            data << index << ',';
+        }
     }
     return sha256_hex(data.str());
 }
@@ -1542,9 +1630,11 @@ public:
           storage_mode_(storage_mode),
           count_(static_cast<int>(fixture.particles.size())),
           grid_(describe_grid(fixture)),
-          pair_capacity_(fixture.particles.size() <= 256U
-                  ? fixture.particles.size() * fixture.particles.size()
-                  : fixture.particles.size() * 123U),
+          pair_capacity_(fixture.pair_capacity != 0U
+                  ? fixture.pair_capacity
+                  : (fixture.particles.size() <= 256U
+                          ? fixture.particles.size() * fixture.particles.size()
+                          : fixture.particles.size() * 123U)),
           kernel_scale_(host_cuda_kernel_scale(
               static_cast<float>(fixture.spacing), static_cast<float>(fixture.horizon))) {
         if (count_ <= 0) {
@@ -1579,6 +1669,10 @@ public:
                 || term_kernel_mode_ != TermKernelMode::SpecializedO2)) {
             throw std::invalid_argument(
                 "cell-sorted-o4 requires gather, pointer-swap-o1 and specialized-o2");
+        }
+        if (fixture_.advected && storage_mode_ == StorageMode::CellSortedO4) {
+            throw std::invalid_argument(
+                "advected cell-sorted storage requires the later NP1-P3 dynamic remap path");
         }
         allocate_device_storage();
         upload_fixture();
@@ -1627,9 +1721,18 @@ public:
         cudaFree(storage_to_sample_);
         cudaFree(sample_to_storage_);
         cudaFree(storage_error_flag_);
+        cudaFree(captured_reference_);
+        cudaFree(neighbor_error_flag_);
     }
 
-    CapturedRun execute(bool capture) {
+    void reset_seed() {
+        upload_fixture();
+    }
+
+    CapturedRun execute(bool capture, bool advance = false) {
+        if (advance && !fixture_.advected) {
+            throw std::invalid_argument("state advance requires an advected fixture");
+        }
         const float3* solver_reference = storage_mode_ == StorageMode::CellSortedO4
             ? sorted_reference_ : reference_;
         const float3* solver_initial_velocity = storage_mode_ == StorageMode::CellSortedO4
@@ -1847,6 +1950,28 @@ public:
                 solver_reference, current_, solver_fixed, final_velocity_, count_,
                 static_cast<float>(fixture_.time_step));
         });
+        const float3* captured_reference = solver_reference;
+        if (capture && advance) {
+            check_cuda(cudaMemcpyAsync(
+                           captured_reference_, solver_reference,
+                           static_cast<std::size_t>(count_) * sizeof(float3),
+                           cudaMemcpyDeviceToDevice),
+                "capture dynamic reference positions");
+            captured_reference = captured_reference_;
+        }
+        if (advance) {
+            timed(intervals, EventInterval::Stage::Handoff, [&] {
+                check_cuda(cudaMemcpyAsync(
+                               reference_, current_, static_cast<std::size_t>(count_) * sizeof(float3),
+                               cudaMemcpyDeviceToDevice),
+                    "publish dynamic reference positions");
+                check_cuda(cudaMemcpyAsync(
+                               initial_velocity_, final_velocity_,
+                               static_cast<std::size_t>(count_) * sizeof(float3),
+                               cudaMemcpyDeviceToDevice),
+                    "publish dynamic velocity");
+            });
+        }
         check_cuda(cudaGetLastError(), "enqueue CUDA baseline");
         check_cuda(cudaEventRecord(total_end), "cudaEventRecord(total end)");
         check_cuda(cudaEventSynchronize(total_end), "cudaEventSynchronize(total end)");
@@ -1878,13 +2003,19 @@ public:
                 "copy O4 storage flag");
             result.storage_map_valid = storage_failed == 0;
         }
+        int neighbor_failed = 0;
+        check_cuda(cudaMemcpy(
+                       &neighbor_failed, neighbor_error_flag_, sizeof(int), cudaMemcpyDeviceToHost),
+            "copy neighbor build flag");
+        result.neighbor_build_valid = neighbor_failed == 0;
+        result.local_solve_failed = result.local_solve_failed || neighbor_failed != 0;
         float total_ms = 0.0F;
         check_cuda(cudaEventElapsedTime(&total_ms, total_begin, total_end), "elapsed total");
         result.timing.total = total_ms;
         collect_stage_timings(intervals, result.timing);
         destroy_events(intervals, total_begin, total_end);
         if (capture) {
-            capture_result(result);
+            capture_result(result, captured_reference);
         }
         return result;
     }
@@ -1920,6 +2051,10 @@ private:
         allocate(neighbor_offsets_, count + 1U);
         allocate(neighbors_, pair_capacity_);
         allocate(error_flag_, 1U);
+        allocate(neighbor_error_flag_, 1U);
+        if (fixture_.advected) {
+            allocate(captured_reference_, count);
+        }
         if (storage_mode_ == StorageMode::CellSortedO4) {
             const std::size_t before_storage = device_memory_bytes_;
             allocate(sorted_reference_, count);
@@ -1956,6 +2091,8 @@ private:
         check_cuda(cudaEventCreate(&begin), "cudaEventCreate(O4 setup begin)");
         check_cuda(cudaEventCreate(&end), "cudaEventCreate(O4 setup end)");
         check_cuda(cudaEventRecord(begin), "cudaEventRecord(O4 setup begin)");
+        check_cuda(cudaMemsetAsync(neighbor_error_flag_, 0, sizeof(int)),
+            "reset O4 setup neighbor flag");
         enqueue_grid_sort();
         check_cuda(cudaMemsetAsync(storage_error_flag_, 0, sizeof(int)), "reset O4 storage flag");
         initialize_storage_map<<<blocks_for(count_), THREADS>>>(
@@ -2082,7 +2219,7 @@ private:
     void enqueue_grid_sort() {
         compute_grid_keys<<<blocks_for(count_), THREADS>>>(
             reference_, keys_input_, indices_input_, count_, grid_.origin,
-            static_cast<float>(fixture_.horizon), grid_.dimensions);
+            static_cast<float>(fixture_.horizon), grid_.dimensions, neighbor_error_flag_);
         check_cuda(cub::DeviceRadixSort::SortPairs(
                        sort_scratch_, sort_scratch_bytes_, keys_input_, keys_sorted_, indices_input_,
                        indices_sorted_, count_),
@@ -2098,6 +2235,8 @@ private:
     }
 
     void enqueue_neighbor_construction() {
+        check_cuda(cudaMemsetAsync(neighbor_error_flag_, 0, sizeof(int)),
+            "reset neighbor build flag");
         enqueue_grid_sort();
         if (storage_mode_ == StorageMode::CellSortedO4) {
             check_cuda(cudaMemsetAsync(storage_error_flag_, 0, sizeof(int)),
@@ -2108,27 +2247,31 @@ private:
             visit_grid_neighbors_cell_sorted<false><<<blocks_for(count_), THREADS>>>(
                 reference_, indices_sorted_, storage_to_sample_, sample_to_storage_, cell_start_,
                 cell_end_, neighbor_counts_, nullptr, nullptr, count_, grid_.origin,
-                static_cast<float>(fixture_.horizon), grid_.dimensions);
+                static_cast<float>(fixture_.horizon), grid_.dimensions,
+                neighbor_error_flag_);
         } else {
             visit_grid_neighbors<false><<<blocks_for(count_), THREADS>>>(
                 reference_, indices_sorted_, cell_start_, cell_end_, neighbor_counts_, nullptr,
                 nullptr, count_, grid_.origin, static_cast<float>(fixture_.horizon),
-                grid_.dimensions);
+                grid_.dimensions, neighbor_error_flag_);
         }
         check_cuda(cub::DeviceScan::ExclusiveSum(
                        scan_scratch_, scan_scratch_bytes_, neighbor_counts_, neighbor_offsets_, count_),
             "CUB exclusive neighbor scan");
         finish_offsets<<<1, 1>>>(neighbor_counts_, neighbor_offsets_, count_);
+        clamp_neighbor_offsets<<<blocks_for(count_ + 1), THREADS>>>(
+            neighbor_offsets_, count_, static_cast<int>(pair_capacity_), neighbor_error_flag_);
         if (storage_mode_ == StorageMode::CellSortedO4) {
             visit_grid_neighbors_cell_sorted<true><<<blocks_for(count_), THREADS>>>(
                 reference_, indices_sorted_, storage_to_sample_, sample_to_storage_, cell_start_,
                 cell_end_, nullptr, neighbor_offsets_, neighbors_, count_, grid_.origin,
-                static_cast<float>(fixture_.horizon), grid_.dimensions);
+                static_cast<float>(fixture_.horizon), grid_.dimensions,
+                neighbor_error_flag_);
         } else {
             visit_grid_neighbors<true><<<blocks_for(count_), THREADS>>>(
                 reference_, indices_sorted_, cell_start_, cell_end_, nullptr, neighbor_offsets_,
                 neighbors_, count_, grid_.origin, static_cast<float>(fixture_.horizon),
-                grid_.dimensions);
+                grid_.dimensions, neighbor_error_flag_);
         }
     }
 
@@ -2188,9 +2331,7 @@ private:
         cudaEventDestroy(total_end);
     }
 
-    void capture_result(CapturedRun& result) {
-        const float3* solver_reference = storage_mode_ == StorageMode::CellSortedO4
-            ? sorted_reference_ : reference_;
+    void capture_result(CapturedRun& result, const float3* solver_reference) {
         int directed_pairs = 0;
         check_cuda(cudaMemcpy(
                        &directed_pairs, neighbor_offsets_ + count_, sizeof(int), cudaMemcpyDeviceToHost),
@@ -2302,9 +2443,11 @@ private:
         if (!storage_distances.empty()) {
             result.mean_neighbor_storage_distance =
                 storage_distance_sum / static_cast<double>(storage_distances.size());
-            std::sort(storage_distances.begin(), storage_distances.end());
             const std::size_t p95_index = static_cast<std::size_t>(std::ceil(
                 0.95 * static_cast<double>(storage_distances.size()))) - 1U;
+            std::nth_element(
+                storage_distances.begin(), storage_distances.begin() + p95_index,
+                storage_distances.end());
             result.p95_neighbor_storage_distance = storage_distances[p95_index];
         }
 
@@ -2428,6 +2571,8 @@ private:
     int* storage_to_sample_ = nullptr;
     int* sample_to_storage_ = nullptr;
     int* storage_error_flag_ = nullptr;
+    float3* captured_reference_ = nullptr;
+    int* neighbor_error_flag_ = nullptr;
 };
 
 bool finite_state(const OracleResult& state) {
@@ -4482,6 +4627,468 @@ CommandReport run_cuda_retained_tournament(
     output << ",\"raw_total_ms\":";
     append_raw_totals(output, timings[1]);
     output << "}},\"device\":" << device_json() << '}';
+    return {passed, output.str()};
+}
+
+namespace {
+
+struct DegreeDistribution {
+    std::size_t minimum = 0;
+    double mean = 0.0;
+    std::size_t p95 = 0;
+    std::size_t maximum = 0;
+};
+
+DegreeDistribution degree_distribution(const CapturedRun& run) {
+    if (run.offsets.size() < 2U) {
+        throw std::invalid_argument("degree distribution requires a non-empty CSR");
+    }
+    std::vector<std::size_t> degree;
+    degree.reserve(run.offsets.size() - 1U);
+    double sum = 0.0;
+    for (std::size_t owner = 0; owner + 1U < run.offsets.size(); ++owner) {
+        const std::size_t value = static_cast<std::size_t>(
+            run.offsets[owner + 1U] - run.offsets[owner]);
+        degree.push_back(value);
+        sum += static_cast<double>(value);
+    }
+    const auto bounds = std::minmax_element(degree.begin(), degree.end());
+    const std::size_t minimum = *bounds.first;
+    const std::size_t maximum = *bounds.second;
+    const std::size_t p95_index = static_cast<std::size_t>(
+        std::ceil(0.95 * static_cast<double>(degree.size()))) - 1U;
+    std::nth_element(degree.begin(), degree.begin() + p95_index, degree.end());
+    return {minimum, sum / static_cast<double>(degree.size()), degree[p95_index], maximum};
+}
+
+void append_degree_distribution(
+    std::ostringstream& output,
+    const DegreeDistribution& value) {
+    output << "{\"minimum\":" << value.minimum << ",\"mean\":" << value.mean
+           << ",\"p95\":" << value.p95 << ",\"maximum\":" << value.maximum << '}';
+}
+
+std::string handoff_digest(const OracleResult& state) {
+    std::ostringstream data;
+    data << std::setprecision(17) << "handoff:" << state.next_position.size() << '|';
+    for (std::size_t index = 0; index < state.next_position.size(); ++index) {
+        const Vec3& position = state.next_position[index];
+        const Vec3& velocity = state.final_velocity[index];
+        data << position.x << ',' << position.y << ',' << position.z << ';'
+             << velocity.x << ',' << velocity.y << ',' << velocity.z << '|';
+    }
+    return sha256_hex(data.str());
+}
+
+OracleResult remap_state_to_lattice(const Fixture& fixture, const OracleResult& state) {
+    if (fixture.lattice_index_by_sample.size() != fixture.particles.size()) {
+        throw std::invalid_argument("lattice remap requires one mapping per sample");
+    }
+    OracleResult result;
+    const std::size_t count = fixture.particles.size();
+    result.density.resize(count);
+    result.source.resize(count);
+    result.local_matrix.resize(count);
+    result.predicted_position.resize(count);
+    result.linearization_position.resize(count);
+    result.next_position.resize(count);
+    result.final_velocity.resize(count);
+    for (std::size_t sample = 0; sample < count; ++sample) {
+        const std::size_t lattice = static_cast<std::size_t>(
+            fixture.lattice_index_by_sample[sample]);
+        result.density[lattice] = state.density[sample];
+        result.source[lattice] = state.source[sample];
+        result.local_matrix[lattice] = state.local_matrix[sample];
+        result.predicted_position[lattice] = state.predicted_position[sample];
+        result.linearization_position[lattice] = state.linearization_position[sample];
+        result.next_position[lattice] = state.next_position[sample];
+        result.final_velocity[lattice] = state.final_velocity[sample];
+    }
+    result.energy = state.energy;
+    result.directed_pairs = state.directed_pairs;
+    result.maximum_degree = state.maximum_degree;
+    result.normalized_momentum_residual = state.normalized_momentum_residual;
+    return result;
+}
+
+std::string canonical_lattice_csr_digest(
+    const Fixture& fixture,
+    const CapturedRun& run) {
+    const std::size_t count = fixture.particles.size();
+    if (fixture.lattice_index_by_sample.size() != count) {
+        throw std::invalid_argument("canonical lattice CSR requires a complete mapping");
+    }
+    std::vector<int> sample_by_lattice(count, -1);
+    for (std::size_t sample = 0; sample < count; ++sample) {
+        const int lattice = fixture.lattice_index_by_sample[sample];
+        if (lattice < 0 || static_cast<std::size_t>(lattice) >= count
+            || sample_by_lattice[static_cast<std::size_t>(lattice)] != -1) {
+            throw std::runtime_error("sample-to-lattice mapping is not bijective");
+        }
+        sample_by_lattice[static_cast<std::size_t>(lattice)] = static_cast<int>(sample);
+    }
+    std::ostringstream data;
+    data << "canonical_lattice_csr:" << count << '|';
+    std::vector<int> row;
+    for (std::size_t lattice = 0; lattice < count; ++lattice) {
+        const int sample = sample_by_lattice[lattice];
+        row.clear();
+        row.reserve(static_cast<std::size_t>(
+            run.offsets[static_cast<std::size_t>(sample + 1)]
+            - run.offsets[static_cast<std::size_t>(sample)]));
+        for (int slot = run.offsets[static_cast<std::size_t>(sample)];
+             slot < run.offsets[static_cast<std::size_t>(sample + 1)]; ++slot) {
+            const int neighbor = run.neighbors[static_cast<std::size_t>(slot)];
+            row.push_back(fixture.lattice_index_by_sample[static_cast<std::size_t>(neighbor)]);
+        }
+        std::sort(row.begin(), row.end());
+        data << lattice << ':';
+        for (int neighbor : row) {
+            data << neighbor << ',';
+        }
+        data << '|';
+    }
+    return sha256_hex(data.str());
+}
+
+bool run_v1_oracle_subset(const Profile& profile) {
+    Profile subset = profile;
+    subset.id = profile.id + ".oracle-subset";
+    subset.lattice_x = profile.terms.surface_tension ? 4 : 6;
+    subset.lattice_y = profile.terms.surface_tension ? 3 : 6;
+    subset.lattice_z = profile.terms.surface_tension ? 2 : 6;
+    subset.samples = static_cast<std::size_t>(subset.lattice_x)
+        * static_cast<std::size_t>(subset.lattice_y)
+        * static_cast<std::size_t>(subset.lattice_z);
+    subset.max_samples = subset.samples;
+    subset.max_neighbors = subset.samples;
+    subset.max_directed_pairs = subset.samples * subset.samples;
+    subset.trace_length = 1;
+    subset.grid_margin = 0.0;
+    subset.permutation_offset %= subset.samples;
+    if (profile.terms.surface_tension) {
+        subset.terms = {false, false, false, true};
+        subset.kappa = 0.0;
+        subset.lambda = 0.0;
+        subset.mu = 0.0;
+    }
+    Fixture fixture = performance_fixture(subset, 1);
+    fixture.advected = false;
+    fixture.trace_length = 1;
+    if (profile.terms.surface_tension) {
+        const Vec3 center{
+            0.5 * static_cast<double>(subset.lattice_x - 1) * subset.spacing,
+            0.5 * static_cast<double>(subset.lattice_y - 1) * subset.spacing,
+            0.5 * static_cast<double>(subset.lattice_z - 1) * subset.spacing};
+        for (Particle& particle : fixture.particles) {
+            particle.position = particle.position - center;
+        }
+    }
+    const OracleResult cpu = run_cpu_gather_oracle(fixture);
+    CudaBaseline gpu(
+        fixture, AccumulationMode::GatherDirectedR0, HandoffMode::PointerSwapO1,
+        TermKernelMode::SpecializedO2, StorageMode::StableSampleV0);
+    const CapturedRun captured = gpu.execute(true);
+    return !captured.local_solve_failed && captured.neighbor_build_valid
+        && finite_state(captured.state) && exact_fixture_neighbors(fixture, captured)
+        && valid_symmetric_neighbors(captured, fixture.particles.size())
+        && compare_results(fixture, cpu, captured.state, profile.tolerances).passed;
+}
+
+bool run_surface_i2_preflight(const Profile& profile) {
+    if (!profile.terms.surface_tension) {
+        return true;
+    }
+    const Profile& stiff = find_profile("nuv-surface-stiff-16k-i2.v1");
+    Fixture fixture = performance_fixture(stiff, 2);
+    CudaBaseline baseline(
+        fixture, AccumulationMode::GatherDirectedR0, HandoffMode::PointerSwapO1,
+        TermKernelMode::SpecializedO2, StorageMode::StableSampleV0);
+    const CapturedRun first = baseline.execute(true);
+    const CapturedRun second = baseline.execute(true);
+    return !first.local_solve_failed && !second.local_solve_failed
+        && first.neighbor_build_valid && second.neighbor_build_valid
+        && finite_state(first.state) && finite_state(second.state)
+        && ordered_output_digest(first.state) == ordered_output_digest(second.state)
+        && first.offsets == second.offsets && first.neighbors == second.neighbors;
+}
+
+void append_raw_stage_timings(
+    std::ostringstream& output,
+    const std::vector<StageTiming>& timings) {
+    output << '[';
+    for (std::size_t index = 0; index < timings.size(); ++index) {
+        if (index != 0) {
+            output << ',';
+        }
+        append_timing(output, timings[index]);
+    }
+    output << ']';
+}
+
+} // namespace
+
+CommandReport run_cuda_np0_baseline(
+    const Profile& profile,
+    int warmup,
+    int runs) {
+    if (profile.record_version != 1) {
+        throw std::invalid_argument("NP0 baseline requires a v1 profile");
+    }
+    if (warmup < 0 || warmup > 64 || runs < 1 || runs > 1000) {
+        throw std::invalid_argument("NP0 baseline counts exceed bounded limits");
+    }
+    if (profile.advected
+        && (warmup % profile.trace_length != 0 || runs % profile.trace_length != 0)) {
+        throw std::invalid_argument(
+            "advected NP0 warmup and run counts must contain whole trace epochs");
+    }
+
+    const CommandReport self_test = run_cuda_self_test(
+        AccumulationMode::GatherDirectedR0, HandoffMode::PointerSwapO1,
+        TermKernelMode::SpecializedO2, StorageMode::StableSampleV0);
+    const bool oracle_subset_passed = self_test.passed && run_v1_oracle_subset(profile);
+    const bool surface_i2_passed = oracle_subset_passed && run_surface_i2_preflight(profile);
+    const Fixture fixture = performance_fixture(profile, profile.fixed_iterations);
+    CudaBaseline baseline(
+        fixture, AccumulationMode::GatherDirectedR0, HandoffMode::PointerSwapO1,
+        TermKernelMode::SpecializedO2, StorageMode::StableSampleV0);
+
+    baseline.reset_seed();
+    const CapturedRun repeated_first = baseline.execute(true, profile.advected);
+    baseline.reset_seed();
+    const CapturedRun repeated_second = baseline.execute(true, profile.advected);
+    const bool repeated_exact =
+        ordered_output_digest(repeated_first.state)
+            == ordered_output_digest(repeated_second.state)
+        && repeated_first.offsets == repeated_second.offsets
+        && repeated_first.neighbors == repeated_second.neighbors;
+
+    bool coherent_permuted_correspondence = true;
+    bool coherent_permuted_topology = true;
+    std::string coherent_csr_sha256;
+    std::string permuted_csr_sha256;
+    if (profile.id == "nuv-water-50k-coherent.v1"
+        || profile.id == "nuv-water-50k-permuted.v1") {
+        const Profile& coherent_profile = find_profile("nuv-water-50k-coherent.v1");
+        const Profile& permuted_profile = find_profile("nuv-water-50k-permuted.v1");
+        const Fixture coherent_fixture = performance_fixture(
+            coherent_profile, coherent_profile.fixed_iterations);
+        const Fixture permuted_fixture = performance_fixture(
+            permuted_profile, permuted_profile.fixed_iterations);
+        CudaBaseline coherent_baseline(
+            coherent_fixture, AccumulationMode::GatherDirectedR0,
+            HandoffMode::PointerSwapO1, TermKernelMode::SpecializedO2,
+            StorageMode::StableSampleV0);
+        CudaBaseline permuted_baseline(
+            permuted_fixture, AccumulationMode::GatherDirectedR0,
+            HandoffMode::PointerSwapO1, TermKernelMode::SpecializedO2,
+            StorageMode::StableSampleV0);
+        const CapturedRun coherent = coherent_baseline.execute(true);
+        const CapturedRun permuted = permuted_baseline.execute(true);
+        const OracleResult remapped = remap_state_to_lattice(permuted_fixture, permuted.state);
+        coherent_permuted_correspondence = compare_results(
+            coherent_fixture, coherent.state, remapped, coherent_profile.tolerances).passed;
+        coherent_csr_sha256 = canonical_lattice_csr_digest(coherent_fixture, coherent);
+        permuted_csr_sha256 = canonical_lattice_csr_digest(permuted_fixture, permuted);
+        coherent_permuted_topology = coherent_csr_sha256 == permuted_csr_sha256;
+    }
+
+    bool trace_finite = true;
+    bool trace_topology = true;
+    bool trace_capacity = true;
+    bool trace_momentum = true;
+    int first_preserving_interval = -1;
+    int first_changing_interval = -1;
+    std::ostringstream trace_material;
+    std::ostringstream trace_steps;
+    trace_steps << '[';
+    std::string prior_state_digest = fixture_input_hash(fixture);
+    std::string prior_membership;
+    baseline.reset_seed();
+    const int trace_length = profile.advected ? profile.trace_length : 1;
+    for (int step = 0; step < trace_length; ++step) {
+        CapturedRun captured = baseline.execute(true, profile.advected);
+        const std::string output_sha256 = ordered_output_digest(captured.state);
+        const std::string state_sha256 = handoff_digest(captured.state);
+        const std::string logical_csr_sha256 = csr_digest(captured);
+        const std::string active_membership_sha256 =
+            canonical_lattice_csr_digest(fixture, captured);
+        const DegreeDistribution degrees = degree_distribution(captured);
+        const bool finite = finite_state(captured.state);
+        const bool topology = valid_symmetric_neighbors(captured, fixture.particles.size());
+        const bool capacity = captured.neighbor_build_valid
+            && captured.state.directed_pairs <= profile.max_directed_pairs
+            && captured.state.maximum_degree <= profile.max_neighbors;
+        const bool momentum = captured.state.normalized_momentum_residual
+            <= profile.tolerances.normalized_momentum_residual;
+        trace_finite = trace_finite && finite && !captured.local_solve_failed;
+        trace_topology = trace_topology && topology;
+        trace_capacity = trace_capacity && capacity;
+        trace_momentum = trace_momentum && momentum;
+        if (step > 0 && active_membership_sha256 == prior_membership
+            && first_preserving_interval < 0) {
+            first_preserving_interval = step - 1;
+        }
+        if (step > 0 && active_membership_sha256 != prior_membership
+            && first_changing_interval < 0) {
+            first_changing_interval = step - 1;
+        }
+        trace_material << step << '|' << prior_state_digest << '|' << logical_csr_sha256
+                       << '|' << active_membership_sha256 << '|' << output_sha256 << '|'
+                       << state_sha256 << '|';
+        if (step != 0) {
+            trace_steps << ',';
+        }
+        trace_steps << "{\"step\":" << step << ",\"input_state_sha256\":\""
+                    << prior_state_digest << "\",\"logical_csr_sha256\":\""
+                    << logical_csr_sha256 << "\",\"active_membership_sha256\":\""
+                    << active_membership_sha256 << "\",\"ordered_output_sha256\":\""
+                    << output_sha256 << "\",\"handoff_state_sha256\":\""
+                    << state_sha256 << "\",\"directed_pairs\":"
+                    << captured.state.directed_pairs << ",\"degree\":";
+        append_degree_distribution(trace_steps, degrees);
+        trace_steps << ",\"mean_neighbor_storage_distance\":"
+                    << captured.mean_neighbor_storage_distance
+                    << ",\"p95_neighbor_storage_distance\":"
+                    << captured.p95_neighbor_storage_distance
+                    << ",\"normalized_momentum_residual\":"
+                    << captured.state.normalized_momentum_residual
+                    << ",\"finite\":" << (finite ? "true" : "false")
+                    << ",\"topology_valid\":" << (topology ? "true" : "false")
+                    << ",\"capacity_valid\":" << (capacity ? "true" : "false") << '}';
+        prior_state_digest = state_sha256;
+        prior_membership = active_membership_sha256;
+    }
+    trace_steps << ']';
+    const std::string trace_sha256 = sha256_hex(trace_material.str());
+    const bool requires_interval_classes =
+        profile.id == "nuv-water-50k-advected.v1";
+    const bool interval_classes_passed = !requires_interval_classes
+        || (first_preserving_interval >= 0 && first_changing_interval >= 0);
+
+    constexpr int CONDITIONING_RUNS = 256;
+    baseline.reset_seed();
+    for (int run = 0; run < CONDITIONING_RUNS; ++run) {
+        const CapturedRun conditioned = baseline.execute(false, profile.advected);
+        if (conditioned.local_solve_failed || !conditioned.neighbor_build_valid) {
+            throw std::runtime_error("NP0 solver failed during GPU conditioning");
+        }
+        if (profile.advected && (run + 1) % profile.trace_length == 0) {
+            baseline.reset_seed();
+        }
+    }
+    baseline.reset_seed();
+    bool measurement_valid = true;
+    int failed_warmup = -1;
+    int failed_measurement = -1;
+    for (int run = 0; run < warmup; ++run) {
+        const CapturedRun discarded = baseline.execute(false, profile.advected);
+        if (discarded.local_solve_failed || !discarded.neighbor_build_valid) {
+            measurement_valid = false;
+            failed_warmup = run;
+            break;
+        }
+        if (profile.advected && (run + 1) % profile.trace_length == 0) {
+            baseline.reset_seed();
+        }
+    }
+    if (profile.advected) {
+        baseline.reset_seed();
+    }
+    std::vector<StageTiming> timings;
+    timings.reserve(static_cast<std::size_t>(runs));
+    for (int run = 0; run < runs; ++run) {
+        const CapturedRun measured = baseline.execute(false, profile.advected);
+        if (measured.local_solve_failed || !measured.neighbor_build_valid) {
+            measurement_valid = false;
+            failed_measurement = run;
+            break;
+        }
+        timings.push_back(measured.timing);
+        if (profile.advected && (run + 1) % profile.trace_length == 0) {
+            baseline.reset_seed();
+        }
+    }
+
+    const bool passed = self_test.passed && oracle_subset_passed && surface_i2_passed
+        && repeated_exact && coherent_permuted_correspondence
+        && coherent_permuted_topology && trace_finite && trace_topology
+        && trace_capacity && trace_momentum && interval_classes_passed
+        && measurement_valid && !timings.empty();
+    const std::size_t directed_pairs = repeated_first.state.directed_pairs;
+    const double bytes_per_sample = static_cast<double>(repeated_first.device_memory_bytes)
+        / static_cast<double>(fixture.particles.size());
+    const double bytes_per_edge = directed_pairs == 0U ? 0.0
+        : static_cast<double>(repeated_first.device_memory_bytes)
+            / static_cast<double>(directed_pairs);
+    const std::string tier = warmup == 32 && runs == 96 ? "adjacent"
+        : (warmup == 64 && runs >= 512 ? "decision" : "exploratory");
+
+    std::ostringstream output;
+    output << std::setprecision(17);
+    output << "{\"schema\":\"nextengine.nonlocal.np0_baseline.v1\",\"status\":\""
+           << (passed ? "PASS" : "FAIL") << "\",\"candidate_class\":\"CORPUS\""
+           << ",\"profile_id\":\"" << profile.id << "\",\"profile_sha256\":\""
+           << sha256_hex(canonical_profile_json(profile)) << "\",\"seed_input_sha256\":\""
+           << fixture_input_hash(fixture) << "\",\"binary_sha256\":\""
+           << executable_hash() << "\",\"binary_bytes\":" << executable_bytes()
+           << ",\"command\":\"nonlocal-feasibility --np0-baseline " << profile.id
+           << " --warmup " << warmup << " --runs " << runs << "\""
+           << ",\"measurement_tier\":\"" << tier << "\",\"warmup_runs\":"
+           << warmup << ",\"measured_runs\":" << runs
+           << ",\"conditioning_runs\":" << CONDITIONING_RUNS
+           << ",\"completed_measured_runs\":" << timings.size()
+           << ",\"trace_length\":" << trace_length
+           << ",\"trace_sha256\":\"" << trace_sha256 << "\""
+           << ",\"rebuild_reason\":\""
+           << (profile.advected ? "substep_reference_changed" : "fixed_input_replay")
+           << "\",\"reset_count\":"
+           << (profile.advected
+                   ? (CONDITIONING_RUNS + warmup + runs) / profile.trace_length + 6 : 0)
+           << ",\"identity\":{\"accumulation\":\""
+           << accumulation_identity(AccumulationMode::GatherDirectedR0)
+           << "\",\"handoff\":\"" << handoff_identity(HandoffMode::PointerSwapO1)
+           << "\",\"term_kernels\":\""
+           << term_kernel_identity(TermKernelMode::SpecializedO2)
+           << "\",\"storage\":\"" << storage_identity(StorageMode::StableSampleV0)
+           << "\"},\"correctness\":{\"retained_self_test_passed\":"
+           << (self_test.passed ? "true" : "false")
+           << ",\"v1_oracle_subset_passed\":"
+           << (oracle_subset_passed ? "true" : "false")
+           << ",\"surface_i2_passed\":" << (surface_i2_passed ? "true" : "false")
+           << ",\"fixed_frame_repeated_exact\":" << (repeated_exact ? "true" : "false")
+           << ",\"coherent_permuted_correspondence\":"
+           << (coherent_permuted_correspondence ? "true" : "false")
+           << ",\"coherent_permuted_topology\":"
+           << (coherent_permuted_topology ? "true" : "false")
+           << ",\"coherent_canonical_csr_sha256\":\"" << coherent_csr_sha256
+           << "\",\"permuted_canonical_csr_sha256\":\"" << permuted_csr_sha256
+           << "\",\"trace_finite\":" << (trace_finite ? "true" : "false")
+           << ",\"trace_topology_valid\":" << (trace_topology ? "true" : "false")
+           << ",\"trace_capacity_valid\":" << (trace_capacity ? "true" : "false")
+           << ",\"trace_momentum_valid\":" << (trace_momentum ? "true" : "false")
+           << ",\"first_topology_preserving_interval\":"
+           << first_preserving_interval << ",\"first_topology_changing_interval\":"
+           << first_changing_interval << ",\"interval_classes_passed\":"
+           << (interval_classes_passed ? "true" : "false")
+           << ",\"interval_classes_required\":"
+           << (requires_interval_classes ? "true" : "false")
+           << ",\"measurement_valid\":" << (measurement_valid ? "true" : "false")
+           << ",\"failed_warmup_index\":" << failed_warmup
+           << ",\"failed_measurement_index\":" << failed_measurement << '}'
+           << ",\"capacity\":{\"samples\":" << fixture.particles.size()
+           << ",\"max_directed_pairs\":" << profile.max_directed_pairs
+           << ",\"seed_directed_pairs\":" << directed_pairs
+           << ",\"seed_maximum_degree\":" << repeated_first.state.maximum_degree
+           << ",\"device_memory_bytes\":" << repeated_first.device_memory_bytes
+           << ",\"bytes_per_sample\":" << bytes_per_sample
+           << ",\"bytes_per_seed_edge\":" << bytes_per_edge << '}'
+           << ",\"trace_steps\":" << trace_steps.str() << ",\"statistics\":";
+    append_stage_statistics(output, timings);
+    output << ",\"raw_stage_timings\":";
+    append_raw_stage_timings(output, timings);
+    output << ",\"device\":" << device_json() << '}';
     return {passed, output.str()};
 }
 

@@ -46,6 +46,33 @@ Profile performance_profile(
     return profile;
 }
 
+Profile performance_profile_v1(
+    std::string id,
+    int x,
+    int y,
+    int z,
+    double kappa,
+    double lambda,
+    double mu,
+    double gamma,
+    EnabledTerms terms,
+    int iterations,
+    bool advected = false) {
+    Profile profile = performance_profile(
+        std::move(id), x, y, z, kappa, lambda, mu, gamma, terms, iterations);
+    profile.record_version = 1;
+    profile.advected = advected;
+    profile.trace_length = advected ? 32 : 1;
+    profile.lattice_scale = advected ? 0.99 : 1.0;
+    profile.grid_margin = advected ? 0.025 : 0.0;
+    if (advected) {
+        profile.max_neighbors = 192;
+        profile.max_directed_pairs = profile.samples * profile.max_neighbors;
+        profile.geometry = "free_surface_scaled_rectangular_lattice_dynamic_seed_v1";
+    }
+    return profile;
+}
+
 std::string bool_json(bool value) { return value ? "true" : "false"; }
 
 } // namespace
@@ -81,6 +108,34 @@ const std::vector<Profile>& profiles() {
         performance_profile(
             "nuv-surface-16k.v0", 40, 20, 20, 1.0, 0.2, 0.0, 1000.0,
             {true, false, false, true}, 20),
+        performance_profile_v1(
+            "nuv-water-50k-coherent.v1", 100, 25, 20, 1.0, 1.5, 0.0, 0.0,
+            {true, true, false, false}, 5),
+        [] {
+            Profile profile = performance_profile_v1(
+                "nuv-water-50k-permuted.v1", 100, 25, 20, 1.0, 1.5, 0.0, 0.0,
+                {true, true, false, false}, 5);
+            profile.initialization_order = InitializationOrder::AffinePermutation;
+            profile.permutation_multiplier = 32749;
+            profile.permutation_offset = 7919;
+            profile.geometry = "free_surface_rectangular_lattice_affine_permuted_stable_ids";
+            return profile;
+        }(),
+        performance_profile_v1(
+            "nuv-water-50k-advected.v1", 100, 25, 20, 1.0, 1.5, 0.0, 0.0,
+            {true, true, false, false}, 5, true),
+        performance_profile_v1(
+            "nuv-viscous-16k-advected.v1", 40, 20, 20, 1.0, 200.0, 1.0, 0.0,
+            {true, true, true, false}, 20, true),
+        performance_profile_v1(
+            "nuv-surface-16k-advected.v1", 40, 20, 20, 1.0, 0.2, 0.0, 100.0,
+            {true, false, false, true}, 20, true),
+        performance_profile_v1(
+            "nuv-surface-stiff-16k-i2.v1", 40, 20, 20, 1.0, 0.2, 0.0, 1000.0,
+            {true, false, false, true}, 2),
+        performance_profile_v1(
+            "nuv-water-100k-report.v1", 100, 50, 20, 1.0, 1.5, 0.0, 0.0,
+            {true, true, false, false}, 5),
     };
     return values;
 }
@@ -97,11 +152,28 @@ const Profile& find_profile(const std::string& id) {
 std::string canonical_profile_json(const Profile& profile) {
     std::ostringstream output;
     output << std::setprecision(17);
-    output << "{\"profile_id\":\"" << profile.id << "\",\"record_version\":0"
+    output << "{\"profile_id\":\"" << profile.id << "\",\"record_version\":"
+           << profile.record_version
            << ",\"lattice\":[" << profile.lattice_x << ',' << profile.lattice_y << ','
            << profile.lattice_z << ']'
            << ",\"samples\":" << profile.samples
-           << ",\"initialization_order\":\"lexicographic_z_y_x\""
+           << ",\"initialization_order\":\""
+           << (profile.initialization_order == InitializationOrder::Lexicographic
+                   ? "lexicographic_z_y_x" : "affine_permuted_stable_id")
+           << "\"";
+    if (profile.record_version >= 1) {
+        output << ",\"generator\":{\"lattice_scale\":" << profile.lattice_scale
+               << ",\"advected\":" << bool_json(profile.advected)
+               << ",\"trace_length\":" << profile.trace_length
+               << ",\"grid_margin_m\":" << profile.grid_margin;
+        if (profile.initialization_order == InitializationOrder::AffinePermutation) {
+            output << ",\"permutation\":{\"kind\":\"affine_mod_n\",\"multiplier\":"
+                   << profile.permutation_multiplier << ",\"offset\":"
+                   << profile.permutation_offset << '}';
+        }
+        output << '}';
+    }
+    output
            << ",\"geometry\":\"" << profile.geometry << "\""
            << ",\"origin_m\":[0,0,0]"
            << ",\"spacing_m\":" << profile.spacing
@@ -141,7 +213,9 @@ std::string canonical_profile_json(const Profile& profile) {
            << ",\"research_choices\":["
            << "\"performance blocks are boundary-free\","
            << "\"tiny closed-box boundary is a fixed ghost shell\","
-           << "\"neighbor membership is frozen from the initial position\","
+           << (profile.record_version == 0
+                   ? "\"neighbor membership is frozen from the initial position\","
+                   : "\"neighbor membership is rebuilt from each substep reference and frozen within its nonlinear solve\",")
            << "\"surface pairwise function is bidirectional\"]}";
     return output.str();
 }
@@ -149,7 +223,8 @@ std::string canonical_profile_json(const Profile& profile) {
 std::string described_profile_json(const Profile& profile) {
     const std::string canonical = canonical_profile_json(profile);
     std::ostringstream output;
-    output << "{\"schema\":\"nextengine.nonlocal.profile.v0\",\"profile_sha256\":\""
+    output << "{\"schema\":\"nextengine.nonlocal.profile.v" << profile.record_version
+           << "\",\"profile_sha256\":\""
            << sha256_hex(canonical) << "\",\"profile\":" << canonical << '}';
     return output.str();
 }

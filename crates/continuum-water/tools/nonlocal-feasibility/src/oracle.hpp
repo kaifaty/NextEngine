@@ -30,6 +30,11 @@ struct Fixture {
     double gamma = 0.0;
     EnabledTerms terms;
     int iterations = 1;
+    std::vector<int> lattice_index_by_sample;
+    std::size_t pair_capacity = 0;
+    double grid_margin = 0.0;
+    bool advected = false;
+    int trace_length = 1;
 };
 
 struct EnergyComponents {

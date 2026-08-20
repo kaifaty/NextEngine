@@ -25,7 +25,13 @@ struct Tolerances {
     double normalized_momentum_residual = 1.0e-5;
 };
 
+enum class InitializationOrder {
+    Lexicographic,
+    AffinePermutation,
+};
+
 struct Profile {
+    int record_version = 0;
     std::string id;
     int lattice_x = 0;
     int lattice_y = 0;
@@ -49,6 +55,13 @@ struct Profile {
     std::string geometry;
     std::string boundary;
     Tolerances tolerances;
+    InitializationOrder initialization_order = InitializationOrder::Lexicographic;
+    std::size_t permutation_multiplier = 0;
+    std::size_t permutation_offset = 0;
+    bool advected = false;
+    int trace_length = 1;
+    double lattice_scale = 1.0;
+    double grid_margin = 0.0;
 };
 
 const std::vector<Profile>& profiles();

@@ -1,6 +1,6 @@
 # NP0–NP4 — Nonlocal performance reclosure contract
 
-Status: `ACTIVE / NP0_IMPLEMENTATION / REPORT_ONLY / NO_W2_CREDIT`
+Status: `ACTIVE / NP0_COMPLETE / NP1_P1_NEXT / REPORT_ONLY / NO_W2_CREDIT`
 
 ## Scope
 
@@ -51,7 +51,8 @@ hashes must appear in the NP0 specification and machine-readable report:
 | `nuv-water-50k-permuted.v1` | isolate storage order | identical positions/physics to coherent; one fixed bijective stable-ID permutation |
 | `nuv-water-50k-advected.v1` | representative multi-substep denominator | hash-bound prior states; neighbors rebuilt per substep and frozen within solve |
 | `nuv-viscous-16k-advected.v1` | coupled high-iteration control | incompressibility plus bulk/shear viscosity, 20 fixed iterations |
-| `nuv-surface-16k-advected.v1` | sensitive numeric control | incompressibility plus surface tension, first i2 then 20 iterations |
+| `nuv-surface-16k-advected.v1` | dynamic coupled control | incompressibility plus moderate surface tension, 20 iterations |
+| `nuv-surface-stiff-16k-i2.v1` | sensitive numeric control | incompressibility plus `gamma=1000` surface tension, exactly two iterations |
 | `nuv-water-100k-report.v1` | scaling/memory observation | report-only; never a production promise |
 
 The v1 profiles inherit no output digest or tolerance by name. NP0 derives and
@@ -111,6 +112,13 @@ Measurement tiers are:
 | adjacent | 32 warm-ups, 96 alternating measured executions in one process | retain/reject one candidate |
 | decision | 64 warm-ups, at least 512 measured substeps plus the advected trace | p95/p99 and NP4 state |
 
+Each tier follows a fixed 256-execution GPU-conditioning window which is
+outside timing and does not replace its formal warmups. This was added in NP0
+after unconditioned duplicate p95 values varied by about `12%`; conditioned
+fresh-process decision p95 values differed by `0.41%` coherent and `0.54%`
+advected. Device telemetry remains an evidence artifact rather than a solver
+input.
+
 GPU decision timing is serialized. CPU fixture/oracle work may run in parallel
 outside the timing window. Thermal throttling or competing GPU load invalidates
 the affected sample set.
@@ -119,9 +127,11 @@ the affected sample set.
 
 ### NP0 gate
 
-NP1 begins only when all v1 generators/hashes are committed, CPU/GPU retained
+NP1 began only after all v1 generators/hashes were committed, CPU/GPU retained
 controls pass, dynamic topology changes as intended, the persistent runner
-emits p99-capable raw totals, and the denominator report is reproducible.
+emits p99-capable raw totals, and the denominator report is reproducible. NP0
+met this gate on 2026-08-20; see the
+[dated evidence](../../development/nonlocal-continuum-np0-evidence-2026-08-20.md).
 
 ### NP1 retention gate
 

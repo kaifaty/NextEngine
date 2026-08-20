@@ -50,6 +50,10 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --locality-tournament nuv-water-48k.v0 --warmup 32 --runs 96
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --retained-tournament nuv-water-48k.v0 --warmup 32 --runs 96
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --np0-baseline nuv-water-50k-coherent.v1 --warmup 64 --runs 512
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --np0-baseline nuv-water-50k-advected.v1 --warmup 64 --runs 512
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -96,3 +100,19 @@ correctness-valid HN-3 workloads. It co-resides and alternates the historical
 source-atomic/copy/runtime denominator with the final retained
 gather/pointer-swap/specialized/stable-sample stack. It is not valid for the
 known-failed atomic stiff-surface profile.
+
+`--np0-baseline` accepts only the separately rooted v1 profiles. It preserves
+the retained NR4 solver identity, validates a bounded v1 CPU subset and stiff
+surface i2 control, and runs one preallocated same-process benchmark. Advected
+profiles feed each accepted output position/velocity into the next substep,
+rebuild neighbors from that reference and reset only at a complete 32-step
+epoch boundary. The command records every trace-state/output/CSR hash, raw
+stage timing, degree/locality distribution and capacity result. A fixed 256-run
+GPU-conditioning window precedes (and is separate from) the requested 32/64
+formal warmups so P8-to-boost transitions do not contaminate percentiles.
+
+The dynamic surface performance profile uses `gamma=100`; the independent
+`nuv-surface-stiff-16k-i2.v1` correctness gate retains `gamma=1000`. The
+rejected combination `gamma=1000`, 20 iterations and 32 sequential substeps
+exceeded its bounded CSR at step one and is not a supported performance
+profile.

@@ -53,6 +53,8 @@ void print_usage() {
               << "       nonlocal-feasibility --benchmark <profile-id> --warmup <count> "
                  "--runs <count> --accumulation <identity> --handoff <identity> "
                  "--term-kernels <identity> --storage <identity>\n"
+              << "       nonlocal-feasibility --np0-baseline <profile-id> --warmup <count> "
+                 "--runs <count>\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
               << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
@@ -321,6 +323,15 @@ int main(int argc, char** argv) {
                 nextengine::nonlocal::parse_handoff_identity(argv[10]),
                 nextengine::nonlocal::parse_term_kernel_identity(argv[12]),
                 nextengine::nonlocal::parse_storage_identity(argv[14]));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 7 && std::string(argv[1]) == "--np0-baseline"
+            && std::string(argv[3]) == "--warmup" && std::string(argv[5]) == "--runs") {
+            const auto report = nextengine::nonlocal::run_cuda_np0_baseline(
+                nextengine::nonlocal::find_profile(argv[2]),
+                bounded_integer(argv[4], "warmup count"),
+                bounded_integer(argv[6], "run count"));
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }

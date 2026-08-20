@@ -70,6 +70,10 @@ CommandReport run_cuda_benchmark(
     HandoffMode handoff = HandoffMode::CopyV0,
     TermKernelMode term_kernels = TermKernelMode::RuntimeV0,
     StorageMode storage = StorageMode::StableSampleV0);
+CommandReport run_cuda_np0_baseline(
+    const Profile& profile,
+    int warmup,
+    int runs);
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,
     int warmup,

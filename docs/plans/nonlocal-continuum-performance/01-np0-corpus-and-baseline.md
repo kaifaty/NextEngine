@@ -1,6 +1,6 @@
 # NP0 — exact-50k corpus and retained baseline
 
-Status: `SPECIFIED / IMPLEMENTATION_NEXT / REPORT_ONLY / NO_W2_CREDIT`
+Status: `COMPLETE / NP1_INPUT / REPORT_ONLY / NO_W2_CREDIT`
 
 ## Purpose
 
@@ -25,7 +25,8 @@ coordinates are enumerated with `x` fastest, then `y`, then `z`, and
 | `nuv-water-50k-permuted.v1` | `100 x 25 x 20` | 50,000 | 5 | lattice index `(32749 * id + 7919) mod 50000` |
 | `nuv-water-50k-advected.v1` | `100 x 25 x 20` | 50,000 | 5 | coherent stable IDs; dynamic seed below |
 | `nuv-viscous-16k-advected.v1` | `40 x 20 x 20` | 16,000 | 20 | coherent stable IDs; dynamic seed below |
-| `nuv-surface-16k-advected.v1` | `40 x 20 x 20` | 16,000 | i2 correctness, then 20 | coherent stable IDs; dynamic seed below |
+| `nuv-surface-16k-advected.v1` | `40 x 20 x 20` | 16,000 | 20 | coherent stable IDs; dynamic seed below |
+| `nuv-surface-stiff-16k-i2.v1` | `40 x 20 x 20` | 16,000 | 2 | coherent; stiff numeric gate only |
 | `nuv-water-100k-report.v1` | `100 x 50 x 20` | 100,000 | 5 | coherent; report-only scaling control |
 
 The affine permutation is bijective because `gcd(32749, 50000) = 1`. It
@@ -37,7 +38,15 @@ All v1 profiles retain the v0 material constants unless the profile name says
 otherwise: spacing `0.005`, horizon `0.015`, mass `0.000125`, rest density
 `1000`, timestep `0.001`, gravity `[0,-9.81,0]`, and no boundary. Water uses
 `kappa=1`, `lambda=1.5`; viscous uses `kappa=1`, `lambda=200`, `mu=1`;
-surface uses `kappa=1`, `lambda=0.2`, `gamma=1000`.
+dynamic surface uses `kappa=1`, `lambda=0.2`, `gamma=100`; the stiff i2 gate
+uses the same volume coefficients and `gamma=1000`.
+
+The original `gamma=1000`, i20, 32-substep combination was rejected during
+NP0: degree exceeded the frozen 192-neighbor capacity at step one and the
+subsequent clamped diagnostic CSR was not a valid topology. It is preserved in
+the dated NP0 evidence and must not return as a performance profile. Stiffness
+remains covered by the fixed i2 gate; dynamic performance uses the bounded
+moderate-surface profile.
 
 ## Dynamic seed and trace
 
@@ -96,10 +105,13 @@ nonlocal-feasibility --np0-baseline <profile-id> --warmup <n> --runs <n>
 - raw totals and all stage totals are retained so min/median/p95/p99/mean are
   recomputable without rounded aggregates.
 
-The adjacent tier is exactly 32 warm-up executions and 96 measured executions.
-The decision tier is exactly 64 warm-up executions and at least 512 measured
-executions. Dynamic runs must contain whole 32-step epochs; larger run counts
-therefore remain a multiple of 32.
+Before either tier, 256 unmeasured/unreported conditioning executions bring
+the GPU out of its idle P-state; the conditioned state is then reset. These do
+not replace the formal warmups. The adjacent tier is exactly 32 warm-up
+executions and 96 measured executions. The decision tier is exactly 64
+warm-up executions and at least 512 measured executions. Dynamic runs must
+contain whole 32-step epochs; larger run counts therefore remain a multiple
+of 32.
 
 ## Correctness and equivalence
 
@@ -130,20 +142,35 @@ and prior-state digests, logical CSR digest, ordered output digest, directed
 pairs, min/mean/p95/max degree, mean/p95 storage distance, bytes per sample and
 edge, capacity headroom, binary/device/compiler identity and raw stage samples.
 
-Profile, seed and trace hashes are populated in this document by the NP0
-implementation checkpoint, before the first NP1 candidate is built.
+## Frozen v1 hashes
+
+The retained NP0 binary is
+`99fc0736200482e8a868700c6401974f08268d9c0b05e8ee6f81ba7cf17a562b`.
+Raw timing JSON is kept outside Git and bound by the dated NP0 evidence.
+
+| Profile | Profile SHA-256 | Seed input SHA-256 | Trace SHA-256 |
+|---|---|---|---|
+| coherent 50k | `5463af89fccc1b9dcb79fd522b2399fc10ac80f5b0490378e0ecb2bb73d5cc9e` | `5d568b3d453da25fbfd5ba2586e2eaf67e77ae74e99cc719742b8c39be4927c2` | `8de7dfcc1de15788ff932bc7e47338efca4bc23ec9767568ad21fd1297507af3` |
+| permuted 50k | `b83c0118f7e24e58369576ccb3f8a5ad2a215c65a5b7e49c339b8b1dd80139ff` | `95ceda4282f7d3806cedf1037041af8827cc41af6d1a3dc35949e589750abe55` | `13b1a2fa1715b602c3cc0bc16a625affe52803531748c785b989b05472cb25c8` |
+| advected 50k | `7eacc10af7a63801dd29a389b14a86648ff75870843d98a0fca14f1d31aef175` | `7cb5b7ff53700374b1837940713bffc90dafeb1023c5bdb5cf8dcd9081027f19` | `333e487207ffab664e1519705953f8530af1f5bb180c7f30d72d3193607aae46` |
+| viscous 16k | `d9911648c4122d328c5b55341c83f6d5e286a1c33f6e2f043bb590f703fc9811` | `a84dfc41a1dc27e7a0bed1e9e5c9b021973548d7f4ba0db42faa85effd518642` | `9d3f953923921e2b455c040023ec0e843b9a369ed2036976281c866681df03e9` |
+| surface 16k | `72a124d3c282cdb324d9884427bc18b73f65f3371487ffda024fb62fe918cf64` | `da1c0653beb505361d9476c2a913dce4bb9c55b364a51e65fbceae16e4dfad61` | `bf3d4fb3c7484dcb574eea8a1165caa978b8361c3d8c2800eacebb257def3513` |
+| stiff surface i2 | `59c846f89f0be145ca18d130206834a42f1d3769bbdb377ea79785624dfbd493` | `d1647ea17bd3a616f6556ad9ec61c242874816107ae61da53688618e1b9b92a5` | `669c5cd054cfdf35d1a56ee0df1e61b1b2dd111f9263fa8eb18714ea67a28d27` |
+| water 100k report | `916fbc7811380d022a0cdcc5c30d15419ef474f52bd2ba3ef983dee5fa402b91` | `757925d516759c010ca042d5f13716806566bf263d6f8d2cdadf12255142b986` | `80e84c282f2604b6c38b8b1dcc06cde2143cf85f6d4e8b9621b543b44db6599d` |
 
 ## NP0 exit
 
-NP0 closes only when:
+NP0 closed because:
 
 - v0 compatibility controls are unchanged;
-- all six v1 generators are hash-bound;
+- all seven v1 generators are hash-bound;
 - the advected corpus contains both required interval classes;
 - adjacent retained reports reproduce in a fresh process;
 - exact-50k coherent and advected decision denominators have at least 512 raw
   samples and valid p95/p99;
 - a dated NP0 evidence document records the result and updates the roadmap.
 
-Failure closes as `NP0_REJECTED` or `NP0_EVIDENCE_INCOMPLETE`; it is not
-silently converted into an NP1 optimization problem.
+The complete result and the rejected stiff-dynamic profile are recorded in
+[NP0 evidence](../../development/nonlocal-continuum-np0-evidence-2026-08-20.md).
+NP1 begins from this denominator; it may not reinterpret a corpus failure as
+an optimization win.
