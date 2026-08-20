@@ -305,3 +305,16 @@ unilateral pressure-topology transition below the inherited energy floor when
 ghost support and a post-solve hard wall both represent the same boundary.
 Preserve all thresholds and research constrained contact KKT stationarity
 before assigning a new corpus identity.
+The KKT derivation and alternatives are recorded in the
+[B4BK research note](../../development/nonlocal-nsr3b4bk-contact-kkt-research-2026-08-21.md).
+Its [frozen discriminator](03b4bk-contact-kkt-discriminator-contract.md)
+replays the exact failed P1 first steps, tests a feasible bound-constrained
+stationarity/impulse ledger and retains detached P2 free flight as a negative.
+A full B4B retry remains blocked.
+B4BK r0 preserves exact split failures and passes its constrained KKT/ledger
+states, but the report fails on an incorrect no-lateral-multiplier hypothesis;
+see the [dated evidence](../../development/nonlocal-nsr3b4bk-contact-kkt-evidence-2026-08-21.md).
+The full cross-section physically touches both x/z walls. Freeze the sole
+[B4BK1 face-symmetry repair](03b4bk1-contact-face-symmetry-contract.md) with
+exact face counts and unchanged numerical gates, then execute it before any
+trajectory retry.

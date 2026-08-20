@@ -20,5 +20,6 @@ SplitBoundaryReport run_owned_residual_trajectory_controls();
 SplitBoundaryReport run_owned_boundary_composition_controls();
 SplitBoundaryReport run_closed_box_eligibility_controls();
 SplitBoundaryReport run_tiny_pressure_corpus_controls();
+SplitBoundaryReport run_box_contact_kkt_controls();
 
 } // namespace nextengine::nonlocal::fcr

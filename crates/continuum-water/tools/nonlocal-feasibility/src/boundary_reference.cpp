@@ -6229,4 +6229,680 @@ SplitBoundaryReport run_tiny_pressure_corpus_controls() {
     return {passed, report.str()};
 }
 
+namespace {
+
+struct BoxKktState {
+    SmoothEvaluation smooth;
+    std::vector<Vec3> projected_gradient;
+    std::vector<Vec3> active_gradient;
+    std::vector<std::array<bool, 3>> active_axis;
+    int lower_axes = 0;
+    int upper_axes = 0;
+    int lower_y_axes = 0;
+    int lateral_or_upper_axes = 0;
+    double projected_impulse_residual = 0.0;
+    double reaction_limit = 0.0;
+    double complementarity = 0.0;
+    double minimum_multiplier = std::numeric_limits<double>::infinity();
+    double maximum_penetration = 0.0;
+    double support_translation_closure = 0.0;
+    double contact_closure = 0.0;
+    double ledger_absolute = 0.0;
+    double ledger_residual = 0.0;
+    Vec3 actual_impulse;
+    Vec3 fluid_pressure_impulse;
+    Vec3 support_reaction;
+    Vec3 fluid_contact_impulse;
+    Vec3 contact_reaction;
+    Vec3 gravity_impulse;
+    bool finite_values = false;
+    bool passed = false;
+};
+
+BoxKktState evaluate_box_kkt(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity,
+    const std::vector<Vec3>& displacement,
+    const std::vector<Vec3>& predicted_displacement,
+    double time_step) {
+    BoxKktState result;
+    result.smooth = smooth_evaluate_owned(position, displacement,
+        predicted_displacement, fixture.boundary, time_step);
+    result.projected_gradient = result.smooth.gradient;
+    result.active_gradient.resize(position.size());
+    result.active_axis.resize(position.size());
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        for (int axis = 0; axis < 3; ++axis) {
+            const double low = component(fixture.contact_low, axis)
+                - component(fixture.position[i], axis);
+            const double high = component(fixture.contact_high, axis)
+                - component(fixture.position[i], axis);
+            const double value = component(displacement[i], axis);
+            const double gradient = component(result.smooth.gradient[i], axis);
+            const bool lower = value == low && gradient >= 0.0;
+            const bool upper = value == high && gradient <= 0.0;
+            if (lower || upper) {
+                result.active_axis[i][static_cast<std::size_t>(axis)] = true;
+                set_component(result.projected_gradient[i], axis, 0.0);
+                set_component(result.active_gradient[i], axis, gradient);
+                const double multiplier = lower ? gradient : -gradient;
+                result.minimum_multiplier = std::min(
+                    result.minimum_multiplier, multiplier);
+                result.complementarity = std::max(result.complementarity,
+                    multiplier * std::abs(lower ? value - low : high - value));
+                result.lower_axes += lower ? 1 : 0;
+                result.upper_axes += upper ? 1 : 0;
+                result.lower_y_axes += lower && axis == 1 ? 1 : 0;
+                result.lateral_or_upper_axes +=
+                    upper || (lower && axis != 1) ? 1 : 0;
+            }
+            result.maximum_penetration = std::max(
+                result.maximum_penetration,
+                std::max(low - value, value - high));
+        }
+        const Vec3 v_star = velocity[i] + time_step * fixture.gravity;
+        result.actual_impulse += MASS
+            * (displacement[i] / time_step - v_star);
+    }
+    result.maximum_penetration = std::max(
+        result.maximum_penetration, 0.0);
+    const Vec3 fluid_gradient = sum_values(
+        result.smooth.support.gradient, 0U, position.size());
+    const Vec3 boundary_gradient = sum_values(
+        result.smooth.support.gradient, position.size(),
+        result.smooth.support.gradient.size());
+    result.fluid_pressure_impulse = -time_step * fluid_gradient;
+    result.support_reaction = -time_step * boundary_gradient;
+    result.fluid_contact_impulse = time_step
+        * sum_values(result.active_gradient, 0U,
+            result.active_gradient.size());
+    result.contact_reaction = -result.fluid_contact_impulse;
+    result.gravity_impulse = static_cast<double>(position.size())
+        * MASS * time_step * fixture.gravity;
+    result.projected_impulse_residual = time_step
+        * vector_norm(result.projected_gradient);
+    const double support_scale = norm(result.fluid_pressure_impulse)
+        + norm(result.support_reaction);
+    result.support_translation_closure = norm(
+        result.fluid_pressure_impulse + result.support_reaction)
+        / std::max(support_scale, 1.0e-30);
+    result.contact_closure = norm(
+        result.fluid_contact_impulse + result.contact_reaction);
+    const Vec3 stationarity = result.actual_impulse
+        - result.fluid_pressure_impulse - result.fluid_contact_impulse;
+    const double impulse_scale = std::max({
+        norm(result.actual_impulse)
+            + norm(result.fluid_pressure_impulse)
+            + norm(result.fluid_contact_impulse),
+        static_cast<double>(position.size()) * MASS * time_step
+            * norm(fixture.gravity),
+        1.0e-12,
+    });
+    result.reaction_limit = 1.0e-9 * impulse_scale
+        + displacement_forward_bound(velocity, fixture.gravity, time_step);
+    const Vec3 new_momentum = [&]() {
+        Vec3 value;
+        for (Vec3 delta : displacement) {
+            value += MASS * delta / time_step;
+        }
+        return value;
+    }();
+    const Vec3 ledger = new_momentum - momentum(velocity)
+        - result.gravity_impulse + result.support_reaction
+        + result.contact_reaction;
+    const double ledger_scale = norm(new_momentum - momentum(velocity))
+        + norm(result.gravity_impulse) + norm(result.support_reaction)
+        + norm(result.contact_reaction);
+    result.ledger_absolute = norm(ledger);
+    result.ledger_residual = result.ledger_absolute
+        / std::max(ledger_scale, 1.0e-30);
+    if (!std::isfinite(result.minimum_multiplier)) {
+        result.minimum_multiplier = 0.0;
+    }
+    result.finite_values = std::isfinite(result.smooth.total)
+        && std::isfinite(result.projected_impulse_residual)
+        && std::isfinite(result.reaction_limit)
+        && std::isfinite(result.minimum_multiplier)
+        && finite(result.actual_impulse)
+        && finite(stationarity);
+    result.passed = result.finite_values
+        && result.maximum_penetration <= 1.0e-12
+        && result.minimum_multiplier >= 0.0
+        && result.complementarity == 0.0
+        && result.projected_impulse_residual <= result.reaction_limit
+        && norm(stationarity) <= result.reaction_limit
+        && result.support_translation_closure <= 1.0e-10
+        && result.contact_closure <= 1.0e-12
+        && result.ledger_residual <= 1.0e-9;
+    return result;
+}
+
+void zero_active_components(
+    std::vector<Vec3>& values,
+    const std::vector<std::array<bool, 3>>& active_axis) {
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        for (int axis = 0; axis < 3; ++axis) {
+            if (active_axis[i][static_cast<std::size_t>(axis)]) {
+                set_component(values[i], axis, 0.0);
+            }
+        }
+    }
+}
+
+std::vector<Vec3> box_kkt_trust_step(
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& boundary,
+    const BoxKktState& state,
+    double time_step,
+    double radius,
+    int& hvp_calls,
+    bool& negative_curvature) {
+    std::vector<Vec3> point(state.projected_gradient.size());
+    std::vector<Vec3> residual = state.projected_gradient;
+    std::vector<Vec3> direction = residual;
+    for (Vec3& value : direction) {
+        value = -value;
+    }
+    double residual_squared = flat_dot(residual, residual);
+    const double initial_residual = std::sqrt(residual_squared);
+    if (initial_residual == 0.0) {
+        return point;
+    }
+    for (std::size_t iteration = 0;
+         iteration < 3U * direction.size(); ++iteration) {
+        std::vector<Vec3> image = smooth_hvp(
+            position, boundary, direction, time_step);
+        ++hvp_calls;
+        zero_active_components(image, state.active_axis);
+        const double curvature = flat_dot(direction, image);
+        if (!std::isfinite(curvature) || curvature <= 0.0) {
+            negative_curvature = true;
+            return add_scaled(point, direction,
+                trust_boundary_tau(point, direction, radius));
+        }
+        const double alpha = residual_squared / curvature;
+        const std::vector<Vec3> candidate = add_scaled(
+            point, direction, alpha);
+        if (vector_norm(candidate) >= radius) {
+            return add_scaled(point, direction,
+                trust_boundary_tau(point, direction, radius));
+        }
+        point = candidate;
+        std::vector<Vec3> next_residual = residual;
+        for (std::size_t i = 0; i < next_residual.size(); ++i) {
+            next_residual[i] += alpha * image[i];
+        }
+        zero_active_components(next_residual, state.active_axis);
+        const double next_squared = flat_dot(next_residual, next_residual);
+        if (std::sqrt(next_squared)
+            <= std::min(0.5, std::sqrt(initial_residual))
+                * initial_residual) {
+            return point;
+        }
+        const double beta = next_squared / residual_squared;
+        for (std::size_t i = 0; i < direction.size(); ++i) {
+            direction[i] = -next_residual[i] + beta * direction[i];
+        }
+        zero_active_components(direction, state.active_axis);
+        residual = std::move(next_residual);
+        residual_squared = next_squared;
+    }
+    return point;
+}
+
+struct BoxKktSolve {
+    bool passed = false;
+    std::string failure;
+    std::vector<Vec3> position;
+    std::vector<Vec3> velocity;
+    std::vector<Vec3> displacement;
+    BoxKktState state;
+    int outer_trials = 0;
+    int accepted_trials = 0;
+    int rejected_trials = 0;
+    int hvp_calls = 0;
+    int negative_curvature_exits = 0;
+    int projected_trials = 0;
+    int active_set_changes = 0;
+    int floor_merit_trials = 0;
+    int floor_merit_accepts = 0;
+    double initial_objective = 0.0;
+    double objective_forward_bound = 0.0;
+};
+
+std::vector<Vec3> clamp_box_displacement(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& displacement) {
+    std::vector<Vec3> result = displacement;
+    for (std::size_t i = 0; i < result.size(); ++i) {
+        for (int axis = 0; axis < 3; ++axis) {
+            const double low = component(fixture.contact_low, axis)
+                - component(fixture.position[i], axis);
+            const double high = component(fixture.contact_high, axis)
+                - component(fixture.position[i], axis);
+            set_component(result[i], axis, std::clamp(
+                component(result[i], axis), low, high));
+        }
+    }
+    return result;
+}
+
+std::vector<Vec3> materialize_displacement(
+    const std::vector<Vec3>& start,
+    const std::vector<Vec3>& displacement) {
+    std::vector<Vec3> result(start.size());
+    for (std::size_t i = 0; i < start.size(); ++i) {
+        result[i] = start[i] + displacement[i];
+    }
+    return result;
+}
+
+bool same_active_set(const BoxKktState& lhs, const BoxKktState& rhs) {
+    return lhs.active_axis == rhs.active_axis;
+}
+
+BoxKktSolve solve_box_kkt_step(
+    const SmokeFixture& fixture, double time_step) {
+    BoxKktSolve result;
+    std::vector<Vec3> predicted(fixture.position.size());
+    for (std::size_t i = 0; i < predicted.size(); ++i) {
+        predicted[i] = time_step
+            * (fixture.velocity[i] + time_step * fixture.gravity);
+    }
+    result.displacement = clamp_box_displacement(fixture, predicted);
+    result.position = materialize_displacement(
+        fixture.position, result.displacement);
+    result.state = evaluate_box_kkt(fixture, result.position,
+        fixture.velocity, result.displacement, predicted, time_step);
+    result.initial_objective = result.state.smooth.total;
+    result.objective_forward_bound = 1024.0
+        * std::numeric_limits<double>::epsilon()
+        * std::max(std::abs(result.initial_objective), 1.0);
+    double trust_radius = 0.25 * SPACING;
+    for (int outer = 0; outer < 64; ++outer) {
+        result.outer_trials = outer + 1;
+        if (result.state.passed) {
+            result.velocity.resize(result.displacement.size());
+            for (std::size_t i = 0; i < result.velocity.size(); ++i) {
+                result.velocity[i] = result.displacement[i] / time_step;
+            }
+            result.passed = result.state.smooth.total
+                <= result.initial_objective + result.objective_forward_bound;
+            if (!result.passed) {
+                result.failure = "OBJECTIVE_ABOVE_FEASIBLE_PREDICTOR";
+            }
+            return result;
+        }
+        bool negative_curvature = false;
+        const std::vector<Vec3> raw_step = box_kkt_trust_step(
+            result.position, fixture.boundary, result.state, time_step,
+            trust_radius, result.hvp_calls, negative_curvature);
+        result.negative_curvature_exits += negative_curvature ? 1 : 0;
+        std::vector<Vec3> trial_displacement = add_scaled(
+            result.displacement, raw_step, 1.0);
+        trial_displacement = clamp_box_displacement(
+            fixture, trial_displacement);
+        ++result.projected_trials;
+        std::vector<Vec3> actual_step(trial_displacement.size());
+        for (std::size_t i = 0; i < actual_step.size(); ++i) {
+            actual_step[i] = trial_displacement[i] - result.displacement[i];
+        }
+        if (vector_norm(actual_step) == 0.0) {
+            result.failure = "ZERO_PROJECTED_STEP";
+            return result;
+        }
+        const std::vector<Vec3> trial_position = materialize_displacement(
+            fixture.position, trial_displacement);
+        const BoxKktState trial = evaluate_box_kkt(fixture,
+            trial_position, fixture.velocity, trial_displacement,
+            predicted, time_step);
+        const std::vector<Vec3> image = smooth_hvp(
+            result.position, fixture.boundary, actual_step, time_step);
+        ++result.hvp_calls;
+        const double predicted_reduction = -flat_dot(
+            result.state.smooth.gradient, actual_step)
+            - 0.5 * flat_dot(actual_step, image);
+        const double actual_reduction = result.state.smooth.total
+            - trial.smooth.total;
+        const double energy_floor = 1024.0
+            * std::numeric_limits<double>::epsilon()
+            * std::max(std::abs(result.state.smooth.total), 1.0);
+        bool accept = false;
+        if (predicted_reduction > energy_floor
+            && actual_reduction > 0.0) {
+            const double ratio = actual_reduction / predicted_reduction;
+            accept = ratio >= 0.1;
+            if (ratio < 0.25) {
+                trust_radius *= 0.25;
+            } else if (ratio > 0.75
+                && vector_norm(actual_step) >= 0.9 * trust_radius) {
+                trust_radius = std::min(
+                    2.0 * trust_radius, 2.0 * SPACING);
+            }
+        } else if (predicted_reduction > 0.0
+            && predicted_reduction <= energy_floor) {
+            ++result.floor_merit_trials;
+            accept = trial.finite_values
+                && trial.minimum_multiplier >= 0.0
+                && trial.projected_impulse_residual
+                    < result.state.projected_impulse_residual
+                && trial.ledger_absolute < result.state.ledger_absolute
+                && result.floor_merit_accepts < 4;
+            if (accept) {
+                ++result.floor_merit_accepts;
+            }
+        }
+        if (accept) {
+            result.active_set_changes += same_active_set(
+                result.state, trial) ? 0 : 1;
+            result.displacement = std::move(trial_displacement);
+            result.position = std::move(trial_position);
+            result.state = trial;
+            ++result.accepted_trials;
+        } else {
+            ++result.rejected_trials;
+            trust_radius *= 0.25;
+            if (result.rejected_trials > 8) {
+                result.failure = "REJECT_LIMIT";
+                return result;
+            }
+        }
+        if (trust_radius < 1.0e-14) {
+            result.failure = "MINIMUM_TRUST_RADIUS";
+            return result;
+        }
+    }
+    result.failure = "OUTER_LIMIT";
+    return result;
+}
+
+struct B4BKReplay {
+    int substeps_per_frame = 0;
+    double time_step = 0.0;
+    SmokeStep split;
+    BoxKktSolve constrained;
+    bool split_exact = false;
+    bool constrained_gate = false;
+};
+
+B4BKReplay run_b4bk_replay(
+    const SmokeFixture& fixture, int substeps_per_frame) {
+    B4BKReplay result;
+    result.substeps_per_frame = substeps_per_frame;
+    result.time_step = SMOKE_FRAME_TIME
+        / static_cast<double>(substeps_per_frame);
+    result.split = execute_smoke_step(fixture,
+        fixture.position, fixture.velocity, result.time_step,
+        true, true, true, true, true);
+    result.constrained = solve_box_kkt_step(fixture, result.time_step);
+    if (substeps_per_frame == 48) {
+        result.split_exact = result.split.passed;
+    } else if (substeps_per_frame == 96) {
+        result.split_exact = !result.split.passed
+            && result.split.smooth.failure
+                == "REACTION_BELOW_ENERGY_RESOLUTION"
+            && result.split.smooth.reaction_stationarity_defect
+                == 5.9689936631574676e-7
+            && result.split.smooth.reaction_mixed_limit
+                == 2.5546920380366131e-12
+            && result.split.smooth.last_predicted_reduction
+                == 1.1151393208186398e-13
+            && result.split.smooth.numerical_energy_floor
+                == 2.2737367544323206e-13
+            && vector_norm(result.split.smooth.last_step) / SPACING
+                == 1.1589205474866491e-9
+            && result.split.smooth.floor_trial_residual_ratio
+                == 1.2778566964207925e-4
+            && !result.split.smooth.floor_trial_topology_exact;
+    } else if (substeps_per_frame == 192) {
+        result.split_exact = !result.split.passed
+            && result.split.smooth.failure
+                == "REACTION_BELOW_ENERGY_RESOLUTION"
+            && result.split.smooth.reaction_stationarity_defect
+                == 7.4612397140137767e-8
+            && result.split.smooth.reaction_mixed_limit
+                == 1.2773460190183065e-12
+            && result.split.smooth.last_predicted_reduction
+                == 1.7437192547456636e-15
+            && result.split.smooth.numerical_energy_floor
+                == 2.2737367544323206e-13
+            && vector_norm(result.split.smooth.last_step) / SPACING
+                == 7.2487174912679562e-11
+            && result.split.smooth.floor_trial_residual_ratio
+                == 3.1986895733209341e-5
+            && !result.split.smooth.floor_trial_topology_exact;
+    }
+    const BoxKktState& state = result.constrained.state;
+    bool reconstruction = result.constrained.passed;
+    for (std::size_t i = 0;
+         reconstruction && i < result.constrained.velocity.size(); ++i) {
+        reconstruction = result.constrained.velocity[i].x
+                == result.constrained.displacement[i].x / result.time_step
+            && result.constrained.velocity[i].y
+                == result.constrained.displacement[i].y / result.time_step
+            && result.constrained.velocity[i].z
+                == result.constrained.displacement[i].z / result.time_step;
+    }
+    result.constrained_gate = result.constrained.passed
+        && state.lower_y_axes > 0
+        && state.lateral_or_upper_axes == 0
+        && reconstruction;
+    return result;
+}
+
+struct B4BKDetached {
+    BoxKktSolve constrained;
+    bool passed = false;
+    double position_error = 0.0;
+    double velocity_error = 0.0;
+};
+
+B4BKDetached run_b4bk_detached() {
+    B4BKDetached result;
+    const SmokeFixture fixture = make_b4b_released_block_fixture();
+    const double time_step = SMOKE_FRAME_TIME / 48.0;
+    result.constrained = solve_box_kkt_step(fixture, time_step);
+    std::vector<Vec3> expected_position = fixture.position;
+    std::vector<Vec3> expected_velocity = fixture.velocity;
+    for (std::size_t i = 0; i < expected_position.size(); ++i) {
+        expected_velocity[i] += time_step * fixture.gravity;
+        expected_position[i] += time_step * expected_velocity[i];
+    }
+    if (result.constrained.position.size() == expected_position.size()) {
+        result.position_error = rms_difference(
+            result.constrained.position, expected_position);
+        result.velocity_error = rms_difference(
+            result.constrained.velocity, expected_velocity);
+    }
+    const BoxKktState& state = result.constrained.state;
+    result.passed = result.constrained.passed
+        && result.position_error == 0.0
+        && result.velocity_error == 0.0
+        && state.smooth.support.active_centers == 0U
+        && state.lower_axes == 0 && state.upper_axes == 0
+        && norm(state.support_reaction) == 0.0
+        && norm(state.contact_reaction) == 0.0
+        && state.maximum_penetration == 0.0;
+    return result;
+}
+
+void append_b4bk_state(std::ostringstream& output, const BoxKktState& value) {
+    output << "{\"passed\":" << (value.passed ? "true" : "false")
+           << ",\"objective_j\":" << value.smooth.total
+           << ",\"pressure_active_centers\":"
+           << value.smooth.support.active_centers
+           << ",\"lower_axes\":" << value.lower_axes
+           << ",\"upper_axes\":" << value.upper_axes
+           << ",\"lower_y_axes\":" << value.lower_y_axes
+           << ",\"lateral_or_upper_axes\":"
+           << value.lateral_or_upper_axes
+           << ",\"projected_impulse_residual_n_s\":"
+           << value.projected_impulse_residual
+           << ",\"reaction_limit_n_s\":" << value.reaction_limit
+           << ",\"minimum_multiplier_n\":" << value.minimum_multiplier
+           << ",\"complementarity_n_m\":" << value.complementarity
+           << ",\"maximum_penetration_m\":" << value.maximum_penetration
+           << ",\"support_translation_closure\":"
+           << value.support_translation_closure
+           << ",\"contact_closure_n_s\":" << value.contact_closure
+           << ",\"ledger_absolute_n_s\":" << value.ledger_absolute
+           << ",\"ledger_residual\":" << value.ledger_residual
+           << ",\"actual_impulse_n_s\":";
+    append_vec3(output, value.actual_impulse);
+    output << ",\"fluid_pressure_impulse_n_s\":";
+    append_vec3(output, value.fluid_pressure_impulse);
+    output << ",\"support_reaction_n_s\":";
+    append_vec3(output, value.support_reaction);
+    output << ",\"fluid_contact_impulse_n_s\":";
+    append_vec3(output, value.fluid_contact_impulse);
+    output << ",\"contact_reaction_n_s\":";
+    append_vec3(output, value.contact_reaction);
+    output << '}';
+}
+
+void append_b4bk_solve(std::ostringstream& output, const BoxKktSolve& value) {
+    output << "{\"passed\":" << (value.passed ? "true" : "false")
+           << ",\"failure\":\"" << value.failure
+           << "\",\"outer_trials\":" << value.outer_trials
+           << ",\"accepted_trials\":" << value.accepted_trials
+           << ",\"rejected_trials\":" << value.rejected_trials
+           << ",\"hvp_calls\":" << value.hvp_calls
+           << ",\"negative_curvature_exits\":"
+           << value.negative_curvature_exits
+           << ",\"projected_trials\":" << value.projected_trials
+           << ",\"active_set_changes\":" << value.active_set_changes
+           << ",\"floor_merit_trials\":" << value.floor_merit_trials
+           << ",\"floor_merit_accepts\":" << value.floor_merit_accepts
+           << ",\"initial_objective_j\":" << value.initial_objective
+           << ",\"objective_forward_bound_j\":"
+           << value.objective_forward_bound
+           << ",\"state\":";
+    append_b4bk_state(output, value.state);
+    output << '}';
+}
+
+} // namespace
+
+SplitBoundaryReport run_box_contact_kkt_controls() {
+    const SplitBoundaryReport parent = run_tiny_pressure_corpus_controls();
+    const bool parent_exact = !parent.passed
+        && sha256_hex(parent.json)
+            == "fef0035a7e0d005358d08d16ed134a656d73127c5ba215d2663f9feb95bdb5e3";
+    const SmokeFixture fixture = make_b4b_supported_column_fixture();
+    constexpr std::array<int, 3> counts = {48, 96, 192};
+    std::array<B4BKReplay, 3> replay;
+    bool replay_exact = true;
+    bool constrained_passed = true;
+    if (parent_exact) {
+        for (std::size_t i = 0; i < counts.size(); ++i) {
+            replay[i] = run_b4bk_replay(fixture, counts[i]);
+            replay_exact = replay_exact && replay[i].split_exact;
+            constrained_passed = constrained_passed
+                && replay[i].constrained_gate;
+        }
+    } else {
+        replay_exact = false;
+        constrained_passed = false;
+    }
+    const B4BKDetached detached = parent_exact
+        ? run_b4bk_detached() : B4BKDetached{};
+    const bool passed = parent_exact && replay_exact
+        && constrained_passed && detached.passed;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4B_PARENT";
+    } else if (!replay_exact) {
+        first_failure = "SPLIT_REPLAY";
+    } else if (!constrained_passed) {
+        for (std::size_t i = 0; i < replay.size(); ++i) {
+            if (!replay[i].constrained_gate) {
+                first_failure = "P1_KKT_"
+                    + std::to_string(replay[i].substeps_per_frame)
+                    + ':' + replay[i].constrained.failure;
+                break;
+            }
+        }
+    } else if (!detached.passed) {
+        first_failure = "P2_DETACHED_NEGATIVE:"
+            + detached.constrained.failure;
+    }
+    const std::string disposition = passed
+        ? "BOX_CONTACT_KKT_CANDIDATE"
+        : "BOX_CONTACT_KKT_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << disposition;
+    for (const B4BKReplay& value : replay) {
+        material << '|' << value.substeps_per_frame << ':'
+                 << value.split_exact << ':' << value.constrained_gate << ':'
+                 << value.constrained.state.projected_impulse_residual << ':'
+                 << value.constrained.state.ledger_residual << ':'
+                 << value.constrained.state.lower_y_axes;
+    }
+    material << "|D:" << detached.passed << ':'
+             << detached.position_error << ':' << detached.velocity_error;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4bk_contact_kkt.v1\""
+           << ",\"identity\":\"box-contact-kkt-discriminator-r0\""
+           << ",\"parent_b4b_result_sha256\":\"59d7f2436f8bbbea974b47f4109d038ed09251012340accd3b0e0664b6ee2b16\""
+           << ",\"parent_b4b_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"p1_replays\":[";
+    for (std::size_t i = 0; i < replay.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        const B4BKReplay& value = replay[i];
+        report << "{\"substeps_per_frame\":"
+               << value.substeps_per_frame
+               << ",\"time_step_s\":" << value.time_step
+               << ",\"split_exact\":"
+               << (value.split_exact ? "true" : "false")
+               << ",\"split\":{\"passed\":"
+               << (value.split.passed ? "true" : "false")
+               << ",\"failure\":\"" << value.split.failure
+               << "\",\"reaction_defect_n_s\":"
+               << value.split.smooth.reaction_stationarity_defect
+               << ",\"reaction_limit_n_s\":"
+               << value.split.smooth.reaction_mixed_limit
+               << ",\"predicted_reduction_j\":"
+               << value.split.smooth.last_predicted_reduction
+               << ",\"energy_floor_j\":"
+               << value.split.smooth.numerical_energy_floor
+               << ",\"floor_residual_ratio\":"
+               << value.split.smooth.floor_trial_residual_ratio
+               << ",\"floor_topology_exact\":"
+               << (value.split.smooth.floor_trial_topology_exact
+                    ? "true" : "false") << "},\"constrained_gate\":"
+               << (value.constrained_gate ? "true" : "false")
+               << ",\"constrained\":";
+        append_b4bk_solve(report, value.constrained);
+        report << '}';
+    }
+    report << "],\"p2_detached\":{\"status\":\""
+           << (detached.passed ? "PASS" : "FAIL")
+           << "\",\"position_error_m\":" << detached.position_error
+           << ",\"velocity_error_m_s\":" << detached.velocity_error
+           << ",\"constrained\":";
+    append_b4bk_solve(report, detached.constrained);
+    report << "},\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4b_r1_contract_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"full_trajectory_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
 } // namespace nextengine::nonlocal::fcr

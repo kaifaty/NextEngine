@@ -46,7 +46,8 @@ int main(int argc, char** argv) {
                          "--owned-residual-trajectory-self-test|"
                          "--owned-boundary-composition-self-test|"
                          "--closed-box-eligibility-self-test|"
-                         "--tiny-pressure-corpus-self-test\n";
+                         "--tiny-pressure-corpus-self-test|"
+                         "--box-contact-kkt-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -314,6 +315,12 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--box-contact-kkt-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::run_box_contact_kkt_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -350,7 +357,8 @@ int main(int argc, char** argv) {
                      "--owned-residual-trajectory-self-test|"
                      "--owned-boundary-composition-self-test|"
                      "--closed-box-eligibility-self-test|"
-                     "--tiny-pressure-corpus-self-test\n";
+                     "--tiny-pressure-corpus-self-test|"
+                     "--box-contact-kkt-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

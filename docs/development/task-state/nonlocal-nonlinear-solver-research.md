@@ -564,6 +564,31 @@
   formulation before any B4B retry. Do not relabel the unresolved floor,
   remove ghost support, execute P2, or begin neighborhood/nominal work.
 
+### D-033 -- Select exact box KKT before a contact-potential lineage
+
+- **Observation:** NUV's published objective is unconstrained and leaves
+  unified fluid-solid collision as future work. SAM and IPC couple contact
+  through new potentials, parameters and globalization, while the B4B static
+  box admits parameter-free exact displacement bounds.
+- **Decision:** first test a feasible bound-constrained form of the unchanged
+  pressure objective. Derive contact impulse from the KKT multiplier and keep
+  ghost-pressure and contact reactions separate in the complete ledger.
+- **Consequence:** B4BK is a one-substep discriminator at exact P1 failures,
+  not a trajectory retry. PASS only permits freezing B4B r1; FAIL opens a new
+  SAM/IPC-style formula lineage.
+
+### D-034 -- Preserve KKT r0 and repair only the filled-box face assertion
+
+- **Observation:** all three constrained solves and detached P2 pass their
+  numerical/physical gates. r0 fails solely because it forbids x/z
+  multipliers, although the P1 fluid fills and touches both lateral face
+  pairs. Their signed aggregate impulses cancel to roundoff.
+- **Decision:** preserve B4BK r0 FAIL. Freeze r1 with exact face counts
+  `[12,12,16,0,12,12]`, zero upper-y contact and the inherited absolute
+  contact-impulse symmetry scale.
+- **Consequence:** r1 changes no solver action, threshold or state. A second
+  failure ends the hard-box lineage; PASS only permits B4B r1 contract design.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -576,12 +601,11 @@
 
 ## Exact next action
 
-1. Derive the box-contact KKT stationarity, multiplier signs and complete
-   pressure/contact impulse ledger in owned displacement coordinates.
-2. Freeze a minimal active-set discriminator at the exact P1 fixed-96/192
-   failed states before implementing a new full-corpus identity.
-3. Compare post-solve sweep, ghost-only and constrained-contact candidates;
-   preserve B4B and historical outputs byte-exact.
+1. Implement B4BK1 face counters and signed per-face impulses without changing
+   the r0 solver or report.
+2. Execute r1 twice and verify r0/B4B/B4A/B3R/D5/B3/B2 raw hashes.
+3. Preserve a second failure or, on PASS, freeze B4B r1 before any full
+   trajectory execution.
 
 ## Reconsideration triggers
 
