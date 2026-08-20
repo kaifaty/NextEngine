@@ -1,6 +1,6 @@
 # NPR0-R1B — h3 support-profile discriminator
 
-Status: `SPECIFIED / IMPLEMENTATION_NEXT / REPORT_ONLY`
+Status: `EXECUTED / NONLOCAL_PRODUCT_PROFILE_CANDIDATE / NPR1_ELIGIBLE`
 
 ## Purpose
 
@@ -90,3 +90,11 @@ is not silently reinterpreted as a long-horizon density proof.
 
 The v0-v3 profiles, old hashes, retained P1/P2 implementation, split contact,
 negative P3/P4 evidence and DFSPH production authority remain unchanged.
+
+## Execution result
+
+V4-A, repeated V4-B P1/P2 checks and V4-C all pass. The selected profile hash
+is `624678f6ad4dbf2d3657b30880ad1cff2445d0348194549b37c71c1e55804327`.
+The combined disposition is `NONLOCAL_PRODUCT_PROFILE_CANDIDATE`; exact roots
+and caveats are in the
+[dated evidence](../../development/nonlocal-continuum-npr0-v4-selection-evidence-2026-08-20.md).

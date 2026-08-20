@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NPR0_SUPPORT_REMEDIATION / REPORT_ONLY` |
+| Status | `ACTIVE / NPR0_COMPLETE / NPR1_NEXT / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-production` |
 | Scope | Evidence-gated path from the retained Nonlocal GPU lab to one bounded basin production candidate |
@@ -11,16 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** standalone performance is sufficient to start a
-  production-profile reclosure, but the measured fixture is not the SPEC-38
-  basin profile.
-- **Why:** spacing differs by `10×`, time step by `4.1667×`, support ratio is
-  `3dx` versus `2dx`, lattice axes differ and the benchmark has no boundary.
-- **Next action:** freeze and execute the v4 h3/16 full-capacity profile
-  discriminator, then rerun all four NPR0-E cases with h3-consistent support.
-- **Current blocker:** only the h3/16 diagnostic passes; its 38,856 full-basin
-  boundary samples exceed the current 32,768 capacity. No profile is selected
-  and NPR1 is blocked.
+- **Current conclusion:** NPR0 selects one exact report-only h3/16 basin
+  profile; it is eligible for NPR1 falsification, not runtime integration.
+- **Why:** v4 passes audit, repeated full-basin exact P1/P2 checks and all four
+  h3-consistent tiny cases with declared 38,856 boundary capacity.
+- **Next action:** research and freeze NPR1 independent physical/correctness
+  corpus plus canonical quantization contract for the exact v4 profile.
+- **Current blocker:** broader physical validity and canonical authority are
+  unproven; the one-sided NPR0 hydro metric is insufficient for production.
 - **Do not retry:** runtime/public contract integration from the old 50k
   benchmark; it is not product-profile evidence.
 - **Reconsider when:** NPR0 selects one hash-bound basin-scale profile through
@@ -42,7 +40,8 @@
 | [NPR0 tiny-corpus evidence](../nonlocal-continuum-npr0-tiny-corpus-evidence-2026-08-20.md) | `PROFILE_RECLOSURE_REMEDIATION_1` | other tiny cases pass; hydro compression rejects both coefficient profiles |
 | [NPR0 hydro remediation](../../plans/nonlocal-continuum-production/03-hydro-remediation-1.md) | `EXECUTED` | h2 fails through 50 iterations; h3 first passes at 16 |
 | [NPR0 hydro-remediation evidence](../nonlocal-continuum-npr0-hydro-remediation-evidence-2026-08-20.md) | `H3_SUPPORT_REMEDIATION_CANDIDATE` | h3/16 requires explicit capacity/profile reclosure and full-corpus rerun |
-| [NPR0 v4 discriminator](../../plans/nonlocal-continuum-production/04-h3-support-profile-discriminator.md) | `SPECIFIED` | exact h3 profile, capacity, preflights, corpus rerun and terminal dispositions are frozen |
+| [NPR0 v4 discriminator](../../plans/nonlocal-continuum-production/04-h3-support-profile-discriminator.md) | `EXECUTED` | audit, repeated exact preflights and complete h3 tiny corpus pass |
+| [NPR0 v4 selection evidence](../nonlocal-continuum-npr0-v4-selection-evidence-2026-08-20.md) | `NONLOCAL_PRODUCT_PROFILE_CANDIDATE` | NPR0 complete; exact h3/16 identity enters NPR1 only |
 | Later `CONTINUUM-*` ProductChecks | `NOT_RUN` | no production claim |
 
 ## Decisions that still constrain the work
@@ -101,12 +100,11 @@ and NPR1 reference corpus pass.
 
 ## Next action
 
-1. Specify one v4 identity with kappa=9196.875, lambda=360, h=3dx, three
-   rooted layers, 16 iterations and explicit 38,856 boundary capacity.
-2. Run profile audit and full-basin P1/P2 exact preflights without inheriting
-   v3 performance evidence.
-3. Rerun free fall, hydro, reversible and wall cases with h3-consistent
-   support; either select a bounded NPR1 candidate or stop NPR0.
+1. Audit primary references and current DFSPH corpus for independent NPR1
+   physical observables, uncertainty and canonical quantization requirements.
+2. Freeze a bounded NPR1 contract before adding fixtures or thresholds.
+3. Implement the smallest oracle/corpus slice and stop at its first failed
+   physical or exactness boundary.
 
 ## Do not retry
 
@@ -120,9 +118,8 @@ and NPR1 reference corpus pass.
 
 - **Workspace state:** dedicated `codex/nonlocal-continuum-n0` worktree; new
   roadmap work is isolated from current runtime.
-- **Checks:** machine audit, three ordered bridge P2 preflights, four-iteration
-  scale law, two full static-support P2 preflights and the negative boundary
-  discriminator pass.
-- **Remaining risk:** h3 capacity/cost, full-corpus physical validity,
-  authority, coupling, persistence and integrated budget are open.
+- **Checks:** NPR0 audit, scale law, split boundary, remediation matrix,
+  repeated v4 P1/P2 exact checks and complete h3 tiny corpus pass.
+- **Remaining risk:** broader physical validity, canonical authority, h3
+  integrated cost, coupling, persistence and world-step budget are open.
 - **Promotion needed:** later consumer-backed Accepted ADR only after NPR7.

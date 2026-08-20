@@ -1,6 +1,6 @@
 # NPR0 — Nonlocal product-profile reclosure contract
 
-Status: `H3_SUPPORT_REMEDIATION_CANDIDATE / NPR1_BLOCKED / REPORT_ONLY`
+Status: `COMPLETE / NONLOCAL_PRODUCT_PROFILE_CANDIDATE / REPORT_ONLY`
 
 ## Purpose
 
@@ -100,7 +100,9 @@ corpus rejected both v3 profiles. Its frozen hydro remediation rejects h2
 through 50 iterations and admits only an h3 support-ratio candidate. Because
 exact three-layer full-basin support exceeds the current static-boundary
 capacity, a named v4 capacity/profile discriminator and complete NPR0-E rerun
-are required. No profile is selected.
+are required. That discriminator now passes audit, repeated exact P1/P2
+preflights and all four tiny cases. NPR0 selects the exact v4 h3/16 identity;
+NPR1 is eligible while runtime remains blocked.
 
 ## Exit and rollback
 

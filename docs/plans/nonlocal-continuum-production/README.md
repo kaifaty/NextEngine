@@ -1,6 +1,6 @@
 # Nonlocal continuum — productionization roadmap
 
-Status: `ACTIVE / NPR0_SUPPORT_REMEDIATION / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `ACTIVE / NPR0_COMPLETE / NPR1_NEXT / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
 
 This roadmap starts from the completed
 [fixed-work performance decision](../../development/nonlocal-continuum-performance-decision-2026-08-20.md).
@@ -57,8 +57,8 @@ NPR0 therefore precedes any production correctness or integration claim.
 
 ```text
 completed fixed-work performance baseline
-  -> NPR0 product-profile bridge/boundary                ACTIVE
-      -> NPR1 independent physical/correctness reclosure NOT_STARTED
+  -> NPR0 product-profile bridge/boundary                COMPLETE
+      -> NPR1 independent physical/correctness reclosure NEXT
           -> NPR2 canonical-authority decision           NOT_STARTED
               -> NPR3 private owner/admission/fault path  NOT_STARTED
                   -> NPR4 one-pass PhysX coupling         NOT_STARTED
@@ -113,12 +113,12 @@ GPU preflights and the tiny negative wall discriminator are implemented. The
 active step is the predeclared binary64 tiny physical corpus that decides
 between unchanged-control and dimensionally-derived coefficients.
 
-That corpus selected neither v3 profile. The frozen hydro remediation then
-rejected h2 through 50 iterations and found one h3/16 support-ratio candidate.
-It is not deployable as-is: exact full-basin three-layer support exceeds the
-current static-boundary capacity. The active step is a named v4
-support/capacity discriminator plus a complete four-case NPR0-E rerun; NPR1
-remains blocked.
+That corpus selected neither v3 profile. The frozen hydro remediation rejected
+h2 through 50 iterations and selected an h3/16 support-ratio candidate. Its
+named v4 profile then passed the expanded audit, repeated full-basin exact
+P1/P2 preflights and all four h3-consistent tiny cases. NPR0 therefore selects
+one report-only `NONLOCAL_PRODUCT_PROFILE_CANDIDATE` and NPR1 becomes the next
+stage. Runtime, public contracts and production authority remain blocked.
 
 NPR1, runtime integration and public contracts are blocked until NPR0 selects
 one profile. This is an evidence dependency, not unfinished hidden work.
