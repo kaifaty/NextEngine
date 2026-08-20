@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / FCR2_PASS / FCR3A_NEXT` |
+| Status | `ACTIVE / FCR3A_BLOCK_V1_FAIL / HYBRID_V2_NEXT` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-formula-reclosure` |
 | Scope | Prove or reject a separately rooted energy/force-consistent Nonlocal continuum identity through algebra, physical, CUDA and performance gates |
@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** A slow corrected f64 variational reference passes tiny physics; efficient SISSM convergence and product calibration remain unknown.
-- **Why:** FCR2 passes all seven cases and full-gradient closure, but pressure/combined controls need accepted alphas down to `4.66e-10` and hundreds of backtracks.
-- **Next action:** Implement FCR3-A block-Jacobi/Gauss–Newton conditioning A/B before SISSM or any product-profile sweep.
+- **Current conclusion:** Pure block v1 solves line-search stiffness but misses fixed-budget final gradient quality; one hybrid remediation is justified.
+- **Why:** backtracks improve `3788→7`, but compression gradient ends at `7.31e-2` versus baseline `5.86e-6`; failure is byte-identical.
+- **Next action:** Test block coarse descent followed by warm-started inertial polishing under the same 80-iteration and quality gates.
 - **Current blocker:** None.
 - **Do not retry:** Repairing or retuning `nuv-basin-48k-static-support-h3-physical.v4`; its formula identity, coefficients and roots are closed historical evidence.
 - **Reconsider when:** Only a reviewed upstream erratum can change source interpretation; it still cannot relabel old roots.
@@ -28,6 +28,7 @@
 | `docs/development/nonlocal-continuum-fcr0-algebra-evidence-2026-08-20.md` | `PASS` | `FCR_ALGEBRA_CANDIDATE`; FCR1 authorized |
 | `docs/development/nonlocal-continuum-fcr1-pair-pressure-evidence-2026-08-20.md` | `PASS` | CPU pair/pressure semantics selected; FCR2 authorized |
 | `docs/development/nonlocal-continuum-fcr2-reference-evidence-2026-08-20.md` | `PASS / CONDITIONING_RISK` | Slow CPU objective authority selected; FCR3-A required before profile sweep |
+| `docs/development/nonlocal-continuum-fcr3a-block-evidence-2026-08-20.md` | `FAIL` | Pure block v1 rejected; exactly one hybrid v2 remediation allowed |
 
 ## Decisions that still constrain the work
 
@@ -78,6 +79,7 @@
 | H1: compression-only is the stable free-surface rule | SISPH text, both author code paths, standard negative-pressure clamp | printed Eq. 7 is two-sided | FCR1 underdense pair and free-surface patch |
 | H2: one directed visit plus endpoint scatter is the clean coefficient implementation | Eq. 12/13 pair state and exact momentum closure | current neighbor graph likely stores both directions | FCR1 enumerated two-particle graph |
 | H3: corrected identity can converge at product cadence | unified coupling and SISSM stability examples | no unconditional convergence; product `dt` is larger than paper examples | FCR2/FCR3 residual and accepted-step sweeps |
+| H4: block coarse descent plus inertial polishing preserves v1's backtrack gain and restores FCR2 quality | block v1 accepts large steps; inertial baseline polishes accurately | pure block converges too slowly near the minimizer | FCR3-A hybrid v2, same 80-step cap |
 
 ## Required context
 
@@ -91,9 +93,9 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Implement the frozen FCR3-A local-curvature blocks without changing objective or acceptance.
-2. Require the exact backtrack/alpha/objective/gradient A/B gates on the FCR2 stiff cases.
-3. Specify corrected SISSM/Chebyshev correspondence only if FCR3-A passes.
+1. Implement only hybrid v2: block coarse phase plus inertial polish with warm-started alpha.
+2. Keep the exact v1 objective, gradient, backtrack and alpha gates and total 80-iteration cap.
+3. If v2 fails, reject this branch rather than retuning it repeatedly.
 
 ## Do not retry
 
@@ -103,7 +105,7 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** branch `codex/nonlocal-continuum-n0`; FCR2 implementation committed at `829f044`; evidence/roadmap update is the current change.
-- **Checks:** FCR0/FCR1/FCR2 PASS twice byte-identically; NPR1-A PASS unchanged; NPR1-B frozen FAIL unchanged.
+- **Workspace state:** branch `codex/nonlocal-continuum-n0`; block v1 implementation committed at `8771917`; failure evidence/roadmap update is the current change.
+- **Checks:** FCR3-A v1 FAIL twice byte-identically; FCR2 PASS unchanged.
 - **Remaining risk:** Pair enumeration, nonlinear convergence, coefficient calibration and corrected CUDA cost remain open.
 - **Promotion needed:** Roadmap/evidence updates at each material gate; architecture promotion remains forbidden.

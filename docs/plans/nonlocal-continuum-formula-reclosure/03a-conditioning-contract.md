@@ -1,6 +1,6 @@
 # FCR3-A — local-curvature conditioning contract
 
-Status: `FROZEN FOR IMPLEMENTATION / REPORT_ONLY`
+Status: `FAIL / BLOCK_V1_REJECTED / HYBRID_V2_ALLOWED / REPORT_ONLY`
 
 ## Candidate
 
@@ -54,3 +54,9 @@ or `FORMULA_RECLOSURE_STOP`.
 
 Passing authorizes FCR3-B fast-iteration correspondence only. It grants no
 profile, CUDA or runtime authority.
+
+Pure block v1 fails fixed-budget final quality despite reducing aggregate
+backtracks from `3788` to `7`. See the
+[exact evidence](../../development/nonlocal-continuum-fcr3a-block-evidence-2026-08-20.md).
+One bounded hybrid coarse-block/reference-polish discriminator is allowed;
+the gates remain unchanged.
