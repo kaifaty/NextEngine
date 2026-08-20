@@ -293,6 +293,9 @@ analytical contact faces; see the
 [dated evidence](../../development/nonlocal-nsr3b4a-closed-box-eligibility-evidence-2026-08-21.md).
 The nominal all-pairs projection reaches `52.9M--2.338B` candidate checks per
 objective evaluation, so joint fluid/support cell neighborhoods are mandatory
-before nominal execution. Freeze B4B tiny pressure-only hydro/release corpus
-next; viscosity, surface tension, internal aperture, nominal execution, CUDA
-and runtime remain blocked.
+before nominal execution. The bounded pressure-only corpus is now frozen in
+[B4B](03b4b-tiny-pressure-corpus-contract.md): supported-column startup and a
+separate released-block/floor-impact phase, each with fixed `48/96/192`
+references and no viscosity/surface term. Execute B4B next; viscosity, surface
+tension, internal aperture, nominal execution, CUDA and runtime remain
+blocked.

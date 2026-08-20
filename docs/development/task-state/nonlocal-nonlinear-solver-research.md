@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4A_PASS_CLOSED_BOX / NSR3B4B_TINY_PRESSURE_DESIGN` |
+| Status | `ACTIVE / NSR3B4A_PASS_CLOSED_BOX / NSR3B4B_FROZEN_EXECUTION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -193,11 +193,16 @@
 - **Current decision:** select `CLOSED_BOX_FREE_SURFACE_ELIGIBLE`; pressure-only
   tiny controls may proceed, but nominal execution requires a joint
   fluid/support cell neighborhood.
-- **Current action:** freeze B4B tiny pressure-only hydrostatic and
-  release/impact dimensions, observables, reference ladder, horizon and first
-  failure before trajectory implementation.
-- **Next gate:** execute B4B only after its aggregate and cost contract is
-  frozen; do not add viscosity, surface tension or internal aperture.
+- **Current conclusion:** B4B separates a `48`-particle supported-column
+  startup from a `27`-particle released-block impact. It does not mislabel the
+  short, non-viscous startup as hydrostatic equilibrium.
+- **Current decision:** freeze exact `8/16` macro-frame horizons, physical and
+  energy gates, fine-owned controller, fixed `48/96/192` reference ladder and
+  aggregate differences before execution.
+- **Current action:** implement and execute B4B without changing the selected
+  solver, coefficients or thresholds.
+- **Next gate:** PASS may authorize B4C joint neighborhood/canonical design
+  only; do not add viscosity, surface tension or internal aperture.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -533,6 +538,18 @@
   require joint cell neighborhoods and restored exact references; Poiseuille
   requires a new fixed-wall/inlet viscous contract.
 
+### D-031 -- Test support startup and release/impact as separate phases
+
+- **Observation:** a uniform column under gravity is not the discrete
+  hydrostatic equilibrium of the compressible unilateral penalty, and a short
+  no-viscosity run cannot prove long-window settling.
+- **Decision:** B4B names the first fixture supported-column startup and uses
+  a separate initially pressure-inactive released block to expose the exact
+  free-flight-to-contact transition. Freeze aggregate and fixed-refinement
+  gates before either run.
+- **Consequence:** B4B can falsify the tiny pressure trajectory and split
+  composition, but even PASS grants no equilibrium or nominal-water credit.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -545,11 +562,10 @@
 
 ## Exact next action
 
-1. Freeze B4B hydrostatic and release/impact fixture dimensions, aggregate
-   observables, fixed reference ladder and exact horizon.
+1. Implement the frozen B4B supported-column and released-block fixtures.
 2. Keep `lambda=mu=gamma=0` and the selected B3R numerical solver unchanged.
-3. Execute only the tiny B4B oracle; joint neighborhood/canonical work remains
-   mandatory before nominal B4E.
+3. Execute twice and preserve the first exact failure or PASS; joint
+   neighborhood/canonical work remains mandatory before nominal B4E.
 
 ## Reconsideration triggers
 
