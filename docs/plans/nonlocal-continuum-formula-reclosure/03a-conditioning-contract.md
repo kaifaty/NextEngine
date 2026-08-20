@@ -1,6 +1,6 @@
 # FCR3-A — local-curvature conditioning contract
 
-Status: `FAIL / BLOCK_V1_REJECTED / HYBRID_V2_ALLOWED / REPORT_ONLY`
+Status: `BLOCK_V1_REJECTED / HYBRID_V2_FROZEN FOR IMPLEMENTATION / REPORT_ONLY`
 
 ## Candidate
 
@@ -60,3 +60,18 @@ backtracks from `3788` to `7`. See the
 [exact evidence](../../development/nonlocal-continuum-fcr3a-block-evidence-2026-08-20.md).
 One bounded hybrid coarse-block/reference-polish discriminator is allowed;
 the gates remain unchanged.
+
+## Frozen hybrid v2 remediation
+
+`block16-inertial64-warm-armijo-v2` keeps the same total cap of `80`:
+
+1. iterations `0..15` use the block v1 direction;
+2. iterations `16..79` use the unchanged FCR2 inertial direction;
+3. Armijo starts at `min(1, 2*previous_accepted_alpha)` instead of resetting
+   to one; the first iteration starts at one;
+4. objective, gradient, graph, physical and failure rules remain unchanged.
+
+The `16`-iteration switch is frozen because block v1 converged the surface
+control in `14` iterations while the pressure/combined controls still needed
+accurate polishing. No additional switch-point or relaxation sweep is allowed
+inside FCR3-A.
