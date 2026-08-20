@@ -17,5 +17,6 @@ SplitBoundaryReport run_finite_precision_merit_controls();
 SplitBoundaryReport run_floor_stationarity_trajectory_controls();
 SplitBoundaryReport run_owned_gradient_controls();
 SplitBoundaryReport run_owned_residual_trajectory_controls();
+SplitBoundaryReport run_owned_boundary_composition_controls();
 
 } // namespace nextengine::nonlocal::fcr

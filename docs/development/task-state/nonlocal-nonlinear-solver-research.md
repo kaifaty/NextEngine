@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3D5_PASS_OWNED_RESIDUAL / NSR3B3R_FROZEN_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B3R_PASS_STATIC_BOUNDARY / NSR3B4_CORPUS_RESEARCH` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -170,10 +170,18 @@
   this is bounded correctness evidence, not a performance result.
 - **Current decision:** select `OWNED_RESIDUAL_TRAJECTORY_CANDIDATE` and
   authorize a separately frozen B3R retry only.
-- **Current action:** implement frozen B3R through the exact adaptive and
-  fixed-reference paths with the original strict ledger unchanged.
-- **Next gate:** B3R must pass face/corner adaptive composition and fixed
-  reference gates before any physical corpus execution.
+- **Current conclusion:** B3R passes original adaptive composition, fixed
+  convergence, strict ledger, terminal-contact and final accuracy gates for
+  both static fixtures.
+- **Current cost:** adaptive face/corner execute `597/90` nonlinear HVPs plus
+  `96/0` spectral HVPs; speculative substeps remain `36/6`.
+- **Current decision:** select `STATIC_BOUNDARY_SMOKE_CANDIDATE` and authorize
+  B4 physical-corpus contract design only.
+- **Current action:** research a minimal physical corpus that separates
+  hydrostatic support, free-surface release and impact/contact behavior without
+  jumping to product scale.
+- **Next gate:** freeze B4 dimensions, observables, references, time horizons
+  and stop rules before running any new physical scene.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -484,6 +492,17 @@
   one adaptive composition retry. Physical corpus, CUDA and runtime remain
   blocked until B3R independently passes.
 
+### D-029 -- Select repaired static-boundary composition
+
+- **Observation:** B3R passes the untouched strict ledger and all adaptive /
+  fixed-reference gates with the D5 state boundary. Reference ratios remain
+  near two and adaptive final errors are below `0.006dx/0.00042c`.
+- **Decision:** select `STATIC_BOUNDARY_SMOKE_CANDIDATE` and proceed only to
+  B4 physical-corpus design.
+- **Consequence:** split static support/contact ordering is validated for the
+  bounded face/corner smoke fixtures. Hydrostatic equilibrium, free-surface
+  release, larger topology and long-horizon drift remain untested.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -496,11 +515,10 @@
 
 ## Exact next action
 
-1. Freeze B3R with the original B3 face/corner fixtures, adaptive controller,
-   fixed references and momentum ledger.
-2. Thread the exact D5 candidate through fine-state-owned adaptive execution.
-3. Preserve all parent hashes; only B3R PASS may authorize a physical-corpus
-   contract.
+1. Research B4 corpus cases and observables without changing the selected
+   numerical solver.
+2. Freeze bounded hydrostatic, release/impact and free-surface reference gates.
+3. Execute only after dimensional/capacity/time-horizon costs are explicit.
 
 ## Reconsideration triggers
 

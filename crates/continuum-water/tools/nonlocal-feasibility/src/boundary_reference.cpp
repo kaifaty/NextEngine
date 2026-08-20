@@ -1143,12 +1143,20 @@ struct SmokeRun {
     int negative_curvature_exits = 0;
     int floor_stops = 0;
     int active_steps = 0;
+    int inactive_steps = 0;
     int contact_events = 0;
+    int floor_merit_trials = 0;
+    int floor_merit_accepts = 0;
+    int maximum_floor_accepts_per_solve = 0;
+    bool floor_conditions_exact = true;
     int cache_invalidations = 0;
     std::size_t maximum_pairs = 0;
     double maximum_penetration = 0.0;
     double maximum_ledger_residual = 0.0;
     double maximum_support_reaction_closure = 0.0;
+    double maximum_active_mixed_ratio = 0.0;
+    double maximum_inactive_bound_ratio = 0.0;
+    double cumulative_fp_bound = 0.0;
     double first_contact_time = std::numeric_limits<double>::infinity();
     Vec3 fluid_support_impulse;
     Vec3 support_reaction;
@@ -1197,8 +1205,19 @@ struct SmokeController {
     int nonlinear_hvp_calls = 0;
     int contact_events = 0;
     int negative_curvature_exits = 0;
+    int outer_trials = 0;
+    int rejected_trials = 0;
+    int floor_merit_trials = 0;
+    int floor_merit_accepts = 0;
+    int maximum_floor_accepts_per_solve = 0;
+    int active_steps = 0;
+    int inactive_steps = 0;
+    bool floor_conditions_exact = true;
     double maximum_penetration = 0.0;
     double maximum_ledger_residual = 0.0;
+    double maximum_active_mixed_ratio = 0.0;
+    double maximum_inactive_bound_ratio = 0.0;
+    double cumulative_fp_bound = 0.0;
     double failure_ledger_absolute = 0.0;
     double failure_ledger_residual = 0.0;
     int failure_active_centers = 0;
@@ -2145,7 +2164,10 @@ SmokeRun run_smoke_interval(
     double interval_start,
     double interval_duration,
     bool enforce_ledger = true,
-    bool reaction_aware = false) {
+    bool reaction_aware = false,
+    bool owned_displacement = false,
+    bool floor_stationarity_merit = false,
+    bool fully_owned_inertia = false) {
     SmokeRun result;
     result.position = start_position;
     result.velocity = start_velocity;
@@ -2154,7 +2176,8 @@ SmokeRun run_smoke_interval(
     for (int substep = 0; substep < substeps; ++substep) {
         const SmokeStep step = execute_smoke_step(
             fixture, result.position, result.velocity, time_step,
-            enforce_ledger, reaction_aware);
+            enforce_ledger, reaction_aware, owned_displacement,
+            floor_stationarity_merit, fully_owned_inertia);
         if (!step.passed) {
             result.maximum_ledger_residual = step.ledger_residual;
             result.maximum_ledger_absolute = step.ledger_absolute;
@@ -2182,7 +2205,33 @@ SmokeRun run_smoke_interval(
         result.negative_curvature_exits +=
             step.smooth.negative_curvature_exits;
         result.floor_stops += step.smooth.floor_stops;
-        result.active_steps += step.active_centers > 0 ? 1 : 0;
+        const bool active = step.active_centers > 0;
+        result.active_steps += active ? 1 : 0;
+        result.inactive_steps += active ? 0 : 1;
+        result.floor_merit_trials += step.smooth.floor_merit_trials;
+        result.floor_merit_accepts += step.smooth.floor_merit_accepts;
+        result.maximum_floor_accepts_per_solve = std::max(
+            result.maximum_floor_accepts_per_solve,
+            step.smooth.floor_merit_accepts);
+        if (step.smooth.floor_merit_trials > 0) {
+            result.floor_conditions_exact = result.floor_conditions_exact
+                && step.smooth.floor_trial_topology_exact
+                && step.smooth.floor_trial_residual_ratio < 1.0
+                && step.smooth.floor_merit_trials
+                    == step.smooth.floor_merit_accepts;
+        }
+        result.cumulative_fp_bound += step.reconstruction_fp_bound;
+        if (active) {
+            result.maximum_active_mixed_ratio = std::max(
+                result.maximum_active_mixed_ratio,
+                norm(step.stationarity_defect) / std::max(
+                    step.smooth.reaction_mixed_limit, 1.0e-300));
+        } else {
+            result.maximum_inactive_bound_ratio = std::max(
+                result.maximum_inactive_bound_ratio,
+                norm(step.reconstruction_defect) / std::max(
+                    step.reconstruction_fp_bound, 1.0e-300));
+        }
         result.contact_events += static_cast<int>(step.contact_features.size());
         result.cache_invalidations += step.cache_invalidations;
         result.maximum_pairs = std::max(result.maximum_pairs, step.pairs);
@@ -2328,7 +2377,9 @@ SpectralEstimate boundary_pressure_spectrum(
 }
 
 SmokeController run_smoke_controller(
-    const SmokeFixture& fixture, bool enforce_ledger = true) {
+    const SmokeFixture& fixture,
+    bool enforce_ledger = true,
+    bool owned_residual_candidate = false) {
     SmokeController result;
     result.position = fixture.position;
     result.velocity = fixture.velocity;
@@ -2361,7 +2412,11 @@ SmokeController run_smoke_controller(
                 result.position, result.velocity,
                 frame.initial_substeps * (1 << level),
                 static_cast<double>(frame_index) * SMOKE_FRAME_TIME,
-                SMOKE_FRAME_TIME, enforce_ledger));
+                SMOKE_FRAME_TIME, enforce_ledger,
+                owned_residual_candidate,
+                owned_residual_candidate,
+                owned_residual_candidate,
+                owned_residual_candidate));
             if (!levels.back().passed) {
                 result.failure_ledger_absolute =
                     levels.back().maximum_ledger_absolute;
@@ -2397,6 +2452,24 @@ SmokeController run_smoke_controller(
             const SmokeRun& run = levels[static_cast<std::size_t>(level)];
             frame.executed_substeps += run.substeps;
             result.nonlinear_hvp_calls += run.hvp_calls;
+            result.outer_trials += run.outer_trials;
+            result.rejected_trials += run.rejected_trials;
+            result.floor_merit_trials += run.floor_merit_trials;
+            result.floor_merit_accepts += run.floor_merit_accepts;
+            result.maximum_floor_accepts_per_solve = std::max(
+                result.maximum_floor_accepts_per_solve,
+                run.maximum_floor_accepts_per_solve);
+            result.floor_conditions_exact = result.floor_conditions_exact
+                && run.floor_conditions_exact;
+            result.active_steps += run.active_steps;
+            result.inactive_steps += run.inactive_steps;
+            result.maximum_active_mixed_ratio = std::max(
+                result.maximum_active_mixed_ratio,
+                run.maximum_active_mixed_ratio);
+            result.maximum_inactive_bound_ratio = std::max(
+                result.maximum_inactive_bound_ratio,
+                run.maximum_inactive_bound_ratio);
+            result.cumulative_fp_bound += run.cumulative_fp_bound;
         }
         frame.discarded_substeps = frame.executed_substeps
             - frame.accepted_substeps;
@@ -2430,17 +2503,24 @@ SmokeController run_smoke_controller(
 }
 
 SmokeRun run_fixed_smoke(
-    const SmokeFixture& fixture, int substeps_per_frame) {
+    const SmokeFixture& fixture,
+    int substeps_per_frame,
+    bool owned_residual_candidate = false) {
     return run_smoke_interval(fixture, fixture.position, fixture.velocity,
         SMOKE_FRAMES * substeps_per_frame, 0.0,
-        SMOKE_FRAMES * SMOKE_FRAME_TIME);
+        SMOKE_FRAMES * SMOKE_FRAME_TIME, true,
+        owned_residual_candidate, owned_residual_candidate,
+        owned_residual_candidate, owned_residual_candidate);
 }
 
-SmokeReference run_smoke_reference(const SmokeFixture& fixture) {
+SmokeReference run_smoke_reference(
+    const SmokeFixture& fixture,
+    bool owned_residual_candidate = false) {
     constexpr std::array<int, 3> counts = {96, 192, 384};
     SmokeReference result;
     for (std::size_t i = 0; i < counts.size(); ++i) {
-        result.levels[i] = run_fixed_smoke(fixture, counts[i]);
+        result.levels[i] = run_fixed_smoke(
+            fixture, counts[i], owned_residual_candidate);
     }
     for (std::size_t i = 0; i < 2; ++i) {
         result.position_difference[i] = rms_difference(
@@ -2465,11 +2545,15 @@ SmokeReference run_smoke_reference(const SmokeFixture& fixture) {
     return result;
 }
 
-SmokeCase run_smoke_case(SmokeFixture fixture) {
+SmokeCase run_smoke_case(
+    SmokeFixture fixture,
+    bool owned_residual_candidate = false) {
     SmokeCase result;
     result.fixture = std::move(fixture);
-    result.controller = run_smoke_controller(result.fixture);
-    result.reference = run_smoke_reference(result.fixture);
+    result.controller = run_smoke_controller(
+        result.fixture, true, owned_residual_candidate);
+    result.reference = run_smoke_reference(
+        result.fixture, owned_residual_candidate);
     if (!result.controller.passed) {
         result.failure = "CONTROLLER:" + result.controller.failure;
         return result;
@@ -3021,6 +3105,94 @@ void append_smoke_case(
            << value.final_contact_time_error
            << ",\"terminal_contacts_exact\":"
            << (value.terminal_contacts_exact ? "true" : "false") << "}}";
+}
+
+bool owned_smoke_accounting_valid(const SmokeCase& value) {
+    const double momentum_budget = static_cast<double>(
+        value.fixture.position.size()) * MASS * std::sqrt(KAPPA / MASS);
+    bool references_valid = true;
+    for (const SmokeRun& run : value.reference.levels) {
+        references_valid = references_valid
+            && run.passed
+            && run.floor_merit_accepts > 0
+            && run.floor_merit_trials == run.floor_merit_accepts
+            && run.maximum_floor_accepts_per_solve <= 4
+            && run.floor_conditions_exact
+            && run.maximum_active_mixed_ratio <= 1.0
+            && run.maximum_inactive_bound_ratio <= 1.0
+            && run.cumulative_fp_bound <= 1.0e-10 * momentum_budget;
+    }
+    return value.passed
+        && value.controller.floor_merit_accepts > 0
+        && value.controller.floor_merit_trials
+            == value.controller.floor_merit_accepts
+        && value.controller.maximum_floor_accepts_per_solve <= 4
+        && value.controller.floor_conditions_exact
+        && value.controller.maximum_active_mixed_ratio <= 1.0
+        && value.controller.maximum_inactive_bound_ratio <= 1.0
+        && references_valid;
+}
+
+void append_smoke_run_owned_accounting(
+    std::ostringstream& output, const SmokeRun& value) {
+    output << std::setprecision(17)
+           << "{\"substeps\":" << value.substeps
+           << ",\"active_steps\":" << value.active_steps
+           << ",\"inactive_steps\":" << value.inactive_steps
+           << ",\"outer_trials\":" << value.outer_trials
+           << ",\"rejected_trials\":" << value.rejected_trials
+           << ",\"hvp_calls\":" << value.hvp_calls
+           << ",\"floor_merit_trials\":" << value.floor_merit_trials
+           << ",\"floor_merit_accepts\":" << value.floor_merit_accepts
+           << ",\"maximum_floor_accepts_per_solve\":"
+           << value.maximum_floor_accepts_per_solve
+           << ",\"floor_conditions_exact\":"
+           << (value.floor_conditions_exact ? "true" : "false")
+           << ",\"maximum_active_mixed_ratio\":"
+           << value.maximum_active_mixed_ratio
+           << ",\"maximum_inactive_bound_ratio\":"
+           << value.maximum_inactive_bound_ratio
+           << ",\"cumulative_fp_bound\":"
+           << value.cumulative_fp_bound << '}';
+}
+
+void append_smoke_case_owned_accounting(
+    std::ostringstream& output, const SmokeCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.fixture.name << '\"'
+           << ",\"valid\":"
+           << (owned_smoke_accounting_valid(value) ? "true" : "false")
+           << ",\"controller\":{\"active_steps\":"
+           << value.controller.active_steps
+           << ",\"inactive_steps\":" << value.controller.inactive_steps
+           << ",\"outer_trials\":" << value.controller.outer_trials
+           << ",\"rejected_trials\":"
+           << value.controller.rejected_trials
+           << ",\"hvp_calls\":"
+           << value.controller.nonlinear_hvp_calls
+           << ",\"floor_merit_trials\":"
+           << value.controller.floor_merit_trials
+           << ",\"floor_merit_accepts\":"
+           << value.controller.floor_merit_accepts
+           << ",\"maximum_floor_accepts_per_solve\":"
+           << value.controller.maximum_floor_accepts_per_solve
+           << ",\"floor_conditions_exact\":"
+           << (value.controller.floor_conditions_exact ? "true" : "false")
+           << ",\"maximum_active_mixed_ratio\":"
+           << value.controller.maximum_active_mixed_ratio
+           << ",\"maximum_inactive_bound_ratio\":"
+           << value.controller.maximum_inactive_bound_ratio
+           << ",\"cumulative_fp_bound\":"
+           << value.controller.cumulative_fp_bound
+           << "},\"reference\":[";
+    for (std::size_t i = 0; i < value.reference.levels.size(); ++i) {
+        if (i != 0) {
+            output << ',';
+        }
+        append_smoke_run_owned_accounting(
+            output, value.reference.levels[i]);
+    }
+    output << "]}";
 }
 
 struct DisplacementLevel {
@@ -4439,6 +4611,85 @@ SplitBoundaryReport run_owned_residual_trajectory_controls() {
            << ",\"candidate_selected\":"
            << (passed ? "true" : "false")
            << ",\"b3r_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"physical_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_owned_boundary_composition_controls() {
+    const SplitBoundaryReport parent =
+        run_owned_residual_trajectory_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "fd7627b22734b6be1183e0bbd53f03a99170bda35d2f37585c4da066516c2b91";
+    const SmokeCase face = run_smoke_case(
+        make_face_smoke_fixture(), true);
+    const SmokeCase corner = run_smoke_case(
+        make_corner_smoke_fixture(), true);
+    const bool face_accounting = owned_smoke_accounting_valid(face);
+    const bool corner_accounting = owned_smoke_accounting_valid(corner);
+    const bool passed = parent_exact && face.passed && corner.passed
+        && face_accounting && corner_accounting;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B3R_PARENT";
+    } else if (!face.passed) {
+        first_failure = "NSR3B3R_FACE:" + face.failure;
+    } else if (!corner.passed) {
+        first_failure = "NSR3B3R_CORNER:" + corner.failure;
+    } else if (!face_accounting) {
+        first_failure = "NSR3B3R_FACE_ACCOUNTING";
+    } else if (!corner_accounting) {
+        first_failure = "NSR3B3R_CORNER_ACCOUNTING";
+    }
+    const std::string disposition = passed
+        ? "STATIC_BOUNDARY_SMOKE_CANDIDATE"
+        : "OWNED_BOUNDARY_COMPOSITION_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << disposition << '|'
+             << face.controller.accepted_substeps << ':'
+             << face.controller.executed_substeps << ':'
+             << face.controller.nonlinear_hvp_calls << ':'
+             << face.controller.floor_merit_accepts << ':'
+             << face.controller.maximum_ledger_residual << ':'
+             << face.final_position_error_dx << ':'
+             << face.final_velocity_error_c << '|'
+             << corner.controller.accepted_substeps << ':'
+             << corner.controller.executed_substeps << ':'
+             << corner.controller.nonlinear_hvp_calls << ':'
+             << corner.controller.floor_merit_accepts << ':'
+             << corner.controller.maximum_ledger_residual << ':'
+             << corner.final_position_error_dx << ':'
+             << corner.final_velocity_error_c;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b3r_boundary.v1\""
+           << ",\"identity\":\"post-solve-swept-contact-composition-r1-owned-residual\""
+           << ",\"parent_b3d5_result_sha256\":\"c716675fd75c4c7ecaa2410eb2f26154d7c31f36264a1d41bd9ad5b3f0aee40c\""
+           << ",\"parent_b3d5_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '\"'
+           << ",\"first_failure\":\"" << first_failure << '\"'
+           << ",\"disposition\":\"" << disposition << '\"'
+           << ",\"cases\":[";
+    append_smoke_case(report, face);
+    report << ',';
+    append_smoke_case(report, corner);
+    report << "] ,\"owned_accounting\":[";
+    append_smoke_case_owned_accounting(report, face);
+    report << ',';
+    append_smoke_case_owned_accounting(report, corner);
+    report << ']'
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4_contract_design_authorized\":"
            << (passed ? "true" : "false")
            << ",\"physical_corpus_execution_authorized\":false"
            << ",\"runtime_authority\":false"
