@@ -127,3 +127,6 @@ but fails compression step doubling at ratio `0.8865`; see the
 [dated evidence](../../development/nonlocal-nsr3b1-multistep-evidence-2026-08-20.md).
 Preserve that failure and design an acoustic-Courant diagnostic next. Static
 boundaries and physical trajectories remain blocked.
+The diagnostic is now frozen in
+[NSR3-B1D](03b1d-temporal-stiffness-contract.md); it extends the same fixture
+to Courant `0.129` and cannot retroactively change the B1 result.
