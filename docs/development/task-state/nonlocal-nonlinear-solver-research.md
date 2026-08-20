@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1D1_PASS / NSR3B1S_SUBSTEP_POLICY_DESIGN` |
+| Status | `ACTIVE / NSR3B1S_FAIL / NSR3B1S1_TANGENT_SPECTRUM_DESIGN` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -40,10 +40,16 @@
   velocity differences, and D4 is bit-exact.
 - **Current decision:** temporal stiffness is confirmed. The first-order-like
   regime appears below acoustic Courant about one and is clear below `0.516`.
-- **Current action:** freeze B1S across multiple amplitudes and bulk-modulus
-  scales before selecting a conservative acoustic substep policy.
-- **Next gate:** a policy must predict bounded substeps and reproduce resolved
-  references without changing B1/B1D history. B2 remains blocked.
+- **Current conclusion:** linear `C<=0.25` passes every `0.99dx` case but all
+  `0.98dx` cases exceed the normalized velocity limit; the high-stiffness case
+  also exceeds the position limit. All cases remain self-convergent.
+- **Current diagnosis:** normalized error is amplitude-dependent but nearly
+  invariant across `kappa` scale, pointing to missing finite-state tangent
+  stiffness rather than the `sqrt(kappa)` scaling itself.
+- **Current action:** freeze a pressure-only maximum-eigenfrequency diagnostic
+  with dense tiny and deterministic matrix-free correspondence.
+- **Next gate:** B1S1 must decide whether a spectral local-frequency policy is
+  well-defined and bounded before any new substep candidate. B2 stays blocked.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -139,6 +145,16 @@
 - **Consequence:** do not treat implicit stability as accuracy. B1S must test
   the policy beyond the single amplitude/coefficient point before B2.
 
+### D-010 -- Reject the linear acoustic policy at finite compression
+
+- **Observation:** all six cases converge under refinement, but the 2%
+  compression row exceeds the frozen velocity-error limit at every stiffness;
+  its normalized error is nearly stiffness-scale invariant.
+- **Decision:** reject `acoustic-courant-substeps-r0`. Measure the actual
+  pressure tangent spectrum before proposing another policy.
+- **Consequence:** do not hide amplitude dependence in a tuned global safety
+  factor; B1S1 must expose its source and computational cost.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -151,12 +167,12 @@
 
 ## Exact next action
 
-1. Freeze B1S coefficient/amplitude matrix and substep-count formula.
-2. Predeclare a conservative Courant target and resolved-reference levels.
-3. Compare policy trajectories, invariant/work bounds and exact repeat across
-   the matrix; include zero-pressure and free-flight degeneracies.
-4. Select/reject only a report-only substep policy, then decide whether a new
-   multi-step gate can authorize B2.
+1. Freeze B1S1 pressure-only HVP and eigenvalue conventions.
+2. Prove deterministic Lanczos/power estimates against a dense tiny Hessian.
+3. Measure amplitude and `kappa` scaling on the six B1S initial states plus
+   inactive/translation null controls.
+4. Select/stop a spectral-policy premise; do not execute another trajectory
+   policy until the spectrum result is fixed.
 
 ## Reconsideration triggers
 

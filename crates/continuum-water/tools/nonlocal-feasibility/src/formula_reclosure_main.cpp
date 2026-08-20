@@ -28,7 +28,8 @@ int main(int argc, char** argv) {
                          "--normalized-kernel-reclosure-self-test|"
                          "--manufactured-multistep-self-test|"
                          "--temporal-stiffness-diagnostic|"
-                         "--floor-limited-temporal-oracle\n";
+                         "--floor-limited-temporal-oracle|"
+                         "--acoustic-substep-policy-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -179,6 +180,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--acoustic-substep-policy-self-test") {
+            const nextengine::nonlocal::fcr::ReferenceSolverReport report =
+                nextengine::nonlocal::fcr::
+                    run_acoustic_substep_policy_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -198,7 +206,8 @@ int main(int argc, char** argv) {
                      "--normalized-kernel-reclosure-self-test|"
                      "--manufactured-multistep-self-test|"
                      "--temporal-stiffness-diagnostic|"
-                     "--floor-limited-temporal-oracle\n";
+                     "--floor-limited-temporal-oracle|"
+                     "--acoustic-substep-policy-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

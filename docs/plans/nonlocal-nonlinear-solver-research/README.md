@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_DESIGN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_DESIGN / REPORT_ONLY`
 
 Candidate identity:
 
@@ -144,3 +144,7 @@ Freeze a multi-fixture acoustic substep-policy gate next; B2 remains blocked.
 The six-case policy gate is frozen in
 [NSR3-B1S](03b1s-acoustic-substep-policy-contract.md) at target Courant
 `0.25`, with explicit `34/67` base/high-stiffness substep costs.
+B1S rejects that linear policy: all 2% compression cases exceed the velocity
+accuracy limit despite clean self-convergence; see the
+[dated evidence](../../development/nonlocal-nsr3b1s-acoustic-policy-evidence-2026-08-20.md).
+Diagnose the finite-state pressure tangent spectrum before another policy.
