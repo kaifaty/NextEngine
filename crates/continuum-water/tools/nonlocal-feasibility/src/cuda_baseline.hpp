@@ -15,6 +15,7 @@ struct CommandReport {
 enum class AccumulationMode {
     SourceAtomicV0,
     GatherDirectedR0,
+    UniquePairSegmentedO3,
 };
 
 enum class HandoffMode {
@@ -58,5 +59,9 @@ CommandReport run_cuda_benchmark(
     AccumulationMode mode = AccumulationMode::SourceAtomicV0,
     HandoffMode handoff = HandoffMode::CopyV0,
     TermKernelMode term_kernels = TermKernelMode::RuntimeV0);
+CommandReport run_cuda_layout_tournament(
+    const Profile& profile,
+    int warmup,
+    int runs);
 
 } // namespace nextengine::nonlocal

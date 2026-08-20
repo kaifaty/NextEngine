@@ -193,6 +193,118 @@ __global__ void finish_offsets(const int* counts, int* offsets, int count) {
     }
 }
 
+struct PairFragment {
+    float source[3];
+    float matrix[9];
+};
+
+static_assert(sizeof(PairFragment) == 48, "O3 fragment accounting requires 48-byte fragments");
+
+__device__ void clear_fragment(PairFragment* fragments, int slot) {
+    for (int component = 0; component < 3; ++component) {
+        fragments[slot].source[component] = 0.0F;
+    }
+    for (int component = 0; component < 9; ++component) {
+        fragments[slot].matrix[component] = 0.0F;
+    }
+}
+
+__device__ void store_fragment(
+    PairFragment* fragments,
+    int slot,
+    float3 source,
+    const float* matrix) {
+    fragments[slot].source[0] = source.x;
+    fragments[slot].source[1] = source.y;
+    fragments[slot].source[2] = source.z;
+    for (int component = 0; component < 9; ++component) {
+        fragments[slot].matrix[component] = matrix[component];
+    }
+}
+
+__global__ void initialize_reverse_slots(
+    const int* offsets,
+    const int* neighbors,
+    int* reverse_slots,
+    int* error_flag,
+    int count) {
+    const int particle = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle >= count) {
+        return;
+    }
+    for (int slot = offsets[particle]; slot < offsets[particle + 1]; ++slot) {
+        const int neighbor = neighbors[slot];
+        if (neighbor < 0 || neighbor >= count) {
+            atomicExch(error_flag, 1);
+            continue;
+        }
+        int reverse = -1;
+        int matches = 0;
+        for (int candidate = offsets[neighbor]; candidate < offsets[neighbor + 1]; ++candidate) {
+            if (neighbors[candidate] == particle) {
+                reverse = candidate;
+                ++matches;
+            }
+        }
+        if (matches != 1) {
+            atomicExch(error_flag, 1);
+        }
+        reverse_slots[slot] = reverse;
+    }
+}
+
+__global__ void validate_reverse_slots(
+    const int* offsets,
+    const int* neighbors,
+    const int* reverse_slots,
+    int* error_flag,
+    int count) {
+    const int particle = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle >= count) {
+        return;
+    }
+    for (int slot = offsets[particle]; slot < offsets[particle + 1]; ++slot) {
+        const int neighbor = neighbors[slot];
+        if (neighbor < 0 || neighbor >= count) {
+            atomicExch(error_flag, 1);
+            continue;
+        }
+        const int reverse = reverse_slots[slot];
+        if (reverse < offsets[neighbor] || reverse >= offsets[neighbor + 1]
+            || neighbors[reverse] != particle || reverse_slots[reverse] != slot) {
+            atomicExch(error_flag, 1);
+        }
+    }
+}
+
+__global__ void reduce_segmented_fragments(
+    const int* offsets,
+    const PairFragment* fragments,
+    float* source,
+    float* matrix,
+    int count) {
+    const int particle = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle >= count) {
+        return;
+    }
+    float3 local_source = make_float3(0.0F, 0.0F, 0.0F);
+    float local_matrix[9] = {};
+    for (int slot = offsets[particle]; slot < offsets[particle + 1]; ++slot) {
+        local_source.x += fragments[slot].source[0];
+        local_source.y += fragments[slot].source[1];
+        local_source.z += fragments[slot].source[2];
+        for (int component = 0; component < 9; ++component) {
+            local_matrix[component] += fragments[slot].matrix[component];
+        }
+    }
+    source[3 * particle] += local_source.x;
+    source[3 * particle + 1] += local_source.y;
+    source[3 * particle + 2] += local_source.z;
+    for (int component = 0; component < 9; ++component) {
+        matrix[9 * particle + component] += local_matrix[component];
+    }
+}
+
 __global__ void predict_positions(
     const float3* reference,
     const float3* velocity,
@@ -340,6 +452,67 @@ __global__ void accumulate_density_term_gather_directed(
     matrix[9 * particle] += local_diagonal;
     matrix[9 * particle + 4] += local_diagonal;
     matrix[9 * particle + 8] += local_diagonal;
+}
+
+__global__ void accumulate_density_term_unique_pairs(
+    const float3* current,
+    const float* density,
+    const int* offsets,
+    const int* neighbors,
+    const int* reverse_slots,
+    PairFragment* fragments,
+    int count,
+    float rest_density,
+    float kappa,
+    float horizon,
+    float time_step,
+    float scale) {
+    const int particle = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle >= count) {
+        return;
+    }
+    const float own_ratio = fmaxf(density[particle], rest_density) / rest_density;
+    const float coefficient = kappa * time_step * time_step / rest_density;
+    const float3 own = current[particle];
+    for (int slot = offsets[particle]; slot < offsets[particle + 1]; ++slot) {
+        const int neighbor = neighbors[slot];
+        if (neighbor == particle) {
+            clear_fragment(fragments, slot);
+            continue;
+        }
+        if (particle > neighbor) {
+            continue;
+        }
+        const int reverse = reverse_slots[slot];
+        const float3 other = current[neighbor];
+        const float radius = length3(subtract3(own, other));
+        if (radius <= CUDA_PAIR_EPSILON) {
+            clear_fragment(fragments, slot);
+            clear_fragment(fragments, reverse);
+            continue;
+        }
+        const float neighbor_ratio = fmaxf(density[neighbor], rest_density) / rest_density;
+        const float a = coefficient * device_cubic_gradient(radius, horizon, scale) / radius;
+        const float diagonal = -a;
+        const float3 other_minus_own = subtract3(other, own);
+        const float3 own_local = add3(
+            multiply3(-a, other), multiply3(own_ratio * a, other_minus_own));
+        const float3 own_incoming = add3(
+            multiply3(-a, other), multiply3(neighbor_ratio * a, other_minus_own));
+        const float3 own_fragment = add3(own_local, own_incoming);
+        const float3 own_minus_other = subtract3(own, other);
+        const float3 other_local = add3(
+            multiply3(-a, own), multiply3(neighbor_ratio * a, own_minus_other));
+        const float3 other_incoming = add3(
+            multiply3(-a, own), multiply3(own_ratio * a, own_minus_other));
+        const float3 other_fragment = add3(other_local, other_incoming);
+        float pair_matrix[9] = {};
+        pair_matrix[0] = diagonal + diagonal;
+        pair_matrix[4] = diagonal + diagonal;
+        pair_matrix[8] = diagonal + diagonal;
+        store_fragment(fragments, slot, own_fragment, pair_matrix);
+        store_fragment(fragments, reverse, other_fragment, pair_matrix);
+    }
 }
 
 __device__ void build_normal_tangent(float3 direction, float* normal, float* tangent) {
@@ -557,6 +730,88 @@ __global__ void accumulate_viscosity_term_gather_specialized(
     }
 }
 
+template <bool BulkEnabled, bool ShearEnabled>
+__global__ void accumulate_viscosity_term_unique_pairs_specialized(
+    const float3* reference,
+    const float3* current,
+    const int* offsets,
+    const int* neighbors,
+    const int* reverse_slots,
+    PairFragment* fragments,
+    int count,
+    float rest_density,
+    float lambda,
+    float mu,
+    float horizon,
+    float time_step,
+    float scale) {
+    static_assert(BulkEnabled || ShearEnabled, "inactive viscosity has no kernel launch");
+    const int particle = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle >= count) {
+        return;
+    }
+    const float alpha = BulkEnabled ? lambda * time_step / rest_density : 0.0F;
+    const float beta = ShearEnabled ? mu * time_step / rest_density : 0.0F;
+    for (int slot = offsets[particle]; slot < offsets[particle + 1]; ++slot) {
+        const int neighbor = neighbors[slot];
+        if (neighbor == particle) {
+            clear_fragment(fragments, slot);
+            continue;
+        }
+        if (particle > neighbor) {
+            continue;
+        }
+        const int reverse = reverse_slots[slot];
+        const float3 reference_delta = subtract3(reference[neighbor], reference[particle]);
+        const float radius = length3(reference_delta);
+        if (radius <= CUDA_PAIR_EPSILON) {
+            clear_fragment(fragments, slot);
+            clear_fragment(fragments, reverse);
+            continue;
+        }
+        const float3 direction = multiply3(1.0F / radius, reference_delta);
+        const float components[3] = {direction.x, direction.y, direction.z};
+        const float weight = device_cubic_weight(radius, horizon, scale);
+        float pair_matrix[9];
+        float endpoint_matrix[9];
+        for (int row = 0; row < 3; ++row) {
+            for (int column = 0; column < 3; ++column) {
+                const int component = 3 * row + column;
+                const float normal = components[row] * components[column];
+                if constexpr (BulkEnabled && ShearEnabled) {
+                    const float tangent = (row == column ? 1.0F : 0.0F) - normal;
+                    pair_matrix[component] =
+                        alpha * weight * normal + beta * weight * tangent;
+                } else if constexpr (BulkEnabled) {
+                    pair_matrix[component] = alpha * weight * normal;
+                } else {
+                    const float tangent = (row == column ? 1.0F : 0.0F) - normal;
+                    pair_matrix[component] = beta * weight * tangent;
+                }
+                endpoint_matrix[component] = pair_matrix[component] + pair_matrix[component];
+            }
+        }
+        const float3 own_local = subtract3(
+            matrix_vector(pair_matrix, current[neighbor]),
+            matrix_vector(pair_matrix, reference_delta));
+        const float3 reverse_reference_delta =
+            subtract3(reference[particle], reference[neighbor]);
+        const float3 own_incoming = add3(
+            matrix_vector(pair_matrix, current[neighbor]),
+            matrix_vector(pair_matrix, reverse_reference_delta));
+        const float3 own_fragment = add3(own_local, own_incoming);
+        const float3 other_local = subtract3(
+            matrix_vector(pair_matrix, current[particle]),
+            matrix_vector(pair_matrix, reverse_reference_delta));
+        const float3 other_incoming = add3(
+            matrix_vector(pair_matrix, current[particle]),
+            matrix_vector(pair_matrix, reference_delta));
+        const float3 other_fragment = add3(other_local, other_incoming);
+        store_fragment(fragments, slot, own_fragment, endpoint_matrix);
+        store_fragment(fragments, reverse, other_fragment, endpoint_matrix);
+    }
+}
+
 __device__ float surface_positive_cuda(float radius, float rest_spacing) {
     const float q = radius / rest_spacing;
     if (q <= 1.0F) {
@@ -676,6 +931,64 @@ __global__ void accumulate_surface_term_gather_directed(
     matrix[9 * particle] += local_diagonal;
     matrix[9 * particle + 4] += local_diagonal;
     matrix[9 * particle + 8] += local_diagonal;
+}
+
+__global__ void accumulate_surface_term_unique_pairs(
+    const float3* current,
+    const int* offsets,
+    const int* neighbors,
+    const int* reverse_slots,
+    PairFragment* fragments,
+    int count,
+    float gamma,
+    float rest_spacing,
+    float time_step) {
+    const int particle = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle >= count) {
+        return;
+    }
+    const float coefficient = gamma * time_step * time_step;
+    const float3 own = current[particle];
+    for (int slot = offsets[particle]; slot < offsets[particle + 1]; ++slot) {
+        const int neighbor = neighbors[slot];
+        if (neighbor == particle) {
+            clear_fragment(fragments, slot);
+            continue;
+        }
+        if (particle > neighbor) {
+            continue;
+        }
+        const int reverse = reverse_slots[slot];
+        const float3 other = current[neighbor];
+        const float radius = length3(subtract3(own, other));
+        if (radius <= CUDA_PAIR_EPSILON) {
+            clear_fragment(fragments, slot);
+            clear_fragment(fragments, reverse);
+            continue;
+        }
+        const float positive = surface_positive_cuda(radius, rest_spacing);
+        const float negative = surface_negative_cuda(radius, rest_spacing);
+        const float diagonal = coefficient * positive / radius;
+        const float signed_coefficient = coefficient * negative / radius;
+        const float3 other_minus_own = subtract3(other, own);
+        const float3 own_local = add3(
+            multiply3(diagonal, other), multiply3(signed_coefficient, other_minus_own));
+        const float3 own_incoming = add3(
+            multiply3(diagonal, other), multiply3(signed_coefficient, other_minus_own));
+        const float3 own_fragment = add3(own_local, own_incoming);
+        const float3 own_minus_other = subtract3(own, other);
+        const float3 other_local = add3(
+            multiply3(diagonal, own), multiply3(signed_coefficient, own_minus_other));
+        const float3 other_incoming = add3(
+            multiply3(diagonal, own), multiply3(signed_coefficient, own_minus_other));
+        const float3 other_fragment = add3(other_local, other_incoming);
+        float pair_matrix[9] = {};
+        pair_matrix[0] = diagonal + diagonal;
+        pair_matrix[4] = diagonal + diagonal;
+        pair_matrix[8] = diagonal + diagonal;
+        store_fragment(fragments, slot, own_fragment, pair_matrix);
+        store_fragment(fragments, reverse, other_fragment, pair_matrix);
+    }
 }
 
 __device__ bool inverse_matrix_vector(const float* raw, float3 rhs, float3& output) {
@@ -843,7 +1156,15 @@ struct CapturedRun {
     std::vector<int> offsets;
     std::vector<int> neighbors;
     std::size_t device_memory_bytes = 0;
+    std::size_t layout_memory_bytes = 0;
+    std::size_t self_slots = 0;
+    std::size_t nonself_directed_samples = 0;
+    std::size_t unique_pairs = 0;
+    std::size_t pair_evaluations_per_active_term = 0;
+    std::size_t endpoint_fragments_per_active_term = 0;
+    double layout_setup_ms = 0.0;
     bool local_solve_failed = false;
+    bool reverse_map_valid = true;
 };
 
 struct EventInterval {
@@ -1058,18 +1379,33 @@ public:
             throw std::invalid_argument("CUDA fixture is empty");
         }
         if (handoff_mode_ == HandoffMode::PointerSwapO1
-            && accumulation_mode_ != AccumulationMode::GatherDirectedR0) {
+            && accumulation_mode_ != AccumulationMode::GatherDirectedR0
+            && accumulation_mode_ != AccumulationMode::UniquePairSegmentedO3) {
             throw std::invalid_argument(
-                "pointer-swap-o1 requires nuv-gather-directed-r0 accumulation");
+                "pointer-swap-o1 requires gather or segmented accumulation");
         }
         if (term_kernel_mode_ == TermKernelMode::SpecializedO2
             && (accumulation_mode_ != AccumulationMode::GatherDirectedR0
-                || handoff_mode_ != HandoffMode::PointerSwapO1)) {
+                && accumulation_mode_ != AccumulationMode::UniquePairSegmentedO3)) {
             throw std::invalid_argument(
-                "nuv-terms-specialized-o2 requires gather accumulation and pointer-swap-o1");
+                "nuv-terms-specialized-o2 requires gather or segmented accumulation");
+        }
+        if (term_kernel_mode_ == TermKernelMode::SpecializedO2
+            && handoff_mode_ != HandoffMode::PointerSwapO1) {
+            throw std::invalid_argument(
+                "nuv-terms-specialized-o2 requires pointer-swap-o1");
+        }
+        if (accumulation_mode_ == AccumulationMode::UniquePairSegmentedO3
+            && (handoff_mode_ != HandoffMode::PointerSwapO1
+                || term_kernel_mode_ != TermKernelMode::SpecializedO2)) {
+            throw std::invalid_argument(
+                "nuv-unique-pair-segmented-o3 requires pointer-swap-o1 and specialized-o2");
         }
         allocate_device_storage();
         upload_fixture();
+        if (accumulation_mode_ == AccumulationMode::UniquePairSegmentedO3) {
+            initialize_segmented_layout();
+        }
     }
 
     CudaBaseline(const CudaBaseline&) = delete;
@@ -1100,6 +1436,9 @@ public:
         cudaFree(sort_scratch_);
         cudaFree(scan_scratch_);
         cudaFree(error_flag_);
+        cudaFree(reverse_slots_);
+        cudaFree(pair_fragments_);
+        cudaFree(layout_error_flag_);
     }
 
     CapturedRun execute(bool capture) {
@@ -1121,7 +1460,15 @@ public:
                     static_cast<float>(fixture_.gravity.z)),
                 static_cast<float>(fixture_.time_step));
         });
-        timed(intervals, EventInterval::Stage::Neighbor, [&] { enqueue_neighbor_construction(); });
+        timed(intervals, EventInterval::Stage::Neighbor, [&] {
+            enqueue_neighbor_construction();
+            if (accumulation_mode_ == AccumulationMode::UniquePairSegmentedO3) {
+                check_cuda(
+                    cudaMemsetAsync(layout_error_flag_, 0, sizeof(int)), "reset O3 layout flag");
+                validate_reverse_slots<<<blocks_for(count_), THREADS>>>(
+                    neighbor_offsets_, neighbors_, reverse_slots_, layout_error_flag_, count_);
+            }
+        });
 
         for (int iteration = 0; iteration < fixture_.iterations; ++iteration) {
             timed(intervals, EventInterval::Stage::Density, [&] {
@@ -1136,7 +1483,16 @@ public:
             });
             if (fixture_.terms.incompressibility) {
                 timed(intervals, EventInterval::Stage::Incompressibility, [&] {
-                    if (accumulation_mode_ == AccumulationMode::GatherDirectedR0) {
+                    if (accumulation_mode_ == AccumulationMode::UniquePairSegmentedO3) {
+                        accumulate_density_term_unique_pairs<<<blocks_for(count_), THREADS>>>(
+                            current_, density_, neighbor_offsets_, neighbors_, reverse_slots_,
+                            pair_fragments_, count_, static_cast<float>(fixture_.rest_density),
+                            static_cast<float>(fixture_.kappa),
+                            static_cast<float>(fixture_.horizon),
+                            static_cast<float>(fixture_.time_step), kernel_scale_);
+                        reduce_segmented_fragments<<<blocks_for(count_), THREADS>>>(
+                            neighbor_offsets_, pair_fragments_, source_, matrix_, count_);
+                    } else if (accumulation_mode_ == AccumulationMode::GatherDirectedR0) {
                         accumulate_density_term_gather_directed<<<blocks_for(count_), THREADS>>>(
                             current_, density_, neighbor_offsets_, neighbors_, source_, matrix_, count_,
                             static_cast<float>(fixture_.rest_density),
@@ -1155,7 +1511,41 @@ public:
             }
             if (fixture_.terms.bulk_viscosity || fixture_.terms.shear_viscosity) {
                 timed(intervals, EventInterval::Stage::Viscosity, [&] {
-                    if (accumulation_mode_ == AccumulationMode::GatherDirectedR0) {
+                    if (accumulation_mode_ == AccumulationMode::UniquePairSegmentedO3) {
+                        if (fixture_.terms.bulk_viscosity && fixture_.terms.shear_viscosity) {
+                            accumulate_viscosity_term_unique_pairs_specialized<true, true>
+                                <<<blocks_for(count_), THREADS>>>(
+                                    reference_, current_, neighbor_offsets_, neighbors_,
+                                    reverse_slots_, pair_fragments_, count_,
+                                    static_cast<float>(fixture_.rest_density),
+                                    static_cast<float>(fixture_.lambda),
+                                    static_cast<float>(fixture_.mu),
+                                    static_cast<float>(fixture_.horizon),
+                                    static_cast<float>(fixture_.time_step), kernel_scale_);
+                        } else if (fixture_.terms.bulk_viscosity) {
+                            accumulate_viscosity_term_unique_pairs_specialized<true, false>
+                                <<<blocks_for(count_), THREADS>>>(
+                                    reference_, current_, neighbor_offsets_, neighbors_,
+                                    reverse_slots_, pair_fragments_, count_,
+                                    static_cast<float>(fixture_.rest_density),
+                                    static_cast<float>(fixture_.lambda),
+                                    static_cast<float>(fixture_.mu),
+                                    static_cast<float>(fixture_.horizon),
+                                    static_cast<float>(fixture_.time_step), kernel_scale_);
+                        } else {
+                            accumulate_viscosity_term_unique_pairs_specialized<false, true>
+                                <<<blocks_for(count_), THREADS>>>(
+                                    reference_, current_, neighbor_offsets_, neighbors_,
+                                    reverse_slots_, pair_fragments_, count_,
+                                    static_cast<float>(fixture_.rest_density),
+                                    static_cast<float>(fixture_.lambda),
+                                    static_cast<float>(fixture_.mu),
+                                    static_cast<float>(fixture_.horizon),
+                                    static_cast<float>(fixture_.time_step), kernel_scale_);
+                        }
+                        reduce_segmented_fragments<<<blocks_for(count_), THREADS>>>(
+                            neighbor_offsets_, pair_fragments_, source_, matrix_, count_);
+                    } else if (accumulation_mode_ == AccumulationMode::GatherDirectedR0) {
                         if (term_kernel_mode_ == TermKernelMode::SpecializedO2) {
                             if (fixture_.terms.bulk_viscosity
                                 && fixture_.terms.shear_viscosity) {
@@ -1211,7 +1601,15 @@ public:
             }
             if (fixture_.terms.surface_tension) {
                 timed(intervals, EventInterval::Stage::Surface, [&] {
-                    if (accumulation_mode_ == AccumulationMode::GatherDirectedR0) {
+                    if (accumulation_mode_ == AccumulationMode::UniquePairSegmentedO3) {
+                        accumulate_surface_term_unique_pairs<<<blocks_for(count_), THREADS>>>(
+                            current_, neighbor_offsets_, neighbors_, reverse_slots_, pair_fragments_,
+                            count_, static_cast<float>(fixture_.gamma),
+                            static_cast<float>(fixture_.spacing),
+                            static_cast<float>(fixture_.time_step));
+                        reduce_segmented_fragments<<<blocks_for(count_), THREADS>>>(
+                            neighbor_offsets_, pair_fragments_, source_, matrix_, count_);
+                    } else if (accumulation_mode_ == AccumulationMode::GatherDirectedR0) {
                         accumulate_surface_term_gather_directed<<<blocks_for(count_), THREADS>>>(
                             current_, neighbor_offsets_, neighbors_, source_, matrix_, count_,
                             static_cast<float>(fixture_.gamma),
@@ -1261,11 +1659,20 @@ public:
 
         CapturedRun result;
         result.device_memory_bytes = device_memory_bytes_;
+        result.layout_memory_bytes = layout_memory_bytes_;
+        result.layout_setup_ms = layout_setup_ms_;
         int local_solve_failed = 0;
         check_cuda(cudaMemcpy(
                        &local_solve_failed, error_flag_, sizeof(int), cudaMemcpyDeviceToHost),
             "copy local solve flag");
         result.local_solve_failed = local_solve_failed != 0;
+        if (accumulation_mode_ == AccumulationMode::UniquePairSegmentedO3) {
+            int layout_failed = 0;
+            check_cuda(cudaMemcpy(
+                           &layout_failed, layout_error_flag_, sizeof(int), cudaMemcpyDeviceToHost),
+                "copy O3 layout flag");
+            result.reverse_map_valid = layout_failed == 0;
+        }
         float total_ms = 0.0F;
         check_cuda(cudaEventElapsedTime(&total_ms, total_begin, total_end), "elapsed total");
         result.timing.total = total_ms;
@@ -1308,6 +1715,13 @@ private:
         allocate(neighbor_offsets_, count + 1U);
         allocate(neighbors_, pair_capacity_);
         allocate(error_flag_, 1U);
+        if (accumulation_mode_ == AccumulationMode::UniquePairSegmentedO3) {
+            const std::size_t before_layout = device_memory_bytes_;
+            allocate(reverse_slots_, pair_capacity_);
+            allocate(pair_fragments_, pair_capacity_);
+            allocate(layout_error_flag_, 1U);
+            layout_memory_bytes_ = device_memory_bytes_ - before_layout;
+        }
 
         check_cuda(cub::DeviceRadixSort::SortPairs(
                        nullptr, sort_scratch_bytes_, keys_input_, keys_sorted_, indices_input_,
@@ -1319,6 +1733,36 @@ private:
         check_cuda(cudaMalloc(&sort_scratch_, sort_scratch_bytes_), "cudaMalloc(sort scratch)");
         check_cuda(cudaMalloc(&scan_scratch_, scan_scratch_bytes_), "cudaMalloc(scan scratch)");
         device_memory_bytes_ += sort_scratch_bytes_ + scan_scratch_bytes_;
+    }
+
+    void initialize_segmented_layout() {
+        enqueue_neighbor_construction();
+        check_cuda(cudaMemsetAsync(layout_error_flag_, 0, sizeof(int)), "reset O3 layout flag");
+        cudaEvent_t begin{};
+        cudaEvent_t end{};
+        check_cuda(cudaEventCreate(&begin), "cudaEventCreate(O3 setup begin)");
+        check_cuda(cudaEventCreate(&end), "cudaEventCreate(O3 setup end)");
+        check_cuda(cudaEventRecord(begin), "cudaEventRecord(O3 setup begin)");
+        initialize_reverse_slots<<<blocks_for(count_), THREADS>>>(
+            neighbor_offsets_, neighbors_, reverse_slots_, layout_error_flag_, count_);
+        check_cuda(cudaEventRecord(end), "cudaEventRecord(O3 setup end)");
+        check_cuda(cudaEventSynchronize(end), "cudaEventSynchronize(O3 setup end)");
+        float milliseconds = 0.0F;
+        check_cuda(cudaEventElapsedTime(&milliseconds, begin, end), "elapsed O3 setup");
+        layout_setup_ms_ = milliseconds;
+        cudaEventDestroy(begin);
+        cudaEventDestroy(end);
+        validate_reverse_slots<<<blocks_for(count_), THREADS>>>(
+            neighbor_offsets_, neighbors_, reverse_slots_, layout_error_flag_, count_);
+        check_cuda(cudaGetLastError(), "initialize O3 reverse map");
+        check_cuda(cudaDeviceSynchronize(), "synchronize O3 reverse map");
+        int layout_failed = 0;
+        check_cuda(cudaMemcpy(
+                       &layout_failed, layout_error_flag_, sizeof(int), cudaMemcpyDeviceToHost),
+            "copy O3 setup flag");
+        if (layout_failed != 0) {
+            throw std::runtime_error("O3 reverse-map construction failed");
+        }
     }
 
     void upload_fixture() {
@@ -1553,6 +1997,17 @@ private:
             norm(total_pair_impulse) / std::max(pair_impulse_scale, 1.0e-30);
         state.directed_pairs = static_cast<std::size_t>(directed_pairs);
         for (int particle = 0; particle < count_; ++particle) {
+            for (int slot = result.offsets[particle]; slot < result.offsets[particle + 1]; ++slot) {
+                const int neighbor = result.neighbors[static_cast<std::size_t>(slot)];
+                if (neighbor == particle) {
+                    ++result.self_slots;
+                } else {
+                    ++result.nonself_directed_samples;
+                    if (particle < neighbor) {
+                        ++result.unique_pairs;
+                    }
+                }
+            }
             state.maximum_degree = std::max(
                 state.maximum_degree,
                 static_cast<std::size_t>(result.offsets[particle + 1] - result.offsets[particle]));
@@ -1561,6 +2016,12 @@ private:
             state.energy.bulk_viscosity += energy[5 * particle + 2];
             state.energy.shear_viscosity += energy[5 * particle + 3];
             state.energy.surface_tension += energy[5 * particle + 4];
+        }
+        if (accumulation_mode_ == AccumulationMode::UniquePairSegmentedO3) {
+            result.pair_evaluations_per_active_term = result.unique_pairs;
+            result.endpoint_fragments_per_active_term = result.nonself_directed_samples;
+        } else {
+            result.pair_evaluations_per_active_term = result.nonself_directed_samples;
         }
     }
 
@@ -1573,6 +2034,8 @@ private:
     std::size_t pair_capacity_ = 0;
     float kernel_scale_ = 1.0F;
     std::size_t device_memory_bytes_ = 0;
+    std::size_t layout_memory_bytes_ = 0;
+    double layout_setup_ms_ = 0.0;
     float3* reference_ = nullptr;
     float3* initial_velocity_ = nullptr;
     std::uint8_t* fixed_ = nullptr;
@@ -1594,11 +2057,14 @@ private:
     int* neighbor_counts_ = nullptr;
     int* neighbor_offsets_ = nullptr;
     int* neighbors_ = nullptr;
+    int* reverse_slots_ = nullptr;
+    PairFragment* pair_fragments_ = nullptr;
     void* sort_scratch_ = nullptr;
     std::size_t sort_scratch_bytes_ = 0;
     void* scan_scratch_ = nullptr;
     std::size_t scan_scratch_bytes_ = 0;
     int* error_flag_ = nullptr;
+    int* layout_error_flag_ = nullptr;
 };
 
 bool finite_state(const OracleResult& state) {
@@ -1881,6 +2347,56 @@ void append_statistics(std::ostringstream& output, const Statistics& value) {
            << ",\"mean_ms\":" << value.mean << '}';
 }
 
+Statistics collect_statistics(
+    const std::vector<StageTiming>& timings,
+    double StageTiming::*member) {
+    std::vector<double> values;
+    values.reserve(timings.size());
+    for (const StageTiming& timing : timings) {
+        values.push_back(timing.*member);
+    }
+    return statistics(std::move(values));
+}
+
+void append_stage_statistics(
+    std::ostringstream& output,
+    const std::vector<StageTiming>& timings) {
+    output << "{\"prediction\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::prediction));
+    output << ",\"neighbor_construction\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::neighbor_construction));
+    output << ",\"density\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::density));
+    output << ",\"buffer_reset\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::buffer_reset));
+    output << ",\"incompressibility\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::incompressibility));
+    output << ",\"viscosity\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::viscosity));
+    output << ",\"surface_tension\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::surface_tension));
+    output << ",\"local_update\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::local_update));
+    output << ",\"state_handoff_and_velocity\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::state_handoff));
+    output << ",\"total\":";
+    append_statistics(output, collect_statistics(timings, &StageTiming::total));
+    output << '}';
+}
+
+void append_raw_totals(
+    std::ostringstream& output,
+    const std::vector<StageTiming>& timings) {
+    output << '[';
+    for (std::size_t index = 0; index < timings.size(); ++index) {
+        if (index != 0) {
+            output << ',';
+        }
+        output << timings[index].total;
+    }
+    output << ']';
+}
+
 std::string device_json() {
     int device = 0;
     int driver = 0;
@@ -1911,6 +2427,8 @@ const char* accumulation_identity(AccumulationMode mode) {
         return "source-atomic-v0";
     case AccumulationMode::GatherDirectedR0:
         return "nuv-gather-directed-r0";
+    case AccumulationMode::UniquePairSegmentedO3:
+        return "nuv-unique-pair-segmented-o3";
     }
     throw std::invalid_argument("unknown accumulation mode");
 }
@@ -1921,6 +2439,9 @@ AccumulationMode parse_accumulation_identity(const std::string& identity) {
     }
     if (identity == "nuv-gather-directed-r0") {
         return AccumulationMode::GatherDirectedR0;
+    }
+    if (identity == "nuv-unique-pair-segmented-o3") {
+        return AccumulationMode::UniquePairSegmentedO3;
     }
     throw std::invalid_argument("unknown accumulation identity: " + identity);
 }
@@ -2029,8 +2550,9 @@ CommandReport run_cuda_self_test(
             && copy_reference.device_memory_bytes == gpu.device_memory_bytes
             && copy_comparison.passed;
 
+        const bool layout_candidate = mode == AccumulationMode::UniquePairSegmentedO3;
         CapturedRun term_reference = gpu;
-        if (term_kernels == TermKernelMode::SpecializedO2) {
+        if (term_kernels == TermKernelMode::SpecializedO2 && !layout_candidate) {
             CudaBaseline runtime_baseline(
                 fixture, mode, handoff, TermKernelMode::RuntimeV0);
             term_reference = runtime_baseline.execute(true);
@@ -2043,6 +2565,20 @@ CommandReport run_cuda_self_test(
             && term_reference.offsets == gpu.offsets
             && term_reference.neighbors == gpu.neighbors
             && term_reference.device_memory_bytes == gpu.device_memory_bytes;
+        CapturedRun layout_reference = gpu;
+        if (layout_candidate) {
+            CudaBaseline gather_baseline(
+                fixture, AccumulationMode::GatherDirectedR0,
+                HandoffMode::PointerSwapO1, TermKernelMode::SpecializedO2);
+            layout_reference = gather_baseline.execute(true);
+        }
+        const Comparison layout_comparison =
+            compare_results(fixture, layout_reference.state, gpu.state, tolerances);
+        const bool layout_baseline_exact =
+            ordered_output_digest(layout_reference.state) == output_digest;
+        const bool layout_baseline_correspondence = layout_comparison.passed
+            && layout_reference.offsets == gpu.offsets
+            && layout_reference.neighbors == gpu.neighbors;
         const bool neighbors_passed = exact_fixture_neighbors(fixture, gpu)
             && valid_symmetric_neighbors(gpu, fixture.particles.size())
             && exact_fixture_neighbors(fixture, reused_second)
@@ -2057,20 +2593,24 @@ CommandReport run_cuda_self_test(
             && finite_state(reused_third.state);
         const bool local_solve_passed = !gpu.local_solve_failed
             && !reused_second.local_solve_failed && !reused_third.local_solve_failed;
+        const bool reverse_map_passed = gpu.reverse_map_valid
+            && reused_second.reverse_map_valid && reused_third.reverse_map_valid;
         const bool passed = comparison.passed && neighbors_passed && momentum_passed
-            && finite_passed && local_solve_passed
+            && finite_passed && local_solve_passed && reverse_map_passed
             && (handoff != HandoffMode::PointerSwapO1 || reused_instance_exact)
             && (term_kernels != TermKernelMode::RuntimeV0
                 || handoff != HandoffMode::PointerSwapO1 || copy_baseline_exact)
-            && (term_kernels != TermKernelMode::SpecializedO2
+            && (term_kernels != TermKernelMode::SpecializedO2 || layout_candidate
                 || term_baseline_correspondence);
-        all_passed = all_passed && passed;
+        const bool final_passed = passed
+            && (!layout_candidate || layout_baseline_correspondence);
+        all_passed = all_passed && final_passed;
         if (index != 0) {
             output << ',';
         }
         output << "{\"name\":\"" << fixture.name << "\",\"input_sha256\":\""
                << fixture_input_hash(fixture) << "\",\"passed\":"
-               << (passed ? "true" : "false") << ",\"neighbors_passed\":"
+               << (final_passed ? "true" : "false") << ",\"neighbors_passed\":"
                << (neighbors_passed ? "true" : "false");
         if (handoff == HandoffMode::PointerSwapO1) {
             output << ",\"reused_instance_runs\":3,\"reused_instance_exact\":"
@@ -2088,7 +2628,7 @@ CommandReport run_cuda_self_test(
                       ",\"copy_baseline_exact\":null,\"ordered_output_sha256\":[\""
                    << output_digest << "\"]";
         }
-        if (term_kernels == TermKernelMode::SpecializedO2) {
+        if (term_kernels == TermKernelMode::SpecializedO2 && !layout_candidate) {
             output << ",\"term_baseline_correspondence\":"
                    << (term_baseline_correspondence ? "true" : "false")
                    << ",\"term_baseline_exact\":"
@@ -2100,11 +2640,33 @@ CommandReport run_cuda_self_test(
                       ",\"term_baseline_exact\":null"
                       ",\"term_baseline_output_sha256\":null";
         }
+        output << ",\"layout_baseline_correspondence\":";
+        if (layout_candidate) {
+            output << (layout_baseline_correspondence ? "true" : "false")
+                   << ",\"layout_baseline_exact\":"
+                   << (layout_baseline_exact ? "true" : "false")
+                   << ",\"layout_baseline_output_sha256\":\""
+                   << ordered_output_digest(layout_reference.state) << "\"";
+        } else {
+            output << "null,\"layout_baseline_exact\":null"
+                      ",\"layout_baseline_output_sha256\":null";
+        }
         output << ",\"csr_sha256\":\"" << topology_digest << "\",\"finite\":"
                << (finite_passed ? "true" : "false")
                << ",\"local_solve_failed\":"
                << (local_solve_passed ? "false" : "true")
                << ",\"directed_pairs\":" << gpu.state.directed_pairs
+               << ",\"self_slots\":" << gpu.self_slots
+               << ",\"nonself_directed_samples\":" << gpu.nonself_directed_samples
+               << ",\"unique_pairs\":" << gpu.unique_pairs
+               << ",\"pair_evaluations_per_active_term\":"
+               << gpu.pair_evaluations_per_active_term
+               << ",\"endpoint_fragments_per_active_term\":"
+               << gpu.endpoint_fragments_per_active_term
+               << ",\"reverse_map_valid\":"
+               << (gpu.reverse_map_valid ? "true" : "false")
+               << ",\"layout_memory_bytes\":" << gpu.layout_memory_bytes
+               << ",\"layout_setup_ms\":" << gpu.layout_setup_ms
                << ",\"maximum_degree\":" << gpu.state.maximum_degree
                << ",\"normalized_momentum_residual\":"
                << gpu.state.normalized_momentum_residual << ",\"scales\":{\"energy\":"
@@ -2125,7 +2687,31 @@ CommandReport run_cuda_self_test(
         append_timing(output, gpu.timing);
         output << '}';
     }
-    output << "],\"status\":\"" << (all_passed ? "PASS" : "FAIL") << "\"}";
+    output << ']';
+    if (mode == AccumulationMode::UniquePairSegmentedO3) {
+        Fixture bulk_only = fixtures.at(6);
+        bulk_only.name = "o3_bulk_only_specialization_smoke";
+        bulk_only.terms = {false, true, false, false};
+        bulk_only.lambda = 1.5;
+        bulk_only.mu = 0.0;
+        const OracleResult bulk_cpu = run_cpu_oracle(bulk_only);
+        CudaBaseline bulk_baseline(bulk_only, mode, handoff, term_kernels);
+        const CapturedRun bulk_gpu = bulk_baseline.execute(true);
+        const bool bulk_passed = compare_results(
+            bulk_only, bulk_cpu, bulk_gpu.state, tolerances).passed
+            && exact_fixture_neighbors(bulk_only, bulk_gpu)
+            && bulk_gpu.reverse_map_valid && !bulk_gpu.local_solve_failed;
+        all_passed = all_passed && bulk_passed;
+        output << ",\"specialization_smoke\":{\"bulk_only\":"
+               << (bulk_passed ? "true" : "false")
+               << ",\"shear_only_case\":\"viscosity_shear_pair\""
+               << ",\"bulk_shear_cases\":\"tiny_closed_box_iter1..4\""
+               << ",\"bulk_only_output_sha256\":\""
+               << ordered_output_digest(bulk_gpu.state) << "\"}";
+    } else {
+        output << ",\"specialization_smoke\":null";
+    }
+    output << ",\"status\":\"" << (all_passed ? "PASS" : "FAIL") << "\"}";
     return {all_passed, output.str()};
 }
 
@@ -2171,8 +2757,9 @@ CommandReport run_cuda_check(
         && copy_reference.offsets == first.offsets && copy_reference.neighbors == first.neighbors
         && copy_reference.device_memory_bytes == first.device_memory_bytes
         && copy_correspondence.passed;
+    const bool layout_candidate = mode == AccumulationMode::UniquePairSegmentedO3;
     CapturedRun term_reference = first;
-    if (term_kernels == TermKernelMode::SpecializedO2) {
+    if (term_kernels == TermKernelMode::SpecializedO2 && !layout_candidate) {
         CudaBaseline runtime_baseline(fixture, mode, handoff, TermKernelMode::RuntimeV0);
         term_reference = runtime_baseline.execute(true);
     }
@@ -2184,8 +2771,23 @@ CommandReport run_cuda_check(
         && term_reference.offsets == first.offsets
         && term_reference.neighbors == first.neighbors
         && term_reference.device_memory_bytes == first.device_memory_bytes;
+    CapturedRun layout_reference = first;
+    if (layout_candidate) {
+        CudaBaseline gather_baseline(
+            fixture, AccumulationMode::GatherDirectedR0,
+            HandoffMode::PointerSwapO1, TermKernelMode::SpecializedO2);
+        layout_reference = gather_baseline.execute(true);
+    }
+    const Comparison layout_comparison =
+        compare_results(fixture, layout_reference.state, first.state, profile.tolerances);
+    const bool layout_baseline_exact =
+        ordered_output_digest(layout_reference.state) == first_digest;
+    const bool layout_baseline_correspondence = layout_comparison.passed
+        && layout_reference.offsets == first.offsets
+        && layout_reference.neighbors == first.neighbors;
     const bool passed = finite_state(first.state) && finite_state(second.state)
         && !first.local_solve_failed && !second.local_solve_failed && neighbors_passed
+        && first.reverse_map_valid && second.reverse_map_valid
         && first.state.normalized_momentum_residual
             <= profile.tolerances.normalized_momentum_residual
         && second.state.normalized_momentum_residual
@@ -2194,8 +2796,9 @@ CommandReport run_cuda_check(
         && (handoff != HandoffMode::PointerSwapO1 || reused_instance_exact)
         && (term_kernels != TermKernelMode::RuntimeV0
             || handoff != HandoffMode::PointerSwapO1 || copy_baseline_exact)
-        && (term_kernels != TermKernelMode::SpecializedO2
-            || term_baseline_correspondence);
+        && (term_kernels != TermKernelMode::SpecializedO2 || layout_candidate
+            || term_baseline_correspondence)
+        && (!layout_candidate || layout_baseline_correspondence);
 
     std::ostringstream output;
     output << std::setprecision(17);
@@ -2232,23 +2835,47 @@ CommandReport run_cuda_check(
         output << "null";
     }
     output << ",\"term_baseline_correspondence\":";
-    if (term_kernels == TermKernelMode::SpecializedO2) {
+    if (term_kernels == TermKernelMode::SpecializedO2 && !layout_candidate) {
         output << (term_baseline_correspondence ? "true" : "false");
     } else {
         output << "null";
     }
     output << ",\"term_baseline_exact\":";
-    if (term_kernels == TermKernelMode::SpecializedO2) {
+    if (term_kernels == TermKernelMode::SpecializedO2 && !layout_candidate) {
         output << (term_baseline_exact ? "true" : "false");
     } else {
         output << "null";
     }
     output << ",\"term_baseline_output_sha256\":";
-    if (term_kernels == TermKernelMode::SpecializedO2) {
+    if (term_kernels == TermKernelMode::SpecializedO2 && !layout_candidate) {
         output << '"' << ordered_output_digest(term_reference.state) << '"';
     } else {
         output << "null";
     }
+    output << ",\"layout_baseline_correspondence\":";
+    if (layout_candidate) {
+        output << (layout_baseline_correspondence ? "true" : "false")
+               << ",\"layout_baseline_exact\":"
+               << (layout_baseline_exact ? "true" : "false")
+               << ",\"layout_baseline_output_sha256\":\""
+               << ordered_output_digest(layout_reference.state) << "\"";
+    } else {
+        output << "null,\"layout_baseline_exact\":null"
+                  ",\"layout_baseline_output_sha256\":null";
+    }
+    output << ",\"layout_baseline_discrepancy\":{\"density\":";
+    append_discrepancy(output, layout_comparison.density);
+    output << ",\"energy\":";
+    append_discrepancy(output, layout_comparison.energy);
+    output << ",\"source\":";
+    append_discrepancy(output, layout_comparison.source);
+    output << ",\"matrix\":";
+    append_discrepancy(output, layout_comparison.matrix);
+    output << ",\"position\":";
+    append_discrepancy(output, layout_comparison.position);
+    output << ",\"velocity\":";
+    append_discrepancy(output, layout_comparison.velocity);
+    output << '}';
     output << ",\"ordered_output_sha256\":[\"" << first_digest << "\",\""
            << second_digest
            << "\"],\"repeated_output_discrepancy\":{\"density\":";
@@ -2264,6 +2891,17 @@ CommandReport run_cuda_check(
     output << ",\"velocity\":";
     append_discrepancy(output, repeated.velocity);
     output << "},\"device_memory_bytes\":" << first.device_memory_bytes
+           << ",\"layout_memory_bytes\":" << first.layout_memory_bytes
+           << ",\"layout_setup_ms\":" << first.layout_setup_ms
+           << ",\"reverse_map_valid\":"
+           << (first.reverse_map_valid && second.reverse_map_valid ? "true" : "false")
+           << ",\"self_slots\":" << first.self_slots
+           << ",\"nonself_directed_samples\":" << first.nonself_directed_samples
+           << ",\"unique_pairs\":" << first.unique_pairs
+           << ",\"pair_evaluations_per_active_term\":"
+           << first.pair_evaluations_per_active_term
+           << ",\"endpoint_fragments_per_active_term\":"
+           << first.endpoint_fragments_per_active_term
            << ",\"device\":" << device_json() << ",\"first_timing\":";
     append_timing(output, first.timing);
     output << ",\"second_timing\":";
@@ -2311,6 +2949,7 @@ CommandReport run_cuda_repeatability(
     bool local_solve_passed = true;
     bool momentum_passed = true;
     bool topology_passed = true;
+    bool reverse_map_passed = true;
     for (int run = 0; run < runs; ++run) {
         CapturedRun captured;
         {
@@ -2335,6 +2974,7 @@ CommandReport run_cuda_repeatability(
             && valid_symmetric_neighbors(captured, fixture.particles.size())
             && captured.state.directed_pairs <= profile.max_directed_pairs
             && captured.state.maximum_degree <= profile.max_neighbors;
+        reverse_map_passed = reverse_map_passed && captured.reverse_map_valid;
 
         if (run == 0) {
             first = captured;
@@ -2367,8 +3007,9 @@ CommandReport run_cuda_repeatability(
         && copy_reference.device_memory_bytes == first.device_memory_bytes
         && copy_correspondence.passed;
 
+    const bool layout_candidate = mode == AccumulationMode::UniquePairSegmentedO3;
     CapturedRun term_reference = first;
-    if (term_kernels == TermKernelMode::SpecializedO2) {
+    if (term_kernels == TermKernelMode::SpecializedO2 && !layout_candidate) {
         CudaBaseline runtime_baseline(fixture, mode, handoff, TermKernelMode::RuntimeV0);
         term_reference = runtime_baseline.execute(true);
     }
@@ -2380,14 +3021,29 @@ CommandReport run_cuda_repeatability(
         && term_reference.offsets == first.offsets
         && term_reference.neighbors == first.neighbors
         && term_reference.device_memory_bytes == first.device_memory_bytes;
+    CapturedRun layout_reference = first;
+    if (layout_candidate) {
+        CudaBaseline gather_baseline(
+            fixture, AccumulationMode::GatherDirectedR0,
+            HandoffMode::PointerSwapO1, TermKernelMode::SpecializedO2);
+        layout_reference = gather_baseline.execute(true);
+    }
+    const Comparison layout_comparison =
+        compare_results(fixture, layout_reference.state, first.state, profile.tolerances);
+    const bool layout_baseline_exact =
+        ordered_output_digest(layout_reference.state) == first_output_digest;
+    const bool layout_baseline_correspondence = layout_comparison.passed
+        && layout_reference.offsets == first.offsets
+        && layout_reference.neighbors == first.neighbors;
 
     const bool passed = exact_output_digest && exact_csr && memory_identical
         && correspondence_passed && finite_passed && local_solve_passed && momentum_passed
-        && topology_passed
+        && topology_passed && reverse_map_passed
         && (term_kernels != TermKernelMode::RuntimeV0
             || handoff != HandoffMode::PointerSwapO1 || copy_baseline_exact)
-        && (term_kernels != TermKernelMode::SpecializedO2
-            || term_baseline_correspondence);
+        && (term_kernels != TermKernelMode::SpecializedO2 || layout_candidate
+            || term_baseline_correspondence)
+        && (!layout_candidate || layout_baseline_correspondence);
     std::ostringstream output;
     output << std::setprecision(17);
     output << "{\"schema\":\"nextengine.nonlocal.cuda_repeatability.v0\",\"status\":\""
@@ -2417,29 +3073,50 @@ CommandReport run_cuda_repeatability(
         output << "null";
     }
     output << ",\"term_baseline_correspondence\":";
-    if (term_kernels == TermKernelMode::SpecializedO2) {
+    if (term_kernels == TermKernelMode::SpecializedO2 && !layout_candidate) {
         output << (term_baseline_correspondence ? "true" : "false");
     } else {
         output << "null";
     }
     output << ",\"term_baseline_exact\":";
-    if (term_kernels == TermKernelMode::SpecializedO2) {
+    if (term_kernels == TermKernelMode::SpecializedO2 && !layout_candidate) {
         output << (term_baseline_exact ? "true" : "false");
     } else {
         output << "null";
     }
     output << ",\"term_baseline_output_sha256\":";
-    if (term_kernels == TermKernelMode::SpecializedO2) {
+    if (term_kernels == TermKernelMode::SpecializedO2 && !layout_candidate) {
         output << '"' << ordered_output_digest(term_reference.state) << '"';
     } else {
         output << "null";
+    }
+    output << ",\"layout_baseline_correspondence\":";
+    if (layout_candidate) {
+        output << (layout_baseline_correspondence ? "true" : "false")
+               << ",\"layout_baseline_exact\":"
+               << (layout_baseline_exact ? "true" : "false")
+               << ",\"layout_baseline_output_sha256\":\""
+               << ordered_output_digest(layout_reference.state) << "\"";
+    } else {
+        output << "null,\"layout_baseline_exact\":null"
+                  ",\"layout_baseline_output_sha256\":null";
     }
     output << ",\"correspondence_passed\":"
            << (correspondence_passed ? "true" : "false") << ",\"finite\":"
            << (finite_passed ? "true" : "false") << ",\"local_solve_failed\":"
            << (local_solve_passed ? "false" : "true") << ",\"momentum_passed\":"
            << (momentum_passed ? "true" : "false") << ",\"topology_passed\":"
-           << (topology_passed ? "true" : "false") << ",\"csr_sha256\":\""
+           << (topology_passed ? "true" : "false") << ",\"reverse_map_valid\":"
+           << (reverse_map_passed ? "true" : "false")
+           << ",\"layout_memory_bytes\":" << first.layout_memory_bytes
+           << ",\"layout_setup_ms\":" << first.layout_setup_ms
+           << ",\"self_slots\":" << first.self_slots
+           << ",\"nonself_directed_samples\":" << first.nonself_directed_samples
+           << ",\"unique_pairs\":" << first.unique_pairs
+           << ",\"pair_evaluations_per_active_term\":"
+           << first.pair_evaluations_per_active_term
+           << ",\"endpoint_fragments_per_active_term\":"
+           << first.endpoint_fragments_per_active_term << ",\"csr_sha256\":\""
            << first_csr_digest
            << "\",\"ordered_output_digest_fields\":[\"density\",\"source\",\"matrix\","
               "\"final_position\",\"final_velocity\"],\"ordered_output_sha256\":[";
@@ -2505,8 +3182,8 @@ CommandReport run_cuda_benchmark(
     const CapturedRun before = baseline.execute(true);
     for (int run = 0; run < warmup; ++run) {
         const CapturedRun warm = baseline.execute(false);
-        if (warm.local_solve_failed) {
-            throw std::runtime_error("local solve failed during benchmark warmup");
+        if (warm.local_solve_failed || !warm.reverse_map_valid) {
+            throw std::runtime_error("solver or O3 layout failed during benchmark warmup");
         }
     }
 
@@ -2514,8 +3191,8 @@ CommandReport run_cuda_benchmark(
     timings.reserve(static_cast<std::size_t>(runs));
     for (int run = 0; run < runs; ++run) {
         CapturedRun measured = baseline.execute(false);
-        if (measured.local_solve_failed) {
-            throw std::runtime_error("local solve failed during measured benchmark run");
+        if (measured.local_solve_failed || !measured.reverse_map_valid) {
+            throw std::runtime_error("solver or O3 layout failed during measured benchmark run");
         }
         timings.push_back(measured.timing);
     }
@@ -2532,6 +3209,7 @@ CommandReport run_cuda_benchmark(
         == ordered_output_digest(after.state);
     const bool passed = finite_state(before.state) && finite_state(after.state)
         && !before.local_solve_failed && !after.local_solve_failed && neighbors_passed
+        && before.reverse_map_valid && after.reverse_map_valid
         && repeated.passed
         && before.state.normalized_momentum_residual
             <= profile.tolerances.normalized_momentum_residual
@@ -2570,6 +3248,17 @@ CommandReport run_cuda_benchmark(
            << before.state.maximum_degree << ",\"device_memory_bytes\":"
            << before.device_memory_bytes << ",\"neighbors_passed\":"
            << (neighbors_passed ? "true" : "false")
+           << ",\"layout_memory_bytes\":" << before.layout_memory_bytes
+           << ",\"layout_setup_ms\":" << before.layout_setup_ms
+           << ",\"reverse_map_valid\":"
+           << (before.reverse_map_valid && after.reverse_map_valid ? "true" : "false")
+           << ",\"self_slots\":" << before.self_slots
+           << ",\"nonself_directed_samples\":" << before.nonself_directed_samples
+           << ",\"unique_pairs\":" << before.unique_pairs
+           << ",\"pair_evaluations_per_active_term\":"
+           << before.pair_evaluations_per_active_term
+           << ",\"endpoint_fragments_per_active_term\":"
+           << before.endpoint_fragments_per_active_term
            << ",\"repeated_neighbors_identical\":"
            << (repeated_neighbors_identical ? "true" : "false")
            << ",\"repeated_output_passed\":" << (repeated.passed ? "true" : "false")
@@ -2606,6 +3295,244 @@ CommandReport run_cuda_benchmark(
         output << timings[index].total;
     }
     output << "]}";
+    return {passed, output.str()};
+}
+
+CommandReport run_cuda_layout_tournament(
+    const Profile& profile,
+    int warmup,
+    int runs) {
+    if (profile.id == "nuv-tiny-oracle.v0") {
+        throw std::invalid_argument("layout tournament requires a fixed performance profile");
+    }
+    if (warmup != 32 || runs != 96) {
+        throw std::invalid_argument("O3 layout tournament requires --warmup 32 --runs 96");
+    }
+
+    const CommandReport atomic_self = run_cuda_self_test(
+        AccumulationMode::SourceAtomicV0, HandoffMode::CopyV0, TermKernelMode::RuntimeV0);
+    const CommandReport gather_self = run_cuda_self_test(
+        AccumulationMode::GatherDirectedR0,
+        HandoffMode::PointerSwapO1, TermKernelMode::SpecializedO2);
+    const CommandReport segmented_self = run_cuda_self_test(
+        AccumulationMode::UniquePairSegmentedO3,
+        HandoffMode::PointerSwapO1, TermKernelMode::SpecializedO2);
+    if (!atomic_self.passed || !gather_self.passed || !segmented_self.passed) {
+        std::ostringstream failure;
+        failure << "{\"schema\":\"nextengine.nonlocal.cuda_layout_tournament.v0\","
+                   "\"status\":\"FAIL\",\"reason\":\"self_test_preflight_failed\","
+                   "\"preflight\":{\"atomic\":"
+                << (atomic_self.passed ? "true" : "false") << ",\"gather\":"
+                << (gather_self.passed ? "true" : "false") << ",\"segmented\":"
+                << (segmented_self.passed ? "true" : "false") << "}}";
+        return {false, failure.str()};
+    }
+
+    const Fixture fixture = performance_fixture(profile, profile.fixed_iterations);
+    CudaBaseline atomic(
+        fixture, AccumulationMode::SourceAtomicV0,
+        HandoffMode::CopyV0, TermKernelMode::RuntimeV0);
+    CudaBaseline gather(
+        fixture, AccumulationMode::GatherDirectedR0,
+        HandoffMode::PointerSwapO1, TermKernelMode::SpecializedO2);
+    CudaBaseline segmented(
+        fixture, AccumulationMode::UniquePairSegmentedO3,
+        HandoffMode::PointerSwapO1, TermKernelMode::SpecializedO2);
+
+    const CapturedRun atomic_before = atomic.execute(true);
+    const CapturedRun gather_before = gather.execute(true);
+    const CapturedRun segmented_before = segmented.execute(true);
+    const std::size_t co_resident_memory = atomic_before.device_memory_bytes
+        + gather_before.device_memory_bytes + segmented_before.device_memory_bytes;
+    constexpr std::size_t CO_RESIDENT_CEILING = 420000000U;
+    if (co_resident_memory > CO_RESIDENT_CEILING) {
+        std::ostringstream failure;
+        failure << "{\"schema\":\"nextengine.nonlocal.cuda_layout_tournament.v0\","
+                   "\"status\":\"CAPACITY_REJECT\",\"reason\":\"co_resident_memory_ceiling\","
+                   "\"three_instance_co_resident_bytes\":"
+                << co_resident_memory << ",\"ceiling_bytes\":" << CO_RESIDENT_CEILING << '}';
+        return {false, failure.str()};
+    }
+
+    std::array<CudaBaseline*, 3> layouts = {&atomic, &gather, &segmented};
+    const auto execute_rotated = [&](int round, bool capture, std::vector<StageTiming>* timings) {
+        for (int position = 0; position < 3; ++position) {
+            const int layout = (round + position) % 3;
+            CapturedRun run = layouts[static_cast<std::size_t>(layout)]->execute(capture);
+            if (run.local_solve_failed || !run.reverse_map_valid) {
+                throw std::runtime_error("solver or O3 layout failed during layout tournament");
+            }
+            if (timings != nullptr) {
+                timings[layout].push_back(run.timing);
+            }
+        }
+    };
+    for (int round = 0; round < warmup; ++round) {
+        execute_rotated(round, false, nullptr);
+    }
+    std::vector<StageTiming> timings[3];
+    for (auto& layout_timings : timings) {
+        layout_timings.reserve(static_cast<std::size_t>(runs));
+    }
+    for (int round = 0; round < runs; ++round) {
+        execute_rotated(round, false, timings);
+    }
+
+    const CapturedRun atomic_after = atomic.execute(true);
+    const CapturedRun gather_after = gather.execute(true);
+    const CapturedRun segmented_after = segmented.execute(true);
+    const std::array<const CapturedRun*, 3> before = {
+        &atomic_before, &gather_before, &segmented_before};
+    const std::array<const CapturedRun*, 3> after = {
+        &atomic_after, &gather_after, &segmented_after};
+
+    bool topology_passed = true;
+    bool finite_passed = true;
+    bool solve_passed = true;
+    bool momentum_passed = true;
+    bool repeated_correspondence[3] = {};
+    bool repeated_exact[3] = {};
+    for (int layout = 0; layout < 3; ++layout) {
+        const CapturedRun& first = *before[static_cast<std::size_t>(layout)];
+        const CapturedRun& second = *after[static_cast<std::size_t>(layout)];
+        const bool same_topology = first.offsets == second.offsets
+            && first.neighbors == second.neighbors
+            && valid_symmetric_neighbors(first, fixture.particles.size())
+            && first.state.directed_pairs <= profile.max_directed_pairs
+            && first.state.maximum_degree <= profile.max_neighbors;
+        topology_passed = topology_passed && same_topology;
+        finite_passed = finite_passed && finite_state(first.state) && finite_state(second.state);
+        solve_passed = solve_passed && !first.local_solve_failed && !second.local_solve_failed
+            && first.reverse_map_valid && second.reverse_map_valid;
+        momentum_passed = momentum_passed
+            && first.state.normalized_momentum_residual
+                <= profile.tolerances.normalized_momentum_residual
+            && second.state.normalized_momentum_residual
+                <= profile.tolerances.normalized_momentum_residual;
+        repeated_correspondence[layout] =
+            compare_results(fixture, first.state, second.state, profile.tolerances).passed;
+        repeated_exact[layout] = ordered_output_digest(first.state)
+            == ordered_output_digest(second.state);
+    }
+
+    const Comparison layout_comparison = compare_results(
+        fixture, gather_before.state, segmented_before.state, profile.tolerances);
+    const bool layout_correspondence = layout_comparison.passed
+        && gather_before.offsets == segmented_before.offsets
+        && gather_before.neighbors == segmented_before.neighbors;
+    const bool layout_exact = ordered_output_digest(gather_before.state)
+        == ordered_output_digest(segmented_before.state);
+    const std::size_t expected_pair_capacity = fixture.particles.size() * 123U;
+    const std::size_t expected_layout_memory = expected_pair_capacity * 52U + sizeof(int);
+    const std::size_t candidate_ceiling = fixture.particles.size() == 16000U
+        ? 113250058U
+        : (fixture.particles.size() == 48000U ? 339733770U : 0U);
+    const bool capacity_passed = segmented_before.layout_memory_bytes == expected_layout_memory
+        && candidate_ceiling != 0U
+        && segmented_before.device_memory_bytes <= candidate_ceiling
+        && co_resident_memory <= CO_RESIDENT_CEILING;
+    const bool work_passed = segmented_before.self_slots == fixture.particles.size()
+        && segmented_before.nonself_directed_samples == 2U * segmented_before.unique_pairs
+        && segmented_before.pair_evaluations_per_active_term == segmented_before.unique_pairs
+        && segmented_before.endpoint_fragments_per_active_term
+            == segmented_before.nonself_directed_samples
+        && gather_before.pair_evaluations_per_active_term
+            == gather_before.nonself_directed_samples;
+    const bool passed = topology_passed && finite_passed && solve_passed && momentum_passed
+        && repeated_correspondence[0] && repeated_correspondence[1]
+        && repeated_correspondence[2] && repeated_exact[1] && repeated_exact[2]
+        && layout_correspondence && capacity_passed && work_passed;
+
+    const Statistics gather_total =
+        collect_statistics(timings[1], &StageTiming::total);
+    const Statistics segmented_total =
+        collect_statistics(timings[2], &StageTiming::total);
+    const double p95_speedup = gather_total.p95 / segmented_total.p95;
+    const std::array<const char*, 3> names = {
+        "historical_atomic", "retained_gather", "candidate_segmented"};
+    const std::array<AccumulationMode, 3> accumulations = {
+        AccumulationMode::SourceAtomicV0,
+        AccumulationMode::GatherDirectedR0,
+        AccumulationMode::UniquePairSegmentedO3};
+    const std::array<HandoffMode, 3> handoffs = {
+        HandoffMode::CopyV0, HandoffMode::PointerSwapO1, HandoffMode::PointerSwapO1};
+    const std::array<TermKernelMode, 3> terms = {
+        TermKernelMode::RuntimeV0, TermKernelMode::SpecializedO2,
+        TermKernelMode::SpecializedO2};
+
+    std::ostringstream output;
+    output << std::setprecision(17);
+    output << "{\"schema\":\"nextengine.nonlocal.cuda_layout_tournament.v0\",\"status\":\""
+           << (passed ? "PASS" : "FAIL") << "\",\"profile_id\":\"" << profile.id
+           << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
+           << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
+           << "\",\"binary_sha256\":\"" << executable_hash()
+           << "\",\"binary_bytes\":" << executable_bytes()
+           << ",\"command\":\"nonlocal-feasibility --layout-tournament " << profile.id
+           << " --warmup " << warmup << " --runs " << runs
+           << "\",\"fixed_iterations\":" << profile.fixed_iterations
+           << ",\"warmup_rounds\":" << warmup << ",\"measured_rounds\":" << runs
+           << ",\"samples_per_layout\":" << runs
+           << ",\"rotation\":[[\"A\",\"G\",\"S\"],[\"G\",\"S\",\"A\"],"
+              "[\"S\",\"A\",\"G\"]],\"each_measured_position_count\":32"
+           << ",\"preflight\":{\"atomic\":true,\"gather\":true,\"segmented\":true}"
+           << ",\"correctness\":{\"topology_passed\":"
+           << (topology_passed ? "true" : "false") << ",\"finite_passed\":"
+           << (finite_passed ? "true" : "false") << ",\"solve_passed\":"
+           << (solve_passed ? "true" : "false") << ",\"momentum_passed\":"
+           << (momentum_passed ? "true" : "false")
+           << ",\"layout_baseline_correspondence\":"
+           << (layout_correspondence ? "true" : "false")
+           << ",\"layout_baseline_exact\":" << (layout_exact ? "true" : "false")
+           << ",\"work_accounting_passed\":" << (work_passed ? "true" : "false")
+           << ",\"capacity_passed\":" << (capacity_passed ? "true" : "false") << '}'
+           << ",\"memory\":{\"three_instance_co_resident_bytes\":" << co_resident_memory
+           << ",\"three_instance_ceiling_bytes\":" << CO_RESIDENT_CEILING
+           << ",\"candidate_ceiling_bytes\":" << candidate_ceiling
+           << ",\"candidate_expected_layout_bytes\":" << expected_layout_memory << '}'
+           << ",\"work\":{\"directed_samples\":" << segmented_before.state.directed_pairs
+           << ",\"self_slots\":" << segmented_before.self_slots
+           << ",\"nonself_directed_samples\":" << segmented_before.nonself_directed_samples
+           << ",\"unique_pairs\":" << segmented_before.unique_pairs
+           << ",\"gather_pair_evaluations_per_active_term\":"
+           << gather_before.pair_evaluations_per_active_term
+           << ",\"candidate_pair_evaluations_per_active_term\":"
+           << segmented_before.pair_evaluations_per_active_term
+           << ",\"candidate_endpoint_fragments_per_active_term\":"
+           << segmented_before.endpoint_fragments_per_active_term << '}'
+           << ",\"candidate_vs_retained\":{\"total_p95_speedup\":" << p95_speedup
+           << ",\"retained_total_p95_ms\":" << gather_total.p95
+           << ",\"candidate_total_p95_ms\":" << segmented_total.p95 << '}'
+           << ",\"layouts\":{";
+    for (int layout = 0; layout < 3; ++layout) {
+        if (layout != 0) {
+            output << ',';
+        }
+        const CapturedRun& first = *before[static_cast<std::size_t>(layout)];
+        output << '\"' << names[static_cast<std::size_t>(layout)] << "\":{"
+               << "\"accumulation_identity\":\""
+               << accumulation_identity(accumulations[static_cast<std::size_t>(layout)])
+               << "\",\"handoff_identity\":\""
+               << handoff_identity(handoffs[static_cast<std::size_t>(layout)])
+               << "\",\"term_kernel_identity\":\""
+               << term_kernel_identity(terms[static_cast<std::size_t>(layout)])
+               << "\",\"device_memory_bytes\":" << first.device_memory_bytes
+               << ",\"layout_memory_bytes\":" << first.layout_memory_bytes
+               << ",\"layout_setup_ms\":" << first.layout_setup_ms
+               << ",\"reverse_map_valid\":"
+               << (first.reverse_map_valid ? "true" : "false")
+               << ",\"repeated_output_correspondence\":"
+               << (repeated_correspondence[layout] ? "true" : "false")
+               << ",\"repeated_output_exact\":"
+               << (repeated_exact[layout] ? "true" : "false")
+               << ",\"ordered_output_sha256\":\"" << ordered_output_digest(first.state)
+               << "\",\"csr_sha256\":\"" << csr_digest(first) << "\",\"statistics\":";
+        append_stage_statistics(output, timings[layout]);
+        output << ",\"raw_total_ms\":";
+        append_raw_totals(output, timings[layout]);
+        output << '}';
+    }
+    output << "},\"device\":" << device_json() << '}';
     return {passed, output.str()};
 }
 

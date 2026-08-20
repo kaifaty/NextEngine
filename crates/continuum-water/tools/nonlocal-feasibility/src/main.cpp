@@ -41,7 +41,9 @@ void print_usage() {
                  "--runs <count> --accumulation <identity> --handoff <identity>\n"
               << "       nonlocal-feasibility --benchmark <profile-id> --warmup <count> "
                  "--runs <count> --accumulation <identity> --handoff <identity> "
-                 "--term-kernels <identity>\n";
+                 "--term-kernels <identity>\n"
+              << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
+                 "--runs 96\n";
 }
 
 int bounded_integer(const char* text, const char* name) {
@@ -240,6 +242,15 @@ int main(int argc, char** argv) {
                 nextengine::nonlocal::parse_accumulation_identity(argv[8]),
                 nextengine::nonlocal::parse_handoff_identity(argv[10]),
                 nextengine::nonlocal::parse_term_kernel_identity(argv[12]));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 7 && std::string(argv[1]) == "--layout-tournament"
+            && std::string(argv[3]) == "--warmup" && std::string(argv[5]) == "--runs") {
+            const auto report = nextengine::nonlocal::run_cuda_layout_tournament(
+                nextengine::nonlocal::find_profile(argv[2]),
+                bounded_integer(argv[4], "warmup count"),
+                bounded_integer(argv[6], "run count"));
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
