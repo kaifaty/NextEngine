@@ -6160,8 +6160,10 @@ bool p4_stiff_i2_preflight() {
 CommandReport run_cuda_p1_check(
     const Profile& profile,
     int iterations) {
-    if (profile.record_version != 1 || iterations < 1 || iterations > 100) {
-        throw std::invalid_argument("P1 check requires a v1 profile and 1..=100 iterations");
+    if (profile.record_version < 1 || profile.record_version > 4
+        || iterations < 1 || iterations > 100) {
+        throw std::invalid_argument(
+            "P1 check requires a v1/v2/v3/v4 profile and 1..=100 iterations");
     }
     const CommandReport retained_self = run_cuda_self_test(
         P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE);
@@ -6358,10 +6360,10 @@ CommandReport run_cuda_p2_check(
     const Profile& profile,
     int iterations) {
     if ((profile.record_version != 1 && profile.record_version != 2
-            && profile.record_version != 3)
+            && profile.record_version != 3 && profile.record_version != 4)
         || iterations < 1 || iterations > 100) {
         throw std::invalid_argument(
-            "P2 check requires a v1/v2/v3 profile and 1..=100 iterations");
+            "P2 check requires a v1/v2/v3/v4 profile and 1..=100 iterations");
     }
     const CommandReport retained_self = run_cuda_self_test(
         P1_ACCUMULATION, P1_HANDOFF, P1_TERMS, P1_STORAGE);
