@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3D3_FAIL_ONE_TRIAL / NSR3B3D4_FROZEN_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B3D4_PASS_OWNED_GRADIENT / NSR3B3D5_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -156,10 +156,17 @@
   about `1e4` but need another iteration; both `/384` trials increase it.
 - **Current decision:** preserve D3 FAIL. Do not generalize the D2 one-step
   result into an unbounded residual solver or hide the fine-level overshoot.
-- **Current action:** implement frozen D4 legacy/owned gradient identity and
-  one-step counterfactual at the six D3 failure states.
-- **Next gate:** compare legacy/owned gradient residuals and one owned-gradient
-  trust trial before selecting iteration, line search or local geometry work.
+- **Current conclusion:** D4 certifies `R=h*g_owned` at `5e-21--1.3e-18`
+  error. At fine levels legacy identity error exceeds the residual itself.
+- **Current conclusion:** one owned-gradient HVP removes both fine overshoots
+  and strictly improves all six states; four coarse/mid states remain above
+  the unchanged reaction limit after their first correction.
+- **Current decision:** select `BOUNDED_OWNED_RESIDUAL_ITERATION_REQUIRED`.
+  The full inertia gradient, reaction and velocity must share `delta`.
+- **Current action:** freeze a capped D5 full-trajectory residual phase with
+  owned gradient rebuild after every accepted floor-merit step.
+- **Next gate:** D5 must complete all fixed traces within iteration/HVP caps or
+  preserve the exact first non-decrease/limit failure.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -448,6 +455,17 @@
   ownership inconsistency from an intrinsic residual-globalization problem.
   No B3 retry is authorized.
 
+### D-027 -- Make displacement ownership cover the optimizer gradient
+
+- **Observation:** owned gradient restores `R=h*grad F` within the computed
+  binary64 bound and eliminates both fine-level overshoots without changing
+  the HVP. Coarse states need additional improving corrections.
+- **Decision:** use `delta-delta*` for inertia energy/gradient throughout the
+  owned candidate and test a capped residual phase at the existing floor.
+- **Consequence:** D5 may iterate only while topology is unchanged and
+  residual strictly decreases. It cannot change pressure/contact physics or
+  inherit B3 authority before a later retry passes.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -460,11 +478,10 @@
 
 ## Exact next action
 
-1. Derive legacy and displacement-owned inertia-gradient identities at the
-   D3 first-failure captures.
-2. Freeze a six-state gradient-consistency discriminator, including one
-   owned-gradient trust step and residual outcome.
-3. Select a bounded next candidate or stop; keep D3/D1/B3 exact.
+1. Freeze D5 iteration, residual-decrease and HVP caps before execution.
+2. Implement fully owned inertia energy/gradient plus the bounded floor phase.
+3. Run six trajectories and historical regressions; only PASS authorizes B3R
+   design.
 
 ## Reconsideration triggers
 

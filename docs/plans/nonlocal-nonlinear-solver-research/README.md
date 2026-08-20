@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_FROZEN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / REPORT_ONLY`
 
 Candidate identity:
 
@@ -262,3 +262,9 @@ That six-state discriminator is now frozen in
 [NSR3-B3D4](03b3d4-owned-gradient-contract.md). It changes only the inertia
 gradient input for one counterfactual trust step; the HVP and physics remain
 unchanged.
+D4 passes: the owned identity error is `5e-21--1.3e-18`, while the legacy
+error exceeds the whole fine residual. Owned-gradient trials remove both fine
+overshoots and improve all six states; four still require another correction.
+This selects `BOUNDED_OWNED_RESIDUAL_ITERATION_REQUIRED`; see the
+[dated evidence](../../development/nonlocal-nsr3b3d4-owned-gradient-evidence-2026-08-21.md).
+Freeze a capped full-trajectory D5 candidate next.

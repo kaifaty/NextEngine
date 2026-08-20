@@ -1095,6 +1095,7 @@ struct SmoothSolve {
     double reaction_mixed_limit = 0.0;
     double numerical_energy_floor = 0.0;
     double last_predicted_reduction = 0.0;
+    double last_trust_radius = 0.0;
     double floor_trial_reaction_defect = 0.0;
     double floor_trial_reaction_limit = 0.0;
     double floor_trial_residual_ratio = 0.0;
@@ -1687,6 +1688,7 @@ SmoothSolve solve_smooth_step(
             return result;
         }
         bool negative_curvature = false;
+        result.last_trust_radius = trust_radius;
         const std::vector<Vec3> step = trust_step(
             result.position, boundary, current.gradient, time_step,
             trust_radius, result.hvp_calls, negative_curvature);
@@ -3453,6 +3455,188 @@ void append_stationarity_trajectory_level(
            << '}';
 }
 
+struct OwnedGradientProbe {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    std::string state_sha256;
+    int substeps_per_frame = 0;
+    int failing_substep = 0;
+    Vec3 direct_residual;
+    Vec3 legacy_gradient_residual;
+    Vec3 owned_gradient_residual;
+    Vec3 legacy_identity_difference;
+    Vec3 owned_identity_difference;
+    double direct_residual_norm = 0.0;
+    double legacy_identity_error = 0.0;
+    double owned_identity_error = 0.0;
+    double owned_identity_bound = 0.0;
+    bool owned_identity_certified = false;
+    double captured_trial_defect = 0.0;
+    double trust_radius_dx = 0.0;
+    double owned_step_norm_dx = 0.0;
+    int owned_hvp_calls = 0;
+    bool owned_negative_curvature = false;
+    bool topology_exact = false;
+    double owned_trial_defect = 0.0;
+    double owned_trial_limit = 0.0;
+    double owned_trial_ratio = 0.0;
+    bool owned_trial_converged = false;
+};
+
+OwnedGradientProbe owned_gradient_probe(
+    const std::string& name,
+    const SmokeFixture& fixture,
+    const ReactionTrace& trace) {
+    OwnedGradientProbe result;
+    result.name = name;
+    result.substeps_per_frame = trace.substeps_per_frame;
+    result.failing_substep = trace.steps;
+    if (!trace.energy_floor.valid) {
+        result.failure = "MISSING_D3_FAILURE_CAPTURE";
+        return result;
+    }
+    const ReactionCapture& capture = trace.energy_floor;
+    const SmoothSolve& smooth = capture.ordinary.smooth;
+    result.state_sha256 = capture.state_sha256;
+    result.captured_trial_defect = trace.failure_floor_trial_defect;
+    result.trust_radius_dx = smooth.last_trust_radius / SPACING;
+    if (smooth.displacement.size() != capture.position.size()) {
+        result.failure = "CAPTURE_SHAPE";
+        return result;
+    }
+    std::vector<Vec3> predicted_displacement(capture.position.size());
+    std::vector<Vec3> y_star(capture.position.size());
+    for (std::size_t i = 0; i < capture.position.size(); ++i) {
+        predicted_displacement[i] = capture.time_step
+            * (capture.velocity[i]
+                + capture.time_step * fixture.gravity);
+        y_star[i] = capture.position[i] + predicted_displacement[i];
+    }
+    const SmoothEvaluation legacy = smooth_evaluate(
+        smooth.position, y_star, fixture.boundary, capture.time_step);
+    std::vector<Vec3> owned_gradient = fluid_part(
+        legacy.support.gradient, capture.position.size());
+    const double inertia_scale = MASS
+        / (capture.time_step * capture.time_step);
+    Vec3 owned_component_magnitude;
+    for (std::size_t i = 0; i < owned_gradient.size(); ++i) {
+        owned_gradient[i] += inertia_scale
+            * (smooth.displacement[i] - predicted_displacement[i]);
+        owned_component_magnitude.x += std::abs(owned_gradient[i].x);
+        owned_component_magnitude.y += std::abs(owned_gradient[i].y);
+        owned_component_magnitude.z += std::abs(owned_gradient[i].z);
+    }
+    result.direct_residual = owned_reaction_defect(
+        smooth.displacement, predicted_displacement,
+        legacy.support, capture.time_step);
+    result.legacy_gradient_residual = capture.time_step
+        * sum_values(legacy.gradient, 0U, legacy.gradient.size());
+    result.owned_gradient_residual = capture.time_step
+        * sum_values(owned_gradient, 0U, owned_gradient.size());
+    result.legacy_identity_difference =
+        result.legacy_gradient_residual - result.direct_residual;
+    result.owned_identity_difference =
+        result.owned_gradient_residual - result.direct_residual;
+    result.direct_residual_norm = norm(result.direct_residual);
+    result.legacy_identity_error = norm(result.legacy_identity_difference);
+    result.owned_identity_error = norm(result.owned_identity_difference);
+    const double sum_bound = capture.time_step
+        * gamma_factor(std::max<std::size_t>(
+            owned_gradient.size(), 2U) - 1U)
+        * norm(owned_component_magnitude);
+    double local_inertia_magnitude = 0.0;
+    for (std::size_t i = 0; i < smooth.displacement.size(); ++i) {
+        local_inertia_magnitude += MASS / capture.time_step
+            * (norm(smooth.displacement[i])
+                + norm(predicted_displacement[i]));
+    }
+    result.owned_identity_bound = displacement_forward_bound(
+        capture.velocity, fixture.gravity, capture.time_step)
+        + sum_bound + gamma_factor(6U) * local_inertia_magnitude;
+    result.owned_identity_certified = result.owned_identity_error
+        <= result.owned_identity_bound;
+
+    const std::vector<Vec3> step = trust_step(
+        smooth.position, fixture.boundary, owned_gradient,
+        capture.time_step, smooth.last_trust_radius,
+        result.owned_hvp_calls, result.owned_negative_curvature);
+    result.owned_step_norm_dx = vector_norm(step) / SPACING;
+    std::vector<Vec3> trial_displacement = add_scaled(
+        smooth.displacement, step, 1.0);
+    std::vector<Vec3> trial_position(capture.position.size());
+    for (std::size_t i = 0; i < capture.position.size(); ++i) {
+        trial_position[i] = capture.position[i] + trial_displacement[i];
+    }
+    const Evaluation trial_support = evaluate(
+        trial_position, fixture.boundary);
+    result.topology_exact = legacy.support.active_centers
+            == trial_support.active_centers
+        && legacy.support.fluid_pairs == trial_support.fluid_pairs
+        && legacy.support.boundary_pairs == trial_support.boundary_pairs;
+    result.owned_trial_defect = norm(owned_reaction_defect(
+        trial_displacement, predicted_displacement,
+        trial_support, capture.time_step));
+    result.owned_trial_limit = owned_reaction_limit(
+        trial_displacement, predicted_displacement, trial_support,
+        capture.velocity, fixture.gravity, capture.time_step);
+    result.owned_trial_ratio = result.owned_trial_defect
+        / std::max(result.direct_residual_norm, 1.0e-300);
+    result.owned_trial_converged = std::isfinite(result.owned_trial_defect)
+        && result.owned_trial_defect <= result.owned_trial_limit;
+    result.passed = result.owned_identity_certified
+        && result.topology_exact
+        && std::isfinite(result.legacy_identity_error)
+        && std::isfinite(result.owned_trial_ratio)
+        && result.owned_hvp_calls > 0;
+    if (!result.passed) {
+        result.failure = "OWNED_GRADIENT_PROBE";
+    }
+    return result;
+}
+
+void append_owned_gradient_probe(
+    std::ostringstream& output, const OwnedGradientProbe& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name << '\"'
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL") << '\"'
+           << ",\"failure\":\"" << value.failure << '\"'
+           << ",\"state_sha256\":\"" << value.state_sha256 << '\"'
+           << ",\"substeps_per_frame\":" << value.substeps_per_frame
+           << ",\"failing_substep\":" << value.failing_substep
+           << ",\"identity\":{\"direct_residual\":";
+    append_vec3(output, value.direct_residual);
+    output << ",\"legacy_gradient_residual\":";
+    append_vec3(output, value.legacy_gradient_residual);
+    output << ",\"owned_gradient_residual\":";
+    append_vec3(output, value.owned_gradient_residual);
+    output << ",\"legacy_difference\":";
+    append_vec3(output, value.legacy_identity_difference);
+    output << ",\"owned_difference\":";
+    append_vec3(output, value.owned_identity_difference);
+    output << ",\"direct_norm\":" << value.direct_residual_norm
+           << ",\"legacy_error\":" << value.legacy_identity_error
+           << ",\"owned_error\":" << value.owned_identity_error
+           << ",\"owned_bound\":" << value.owned_identity_bound
+           << ",\"owned_certified\":"
+           << (value.owned_identity_certified ? "true" : "false") << '}'
+           << ",\"trust_trial\":{\"captured_legacy_trial_defect\":"
+           << value.captured_trial_defect
+           << ",\"trust_radius_dx\":" << value.trust_radius_dx
+           << ",\"step_norm_dx\":" << value.owned_step_norm_dx
+           << ",\"hvp_calls\":" << value.owned_hvp_calls
+           << ",\"negative_curvature\":"
+           << (value.owned_negative_curvature ? "true" : "false")
+           << ",\"topology_exact\":"
+           << (value.topology_exact ? "true" : "false")
+           << ",\"trial_defect\":" << value.owned_trial_defect
+           << ",\"trial_limit\":" << value.owned_trial_limit
+           << ",\"residual_ratio\":" << value.owned_trial_ratio
+           << ",\"trial_converged\":"
+           << (value.owned_trial_converged ? "true" : "false")
+           << "}}";
+}
+
 } // namespace
 
 SplitBoundaryReport run_boundary_composition_smoke_controls() {
@@ -3934,6 +4118,96 @@ SplitBoundaryReport run_floor_stationarity_trajectory_controls() {
            << ",\"b3r_design_authorized\":"
            << (passed ? "true" : "false")
            << ",\"physical_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_owned_gradient_controls() {
+    const SplitBoundaryReport parent =
+        run_floor_stationarity_trajectory_controls();
+    const bool parent_exact = !parent.passed
+        && sha256_hex(parent.json)
+            == "65737fcabbe8a7d4e926e38bd39b0c4cef20c933b07c19505195641a8a3d1719";
+    const SmokeFixture face_fixture = make_face_smoke_fixture();
+    const SmokeFixture corner_fixture = make_corner_smoke_fixture();
+    constexpr std::array<int, 3> counts = {96, 192, 384};
+    std::array<OwnedGradientProbe, 6> probes;
+    for (std::size_t i = 0; i < counts.size(); ++i) {
+        const ReactionTrace trace = run_reaction_trace(
+            face_fixture, counts[i], true, true, true);
+        probes[i] = owned_gradient_probe(
+            "face-" + std::to_string(counts[i]), face_fixture, trace);
+    }
+    for (std::size_t i = 0; i < counts.size(); ++i) {
+        const ReactionTrace trace = run_reaction_trace(
+            corner_fixture, counts[i], true, true, true);
+        probes[i + counts.size()] = owned_gradient_probe(
+            "corner-" + std::to_string(counts[i]), corner_fixture, trace);
+    }
+    bool probes_valid = true;
+    bool all_converged = true;
+    bool all_improved = true;
+    for (const OwnedGradientProbe& probe : probes) {
+        probes_valid = probes_valid && probe.passed;
+        all_converged = all_converged
+            && probe.owned_trial_converged;
+        all_improved = all_improved
+            && probe.owned_trial_defect < probe.direct_residual_norm;
+    }
+    const std::string classification = !probes_valid
+        ? "OWNED_GRADIENT_IDENTITY_REJECTED"
+        : all_converged
+            ? "OWNED_INERTIA_GRADIENT_CANDIDATE"
+            : all_improved
+                ? "BOUNDED_OWNED_RESIDUAL_ITERATION_REQUIRED"
+                : "OWNED_RESIDUAL_LINE_SEARCH_REQUIRED";
+    const bool passed = parent_exact && probes_valid;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B3D4_PARENT";
+    } else if (!probes_valid) {
+        first_failure = "NSR3B3D4_IDENTITY";
+    }
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << classification;
+    for (const OwnedGradientProbe& probe : probes) {
+        material << '|' << probe.name << ':' << probe.state_sha256 << ':'
+                 << probe.legacy_identity_error << ':'
+                 << probe.owned_identity_error << ':'
+                 << probe.owned_identity_bound << ':'
+                 << probe.owned_trial_defect << ':'
+                 << probe.owned_trial_limit << ':'
+                 << probe.owned_hvp_calls;
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b3d4_gradient.v1\""
+           << ",\"identity\":\"displacement-owned-inertia-gradient-r0\""
+           << ",\"parent_b3d3_result_sha256\":\"a550a2e9cd6783bd74a022c612236e47542a1e229f2ec3e4432b7663ef3a0071\""
+           << ",\"parent_b3d3_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '\"'
+           << ",\"first_failure\":\"" << first_failure << '\"'
+           << ",\"classification\":\"" << classification << '\"'
+           << ",\"probes\":[";
+    for (std::size_t i = 0; i < probes.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_owned_gradient_probe(report, probes[i]);
+    }
+    report << ']'
+           << ",\"candidate_selected\":"
+           << (passed && classification
+                   == "OWNED_INERTIA_GRADIENT_CANDIDATE"
+                   ? "true" : "false")
+           << ",\"b3_retry_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"historical_hash_check_required\":true"
            << ",\"repeatability_check_required\":true"
