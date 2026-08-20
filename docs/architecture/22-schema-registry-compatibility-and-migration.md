@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-22 |
 | Статус | Accepted |
-| Версия | 2.5 |
-| Последняя проверка | 2026-08-17 |
+| Версия | 2.6 |
+| Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-025](adr/025-schema-content-and-migration-authority.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-22 2.4; makes authoring V7 and activation V8 the current-only project formats while retaining Replay V10 |
+| Дополнительные зависимости V2.6 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
+| Заменяет | SPEC-22 2.5; exposes Replay V10 through a bounded current-only public validator/inspector while retaining exact wire and migration policy |
 
 ## Current policy
 
@@ -35,6 +36,11 @@ deleted or rewritten.
 policy. `ReplayManifestV10` validates the current nine-or-ten-owner full-tuple
 closure, with only the routine slot optional and Agent/Memory always paired;
 it is not projected through a retired replay generation.
+
+Public ADR-088 `replay validate/inspect` applies this same boundary: Replay V9
+and earlier reject at the outer version probe, current V10 must decode and bind
+its compatibility to one exact activated project, and the tool neither rewrites
+the source nor emits a migrated replay.
 
 ## `SchemaRegistryManifestV2`
 

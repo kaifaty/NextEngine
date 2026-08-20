@@ -26,6 +26,14 @@ use next_runtime::{
     RuntimeReplayError, RuntimeState, SnapshotRestoreError,
 };
 
+mod diagnostics;
+
+use diagnostics::{
+    first_compare_point_divergence, runtime_replay_divergence,
+    validate_replay_project_compatibility,
+};
+pub use diagnostics::{replay_compatibility_for_project, validate_replay_manifest_v10_for_project};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReplayInput {
     pub bootstrap: RuntimeBootstrapV4,
@@ -94,10 +102,21 @@ pub struct ReplayTickRecord {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReplayComparePointMismatch {
     pub first_divergent_tick: u64,
+    pub stage: &'static str,
+    pub owner: &'static str,
     pub expected_state_root: StateRoot,
     pub actual_state_root: StateRoot,
     pub expected_command_ledger_hash: CommandLedgerHash,
     pub actual_command_ledger_hash: CommandLedgerHash,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReplayDivergenceV1 {
+    pub first_divergent_tick: u64,
+    pub stage: &'static str,
+    pub owner: &'static str,
+    pub expected: Option<String>,
+    pub actual: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -196,8 +215,10 @@ impl Display for ReplayError {
             ),
             Self::ComparePointMismatch(mismatch) => write!(
                 formatter,
-                "NONDETERMINISTIC_RESULT at tick {}: state root {} != {}; command ledger {} != {}",
+                "NONDETERMINISTIC_RESULT at tick {}, stage {}, owner {}: state root {} != {}; command ledger {} != {}",
                 mismatch.first_divergent_tick,
+                mismatch.stage,
+                mismatch.owner,
                 mismatch.expected_state_root.to_hex(),
                 mismatch.actual_state_root.to_hex(),
                 mismatch.expected_command_ledger_hash.to_hex(),
@@ -492,9 +513,18 @@ pub fn run_replay_manifest_v9_with_physics_options(
             .map_err(ManifestValidationError::from)?
                 != compare_point.interaction_availability_hash
         {
+            let (stage, owner) = first_compare_point_divergence(
+                state_root,
+                command_ledger_hash,
+                &owner_segments,
+                &report,
+                compare_point,
+            )?;
             return Err(ReplayError::ComparePointMismatch(Box::new(
                 ReplayComparePointMismatch {
                     first_divergent_tick: tick_manifest.tick,
+                    stage,
+                    owner,
                     expected_state_root: compare_point.state_root,
                     actual_state_root: state_root,
                     expected_command_ledger_hash: compare_point.command_ledger_hash,
@@ -540,6 +570,7 @@ pub fn run_replay_manifest_v10_with_physics_options(
         project,
         content_generation,
     } = package;
+    validate_replay_project_compatibility(&manifest.compatibility, &project, &initial.checkpoint)?;
     let fixture = next_reference_game::build_reference_game_session(project.clone())
         .map_err(|_| ManifestValidationError::ReplayInitialSegmentsInvalid)?;
     let mut physical_animation = next_reference_game::restore_reference_physical_animation_owner(
@@ -637,27 +668,7 @@ pub fn run_replay_manifest_v10_with_physics_options(
         ) {
             Ok(commit) => commit,
             Err(RuntimeReplayError::Runtime(error)) => return Err(error.into()),
-            Err(
-                RuntimeReplayError::CommandBatchMismatch { .. }
-                | RuntimeReplayError::PhysicsStepInputMismatch { .. }
-                | RuntimeReplayError::ContactBatchMismatch { .. }
-                | RuntimeReplayError::TargetingIntentMismatch { .. }
-                | RuntimeReplayError::TargetingQueryMismatch { .. }
-                | RuntimeReplayError::PhysicsQueryBatchMismatch { .. }
-                | RuntimeReplayError::PhysicsQueryResultMismatch { .. }
-                | RuntimeReplayError::InteractionAvailabilityMismatch { .. },
-            ) => {
-                return Err(ReplayError::RecordedStageMismatch {
-                    tick: tick_manifest.tick,
-                    stage: "closed-authoritative-query-outcome",
-                });
-            }
-            Err(_) => {
-                return Err(ReplayError::RecordedStageMismatch {
-                    tick: tick_manifest.tick,
-                    stage: "replay-driver",
-                });
-            }
+            Err(error) => return Err(runtime_replay_divergence(error, tick_manifest.tick)),
         };
         physical_animation
             .advance(
@@ -710,9 +721,18 @@ pub fn run_replay_manifest_v10_with_physics_options(
             .map_err(ManifestValidationError::from)?
                 != compare_point.interaction_availability_hash
         {
+            let (stage, owner) = first_compare_point_divergence(
+                state_root,
+                command_ledger_hash,
+                &owner_segments,
+                &report,
+                compare_point,
+            )?;
             return Err(ReplayError::ComparePointMismatch(Box::new(
                 ReplayComparePointMismatch {
                     first_divergent_tick: tick_manifest.tick,
+                    stage,
+                    owner,
                     expected_state_root: compare_point.state_root,
                     actual_state_root: state_root,
                     expected_command_ledger_hash: compare_point.command_ledger_hash,

@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-20 |
-| Текущая точка | R3, reference-project vertical, functional R4 и procedural R5a–R5j остаются `COMPLETE`. [R6a creator project CLI](development/task-state/r6a-creator-project-cli.md), [R6b creator run/package](development/task-state/r6b-creator-run-package.md), [R6c creator inspect/diff](development/task-state/r6c-creator-project-inspect-diff.md), [R6d RPG starter](development/task-state/r6d-creator-project-template.md) и [R6e creator scenario](development/task-state/r6e-creator-runtime-scenario.md) завершены: public project lifecycle plus exact-project scenario validate/run/prefix-minimize, deterministic cold project, generic Application Session/final save, exact self-verifying package and source-neutral projection pass production checks without engine-crate edit, reference-game fixture constructor or mutable scenario hook. R6 остаётся `IN_PROGRESS`: replay first-divergence/domain inspectors и broader SDK ещё открыты; следующий bounded increment — R6f read-only replay/domain inspection. Native Linux x86_64 остаётся active development host по ADR-082; Windows/THOTH, same-commit compare, B-12 и PhysX Stage 0 readiness отложены до explicit pre-R7 Windows bring-up. R141 остаётся `INVALID / STOP_NO_RETRY` без R142/downstream authority. |
+| Текущая точка | R3, reference-project vertical, functional R4 и procedural R5a–R5j остаются `COMPLETE`. [R6a creator project CLI](development/task-state/r6a-creator-project-cli.md), [R6b creator run/package](development/task-state/r6b-creator-run-package.md), [R6c creator inspect/diff](development/task-state/r6c-creator-project-inspect-diff.md), [R6d RPG starter](development/task-state/r6d-creator-project-template.md), [R6e creator scenario](development/task-state/r6e-creator-runtime-scenario.md) и [R6f replay/domain inspection](development/task-state/r6f-replay-domain-inspection.md) завершены. Public project/scenario lifecycle plus exact-project Replay V10 validation, production first-divergence and bounded one-tick runtime/world/physics/owner projections pass governing checks without a tool-only replay model or private snapshot dump. R6 остаётся `IN_PROGRESS`: complete external SDK workflow/documentation и further consumer-driven breadth ещё открыты; следующий bounded increment — R6g SDK workflow closure. Native Linux x86_64 остаётся active development host по ADR-082; Windows/THOTH, same-commit compare, B-12 и PhysX Stage 0 readiness отложены до explicit pre-R7 Windows bring-up. R141 остаётся `INVALID / STOP_NO_RETRY` без R142/downstream authority. |
 | Host policy checkpoint | `LINUX_ACTIVE / WINDOWS_DEFERRED`: current Linux hardware target проходит desktop/package paths и является единственным текущим developer host. Прежние Windows target-local results остаются historical exact-commit evidence; новые Windows runs сейчас не планируются. R3a/B-04, R3b/B-06 и R4a–R4d increments `COMPLETE`. Same-commit Windows/Linux pair, B-01, B-12, paired release evidence и v1 shipping остаются открытыми до отдельного bring-up, но не блокируют текущую Linux разработку. |
 | R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` прошли automated checks и ручной acceptance. Current Linux `r2-alpha-render.v3` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют прежний gameplay result. B-12 открыт как deferred R7 gate. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -155,7 +155,7 @@ animation и reusable systemic quest conditions относятся к R3–R5.
 | Navigation/audio | Baseline audio vertical и R4b engine-owned graph/query current: 64 chunk-bound nodes, four region tiles, deterministic Dijkstra and route-hash-bound abstract transfer | Gaps: chunked long-clip streaming payload, zone reverb fallback, polygon navmesh cooker, dynamic overlays and physical path-following adapter. |
 | Player experience | Keyboard/mouse и generic controller используют одинаковые action IDs с keyboard fallback; persisted targeting, third-person camera, semantic HUD/inventory/journal/dialogue/pause flow, localization, subtitles и preferences проходят automated Windows checks. HUD получил цветовой health meter, objective и отдельный presentation-only next-action panel, который выводится из immutable RPG snapshot для accept/pickup/equip/combat/relay/return/complete; Save показывает `Saved`, а Load оставляет восстановленный world на паузе с `Loaded - press Resume`. | Worker-to-desktop regression покрывает quest accept, explicit Save, визуально различимое изменение, sequence-zero Load cut, Load confirmation, продолжение новой epoch после явного Resume и реальное authoritative WASD movement с exact загруженной input-context revision. Свежий 20–30-minute run зафиксирован как `PASS`. Accessibility profiles и capability-scoped extension panels остаются вне R2 gate. |
 | Presentation/render | Exact revision-bound `PresentationSnapshotV3`, typed camera, offline SPIR-V, seven-binding B0 scene и Windows recovery/package path реализованы; R5g atomically publishes exact player/NPC `CharacterSkinningPresentationRecordV1` records, applies canonical sparse correctives before bounded fixed-point LBS and uploads complete per-frame dynamic vertex streams with corrected→base→bind and optional no-shadow fallbacks. R5i maps complete sampled/held/bind animation work into that unchanged surface, omits explicit no-pose characters and retains the prior complete snapshot on invalid closure. Full/Reduced/Base/Held/Culled plus 30/60/144 Hz permutations preserve authoritative roots. Humanoid/blade/relay retain distinct materials and all prior scene/UI behavior. Engine-owned relay-approach kit (tiled path, platform, two ruined pillars, four-rock field) добавляет читаемый маршрут и landmarks одним batched draw; relay collider точно следует видимым geometry. Contract-preserving B0+ shader выводит flat geometry normal из world-position varying и применяет fixed sun/ambient + depth fog без смены locked position/UV ABI. Current Linux hardware-GPU B0/platform/package path passes on `d15c11a…`. | Нет authored smooth normals, injury/VFX consumption, creator-authored/multi-profile animation or injury LOD, production art/animation polish, clean ten-run THOTH hard evidence и paired same-commit target proof. |
-| Tooling | Repository `xtask`, fixed R5 conformance commands and public R6a–R6e project/scenario commands are implemented with a built-in cold RPG starter, separately versioned one-object path-free JSON, bounded reads, confined fresh output, exact package inventory/NOTICE, production runtime/final-save proof, source-neutral stable-ID projection and failure-preserving tick-prefix minimization. `content-package` requires project/package projection and three-tick scenario parity. | Нет broader RPG/replay first-divergence inspectors, arbitrary command/fault/capture scenario breadth, fresh clean ten-run V5 THOTH baselines и complete external SDK workflow. |
+| Tooling | Repository `xtask`, fixed R5 checks and public R6a–R6f project/scenario/replay commands are implemented with a cold RPG starter, path-free JSON, exact package/runtime proof, source-neutral projection, failure-preserving prefix minimization and production Replay V10 first-divergence plus bounded runtime/world/physics/owner inspection. | Нет broader RPG/live inspectors, arbitrary command/fault/capture/recording breadth, fresh clean ten-run V5 THOTH baselines и complete external SDK workflow. |
 | Autonomous narrative | Proposed intent only | Вернуться только с конкретным player-visible production consumer после R3. |
 
 ## Продуктовая граница v1
@@ -223,7 +223,7 @@ flowchart LR
 | R3. Scalable content and streaming | `COMPLETE` | XL | Private packaged vertical и bounded 4-region/64-chunk project проходят cook/load/unload/save/restart и report-only workload без hard-coded two-chunk assumptions. |
 | R4. Systemic living world | `COMPLETE / LOCAL FUNCTIONAL` | XL | R4a routine, R4b population/navigation, R4c cognition and bounded R4d systemic owners pass production/failure/persistence/tier/bulk checks; B-12 and cross-target gates remain separate. |
 | R5. Physical character integration | `COMPLETE / PROCEDURAL_BASELINE / R5A–R5J_COMPLETE / R&D_LINEAGE_STOPPED` | XL | R5a–R5i provide the current exact animation, motor, skinning and bounded-LOD path. R5j closes mandatory `PHYS-P6` trip/carry/contact-driven-melee evidence with actual compound-shape contacts, positive capsule clearance and exact blocked-contact restart. General graph/non-identity retarget/physical IK, active articulation and learned routes remain optional or post-baseline. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
-| R6. Creator beta | `IN_PROGRESS / R6E_COMPLETE` | L–XL | Exact-project-bound three-tick creator scenarios now validate/run identically from source/package and minimize assertion failures to the shortest preserving prefix; replay/domain-inspector and remaining SDK breadth stay open. |
+| R6. Creator beta | `IN_PROGRESS / R6F_COMPLETE` | L–XL | Project/scenario lifecycle and exact-project Replay V10 first-divergence plus bounded one-tick domain inspection are current; remaining external SDK workflow/documentation breadth stays open. |
 | R7. V1 release candidate | `PLANNED` | L | Полный v1 scope стабилизирован и упакован для Windows/Linux. |
 | R8. Post-v1 tracks | `DEFERRED` | отдельные программы | Optional AI/narrative/importer/advanced rendering не размывают v1. |
 
@@ -453,10 +453,9 @@ increments.
 
 Automated production path, lawful content/provenance, отсутствие hidden
 UI/camera mutation и ручной representative loop подтверждены. Архитектурный
-cleanup, R3, functional R4a–R4d и procedural R5a–R5j завершены. R6a–R6e public
-create/validate/cook/run/package/inspect/diff/scenario workflow and cold
-second-project exercise are complete; следующий bounded WIP slot — R6f
-read-only replay first-divergence and domain inspection vertical.
+cleanup, R3, functional R4a–R4d и procedural R5a–R5j завершены. R6a–R6f public
+project/scenario/replay workflow and cold second-project exercise are complete;
+следующий bounded WIP slot — R6g external SDK workflow/documentation closure.
 
 **Scope guard:** editor, advanced renderer, photoreal assets и procedural world
 generation не входят в этот этап.
@@ -1774,7 +1773,7 @@ ADR-053, ADR-058, ADR-059, ADR-062..068, ADR-075.
 **Цель:** доказать, что движок расширяется не только его авторами и не только
 через Rust source edits.
 
-**Текущий checkpoint:** `IN_PROGRESS / R6E_COMPLETE`. ADR-083 retains
+**Текущий checkpoint:** `IN_PROGRESS / R6F_COMPLETE`. ADR-083 retains
 `next project validate`/`cook` and Creator Command Report V1. ADR-084 adds
 `next project run --project|--package`, `next project package` and separate
 Creator Run/Package Report V1 contracts. ADR-085 adds source-neutral
@@ -1799,9 +1798,12 @@ scenario executes three ordinary Runtime + World Services ticks from authoring
 or packaged bytes, observes two population events and checks nine exact
 runtime/ledger/final-save values. A failing three-action tick assertion
 deterministically reduces to the shortest one-action prefix without changing
-the assertion or overwriting caller output. R6 remains open; R6f should add
-read-only replay first-divergence and bounded domain inspection before the
-remaining SDK documentation closure.
+the assertion or overwriting caller output. ADR-088 adds public current Replay
+V10 validate/inspect: exact project compatibility is checked before restore,
+all production compare points pass before one runtime/world-services/physics/
+owners tick projection is emitted, and divergence reports the first tick,
+stage and owner. R6 remains open for R6g external SDK workflow/documentation
+closure and later concrete breadth.
 
 **Основной scope:**
 
@@ -2031,7 +2033,7 @@ reference, coupling or persistence path.
 | B-06 | `CLOSED`: production project содержит 4 regions/64 chunks и проходит canonical packaged load/unload, save в `Requested`, process restart, exact pinned reactivation и completion с uninterrupted root. | — | Закрыт 2026-08-09 по focused Assets/Project/World/Runtime/Verification tests и ProductCheck. Generic scheduler, placement catalog, residency и eviction framework не вводились и не требовались. |
 | B-07 | `CLOSED / R4D_SYSTEMIC_VERTICAL`: calendar, 100-record tiers, logical placement, graph query, abstract transfer, cognition, structured social/work exchange, separate activity owner, commitment/atomic settlement and bounded bulk time are current | — | Closed 2026-08-16 under ADR-074: game/headless/save/Replay V9 and focused failure/tier/bulk checks pass with zero fabricated abstract outcomes. |
 | B-08 | `CLOSED / R5J_PROCEDURAL_BASELINE`: R5a–R5i provide the current player/NPC animation owner, identity retarget/basic presentation IK, physics-admitted root motion, BodySchema witness, procedural recovery and authored skinned fallback. R5j adds exact trip/carry/melee production evidence through `physical-character`, including actual compound-shape contacts and blocked-contact restart. | — | Closed 2026-08-18 for mandatory v1 procedural fallback. Learned actors, broad motion/retarget corpora, non-identity retarget, physical IK and full articulation promote only through their own optional/post-baseline gates and cannot replace or reopen this fallback. |
-| B-09 | `IN_PROGRESS / R6E_SCENARIO_COMPLETE`: public path-free project create/validate/cook/run/package/inspect/diff plus scenario validate/run/minimize now cover an independent data-only project, generated starter, exact source/package closure, a three-tick/two-event runtime proof and shortest failure-preserving action prefix through `content-package`. No engine-crate/reference-game constructor, ID override, private storage dump, assertion weakening or mutable scenario backdoor exists. Broader domain/replay inspectors and complete SDK documentation remain absent. | R6, R7 | R6f adds read-only replay first-divergence and bounded domain inspection; later increments finish the remaining SDK workflow before closure. |
+| B-09 | `IN_PROGRESS / R6F_REPLAY_INSPECTION_COMPLETE`: public path-free project create/validate/cook/run/package/inspect/diff, scenario validate/run/minimize and Replay V10 validate/inspect cover an independent project lifecycle, exact source/package closure, shortest failure-preserving action prefix, production first divergence and bounded runtime/world/physics/owner projections. No tool-only replay model, private owner bytes, ID override, assertion weakening or mutable inspector backdoor exists. Complete external SDK workflow/documentation and broader consumer-driven inspectors remain absent. | R6, R7 | R6g finishes the remaining external SDK workflow/documentation before closure; later breadth requires a concrete consumer. |
 | B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
 | B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Будущие creator examples относятся к R6/B-09, а не к staffing gate. | R2, R6, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
 | B-12 | `DEFERRED / R7_RELEASE / LINUX_REPORT_ONLY_ACTIVE`: Performance V5 methodology v8 and frozen THOTH `610.88` fingerprint remain current design. Representative R2 v3, R3, `r4-100npc.v1` and `r5-physics-16.v1` workloads exist. Linux runs are current `REPORT_ONLY` development evidence; historical R4 timing/root facts remain unchanged. No fresh V5 ten-run Windows baselines or fixed three-run v8 hard gates exist, and they are not scheduled during Linux-first R5/R6 work. | R7 | After explicit Windows bring-up, collect ten valid clean release V5 runs for each required representative workload, compatible baselines and one fixed three-run Windows hard `PASS`; retain applicable Linux representative runs as `REPORT_ONLY`. Historical failures/reports cannot be retried or relabelled. |
@@ -2654,12 +2656,13 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    severity profiles. It measures 16 detailed/64 simplified/distant tiers and
    retains complete procedural/base-skinning fallbacks. It cannot start by
    reopening the stopped TRAIN-4 lineage and is not a current v1 gate.
-14. **R6 creator CLI and second project (`IN_PROGRESS / R6E_COMPLETE`):** public
+14. **R6 creator CLI and second project (`IN_PROGRESS / R6F_COMPLETE`):** public
    create/validate/cook/run/package/inspect/diff, separately versioned stable JSON, generic
    one-tick session/final-save proof and reproducible current project package
    plus source-neutral stable-ID projection, deterministic RPG starter and
-   exact-project-bound scenario validate/run/prefix-minimize are complete;
-   replay first-divergence/domain inspectors and remaining SDK docs remain.
+   exact-project-bound scenario validate/run/prefix-minimize plus current Replay
+   V10 validation, production first-divergence and bounded one-tick domain
+   inspection are complete; the external SDK workflow/documentation remains.
 15. **Deferred Windows bring-up and release checkpoint
    (`DEFERRED / PRE-R7`):** отдельный Accepted ADR возвращает Windows в active
    matrix и фиксирует current host/toolchain/driver profile. Затем новый clean
@@ -2670,8 +2673,9 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
 Каждый package должен быть отдельным product increment с focused checks. R6a
 creator validate/cook, R6b creator run/package and R6c read-only project
 inspect/diff and R6d reusable template/cold-authoring exercise are complete;
-R6e public scenario validate/run/minimize is also complete. R6f replay
-first-divergence and bounded domain inspection is the next bounded WIP slot.
+R6e public scenario validate/run/minimize and R6f Replay V10 first-divergence/
+bounded domain inspection are also complete. R6g external SDK workflow and
+documentation closure is the next bounded WIP slot.
 Bounded training lineage remains stopped and does not run in parallel. SPEC-23 stays
 Proposed: завершённый R3/R4
 начинает универсальный scheduler design без второго concrete production

@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-11 |
 | Статус | Accepted |
-| Версия | 2.5 |
+| Версия | 2.6 |
 | Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-10](10-gothic-importer-boundary.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [ADR-001](adr/001-product-repository-license-and-platforms.md), [ADR-014](adr/014-deterministic-extensions-and-package-trust.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V2.5 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
-| Заменяет | SPEC-11 2.4; adds bounded current-only scenario input, exact project binding and fresh-file minimized-output safety |
+| Дополнительные зависимости V2.6 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
+| Заменяет | SPEC-11 2.5; adds bounded current-only replay input, exact project compatibility and path-free one-tick domain projections |
 
 ## Назначение
 
@@ -83,6 +84,14 @@ creation. Minimize may publish only an absent regular file under an existing
 real parent after the sibling-staged candidate decodes and reproduces the same
 assertion failure identity. It cannot weaken an assertion, overwrite/link an
 existing destination, inject an arbitrary command/fault or expose a raw path.
+
+Public replay validation/inspection reads one regular non-link canonical file
+up to 16 MiB, accepts only Replay V10 and one to 4,096 ticks, validates the full
+owner/tick/compare-point closure and binds project/build/schema/content/
+mechanics/tick compatibility before restore. Inspect completes production
+replay before returning one tick/domain; descriptors may expose stable IDs,
+versions, lengths and hashes but never canonical owner bytes, decoded private
+snapshots, source/store paths or a partial projection after failure.
 
 Unknown version, hash mismatch, unsupported capability, malformed payload или
 resource-limit violation являются typed failure, а не warning с попыткой

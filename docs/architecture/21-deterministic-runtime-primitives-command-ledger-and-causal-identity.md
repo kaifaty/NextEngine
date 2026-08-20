@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-21 |
 | Статус | Accepted |
-| Версия | 1.9 |
-| Последняя проверка | 2026-08-17 |
+| Версия | 2.0 |
+| Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-28](28-skeletal-animation-retargeting-and-ik.md), [ADR-022](adr/022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-027](adr/027-physics-motor-and-animation-layering.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md) |
-| Заменяет | SPEC-21 1.8; records the additive R5c root-motion ingress while preserving the R4d schedule and historical registry prefix |
+| Дополнительные зависимости V2.0 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
+| Заменяет | SPEC-21 1.9; records the public production Replay V10 first-divergence consumer and exact project-compatibility enforcement without changing replay wire semantics |
 
 ## Назначение, authority и граница
 
@@ -1484,6 +1485,13 @@ batch_hash = SHA256(
 Hash field находится только во внешнем `ClosedCommandAdmissionBatchV2` и не входит в собственный preimage.
 
 Malformed/unauthenticated transport bytes не являются gameplay input; отдельно MAY храниться только raw hash/diagnostic. Runtime-generated Outcome повторно выводится production systems; expected receipts/events MAY быть oracle, но execution повторно проходит production validator/ledger/RNG/schedule path. First mismatch command bytes/hash/rejection/receipt, assignment, RNG state, schedule delta, projection, event или state root немедленно даёт `NONDETERMINISTIC_RESULT` с first divergent tick/stage/owner; repeating identical inputs cannot change that result.
+
+ADR-088 exposes that existing rule through public Replay V10 inspection. The
+runner compares project ID/build/schema/content/mechanics/tick compatibility
+with the activated project before restore, stops at the first ordered mismatch
+and emits no domain projection unless the complete replay passes. The tooling
+projection is read-only evidence and does not enter command, schedule, RNG,
+owner state or any compare-point hash.
 
 Corrupt/incompatible ledger, invalid RNG state, unknown schedule/numeric profile или partial Outcome checkpoint fail-closed. Loader работает с копией, сохраняет предыдущую valid save generation и не публикует partial state.
 

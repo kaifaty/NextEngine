@@ -15,12 +15,14 @@ use serde::Serialize;
 
 mod inspection;
 mod package;
+mod replay;
 mod report;
 mod runtime;
 mod scenario;
 mod template;
 
 pub use inspection::*;
+pub use replay::*;
 pub use report::*;
 pub use scenario::*;
 
@@ -50,6 +52,7 @@ pub enum CreatorCliReportV1 {
     Inspect(CreatorInspectCommandReportV1),
     Diff(CreatorDiffCommandReportV1),
     Scenario(CreatorScenarioCommandReportV1),
+    Replay(CreatorReplayCommandReportV1),
 }
 
 impl CreatorCliReportV1 {
@@ -62,6 +65,7 @@ impl CreatorCliReportV1 {
             Self::Inspect(report) => report.is_pass(),
             Self::Diff(report) => report.is_pass(),
             Self::Scenario(report) => report.is_pass(),
+            Self::Replay(report) => report.is_pass(),
         }
     }
 
@@ -255,6 +259,9 @@ pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> CreatorCliRepor
     let arguments = arguments.into_iter().collect::<Vec<_>>();
     if arguments.first().is_some_and(|value| value == "scenario") {
         return CreatorCliReportV1::Scenario(scenario::execute(&arguments[1..]));
+    }
+    if arguments.first().is_some_and(|value| value == "replay") {
+        return CreatorCliReportV1::Replay(replay::execute(&arguments[1..]));
     }
     let parsed = parse_arguments(arguments);
     let (command_name, report_kind, result) = match parsed {

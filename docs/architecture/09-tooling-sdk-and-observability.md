@@ -4,17 +4,18 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 4.7 |
+| Версия | 4.8 |
 | Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V4.7 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
-| Заменяет | SPEC-09 4.6; adds the bounded R6e public creator scenario validate/run/prefix-minimize workflow and separate report family |
+| Дополнительные зависимости V4.8 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
+| Заменяет | SPEC-09 4.7; adds current Replay V10 validation, production first-divergence verification and one-tick bounded domain inspection |
 
 ## Scope and authority
 
 Current tooling has two distinct surfaces: repository-owned `xtask` plus
 standard Cargo tests/lints, and the bounded public creator binary `next` from
-ADR-083/084/085/086/087. Both run production application/content/persistence paths and emit
+ADR-083/084/085/086/087/088. Both run production application/content/persistence paths and emit
 bounded structured reports. Tool output, telemetry, captures and profiles are
 diagnostics; they never become gameplay authority.
 
@@ -24,7 +25,8 @@ output publication and performance evidence. Test/verification crates are not
 production dependencies and receive no mutation backdoor.
 
 The current public `next` commands are project create, validate, cook, run,
-package, inspect and diff plus bounded scenario validate/run/minimize below.
+package, inspect and diff, bounded scenario validate/run/minimize and Replay
+V10 validate/inspect below.
 There is no current MCP tool protocol, public capture command, live
 inspector API, `AuthoringContextBundle`, `AgentChangeSet` or agent policy
 contract. Those remain later consumer-driven R6 possibilities and cannot be
@@ -99,6 +101,8 @@ next project diff (--base-project <directory> | --base-package <directory>) (--c
 next scenario validate --scenario <file> (--project <directory> | --package <directory>)
 next scenario run --scenario <file> (--project <directory> | --package <directory>)
 next scenario minimize --scenario <file> (--project <directory> | --package <directory>) --output <absent-file>
+next replay validate --replay <file> (--project <directory> | --package <directory> | --content-store <directory>)
+next replay inspect --replay <file> (--project <directory> | --package <directory> | --content-store <directory>) --tick <u64> --domain <runtime|world-services|physics|owners>
 ```
 
 The workspace source-build spelling is `cargo run --locked -p next_cli --`
@@ -128,6 +132,10 @@ expose stable code/subsystem/message key without raw paths.
 Creator Scenario Report V1 is a sixth independent family carrying exact
 scenario/project identity, final runtime proof or preserved prefix-minimization
 failure. It does not add fields to earlier report families.
+Creator Replay Report V1 is a seventh independent family. Validate binds the
+current canonical Replay V10 to an exact activated project without execution;
+inspect completes production replay before exposing exactly one requested
+tick/domain. Divergence reports the first tick, stable stage and owner.
 
 ## Diagnostics and output safety
 
@@ -175,6 +183,13 @@ save-on-close; minimize writes only an absent regular output after a private
 sibling candidate validates and reproduces the same assertion category, ID and
 probe. It never weakens assertions, overwrites output, emits private paths or
 accepts arbitrary command, fault or capture payloads.
+
+Public replay source is one regular non-link canonical Replay V10 file bounded
+to 16 MiB and 1–4,096 ticks. The exact project compatibility block is checked
+before restore. Inspect returns only hashes, stable IDs and bounded counts for
+one tick in `runtime`, `world-services`, `physics` or `owners`; it never emits
+canonical owner bytes, private snapshots, paths or a partial projection after
+divergence. Replay V9 and earlier are rejected before nested decode.
 
 Pre-v1 reports and tool-owned formats are current-only unless an ADR names a
 public support promise. A retired version returns a typed unsupported result;

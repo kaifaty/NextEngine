@@ -4,12 +4,13 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 3.6 |
+| Версия | 3.7 |
 | Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V3.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V3.6 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
-| Заменяет | SPEC-15 3.5; promotes one bounded creator tick scenario with exact assertions and failure-preserving prefix minimization while capture/replay-inspector breadth remains unpromoted |
+| Дополнительные зависимости V3.7 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
+| Заменяет | SPEC-15 3.6; promotes current Replay V10 first-divergence and bounded one-tick domain inspection while recording/capture/live-inspector breadth remains unpromoted |
 
 ## Назначение
 
@@ -180,9 +181,10 @@ loss, encoder absence или quota overflow оставляет replay/diagnostic
 Current supported entry points are `cargo run -p xtask -- <ProductCheck>`,
 focused crate tests and the ADR-083/084/085/086 public `next project
 create/validate/cook/run/package/inspect/diff` commands plus the ADR-087 public
-`next scenario validate/run/minimize` commands. A public capture command,
-replay/domain inspector, GUI projection or MCP protocol is not a current
-contract. Tool output хранится только в явном
+`next scenario validate/run/minimize` and ADR-088 public `next replay
+validate/inspect` commands. A public
+replay recorder/editor, capture command, live inspector, GUI projection or MCP
+protocol is not a current contract. Tool output хранится только в явном
 local output directory, ignored by source control by default. Удаление
 локальных debug artifacts не меняет source, package или product status.
 
@@ -215,6 +217,14 @@ tick assertion wrong across three actions; minimization republishes and reruns
 the one-action preserving prefix without weakening it. Retired/malformed/link
 input, exact-project mismatch, a passing original and unsafe/existing output
 fail without partial publication.
+
+The persistence matrix generates the current exact-project Replay V10 and
+passes its bytes to public validate plus `runtime`, `world-services`, `physics`
+and `owners` inspection at one tick. Every inspection reruns the complete
+production replay before projection. A replaced first compare-point state root
+must return `NONDETERMINISTIC_RESULT` with the first tick,
+`application-state-root` and owner `application`; retired V9, foreign project
+and absent tick fail without any partial projection.
 
 The focused `animation-root-motion` entry point uses 1,000 independently
 activated ten-cycle neutral generations so receipt/snapshot history length is

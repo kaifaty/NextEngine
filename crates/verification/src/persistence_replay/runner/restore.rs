@@ -7,7 +7,6 @@ use next_world::{
 
 use crate::scratch::ScratchContext;
 
-use super::super::rpg_fixture::compatibility;
 use super::super::{CheckDirectory, PersistenceReplayCheckError};
 use super::bootstrap::queue_saved_melee;
 use super::{DirectScenario, RestoredScenario, record_direct_tick};
@@ -18,7 +17,13 @@ pub(super) fn save_and_restore(
 ) -> Result<RestoredScenario, PersistenceReplayCheckError> {
     let directory = CheckDirectory::new(scratch, "save-restore")?;
     let store = SaveStore::new(directory.path());
-    let compatibility = compatibility()?;
+    let compatibility = next_application::replay::replay_compatibility_for_project(
+        &direct.fixture.activated_project,
+        &direct.initial_checkpoint,
+    )
+    .map_err(|error| {
+        PersistenceReplayCheckError::new("build exact replay compatibility", error.to_string())
+    })?;
     let transition_tick = direct.runtime.next_tick();
     let expected_base_world_state_hash = direct.world.snapshot().state_hash().map_err(|error| {
         PersistenceReplayCheckError::new("begin world base hash", error.to_string())
