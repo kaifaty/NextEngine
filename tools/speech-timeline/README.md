@@ -563,3 +563,95 @@ the question. A manifest must be outside the repository and use the
 `nextengine.speech-timeline.manual-affect-calibration-set` schema; all selected
 audio must be external, 16 kHz mono signed-16-bit PCM WAV, at most 30 seconds
 per clip, and match the manifest's `normalized_audio_sha256`.
+
+## Public-data ASR reliability corpus (R0)
+
+The `reliability-corpus` commands implement the data-closure runner described
+by
+[`DEV-SPEECH-RELIABILITY-001`](../../docs/development/speech-recognition-reliability-public-data-spec-2026-08-20.md).
+They do not train or load a reliability model, collect microphone turns, or
+download a dataset implicitly. Corpus audio, source indexes and generated
+reports must remain in an explicit directory outside this repository.
+
+The committed `public-safe-v0` recipe is deliberately `planned`, without fake
+artifact hashes. A manifest-only dry run reports every missing closure and does
+not read audio or transcripts:
+
+```bash
+mkdir -p /path/outside/repository/speech-reliability
+
+~/.cache/nextengine/emotion2vec-plus-base/venv/bin/next-speech-timeline \
+  reliability-corpus dry-run \
+  --manifest tools/speech-timeline/examples/speech-reliability-public-safe-v0.recipe.json \
+  --store /path/outside/repository/speech-reliability \
+  --out /path/outside/repository/speech-reliability/dry-run.json
+```
+
+Acquisition is an explicit operator step because Common Voice may require an
+authenticated download and its raw clips must not be re-hosted. After acquiring
+and normalizing an allowed source, create a JSONL source index in the external
+store. Every speech line has exactly these fields:
+
+```json
+{
+  "schema_version": 0,
+  "clip_id": "source-stable-clip-id",
+  "speaker_id": "source-stable-speaker-id",
+  "relative_audio_path": "audio/source/clip.wav",
+  "audio_sha256": "sha256:<64-lowercase-hex>",
+  "samples": 32000,
+  "sample_rate_hz": 16000,
+  "channels": 1,
+  "encoding": "pcm_s16le_wav",
+  "transcript": "Эталонная русская фраза"
+}
+```
+
+Noise and room-response sources use a content-free asset index. Segment long
+upstream recordings into bounded normalized assets first; `partition_group_id`
+keeps related segments in one split:
+
+```json
+{
+  "schema_version": 0,
+  "asset_id": "source-stable-asset-id",
+  "partition_group_id": "source-stable-recording-id",
+  "relative_audio_path": "audio/noise/asset.wav",
+  "audio_sha256": "sha256:<64-lowercase-hex>",
+  "samples": 960000,
+  "sample_rate_hz": 16000,
+  "channels": 1,
+  "encoding": "pcm_s16le_wav"
+}
+```
+
+Copy the recipe to the external store, replace each admitted source's status,
+relative index path and SHA-256 with verified `closed` values, and bind the
+exact resident replay identity. `prepare` then verifies the source-index hash,
+every WAV hash and audio contract, rejects duplicate audio/path escape, applies
+`ru-asr-normalize-v0`, assigns deterministic source/speaker and noise/RIR
+partition groups, and atomically publishes a private (`0600`) prepared index:
+
+```bash
+~/.cache/nextengine/emotion2vec-plus-base/venv/bin/next-speech-timeline \
+  reliability-corpus prepare \
+  --manifest /path/outside/repository/speech-reliability/closed-recipe.json \
+  --store /path/outside/repository/speech-reliability \
+  --out-index /path/outside/repository/speech-reliability/prepared.jsonl \
+  --out /path/outside/repository/speech-reliability/prepare-report.json
+```
+
+The report contains hashes, counts, split roots and blockers, but no transcript,
+raw speaker/partition ID or audio. The external prepared index contains
+normalized references because later replay and scoring need them. References
+containing digits and references that normalize to empty are excluded in V0.
+
+Use the exact same normalizer and deterministic alignment for a quick scoring
+check:
+
+```bash
+~/.cache/nextengine/emotion2vec-plus-base/venv/bin/next-speech-timeline \
+  reliability-corpus score \
+  --reference "Привет, мир!" \
+  --hypothesis "привет"
+```

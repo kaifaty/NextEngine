@@ -31,6 +31,14 @@ from .microphone_client import (
 )
 from .profile import ProfileError, build_adapters, load_profile
 from .protocol import ASR_AUDIO_ROUTES, ASR_AUDIO_ROUTE_RAW
+from .reliability import (
+    ReliabilityCorpusError,
+    dry_run_reliability_corpus,
+    load_dataset_recipe,
+    prepare_reliability_index,
+    score_transcript,
+    write_reliability_report,
+)
 from .service import SpeechTimelineRuntime
 from .transport_websocket import SpeechTimelineWebSocketService
 
@@ -114,6 +122,34 @@ def parser() -> argparse.ArgumentParser:
     )
     evaluate_affect.add_argument("--chunk-ms", type=int, default=80)
     evaluate_affect.add_argument("--out", type=Path, required=True)
+    reliability = commands.add_parser(
+        "reliability-corpus",
+        help="validate and prepare an external public-data ASR reliability corpus",
+    )
+    reliability_commands = reliability.add_subparsers(
+        dest="reliability_command", required=True
+    )
+    reliability_dry_run = reliability_commands.add_parser(
+        "dry-run",
+        help="validate a recipe and report missing closure without reading audio",
+    )
+    reliability_dry_run.add_argument("--manifest", type=Path, required=True)
+    reliability_dry_run.add_argument("--store", type=Path, required=True)
+    reliability_dry_run.add_argument("--out", type=Path, required=True)
+    reliability_prepare = reliability_commands.add_parser(
+        "prepare",
+        help="verify external source indexes/audio and publish a prepared index",
+    )
+    reliability_prepare.add_argument("--manifest", type=Path, required=True)
+    reliability_prepare.add_argument("--store", type=Path, required=True)
+    reliability_prepare.add_argument("--out-index", type=Path, required=True)
+    reliability_prepare.add_argument("--out", type=Path, required=True)
+    reliability_score = reliability_commands.add_parser(
+        "score",
+        help="apply ru-asr-normalize-v0 and report deterministic WER/CER",
+    )
+    reliability_score.add_argument("--reference", required=True)
+    reliability_score.add_argument("--hypothesis", required=True)
     return root
 
 
@@ -378,6 +414,63 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 2
         except KeyboardInterrupt:
             return 130
+    if arguments.command == "reliability-corpus":
+        try:
+            if arguments.reliability_command == "score":
+                print(
+                    json.dumps(
+                        {
+                            "schema_version": 0,
+                            "status": "complete",
+                            **score_transcript(
+                                arguments.reference, arguments.hypothesis
+                            ).as_dict(),
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
+                return 0
+            recipe = load_dataset_recipe(arguments.manifest)
+            if arguments.reliability_command == "dry-run":
+                report = dry_run_reliability_corpus(recipe, arguments.store)
+            elif arguments.reliability_command == "prepare":
+                report = prepare_reliability_index(
+                    recipe, arguments.store, arguments.out_index
+                )
+            else:
+                return 2
+            write_reliability_report(arguments.out, report)
+            print(
+                json.dumps(
+                    {
+                        "schema_version": 0,
+                        "status": report["status"],
+                        "report": str(arguments.out.expanduser().resolve()),
+                        "dataset_id": report["dataset_id"],
+                        "ready_for_prepare": report.get("ready_for_prepare"),
+                        "samples_prepared": report.get("samples_prepared"),
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
+            return 0
+        except ReliabilityCorpusError as error:
+            print(
+                json.dumps(
+                    {
+                        "schema_version": 0,
+                        "status": "error",
+                        "error": str(error),
+                    },
+                    ensure_ascii=False,
+                ),
+                file=sys.stderr,
+            )
+            return 2
     return 2
 
 
