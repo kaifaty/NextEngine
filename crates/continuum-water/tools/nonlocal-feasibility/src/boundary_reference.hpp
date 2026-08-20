@@ -14,5 +14,6 @@ SplitBoundaryReport run_boundary_composition_smoke_controls();
 SplitBoundaryReport run_boundary_reaction_accuracy_controls();
 SplitBoundaryReport run_displacement_ownership_controls();
 SplitBoundaryReport run_finite_precision_merit_controls();
+SplitBoundaryReport run_floor_stationarity_trajectory_controls();
 
 } // namespace nextengine::nonlocal::fcr

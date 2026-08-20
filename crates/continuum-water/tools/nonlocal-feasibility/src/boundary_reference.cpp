@@ -1086,6 +1086,8 @@ struct SmoothSolve {
     int hvp_calls = 0;
     int negative_curvature_exits = 0;
     int floor_stops = 0;
+    int floor_merit_trials = 0;
+    int floor_merit_accepts = 0;
     double minimum_accepted_ratio = std::numeric_limits<double>::infinity();
     double final_gradient_norm = 0.0;
     double final_scaled_displacement_residual = 0.0;
@@ -1093,6 +1095,10 @@ struct SmoothSolve {
     double reaction_mixed_limit = 0.0;
     double numerical_energy_floor = 0.0;
     double last_predicted_reduction = 0.0;
+    double floor_trial_reaction_defect = 0.0;
+    double floor_trial_reaction_limit = 0.0;
+    double floor_trial_residual_ratio = 0.0;
+    bool floor_trial_topology_exact = false;
     std::string convergence_stop;
 };
 
@@ -1606,7 +1612,8 @@ SmoothSolve solve_smooth_step(
     Vec3 gravity,
     double time_step,
     bool reaction_aware = false,
-    bool owned_displacement = false) {
+    bool owned_displacement = false,
+    bool floor_stationarity_merit = false) {
     std::vector<Vec3> y_star(position.size());
     std::vector<Vec3> predicted_displacement(position.size());
     for (std::size_t i = 0; i < position.size(); ++i) {
@@ -1701,6 +1708,84 @@ SmoothSolve solve_smooth_step(
             && scaled_residual(current.gradient) <= 1.0e-7
             && vector_norm(step) / SPACING <= 1.0e-7) {
             if (reaction_aware) {
+                if (floor_stationarity_merit && owned_displacement
+                    && !negative_curvature) {
+                    ++result.floor_merit_trials;
+                    std::vector<Vec3> trial_displacement = add_scaled(
+                        result.displacement, step, 1.0);
+                    std::vector<Vec3> trial_position(position.size());
+                    for (std::size_t i = 0; i < position.size(); ++i) {
+                        trial_position[i] = position[i]
+                            + trial_displacement[i];
+                    }
+                    SmoothEvaluation trial = smooth_evaluate(
+                        trial_position, y_star, boundary, time_step);
+                    result.floor_trial_topology_exact =
+                        current.support.active_centers
+                            == trial.support.active_centers
+                        && current.support.fluid_pairs
+                            == trial.support.fluid_pairs
+                        && current.support.boundary_pairs
+                            == trial.support.boundary_pairs;
+                    const Vec3 trial_fluid_gradient = sum_values(
+                        trial.support.gradient, 0U, position.size());
+                    Vec3 trial_actual_impulse;
+                    for (std::size_t i = 0; i < position.size(); ++i) {
+                        const Vec3 trial_velocity =
+                            trial_displacement[i] / time_step;
+                        trial_actual_impulse += MASS * (
+                            trial_velocity - velocity[i]
+                            - time_step * gravity);
+                    }
+                    const Vec3 trial_model_impulse =
+                        -time_step * trial_fluid_gradient;
+                    result.floor_trial_reaction_defect = norm(
+                        trial_actual_impulse - trial_model_impulse);
+                    const double trial_impulse_scale = std::max({
+                        norm(trial_actual_impulse)
+                            + norm(trial_model_impulse),
+                        static_cast<double>(position.size()) * MASS
+                            * time_step * norm(gravity),
+                        1.0e-12,
+                    });
+                    result.floor_trial_reaction_limit =
+                        1.0e-9 * trial_impulse_scale
+                        + displacement_forward_bound(
+                            velocity, gravity, time_step);
+                    result.floor_trial_residual_ratio =
+                        result.floor_trial_reaction_defect
+                        / std::max(result.reaction_stationarity_defect,
+                            1.0e-300);
+                    const bool finite_trial = std::isfinite(
+                            result.floor_trial_reaction_defect)
+                        && std::isfinite(result.floor_trial_reaction_limit)
+                        && std::all_of(trial_position.begin(),
+                            trial_position.end(),
+                            [](Vec3 value) { return finite(value); });
+                    if (result.floor_trial_topology_exact && finite_trial
+                        && result.floor_trial_reaction_defect
+                            < result.reaction_stationarity_defect
+                        && result.floor_trial_reaction_defect
+                            <= result.floor_trial_reaction_limit) {
+                        ++result.floor_merit_accepts;
+                        ++result.accepted_trials;
+                        result.position = std::move(trial_position);
+                        result.displacement = std::move(trial_displacement);
+                        result.final_gradient_norm = vector_norm(
+                            trial.gradient);
+                        result.final_scaled_displacement_residual =
+                            scaled_residual(trial.gradient);
+                        result.reaction_stationarity_defect =
+                            result.floor_trial_reaction_defect;
+                        result.reaction_mixed_limit =
+                            result.floor_trial_reaction_limit;
+                        result.support = std::move(trial.support);
+                        result.passed = true;
+                        result.convergence_stop =
+                            "FLOOR_STATIONARITY_MERIT";
+                        return result;
+                    }
+                }
                 result.failure = "REACTION_BELOW_ENERGY_RESOLUTION";
                 result.support = std::move(current.support);
                 return result;
@@ -1853,14 +1938,15 @@ SmokeStep execute_smoke_step(
     double time_step,
     bool enforce_ledger = true,
     bool reaction_aware = false,
-    bool owned_displacement = false) {
+    bool owned_displacement = false,
+    bool floor_stationarity_merit = false) {
     SmokeStep result;
     result.position = position;
     result.velocity = velocity;
     result.displacement.resize(position.size());
     result.smooth = solve_smooth_step(position, velocity,
         fixture.boundary, fixture.gravity, time_step,
-        reaction_aware, owned_displacement);
+        reaction_aware, owned_displacement, floor_stationarity_merit);
     if (!result.smooth.passed) {
         result.failure = "SMOOTH_SOLVE:" + result.smooth.failure;
         return result;
@@ -2387,6 +2473,13 @@ struct ReactionTrace {
     int inactive_steps = 0;
     int active_steps = 0;
     int contact_steps = 0;
+    int outer_trials = 0;
+    int hvp_calls = 0;
+    int rejected_trials = 0;
+    int floor_merit_trials = 0;
+    int floor_merit_accepts = 0;
+    double maximum_floor_residual_ratio = 0.0;
+    bool floor_conditions_exact = true;
     double maximum_stationarity_defect = 0.0;
     double maximum_translation_defect = 0.0;
     double maximum_reconstruction_defect = 0.0;
@@ -2403,6 +2496,13 @@ struct ReactionTrace {
     double failure_predicted_reduction = 0.0;
     double failure_energy_floor = 0.0;
     double failure_scaled_residual = 0.0;
+    int failure_floor_merit_trials = 0;
+    int failure_floor_merit_accepts = 0;
+    int failure_negative_curvature_exits = 0;
+    double failure_floor_trial_defect = 0.0;
+    double failure_floor_trial_limit = 0.0;
+    double failure_floor_residual_ratio = 0.0;
+    bool failure_floor_topology_exact = false;
     Vec3 support_reaction;
     Vec3 contact_reaction;
     Vec3 gravity_impulse;
@@ -2447,7 +2547,8 @@ ReactionTrace run_reaction_trace(
     const SmokeFixture& fixture,
     int substeps_per_frame,
     bool owned_displacement = false,
-    bool reaction_aware = false) {
+    bool reaction_aware = false,
+    bool floor_stationarity_merit = false) {
     ReactionTrace result;
     result.substeps_per_frame = substeps_per_frame;
     result.final_position = fixture.position;
@@ -2459,7 +2560,8 @@ ReactionTrace run_reaction_trace(
     for (int substep = 0; substep < total_substeps; ++substep) {
         const SmokeStep step = execute_smoke_step(fixture,
             result.final_position, result.final_velocity,
-            time_step, false, reaction_aware, owned_displacement);
+            time_step, false, reaction_aware, owned_displacement,
+            floor_stationarity_merit);
         if (!step.passed) {
             result.failure = "SUBSTEP_" + std::to_string(substep)
                 + ':' + step.failure;
@@ -2473,6 +2575,20 @@ ReactionTrace run_reaction_trace(
                 step.smooth.numerical_energy_floor;
             result.failure_scaled_residual =
                 step.smooth.final_scaled_displacement_residual;
+            result.failure_floor_merit_trials =
+                step.smooth.floor_merit_trials;
+            result.failure_floor_merit_accepts =
+                step.smooth.floor_merit_accepts;
+            result.failure_negative_curvature_exits =
+                step.smooth.negative_curvature_exits;
+            result.failure_floor_trial_defect =
+                step.smooth.floor_trial_reaction_defect;
+            result.failure_floor_trial_limit =
+                step.smooth.floor_trial_reaction_limit;
+            result.failure_floor_residual_ratio =
+                step.smooth.floor_trial_residual_ratio;
+            result.failure_floor_topology_exact =
+                step.smooth.floor_trial_topology_exact;
             if (step.smooth.failure
                 == "REACTION_BELOW_ENERGY_RESOLUTION") {
                 result.energy_floor.valid = true;
@@ -2486,6 +2602,23 @@ ReactionTrace run_reaction_trace(
             return result;
         }
         ++result.steps;
+        result.outer_trials += step.smooth.outer_trials;
+        result.hvp_calls += step.smooth.hvp_calls;
+        result.rejected_trials += step.smooth.rejected_trials;
+        result.floor_merit_trials += step.smooth.floor_merit_trials;
+        result.floor_merit_accepts += step.smooth.floor_merit_accepts;
+        if (step.smooth.floor_merit_trials > 0) {
+            result.maximum_floor_residual_ratio = std::max(
+                result.maximum_floor_residual_ratio,
+                step.smooth.floor_trial_residual_ratio);
+            result.floor_conditions_exact = result.floor_conditions_exact
+                && step.smooth.floor_trial_topology_exact
+                && step.smooth.floor_trial_residual_ratio < 1.0
+                && step.smooth.floor_trial_reaction_defect
+                    <= step.smooth.floor_trial_reaction_limit
+                && step.smooth.floor_merit_accepts
+                    == step.smooth.floor_merit_trials;
+        }
         const bool active = step.active_centers > 0;
         const bool contact = !step.contact_features.empty();
         result.inactive_steps += active ? 0 : 1;
@@ -3207,6 +3340,119 @@ void append_difference_probe(
            << "}}";
 }
 
+struct StationarityTrajectoryLevel {
+    bool passed = false;
+    int substeps_per_frame = 0;
+    ReactionTrace ordinary;
+    ReactionTrace candidate;
+    double final_position_difference_dx = 0.0;
+    double final_velocity_difference_c = 0.0;
+    int hvp_limit = 0;
+    std::string final_state_sha256;
+};
+
+StationarityTrajectoryLevel stationarity_trajectory_level(
+    const SmokeFixture& fixture, int substeps_per_frame) {
+    StationarityTrajectoryLevel result;
+    result.substeps_per_frame = substeps_per_frame;
+    result.ordinary = run_reaction_trace(fixture, substeps_per_frame);
+    result.candidate = run_reaction_trace(
+        fixture, substeps_per_frame, true, true, true);
+    result.hvp_limit = static_cast<int>(std::floor(
+        2.5 * static_cast<double>(result.ordinary.hvp_calls)
+            + 2.0 * static_cast<double>(result.candidate.active_steps)));
+    if (result.ordinary.steps == result.candidate.steps
+        && result.candidate.steps
+            == SMOKE_FRAMES * substeps_per_frame) {
+        result.final_position_difference_dx = rms_difference(
+            result.ordinary.final_position,
+            result.candidate.final_position) / SPACING;
+        result.final_velocity_difference_c = rms_difference(
+            result.ordinary.final_velocity,
+            result.candidate.final_velocity)
+            / std::sqrt(KAPPA / MASS);
+        result.final_state_sha256 = hash_smoke_state(
+            result.candidate.final_position,
+            result.candidate.final_velocity);
+    } else {
+        result.final_position_difference_dx =
+            std::numeric_limits<double>::infinity();
+        result.final_velocity_difference_c =
+            std::numeric_limits<double>::infinity();
+    }
+    result.passed = result.ordinary.passed && result.candidate.passed
+        && result.candidate.inactive_certified
+        && result.candidate.maximum_active_mixed_ratio <= 1.0
+        && result.final_position_difference_dx <= 1.0e-5
+        && result.final_velocity_difference_c <= 1.0e-5
+        && result.candidate.floor_merit_trials > 0
+        && result.candidate.floor_merit_trials
+            == result.candidate.floor_merit_accepts
+        && result.candidate.floor_conditions_exact
+        && result.candidate.hvp_calls <= result.hvp_limit;
+    return result;
+}
+
+void append_stationarity_trajectory_level(
+    std::ostringstream& output,
+    const StationarityTrajectoryLevel& value) {
+    output << std::setprecision(17)
+           << "{\"substeps_per_frame\":" << value.substeps_per_frame
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL") << '\"'
+           << ",\"final_position_difference_dx\":"
+           << value.final_position_difference_dx
+           << ",\"final_velocity_difference_c\":"
+           << value.final_velocity_difference_c
+           << ",\"final_state_sha256\":\""
+           << value.final_state_sha256 << '\"'
+           << ",\"ordinary_work\":{\"outer_trials\":"
+           << value.ordinary.outer_trials
+           << ",\"hvp_calls\":" << value.ordinary.hvp_calls
+           << ",\"rejected_trials\":"
+           << value.ordinary.rejected_trials << '}'
+           << ",\"candidate_work\":{\"outer_trials\":"
+           << value.candidate.outer_trials
+           << ",\"hvp_calls\":" << value.candidate.hvp_calls
+           << ",\"hvp_limit\":" << value.hvp_limit
+           << ",\"rejected_trials\":"
+           << value.candidate.rejected_trials
+           << ",\"floor_merit_trials\":"
+           << value.candidate.floor_merit_trials
+           << ",\"floor_merit_accepts\":"
+           << value.candidate.floor_merit_accepts
+           << ",\"maximum_floor_residual_ratio\":"
+           << value.candidate.maximum_floor_residual_ratio
+           << ",\"floor_conditions_exact\":"
+           << (value.candidate.floor_conditions_exact ? "true" : "false")
+           << '}'
+           << ",\"candidate_trace\":";
+    append_reaction_trace(output, value.candidate);
+    output << ",\"failure_diagnostic\":{\"floor_merit_trials\":"
+           << value.candidate.failure_floor_merit_trials
+           << ",\"floor_merit_accepts\":"
+           << value.candidate.failure_floor_merit_accepts
+           << ",\"negative_curvature_exits\":"
+           << value.candidate.failure_negative_curvature_exits
+           << ",\"current_defect\":"
+           << value.candidate.failure_reaction_defect
+           << ",\"current_limit\":"
+           << value.candidate.failure_reaction_limit
+           << ",\"predicted_reduction\":"
+           << value.candidate.failure_predicted_reduction
+           << ",\"energy_floor\":"
+           << value.candidate.failure_energy_floor
+           << ",\"trial_defect\":"
+           << value.candidate.failure_floor_trial_defect
+           << ",\"trial_limit\":"
+           << value.candidate.failure_floor_trial_limit
+           << ",\"residual_ratio\":"
+           << value.candidate.failure_floor_residual_ratio
+           << ",\"topology_exact\":"
+           << (value.candidate.failure_floor_topology_exact
+                   ? "true" : "false") << '}'
+           << '}';
+}
+
 } // namespace
 
 SplitBoundaryReport run_boundary_composition_smoke_controls() {
@@ -3598,6 +3844,96 @@ SplitBoundaryReport run_finite_precision_merit_controls() {
            << (!all_factored && all_stationarity && passed
                    ? "true" : "false")
            << ",\"b3_retry_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_floor_stationarity_trajectory_controls() {
+    const SplitBoundaryReport parent = run_finite_precision_merit_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "573bf5a943d338bbbed4c05919bea2a0255b6d71e98d85c195a3ee38adf82f6e";
+    const SmokeFixture face_fixture = make_face_smoke_fixture();
+    const SmokeFixture corner_fixture = make_corner_smoke_fixture();
+    constexpr std::array<int, 3> counts = {96, 192, 384};
+    std::array<StationarityTrajectoryLevel, 3> face;
+    std::array<StationarityTrajectoryLevel, 3> corner;
+    bool levels_passed = true;
+    for (std::size_t i = 0; i < counts.size(); ++i) {
+        face[i] = stationarity_trajectory_level(face_fixture, counts[i]);
+        corner[i] = stationarity_trajectory_level(
+            corner_fixture, counts[i]);
+        levels_passed = levels_passed
+            && face[i].passed && corner[i].passed;
+    }
+    const bool passed = parent_exact && levels_passed;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B3D3_PARENT";
+    } else if (!levels_passed) {
+        first_failure = "NSR3B3D3_TRAJECTORY_GATE";
+    }
+    const std::string disposition = passed
+        ? "FLOOR_STATIONARITY_TRAJECTORY_CANDIDATE"
+        : "FLOOR_STATIONARITY_TRAJECTORY_REJECTED";
+
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << disposition;
+    for (const StationarityTrajectoryLevel& value : face) {
+        material << "|F:" << value.substeps_per_frame << ':'
+                 << value.passed << ':'
+                 << value.candidate.floor_merit_accepts << ':'
+                 << value.candidate.hvp_calls << ':'
+                 << value.final_position_difference_dx << ':'
+                 << value.final_velocity_difference_c << ':'
+                 << value.final_state_sha256;
+    }
+    for (const StationarityTrajectoryLevel& value : corner) {
+        material << "|C:" << value.substeps_per_frame << ':'
+                 << value.passed << ':'
+                 << value.candidate.floor_merit_accepts << ':'
+                 << value.candidate.hvp_calls << ':'
+                 << value.final_position_difference_dx << ':'
+                 << value.final_velocity_difference_c << ':'
+                 << value.final_state_sha256;
+    }
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b3d3_trajectory.v1\""
+           << ",\"identity\":\"floor-stationarity-trajectory-r0\""
+           << ",\"parent_b3d2_result_sha256\":\"da1da7a0fcd4adf29c01a60a5d72f97c4d7a4c9794484bc90f575b9d271d4601\""
+           << ",\"parent_b3d2_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '\"'
+           << ",\"first_failure\":\"" << first_failure << '\"'
+           << ",\"disposition\":\"" << disposition << '\"'
+           << ",\"levels\":{\"face\":[";
+    for (std::size_t i = 0; i < face.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_stationarity_trajectory_level(report, face[i]);
+    }
+    report << "],\"corner\":[";
+    for (std::size_t i = 0; i < corner.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_stationarity_trajectory_level(report, corner[i]);
+    }
+    report << "]}"
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b3r_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"physical_corpus_execution_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"historical_hash_check_required\":true"
            << ",\"repeatability_check_required\":true"

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3D2_PASS_STATIONARITY_SELECTED / NSR3B3D3_FROZEN_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B3D3_FAIL_ONE_TRIAL / NSR3B3D4_GRADIENT_IDENTITY_RESEARCH` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -151,10 +151,16 @@
 - **Current decision:** select `FLOOR_STATIONARITY_MERIT_CANDIDATE` for one
   separately frozen full-trajectory experiment. Do not relabel D1 or energy
   ascent as descent.
-- **Current action:** implement frozen D3 with one charged stationarity trial
-  only at the inherited active energy-floor exit.
-- **Next gate:** D3 must complete all six fixed trajectories, retain D1
-  correspondence and publish the exact frequency/cost of floor-merit accepts.
+- **Current conclusion:** D3 accepts `1--121` valid floor-merit trials before
+  every fixed row reaches a later failure. Four trials reduce residual by
+  about `1e4` but need another iteration; both `/384` trials increase it.
+- **Current decision:** preserve D3 FAIL. Do not generalize the D2 one-step
+  result into an unbounded residual solver or hide the fine-level overshoot.
+- **Current action:** diagnose whether the trust gradient's inherited
+  `(y-y*)` inertia term disagrees with the displacement-owned reaction
+  identity at the six D3 failure states.
+- **Next gate:** compare legacy/owned gradient residuals and one owned-gradient
+  trust trial before selecting iteration, line search or local geometry work.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -431,6 +437,18 @@
   physical model. D3 must fail closed on any nonconverged residual trial and
   remains report-only until a later B3 retry independently passes.
 
+### D-026 -- Reject one-shot residual closure; reclose the gradient identity
+
+- **Observation:** D3's first-floor action remains valid many times, but later
+  coarse states need more than one correction and fine states overshoot. The
+  candidate measures reaction from owned displacement while its inherited
+  inertia gradient still subtracts materialized positions.
+- **Decision:** preserve D3 FAIL and compare both gradient identities at the
+  exact failed states before authorizing residual iteration or line search.
+- **Consequence:** the next result must distinguish a transcription/state-
+  ownership inconsistency from an intrinsic residual-globalization problem.
+  No B3 retry is authorized.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -443,12 +461,11 @@
 
 ## Exact next action
 
-1. Freeze the full-trajectory D3 stationarity-floor contract without changing
-   any physical, reaction or contact threshold.
-2. Implement the one-trial floor acceptance and charge its support/gradient
-   evaluation and all ordinary nonlinear work.
-3. Run fixed `96/192/384` face/corner trajectories and old-path regressions;
-   only a PASS may authorize B3R design.
+1. Derive legacy and displacement-owned inertia-gradient identities at the
+   D3 first-failure captures.
+2. Freeze a six-state gradient-consistency discriminator, including one
+   owned-gradient trust step and residual outcome.
+3. Select a bounded next candidate or stop; keep D3/D1/B3 exact.
 
 ## Reconsideration triggers
 
