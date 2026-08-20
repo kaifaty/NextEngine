@@ -25,6 +25,11 @@ from .adapters.gigaam import (
     MODEL_ROUTE_ID as GIGAAM_MODEL_ROUTE_ID,
     GigaAmTranscriberAdapter,
 )
+from .adapters.nemotron_nemo_speech_cpp import (
+    MODEL_ROUTE_ID as NEMOTRON_MODEL_ROUTE_ID,
+    SUPPORTED_RIGHT_CONTEXT as NEMOTRON_SUPPORTED_RIGHT_CONTEXT,
+    NemotronTranscriberAdapter,
+)
 from .adapters.voxtral_transcribe_cpp import VoxtralTranscriberAdapter
 from .adapters.wavlm_russian_resd import (
     ADAPTER_ID as WAVLM_RUSSIAN_RESD_ADAPTER_ID,
@@ -47,7 +52,11 @@ TRANSFORMERS_AUDIO_ADAPTER_IDS = {*WAVLM_ADAPTER_IDS, TRANSFORMERS_AUDIO_CLASSIF
 SUPPORTED_EMOTION_ADAPTERS = {EMOTION2VEC_ADAPTER_ID, *TRANSFORMERS_AUDIO_ADAPTER_IDS}
 SUPPORTED_AUDIO_PREPROCESSORS = {DPDFNET_ADAPTER_ID}
 VOXTRAL_MODEL_ROUTE_ID = "voxtral-realtime"
-SUPPORTED_ASR_MODEL_ROUTES = {VOXTRAL_MODEL_ROUTE_ID, GIGAAM_MODEL_ROUTE_ID}
+SUPPORTED_ASR_MODEL_ROUTES = {
+    VOXTRAL_MODEL_ROUTE_ID,
+    GIGAAM_MODEL_ROUTE_ID,
+    NEMOTRON_MODEL_ROUTE_ID,
+}
 
 
 class ProfileError(RuntimeError):
@@ -93,6 +102,24 @@ class GigaAmProfile:
 
 
 @dataclass(frozen=True)
+class NemotronProfile:
+    model_id: str
+    model_revision: str
+    model_path: Path
+    model_size_bytes: int
+    model_sha256: str
+    runtime_root: Path
+    runtime_revision: str
+    implementation_library: Path
+    implementation_library_sha256: str
+    abi_library: Path
+    abi_library_sha256: str
+    gpu: int
+    right_context: int
+    classification: str
+
+
+@dataclass(frozen=True)
 class AudioPreprocessorProfile:
     adapter_id: str
     model_id: str
@@ -120,6 +147,7 @@ class ServiceProfile:
 class SpeechTimelineProfile:
     voxtral: VoxtralProfile
     gigaam: GigaAmProfile | None
+    nemotron: NemotronProfile | None
     default_asr_model: str
     emotion: EmotionProfile
     audio_preprocessor: AudioPreprocessorProfile | None
@@ -142,7 +170,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
     root = _object_with_optional(
         value,
         {"schema_version", "voxtral", "emotion", "service"},
-        {"audio_preprocessor", "gigaam", "default_asr_model"},
+        {"audio_preprocessor", "gigaam", "nemotron", "default_asr_model"},
         "profile",
     )
     if root["schema_version"] != 1:
@@ -185,6 +213,30 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
             "gigaam",
         )
         if "gigaam" in root
+        else None
+    )
+    nemotron = (
+        _object(
+            root["nemotron"],
+            {
+                "model_id",
+                "model_revision",
+                "model_path",
+                "model_size_bytes",
+                "model_sha256",
+                "runtime_root",
+                "runtime_revision",
+                "implementation_library",
+                "implementation_library_sha256",
+                "abi_library",
+                "abi_library_sha256",
+                "gpu",
+                "right_context",
+                "classification",
+            },
+            "nemotron",
+        )
+        if "nemotron" in root
         else None
     )
     audio_preprocessor = (
@@ -281,6 +333,53 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
                 ),
             )
             if gigaam is not None
+            else None
+        ),
+        nemotron=(
+            NemotronProfile(
+                model_id=_string(nemotron["model_id"], "nemotron.model_id", 256),
+                model_revision=_string(
+                    nemotron["model_revision"], "nemotron.model_revision", 128
+                ),
+                model_path=_path(nemotron["model_path"], "nemotron.model_path"),
+                model_size_bytes=_positive_int(
+                    nemotron["model_size_bytes"], "nemotron.model_size_bytes"
+                ),
+                model_sha256=_sha256(
+                    nemotron["model_sha256"], "nemotron.model_sha256"
+                ),
+                runtime_root=_path(nemotron["runtime_root"], "nemotron.runtime_root"),
+                runtime_revision=_string(
+                    nemotron["runtime_revision"], "nemotron.runtime_revision", 128
+                ),
+                implementation_library=_path(
+                    nemotron["implementation_library"],
+                    "nemotron.implementation_library",
+                ),
+                implementation_library_sha256=_sha256(
+                    nemotron["implementation_library_sha256"],
+                    "nemotron.implementation_library_sha256",
+                ),
+                abi_library=_path(
+                    nemotron["abi_library"], "nemotron.abi_library"
+                ),
+                abi_library_sha256=_sha256(
+                    nemotron["abi_library_sha256"],
+                    "nemotron.abi_library_sha256",
+                ),
+                gpu=_bounded_int(nemotron["gpu"], "nemotron.gpu", -1, 15),
+                right_context=_choice_int(
+                    nemotron["right_context"],
+                    "nemotron.right_context",
+                    set(NEMOTRON_SUPPORTED_RIGHT_CONTEXT),
+                ),
+                classification=_choice(
+                    nemotron["classification"],
+                    "nemotron.classification",
+                    {"unclassified_local_only", "classified_local_only"},
+                ),
+            )
+            if nemotron is not None
             else None
         ),
         default_asr_model=_choice(
@@ -428,18 +527,15 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
         _validate_gigaam(profile.gigaam)
     elif profile.default_asr_model == GIGAAM_MODEL_ROUTE_ID:
         raise ProfileError("default_asr_model requires a configured gigaam profile")
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(profile.voxtral.transcribe_root), "rev-parse", "HEAD"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (OSError, subprocess.TimeoutExpired) as error:
-        raise ProfileError(f"cannot inspect transcribe.cpp revision: {error}") from error
-    if result.returncode != 0 or result.stdout.strip() != profile.voxtral.runtime_revision:
-        raise ProfileError("transcribe.cpp revision does not match the profile")
+    if profile.nemotron is not None:
+        _validate_nemotron(profile.nemotron)
+    elif profile.default_asr_model == NEMOTRON_MODEL_ROUTE_ID:
+        raise ProfileError("default_asr_model requires a configured nemotron profile")
+    _validate_git_revision(
+        profile.voxtral.transcribe_root,
+        profile.voxtral.runtime_revision,
+        "transcribe.cpp",
+    )
     _require_external(profile.emotion.cache_dir, "emotion cache")
     _require_external(profile.service.ready_file, "ready file")
     if not profile.service.ready_file.parent.is_dir():
@@ -455,12 +551,18 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
 def build_adapters(
     profile: SpeechTimelineProfile,
 ) -> tuple[
-    dict[str, VoxtralTranscriberAdapter | GigaAmTranscriberAdapter],
+    dict[
+        str,
+        VoxtralTranscriberAdapter | GigaAmTranscriberAdapter | NemotronTranscriberAdapter,
+    ],
     str,
     Emotion2VecAffectAdapter | WavlmRussianResdAffectAdapter,
     DpdfNetAudioPreprocessor | None,
 ]:
-    transcribers: dict[str, VoxtralTranscriberAdapter | GigaAmTranscriberAdapter] = {
+    transcribers: dict[
+        str,
+        VoxtralTranscriberAdapter | GigaAmTranscriberAdapter | NemotronTranscriberAdapter,
+    ] = {
         VOXTRAL_MODEL_ROUTE_ID: VoxtralTranscriberAdapter(
             profile.voxtral.model_path,
             profile.voxtral.transcribe_root,
@@ -476,6 +578,16 @@ def build_adapters(
             model_id=profile.gigaam.model_id,
             model_revision=profile.gigaam.model_revision,
             device=profile.gigaam.device,
+        )
+    if profile.nemotron is not None:
+        transcribers[NEMOTRON_MODEL_ROUTE_ID] = NemotronTranscriberAdapter(
+            profile.nemotron.model_path,
+            profile.nemotron.implementation_library,
+            profile.nemotron.abi_library,
+            model_id=profile.nemotron.model_id,
+            model_revision=profile.nemotron.model_revision,
+            gpu=profile.nemotron.gpu,
+            right_context=profile.nemotron.right_context,
         )
     if profile.emotion.adapter_id == EMOTION2VEC_ADAPTER_ID:
         probe = EmotionProbe(
@@ -605,6 +717,12 @@ def _bounded_int(value: object, name: str, minimum: int, maximum: int) -> int:
     return value
 
 
+def _choice_int(value: object, name: str, choices: set[int]) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value not in choices:
+        raise ProfileError(f"unsupported {name}: {value}")
+    return value
+
+
 def _port(value: object) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 65535:
         raise ProfileError("port must be between 0 and 65535")
@@ -710,6 +828,54 @@ def _validate_gigaam(gigaam: GigaAmProfile) -> None:
         actual_hash = _file_sha256(path)
         if actual_hash != expected_hash:
             raise ProfileError(f"GigaAM {filename} SHA-256 does not match the profile")
+
+
+def _validate_nemotron(nemotron: NemotronProfile) -> None:
+    _require_external(nemotron.model_path, "Nemotron model")
+    _require_external(nemotron.runtime_root, "NeMo-Speech.cpp checkout")
+    _require_external(
+        nemotron.implementation_library,
+        "NeMo-Speech.cpp implementation library",
+    )
+    _require_external(nemotron.abi_library, "NeMo-Speech.cpp C ABI library")
+    if not nemotron.model_path.is_file():
+        raise ProfileError(f"Nemotron model does not exist: {nemotron.model_path}")
+    if nemotron.model_path.stat().st_size != nemotron.model_size_bytes:
+        raise ProfileError("Nemotron model size does not match the profile")
+    expected = (
+        (nemotron.model_path, nemotron.model_sha256, "model"),
+        (
+            nemotron.implementation_library,
+            nemotron.implementation_library_sha256,
+            "implementation library",
+        ),
+        (nemotron.abi_library, nemotron.abi_library_sha256, "C ABI library"),
+    )
+    for path, expected_hash, name in expected:
+        if not path.is_file():
+            raise ProfileError(f"pinned Nemotron {name} does not exist: {path}")
+        if _file_sha256(path) != expected_hash:
+            raise ProfileError(f"Nemotron {name} SHA-256 does not match the profile")
+    _validate_git_revision(
+        nemotron.runtime_root,
+        nemotron.runtime_revision,
+        "NeMo-Speech.cpp",
+    )
+
+
+def _validate_git_revision(root: Path, revision: str, name: str) -> None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ProfileError(f"cannot inspect {name} revision: {error}") from error
+    if result.returncode != 0 or result.stdout.strip() != revision:
+        raise ProfileError(f"{name} revision does not match the profile")
 
 
 def _file_sha256(path: Path) -> str:

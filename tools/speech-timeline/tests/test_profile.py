@@ -212,6 +212,95 @@ class ProfileTests(unittest.TestCase):
             with self.assertRaisesRegex(ProfileError, "modeling_gigaam.py SHA-256"):
                 validate_profile_artifacts(profile)
 
+    def test_optional_nemotron_runtime_and_model_are_hash_closed_and_selectable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            voxtral = root / "voxtral.gguf"
+            voxtral.write_bytes(b"voxtral")
+            transcribe_library = root / "libtranscribe.so"
+            transcribe_library.write_bytes(b"transcribe")
+            transcribe_root = root / "transcribe.cpp"
+            transcribe_root.mkdir()
+            cache = root / "emotion-cache"
+            cache.mkdir()
+            nemotron_model = root / "nemotron.gguf"
+            nemotron_model.write_bytes(b"nemotron")
+            runtime_root = root / "nemo-speech.cpp"
+            runtime_root.mkdir()
+            implementation = root / "libnemo_speech_asr.so"
+            implementation.write_bytes(b"implementation")
+            abi = root / "libnemo_speech_asr_c.so"
+            abi.write_bytes(b"abi")
+            revision = "a" * 40
+            profile_path = root / "profile.json"
+            profile_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "default_asr_model": "nemotron-3.5-streaming",
+                        "voxtral": {
+                            "model_path": str(voxtral),
+                            "model_size_bytes": voxtral.stat().st_size,
+                            "model_sha256": f"sha256:{hashlib.sha256(voxtral.read_bytes()).hexdigest()}",
+                            "transcribe_root": str(transcribe_root),
+                            "library": str(transcribe_library),
+                            "runtime_revision": revision,
+                            "backend": "cuda",
+                            "delay_ms": 480,
+                        },
+                        "nemotron": {
+                            "model_id": "nvidia/nemotron-3.5-asr-streaming-0.6b",
+                            "model_revision": "b" * 40,
+                            "model_path": str(nemotron_model),
+                            "model_size_bytes": nemotron_model.stat().st_size,
+                            "model_sha256": f"sha256:{hashlib.sha256(nemotron_model.read_bytes()).hexdigest()}",
+                            "runtime_root": str(runtime_root),
+                            "runtime_revision": revision,
+                            "implementation_library": str(implementation),
+                            "implementation_library_sha256": f"sha256:{hashlib.sha256(implementation.read_bytes()).hexdigest()}",
+                            "abi_library": str(abi),
+                            "abi_library_sha256": f"sha256:{hashlib.sha256(abi.read_bytes()).hexdigest()}",
+                            "gpu": 0,
+                            "right_context": 1,
+                            "classification": "unclassified_local_only",
+                        },
+                        "emotion": {
+                            "model_id": "emotion/model",
+                            "model_revision": "c" * 40,
+                            "cache_dir": str(cache),
+                            "device": "cpu",
+                            "classification": "unclassified_local_only",
+                        },
+                        "service": {
+                            "port": 0,
+                            "ready_file": str(root / "ready.json"),
+                            "max_frame_bytes": 32_000,
+                            "max_turn_bytes": 960_000,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            completed = subprocess.CompletedProcess(
+                ["git"], 0, stdout=f"{revision}\n", stderr=""
+            )
+            with patch(
+                "nextengine_speech_timeline.profile.subprocess.run",
+                return_value=completed,
+            ):
+                profile = load_profile(profile_path)
+            self.assertEqual(profile.default_asr_model, "nemotron-3.5-streaming")
+            self.assertIsNotNone(profile.nemotron)
+            abi.write_bytes(b"changed")
+            with (
+                patch(
+                    "nextengine_speech_timeline.profile.subprocess.run",
+                    return_value=completed,
+                ),
+                self.assertRaisesRegex(ProfileError, "C ABI library SHA-256"),
+            ):
+                validate_profile_artifacts(profile)
+
     def test_optional_audio_preprocessor_requires_pinned_external_onnx(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

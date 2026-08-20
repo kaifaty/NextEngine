@@ -153,6 +153,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                         if profile.gigaam is not None
                         else {}
                     ),
+                    **(
+                        {
+                            "nemotron_model_id": profile.nemotron.model_id,
+                            "nemotron_revision": profile.nemotron.model_revision,
+                            "nemotron_model_sha256": profile.nemotron.model_sha256,
+                            "nemotron_runtime_revision": profile.nemotron.runtime_revision,
+                            "nemotron_implementation_library_sha256": (
+                                profile.nemotron.implementation_library_sha256
+                            ),
+                            "nemotron_abi_library_sha256": (
+                                profile.nemotron.abi_library_sha256
+                            ),
+                            "nemotron_classification": profile.nemotron.classification,
+                        }
+                        if profile.nemotron is not None
+                        else {}
+                    ),
                     "emotion_adapter_id": profile.emotion.adapter_id,
                     "emotion_model_id": profile.emotion.model_id,
                     "emotion_revision": profile.emotion.model_revision,

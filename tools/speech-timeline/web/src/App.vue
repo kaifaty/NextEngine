@@ -180,7 +180,9 @@ const identitySummary = computed(() => {
   if (!identity) return "точные revisions доступны после запуска";
   const asr = selectedAsrModel.value === "gigaam-v3-e2e-rnnt"
     ? stringValue(identity, "gigaam_revision")
-    : stringValue(identity, "transcribe_revision");
+    : selectedAsrModel.value === "nemotron-3.5-streaming"
+      ? stringValue(identity, "nemotron_revision")
+      : stringValue(identity, "transcribe_revision");
   const emotion = stringValue(identity, "emotion_revision");
   return [asr && `ASR ${asr.slice(0, 8)}`, emotion && `affect ${emotion.slice(0, 8)}`]
     .filter(Boolean)
@@ -444,6 +446,7 @@ function stringValue(value: JsonObject | null, key: string): string {
 
 function asrModelLabel(model: string): string {
   if (model === "gigaam-v3-e2e-rnnt") return "GigaAM-v3 e2e RNNT · финальный";
+  if (model === "nemotron-3.5-streaming") return "NVIDIA Nemotron 3.5 0.6B · streaming";
   if (model === "voxtral-realtime") return "Voxtral Mini 4B · streaming";
   return model;
 }

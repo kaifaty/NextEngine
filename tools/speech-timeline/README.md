@@ -75,9 +75,9 @@ exact input, and press **Начать запись**. The Vue dashboard is serve
 same loopback process as the WebSocket, obtains its short-lived token from a
 same-origin `no-store` bootstrap response, and never writes raw audio unless
 the explicit diagnostic-retention profile is configured. The ASR selector is
-locked for the duration of one utterance: Voxtral emits streaming revisions,
-while GigaAM-v3 produces one finalized-utterance result after **Завершить
-фразу**.
+locked for the duration of one utterance: Voxtral and NVIDIA Nemotron 3.5 emit
+streaming revisions, while GigaAM-v3 produces one finalized-utterance result
+after **Завершить фразу**.
 The protocol defaults to `raw`. If the profile contains an audio preprocessor,
 the dashboard exposes four explicit per-utterance choices: **RAW**,
 **Gain only**, the previous full **DPDFNet** route, and the new
@@ -126,6 +126,11 @@ optional ASR/preprocessing branches:
   exact hashes for weights, executable model code, config and tokenizer, device,
   and local-only classification. `default_asr_model` may select it; otherwise
   Voxtral remains the backwards-compatible default.
+- `nemotron` (optional): the pinned NVIDIA Nemotron 3.5 streaming GGUF, pinned
+  NeMo-Speech.cpp checkout and both hash-closed ASR libraries, GPU index,
+  trained right-context mode and local-only classification. The current
+  comparison profile uses `right_context: 1`, or 160 ms of configured model
+  lookahead.
 - `audio_preprocessor` (optional): a separately pinned, hash-validated
   streaming ONNX model and explicit routing. The current
 `dpdfnet-streaming/1` adapter is trial-only and permits only `asr_only`;
@@ -172,6 +177,52 @@ per-model bound when it is selected; Voxtral keeps the service's 30-second
 ceiling. Both routes return the same transcript/timeline schema and report the
 selected `asr_model` in `session.started`, `utterance.final`, metrics and saved
 diagnostic-record metadata.
+
+### Selectable NVIDIA Nemotron 3.5 streaming ASR
+
+The third comparison route is
+`nvidia/nemotron-3.5-asr-streaming-0.6b` at Hugging Face revision
+`1c8deaecc64b91f034d73e08dd8b64625eb3395d`. The current Linux trial uses the
+official Q8 GGUF (`741548352` bytes,
+`sha256:a5c435f294eea8f88ce68dd27b8c3bfea7f777cb2fbba04fcd30eaa555f429ae`)
+and NeMo-Speech.cpp revision `4f9676226f667d14608487df744f375db87127f8`.
+Build and install the official `cuda-asr` preset outside the repository, then
+record the hashes of the installed implementation and C-ABI libraries.
+
+```json
+"nemotron": {
+  "model_id": "nvidia/nemotron-3.5-asr-streaming-0.6b",
+  "model_revision": "1c8deaecc64b91f034d73e08dd8b64625eb3395d",
+  "model_path": "/home/you/.cache/nextengine/nemotron-3.5-streaming/model/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf",
+  "model_size_bytes": 741548352,
+  "model_sha256": "sha256:a5c435f294eea8f88ce68dd27b8c3bfea7f777cb2fbba04fcd30eaa555f429ae",
+  "runtime_root": "/home/you/.cache/nextengine/nemotron-3.5-streaming/nemo-speech-cpp",
+  "runtime_revision": "4f9676226f667d14608487df744f375db87127f8",
+  "implementation_library": "/home/you/.cache/nextengine/nemotron-3.5-streaming/runtime/lib/libnemo_speech_asr.so",
+  "implementation_library_sha256": "sha256:<64 lowercase hex>",
+  "abi_library": "/home/you/.cache/nextengine/nemotron-3.5-streaming/runtime/lib/libnemo_speech_asr_c.so.1",
+  "abi_library_sha256": "sha256:<64 lowercase hex>",
+  "gpu": 0,
+  "right_context": 1,
+  "classification": "unclassified_local_only"
+}
+```
+
+Nemotron keeps its cache-aware RNNT state between 80 ms input frames and emits
+replaceable partial hypotheses; only the explicit finish result is committed.
+Its patched GGML and Voxtral's GGML have colliding shared-library names, so the
+adapter owns one isolated resident worker process. This is process isolation,
+not per-turn execution: the model loads and warms once at service startup and
+all turns reuse it. Calls still pass through the facade's bounded priority
+scheduler, and a worker failure is surfaced as a typed model operation failure.
+The worker ignores terminal `SIGINT`; the parent service owns orderly shutdown.
+
+The configured delay is model lookahead, not end-to-end text latency. The ready
+capabilities expose supported trained modes (`80`, `160`, `560`, `1120` ms),
+the active mode, 80 ms partial cadence, backend and exact model/runtime lineage.
+The current Q8/local-runtime redistribution status remains
+`unclassified_local_only`; do not copy the external artifacts into the
+repository or a game package without a separate license/provenance review.
 
 ### DPDFNet ASR-only trial
 

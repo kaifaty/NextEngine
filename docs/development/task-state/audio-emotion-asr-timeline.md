@@ -199,11 +199,19 @@
 - **Consequence:** Push-to-talk may remain as an endpoint fallback, but ASR and speculative preparation run continuously while it is held. A changed partial cancels or rolls back its draft; only a final-compatible result may be reused. Nemotron 3.5 is the next experiment; GigaAM remains a quality reference.
 - **Reconsider when:** A direct audio-to-intent route provides equivalent versioned/cancelable semantics and passes the same final-authority and latency checks.
 
+### D-017 — Isolate resident Nemotron runtime and expose it as the third ASR route
+
+- **Observation/evidence:** Pinned Nemotron 3.5 Q8 and NeMo-Speech.cpp decode correctly alone, but loading their patched `libggml` after Voxtral's incompatible library with the same SONAME fails on `ggml_fused_relpos_attn`. A resident spawned worker removes that collision. Two paced Russian turns then kept `asr_push` at `1/5 ms` p50/p95, finish at `12–14 ms`, worker-busy RTF `0.082–0.117`, and produced first transcript revisions at `1.211 s` and `2.015 s` according to speech content. The service and worker held `6008 + 1162 MiB`; total device headroom remained `1345 MiB` and did not fall on the second turn.
+- **Decision:** Advertise `nemotron-3.5-streaming` behind the existing per-turn facade with 80 ms input, trained `R=1`/160 ms lookahead, tentative partials and final-only commit. Keep one spawned, prewarmed worker resident for the service lifetime; the parent scheduler remains the sole caller and final text remains the admission boundary.
+- **Rejected:** Same-address-space `dlopen`, per-turn subprocess/model load, unverified `dlmopen`, replacing the common timeline schema, or promoting Nemotron on two unlabelled recordings.
+- **Consequence/uncertainty:** The Vue dashboard now compares Voxtral, final-only GigaAM and streaming Nemotron without vendor types or reloads. Process failure is bounded and typed. Russian quality, revision churn and whisper/noise WER remain unmeasured; the 10-GiB headroom margin is only about 1.3 GiB on this host.
+- **Reconsider when:** Upstream runtimes stop colliding, the worker boundary violates a measured latency/resource gate, or a labelled paired evaluation selects a different primary route.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
-| H1: both models fit and remain faster than realtime under serialized joint load | Confirmed on current exact profile: 5870 MiB peak and worker-busy RTF 0.530–0.690. | One Russian sample/host is not a broad deployment envelope. | Repeat after artifact/runtime/device change and on representative live dialogue. |
+| H1: configured speech models fit and remain faster than realtime under serialized joint load | Three-route profile confirmed on the current host: resident service plus isolated Nemotron use `7170 MiB`, retain `1345 MiB` device headroom, and Nemotron worker-busy RTF is `0.082–0.117` on two paced turns. | One host and two unlabelled Russian takes are not a deployment envelope; the headroom margin is narrow. | Repeat on the frozen labelled dialogue set and after any artifact/runtime/device change. |
 | H2: Voxtral token slots are accurate enough for clause-level affect attachment | Training uses explicitly aligned 80 ms audio/text streams. | Public APIs omit timing; slot offset/grouping error is unknown. | Expose token/control slots and compare to manually aligned Russian words. |
 | H3: utterance-grade context already improves downstream LLM responses | It preserves vocal evidence honestly without timestamp invention. | Mixed emotion inside a turn may be smeared. | Blind downstream response evaluation: text-only versus turn affect versus timed spans. |
 | H4: 1 s/250 ms emotion windows give useful Live transitions | Frozen RESD-70 v2 passes `70/70` VAD admissions/observations; WavLM's real one-process path is `45/60`, and its stable emotion jobs are `21/24 ms` p50/p95. | The paced WAV's `2.352 s` capture-start first-affect metric and acted clips do not measure microphone acoustics or transition boundary quality; `nikatonika` claims an incomparable internal validation score. | Direct-screen the candidate on the frozen six-class map, then run a labelled user-microphone checklist before changing any default; evaluate neural VAD only if a separate calibrated live gate fails. |
@@ -236,8 +244,8 @@ Read in precedence order:
 
 ## Smallest next action
 
-1. Pin and run the official Nemotron 3.5 `ru-RU` 320 ms cache-aware streaming control outside the repository; record exact artifact/runtime hashes, licenses, first-partial/final latency and RTX 3080 resources.
-2. Freeze comparable reference-transcribed normal/whisper/noise Russian takes externally and report paired WER/CER, empty-rate, revision churn and latency for Nemotron, Voxtral and final-only GigaAM across the same front-end routes.
+1. Freeze comparable reference-transcribed normal/whisper/noise Russian takes externally and report paired WER/CER, empty-rate, revision churn and latency for Nemotron, Voxtral and final-only GigaAM across the same front-end routes.
+2. Repeat Nemotron resource/latency evidence on that set; do not promote it from the current two unlabelled takes despite its successful streaming and residency gates.
 3. Extend Phase 2 contracts with transcript-revision-keyed cancellation and speculative immutable prewarm before implementing a real LLM; final canonical text remains the sole admission boundary.
 4. Keep VAD and Voxtral model-slot timing as separately measured increments; do not fabricate word spans meanwhile.
 5. After Phase 2 evidence, implement Phase 3A first: clean `reference-alpha`
@@ -260,6 +268,7 @@ Read in precedence order:
 - Recreating the Voxtral wrapper in this branch instead of using the tested `e839a38` source.
 - Creating, installing or requiring PipeWire, a virtual microphone or another system audio device for the embedded path.
 - Treating louder processed whisper, RMS, SNR proxy or DNSMOS alone as proof that ASR/affect quality improved.
+- Loading Voxtral's and NeMo-Speech.cpp's incompatible `libggml` builds into the same address space; their shared SONAMEs do not imply ABI compatibility.
 
 ## Handoff
 
