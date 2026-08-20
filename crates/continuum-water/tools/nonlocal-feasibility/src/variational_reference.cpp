@@ -5,7 +5,9 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <iomanip>
 #include <limits>
 #include <sstream>
@@ -123,6 +125,19 @@ double cubic_gradient(double radius, double horizon) {
         ? -0.5 * alpha * (2.0 - q) * (2.0 - q)
         : alpha * (-2.0 * q + 1.5 * q * q);
     return derivative_q * (2.0 / horizon);
+}
+
+double cubic_second_derivative(double radius, double horizon) {
+    const double q = 2.0 * radius / horizon;
+    const double alpha = 3.0 / (2.0 * PI * horizon * horizon * horizon);
+    if (q > 2.0) {
+        return 0.0;
+    }
+    const double second_q = q >= 1.0
+        ? alpha * (2.0 - q)
+        : alpha * (-2.0 + 3.0 * q);
+    const double q_scale = 2.0 / horizon;
+    return second_q * q_scale * q_scale;
 }
 
 double surface_spline(double radius, double spacing) {
@@ -302,6 +317,760 @@ Evaluation evaluate(
         && std::isfinite(result.internal_momentum_residual)
         && all_finite(result.gradient);
     return result;
+}
+
+std::vector<double> densities(
+    const Config& config, const std::vector<Vec3>& y) {
+    std::vector<double> result(
+        y.size(), config.mass * cubic_weight(0.0, config.horizon));
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        for (std::size_t j = i + 1; j < y.size(); ++j) {
+            const double radius = norm(y[i] - y[j]);
+            if (radius <= config.horizon) {
+                const double contribution =
+                    config.mass * cubic_weight(radius, config.horizon);
+                result[i] += contribution;
+                result[j] += contribution;
+            }
+        }
+    }
+    return result;
+}
+
+Vec3 radial_hessian_product(
+    Vec3 normal, double radial, double tangential, Vec3 value) {
+    const Vec3 normal_value = project_normal(value, normal);
+    return radial * normal_value + tangential * (value - normal_value);
+}
+
+std::vector<Vec3> apply_hessian(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& y,
+    const std::vector<Vec3>& direction) {
+    std::vector<Vec3> result(y.size());
+    const double inertia_scale = config.mass
+        / (config.time_step * config.time_step);
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        result[i] += inertia_scale * direction[i];
+    }
+
+    if (config.kappa != 0.0) {
+        const std::vector<double> density = densities(config, y);
+        for (std::size_t center = 0; center < y.size(); ++center) {
+            const double compression =
+                density[center] / config.rest_density - 1.0;
+            if (compression <= 0.0) {
+                continue;
+            }
+
+            std::vector<Vec3> jacobian(y.size());
+            for (std::size_t neighbor = 0; neighbor < y.size(); ++neighbor) {
+                if (neighbor == center) {
+                    continue;
+                }
+                const Vec3 displacement = y[center] - y[neighbor];
+                const double radius = norm(displacement);
+                if (radius <= 1.0e-15 || radius > config.horizon) {
+                    continue;
+                }
+                const Vec3 normal = displacement / radius;
+                const Vec3 pair_jacobian = config.mass / config.rest_density
+                    * cubic_gradient(radius, config.horizon) * normal;
+                jacobian[center] += pair_jacobian;
+                jacobian[neighbor] += -pair_jacobian;
+            }
+
+            const double density_direction = vector_dot(jacobian, direction);
+            for (std::size_t i = 0; i < y.size(); ++i) {
+                result[i] += config.kappa * density_direction * jacobian[i];
+            }
+
+            for (std::size_t neighbor = 0; neighbor < y.size(); ++neighbor) {
+                if (neighbor == center) {
+                    continue;
+                }
+                const Vec3 displacement = y[center] - y[neighbor];
+                const double radius = norm(displacement);
+                if (radius <= 1.0e-15 || radius > config.horizon) {
+                    continue;
+                }
+                const Vec3 normal = displacement / radius;
+                const Vec3 relative_direction =
+                    direction[center] - direction[neighbor];
+                const double radial =
+                    cubic_second_derivative(radius, config.horizon);
+                const double tangential =
+                    cubic_gradient(radius, config.horizon) / radius;
+                const Vec3 pair = config.kappa * compression * config.mass
+                    / config.rest_density
+                    * radial_hessian_product(
+                        normal, radial, tangential, relative_direction);
+                result[center] += pair;
+                result[neighbor] += -pair;
+            }
+        }
+    }
+
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        for (std::size_t j = i + 1; j < y.size(); ++j) {
+            const Vec3 reference = x[i] - x[j];
+            const double radius = norm(reference);
+            if (radius <= 1.0e-15 || radius > config.horizon) {
+                continue;
+            }
+            const Vec3 normal = reference / radius;
+            const Vec3 relative_direction = direction[i] - direction[j];
+            const double scale = config.mass
+                * (-cubic_gradient(radius, config.horizon))
+                / (config.rest_density * config.time_step);
+            const Vec3 pair = scale
+                * (config.lambda * project_normal(relative_direction, normal)
+                    + 2.0 * config.mu
+                        * project_tangent(relative_direction, normal));
+            result[i] += pair;
+            result[j] += -pair;
+        }
+    }
+
+    const double surface_support = 3.0 * config.spacing;
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        for (std::size_t j = i + 1; j < y.size(); ++j) {
+            const Vec3 displacement = y[i] - y[j];
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius >= surface_support) {
+                continue;
+            }
+            const Vec3 normal = displacement / radius;
+            const Vec3 relative_direction = direction[i] - direction[j];
+            const double scale = 2.0 * config.gamma
+                * config.mass * config.mass;
+            const double radial = scale
+                * surface_spline_derivative(radius, config.spacing);
+            const double tangential = scale
+                * surface_spline(radius, config.spacing) / radius;
+            const Vec3 pair = radial_hessian_product(
+                normal, radial, tangential, relative_direction);
+            result[i] += pair;
+            result[j] += -pair;
+        }
+    }
+    return result;
+}
+
+std::vector<double> flatten(const std::vector<Vec3>& values) {
+    std::vector<double> result;
+    result.reserve(3 * values.size());
+    for (Vec3 value : values) {
+        result.push_back(value.x);
+        result.push_back(value.y);
+        result.push_back(value.z);
+    }
+    return result;
+}
+
+std::vector<Vec3> unflatten(const std::vector<double>& values) {
+    std::vector<Vec3> result(values.size() / 3);
+    for (std::size_t i = 0; i < result.size(); ++i) {
+        result[i] = {values[3 * i], values[3 * i + 1], values[3 * i + 2]};
+    }
+    return result;
+}
+
+double flat_norm(const std::vector<double>& values) {
+    double squared = 0.0;
+    for (double value : values) {
+        squared += value * value;
+    }
+    return std::sqrt(squared);
+}
+
+bool all_finite(const std::vector<double>& values) {
+    for (double value : values) {
+        if (!std::isfinite(value)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+struct ParticlePair {
+    std::size_t i = 0;
+    std::size_t j = 0;
+};
+
+bool operator==(const ParticlePair& lhs, const ParticlePair& rhs) {
+    return lhs.i == rhs.i && lhs.j == rhs.j;
+}
+
+struct CellRecord {
+    std::int64_t x = 0;
+    std::int64_t y = 0;
+    std::int64_t z = 0;
+    std::size_t sample = 0;
+};
+
+struct CellRange {
+    std::int64_t x = 0;
+    std::int64_t y = 0;
+    std::int64_t z = 0;
+    std::size_t begin = 0;
+    std::size_t end = 0;
+};
+
+bool cell_key_less(
+    std::int64_t ax,
+    std::int64_t ay,
+    std::int64_t az,
+    std::int64_t bx,
+    std::int64_t by,
+    std::int64_t bz) {
+    if (ax != bx) {
+        return ax < bx;
+    }
+    if (ay != by) {
+        return ay < by;
+    }
+    return az < bz;
+}
+
+std::int64_t cell_coordinate(double value, double cell_edge) {
+    const double coordinate = std::floor(value / cell_edge);
+    const double low = static_cast<double>(std::numeric_limits<std::int64_t>::min());
+    const double high = static_cast<double>(std::numeric_limits<std::int64_t>::max());
+    if (!std::isfinite(coordinate) || coordinate < low || coordinate > high) {
+        throw std::runtime_error("cell coordinate out of range");
+    }
+    return static_cast<std::int64_t>(coordinate);
+}
+
+std::vector<ParticlePair> all_pairs_inside(
+    const std::vector<Vec3>& position, double support) {
+    std::vector<ParticlePair> result;
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        for (std::size_t j = i + 1; j < position.size(); ++j) {
+            if (norm(position[i] - position[j]) <= support) {
+                result.push_back({i, j});
+            }
+        }
+    }
+    return result;
+}
+
+std::vector<ParticlePair> build_cell_pairs(
+    const std::vector<Vec3>& position, double support) {
+    std::vector<CellRecord> records;
+    records.reserve(position.size());
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        if (!finite(position[i])) {
+            throw std::runtime_error("nonfinite cell position");
+        }
+        records.push_back({
+            cell_coordinate(position[i].x, support),
+            cell_coordinate(position[i].y, support),
+            cell_coordinate(position[i].z, support),
+            i,
+        });
+    }
+    std::sort(records.begin(), records.end(),
+        [](const CellRecord& lhs, const CellRecord& rhs) {
+            if (cell_key_less(
+                    lhs.x, lhs.y, lhs.z, rhs.x, rhs.y, rhs.z)) {
+                return true;
+            }
+            if (cell_key_less(
+                    rhs.x, rhs.y, rhs.z, lhs.x, lhs.y, lhs.z)) {
+                return false;
+            }
+            return lhs.sample < rhs.sample;
+        });
+    std::vector<CellRange> ranges;
+    for (std::size_t begin = 0; begin < records.size();) {
+        std::size_t end = begin + 1;
+        while (end < records.size()
+            && records[end].x == records[begin].x
+            && records[end].y == records[begin].y
+            && records[end].z == records[begin].z) {
+            ++end;
+        }
+        ranges.push_back({records[begin].x, records[begin].y,
+            records[begin].z, begin, end});
+        begin = end;
+    }
+
+    std::vector<ParticlePair> result;
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        const std::int64_t cx = cell_coordinate(position[i].x, support);
+        const std::int64_t cy = cell_coordinate(position[i].y, support);
+        const std::int64_t cz = cell_coordinate(position[i].z, support);
+        for (int dx = -1; dx <= 1; ++dx) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dz = -1; dz <= 1; ++dz) {
+                    const std::int64_t qx = cx + dx;
+                    const std::int64_t qy = cy + dy;
+                    const std::int64_t qz = cz + dz;
+                    const auto range = std::lower_bound(ranges.begin(), ranges.end(),
+                        CellRange{qx, qy, qz, 0, 0},
+                        [](const CellRange& lhs, const CellRange& rhs) {
+                            return cell_key_less(lhs.x, lhs.y, lhs.z,
+                                rhs.x, rhs.y, rhs.z);
+                        });
+                    if (range == ranges.end()
+                        || range->x != qx || range->y != qy || range->z != qz) {
+                        continue;
+                    }
+                    for (std::size_t slot = range->begin;
+                         slot < range->end; ++slot) {
+                        const std::size_t j = records[slot].sample;
+                        if (j > i && norm(position[i] - position[j]) <= support) {
+                            result.push_back({i, j});
+                        }
+                    }
+                }
+            }
+        }
+    }
+    std::sort(result.begin(), result.end(),
+        [](const ParticlePair& lhs, const ParticlePair& rhs) {
+            return lhs.i < rhs.i || (lhs.i == rhs.i && lhs.j < rhs.j);
+        });
+    const auto duplicate = std::adjacent_find(result.begin(), result.end());
+    if (duplicate != result.end()) {
+        throw std::runtime_error("duplicate cell pair");
+    }
+    return result;
+}
+
+std::vector<double> densities_with_pairs(
+    const Config& config,
+    const std::vector<Vec3>& y,
+    const std::vector<ParticlePair>& pairs) {
+    std::vector<double> result(
+        y.size(), config.mass * cubic_weight(0.0, config.horizon));
+    for (const ParticlePair pair : pairs) {
+        const double radius = norm(y[pair.i] - y[pair.j]);
+        if (radius <= config.horizon) {
+            const double contribution =
+                config.mass * cubic_weight(radius, config.horizon);
+            result[pair.i] += contribution;
+            result[pair.j] += contribution;
+        }
+    }
+    return result;
+}
+
+Evaluation evaluate_with_pairs(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& y_star,
+    const std::vector<Vec3>& y,
+    const std::vector<ParticlePair>& current_pairs,
+    const std::vector<ParticlePair>& reference_pairs) {
+    Evaluation result;
+    result.gradient.resize(y.size());
+    std::vector<Vec3> inertia_gradient(y.size());
+    const double inertia_scale = config.mass
+        / (config.time_step * config.time_step);
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        const Vec3 displacement = y[i] - y_star[i];
+        result.inertia += 0.5 * inertia_scale * norm_squared(displacement);
+        inertia_gradient[i] = inertia_scale * displacement;
+        result.gradient[i] += inertia_gradient[i];
+    }
+
+    const std::vector<double> density =
+        densities_with_pairs(config, y, current_pairs);
+    std::vector<double> compression(y.size());
+    result.minimum_density_ratio = std::numeric_limits<double>::infinity();
+    result.maximum_density_ratio = 0.0;
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        const double ratio = density[i] / config.rest_density;
+        result.minimum_density_ratio = std::min(result.minimum_density_ratio, ratio);
+        result.maximum_density_ratio = std::max(result.maximum_density_ratio, ratio);
+        compression[i] = std::max(ratio - 1.0, 0.0);
+        result.pressure += 0.5 * config.kappa
+            * compression[i] * compression[i];
+    }
+    for (const ParticlePair pair : current_pairs) {
+        const Vec3 displacement = y[pair.i] - y[pair.j];
+        const double radius = norm(displacement);
+        if (radius <= 1.0e-15 || radius > config.horizon) {
+            continue;
+        }
+        const double coefficient = config.kappa * config.mass
+            / config.rest_density
+            * (compression[pair.i] + compression[pair.j])
+            * cubic_gradient(radius, config.horizon);
+        const Vec3 pair_gradient = coefficient * (displacement / radius);
+        result.gradient[pair.i] += pair_gradient;
+        result.gradient[pair.j] += -pair_gradient;
+    }
+
+    for (const ParticlePair pair : reference_pairs) {
+        const Vec3 reference = x[pair.i] - x[pair.j];
+        const double radius = norm(reference);
+        if (radius <= 1.0e-15 || radius > config.horizon) {
+            continue;
+        }
+        const Vec3 normal = reference / radius;
+        const Vec3 increment =
+            (y[pair.i] - y[pair.j]) - reference;
+        const Vec3 normal_increment = project_normal(increment, normal);
+        const Vec3 tangent_increment = project_tangent(increment, normal);
+        const double omega = -cubic_gradient(radius, config.horizon);
+        result.viscosity += config.mass / (config.rest_density * config.time_step)
+            * (config.mu * norm_squared(tangent_increment)
+                + 0.5 * config.lambda * norm_squared(normal_increment))
+            * omega;
+        const Vec3 pair_gradient = config.mass * omega
+            / (config.rest_density * config.time_step)
+            * (2.0 * config.mu * tangent_increment
+                + config.lambda * normal_increment);
+        result.gradient[pair.i] += pair_gradient;
+        result.gradient[pair.j] += -pair_gradient;
+    }
+
+    const double surface_support = 3.0 * config.spacing;
+    for (const ParticlePair pair : current_pairs) {
+        const Vec3 displacement = y[pair.i] - y[pair.j];
+        const double radius = norm(displacement);
+        if (radius <= 1.0e-15 || radius >= surface_support) {
+            continue;
+        }
+        result.surface += 2.0 * config.gamma * config.mass * config.mass
+            * surface_potential(radius, config.spacing);
+        const Vec3 pair_gradient = 2.0 * config.gamma * config.mass
+            * config.mass * surface_spline(radius, config.spacing)
+            * (displacement / radius);
+        result.gradient[pair.i] += pair_gradient;
+        result.gradient[pair.j] += -pair_gradient;
+    }
+
+    result.total = result.inertia + result.pressure
+        + result.viscosity + result.surface;
+    result.gradient_norm = vector_norm(result.gradient);
+    Vec3 internal_sum;
+    double internal_scale = 0.0;
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        const Vec3 internal = result.gradient[i] - inertia_gradient[i];
+        internal_sum += internal;
+        internal_scale += norm(internal);
+    }
+    result.internal_momentum_residual =
+        norm(internal_sum) / std::max(internal_scale, 1.0e-30);
+    result.finite = std::isfinite(result.total)
+        && std::isfinite(result.gradient_norm)
+        && std::isfinite(result.internal_momentum_residual)
+        && all_finite(result.gradient);
+    return result;
+}
+
+std::vector<std::vector<std::size_t>> build_pair_adjacency(
+    std::size_t particle_count,
+    const std::vector<ParticlePair>& pairs) {
+    std::vector<std::vector<std::size_t>> result(particle_count);
+    for (const ParticlePair pair : pairs) {
+        result[pair.i].push_back(pair.j);
+        result[pair.j].push_back(pair.i);
+    }
+    for (std::vector<std::size_t>& neighbors : result) {
+        std::sort(neighbors.begin(), neighbors.end());
+    }
+    return result;
+}
+
+std::vector<Vec3> apply_hessian_with_adjacency(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& y,
+    const std::vector<Vec3>& direction,
+    const std::vector<ParticlePair>& current_pairs,
+    const std::vector<ParticlePair>& reference_pairs,
+    const std::vector<std::vector<std::size_t>>& adjacency) {
+    std::vector<Vec3> result(y.size());
+    const double inertia_scale = config.mass
+        / (config.time_step * config.time_step);
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        result[i] += inertia_scale * direction[i];
+    }
+
+    if (config.kappa != 0.0) {
+        const std::vector<double> density =
+            densities_with_pairs(config, y, current_pairs);
+        for (std::size_t center = 0; center < y.size(); ++center) {
+            const double compression =
+                density[center] / config.rest_density - 1.0;
+            if (compression <= 0.0) {
+                continue;
+            }
+            Vec3 center_jacobian;
+            std::vector<Vec3> neighbor_jacobian(adjacency[center].size());
+            for (std::size_t slot = 0; slot < adjacency[center].size(); ++slot) {
+                const std::size_t neighbor = adjacency[center][slot];
+                const Vec3 displacement = y[center] - y[neighbor];
+                const double radius = norm(displacement);
+                if (radius <= 1.0e-15 || radius > config.horizon) {
+                    continue;
+                }
+                const Vec3 normal = displacement / radius;
+                const Vec3 pair_jacobian = config.mass / config.rest_density
+                    * cubic_gradient(radius, config.horizon) * normal;
+                center_jacobian += pair_jacobian;
+                neighbor_jacobian[slot] = -pair_jacobian;
+            }
+            std::vector<std::size_t> participants = adjacency[center];
+            participants.push_back(center);
+            std::sort(participants.begin(), participants.end());
+            double density_direction = 0.0;
+            for (std::size_t participant : participants) {
+                if (participant == center) {
+                    density_direction += dot(center_jacobian, direction[center]);
+                } else {
+                    const auto neighbor = std::lower_bound(
+                        adjacency[center].begin(), adjacency[center].end(),
+                        participant);
+                    const std::size_t slot = static_cast<std::size_t>(
+                        neighbor - adjacency[center].begin());
+                    density_direction += dot(
+                        neighbor_jacobian[slot], direction[participant]);
+                }
+            }
+            for (std::size_t participant : participants) {
+                const Vec3 jacobian = participant == center
+                    ? center_jacobian
+                    : neighbor_jacobian[static_cast<std::size_t>(
+                        std::lower_bound(adjacency[center].begin(),
+                            adjacency[center].end(), participant)
+                        - adjacency[center].begin())];
+                result[participant] +=
+                    config.kappa * density_direction * jacobian;
+            }
+            for (std::size_t neighbor : adjacency[center]) {
+                const Vec3 displacement = y[center] - y[neighbor];
+                const double radius = norm(displacement);
+                if (radius <= 1.0e-15 || radius > config.horizon) {
+                    continue;
+                }
+                const Vec3 normal = displacement / radius;
+                const Vec3 relative_direction =
+                    direction[center] - direction[neighbor];
+                const Vec3 pair = config.kappa * compression * config.mass
+                    / config.rest_density
+                    * radial_hessian_product(normal,
+                        cubic_second_derivative(radius, config.horizon),
+                        cubic_gradient(radius, config.horizon) / radius,
+                        relative_direction);
+                result[center] += pair;
+                result[neighbor] += -pair;
+            }
+        }
+    }
+
+    for (const ParticlePair pair_index : reference_pairs) {
+        const Vec3 reference = x[pair_index.i] - x[pair_index.j];
+        const double radius = norm(reference);
+        if (radius <= 1.0e-15 || radius > config.horizon) {
+            continue;
+        }
+        const Vec3 normal = reference / radius;
+        const Vec3 relative_direction =
+            direction[pair_index.i] - direction[pair_index.j];
+        const double scale = config.mass
+            * (-cubic_gradient(radius, config.horizon))
+            / (config.rest_density * config.time_step);
+        const Vec3 pair = scale
+            * (config.lambda * project_normal(relative_direction, normal)
+                + 2.0 * config.mu
+                    * project_tangent(relative_direction, normal));
+        result[pair_index.i] += pair;
+        result[pair_index.j] += -pair;
+    }
+
+    const double surface_support = 3.0 * config.spacing;
+    for (const ParticlePair pair_index : current_pairs) {
+        const Vec3 displacement = y[pair_index.i] - y[pair_index.j];
+        const double radius = norm(displacement);
+        if (radius <= 1.0e-15 || radius >= surface_support) {
+            continue;
+        }
+        const Vec3 normal = displacement / radius;
+        const Vec3 relative_direction =
+            direction[pair_index.i] - direction[pair_index.j];
+        const double scale = 2.0 * config.gamma
+            * config.mass * config.mass;
+        const Vec3 pair = radial_hessian_product(normal,
+            scale * surface_spline_derivative(radius, config.spacing),
+            scale * surface_spline(radius, config.spacing) / radius,
+            relative_direction);
+        result[pair_index.i] += pair;
+        result[pair_index.j] += -pair;
+    }
+    return result;
+}
+
+struct NeighborhoodHvpWorkspace {
+    std::vector<Vec3> result;
+    std::vector<double> density;
+    std::vector<Vec3> neighbor_jacobian;
+};
+
+const std::vector<Vec3>& apply_hessian_with_workspace(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& y,
+    const std::vector<Vec3>& direction,
+    const std::vector<ParticlePair>& current_pairs,
+    const std::vector<ParticlePair>& reference_pairs,
+    const std::vector<std::vector<std::size_t>>& adjacency,
+    NeighborhoodHvpWorkspace& workspace) {
+    workspace.result.resize(y.size());
+    std::fill(workspace.result.begin(), workspace.result.end(), Vec3{});
+    const double inertia_scale = config.mass
+        / (config.time_step * config.time_step);
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        workspace.result[i] += inertia_scale * direction[i];
+    }
+
+    if (config.kappa != 0.0) {
+        workspace.density.resize(y.size());
+        std::fill(workspace.density.begin(), workspace.density.end(),
+            config.mass * cubic_weight(0.0, config.horizon));
+        for (const ParticlePair pair : current_pairs) {
+            const double radius = norm(y[pair.i] - y[pair.j]);
+            if (radius <= config.horizon) {
+                const double contribution =
+                    config.mass * cubic_weight(radius, config.horizon);
+                workspace.density[pair.i] += contribution;
+                workspace.density[pair.j] += contribution;
+            }
+        }
+        for (std::size_t center = 0; center < y.size(); ++center) {
+            const double compression =
+                workspace.density[center] / config.rest_density - 1.0;
+            if (compression <= 0.0) {
+                continue;
+            }
+            Vec3 center_jacobian;
+            workspace.neighbor_jacobian.resize(adjacency[center].size());
+            std::fill(workspace.neighbor_jacobian.begin(),
+                workspace.neighbor_jacobian.end(), Vec3{});
+            for (std::size_t slot = 0; slot < adjacency[center].size(); ++slot) {
+                const std::size_t neighbor = adjacency[center][slot];
+                const Vec3 displacement = y[center] - y[neighbor];
+                const double radius = norm(displacement);
+                if (radius <= 1.0e-15 || radius > config.horizon) {
+                    continue;
+                }
+                const Vec3 normal = displacement / radius;
+                const Vec3 pair_jacobian = config.mass / config.rest_density
+                    * cubic_gradient(radius, config.horizon) * normal;
+                center_jacobian += pair_jacobian;
+                workspace.neighbor_jacobian[slot] = -pair_jacobian;
+            }
+            double density_direction = 0.0;
+            bool center_visited = false;
+            for (std::size_t slot = 0; slot < adjacency[center].size(); ++slot) {
+                const std::size_t neighbor = adjacency[center][slot];
+                if (!center_visited && center < neighbor) {
+                    density_direction += dot(
+                        center_jacobian, direction[center]);
+                    center_visited = true;
+                }
+                density_direction += dot(
+                    workspace.neighbor_jacobian[slot], direction[neighbor]);
+            }
+            if (!center_visited) {
+                density_direction += dot(center_jacobian, direction[center]);
+            }
+            center_visited = false;
+            for (std::size_t slot = 0; slot < adjacency[center].size(); ++slot) {
+                const std::size_t neighbor = adjacency[center][slot];
+                if (!center_visited && center < neighbor) {
+                    workspace.result[center] += config.kappa
+                        * density_direction * center_jacobian;
+                    center_visited = true;
+                }
+                workspace.result[neighbor] += config.kappa
+                    * density_direction * workspace.neighbor_jacobian[slot];
+            }
+            if (!center_visited) {
+                workspace.result[center] += config.kappa
+                    * density_direction * center_jacobian;
+            }
+            for (std::size_t neighbor : adjacency[center]) {
+                const Vec3 displacement = y[center] - y[neighbor];
+                const double radius = norm(displacement);
+                if (radius <= 1.0e-15 || radius > config.horizon) {
+                    continue;
+                }
+                const Vec3 normal = displacement / radius;
+                const Vec3 relative_direction =
+                    direction[center] - direction[neighbor];
+                const Vec3 pair = config.kappa * compression * config.mass
+                    / config.rest_density
+                    * radial_hessian_product(normal,
+                        cubic_second_derivative(radius, config.horizon),
+                        cubic_gradient(radius, config.horizon) / radius,
+                        relative_direction);
+                workspace.result[center] += pair;
+                workspace.result[neighbor] += -pair;
+            }
+        }
+    }
+
+    for (const ParticlePair pair_index : reference_pairs) {
+        const Vec3 reference = x[pair_index.i] - x[pair_index.j];
+        const double radius = norm(reference);
+        if (radius <= 1.0e-15 || radius > config.horizon) {
+            continue;
+        }
+        const Vec3 normal = reference / radius;
+        const Vec3 relative_direction =
+            direction[pair_index.i] - direction[pair_index.j];
+        const double scale = config.mass
+            * (-cubic_gradient(radius, config.horizon))
+            / (config.rest_density * config.time_step);
+        const Vec3 pair = scale
+            * (config.lambda * project_normal(relative_direction, normal)
+                + 2.0 * config.mu
+                    * project_tangent(relative_direction, normal));
+        workspace.result[pair_index.i] += pair;
+        workspace.result[pair_index.j] += -pair;
+    }
+
+    const double surface_support = 3.0 * config.spacing;
+    for (const ParticlePair pair_index : current_pairs) {
+        const Vec3 displacement = y[pair_index.i] - y[pair_index.j];
+        const double radius = norm(displacement);
+        if (radius <= 1.0e-15 || radius >= surface_support) {
+            continue;
+        }
+        const Vec3 normal = displacement / radius;
+        const Vec3 relative_direction =
+            direction[pair_index.i] - direction[pair_index.j];
+        const double scale = 2.0 * config.gamma
+            * config.mass * config.mass;
+        const Vec3 pair = radial_hessian_product(normal,
+            scale * surface_spline_derivative(radius, config.spacing),
+            scale * surface_spline(radius, config.spacing) / radius,
+            relative_direction);
+        workspace.result[pair_index.i] += pair;
+        workspace.result[pair_index.j] += -pair;
+    }
+    return workspace.result;
+}
+
+std::vector<Vec3> apply_hessian_with_pairs(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& y,
+    const std::vector<Vec3>& direction,
+    const std::vector<ParticlePair>& current_pairs,
+    const std::vector<ParticlePair>& reference_pairs) {
+    const std::vector<std::vector<std::size_t>> adjacency =
+        build_pair_adjacency(y.size(), current_pairs);
+    return apply_hessian_with_adjacency(config, x, y, direction,
+        current_pairs, reference_pairs, adjacency);
 }
 
 std::vector<Mat3> block_preconditioner(
@@ -900,6 +1669,2584 @@ double combined_directional_error() {
         / (2.0 * epsilon);
     const double analytic = vector_dot(base.gradient, direction);
     return relative_error(finite_difference, analytic);
+}
+
+struct SpectralFixture {
+    std::string name;
+    Config config;
+    std::vector<Vec3> x;
+    std::vector<Vec3> velocity;
+    std::vector<Vec3> direction;
+};
+
+struct SpectralCase {
+    std::string name;
+    bool passed = false;
+    bool finite = false;
+    bool fixed_branches = false;
+    bool jacobi_converged = false;
+    std::size_t dimension = 0;
+    int active_pressure_count = 0;
+    int negative_eigenvalue_count = 0;
+    int jacobi_pivots = 0;
+    double active_margin = 0.0;
+    double hvp_fd_error = 0.0;
+    double symmetry_error = 0.0;
+    double dense_product_error = 0.0;
+    double off_particle_block_ratio = 0.0;
+    double minimum_eigenvalue = 0.0;
+    double maximum_eigenvalue = 0.0;
+    double positive_condition_estimate = 0.0;
+};
+
+std::vector<int> branch_signature(
+    const Config& config, const std::vector<Vec3>& y) {
+    std::vector<int> result;
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        for (std::size_t j = i + 1; j < y.size(); ++j) {
+            const double radius = norm(y[i] - y[j]);
+            const double density_q = 2.0 * radius / config.horizon;
+            const int density_branch = radius <= 1.0e-15
+                ? 0
+                : (density_q < 1.0 ? 1 : (density_q <= 2.0 ? 2 : 3));
+            const double surface_q = radius / config.spacing;
+            const int surface_branch = radius <= 1.0e-15
+                ? 0
+                : (surface_q <= 1.0 ? 1 : (surface_q < 3.0 ? 2 : 3));
+            result.push_back(density_branch);
+            result.push_back(surface_branch);
+        }
+    }
+    return result;
+}
+
+std::vector<int> pressure_active_signature(
+    const Config& config, const std::vector<Vec3>& y) {
+    const std::vector<double> density = densities(config, y);
+    std::vector<int> result(density.size());
+    for (std::size_t i = 0; i < density.size(); ++i) {
+        result[i] = density[i] > config.rest_density ? 1 : 0;
+    }
+    return result;
+}
+
+bool jacobi_eigenvalues(
+    const std::vector<double>& matrix,
+    std::size_t dimension,
+    std::vector<double>& eigenvalues,
+    int& pivots) {
+    std::vector<double> value(matrix.size());
+    for (std::size_t row = 0; row < dimension; ++row) {
+        for (std::size_t column = 0; column < dimension; ++column) {
+            value[row * dimension + column] = 0.5
+                * (matrix[row * dimension + column]
+                    + matrix[column * dimension + row]);
+        }
+    }
+    const int maximum_pivots = static_cast<int>(64 * dimension * dimension);
+    pivots = 0;
+    for (; pivots < maximum_pivots; ++pivots) {
+        std::size_t p = 0;
+        std::size_t q = 0;
+        double largest = 0.0;
+        for (std::size_t row = 0; row < dimension; ++row) {
+            for (std::size_t column = row + 1; column < dimension; ++column) {
+                const double candidate =
+                    std::abs(value[row * dimension + column]);
+                if (candidate > largest) {
+                    largest = candidate;
+                    p = row;
+                    q = column;
+                }
+            }
+        }
+        double maximum_diagonal = 0.0;
+        for (std::size_t i = 0; i < dimension; ++i) {
+            maximum_diagonal = std::max(
+                maximum_diagonal, std::abs(value[i * dimension + i]));
+        }
+        if (largest <= 1.0e-12 * std::max(maximum_diagonal, 1.0)) {
+            eigenvalues.resize(dimension);
+            for (std::size_t i = 0; i < dimension; ++i) {
+                eigenvalues[i] = value[i * dimension + i];
+            }
+            std::sort(eigenvalues.begin(), eigenvalues.end());
+            return all_finite(eigenvalues);
+        }
+
+        const double app = value[p * dimension + p];
+        const double aqq = value[q * dimension + q];
+        const double apq = value[p * dimension + q];
+        const double tau = (aqq - app) / (2.0 * apq);
+        const double t = tau >= 0.0
+            ? 1.0 / (tau + std::sqrt(1.0 + tau * tau))
+            : -1.0 / (-tau + std::sqrt(1.0 + tau * tau));
+        const double cosine = 1.0 / std::sqrt(1.0 + t * t);
+        const double sine = t * cosine;
+        for (std::size_t k = 0; k < dimension; ++k) {
+            if (k == p || k == q) {
+                continue;
+            }
+            const double akp = value[k * dimension + p];
+            const double akq = value[k * dimension + q];
+            const double next_kp = cosine * akp - sine * akq;
+            const double next_kq = sine * akp + cosine * akq;
+            value[k * dimension + p] = next_kp;
+            value[p * dimension + k] = next_kp;
+            value[k * dimension + q] = next_kq;
+            value[q * dimension + k] = next_kq;
+        }
+        value[p * dimension + p] = cosine * cosine * app
+            - 2.0 * sine * cosine * apq + sine * sine * aqq;
+        value[q * dimension + q] = sine * sine * app
+            + 2.0 * sine * cosine * apq + cosine * cosine * aqq;
+        value[p * dimension + q] = 0.0;
+        value[q * dimension + p] = 0.0;
+    }
+    return false;
+}
+
+SpectralCase analyze_spectral_fixture(const SpectralFixture& fixture) {
+    constexpr double hvp_fd_limit = 2.0e-6;
+    constexpr double symmetry_limit = 2.0e-12;
+    constexpr double dense_product_limit = 2.0e-12;
+    SpectralCase result;
+    result.name = fixture.name;
+    std::vector<Vec3> direction = fixture.direction;
+    const double direction_scale = vector_norm(direction);
+    for (Vec3& value : direction) {
+        value = value / direction_scale;
+    }
+    const std::vector<Vec3> y =
+        predict(fixture.config, fixture.x, fixture.velocity);
+    const std::vector<Vec3> analytic =
+        apply_hessian(fixture.config, fixture.x, y, direction);
+    const double epsilon = std::ldexp(1.0, -20)
+        * std::max(1.0, vector_norm(y));
+    std::vector<Vec3> plus = y;
+    std::vector<Vec3> minus = y;
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        plus[i] += epsilon * direction[i];
+        minus[i] += -epsilon * direction[i];
+    }
+    const Evaluation base = evaluate(fixture.config, fixture.x, y, y);
+    const Evaluation plus_evaluation =
+        evaluate(fixture.config, fixture.x, y, plus);
+    const Evaluation minus_evaluation =
+        evaluate(fixture.config, fixture.x, y, minus);
+    std::vector<Vec3> finite_difference(y.size());
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        finite_difference[i] =
+            (plus_evaluation.gradient[i] - minus_evaluation.gradient[i])
+            / (2.0 * epsilon);
+    }
+    std::vector<Vec3> hvp_difference(y.size());
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        hvp_difference[i] = analytic[i] - finite_difference[i];
+    }
+    result.hvp_fd_error = vector_norm(hvp_difference)
+        / std::max({vector_norm(analytic), vector_norm(finite_difference), 1.0});
+
+    result.dimension = 3 * y.size();
+    std::vector<double> dense(result.dimension * result.dimension);
+    for (std::size_t column = 0; column < result.dimension; ++column) {
+        std::vector<double> basis(result.dimension);
+        basis[column] = 1.0;
+        const std::vector<double> image = flatten(apply_hessian(
+            fixture.config, fixture.x, y, unflatten(basis)));
+        for (std::size_t row = 0; row < result.dimension; ++row) {
+            dense[row * result.dimension + column] = image[row];
+        }
+    }
+    double asymmetry_squared = 0.0;
+    double dense_squared = 0.0;
+    double off_particle_squared = 0.0;
+    for (std::size_t row = 0; row < result.dimension; ++row) {
+        for (std::size_t column = 0; column < result.dimension; ++column) {
+            const double entry = dense[row * result.dimension + column];
+            const double difference = entry
+                - dense[column * result.dimension + row];
+            asymmetry_squared += difference * difference;
+            dense_squared += entry * entry;
+            if (row / 3 != column / 3) {
+                off_particle_squared += entry * entry;
+            }
+        }
+    }
+    result.symmetry_error = std::sqrt(asymmetry_squared)
+        / std::max(std::sqrt(dense_squared), 1.0);
+    result.off_particle_block_ratio = std::sqrt(off_particle_squared)
+        / std::max(std::sqrt(dense_squared), 1.0);
+
+    const std::vector<double> flat_direction = flatten(direction);
+    const std::vector<double> flat_analytic = flatten(analytic);
+    std::vector<double> dense_product(result.dimension);
+    for (std::size_t row = 0; row < result.dimension; ++row) {
+        for (std::size_t column = 0; column < result.dimension; ++column) {
+            dense_product[row] += dense[row * result.dimension + column]
+                * flat_direction[column];
+        }
+    }
+    std::vector<double> dense_difference(result.dimension);
+    for (std::size_t i = 0; i < result.dimension; ++i) {
+        dense_difference[i] = dense_product[i] - flat_analytic[i];
+    }
+    result.dense_product_error = flat_norm(dense_difference)
+        / std::max({flat_norm(dense_product), flat_norm(flat_analytic), 1.0});
+
+    std::vector<double> eigenvalues;
+    result.jacobi_converged = jacobi_eigenvalues(
+        dense, result.dimension, eigenvalues, result.jacobi_pivots);
+    if (!eigenvalues.empty()) {
+        result.minimum_eigenvalue = eigenvalues.front();
+        result.maximum_eigenvalue = eigenvalues.back();
+        const double eigen_scale = std::max(
+            std::abs(result.minimum_eigenvalue),
+            std::abs(result.maximum_eigenvalue));
+        const double sign_threshold = 1.0e-10 * std::max(eigen_scale, 1.0);
+        double smallest_positive = std::numeric_limits<double>::infinity();
+        double largest_positive = 0.0;
+        for (double value : eigenvalues) {
+            if (value < -sign_threshold) {
+                ++result.negative_eigenvalue_count;
+            } else if (value > sign_threshold) {
+                smallest_positive = std::min(smallest_positive, value);
+                largest_positive = std::max(largest_positive, value);
+            }
+        }
+        result.positive_condition_estimate = largest_positive > 0.0
+            ? largest_positive / smallest_positive
+            : 0.0;
+    }
+
+    const std::vector<double> base_density = densities(fixture.config, y);
+    result.active_margin = std::numeric_limits<double>::infinity();
+    for (double value : base_density) {
+        const double ratio = value / fixture.config.rest_density;
+        result.active_margin = std::min(result.active_margin,
+            std::abs(ratio - 1.0));
+        if (ratio > 1.0) {
+            ++result.active_pressure_count;
+        }
+    }
+    result.fixed_branches = branch_signature(fixture.config, y)
+            == branch_signature(fixture.config, plus)
+        && branch_signature(fixture.config, y)
+            == branch_signature(fixture.config, minus)
+        && pressure_active_signature(fixture.config, y)
+            == pressure_active_signature(fixture.config, plus)
+        && pressure_active_signature(fixture.config, y)
+            == pressure_active_signature(fixture.config, minus);
+    result.finite = base.finite && plus_evaluation.finite
+        && minus_evaluation.finite && all_finite(analytic)
+        && all_finite(finite_difference) && all_finite(dense)
+        && all_finite(eigenvalues) && std::isfinite(result.active_margin)
+        && std::isfinite(result.hvp_fd_error)
+        && std::isfinite(result.symmetry_error)
+        && std::isfinite(result.dense_product_error)
+        && std::isfinite(result.positive_condition_estimate);
+    result.passed = result.finite && result.fixed_branches
+        && result.jacobi_converged && result.hvp_fd_error <= hvp_fd_limit
+        && result.symmetry_error <= symmetry_limit
+        && result.dense_product_error <= dense_product_limit;
+    return result;
+}
+
+std::array<SpectralFixture, 4> spectral_fixtures() {
+    SpectralFixture pressure;
+    pressure.name = "compressed_pair";
+    pressure.config.kappa = 500.0;
+    pressure.x = {{-0.0225, 0.0, 0.0}, {0.0225, 0.0, 0.0}};
+    pressure.velocity.resize(2);
+    pressure.config.rest_density =
+        pair_density(norm(pressure.x[0] - pressure.x[1]), pressure.config) / 1.1;
+    pressure.direction = {
+        {0.31, -0.27, 0.11}, {-0.19, 0.41, -0.23},
+    };
+
+    const CombinedFixture combined_source = combined_fixture();
+    SpectralFixture combined;
+    combined.name = "combined_tetrahedron";
+    combined.config = combined_source.config;
+    combined.x = combined_source.x;
+    combined.velocity = combined_source.velocity;
+    combined.direction = {
+        {0.31, -0.27, 0.11}, {-0.19, 0.41, -0.23},
+        {0.17, 0.07, -0.37}, {-0.29, -0.21, 0.49},
+    };
+
+    SpectralFixture repulsive;
+    repulsive.name = "surface_repulsive_pair";
+    repulsive.config.gamma = 1000.0;
+    const double repulsive_distance = 0.8 * repulsive.config.spacing;
+    repulsive.x = {
+        {-0.5 * repulsive_distance, 0.0, 0.0},
+        {0.5 * repulsive_distance, 0.0, 0.0},
+    };
+    repulsive.velocity.resize(2);
+    repulsive.direction = {
+        {0.23, -0.31, 0.17}, {-0.37, 0.19, 0.29},
+    };
+
+    SpectralFixture attractive;
+    attractive.name = "surface_attractive_pair";
+    attractive.config.gamma = 1000.0;
+    const double attractive_distance = 1.7 * attractive.config.spacing;
+    attractive.x = {
+        {-0.5 * attractive_distance, 0.0, 0.0},
+        {0.5 * attractive_distance, 0.0, 0.0},
+    };
+    attractive.velocity.resize(2);
+    attractive.direction = {
+        {0.23, -0.31, 0.17}, {-0.37, 0.19, 0.29},
+    };
+    return {pressure, combined, repulsive, attractive};
+}
+
+void append_spectral_case(std::ostringstream& output, const SpectralCase& value) {
+    output << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"finite\":" << (value.finite ? "true" : "false")
+           << ",\"fixed_branches\":"
+           << (value.fixed_branches ? "true" : "false")
+           << ",\"dimension\":" << value.dimension
+           << ",\"active_pressure_count\":" << value.active_pressure_count
+           << ",\"active_margin\":" << value.active_margin
+           << ",\"hvp_fd_error\":" << value.hvp_fd_error
+           << ",\"symmetry_error\":" << value.symmetry_error
+           << ",\"dense_product_error\":" << value.dense_product_error
+           << ",\"off_particle_block_ratio\":"
+           << value.off_particle_block_ratio
+           << ",\"jacobi_converged\":"
+           << (value.jacobi_converged ? "true" : "false")
+           << ",\"jacobi_pivots\":" << value.jacobi_pivots
+           << ",\"minimum_eigenvalue\":" << value.minimum_eigenvalue
+           << ",\"maximum_eigenvalue\":" << value.maximum_eigenvalue
+           << ",\"negative_eigenvalue_count\":"
+           << value.negative_eigenvalue_count
+           << ",\"positive_condition_estimate\":"
+           << value.positive_condition_estimate << '}';
+}
+
+struct TrustStep {
+    std::vector<Vec3> value;
+    std::string reason;
+    int iterations = 0;
+    int hvp_calls = 0;
+    std::uint64_t hvp_nanoseconds = 0;
+    bool boundary = false;
+    bool finite = true;
+};
+
+struct TrustSolveResult {
+    bool succeeded = false;
+    bool monotonic = true;
+    int outer_trials = 0;
+    int accepted_trials = 0;
+    int rejected_trials = 0;
+    int objective_evaluations = 0;
+    int hvp_calls = 0;
+    int negative_curvature_stops = 0;
+    int boundary_stops = 0;
+    int residual_stops = 0;
+    int dimension_stops = 0;
+    int active_set_changes = 0;
+    int numerical_floor_stops = 0;
+    double minimum_radius = 0.0;
+    double maximum_radius = 0.0;
+    double minimum_accepted_ratio = 0.0;
+    double maximum_accepted_ratio = 0.0;
+    double minimum_active_margin = 0.0;
+    double final_scaled_displacement_residual = 0.0;
+    double numerical_energy_floor = 0.0;
+    double numerical_predicted_reduction = 0.0;
+    double numerical_scaled_step = 0.0;
+    Evaluation initial;
+    Evaluation final;
+    std::vector<Vec3> position;
+    std::string convergence_stop;
+    std::string failure;
+};
+
+double scaled_displacement_residual(
+    const Config& config, const Evaluation& evaluation);
+
+double numerical_energy_floor(const Evaluation& evaluation) {
+    const double energy_scale = std::max(
+        std::abs(evaluation.inertia) + std::abs(evaluation.pressure)
+            + std::abs(evaluation.viscosity) + std::abs(evaluation.surface),
+        1.0);
+    return 1024.0 * std::numeric_limits<double>::epsilon() * energy_scale;
+}
+
+bool numerical_energy_floor_reached(
+    const Config& config,
+    const Evaluation& evaluation,
+    const TrustStep& step,
+    double predicted_reduction,
+    TrustSolveResult& result) {
+    const double energy_floor = numerical_energy_floor(evaluation);
+    const double scaled_step = vector_norm(step.value) / config.spacing;
+    const bool reached = predicted_reduction > 0.0
+        && predicted_reduction <= energy_floor
+        && scaled_displacement_residual(config, evaluation) <= 1.0e-7
+        && scaled_step <= 1.0e-7;
+    if (reached) {
+        ++result.numerical_floor_stops;
+        result.numerical_energy_floor = energy_floor;
+        result.numerical_predicted_reduction = predicted_reduction;
+        result.numerical_scaled_step = scaled_step;
+        result.convergence_stop = "NUMERICAL_ENERGY_FLOOR";
+        result.succeeded = true;
+    }
+    return reached;
+}
+
+double scaled_displacement_residual(
+    const Config& config, const Evaluation& evaluation) {
+    double maximum = 0.0;
+    for (Vec3 gradient : evaluation.gradient) {
+        maximum = std::max(maximum, norm(gradient));
+    }
+    return config.time_step * config.time_step / config.mass
+        * maximum / config.spacing;
+}
+
+bool trust_converged(
+    const Config& config,
+    const Evaluation& evaluation,
+    bool scale_aware,
+    std::string& reason) {
+    if (evaluation.gradient_norm <= 1.0e-10) {
+        reason = "RAW_GRADIENT";
+        return true;
+    }
+    if (scale_aware
+        && scaled_displacement_residual(config, evaluation) <= 1.0e-8) {
+        reason = "SCALED_DISPLACEMENT";
+        return true;
+    }
+    return false;
+}
+
+double positive_boundary_intersection(
+    const std::vector<Vec3>& point,
+    const std::vector<Vec3>& direction,
+    double radius) {
+    const double a = vector_dot(direction, direction);
+    const double b = 2.0 * vector_dot(point, direction);
+    const double c = vector_dot(point, point) - radius * radius;
+    const double discriminant = std::max(b * b - 4.0 * a * c, 0.0);
+    return (-b + std::sqrt(discriminant)) / (2.0 * a);
+}
+
+double minimum_active_margin(
+    const Config& config, const std::vector<Vec3>& y) {
+    const std::vector<double> density = densities(config, y);
+    double result = std::numeric_limits<double>::infinity();
+    for (double value : density) {
+        result = std::min(result,
+            std::abs(value / config.rest_density - 1.0));
+    }
+    return result;
+}
+
+TrustStep truncated_trust_cg(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& y,
+    const std::vector<Vec3>& gradient,
+    double radius) {
+    TrustStep result;
+    result.value.resize(y.size());
+    std::vector<Vec3> residual = gradient;
+    std::vector<Vec3> direction(gradient.size());
+    for (std::size_t i = 0; i < gradient.size(); ++i) {
+        direction[i] = -residual[i];
+    }
+    double residual_squared = vector_dot(residual, residual);
+    const double gradient_norm = std::sqrt(residual_squared);
+    const double forcing = std::min(0.5, std::sqrt(gradient_norm));
+    const int maximum_iterations = static_cast<int>(3 * y.size());
+    for (int iteration = 0; iteration < maximum_iterations; ++iteration) {
+        const std::vector<Vec3> hessian_direction =
+            apply_hessian(config, x, y, direction);
+        ++result.hvp_calls;
+        const double curvature = vector_dot(direction, hessian_direction);
+        if (!std::isfinite(curvature) || !all_finite(hessian_direction)) {
+            result.finite = false;
+            result.reason = "NONFINITE";
+            return result;
+        }
+        if (curvature <= 0.0) {
+            const double tau = positive_boundary_intersection(
+                result.value, direction, radius);
+            for (std::size_t i = 0; i < result.value.size(); ++i) {
+                result.value[i] += tau * direction[i];
+            }
+            result.reason = "NEGATIVE_CURVATURE";
+            result.boundary = true;
+            result.iterations = iteration + 1;
+            return result;
+        }
+
+        const double alpha = residual_squared / curvature;
+        std::vector<Vec3> candidate = result.value;
+        for (std::size_t i = 0; i < candidate.size(); ++i) {
+            candidate[i] += alpha * direction[i];
+        }
+        if (vector_norm(candidate) >= radius) {
+            const double tau = positive_boundary_intersection(
+                result.value, direction, radius);
+            for (std::size_t i = 0; i < result.value.size(); ++i) {
+                result.value[i] += tau * direction[i];
+            }
+            result.reason = "BOUNDARY";
+            result.boundary = true;
+            result.iterations = iteration + 1;
+            return result;
+        }
+        result.value = candidate;
+
+        std::vector<Vec3> next_residual = residual;
+        for (std::size_t i = 0; i < next_residual.size(); ++i) {
+            next_residual[i] += alpha * hessian_direction[i];
+        }
+        const double next_squared = vector_dot(next_residual, next_residual);
+        if (std::sqrt(next_squared) <= forcing * gradient_norm) {
+            result.reason = "RESIDUAL";
+            result.iterations = iteration + 1;
+            return result;
+        }
+        const double beta = next_squared / residual_squared;
+        for (std::size_t i = 0; i < direction.size(); ++i) {
+            direction[i] = -next_residual[i] + beta * direction[i];
+        }
+        residual = next_residual;
+        residual_squared = next_squared;
+    }
+    result.reason = "DIMENSION_LIMIT";
+    result.iterations = maximum_iterations;
+    return result;
+}
+
+TrustSolveResult solve_trust_region(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& velocity,
+    bool scale_aware_stop = false,
+    bool numerical_floor_stop = false) {
+    constexpr int maximum_outer_trials = 64;
+    constexpr double accept_ratio = 0.1;
+    const std::vector<Vec3> y_star = predict(config, x, velocity);
+    std::vector<Vec3> y = y_star;
+    Evaluation current = evaluate(config, x, y_star, y);
+    TrustSolveResult result;
+    result.initial = current;
+    result.objective_evaluations = 1;
+    double radius = config.spacing;
+    const double minimum_radius = std::ldexp(config.spacing, -40);
+    const double maximum_radius = 4.0 * config.spacing;
+    result.minimum_radius = radius;
+    result.maximum_radius = radius;
+    result.minimum_accepted_ratio = std::numeric_limits<double>::infinity();
+    result.maximum_accepted_ratio = -std::numeric_limits<double>::infinity();
+    result.minimum_active_margin = minimum_active_margin(config, y);
+    std::vector<int> active_signature = pressure_active_signature(config, y);
+    if (!current.finite) {
+        result.failure = "NONFINITE_INITIAL_STATE";
+        result.final = current;
+        return result;
+    }
+
+    for (int outer = 0; outer < maximum_outer_trials; ++outer) {
+        if (trust_converged(
+                config, current, scale_aware_stop, result.convergence_stop)) {
+            result.succeeded = true;
+            break;
+        }
+        const TrustStep step = truncated_trust_cg(
+            config, x, y, current.gradient, radius);
+        result.hvp_calls += step.hvp_calls;
+        if (step.reason == "NEGATIVE_CURVATURE") {
+            ++result.negative_curvature_stops;
+        } else if (step.reason == "BOUNDARY") {
+            ++result.boundary_stops;
+        } else if (step.reason == "RESIDUAL") {
+            ++result.residual_stops;
+        } else if (step.reason == "DIMENSION_LIMIT") {
+            ++result.dimension_stops;
+        }
+        ++result.outer_trials;
+        if (!step.finite || !all_finite(step.value)) {
+            result.failure = "NONFINITE_INNER_STEP";
+            break;
+        }
+
+        const std::vector<Vec3> hessian_step =
+            apply_hessian(config, x, y, step.value);
+        ++result.hvp_calls;
+        const double predicted_reduction = -(
+            vector_dot(current.gradient, step.value)
+            + 0.5 * vector_dot(step.value, hessian_step));
+        bool valid_model = std::isfinite(predicted_reduction)
+            && predicted_reduction > 0.0;
+        if (numerical_floor_stop && valid_model
+            && numerical_energy_floor_reached(config, current, step,
+                predicted_reduction, result)) {
+            break;
+        }
+        double ratio = -std::numeric_limits<double>::infinity();
+        Evaluation trial_evaluation;
+        std::vector<Vec3> trial = y;
+        if (valid_model) {
+            for (std::size_t i = 0; i < trial.size(); ++i) {
+                trial[i] += step.value[i];
+            }
+            trial_evaluation = evaluate(config, x, y_star, trial);
+            ++result.objective_evaluations;
+            result.minimum_active_margin = std::min(
+                result.minimum_active_margin,
+                minimum_active_margin(config, trial));
+            const double actual_reduction = current.total - trial_evaluation.total;
+            ratio = actual_reduction / predicted_reduction;
+            valid_model = trial_evaluation.finite
+                && std::isfinite(ratio) && actual_reduction > 0.0;
+        }
+
+        if (valid_model && ratio >= accept_ratio) {
+            const double allowance = ENERGY_ALLOWANCE
+                * std::max({std::abs(current.total),
+                    std::abs(trial_evaluation.total), 1.0});
+            result.monotonic = result.monotonic
+                && trial_evaluation.total <= current.total + allowance;
+            const std::vector<int> next_active =
+                pressure_active_signature(config, trial);
+            if (next_active != active_signature) {
+                ++result.active_set_changes;
+            }
+            active_signature = next_active;
+            y = trial;
+            current = trial_evaluation;
+            ++result.accepted_trials;
+            result.minimum_accepted_ratio = std::min(
+                result.minimum_accepted_ratio, ratio);
+            result.maximum_accepted_ratio = std::max(
+                result.maximum_accepted_ratio, ratio);
+        } else {
+            ++result.rejected_trials;
+        }
+
+        if (!valid_model || ratio < 0.25) {
+            radius *= 0.25;
+        } else if (ratio > 0.75 && step.boundary) {
+            radius = std::min(2.0 * radius, maximum_radius);
+        }
+        result.minimum_radius = std::min(result.minimum_radius, radius);
+        result.maximum_radius = std::max(result.maximum_radius, radius);
+        if (radius < minimum_radius) {
+            result.failure = "MINIMUM_TRUST_RADIUS";
+            break;
+        }
+    }
+    if (trust_converged(
+            config, current, scale_aware_stop, result.convergence_stop)
+        && result.failure.empty()) {
+        result.succeeded = true;
+    }
+    if (!result.succeeded && result.failure.empty()) {
+        result.failure = "OUTER_TRIAL_LIMIT";
+    }
+    if (!std::isfinite(result.minimum_accepted_ratio)) {
+        result.minimum_accepted_ratio = 0.0;
+        result.maximum_accepted_ratio = 0.0;
+    }
+    result.succeeded = result.succeeded && result.monotonic && current.finite;
+    result.final = current;
+    result.final_scaled_displacement_residual =
+        scaled_displacement_residual(config, current);
+    result.position = y;
+    return result;
+}
+
+struct TrustCase {
+    std::string name;
+    SolveResult baseline;
+    TrustSolveResult candidate;
+    int baseline_evaluations = 0;
+    int evaluation_limit = 0;
+    bool passed = false;
+};
+
+bool trust_quality_passed(const TrustCase& value) {
+    const double objective_allowance = 1.0e-10
+        * std::max(std::abs(value.baseline.final.total), 1.0);
+    const double gradient_limit = std::max(
+        2.0 * value.baseline.final.gradient_norm, 1.0e-8);
+    return value.candidate.succeeded && value.candidate.monotonic
+        && value.candidate.failure.empty()
+        && value.candidate.final.total
+            <= value.baseline.final.total + objective_allowance
+        && value.candidate.final.gradient_norm <= gradient_limit
+        && value.candidate.final.internal_momentum_residual <= CONSERVATION_LIMIT
+        && value.candidate.objective_evaluations <= value.evaluation_limit;
+}
+
+TrustCase make_trust_compression_case() {
+    Config config;
+    config.kappa = 500.0;
+    const std::vector<Vec3> x = {{-0.025, 0.0, 0.0}, {0.025, 0.0, 0.0}};
+    const std::vector<Vec3> velocity(2);
+    config.rest_density = pair_density(norm(x[0] - x[1]), config) / 1.1;
+    TrustCase result;
+    result.name = "compressed_pair";
+    result.baseline = solve(config, x, velocity);
+    result.candidate = solve_trust_region(config, x, velocity);
+    result.baseline_evaluations = 1 + result.baseline.iterations
+        + result.baseline.backtracks;
+    result.evaluation_limit = 454;
+    result.passed = trust_quality_passed(result);
+    return result;
+}
+
+TrustCase make_trust_combined_case() {
+    const CombinedFixture fixture = combined_fixture();
+    TrustCase result;
+    result.name = "combined_tetrahedron";
+    result.baseline = solve(fixture.config, fixture.x, fixture.velocity);
+    result.candidate = solve_trust_region(
+        fixture.config, fixture.x, fixture.velocity);
+    result.baseline_evaluations = 1 + result.baseline.iterations
+        + result.baseline.backtracks;
+    result.evaluation_limit = 224;
+    result.passed = trust_quality_passed(result);
+    return result;
+}
+
+void append_trust_case(std::ostringstream& output, const TrustCase& value) {
+    output << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"baseline\":{\"final_objective\":"
+           << value.baseline.final.total
+           << ",\"final_gradient_norm\":"
+           << value.baseline.final.gradient_norm
+           << ",\"objective_evaluations\":"
+           << value.baseline_evaluations << '}'
+           << ",\"candidate\":{\"failure\":\""
+           << value.candidate.failure << '"'
+           << ",\"initial_objective\":"
+           << value.candidate.initial.total
+           << ",\"final_objective\":" << value.candidate.final.total
+           << ",\"initial_gradient_norm\":"
+           << value.candidate.initial.gradient_norm
+           << ",\"final_gradient_norm\":"
+           << value.candidate.final.gradient_norm
+           << ",\"outer_trials\":" << value.candidate.outer_trials
+           << ",\"accepted_trials\":" << value.candidate.accepted_trials
+           << ",\"rejected_trials\":" << value.candidate.rejected_trials
+           << ",\"objective_evaluations\":"
+           << value.candidate.objective_evaluations
+           << ",\"hvp_calls\":" << value.candidate.hvp_calls
+           << ",\"negative_curvature_stops\":"
+           << value.candidate.negative_curvature_stops
+           << ",\"boundary_stops\":" << value.candidate.boundary_stops
+           << ",\"residual_stops\":" << value.candidate.residual_stops
+           << ",\"dimension_stops\":" << value.candidate.dimension_stops
+           << ",\"active_set_changes\":"
+           << value.candidate.active_set_changes
+           << ",\"minimum_active_margin\":"
+           << value.candidate.minimum_active_margin
+           << ",\"minimum_radius\":" << value.candidate.minimum_radius
+           << ",\"maximum_radius\":" << value.candidate.maximum_radius
+           << ",\"minimum_accepted_ratio\":"
+           << value.candidate.minimum_accepted_ratio
+           << ",\"maximum_accepted_ratio\":"
+           << value.candidate.maximum_accepted_ratio
+           << ",\"internal_momentum_residual\":"
+           << value.candidate.final.internal_momentum_residual << '}'
+           << ",\"evaluation_limit\":" << value.evaluation_limit << '}';
+}
+
+struct BlockMetric {
+    std::vector<Mat3> value;
+    std::vector<Mat3> inverse;
+};
+
+BlockMetric make_block_metric(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& y) {
+    const double inertia_scale = config.mass
+        / (config.time_step * config.time_step);
+    BlockMetric result;
+    result.value = block_preconditioner(config, x, y);
+    result.inverse.resize(result.value.size());
+    for (std::size_t i = 0; i < result.value.size(); ++i) {
+        result.value[i] = result.value[i] * (1.0 / inertia_scale);
+        result.inverse[i] = inverse_without_regularization(result.value[i]);
+    }
+    return result;
+}
+
+double metric_dot(
+    const std::vector<Vec3>& lhs,
+    const BlockMetric& metric,
+    const std::vector<Vec3>& rhs) {
+    double result = 0.0;
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        result += dot(lhs[i], metric.value[i] * rhs[i]);
+    }
+    return result;
+}
+
+std::vector<Vec3> apply_inverse_metric(
+    const BlockMetric& metric, const std::vector<Vec3>& value) {
+    std::vector<Vec3> result(value.size());
+    for (std::size_t i = 0; i < value.size(); ++i) {
+        result[i] = metric.inverse[i] * value[i];
+    }
+    return result;
+}
+
+double metric_boundary_intersection(
+    const std::vector<Vec3>& point,
+    const std::vector<Vec3>& direction,
+    const BlockMetric& metric,
+    double radius) {
+    const double a = metric_dot(direction, metric, direction);
+    const double b = 2.0 * metric_dot(point, metric, direction);
+    const double c = metric_dot(point, metric, point) - radius * radius;
+    const double discriminant = std::max(b * b - 4.0 * a * c, 0.0);
+    return (-b + std::sqrt(discriminant)) / (2.0 * a);
+}
+
+TrustStep truncated_preconditioned_trust_cg(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& y,
+    const std::vector<Vec3>& gradient,
+    const BlockMetric& metric,
+    double radius) {
+    TrustStep result;
+    result.value.resize(y.size());
+    std::vector<Vec3> residual = gradient;
+    std::vector<Vec3> preconditioned =
+        apply_inverse_metric(metric, residual);
+    std::vector<Vec3> direction(preconditioned.size());
+    for (std::size_t i = 0; i < direction.size(); ++i) {
+        direction[i] = -preconditioned[i];
+    }
+    double residual_preconditioned = vector_dot(residual, preconditioned);
+    const double initial_residual = std::sqrt(residual_preconditioned);
+    const double forcing = std::min(0.5, std::sqrt(initial_residual));
+    const int maximum_iterations = static_cast<int>(3 * y.size());
+    for (int iteration = 0; iteration < maximum_iterations; ++iteration) {
+        const std::vector<Vec3> hessian_direction =
+            apply_hessian(config, x, y, direction);
+        ++result.hvp_calls;
+        const double curvature = vector_dot(direction, hessian_direction);
+        if (!std::isfinite(curvature) || !all_finite(hessian_direction)) {
+            result.finite = false;
+            result.reason = "NONFINITE";
+            return result;
+        }
+        if (curvature <= 0.0) {
+            const double tau = metric_boundary_intersection(
+                result.value, direction, metric, radius);
+            for (std::size_t i = 0; i < result.value.size(); ++i) {
+                result.value[i] += tau * direction[i];
+            }
+            result.reason = "NEGATIVE_CURVATURE";
+            result.boundary = true;
+            result.iterations = iteration + 1;
+            return result;
+        }
+
+        const double alpha = residual_preconditioned / curvature;
+        std::vector<Vec3> candidate = result.value;
+        for (std::size_t i = 0; i < candidate.size(); ++i) {
+            candidate[i] += alpha * direction[i];
+        }
+        if (metric_dot(candidate, metric, candidate) >= radius * radius) {
+            const double tau = metric_boundary_intersection(
+                result.value, direction, metric, radius);
+            for (std::size_t i = 0; i < result.value.size(); ++i) {
+                result.value[i] += tau * direction[i];
+            }
+            result.reason = "BOUNDARY";
+            result.boundary = true;
+            result.iterations = iteration + 1;
+            return result;
+        }
+        result.value = candidate;
+
+        std::vector<Vec3> next_residual = residual;
+        for (std::size_t i = 0; i < next_residual.size(); ++i) {
+            next_residual[i] += alpha * hessian_direction[i];
+        }
+        std::vector<Vec3> next_preconditioned =
+            apply_inverse_metric(metric, next_residual);
+        const double next_scalar =
+            vector_dot(next_residual, next_preconditioned);
+        if (std::sqrt(next_scalar) <= forcing * initial_residual) {
+            result.reason = "RESIDUAL";
+            result.iterations = iteration + 1;
+            return result;
+        }
+        const double beta = next_scalar / residual_preconditioned;
+        for (std::size_t i = 0; i < direction.size(); ++i) {
+            direction[i] = -next_preconditioned[i] + beta * direction[i];
+        }
+        residual = next_residual;
+        residual_preconditioned = next_scalar;
+    }
+    result.reason = "DIMENSION_LIMIT";
+    result.iterations = maximum_iterations;
+    return result;
+}
+
+TrustSolveResult solve_preconditioned_trust_region(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& velocity,
+    bool scale_aware_stop = false) {
+    constexpr int maximum_outer_trials = 64;
+    constexpr double accept_ratio = 0.1;
+    const std::vector<Vec3> y_star = predict(config, x, velocity);
+    std::vector<Vec3> y = y_star;
+    Evaluation current = evaluate(config, x, y_star, y);
+    TrustSolveResult result;
+    result.initial = current;
+    result.objective_evaluations = 1;
+    double radius = config.spacing;
+    const double minimum_radius = std::ldexp(config.spacing, -40);
+    const double maximum_radius = 4.0 * config.spacing;
+    result.minimum_radius = radius;
+    result.maximum_radius = radius;
+    result.minimum_accepted_ratio = std::numeric_limits<double>::infinity();
+    result.maximum_accepted_ratio = -std::numeric_limits<double>::infinity();
+    result.minimum_active_margin = minimum_active_margin(config, y);
+    std::vector<int> active_signature = pressure_active_signature(config, y);
+    if (!current.finite) {
+        result.failure = "NONFINITE_INITIAL_STATE";
+        result.final = current;
+        return result;
+    }
+
+    for (int outer = 0; outer < maximum_outer_trials; ++outer) {
+        if (trust_converged(
+                config, current, scale_aware_stop, result.convergence_stop)) {
+            result.succeeded = true;
+            break;
+        }
+        const BlockMetric metric = make_block_metric(config, x, y);
+        const TrustStep step = truncated_preconditioned_trust_cg(
+            config, x, y, current.gradient, metric, radius);
+        result.hvp_calls += step.hvp_calls;
+        if (step.reason == "NEGATIVE_CURVATURE") {
+            ++result.negative_curvature_stops;
+        } else if (step.reason == "BOUNDARY") {
+            ++result.boundary_stops;
+        } else if (step.reason == "RESIDUAL") {
+            ++result.residual_stops;
+        } else if (step.reason == "DIMENSION_LIMIT") {
+            ++result.dimension_stops;
+        }
+        ++result.outer_trials;
+        if (!step.finite || !all_finite(step.value)) {
+            result.failure = "NONFINITE_INNER_STEP";
+            break;
+        }
+        const std::vector<Vec3> hessian_step =
+            apply_hessian(config, x, y, step.value);
+        ++result.hvp_calls;
+        const double predicted_reduction = -(
+            vector_dot(current.gradient, step.value)
+            + 0.5 * vector_dot(step.value, hessian_step));
+        bool valid_model = std::isfinite(predicted_reduction)
+            && predicted_reduction > 0.0;
+        double ratio = -std::numeric_limits<double>::infinity();
+        Evaluation trial_evaluation;
+        std::vector<Vec3> trial = y;
+        if (valid_model) {
+            for (std::size_t i = 0; i < trial.size(); ++i) {
+                trial[i] += step.value[i];
+            }
+            trial_evaluation = evaluate(config, x, y_star, trial);
+            ++result.objective_evaluations;
+            result.minimum_active_margin = std::min(
+                result.minimum_active_margin,
+                minimum_active_margin(config, trial));
+            const double actual_reduction = current.total - trial_evaluation.total;
+            ratio = actual_reduction / predicted_reduction;
+            valid_model = trial_evaluation.finite
+                && std::isfinite(ratio) && actual_reduction > 0.0;
+        }
+        if (valid_model && ratio >= accept_ratio) {
+            const double allowance = ENERGY_ALLOWANCE
+                * std::max({std::abs(current.total),
+                    std::abs(trial_evaluation.total), 1.0});
+            result.monotonic = result.monotonic
+                && trial_evaluation.total <= current.total + allowance;
+            const std::vector<int> next_active =
+                pressure_active_signature(config, trial);
+            if (next_active != active_signature) {
+                ++result.active_set_changes;
+            }
+            active_signature = next_active;
+            y = trial;
+            current = trial_evaluation;
+            ++result.accepted_trials;
+            result.minimum_accepted_ratio = std::min(
+                result.minimum_accepted_ratio, ratio);
+            result.maximum_accepted_ratio = std::max(
+                result.maximum_accepted_ratio, ratio);
+        } else {
+            ++result.rejected_trials;
+        }
+        if (!valid_model || ratio < 0.25) {
+            radius *= 0.25;
+        } else if (ratio > 0.75 && step.boundary) {
+            radius = std::min(2.0 * radius, maximum_radius);
+        }
+        result.minimum_radius = std::min(result.minimum_radius, radius);
+        result.maximum_radius = std::max(result.maximum_radius, radius);
+        if (radius < minimum_radius) {
+            result.failure = "MINIMUM_TRUST_RADIUS";
+            break;
+        }
+    }
+    if (trust_converged(
+            config, current, scale_aware_stop, result.convergence_stop)
+        && result.failure.empty()) {
+        result.succeeded = true;
+    }
+    if (!result.succeeded && result.failure.empty()) {
+        result.failure = "OUTER_TRIAL_LIMIT";
+    }
+    if (!std::isfinite(result.minimum_accepted_ratio)) {
+        result.minimum_accepted_ratio = 0.0;
+        result.maximum_accepted_ratio = 0.0;
+    }
+    result.succeeded = result.succeeded && result.monotonic && current.finite;
+    result.final = current;
+    result.final_scaled_displacement_residual =
+        scaled_displacement_residual(config, current);
+    result.position = y;
+    return result;
+}
+
+struct BlockScalingCase {
+    std::string name;
+    std::size_t particle_count = 0;
+    TrustSolveResult baseline;
+    TrustSolveResult candidate;
+    bool scale_aware = false;
+    bool passed = false;
+};
+
+BlockScalingCase make_block_scaling_case(int side, bool scale_aware = false) {
+    constexpr double pitch = 0.04;
+    Config config;
+    config.kappa = 200.0;
+    config.lambda = 20.0;
+    config.mu = 10.0;
+    config.gamma = 100.0;
+    std::vector<Vec3> x;
+    std::vector<Vec3> velocity;
+    const double center = 0.5 * static_cast<double>(side - 1);
+    for (int iz = 0; iz < side; ++iz) {
+        for (int iy = 0; iy < side; ++iy) {
+            for (int ix = 0; ix < side; ++ix) {
+                const Vec3 position = {
+                    (static_cast<double>(ix) - center) * pitch,
+                    (static_cast<double>(iy) - center) * pitch,
+                    (static_cast<double>(iz) - center) * pitch,
+                };
+                x.push_back(position);
+                velocity.push_back({
+                    -0.35 * position.x + 0.08 * position.y,
+                    -0.25 * position.y - 0.06 * position.z,
+                    -0.30 * position.z + 0.05 * position.x,
+                });
+            }
+        }
+    }
+    const std::vector<Vec3> y_star = predict(config, x, velocity);
+    const std::vector<double> density = densities(config, y_star);
+    config.rest_density =
+        *std::max_element(density.begin(), density.end()) / 1.05;
+    BlockScalingCase result;
+    result.name = "lattice_" + std::to_string(side) + "x"
+        + std::to_string(side) + "x" + std::to_string(side);
+    result.particle_count = x.size();
+    result.scale_aware = scale_aware;
+    result.baseline = solve_trust_region(config, x, velocity, scale_aware);
+    result.candidate = solve_preconditioned_trust_region(
+        config, x, velocity, scale_aware);
+    const double objective_allowance = 1.0e-10
+        * std::max(std::abs(result.baseline.final.total), 1.0);
+    const bool residual_quality = scale_aware
+        ? result.candidate.final_scaled_displacement_residual
+            <= std::max(
+                2.0 * result.baseline.final_scaled_displacement_residual,
+                1.0e-8)
+        : result.candidate.final.gradient_norm
+            <= std::max(2.0 * result.baseline.final.gradient_norm, 1.0e-8);
+    result.passed = result.baseline.succeeded && result.candidate.succeeded
+        && result.baseline.failure.empty() && result.candidate.failure.empty()
+        && result.candidate.final.total
+            <= result.baseline.final.total + objective_allowance
+        && residual_quality
+        && result.candidate.final.internal_momentum_residual <= CONSERVATION_LIMIT
+        && result.candidate.objective_evaluations
+            <= result.baseline.objective_evaluations
+        && result.candidate.hvp_calls <= result.baseline.hvp_calls;
+    return result;
+}
+
+void append_block_scaling_case(
+    std::ostringstream& output,
+    const BlockScalingCase& value,
+    bool include_scaled = false) {
+    const auto append_solver = [&](const TrustSolveResult& solver) {
+        output << "{\"failure\":\"" << solver.failure << '"'
+               << ",\"final_objective\":" << solver.final.total
+               << ",\"final_gradient_norm\":" << solver.final.gradient_norm;
+        if (include_scaled) {
+            output << ",\"scaled_displacement_residual\":"
+                   << solver.final_scaled_displacement_residual
+                   << ",\"convergence_stop\":\""
+                   << solver.convergence_stop << '"';
+        }
+        output
+               << ",\"outer_trials\":" << solver.outer_trials
+               << ",\"accepted_trials\":" << solver.accepted_trials
+               << ",\"rejected_trials\":" << solver.rejected_trials
+               << ",\"objective_evaluations\":"
+               << solver.objective_evaluations
+               << ",\"hvp_calls\":" << solver.hvp_calls
+               << ",\"negative_curvature_stops\":"
+               << solver.negative_curvature_stops
+               << ",\"boundary_stops\":" << solver.boundary_stops
+               << ",\"active_set_changes\":" << solver.active_set_changes
+               << ",\"minimum_radius\":" << solver.minimum_radius
+               << ",\"maximum_radius\":" << solver.maximum_radius
+               << ",\"internal_momentum_residual\":"
+               << solver.final.internal_momentum_residual << '}';
+    };
+    output << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"particles\":" << value.particle_count
+           << ",\"baseline\":";
+    append_solver(value.baseline);
+    output << ",\"candidate\":";
+    append_solver(value.candidate);
+    output << '}';
+}
+
+struct NeighborhoodFixture {
+    std::string name;
+    Config config;
+    std::vector<Vec3> x;
+    std::vector<Vec3> velocity;
+    std::vector<Vec3> direction;
+};
+
+struct NeighborhoodCase {
+    std::string name;
+    bool passed = false;
+    bool pair_exact = false;
+    bool evaluation_exact = false;
+    bool hvp_exact = false;
+    std::size_t particles = 0;
+    std::size_t current_pairs = 0;
+    std::size_t reference_pairs = 0;
+    std::string pair_sha256;
+};
+
+bool exact_vec3(Vec3 lhs, Vec3 rhs) {
+    return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z;
+}
+
+bool exact_vectors(
+    const std::vector<Vec3>& lhs, const std::vector<Vec3>& rhs) {
+    if (lhs.size() != rhs.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        if (!exact_vec3(lhs[i], rhs[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool exact_evaluation(const Evaluation& lhs, const Evaluation& rhs) {
+    return lhs.total == rhs.total
+        && lhs.inertia == rhs.inertia
+        && lhs.pressure == rhs.pressure
+        && lhs.viscosity == rhs.viscosity
+        && lhs.surface == rhs.surface
+        && lhs.gradient_norm == rhs.gradient_norm
+        && lhs.internal_momentum_residual == rhs.internal_momentum_residual
+        && lhs.minimum_density_ratio == rhs.minimum_density_ratio
+        && lhs.maximum_density_ratio == rhs.maximum_density_ratio
+        && lhs.finite == rhs.finite
+        && exact_vectors(lhs.gradient, rhs.gradient);
+}
+
+std::string hash_pair_lists(
+    const std::vector<ParticlePair>& current,
+    const std::vector<ParticlePair>& reference) {
+    std::string material = "current|";
+    for (const ParticlePair pair : current) {
+        material += std::to_string(pair.i) + ':' + std::to_string(pair.j) + '|';
+    }
+    material += "reference|";
+    for (const ParticlePair pair : reference) {
+        material += std::to_string(pair.i) + ':' + std::to_string(pair.j) + '|';
+    }
+    return sha256_hex(material);
+}
+
+NeighborhoodFixture make_neighborhood_lattice_fixture(int side) {
+    constexpr double pitch = 0.04;
+    NeighborhoodFixture fixture;
+    fixture.name = "lattice_" + std::to_string(side) + "x"
+        + std::to_string(side) + "x" + std::to_string(side);
+    fixture.config.kappa = 200.0;
+    fixture.config.lambda = 20.0;
+    fixture.config.mu = 10.0;
+    fixture.config.gamma = 100.0;
+    const double center = 0.5 * static_cast<double>(side - 1);
+    for (int iz = 0; iz < side; ++iz) {
+        for (int iy = 0; iy < side; ++iy) {
+            for (int ix = 0; ix < side; ++ix) {
+                const Vec3 position = {
+                    (static_cast<double>(ix) - center) * pitch,
+                    (static_cast<double>(iy) - center) * pitch,
+                    (static_cast<double>(iz) - center) * pitch,
+                };
+                const std::size_t index = fixture.x.size();
+                fixture.x.push_back(position);
+                fixture.velocity.push_back({
+                    -0.35 * position.x + 0.08 * position.y,
+                    -0.25 * position.y - 0.06 * position.z,
+                    -0.30 * position.z + 0.05 * position.x,
+                });
+                fixture.direction.push_back({
+                    0.31 + 0.01 * static_cast<double>(index),
+                    -0.27 + 0.02 * static_cast<double>(index % 5),
+                    0.11 - 0.015 * static_cast<double>(index % 7),
+                });
+            }
+        }
+    }
+    const std::vector<Vec3> y_star =
+        predict(fixture.config, fixture.x, fixture.velocity);
+    const std::vector<double> density = densities(fixture.config, y_star);
+    fixture.config.rest_density =
+        *std::max_element(density.begin(), density.end()) / 1.05;
+    const double direction_norm = vector_norm(fixture.direction);
+    for (Vec3& value : fixture.direction) {
+        value = value / direction_norm;
+    }
+    return fixture;
+}
+
+NeighborhoodCase analyze_neighborhood_fixture(
+    const NeighborhoodFixture& fixture) {
+    NeighborhoodCase result;
+    result.name = fixture.name;
+    result.particles = fixture.x.size();
+    const std::vector<Vec3> y_star =
+        predict(fixture.config, fixture.x, fixture.velocity);
+    const double current_support = std::max(
+        fixture.config.horizon, 3.0 * fixture.config.spacing);
+    const std::vector<ParticlePair> current =
+        build_cell_pairs(y_star, current_support);
+    const std::vector<ParticlePair> reference =
+        build_cell_pairs(fixture.x, fixture.config.horizon);
+    const std::vector<ParticlePair> repeated_current =
+        build_cell_pairs(y_star, current_support);
+    const std::vector<ParticlePair> repeated_reference =
+        build_cell_pairs(fixture.x, fixture.config.horizon);
+    result.current_pairs = current.size();
+    result.reference_pairs = reference.size();
+    result.pair_sha256 = hash_pair_lists(current, reference);
+    result.pair_exact = current == all_pairs_inside(y_star, current_support)
+        && reference == all_pairs_inside(fixture.x, fixture.config.horizon)
+        && current == repeated_current && reference == repeated_reference
+        && result.pair_sha256
+            == hash_pair_lists(repeated_current, repeated_reference);
+
+    const Evaluation all_pair_evaluation = evaluate(
+        fixture.config, fixture.x, y_star, y_star);
+    const Evaluation neighborhood_evaluation = evaluate_with_pairs(
+        fixture.config, fixture.x, y_star, y_star, current, reference);
+    result.evaluation_exact = exact_evaluation(
+        all_pair_evaluation, neighborhood_evaluation);
+    const std::vector<Vec3> all_pair_hvp = apply_hessian(
+        fixture.config, fixture.x, y_star, fixture.direction);
+    const std::vector<Vec3> neighborhood_hvp = apply_hessian_with_pairs(
+        fixture.config, fixture.x, y_star, fixture.direction,
+        current, reference);
+    result.hvp_exact = exact_vectors(all_pair_hvp, neighborhood_hvp);
+    result.passed = result.pair_exact && result.evaluation_exact
+        && result.hvp_exact && all_pair_evaluation.finite
+        && neighborhood_evaluation.finite && all_finite(all_pair_hvp)
+        && all_finite(neighborhood_hvp);
+    return result;
+}
+
+std::array<NeighborhoodFixture, 7> neighborhood_fixtures() {
+    const std::array<SpectralFixture, 4> spectral = spectral_fixtures();
+    std::array<NeighborhoodFixture, 7> result;
+    for (std::size_t i = 0; i < spectral.size(); ++i) {
+        result[i].name = spectral[i].name;
+        result[i].config = spectral[i].config;
+        result[i].x = spectral[i].x;
+        result[i].velocity = spectral[i].velocity;
+        result[i].direction = spectral[i].direction;
+        const double direction_norm = vector_norm(result[i].direction);
+        for (Vec3& value : result[i].direction) {
+            value = value / direction_norm;
+        }
+    }
+    result[4] = make_neighborhood_lattice_fixture(2);
+    result[5] = make_neighborhood_lattice_fixture(3);
+    result[6] = make_neighborhood_lattice_fixture(4);
+    return result;
+}
+
+void append_neighborhood_case(
+    std::ostringstream& output, const NeighborhoodCase& value) {
+    output << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"particles\":" << value.particles
+           << ",\"current_pairs\":" << value.current_pairs
+           << ",\"reference_pairs\":" << value.reference_pairs
+           << ",\"pair_exact\":" << (value.pair_exact ? "true" : "false")
+           << ",\"evaluation_exact\":"
+           << (value.evaluation_exact ? "true" : "false")
+           << ",\"hvp_exact\":" << (value.hvp_exact ? "true" : "false")
+           << ",\"pair_sha256\":\"" << value.pair_sha256 << "\"}";
+}
+
+struct NeighborhoodTrustResult {
+    TrustSolveResult solve;
+    int pair_builds = 0;
+    std::size_t initial_pairs = 0;
+    std::size_t final_pairs = 0;
+    std::size_t maximum_pairs = 0;
+    std::size_t maximum_neighbors = 0;
+    std::uint64_t total_nanoseconds = 0;
+    std::uint64_t pair_and_adjacency_nanoseconds = 0;
+    std::uint64_t objective_gradient_nanoseconds = 0;
+    std::uint64_t hvp_nanoseconds = 0;
+    struct TrialTrace {
+        int trial = 0;
+        int inner_iterations = 0;
+        int inner_hvp_calls = 0;
+        int current_active = 0;
+        int trial_active = 0;
+        int active_additions = 0;
+        int active_removals = 0;
+        std::size_t current_pairs = 0;
+        std::size_t trial_pairs = 0;
+        std::size_t pair_additions = 0;
+        std::size_t pair_removals = 0;
+        double current_objective = 0.0;
+        double current_scaled_residual = 0.0;
+        double radius_before = 0.0;
+        double radius_after = 0.0;
+        double step_norm = 0.0;
+        double predicted_reduction = 0.0;
+        double energy_floor = 0.0;
+        double actual_reduction = 0.0;
+        double ratio = 0.0;
+        bool valid_model = false;
+        bool accepted = false;
+        std::string inner_reason;
+    };
+    std::vector<TrialTrace> trace;
+};
+
+struct MembershipDelta {
+    std::size_t additions = 0;
+    std::size_t removals = 0;
+};
+
+bool pair_less(const ParticlePair& lhs, const ParticlePair& rhs) {
+    return lhs.i < rhs.i || (lhs.i == rhs.i && lhs.j < rhs.j);
+}
+
+MembershipDelta pair_membership_delta(
+    const std::vector<ParticlePair>& current,
+    const std::vector<ParticlePair>& trial) {
+    MembershipDelta result;
+    std::size_t current_index = 0;
+    std::size_t trial_index = 0;
+    while (current_index < current.size() && trial_index < trial.size()) {
+        if (current[current_index] == trial[trial_index]) {
+            ++current_index;
+            ++trial_index;
+        } else if (pair_less(current[current_index], trial[trial_index])) {
+            ++result.removals;
+            ++current_index;
+        } else {
+            ++result.additions;
+            ++trial_index;
+        }
+    }
+    result.removals += current.size() - current_index;
+    result.additions += trial.size() - trial_index;
+    return result;
+}
+
+int active_count(const std::vector<int>& signature) {
+    int result = 0;
+    for (int value : signature) {
+        result += value;
+    }
+    return result;
+}
+
+std::pair<int, int> active_membership_delta(
+    const std::vector<int>& current,
+    const std::vector<int>& trial) {
+    int additions = 0;
+    int removals = 0;
+    for (std::size_t i = 0; i < current.size(); ++i) {
+        additions += current[i] == 0 && trial[i] != 0 ? 1 : 0;
+        removals += current[i] != 0 && trial[i] == 0 ? 1 : 0;
+    }
+    return {additions, removals};
+}
+
+std::size_t maximum_neighbor_count(
+    const std::vector<std::vector<std::size_t>>& adjacency) {
+    std::size_t result = 0;
+    for (const std::vector<std::size_t>& neighbors : adjacency) {
+        result = std::max(result, neighbors.size());
+    }
+    return result;
+}
+
+bool neighborhood_capacity_valid(
+    std::size_t particles,
+    const std::vector<ParticlePair>& pairs,
+    const std::vector<std::vector<std::size_t>>& adjacency) {
+    return pairs.size() <= 80 * particles
+        && maximum_neighbor_count(adjacency) <= 160;
+}
+
+TrustStep truncated_neighborhood_trust_cg(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& y,
+    const std::vector<Vec3>& gradient,
+    const std::vector<ParticlePair>& current_pairs,
+    const std::vector<ParticlePair>& reference_pairs,
+    const std::vector<std::vector<std::size_t>>& adjacency,
+    double radius,
+    bool capture_timing,
+    NeighborhoodHvpWorkspace* workspace) {
+    TrustStep result;
+    result.value.resize(y.size());
+    std::vector<Vec3> residual = gradient;
+    std::vector<Vec3> direction(gradient.size());
+    for (std::size_t i = 0; i < gradient.size(); ++i) {
+        direction[i] = -residual[i];
+    }
+    double residual_squared = vector_dot(residual, residual);
+    const double gradient_norm = std::sqrt(residual_squared);
+    const double forcing = std::min(0.5, std::sqrt(gradient_norm));
+    const int maximum_iterations = static_cast<int>(3 * y.size());
+    for (int iteration = 0; iteration < maximum_iterations; ++iteration) {
+        std::chrono::steady_clock::time_point hvp_begin;
+        if (capture_timing) {
+            hvp_begin = std::chrono::steady_clock::now();
+        }
+        std::vector<Vec3> baseline_hessian_direction;
+        const std::vector<Vec3>* hessian_direction = nullptr;
+        if (workspace != nullptr) {
+            hessian_direction = &apply_hessian_with_workspace(
+                config, x, y, direction, current_pairs,
+                reference_pairs, adjacency, *workspace);
+        } else {
+            baseline_hessian_direction = apply_hessian_with_adjacency(
+                config, x, y, direction, current_pairs,
+                reference_pairs, adjacency);
+            hessian_direction = &baseline_hessian_direction;
+        }
+        if (capture_timing) {
+            result.hvp_nanoseconds += static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now() - hvp_begin).count());
+        }
+        ++result.hvp_calls;
+        const double curvature = vector_dot(direction, *hessian_direction);
+        if (!std::isfinite(curvature) || !all_finite(*hessian_direction)) {
+            result.finite = false;
+            result.reason = "NONFINITE";
+            return result;
+        }
+        if (curvature <= 0.0) {
+            const double tau = positive_boundary_intersection(
+                result.value, direction, radius);
+            for (std::size_t i = 0; i < result.value.size(); ++i) {
+                result.value[i] += tau * direction[i];
+            }
+            result.reason = "NEGATIVE_CURVATURE";
+            result.boundary = true;
+            result.iterations = iteration + 1;
+            return result;
+        }
+        const double alpha = residual_squared / curvature;
+        std::vector<Vec3> candidate = result.value;
+        for (std::size_t i = 0; i < candidate.size(); ++i) {
+            candidate[i] += alpha * direction[i];
+        }
+        if (vector_norm(candidate) >= radius) {
+            const double tau = positive_boundary_intersection(
+                result.value, direction, radius);
+            for (std::size_t i = 0; i < result.value.size(); ++i) {
+                result.value[i] += tau * direction[i];
+            }
+            result.reason = "BOUNDARY";
+            result.boundary = true;
+            result.iterations = iteration + 1;
+            return result;
+        }
+        result.value = candidate;
+        std::vector<Vec3> next_residual = residual;
+        for (std::size_t i = 0; i < next_residual.size(); ++i) {
+            next_residual[i] += alpha * (*hessian_direction)[i];
+        }
+        const double next_squared = vector_dot(next_residual, next_residual);
+        if (std::sqrt(next_squared) <= forcing * gradient_norm) {
+            result.reason = "RESIDUAL";
+            result.iterations = iteration + 1;
+            return result;
+        }
+        const double beta = next_squared / residual_squared;
+        for (std::size_t i = 0; i < direction.size(); ++i) {
+            direction[i] = -next_residual[i] + beta * direction[i];
+        }
+        residual = next_residual;
+        residual_squared = next_squared;
+    }
+    result.reason = "DIMENSION_LIMIT";
+    result.iterations = maximum_iterations;
+    return result;
+}
+
+NeighborhoodTrustResult solve_neighborhood_trust_region(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& velocity,
+    bool capture_trace = false,
+    bool numerical_floor_stop = false,
+    bool capture_timing = false,
+    bool optimized_hvp = false) {
+    constexpr int maximum_outer_trials = 64;
+    constexpr double accept_ratio = 0.1;
+    std::chrono::steady_clock::time_point solve_begin;
+    if (capture_timing) {
+        solve_begin = std::chrono::steady_clock::now();
+    }
+    const std::vector<Vec3> y_star = predict(config, x, velocity);
+    std::vector<Vec3> y = y_star;
+    const double current_support = std::max(
+        config.horizon, 3.0 * config.spacing);
+    NeighborhoodTrustResult result;
+    std::chrono::steady_clock::time_point initial_pair_begin;
+    if (capture_timing) {
+        initial_pair_begin = std::chrono::steady_clock::now();
+    }
+    std::vector<ParticlePair> reference_pairs =
+        build_cell_pairs(x, config.horizon);
+    std::vector<ParticlePair> current_pairs =
+        build_cell_pairs(y, current_support);
+    std::vector<std::vector<std::size_t>> adjacency =
+        build_pair_adjacency(y.size(), current_pairs);
+    if (capture_timing) {
+        result.pair_and_adjacency_nanoseconds +=
+            static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now() - initial_pair_begin)
+                    .count());
+    }
+    result.pair_builds = 2;
+    result.initial_pairs = current_pairs.size();
+    result.maximum_pairs = std::max(
+        current_pairs.size(), reference_pairs.size());
+    result.maximum_neighbors = maximum_neighbor_count(adjacency);
+    if (!neighborhood_capacity_valid(y.size(), current_pairs, adjacency)
+        || reference_pairs.size() > 80 * y.size()) {
+        result.solve.failure = "PAIR_CAPACITY";
+        return result;
+    }
+    std::chrono::steady_clock::time_point initial_evaluation_begin;
+    if (capture_timing) {
+        initial_evaluation_begin = std::chrono::steady_clock::now();
+    }
+    Evaluation current = evaluate_with_pairs(
+        config, x, y_star, y, current_pairs, reference_pairs);
+    if (capture_timing) {
+        result.objective_gradient_nanoseconds +=
+            static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now()
+                        - initial_evaluation_begin).count());
+    }
+    result.solve.initial = current;
+    result.solve.objective_evaluations = 1;
+    double radius = config.spacing;
+    const double minimum_radius = std::ldexp(config.spacing, -40);
+    const double maximum_radius = 4.0 * config.spacing;
+    result.solve.minimum_radius = radius;
+    result.solve.maximum_radius = radius;
+    result.solve.minimum_accepted_ratio =
+        std::numeric_limits<double>::infinity();
+    result.solve.maximum_accepted_ratio =
+        -std::numeric_limits<double>::infinity();
+    result.solve.minimum_active_margin = minimum_active_margin(config, y);
+    std::vector<int> active_signature = pressure_active_signature(config, y);
+    NeighborhoodHvpWorkspace hvp_workspace;
+    if (!current.finite) {
+        result.solve.failure = "NONFINITE_INITIAL_STATE";
+        result.solve.final = current;
+        return result;
+    }
+
+    for (int outer = 0; outer < maximum_outer_trials; ++outer) {
+        if (trust_converged(
+                config, current, true, result.solve.convergence_stop)) {
+            result.solve.succeeded = true;
+            break;
+        }
+        const TrustStep step = truncated_neighborhood_trust_cg(
+            config, x, y, current.gradient, current_pairs,
+            reference_pairs, adjacency, radius, capture_timing,
+            optimized_hvp ? &hvp_workspace : nullptr);
+        result.solve.hvp_calls += step.hvp_calls;
+        result.hvp_nanoseconds += step.hvp_nanoseconds;
+        if (step.reason == "NEGATIVE_CURVATURE") {
+            ++result.solve.negative_curvature_stops;
+        } else if (step.reason == "BOUNDARY") {
+            ++result.solve.boundary_stops;
+        } else if (step.reason == "RESIDUAL") {
+            ++result.solve.residual_stops;
+        } else if (step.reason == "DIMENSION_LIMIT") {
+            ++result.solve.dimension_stops;
+        }
+        ++result.solve.outer_trials;
+        if (!step.finite || !all_finite(step.value)) {
+            result.solve.failure = "NONFINITE_INNER_STEP";
+            break;
+        }
+        std::chrono::steady_clock::time_point model_hvp_begin;
+        if (capture_timing) {
+            model_hvp_begin = std::chrono::steady_clock::now();
+        }
+        std::vector<Vec3> baseline_hessian_step;
+        const std::vector<Vec3>* hessian_step = nullptr;
+        if (optimized_hvp) {
+            hessian_step = &apply_hessian_with_workspace(
+                config, x, y, step.value, current_pairs,
+                reference_pairs, adjacency, hvp_workspace);
+        } else {
+            baseline_hessian_step = apply_hessian_with_adjacency(
+                config, x, y, step.value, current_pairs,
+                reference_pairs, adjacency);
+            hessian_step = &baseline_hessian_step;
+        }
+        if (capture_timing) {
+            result.hvp_nanoseconds += static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now() - model_hvp_begin)
+                    .count());
+        }
+        ++result.solve.hvp_calls;
+        const double predicted_reduction = -(
+            vector_dot(current.gradient, step.value)
+            + 0.5 * vector_dot(step.value, *hessian_step));
+        bool valid_model = std::isfinite(predicted_reduction)
+            && predicted_reduction > 0.0;
+        if (numerical_floor_stop && valid_model
+            && numerical_energy_floor_reached(config, current, step,
+                predicted_reduction, result.solve)) {
+            break;
+        }
+        double ratio = -std::numeric_limits<double>::infinity();
+        double actual_reduction = std::numeric_limits<double>::quiet_NaN();
+        Evaluation trial_evaluation;
+        std::vector<Vec3> trial = y;
+        std::vector<ParticlePair> trial_pairs;
+        std::vector<std::vector<std::size_t>> trial_adjacency;
+        std::vector<int> trial_active_signature = active_signature;
+        NeighborhoodTrustResult::TrialTrace trace;
+        if (capture_trace) {
+            trace.trial = outer + 1;
+            trace.inner_iterations = step.iterations;
+            trace.inner_hvp_calls = step.hvp_calls;
+            trace.current_active = active_count(active_signature);
+            trace.current_pairs = current_pairs.size();
+            trace.current_objective = current.total;
+            trace.current_scaled_residual =
+                scaled_displacement_residual(config, current);
+            trace.radius_before = radius;
+            trace.step_norm = vector_norm(step.value);
+            trace.predicted_reduction = predicted_reduction;
+            trace.energy_floor = numerical_energy_floor(current);
+            trace.inner_reason = step.reason;
+        }
+        if (valid_model) {
+            for (std::size_t i = 0; i < trial.size(); ++i) {
+                trial[i] += step.value[i];
+            }
+            std::chrono::steady_clock::time_point trial_pair_begin;
+            if (capture_timing) {
+                trial_pair_begin = std::chrono::steady_clock::now();
+            }
+            trial_pairs = build_cell_pairs(trial, current_support);
+            trial_adjacency = build_pair_adjacency(trial.size(), trial_pairs);
+            if (capture_timing) {
+                result.pair_and_adjacency_nanoseconds +=
+                    static_cast<std::uint64_t>(
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            std::chrono::steady_clock::now() - trial_pair_begin)
+                            .count());
+            }
+            ++result.pair_builds;
+            result.maximum_pairs = std::max(
+                result.maximum_pairs, trial_pairs.size());
+            result.maximum_neighbors = std::max(result.maximum_neighbors,
+                maximum_neighbor_count(trial_adjacency));
+            if (!neighborhood_capacity_valid(
+                    trial.size(), trial_pairs, trial_adjacency)) {
+                result.solve.failure = "PAIR_CAPACITY";
+                break;
+            }
+            std::chrono::steady_clock::time_point trial_evaluation_begin;
+            if (capture_timing) {
+                trial_evaluation_begin = std::chrono::steady_clock::now();
+            }
+            trial_evaluation = evaluate_with_pairs(config, x, y_star, trial,
+                trial_pairs, reference_pairs);
+            if (capture_timing) {
+                result.objective_gradient_nanoseconds +=
+                    static_cast<std::uint64_t>(
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            std::chrono::steady_clock::now()
+                                - trial_evaluation_begin).count());
+            }
+            ++result.solve.objective_evaluations;
+            result.solve.minimum_active_margin = std::min(
+                result.solve.minimum_active_margin,
+                minimum_active_margin(config, trial));
+            actual_reduction = current.total - trial_evaluation.total;
+            ratio = actual_reduction / predicted_reduction;
+            if (capture_trace) {
+                trial_active_signature =
+                    pressure_active_signature(config, trial);
+            }
+            valid_model = trial_evaluation.finite
+                && std::isfinite(ratio) && actual_reduction > 0.0;
+        }
+        MembershipDelta trace_pair_delta;
+        std::pair<int, int> trace_active_delta{0, 0};
+        if (capture_trace) {
+            trace_pair_delta = pair_membership_delta(
+                current_pairs, trial_pairs);
+            trace_active_delta = active_membership_delta(
+                active_signature, trial_active_signature);
+        }
+        const bool accepted = valid_model && ratio >= accept_ratio;
+        if (accepted) {
+            const double allowance = ENERGY_ALLOWANCE
+                * std::max({std::abs(current.total),
+                    std::abs(trial_evaluation.total), 1.0});
+            result.solve.monotonic = result.solve.monotonic
+                && trial_evaluation.total <= current.total + allowance;
+            const std::vector<int> next_active =
+                pressure_active_signature(config, trial);
+            if (next_active != active_signature) {
+                ++result.solve.active_set_changes;
+            }
+            active_signature = next_active;
+            y = trial;
+            current = trial_evaluation;
+            current_pairs = trial_pairs;
+            adjacency = trial_adjacency;
+            ++result.solve.accepted_trials;
+            result.solve.minimum_accepted_ratio = std::min(
+                result.solve.minimum_accepted_ratio, ratio);
+            result.solve.maximum_accepted_ratio = std::max(
+                result.solve.maximum_accepted_ratio, ratio);
+        } else {
+            ++result.solve.rejected_trials;
+        }
+        if (!valid_model || ratio < 0.25) {
+            radius *= 0.25;
+        } else if (ratio > 0.75 && step.boundary) {
+            radius = std::min(2.0 * radius, maximum_radius);
+        }
+        result.solve.minimum_radius = std::min(
+            result.solve.minimum_radius, radius);
+        result.solve.maximum_radius = std::max(
+            result.solve.maximum_radius, radius);
+        if (capture_trace) {
+            trace.trial_active = active_count(trial_active_signature);
+            trace.active_additions = trace_active_delta.first;
+            trace.active_removals = trace_active_delta.second;
+            trace.trial_pairs = trial_pairs.size();
+            trace.pair_additions = trace_pair_delta.additions;
+            trace.pair_removals = trace_pair_delta.removals;
+            trace.radius_after = radius;
+            trace.actual_reduction = actual_reduction;
+            trace.ratio = ratio;
+            trace.valid_model = valid_model;
+            trace.accepted = accepted;
+            result.trace.push_back(trace);
+        }
+        if (radius < minimum_radius) {
+            result.solve.failure = "MINIMUM_TRUST_RADIUS";
+            break;
+        }
+    }
+    if (trust_converged(
+            config, current, true, result.solve.convergence_stop)
+        && result.solve.failure.empty()) {
+        result.solve.succeeded = true;
+    }
+    if (!result.solve.succeeded && result.solve.failure.empty()) {
+        result.solve.failure = "OUTER_TRIAL_LIMIT";
+    }
+    if (!std::isfinite(result.solve.minimum_accepted_ratio)) {
+        result.solve.minimum_accepted_ratio = 0.0;
+        result.solve.maximum_accepted_ratio = 0.0;
+    }
+    result.solve.succeeded = result.solve.succeeded
+        && result.solve.monotonic && current.finite;
+    result.solve.final = current;
+    result.solve.final_scaled_displacement_residual =
+        scaled_displacement_residual(config, current);
+    result.solve.position = y;
+    result.final_pairs = current_pairs.size();
+    if (capture_timing) {
+        result.total_nanoseconds = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::steady_clock::now() - solve_begin).count());
+    }
+    return result;
+}
+
+enum class RejectionClass {
+    ArithmeticFloor,
+    ActiveSetModelMismatch,
+    SupportTopologyModelMismatch,
+    SmoothModelConditioning,
+};
+
+const char* rejection_class_name(RejectionClass value) {
+    switch (value) {
+    case RejectionClass::ArithmeticFloor:
+        return "ARITHMETIC_FLOOR";
+    case RejectionClass::ActiveSetModelMismatch:
+        return "ACTIVE_SET_MODEL_MISMATCH";
+    case RejectionClass::SupportTopologyModelMismatch:
+        return "SUPPORT_TOPOLOGY_MODEL_MISMATCH";
+    case RejectionClass::SmoothModelConditioning:
+        return "SMOOTH_MODEL_CONDITIONING";
+    }
+    return "UNREACHABLE";
+}
+
+RejectionClass classify_rejection(
+    const NeighborhoodTrustResult::TrialTrace& trace) {
+    const double arithmetic_floor = 1024.0
+        * std::numeric_limits<double>::epsilon()
+        * std::max(std::abs(trace.current_objective), 1.0);
+    if (std::abs(trace.predicted_reduction) <= arithmetic_floor
+        && std::abs(trace.actual_reduction) <= arithmetic_floor
+        && trace.current_scaled_residual <= 1.0e-7) {
+        return RejectionClass::ArithmeticFloor;
+    }
+    if (trace.active_additions != 0 || trace.active_removals != 0) {
+        return RejectionClass::ActiveSetModelMismatch;
+    }
+    if (trace.pair_additions != 0 || trace.pair_removals != 0) {
+        return RejectionClass::SupportTopologyModelMismatch;
+    }
+    return RejectionClass::SmoothModelConditioning;
+}
+
+void append_nullable_double(std::ostringstream& output, double value) {
+    if (std::isfinite(value)) {
+        output << value;
+    } else {
+        output << "null";
+    }
+}
+
+void append_trial_trace(
+    std::ostringstream& output,
+    const NeighborhoodTrustResult::TrialTrace& value) {
+    output << "{\"trial\":" << value.trial
+           << ",\"accepted\":" << (value.accepted ? "true" : "false")
+           << ",\"valid_model\":"
+           << (value.valid_model ? "true" : "false")
+           << ",\"current_objective\":" << value.current_objective
+           << ",\"current_scaled_residual\":"
+           << value.current_scaled_residual
+           << ",\"radius_before\":" << value.radius_before
+           << ",\"radius_after\":" << value.radius_after
+           << ",\"inner_reason\":\"" << value.inner_reason << '"'
+           << ",\"inner_iterations\":" << value.inner_iterations
+           << ",\"inner_hvp_calls\":" << value.inner_hvp_calls
+           << ",\"step_norm\":" << value.step_norm
+           << ",\"predicted_reduction\":";
+    append_nullable_double(output, value.predicted_reduction);
+    output << ",\"actual_reduction\":";
+    append_nullable_double(output, value.actual_reduction);
+    output << ",\"ratio\":";
+    append_nullable_double(output, value.ratio);
+    output << ",\"current_pairs\":" << value.current_pairs
+           << ",\"trial_pairs\":" << value.trial_pairs
+           << ",\"pair_additions\":" << value.pair_additions
+           << ",\"pair_removals\":" << value.pair_removals
+           << ",\"current_active\":" << value.current_active
+           << ",\"trial_active\":" << value.trial_active
+           << ",\"active_additions\":" << value.active_additions
+           << ",\"active_removals\":" << value.active_removals;
+    if (!value.accepted) {
+        output << ",\"classification\":\""
+               << rejection_class_name(classify_rejection(value)) << '"';
+    }
+    output << '}';
+}
+
+struct NeighborhoodScalingCase {
+    std::string name;
+    std::size_t particles = 0;
+    bool correspondence = false;
+    bool passed = false;
+    NeighborhoodTrustResult neighborhood;
+};
+
+bool exact_trust_result(
+    const TrustSolveResult& lhs, const TrustSolveResult& rhs) {
+    return lhs.succeeded == rhs.succeeded
+        && lhs.monotonic == rhs.monotonic
+        && lhs.outer_trials == rhs.outer_trials
+        && lhs.accepted_trials == rhs.accepted_trials
+        && lhs.rejected_trials == rhs.rejected_trials
+        && lhs.objective_evaluations == rhs.objective_evaluations
+        && lhs.hvp_calls == rhs.hvp_calls
+        && lhs.negative_curvature_stops == rhs.negative_curvature_stops
+        && lhs.boundary_stops == rhs.boundary_stops
+        && lhs.active_set_changes == rhs.active_set_changes
+        && lhs.numerical_floor_stops == rhs.numerical_floor_stops
+        && lhs.minimum_radius == rhs.minimum_radius
+        && lhs.maximum_radius == rhs.maximum_radius
+        && lhs.final_scaled_displacement_residual
+            == rhs.final_scaled_displacement_residual
+        && lhs.numerical_energy_floor == rhs.numerical_energy_floor
+        && lhs.numerical_predicted_reduction
+            == rhs.numerical_predicted_reduction
+        && lhs.numerical_scaled_step == rhs.numerical_scaled_step
+        && lhs.convergence_stop == rhs.convergence_stop
+        && lhs.failure == rhs.failure
+        && exact_evaluation(lhs.final, rhs.final)
+        && exact_vectors(lhs.position, rhs.position);
+}
+
+NeighborhoodScalingCase make_neighborhood_correspondence_case(int side) {
+    const NeighborhoodFixture fixture = make_neighborhood_lattice_fixture(side);
+    NeighborhoodScalingCase result;
+    result.name = fixture.name + "_correspondence";
+    result.particles = fixture.x.size();
+    const TrustSolveResult all_pair = solve_trust_region(
+        fixture.config, fixture.x, fixture.velocity, true);
+    result.neighborhood = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity);
+    result.correspondence = exact_trust_result(
+        all_pair, result.neighborhood.solve);
+    result.passed = result.correspondence;
+    return result;
+}
+
+NeighborhoodFixture make_neighborhood_scale_fixture(int side) {
+    constexpr double pitch = 0.05;
+    NeighborhoodFixture fixture;
+    fixture.name = "scale_" + std::to_string(side) + "x"
+        + std::to_string(side) + "x" + std::to_string(side);
+    fixture.config.kappa = 200.0;
+    fixture.config.lambda = 20.0;
+    fixture.config.mu = 10.0;
+    fixture.config.gamma = 100.0;
+    const double center = 0.5 * static_cast<double>(side - 1);
+    for (int iz = 0; iz < side; ++iz) {
+        for (int iy = 0; iy < side; ++iy) {
+            for (int ix = 0; ix < side; ++ix) {
+                const Vec3 position = {
+                    (static_cast<double>(ix) - center) * pitch,
+                    (static_cast<double>(iy) - center) * pitch,
+                    (static_cast<double>(iz) - center) * pitch,
+                };
+                fixture.x.push_back(position);
+                fixture.velocity.push_back({
+                    -0.35 * position.x + 0.08 * position.y,
+                    -0.25 * position.y - 0.06 * position.z,
+                    -0.30 * position.z + 0.05 * position.x,
+                });
+            }
+        }
+    }
+    const std::vector<Vec3> y_star =
+        predict(fixture.config, fixture.x, fixture.velocity);
+    const double support = std::max(
+        fixture.config.horizon, 3.0 * fixture.config.spacing);
+    const std::vector<ParticlePair> pairs = build_cell_pairs(y_star, support);
+    const std::vector<double> density =
+        densities_with_pairs(fixture.config, y_star, pairs);
+    fixture.config.rest_density =
+        *std::max_element(density.begin(), density.end()) / 1.05;
+    return fixture;
+}
+
+NeighborhoodScalingCase make_neighborhood_scale_case(int side) {
+    const NeighborhoodFixture fixture = make_neighborhood_scale_fixture(side);
+    NeighborhoodScalingCase result;
+    result.name = fixture.name;
+    result.particles = fixture.x.size();
+    result.neighborhood = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity);
+    const TrustSolveResult& solve = result.neighborhood.solve;
+    result.passed = solve.succeeded && solve.failure.empty()
+        && solve.monotonic && solve.final.finite
+        && solve.final.internal_momentum_residual <= CONSERVATION_LIMIT
+        && solve.final_scaled_displacement_residual <= 1.0e-8
+        && solve.outer_trials <= 32 && solve.rejected_trials <= 8
+        && solve.hvp_calls <= 128
+        && result.neighborhood.maximum_neighbors <= 160
+        && result.neighborhood.maximum_pairs <= 80 * result.particles;
+    return result;
+}
+
+void append_neighborhood_scaling_case(
+    std::ostringstream& output, const NeighborhoodScalingCase& value) {
+    const TrustSolveResult& solve = value.neighborhood.solve;
+    output << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"particles\":" << value.particles
+           << ",\"correspondence\":"
+           << (value.correspondence ? "true" : "false")
+           << ",\"failure\":\"" << solve.failure << '"'
+           << ",\"initial_objective\":" << solve.initial.total
+           << ",\"final_objective\":" << solve.final.total
+           << ",\"final_gradient_norm\":" << solve.final.gradient_norm
+           << ",\"scaled_displacement_residual\":"
+           << solve.final_scaled_displacement_residual
+           << ",\"convergence_stop\":\"" << solve.convergence_stop << '"'
+           << ",\"outer_trials\":" << solve.outer_trials
+           << ",\"accepted_trials\":" << solve.accepted_trials
+           << ",\"rejected_trials\":" << solve.rejected_trials
+           << ",\"objective_evaluations\":" << solve.objective_evaluations
+           << ",\"hvp_calls\":" << solve.hvp_calls
+           << ",\"pair_builds\":" << value.neighborhood.pair_builds
+           << ",\"initial_pairs\":" << value.neighborhood.initial_pairs
+           << ",\"final_pairs\":" << value.neighborhood.final_pairs
+           << ",\"maximum_pairs\":" << value.neighborhood.maximum_pairs
+           << ",\"maximum_neighbors\":"
+           << value.neighborhood.maximum_neighbors
+           << ",\"active_set_changes\":" << solve.active_set_changes
+           << ",\"internal_momentum_residual\":"
+           << solve.final.internal_momentum_residual << '}';
+}
+
+struct NumericalFloorCase {
+    std::string name;
+    std::size_t particles = 0;
+    bool correspondence = false;
+    bool no_floor_eligible_accept = true;
+    bool passed = false;
+    NeighborhoodTrustResult neighborhood;
+};
+
+bool valid_numerical_floor_stop(const TrustSolveResult& solve) {
+    if (solve.convergence_stop != "NUMERICAL_ENERGY_FLOOR") {
+        return solve.final_scaled_displacement_residual <= 1.0e-8
+            && solve.numerical_floor_stops == 0;
+    }
+    return solve.numerical_floor_stops == 1
+        && solve.numerical_predicted_reduction > 0.0
+        && solve.numerical_predicted_reduction
+            <= solve.numerical_energy_floor
+        && solve.final_scaled_displacement_residual <= 1.0e-7
+        && solve.numerical_scaled_step <= 1.0e-7;
+}
+
+bool no_floor_eligible_accepted_trial(
+    const NeighborhoodTrustResult& result) {
+    for (const NeighborhoodTrustResult::TrialTrace& trace : result.trace) {
+        if (trace.accepted
+            && trace.predicted_reduction > 0.0
+            && trace.predicted_reduction <= trace.energy_floor
+            && trace.current_scaled_residual <= 1.0e-7
+            && trace.step_norm / 0.05 <= 1.0e-7) {
+            return false;
+        }
+    }
+    return true;
+}
+
+NumericalFloorCase make_numerical_floor_correspondence_case(int side) {
+    const NeighborhoodFixture fixture = make_neighborhood_lattice_fixture(side);
+    NumericalFloorCase result;
+    result.name = fixture.name + "_correspondence";
+    result.particles = fixture.x.size();
+    const TrustSolveResult all_pair = solve_trust_region(
+        fixture.config, fixture.x, fixture.velocity, true, true);
+    result.neighborhood = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity, false, true);
+    result.correspondence = exact_trust_result(
+        all_pair, result.neighborhood.solve);
+    result.passed = result.correspondence
+        && valid_numerical_floor_stop(result.neighborhood.solve);
+    return result;
+}
+
+NumericalFloorCase make_numerical_floor_scale_case(int side) {
+    const NeighborhoodFixture fixture = make_neighborhood_scale_fixture(side);
+    NumericalFloorCase result;
+    result.name = fixture.name;
+    result.particles = fixture.x.size();
+    result.neighborhood = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity, true, true);
+    const TrustSolveResult& solve = result.neighborhood.solve;
+    result.no_floor_eligible_accept =
+        no_floor_eligible_accepted_trial(result.neighborhood);
+    result.passed = solve.succeeded && solve.failure.empty()
+        && solve.monotonic && solve.final.finite
+        && solve.final.internal_momentum_residual <= CONSERVATION_LIMIT
+        && valid_numerical_floor_stop(solve)
+        && result.no_floor_eligible_accept
+        && solve.outer_trials <= 32 && solve.rejected_trials <= 8
+        && solve.hvp_calls <= 128
+        && result.neighborhood.maximum_neighbors <= 160
+        && result.neighborhood.maximum_pairs <= 80 * result.particles;
+    return result;
+}
+
+void append_numerical_floor_case(
+    std::ostringstream& output, const NumericalFloorCase& value) {
+    const TrustSolveResult& solve = value.neighborhood.solve;
+    output << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"particles\":" << value.particles
+           << ",\"correspondence\":"
+           << (value.correspondence ? "true" : "false")
+           << ",\"convergence_stop\":\"" << solve.convergence_stop << '"'
+           << ",\"outer_trials\":" << solve.outer_trials
+           << ",\"accepted_trials\":" << solve.accepted_trials
+           << ",\"rejected_trials\":" << solve.rejected_trials
+           << ",\"objective_evaluations\":" << solve.objective_evaluations
+           << ",\"hvp_calls\":" << solve.hvp_calls
+           << ",\"pair_builds\":" << value.neighborhood.pair_builds
+           << ",\"maximum_pairs\":" << value.neighborhood.maximum_pairs
+           << ",\"maximum_neighbors\":"
+           << value.neighborhood.maximum_neighbors
+           << ",\"scaled_displacement_residual\":"
+           << solve.final_scaled_displacement_residual
+           << ",\"numerical_floor_stops\":"
+           << solve.numerical_floor_stops
+           << ",\"numerical_energy_floor\":"
+           << solve.numerical_energy_floor
+           << ",\"numerical_predicted_reduction\":"
+           << solve.numerical_predicted_reduction
+           << ",\"numerical_scaled_step\":"
+           << solve.numerical_scaled_step
+           << ",\"no_floor_eligible_accept\":"
+           << (value.no_floor_eligible_accept ? "true" : "false")
+           << ",\"internal_momentum_residual\":"
+           << solve.final.internal_momentum_residual << '}';
+}
+
+struct SerialTimingSample {
+    std::uint64_t total = 0;
+    std::uint64_t pair_and_adjacency = 0;
+    std::uint64_t objective_gradient = 0;
+    std::uint64_t hvp = 0;
+    std::uint64_t control_and_vector = 0;
+};
+
+struct SerialBenchmarkCase {
+    std::string name;
+    std::size_t particles = 0;
+    bool passed = false;
+    bool exact_repeat = true;
+    bool nsr2c2_overlap = true;
+    NeighborhoodTrustResult reference;
+    std::array<SerialTimingSample, 7> samples;
+    std::string state_sha256;
+};
+
+bool exact_neighborhood_trust_result(
+    const NeighborhoodTrustResult& lhs,
+    const NeighborhoodTrustResult& rhs) {
+    return exact_trust_result(lhs.solve, rhs.solve)
+        && lhs.pair_builds == rhs.pair_builds
+        && lhs.initial_pairs == rhs.initial_pairs
+        && lhs.final_pairs == rhs.final_pairs
+        && lhs.maximum_pairs == rhs.maximum_pairs
+        && lhs.maximum_neighbors == rhs.maximum_neighbors;
+}
+
+std::string hash_neighborhood_trust_state(
+    const NeighborhoodTrustResult& value) {
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << value.solve.convergence_stop << '|'
+             << value.solve.final.total << '|'
+             << value.solve.final.gradient_norm << '|'
+             << value.solve.outer_trials << '|'
+             << value.solve.accepted_trials << '|'
+             << value.solve.rejected_trials << '|'
+             << value.solve.objective_evaluations << '|'
+             << value.solve.hvp_calls << '|'
+             << value.pair_builds << '|'
+             << value.initial_pairs << '|'
+             << value.final_pairs << '|'
+             << value.maximum_pairs << '|'
+             << value.maximum_neighbors << '|';
+    for (Vec3 position : value.solve.position) {
+        material << position.x << ',' << position.y << ',' << position.z << '|';
+    }
+    return sha256_hex(material.str());
+}
+
+std::uint64_t timing_percentile(
+    const std::array<SerialTimingSample, 7>& samples,
+    std::uint64_t SerialTimingSample::*member,
+    int percentile) {
+    std::array<std::uint64_t, 7> values;
+    for (std::size_t i = 0; i < samples.size(); ++i) {
+        values[i] = samples[i].*member;
+    }
+    std::sort(values.begin(), values.end());
+    const std::size_t rank = static_cast<std::size_t>(
+        (percentile * static_cast<int>(values.size()) + 99) / 100 - 1);
+    return values[rank];
+}
+
+bool matches_nsr2c2_overlap(
+    int side, const NeighborhoodTrustResult& value) {
+    const TrustSolveResult& solve = value.solve;
+    if (side == 8) {
+        return solve.convergence_stop == "NUMERICAL_ENERGY_FLOOR"
+            && solve.outer_trials == 12 && solve.accepted_trials == 11
+            && solve.rejected_trials == 0
+            && solve.objective_evaluations == 12 && solve.hvp_calls == 46
+            && value.pair_builds == 13 && value.maximum_pairs == 19492
+            && value.maximum_neighbors == 122;
+    }
+    if (side == 10) {
+        return solve.convergence_stop == "SCALED_DISPLACEMENT"
+            && solve.outer_trials == 13 && solve.accepted_trials == 13
+            && solve.rejected_trials == 0
+            && solve.objective_evaluations == 14 && solve.hvp_calls == 45
+            && value.pair_builds == 15 && value.maximum_pairs == 42144
+            && value.maximum_neighbors == 122;
+    }
+    return true;
+}
+
+SerialBenchmarkCase make_serial_benchmark_case(int side) {
+    const NeighborhoodFixture fixture = make_neighborhood_scale_fixture(side);
+    SerialBenchmarkCase result;
+    result.name = fixture.name;
+    result.particles = fixture.x.size();
+    result.reference = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity, false, true, false);
+    static_cast<void>(solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity, false, true, true));
+    bool timing_valid = true;
+    for (std::size_t run = 0; run < result.samples.size(); ++run) {
+        const NeighborhoodTrustResult measured =
+            solve_neighborhood_trust_region(
+                fixture.config, fixture.x, fixture.velocity,
+                false, true, true);
+        result.exact_repeat = result.exact_repeat
+            && exact_neighborhood_trust_result(result.reference, measured);
+        SerialTimingSample& timing = result.samples[run];
+        timing.total = measured.total_nanoseconds;
+        timing.pair_and_adjacency =
+            measured.pair_and_adjacency_nanoseconds;
+        timing.objective_gradient =
+            measured.objective_gradient_nanoseconds;
+        timing.hvp = measured.hvp_nanoseconds;
+        const std::uint64_t timed_sum = timing.pair_and_adjacency
+            + timing.objective_gradient + timing.hvp;
+        timing_valid = timing_valid && timing.total > 0
+            && timing.pair_and_adjacency > 0
+            && timing.objective_gradient > 0 && timing.hvp > 0
+            && timed_sum <= timing.total;
+        timing.control_and_vector = timing.total - timed_sum;
+    }
+    result.nsr2c2_overlap = matches_nsr2c2_overlap(side, result.reference);
+    result.state_sha256 = hash_neighborhood_trust_state(result.reference);
+    result.passed = result.reference.solve.succeeded
+        && result.reference.solve.failure.empty()
+        && result.reference.solve.final.finite
+        && result.reference.solve.final.internal_momentum_residual
+            <= CONSERVATION_LIMIT
+        && result.reference.maximum_pairs <= 80 * result.particles
+        && result.reference.maximum_neighbors <= 160
+        && result.exact_repeat && result.nsr2c2_overlap && timing_valid;
+    return result;
+}
+
+void append_timing_samples(
+    std::ostringstream& output,
+    const std::array<SerialTimingSample, 7>& samples,
+    std::uint64_t SerialTimingSample::*member) {
+    output << '[';
+    for (std::size_t i = 0; i < samples.size(); ++i) {
+        if (i != 0) {
+            output << ',';
+        }
+        output << samples[i].*member;
+    }
+    output << ']';
+}
+
+void append_serial_benchmark_case(
+    std::ostringstream& output, const SerialBenchmarkCase& value) {
+    output << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"particles\":" << value.particles
+           << ",\"exact_repeat\":"
+           << (value.exact_repeat ? "true" : "false")
+           << ",\"nsr2c2_overlap\":"
+           << (value.nsr2c2_overlap ? "true" : "false")
+           << ",\"state_sha256\":\"" << value.state_sha256 << '"'
+           << ",\"operations\":{\"outer_trials\":"
+           << value.reference.solve.outer_trials
+           << ",\"objective_evaluations\":"
+           << value.reference.solve.objective_evaluations
+           << ",\"hvp_calls\":" << value.reference.solve.hvp_calls
+           << ",\"pair_builds\":" << value.reference.pair_builds
+           << ",\"maximum_pairs\":" << value.reference.maximum_pairs
+           << ",\"maximum_neighbors\":"
+           << value.reference.maximum_neighbors << "}"
+           << ",\"median_ns\":{\"total\":"
+           << timing_percentile(value.samples, &SerialTimingSample::total, 50)
+           << ",\"pair_and_adjacency\":"
+           << timing_percentile(value.samples,
+                &SerialTimingSample::pair_and_adjacency, 50)
+           << ",\"objective_gradient\":"
+           << timing_percentile(value.samples,
+                &SerialTimingSample::objective_gradient, 50)
+           << ",\"hvp\":"
+           << timing_percentile(value.samples, &SerialTimingSample::hvp, 50)
+           << ",\"control_and_vector\":"
+           << timing_percentile(value.samples,
+                &SerialTimingSample::control_and_vector, 50) << "}"
+           << ",\"p95_ns\":{\"total\":"
+           << timing_percentile(value.samples, &SerialTimingSample::total, 95)
+           << ",\"pair_and_adjacency\":"
+           << timing_percentile(value.samples,
+                &SerialTimingSample::pair_and_adjacency, 95)
+           << ",\"objective_gradient\":"
+           << timing_percentile(value.samples,
+                &SerialTimingSample::objective_gradient, 95)
+           << ",\"hvp\":"
+           << timing_percentile(value.samples, &SerialTimingSample::hvp, 95)
+           << ",\"control_and_vector\":"
+           << timing_percentile(value.samples,
+                &SerialTimingSample::control_and_vector, 95) << "}"
+           << ",\"raw_ns\":{\"total\":";
+    append_timing_samples(output, value.samples, &SerialTimingSample::total);
+    output << ",\"pair_and_adjacency\":";
+    append_timing_samples(output, value.samples,
+        &SerialTimingSample::pair_and_adjacency);
+    output << ",\"objective_gradient\":";
+    append_timing_samples(output, value.samples,
+        &SerialTimingSample::objective_gradient);
+    output << ",\"hvp\":";
+    append_timing_samples(output, value.samples, &SerialTimingSample::hvp);
+    output << ",\"control_and_vector\":";
+    append_timing_samples(output, value.samples,
+        &SerialTimingSample::control_and_vector);
+    output << "}}";
+}
+
+bool workspace_hvp_exact_controls() {
+    const std::array<NeighborhoodFixture, 7> fixtures =
+        neighborhood_fixtures();
+    for (const NeighborhoodFixture& fixture : fixtures) {
+        const std::vector<Vec3> y =
+            predict(fixture.config, fixture.x, fixture.velocity);
+        const double support = std::max(
+            fixture.config.horizon, 3.0 * fixture.config.spacing);
+        const std::vector<ParticlePair> current_pairs =
+            build_cell_pairs(y, support);
+        const std::vector<ParticlePair> reference_pairs =
+            build_cell_pairs(fixture.x, fixture.config.horizon);
+        const std::vector<std::vector<std::size_t>> adjacency =
+            build_pair_adjacency(y.size(), current_pairs);
+        const std::vector<Vec3> baseline = apply_hessian_with_adjacency(
+            fixture.config, fixture.x, y, fixture.direction,
+            current_pairs, reference_pairs, adjacency);
+        NeighborhoodHvpWorkspace workspace;
+        const std::vector<Vec3>& candidate = apply_hessian_with_workspace(
+            fixture.config, fixture.x, y, fixture.direction,
+            current_pairs, reference_pairs, adjacency, workspace);
+        if (!exact_vectors(baseline, candidate)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+struct HvpTournamentCase {
+    std::string name;
+    std::size_t particles = 0;
+    bool passed = false;
+    bool exact_state = true;
+    NeighborhoodTrustResult baseline_reference;
+    NeighborhoodTrustResult candidate_reference;
+    std::array<SerialTimingSample, 7> baseline_samples;
+    std::array<SerialTimingSample, 7> candidate_samples;
+    double hvp_speedup = 0.0;
+    double total_speedup = 0.0;
+};
+
+SerialTimingSample timing_sample(const NeighborhoodTrustResult& value) {
+    SerialTimingSample result;
+    result.total = value.total_nanoseconds;
+    result.pair_and_adjacency = value.pair_and_adjacency_nanoseconds;
+    result.objective_gradient = value.objective_gradient_nanoseconds;
+    result.hvp = value.hvp_nanoseconds;
+    const std::uint64_t timed_sum = result.pair_and_adjacency
+        + result.objective_gradient + result.hvp;
+    result.control_and_vector = value.total_nanoseconds - timed_sum;
+    return result;
+}
+
+bool valid_timing(const SerialTimingSample& value) {
+    return value.total > 0 && value.pair_and_adjacency > 0
+        && value.objective_gradient > 0 && value.hvp > 0
+        && value.pair_and_adjacency + value.objective_gradient + value.hvp
+            <= value.total;
+}
+
+HvpTournamentCase make_hvp_tournament_case(int side) {
+    const NeighborhoodFixture fixture = make_neighborhood_scale_fixture(side);
+    HvpTournamentCase result;
+    result.name = fixture.name;
+    result.particles = fixture.x.size();
+    result.baseline_reference = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity,
+        false, true, false, false);
+    result.candidate_reference = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity,
+        false, true, false, true);
+    result.exact_state = exact_neighborhood_trust_result(
+        result.baseline_reference, result.candidate_reference);
+    static_cast<void>(solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity,
+        false, true, true, false));
+    static_cast<void>(solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity,
+        false, true, true, true));
+    bool timings_valid = true;
+    for (std::size_t run = 0; run < result.baseline_samples.size(); ++run) {
+        NeighborhoodTrustResult baseline;
+        NeighborhoodTrustResult candidate;
+        if (run % 2 == 0) {
+            baseline = solve_neighborhood_trust_region(
+                fixture.config, fixture.x, fixture.velocity,
+                false, true, true, false);
+            candidate = solve_neighborhood_trust_region(
+                fixture.config, fixture.x, fixture.velocity,
+                false, true, true, true);
+        } else {
+            candidate = solve_neighborhood_trust_region(
+                fixture.config, fixture.x, fixture.velocity,
+                false, true, true, true);
+            baseline = solve_neighborhood_trust_region(
+                fixture.config, fixture.x, fixture.velocity,
+                false, true, true, false);
+        }
+        result.exact_state = result.exact_state
+            && exact_neighborhood_trust_result(
+                result.baseline_reference, baseline)
+            && exact_neighborhood_trust_result(
+                result.candidate_reference, candidate)
+            && exact_neighborhood_trust_result(baseline, candidate);
+        result.baseline_samples[run] = timing_sample(baseline);
+        result.candidate_samples[run] = timing_sample(candidate);
+        timings_valid = timings_valid
+            && valid_timing(result.baseline_samples[run])
+            && valid_timing(result.candidate_samples[run]);
+    }
+    const double baseline_hvp = static_cast<double>(timing_percentile(
+        result.baseline_samples, &SerialTimingSample::hvp, 50));
+    const double candidate_hvp = static_cast<double>(timing_percentile(
+        result.candidate_samples, &SerialTimingSample::hvp, 50));
+    const double baseline_total = static_cast<double>(timing_percentile(
+        result.baseline_samples, &SerialTimingSample::total, 50));
+    const double candidate_total = static_cast<double>(timing_percentile(
+        result.candidate_samples, &SerialTimingSample::total, 50));
+    result.hvp_speedup = baseline_hvp / candidate_hvp;
+    result.total_speedup = baseline_total / candidate_total;
+    const bool total_gate = side >= 12
+        ? result.total_speedup >= 1.10
+        : result.total_speedup >= (1.0 / 1.02);
+    result.passed = result.exact_state && timings_valid
+        && result.hvp_speedup >= 1.20 && total_gate;
+    return result;
+}
+
+void append_hvp_tournament_case(
+    std::ostringstream& output, const HvpTournamentCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"particles\":" << value.particles
+           << ",\"exact_state\":"
+           << (value.exact_state ? "true" : "false")
+           << ",\"hvp_speedup\":" << value.hvp_speedup
+           << ",\"total_speedup\":" << value.total_speedup
+           << ",\"baseline_median_ns\":{\"total\":"
+           << timing_percentile(value.baseline_samples,
+                &SerialTimingSample::total, 50)
+           << ",\"hvp\":" << timing_percentile(value.baseline_samples,
+                &SerialTimingSample::hvp, 50) << "}"
+           << ",\"candidate_median_ns\":{\"total\":"
+           << timing_percentile(value.candidate_samples,
+                &SerialTimingSample::total, 50)
+           << ",\"hvp\":" << timing_percentile(value.candidate_samples,
+                &SerialTimingSample::hvp, 50) << "}"
+           << ",\"baseline_raw_total_ns\":";
+    append_timing_samples(output, value.baseline_samples,
+        &SerialTimingSample::total);
+    output << ",\"candidate_raw_total_ns\":";
+    append_timing_samples(output, value.candidate_samples,
+        &SerialTimingSample::total);
+    output << ",\"baseline_raw_hvp_ns\":";
+    append_timing_samples(output, value.baseline_samples,
+        &SerialTimingSample::hvp);
+    output << ",\"candidate_raw_hvp_ns\":";
+    append_timing_samples(output, value.candidate_samples,
+        &SerialTimingSample::hvp);
+    output << '}';
 }
 
 void append_case(std::ostringstream& output, const CaseResult& value) {
@@ -1571,6 +4918,631 @@ ReferenceSolverReport run_sissm_pressure_chebyshev_controls() {
             + std::to_string(value.candidate.final.gradient_norm);
     }
     report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_spectral_hvp_controls() {
+    const std::array<SpectralFixture, 4> fixtures = spectral_fixtures();
+    std::array<SpectralCase, 4> cases;
+    bool passed = true;
+    std::string first_failure;
+    for (std::size_t i = 0; i < fixtures.size(); ++i) {
+        cases[i] = analyze_spectral_fixture(fixtures[i]);
+        passed = passed && cases[i].passed;
+        if (first_failure.empty() && !cases[i].passed) {
+            if (!cases[i].finite) {
+                first_failure = "NSR0_NONFINITE:" + cases[i].name;
+            } else if (!cases[i].fixed_branches) {
+                first_failure = "NSR0_BRANCH_CROSSING:" + cases[i].name;
+            } else if (!cases[i].jacobi_converged) {
+                first_failure = "NSR0_JACOBI_BUDGET:" + cases[i].name;
+            } else if (cases[i].hvp_fd_error > 2.0e-6) {
+                first_failure = "NSR0_HVP_FD_MISMATCH:" + cases[i].name;
+            } else if (cases[i].symmetry_error > 2.0e-12) {
+                first_failure = "NSR0_HESSIAN_ASYMMETRY:" + cases[i].name;
+            } else {
+                first_failure = "NSR0_DENSE_PRODUCT_MISMATCH:" + cases[i].name;
+            }
+        }
+    }
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr0_spectral_hvp.v1\""
+           << ",\"identity\":\"nuv-newton-krylov-r0\""
+           << ",\"objective_parent\":\"nuv-variational-fcr1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"thresholds\":{\"fd_epsilon_scale\":"
+           << std::ldexp(1.0, -20)
+           << ",\"hvp_fd_relative\":2e-6"
+           << ",\"symmetry_relative\":2e-12"
+           << ",\"dense_product_relative\":2e-12"
+           << ",\"jacobi_relative\":1e-12"
+           << ",\"jacobi_pivot_factor\":64}"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_spectral_case(report, cases[i]);
+    }
+    report << "]"
+           << ",\"nsr1_authorized\":" << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false";
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure;
+    for (const SpectralCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + std::to_string(value.hvp_fd_error) + ':'
+            + std::to_string(value.minimum_eigenvalue) + ':'
+            + std::to_string(value.maximum_eigenvalue) + ':'
+            + std::to_string(value.off_particle_block_ratio);
+    }
+    report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_trust_region_controls() {
+    std::array<TrustCase, 2> cases = {
+        make_trust_compression_case(),
+        make_trust_combined_case(),
+    };
+    bool passed = true;
+    std::string first_failure;
+    for (const TrustCase& value : cases) {
+        passed = passed && value.passed;
+        if (!value.passed && first_failure.empty()) {
+            if (!value.candidate.failure.empty()) {
+                first_failure = "NSR1_" + value.candidate.failure
+                    + ':' + value.name;
+            } else if (value.candidate.final.total
+                > value.baseline.final.total
+                    + 1.0e-10
+                        * std::max(std::abs(value.baseline.final.total), 1.0)) {
+                first_failure = "NSR1_OBJECTIVE_QUALITY:" + value.name;
+            } else if (value.candidate.final.gradient_norm
+                > std::max(2.0 * value.baseline.final.gradient_norm, 1.0e-8)) {
+                first_failure = "NSR1_GRADIENT_QUALITY:" + value.name;
+            } else if (value.candidate.final.internal_momentum_residual
+                > CONSERVATION_LIMIT) {
+                first_failure = "NSR1_MOMENTUM_CLOSURE:" + value.name;
+            } else {
+                first_failure = "NSR1_EVALUATION_REDUCTION:" + value.name;
+            }
+        }
+    }
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr1_trust_region.v1\""
+           << ",\"identity\":\"nuv-newton-krylov-r0\""
+           << ",\"objective_parent\":\"nuv-variational-fcr1\""
+           << ",\"solver\":\"steihaug-toint-unpreconditioned-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"policy\":{\"initial_radius\":0.05"
+           << ",\"minimum_radius_scale\":" << std::ldexp(1.0, -40)
+           << ",\"maximum_radius_scale\":4"
+           << ",\"accept_ratio\":0.10000000000000001"
+           << ",\"shrink_ratio\":0.25,\"grow_ratio\":2"
+           << ",\"maximum_outer_trials\":64"
+           << ",\"gradient_tolerance\":1e-10}"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_trust_case(report, cases[i]);
+    }
+    report << "]"
+           << ",\"nsr2_authorized\":" << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false";
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure;
+    for (const TrustCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + std::to_string(value.candidate.final.total) + ':'
+            + std::to_string(value.candidate.final.gradient_norm) + ':'
+            + std::to_string(value.candidate.objective_evaluations) + ':'
+            + std::to_string(value.candidate.hvp_calls);
+    }
+    report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_block_preconditioner_controls() {
+    std::array<BlockScalingCase, 3> cases = {
+        make_block_scaling_case(2),
+        make_block_scaling_case(3),
+        make_block_scaling_case(4),
+    };
+    int baseline_large_hvps = 0;
+    int candidate_large_hvps = 0;
+    bool cases_passed = true;
+    std::string first_failure;
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        cases_passed = cases_passed && cases[i].passed;
+        if (!cases[i].passed && first_failure.empty()) {
+            first_failure = "NSR2A_CASE_QUALITY:" + cases[i].name;
+        }
+        if (i > 0) {
+            baseline_large_hvps += cases[i].baseline.hvp_calls;
+            candidate_large_hvps += cases[i].candidate.hvp_calls;
+        }
+    }
+    const bool aggregate_reduction =
+        4LL * static_cast<long long>(candidate_large_hvps)
+        <= 3LL * static_cast<long long>(baseline_large_hvps);
+    if (first_failure.empty() && !aggregate_reduction) {
+        first_failure = "NSR2A_AGGREGATE_HVP_REDUCTION";
+    }
+    const bool passed = cases_passed && aggregate_reduction;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr2a_block_preconditioner.v1\""
+           << ",\"identity\":\"nuv-newton-krylov-r0\""
+           << ",\"candidate\":\"block-gn-metric-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"thresholds\":{\"aggregate_hvp_ratio\":0.75"
+           << ",\"objective_relative\":1e-10"
+           << ",\"gradient_ratio\":2"
+           << ",\"momentum\":1e-12}"
+           << ",\"aggregate\":{\"baseline_large_hvps\":"
+           << baseline_large_hvps
+           << ",\"candidate_large_hvps\":" << candidate_large_hvps
+           << ",\"reduction_gate\":\""
+           << (aggregate_reduction ? "PASS" : "FAIL") << "\"}"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_block_scaling_case(report, cases[i]);
+    }
+    report << "]"
+           << ",\"selected_preconditioner\":\""
+           << (passed ? "block-gn-metric-v1" : "unpreconditioned") << '"'
+           << ",\"nsr2b_authorized\":true"
+           << ",\"runtime_authority\":false";
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure + '|' + std::to_string(baseline_large_hvps) + '|'
+        + std::to_string(candidate_large_hvps);
+    for (const BlockScalingCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + std::to_string(value.baseline.hvp_calls) + ':'
+            + std::to_string(value.candidate.hvp_calls) + ':'
+            + std::to_string(value.candidate.final.total);
+    }
+    report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_scale_aware_block_preconditioner_controls() {
+    std::array<BlockScalingCase, 3> cases = {
+        make_block_scaling_case(2, true),
+        make_block_scaling_case(3, true),
+        make_block_scaling_case(4, true),
+    };
+    int baseline_large_hvps = 0;
+    int candidate_large_hvps = 0;
+    bool cases_passed = true;
+    std::string first_failure;
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        cases_passed = cases_passed && cases[i].passed;
+        if (!cases[i].passed && first_failure.empty()) {
+            first_failure = "NSR2A1_CASE_QUALITY:" + cases[i].name;
+        }
+        if (i > 0) {
+            baseline_large_hvps += cases[i].baseline.hvp_calls;
+            candidate_large_hvps += cases[i].candidate.hvp_calls;
+        }
+    }
+    const bool aggregate_reduction =
+        4LL * static_cast<long long>(candidate_large_hvps)
+        <= 3LL * static_cast<long long>(baseline_large_hvps);
+    if (first_failure.empty() && !aggregate_reduction) {
+        first_failure = "NSR2A1_AGGREGATE_HVP_REDUCTION";
+    }
+    const bool passed = cases_passed && aggregate_reduction;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr2a1_scale_aware_block.v1\""
+           << ",\"identity\":\"nuv-newton-krylov-r0\""
+           << ",\"candidate\":\"block-gn-metric-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"thresholds\":{\"scaled_displacement\":1e-8"
+           << ",\"aggregate_hvp_ratio\":0.75"
+           << ",\"objective_relative\":1e-10"
+           << ",\"scaled_residual_ratio\":2"
+           << ",\"momentum\":1e-12}"
+           << ",\"aggregate\":{\"baseline_large_hvps\":"
+           << baseline_large_hvps
+           << ",\"candidate_large_hvps\":" << candidate_large_hvps
+           << ",\"reduction_gate\":\""
+           << (aggregate_reduction ? "PASS" : "FAIL") << "\"}"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_block_scaling_case(report, cases[i], true);
+    }
+    report << "]"
+           << ",\"selected_preconditioner\":\""
+           << (passed ? "block-gn-metric-v1" : "unpreconditioned") << '"'
+           << ",\"nsr2b_authorized\":true"
+           << ",\"runtime_authority\":false";
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure + '|' + std::to_string(baseline_large_hvps) + '|'
+        + std::to_string(candidate_large_hvps);
+    for (const BlockScalingCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + std::to_string(value.baseline.hvp_calls) + ':'
+            + std::to_string(value.candidate.hvp_calls) + ':'
+            + std::to_string(value.candidate.final.total) + ':'
+            + std::to_string(
+                value.candidate.final_scaled_displacement_residual);
+    }
+    report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_neighborhood_hvp_controls() {
+    const std::array<NeighborhoodFixture, 7> fixtures =
+        neighborhood_fixtures();
+    std::array<NeighborhoodCase, 7> cases;
+    bool passed = true;
+    std::string first_failure;
+    for (std::size_t i = 0; i < fixtures.size(); ++i) {
+        cases[i] = analyze_neighborhood_fixture(fixtures[i]);
+        passed = passed && cases[i].passed;
+        if (!cases[i].passed && first_failure.empty()) {
+            if (!cases[i].pair_exact) {
+                first_failure = "NSR2B_PAIR_MISMATCH:" + cases[i].name;
+            } else if (!cases[i].evaluation_exact) {
+                first_failure = "NSR2B_EVALUATION_MISMATCH:" + cases[i].name;
+            } else {
+                first_failure = "NSR2B_HVP_MISMATCH:" + cases[i].name;
+            }
+        }
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr2b_neighborhood_hvp.v1\""
+           << ",\"identity\":\"nuv-newton-krylov-r0\""
+           << ",\"candidate\":\"canonical-cell-neighborhood-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"cell_edge\":\"max(horizon,3*spacing)\""
+           << ",\"comparison\":\"binary64-exact\""
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_neighborhood_case(report, cases[i]);
+    }
+    report << "]"
+           << ",\"nsr2c_authorized\":" << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false";
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure;
+    for (const NeighborhoodCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + std::to_string(value.current_pairs) + ':'
+            + std::to_string(value.reference_pairs) + ':'
+            + value.pair_sha256;
+    }
+    report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_neighborhood_trust_scaling_controls() {
+    std::array<NeighborhoodScalingCase, 6> cases = {
+        make_neighborhood_correspondence_case(2),
+        make_neighborhood_correspondence_case(3),
+        make_neighborhood_correspondence_case(4),
+        make_neighborhood_scale_case(5),
+        make_neighborhood_scale_case(8),
+        make_neighborhood_scale_case(10),
+    };
+    bool passed = true;
+    std::string first_failure;
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        passed = passed && cases[i].passed;
+        if (!cases[i].passed && first_failure.empty()) {
+            first_failure = i < 3
+                ? "NSR2C_SOLVER_CORRESPONDENCE:" + cases[i].name
+                : "NSR2C_SCALE_GATE:" + cases[i].name;
+        }
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr2c_neighborhood_trust.v1\""
+           << ",\"identity\":\"nuv-newton-krylov-r0\""
+           << ",\"candidate\":\"canonical-neighborhood-trust-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"thresholds\":{\"scaled_displacement\":1e-8"
+           << ",\"maximum_outer_trials\":32"
+           << ",\"maximum_rejected_trials\":8"
+           << ",\"maximum_hvp_calls\":128"
+           << ",\"maximum_neighbors\":160"
+           << ",\"maximum_pairs_per_particle\":80"
+           << ",\"momentum\":1e-12}"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_neighborhood_scaling_case(report, cases[i]);
+    }
+    report << "]"
+           << ",\"nsr3_authorized\":" << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false";
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure;
+    for (const NeighborhoodScalingCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + std::to_string(value.neighborhood.solve.final.total) + ':'
+            + std::to_string(value.neighborhood.solve.hvp_calls) + ':'
+            + std::to_string(value.neighborhood.maximum_pairs) + ':'
+            + std::to_string(value.neighborhood.maximum_neighbors);
+    }
+    report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_neighborhood_trust_rejection_trace_controls() {
+    const NeighborhoodFixture fixture = make_neighborhood_scale_fixture(8);
+    const NeighborhoodTrustResult result = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity, true);
+    std::array<int, 4> rejection_counts{};
+    for (const NeighborhoodTrustResult::TrialTrace& trace : result.trace) {
+        if (!trace.accepted) {
+            ++rejection_counts[static_cast<std::size_t>(
+                classify_rejection(trace))];
+        }
+    }
+    int observed_classes = 0;
+    std::size_t selected_class = 0;
+    for (std::size_t i = 0; i < rejection_counts.size(); ++i) {
+        if (rejection_counts[i] != 0) {
+            ++observed_classes;
+            selected_class = i;
+        }
+    }
+    const std::string classification = observed_classes == 1
+        ? rejection_class_name(static_cast<RejectionClass>(selected_class))
+        : "MIXED_OR_UNRESOLVED";
+    const bool parent_exact = result.solve.outer_trials == 26
+        && result.solve.accepted_trials == 13
+        && result.solve.rejected_trials == 13
+        && result.solve.hvp_calls == 153
+        && result.maximum_pairs == 19492
+        && result.maximum_neighbors == 122
+        && result.trace.size()
+            == static_cast<std::size_t>(result.solve.outer_trials);
+    const bool passed = parent_exact && observed_classes != 0;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr2c1_rejection_trace.v1\""
+           << ",\"identity\":\"nuv-newton-krylov-r0\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"parent_exact\":" << (parent_exact ? "true" : "false")
+           << ",\"classification\":\"" << classification << '"'
+           << ",\"classification_counts\":{"
+           << "\"arithmetic_floor\":" << rejection_counts[0]
+           << ",\"active_set_model_mismatch\":" << rejection_counts[1]
+           << ",\"support_topology_model_mismatch\":"
+           << rejection_counts[2]
+           << ",\"smooth_model_conditioning\":" << rejection_counts[3]
+           << "},\"outer_trials\":" << result.solve.outer_trials
+           << ",\"accepted_trials\":" << result.solve.accepted_trials
+           << ",\"rejected_trials\":" << result.solve.rejected_trials
+           << ",\"hvp_calls\":" << result.solve.hvp_calls
+           << ",\"trace\":[";
+    for (std::size_t i = 0; i < result.trace.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_trial_trace(report, result.trace[i]);
+    }
+    const std::string result_material = classification + '|'
+        + std::to_string(result.solve.outer_trials) + '|'
+        + std::to_string(result.solve.rejected_trials) + '|'
+        + std::to_string(result.solve.hvp_calls) + '|'
+        + std::to_string(rejection_counts[0]) + '|'
+        + std::to_string(rejection_counts[1]) + '|'
+        + std::to_string(rejection_counts[2]) + '|'
+        + std::to_string(rejection_counts[3]);
+    report << "]"
+           << ",\"remediation_authority\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"result_sha256\":\"" << sha256_hex(result_material)
+           << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_numerical_floor_stop_controls() {
+    std::array<NumericalFloorCase, 6> cases = {
+        make_numerical_floor_correspondence_case(2),
+        make_numerical_floor_correspondence_case(3),
+        make_numerical_floor_correspondence_case(4),
+        make_numerical_floor_scale_case(5),
+        make_numerical_floor_scale_case(8),
+        make_numerical_floor_scale_case(10),
+    };
+    bool passed = true;
+    std::string first_failure;
+    for (const NumericalFloorCase& value : cases) {
+        passed = passed && value.passed;
+        if (!value.passed && first_failure.empty()) {
+            first_failure = "NSR2C2_GATE:" + value.name;
+        }
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr2c2_numerical_floor.v1\""
+           << ",\"identity\":\"nuv-newton-krylov-r0\""
+           << ",\"candidate\":\"numerical-energy-floor-stop-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"thresholds\":{\"epsilon_multiplier\":1024"
+           << ",\"ordinary_scaled_displacement\":1e-8"
+           << ",\"floor_scaled_displacement\":1e-7"
+           << ",\"floor_scaled_step\":1e-7"
+           << ",\"maximum_outer_trials\":32"
+           << ",\"maximum_rejected_trials\":8"
+           << ",\"maximum_hvp_calls\":128"
+           << ",\"momentum\":1e-12}"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_numerical_floor_case(report, cases[i]);
+    }
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure;
+    for (const NumericalFloorCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + value.neighborhood.solve.convergence_stop + ':'
+            + std::to_string(value.neighborhood.solve.outer_trials) + ':'
+            + std::to_string(value.neighborhood.solve.rejected_trials) + ':'
+            + std::to_string(value.neighborhood.solve.hvp_calls);
+    }
+    report << "]"
+           << ",\"nsr3_authorized\":" << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false"
+           << ",\"result_sha256\":\"" << sha256_hex(result_material)
+           << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_serial_cpu_baseline_controls() {
+    std::array<SerialBenchmarkCase, 4> cases = {
+        make_serial_benchmark_case(8),
+        make_serial_benchmark_case(10),
+        make_serial_benchmark_case(12),
+        make_serial_benchmark_case(16),
+    };
+    bool passed = true;
+    std::string first_failure;
+    std::array<std::uint64_t, 4> bucket_median_sums{};
+    for (const SerialBenchmarkCase& value : cases) {
+        passed = passed && value.passed;
+        if (!value.passed && first_failure.empty()) {
+            first_failure = "NSR3A_GATE:" + value.name;
+        }
+        bucket_median_sums[0] += timing_percentile(value.samples,
+            &SerialTimingSample::pair_and_adjacency, 50);
+        bucket_median_sums[1] += timing_percentile(value.samples,
+            &SerialTimingSample::objective_gradient, 50);
+        bucket_median_sums[2] += timing_percentile(value.samples,
+            &SerialTimingSample::hvp, 50);
+        bucket_median_sums[3] += timing_percentile(value.samples,
+            &SerialTimingSample::control_and_vector, 50);
+    }
+    const std::array<const char*, 4> optimization = {
+        "PAIR_AND_ADJACENCY",
+        "OBJECTIVE_GRADIENT",
+        "HVP_ALLOCATION_AND_TRAVERSAL",
+        "KRYLOV_CONTROL_AND_VECTOR",
+    };
+    const std::size_t dominant = static_cast<std::size_t>(
+        std::distance(bucket_median_sums.begin(),
+            std::max_element(
+                bucket_median_sums.begin(), bucket_median_sums.end())));
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal.nsr3a_serial_cpu.v1\""
+           << ",\"identity\":\"nuv-newton-krylov-r0\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"compiler\":\"" << __VERSION__ << '"'
+           << ",\"thread_model\":\"serial\""
+           << ",\"warmups\":1,\"measured_runs\":7"
+           << ",\"timings_are_environmental\":true"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_serial_benchmark_case(report, cases[i]);
+    }
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure;
+    for (const SerialBenchmarkCase& value : cases) {
+        result_material += '|' + value.name + ':' + value.state_sha256 + ':'
+            + std::to_string(value.reference.solve.hvp_calls) + ':'
+            + std::to_string(value.reference.maximum_pairs);
+    }
+    report << "]"
+           << ",\"dominant_median_bucket\":\"" << optimization[dominant]
+           << '"'
+           << ",\"selected_next_optimization\":\""
+           << optimization[dominant] << '"'
+           << ",\"hardware_counters\":\"UNAVAILABLE\""
+           << ",\"runtime_authority\":false"
+           << ",\"result_sha256\":\"" << sha256_hex(result_material)
+           << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_hvp_workspace_stream_controls() {
+    const bool hvp_exact = workspace_hvp_exact_controls();
+    std::array<HvpTournamentCase, 4> cases = {
+        make_hvp_tournament_case(8),
+        make_hvp_tournament_case(10),
+        make_hvp_tournament_case(12),
+        make_hvp_tournament_case(16),
+    };
+    bool passed = hvp_exact;
+    std::string first_failure = hvp_exact ? "" : "NSR3A1_HVP_EXACT";
+    for (const HvpTournamentCase& value : cases) {
+        passed = passed && value.passed;
+        if (!value.passed && first_failure.empty()) {
+            first_failure = "NSR3A1_GATE:" + value.name;
+        }
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal.nsr3a1_hvp_workspace.v1\""
+           << ",\"identity\":\"nuv-newton-krylov-r0\""
+           << ",\"candidate\":\"hvp-workspace-stream-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"hvp_controls_exact\":"
+           << (hvp_exact ? "true" : "false")
+           << ",\"warmups_per_implementation\":1"
+           << ",\"alternating_pairs\":7"
+           << ",\"thresholds\":{\"minimum_hvp_speedup\":1.2"
+           << ",\"minimum_large_total_speedup\":1.1"
+           << ",\"maximum_small_total_regression\":0.02}"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_hvp_tournament_case(report, cases[i]);
+    }
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure + '|' + (hvp_exact ? "EXACT" : "MISMATCH");
+    for (const HvpTournamentCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + hash_neighborhood_trust_state(value.candidate_reference) + ':'
+            + (value.exact_state ? "EXACT" : "MISMATCH");
+    }
+    report << "]"
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false"
+           << ",\"result_sha256\":\"" << sha256_hex(result_material)
+           << "\"}";
     return {passed, report.str()};
 }
 

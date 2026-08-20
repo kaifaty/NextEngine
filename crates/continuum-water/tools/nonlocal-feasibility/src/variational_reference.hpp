@@ -14,5 +14,15 @@ ReferenceSolverReport run_conditioning_controls();
 ReferenceSolverReport run_sissm_controls();
 ReferenceSolverReport run_sissm_term_local_controls();
 ReferenceSolverReport run_sissm_pressure_chebyshev_controls();
+ReferenceSolverReport run_spectral_hvp_controls();
+ReferenceSolverReport run_trust_region_controls();
+ReferenceSolverReport run_block_preconditioner_controls();
+ReferenceSolverReport run_scale_aware_block_preconditioner_controls();
+ReferenceSolverReport run_neighborhood_hvp_controls();
+ReferenceSolverReport run_neighborhood_trust_scaling_controls();
+ReferenceSolverReport run_neighborhood_trust_rejection_trace_controls();
+ReferenceSolverReport run_numerical_floor_stop_controls();
+ReferenceSolverReport run_serial_cpu_baseline_controls();
+ReferenceSolverReport run_hvp_workspace_stream_controls();
 
 } // namespace nextengine::nonlocal::fcr
