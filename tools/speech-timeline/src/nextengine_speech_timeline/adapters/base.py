@@ -14,6 +14,7 @@ class AdapterError(RuntimeError):
 @dataclass(frozen=True)
 class TranscriberConfig:
     language: str | None = None
+    delay_ms: int | None = None
 
 
 @dataclass(frozen=True)

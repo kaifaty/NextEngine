@@ -114,6 +114,7 @@ async def run_websocket_session(
     measurement: dict[str, float] | None = None,
     asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
     asr_model: str | None = None,
+    asr_delay_ms: int | None = None,
 ) -> dict[str, object]:
     if asr_audio_route not in ASR_AUDIO_ROUTES:
         raise ClientError(f"ASR audio route must be one of {sorted(ASR_AUDIO_ROUTES)}")
@@ -179,6 +180,19 @@ async def run_websocket_session(
         selected_capabilities = (
             transcribers.get(selected_model) if isinstance(transcribers, dict) else None
         )
+        if asr_delay_ms is not None:
+            supported_delay_ms = (
+                selected_capabilities.get("supported_delay_ms")
+                if isinstance(selected_capabilities, dict)
+                else None
+            )
+            if (
+                not isinstance(supported_delay_ms, list)
+                or asr_delay_ms not in supported_delay_ms
+            ):
+                raise ClientError(
+                    f"ASR delay is unavailable for {selected_model}: {asr_delay_ms} ms"
+                )
         model_limit_ms = (
             selected_capabilities.get("max_audio_duration_ms")
             if isinstance(selected_capabilities, dict)
@@ -186,22 +200,20 @@ async def run_websocket_session(
         )
         if isinstance(model_limit_ms, int) and model_limit_ms > 0:
             max_turn_bytes = min(max_turn_bytes, model_limit_ms * 16_000 * 2 // 1_000)
-        await websocket.send(
-            json.dumps(
-                {
-                    "schema_version": 1,
-                    "type": "session.start",
-                    "session_id": identity,
-                    "locale": locale,
-                    "sample_rate_hz": 16_000,
-                    "encoding": "pcm_s16le",
-                    "channels": 1,
-                    "asr_model": selected_model,
-                    "asr_audio_route": asr_audio_route,
-                },
-                separators=(",", ":"),
-            )
-        )
+        start_message: dict[str, object] = {
+            "schema_version": 1,
+            "type": "session.start",
+            "session_id": identity,
+            "locale": locale,
+            "sample_rate_hz": 16_000,
+            "encoding": "pcm_s16le",
+            "channels": 1,
+            "asr_model": selected_model,
+            "asr_audio_route": asr_audio_route,
+        }
+        if asr_delay_ms is not None:
+            start_message["asr_delay_ms"] = asr_delay_ms
+        await websocket.send(json.dumps(start_message, separators=(",", ":")))
         started = _decode_event(await websocket.recv())
         _require_event(started, "session.started")
         on_event(started)

@@ -275,6 +275,7 @@ class SpeechConnection:
         self._transcriber_session: Any = None
         self._transcriber: Any = None
         self._asr_model = runtime.default_transcriber
+        self._asr_delay_ms: int | None = None
         self._asr_model_max_turn_bytes: int | None = None
         self._asr_tasks: set[asyncio.Task[None]] = set()
         self._emotion_tasks: set[asyncio.Task[None]] = set()
@@ -307,6 +308,7 @@ class SpeechConnection:
         vad_calibration: VadCalibration | None = None,
         asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
         asr_model: str | None = None,
+        asr_delay_ms: int | None = None,
     ) -> None:
         if asr_audio_route not in self.runtime.available_asr_audio_routes:
             raise SessionError(
@@ -321,6 +323,27 @@ class SpeechConnection:
                 f"ASR model is unavailable: {asr_model}",
             ) from error
         capabilities = self.runtime.transcriber_capabilities(self._asr_model)
+        supported_delay_ms = capabilities.get("supported_delay_ms")
+        configured_delay_ms = capabilities.get("configured_delay_ms")
+        if asr_delay_ms is not None:
+            if (
+                not isinstance(supported_delay_ms, (list, tuple))
+                or isinstance(asr_delay_ms, bool)
+                or asr_delay_ms not in supported_delay_ms
+            ):
+                raise SessionError(
+                    "ASR_DELAY_UNAVAILABLE",
+                    f"ASR delay is unavailable for {self._asr_model}: {asr_delay_ms} ms",
+                )
+            self._asr_delay_ms = asr_delay_ms
+        else:
+            self._asr_delay_ms = (
+                configured_delay_ms
+                if isinstance(configured_delay_ms, int)
+                and not isinstance(configured_delay_ms, bool)
+                and configured_delay_ms > 0
+                else None
+            )
         max_audio_duration_ms = capabilities.get("max_audio_duration_ms")
         self._asr_model_max_turn_bytes = (
             max_audio_duration_ms * 16_000 * 2 // 1_000
@@ -342,7 +365,9 @@ class SpeechConnection:
             self._transcriber_session = await self._execute(
                 JobPriority.STARTUP,
                 generation,
-                lambda: self._transcriber.start(TranscriberConfig(language=locale)),
+                lambda: self._transcriber.start(
+                    TranscriberConfig(language=locale, delay_ms=self._asr_delay_ms)
+                ),
             )
         except SessionError:
             await self._release_once()
@@ -360,6 +385,7 @@ class SpeechConnection:
                 encoding="pcm_s16le",
                 channels=1,
                 asr_model=self._asr_model,
+                asr_delay_ms=self._asr_delay_ms,
                 asr_audio_route=self._asr_audio_route,
                 vocal_activity=self.activity.capabilities(),
             )
@@ -984,6 +1010,7 @@ class SpeechConnection:
             },
             "asr": {
                 "selected_model": self._asr_model,
+                "selected_delay_ms": self._asr_delay_ms,
                 "selected_audio_route": self._asr_audio_route,
             },
             "vocal_affect": self.timeline.affect_diagnostics(),

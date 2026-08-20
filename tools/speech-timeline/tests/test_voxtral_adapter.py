@@ -118,8 +118,10 @@ class VoxtralAdapterTests(unittest.TestCase):
             )
             load = adapter.load()
             self.assertEqual(load.load_count, 1)
-            for _ in range(2):
-                with adapter.start(TranscriberConfig(language="ru")) as session:
+            for delay_ms in (480, 960):
+                with adapter.start(
+                    TranscriberConfig(language="ru", delay_ms=delay_ms)
+                ) as session:
                     revision = session.push_pcm([0.0, 0.1])
                     assert revision is not None
                     self.assertEqual(revision.full_text, "authoritative hypothesis")
@@ -140,7 +142,7 @@ class VoxtralAdapterTests(unittest.TestCase):
                     (options.num_delay_tokens, options.min_decode_interval_ms)
                     for options in module.stream_options
                 ],
-                [(6, 240), (6, 240)],
+                [(6, 240), (12, 240)],
             )
             self.assertEqual([stream.finalize_count for stream in module.streams], [1, 1])
             adapter.close()
@@ -159,6 +161,17 @@ class VoxtralAdapterTests(unittest.TestCase):
                         partial_decode_interval_ms=invalid,
                         module=FakeModule(),
                     )
+
+    def test_session_delay_must_be_a_supported_model_frame(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_path = Path(temp_dir) / "model.gguf"
+            model_path.write_bytes(b"fake")
+            adapter = VoxtralTranscriberAdapter(model_path, None, None, module=FakeModule())
+            with self.assertRaises(AdapterError):
+                adapter.start(TranscriberConfig(language="ru", delay_ms=481))
+            self.assertEqual(adapter.load_count, 1)
+            adapter.close()
+
     def test_cancel_does_not_finalize(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             model_path = Path(temp_dir) / "model.gguf"

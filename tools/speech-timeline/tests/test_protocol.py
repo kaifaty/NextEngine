@@ -88,6 +88,25 @@ class ProtocolTests(unittest.TestCase):
         value["asr_audio_route"] = ["raw"]
         with self.assertRaises(ProtocolError):
             parse_client_message(json.dumps(value))
+
+    def test_asr_delay_is_optional_and_must_be_a_positive_integer(self) -> None:
+        value = {
+            "schema_version": 1,
+            "type": "session.start",
+            "session_id": "turn-delay",
+            "locale": "ru",
+            "sample_rate_hz": 16_000,
+            "encoding": "pcm_s16le",
+            "channels": 1,
+            "asr_delay_ms": 960,
+        }
+        start = parse_client_message(json.dumps(value))
+        self.assertIsInstance(start, SessionStart)
+        self.assertEqual(start.asr_delay_ms, 960)
+        for invalid in (0, -80, 480.0, True):
+            with self.subTest(invalid=invalid), self.assertRaises(ProtocolError):
+                value["asr_delay_ms"] = invalid
+                parse_client_message(json.dumps(value))
         value["asr_audio_route"] = "raw"
         value["asr_model"] = "bad model"
         with self.assertRaises(ProtocolError):

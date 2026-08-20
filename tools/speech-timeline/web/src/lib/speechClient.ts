@@ -95,6 +95,7 @@ export class SpeechTimelineClient {
     locale: string,
     asrModel: AsrModelRoute,
     asrAudioRoute: AsrAudioRoute,
+    asrDelayMs?: number,
     vadCalibration?: VadCalibrationInput,
   ): Promise<void> {
     if (this.socket !== null) {
@@ -121,7 +122,14 @@ export class SpeechTimelineClient {
         });
       };
       socket.onmessage = (message) =>
-        this.handleMessage(message, locale, asrModel, asrAudioRoute, vadCalibration);
+        this.handleMessage(
+          message,
+          locale,
+          asrModel,
+          asrAudioRoute,
+          asrDelayMs,
+          vadCalibration,
+        );
       socket.onerror = () => {
         if (!this.sessionStarted) {
           this.rejectStart(new Error("WebSocket connection failed"));
@@ -212,6 +220,7 @@ export class SpeechTimelineClient {
     locale: string,
     asrModel: AsrModelRoute,
     asrAudioRoute: AsrAudioRoute,
+    asrDelayMs?: number,
     vadCalibration?: VadCalibrationInput,
   ): void {
     if (typeof message.data !== "string") {
@@ -254,6 +263,7 @@ export class SpeechTimelineClient {
         channels: 1,
         asr_model: asrModel,
         asr_audio_route: asrAudioRoute,
+        ...(asrDelayMs === undefined ? {} : { asr_delay_ms: asrDelayMs }),
         ...(vadCalibration
           ? {
               vad_calibration: {

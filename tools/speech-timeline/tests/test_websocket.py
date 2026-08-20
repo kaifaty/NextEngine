@@ -81,7 +81,14 @@ class FakeTranscriberSession:
 
 
 class FakeTranscriber:
-    def __init__(self, adapter_id: str = "fake-asr/1", final_text: str = "готово") -> None:
+    def __init__(
+        self,
+        adapter_id: str = "fake-asr/1",
+        final_text: str = "готово",
+        *,
+        supported_delay_ms: tuple[int, ...] = (),
+        configured_delay_ms: int = 0,
+    ) -> None:
         self.adapter_id = adapter_id
         self.final_text = final_text
         self.load_count = 0
@@ -89,6 +96,9 @@ class FakeTranscriber:
         self.push_count = 0
         self.push_delay = 0.0
         self.sessions: list[FakeTranscriberSession] = []
+        self.configs: list[object] = []
+        self.supported_delay_ms = supported_delay_ms
+        self.configured_delay_ms = configured_delay_ms
 
     def load(self) -> dict[str, int]:
         if self.load_count == 0:
@@ -99,10 +109,16 @@ class FakeTranscriber:
         return {"warmup_count": 1, "elapsed_ms": 0}
 
     def capabilities(self) -> dict[str, object]:
-        return {"adapter_id": self.adapter_id, "timing_precision": "utterance"}
+        return {
+            "adapter_id": self.adapter_id,
+            "timing_precision": "utterance",
+            "supported_delay_ms": self.supported_delay_ms,
+            "configured_delay_ms": self.configured_delay_ms,
+        }
 
     def start(self, config: object) -> FakeTranscriberSession:
         self.start_count += 1
+        self.configs.append(config)
         session = FakeTranscriberSession(self)
         self.sessions.append(session)
         return session
@@ -305,6 +321,87 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         finally:
             await service.close()
 
+    async def test_session_selects_supported_asr_delay_without_reloading(self) -> None:
+        voxtral = FakeTranscriber(
+            "fake-voxtral/1",
+            supported_delay_ms=(480, 960, 2_400),
+            configured_delay_ms=480,
+        )
+        service = SpeechTimelineWebSocketService(
+            SpeechTimelineRuntime(voxtral, FakeAffect()),
+            ready_file=Path(self.temp.name) / "selectable-delay-ready.json",
+            port=0,
+        )
+        await service.start()
+        try:
+            for index, delay_ms in enumerate((960, 2_400), start=1):
+                events = await self._run_turn_against(
+                    service,
+                    f"delay-turn-{index}",
+                    asr_delay_ms=delay_ms,
+                )
+                started = next(item for item in events if item["type"] == "session.started")
+                final = next(item for item in events if item["type"] == "utterance.final")
+                self.assertEqual(started["asr_delay_ms"], delay_ms)
+                self.assertEqual(final["metrics"]["asr"]["selected_delay_ms"], delay_ms)
+                self.assertEqual(getattr(voxtral.configs[-1], "delay_ms"), delay_ms)
+            self.assertEqual(voxtral.load_count, 1)
+            self.assertEqual(voxtral.start_count, 2)
+
+            async def chunks():
+                yield b"\0\0" * 4_000
+
+            received: list[dict[str, object]] = []
+            await run_websocket_session(
+                ReadyInfo(
+                    uri=service.uri,
+                    token=service.token,
+                    protocol="nextengine.speech-timeline/1",
+                    bounds={},
+                ),
+                chunks(),
+                locale="ru",
+                on_event=received.append,
+                session_id="delay-client-turn",
+                asr_delay_ms=960,
+            )
+            started = next(item for item in received if item["type"] == "session.started")
+            self.assertEqual(started["asr_delay_ms"], 960)
+            self.assertEqual(getattr(voxtral.configs[-1], "delay_ms"), 960)
+            self.assertEqual(voxtral.load_count, 1)
+            self.assertEqual(voxtral.start_count, 3)
+            async with connect(service.uri, compression=None) as websocket:
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "type": "client.hello",
+                            "token": service.token,
+                        }
+                    )
+                )
+                await websocket.recv()
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "schema_version": 1,
+                            "type": "session.start",
+                            "session_id": "unsupported-delay",
+                            "locale": "ru",
+                            "sample_rate_hz": 16_000,
+                            "encoding": "pcm_s16le",
+                            "channels": 1,
+                            "asr_delay_ms": 640,
+                        }
+                    )
+                )
+                error = json.loads(await websocket.recv())
+                self.assertEqual(error["code"], "ASR_DELAY_UNAVAILABLE")
+                self.assertTrue(error["terminal"])
+            self.assertEqual(voxtral.start_count, 3)
+        finally:
+            await service.close()
+
     async def test_silence_is_vad_gated_and_final_timeline_is_no_speech(self) -> None:
         events = await self.run_turn("silence-turn")
         self.assertEqual(self.affect.observe_count, 0)
@@ -428,6 +525,7 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         *,
         asr_audio_route: str | None = None,
         asr_model: str | None = None,
+        asr_delay_ms: int | None = None,
         vad_noise_floor_dbfs: float | None = None,
     ) -> list[dict[str, object]]:
         async with connect(service.uri, compression=None) as websocket:
@@ -454,6 +552,8 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
                 start["asr_audio_route"] = asr_audio_route
             if asr_model is not None:
                 start["asr_model"] = asr_model
+            if asr_delay_ms is not None:
+                start["asr_delay_ms"] = asr_delay_ms
             if vad_noise_floor_dbfs is not None:
                 start["vad_calibration"] = {
                     "noise_floor_dbfs": vad_noise_floor_dbfs,

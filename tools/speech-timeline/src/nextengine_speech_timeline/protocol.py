@@ -66,6 +66,7 @@ class SessionStart:
     vad_calibration: VadCalibration | None = None
     asr_audio_route: str = ASR_AUDIO_ROUTE_RAW
     asr_model: str | None = None
+    asr_delay_ms: int | None = None
 
 
 @dataclass(frozen=True)
@@ -114,7 +115,7 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
                 "encoding",
                 "channels",
             },
-            optional={"vad_calibration", "asr_audio_route", "asr_model"},
+            optional={"vad_calibration", "asr_audio_route", "asr_model", "asr_delay_ms"},
         )
         session_id = _session_id(value.get("session_id"))
         locale_value = value.get("locale")
@@ -148,6 +149,15 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
                     "asr_model contains unsupported characters",
                     terminal=True,
                 )
+        asr_delay_ms = value.get("asr_delay_ms")
+        if asr_delay_ms is not None:
+            asr_delay_ms = _exact_integer(asr_delay_ms, "asr_delay_ms")
+            if asr_delay_ms <= 0:
+                raise ProtocolError(
+                    "INVALID_FIELD",
+                    "asr_delay_ms must be positive",
+                    terminal=True,
+                )
         return SessionStart(
             session_id=session_id,
             locale=locale_value,
@@ -157,6 +167,7 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
             vad_calibration=calibration,
             asr_audio_route=asr_audio_route,
             asr_model=asr_model,
+            asr_delay_ms=asr_delay_ms,
         )
     if message_type in {"session.finish", "session.cancel"}:
         _require_keys(value, {"schema_version", "type", "session_id"})

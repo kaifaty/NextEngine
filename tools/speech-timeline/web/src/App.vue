@@ -36,6 +36,7 @@ const devices = ref<MediaDeviceInfo[]>([]);
 const selectedDevice = ref("");
 const selectedAsrModel = ref<AsrModelRoute>("");
 const selectedAsrAudioRoute = ref<AsrAudioRoute>("raw");
+const selectedAsrDelayMs = ref<number | null>(null);
 const timeline = ref<TimelineUpdate | null>(null);
 const finalUtterance = ref<FinalUtterance | null>(null);
 const events = ref<SpeechEvent[]>([]);
@@ -95,6 +96,18 @@ const selectedTranscriber = computed(() => {
   const models = objectValue(bootstrap.value?.service, "models");
   const transcribers = objectValue(models, "transcribers");
   return objectValue(transcribers, selectedAsrModel.value);
+});
+const asrDelayPresets = computed<number[]>(() => {
+  const supported = selectedTranscriber.value?.supported_delay_ms;
+  if (!Array.isArray(supported)) return [];
+  return [480, 960, 2_400].filter((delay) => supported.includes(delay));
+});
+const selectedAsrDelayForTurn = computed<number | undefined>(() => {
+  const selected = selectedAsrDelayMs.value;
+  if (selected !== null && asrDelayPresets.value.includes(selected)) return selected;
+  const configured = numericValue(selectedTranscriber.value, "configured_delay_ms");
+  if (configured !== null && asrDelayPresets.value.includes(configured)) return configured;
+  return asrDelayPresets.value[0];
 });
 
 const stateText: Record<ConnectionState, string> = {
@@ -159,7 +172,7 @@ const transcriberCadence = computed(() => {
     ].filter(Boolean);
     return `bounded re-decode${details.length ? ` · ${details.join(" · ")}` : ""}`;
   }
-  const delay = numericValue(model, "configured_delay_ms");
+  const delay = selectedAsrDelayForTurn.value ?? numericValue(model, "configured_delay_ms");
   const partial = numericValue(model, "partial_decode_interval_ms");
   return delay !== null && partial !== null
     ? `delay ${delay} мс · partial ${partial} мс`
@@ -234,6 +247,17 @@ watch(selectedDevice, () => {
   calibration.value = null;
 });
 
+watch(
+  [selectedAsrModel, asrDelayPresets],
+  () => {
+    const configured = numericValue(selectedTranscriber.value, "configured_delay_ms");
+    selectedAsrDelayMs.value =
+      configured !== null && asrDelayPresets.value.includes(configured)
+        ? configured
+        : asrDelayPresets.value[0] ?? null;
+  },
+);
+
 async function refreshDevices(): Promise<void> {
   devices.value = await listAudioInputs();
   if (!selectedDevice.value && devices.value.length > 0) {
@@ -271,6 +295,7 @@ async function startRecording(): Promise<void> {
       "ru",
       selectedAsrModel.value,
       selectedAsrAudioRoute.value,
+      selectedAsrDelayForTurn.value,
       calibration.value
         ? {
             noiseFloorDbfs: calibration.value.noiseFloorDbfs,
@@ -474,6 +499,12 @@ function asrRouteLabel(route: string | null): string {
   if (route === "enhanced") return "DPDFNet full · агрессивный A/B";
   return "RAW · контроль";
 }
+
+function asrDelayLabel(delayMs: number): string {
+  if (delayMs === 480) return "480 мс · быстрее";
+  if (delayMs === 960) return "960 мс · баланс";
+  return "2400 мс · качество";
+}
 </script>
 
 <template>
@@ -505,7 +536,7 @@ function asrRouteLabel(route: string | null): string {
 
       <div class="capture-card">
         <div class="capture-row">
-          <div>
+          <div class="source-select">
             <p class="eyebrow">Источник</p>
             <select v-model="selectedDevice" :disabled="isRecording || state === 'finalizing'">
               <option value="">Системный микрофон</option>
@@ -514,7 +545,7 @@ function asrRouteLabel(route: string | null): string {
               </option>
             </select>
           </div>
-          <div>
+          <div class="asr-model-select">
             <p class="eyebrow">ASR-модель</p>
             <select
               v-model="selectedAsrModel"
@@ -529,7 +560,18 @@ function asrRouteLabel(route: string | null): string {
               </option>
             </select>
           </div>
-          <div class="asr-route-select">
+          <div v-if="asrDelayPresets.length" class="asr-delay-select">
+            <p class="eyebrow">Задержка Voxtral</p>
+            <select
+              v-model="selectedAsrDelayMs"
+              :disabled="isRecording || state === 'finalizing'"
+            >
+              <option v-for="delay in asrDelayPresets" :key="delay" :value="delay">
+                {{ asrDelayLabel(delay) }}
+              </option>
+            </select>
+          </div>
+          <div class="asr-route-select" :class="{ 'has-delay': asrDelayPresets.length }">
             <p class="eyebrow">Обработка сигнала</p>
             <select
               v-model="selectedAsrAudioRoute"

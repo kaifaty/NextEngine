@@ -79,6 +79,18 @@ locked for the duration of one utterance: Voxtral and NVIDIA Nemotron 3.5 emit
 native/cache-aware streaming revisions, GigaSTT exposes bounded rolling-window
 re-decode as `buffered_emulation`, and GigaAM-v3 produces one
 finalized-utterance result after **Завершить фразу**.
+For Voxtral, the dashboard also exposes three per-utterance quality/latency
+presets: **480 ms**, **960 ms**, and **2400 ms**. The profile's 480 ms value
+remains the default. Selecting another value adds optional `asr_delay_ms` to
+`session.start`; the service validates it against the selected adapter's
+advertised `supported_delay_ms`, locks it for that utterance, and echoes the
+effective value in `session.started` and final ASR metrics. This creates new
+stream options on the already-resident model session; it does not reload the
+GGUF or duplicate its weights in VRAM. Higher-delay presets remain diagnostic
+until paired Russian WER/CER and latency measurements justify a new default.
+The same selection is available to repeatable microphone/benchmark runs as
+`--asr-delay-ms 480|960|2400`; content-free benchmark reports record the
+selected value in `run_configuration`.
 The protocol defaults to `raw`. If the profile contains an audio preprocessor,
 the dashboard exposes four explicit per-utterance choices: **RAW**,
 **Gain only**, the previous full **DPDFNet** route, and the new

@@ -196,12 +196,15 @@ class VoxtralTranscriberAdapter:
 
 class VoxtralTranscriberSession:
     def __init__(self, adapter: VoxtralTranscriberAdapter, config: TranscriberConfig) -> None:
+        delay_ms = adapter.delay_ms if config.delay_ms is None else config.delay_ms
+        if delay_ms not in VALID_DELAYS_MS:
+            raise AdapterError(f"unsupported Voxtral delay: {delay_ms} ms")
         self._adapter = adapter
         self._stack = ExitStack()
         try:
             model_session = self._stack.enter_context(adapter._model.session())
             family = adapter._module.VoxtralRealtimeStreamOptions(
-                num_delay_tokens=adapter.delay_ms // 80,
+                num_delay_tokens=delay_ms // 80,
                 min_decode_interval_ms=adapter.partial_decode_interval_ms,
             )
             self._stream = self._stack.enter_context(

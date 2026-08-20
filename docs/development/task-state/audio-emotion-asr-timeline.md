@@ -160,8 +160,8 @@
 ### D-011 — Separate transport, decode and model-delay clocks
 
 - **Observation/evidence:** The browser's block-local resampler added 94 ms over 12 s at 48 kHz; 80 ms transport plus a 240 ms partial-decode interval reduced paced finish and first-update latency without overload, while the first ASR revision still trails the first 1 s affect window.
-- **Decision:** Keep the Voxtral quality-delay setting at 480 ms, feed 80 ms PCM, request partial decoding every 240 ms, preserve resampler phase across worklet blocks and flush the last block before finish. Report ASR and affect first-result latency separately.
-- **Consequence:** Transport cadence no longer masquerades as model delay, browser audio time stays aligned, and later tuning can change adapter cadence without changing the facade.
+- **Decision:** Keep 480 ms as the Voxtral default, feed 80 ms PCM, request partial decoding every 240 ms, preserve resampler phase across worklet blocks and flush the last block before finish. The model-neutral facade may select an adapter-advertised delay once per turn; the dashboard exposes only the diagnostic 480/960/2400 ms presets, and the resident GGUF is not reloaded. Report ASR and affect first-result latency separately.
+- **Consequence:** Transport cadence no longer masquerades as model delay, browser audio time stays aligned, and paired quality/latency measurements can compare delay modes without changing model residency or the facade. Values above 480 ms do not become the default without frozen Russian WER/CER evidence.
 - **Reconsider when:** Representative live Russian WER/revision-churn or RTF degrades, or a runtime exposes a lower-latency quality profile with measured parity.
 
 ### D-012 — Bound terminal diagnostics and fail closed on oversized events

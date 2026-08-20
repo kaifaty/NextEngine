@@ -397,6 +397,7 @@ class SpeechTimelineWebSocketService:
                             vad_calibration=client_message.vad_calibration,
                             asr_audio_route=client_message.asr_audio_route,
                             asr_model=client_message.asr_model,
+                            asr_delay_ms=client_message.asr_delay_ms,
                         )
                     elif isinstance(client_message, SessionFinish):
                         await connection.finish(client_message.session_id)

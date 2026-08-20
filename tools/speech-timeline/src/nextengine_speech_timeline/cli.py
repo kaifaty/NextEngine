@@ -64,6 +64,12 @@ def parser() -> argparse.ArgumentParser:
         help="resident ASR route ID advertised by the service (default: service default)",
     )
     microphone.add_argument(
+        "--asr-delay-ms",
+        type=int,
+        choices=(480, 960, 2_400),
+        help="lock a supported ASR delay for this utterance",
+    )
+    microphone.add_argument(
         "--asr-audio-route",
         choices=sorted(ASR_AUDIO_ROUTES),
         default=ASR_AUDIO_ROUTE_RAW,
@@ -81,6 +87,12 @@ def parser() -> argparse.ArgumentParser:
     benchmark.add_argument(
         "--asr-model",
         help="resident ASR route ID advertised by the service (default: service default)",
+    )
+    benchmark.add_argument(
+        "--asr-delay-ms",
+        type=int,
+        choices=(480, 960, 2_400),
+        help="lock a supported ASR delay for every benchmark turn",
     )
     benchmark.add_argument(
         "--asr-audio-route",
@@ -257,6 +269,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     json_output=arguments.json_output,
                     asr_audio_route=arguments.asr_audio_route,
                     asr_model=arguments.asr_model,
+                    asr_delay_ms=arguments.asr_delay_ms,
                 )
             )
         except ClientError as error:
@@ -284,6 +297,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     chunk_ms=arguments.chunk_ms,
                     asr_audio_route=arguments.asr_audio_route,
                     asr_model=arguments.asr_model,
+                    asr_delay_ms=arguments.asr_delay_ms,
                 )
             )
             write_report(arguments.out, report)
@@ -384,6 +398,7 @@ async def _microphone(
     json_output: bool,
     asr_audio_route: str,
     asr_model: str | None,
+    asr_delay_ms: int | None,
 ) -> int:
     chunks = microphone_chunks(
         device,
@@ -398,6 +413,7 @@ async def _microphone(
         on_event=lambda payload: render_event(payload, json_output=json_output),
         asr_audio_route=asr_audio_route,
         asr_model=asr_model,
+        asr_delay_ms=asr_delay_ms,
     )
     if debug_wav is not None:
         print(f"saved debug WAV: {debug_wav}", flush=True)
