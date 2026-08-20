@@ -71,6 +71,11 @@ struct CaseResult {
     double center_of_mass_error = 0.0;
 };
 
+enum class Preconditioner {
+    Inertial,
+    BlockGaussNewton,
+};
+
 double relative_error(double lhs, double rhs) {
     return std::abs(lhs - rhs)
         / std::max({std::abs(lhs), std::abs(rhs), 1.0e-30});
@@ -120,6 +125,17 @@ double surface_spline(double radius, double spacing) {
     }
     if (q < 3.0) {
         return 1.0 - (q - 2.0) * (q - 2.0);
+    }
+    return 0.0;
+}
+
+double surface_spline_derivative(double radius, double spacing) {
+    const double q = radius / spacing;
+    if (q <= 1.0) {
+        return 2.0 * q / spacing;
+    }
+    if (q < 3.0) {
+        return -2.0 * (q - 2.0) / spacing;
     }
     return 0.0;
 }
@@ -281,6 +297,103 @@ Evaluation evaluate(
     return result;
 }
 
+std::vector<Mat3> block_preconditioner(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& y) {
+    const double inertia_scale = config.mass
+        / (config.time_step * config.time_step);
+    std::vector<Mat3> blocks(y.size(), inertia_scale * Mat3::identity());
+
+    if (config.kappa != 0.0) {
+        std::vector<double> density(
+            y.size(), config.mass * cubic_weight(0.0, config.horizon));
+        for (std::size_t i = 0; i < y.size(); ++i) {
+            for (std::size_t j = i + 1; j < y.size(); ++j) {
+                const double radius = norm(y[i] - y[j]);
+                if (radius <= config.horizon) {
+                    const double contribution =
+                        config.mass * cubic_weight(radius, config.horizon);
+                    density[i] += contribution;
+                    density[j] += contribution;
+                }
+            }
+        }
+        for (std::size_t center = 0; center < y.size(); ++center) {
+            if (density[center] <= config.rest_density) {
+                continue;
+            }
+            std::vector<Vec3> jacobian(y.size());
+            for (std::size_t neighbor = 0; neighbor < y.size(); ++neighbor) {
+                if (neighbor == center) {
+                    continue;
+                }
+                const Vec3 displacement = y[center] - y[neighbor];
+                const double radius = norm(displacement);
+                if (radius <= 1.0e-15 || radius > config.horizon) {
+                    continue;
+                }
+                const Vec3 pair_jacobian = config.mass / config.rest_density
+                    * cubic_gradient(radius, config.horizon)
+                    * (displacement / radius);
+                jacobian[center] += pair_jacobian;
+                jacobian[neighbor] += -pair_jacobian;
+            }
+            for (std::size_t i = 0; i < y.size(); ++i) {
+                blocks[i] += config.kappa * outer(jacobian[i], jacobian[i]);
+            }
+        }
+    }
+
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        for (std::size_t j = i + 1; j < y.size(); ++j) {
+            const Vec3 reference = x[i] - x[j];
+            const double radius = norm(reference);
+            if (radius <= 1.0e-15 || radius > config.horizon) {
+                continue;
+            }
+            const Vec3 normal = reference / radius;
+            const Mat3 normal_projection = outer(normal, normal);
+            const Mat3 tangent_projection = Mat3::identity() - normal_projection;
+            const double scale = config.mass
+                * (-cubic_gradient(radius, config.horizon))
+                / (config.rest_density * config.time_step);
+            const Mat3 curvature = scale
+                * (2.0 * config.mu * tangent_projection
+                    + config.lambda * normal_projection);
+            blocks[i] += curvature;
+            blocks[j] += curvature;
+        }
+    }
+
+    const double surface_support = 3.0 * config.spacing;
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        for (std::size_t j = i + 1; j < y.size(); ++j) {
+            const Vec3 displacement = y[i] - y[j];
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius >= surface_support) {
+                continue;
+            }
+            const Vec3 normal = displacement / radius;
+            const Mat3 normal_projection = outer(normal, normal);
+            const Mat3 tangent_projection = Mat3::identity() - normal_projection;
+            const double energy_scale = 2.0 * config.gamma
+                * config.mass * config.mass;
+            const double radial = std::max(
+                energy_scale * surface_spline_derivative(radius, config.spacing),
+                0.0);
+            const double tangential = std::max(
+                energy_scale * surface_spline(radius, config.spacing) / radius,
+                0.0);
+            const Mat3 curvature = radial * normal_projection
+                + tangential * tangent_projection;
+            blocks[i] += curvature;
+            blocks[j] += curvature;
+        }
+    }
+    return blocks;
+}
+
 std::vector<Vec3> predict(
     const Config& config,
     const std::vector<Vec3>& x,
@@ -296,7 +409,8 @@ std::vector<Vec3> predict(
 SolveResult solve(
     const Config& config,
     const std::vector<Vec3>& x,
-    const std::vector<Vec3>& velocity) {
+    const std::vector<Vec3>& velocity,
+    Preconditioner preconditioner_kind = Preconditioner::Inertial) {
     constexpr double armijo = 1.0e-4;
     constexpr int maximum_backtracks = 40;
     const std::vector<Vec3> y_star = predict(config, x, velocity);
@@ -310,14 +424,23 @@ SolveResult solve(
         result.final = current;
         return result;
     }
-    const double preconditioner = config.time_step * config.time_step / config.mass;
+    const double inertial_preconditioner =
+        config.time_step * config.time_step / config.mass;
     for (int iteration = 0; iteration < config.maximum_iterations; ++iteration) {
         if (current.gradient_norm <= 1.0e-10) {
             break;
         }
         std::vector<Vec3> direction(current.gradient.size());
-        for (std::size_t i = 0; i < direction.size(); ++i) {
-            direction[i] = -preconditioner * current.gradient[i];
+        if (preconditioner_kind == Preconditioner::BlockGaussNewton) {
+            const std::vector<Mat3> blocks = block_preconditioner(config, x, y);
+            for (std::size_t i = 0; i < direction.size(); ++i) {
+                direction[i] = -(inverse_without_regularization(blocks[i])
+                    * current.gradient[i]);
+            }
+        } else {
+            for (std::size_t i = 0; i < direction.size(); ++i) {
+                direction[i] = -inertial_preconditioner * current.gradient[i];
+            }
         }
         const double slope = vector_dot(current.gradient, direction);
         double alpha = 1.0;
@@ -588,6 +711,98 @@ void append_case(std::ostringstream& output, const CaseResult& value) {
            << value.solve.final.internal_momentum_residual << '}';
 }
 
+struct ConditioningCase {
+    std::string name;
+    SolveResult baseline;
+    SolveResult block;
+    bool direction_preserved = false;
+    bool passed = false;
+};
+
+ConditioningCase compression_conditioning_case() {
+    Config config;
+    config.kappa = 500.0;
+    const std::vector<Vec3> x = {{-0.025, 0.0, 0.0}, {0.025, 0.0, 0.0}};
+    const std::vector<Vec3> velocity(2);
+    config.rest_density = pair_density(norm(x[0] - x[1]), config) / 1.1;
+    ConditioningCase result;
+    result.name = "compressed_pair";
+    result.baseline = solve(config, x, velocity, Preconditioner::Inertial);
+    result.block = solve(config, x, velocity, Preconditioner::BlockGaussNewton);
+    result.direction_preserved =
+        norm(result.block.position[0] - result.block.position[1])
+        > norm(x[0] - x[1]) + OBSERVABLE_FLOOR;
+    return result;
+}
+
+ConditioningCase surface_conditioning_case() {
+    Config config;
+    config.gamma = 1000.0;
+    const double initial_distance = 0.8 * config.spacing;
+    const std::vector<Vec3> x = {
+        {-0.5 * initial_distance, 0.0, 0.0},
+        {0.5 * initial_distance, 0.0, 0.0},
+    };
+    const std::vector<Vec3> velocity(2);
+    ConditioningCase result;
+    result.name = "surface_repulsive_pair";
+    result.baseline = solve(config, x, velocity, Preconditioner::Inertial);
+    result.block = solve(config, x, velocity, Preconditioner::BlockGaussNewton);
+    result.direction_preserved =
+        norm(result.block.position[0] - result.block.position[1])
+        > initial_distance + OBSERVABLE_FLOOR;
+    return result;
+}
+
+ConditioningCase combined_conditioning_case() {
+    const CombinedFixture fixture = combined_fixture();
+    ConditioningCase result;
+    result.name = "combined_tetrahedron";
+    result.baseline = solve(
+        fixture.config, fixture.x, fixture.velocity, Preconditioner::Inertial);
+    result.block = solve(
+        fixture.config, fixture.x, fixture.velocity, Preconditioner::BlockGaussNewton);
+    result.direction_preserved = result.block.final.total < result.block.initial.total;
+    return result;
+}
+
+bool conditioning_quality_passed(const ConditioningCase& value) {
+    const double objective_allowance = 1.0e-10
+        * std::max({std::abs(value.baseline.final.total),
+            std::abs(value.block.final.total), 1.0});
+    const double gradient_limit =
+        std::max(2.0 * value.baseline.final.gradient_norm, 1.0e-8);
+    return value.baseline.succeeded && value.block.succeeded
+        && value.baseline.monotonic && value.block.monotonic
+        && value.block.final.total <= value.baseline.final.total + objective_allowance
+        && value.block.final.gradient_norm <= gradient_limit
+        && value.block.final.internal_momentum_residual <= CONSERVATION_LIMIT
+        && value.direction_preserved;
+}
+
+void append_conditioning_case(
+    std::ostringstream& output,
+    const ConditioningCase& value) {
+    const double alpha_ratio = value.block.minimum_alpha
+        / std::max(value.baseline.minimum_alpha, 1.0e-300);
+    output << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"direction_preserved\":"
+           << (value.direction_preserved ? "true" : "false")
+           << ",\"baseline\":{\"final_objective\":"
+           << value.baseline.final.total
+           << ",\"final_gradient_norm\":" << value.baseline.final.gradient_norm
+           << ",\"iterations\":" << value.baseline.iterations
+           << ",\"backtracks\":" << value.baseline.backtracks
+           << ",\"minimum_alpha\":" << value.baseline.minimum_alpha << '}'
+           << ",\"block\":{\"final_objective\":" << value.block.final.total
+           << ",\"final_gradient_norm\":" << value.block.final.gradient_norm
+           << ",\"iterations\":" << value.block.iterations
+           << ",\"backtracks\":" << value.block.backtracks
+           << ",\"minimum_alpha\":" << value.block.minimum_alpha << '}'
+           << ",\"minimum_alpha_improvement\":" << alpha_ratio << '}';
+}
+
 } // namespace
 
 ReferenceSolverReport run_reference_solver_controls() {
@@ -642,6 +857,80 @@ ReferenceSolverReport run_reference_solver_controls() {
             + std::to_string(value.solve.final.total) + ':'
             + std::to_string(value.observable_change);
     }
+    report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_conditioning_controls() {
+    std::array<ConditioningCase, 3> cases = {
+        compression_conditioning_case(),
+        surface_conditioning_case(),
+        combined_conditioning_case(),
+    };
+    int baseline_backtracks = 0;
+    int block_backtracks = 0;
+    for (ConditioningCase& value : cases) {
+        value.passed = conditioning_quality_passed(value);
+        baseline_backtracks += value.baseline.backtracks;
+        block_backtracks += value.block.backtracks;
+    }
+    const double compression_alpha_ratio = cases[0].block.minimum_alpha
+        / std::max(cases[0].baseline.minimum_alpha, 1.0e-300);
+    const double combined_alpha_ratio = cases[2].block.minimum_alpha
+        / std::max(cases[2].baseline.minimum_alpha, 1.0e-300);
+    const bool aggregate_backtracks_passed =
+        4LL * static_cast<long long>(block_backtracks)
+        <= static_cast<long long>(baseline_backtracks);
+    const bool alpha_passed = compression_alpha_ratio >= 16.0
+        && combined_alpha_ratio >= 16.0;
+    std::string first_failure;
+    for (const ConditioningCase& value : cases) {
+        if (!value.passed && first_failure.empty()) {
+            first_failure = "FCR3A_BLOCK_QUALITY_FAILED:" + value.name;
+        }
+    }
+    if (first_failure.empty() && !aggregate_backtracks_passed) {
+        first_failure = "FCR3A_BACKTRACK_REDUCTION_FAILED";
+    }
+    if (first_failure.empty() && !alpha_passed) {
+        first_failure = "FCR3A_ACCEPTED_ALPHA_FAILED";
+    }
+    const bool passed = first_failure.empty();
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.formula_reclosure_fcr3a.v1\""
+           << ",\"identity\":\"nuv-variational-fcr1\""
+           << ",\"candidate\":\"block-jacobi-gn-armijo-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"thresholds\":{\"objective_relative\":1e-10"
+           << ",\"gradient_ratio\":2,\"backtrack_reduction\":4"
+           << ",\"minimum_alpha_improvement\":16}"
+           << ",\"aggregate\":{\"baseline_backtracks\":"
+           << baseline_backtracks
+           << ",\"block_backtracks\":" << block_backtracks
+           << ",\"backtrack_gate\":\""
+           << (aggregate_backtracks_passed ? "PASS" : "FAIL")
+           << "\",\"compression_alpha_improvement\":"
+           << compression_alpha_ratio
+           << ",\"combined_alpha_improvement\":" << combined_alpha_ratio
+           << ",\"alpha_gate\":\"" << (alpha_passed ? "PASS" : "FAIL")
+           << "\"},\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_conditioning_case(report, cases[i]);
+    }
+    report << "]"
+           << ",\"fcr3b_authorized\":" << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false";
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure + '|' + std::to_string(baseline_backtracks) + '|'
+        + std::to_string(block_backtracks) + '|'
+        + std::to_string(compression_alpha_ratio) + '|'
+        + std::to_string(combined_alpha_ratio);
     report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
     return {passed, report.str()};
 }

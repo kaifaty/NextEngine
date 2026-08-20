@@ -10,5 +10,6 @@ struct ReferenceSolverReport {
 };
 
 ReferenceSolverReport run_reference_solver_controls();
+ReferenceSolverReport run_conditioning_controls();
 
 } // namespace nextengine::nonlocal::fcr
