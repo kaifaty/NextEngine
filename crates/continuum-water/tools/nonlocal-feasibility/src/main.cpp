@@ -56,6 +56,8 @@ void print_usage() {
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
               << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
+                 "--runs 96\n"
+              << "       nonlocal-feasibility --retained-tournament <profile-id> --warmup 32 "
                  "--runs 96\n";
 }
 
@@ -334,6 +336,15 @@ int main(int argc, char** argv) {
         if (argc == 7 && std::string(argv[1]) == "--locality-tournament"
             && std::string(argv[3]) == "--warmup" && std::string(argv[5]) == "--runs") {
             const auto report = nextengine::nonlocal::run_cuda_locality_tournament(
+                nextengine::nonlocal::find_profile(argv[2]),
+                bounded_integer(argv[4], "warmup count"),
+                bounded_integer(argv[6], "run count"));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 7 && std::string(argv[1]) == "--retained-tournament"
+            && std::string(argv[3]) == "--warmup" && std::string(argv[5]) == "--runs") {
+            const auto report = nextengine::nonlocal::run_cuda_retained_tournament(
                 nextengine::nonlocal::find_profile(argv[2]),
                 bounded_integer(argv[4], "warmup count"),
                 bounded_integer(argv[6], "run count"));

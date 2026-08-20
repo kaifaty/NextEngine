@@ -78,5 +78,9 @@ CommandReport run_cuda_locality_tournament(
     const Profile& profile,
     int warmup,
     int runs);
+CommandReport run_cuda_retained_tournament(
+    const Profile& profile,
+    int warmup,
+    int runs);
 
 } // namespace nextengine::nonlocal

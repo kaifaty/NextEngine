@@ -48,6 +48,8 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --storage cell-sorted-o4
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --locality-tournament nuv-water-48k.v0 --warmup 32 --runs 96
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --retained-tournament nuv-water-48k.v0 --warmup 32 --runs 96
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -88,3 +90,9 @@ surface correspondence gate, so retained work continues to use
 alternates their order for 32 warm-up and 96 measured rounds. Exact remapped
 output/CSR, storage capacity and before/after state are required before its
 same-process timings are admissible.
+
+`--retained-tournament` is the final NR2 aggregate comparator on the two
+correctness-valid HN-3 workloads. It co-resides and alternates the historical
+source-atomic/copy/runtime denominator with the final retained
+gather/pointer-swap/specialized/stable-sample stack. It is not valid for the
+known-failed atomic stiff-surface profile.

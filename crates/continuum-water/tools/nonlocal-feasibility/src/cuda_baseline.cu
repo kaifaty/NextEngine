@@ -4300,4 +4300,185 @@ CommandReport run_cuda_locality_tournament(
     return {passed, output.str()};
 }
 
+CommandReport run_cuda_retained_tournament(
+    const Profile& profile,
+    int warmup,
+    int runs) {
+    if (profile.id == "nuv-tiny-oracle.v0" || profile.id == "nuv-surface-16k.v0") {
+        throw std::invalid_argument(
+            "retained tournament requires a correctness-valid HN-3 denominator profile");
+    }
+    if (warmup != 32 || runs != 96) {
+        throw std::invalid_argument("NR2 retained tournament requires --warmup 32 --runs 96");
+    }
+
+    const CommandReport atomic_self = run_cuda_self_test(
+        AccumulationMode::SourceAtomicV0, HandoffMode::CopyV0,
+        TermKernelMode::RuntimeV0, StorageMode::StableSampleV0);
+    const CommandReport retained_self = run_cuda_self_test(
+        AccumulationMode::GatherDirectedR0, HandoffMode::PointerSwapO1,
+        TermKernelMode::SpecializedO2, StorageMode::StableSampleV0);
+    if (!atomic_self.passed || !retained_self.passed) {
+        std::ostringstream failure;
+        failure << "{\"schema\":\"nextengine.nonlocal.cuda_retained_tournament.v0\","
+                   "\"status\":\"FAIL\",\"reason\":\"self_test_preflight_failed\","
+                   "\"preflight\":{\"source_atomic\":"
+                << (atomic_self.passed ? "true" : "false") << ",\"retained\":"
+                << (retained_self.passed ? "true" : "false") << "}}";
+        return {false, failure.str()};
+    }
+
+    const Fixture fixture = performance_fixture(profile, profile.fixed_iterations);
+    CudaBaseline atomic(
+        fixture, AccumulationMode::SourceAtomicV0, HandoffMode::CopyV0,
+        TermKernelMode::RuntimeV0, StorageMode::StableSampleV0);
+    CudaBaseline retained(
+        fixture, AccumulationMode::GatherDirectedR0, HandoffMode::PointerSwapO1,
+        TermKernelMode::SpecializedO2, StorageMode::StableSampleV0);
+    const CapturedRun atomic_before = atomic.execute(true);
+    const CapturedRun retained_before = retained.execute(true);
+    const std::size_t co_resident_memory =
+        atomic_before.device_memory_bytes + retained_before.device_memory_bytes;
+    constexpr std::size_t CO_RESIDENT_CEILING = 70000000U;
+    if (co_resident_memory > CO_RESIDENT_CEILING) {
+        std::ostringstream failure;
+        failure << "{\"schema\":\"nextengine.nonlocal.cuda_retained_tournament.v0\","
+                   "\"status\":\"CAPACITY_REJECT\",\"profile_id\":\""
+                << profile.id << "\",\"two_instance_co_resident_bytes\":"
+                << co_resident_memory << ",\"ceiling_bytes\":"
+                << CO_RESIDENT_CEILING << '}';
+        return {false, failure.str()};
+    }
+
+    std::array<CudaBaseline*, 2> implementations = {&atomic, &retained};
+    const auto execute_alternating =
+        [&](int round, bool capture, std::vector<StageTiming>* timings) {
+            for (int position = 0; position < 2; ++position) {
+                const int implementation = (round + position) % 2;
+                CapturedRun run =
+                    implementations[static_cast<std::size_t>(implementation)]->execute(capture);
+                if (run.local_solve_failed || !run.reverse_map_valid
+                    || !run.storage_map_valid) {
+                    throw std::runtime_error(
+                        "solver identity failed during retained NR2 tournament");
+                }
+                if (timings != nullptr) {
+                    timings[implementation].push_back(run.timing);
+                }
+            }
+        };
+    for (int round = 0; round < warmup; ++round) {
+        execute_alternating(round, false, nullptr);
+    }
+    std::vector<StageTiming> timings[2];
+    for (auto& values : timings) {
+        values.reserve(static_cast<std::size_t>(runs));
+    }
+    for (int round = 0; round < runs; ++round) {
+        execute_alternating(round, false, timings);
+    }
+
+    const CapturedRun atomic_after = atomic.execute(true);
+    const CapturedRun retained_after = retained.execute(true);
+    const bool atomic_repeated_correspondence = compare_results(
+        fixture, atomic_before.state, atomic_after.state, profile.tolerances).passed;
+    const bool retained_repeated_exact =
+        ordered_output_digest(retained_before.state)
+            == ordered_output_digest(retained_after.state)
+        && retained_before.offsets == retained_after.offsets
+        && retained_before.neighbors == retained_after.neighbors;
+    const bool adjacent_correspondence = compare_results(
+        fixture, atomic_before.state, retained_before.state, profile.tolerances).passed;
+    const bool topology_passed = valid_symmetric_neighbors(
+            atomic_before, fixture.particles.size())
+        && valid_symmetric_neighbors(retained_before, fixture.particles.size())
+        && atomic_before.offsets == retained_before.offsets
+        && atomic_before.neighbors == retained_before.neighbors
+        && atomic_before.state.directed_pairs <= profile.max_directed_pairs
+        && retained_before.state.maximum_degree <= profile.max_neighbors;
+    const bool finite_passed = finite_state(atomic_before.state)
+        && finite_state(atomic_after.state) && finite_state(retained_before.state)
+        && finite_state(retained_after.state);
+    const bool solve_passed = !atomic_before.local_solve_failed
+        && !atomic_after.local_solve_failed && !retained_before.local_solve_failed
+        && !retained_after.local_solve_failed;
+    const bool momentum_passed = atomic_before.state.normalized_momentum_residual
+            <= profile.tolerances.normalized_momentum_residual
+        && atomic_after.state.normalized_momentum_residual
+            <= profile.tolerances.normalized_momentum_residual
+        && retained_before.state.normalized_momentum_residual
+            <= profile.tolerances.normalized_momentum_residual
+        && retained_after.state.normalized_momentum_residual
+            <= profile.tolerances.normalized_momentum_residual;
+    const bool passed = atomic_repeated_correspondence && retained_repeated_exact
+        && adjacent_correspondence && topology_passed && finite_passed && solve_passed
+        && momentum_passed;
+
+    const Statistics atomic_total = collect_statistics(timings[0], &StageTiming::total);
+    const Statistics retained_total = collect_statistics(timings[1], &StageTiming::total);
+    const double total_p95_speedup = atomic_total.p95 / retained_total.p95;
+
+    std::ostringstream output;
+    output << std::setprecision(17);
+    output << "{\"schema\":\"nextengine.nonlocal.cuda_retained_tournament.v0\","
+           << "\"status\":\"" << (passed ? "PASS" : "FAIL")
+           << "\",\"profile_id\":\"" << profile.id
+           << "\",\"profile_sha256\":\"" << sha256_hex(canonical_profile_json(profile))
+           << "\",\"input_sha256\":\"" << fixture_input_hash(fixture)
+           << "\",\"binary_sha256\":\"" << executable_hash()
+           << "\",\"binary_bytes\":" << executable_bytes()
+           << ",\"command\":\"nonlocal-feasibility --retained-tournament " << profile.id
+           << " --warmup " << warmup << " --runs " << runs
+           << "\",\"fixed_iterations\":" << profile.fixed_iterations
+           << ",\"warmup_rounds\":" << warmup << ",\"measured_rounds\":" << runs
+           << ",\"samples_per_identity\":" << runs
+           << ",\"rotation\":[[\"atomic\",\"retained\"],[\"retained\",\"atomic\"]]"
+           << ",\"each_measured_position_count\":48"
+           << ",\"correctness\":{\"atomic_repeated_correspondence\":"
+           << (atomic_repeated_correspondence ? "true" : "false")
+           << ",\"retained_repeated_exact\":"
+           << (retained_repeated_exact ? "true" : "false")
+           << ",\"adjacent_correspondence\":"
+           << (adjacent_correspondence ? "true" : "false")
+           << ",\"topology_passed\":" << (topology_passed ? "true" : "false")
+           << ",\"finite_passed\":" << (finite_passed ? "true" : "false")
+           << ",\"solve_passed\":" << (solve_passed ? "true" : "false")
+           << ",\"momentum_passed\":" << (momentum_passed ? "true" : "false") << '}'
+           << ",\"memory\":{\"source_atomic_bytes\":"
+           << atomic_before.device_memory_bytes << ",\"retained_bytes\":"
+           << retained_before.device_memory_bytes
+           << ",\"two_instance_co_resident_bytes\":" << co_resident_memory
+           << ",\"co_resident_ceiling_bytes\":" << CO_RESIDENT_CEILING << '}'
+           << ",\"retained_vs_source_atomic\":{\"total_p95_speedup\":"
+           << total_p95_speedup << ",\"source_atomic_total_p95_ms\":"
+           << atomic_total.p95 << ",\"retained_total_p95_ms\":"
+           << retained_total.p95 << '}'
+           << ",\"identities\":{\"source_atomic\":{\"accumulation_identity\":\""
+           << accumulation_identity(AccumulationMode::SourceAtomicV0)
+           << "\",\"handoff_identity\":\"" << handoff_identity(HandoffMode::CopyV0)
+           << "\",\"term_kernel_identity\":\""
+           << term_kernel_identity(TermKernelMode::RuntimeV0)
+           << "\",\"storage_identity\":\"" << storage_identity(StorageMode::StableSampleV0)
+           << "\",\"statistics\":";
+    append_stage_statistics(output, timings[0]);
+    output << ",\"raw_total_ms\":";
+    append_raw_totals(output, timings[0]);
+    output << "},\"retained\":{\"accumulation_identity\":\""
+           << accumulation_identity(AccumulationMode::GatherDirectedR0)
+           << "\",\"handoff_identity\":\""
+           << handoff_identity(HandoffMode::PointerSwapO1)
+           << "\",\"term_kernel_identity\":\""
+           << term_kernel_identity(TermKernelMode::SpecializedO2)
+           << "\",\"storage_identity\":\"" << storage_identity(StorageMode::StableSampleV0)
+           << "\",\"ordered_output_sha256\":\""
+           << ordered_output_digest(retained_before.state)
+           << "\",\"logical_csr_sha256\":\"" << csr_digest(retained_before)
+           << "\",\"statistics\":";
+    append_stage_statistics(output, timings[1]);
+    output << ",\"raw_total_ms\":";
+    append_raw_totals(output, timings[1]);
+    output << "}},\"device\":" << device_json() << '}';
+    return {passed, output.str()};
+}
+
 } // namespace nextengine::nonlocal
