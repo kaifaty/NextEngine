@@ -74,6 +74,7 @@ struct CaseResult {
 enum class Preconditioner {
     Inertial,
     BlockGaussNewton,
+    BlockThenInertialWarm,
 };
 
 double relative_error(double lhs, double rhs) {
@@ -426,12 +427,16 @@ SolveResult solve(
     }
     const double inertial_preconditioner =
         config.time_step * config.time_step / config.mass;
+    double previous_accepted_alpha = 1.0;
     for (int iteration = 0; iteration < config.maximum_iterations; ++iteration) {
         if (current.gradient_norm <= 1.0e-10) {
             break;
         }
         std::vector<Vec3> direction(current.gradient.size());
-        if (preconditioner_kind == Preconditioner::BlockGaussNewton) {
+        const bool use_block = preconditioner_kind == Preconditioner::BlockGaussNewton
+            || (preconditioner_kind == Preconditioner::BlockThenInertialWarm
+                && iteration < 16);
+        if (use_block) {
             const std::vector<Mat3> blocks = block_preconditioner(config, x, y);
             for (std::size_t i = 0; i < direction.size(); ++i) {
                 direction[i] = -(inverse_without_regularization(blocks[i])
@@ -443,7 +448,9 @@ SolveResult solve(
             }
         }
         const double slope = vector_dot(current.gradient, direction);
-        double alpha = 1.0;
+        double alpha = preconditioner_kind == Preconditioner::BlockThenInertialWarm
+            ? std::min(1.0, 2.0 * previous_accepted_alpha)
+            : 1.0;
         bool accepted = false;
         Evaluation trial_evaluation;
         std::vector<Vec3> trial(y.size());
@@ -475,6 +482,7 @@ SolveResult solve(
             && trial_evaluation.total <= current.total + allowance;
         y = trial;
         current = trial_evaluation;
+        previous_accepted_alpha = alpha;
         result.minimum_alpha = std::min(result.minimum_alpha, alpha);
         ++result.iterations;
     }
@@ -714,7 +722,7 @@ void append_case(std::ostringstream& output, const CaseResult& value) {
 struct ConditioningCase {
     std::string name;
     SolveResult baseline;
-    SolveResult block;
+    SolveResult candidate;
     bool direction_preserved = false;
     bool passed = false;
 };
@@ -728,9 +736,10 @@ ConditioningCase compression_conditioning_case() {
     ConditioningCase result;
     result.name = "compressed_pair";
     result.baseline = solve(config, x, velocity, Preconditioner::Inertial);
-    result.block = solve(config, x, velocity, Preconditioner::BlockGaussNewton);
+    result.candidate = solve(
+        config, x, velocity, Preconditioner::BlockThenInertialWarm);
     result.direction_preserved =
-        norm(result.block.position[0] - result.block.position[1])
+        norm(result.candidate.position[0] - result.candidate.position[1])
         > norm(x[0] - x[1]) + OBSERVABLE_FLOOR;
     return result;
 }
@@ -747,9 +756,10 @@ ConditioningCase surface_conditioning_case() {
     ConditioningCase result;
     result.name = "surface_repulsive_pair";
     result.baseline = solve(config, x, velocity, Preconditioner::Inertial);
-    result.block = solve(config, x, velocity, Preconditioner::BlockGaussNewton);
+    result.candidate = solve(
+        config, x, velocity, Preconditioner::BlockThenInertialWarm);
     result.direction_preserved =
-        norm(result.block.position[0] - result.block.position[1])
+        norm(result.candidate.position[0] - result.candidate.position[1])
         > initial_distance + OBSERVABLE_FLOOR;
     return result;
 }
@@ -760,30 +770,31 @@ ConditioningCase combined_conditioning_case() {
     result.name = "combined_tetrahedron";
     result.baseline = solve(
         fixture.config, fixture.x, fixture.velocity, Preconditioner::Inertial);
-    result.block = solve(
-        fixture.config, fixture.x, fixture.velocity, Preconditioner::BlockGaussNewton);
-    result.direction_preserved = result.block.final.total < result.block.initial.total;
+    result.candidate = solve(fixture.config, fixture.x, fixture.velocity,
+        Preconditioner::BlockThenInertialWarm);
+    result.direction_preserved =
+        result.candidate.final.total < result.candidate.initial.total;
     return result;
 }
 
 bool conditioning_quality_passed(const ConditioningCase& value) {
     const double objective_allowance = 1.0e-10
         * std::max({std::abs(value.baseline.final.total),
-            std::abs(value.block.final.total), 1.0});
+            std::abs(value.candidate.final.total), 1.0});
     const double gradient_limit =
         std::max(2.0 * value.baseline.final.gradient_norm, 1.0e-8);
-    return value.baseline.succeeded && value.block.succeeded
-        && value.baseline.monotonic && value.block.monotonic
-        && value.block.final.total <= value.baseline.final.total + objective_allowance
-        && value.block.final.gradient_norm <= gradient_limit
-        && value.block.final.internal_momentum_residual <= CONSERVATION_LIMIT
+    return value.baseline.succeeded && value.candidate.succeeded
+        && value.baseline.monotonic && value.candidate.monotonic
+        && value.candidate.final.total <= value.baseline.final.total + objective_allowance
+        && value.candidate.final.gradient_norm <= gradient_limit
+        && value.candidate.final.internal_momentum_residual <= CONSERVATION_LIMIT
         && value.direction_preserved;
 }
 
 void append_conditioning_case(
     std::ostringstream& output,
     const ConditioningCase& value) {
-    const double alpha_ratio = value.block.minimum_alpha
+    const double alpha_ratio = value.candidate.minimum_alpha
         / std::max(value.baseline.minimum_alpha, 1.0e-300);
     output << "{\"name\":\"" << value.name << "\",\"status\":\""
            << (value.passed ? "PASS" : "FAIL")
@@ -795,11 +806,12 @@ void append_conditioning_case(
            << ",\"iterations\":" << value.baseline.iterations
            << ",\"backtracks\":" << value.baseline.backtracks
            << ",\"minimum_alpha\":" << value.baseline.minimum_alpha << '}'
-           << ",\"block\":{\"final_objective\":" << value.block.final.total
-           << ",\"final_gradient_norm\":" << value.block.final.gradient_norm
-           << ",\"iterations\":" << value.block.iterations
-           << ",\"backtracks\":" << value.block.backtracks
-           << ",\"minimum_alpha\":" << value.block.minimum_alpha << '}'
+           << ",\"candidate\":{\"final_objective\":"
+           << value.candidate.final.total
+           << ",\"final_gradient_norm\":" << value.candidate.final.gradient_norm
+           << ",\"iterations\":" << value.candidate.iterations
+           << ",\"backtracks\":" << value.candidate.backtracks
+           << ",\"minimum_alpha\":" << value.candidate.minimum_alpha << '}'
            << ",\"minimum_alpha_improvement\":" << alpha_ratio << '}';
 }
 
@@ -868,18 +880,18 @@ ReferenceSolverReport run_conditioning_controls() {
         combined_conditioning_case(),
     };
     int baseline_backtracks = 0;
-    int block_backtracks = 0;
+    int candidate_backtracks = 0;
     for (ConditioningCase& value : cases) {
         value.passed = conditioning_quality_passed(value);
         baseline_backtracks += value.baseline.backtracks;
-        block_backtracks += value.block.backtracks;
+        candidate_backtracks += value.candidate.backtracks;
     }
-    const double compression_alpha_ratio = cases[0].block.minimum_alpha
+    const double compression_alpha_ratio = cases[0].candidate.minimum_alpha
         / std::max(cases[0].baseline.minimum_alpha, 1.0e-300);
-    const double combined_alpha_ratio = cases[2].block.minimum_alpha
+    const double combined_alpha_ratio = cases[2].candidate.minimum_alpha
         / std::max(cases[2].baseline.minimum_alpha, 1.0e-300);
     const bool aggregate_backtracks_passed =
-        4LL * static_cast<long long>(block_backtracks)
+        4LL * static_cast<long long>(candidate_backtracks)
         <= static_cast<long long>(baseline_backtracks);
     const bool alpha_passed = compression_alpha_ratio >= 16.0
         && combined_alpha_ratio >= 16.0;
@@ -899,9 +911,9 @@ ReferenceSolverReport run_conditioning_controls() {
 
     std::ostringstream report;
     report << std::setprecision(17)
-           << "{\"schema\":\"nextengine.nonlocal.formula_reclosure_fcr3a.v1\""
+           << "{\"schema\":\"nextengine.nonlocal.formula_reclosure_fcr3a.v2\""
            << ",\"identity\":\"nuv-variational-fcr1\""
-           << ",\"candidate\":\"block-jacobi-gn-armijo-v1\""
+           << ",\"candidate\":\"block16-inertial64-warm-armijo-v2\""
            << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
            << ",\"first_failure\":\"" << first_failure << '"'
            << ",\"thresholds\":{\"objective_relative\":1e-10"
@@ -909,7 +921,7 @@ ReferenceSolverReport run_conditioning_controls() {
            << ",\"minimum_alpha_improvement\":16}"
            << ",\"aggregate\":{\"baseline_backtracks\":"
            << baseline_backtracks
-           << ",\"block_backtracks\":" << block_backtracks
+           << ",\"candidate_backtracks\":" << candidate_backtracks
            << ",\"backtrack_gate\":\""
            << (aggregate_backtracks_passed ? "PASS" : "FAIL")
            << "\",\"compression_alpha_improvement\":"
@@ -928,7 +940,7 @@ ReferenceSolverReport run_conditioning_controls() {
            << ",\"runtime_authority\":false";
     std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
         + first_failure + '|' + std::to_string(baseline_backtracks) + '|'
-        + std::to_string(block_backtracks) + '|'
+        + std::to_string(candidate_backtracks) + '|'
         + std::to_string(compression_alpha_ratio) + '|'
         + std::to_string(combined_alpha_ratio);
     report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
