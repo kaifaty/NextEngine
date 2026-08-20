@@ -1,9 +1,12 @@
 use next_contracts::canonical::sha256;
+use next_contracts::command::IssuerPrincipal;
 use next_contracts::identity::{
-    CommandStreamRegistryV1, PrincipalRegistryV1, RuntimeDeterminismBundleV1,
-    WorldIdentityManifestV1,
+    CommandStreamRegistryV1, PrincipalRecordV1, PrincipalRegistryV1, PrincipalStatus,
+    RuntimeDeterminismBundleV1, WorldIdentityManifestV1,
 };
-use next_contracts::ids::{ApplicationSessionId, ContentHash};
+use next_contracts::ids::{
+    ApplicationSessionId, CapabilityId, ContentHash, SchemaId, SystemId, content_hash_from_bytes,
+};
 use next_contracts::mechanics::{ability_definition_hash, interaction_definition_hash_v2};
 use next_contracts::rpg::RpgSnapshotV2;
 use next_contracts::session::{ApplicationSessionStatusV1, PresentationTargetKindV1};
@@ -21,6 +24,27 @@ use super::{ApplicationCoordinator, ApplicationRunOutcomeV1, PreparedRunV1};
 /// the complete owner state for the ordinary save-on-close path.
 impl ApplicationCoordinator {
     pub fn run_project_headless(&mut self) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
+        self.run_project_headless_internal(ProjectHeadlessRunKind::SingleTick)
+    }
+
+    /// Runs the bounded public creator-scenario path. Every requested action is
+    /// one ordinary Runtime + World Routine/Population tick. Activity and
+    /// cognition owner snapshots remain unchanged when the generic project has
+    /// no RPG aggregate; the existing one-tick contract remains unchanged.
+    pub fn run_project_headless_scenario(
+        &mut self,
+        tick_actions: u32,
+    ) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
+        if !(1..=256).contains(&tick_actions) {
+            return Err(ApplicationError::ProjectRuntimeTick);
+        }
+        self.run_project_headless_internal(ProjectHeadlessRunKind::Scenario { tick_actions })
+    }
+
+    fn run_project_headless_internal(
+        &mut self,
+        kind: ProjectHeadlessRunKind,
+    ) -> Result<ApplicationRunOutcomeV1, ApplicationError> {
         if self.machine.state().state != ApplicationSessionStatusV1::Active
             || self.launch.presentation_target != PresentationTargetKindV1::None
         {
@@ -29,15 +53,25 @@ impl ApplicationCoordinator {
         if self.live_run.is_some() || self.prepared_run.is_some() {
             return Err(ApplicationError::LiveRunAlreadyActive);
         }
-        let prepared =
-            prepare_project_run(self.machine.state().session_id, self.activated_package())?;
+        let prepared = prepare_project_run(
+            self.machine.state().session_id,
+            self.activated_package(),
+            kind,
+        )?;
         self.publish_prepared_run(prepared)
     }
+}
+
+#[derive(Clone, Copy)]
+enum ProjectHeadlessRunKind {
+    SingleTick,
+    Scenario { tick_actions: u32 },
 }
 
 fn prepare_project_run(
     session_id: ApplicationSessionId,
     package: next_project::ActivatedProjectPackage,
+    kind: ProjectHeadlessRunKind,
 ) -> Result<PreparedRunV1, ApplicationError> {
     let next_project::ActivatedProjectPackage {
         project,
@@ -106,9 +140,31 @@ fn prepare_project_run(
         .active_definition_policy_hashes
         .dedup();
 
+    let mut authority = AuthorityRegistry::new();
+    if matches!(kind, ProjectHeadlessRunKind::Scenario { .. }) {
+        register_world_service_route(
+            &mut bootstrap,
+            &mut authority,
+            next_contracts::world_population::WORLD_POPULATION_SYSTEM_ID,
+            next_contracts::world_population::WORLD_POPULATION_CAPABILITY_ID,
+            next_contracts::world_population::WORLD_POPULATION_CAPABILITY_SUBJECT_ID,
+            b"nextengine.principal.world-population-boundary.v1\0",
+        )?;
+        if project.world_routine_catalog_or_none.is_some() {
+            register_world_service_route(
+                &mut bootstrap,
+                &mut authority,
+                next_contracts::world_routine::WORLD_ROUTINE_SYSTEM_ID,
+                next_contracts::world_routine::WORLD_ROUTINE_CAPABILITY_ID,
+                next_contracts::world_routine::WORLD_ROUTINE_CAPABILITY_SUBJECT_ID,
+                b"nextengine.principal.world-routine-boundary.v1\0",
+            )?;
+        }
+    }
+
     let mut runtime = RuntimeState::with_rpg_snapshot(
         bootstrap,
-        AuthorityRegistry::new(),
+        authority,
         RpgSnapshotV2 {
             aggregates: Vec::new(),
         },
@@ -120,13 +176,13 @@ fn prepare_project_run(
         .ok_or(ApplicationError::ProjectRuntimeBootstrap)?
         .initial_node_id
         .clone();
-    let world_streamer =
+    let mut world_streamer =
         WorldStreamerV1::activate(project.clone(), content_generation, initial_chunk_id)
             .map_err(|_| ApplicationError::ProjectRuntimeBootstrap)?;
-    let world_routine =
+    let mut world_routine =
         WorldRoutineOwnerV1::activate(project.world_routine_catalog_or_none, runtime.next_tick())
             .map_err(|_| ApplicationError::ProjectRuntimeBootstrap)?;
-    let world_population = WorldPopulationOwnerV1::activate(
+    let mut world_population = WorldPopulationOwnerV1::activate(
         project.world_population_catalog.clone(),
         project.world_navigation_catalog.clone(),
         runtime.next_tick(),
@@ -142,9 +198,73 @@ fn prepare_project_run(
     )
     .map_err(|_| ApplicationError::ProjectRuntimeBootstrap)?;
 
-    let tick = runtime
-        .run_tick(Vec::<next_contracts::command::WorldCommand>::new())
-        .map_err(|_| ApplicationError::ProjectRuntimeTick)?;
+    let (events, rpg_events) = match kind {
+        ProjectHeadlessRunKind::SingleTick => {
+            let tick = runtime
+                .run_tick(Vec::<next_contracts::command::WorldCommand>::new())
+                .map_err(|_| ApplicationError::ProjectRuntimeTick)?;
+            (
+                u64::try_from(tick.events.len())
+                    .map_err(|_| ApplicationError::ProjectRuntimeTick)?,
+                0,
+            )
+        }
+        ProjectHeadlessRunKind::Scenario { tick_actions } => {
+            let mut event_count = 0_u64;
+            let mut rpg_event_count = 0_u64;
+            for _ in 0..tick_actions {
+                let prepared = runtime
+                    .tick_preparation()
+                    .prepare_with_world_services(
+                        Vec::<next_contracts::command::WorldCommand>::new(),
+                        &world_routine,
+                        &world_population,
+                        &world_streamer,
+                    )
+                    .map_err(|_| ApplicationError::ProjectRuntimeTick)?;
+                event_count = event_count
+                    .checked_add(
+                        u64::try_from(prepared.events().len())
+                            .map_err(|_| ApplicationError::ProjectRuntimeTick)?,
+                    )
+                    .ok_or(ApplicationError::ProjectRuntimeTick)?;
+                rpg_event_count = rpg_event_count
+                    .checked_add(
+                        u64::try_from(
+                            prepared
+                                .events()
+                                .iter()
+                                .filter(|event| {
+                                    matches!(
+                                        event.payload,
+                                        next_contracts::command::EventPayload::Rpg(_)
+                                    )
+                                })
+                                .count(),
+                        )
+                        .map_err(|_| ApplicationError::ProjectRuntimeTick)?,
+                    )
+                    .ok_or(ApplicationError::ProjectRuntimeTick)?;
+                let validated = runtime
+                    .validate_prepared_world_services_tick_without_application_evidence(
+                        &world_routine,
+                        &world_population,
+                        &world_streamer,
+                        prepared,
+                    )
+                    .map_err(|_| ApplicationError::ProjectRuntimeTick)?;
+                runtime
+                    .commit_validated_world_services_tick_without_application_evidence(
+                        &mut world_routine,
+                        &mut world_population,
+                        &mut world_streamer,
+                        validated,
+                    )
+                    .map_err(|_| ApplicationError::ProjectRuntimeTick)?;
+            }
+            (event_count, rpg_event_count)
+        }
+    };
     world_routine
         .validate(runtime.next_tick())
         .map_err(|_| ApplicationError::ProjectRuntimeTick)?;
@@ -177,14 +297,12 @@ fn prepare_project_run(
         &agent,
         &memory,
     )?;
-    let events =
-        u64::try_from(tick.events.len()).map_err(|_| ApplicationError::ProjectRuntimeTick)?;
     let summary = ApplicationRunOutcomeV1 {
         session_id,
         project_composition_lock_hash: lock.project_lock_sha256,
         ticks: runtime.next_tick(),
         events,
-        rpg_events: 0,
+        rpg_events,
         authoritative_revision: runtime.authoritative_revision(),
         authoritative_state_root: ContentHash::from_bytes(*authoritative_state_root.as_bytes()),
         command_archive_root: checkpoint
@@ -219,4 +337,40 @@ fn project_seed(domain: &[u8], project_lock: ContentHash) -> [u8; 32] {
     preimage.extend_from_slice(domain);
     preimage.extend_from_slice(project_lock.as_bytes());
     sha256(&preimage)
+}
+
+fn register_world_service_route(
+    bootstrap: &mut RuntimeBootstrapV4,
+    authority: &mut AuthorityRegistry,
+    system_id: &str,
+    capability_id: &str,
+    capability_subject_id: &str,
+    provenance_domain: &[u8],
+) -> Result<(), ApplicationError> {
+    let principal = IssuerPrincipal::InternalSystem(
+        SystemId::new(system_id).map_err(|_| ApplicationError::ProjectRuntimeBootstrap)?,
+    );
+    bootstrap
+        .principal_registry
+        .register(
+            principal.clone(),
+            PrincipalRecordV1 {
+                provenance_hash: content_hash_from_bytes(sha256(provenance_domain)),
+                capability_subject_id: SchemaId::new(capability_subject_id)
+                    .map_err(|_| ApplicationError::ProjectRuntimeBootstrap)?,
+                status: PrincipalStatus::Active,
+            },
+        )
+        .map_err(|_| ApplicationError::ProjectRuntimeBootstrap)?;
+    bootstrap
+        .stream_registry
+        .allocate_stream(principal.clone())
+        .map_err(|_| ApplicationError::ProjectRuntimeBootstrap)?;
+    authority
+        .register(
+            principal,
+            [CapabilityId::new(capability_id)
+                .map_err(|_| ApplicationError::ProjectRuntimeBootstrap)?],
+        )
+        .map_err(|_| ApplicationError::ProjectRuntimeBootstrap)
 }

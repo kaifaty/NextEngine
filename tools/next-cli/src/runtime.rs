@@ -24,6 +24,26 @@ pub(super) fn run_publication(
     publication: &next_assets::ContentPublicationV1,
     expected_project_lock: ContentHash,
 ) -> Result<CreatorRuntimeProofV1, RuntimeExecutionError> {
+    run_publication_with_kind(publication, expected_project_lock, RunKind::Project)
+}
+
+pub(super) fn run_publication_scenario(
+    publication: &next_assets::ContentPublicationV1,
+    expected_project_lock: ContentHash,
+    tick_actions: u32,
+) -> Result<CreatorRuntimeProofV1, RuntimeExecutionError> {
+    run_publication_with_kind(
+        publication,
+        expected_project_lock,
+        RunKind::Scenario { tick_actions },
+    )
+}
+
+fn run_publication_with_kind(
+    publication: &next_assets::ContentPublicationV1,
+    expected_project_lock: ContentHash,
+    kind: RunKind,
+) -> Result<CreatorRuntimeProofV1, RuntimeExecutionError> {
     let temporary = TemporaryDirectory::new("publication")?;
     let result = (|| {
         let project_store_root = temporary.path().join("project");
@@ -34,6 +54,7 @@ pub(super) fn run_publication(
             &project_store_root,
             expected_project_lock,
             &temporary.path().join("state"),
+            kind,
         )
     })();
     temporary.finish(result)
@@ -48,14 +69,37 @@ pub(super) fn run_store(
         project_store_root,
         expected_project_lock,
         &temporary.path().join("state"),
+        RunKind::Project,
     );
     temporary.finish(result)
+}
+
+pub(super) fn run_store_scenario(
+    project_store_root: &Path,
+    expected_project_lock: ContentHash,
+    tick_actions: u32,
+) -> Result<CreatorRuntimeProofV1, RuntimeExecutionError> {
+    let temporary = TemporaryDirectory::new("scenario-state")?;
+    let result = run_store_in_state_root(
+        project_store_root,
+        expected_project_lock,
+        &temporary.path().join("state"),
+        RunKind::Scenario { tick_actions },
+    );
+    temporary.finish(result)
+}
+
+#[derive(Clone, Copy)]
+enum RunKind {
+    Project,
+    Scenario { tick_actions: u32 },
 }
 
 fn run_store_in_state_root(
     project_store_root: &Path,
     expected_project_lock: ContentHash,
     state_root: &Path,
+    kind: RunKind,
 ) -> Result<CreatorRuntimeProofV1, RuntimeExecutionError> {
     let mut application = ApplicationCoordinator::launch(LaunchRequestV1 {
         project: ProjectSelectionV1::PublishedStateRoot(project_store_root.to_path_buf()),
@@ -66,9 +110,20 @@ fn run_store_in_state_root(
         platform_capability_set: None,
     })
     .map_err(RuntimeExecutionError::Application)?;
-    let run = application
-        .run_project_headless()
-        .map_err(RuntimeExecutionError::Application)?;
+    let (run, expected_ticks) = match kind {
+        RunKind::Project => (
+            application
+                .run_project_headless()
+                .map_err(RuntimeExecutionError::Application)?,
+            1,
+        ),
+        RunKind::Scenario { tick_actions } => (
+            application
+                .run_project_headless_scenario(tick_actions)
+                .map_err(RuntimeExecutionError::Application)?,
+            u64::from(tick_actions),
+        ),
+    };
     let close = application
         .close()
         .map_err(RuntimeExecutionError::Application)?;
@@ -76,7 +131,7 @@ fn run_store_in_state_root(
         .ok_or(RuntimeExecutionError::Report)?;
     if report.project_composition_lock_hash != expected_project_lock.to_hex()
         || report.presentation.is_some()
-        || report.ticks != 1
+        || report.ticks != expected_ticks
         || report.status != "PASS"
     {
         return Err(RuntimeExecutionError::Report);

@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.54 |
-| Последняя проверка | 2026-08-19 |
-| Заменяет | INDEX-001 2.53; records the R6d public creator RPG starter and cold-authoring vertical |
+| Версия | 2.55 |
+| Последняя проверка | 2026-08-20 |
+| Заменяет | INDEX-001 2.54; records the R6e public creator runtime scenario and failure-preserving prefix minimization vertical |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -159,15 +159,15 @@ traceability — навигационная карта, не admission authority
 | SPEC-06 | [AI agents, perception и memory](06-ai-agents-perception-and-memory.md) | Accepted |
 | SPEC-07 | [RPG, scripting и plugins](07-rpg-scripting-and-plugins.md) | Accepted |
 | SPEC-08 | [Audio, navigation и world services](08-audio-navigation-and-world-services.md) | Accepted audio plus bounded engine-owned graph/query baseline; broader navmesh/traversal remains Proposed |
-| SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted; includes repository ProductChecks plus public `next project create/validate/cook/run/package/inspect/diff` |
+| SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted; includes repository ProductChecks plus public project create/validate/cook/run/package/inspect/diff and scenario validate/run/minimize |
 | SPEC-10 | [Gothic importer boundary](10-gothic-importer-boundary.md) | Accepted |
-| SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted; creator template/package paths are confined and exact, required NOTICE/fresh output fail closed, and read-only projections expose no raw paths/private storage |
-| SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted; risk-scoped validation plus bounded R5 and R6a–R6d milestone matrices |
+| SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted; creator template/package/scenario paths are confined and exact, required NOTICE/fresh output fail closed, and read-only projections expose no raw paths/private storage |
+| SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted; risk-scoped validation plus bounded R5 and R6a–R6e milestone matrices |
 | SPEC-13 | [Gameplay mechanics и mod packages](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted |
 | SPEC-14 | [Physical archetypes, BodySchema, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted hierarchy/ownership; fixed-humanoid BodySchema V1 is current through SPEC-35, advanced skill/adaptation/family profiles remain Proposed |
-| SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted; includes repeated cold creation, creator authoring/package run, inspect/diff and negative evidence without a mutable backdoor |
+| SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted; includes creator source/package scenario parity and failure-preserving tick-prefix minimization without a mutable backdoor |
 | SPEC-16 | [Text-canonical multimodal dialogue и model packs](16-text-canonical-multimodal-dialogue-and-model-packs.md) | Proposed |
-| SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted; creator template and CLI use the same exact V7 cook/activation, generic headless tick/final-save lifecycle and source-neutral read-only projection |
+| SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted; creator project and scenario paths use the same exact V7 cook/activation, bounded headless tick/final-save lifecycle and source-neutral read-only projection |
 | SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted; future qualitative body-status projection remains consumer-driven |
 | SPEC-19 | [Current RPG domain state](19-rpg-domain-and-narrative-state.md) | Accepted |
 | SPEC-20 | [World calendar, authored routines and bounded population lifecycle](20-world-simulation-and-population-lifecycle.md) | Accepted R4a calendar/routine, R4b population/navigation, R4c cognition consumer and bounded R4d activity/tier/bulk-time vertical |
@@ -179,7 +179,7 @@ traceability — навигационная карта, не admission authority
 | SPEC-26 | [Physics world, collision, constraints, queries и snapshots](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md) | Accepted; current capsule profile includes one bounded fixed-local carried box on the same body |
 | SPEC-27 | [Motor observation, action и deterministic inference](27-motor-observation-action-and-deterministic-inference.md) | Accepted generic tensor/state/safety/replay baseline; exact adaptation/reference profile evolution is Proposed |
 | SPEC-28 | [Skeletal animation, retargeting и IK](28-skeletal-animation-retargeting-and-ik.md) | Accepted; bounded forward `ANIM-ROOT-MOTION-P1` and bounded-profile `ANIM-LOD-P1` are current through R5h/R5i, while general graph/retarget/physical-IK, creator-authored LOD breadth and hybrid articulation remain open |
-| SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted; generic creator run shares headless session and save-on-close |
+| SPEC-29 | [Platform host и simple application session](29-platform-host-and-application-session.md) | Accepted; generic one-tick creator run and separately bounded scenario ticks share headless session and save-on-close |
 | SPEC-30 | [Presentation snapshot, camera, UI и render content](30-presentation-extraction-and-render-content.md) | Accepted; R5i preserves atomic V3 complete-or-none animation-LOD publication and prior-snapshot retention |
 | SPEC-31 | [Future narrative director и divine agency intent](31-autonomous-quest-lifecycle-and-narrative-director.md) | Proposed |
 | SPEC-32 | [Deterministic Strategic Agent cognition and social behavior](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md) | Accepted R4c cognition core under ADR-073 plus bounded R4d social/work/economy and tier-cadence vertical under ADR-074 |
@@ -290,6 +290,7 @@ traceability — навигационная карта, не admission authority
 | ADR-084 | [Public creator run and project-package vertical](adr/084-public-creator-run-and-project-package-vertical.md) | Accepted bounded generic one-tick creator run, exact current project package, separate reports and packaged-byte verification |
 | ADR-085 | [Public creator project inspect and diff vertical](adr/085-public-creator-project-inspect-and-diff-vertical.md) | Accepted bounded source-neutral immutable projection, authoring/package inspect and directional success-on-difference report |
 | ADR-086 | [Public creator RPG starter template](adr/086-public-creator-rpg-starter-template.md) | Accepted bounded built-in current-only starter, fresh-output atomic creation and complete cold-project lifecycle |
+| ADR-087 | [Public creator runtime scenario and prefix minimization](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) | Accepted exact-project-bound tick scenario, path-free final-proof assertions and failure-preserving fresh-output prefix minimization |
 
 ## Proposed tracks
 

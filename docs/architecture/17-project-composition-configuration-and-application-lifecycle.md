@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-17 |
 | Статус | Accepted |
-| Версия | 3.0 |
-| Последняя проверка | 2026-08-19 |
+| Версия | 3.1 |
+| Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-018](adr/018-authoritative-project-composition-and-configuration.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-048](adr/048-direct-exact-project-lock.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V3.0 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
-| Заменяет | SPEC-17 2.9; adds atomic generation of one valid namespaced Project Authoring V7 starter before the unchanged direct composition path |
+| Дополнительные зависимости V3.1 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
+| Заменяет | SPEC-17 3.0; adds exact-project-bound creator scenario validation and bounded multi-tick world-service execution without changing direct composition or one-tick project run |
 
 ## Назначение
 
@@ -49,6 +50,9 @@ source/aggregate in Rust. ADR-085 adds source-neutral read-only inspect/diff;
 the projection is diagnostic and never replaces the lock or activated project.
 ADR-086 adds one fresh-output built-in starter; it production-loads/cooks before
 publication and every later operation follows this same direct path.
+ADR-087 adds a path-free exact-project-bound scenario view over authoring or
+package. It validates the same closure before executing any scenario tick and
+does not become a second project lock, resolver or mutable project authority.
 
 ## `ProjectLockV3`
 
@@ -147,6 +151,13 @@ save-on-close path. This proves a runnable project closure without requiring
 reference-alpha roles or promising an interactive/scenario/resumable creator
 session.
 
+The separate creator-scenario entry keeps that one-tick command unchanged. It
+admits 1–256 explicit tick actions, installs only the engine-owned routine/
+population principal and command-stream routes required by the project, commits
+each Runtime + World Services generation atomically and then uses the same
+owner-complete save-on-close boundary. Assertions read only the final public
+proof; minimization changes only the authored action prefix.
+
 ## Current-only formats
 
 Until the first publicly supported v1 format is declared, authoring, lock,
@@ -172,6 +183,7 @@ generic one-tick application path, build/reopen its exact creator package and
 match the authoring/package runtime proofs. Focused `next_cli` tests cover exact
 reports, unsupported/tampered package failure, output confinement, generation
 preservation, location-independent inspect, empty authoring/package diff and
-localized controlled drift. Native target packaging remains a separate
+localized controlled drift plus scenario source/package parity and
+failure-preserving prefix minimization. Native target packaging remains a separate
 `v1-package`/R7 concern; launch/session changes additionally run active-host
 `platform` as selected by SPEC-12.

@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 3.5 |
-| Последняя проверка | 2026-08-19 |
+| Версия | 3.6 |
+| Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V3.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
-| Заменяет | SPEC-15 3.4; adds deterministic cold-project generation and complete generated-project lifecycle evidence while leaving public scenario/minimize/capture commands unpromoted |
+| Дополнительные зависимости V3.6 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
+| Заменяет | SPEC-15 3.5; promotes one bounded creator tick scenario with exact assertions and failure-preserving prefix minimization while capture/replay-inspector breadth remains unpromoted |
 
 ## Назначение
 
@@ -46,6 +47,12 @@ Manifest validation завершается до создания mutable world. 
 missing reference, unsupported feature или exceeded static bound отклоняет весь
 scenario.
 
+The current public consumer is the narrower Creator Runtime Scenario V1, not
+the complete future manifest above. It binds one exact creator project identity,
+one to 256 ordered `tick` actions, an explicit tick budget and one to 32 exact
+final-proof assertions. Arbitrary command/input/fault/capture/replay fields are
+not accepted by this current-only format.
+
 ## Actions
 
 `ScenarioAction` поддерживает только production-shaped operations:
@@ -59,6 +66,12 @@ scenario.
 Action не содержит raw ECS ID, vendor handle, mutable pointer, arbitrary script
 внутри host process или wall-clock sleep. Для durable references используются
 `PersistentId` и `AssetId`.
+
+Creator Runtime Scenario V1 currently admits only `tick`: one ordinary
+Runtime + World Routine/Population transaction in an isolated headless
+Application Session. Activity/cognition snapshots remain validated unchanged
+when the generic creator project has no RPG aggregate; the tool does not
+fabricate an outcome to make a scenario interesting.
 
 ## Probes и assertions
 
@@ -84,6 +97,12 @@ Probe не влияет на schedule, RNG, cache/resource selection или stat
 Implicit epsilon, unordered text-log comparison, hidden environment default и
 retry-to-green запрещены. Presentation assertions не получают gameplay
 authority.
+
+The current creator assertion subset is exact-only and reads the final
+path-free tick/event/RPG-event/revision counts plus authoritative-state,
+command-archive, command-identity-index, command-ledger and final-save hashes.
+Assertion IDs are sorted, probes are unique and the first mismatch is the
+stable failure identity.
 
 ## Deterministic execution
 
@@ -132,6 +151,12 @@ failure другим. Если minimization не завершается либо
 failure identity, original replay остаётся основным reproducer, а причина
 minimization записывается отдельно.
 
+The current creator minimizer implements the prefix branch of this rule. It
+tests prefixes shortest-first and preserves the stable assertion code,
+category, assertion ID, probe and complete project identity. Expected values
+and the full assertion list remain unchanged. The original scenario remains
+the reproducer; R6e emits no replay artifact yet.
+
 ## Optional capture
 
 Capture — необязательная помощь при visual, UI, camera, animation, physics,
@@ -154,8 +179,10 @@ loss, encoder absence или quota overflow оставляет replay/diagnostic
 
 Current supported entry points are `cargo run -p xtask -- <ProductCheck>`,
 focused crate tests and the ADR-083/084/085/086 public `next project
-create/validate/cook/run/package/inspect/diff` commands. A public `next` scenario/minimize/capture
-command, GUI projection or MCP protocol is not a current contract. Tool output хранится только в явном
+create/validate/cook/run/package/inspect/diff` commands plus the ADR-087 public
+`next scenario validate/run/minimize` commands. A public capture command,
+replay/domain inspector, GUI projection or MCP protocol is not a current
+contract. Tool output хранится только в явном
 local output directory, ignored by source control by default. Удаление
 локальных debug artifacts не меняет source, package или product status.
 
@@ -180,6 +207,14 @@ requires byte-identical source trees, checks the one NPC/ability/quest and
 three-chunk authoring closure, then validates, runs, packages, reruns and
 source/package-diffs the generated project through the existing public paths.
 Occupied or invalid destinations remain untouched.
+
+The tracked creator scenario advances three ordered production ticks from both
+authoring and packaged bytes, observes two population events and requires nine
+exact final runtime/ledger/save assertions. A focused failure keeps one exact
+tick assertion wrong across three actions; minimization republishes and reruns
+the one-action preserving prefix without weakening it. Retired/malformed/link
+input, exact-project mismatch, a passing original and unsafe/existing output
+fail without partial publication.
 
 The focused `animation-root-motion` entry point uses 1,000 independently
 activated ten-cycle neutral generations so receipt/snapshot history length is

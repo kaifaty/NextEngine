@@ -4,12 +4,12 @@
 |---|---|
 | ID | ADR-086 |
 | Status | Accepted |
-| Version | 1.0 |
+| Version | 1.1 |
 | Decision date | 2026-08-19 |
-| Last verified | 2026-08-19 |
+| Last verified | 2026-08-20 |
 | Normative dependencies | [SPEC-01](../01-system-architecture.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](../17-project-composition-configuration-and-application-lifecycle.md), [SPEC-24](../24-content-catalog-bundle-and-neutral-asset-schemas.md), [ADR-018](018-authoritative-project-composition-and-configuration.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](048-direct-exact-project-lock.md), [ADR-082](082-linux-first-development-and-deferred-windows-host.md), [ADR-083](083-public-creator-project-cli-vertical.md), [ADR-084](084-public-creator-run-and-project-package-vertical.md), [ADR-085](085-public-creator-project-inspect-and-diff-vertical.md) |
 | Supersedes | Narrowly supersedes ADR-085's statement that a reusable template and cold-authoring exercise are unimplemented. Existing creator commands, reports, authoring/package formats and inspect/diff semantics are unchanged. |
-| Superseded by | not superseded |
+| Superseded by | Narrowly [ADR-087](087-public-creator-runtime-scenario-and-prefix-minimization.md) for the later public scenario validate/run/minimize boundary; template and cold-authoring semantics remain current. |
 
 ## Context
 
@@ -90,8 +90,9 @@ A creator can go from a clean checkout and an empty parent directory to a
 runnable independent RPG project with one command. The generated examples map
 directly to the R6 cold-authoring concepts—ability, quest/NPC and streamed
 chunk—and every subsequent operation uses the already-public production path.
-This completes R6d and further reduces B-09; scenario/minimization,
-replay/domain inspectors and the broader SDK remain open.
+This completes R6d and further reduces B-09. ADR-087 subsequently closes the
+bounded scenario validate/run/prefix-minimize increment; replay/domain
+inspectors and the broader SDK remain open.
 
 ## Relevant product checks
 
@@ -126,8 +127,9 @@ replay/domain inspectors and the broader SDK remain open.
   families.
 - The repository's CC0 starter source is reused as one embedded deterministic
   template, avoiding a second drifting content fixture.
-- R6 and B-09 remain open. The next bounded increment should add public
-  scenario validate/run/minimize before broader replay/domain inspection.
+- R6 and B-09 remain open. ADR-087 subsequently adds public scenario
+  validate/run/prefix-minimize; read-only replay first-divergence and bounded
+  domain inspection are now the next increment.
 - Linux is the active implementation host. Windows/THOTH remain
   `NotRun(WindowsHostDeferred)` under ADR-082.
 

@@ -1,0 +1,78 @@
+{
+  "format": "nextengine.creator-runtime-scenario.v1",
+  "scenario_id": "org.nextengine.creator-smoke.runtime-smoke",
+  "project": {
+    "project_id": "org.nextengine.creator-smoke",
+    "project_revision": 1,
+    "authoring_sha256": "b80e7d162b5f195c94ef9e62b831b4f9f4bfcbae3783587c81ce96b495df720b",
+    "project_lock_sha256": "008ca7acbee5a934aca9f228b1fb41038843f29dee7af26dcb5c142670b1c339",
+    "schema_registry_sha256": "73d81f227c760b2372a5f69f85624f89d8ca5c01c674a530c7aa8ed0d87214e1",
+    "content_manifest_sha256": "f63c7b0353c172135356c8f46b9970924ec9eac7be40c87db9c3d022f1f02e9d",
+    "world_partition_sha256": "811a6c66f41066b16f9e639826cf82ffb85a5ef2d2f2b3a46cbb1ad864b99dc7",
+    "mechanics_lock_sha256": "e2ef7d2e3142630aafcabd240769a9822140415e093c3652614b83852d1fb1df"
+  },
+  "limits": {
+    "tick_budget": 3
+  },
+  "actions": [
+    {
+      "action_id": "tick-001",
+      "kind": "tick"
+    },
+    {
+      "action_id": "tick-002",
+      "kind": "tick"
+    },
+    {
+      "action_id": "tick-003",
+      "kind": "tick"
+    }
+  ],
+  "assertions": [
+    {
+      "probe": "command-archive-root",
+      "assertion_id": "archive-root",
+      "expected": "11acf1be66fd4df4eca4dfad61f3940720c1c9dd88c199ef06c61376368910c3"
+    },
+    {
+      "probe": "final-save-generation-hash",
+      "assertion_id": "final-save",
+      "expected": "d1fbfdc1cadddfbd00d1bd00074498966421735a1791ee4fcc8b9fed3a2f0315"
+    },
+    {
+      "probe": "command-identity-index-root",
+      "assertion_id": "identity-index",
+      "expected": "428a34c38e80910217b1af7f2131771cbad2064c017ba5c974bec9ddecbcc9bd"
+    },
+    {
+      "probe": "command-ledger-hash",
+      "assertion_id": "ledger-hash",
+      "expected": "34727b83c31ff6edbdd72074ee349ff56deb633a10d9bd033ab00d97bc043ca2"
+    },
+    {
+      "probe": "events",
+      "assertion_id": "runtime-events",
+      "expected": 2
+    },
+    {
+      "probe": "authoritative-revision",
+      "assertion_id": "runtime-revision",
+      "expected": 5
+    },
+    {
+      "probe": "rpg-events",
+      "assertion_id": "runtime-rpg-events",
+      "expected": 0
+    },
+    {
+      "probe": "authoritative-state-root",
+      "assertion_id": "runtime-state-root",
+      "expected": "0cdb74d69029dfac963be0da11a44c3388332f12878d4a4c6974bc6bb4c3f9b6"
+    },
+    {
+      "probe": "ticks",
+      "assertion_id": "runtime-ticks",
+      "expected": 3
+    }
+  ]
+}

@@ -936,6 +936,7 @@ dependencies = [
  "next_runtime",
  "next_script_luau",
  "next_world",
+ "serde_json",
 ]
 
 [[package]]

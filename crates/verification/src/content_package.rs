@@ -18,6 +18,7 @@ use next_render::{RenderTargetV1, build_b0_frame_plan};
 
 use crate::scratch::ScratchContext;
 
+mod creator_scenario;
 mod creator_template;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -351,6 +352,7 @@ struct CreatorProjectEvidence {
 fn verify_creator_project(
     scratch: &ScratchContext,
 ) -> Result<CreatorProjectEvidence, ContentPackageCheckError> {
+    creator_scenario::verify(scratch)?;
     creator_template::verify(scratch)?;
     let project_directory =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../projects/creator-smoke");

@@ -4,11 +4,12 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 4.5 |
-| Последняя проверка | 2026-08-19 |
+| Версия | 4.6 |
+| Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V4.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
-| Заменяет | SPEC-12 4.4; adds the R6d cold-project template lifecycle to existing ProductChecks without creating a new global category |
+| Дополнительные зависимости V4.6 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
+| Заменяет | SPEC-12 4.5; adds the R6e creator scenario/minimization lifecycle to existing ProductChecks without creating a new global category |
 
 ## Назначение
 
@@ -81,6 +82,17 @@ in two isolated roots, one character/ability/quest and three-chunk closure,
 fresh-output failure safety and the existing validate/run/package/inspect/diff
 lifecycle. It does not promote arbitrary templates, scenarios or editor
 mutation.
+
+The R6e `next scenario validate/run/minimize` commands map to `fast`,
+`content-package`, `play` and `persistence-replay`; their new shared headless
+Application Session entry additionally runs active-Linux `platform`. The
+focused matrix validates exact project binding, repeats the three-tick
+authoring/package proof, checks all nine final runtime/ledger/save assertions,
+and reduces a three-action assertion failure to the shortest preserving prefix
+without editing the assertion. Retired/malformed/link input, project mismatch,
+passing minimization and occupied/link output fail closed. This is a bounded
+tick-prefix scenario consumer, not arbitrary commands/faults, capture, replay
+inspection or a new global ProductCheck category.
 
 `cargo run -p xtask -- v1-closure` агрегирует реализованные v1 checks, exact
 project/content/mechanics/extension roots и target package descriptors. На

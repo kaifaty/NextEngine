@@ -124,3 +124,42 @@ fn independent_project_runs_one_headless_tick_and_closes_without_reference_boots
     );
     let _ = std::fs::remove_dir_all(root);
 }
+
+#[test]
+fn independent_project_scenario_advances_world_services_for_three_ticks() {
+    let root = state_root("creator-project-scenario");
+    let _ = std::fs::remove_dir_all(&root);
+    let project_store_root = root.join("external-project");
+    let source = next_project::load_project_authoring_v7(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../projects/creator-smoke"),
+    )
+    .expect("load creator project");
+    let cooked = next_project::cook_project_v7(source).expect("cook creator project");
+    next_assets::ContentStore::new(&project_store_root)
+        .publish(&cooked.publication().expect("creator publication"))
+        .expect("publish creator project");
+    let mut application = ApplicationCoordinator::launch(LaunchRequestV1 {
+        project: ProjectSelectionV1::PublishedStateRoot(project_store_root),
+        expected_project_lock: Some(cooked.project_lock.project_lock_sha256),
+        state_root: root.join("state"),
+        composition_root: CompositionRootV1::Headless,
+        presentation_target: PresentationTargetKindV1::None,
+        platform_capability_set: None,
+    })
+    .expect("launch creator project");
+
+    let run = application
+        .run_project_headless_scenario(3)
+        .expect("run creator scenario");
+    assert_eq!(run.ticks, 3);
+    assert_eq!(
+        run.project_composition_lock_hash,
+        cooked.project_lock.project_lock_sha256
+    );
+    assert!(run.presentation_snapshot.is_none());
+    assert!(matches!(
+        application.close().expect("close creator scenario"),
+        ApplicationCloseOutcomeV2::Closed { .. }
+    ));
+    let _ = std::fs::remove_dir_all(root);
+}

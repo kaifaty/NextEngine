@@ -4,10 +4,11 @@
 |---|---|
 | ID | SPEC-29 |
 | Статус | Accepted |
-| Версия | 3.2 |
-| Последняя проверка | 2026-08-18 |
+| Версия | 3.3 |
+| Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-028](adr/028-platform-session-and-presentation-authority.md), [ADR-035](adr/035-bounded-live-recovery-platform-host-and-presentation-cut.md), [ADR-047](adr/047-simple-application-session-and-save-on-close.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md) |
-| Заменяет | SPEC-29 3.1; admits the generic creator headless run through the existing Application Session and save-on-close contract |
+| Дополнительные зависимости V3.3 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
+| Заменяет | SPEC-29 3.2; adds a separately bounded creator scenario tick path through the existing Application Session and save-on-close contract while preserving one-tick project run |
 
 ## Platform boundary
 
@@ -42,6 +43,14 @@ presentation target, executes one production tick, then closes through the
 same journal and SaveStore path. Its isolated temporary state makes the final
 save a deterministic proof, not a public creator resume slot. The path does not
 construct reference-game roles, presentation or aggregate fixtures.
+
+`next scenario run/minimize` is a separate project-neutral consumer. It keeps
+the existing one-tick method unchanged and executes 1–256 explicit tick actions
+through ordinary Runtime + World Routine/Population atomic transactions. It
+installs the engine-owned principal/capability/stream routes required for those
+owners, observes only the final public proof and closes through the same
+journal. Its isolated state is not a resume slot; headless still creates no
+platform host or presentation target.
 
 `ApplicationSessionManifestV2` binds session ID, composition root, exact
 project lock, launch/platform/runtime/schema/content hashes and presentation
@@ -159,7 +168,9 @@ Focused session-store tests inject faults before and after slot/pointer/save
 publication and prove one final save generation per close identity.
 Focused creator tests compare repeated authoring runs with the package-embedded
 run and require the same exact lock, state/ledger roots, close receipt and final
-save generation. Shared application/runtime/save changes also run `play` and
+save generation. Focused scenario tests additionally compare three-tick
+authoring/package roots and shortest failure-preserving prefixes. Shared
+application/runtime/save changes also run `play` and
 `persistence-replay`; this does not claim interactive creator support.
 
 Current interactive host evidence is collected on native Linux. Windows host

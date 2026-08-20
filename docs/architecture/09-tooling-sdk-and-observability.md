@@ -4,16 +4,17 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 4.6 |
-| Последняя проверка | 2026-08-19 |
+| Версия | 4.7 |
+| Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
-| Заменяет | SPEC-09 4.5; adds the bounded R6d built-in RPG starter and atomic cold-project creation command without changing existing report shapes |
+| Дополнительные зависимости V4.7 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
+| Заменяет | SPEC-09 4.6; adds the bounded R6e public creator scenario validate/run/prefix-minimize workflow and separate report family |
 
 ## Scope and authority
 
 Current tooling has two distinct surfaces: repository-owned `xtask` plus
 standard Cargo tests/lints, and the bounded public creator binary `next` from
-ADR-083/084/085/086. Both run production application/content/persistence paths and emit
+ADR-083/084/085/086/087. Both run production application/content/persistence paths and emit
 bounded structured reports. Tool output, telemetry, captures and profiles are
 diagnostics; they never become gameplay authority.
 
@@ -22,8 +23,9 @@ Tooling owns command parsing, stable machine-readable report envelopes, local
 output publication and performance evidence. Test/verification crates are not
 production dependencies and receive no mutation backdoor.
 
-The only current public `next` commands are project create, validate, cook,
-run, package, inspect and diff below. There is no current MCP tool protocol, public scenario/capture command, live
+The current public `next` commands are project create, validate, cook, run,
+package, inspect and diff plus bounded scenario validate/run/minimize below.
+There is no current MCP tool protocol, public capture command, live
 inspector API, `AuthoringContextBundle`, `AgentChangeSet` or agent policy
 contract. Those remain later consumer-driven R6 possibilities and cannot be
 required by current runtime.
@@ -94,6 +96,9 @@ next project package --project <project-directory> --output <new-directory>
 next project inspect --project <project-directory>
 next project inspect --package <creator-package-directory>
 next project diff (--base-project <directory> | --base-package <directory>) (--candidate-project <directory> | --candidate-package <directory>)
+next scenario validate --scenario <file> (--project <directory> | --package <directory>)
+next scenario run --scenario <file> (--project <directory> | --package <directory>)
+next scenario minimize --scenario <file> (--project <directory> | --package <directory>) --output <absent-file>
 ```
 
 The workspace source-build spelling is `cargo run --locked -p next_cli --`
@@ -120,6 +125,9 @@ contracts carrying project identity plus runtime/final-save or package proof.
 Creator Inspect Report V1 and Creator Diff Report V1 are separately versioned,
 path-free read-only contracts over `CreatorProjectProjectionV1`. All failures
 expose stable code/subsystem/message key without raw paths.
+Creator Scenario Report V1 is a sixth independent family carrying exact
+scenario/project identity, final runtime proof or preserved prefix-minimization
+failure. It does not add fields to earlier report families.
 
 ## Diagnostics and output safety
 
@@ -158,6 +166,15 @@ pass the current loader/cooker. The projection excludes paths, source spans,
 content property values and private generation layout. Diff compares only
 validated complete operands, is stable-ID keyed and never emits a partial
 comparison after one operand fails.
+
+Creator scenario source is one regular non-link file bounded to 1 MiB and
+current format `nextengine.creator-runtime-scenario.v1`. It binds a complete
+project identity, 1–256 ordered tick actions, an explicit tick budget and 1–32
+sorted exact read-only assertions. Run uses isolated headless state and ordinary
+save-on-close; minimize writes only an absent regular output after a private
+sibling candidate validates and reproduces the same assertion category, ID and
+probe. It never weakens assertions, overwrites output, emits private paths or
+accepts arbitrary command, fault or capture payloads.
 
 Pre-v1 reports and tool-owned formats are current-only unless an ADR names a
 public support promise. A retired version returns a typed unsupported result;
@@ -267,10 +284,12 @@ without affecting gameplay. A deterministic retry mismatch is
 Focused tooling tests cover command parsing, exact report schemas, atomic
 output, current-only rejection, creator project-root/output confinement,
 deterministic fresh RPG starter creation, location-independent repeated
-inspect, authoring/package empty diff, localized record drift and boundary
-scan. `content-package` reopens both the reference project and the independent
+inspect, authoring/package empty diff, localized record drift, repeated
+three-tick scenario proof, assertion failure, shortest-prefix minimization and
+boundary scan. `content-package` reopens both the reference project and the independent
 creator fixture, generates another namespaced project, and compares their
-source/package projections; `host-check` covers the workspace. The
+source/package projections; it also runs/minimizes the tracked creator scenario
+from authoring/package bytes. `host-check` covers the workspace. The
 `performance` command covers V5 reports/baselines and all eight
 scenario routes; platform/GPU availability may legitimately yield typed
 `NOT_RUN` without claiming success for that scenario.
