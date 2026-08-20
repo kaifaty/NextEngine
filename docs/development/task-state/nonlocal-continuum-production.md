@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / NPR1_B_TERM_CONTROLS / REPORT_ONLY` |
+| Status | `STOPPED / NONLOCAL_PRODUCTION_RESEARCH_STOP / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-production` |
 | Scope | Evidence-gated path from the retained Nonlocal GPU lab to one bounded basin production candidate |
@@ -11,18 +11,19 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** NPR0 selects one exact report-only h3/16 basin
-  profile; it is eligible for NPR1 falsification, not runtime integration.
-- **Why:** v4 passes audit, repeated full-basin exact P1/P2 checks and all four
-  h3-consistent tiny cases with declared 38,856 boundary capacity.
-- **Next action:** implement NPR1-B independent energy/force directional
-  derivatives, invariance and viscosity/surface controls.
-- **Current blocker:** broader physical validity and canonical authority are
-  unproven; the one-sided NPR0 hydro metric is insufficient for production.
-- **Do not retry:** runtime/public contract integration from the old 50k
-  benchmark; it is not product-profile evidence.
-- **Reconsider when:** NPR0 selects one hash-bound basin-scale profile through
-  independent small physical controls.
+- **Current conclusion:** the exact h3/16 v4 candidate is falsified by NPR1-B
+  and this productionization roadmap is stopped.
+- **Why:** the selected source-shaped forces differ from the derivatives of
+  the published energy by 60–98%; the independent energy and repair probe
+  each match finite differences below `3.45e-9`.
+- **Next action:** preserve the negative evidence. If Nonlocal research is
+  reopened, specify a new corrected-variational identity and restart NPR0.
+- **Current blocker:** there is no physically consistent Nonlocal profile
+  eligible for canonical-authority or runtime integration.
+- **Do not retry:** NPR1-C/E, long corpora, authority, PhysX or performance
+  work using v4; the first mandatory physical gate already failed.
+- **Reconsider when:** a separately rooted formula-corrected solver contract
+  or an upstream erratum is available.
 
 ## Current evidence
 
@@ -43,8 +44,9 @@
 | [NPR0 v4 discriminator](../../plans/nonlocal-continuum-production/04-h3-support-profile-discriminator.md) | `EXECUTED` | audit, repeated exact preflights and complete h3 tiny corpus pass |
 | [NPR0 v4 selection evidence](../nonlocal-continuum-npr0-v4-selection-evidence-2026-08-20.md) | `NONLOCAL_PRODUCT_PROFILE_CANDIDATE` | NPR0 complete; exact h3/16 identity enters NPR1 only |
 | [NPR1 research](../nonlocal-continuum-npr1-correctness-research-2026-08-20.md) | `NPR1_CONTRACT_INPUT` | reuse hash-bound water curves; paper visuals are not a numeric oracle |
-| [NPR1 contract](../../plans/nonlocal-continuum-production/05-npr1-physical-correctness-contract.md) | `ACTIVE / NPR1-A_PASS` | term, smoke and nominal corpus work remain ordered |
+| [NPR1 contract](../../plans/nonlocal-continuum-production/05-npr1-physical-correctness-contract.md) | `EXECUTED / NPR1-B_FAIL` | first-failure rule stops smoke, nominal corpus and authority work |
 | [NPR1-A evidence](../nonlocal-continuum-npr1a-canonical-evidence-2026-08-20.md) | `NPR1_A_PASS` | isolated half-even publication and frame/trajectory roots close exactly |
+| [NPR1-B evidence](../nonlocal-continuum-npr1b-term-controls-evidence-2026-08-20.md) | `NONLOCAL_PRODUCTION_RESEARCH_STOP` | source-shaped force is not the published energy derivative; later stages are not run |
 | Later `CONTINUUM-*` ProductChecks | `NOT_RUN` | no production claim |
 
 ## Decisions that still constrain the work
@@ -78,6 +80,22 @@
 - **Uncertainty:** cross-device/cross-target exactness and CPU cost.
 - **Reconsider when:** NPR1 has a selected profile and canonical output corpus.
 
+### D-NPR-003 — Formula consistency precedes corpus scale
+
+- **Observation:** CPU/CUDA correspondence preserved upstream arithmetic but
+  could not prove that this arithmetic differentiates the claimed energy.
+- **Evidence:** NPR1-B central differences, upstream source audit and literal
+  repair probe.
+- **Decision:** stop v4 before trajectory and nominal corpus work.
+- **Rejected alternatives:** absorb missing dimensional factors into existing
+  coefficients after seeing the failure, or treat a tiny hydro pass as a
+  replacement for variational consistency.
+- **Consequences:** NPR1-C through NPR8 remain blocked; corrected formulas
+  require a new profile lineage from NPR0.
+- **Uncertainty:** whether a corrected formulation can recover acceptable
+  water behavior and the old fixed-work performance.
+- **Reconsider when:** an immutable corrected-formula contract is approved.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
@@ -104,11 +122,11 @@ and NPR1 reference corpus pass.
 
 ## Next action
 
-1. Implement independent NPR1-B term/derivative and invariance controls.
-2. Add the deterministic cell-grid trajectory runner and canonical decode-next
-   schedule.
-3. Execute smoke and reference attestation before any nominal corpus.
-   before any nominal corpus.
+1. Do not implement NPR1-C or run the nominal corpus for v4.
+2. Retain NPR0/NPR1-A and performance artifacts as historical evidence only.
+3. If work resumes, start a new contract with `dW/dr`, paper viscosity
+   influence, bulk `1/2` and surface `m/r0`; rederive every coefficient and
+   repeat profile reclosure before performance.
 
 ## Do not retry
 
@@ -122,8 +140,8 @@ and NPR1 reference corpus pass.
 
 - **Workspace state:** dedicated `codex/nonlocal-continuum-n0` worktree; new
   roadmap work is isolated from current runtime.
-- **Checks:** NPR0 audit, scale law, split boundary, remediation matrix,
-  repeated v4 P1/P2 exact checks and complete h3 tiny corpus pass.
-- **Remaining risk:** broader physical validity, canonical authority, h3
-  integrated cost, coupling, persistence and world-step budget are open.
-- **Promotion needed:** later consumer-backed Accepted ADR only after NPR7.
+- **Checks:** NPR0 and NPR1-A remain passing; NPR1-B fails twice
+  byte-identically and its bounded diagnosis reproduces the missing factors.
+- **Remaining risk:** a corrected Nonlocal solver has no selected profile,
+  corpus, authority, coupling, persistence or integrated budget evidence.
+- **Promotion needed:** none from this lineage; it is stopped.

@@ -1,6 +1,6 @@
 # NPR1 — independent physical and canonical reclosure
 
-Status: `ACTIVE / NPR1_A_PASS / NPR1_B_NEXT / REPORT_ONLY`
+Status: `EXECUTED / NPR1_B_FAIL / NONLOCAL_PRODUCTION_RESEARCH_STOP`
 
 ## Purpose
 
@@ -15,6 +15,21 @@ The profile SHA-256 is fixed to
 Changing coefficients, h3 support, 16 iterations, cadence, mass or boundary
 capacity returns to a newly authorized profile lineage; NPR1 may not tune
 them.
+
+## Execution outcome
+
+NPR1-A passed, but the first NPR1-B term discriminator failed twice at the
+same exact boundary. The source-shaped cubic gradient is `dW/dq`, not the
+published `dW/dr`; active bulk viscosity and the dormant shear/surface terms
+also fail force/energy consistency. Independent analytical derivatives and
+the literal formula repair probe both match finite differences below
+`3.45e-9`, so the failure is not numerical noise or a sign/index ambiguity.
+
+The exact evidence is recorded in the
+[NPR1-B report](../../development/nonlocal-continuum-npr1b-term-controls-evidence-2026-08-20.md).
+Per the frozen first-failure rule, Poiseuille, 16/32/64 convergence, NPR1-C,
+NPR1-D and NPR1-E were not run. The selected v4 lineage terminates as
+`NONLOCAL_PRODUCTION_RESEARCH_STOP`; NPR2 is not authorized.
 
 ## NPR1-A canonical publication
 
@@ -152,6 +167,10 @@ reference or convergence failure emits `NONLOCAL_PRODUCTION_RESEARCH_STOP`.
 No further coefficient/support sweep is authorized in this roadmap. An
 execution environment failure is reported as blocked evidence, not physics
 failure.
+
+That stop state is selected by NPR1-B. A formula-corrected implementation is
+a new solver/profile lineage and cannot resume at NPR1-C or inherit v4
+coefficients, roots or physical credit.
 
 ## Explicit exclusions
 

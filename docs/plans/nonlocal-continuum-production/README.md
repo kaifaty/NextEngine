@@ -1,6 +1,6 @@
 # Nonlocal continuum — productionization roadmap
 
-Status: `ACTIVE / NPR1_B_TERM_CONTROLS / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `STOPPED / NONLOCAL_PRODUCTION_RESEARCH_STOP / NO_RUNTIME_AUTHORITY`
 
 This roadmap starts from the completed
 [fixed-work performance decision](../../development/nonlocal-continuum-performance-decision-2026-08-20.md).
@@ -58,14 +58,14 @@ NPR0 therefore precedes any production correctness or integration claim.
 ```text
 completed fixed-work performance baseline
   -> NPR0 product-profile bridge/boundary                COMPLETE
-      -> NPR1 independent physical/correctness reclosure ACTIVE
-          -> NPR2 canonical-authority decision           NOT_STARTED
-              -> NPR3 private owner/admission/fault path  NOT_STARTED
-                  -> NPR4 one-pass PhysX coupling         NOT_STARTED
-                      -> NPR5 exact persistence/epochs    NOT_STARTED
-                          -> NPR6 basin product vertical  NOT_STARTED
-                              -> NPR7 integrated budget   NOT_STARTED
-                                  -> NPR8 promotion ADR   NOT_STARTED
+      -> NPR1 independent physical/correctness reclosure FAILED / STOP
+          -> NPR2 canonical-authority decision           BLOCKED
+              -> NPR3 private owner/admission/fault path  BLOCKED
+                  -> NPR4 one-pass PhysX coupling         BLOCKED
+                      -> NPR5 exact persistence/epochs    BLOCKED
+                          -> NPR6 basin product vertical  BLOCKED
+                              -> NPR7 integrated budget   BLOCKED
+                                  -> NPR8 promotion ADR   BLOCKED
 ```
 
 | Stage | Required result | Exit gate |
@@ -100,18 +100,18 @@ Accepted decision explicitly changes the shipping contract.
    profile identifies a measured bottleneck. P3/P4 negative evidence remains
    closed meanwhile.
 
-## Immediate queue
+## Execution history and disposition
 
 NPR0 is specified by the
 [profile reclosure contract](00-profile-reclosure-contract.md). The hash-bound
 scale/cadence/support bridge, machine audit, retained GPU preflights and
 four-iteration scale-law discriminator are complete and recorded in the
 [dated evidence](../../development/nonlocal-continuum-npr0-profile-bridge-evidence-2026-08-20.md).
-The [static boundary discriminator](01-static-boundary-discriminator.md) now
-selects separate rooted density support and swept contact. Full static-support
-GPU preflights and the tiny negative wall discriminator are implemented. The
-active step is the predeclared binary64 tiny physical corpus that decides
-between unchanged-control and dimensionally-derived coefficients.
+The [static boundary discriminator](01-static-boundary-discriminator.md)
+selected separate rooted density support and swept contact. Full
+static-support GPU preflights and the tiny negative wall discriminator were
+implemented before the predeclared binary64 tiny physical corpus compared the
+unchanged-control and dimensionally-derived coefficients.
 
 That corpus selected neither v3 profile. The frozen hydro remediation rejected
 h2 through 50 iterations and selected an h3/16 support-ratio candidate. Its
@@ -120,11 +120,20 @@ P1/P2 preflights and all four h3-consistent tiny cases. NPR0 therefore selects
 one report-only `NONLOCAL_PRODUCT_PROFILE_CANDIDATE` and NPR1 becomes the next
 stage. Runtime, public contracts and production authority remain blocked.
 
-NPR1 is now specified by the
+NPR1 is specified by the
 [physical/canonical reclosure contract](05-npr1-physical-correctness-contract.md).
-Its isolated binary64 canonical publication boundary now passes; independent
-term/derivative controls are next. Runtime integration and public contracts
-remain blocked through NPR2.
+Its isolated binary64 canonical publication boundary passes, but the first
+independent term/derivative discriminator fails reproducibly. The selected
+source-shaped forces are not derivatives of the published Nonlocal energy;
+the exact [NPR1-B evidence](../../development/nonlocal-continuum-npr1b-term-controls-evidence-2026-08-20.md)
+selects `NONLOCAL_PRODUCTION_RESEARCH_STOP`. Runtime integration, the long
+physical corpus and NPR2 through NPR8 are not executed.
+
+The recommended successor, if Nonlocal research is reopened, is a separately
+specified corrected-variational identity using the literal published
+derivatives and coefficient factors. It must restart coefficient derivation,
+NPR0 profile selection, physical reclosure and performance measurement. The
+v4 profile cannot be repaired in place.
 
 ## Stop states
 
@@ -139,5 +148,8 @@ remain blocked through NPR2.
 - `NONLOCAL_PRODUCTION_RESEARCH_STOP`: a mandatory physical, authority,
   coupling, persistence or integrated-budget gate fails after its bounded
   remediation cycles.
+
+The final state of this roadmap is `NONLOCAL_PRODUCTION_RESEARCH_STOP`, first
+selected by NPR1-B formula consistency.
 
 No stop state replaces DFSPH or changes existing saves/runtime behavior.

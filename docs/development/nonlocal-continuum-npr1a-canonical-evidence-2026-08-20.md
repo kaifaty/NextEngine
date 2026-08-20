@@ -1,6 +1,6 @@
 # Nonlocal NPR1-A canonical evidence — 2026-08-20
 
-Status: `REPORT_ONLY / NPR1_A_PASS / NPR1_B_NEXT`
+Status: `REPORT_ONLY / NPR1_A_PASS / SUPERSEDED_BY_NPR1_B_STOP`
 
 ## Outcome
 
@@ -46,5 +46,7 @@ and the retained CUDA self-test passes after adding the target.
 ## Consequence
 
 NPR1-A closes only the serialization boundary and golden arithmetic. No
-trajectory yet feeds its next step from canonical integers. NPR1-B term and
-directional-derivative controls are the next admitted implementation.
+trajectory feeds its next step from canonical integers. The later
+[NPR1-B evidence](nonlocal-continuum-npr1b-term-controls-evidence-2026-08-20.md)
+falsifies the source-shaped physical lineage, so this passing component does
+not authorize a trajectory runner or production authority.
