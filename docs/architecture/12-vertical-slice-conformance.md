@@ -117,12 +117,12 @@ bytes or manifest identity. GUI/MCP/live mutation and arbitrary project-local
 extension ingestion remain outside this bounded matrix.
 
 `cargo run -p xtask -- v1-closure` агрегирует реализованные v1 checks, exact
-project/content/mechanics/extension roots и target package descriptors.
-Текущая реализованная версия всё ещё содержит прежнюю двух-target форму и не
-может быть вручную relabel-нута. R7a MUST version-нуть aggregate так, чтобы
-complete native Linux target evidence могло честно определить Linux-only
-`shipping_ready`, а missing Windows slot больше не существовал в новой
-release semantics.
+project/content/mechanics/extension roots и один Linux package descriptor в
+`CommandReportV2<V1ClosureDetailsV2>`. Current schema v2 публикует
+`release_ready` и единственный `release_target` для
+`x86_64-unknown-linux-gnu`; missing Windows slot не существует в этой release
+semantics. Старый двух-target aggregate остаётся только schema-v1 evidence и
+не может быть вручную relabel-нут или прочитан current schema-v2 decoder.
 
 ## Linux-only check and release policy
 
@@ -158,16 +158,20 @@ report с сохранённым пройденным prefix и
 smoke-state и другие transient files публиковать запрещено. Существующий output
 не перезаписывается.
 
-R7a advances the aggregate report/closure version so the complete Linux
-target bundle, exact project roots and required Linux package checks determine
-the new release verdict. Missing, failed or mismatched Linux evidence remains
-fail-closed. The existing Windows/Linux comparator MAY remain a dormant
-historical utility, but it cannot set or block the Linux-only R7 verdict.
+R7a implements the versioned boundary. Current `native-gate-run` publishes
+`NativeGateLinuxReportV2` with `release_ready`, one `release_target`, exact
+`release_roots` and one Linux package. The complete Linux target bundle, exact
+project roots and required Linux package checks determine the release verdict;
+missing, failed or mismatched Linux evidence remains fail-closed. Schema v2
+rejects schema-v1 aggregate/report shapes, while the existing Windows/Linux
+schema-v1 comparator remains a dormant historical utility that cannot set or
+block the Linux-only R7 verdict.
 
-До реализации R7a старая двух-target `v1-closure` остаётся точным старым
-report: её `shipping_ready = false` нельзя переименовать в success текстовой
-политикой. После R7a новый report MUST reject or explicitly classify the old
-version rather than silently reinterpret its target slots.
+The exact clean Linux run at commit
+`1e88934e0d811d90dcf46f6b6f0f27a348a0d9b5` published `PASS` with
+`release_ready = true` for all eight required checks, package/runtime smoke and
+desktop smoke. Its target-report SHA-256 is
+`0789954c684455aa119b5962f16f1081328e9acdfdaef29994811915dc8e9204`.
 
 ## Documentation-only cheap path
 

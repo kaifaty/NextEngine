@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-20 |
-| Текущая точка | R1–R6 завершены на current Linux product boundary. [R6a creator project CLI](development/task-state/r6a-creator-project-cli.md), [R6b creator run/package](development/task-state/r6b-creator-run-package.md), [R6c creator inspect/diff](development/task-state/r6c-creator-project-inspect-diff.md), [R6d RPG starter](development/task-state/r6d-creator-project-template.md), [R6e creator scenario](development/task-state/r6e-creator-runtime-scenario.md), [R6f replay/domain inspection](development/task-state/r6f-replay-domain-inspection.md) и [R6g external SDK workflow](development/task-state/r6g-external-sdk-workflow.md) завершены. ADR-090 makes native Linux x86_64 the sole v1 shipping/release target and moves Windows/THOTH/paired evidence outside current scope indefinitely. R7 is ready to start with R7a versioned Linux-only release aggregation; B-12 remains open as a Linux performance-authority task, not a Windows gate. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
+| Текущая точка | R1–R6 завершены на current Linux product boundary. [R6a creator project CLI](development/task-state/r6a-creator-project-cli.md), [R6b creator run/package](development/task-state/r6b-creator-run-package.md), [R6c creator inspect/diff](development/task-state/r6c-creator-project-inspect-diff.md), [R6d RPG starter](development/task-state/r6d-creator-project-template.md), [R6e creator scenario](development/task-state/r6e-creator-runtime-scenario.md), [R6f replay/domain inspection](development/task-state/r6f-replay-domain-inspection.md) и [R6g external SDK workflow](development/task-state/r6g-external-sdk-workflow.md) завершены. [R7a Linux release authority](development/task-state/r7a-linux-release-authority.md) завершён exact schema-v2 Linux bundle `1e88934…` с `PASS / release_ready=true`; R7b release package and clean install — следующий work package. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely; B-12 remains a Linux performance-authority task for R7c. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
 | Host policy checkpoint | `LINUX_V1_ONLY / WINDOWS_OUT_OF_SCOPE_INDEFINITE`: current Linux hardware target проходит desktop/package paths and is the sole active development/release target. Historical Windows results retain exact-commit meaning only. No Windows runs, THOTH calibration, same-commit compare or live Windows backlog are scheduled or required for R7/v1. Re-entry requires a new Accepted ADR and separate roadmap slot. |
 | R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v3` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. B-12 is now the R7c Linux hard-performance authority gap. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -224,7 +224,7 @@ flowchart LR
 | R4. Systemic living world | `COMPLETE / LOCAL FUNCTIONAL` | XL | R4a routine, R4b population/navigation, R4c cognition and bounded R4d systemic owners pass production/failure/persistence/tier/bulk checks; B-12 remains separate R7c work. |
 | R5. Physical character integration | `COMPLETE / PROCEDURAL_BASELINE / R5A–R5J_COMPLETE / R&D_LINEAGE_STOPPED` | XL | R5a–R5i provide the current exact animation, motor, skinning and bounded-LOD path. R5j closes mandatory `PHYS-P6` trip/carry/contact-driven-melee evidence with actual compound-shape contacts, positive capsule clearance and exact blocked-contact restart. General graph/non-identity retarget/physical IK, active articulation and learned routes remain optional or post-baseline. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
 | R6. Creator beta | `COMPLETE / R6G_SDK_WORKFLOW` | L–XL | Canonical external guide plus governed edited cold-start, project/package lifecycle, scenario minimization, Replay V10 first-divergence/domain inspection and externally visible Luau/Wasm examples close the bounded beta without a private bootstrap. |
-| R7. V1 release candidate | `PLANNED / LINUX_ONLY / R7A_NEXT` | L | Полный v1 scope стабилизируется, измеряется и упаковывается для native Linux x86_64; Windows does not block or participate. |
+| R7. V1 release candidate | `IN_PROGRESS / LINUX_ONLY / R7A_COMPLETE / R7B_NEXT` | L | Schema-v2 Linux release authority is complete; full v1 scope now advances through package/install, performance, hardening and distribution closure. Windows does not block or participate. |
 | R8. Post-v1 tracks | `DEFERRED` | отдельные программы | Optional AI/narrative/importer/advanced rendering не размывают v1. |
 
 ## R0 — Walking skeleton
@@ -285,12 +285,12 @@ developer package.
 - package не содержит machine-local paths, protected data, credentials или
   отсутствующие notices.
 
-**Release blockers transferred to R7:**
+**R7 handoff status:**
 
-- R7a must version the old two-target aggregate before it can claim Linux-only
-  release readiness;
-- SDL3/ash candidate должен пройти exact Linux target smoke;
-- packaging/runtime dependency, которая не включена или не диагностируется.
+- R7a versioned the old aggregate and exact commit `1e88934…` published the
+  Linux-only schema-v2 `PASS / release_ready=true` verdict;
+- R7b must close copied clean-install and runtime dependency evidence;
+- R7c must establish Linux numeric release-performance authority.
 
 **Не блокируют этап:** PhysX, Slang, RT, learned policy, `ai-host`, capture и
 Gothic importer.
@@ -445,8 +445,8 @@ authority; Windows evidence is historical and outside current scope.
 Automated production path, lawful content/provenance, отсутствие hidden
 UI/camera mutation и ручной representative loop подтверждены. Архитектурный
 cleanup, R3, functional R4a–R4d, procedural R5a–R5j and R6a–R6g Creator SDK
-beta are complete. The next planned stage is R7; its first active slot is R7a,
-the versioned Linux-only release aggregation and target closure.
+beta are complete. R7 is active: R7a versioned Linux-only release aggregation
+is complete, and R7b package/clean-install closure is next.
 
 **Scope guard:** editor, advanced renderer, photoreal assets и procedural world
 generation не входят в этот этап.
@@ -1845,7 +1845,7 @@ ADR-087, ADR-088, ADR-089.
 
 ## R7 — V1 release candidate and release
 
-**Статус:** `PLANNED / LINUX_ONLY / R7A_NEXT`.
+**Статус:** `IN_PROGRESS / LINUX_ONLY / R7A_COMPLETE / R7B_NEXT`.
 
 **Цель:** стабилизировать и выпустить выбранный Linux product scope, а не
 добавлять новые архитектурные подсистемы. Windows находится вне current scope
@@ -1853,10 +1853,11 @@ indefinitely under ADR-090 and does not gate any R7 package.
 
 **Порядок work packages:**
 
-1. **R7a — Linux release authority:** version current two-target
-   `v1-closure`/native-gate aggregate so one exact complete Linux target bundle
-   can produce an honest release-ready verdict. Preserve fail-closed old-version
-   handling; never fabricate or silently ignore a Windows result.
+1. **R7a — Linux release authority (`COMPLETE / LINUX_SCHEMA_V2_PASS`):**
+   `v1-closure` and native-gate now publish schema v2 with one exact Linux
+   release target, `release_ready`, release roots and package. Exact clean
+   commit `1e88934…` passed all eight checks plus runtime/desktop/package smoke;
+   old schema v1 remains strict dormant history and cross-decodes fail closed.
 2. **R7b — release package and clean install:** freeze the representative
    project, build the reproducible Linux package, audit ELF/glibc/Vulkan/SDL
    prerequisites and run copied `game`, `headless` and tools in isolated state.
@@ -1899,7 +1900,7 @@ indefinitely under ADR-090 and does not gate any R7 package.
 
 **Hard blockers:**
 
-- незавершённый R7a Linux-only release aggregate или R7b package gate;
+- незавершённый R7b package/clean-install gate;
 - незакрытая R7c Linux performance authority/evidence;
 - незавершённый representative content slice;
 - incompatible save without migration/export path;
@@ -2077,7 +2078,7 @@ affected work package. Native Windows/THOTH and paired actions are outside the
 current roadmap indefinitely; the former
 [Windows validation backlog](development/windows-validation-backlog.md) is
 dormant historical context, not active debt. R1/B-01 are closed on the
-Linux-only product boundary. The next WIP slot is R7a.
+Linux-only product boundary. R7a is complete; the next WIP slot is R7b.
 
 Следующие work packages рекомендуется выполнять в этом порядке:
 
@@ -2678,19 +2679,25 @@ Durable schemas, cadence `0/30/60`, rollback/retry и replay roots не
    inspection are complete. The canonical external guide, governed edited
    cold-start lifecycle and externally visible byte-identical Luau/Wasm
    examples close the bounded creator beta under ADR-089.
-15. **R7a Linux-only release authority (`PLANNED / NEXT`):** audit the current
-   two-target `v1-closure`, native-gate and package reports; choose the smallest
-   versioned aggregate that lets one complete native Linux bundle produce an
-   honest release verdict while rejecting/reclassifying old report versions.
-   Existing target-local reports and the dormant comparator should remain
-   unchanged where possible. No synthetic Windows slot or historical relabel.
+15. **R7a Linux-only release authority (`COMPLETE / LINUX_SCHEMA_V2_PASS`):**
+   current `v1-closure` and native-gate reports use schema v2 with one Linux
+   `release_target`, exact roots/package and `release_ready`; schema-v1
+   Windows/Linux reports and comparator remain strict dormant history. Exact
+   clean commit `1e88934…` published all eight checks and smoke/package evidence
+   as `PASS`; target-report SHA-256 is
+   `0789954c684455aa119b5962f16f1081328e9acdfdaef29994811915dc8e9204`.
+16. **R7b release package and clean install (`PLANNED / NEXT`):** freeze the
+   representative project, prove reproducible Linux package identity, audit
+   ELF/glibc/Vulkan/SDL runtime prerequisites and launch copied `game`,
+   `headless` and tools against isolated state.
 
 Каждый package должен быть отдельным product increment с focused checks. R6a
 creator validate/cook, R6b creator run/package and R6c read-only project
 inspect/diff and R6d reusable template/cold-authoring exercise are complete;
 R6e public scenario validate/run/minimize, R6f Replay V10 first-divergence/
 bounded domain inspection and R6g external SDK workflow/documentation are also
-complete. R7 remains planned and can start immediately with R7a under ADR-090.
+complete. R7 is active: R7a is complete and R7b is the next package under
+ADR-090.
 Bounded training lineage remains stopped and does not run in parallel. SPEC-23 stays
 Proposed: завершённый R3/R4
 начинает универсальный scheduler design без второго concrete production
