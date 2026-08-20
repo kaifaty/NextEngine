@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Date | `2026-08-20` |
-| Status | Bounded research; implementation and training are not authorized |
+| Status | Bounded research; local `gigastt` baseline implemented; native training is not authorized |
 | Scope | Preserve GigaAM-v3 Russian quality while producing bounded stateful partial ASR for dialogue prewarm |
 | Installed control | `ai-sage/GigaAM-v3`, revision `7655ad717f8122257385bb4b2f373db3697e8680`, `e2e_rnnt` |
 | Upstream inspected | `salute-developers/GigaAM` commit `7447938d791c4f3e643386ee22c33777004293a5`; all public branches/history and open PRs checked `2026-08-20` |
@@ -99,6 +99,37 @@ facade, advertised honestly as `buffered_emulation`. It may be sufficient for
 cancelable early-intent prewarm while final GigaAM remains authoritative. Its
 published streaming quality gap prevents promoting it as the canonical ASR
 without a local paired evaluation.
+
+## Local GigaSTT integration result
+
+The Phase 1 service now exposes `gigastt-v3-rnnt-buffered` beside Voxtral and
+final-only GigaAM through the same per-turn selector. The pinned external
+artifact set is `gigastt 2.18.0` plus the release's GigaAM-v3 RNNT INT8 ONNX
+encoder/decoder/joint and vocabulary. Startup validates every digest and the
+runtime version. One CPU sidecar remains resident; a turn uses GigaSTT's local
+WebSocket with 16 kHz PCM, manual endpointing, VAD/punctuation/ITN disabled.
+Capabilities explicitly report `streaming_mode=buffered_emulation`, 800 ms
+partial cadence and the 2.5 s/1.5 s rolling-window policy in the dashboard.
+
+One paced diagnostic take (`7.216 s`, raw route, one run per ASR) produced:
+
+| Route | First transcript | Finish to final | Busy RTF | Observed final text |
+| --- | ---: | ---: | ---: | --- |
+| Voxtral Realtime Q4 | `7975.609 ms` | `739.321 ms` | `0.519678` | empty |
+| GigaAM-v3 e2e RNNT final-only | `7768.445 ms` | `530.612 ms` | `0.073032` | `Знает он, что у него хвостик есть один всего.` |
+| GigaSTT / GigaAM-v3 RNNT INT8 | `1766.664 ms` | `105.998 ms` | `0.014690` | `знает год у него хвостик есть один` |
+
+The GigaSTT sidecar added about `283400 KiB` RSS and no CUDA allocation; the
+main joint process reported about `2600964 KiB` RSS and `6344 MiB` VRAM after
+the run. The single take confirms the desired latency shape but also shows the
+known quality trade-off: GigaSTT produced text early, while its final diverged
+from the stronger offline GigaAM result. This clip has no frozen reference
+transcript, so these strings are qualitative evidence, not WER. The three
+content-free timing reports remain external under `/tmp/nextengine-*-comparison.json`.
+
+No promotion follows from one take. The next discriminator remains a frozen,
+reference-transcribed normal/whisper/noise set with paired WER/CER, empty-rate,
+first useful partial and revision-churn measurements.
 
 ## What the current checkpoint actually does
 

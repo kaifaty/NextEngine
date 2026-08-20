@@ -155,6 +155,22 @@ def main(argv: Sequence[str] | None = None) -> int:
                     ),
                     **(
                         {
+                            "gigastt_model_id": profile.gigastt.model_id,
+                            "gigastt_model_revision": profile.gigastt.model_revision,
+                            "gigastt_runtime_version": profile.gigastt.runtime_version,
+                            "gigastt_runtime_revision": profile.gigastt.runtime_revision,
+                            "gigastt_runtime_sha256": profile.gigastt.runtime_sha256,
+                            "gigastt_encoder_sha256": profile.gigastt.encoder_sha256,
+                            "gigastt_decoder_sha256": profile.gigastt.decoder_sha256,
+                            "gigastt_joint_sha256": profile.gigastt.joint_sha256,
+                            "gigastt_vocab_sha256": profile.gigastt.vocab_sha256,
+                            "gigastt_classification": profile.gigastt.classification,
+                        }
+                        if profile.gigastt is not None
+                        else {}
+                    ),
+                    **(
+                        {
                             "nemotron_model_id": profile.nemotron.model_id,
                             "nemotron_revision": profile.nemotron.model_revision,
                             "nemotron_model_sha256": profile.nemotron.model_sha256,

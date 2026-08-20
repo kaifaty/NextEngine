@@ -191,6 +191,7 @@ class GigaAmTranscriberAdapter:
             configured_delay_ms=0,
             partial_decode_interval_ms=0,
             max_audio_duration_ms=MAX_AUDIO_DURATION_MS,
+            streaming_mode="final_only",
         )
 
     def start(self, config: TranscriberConfig | None = None) -> GigaAmTranscriberSession:

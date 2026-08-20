@@ -650,6 +650,7 @@ class NemotronTranscriberAdapter:
             supported_delay_ms=SUPPORTED_DELAY_MS,
             configured_delay_ms=(self.right_context + 1) * 80,
             partial_decode_interval_ms=80,
+            streaming_mode="stateful_cache_aware",
         )
 
     def start(self, config: TranscriberConfig | None = None) -> NemotronTranscriberSession:

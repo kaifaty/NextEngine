@@ -25,6 +25,10 @@ from .adapters.gigaam import (
     MODEL_ROUTE_ID as GIGAAM_MODEL_ROUTE_ID,
     GigaAmTranscriberAdapter,
 )
+from .adapters.gigastt import (
+    MODEL_ROUTE_ID as GIGASTT_MODEL_ROUTE_ID,
+    GigasttTranscriberAdapter,
+)
 from .adapters.nemotron_nemo_speech_cpp import (
     MODEL_ROUTE_ID as NEMOTRON_MODEL_ROUTE_ID,
     SUPPORTED_RIGHT_CONTEXT as NEMOTRON_SUPPORTED_RIGHT_CONTEXT,
@@ -55,6 +59,7 @@ VOXTRAL_MODEL_ROUTE_ID = "voxtral-realtime"
 SUPPORTED_ASR_MODEL_ROUTES = {
     VOXTRAL_MODEL_ROUTE_ID,
     GIGAAM_MODEL_ROUTE_ID,
+    GIGASTT_MODEL_ROUTE_ID,
     NEMOTRON_MODEL_ROUTE_ID,
 }
 
@@ -99,6 +104,22 @@ class GigaAmProfile:
     modeling_sha256: str
     config_sha256: str
     tokenizer_sha256: str
+
+
+@dataclass(frozen=True)
+class GigasttProfile:
+    model_id: str
+    model_revision: str
+    model_dir: Path
+    runtime_path: Path
+    runtime_version: str
+    runtime_revision: str
+    runtime_sha256: str
+    encoder_sha256: str
+    decoder_sha256: str
+    joint_sha256: str
+    vocab_sha256: str
+    classification: str
 
 
 @dataclass(frozen=True)
@@ -147,6 +168,7 @@ class ServiceProfile:
 class SpeechTimelineProfile:
     voxtral: VoxtralProfile
     gigaam: GigaAmProfile | None
+    gigastt: GigasttProfile | None
     nemotron: NemotronProfile | None
     default_asr_model: str
     emotion: EmotionProfile
@@ -170,7 +192,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
     root = _object_with_optional(
         value,
         {"schema_version", "voxtral", "emotion", "service"},
-        {"audio_preprocessor", "gigaam", "nemotron", "default_asr_model"},
+        {"audio_preprocessor", "gigaam", "gigastt", "nemotron", "default_asr_model"},
         "profile",
     )
     if root["schema_version"] != 1:
@@ -213,6 +235,28 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
             "gigaam",
         )
         if "gigaam" in root
+        else None
+    )
+    gigastt = (
+        _object(
+            root["gigastt"],
+            {
+                "model_id",
+                "model_revision",
+                "model_dir",
+                "runtime_path",
+                "runtime_version",
+                "runtime_revision",
+                "runtime_sha256",
+                "encoder_sha256",
+                "decoder_sha256",
+                "joint_sha256",
+                "vocab_sha256",
+                "classification",
+            },
+            "gigastt",
+        )
+        if "gigastt" in root
         else None
     )
     nemotron = (
@@ -333,6 +377,44 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
                 ),
             )
             if gigaam is not None
+            else None
+        ),
+        gigastt=(
+            GigasttProfile(
+                model_id=_string(gigastt["model_id"], "gigastt.model_id", 256),
+                model_revision=_string(
+                    gigastt["model_revision"], "gigastt.model_revision", 128
+                ),
+                model_dir=_path(gigastt["model_dir"], "gigastt.model_dir"),
+                runtime_path=_path(gigastt["runtime_path"], "gigastt.runtime_path"),
+                runtime_version=_string(
+                    gigastt["runtime_version"], "gigastt.runtime_version", 64
+                ),
+                runtime_revision=_string(
+                    gigastt["runtime_revision"], "gigastt.runtime_revision", 128
+                ),
+                runtime_sha256=_sha256(
+                    gigastt["runtime_sha256"], "gigastt.runtime_sha256"
+                ),
+                encoder_sha256=_sha256(
+                    gigastt["encoder_sha256"], "gigastt.encoder_sha256"
+                ),
+                decoder_sha256=_sha256(
+                    gigastt["decoder_sha256"], "gigastt.decoder_sha256"
+                ),
+                joint_sha256=_sha256(
+                    gigastt["joint_sha256"], "gigastt.joint_sha256"
+                ),
+                vocab_sha256=_sha256(
+                    gigastt["vocab_sha256"], "gigastt.vocab_sha256"
+                ),
+                classification=_choice(
+                    gigastt["classification"],
+                    "gigastt.classification",
+                    {"unclassified_local_only", "classified_local_only"},
+                ),
+            )
+            if gigastt is not None
             else None
         ),
         nemotron=(
@@ -527,6 +609,10 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
         _validate_gigaam(profile.gigaam)
     elif profile.default_asr_model == GIGAAM_MODEL_ROUTE_ID:
         raise ProfileError("default_asr_model requires a configured gigaam profile")
+    if profile.gigastt is not None:
+        _validate_gigastt(profile.gigastt)
+    elif profile.default_asr_model == GIGASTT_MODEL_ROUTE_ID:
+        raise ProfileError("default_asr_model requires a configured gigastt profile")
     if profile.nemotron is not None:
         _validate_nemotron(profile.nemotron)
     elif profile.default_asr_model == NEMOTRON_MODEL_ROUTE_ID:
@@ -553,7 +639,10 @@ def build_adapters(
 ) -> tuple[
     dict[
         str,
-        VoxtralTranscriberAdapter | GigaAmTranscriberAdapter | NemotronTranscriberAdapter,
+        VoxtralTranscriberAdapter
+        | GigaAmTranscriberAdapter
+        | GigasttTranscriberAdapter
+        | NemotronTranscriberAdapter,
     ],
     str,
     Emotion2VecAffectAdapter | WavlmRussianResdAffectAdapter,
@@ -561,7 +650,10 @@ def build_adapters(
 ]:
     transcribers: dict[
         str,
-        VoxtralTranscriberAdapter | GigaAmTranscriberAdapter | NemotronTranscriberAdapter,
+        VoxtralTranscriberAdapter
+        | GigaAmTranscriberAdapter
+        | GigasttTranscriberAdapter
+        | NemotronTranscriberAdapter,
     ] = {
         VOXTRAL_MODEL_ROUTE_ID: VoxtralTranscriberAdapter(
             profile.voxtral.model_path,
@@ -578,6 +670,14 @@ def build_adapters(
             model_id=profile.gigaam.model_id,
             model_revision=profile.gigaam.model_revision,
             device=profile.gigaam.device,
+        )
+    if profile.gigastt is not None:
+        transcribers[GIGASTT_MODEL_ROUTE_ID] = GigasttTranscriberAdapter(
+            profile.gigastt.runtime_path,
+            profile.gigastt.model_dir,
+            model_id=profile.gigastt.model_id,
+            model_revision=profile.gigastt.model_revision,
+            runtime_version=profile.gigastt.runtime_version,
         )
     if profile.nemotron is not None:
         transcribers[NEMOTRON_MODEL_ROUTE_ID] = NemotronTranscriberAdapter(
@@ -828,6 +928,51 @@ def _validate_gigaam(gigaam: GigaAmProfile) -> None:
         actual_hash = _file_sha256(path)
         if actual_hash != expected_hash:
             raise ProfileError(f"GigaAM {filename} SHA-256 does not match the profile")
+
+
+def _validate_gigastt(gigastt: GigasttProfile) -> None:
+    _require_external(gigastt.runtime_path, "gigastt runtime")
+    _require_external(gigastt.model_dir, "gigastt model directory")
+    if not gigastt.runtime_path.is_file() or gigastt.runtime_path.is_symlink():
+        raise ProfileError(f"pinned gigastt runtime does not exist: {gigastt.runtime_path}")
+    if not gigastt.model_dir.is_dir() or gigastt.model_dir.is_symlink():
+        raise ProfileError(f"pinned gigastt model directory does not exist: {gigastt.model_dir}")
+    expected = (
+        (gigastt.runtime_path, gigastt.runtime_sha256, "runtime"),
+        (
+            gigastt.model_dir / "v3_rnnt_encoder_int8.onnx",
+            gigastt.encoder_sha256,
+            "encoder",
+        ),
+        (
+            gigastt.model_dir / "v3_rnnt_decoder.onnx",
+            gigastt.decoder_sha256,
+            "decoder",
+        ),
+        (
+            gigastt.model_dir / "v3_rnnt_joint.onnx",
+            gigastt.joint_sha256,
+            "joint",
+        ),
+        (gigastt.model_dir / "v3_vocab.txt", gigastt.vocab_sha256, "vocabulary"),
+    )
+    for path, expected_hash, name in expected:
+        if not path.is_file() or path.is_symlink():
+            raise ProfileError(f"pinned gigastt {name} does not exist: {path}")
+        if _file_sha256(path) != expected_hash:
+            raise ProfileError(f"gigastt {name} SHA-256 does not match the profile")
+    try:
+        result = subprocess.run(
+            [str(gigastt.runtime_path), "--version"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ProfileError(f"cannot inspect gigastt runtime version: {error}") from error
+    if result.returncode != 0 or result.stdout.strip() != f"gigastt {gigastt.runtime_version}":
+        raise ProfileError("gigastt runtime version does not match the profile")
 
 
 def _validate_nemotron(nemotron: NemotronProfile) -> None:

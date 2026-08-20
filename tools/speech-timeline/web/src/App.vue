@@ -114,6 +114,9 @@ const transcriberName = computed(
 const transcriberSupportsStreaming = computed(
   () => selectedTranscriber.value?.supports_streaming === true,
 );
+const transcriberStreamingMode = computed(
+  () => stringValue(selectedTranscriber.value, "streaming_mode") || "unspecified",
+);
 const affectName = computed(() => modelValue("vocal_affect", "adapter_id") || "Emotion2Vec");
 const preprocessorSummary = computed(() => {
   if (selectedAsrAudioRoute.value === "raw") return "RAW PCM · контроль без gain/NS";
@@ -144,6 +147,17 @@ const transcriberCadence = computed(() => {
   if (model?.supports_streaming === false) {
     const limit = model.max_audio_duration_ms;
     return `final-only${typeof limit === "number" ? ` · ≤${limit / 1_000} с` : ""}`;
+  }
+  if (model?.streaming_mode === "buffered_emulation") {
+    const windowMs = numericValue(model, "streaming_window_ms");
+    const contextMs = numericValue(model, "streaming_left_context_ms");
+    const partialMs = numericValue(model, "partial_decode_interval_ms");
+    const details = [
+      windowMs !== null && `окно ${windowMs / 1_000} с`,
+      contextMs !== null && `контекст ${contextMs / 1_000} с`,
+      partialMs !== null && `partial ${partialMs} мс`,
+    ].filter(Boolean);
+    return `bounded re-decode${details.length ? ` · ${details.join(" · ")}` : ""}`;
   }
   const delay = numericValue(model, "configured_delay_ms");
   const partial = numericValue(model, "partial_decode_interval_ms");
@@ -180,6 +194,8 @@ const identitySummary = computed(() => {
   if (!identity) return "точные revisions доступны после запуска";
   const asr = selectedAsrModel.value === "gigaam-v3-e2e-rnnt"
     ? stringValue(identity, "gigaam_revision")
+    : selectedAsrModel.value === "gigastt-v3-rnnt-buffered"
+      ? stringValue(identity, "gigastt_runtime_revision")
     : selectedAsrModel.value === "nemotron-3.5-streaming"
       ? stringValue(identity, "nemotron_revision")
       : stringValue(identity, "transcribe_revision");
@@ -446,6 +462,7 @@ function stringValue(value: JsonObject | null, key: string): string {
 
 function asrModelLabel(model: string): string {
   if (model === "gigaam-v3-e2e-rnnt") return "GigaAM-v3 e2e RNNT · финальный";
+  if (model === "gigastt-v3-rnnt-buffered") return "GigaSTT / GigaAM-v3 RNNT · buffered stream";
   if (model === "nemotron-3.5-streaming") return "NVIDIA Nemotron 3.5 0.6B · streaming";
   if (model === "voxtral-realtime") return "Voxtral Mini 4B · streaming";
   return model;
@@ -587,6 +604,7 @@ function asrRouteLabel(route: string | null): string {
       <TranscriptPanel
         :adapter-name="transcriberName"
         :supports-streaming="transcriberSupportsStreaming"
+        :streaming-mode="transcriberStreamingMode"
         :text="timeline?.transcript.text ?? finalUtterance?.text ?? ''"
         :stable-prefix="timeline?.transcript.stable_prefix ?? ''"
         :final="Boolean(finalUtterance || timeline?.transcript.final)"

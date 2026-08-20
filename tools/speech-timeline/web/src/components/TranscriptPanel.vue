@@ -9,6 +9,7 @@ const props = defineProps<{
   timingPrecision: string;
   adapterName: string;
   supportsStreaming: boolean;
+  streamingMode: string;
 }>();
 
 const stable = computed(() =>
@@ -27,7 +28,13 @@ const tentative = computed(() => props.text.slice(stable.value.length));
       <div class="header-tags">
         <span class="tag">rev {{ revision }}</span>
         <span class="tag" :class="{ accent: final }">
-          {{ final ? "final" : supportsStreaming ? "stream" : "final-only" }}
+          {{ final
+            ? "final"
+            : streamingMode === "buffered_emulation"
+              ? "buffered stream"
+              : supportsStreaming
+                ? "stream"
+                : "final-only" }}
         </span>
       </div>
     </header>
@@ -37,7 +44,9 @@ const tentative = computed(() => props.text.slice(stable.value.length));
       </template>
       <span v-else>
         {{ supportsStreaming
-          ? "Начните запись — здесь появятся стабильная и предварительная части текста."
+          ? streamingMode === "buffered_emulation"
+            ? "Начните запись — гипотеза будет обновляться bounded-окнами и может переписываться до final."
+            : "Начните запись — здесь появятся стабильная и предварительная части текста."
           : "Начните запись и завершите фразу — эта ASR-модель выдаёт только финальный текст." }}
       </span>
     </div>

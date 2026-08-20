@@ -161,6 +161,7 @@ class VoxtralTranscriberAdapter:
             supported_delay_ms=VALID_DELAYS_MS,
             configured_delay_ms=self.delay_ms,
             partial_decode_interval_ms=self.partial_decode_interval_ms,
+            streaming_mode="stateful_native",
         )
 
     def start(self, config: TranscriberConfig | None = None) -> VoxtralTranscriberSession:

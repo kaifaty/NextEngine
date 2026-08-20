@@ -31,6 +31,9 @@ class TranscriberCapabilities:
     configured_delay_ms: int
     partial_decode_interval_ms: int
     max_audio_duration_ms: int | None = None
+    streaming_mode: str = "unspecified"
+    streaming_window_ms: int | None = None
+    streaming_left_context_ms: int | None = None
 
 
 @dataclass(frozen=True)

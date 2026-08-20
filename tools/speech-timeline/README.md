@@ -59,9 +59,9 @@ vocal expression only.
 The service accepts one explicit-finish utterance at a time over an
 authenticated `ws://127.0.0.1` listener. It loads and warms every configured
 ASR adapter plus the selected vocal-affect model before publishing its ready
-file. The explicit JSON profile, GGUF, model snapshots, emotion
-cache, `transcribe.cpp` checkout/library, ready file, and any diagnostic output
-must all live outside the repository.
+file. The explicit JSON profile, GGUF, model snapshots, `gigastt` runtime/model
+bundle, emotion cache, `transcribe.cpp` checkout/library, ready file, and any
+diagnostic output must all live outside the repository.
 
 ```bash
 ~/.cache/nextengine/emotion2vec-plus-base/venv/bin/next-speech-timeline \
@@ -76,8 +76,9 @@ same loopback process as the WebSocket, obtains its short-lived token from a
 same-origin `no-store` bootstrap response, and never writes raw audio unless
 the explicit diagnostic-retention profile is configured. The ASR selector is
 locked for the duration of one utterance: Voxtral and NVIDIA Nemotron 3.5 emit
-streaming revisions, while GigaAM-v3 produces one finalized-utterance result
-after **Завершить фразу**.
+native/cache-aware streaming revisions, GigaSTT exposes bounded rolling-window
+re-decode as `buffered_emulation`, and GigaAM-v3 produces one
+finalized-utterance result after **Завершить фразу**.
 The protocol defaults to `raw`. If the profile contains an audio preprocessor,
 the dashboard exposes four explicit per-utterance choices: **RAW**,
 **Gain only**, the previous full **DPDFNet** route, and the new
@@ -126,6 +127,10 @@ optional ASR/preprocessing branches:
   exact hashes for weights, executable model code, config and tokenizer, device,
   and local-only classification. `default_asr_model` may select it; otherwise
   Voxtral remains the backwards-compatible default.
+- `gigastt` (optional): an exact external `gigastt` binary plus the four pinned
+  GigaAM-v3 RNNT INT8 ONNX/vocabulary artifacts, runtime version/source
+  revision and local-only classification. It is advertised as bounded buffered
+  emulation, never as native streaming.
 - `nemotron` (optional): the pinned NVIDIA Nemotron 3.5 streaming GGUF, pinned
   NeMo-Speech.cpp checkout and both hash-closed ASR libraries, GPU index,
   trained right-context mode and local-only classification. The current
@@ -177,6 +182,45 @@ per-model bound when it is selected; Voxtral keeps the service's 30-second
 ceiling. Both routes return the same transcript/timeline schema and report the
 selected `asr_model` in `session.started`, `utterance.final`, metrics and saved
 diagnostic-record metadata.
+
+### Selectable GigaSTT buffered GigaAM baseline
+
+The local comparison route uses the upstream `gigastt` `2.18.0` offline Linux
+x86-64 release at source revision
+`7bc17f438ebd4daaf8956aa2373cf77635bff41c`. Keep the release bundle outside
+the repository. The profile validates the executable and all four RNNT model
+artifacts by SHA-256 and verifies `gigastt --version` before starting it.
+
+```json
+"gigastt": {
+  "model_id": "GigaAM-v3-rnnt-int8",
+  "model_revision": "gigastt-v2.18.0-offline",
+  "model_dir": "/home/you/.cache/nextengine/gigastt/2.18.0/offline/models",
+  "runtime_path": "/home/you/.cache/nextengine/gigastt/2.18.0/offline/bin/gigastt",
+  "runtime_version": "2.18.0",
+  "runtime_revision": "7bc17f438ebd4daaf8956aa2373cf77635bff41c",
+  "runtime_sha256": "sha256:35fecb26b1e4d97b55ad2ae8f33a6893b796638df7dcffa50993f8ba255696e4",
+  "encoder_sha256": "sha256:c52665e9d96c4ca3a153c063d2ee9af6c567fe2975ca50fd038b75bbf2f60e7f",
+  "decoder_sha256": "sha256:443c3b7bd42b453611618135d6b1e7d9467e5dd97c8a68501da4aa355750c0da",
+  "joint_sha256": "sha256:fd1d02f45c2ad3d6b67cc149811ad794ab4b020ed49a0a9e2790a8619d1cddd8",
+  "vocab_sha256": "sha256:a9143c30844d3c0bee3e9e927e4084774eb1b9eeaafc473b2c4521e4911a7c07",
+  "classification": "unclassified_local_only"
+}
+```
+
+The adapter owns one loopback-only CPU sidecar for the lifetime of the speech
+service and opens one internal WebSocket per outer utterance. It disables
+GigaSTT VAD, punctuation and ITN, selects manual endpointing, and forwards the
+outer explicit finish as `stop`. GigaSTT re-decodes every 800 ms over a window
+capped at 2.5 s with 1.5 s retained left context. Because its public WebSocket
+payload does not expose the internal committed/live split, every partial is
+reported as replaceable tentative text; only the final response becomes the
+stable prefix. The CPU runtime avoids competing with Voxtral/GigaAM for VRAM.
+
+This is a latency/quality baseline, not the canonical game ASR. The upstream
+paired benchmark reports a sizeable stream-vs-batch WER regression, so local
+WER/CER, empty-rate and revision churn on reference-transcribed Russian
+normal/whisper/noise clips remain mandatory before any promotion.
 
 ### Selectable NVIDIA Nemotron 3.5 streaming ASR
 

@@ -212,6 +212,94 @@ class ProfileTests(unittest.TestCase):
             with self.assertRaisesRegex(ProfileError, "modeling_gigaam.py SHA-256"):
                 validate_profile_artifacts(profile)
 
+    def test_optional_gigastt_runtime_and_models_are_hash_closed_and_selectable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            voxtral = root / "model.gguf"
+            voxtral.write_bytes(b"voxtral")
+            library = root / "libtranscribe.so"
+            library.write_bytes(b"runtime")
+            transcribe_root = root / "transcribe.cpp"
+            transcribe_root.mkdir()
+            cache = root / "emotion-cache"
+            cache.mkdir()
+            runtime = root / "gigastt"
+            runtime.write_bytes(b"pinned-gigastt")
+            model_dir = root / "gigastt-models"
+            model_dir.mkdir()
+            artifacts = {
+                "v3_rnnt_encoder_int8.onnx": b"encoder",
+                "v3_rnnt_decoder.onnx": b"decoder",
+                "v3_rnnt_joint.onnx": b"joint",
+                "v3_vocab.txt": b"vocabulary",
+            }
+            for filename, payload in artifacts.items():
+                (model_dir / filename).write_bytes(payload)
+            revision = "a" * 40
+            profile_path = root / "profile.json"
+            profile_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "default_asr_model": "gigastt-v3-rnnt-buffered",
+                        "voxtral": {
+                            "model_path": str(voxtral),
+                            "model_size_bytes": voxtral.stat().st_size,
+                            "model_sha256": f"sha256:{hashlib.sha256(voxtral.read_bytes()).hexdigest()}",
+                            "transcribe_root": str(transcribe_root),
+                            "library": str(library),
+                            "runtime_revision": revision,
+                            "backend": "cuda",
+                            "delay_ms": 480,
+                        },
+                        "gigastt": {
+                            "model_id": "GigaAM-v3-rnnt-int8",
+                            "model_revision": "gigastt-v2.18.0-offline",
+                            "model_dir": str(model_dir),
+                            "runtime_path": str(runtime),
+                            "runtime_version": "2.18.0",
+                            "runtime_revision": "b" * 40,
+                            "runtime_sha256": f"sha256:{hashlib.sha256(runtime.read_bytes()).hexdigest()}",
+                            "encoder_sha256": f"sha256:{hashlib.sha256(artifacts['v3_rnnt_encoder_int8.onnx']).hexdigest()}",
+                            "decoder_sha256": f"sha256:{hashlib.sha256(artifacts['v3_rnnt_decoder.onnx']).hexdigest()}",
+                            "joint_sha256": f"sha256:{hashlib.sha256(artifacts['v3_rnnt_joint.onnx']).hexdigest()}",
+                            "vocab_sha256": f"sha256:{hashlib.sha256(artifacts['v3_vocab.txt']).hexdigest()}",
+                            "classification": "unclassified_local_only",
+                        },
+                        "emotion": {
+                            "model_id": "emotion/model",
+                            "model_revision": "c" * 40,
+                            "cache_dir": str(cache),
+                            "device": "cpu",
+                            "classification": "unclassified_local_only",
+                        },
+                        "service": {
+                            "port": 0,
+                            "ready_file": str(root / "ready.json"),
+                            "max_frame_bytes": 32_000,
+                            "max_turn_bytes": 960_000,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def completed(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+                if command[-1] == "--version":
+                    return subprocess.CompletedProcess(command, 0, stdout="gigastt 2.18.0\n", stderr="")
+                return subprocess.CompletedProcess(command, 0, stdout=f"{revision}\n", stderr="")
+
+            with patch(
+                "nextengine_speech_timeline.profile.subprocess.run",
+                side_effect=completed,
+            ):
+                profile = load_profile(profile_path)
+            self.assertEqual(profile.default_asr_model, "gigastt-v3-rnnt-buffered")
+            self.assertIsNotNone(profile.gigastt)
+            (model_dir / "v3_rnnt_joint.onnx").write_bytes(b"changed")
+            with self.assertRaisesRegex(ProfileError, "joint SHA-256"):
+                validate_profile_artifacts(profile)
+
     def test_optional_nemotron_runtime_and_model_are_hash_closed_and_selectable(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
