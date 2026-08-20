@@ -3,6 +3,7 @@ use std::path::Path;
 use super::*;
 
 const CLOSURE_REPORT_SCHEMA_VERSION: u32 = 2;
+const PACKAGE_REPORT_SCHEMA_VERSION: u32 = 2;
 
 pub(in crate::native_gate) fn validate_linux_target_report_json_shape(
     bytes: &[u8],
@@ -87,16 +88,16 @@ pub(in crate::native_gate) fn validate_linux_check_reports(
                 record.check.as_str()
             )));
         }
-        let parsed = if record.check == NativeGateCheckNameV1::V1Closure {
-            parse_linux_closure_report(&bytes)?
-        } else {
-            parse_check_report(
+        let parsed = match record.check {
+            NativeGateCheckNameV1::V1Closure => parse_linux_closure_report(&bytes)?,
+            NativeGateCheckNameV1::V1Package => parse_linux_package_report(&bytes)?,
+            _ => parse_check_report(
                 record.check,
                 &bytes,
                 &target.git_commit_sha,
                 &target.target_triple,
                 &target.rustc_release,
-            )?
+            )?,
         };
         reports.push(parsed);
     }
@@ -105,6 +106,52 @@ pub(in crate::native_gate) fn validate_linux_check_reports(
         validate_linux_pass_bindings(target, &reports)?;
     }
     Ok(())
+}
+
+fn parse_linux_package_report(
+    bytes: &[u8],
+) -> Result<ValidatedCheckReportV1, NativeGateComparisonError> {
+    let report: CommandReportV2<PackageDetailsV2> =
+        parse_json(NativeGateCheckNameV1::V1Package, bytes)?;
+    let details = &report.details;
+    if report.schema_version != PACKAGE_REPORT_SCHEMA_VERSION
+        || report.command != "v1-package"
+        || report.status != "PASS"
+        || details.output != "package"
+        || details.game_launch != "PASS"
+        || details.headless_launch != "PASS"
+        || details.tool_launch != "PASS"
+        || details.source_project != "source/reference-alpha"
+    {
+        return Err(report_invalid(
+            "v1-package report must use schema 2 and bind package output plus all clean-install launches",
+        ));
+    }
+    for (field, value) in [
+        (
+            "package_manifest_hash",
+            details.package_manifest_hash.as_str(),
+        ),
+        (
+            "composition_lock_hash",
+            details.composition_lock_hash.as_str(),
+        ),
+        ("game_binary_hash", details.game_binary_hash.as_str()),
+        (
+            "headless_binary_hash",
+            details.headless_binary_hash.as_str(),
+        ),
+        ("tool_binary_hash", details.tool_binary_hash.as_str()),
+        ("tool_state_root", details.tool_state_root.as_str()),
+        ("tool_ledger_hash", details.tool_ledger_hash.as_str()),
+        (
+            "tool_final_save_generation_hash",
+            details.tool_final_save_generation_hash.as_str(),
+        ),
+    ] {
+        validate_hash(field, value)?;
+    }
+    Ok(ValidatedCheckReportV1::V1PackageV2(Box::new(report)))
 }
 
 fn parse_linux_closure_report(
@@ -317,8 +364,10 @@ fn validate_linux_pass_bindings(
     };
     validate_linux_closure_bindings(target, &closure.details)?;
 
-    let ValidatedCheckReportV1::V1Package(package_report) = &reports[7] else {
-        return Err(report_invalid("v1-package typed report is out of order"));
+    let ValidatedCheckReportV1::V1PackageV2(package_report) = &reports[7] else {
+        return Err(report_invalid(
+            "v1-package schema 2 typed report is out of order",
+        ));
     };
     for (field, actual, expected) in [
         (
@@ -451,4 +500,74 @@ fn validate_linux_closure_bindings(
         &summary.runtime_check,
         &summary.desktop_smoke,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::native_gate::LINUX_TARGET_TRIPLE;
+
+    fn package_report() -> serde_json::Value {
+        let hash = "a".repeat(64);
+        serde_json::json!({
+            "schema_version": 2,
+            "status": "PASS",
+            "command": "v1-package",
+            "details": {
+                "target": LINUX_TARGET_TRIPLE,
+                "output": "package",
+                "package_manifest_hash": hash,
+                "composition_lock_hash": hash,
+                "game_binary_hash": hash,
+                "headless_binary_hash": hash,
+                "tool_binary_hash": hash,
+                "game_launch": "PASS",
+                "headless_launch": "PASS",
+                "tool_launch": "PASS",
+                "source_project": "source/reference-alpha",
+                "tool_state_root": hash,
+                "tool_ledger_hash": hash,
+                "tool_final_save_generation_hash": hash
+            }
+        })
+    }
+
+    #[test]
+    fn current_linux_package_report_requires_schema_two_tools_receipt() {
+        let bytes = serde_json::to_vec(&package_report()).expect("package report");
+        assert!(matches!(
+            parse_linux_package_report(&bytes).expect("schema two package report"),
+            ValidatedCheckReportV1::V1PackageV2(_)
+        ));
+
+        let mut schema_one = package_report();
+        schema_one["schema_version"] = serde_json::json!(1);
+        assert!(
+            parse_linux_package_report(
+                &serde_json::to_vec(&schema_one).expect("schema one package report")
+            )
+            .is_err()
+        );
+
+        let mut missing_tool = package_report();
+        missing_tool["details"]
+            .as_object_mut()
+            .expect("details")
+            .remove("tool_binary_hash");
+        assert!(
+            parse_linux_package_report(
+                &serde_json::to_vec(&missing_tool).expect("missing tool package report")
+            )
+            .is_err()
+        );
+
+        let mut failed_tool = package_report();
+        failed_tool["details"]["tool_launch"] = serde_json::json!("FAIL");
+        assert!(
+            parse_linux_package_report(
+                &serde_json::to_vec(&failed_tool).expect("failed tool package report")
+            )
+            .is_err()
+        );
+    }
 }

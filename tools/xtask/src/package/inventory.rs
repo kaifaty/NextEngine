@@ -27,7 +27,7 @@ pub(super) fn validate_package_root(package_root: &Path) -> Result<(), String> {
             .map_err(|_| "NATIVE_GATE_PACKAGE_INVALID: package path is not UTF-8".to_owned())?;
         let metadata = checked_metadata(&entry.path())?;
         match name.as_str() {
-            "bin" | "project" if metadata.is_dir() => {}
+            "bin" | "project" | "source" if metadata.is_dir() => {}
             PACKAGE_MANIFEST_FILE
             | "ACCEPTANCE.md"
             | "LICENSE"
@@ -45,6 +45,7 @@ pub(super) fn validate_package_root(package_root: &Path) -> Result<(), String> {
     for required in [
         "bin",
         "project",
+        "source",
         PACKAGE_MANIFEST_FILE,
         "LICENSE",
         "NOTICE",

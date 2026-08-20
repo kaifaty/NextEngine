@@ -6,8 +6,10 @@ use serde::{Deserialize, Serialize};
 
 mod build;
 mod inventory;
+mod manifest;
 mod runtime;
 mod smoke;
+mod source;
 
 use build::{
     LINUX_SDL_CMAKE_TOOLCHAIN_ENV, cargo_target_directory, package_build_target_directory,
@@ -17,7 +19,7 @@ use inventory::{
     checked_metadata, collect_inventory, hash_file, read_bounded, validate_package_root,
     validate_project_store_layout, validate_relative_package_path,
 };
-use smoke::run_packaged_binary;
+use manifest::{canonical_json_bytes, hash_bytes};
 #[cfg(test)]
 use smoke::{
     LINUX_DYNAMIC_LOADER_FAILURE_EXIT_CODE, WINDOWS_STATUS_DLL_NOT_FOUND,
@@ -27,9 +29,14 @@ use smoke::{
     configure_smoke_environment, run_packaged_binary_with_timeout,
     runtime_prerequisite_failure_code,
 };
+use smoke::{packaged_tool_run, run_packaged_binary, run_packaged_tool, validate_packaged_tool};
+use source::{
+    cook_packaged_reference_source, copy_reference_project_source,
+    validate_reference_project_source,
+};
 
 pub const PACKAGE_MANIFEST_FILE: &str = "package.manifest.jcs";
-pub const PACKAGE_MANIFEST_SCHEMA_VERSION: u32 = 4;
+pub const PACKAGE_MANIFEST_SCHEMA_VERSION: u32 = 5;
 
 const MAX_MANIFEST_BYTES: usize = 8 * 1024 * 1024;
 const REQUIRED_NOTICE_PATHS: [&str; 4] = [
@@ -45,8 +52,8 @@ const REFERENCE_PROJECT_DOCUMENT_PATHS: [(&str, &str); 2] = [
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PackageManifestV4 {
-    pub binaries: PackageBinariesV2,
+pub struct PackageManifestV5 {
+    pub binaries: PackageBinariesV3,
     pub file_inventory: Vec<PackageFileV2>,
     pub required_notices: Vec<String>,
     pub runtime_profile: PackageRuntimeProfileV3,
@@ -95,9 +102,27 @@ pub struct PackageExternalPrerequisiteV3 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PackageBinariesV2 {
+pub struct PackageBinariesV3 {
     pub game: PackagedRunV2,
     pub headless: PackagedRunV2,
+    pub tools: PackagedToolRunV1,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PackagedToolRunV1 {
+    pub authoritative_state_root: String,
+    pub binary_path: String,
+    pub binary_sha256: String,
+    pub close_receipt_hash: String,
+    pub command: String,
+    pub command_ledger_hash: String,
+    pub final_save_generation_hash: String,
+    pub launch_status: String,
+    pub project_composition_lock_hash: String,
+    pub source: String,
+    pub source_project_path: String,
+    pub ticks: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -132,7 +157,7 @@ pub struct PackageTargetNeutralRootsV3 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PackageBuildResult {
-    pub manifest: PackageManifestV4,
+    pub manifest: PackageManifestV5,
     pub output: PathBuf,
     pub package_manifest_sha256: String,
 }
@@ -157,6 +182,7 @@ pub fn build_v1_package(
 struct PackageBinarySources {
     game: PathBuf,
     headless: PathBuf,
+    tools: PathBuf,
 }
 
 fn build_v1_package_with_binary_sources<F>(
@@ -243,7 +269,7 @@ where
     })
 }
 
-pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV4, String> {
+pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV5, String> {
     validate_package_root(package_root)?;
     let manifest_path = package_root.join(PACKAGE_MANIFEST_FILE);
     let manifest_metadata = checked_metadata(&manifest_path)?;
@@ -266,7 +292,7 @@ pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV4, Str
             version.schema_version, PACKAGE_MANIFEST_SCHEMA_VERSION
         ));
     }
-    let manifest: PackageManifestV4 = serde_json::from_slice(&manifest_bytes)
+    let manifest: PackageManifestV5 = serde_json::from_slice(&manifest_bytes)
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: invalid manifest JSON: {error}"))?;
     let canonical = canonical_json_bytes(&manifest)?;
     if manifest_bytes != canonical {
@@ -287,9 +313,11 @@ pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV4, Str
         &[
             manifest.binaries.game.binary_path.as_str(),
             manifest.binaries.headless.binary_path.as_str(),
+            manifest.binaries.tools.binary_path.as_str(),
         ],
     )?;
     validate_activated_project(package_root, &manifest.target_neutral_roots)?;
+    validate_reference_project_source(package_root, &manifest.target_neutral_roots)?;
     Ok(manifest)
 }
 
@@ -299,16 +327,14 @@ fn build_staged_package(
     smoke_root: &Path,
     target_triple: &str,
     binary_sources: &PackageBinarySources,
-) -> Result<(PackageManifestV4, Vec<u8>), String> {
+) -> Result<(PackageManifestV5, Vec<u8>), String> {
     let bin_directory = staging.join("bin");
     fs::create_dir(&bin_directory).map_err(|error| {
         format!("NATIVE_GATE_PACKAGE_INVALID: failed to create package bin: {error}")
     })?;
+    copy_reference_project_source(repository_root, staging)?;
     let project_directory = staging.join("project");
-    let source = next_reference_game::project_source_v7()
-        .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
-    let cooked = next_project::cook_project_v7(source)
-        .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
+    let cooked = cook_packaged_reference_source(staging)?;
     let project_store = next_assets::ContentStore::new(&project_directory);
     let publication = cooked
         .publication()
@@ -332,16 +358,24 @@ fn build_staged_package(
     };
     let game_name = format!("next_game{executable_suffix}");
     let headless_name = format!("next_headless{executable_suffix}");
+    let tools_name = format!("next{executable_suffix}");
     let game_destination = bin_directory.join(&game_name);
     let headless_destination = bin_directory.join(&headless_name);
+    let tools_destination = bin_directory.join(&tools_name);
     copy_binary(&binary_sources.game, &game_destination)?;
     copy_binary(&binary_sources.headless, &headless_destination)?;
+    copy_binary(&binary_sources.tools, &tools_destination)?;
     let game_binary_path = format!("bin/{game_name}");
     let headless_binary_path = format!("bin/{headless_name}");
+    let tools_binary_path = format!("bin/{tools_name}");
     let runtime_profile = runtime::build_runtime_profile(
         staging,
         target_triple,
-        &[game_binary_path.as_str(), headless_binary_path.as_str()],
+        &[
+            game_binary_path.as_str(),
+            headless_binary_path.as_str(),
+            tools_binary_path.as_str(),
+        ],
     )?;
     let inventory_before_smoke = collect_inventory(staging)?;
 
@@ -352,6 +386,23 @@ fn build_staged_package(
         )
     })?;
     let project_lock = cooked.project_lock.project_lock_sha256.to_hex();
+    let roots = PackageTargetNeutralRootsV3 {
+        content_manifest_sha256: cooked.content_manifest.content_manifest_sha256.to_hex(),
+        mechanics_lock_sha256: cooked
+            .rpg_definitions
+            .mechanics_lock
+            .mechanics_lock_sha256
+            .to_hex(),
+        project_lock_sha256: project_lock.clone(),
+        schema_registry_sha256: cooked
+            .schema_registry
+            .schema_registry_manifest_sha256
+            .to_hex(),
+        world_partition_sha256: cooked
+            .world_partition
+            .world_partition_manifest_sha256
+            .to_hex(),
+    };
     let headless_report = run_packaged_binary(
         &headless_destination,
         &[
@@ -383,6 +434,12 @@ fn build_staged_package(
         "Game",
         &project_lock,
     )?;
+    let tools_report = run_packaged_tool(
+        &tools_destination,
+        &smoke_root.join("tools"),
+        staging,
+        &roots,
+    )?;
     if game_report.authoritative_state_root != headless_report.authoritative_state_root
         || game_report.command_ledger_hash != headless_report.command_ledger_hash
     {
@@ -391,23 +448,6 @@ fn build_staged_package(
     let inventory_after_smoke = collect_inventory(staging)?;
     ensure_inventory_unchanged(&inventory_before_smoke, &inventory_after_smoke)?;
 
-    let roots = PackageTargetNeutralRootsV3 {
-        content_manifest_sha256: cooked.content_manifest.content_manifest_sha256.to_hex(),
-        mechanics_lock_sha256: cooked
-            .rpg_definitions
-            .mechanics_lock
-            .mechanics_lock_sha256
-            .to_hex(),
-        project_lock_sha256: project_lock,
-        schema_registry_sha256: cooked
-            .schema_registry
-            .schema_registry_manifest_sha256
-            .to_hex(),
-        world_partition_sha256: cooked
-            .world_partition
-            .world_partition_manifest_sha256
-            .to_hex(),
-    };
     let game = packaged_run("bin", &game_name, &game_destination, game_report)?;
     let headless = packaged_run(
         "bin",
@@ -415,8 +455,13 @@ fn build_staged_package(
         &headless_destination,
         headless_report,
     )?;
-    let manifest = PackageManifestV4 {
-        binaries: PackageBinariesV2 { game, headless },
+    let tools = packaged_tool_run(&tools_name, &tools_destination, tools_report)?;
+    let manifest = PackageManifestV5 {
+        binaries: PackageBinariesV3 {
+            game,
+            headless,
+            tools,
+        },
         file_inventory: inventory_after_smoke,
         required_notices: required_notice_paths(),
         runtime_profile,
@@ -468,6 +513,8 @@ fn prepare_release_binary_sources(
             "next_game",
             "-p",
             "next_headless",
+            "-p",
+            "next_cli",
             "--features",
             "next_game/desktop-sdl-ash",
         ],
@@ -481,10 +528,12 @@ fn prepare_release_binary_sources(
     };
     let game_name = format!("next_game{executable_suffix}");
     let headless_name = format!("next_headless{executable_suffix}");
+    let tools_name = format!("next{executable_suffix}");
     let release_directory = release_binary_directory(&build_target_directory, target_triple);
     Ok(PackageBinarySources {
         game: release_directory.join(game_name),
         headless: release_directory.join(headless_name),
+        tools: release_directory.join(tools_name),
     })
 }
 
@@ -505,7 +554,7 @@ fn packaged_run(
     })
 }
 
-fn validate_manifest_fields(manifest: &PackageManifestV4) -> Result<(), String> {
+fn validate_manifest_fields(manifest: &PackageManifestV5) -> Result<(), String> {
     if manifest.schema_version != PACKAGE_MANIFEST_SCHEMA_VERSION {
         return Err(format!(
             "UNSUPPORTED_PACKAGE_FORMAT: package schema version {} is unsupported; expected {}",
@@ -545,6 +594,7 @@ fn validate_manifest_fields(manifest: &PackageManifestV4) -> Result<(), String> 
         "Headless",
         &roots.project_lock_sha256,
     )?;
+    validate_packaged_tool(&manifest.binaries.tools, &roots.project_lock_sha256)?;
     if manifest.binaries.game.binary_path == manifest.binaries.headless.binary_path {
         return package_error("game and headless binary paths must differ");
     }
@@ -562,6 +612,7 @@ fn validate_manifest_fields(manifest: &PackageManifestV4) -> Result<(), String> 
     };
     if manifest.binaries.game.binary_path != format!("bin/next_game{expected_suffix}")
         || manifest.binaries.headless.binary_path != format!("bin/next_headless{expected_suffix}")
+        || manifest.binaries.tools.binary_path != format!("bin/next{expected_suffix}")
     {
         return package_error("binary paths do not match the package target");
     }
@@ -605,22 +656,35 @@ fn validate_packaged_run(
     Ok(())
 }
 
-fn validate_binary_inventory(manifest: &PackageManifestV4) -> Result<(), String> {
-    for run in [&manifest.binaries.game, &manifest.binaries.headless] {
+fn validate_binary_inventory(manifest: &PackageManifestV5) -> Result<(), String> {
+    for (binary_path, binary_sha256) in [
+        (
+            manifest.binaries.game.binary_path.as_str(),
+            manifest.binaries.game.binary_sha256.as_str(),
+        ),
+        (
+            manifest.binaries.headless.binary_path.as_str(),
+            manifest.binaries.headless.binary_sha256.as_str(),
+        ),
+        (
+            manifest.binaries.tools.binary_path.as_str(),
+            manifest.binaries.tools.binary_sha256.as_str(),
+        ),
+    ] {
         let entry = manifest
             .file_inventory
             .iter()
-            .find(|entry| entry.path == run.binary_path)
+            .find(|entry| entry.path == binary_path)
             .ok_or_else(|| {
                 format!(
                     "NATIVE_GATE_PACKAGE_INVALID: binary {} is absent from inventory",
-                    run.binary_path
+                    binary_path
                 )
             })?;
-        if entry.sha256 != run.binary_sha256 {
+        if entry.sha256 != binary_sha256 {
             return package_error(format!(
                 "binary hash for {} does not match inventory",
-                run.binary_path
+                binary_path
             ));
         }
     }
@@ -663,54 +727,6 @@ fn validate_activated_project(
     };
     if &actual != roots {
         return package_error("manifest roots do not match the activated packaged project");
-    }
-    Ok(())
-}
-
-fn canonical_json_bytes<T: Serialize>(value: &T) -> Result<Vec<u8>, String> {
-    let value = serde_json::to_value(value)
-        .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
-    let mut bytes = Vec::new();
-    write_canonical_value(&value, &mut bytes)?;
-    Ok(bytes)
-}
-
-fn write_canonical_value(value: &serde_json::Value, output: &mut Vec<u8>) -> Result<(), String> {
-    match value {
-        serde_json::Value::Null => output.extend_from_slice(b"null"),
-        serde_json::Value::Bool(value) => {
-            output.extend_from_slice(if *value { b"true" } else { b"false" });
-        }
-        serde_json::Value::Number(value) => output.extend_from_slice(value.to_string().as_bytes()),
-        serde_json::Value::String(value) => {
-            serde_json::to_writer(output, value)
-                .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
-        }
-        serde_json::Value::Array(values) => {
-            output.push(b'[');
-            for (index, value) in values.iter().enumerate() {
-                if index != 0 {
-                    output.push(b',');
-                }
-                write_canonical_value(value, output)?;
-            }
-            output.push(b']');
-        }
-        serde_json::Value::Object(values) => {
-            output.push(b'{');
-            let mut entries: Vec<_> = values.iter().collect();
-            entries.sort_by_key(|(key, _)| *key);
-            for (index, (key, value)) in entries.into_iter().enumerate() {
-                if index != 0 {
-                    output.push(b',');
-                }
-                serde_json::to_writer(&mut *output, key)
-                    .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
-                output.push(b':');
-                write_canonical_value(value, output)?;
-            }
-            output.push(b'}');
-        }
     }
     Ok(())
 }
@@ -792,10 +808,6 @@ fn required_notice_paths() -> Vec<String> {
         .into_iter()
         .map(str::to_owned)
         .collect()
-}
-
-fn hash_bytes(bytes: &[u8]) -> String {
-    next_contracts::ids::content_hash_from_bytes(next_contracts::canonical::sha256(bytes)).to_hex()
 }
 
 fn validate_hash(name: &str, value: &str) -> Result<(), String> {

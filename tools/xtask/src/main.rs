@@ -76,7 +76,7 @@ impl Serialize for NativeGateClosureCheckResult {
 }
 
 struct NativeGatePackageCheckResult {
-    report: CommandReportV1<PackageDetailsV1>,
+    report: CommandReportV2<PackageDetailsV2>,
     release_target: NativeGateClosureTargetSummaryV1,
     release_roots: NativeGateReleaseRootsV2,
     package: NativeGatePackageSummaryV1,
@@ -285,7 +285,7 @@ fn v1_package(root: &Path, requested_output: &Path) -> Result<(), String> {
 fn v1_package_report(
     root: &Path,
     requested_output: &Path,
-) -> Result<CommandReportV1<PackageDetailsV1>, String> {
+) -> Result<CommandReportV2<PackageDetailsV2>, String> {
     let package = xtask::package::build_v1_package(root, requested_output)?;
     Ok(package_command_report(
         &package,
@@ -296,20 +296,30 @@ fn v1_package_report(
 fn package_command_report(
     package: &xtask::package::PackageBuildResult,
     output: String,
-) -> CommandReportV1<PackageDetailsV1> {
+) -> CommandReportV2<PackageDetailsV2> {
     let manifest = &package.manifest;
-    CommandReportV1::new(
+    CommandReportV2::new(
         "v1-package",
         "PASS",
-        PackageDetailsV1 {
+        PackageDetailsV2 {
             target: manifest.target_triple.clone(),
             output,
             package_manifest_hash: package.package_manifest_sha256.clone(),
             composition_lock_hash: manifest.target_neutral_roots.project_lock_sha256.clone(),
             game_binary_hash: manifest.binaries.game.binary_sha256.clone(),
             headless_binary_hash: manifest.binaries.headless.binary_sha256.clone(),
+            tool_binary_hash: manifest.binaries.tools.binary_sha256.clone(),
             game_launch: manifest.binaries.game.launch_status.clone(),
             headless_launch: manifest.binaries.headless.launch_status.clone(),
+            tool_launch: manifest.binaries.tools.launch_status.clone(),
+            source_project: manifest.binaries.tools.source_project_path.clone(),
+            tool_state_root: manifest.binaries.tools.authoritative_state_root.clone(),
+            tool_ledger_hash: manifest.binaries.tools.command_ledger_hash.clone(),
+            tool_final_save_generation_hash: manifest
+                .binaries
+                .tools
+                .final_save_generation_hash
+                .clone(),
         },
     )
 }

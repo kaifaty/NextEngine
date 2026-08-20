@@ -4,188 +4,16 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
+mod fixtures;
 mod publish;
 
-#[cfg(any(
-    all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
-    all(target_arch = "x86_64", target_os = "linux", target_env = "gnu")
-))]
-const PACKAGE_SMOKE_FIXTURE_SOURCE: &str = r#"
-use std::env;
-use std::ffi::OsString;
-use std::fs;
-use std::path::{Path, PathBuf};
-
-fn fail(message: &str) -> ! {
-    eprintln!("{message}");
-    std::process::exit(2);
-}
-
-fn argument_value(arguments: &[OsString], name: &str) -> String {
-    let position = arguments
-        .iter()
-        .position(|argument| argument == name)
-        .unwrap_or_else(|| fail(&format!("missing {name}")));
-    arguments
-        .get(position + 1)
-        .and_then(|value| value.to_str())
-        .unwrap_or_else(|| fail(&format!("invalid {name} value")))
-        .to_owned()
-}
-
-fn require_isolated_directory(package_root: &Path, name: &str) {
-    let value = env::var_os(name).unwrap_or_else(|| fail(&format!("missing {name}")));
-    let path = PathBuf::from(value);
-    if !path.is_absolute() || !path.is_dir() || path.starts_with(package_root) {
-        fail(&format!("{name} is not an isolated existing directory"));
-    }
-}
-
-fn main() {
-    let package_root = fs::canonicalize(".").unwrap_or_else(|error| {
-        fail(&format!("failed to resolve package cwd: {error}"));
-    });
-    let executable = env::current_exe()
-        .and_then(fs::canonicalize)
-        .unwrap_or_else(|error| fail(&format!("failed to resolve executable: {error}")));
-    let package_bin = fs::canonicalize(package_root.join("bin"))
-        .unwrap_or_else(|error| fail(&format!("failed to resolve package bin: {error}")));
-    if executable.parent() != Some(package_bin.as_path()) {
-        fail("smoke did not execute the copied package/bin binary");
-    }
-    for required in [
-        "project",
-        "ACCEPTANCE.md",
-        "LICENSE",
-        "NOTICE",
-        "REFERENCE_ALPHA_NOTICE",
-        "THIRD_PARTY_NOTICES.md",
-        "MIGRATION_PROVENANCE.md",
-    ] {
-        if !package_root.join(required).exists() {
-            fail(&format!("package cwd is missing {required}"));
-        }
-    }
-
-    let arguments: Vec<OsString> = env::args_os().skip(1).collect();
-    if argument_value(&arguments, "--project") != "project" {
-        fail("project argument must be package-relative");
-    }
-    let project_lock = argument_value(&arguments, "--lock");
-    if project_lock.len() != 64
-        || !project_lock
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-    {
-        fail("project lock is not canonical lowercase SHA-256");
-    }
-    let state_root = PathBuf::from(argument_value(&arguments, "--state-root"));
-    if !state_root.is_absolute() || state_root.starts_with(&package_root) || !state_root.is_dir() {
-        fail("state root is not an isolated existing directory");
-    }
-    fs::write(state_root.join("smoke-state.marker"), b"disposable")
-        .unwrap_or_else(|error| fail(&format!("failed to write smoke state: {error}")));
-    for name in [
-        "HOME",
-        "USERPROFILE",
-        "LOCALAPPDATA",
-        "APPDATA",
-        "XDG_STATE_HOME",
-        "PROGRAMDATA",
-        "ALLUSERSPROFILE",
-        "TMP",
-        "TEMP",
-        "TMPDIR",
-    ] {
-        require_isolated_directory(&package_root, name);
-    }
-    for (name, _) in env::vars_os() {
-        let Some(name) = name.to_str() else {
-            fail("environment variable name is not UTF-8");
-        };
-        if name == "PATH"
-            || name.starts_with("LD_")
-            || name.starts_with("VK_")
-            || name.starts_with("SDL_")
-        {
-            fail(&format!("forbidden inherited environment variable {name}"));
-        }
-    }
-
-    let file_name = executable
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or_else(|| fail("executable name is not UTF-8"));
-    let (composition_root, interactive_host_object_count, presentation) =
-        if file_name.starts_with("next_headless") {
-        if arguments.iter().any(|argument| argument == "--interactive") {
-            fail("headless smoke unexpectedly received --interactive");
-        }
-        if argument_value(&arguments, "--live-ticks") != "0" {
-            fail("headless smoke is not the exact zero-tick live launch");
-        }
-        ("Headless", 0, "null".to_owned())
-    } else if file_name.starts_with("next_game") {
-        if !arguments.iter().any(|argument| argument == "--interactive")
-            || argument_value(&arguments, "--maximum-frames") != "1"
-        {
-            fail("game smoke is not the bounded interactive launch");
-        }
-        (
-            "Game",
-            1,
-            format!(
-                "{{\"target\":\"Interactive\",\"snapshot_hash\":\"{}\",\"object_count\":1}}",
-                "9".repeat(64)
-            ),
-        )
-    } else {
-        fail("unexpected packaged binary name");
-    };
-
-    let state = "a".repeat(64);
-    let ledger = "b".repeat(64);
-    let archive = "c".repeat(64);
-    let identity = "d".repeat(64);
-    let receipt = "e".repeat(64);
-    let session = "f".repeat(64);
-    println!(
-        "{{\"schema_version\":1,\"status\":\"PASS\",\"composition_root\":\"{composition_root}\",\
-\"session_id\":\"{session}\",\"close_receipt_hash\":\"{receipt}\",\"close_result\":\"Saved\",\
-\"final_save_generation_hash\":null,\"project_composition_lock_hash\":\"{project_lock}\",\
-\"ticks\":1,\"events\":1,\"rpg_events\":1,\"authoritative_revision\":1,\
-\"authoritative_state_root\":\"{state}\",\"command_archive_root\":\"{archive}\",\
-\"command_identity_index_root\":\"{identity}\",\"command_ledger_hash\":\"{ledger}\",\
-\"interactive_host_object_count\":{interactive_host_object_count},\
-\"presentation\":{presentation}}}"
-    );
-}
-"#;
-
-#[cfg(any(
-    all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
-    all(target_arch = "x86_64", target_os = "linux", target_env = "gnu")
-))]
-const PACKAGE_SMOKE_TIMEOUT_FIXTURE_SOURCE: &str = r#"
-use std::io::Write;
-use std::time::Duration;
-
-fn main() {
-    std::io::stdout()
-        .write_all(&vec![b'o'; 2 * 1024 * 1024])
-        .expect("stdout");
-    std::io::stderr()
-        .write_all(&vec![b'e'; 128 * 1024])
-        .expect("stderr");
-    std::thread::sleep(Duration::from_secs(60));
-}
-"#;
+use fixtures::*;
 
 #[test]
 fn manifest_encoding_is_canonical_and_round_trips() {
     let manifest = fixture_manifest();
     let bytes = canonical_json_bytes(&manifest).expect("canonical JSON");
-    let decoded: PackageManifestV4 = serde_json::from_slice(&bytes).expect("manifest decodes");
+    let decoded: PackageManifestV5 = serde_json::from_slice(&bytes).expect("manifest decodes");
     assert_eq!(decoded, manifest);
     assert!(bytes.starts_with(br#"{"binaries":"#));
 }
@@ -198,7 +26,15 @@ fn retired_manifest_and_unknown_fields_are_rejected_without_migration() {
     object.remove("runtime_profile");
     object.insert("schema_version".to_owned(), serde_json::json!(2));
     let bytes = serde_json::to_vec(&value).expect("legacy manifest");
-    assert!(serde_json::from_slice::<PackageManifestV4>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV5>(&bytes).is_err());
+
+    let mut value = serde_json::to_value(&manifest).expect("manifest value");
+    value["binaries"]
+        .as_object_mut()
+        .expect("binary object")
+        .remove("tools");
+    let bytes = serde_json::to_vec(&value).expect("missing tools manifest");
+    assert!(serde_json::from_slice::<PackageManifestV5>(&bytes).is_err());
 
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
     value
@@ -206,12 +42,12 @@ fn retired_manifest_and_unknown_fields_are_rejected_without_migration() {
         .expect("manifest object")
         .insert("unexpected".to_owned(), serde_json::json!(true));
     let bytes = serde_json::to_vec(&value).expect("unknown-field manifest");
-    assert!(serde_json::from_slice::<PackageManifestV4>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV5>(&bytes).is_err());
 
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
     value["runtime_profile"]["abi"]["unexpected"] = serde_json::json!(true);
     let bytes = serde_json::to_vec(&value).expect("unknown nested field manifest");
-    assert!(serde_json::from_slice::<PackageManifestV4>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV5>(&bytes).is_err());
 
     let mut value = serde_json::to_value(&manifest).expect("manifest value");
     value["runtime_profile"]["binaries"][0]
@@ -219,7 +55,7 @@ fn retired_manifest_and_unknown_fields_are_rejected_without_migration() {
         .expect("runtime binary")
         .remove("direct_libraries");
     let bytes = serde_json::to_vec(&value).expect("missing nested field manifest");
-    assert!(serde_json::from_slice::<PackageManifestV4>(&bytes).is_err());
+    assert!(serde_json::from_slice::<PackageManifestV5>(&bytes).is_err());
 
     let mut wrong_version = manifest;
     wrong_version.schema_version = PACKAGE_MANIFEST_SCHEMA_VERSION - 1;
@@ -294,6 +130,7 @@ fn package_root_requires_every_notice_and_rejects_smoke_or_state_objects() {
     let temporary = TestDirectory::new("top-level-layout");
     fs::create_dir(temporary.path().join("bin")).expect("bin");
     fs::create_dir(temporary.path().join("project")).expect("project");
+    fs::create_dir(temporary.path().join("source")).expect("source");
     for file in [
         PACKAGE_MANIFEST_FILE,
         "LICENSE",
@@ -411,7 +248,6 @@ fn release_binaries_are_selected_from_the_explicit_native_target_directory() {
 ))]
 fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
     let temporary = TestDirectory::new("pipeline");
-    let fixture_binary = compile_package_smoke_fixture(temporary.path());
     let repository_root = fs::canonicalize(
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
@@ -419,6 +255,29 @@ fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
             .expect("xtask belongs to the repository workspace"),
     )
     .expect("repository root");
+    let cooked = next_project::cook_project_v7(
+        next_reference_game::project_source_v7().expect("reference source"),
+    )
+    .expect("reference project cooks");
+    let expected_roots = PackageTargetNeutralRootsV3 {
+        content_manifest_sha256: cooked.content_manifest.content_manifest_sha256.to_hex(),
+        mechanics_lock_sha256: cooked
+            .rpg_definitions
+            .mechanics_lock
+            .mechanics_lock_sha256
+            .to_hex(),
+        project_lock_sha256: cooked.project_lock.project_lock_sha256.to_hex(),
+        schema_registry_sha256: cooked
+            .schema_registry
+            .schema_registry_manifest_sha256
+            .to_hex(),
+        world_partition_sha256: cooked
+            .world_partition
+            .world_partition_manifest_sha256
+            .to_hex(),
+    };
+    let fixture_binary = compile_package_smoke_fixture(temporary.path());
+    let tool_fixture = compile_package_tool_fixture(temporary.path(), &expected_roots);
     let output = temporary.path().join("package");
     let target_triple = native_shipping_target_triple().expect("native shipping host");
 
@@ -428,6 +287,7 @@ fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
             Ok(PackageBinarySources {
                 game: fixture_binary.clone(),
                 headless: fixture_binary.clone(),
+                tools: tool_fixture.clone(),
             })
         })
         .expect("package pipeline");
@@ -466,6 +326,18 @@ fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
         assert_eq!(run.binary_sha256, source_hash);
         assert_eq!(hash_file(&copied).expect("copied hash"), source_hash);
     }
+    let copied_tool = output.join(&result.manifest.binaries.tools.binary_path);
+    assert!(copied_tool.is_file());
+    assert_eq!(
+        result.manifest.binaries.tools.binary_sha256,
+        hash_file(&tool_fixture).expect("tool fixture hash")
+    );
+    assert_eq!(result.manifest.binaries.tools.launch_status, "PASS");
+    assert_eq!(
+        result.manifest.binaries.tools.source_project_path,
+        "source/reference-alpha"
+    );
+    assert_eq!(result.manifest.target_neutral_roots, expected_roots);
     assert_eq!(
         result.manifest.binaries.game.authoritative_state_root,
         result.manifest.binaries.headless.authoritative_state_root
@@ -502,6 +374,26 @@ fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
             fs::read(repository_root.join(source_path)).expect("source reference project document")
         );
     }
+    for relative in source::REFERENCE_SOURCE_FILES {
+        let package_path = format!("source/reference-alpha/{relative}");
+        assert!(
+            result
+                .manifest
+                .file_inventory
+                .iter()
+                .any(|entry| entry.path == package_path),
+            "{package_path} must be inventoried"
+        );
+        assert_eq!(
+            fs::read(output.join(&package_path)).expect("frozen source file"),
+            fs::read(
+                repository_root
+                    .join("projects/reference-alpha")
+                    .join(relative)
+            )
+            .expect("repository source file")
+        );
+    }
     let smoke_root = temporary
         .path()
         .join(format!(".package.smoke-{}", std::process::id()));
@@ -526,9 +418,20 @@ fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
             &[
                 result.manifest.binaries.game.binary_path.as_str(),
                 result.manifest.binaries.headless.binary_path.as_str(),
+                result.manifest.binaries.tools.binary_path.as_str(),
             ],
         )
         .is_err()
+    );
+    fs::write(
+        output.join("source/reference-alpha/unexpected.txt"),
+        b"unexpected",
+    )
+    .expect("tampered source");
+    assert!(
+        source::validate_reference_project_source(&output, &result.manifest.target_neutral_roots,)
+            .expect_err("extra source file must fail")
+            .contains("source layout is not exact")
     );
 }
 
@@ -553,6 +456,7 @@ fn package_pipeline_audits_binary_abi_before_smoke_launch() {
         Ok(PackageBinarySources {
             game: malformed_binary.clone(),
             headless: malformed_binary.clone(),
+            tools: malformed_binary.clone(),
         })
     })
     .expect_err("malformed binary must fail before smoke");
@@ -842,6 +746,14 @@ fn manifest_validator_requires_game_headless_authority_parity() {
     let mut manifest = fixture_manifest();
     manifest.required_notices.pop();
     assert!(validate_manifest_fields(&manifest).is_err());
+
+    let mut manifest = fixture_manifest();
+    manifest.binaries.tools.launch_status = "FAIL".to_owned();
+    assert!(validate_manifest_fields(&manifest).is_err());
+
+    let mut manifest = fixture_manifest();
+    manifest.binaries.tools.ticks = 0;
+    assert!(validate_manifest_fields(&manifest).is_err());
 }
 
 #[cfg(any(
@@ -854,6 +766,20 @@ fn compile_package_smoke_fixture(directory: &Path) -> PathBuf {
         "package-smoke-fixture",
         PACKAGE_SMOKE_FIXTURE_SOURCE,
     )
+}
+
+#[cfg(any(
+    all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
+    all(target_arch = "x86_64", target_os = "linux", target_env = "gnu")
+))]
+fn compile_package_tool_fixture(directory: &Path, roots: &PackageTargetNeutralRootsV3) -> PathBuf {
+    let source = PACKAGE_TOOL_SMOKE_FIXTURE_SOURCE
+        .replace("__PROJECT_LOCK__", &roots.project_lock_sha256)
+        .replace("__SCHEMA__", &roots.schema_registry_sha256)
+        .replace("__CONTENT__", &roots.content_manifest_sha256)
+        .replace("__WORLD__", &roots.world_partition_sha256)
+        .replace("__MECHANICS__", &roots.mechanics_lock_sha256);
+    compile_rust_fixture(directory, "package-tool-smoke-fixture", &source)
 }
 
 #[cfg(any(
@@ -892,14 +818,15 @@ fn compile_rust_fixture(directory: &Path, name: &str, source_text: &str) -> Path
     executable
 }
 
-fn fixture_manifest() -> PackageManifestV4 {
+fn fixture_manifest() -> PackageManifestV5 {
     let project_lock = "1".repeat(64);
     let state = "2".repeat(64);
     let ledger = "3".repeat(64);
     let game_hash = "4".repeat(64);
     let headless_hash = "5".repeat(64);
-    PackageManifestV4 {
-        binaries: PackageBinariesV2 {
+    let tool_hash = "a".repeat(64);
+    PackageManifestV5 {
+        binaries: PackageBinariesV3 {
             game: PackagedRunV2 {
                 authoritative_state_root: state.clone(),
                 binary_path: "bin/next_game.exe".to_owned(),
@@ -918,8 +845,27 @@ fn fixture_manifest() -> PackageManifestV4 {
                 launch_status: "PASS".to_owned(),
                 project_composition_lock_hash: project_lock.clone(),
             },
+            tools: PackagedToolRunV1 {
+                authoritative_state_root: "b".repeat(64),
+                binary_path: "bin/next.exe".to_owned(),
+                binary_sha256: tool_hash.clone(),
+                close_receipt_hash: "c".repeat(64),
+                command: "project.run".to_owned(),
+                command_ledger_hash: "d".repeat(64),
+                final_save_generation_hash: "e".repeat(64),
+                launch_status: "PASS".to_owned(),
+                project_composition_lock_hash: project_lock.clone(),
+                source: "authoring".to_owned(),
+                source_project_path: "source/reference-alpha".to_owned(),
+                ticks: 1,
+            },
         },
         file_inventory: vec![
+            PackageFileV2 {
+                path: "bin/next.exe".to_owned(),
+                sha256: tool_hash,
+                size_bytes: 12,
+            },
             PackageFileV2 {
                 path: "bin/next_game.exe".to_owned(),
                 sha256: game_hash,
@@ -937,6 +883,11 @@ fn fixture_manifest() -> PackageManifestV4 {
                 crt: PackageWindowsCrtV3::DynamicSystem,
             },
             binaries: vec![
+                PackageBinaryRuntimeV3 {
+                    binary_path: "bin/next.exe".to_owned(),
+                    direct_libraries: vec!["kernel32.dll".to_owned()],
+                    maximum_required_glibc: None,
+                },
                 PackageBinaryRuntimeV3 {
                     binary_path: "bin/next_game.exe".to_owned(),
                     direct_libraries: vec!["kernel32.dll".to_owned()],

@@ -2048,6 +2048,7 @@ dependencies = [
  "goblin",
  "next_application",
  "next_assets",
+ "next_cli",
  "next_continuum_water",
  "next_contracts",
  "next_motor",

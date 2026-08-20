@@ -92,6 +92,25 @@ pub struct PackageDetailsV1 {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct PackageDetailsV2 {
+    pub target: String,
+    pub output: String,
+    pub package_manifest_hash: String,
+    pub composition_lock_hash: String,
+    pub game_binary_hash: String,
+    pub headless_binary_hash: String,
+    pub tool_binary_hash: String,
+    pub game_launch: String,
+    pub headless_launch: String,
+    pub tool_launch: String,
+    pub source_project: String,
+    pub tool_state_root: String,
+    pub tool_ledger_hash: String,
+    pub tool_final_save_generation_hash: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TargetGateDetailsV1 {
     pub target: String,
     pub package_descriptor_hash: String,

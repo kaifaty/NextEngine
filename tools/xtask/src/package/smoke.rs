@@ -1,12 +1,16 @@
 use std::env;
 use std::fs;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::{bounded_text, package_error, trim_ascii_whitespace, validate_hash};
+use super::source::REFERENCE_SOURCE_PATH;
+use super::{
+    PackageTargetNeutralRootsV3, PackagedToolRunV1, bounded_text, hash_file, package_error,
+    trim_ascii_whitespace, validate_hash, validate_relative_package_path,
+};
 
 const MAX_SMOKE_STDOUT_BYTES: usize = 1024 * 1024;
 const MAX_SMOKE_STDERR_BYTES: usize = 64 * 1024;
@@ -50,73 +54,10 @@ pub(super) fn run_packaged_binary_with_timeout(
     expected_project_lock: &str,
     timeout: Duration,
 ) -> Result<next_application::RunReportV1, String> {
-    let state_root = smoke_session_root.join("state");
-    let home = smoke_session_root.join("home");
-    let local_app_data = smoke_session_root.join("local-app-data");
-    let xdg_state_home = smoke_session_root.join("xdg-state");
-    let roaming_app_data = smoke_session_root.join("roaming-app-data");
-    let program_data = smoke_session_root.join("program-data");
-    let temporary = smoke_session_root.join("temp");
-    for directory in [
-        &state_root,
-        &home,
-        &local_app_data,
-        &xdg_state_home,
-        &roaming_app_data,
-        &program_data,
-        &temporary,
-    ] {
-        fs::create_dir_all(directory).map_err(|error| {
-            format!(
-                "NATIVE_GATE_PACKAGE_INVALID: failed to prepare smoke directory {}: {error}",
-                directory.display()
-            )
-        })?;
-    }
-    let mut command = Command::new(binary);
-    command
-        .args(arguments)
-        .arg("--state-root")
-        .arg(&state_root)
-        .current_dir(package_root);
-    configure_smoke_environment(
-        &mut command,
-        &home,
-        &local_app_data,
-        &roaming_app_data,
-        &xdg_state_home,
-        &program_data,
-        &temporary,
-    );
-    let output = run_bounded_command(command, binary, timeout)?;
-    if !output.status.success() {
-        if let Some(code) =
-            runtime_prerequisite_failure_code(output.status.code(), &output.stdout, &output.stderr)
-        {
-            return Err(format!(
-                "{code}: {} smoke failed with {}: {}{}",
-                binary.display(),
-                output.status,
-                bounded_text(&output.stderr),
-                if output.stderr_truncated {
-                    " [stderr truncated]"
-                } else {
-                    ""
-                }
-            ));
-        }
-        return package_error(format!(
-            "{} smoke failed with {}: {}{}",
-            binary.display(),
-            output.status,
-            bounded_text(&output.stderr),
-            if output.stderr_truncated {
-                " [stderr truncated]"
-            } else {
-                ""
-            }
-        ));
-    }
+    let (mut command, state_root) =
+        isolated_smoke_command(binary, smoke_session_root, package_root)?;
+    command.args(arguments).arg("--state-root").arg(&state_root);
+    let output = run_successful_smoke_command(command, binary, timeout)?;
     if output.stdout_truncated {
         return package_error(format!("{} smoke report exceeds 1 MiB", binary.display()));
     }
@@ -146,6 +87,208 @@ pub(super) fn run_packaged_binary_with_timeout(
     validate_hash("run command ledger hash", &report.command_ledger_hash)?;
     validate_presentation_contract(&report, expected_composition_root)?;
     Ok(report)
+}
+
+pub(super) fn run_packaged_tool(
+    binary: &Path,
+    smoke_session_root: &Path,
+    package_root: &Path,
+    expected: &PackageTargetNeutralRootsV3,
+) -> Result<next_cli::CreatorRunCommandPassReportV1, String> {
+    let (mut command, _) = isolated_smoke_command(binary, smoke_session_root, package_root)?;
+    command.args(["project", "run", "--project", REFERENCE_SOURCE_PATH]);
+    let output = run_successful_smoke_command(command, binary, PACKAGE_SMOKE_TIMEOUT)?;
+    if output.stdout_truncated {
+        return package_error(format!("{} smoke report exceeds 1 MiB", binary.display()));
+    }
+    let report: next_cli::CreatorRunCommandReportV1 =
+        serde_json::from_slice(trim_ascii_whitespace(&output.stdout)).map_err(|error| {
+            format!(
+                "NATIVE_GATE_PACKAGE_INVALID: {} emitted invalid tools report JSON: {error}",
+                binary.display()
+            )
+        })?;
+    let next_cli::CreatorRunCommandReportV1::Pass(report) = report else {
+        return package_error("packaged tools command reported failure");
+    };
+    validate_tools_report(&report, expected)?;
+    Ok(*report)
+}
+
+pub(super) fn packaged_tool_run(
+    binary_name: &str,
+    binary: &Path,
+    report: next_cli::CreatorRunCommandPassReportV1,
+) -> Result<PackagedToolRunV1, String> {
+    Ok(PackagedToolRunV1 {
+        authoritative_state_root: report.details.runtime.authoritative_state_root,
+        binary_path: format!("bin/{binary_name}"),
+        binary_sha256: hash_file(binary)?,
+        close_receipt_hash: report.details.runtime.close_receipt_hash,
+        command: report.command,
+        command_ledger_hash: report.details.runtime.command_ledger_hash,
+        final_save_generation_hash: report.details.runtime.final_save_generation_hash,
+        launch_status: report.status,
+        project_composition_lock_hash: report.details.runtime.project_composition_lock_hash,
+        source: report.details.source,
+        source_project_path: REFERENCE_SOURCE_PATH.to_owned(),
+        ticks: report.details.runtime.ticks,
+    })
+}
+
+pub(super) fn validate_packaged_tool(
+    run: &PackagedToolRunV1,
+    expected_project_lock: &str,
+) -> Result<(), String> {
+    validate_relative_package_path(&run.binary_path)?;
+    validate_relative_package_path(&run.source_project_path)?;
+    for (name, value) in [
+        ("tool binary", run.binary_sha256.as_str()),
+        (
+            "tool authoritative state root",
+            run.authoritative_state_root.as_str(),
+        ),
+        ("tool close receipt", run.close_receipt_hash.as_str()),
+        ("tool command ledger", run.command_ledger_hash.as_str()),
+        (
+            "tool final save generation",
+            run.final_save_generation_hash.as_str(),
+        ),
+        (
+            "tool project composition lock",
+            run.project_composition_lock_hash.as_str(),
+        ),
+    ] {
+        validate_hash(name, value)?;
+    }
+    if run.launch_status != "PASS"
+        || run.command != "project.run"
+        || run.source != "authoring"
+        || run.source_project_path != REFERENCE_SOURCE_PATH
+        || run.ticks != 1
+        || run.project_composition_lock_hash != expected_project_lock
+    {
+        return package_error("Tools packaged run summary is invalid");
+    }
+    Ok(())
+}
+
+fn validate_tools_report(
+    report: &next_cli::CreatorRunCommandPassReportV1,
+    expected: &PackageTargetNeutralRootsV3,
+) -> Result<(), String> {
+    let project = &report.details.project;
+    let runtime = &report.details.runtime;
+    if report.schema_version != next_cli::CREATOR_RUN_REPORT_SCHEMA_VERSION
+        || report.status != "PASS"
+        || report.command != "project.run"
+        || report.details.source != "authoring"
+        || runtime.status != "PASS"
+        || runtime.composition_root != "Headless"
+        || runtime.ticks != 1
+        || runtime.project_composition_lock_hash != expected.project_lock_sha256
+        || project.project_lock_sha256 != expected.project_lock_sha256
+        || project.schema_registry_sha256 != expected.schema_registry_sha256
+        || project.content_manifest_sha256 != expected.content_manifest_sha256
+        || project.world_partition_sha256 != expected.world_partition_sha256
+        || project.mechanics_lock_sha256 != expected.mechanics_lock_sha256
+    {
+        return package_error("packaged tools command did not report the exact frozen project run");
+    }
+    for (name, value) in [
+        (
+            "tools authoritative state root",
+            runtime.authoritative_state_root.as_str(),
+        ),
+        ("tools command ledger", runtime.command_ledger_hash.as_str()),
+        ("tools close receipt", runtime.close_receipt_hash.as_str()),
+        (
+            "tools final save generation",
+            runtime.final_save_generation_hash.as_str(),
+        ),
+    ] {
+        validate_hash(name, value)?;
+    }
+    Ok(())
+}
+
+fn isolated_smoke_command(
+    binary: &Path,
+    smoke_session_root: &Path,
+    package_root: &Path,
+) -> Result<(Command, PathBuf), String> {
+    let state_root = smoke_session_root.join("state");
+    let home = smoke_session_root.join("home");
+    let local_app_data = smoke_session_root.join("local-app-data");
+    let xdg_state_home = smoke_session_root.join("xdg-state");
+    let roaming_app_data = smoke_session_root.join("roaming-app-data");
+    let program_data = smoke_session_root.join("program-data");
+    let temporary = smoke_session_root.join("temp");
+    for directory in [
+        &state_root,
+        &home,
+        &local_app_data,
+        &xdg_state_home,
+        &roaming_app_data,
+        &program_data,
+        &temporary,
+    ] {
+        fs::create_dir_all(directory).map_err(|error| {
+            format!(
+                "NATIVE_GATE_PACKAGE_INVALID: failed to prepare smoke directory {}: {error}",
+                directory.display()
+            )
+        })?;
+    }
+    let mut command = Command::new(binary);
+    command.current_dir(package_root);
+    configure_smoke_environment(
+        &mut command,
+        &home,
+        &local_app_data,
+        &roaming_app_data,
+        &xdg_state_home,
+        &program_data,
+        &temporary,
+    );
+    Ok((command, state_root))
+}
+
+fn run_successful_smoke_command(
+    command: Command,
+    binary: &Path,
+    timeout: Duration,
+) -> Result<BoundedCommandOutput, String> {
+    let output = run_bounded_command(command, binary, timeout)?;
+    if !output.status.success() {
+        if let Some(code) =
+            runtime_prerequisite_failure_code(output.status.code(), &output.stdout, &output.stderr)
+        {
+            return Err(format!(
+                "{code}: {} smoke failed with {}: {}{}",
+                binary.display(),
+                output.status,
+                bounded_text(&output.stderr),
+                if output.stderr_truncated {
+                    " [stderr truncated]"
+                } else {
+                    ""
+                }
+            ));
+        }
+        return package_error(format!(
+            "{} smoke failed with {}: {}{}",
+            binary.display(),
+            output.status,
+            bounded_text(&output.stderr),
+            if output.stderr_truncated {
+                " [stderr truncated]"
+            } else {
+                ""
+            }
+        ));
+    }
+    Ok(output)
 }
 
 pub(super) fn validate_presentation_contract(

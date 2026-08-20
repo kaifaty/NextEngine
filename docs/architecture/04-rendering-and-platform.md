@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-04 |
 | Статус | Accepted |
-| Версия | 2.6 |
-| Последняя проверка | 2026-08-20 |
+| Версия | 2.7 |
+| Последняя проверка | 2026-08-21 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
-| Заменяет | SPEC-04 2.5; makes native Linux the sole current shipping/platform package target and moves Windows outside v1 indefinitely |
+| Заменяет | SPEC-04 2.6; advances the current Linux package to strict V5 with a frozen authoring source and copied public-tool execution receipt |
 
 ## Technical authority boundary
 
@@ -112,11 +112,21 @@ Shader/interface/material/color mismatch является pre-use content failur
 
 ## Platform packaging
 
-Shipping package использует `PackageManifestV4`. Его `runtime_profile` MUST
-объявлять target ABI, canonical direct-library list каждого binary, maximum
-required GLIBC и все внешние runtime prerequisites; manifest также связывает
-exact `project_lock_sha256`. Earlier package artifacts current runtime rejects
-typed unsupported and never migrates in place.
+Shipping package использует `PackageManifestV5`. Его `runtime_profile` MUST
+объявлять target ABI, canonical direct-library list для `next_game`,
+`next_headless` и public `next`, maximum required GLIBC и все внешние runtime
+prerequisites. Manifest также связывает exact `project_lock_sha256`, frozen
+`source/reference-alpha` authoring tree и typed receipt от `next project run`.
+Earlier package artifacts current runtime rejects typed unsupported and never
+migrates in place.
+
+Frozen source MUST содержать exact bounded `project.authoring.json`, referenced
+asset catalogs, project NOTICE и acceptance document без дополнительных files,
+symlinks или reparse points. Package validator заново выполняет authoring →
+cook и требует полного совпадения content, mechanics, project, schema-registry
+и world-partition roots с packaged cooked store. Две package invocations для
+одного clean commit, toolchain и target MUST выдавать byte-identical file tree
+и canonical manifest hash; несовпадение запрещает публикацию release evidence.
 
 Linux x86_64 GNU profile использует Ubuntu 22.04 / glibc 2.35
 как minimum baseline, системный loader `libvulkan.so.1`, Vulkan API 1.3 и
@@ -134,9 +144,13 @@ binary. ELF с machine-local `RPATH`/`RUNPATH`, non-standard x86_64 GNU
 interpreter или требованием GLIBC выше 2.35 отклоняется до публикации. Unknown
 или незаявленная third-party library также является package failure.
 
-Copied release binaries MUST запускаться из package с очищенным environment,
-изолированными state/home/temp paths и без inherited `LD_*`, `VK_*` или `SDL_*`
-loader overrides. Linux smoke MAY сохранить только desktop-session variables,
+Copied `game`, `headless` и public `next` binaries MUST запускаться из package
+с очищенным environment, изолированными state/home/temp paths и без inherited
+`LD_*`, `VK_*` или `SDL_*` loader overrides. Tool smoke MUST выполнить exact
+`next project run --project source/reference-alpha`, сообщить schema-1
+`project.run` PASS для authoring source, one Headless tick, exact project roots
+и non-empty final-save/close/state/ledger hashes. Linux smoke MAY сохранить
+только desktop-session variables,
 то есть `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR`,
 `DBUS_SESSION_BUS_ADDRESS`, `XAUTHORITY`, необходимые выбранному X11/Wayland
 host. Dormant Windows smoke MAY сохранить `SYSTEMROOT`/`WINDIR`, но не входит
@@ -197,5 +211,5 @@ workload.
 | `PLATFORM-P1` | Repeated create/resize/fullscreen/focus/input/surface lifecycle on supported desktop hosts. | No crash or leak; normalized event ordering is stable and native handles remain private. | Use the thin native adapter behind the same platform contract. |
 | `RENDER-02` | Force `no RT`, `no mesh shader` and bounded descriptors. | The representative scene remains complete and playable with no missing required material or geometry. Optional screenshots or image diffs may help diagnose regressions but are not the correctness oracle. | Disable the unsupported enhanced path and use the cooked B0 path. |
 | `RENDER-03` | Inject swapchain and device loss at representative frame boundaries. | Interactive target recreation or clean suspension/exit completes without authoritative-state corruption; incomplete private cache state is never exposed. | Stop recovery attempts, preserve the last complete save/session state and exit cleanly. |
-| `PACKAGE-01` | Install and run a clean Linux package. | `PackageManifestV4` matches exact project lock, ELF imports and the declared glibc baseline; isolated copied `game`/`headless` launches pass and missing runtime prerequisites have stable diagnostics. | Do not distribute the broken package; repair its loader/dependency declaration. |
+| `PACKAGE-01` | Install and run a clean Linux package twice from one exact commit. | Both `PackageManifestV5` trees are byte-identical; frozen source reproduces the exact project roots; ELF imports/glibc baseline match; isolated copied `game`, `headless` and public `next project run` launches pass with a final-save receipt; missing runtime prerequisites have stable diagnostics. | Do not distribute the broken package; repair its source, reproducibility, loader/dependency declaration or copied-root execution. |
 | `RENDER-04` | Optionally run a developer capture through the displayless offscreen target. | No window/display/surface/swapchain dependency is created; replay gameplay hash remains unchanged and repeated normalized frame output is stable for the selected profile. | Disable capture tooling and fix the target abstraction; normal game/headless operation remains available. |

@@ -206,9 +206,11 @@ pub(crate) fn build_native_gate_package_result(
     }
     if manifest.binaries.game.launch_status != "PASS"
         || manifest.binaries.headless.launch_status != "PASS"
+        || manifest.binaries.tools.launch_status != "PASS"
     {
         return Err(
-            "NATIVE_GATE_PACKAGE_INVALID: packaged game and headless launches must PASS".to_owned(),
+            "NATIVE_GATE_PACKAGE_INVALID: packaged game, headless and tools launches must PASS"
+                .to_owned(),
         );
     }
     ensure_gate_root(
