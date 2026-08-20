@@ -1,6 +1,6 @@
 # NR0 — Nonlocal continuum research contract
 
-Status: `SPECIFIED / REPORT_ONLY / NO_W2_CREDIT`
+Status: `EXECUTED / NONLOCAL_48K_RECLOSURE_CANDIDATE / REPORT_ONLY / NO_W2_CREDIT`
 
 ## Outcome
 
@@ -187,6 +187,18 @@ no further solver integration or long corpus run is funded.
 Required hardware, primary source, compiler/tool support or a reproducible
 baseline is unavailable. This is a blocked research result, not a rejection or
 performance miss.
+
+## NR4 closure
+
+NR4 selected `NONLOCAL_48K_RECLOSURE_CANDIDATE` on 2026-08-20. The retained
+identity passes its applicable correctness gates, reaches `3.27688x` HN-3
+geometric-mean fixed-work speedup and records `4.019520 ms` water-48k total
+p95 against the `8 ms` research cutoff. The complete gate interpretation and
+scope boundary are recorded in the
+[NR4 decision](../../development/nonlocal-continuum-nr4-decision-2026-08-20.md).
+
+This closure authorizes a later Proposed reclosure draft and fresh corpus only.
+It grants no W2, runtime, GPU-authority or production credit.
 
 ## Explicit non-goals
 

@@ -1,6 +1,6 @@
 # Nonlocal continuum — bounded research roadmap
 
-Status: `NR2_FIXED_WORK_COMPLETE / O4_STABLE_SAMPLE_RETAINED / NR4_DECISION_NEXT / NO_W2_CREDIT`
+Status: `NR4_COMPLETE / NONLOCAL_48K_RECLOSURE_CANDIDATE / NO_W2_CREDIT`
 
 This directory specifies a report-only evaluation of the method described in
 *A Nonlocal Unified Variational Framework for Free Surface Flows*. The work is
@@ -34,8 +34,8 @@ NR0 Research contract and source audit       SPECIFIED / DOCUMENTATION
  └─ NR1 Source-faithful baseline + CPU oracle  BASELINE_MISMATCH
      └─ NR1-RC1 owner-only gather reclosure    RECLOSED / PASS
          └─ NR2 Fixed-iteration optimization COMPLETE / 3.27688x HN-3
-             └─ NR3 Algorithm-changing probes NOT_STARTED / CONDITIONAL
-                 └─ NR4 Architecture decision NOT_STARTED
+             └─ NR3 Algorithm-changing probes SKIPPED / NOT_REQUIRED_FOR_NR4
+                 └─ NR4 Architecture decision COMPLETE / 48K_RECLOSURE_CANDIDATE
 ```
 
 | Stage | Specification | Exit evidence | Credit |
@@ -45,14 +45,15 @@ NR0 Research contract and source audit       SPECIFIED / DOCUMENTATION
 | NR1-RC1 | [Deterministic accumulation reclosure](03-nr1-deterministic-accumulation-reclosure.md), [candidate research](../../development/nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md) and [execution evidence](../../development/nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md) | `nuv-gather-directed-r0` passes CPU algebra, 11/11 CUDA tiny cases, exact two-/twenty-iteration surface repeats and all full controls | report only |
 | NR2 | [GPU optimization discriminators](02-gpu-optimization-discriminators.md), [O1 pointer-swap contract](04-nr2-o1-pointer-swap.md), [O1 evidence](../../development/nonlocal-continuum-nr2-o1-evidence-2026-08-20.md), [O2 term-specialization contract](05-nr2-o2-term-specialization.md), [O2 evidence](../../development/nonlocal-continuum-nr2-o2-evidence-2026-08-20.md), [O3 layout contract](06-nr2-o3-accumulation-layout-tournament.md), [O3 evidence](../../development/nonlocal-continuum-nr2-o3-evidence-2026-08-20.md), [O4 locality contract](07-nr2-o4-cell-sorted-locality.md) and [O4/final NR2 evidence](../../development/nonlocal-continuum-nr2-o4-evidence-2026-08-20.md) | O3 fails stiff-surface correspondence. O4 is exact but slower, so stable-sample remains retained. Final gather/swap/specialized/stable reaches `3.27688x` HN-3 geometric mean, water-48k `4.019520 ms` p95 and complete final profiler attribution | report only |
 | NR3 | [Algorithm-changing probes](02-gpu-optimization-discriminators.md#nr3-algorithm-changing-probes) | a separately labelled convergence/algorithm candidate passes its own oracle | no fixed-iteration credit |
-| NR4 | [Decision contract](00-research-contract.md#decision-states) | exactly one predeclared decision state is selected from complete evidence | may authorize a later Proposed reclosure only |
+| NR4 | [Decision contract](00-research-contract.md#decision-states) and [decision evidence](../../development/nonlocal-continuum-nr4-decision-2026-08-20.md) | `NONLOCAL_48K_RECLOSURE_CANDIDATE` selected from complete fixed-work evidence | authorizes a later Proposed reclosure and fresh corpus only |
 
 ## Relationship to water W2
 
 NR0–NR4 are one alternative research branch after the measured CPU and direct
-GPU W2 misses. They do not close W2. A successful NR4 result may justify a new
-Proposed solver/profile decision with fresh roots and a fresh correctness
-corpus. Until that decision lands, W3 coupling, public contracts, persistence
+GPU W2 misses. They do not close W2. NR4 selected
+`NONLOCAL_48K_RECLOSURE_CANDIDATE`, which justifies drafting a new Proposed
+solver/profile decision with fresh roots and a fresh correctness corpus. It
+does not itself land that decision. W3 coupling, public contracts, persistence
 and production promotion remain blocked.
 
 The NR2 `8 ms` threshold is a feasibility cutoff, not the existing `4/6 ms`
