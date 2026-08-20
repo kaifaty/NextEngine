@@ -1,6 +1,6 @@
 # NP1-P2 — compact directed CSR
 
-Status: `SPECIFIED / IMPLEMENTATION_NEXT / EXACT_WORK / REPORT_ONLY`
+Status: `COMPLETE / RETAINED / P3_INPUT / EXACT_WORK / REPORT_ONLY`
 
 ## Hypothesis
 
@@ -102,3 +102,6 @@ rollback identity.
 If compact IDs miss the gate, record the negative result. Test compile-time
 block sizes only when the measured miss is plausibly launch/occupancy related;
 otherwise proceed to P3 under the roadmap's consecutive-low-gain stop rule.
+
+P2 passed without a block-size tournament and is retained. See the
+[dated evidence](../../development/nonlocal-continuum-np1-p2-evidence-2026-08-20.md).

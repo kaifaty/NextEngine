@@ -58,6 +58,10 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --p1-check nuv-surface-stiff-16k-i2.v1 --iterations 2
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --p1-tournament nuv-water-50k-advected.v1 --warmup 32 --runs 96
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --p2-check nuv-water-100k-report.v1 --iterations 5
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --p2-tournament nuv-water-50k-advected.v1 --warmup 32 --runs 96
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -130,3 +134,9 @@ tiny/stiff/target output and CSR. The tournament co-resides retained and P1
 instances, conditions both, alternates their order and advances dynamic traces
 in lockstep. P1 adds no device storage and remains selectable as a rollback
 layer for P2.
+
+`--p2-check` and `--p2-tournament` compare retained P1's 32-bit neighbor IDs
+with `compact-csr-u16-p2`. Eligible fixtures build directly into a 16-bit
+neighbor array; row offsets remain checked 32-bit values. Capture widens IDs
+outside timing for representation-neutral logical CSR hashing. Profiles above
+65,535 samples explicitly fall back to the retained 32-bit representation.
