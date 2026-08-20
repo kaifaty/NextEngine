@@ -25,3 +25,16 @@ target_compile_options(
         $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU,Clang>>:-O3;-Wall;-Wextra;-Wpedantic;-Werror>
         $<$<COMPILE_LANGUAGE:CUDA>:-O3;--fmad=false;--prec-div=true;--prec-sqrt=true;--ftz=false>
 )
+
+add_executable(
+    nonlocal-npr1-canonical
+    src/canonical.cpp
+    src/canonical_main.cpp
+    src/sha256.cpp
+)
+target_compile_features(nonlocal-npr1-canonical PRIVATE cxx_std_17)
+target_compile_options(
+    nonlocal-npr1-canonical
+    PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+)
