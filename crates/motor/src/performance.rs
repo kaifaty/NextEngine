@@ -281,6 +281,10 @@ fn run_worker_configuration(
         return Err(HumanoidPerformanceError::SlotEvidenceInvalid);
     }
     let authoritative_root = aggregate_slot_root(&slots);
+    if !measure_restore {
+        slots.clear();
+        slots.shrink_to_fit();
+    }
     let elapsed_microseconds = duration_microseconds(elapsed)?.max(1);
     let aggregate_motor_frames =
         u128::from(config.slot_count).saturating_mul(u128::from(config.measured_frames));
@@ -556,5 +560,22 @@ mod tests {
                 .iter()
                 .all(|run| run.authoritative_root == report.authoritative_root)
         );
+    }
+
+    #[test]
+    fn non_restore_worker_run_releases_checkpoint_evidence_after_rooting() {
+        let config = WorkloadConfig {
+            slot_count: 2,
+            warmup_frames: 1,
+            measured_frames: 1,
+            worker_counts: &[1, 2],
+            restore_worker_count: 2,
+        };
+
+        let timing_only = run_worker_configuration(config, 1).expect("one-worker run");
+        assert!(timing_only.slots.is_empty());
+
+        let restore = run_worker_configuration(config, 2).expect("restore run");
+        assert_eq!(restore.slots.len(), 2);
     }
 }
