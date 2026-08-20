@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / FCR0_PASS / FCR1_NEXT` |
+| Status | `ACTIVE / FCR1_PASS / FCR2_NEXT` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-formula-reclosure` |
 | Scope | Prove or reject a separately rooted energy/force-consistent Nonlocal continuum identity through algebra, physical, CUDA and performance gates |
@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** `nuv-variational-fcr1` is an algebra candidate; solver and physical validity are still unknown.
-- **Why:** FCR0 passes every energy/force derivative below `1.51e-8`, with byte-identical reports and unchanged old-line controls.
-- **Next action:** Specify and execute FCR1 pair-enumeration and pressure-semantics discriminators.
+- **Current conclusion:** Formula, CPU pair traversal and pressure semantics are closed; solver convergence and physical validity are still unknown.
+- **Why:** FCR1 rejects doubled/halved traversal at exact `0.5` error, selects compression-only free-surface behavior and closes `strength=gamma*m` byte-identically.
+- **Next action:** Specify and implement FCR2's minimal corrected f64 solver with objective/residual and tiny-physics gates.
 - **Current blocker:** None.
 - **Do not retry:** Repairing or retuning `nuv-basin-48k-static-support-h3-physical.v4`; its formula identity, coefficients and roots are closed historical evidence.
 - **Reconsider when:** Only a reviewed upstream erratum can change source interpretation; it still cannot relabel old roots.
@@ -26,6 +26,7 @@
 | `docs/development/nonlocal-continuum-formula-reclosure-research-2026-08-20.md` | `DECISION` | New identity and formula contract required |
 | `docs/plans/nonlocal-continuum-formula-reclosure/00-formula-contract.md` | `VERIFIED` | FCR0 algebra passes; no physical or runtime claim |
 | `docs/development/nonlocal-continuum-fcr0-algebra-evidence-2026-08-20.md` | `PASS` | `FCR_ALGEBRA_CANDIDATE`; FCR1 authorized |
+| `docs/development/nonlocal-continuum-fcr1-pair-pressure-evidence-2026-08-20.md` | `PASS` | CPU pair/pressure semantics selected; FCR2 authorized |
 
 ## Decisions that still constrain the work
 
@@ -79,9 +80,9 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Freeze FCR1's exact two-particle directed/undirected graph cases and underdense free-surface patch.
-2. Select one enumeration rule with analytical coefficient correspondence and one pressure rule with no tensile attraction.
-3. Re-run FCR0 and both frozen old-line controls as non-regression.
+1. Freeze FCR2 solver state, neighbor rebuild, objective/residual, accepted-step and tiny-case gates.
+2. Implement one strict-f64 unique-pair reference step without borrowing old coefficients.
+3. Pass tiny preflights before any support/coefficient sweep.
 
 ## Do not retry
 
@@ -91,7 +92,7 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** branch `codex/nonlocal-continuum-n0`; FCR0 implementation committed at `0ddf579`; evidence/roadmap update is the current change.
-- **Checks:** FCR0 PASS twice byte-identically; NPR1-A PASS unchanged; NPR1-B frozen FAIL unchanged; retained CUDA self-test PASS.
+- **Workspace state:** branch `codex/nonlocal-continuum-n0`; FCR1 implementation committed at `f120614`; evidence/roadmap update is the current change.
+- **Checks:** FCR0/FCR1 PASS twice byte-identically; NPR1-A PASS unchanged; NPR1-B frozen FAIL unchanged; retained CUDA self-test PASS at FCR0.
 - **Remaining risk:** Pair enumeration, nonlinear convergence, coefficient calibration and corrected CUDA cost remain open.
 - **Promotion needed:** Roadmap/evidence updates at each material gate; architecture promotion remains forbidden.

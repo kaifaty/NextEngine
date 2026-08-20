@@ -1,6 +1,6 @@
 # FCR1 — pair enumeration and pressure semantics discriminator
 
-Status: `FROZEN FOR IMPLEMENTATION / REPORT_ONLY`
+Status: `PASS / FCR2_AUTHORIZED / REPORT_ONLY`
 
 Predecessor: `FCR_ALGEBRA_CANDIDATE`
 
@@ -90,3 +90,6 @@ FCR3/FCR4.
 
 Passing selects the exact pair and pressure semantics for FCR2. It does not
 select physical coefficients or authorize CUDA/runtime work.
+
+The implementation passes. See the
+[FCR1 evidence](../../development/nonlocal-continuum-fcr1-pair-pressure-evidence-2026-08-20.md).

@@ -1,6 +1,6 @@
 # Nonlocal continuum — formula reclosure roadmap
 
-Status: `ACTIVE / FCR0_PASS / FCR1_NEXT / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `ACTIVE / FCR1_PASS / FCR2_NEXT / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
 
 This roadmap is a new research lineage. It does not repair or relabel the
 stopped source-shaped profile `nuv-basin-48k-static-support-h3-physical.v4`.
@@ -83,5 +83,8 @@ FCR0 formula/source closure + independent f64 algebra oracle
 
 FCR0 is implemented and passes with exact evidence in
 [the dated report](../../development/nonlocal-continuum-fcr0-algebra-evidence-2026-08-20.md).
-The current next action is FCR1: freeze and execute the pair-enumeration and
-pressure-semantics discriminator before implementing a multi-particle solver.
+FCR1 then selects unique-pair CPU accumulation, compression-only pressure and
+the explicit surface parameter mapping in
+[its dated evidence](../../development/nonlocal-continuum-fcr1-pair-pressure-evidence-2026-08-20.md).
+The current next action is FCR2: specify and implement the minimal corrected
+f64 solver and tiny physical corpus.
