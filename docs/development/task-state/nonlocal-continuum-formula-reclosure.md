@@ -60,6 +60,16 @@
 - **Uncertainty:** Calibration of `gamma` to macroscopic surface tension remains FCR3/FCR4 work.
 - **Reconsider when:** Primary-source errata or a dimensional physical calibration requires a different explicit potential.
 
+### D-004 — Independent optimizer before SISSM
+
+- **Observation:** SISSM's split and overshoot control introduce solver-specific correctness questions beyond the declared energy.
+- **Evidence:** Nonlocal limitations plus the SISPH and Projective Peridynamics convergence procedures in the research report.
+- **Decision:** FCR2 uses deterministic Armijo gradient descent as a slow f64 variational reference; corrected SISSM correspondence moves to FCR3.
+- **Rejected alternatives:** Treating a source-shaped or newly transcribed SISSM step as its own physical oracle.
+- **Consequences:** FCR2 performance has no product meaning; FCR3 must compare SISSM objective/residual behavior against FCR2.
+- **Uncertainty:** Whether corrected SISSM can match the reference efficiently at product cadence.
+- **Reconsider when:** A stronger independently verified nonlinear reference replaces Armijo without weakening the gates.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |

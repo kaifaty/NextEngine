@@ -46,6 +46,7 @@ add_executable(
     src/formula_reclosure.cpp
     src/formula_reclosure_main.cpp
     src/sha256.cpp
+    src/variational_reference.cpp
 )
 target_compile_features(nonlocal-formula-reclosure PRIVATE cxx_std_17)
 target_compile_options(

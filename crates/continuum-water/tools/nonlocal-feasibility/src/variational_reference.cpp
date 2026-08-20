@@ -1,0 +1,649 @@
+#include "variational_reference.hpp"
+
+#include "math.hpp"
+#include "sha256.hpp"
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <iomanip>
+#include <limits>
+#include <sstream>
+#include <string>
+#include <vector>
+
+namespace nextengine::nonlocal::fcr {
+namespace {
+
+constexpr double PI = 3.141592653589793238462643383279502884;
+constexpr double DERIVATIVE_LIMIT = 1.0e-7;
+constexpr double CONSERVATION_LIMIT = 1.0e-12;
+constexpr double ENERGY_ALLOWANCE = 1.0e-12;
+constexpr double OBSERVABLE_FLOOR = 1.0e-9;
+
+struct Config {
+    double horizon = 0.15;
+    double spacing = 0.05;
+    double mass = 0.125;
+    double rest_density = 1000.0;
+    double time_step = 1.0 / 240.0;
+    double kappa = 0.0;
+    double lambda = 0.0;
+    double mu = 0.0;
+    double gamma = 0.0;
+    Vec3 gravity{};
+    int maximum_iterations = 80;
+};
+
+struct Evaluation {
+    double total = 0.0;
+    double inertia = 0.0;
+    double pressure = 0.0;
+    double viscosity = 0.0;
+    double surface = 0.0;
+    double gradient_norm = 0.0;
+    double internal_momentum_residual = 0.0;
+    double minimum_density_ratio = 0.0;
+    double maximum_density_ratio = 0.0;
+    std::vector<Vec3> gradient;
+    bool finite = true;
+};
+
+struct SolveResult {
+    bool succeeded = false;
+    bool monotonic = true;
+    int iterations = 0;
+    int backtracks = 0;
+    double minimum_alpha = 1.0;
+    Evaluation initial;
+    Evaluation final;
+    std::vector<Vec3> position;
+    std::vector<Vec3> velocity;
+};
+
+struct CaseResult {
+    std::string name;
+    bool passed = false;
+    SolveResult solve;
+    double primary_before = 0.0;
+    double primary_after = 0.0;
+    double observable_change = 0.0;
+    double center_of_mass_error = 0.0;
+};
+
+double relative_error(double lhs, double rhs) {
+    return std::abs(lhs - rhs)
+        / std::max({std::abs(lhs), std::abs(rhs), 1.0e-30});
+}
+
+double vector_relative_error(Vec3 lhs, Vec3 rhs) {
+    return norm(lhs - rhs) / std::max({norm(lhs), norm(rhs), 1.0});
+}
+
+Vec3 project_normal(Vec3 value, Vec3 normal) {
+    return dot(value, normal) * normal;
+}
+
+Vec3 project_tangent(Vec3 value, Vec3 normal) {
+    return value - project_normal(value, normal);
+}
+
+double cubic_weight(double radius, double horizon) {
+    const double q = 2.0 * radius / horizon;
+    const double alpha = 3.0 / (2.0 * PI * horizon * horizon * horizon);
+    if (q > 2.0) {
+        return 0.0;
+    }
+    if (q >= 1.0) {
+        const double delta = 2.0 - q;
+        return alpha * delta * delta * delta / 6.0;
+    }
+    return alpha * (2.0 / 3.0 - q * q + 0.5 * q * q * q);
+}
+
+double cubic_gradient(double radius, double horizon) {
+    const double q = 2.0 * radius / horizon;
+    const double alpha = 3.0 / (2.0 * PI * horizon * horizon * horizon);
+    if (q > 2.0) {
+        return 0.0;
+    }
+    const double derivative_q = q >= 1.0
+        ? -0.5 * alpha * (2.0 - q) * (2.0 - q)
+        : alpha * (-2.0 * q + 1.5 * q * q);
+    return derivative_q * (2.0 / horizon);
+}
+
+double surface_spline(double radius, double spacing) {
+    const double q = radius / spacing;
+    if (q <= 1.0) {
+        return q * q - 1.0;
+    }
+    if (q < 3.0) {
+        return 1.0 - (q - 2.0) * (q - 2.0);
+    }
+    return 0.0;
+}
+
+double surface_potential(double radius, double spacing) {
+    const double q = radius / spacing;
+    if (q <= 1.0) {
+        return spacing * (q * q * q / 3.0 - q - 2.0 / 3.0);
+    }
+    if (q < 3.0) {
+        return spacing
+            * (q - (q - 2.0) * (q - 2.0) * (q - 2.0) / 3.0
+                - 8.0 / 3.0);
+    }
+    return 0.0;
+}
+
+double vector_norm(const std::vector<Vec3>& values) {
+    double squared = 0.0;
+    for (Vec3 value : values) {
+        squared += norm_squared(value);
+    }
+    return std::sqrt(squared);
+}
+
+double vector_dot(const std::vector<Vec3>& lhs, const std::vector<Vec3>& rhs) {
+    double value = 0.0;
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        value += dot(lhs[i], rhs[i]);
+    }
+    return value;
+}
+
+bool all_finite(const std::vector<Vec3>& values) {
+    for (Vec3 value : values) {
+        if (!finite(value)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+Evaluation evaluate(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& y_star,
+    const std::vector<Vec3>& y) {
+    Evaluation result;
+    result.gradient.resize(y.size());
+    std::vector<Vec3> inertia_gradient(y.size());
+    const double inertia_scale = config.mass
+        / (config.time_step * config.time_step);
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        const Vec3 displacement = y[i] - y_star[i];
+        result.inertia += 0.5 * inertia_scale * norm_squared(displacement);
+        inertia_gradient[i] = inertia_scale * displacement;
+        result.gradient[i] += inertia_gradient[i];
+    }
+
+    std::vector<double> density(
+        y.size(), config.mass * cubic_weight(0.0, config.horizon));
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        for (std::size_t j = i + 1; j < y.size(); ++j) {
+            const double radius = norm(y[i] - y[j]);
+            if (radius <= config.horizon) {
+                const double contribution =
+                    config.mass * cubic_weight(radius, config.horizon);
+                density[i] += contribution;
+                density[j] += contribution;
+            }
+        }
+    }
+    std::vector<double> compression(y.size());
+    result.minimum_density_ratio = std::numeric_limits<double>::infinity();
+    result.maximum_density_ratio = 0.0;
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        const double ratio = density[i] / config.rest_density;
+        result.minimum_density_ratio = std::min(result.minimum_density_ratio, ratio);
+        result.maximum_density_ratio = std::max(result.maximum_density_ratio, ratio);
+        compression[i] = std::max(ratio - 1.0, 0.0);
+        result.pressure += 0.5 * config.kappa
+            * compression[i] * compression[i];
+    }
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        for (std::size_t j = i + 1; j < y.size(); ++j) {
+            const Vec3 displacement = y[i] - y[j];
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius > config.horizon) {
+                continue;
+            }
+            const double coefficient = config.kappa * config.mass
+                / config.rest_density * (compression[i] + compression[j])
+                * cubic_gradient(radius, config.horizon);
+            const Vec3 pair_gradient = coefficient * (displacement / radius);
+            result.gradient[i] += pair_gradient;
+            result.gradient[j] += -pair_gradient;
+        }
+    }
+
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        for (std::size_t j = i + 1; j < y.size(); ++j) {
+            const Vec3 reference = x[i] - x[j];
+            const double radius = norm(reference);
+            if (radius <= 1.0e-15 || radius > config.horizon) {
+                continue;
+            }
+            const Vec3 normal = reference / radius;
+            const Vec3 increment = (y[i] - y[j]) - reference;
+            const Vec3 normal_increment = project_normal(increment, normal);
+            const Vec3 tangent_increment = project_tangent(increment, normal);
+            const double omega = -cubic_gradient(radius, config.horizon);
+            result.viscosity += config.mass / (config.rest_density * config.time_step)
+                * (config.mu * norm_squared(tangent_increment)
+                    + 0.5 * config.lambda * norm_squared(normal_increment))
+                * omega;
+            const Vec3 pair_gradient = config.mass * omega
+                / (config.rest_density * config.time_step)
+                * (2.0 * config.mu * tangent_increment
+                    + config.lambda * normal_increment);
+            result.gradient[i] += pair_gradient;
+            result.gradient[j] += -pair_gradient;
+        }
+    }
+
+    const double surface_support = 3.0 * config.spacing;
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        for (std::size_t j = i + 1; j < y.size(); ++j) {
+            const Vec3 displacement = y[i] - y[j];
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius >= surface_support) {
+                continue;
+            }
+            result.surface += 2.0 * config.gamma * config.mass * config.mass
+                * surface_potential(radius, config.spacing);
+            const Vec3 pair_gradient = 2.0 * config.gamma * config.mass
+                * config.mass * surface_spline(radius, config.spacing)
+                * (displacement / radius);
+            result.gradient[i] += pair_gradient;
+            result.gradient[j] += -pair_gradient;
+        }
+    }
+
+    result.total = result.inertia + result.pressure
+        + result.viscosity + result.surface;
+    result.gradient_norm = vector_norm(result.gradient);
+    Vec3 internal_sum;
+    double internal_scale = 0.0;
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        const Vec3 internal = result.gradient[i] - inertia_gradient[i];
+        internal_sum += internal;
+        internal_scale += norm(internal);
+    }
+    result.internal_momentum_residual =
+        norm(internal_sum) / std::max(internal_scale, 1.0e-30);
+    result.finite = std::isfinite(result.total)
+        && std::isfinite(result.gradient_norm)
+        && std::isfinite(result.internal_momentum_residual)
+        && all_finite(result.gradient);
+    return result;
+}
+
+std::vector<Vec3> predict(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& velocity) {
+    std::vector<Vec3> y_star(x.size());
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        y_star[i] = x[i] + config.time_step
+            * (velocity[i] + config.time_step * config.gravity);
+    }
+    return y_star;
+}
+
+SolveResult solve(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& velocity) {
+    constexpr double armijo = 1.0e-4;
+    constexpr int maximum_backtracks = 40;
+    const std::vector<Vec3> y_star = predict(config, x, velocity);
+    std::vector<Vec3> y = y_star;
+    Evaluation current = evaluate(config, x, y_star, y);
+
+    SolveResult result;
+    result.initial = current;
+    result.minimum_alpha = 1.0;
+    if (!current.finite) {
+        result.final = current;
+        return result;
+    }
+    const double preconditioner = config.time_step * config.time_step / config.mass;
+    for (int iteration = 0; iteration < config.maximum_iterations; ++iteration) {
+        if (current.gradient_norm <= 1.0e-10) {
+            break;
+        }
+        std::vector<Vec3> direction(current.gradient.size());
+        for (std::size_t i = 0; i < direction.size(); ++i) {
+            direction[i] = -preconditioner * current.gradient[i];
+        }
+        const double slope = vector_dot(current.gradient, direction);
+        double alpha = 1.0;
+        bool accepted = false;
+        Evaluation trial_evaluation;
+        std::vector<Vec3> trial(y.size());
+        for (int backtrack = 0; backtrack <= maximum_backtracks; ++backtrack) {
+            for (std::size_t i = 0; i < y.size(); ++i) {
+                trial[i] = y[i] + alpha * direction[i];
+            }
+            trial_evaluation = evaluate(config, x, y_star, trial);
+            const double armijo_bound = current.total + armijo * alpha * slope;
+            if (trial_evaluation.finite && trial_evaluation.total <= armijo_bound) {
+                accepted = true;
+                break;
+            }
+            alpha *= 0.5;
+            ++result.backtracks;
+        }
+        if (!accepted) {
+            const double step_norm = alpha * vector_norm(direction);
+            if (step_norm <= 1.0e-14) {
+                break;
+            }
+            result.final = current;
+            result.position = y;
+            return result;
+        }
+        const double allowance = ENERGY_ALLOWANCE
+            * std::max({std::abs(current.total), std::abs(trial_evaluation.total), 1.0});
+        result.monotonic = result.monotonic
+            && trial_evaluation.total <= current.total + allowance;
+        y = trial;
+        current = trial_evaluation;
+        result.minimum_alpha = std::min(result.minimum_alpha, alpha);
+        ++result.iterations;
+    }
+    result.succeeded = current.finite && result.monotonic;
+    result.final = current;
+    result.position = y;
+    result.velocity.resize(y.size());
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        result.velocity[i] = (y[i] - x[i]) / config.time_step;
+    }
+    return result;
+}
+
+Vec3 average(const std::vector<Vec3>& values) {
+    Vec3 result;
+    for (Vec3 value : values) {
+        result += value;
+    }
+    return result / static_cast<double>(values.size());
+}
+
+double pair_density(double distance, const Config& config) {
+    return config.mass
+        * (cubic_weight(0.0, config.horizon)
+            + cubic_weight(distance, config.horizon));
+}
+
+bool descent_passed(const SolveResult& solve_result) {
+    const double allowance = ENERGY_ALLOWANCE
+        * std::max({std::abs(solve_result.initial.total),
+            std::abs(solve_result.final.total), 1.0});
+    return solve_result.succeeded && solve_result.monotonic
+        && solve_result.final.total <= solve_result.initial.total + allowance
+        && solve_result.final.total < solve_result.initial.total
+        && solve_result.final.gradient_norm < solve_result.initial.gradient_norm
+        && solve_result.final.internal_momentum_residual <= CONSERVATION_LIMIT;
+}
+
+CaseResult free_fall_case() {
+    Config config;
+    config.gravity = {0.0, -9.81, 0.0};
+    const std::vector<Vec3> x = {{0.1, 0.2, 0.3}};
+    const std::vector<Vec3> velocity = {{1.0, -0.5, 0.2}};
+    const Vec3 expected_position = x[0] + config.time_step
+        * (velocity[0] + config.time_step * config.gravity);
+    const Vec3 expected_velocity = velocity[0] + config.time_step * config.gravity;
+    CaseResult result;
+    result.name = "isolated_free_fall";
+    result.solve = solve(config, x, velocity);
+    const double position_error = norm(result.solve.position[0] - expected_position);
+    const double velocity_error = norm(result.solve.velocity[0] - expected_velocity);
+    result.primary_before = 0.0;
+    result.primary_after = std::max(position_error, velocity_error);
+    result.observable_change = 0.0;
+    result.center_of_mass_error = velocity_error;
+    result.passed = result.solve.succeeded && result.solve.iterations == 0
+        && result.primary_after <= CONSERVATION_LIMIT;
+    return result;
+}
+
+CaseResult compression_case() {
+    Config config;
+    config.kappa = 500.0;
+    const std::vector<Vec3> x = {{-0.025, 0.0, 0.0}, {0.025, 0.0, 0.0}};
+    const std::vector<Vec3> velocity(2);
+    config.rest_density = pair_density(norm(x[0] - x[1]), config) / 1.1;
+    CaseResult result;
+    result.name = "compressed_pair";
+    result.solve = solve(config, x, velocity);
+    result.primary_before = result.solve.initial.maximum_density_ratio - 1.0;
+    result.primary_after = result.solve.final.maximum_density_ratio - 1.0;
+    result.observable_change = norm(result.solve.position[0] - result.solve.position[1])
+        - norm(x[0] - x[1]);
+    result.center_of_mass_error = norm(average(result.solve.position) - average(x));
+    result.passed = descent_passed(result.solve)
+        && result.primary_after < result.primary_before
+        && result.observable_change > OBSERVABLE_FLOOR
+        && result.center_of_mass_error <= CONSERVATION_LIMIT;
+    return result;
+}
+
+CaseResult viscosity_case(bool shear) {
+    Config config;
+    config.lambda = shear ? 0.0 : 100.0;
+    config.mu = shear ? 100.0 : 0.0;
+    const std::vector<Vec3> x = {{-0.04, 0.0, 0.0}, {0.04, 0.0, 0.0}};
+    const std::vector<Vec3> velocity = shear
+        ? std::vector<Vec3>{{0.0, 1.0, 0.0}, {0.0, -1.0, 0.0}}
+        : std::vector<Vec3>{{1.0, 0.0, 0.0}, {-1.0, 0.0, 0.0}};
+    const Vec3 normal = (x[0] - x[1]) / norm(x[0] - x[1]);
+    const Vec3 initial_relative = velocity[0] - velocity[1];
+    CaseResult result;
+    result.name = shear ? "shear_viscosity_pair" : "normal_viscosity_pair";
+    result.solve = solve(config, x, velocity);
+    const Vec3 final_relative = result.solve.velocity[0] - result.solve.velocity[1];
+    result.primary_before = shear
+        ? norm(project_tangent(initial_relative, normal))
+        : norm(project_normal(initial_relative, normal));
+    result.primary_after = shear
+        ? norm(project_tangent(final_relative, normal))
+        : norm(project_normal(final_relative, normal));
+    result.observable_change = result.primary_before - result.primary_after;
+    result.center_of_mass_error = vector_relative_error(
+        average(result.solve.velocity), average(velocity));
+    result.passed = descent_passed(result.solve)
+        && result.observable_change > OBSERVABLE_FLOOR
+        && result.center_of_mass_error <= CONSERVATION_LIMIT;
+    return result;
+}
+
+CaseResult surface_case(bool attractive) {
+    Config config;
+    config.gamma = 1000.0;
+    const double initial_distance = (attractive ? 1.7 : 0.8) * config.spacing;
+    const std::vector<Vec3> x = {
+        {-0.5 * initial_distance, 0.0, 0.0},
+        {0.5 * initial_distance, 0.0, 0.0},
+    };
+    const std::vector<Vec3> velocity(2);
+    CaseResult result;
+    result.name = attractive
+        ? "surface_attractive_pair" : "surface_repulsive_pair";
+    result.solve = solve(config, x, velocity);
+    const double final_distance =
+        norm(result.solve.position[0] - result.solve.position[1]);
+    result.primary_before = initial_distance;
+    result.primary_after = final_distance;
+    result.observable_change = attractive
+        ? initial_distance - final_distance
+        : final_distance - initial_distance;
+    result.center_of_mass_error = norm(average(result.solve.position) - average(x));
+    result.passed = descent_passed(result.solve)
+        && result.observable_change > OBSERVABLE_FLOOR
+        && result.center_of_mass_error <= CONSERVATION_LIMIT;
+    return result;
+}
+
+struct CombinedFixture {
+    Config config;
+    std::vector<Vec3> x;
+    std::vector<Vec3> velocity;
+};
+
+CombinedFixture combined_fixture() {
+    CombinedFixture fixture;
+    fixture.config.kappa = 200.0;
+    fixture.config.lambda = 20.0;
+    fixture.config.mu = 10.0;
+    fixture.config.gamma = 100.0;
+    fixture.x = {
+        {0.0, 0.0, 0.0},
+        {0.04, 0.0, 0.0},
+        {0.02, 0.0346410161513775, 0.0},
+        {0.02, 0.0115470053837925, 0.0326598632371090},
+    };
+    fixture.velocity = {
+        {0.4, -0.2, 0.1},
+        {-0.1, 0.3, -0.2},
+        {0.2, 0.1, 0.3},
+        {-0.3, -0.2, -0.2},
+    };
+    double density = fixture.config.mass
+        * cubic_weight(0.0, fixture.config.horizon);
+    for (std::size_t j = 1; j < fixture.x.size(); ++j) {
+        density += fixture.config.mass
+            * cubic_weight(norm(fixture.x[0] - fixture.x[j]),
+                fixture.config.horizon);
+    }
+    fixture.config.rest_density = density / 1.1;
+    return fixture;
+}
+
+CaseResult combined_case() {
+    const CombinedFixture fixture = combined_fixture();
+    CaseResult result;
+    result.name = "combined_tetrahedron";
+    result.solve = solve(fixture.config, fixture.x, fixture.velocity);
+    result.primary_before = result.solve.initial.gradient_norm;
+    result.primary_after = result.solve.final.gradient_norm;
+    result.observable_change = result.primary_before - result.primary_after;
+    result.center_of_mass_error = vector_relative_error(
+        average(result.solve.velocity), average(fixture.velocity));
+    result.passed = descent_passed(result.solve)
+        && result.observable_change > OBSERVABLE_FLOOR
+        && result.center_of_mass_error <= CONSERVATION_LIMIT;
+    return result;
+}
+
+double combined_directional_error() {
+    const CombinedFixture fixture = combined_fixture();
+    const std::vector<Vec3> y_star =
+        predict(fixture.config, fixture.x, fixture.velocity);
+    const Evaluation base = evaluate(fixture.config, fixture.x, y_star, y_star);
+    std::vector<Vec3> direction = {
+        {0.31, -0.27, 0.11},
+        {-0.19, 0.41, -0.23},
+        {0.17, 0.07, -0.37},
+        {-0.29, -0.21, 0.49},
+    };
+    const double direction_norm = vector_norm(direction);
+    for (Vec3& value : direction) {
+        value = value / direction_norm;
+    }
+    const double epsilon = fixture.config.spacing * 1.0e-7;
+    std::vector<Vec3> plus = y_star;
+    std::vector<Vec3> minus = y_star;
+    for (std::size_t i = 0; i < direction.size(); ++i) {
+        plus[i] += epsilon * direction[i];
+        minus[i] += -epsilon * direction[i];
+    }
+    const double finite_difference =
+        (evaluate(fixture.config, fixture.x, y_star, plus).total
+            - evaluate(fixture.config, fixture.x, y_star, minus).total)
+        / (2.0 * epsilon);
+    const double analytic = vector_dot(base.gradient, direction);
+    return relative_error(finite_difference, analytic);
+}
+
+void append_case(std::ostringstream& output, const CaseResult& value) {
+    output << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"initial_objective\":" << value.solve.initial.total
+           << ",\"final_objective\":" << value.solve.final.total
+           << ",\"initial_gradient_norm\":" << value.solve.initial.gradient_norm
+           << ",\"final_gradient_norm\":" << value.solve.final.gradient_norm
+           << ",\"iterations\":" << value.solve.iterations
+           << ",\"backtracks\":" << value.solve.backtracks
+           << ",\"minimum_alpha\":" << value.solve.minimum_alpha
+           << ",\"primary_before\":" << value.primary_before
+           << ",\"primary_after\":" << value.primary_after
+           << ",\"observable_change\":" << value.observable_change
+           << ",\"center_of_mass_error\":" << value.center_of_mass_error
+           << ",\"internal_momentum_residual\":"
+           << value.solve.final.internal_momentum_residual << '}';
+}
+
+} // namespace
+
+ReferenceSolverReport run_reference_solver_controls() {
+    const std::array<CaseResult, 7> cases = {
+        free_fall_case(),
+        compression_case(),
+        viscosity_case(false),
+        viscosity_case(true),
+        surface_case(false),
+        surface_case(true),
+        combined_case(),
+    };
+    const double derivative_error = combined_directional_error();
+    bool cases_passed = true;
+    std::string first_failure;
+    if (derivative_error > DERIVATIVE_LIMIT) {
+        first_failure = "FCR2_FULL_OBJECTIVE_DERIVATIVE_MISMATCH";
+    }
+    for (const CaseResult& value : cases) {
+        cases_passed = cases_passed && value.passed;
+        if (first_failure.empty() && !value.passed) {
+            first_failure = "FCR2_REFERENCE_CASE_FAILED:" + value.name;
+        }
+    }
+    const bool passed = derivative_error <= DERIVATIVE_LIMIT && cases_passed;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.formula_reclosure_fcr2.v1\""
+           << ",\"identity\":\"nuv-variational-fcr1\""
+           << ",\"solver\":\"binary64-preconditioned-gradient-armijo-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"thresholds\":{\"derivative_relative\":" << DERIVATIVE_LIMIT
+           << ",\"conservation\":" << CONSERVATION_LIMIT
+           << ",\"energy_allowance\":" << ENERGY_ALLOWANCE
+           << ",\"observable_floor\":" << OBSERVABLE_FLOOR << '}'
+           << ",\"combined_directional_derivative_error\":" << derivative_error
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_case(report, cases[i]);
+    }
+    report << "]"
+           << ",\"fcr3_authorized\":" << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false";
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure + '|' + std::to_string(derivative_error);
+    for (const CaseResult& value : cases) {
+        result_material += '|' + value.name + ':'
+            + std::to_string(value.solve.final.total) + ':'
+            + std::to_string(value.observable_change);
+    }
+    report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace nextengine::nonlocal::fcr
