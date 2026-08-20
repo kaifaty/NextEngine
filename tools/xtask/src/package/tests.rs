@@ -1,5 +1,6 @@
 use super::*;
 use std::env;
+use std::ffi::OsString;
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -277,7 +278,20 @@ fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
             .to_hex(),
     };
     let fixture_binary = compile_package_smoke_fixture(temporary.path());
-    let tool_fixture = compile_package_tool_fixture(temporary.path(), &expected_roots);
+    let validation = next_cli::execute([
+        OsString::from("project"),
+        OsString::from("validate"),
+        OsString::from("--project"),
+        repository_root
+            .join("projects/reference-alpha")
+            .into_os_string(),
+    ]);
+    let next_cli::CreatorCliReportV1::Project(next_cli::CreatorCommandReportV1::Pass(validation)) =
+        validation
+    else {
+        panic!("reference project validation must pass");
+    };
+    let tool_fixture = compile_package_tool_fixture(temporary.path(), &validation.details);
     let output = temporary.path().join("package");
     let target_triple = native_shipping_target_triple().expect("native shipping host");
 
@@ -423,15 +437,30 @@ fn package_pipeline_copies_and_smokes_packaged_binaries_without_nested_cargo() {
         )
         .is_err()
     );
+    let mut mismatched_tools = result.manifest.binaries.tools.clone();
+    mismatched_tools.authoring_sha256 = "f".repeat(64);
+    assert!(
+        source::validate_reference_project_source(
+            &output,
+            &result.manifest.target_neutral_roots,
+            &mismatched_tools,
+        )
+        .expect_err("mismatched tool receipt must fail")
+        .contains("tools validation receipt does not match")
+    );
     fs::write(
         output.join("source/reference-alpha/unexpected.txt"),
         b"unexpected",
     )
     .expect("tampered source");
     assert!(
-        source::validate_reference_project_source(&output, &result.manifest.target_neutral_roots,)
-            .expect_err("extra source file must fail")
-            .contains("source layout is not exact")
+        source::validate_reference_project_source(
+            &output,
+            &result.manifest.target_neutral_roots,
+            &result.manifest.binaries.tools,
+        )
+        .expect_err("extra source file must fail")
+        .contains("source layout is not exact")
     );
 }
 
@@ -752,7 +781,7 @@ fn manifest_validator_requires_game_headless_authority_parity() {
     assert!(validate_manifest_fields(&manifest).is_err());
 
     let mut manifest = fixture_manifest();
-    manifest.binaries.tools.ticks = 0;
+    manifest.binaries.tools.publication_file_count = 0;
     assert!(validate_manifest_fields(&manifest).is_err());
 }
 
@@ -772,13 +801,11 @@ fn compile_package_smoke_fixture(directory: &Path) -> PathBuf {
     all(target_arch = "x86_64", target_os = "windows", target_env = "msvc"),
     all(target_arch = "x86_64", target_os = "linux", target_env = "gnu")
 ))]
-fn compile_package_tool_fixture(directory: &Path, roots: &PackageTargetNeutralRootsV3) -> PathBuf {
-    let source = PACKAGE_TOOL_SMOKE_FIXTURE_SOURCE
-        .replace("__PROJECT_LOCK__", &roots.project_lock_sha256)
-        .replace("__SCHEMA__", &roots.schema_registry_sha256)
-        .replace("__CONTENT__", &roots.content_manifest_sha256)
-        .replace("__WORLD__", &roots.world_partition_sha256)
-        .replace("__MECHANICS__", &roots.mechanics_lock_sha256);
+fn compile_package_tool_fixture(
+    directory: &Path,
+    details: &next_cli::CreatorProjectDetailsV1,
+) -> PathBuf {
+    let source = package_tool_smoke_fixture_source(details);
     compile_rust_fixture(directory, "package-tool-smoke-fixture", &source)
 }
 
@@ -845,19 +872,23 @@ fn fixture_manifest() -> PackageManifestV5 {
                 launch_status: "PASS".to_owned(),
                 project_composition_lock_hash: project_lock.clone(),
             },
-            tools: PackagedToolRunV1 {
-                authoritative_state_root: "b".repeat(64),
+            tools: PackagedToolValidationV1 {
+                authoring_sha256: "b".repeat(64),
                 binary_path: "bin/next.exe".to_owned(),
                 binary_sha256: tool_hash.clone(),
-                close_receipt_hash: "c".repeat(64),
-                command: "project.run".to_owned(),
-                command_ledger_hash: "d".repeat(64),
-                final_save_generation_hash: "e".repeat(64),
+                command: "project.validate".to_owned(),
+                content_entry_count: 2,
                 launch_status: "PASS".to_owned(),
+                neutral_record_count: 3,
+                project_id: "reference-alpha".to_owned(),
                 project_composition_lock_hash: project_lock.clone(),
-                source: "authoring".to_owned(),
+                project_revision: 1,
+                publication_file_count: 4,
+                publication_state: "validated-not-written".to_owned(),
+                render_asset_count: 5,
+                root_asset_count: 1,
                 source_project_path: "source/reference-alpha".to_owned(),
-                ticks: 1,
+                world_chunk_count: 1,
             },
         },
         file_inventory: vec![

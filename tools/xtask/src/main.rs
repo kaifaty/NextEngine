@@ -313,13 +313,9 @@ fn package_command_report(
             headless_launch: manifest.binaries.headless.launch_status.clone(),
             tool_launch: manifest.binaries.tools.launch_status.clone(),
             source_project: manifest.binaries.tools.source_project_path.clone(),
-            tool_state_root: manifest.binaries.tools.authoritative_state_root.clone(),
-            tool_ledger_hash: manifest.binaries.tools.command_ledger_hash.clone(),
-            tool_final_save_generation_hash: manifest
-                .binaries
-                .tools
-                .final_save_generation_hash
-                .clone(),
+            tool_authoring_hash: manifest.binaries.tools.authoring_sha256.clone(),
+            tool_neutral_record_count: manifest.binaries.tools.neutral_record_count,
+            tool_publication_file_count: manifest.binaries.tools.publication_file_count,
         },
     )
 }

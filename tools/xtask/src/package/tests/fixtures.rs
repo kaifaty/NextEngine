@@ -159,7 +159,7 @@ fn main() {
         || !package_root.join("source/reference-alpha/assets/humanoid-cc0.catalog.json").is_file()
     { fail("frozen source is missing"); }
     let arguments = env::args().skip(1).collect::<Vec<_>>();
-    if arguments != ["project", "run", "--project", "source/reference-alpha"] {
+    if arguments != ["project", "validate", "--project", "source/reference-alpha"] {
         fail("unexpected tools command");
     }
     for name in ["HOME", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "XDG_STATE_HOME",
@@ -175,11 +175,41 @@ fn main() {
             fail("forbidden inherited environment");
         }
     }
-    let hash_a = "a".repeat(64); let hash_b = "b".repeat(64); let hash_c = "c".repeat(64);
-    let hash_d = "d".repeat(64); let hash_e = "e".repeat(64); let hash_f = "f".repeat(64);
-    println!("{{\"schema_version\":1,\"status\":\"PASS\",\"command\":\"project.run\",\"details\":{{\"project\":{{\"project_id\":\"fixture\",\"project_revision\":1,\"authoring_sha256\":\"{hash_a}\",\"project_lock_sha256\":\"__PROJECT_LOCK__\",\"schema_registry_sha256\":\"__SCHEMA__\",\"content_manifest_sha256\":\"__CONTENT__\",\"world_partition_sha256\":\"__WORLD__\",\"mechanics_lock_sha256\":\"__MECHANICS__\"}},\"runtime\":{{\"status\":\"PASS\",\"composition_root\":\"Headless\",\"session_id\":\"{hash_b}\",\"close_receipt_hash\":\"{hash_c}\",\"final_save_generation_hash\":\"{hash_d}\",\"ticks\":1,\"events\":1,\"rpg_events\":1,\"authoritative_revision\":1,\"authoritative_state_root\":\"{hash_e}\",\"command_archive_root\":\"{hash_f}\",\"command_identity_index_root\":\"{hash_a}\",\"command_ledger_hash\":\"{hash_b}\",\"project_composition_lock_hash\":\"__PROJECT_LOCK__\"}},\"source\":\"authoring\"}}}}")
+    println!("{{\"schema_version\":1,\"status\":\"PASS\",\"command\":\"project.validate\",\"details\":{{\"project_id\":\"__PROJECT_ID__\",\"project_revision\":__PROJECT_REVISION__,\"authoring_sha256\":\"__AUTHORING__\",\"project_lock_sha256\":\"__PROJECT_LOCK__\",\"schema_registry_sha256\":\"__SCHEMA__\",\"content_manifest_sha256\":\"__CONTENT__\",\"world_partition_sha256\":\"__WORLD__\",\"mechanics_lock_sha256\":\"__MECHANICS__\",\"root_asset_count\":__ROOT_ASSETS__,\"content_entry_count\":__CONTENT_ENTRIES__,\"neutral_record_count\":__NEUTRAL_RECORDS__,\"render_asset_count\":__RENDER_ASSETS__,\"world_chunk_count\":__WORLD_CHUNKS__,\"publication_file_count\":__PUBLICATION_FILES__,\"publication_state\":\"validated-not-written\"}}}}")
 }
 "#;
+
+pub(super) fn package_tool_smoke_fixture_source(
+    details: &next_cli::CreatorProjectDetailsV1,
+) -> String {
+    PACKAGE_TOOL_SMOKE_FIXTURE_SOURCE
+        .replace("__PROJECT_ID__", &details.project_id)
+        .replace(
+            "__PROJECT_REVISION__",
+            &details.project_revision.to_string(),
+        )
+        .replace("__AUTHORING__", &details.authoring_sha256)
+        .replace("__PROJECT_LOCK__", &details.project_lock_sha256)
+        .replace("__SCHEMA__", &details.schema_registry_sha256)
+        .replace("__CONTENT__", &details.content_manifest_sha256)
+        .replace("__WORLD__", &details.world_partition_sha256)
+        .replace("__MECHANICS__", &details.mechanics_lock_sha256)
+        .replace("__ROOT_ASSETS__", &details.root_asset_count.to_string())
+        .replace(
+            "__CONTENT_ENTRIES__",
+            &details.content_entry_count.to_string(),
+        )
+        .replace(
+            "__NEUTRAL_RECORDS__",
+            &details.neutral_record_count.to_string(),
+        )
+        .replace("__RENDER_ASSETS__", &details.render_asset_count.to_string())
+        .replace("__WORLD_CHUNKS__", &details.world_chunk_count.to_string())
+        .replace(
+            "__PUBLICATION_FILES__",
+            &details.publication_file_count.to_string(),
+        )
+}
 
 pub(super) const PACKAGE_SMOKE_TIMEOUT_FIXTURE_SOURCE: &str = r#"
 use std::io::Write;

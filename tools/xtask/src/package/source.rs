@@ -1,7 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-use super::{PackageTargetNeutralRootsV3, checked_metadata, package_error};
+use super::{
+    PackageTargetNeutralRootsV3, PackagedToolValidationV1, checked_metadata, package_error,
+};
 
 pub(super) const REFERENCE_SOURCE_PATH: &str = "source/reference-alpha";
 pub(super) const REFERENCE_SOURCE_FILES: [&str; 4] = [
@@ -39,19 +41,23 @@ pub(super) fn copy_reference_project_source(
 
 pub(super) fn cook_packaged_reference_source(
     package_root: &Path,
-) -> Result<next_project::CookedProjectV7, String> {
+) -> Result<(next_project::CookedProjectV7, u32), String> {
     validate_reference_source_layout(package_root)?;
     let source = next_project::load_project_authoring_v7(package_root.join(REFERENCE_SOURCE_PATH))
         .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
-    next_project::cook_project_v7(source)
-        .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))
+    let neutral_record_count = u32::try_from(source.records.len())
+        .map_err(|_| "NATIVE_GATE_PACKAGE_INVALID: neutral record count overflow".to_owned())?;
+    let cooked = next_project::cook_project_v7(source)
+        .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?;
+    Ok((cooked, neutral_record_count))
 }
 
 pub(super) fn validate_reference_project_source(
     package_root: &Path,
     expected: &PackageTargetNeutralRootsV3,
+    tools: &PackagedToolValidationV1,
 ) -> Result<(), String> {
-    let cooked = cook_packaged_reference_source(package_root)?;
+    let (cooked, neutral_record_count) = cook_packaged_reference_source(package_root)?;
     let actual = PackageTargetNeutralRootsV3 {
         content_manifest_sha256: cooked.content_manifest.content_manifest_sha256.to_hex(),
         mechanics_lock_sha256: cooked
@@ -72,7 +78,69 @@ pub(super) fn validate_reference_project_source(
     if &actual != expected {
         return package_error("frozen reference source does not reproduce manifest roots");
     }
+    let render = &cooked.render_content_catalog;
+    let render_asset_count = 1_usize
+        .checked_add(render.meshes().len())
+        .and_then(|count| count.checked_add(render.materials().len()))
+        .and_then(|count| count.checked_add(render.textures().len()))
+        .and_then(|count| count.checked_add(render.base_skinning_profiles().len()))
+        .ok_or_else(|| "NATIVE_GATE_PACKAGE_INVALID: render asset count overflow".to_owned())?;
+    let publication_file_count = cooked
+        .publication()
+        .map_err(|error| format!("NATIVE_GATE_PACKAGE_INVALID: {error}"))?
+        .files
+        .len();
+    let expected_counts = [
+        (
+            "root asset",
+            tools.root_asset_count,
+            count(cooked.content_manifest.body.root_assets.len())?,
+        ),
+        (
+            "content entry",
+            tools.content_entry_count,
+            count(cooked.content_manifest.body.asset_entries.len())?,
+        ),
+        (
+            "neutral record",
+            tools.neutral_record_count,
+            neutral_record_count,
+        ),
+        (
+            "render asset",
+            tools.render_asset_count,
+            count(render_asset_count)?,
+        ),
+        (
+            "world chunk",
+            tools.world_chunk_count,
+            count(cooked.world_partition.body.chunk_bindings.len())?,
+        ),
+        (
+            "publication file",
+            tools.publication_file_count,
+            count(publication_file_count)?,
+        ),
+    ];
+    if tools.project_id != cooked.project_lock.project_id.as_str()
+        || tools.project_revision != cooked.project_lock.project_revision
+        || tools.authoring_sha256 != cooked.project_lock.authoring_sha256.to_hex()
+        || tools.project_composition_lock_hash != cooked.project_lock.project_lock_sha256.to_hex()
+        || tools.publication_state != "validated-not-written"
+        || expected_counts
+            .into_iter()
+            .any(|(_, reported, actual)| reported != actual)
+    {
+        return package_error(
+            "tools validation receipt does not match the frozen reference source",
+        );
+    }
     Ok(())
+}
+
+fn count(value: usize) -> Result<u32, String> {
+    u32::try_from(value)
+        .map_err(|_| "NATIVE_GATE_PACKAGE_INVALID: source count overflow".to_owned())
 }
 
 fn validate_reference_source_layout(package_root: &Path) -> Result<(), String> {

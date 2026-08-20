@@ -105,24 +105,28 @@ pub struct PackageExternalPrerequisiteV3 {
 pub struct PackageBinariesV3 {
     pub game: PackagedRunV2,
     pub headless: PackagedRunV2,
-    pub tools: PackagedToolRunV1,
+    pub tools: PackagedToolValidationV1,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PackagedToolRunV1 {
-    pub authoritative_state_root: String,
+pub struct PackagedToolValidationV1 {
+    pub authoring_sha256: String,
     pub binary_path: String,
     pub binary_sha256: String,
-    pub close_receipt_hash: String,
     pub command: String,
-    pub command_ledger_hash: String,
-    pub final_save_generation_hash: String,
+    pub content_entry_count: u32,
     pub launch_status: String,
+    pub neutral_record_count: u32,
+    pub project_id: String,
     pub project_composition_lock_hash: String,
-    pub source: String,
+    pub project_revision: u64,
+    pub publication_file_count: u32,
+    pub publication_state: String,
+    pub render_asset_count: u32,
+    pub root_asset_count: u32,
     pub source_project_path: String,
-    pub ticks: u64,
+    pub world_chunk_count: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -317,7 +321,11 @@ pub fn validate_v1_package(package_root: &Path) -> Result<PackageManifestV5, Str
         ],
     )?;
     validate_activated_project(package_root, &manifest.target_neutral_roots)?;
-    validate_reference_project_source(package_root, &manifest.target_neutral_roots)?;
+    validate_reference_project_source(
+        package_root,
+        &manifest.target_neutral_roots,
+        &manifest.binaries.tools,
+    )?;
     Ok(manifest)
 }
 
@@ -334,7 +342,7 @@ fn build_staged_package(
     })?;
     copy_reference_project_source(repository_root, staging)?;
     let project_directory = staging.join("project");
-    let cooked = cook_packaged_reference_source(staging)?;
+    let (cooked, _) = cook_packaged_reference_source(staging)?;
     let project_store = next_assets::ContentStore::new(&project_directory);
     let publication = cooked
         .publication()

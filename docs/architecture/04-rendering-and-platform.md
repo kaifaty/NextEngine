@@ -7,7 +7,7 @@
 | Версия | 2.7 |
 | Последняя проверка | 2026-08-21 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-18](18-player-interaction-ui-camera-localization-and-accessibility.md), [SPEC-29](29-platform-host-and-application-session.md), [SPEC-30](30-presentation-extraction-and-render-content.md), [ADR-003](adr/003-vulkan-renderer-and-shader-toolchain.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
-| Заменяет | SPEC-04 2.6; advances the current Linux package to strict V5 with a frozen authoring source and copied public-tool execution receipt |
+| Заменяет | SPEC-04 2.6; advances the current Linux package to strict V5 with a frozen authoring source and copied public-tool validation receipt |
 
 ## Technical authority boundary
 
@@ -116,7 +116,8 @@ Shipping package использует `PackageManifestV5`. Его `runtime_profi
 объявлять target ABI, canonical direct-library list для `next_game`,
 `next_headless` и public `next`, maximum required GLIBC и все внешние runtime
 prerequisites. Manifest также связывает exact `project_lock_sha256`, frozen
-`source/reference-alpha` authoring tree и typed receipt от `next project run`.
+`source/reference-alpha` authoring tree и typed receipt от
+`next project validate`.
 Earlier package artifacts current runtime rejects typed unsupported and never
 migrates in place.
 
@@ -147,9 +148,11 @@ interpreter или требованием GLIBC выше 2.35 отклоняет
 Copied `game`, `headless` и public `next` binaries MUST запускаться из package
 с очищенным environment, изолированными state/home/temp paths и без inherited
 `LD_*`, `VK_*` или `SDL_*` loader overrides. Tool smoke MUST выполнить exact
-`next project run --project source/reference-alpha`, сообщить schema-1
-`project.run` PASS для authoring source, one Headless tick, exact project roots
-и non-empty final-save/close/state/ledger hashes. Linux smoke MAY сохранить
+`next project validate --project source/reference-alpha`, сообщить schema-1
+`project.validate` PASS для authoring source, exact project identity,
+authoring/project/content/schema/world/mechanics roots и positive bounded
+source/publication counts. Runtime clean-install receipts остаются
+обязанностью copied `game` и `headless`. Linux smoke MAY сохранить
 только desktop-session variables,
 то есть `DISPLAY`, `WAYLAND_DISPLAY`, `XDG_RUNTIME_DIR`,
 `DBUS_SESSION_BUS_ADDRESS`, `XAUTHORITY`, необходимые выбранному X11/Wayland
@@ -211,5 +214,5 @@ workload.
 | `PLATFORM-P1` | Repeated create/resize/fullscreen/focus/input/surface lifecycle on supported desktop hosts. | No crash or leak; normalized event ordering is stable and native handles remain private. | Use the thin native adapter behind the same platform contract. |
 | `RENDER-02` | Force `no RT`, `no mesh shader` and bounded descriptors. | The representative scene remains complete and playable with no missing required material or geometry. Optional screenshots or image diffs may help diagnose regressions but are not the correctness oracle. | Disable the unsupported enhanced path and use the cooked B0 path. |
 | `RENDER-03` | Inject swapchain and device loss at representative frame boundaries. | Interactive target recreation or clean suspension/exit completes without authoritative-state corruption; incomplete private cache state is never exposed. | Stop recovery attempts, preserve the last complete save/session state and exit cleanly. |
-| `PACKAGE-01` | Install and run a clean Linux package twice from one exact commit. | Both `PackageManifestV5` trees are byte-identical; frozen source reproduces the exact project roots; ELF imports/glibc baseline match; isolated copied `game`, `headless` and public `next project run` launches pass with a final-save receipt; missing runtime prerequisites have stable diagnostics. | Do not distribute the broken package; repair its source, reproducibility, loader/dependency declaration or copied-root execution. |
+| `PACKAGE-01` | Install and run a clean Linux package twice from one exact commit. | Both `PackageManifestV5` trees are byte-identical; frozen source reproduces the exact project roots; ELF imports/glibc baseline match; isolated copied `game`/`headless` runtime launches and public `next project validate` authoring validation pass; missing runtime prerequisites have stable diagnostics. | Do not distribute the broken package; repair its source, reproducibility, loader/dependency declaration or copied-root execution. |
 | `RENDER-04` | Optionally run a developer capture through the displayless offscreen target. | No window/display/surface/swapchain dependency is created; replay gameplay hash remains unchanged and repeated normalized frame output is stable for the selected profile. | Disable capture tooling and fix the target abstraction; normal game/headless operation remains available. |

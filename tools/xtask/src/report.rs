@@ -104,9 +104,9 @@ pub struct PackageDetailsV2 {
     pub headless_launch: String,
     pub tool_launch: String,
     pub source_project: String,
-    pub tool_state_root: String,
-    pub tool_ledger_hash: String,
-    pub tool_final_save_generation_hash: String,
+    pub tool_authoring_hash: String,
+    pub tool_neutral_record_count: u32,
+    pub tool_publication_file_count: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

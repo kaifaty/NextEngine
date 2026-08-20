@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use super::source::REFERENCE_SOURCE_PATH;
 use super::{
-    PackageTargetNeutralRootsV3, PackagedToolRunV1, bounded_text, hash_file, package_error,
+    PackageTargetNeutralRootsV3, PackagedToolValidationV1, bounded_text, hash_file, package_error,
     trim_ascii_whitespace, validate_hash, validate_relative_package_path,
 };
 
@@ -94,66 +94,61 @@ pub(super) fn run_packaged_tool(
     smoke_session_root: &Path,
     package_root: &Path,
     expected: &PackageTargetNeutralRootsV3,
-) -> Result<next_cli::CreatorRunCommandPassReportV1, String> {
+) -> Result<next_cli::CreatorCommandPassReportV1, String> {
     let (mut command, _) = isolated_smoke_command(binary, smoke_session_root, package_root)?;
-    command.args(["project", "run", "--project", REFERENCE_SOURCE_PATH]);
+    command.args(["project", "validate", "--project", REFERENCE_SOURCE_PATH]);
     let output = run_successful_smoke_command(command, binary, PACKAGE_SMOKE_TIMEOUT)?;
     if output.stdout_truncated {
         return package_error(format!("{} smoke report exceeds 1 MiB", binary.display()));
     }
-    let report: next_cli::CreatorRunCommandReportV1 =
+    let report: next_cli::CreatorCommandReportV1 =
         serde_json::from_slice(trim_ascii_whitespace(&output.stdout)).map_err(|error| {
             format!(
                 "NATIVE_GATE_PACKAGE_INVALID: {} emitted invalid tools report JSON: {error}",
                 binary.display()
             )
         })?;
-    let next_cli::CreatorRunCommandReportV1::Pass(report) = report else {
+    let next_cli::CreatorCommandReportV1::Pass(report) = report else {
         return package_error("packaged tools command reported failure");
     };
     validate_tools_report(&report, expected)?;
-    Ok(*report)
+    Ok(report)
 }
 
 pub(super) fn packaged_tool_run(
     binary_name: &str,
     binary: &Path,
-    report: next_cli::CreatorRunCommandPassReportV1,
-) -> Result<PackagedToolRunV1, String> {
-    Ok(PackagedToolRunV1 {
-        authoritative_state_root: report.details.runtime.authoritative_state_root,
+    report: next_cli::CreatorCommandPassReportV1,
+) -> Result<PackagedToolValidationV1, String> {
+    Ok(PackagedToolValidationV1 {
+        authoring_sha256: report.details.authoring_sha256,
         binary_path: format!("bin/{binary_name}"),
         binary_sha256: hash_file(binary)?,
-        close_receipt_hash: report.details.runtime.close_receipt_hash,
         command: report.command,
-        command_ledger_hash: report.details.runtime.command_ledger_hash,
-        final_save_generation_hash: report.details.runtime.final_save_generation_hash,
+        content_entry_count: report.details.content_entry_count,
         launch_status: report.status,
-        project_composition_lock_hash: report.details.runtime.project_composition_lock_hash,
-        source: report.details.source,
+        neutral_record_count: report.details.neutral_record_count,
+        project_id: report.details.project_id,
+        project_composition_lock_hash: report.details.project_lock_sha256,
+        project_revision: report.details.project_revision,
+        publication_file_count: report.details.publication_file_count,
+        publication_state: report.details.publication_state,
+        render_asset_count: report.details.render_asset_count,
+        root_asset_count: report.details.root_asset_count,
         source_project_path: REFERENCE_SOURCE_PATH.to_owned(),
-        ticks: report.details.runtime.ticks,
+        world_chunk_count: report.details.world_chunk_count,
     })
 }
 
 pub(super) fn validate_packaged_tool(
-    run: &PackagedToolRunV1,
+    run: &PackagedToolValidationV1,
     expected_project_lock: &str,
 ) -> Result<(), String> {
     validate_relative_package_path(&run.binary_path)?;
     validate_relative_package_path(&run.source_project_path)?;
     for (name, value) in [
         ("tool binary", run.binary_sha256.as_str()),
-        (
-            "tool authoritative state root",
-            run.authoritative_state_root.as_str(),
-        ),
-        ("tool close receipt", run.close_receipt_hash.as_str()),
-        ("tool command ledger", run.command_ledger_hash.as_str()),
-        (
-            "tool final save generation",
-            run.final_save_generation_hash.as_str(),
-        ),
+        ("tool authoring source", run.authoring_sha256.as_str()),
         (
             "tool project composition lock",
             run.project_composition_lock_hash.as_str(),
@@ -162,53 +157,46 @@ pub(super) fn validate_packaged_tool(
         validate_hash(name, value)?;
     }
     if run.launch_status != "PASS"
-        || run.command != "project.run"
-        || run.source != "authoring"
+        || run.command != "project.validate"
         || run.source_project_path != REFERENCE_SOURCE_PATH
-        || run.ticks != 1
         || run.project_composition_lock_hash != expected_project_lock
+        || run.publication_state != "validated-not-written"
+        || run.project_id.is_empty()
+        || [
+            run.root_asset_count,
+            run.content_entry_count,
+            run.neutral_record_count,
+            run.render_asset_count,
+            run.world_chunk_count,
+            run.publication_file_count,
+        ]
+        .contains(&0)
     {
-        return package_error("Tools packaged run summary is invalid");
+        return package_error("Tools packaged validation summary is invalid");
     }
     Ok(())
 }
 
 fn validate_tools_report(
-    report: &next_cli::CreatorRunCommandPassReportV1,
+    report: &next_cli::CreatorCommandPassReportV1,
     expected: &PackageTargetNeutralRootsV3,
 ) -> Result<(), String> {
-    let project = &report.details.project;
-    let runtime = &report.details.runtime;
-    if report.schema_version != next_cli::CREATOR_RUN_REPORT_SCHEMA_VERSION
+    let details = &report.details;
+    if report.schema_version != next_cli::CREATOR_COMMAND_REPORT_SCHEMA_VERSION
         || report.status != "PASS"
-        || report.command != "project.run"
-        || report.details.source != "authoring"
-        || runtime.status != "PASS"
-        || runtime.composition_root != "Headless"
-        || runtime.ticks != 1
-        || runtime.project_composition_lock_hash != expected.project_lock_sha256
-        || project.project_lock_sha256 != expected.project_lock_sha256
-        || project.schema_registry_sha256 != expected.schema_registry_sha256
-        || project.content_manifest_sha256 != expected.content_manifest_sha256
-        || project.world_partition_sha256 != expected.world_partition_sha256
-        || project.mechanics_lock_sha256 != expected.mechanics_lock_sha256
+        || report.command != "project.validate"
+        || details.project_lock_sha256 != expected.project_lock_sha256
+        || details.schema_registry_sha256 != expected.schema_registry_sha256
+        || details.content_manifest_sha256 != expected.content_manifest_sha256
+        || details.world_partition_sha256 != expected.world_partition_sha256
+        || details.mechanics_lock_sha256 != expected.mechanics_lock_sha256
+        || details.publication_state != "validated-not-written"
     {
-        return package_error("packaged tools command did not report the exact frozen project run");
+        return package_error(
+            "packaged tools command did not validate the exact frozen project source",
+        );
     }
-    for (name, value) in [
-        (
-            "tools authoritative state root",
-            runtime.authoritative_state_root.as_str(),
-        ),
-        ("tools command ledger", runtime.command_ledger_hash.as_str()),
-        ("tools close receipt", runtime.close_receipt_hash.as_str()),
-        (
-            "tools final save generation",
-            runtime.final_save_generation_hash.as_str(),
-        ),
-    ] {
-        validate_hash(name, value)?;
-    }
+    validate_hash("tools authoring source", &details.authoring_sha256)?;
     Ok(())
 }
 

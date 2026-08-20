@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / IMPLEMENTATION_GREEN` |
+| Status | `ACTIVE / TOOL_VALIDATION_CORRECTED` |
 | Updated | 2026-08-21 |
 | Task key | `r7b-linux-release-package` |
 | Scope | Freeze the representative Linux release input, publish a reproducible native package, validate its ELF/runtime prerequisites and run copied `game`, `headless` and tools in an isolated clean-install environment |
@@ -11,16 +11,16 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** `PackageManifestV5` is implemented through the
-  existing production packager. It now copies/audits `next_game`,
-  `next_headless` and public `next`, freezes the exact authoring source, cooks
-  from that copy and requires an isolated one-tick `next project run` receipt.
-- **Why:** Focused package tests exercise copied-root success, ABI-before-smoke,
-  exact source bytes/layout, environment stripping, V5 strict decoding and
-  tool receipt failures; all currently pass.
-- **Next action:** Commit the coherent implementation, then run two clean
-  release package invocations and compare every emitted byte before the exact
-  clean Linux native-gate evidence run.
+- **Current conclusion:** The tool contract-selection error from the first clean
+  V5 attempt is corrected. The copied public tool now performs strict isolated
+  `project validate`; the real release package probe passes and binds the exact
+  frozen authoring identity, roots and counts.
+- **Why:** Game/headless already provide the package runtime proof, while the
+  public tool owns the authoring/cook validation boundary. This keeps the proof
+  meaningful without inventing generic-runtime support for the product-specific
+  reference bootstrap.
+- **Next action:** Commit the corrected implementation, then restart exact
+  evidence from that clean commit with two package builds and native gate.
 - **Current blocker:** None.
 - **Do not retry:** Do not add a Windows package slot, inherit THOTH timing, or
   treat the R7a package smoke as proof of the broader R7b clean-install matrix.
@@ -41,6 +41,10 @@
 | First broad `cargo run -p xtask -- host-check` | All compile/clippy/workspace tests passed, then boundary scan rejected `tools/xtask/src/native_gate/tests.rs` at `1003 > 1000` lines | Negative evidence retained; split the package-manifest fixture into its own test module before retrying the complete gate |
 | `cargo run -p xtask -- boundary-scan` after fixture split | `PASS`; affected files are now `936` and `70` lines | The broad-gate failure condition is resolved; exact native gate will rerun the complete host check |
 | `cargo run -p xtask --features desktop-sdl-ash -- platform` | `PASS`, SDL/ash candidate `PASS`, 4 normalized events, 9 rendered objects | Active Linux desktop/platform prerequisite is healthy; no Windows execution attempted |
+| Clean `22459f9…` first `v1-package` attempt | `FAIL`, no package published; copied `next project run` returned `PROJECT_RUNTIME_BOOTSTRAP_FAILED` | Exact negative evidence: do not retry this command/commit; narrow the tool proof to the public validation/cook boundary |
+| Release `next project validate --project projects/reference-alpha` | `PASS`, exact authoring/project/content/schema/world/mechanics roots and bounded counts | Valid discriminator: copied public tool can prove the frozen final source without expanding application runtime semantics |
+| Corrected focused package/schema/CLI tests and boundary scan | `22/22`, `1/1`, `44/44`, all `PASS` | Old `project.run` receipt is removed from executable package authority; proceed to a real copied-tool release probe |
+| Dirty real `v1-package` correction probe | `PASS`, schema 2; copied game/headless/tool all `PASS`; authoring hash `bcc23ec1…`, 76 neutral records, 141 publication files | Corrected public-tool boundary works with the real release ELF in the isolated package; safe to freeze a clean evidence commit |
 
 ## Decisions that still constrain the work
 
@@ -81,7 +85,7 @@
 - **Observation:** The schema-1 `PackageDetailsV1` report can name only
   game/headless and would hide the new mandatory tools receipt.
 - **Evidence:** The V5 manifest hash binds all bytes, but release evidence also
-  needs a directly inspectable tool hash/status/state/ledger/final-save tuple.
+  needs a directly inspectable tool hash/status/authoring/root/count tuple.
 - **Decision:** Current Linux `v1-package` emits strict
   `CommandReportV2<PackageDetailsV2>`; legacy schema 1 remains only in the
   dormant historical target decoder.
@@ -92,13 +96,33 @@
 - **Uncertainty:** None.
 - **Reconsider when:** A future package-report schema replaces V2 explicitly.
 
+### D-004 — Tool clean-install proof is public project validation
+
+- **Observation:** The final product reference project launches through the
+  dedicated game/headless bootstrap; current creator `project run` intentionally
+  covers independent generic projects and rejects this product-specific source.
+- **Evidence:** Exact package attempt and direct debug/release invocations all
+  return `PROJECT_RUNTIME_BOOTSTRAP_FAILED`, while the same release tool returns
+  a strict `project.validate` PASS with the exact frozen roots.
+- **Decision:** The copied tool smoke executes isolated `next project validate`
+  and binds authoring hash, all neutral roots and bounded publication counts.
+  Game/headless remain the runtime clean-install receipts.
+- **Rejected alternatives:** Broaden generic application bootstrap inside R7b,
+  add a second synthetic project to the shipping package, or accept a mere
+  `--help`/version process launch.
+- **Consequences:** V5 retains a mandatory meaningful tool receipt without
+  conflating creator-generic runtime behavior with the final game bootstrap.
+- **Uncertainty:** None at the R7b boundary.
+- **Reconsider when:** A later accepted creator contract makes the final product
+  project runnable through the generic runtime path.
+
 ## Open hypotheses
 
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: current native manifest predates `PackageManifestV4` | R7b was still open after R7a | Rejected: strict V4 implementation and tests exist | Closed; advance only because tools/source are wire-incompatible |
 | H2: current native bundle omits a copied tools root | Confirmed in binary sources, inventory, report and smoke | None | Implement and prove V5 tool/source binding |
-| H3: current smoke environment is not fully clean-install isolated | R7b requires cleared loader/process state | Rejected: smoke uses `env_clear`, isolated HOME/state/temp and a narrow display allowlist | Reuse the same launcher policy for `next project run` |
+| H3: current smoke environment is not fully clean-install isolated | R7b requires cleared loader/process state | Rejected: smoke uses `env_clear`, isolated HOME/state/temp and a narrow display allowlist | Reuse the same launcher policy for `next project validate` |
 
 ## Required context
 
@@ -112,9 +136,8 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Update SPEC-04 to describe V5, the frozen source and public-tool receipt.
-2. Commit the coherent implementation so exact checks can reject dirty state.
-3. Build two Linux packages from that exact commit, compare their complete
+1. Commit the coherent implementation so exact checks can reject dirty state.
+2. Build two Linux packages from that exact commit, compare their complete
    trees, then run the affected fast/platform checks and exact native gate.
 
 ## Do not retry
@@ -123,17 +146,21 @@ Read these sources in precedence order before acting:
   explicitly rejected by ADR-090.
 - Reusing R7a `PASS` as R7b completion — that run predates the R7b package
   contract and proves only the prior bundle.
+- Retrying `next project run` on `reference-alpha` at `22459f9…` — exact direct
+  and packaged evidence shows the product-specific bootstrap is incompatible
+  with that generic creator-runtime command.
 
 ## Handoff
 
-- **Workspace state:** V5 implementation, tests and task-state are modified but
-  not committed; no unrelated pre-existing changes were present.
-- **Checks:** Focused package `22/22`, xtask command `44/44`, package-summary
-  validation `3/3`, boundary scan and Linux desktop platform pass. The first
-  broad host check ran every workspace test successfully but failed its final
-  source-size scan; the split fix passes the direct boundary scan.
-- **Remaining risk:** Real release ELF/tool execution, complete workspace gates,
-  byte-for-byte two-build reproducibility and exact clean native-gate evidence
-  have not run yet.
-- **Promotion needed:** Roadmap/SPEC updates only after executable R7b evidence
-  passes; no new ADR is expected unless the accepted semantics must change.
+- **Workspace state:** Failed exact implementation commit is `22459f9…`; the
+  corrected validation receipt, SPEC wording and task state are dirty. A real
+  release probe passed and remains under ignored `artifacts/r7b/`.
+- **Checks:** Corrected focused package `22/22`, current package report `1/1`,
+  xtask command `44/44`, full xtask library `109/109`, clippy and boundary scan
+  pass. The real dirty release package probe also passes all three copied
+  binaries. Earlier Linux desktop platform evidence remains valid.
+- **Remaining risk:** Byte-for-byte two-build reproducibility and the complete
+  exact clean native-gate evidence have not run yet.
+- **Promotion needed:** SPEC-04 is aligned to the corrected validation boundary;
+  roadmap promotion waits for executable R7b evidence. No new ADR is expected
+  unless the accepted semantics must change.

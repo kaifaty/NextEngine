@@ -122,6 +122,8 @@ fn parse_linux_package_report(
         || details.headless_launch != "PASS"
         || details.tool_launch != "PASS"
         || details.source_project != "source/reference-alpha"
+        || details.tool_neutral_record_count == 0
+        || details.tool_publication_file_count == 0
     {
         return Err(report_invalid(
             "v1-package report must use schema 2 and bind package output plus all clean-install launches",
@@ -142,12 +144,7 @@ fn parse_linux_package_report(
             details.headless_binary_hash.as_str(),
         ),
         ("tool_binary_hash", details.tool_binary_hash.as_str()),
-        ("tool_state_root", details.tool_state_root.as_str()),
-        ("tool_ledger_hash", details.tool_ledger_hash.as_str()),
-        (
-            "tool_final_save_generation_hash",
-            details.tool_final_save_generation_hash.as_str(),
-        ),
+        ("tool_authoring_hash", details.tool_authoring_hash.as_str()),
     ] {
         validate_hash(field, value)?;
     }
@@ -525,9 +522,9 @@ mod tests {
                 "headless_launch": "PASS",
                 "tool_launch": "PASS",
                 "source_project": "source/reference-alpha",
-                "tool_state_root": hash,
-                "tool_ledger_hash": hash,
-                "tool_final_save_generation_hash": hash
+                "tool_authoring_hash": hash,
+                "tool_neutral_record_count": 1,
+                "tool_publication_file_count": 1
             }
         })
     }
