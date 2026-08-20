@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B0_PASS / B0R_NORMALIZATION_RECLOSURE` |
+| Status | `ACTIVE / NSR3B0R_PASS / NSR3B1_MULTISTEP_DESIGN` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -23,10 +23,13 @@
 - **Current conclusion:** the independent B0 diagnostic passes twice
   byte-identically and selects `FORMULA_RECLOSURE_REQUIRED`; all historical
   raw hashes remain unchanged.
-- **Current action:** implement the one-change B0R contract under the new
-  `nuv-variational-fcr2` identity.
-- **Next gate:** normalized density plus gradient/HVP/trust/tape correspondence
-  must pass before any multi-step or boundary work.
+- **Current conclusion:** `lattice-normalized-cubic-v1` passes density,
+  gradient, HVP, dense, trust and A1/A2 tape correspondence under the new
+  `nuv-variational-fcr2` identity; FCR1 hashes remain byte-identical.
+- **Current action:** freeze manufactured multi-step state transitions,
+  invariants and step-doubling gates before implementing them.
+- **Next gate:** NSR3-B1 must prove time integration, translation/objectivity,
+  conservation, exact repeat and convergence without any wall model.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -84,6 +87,15 @@
 - **Consequence:** all FCR1 solver evidence remains valid for its synthetic
   objective but gives no physical-profile authority. NSR3-B1 stays blocked.
 
+### D-006 -- Select the normalized FCR2 objective
+
+- **Observation:** one common factor restores reference density while all six
+  gradient/HVP/dense controls, both trust solves and A1/A2 correspondence pass.
+- **Decision:** select `nuv-variational-fcr2` for later report-only CPU
+  research; keep FCR1 available only under its old explicit commands.
+- **Consequence:** coefficient anchors may now enter manufactured controls,
+  but no hydro, boundary, CUDA or runtime claim is unlocked.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -96,11 +108,11 @@
 
 ## Exact next action
 
-1. Add an explicitly selected immutable kernel scale without changing FCR1.
-2. Apply it identically to `W`, `dW/dr` and `d2W/dr2`.
-3. Run the frozen FCR2 derivative, active-density, HVP, trust and A1/A2 exact
-   controls plus historical hash checks.
-4. Select/stop FCR2, then return to NSR3-B1 only on PASS.
+1. Freeze state ownership and exact recurrence for each B1 manufactured case.
+2. Freeze mass, momentum, energy/work, objectivity and step-doubling metrics.
+3. Implement short report-only multi-step execution with FCR2+A2.
+4. Keep static boundaries and named physical trajectories blocked until B1
+   passes.
 
 ## Reconsideration triggers
 

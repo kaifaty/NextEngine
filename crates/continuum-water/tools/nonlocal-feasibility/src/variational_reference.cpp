@@ -29,6 +29,7 @@ struct Config {
     double mass = 0.125;
     double rest_density = 1000.0;
     double time_step = 1.0 / 240.0;
+    double kernel_scale = 1.0;
     double kappa = 0.0;
     double lambda = 0.0;
     double mu = 0.0;
@@ -140,6 +141,43 @@ double cubic_second_derivative(double radius, double horizon) {
     return second_q * q_scale * q_scale;
 }
 
+double configured_cubic_weight(const Config& config, double radius) {
+    return config.kernel_scale * cubic_weight(radius, config.horizon);
+}
+
+double configured_cubic_gradient(const Config& config, double radius) {
+    return config.kernel_scale * cubic_gradient(radius, config.horizon);
+}
+
+double configured_cubic_second_derivative(
+    const Config& config, double radius) {
+    return config.kernel_scale
+        * cubic_second_derivative(radius, config.horizon);
+}
+
+double reference_lattice_kernel_scale(double spacing, double horizon) {
+    const int extent = static_cast<int>(std::ceil(horizon / spacing));
+    double ratio = 0.0;
+    for (int z = -extent; z <= extent; ++z) {
+        for (int y = -extent; y <= extent; ++y) {
+            for (int x = -extent; x <= extent; ++x) {
+                const double radius = spacing * std::sqrt(
+                    static_cast<double>(x * x + y * y + z * z));
+                ratio += spacing * spacing * spacing
+                    * cubic_weight(radius, horizon);
+            }
+        }
+    }
+    if (!std::isfinite(ratio) || ratio <= 0.0) {
+        throw std::runtime_error("invalid reference lattice kernel sum");
+    }
+    const double scale = 1.0 / ratio;
+    if (!std::isfinite(scale) || scale < 7.5 || scale > 8.5) {
+        throw std::runtime_error("normalized kernel scale outside B0R bounds");
+    }
+    return scale;
+}
+
 double surface_spline(double radius, double spacing) {
     const double q = radius / spacing;
     if (q <= 1.0) {
@@ -218,13 +256,13 @@ Evaluation evaluate(
     }
 
     std::vector<double> density(
-        y.size(), config.mass * cubic_weight(0.0, config.horizon));
+        y.size(), config.mass * configured_cubic_weight(config, 0.0));
     for (std::size_t i = 0; i < y.size(); ++i) {
         for (std::size_t j = i + 1; j < y.size(); ++j) {
             const double radius = norm(y[i] - y[j]);
             if (radius <= config.horizon) {
                 const double contribution =
-                    config.mass * cubic_weight(radius, config.horizon);
+                    config.mass * configured_cubic_weight(config, radius);
                 density[i] += contribution;
                 density[j] += contribution;
             }
@@ -250,7 +288,7 @@ Evaluation evaluate(
             }
             const double coefficient = config.kappa * config.mass
                 / config.rest_density * (compression[i] + compression[j])
-                * cubic_gradient(radius, config.horizon);
+                * configured_cubic_gradient(config, radius);
             const Vec3 pair_gradient = coefficient * (displacement / radius);
             result.gradient[i] += pair_gradient;
             result.gradient[j] += -pair_gradient;
@@ -268,7 +306,7 @@ Evaluation evaluate(
             const Vec3 increment = (y[i] - y[j]) - reference;
             const Vec3 normal_increment = project_normal(increment, normal);
             const Vec3 tangent_increment = project_tangent(increment, normal);
-            const double omega = -cubic_gradient(radius, config.horizon);
+            const double omega = -configured_cubic_gradient(config, radius);
             result.viscosity += config.mass / (config.rest_density * config.time_step)
                 * (config.mu * norm_squared(tangent_increment)
                     + 0.5 * config.lambda * norm_squared(normal_increment))
@@ -322,13 +360,13 @@ Evaluation evaluate(
 std::vector<double> densities(
     const Config& config, const std::vector<Vec3>& y) {
     std::vector<double> result(
-        y.size(), config.mass * cubic_weight(0.0, config.horizon));
+        y.size(), config.mass * configured_cubic_weight(config, 0.0));
     for (std::size_t i = 0; i < y.size(); ++i) {
         for (std::size_t j = i + 1; j < y.size(); ++j) {
             const double radius = norm(y[i] - y[j]);
             if (radius <= config.horizon) {
                 const double contribution =
-                    config.mass * cubic_weight(radius, config.horizon);
+                    config.mass * configured_cubic_weight(config, radius);
                 result[i] += contribution;
                 result[j] += contribution;
             }
@@ -376,7 +414,7 @@ std::vector<Vec3> apply_hessian(
                 }
                 const Vec3 normal = displacement / radius;
                 const Vec3 pair_jacobian = config.mass / config.rest_density
-                    * cubic_gradient(radius, config.horizon) * normal;
+                    * configured_cubic_gradient(config, radius) * normal;
                 jacobian[center] += pair_jacobian;
                 jacobian[neighbor] += -pair_jacobian;
             }
@@ -399,9 +437,9 @@ std::vector<Vec3> apply_hessian(
                 const Vec3 relative_direction =
                     direction[center] - direction[neighbor];
                 const double radial =
-                    cubic_second_derivative(radius, config.horizon);
+                    configured_cubic_second_derivative(config, radius);
                 const double tangential =
-                    cubic_gradient(radius, config.horizon) / radius;
+                    configured_cubic_gradient(config, radius) / radius;
                 const Vec3 pair = config.kappa * compression * config.mass
                     / config.rest_density
                     * radial_hessian_product(
@@ -422,7 +460,7 @@ std::vector<Vec3> apply_hessian(
             const Vec3 normal = reference / radius;
             const Vec3 relative_direction = direction[i] - direction[j];
             const double scale = config.mass
-                * (-cubic_gradient(radius, config.horizon))
+                * (-configured_cubic_gradient(config, radius))
                 / (config.rest_density * config.time_step);
             const Vec3 pair = scale
                 * (config.lambda * project_normal(relative_direction, normal)
@@ -646,12 +684,12 @@ std::vector<double> densities_with_pairs(
     const std::vector<Vec3>& y,
     const std::vector<ParticlePair>& pairs) {
     std::vector<double> result(
-        y.size(), config.mass * cubic_weight(0.0, config.horizon));
+        y.size(), config.mass * configured_cubic_weight(config, 0.0));
     for (const ParticlePair pair : pairs) {
         const double radius = norm(y[pair.i] - y[pair.j]);
         if (radius <= config.horizon) {
             const double contribution =
-                config.mass * cubic_weight(radius, config.horizon);
+                config.mass * configured_cubic_weight(config, radius);
             result[pair.i] += contribution;
             result[pair.j] += contribution;
         }
@@ -700,7 +738,7 @@ Evaluation evaluate_with_pairs(
         const double coefficient = config.kappa * config.mass
             / config.rest_density
             * (compression[pair.i] + compression[pair.j])
-            * cubic_gradient(radius, config.horizon);
+            * configured_cubic_gradient(config, radius);
         const Vec3 pair_gradient = coefficient * (displacement / radius);
         result.gradient[pair.i] += pair_gradient;
         result.gradient[pair.j] += -pair_gradient;
@@ -717,7 +755,7 @@ Evaluation evaluate_with_pairs(
             (y[pair.i] - y[pair.j]) - reference;
         const Vec3 normal_increment = project_normal(increment, normal);
         const Vec3 tangent_increment = project_tangent(increment, normal);
-        const double omega = -cubic_gradient(radius, config.horizon);
+        const double omega = -configured_cubic_gradient(config, radius);
         result.viscosity += config.mass / (config.rest_density * config.time_step)
             * (config.mu * norm_squared(tangent_increment)
                 + 0.5 * config.lambda * norm_squared(normal_increment))
@@ -814,7 +852,7 @@ std::vector<Vec3> apply_hessian_with_adjacency(
                 }
                 const Vec3 normal = displacement / radius;
                 const Vec3 pair_jacobian = config.mass / config.rest_density
-                    * cubic_gradient(radius, config.horizon) * normal;
+                    * configured_cubic_gradient(config, radius) * normal;
                 center_jacobian += pair_jacobian;
                 neighbor_jacobian[slot] = -pair_jacobian;
             }
@@ -857,8 +895,8 @@ std::vector<Vec3> apply_hessian_with_adjacency(
                 const Vec3 pair = config.kappa * compression * config.mass
                     / config.rest_density
                     * radial_hessian_product(normal,
-                        cubic_second_derivative(radius, config.horizon),
-                        cubic_gradient(radius, config.horizon) / radius,
+                        configured_cubic_second_derivative(config, radius),
+                        configured_cubic_gradient(config, radius) / radius,
                         relative_direction);
                 result[center] += pair;
                 result[neighbor] += -pair;
@@ -876,7 +914,7 @@ std::vector<Vec3> apply_hessian_with_adjacency(
         const Vec3 relative_direction =
             direction[pair_index.i] - direction[pair_index.j];
         const double scale = config.mass
-            * (-cubic_gradient(radius, config.horizon))
+            * (-configured_cubic_gradient(config, radius))
             / (config.rest_density * config.time_step);
         const Vec3 pair = scale
             * (config.lambda * project_normal(relative_direction, normal)
@@ -999,7 +1037,7 @@ void build_reference_hessian_tape(
         }
         coefficient.normal = reference / radius;
         coefficient.scale = config.mass
-            * (-cubic_gradient(radius, config.horizon))
+            * (-configured_cubic_gradient(config, radius))
             / (config.rest_density * config.time_step);
         coefficient.active = true;
     }
@@ -1035,12 +1073,12 @@ bool build_current_hessian_tape(
         coefficient.normal = displacement / radius;
         if (radius <= config.horizon) {
             coefficient.pair_jacobian_i = config.mass / config.rest_density
-                * cubic_gradient(radius, config.horizon)
+                * configured_cubic_gradient(config, radius)
                 * coefficient.normal;
             coefficient.density_radial =
-                cubic_second_derivative(radius, config.horizon);
+                configured_cubic_second_derivative(config, radius);
             coefficient.density_tangential =
-                cubic_gradient(radius, config.horizon) / radius;
+                configured_cubic_gradient(config, radius) / radius;
             coefficient.density_active = true;
         }
         if (radius < surface_support) {
@@ -1071,7 +1109,7 @@ bool build_current_hessian_tape(
     }
     tape.pressure_centers.resize(y.size());
     std::vector<double> density(
-        y.size(), config.mass * cubic_weight(0.0, config.horizon));
+        y.size(), config.mass * configured_cubic_weight(config, 0.0));
     for (const CurrentPairHessianCoefficient& coefficient :
          tape.current_pairs) {
         if (!coefficient.density_active) {
@@ -1080,7 +1118,7 @@ bool build_current_hessian_tape(
         const double radius = norm(
             y[coefficient.pair.i] - y[coefficient.pair.j]);
         const double contribution =
-            config.mass * cubic_weight(radius, config.horizon);
+            config.mass * configured_cubic_weight(config, radius);
         density[coefficient.pair.i] += contribution;
         density[coefficient.pair.j] += contribution;
     }
@@ -1245,12 +1283,12 @@ const std::vector<Vec3>& apply_hessian_with_workspace(
     if (config.kappa != 0.0) {
         workspace.density.resize(y.size());
         std::fill(workspace.density.begin(), workspace.density.end(),
-            config.mass * cubic_weight(0.0, config.horizon));
+            config.mass * configured_cubic_weight(config, 0.0));
         for (const ParticlePair pair : current_pairs) {
             const double radius = norm(y[pair.i] - y[pair.j]);
             if (radius <= config.horizon) {
                 const double contribution =
-                    config.mass * cubic_weight(radius, config.horizon);
+                    config.mass * configured_cubic_weight(config, radius);
                 workspace.density[pair.i] += contribution;
                 workspace.density[pair.j] += contribution;
             }
@@ -1274,7 +1312,7 @@ const std::vector<Vec3>& apply_hessian_with_workspace(
                 }
                 const Vec3 normal = displacement / radius;
                 const Vec3 pair_jacobian = config.mass / config.rest_density
-                    * cubic_gradient(radius, config.horizon) * normal;
+                    * configured_cubic_gradient(config, radius) * normal;
                 center_jacobian += pair_jacobian;
                 workspace.neighbor_jacobian[slot] = -pair_jacobian;
             }
@@ -1320,8 +1358,8 @@ const std::vector<Vec3>& apply_hessian_with_workspace(
                 const Vec3 pair = config.kappa * compression * config.mass
                     / config.rest_density
                     * radial_hessian_product(normal,
-                        cubic_second_derivative(radius, config.horizon),
-                        cubic_gradient(radius, config.horizon) / radius,
+                        configured_cubic_second_derivative(config, radius),
+                        configured_cubic_gradient(config, radius) / radius,
                         relative_direction);
                 workspace.result[center] += pair;
                 workspace.result[neighbor] += -pair;
@@ -1339,7 +1377,7 @@ const std::vector<Vec3>& apply_hessian_with_workspace(
         const Vec3 relative_direction =
             direction[pair_index.i] - direction[pair_index.j];
         const double scale = config.mass
-            * (-cubic_gradient(radius, config.horizon))
+            * (-configured_cubic_gradient(config, radius))
             / (config.rest_density * config.time_step);
         const Vec3 pair = scale
             * (config.lambda * project_normal(relative_direction, normal)
@@ -1394,13 +1432,13 @@ std::vector<Mat3> block_preconditioner(
 
     if (config.kappa != 0.0) {
         std::vector<double> density(
-            y.size(), config.mass * cubic_weight(0.0, config.horizon));
+            y.size(), config.mass * configured_cubic_weight(config, 0.0));
         for (std::size_t i = 0; i < y.size(); ++i) {
             for (std::size_t j = i + 1; j < y.size(); ++j) {
                 const double radius = norm(y[i] - y[j]);
                 if (radius <= config.horizon) {
                     const double contribution =
-                        config.mass * cubic_weight(radius, config.horizon);
+                        config.mass * configured_cubic_weight(config, radius);
                     density[i] += contribution;
                     density[j] += contribution;
                 }
@@ -1421,7 +1459,7 @@ std::vector<Mat3> block_preconditioner(
                     continue;
                 }
                 const Vec3 pair_jacobian = config.mass / config.rest_density
-                    * cubic_gradient(radius, config.horizon)
+                    * configured_cubic_gradient(config, radius)
                     * (displacement / radius);
                 jacobian[center] += pair_jacobian;
                 jacobian[neighbor] += -pair_jacobian;
@@ -1443,7 +1481,7 @@ std::vector<Mat3> block_preconditioner(
             const Mat3 normal_projection = outer(normal, normal);
             const Mat3 tangent_projection = Mat3::identity() - normal_projection;
             const double scale = config.mass
-                * (-cubic_gradient(radius, config.horizon))
+                * (-configured_cubic_gradient(config, radius))
                 / (config.rest_density * config.time_step);
             const Mat3 curvature = scale
                 * (2.0 * config.mu * tangent_projection
@@ -1612,13 +1650,13 @@ SolveResult solve_sissm(
         std::vector<Vec3> source(y.size());
 
         std::vector<double> density(
-            y.size(), config.mass * cubic_weight(0.0, config.horizon));
+            y.size(), config.mass * configured_cubic_weight(config, 0.0));
         for (std::size_t i = 0; i < y.size(); ++i) {
             for (std::size_t j = i + 1; j < y.size(); ++j) {
                 const double radius = norm(y[i] - y[j]);
                 if (radius <= config.horizon) {
                     const double contribution =
-                        config.mass * cubic_weight(radius, config.horizon);
+                        config.mass * configured_cubic_weight(config, radius);
                     density[i] += contribution;
                     density[j] += contribution;
                 }
@@ -1640,7 +1678,7 @@ SolveResult solve_sissm(
                 }
                 const double a = config.kappa * config.time_step * config.time_step
                     / config.rest_density
-                    * cubic_gradient(radius, config.horizon) / radius;
+                    * configured_cubic_gradient(config, radius) / radius;
                 const double positive_diagonal = -a;
                 source[center] += -a * y[neighbor]
                     + density_ratio * a * (y[neighbor] - y[center]);
@@ -1664,7 +1702,7 @@ SolveResult solve_sissm(
                 const Mat3 normal_projection = outer(normal, normal);
                 const Mat3 tangent_projection = Mat3::identity() - normal_projection;
                 const double scale = config.time_step
-                    * (-cubic_gradient(radius, config.horizon))
+                    * (-configured_cubic_gradient(config, radius))
                     / config.rest_density;
                 const Mat3 pair_matrix = scale
                     * (2.0 * config.mu * tangent_projection
@@ -1787,8 +1825,8 @@ Vec3 average(const std::vector<Vec3>& values) {
 
 double pair_density(double distance, const Config& config) {
     return config.mass
-        * (cubic_weight(0.0, config.horizon)
-            + cubic_weight(distance, config.horizon));
+        * (configured_cubic_weight(config, 0.0)
+            + configured_cubic_weight(config, distance));
 }
 
 bool descent_passed(const SolveResult& solve_result) {
@@ -1926,11 +1964,11 @@ CombinedFixture combined_fixture() {
         {-0.3, -0.2, -0.2},
     };
     double density = fixture.config.mass
-        * cubic_weight(0.0, fixture.config.horizon);
+        * configured_cubic_weight(fixture.config, 0.0);
     for (std::size_t j = 1; j < fixture.x.size(); ++j) {
         density += fixture.config.mass
-            * cubic_weight(norm(fixture.x[0] - fixture.x[j]),
-                fixture.config.horizon);
+            * configured_cubic_weight(
+                fixture.config, norm(fixture.x[0] - fixture.x[j]));
     }
     fixture.config.rest_density = density / 1.1;
     return fixture;
@@ -2009,6 +2047,30 @@ struct SpectralCase {
     double maximum_eigenvalue = 0.0;
     double positive_condition_estimate = 0.0;
 };
+
+double spectral_directional_gradient_error(const SpectralFixture& fixture) {
+    std::vector<Vec3> direction = fixture.direction;
+    const double direction_scale = vector_norm(direction);
+    for (Vec3& value : direction) {
+        value = value / direction_scale;
+    }
+    const std::vector<Vec3> y =
+        predict(fixture.config, fixture.x, fixture.velocity);
+    const Evaluation base = evaluate(fixture.config, fixture.x, y, y);
+    const double epsilon = fixture.config.spacing * 1.0e-7;
+    std::vector<Vec3> plus = y;
+    std::vector<Vec3> minus = y;
+    for (std::size_t i = 0; i < direction.size(); ++i) {
+        plus[i] += epsilon * direction[i];
+        minus[i] += -epsilon * direction[i];
+    }
+    const double finite_difference =
+        (evaluate(fixture.config, fixture.x, y, plus).total
+            - evaluate(fixture.config, fixture.x, y, minus).total)
+        / (2.0 * epsilon);
+    const double analytic = vector_dot(base.gradient, direction);
+    return relative_error(finite_difference, analytic);
+}
 
 std::vector<int> branch_signature(
     const Config& config, const std::vector<Vec3>& y) {
@@ -2312,6 +2374,86 @@ std::array<SpectralFixture, 4> spectral_fixtures() {
         {0.23, -0.31, 0.17}, {-0.37, 0.19, 0.29},
     };
     return {pressure, combined, repulsive, attractive};
+}
+
+std::array<SpectralFixture, 6> normalized_spectral_fixtures() {
+    const Config defaults;
+    const double kernel_scale = reference_lattice_kernel_scale(
+        defaults.spacing, defaults.horizon);
+
+    SpectralFixture pressure;
+    pressure.name = "normalized_compressed_pair";
+    pressure.config.kappa = 500.0;
+    pressure.config.kernel_scale = kernel_scale;
+    pressure.x = {{-0.0225, 0.0, 0.0}, {0.0225, 0.0, 0.0}};
+    pressure.velocity.resize(2);
+    pressure.config.rest_density =
+        pair_density(norm(pressure.x[0] - pressure.x[1]), pressure.config) / 1.1;
+    pressure.direction = {
+        {0.31, -0.27, 0.11}, {-0.19, 0.41, -0.23},
+    };
+
+    SpectralFixture normal;
+    normal.name = "normalized_normal_viscosity_pair";
+    normal.config.lambda = 100.0;
+    normal.config.kernel_scale = kernel_scale;
+    normal.x = {{-0.04, 0.0, 0.0}, {0.04, 0.0, 0.0}};
+    normal.velocity = {{1.0, 0.0, 0.0}, {-1.0, 0.0, 0.0}};
+    normal.direction = {
+        {0.23, -0.31, 0.17}, {-0.37, 0.19, 0.29},
+    };
+
+    SpectralFixture tangent;
+    tangent.name = "normalized_tangent_viscosity_pair";
+    tangent.config.mu = 100.0;
+    tangent.config.kernel_scale = kernel_scale;
+    tangent.x = normal.x;
+    tangent.velocity = {{0.0, 1.0, 0.0}, {0.0, -1.0, 0.0}};
+    tangent.direction = normal.direction;
+
+    SpectralFixture repulsive;
+    repulsive.name = "normalized_surface_repulsive_pair";
+    repulsive.config.gamma = 1000.0;
+    repulsive.config.kernel_scale = kernel_scale;
+    const double repulsive_distance = 0.8 * repulsive.config.spacing;
+    repulsive.x = {
+        {-0.5 * repulsive_distance, 0.0, 0.0},
+        {0.5 * repulsive_distance, 0.0, 0.0},
+    };
+    repulsive.velocity.resize(2);
+    repulsive.direction = normal.direction;
+
+    SpectralFixture attractive;
+    attractive.name = "normalized_surface_attractive_pair";
+    attractive.config.gamma = 1000.0;
+    attractive.config.kernel_scale = kernel_scale;
+    const double attractive_distance = 1.7 * attractive.config.spacing;
+    attractive.x = {
+        {-0.5 * attractive_distance, 0.0, 0.0},
+        {0.5 * attractive_distance, 0.0, 0.0},
+    };
+    attractive.velocity.resize(2);
+    attractive.direction = normal.direction;
+
+    const CombinedFixture combined_source = combined_fixture();
+    SpectralFixture combined;
+    combined.name = "normalized_combined_tetrahedron";
+    combined.config = combined_source.config;
+    combined.config.kernel_scale = kernel_scale;
+    combined.x = combined_source.x;
+    combined.velocity = combined_source.velocity;
+    double center_density = combined.config.mass
+        * configured_cubic_weight(combined.config, 0.0);
+    for (std::size_t j = 1; j < combined.x.size(); ++j) {
+        center_density += combined.config.mass * configured_cubic_weight(
+            combined.config, norm(combined.x[0] - combined.x[j]));
+    }
+    combined.config.rest_density = center_density / 1.1;
+    combined.direction = {
+        {0.31, -0.27, 0.11}, {-0.19, 0.41, -0.23},
+        {0.17, 0.07, -0.37}, {-0.29, -0.21, 0.49},
+    };
+    return {pressure, normal, tangent, repulsive, attractive, combined};
 }
 
 void append_spectral_case(std::ostringstream& output, const SpectralCase& value) {
@@ -4889,6 +5031,182 @@ void append_hessian_tape_tournament_case(
     output << '}';
 }
 
+struct NormalizedSpectralControl {
+    SpectralCase spectral;
+    double gradient_error = 0.0;
+    double momentum_residual = 0.0;
+    bool passed = false;
+};
+
+struct NormalizedDensityControl {
+    std::size_t particles = 0;
+    std::size_t pairs = 0;
+    double kernel_scale = 0.0;
+    double reference_center_ratio = 0.0;
+    double compressed_center_ratio = 0.0;
+    int compressed_active_particles = 0;
+    double momentum_residual = 0.0;
+    bool passed = false;
+};
+
+struct NormalizedTrustControl {
+    TrustSolveResult pressure;
+    TrustSolveResult combined;
+    bool passed = false;
+};
+
+struct NormalizedTapeControl {
+    NeighborhoodTrustResult a1;
+    NeighborhoodTrustResult a2;
+    bool exact = false;
+    bool capacity_valid = false;
+    bool passed = false;
+};
+
+NormalizedDensityControl normalized_density_control() {
+    constexpr int side = 7;
+    Config config;
+    config.kappa = 1226.25;
+    config.kernel_scale = reference_lattice_kernel_scale(
+        config.spacing, config.horizon);
+    std::vector<Vec3> reference;
+    const double center = 0.5 * static_cast<double>(side - 1);
+    for (int z = 0; z < side; ++z) {
+        for (int y = 0; y < side; ++y) {
+            for (int x = 0; x < side; ++x) {
+                reference.push_back({
+                    (static_cast<double>(x) - center) * config.spacing,
+                    (static_cast<double>(y) - center) * config.spacing,
+                    (static_cast<double>(z) - center) * config.spacing,
+                });
+            }
+        }
+    }
+    std::vector<Vec3> compressed = reference;
+    for (Vec3& position : compressed) {
+        position = 0.99 * position;
+    }
+    const std::size_t center_index =
+        static_cast<std::size_t>((side / 2) * side * side
+            + (side / 2) * side + side / 2);
+    const std::vector<double> reference_density =
+        densities(config, reference);
+    const std::vector<double> compressed_density =
+        densities(config, compressed);
+    const Evaluation compressed_evaluation =
+        evaluate(config, reference, compressed, compressed);
+    NormalizedDensityControl result;
+    result.particles = reference.size();
+    result.pairs = all_pairs_inside(compressed, config.horizon).size();
+    result.kernel_scale = config.kernel_scale;
+    result.reference_center_ratio =
+        reference_density[center_index] / config.rest_density;
+    result.compressed_center_ratio =
+        compressed_density[center_index] / config.rest_density;
+    result.momentum_residual =
+        compressed_evaluation.internal_momentum_residual;
+    for (double density : compressed_density) {
+        if (density > config.rest_density) {
+            ++result.compressed_active_particles;
+        }
+    }
+    result.passed = result.particles <= 512
+        && result.pairs <= 80 * result.particles
+        && relative_error(result.reference_center_ratio, 1.0) <= 1.0e-12
+        && result.compressed_center_ratio > 1.0
+        && result.compressed_active_particles > 0
+        && compressed_evaluation.finite
+        && compressed_evaluation.pressure > 0.0
+        && result.momentum_residual <= CONSERVATION_LIMIT;
+    return result;
+}
+
+NormalizedTrustControl normalized_trust_control(
+    const std::array<SpectralFixture, 6>& fixtures) {
+    NormalizedTrustControl result;
+    result.pressure = solve_trust_region(
+        fixtures[0].config, fixtures[0].x, fixtures[0].velocity,
+        true, true);
+    result.combined = solve_trust_region(
+        fixtures[5].config, fixtures[5].x, fixtures[5].velocity,
+        true, true);
+    const auto valid = [](const TrustSolveResult& solve) {
+        return solve.succeeded && solve.monotonic && solve.failure.empty()
+            && solve.accepted_trials > 0 && solve.rejected_trials <= 8
+            && solve.minimum_accepted_ratio >= 0.1
+            && solve.final.finite
+            && solve.final.internal_momentum_residual <= CONSERVATION_LIMIT;
+    };
+    result.passed = valid(result.pressure) && valid(result.combined);
+    return result;
+}
+
+NormalizedTapeControl normalized_tape_control() {
+    NeighborhoodFixture fixture = make_neighborhood_scale_fixture(8);
+    fixture.config.kernel_scale = reference_lattice_kernel_scale(
+        fixture.config.spacing, fixture.config.horizon);
+    fixture.config.rest_density *= fixture.config.kernel_scale;
+    NormalizedTapeControl result;
+    result.a1 = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity,
+        false, true, false, true, false, false);
+    result.a2 = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity,
+        false, true, false, true, true, true);
+    result.exact = exact_neighborhood_trust_result(result.a1, result.a2)
+        && result.a2.hessian_tape_hvp_checks
+            == result.a2.solve.outer_trials;
+    result.capacity_valid = result.a2.maximum_pairs
+            <= 80 * fixture.x.size()
+        && result.a2.maximum_hessian_tape_bytes
+            <= hessian_tape_storage_limit(
+                fixture.x.size(), result.a2.maximum_pairs)
+        && result.a2.maximum_hessian_tape_bytes
+            <= result.a2.hessian_tape_capacity_bytes;
+    result.passed = result.exact && result.capacity_valid
+        && result.a1.solve.succeeded && result.a2.solve.succeeded;
+    return result;
+}
+
+void append_normalized_spectral_control(
+    std::ostringstream& output, const NormalizedSpectralControl& value) {
+    output << "{\"name\":\"" << value.spectral.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"gradient_error\":" << value.gradient_error
+           << ",\"momentum_residual\":" << value.momentum_residual
+           << ",\"hvp_fd_error\":" << value.spectral.hvp_fd_error
+           << ",\"symmetry_error\":" << value.spectral.symmetry_error
+           << ",\"dense_product_error\":"
+           << value.spectral.dense_product_error
+           << ",\"active_pressure_count\":"
+           << value.spectral.active_pressure_count
+           << ",\"active_margin\":" << value.spectral.active_margin
+           << ",\"minimum_eigenvalue\":"
+           << value.spectral.minimum_eigenvalue
+           << ",\"maximum_eigenvalue\":"
+           << value.spectral.maximum_eigenvalue << '}';
+}
+
+void append_normalized_trust_result(
+    std::ostringstream& output, const TrustSolveResult& value) {
+    output << "{\"succeeded\":" << (value.succeeded ? "true" : "false")
+           << ",\"failure\":\"" << value.failure << '"'
+           << ",\"stop\":\"" << value.convergence_stop << '"'
+           << ",\"outer_trials\":" << value.outer_trials
+           << ",\"accepted_trials\":" << value.accepted_trials
+           << ",\"rejected_trials\":" << value.rejected_trials
+           << ",\"objective_evaluations\":" << value.objective_evaluations
+           << ",\"hvp_calls\":" << value.hvp_calls
+           << ",\"minimum_accepted_ratio\":"
+           << value.minimum_accepted_ratio
+           << ",\"maximum_accepted_ratio\":"
+           << value.maximum_accepted_ratio
+           << ",\"final_objective\":" << value.final.total
+           << ",\"final_gradient_norm\":" << value.final.gradient_norm
+           << ",\"momentum_residual\":"
+           << value.final.internal_momentum_residual << '}';
+}
+
 void append_case(std::ostringstream& output, const CaseResult& value) {
     output << "{\"name\":\"" << value.name << "\",\"status\":\""
            << (value.passed ? "PASS" : "FAIL")
@@ -6256,6 +6574,131 @@ ReferenceSolverReport run_hessian_tape_controls() {
            << ",\"runtime_authority\":false"
            << ",\"result_sha256\":\"" << sha256_hex(result_material)
            << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_normalized_kernel_reclosure_controls() {
+    const ReferenceSolverReport dimensional =
+        run_dimensional_profile_controls();
+    const std::array<SpectralFixture, 6> fixtures =
+        normalized_spectral_fixtures();
+    std::array<NormalizedSpectralControl, 6> spectral;
+    bool spectral_passed = true;
+    for (std::size_t i = 0; i < fixtures.size(); ++i) {
+        spectral[i].spectral = analyze_spectral_fixture(fixtures[i]);
+        spectral[i].gradient_error =
+            spectral_directional_gradient_error(fixtures[i]);
+        const std::vector<Vec3> y = predict(
+            fixtures[i].config, fixtures[i].x, fixtures[i].velocity);
+        spectral[i].momentum_residual = evaluate(
+            fixtures[i].config, fixtures[i].x, y, y)
+            .internal_momentum_residual;
+        spectral[i].passed = spectral[i].spectral.passed
+            && spectral[i].gradient_error <= DERIVATIVE_LIMIT
+            && spectral[i].momentum_residual <= CONSERVATION_LIMIT;
+        spectral_passed = spectral_passed && spectral[i].passed;
+    }
+    const NormalizedDensityControl density = normalized_density_control();
+    const NormalizedTrustControl trust = normalized_trust_control(fixtures);
+    const NormalizedTapeControl tape = normalized_tape_control();
+    const Config defaults;
+    const double kernel_scale = reference_lattice_kernel_scale(
+        defaults.spacing, defaults.horizon);
+    const bool scale_valid = relative_error(
+        kernel_scale, 7.985668078772472) <= 1.0e-14;
+    const bool passed = dimensional.passed && scale_valid && spectral_passed
+        && density.passed && trust.passed && tape.passed;
+    std::string first_failure;
+    if (!dimensional.passed) {
+        first_failure = "NSR3B0R_DIMENSIONAL_PARENT";
+    } else if (!scale_valid) {
+        first_failure = "NSR3B0R_KERNEL_SCALE";
+    } else if (!spectral_passed) {
+        for (const NormalizedSpectralControl& value : spectral) {
+            if (!value.passed) {
+                first_failure = "NSR3B0R_SPECTRAL:" + value.spectral.name;
+                break;
+            }
+        }
+    } else if (!density.passed) {
+        first_failure = "NSR3B0R_PHYSICAL_DENSITY";
+    } else if (!trust.passed) {
+        first_failure = "NSR3B0R_TRUST";
+    } else if (!tape.passed) {
+        first_failure = "NSR3B0R_TAPE";
+    }
+
+    std::ostringstream result_material;
+    result_material << std::setprecision(17)
+                    << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+                    << kernel_scale << '|' << density.reference_center_ratio
+                    << '|' << density.compressed_center_ratio;
+    for (const NormalizedSpectralControl& value : spectral) {
+        result_material << '|' << value.spectral.name << ':'
+                        << value.gradient_error << ':'
+                        << value.spectral.hvp_fd_error << ':'
+                        << value.spectral.dense_product_error;
+    }
+    result_material << '|' << trust.pressure.final.total << ':'
+                    << trust.pressure.hvp_calls << '|'
+                    << trust.combined.final.total << ':'
+                    << trust.combined.hvp_calls << '|'
+                    << hash_neighborhood_trust_state(tape.a2);
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b0r_normalized.v1\""
+           << ",\"identity\":\"nuv-variational-fcr2\""
+           << ",\"solver_identity\":\"nuv-newton-krylov-r0\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"candidate\":\"lattice-normalized-cubic-v1\""
+           << ",\"kernel_scale\":" << kernel_scale
+           << ",\"dimensional_parent_passed\":"
+           << (dimensional.passed ? "true" : "false")
+           << ",\"spectral_controls\":[";
+    for (std::size_t i = 0; i < spectral.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_normalized_spectral_control(report, spectral[i]);
+    }
+    report << "]"
+           << ",\"physical_density\":{\"status\":\""
+           << (density.passed ? "PASS" : "FAIL")
+           << "\",\"particles\":" << density.particles
+           << ",\"pairs\":" << density.pairs
+           << ",\"reference_center_ratio\":"
+           << density.reference_center_ratio
+           << ",\"compressed_center_ratio\":"
+           << density.compressed_center_ratio
+           << ",\"compressed_active_particles\":"
+           << density.compressed_active_particles
+           << ",\"momentum_residual\":" << density.momentum_residual << "}"
+           << ",\"trust\":{\"status\":\""
+           << (trust.passed ? "PASS" : "FAIL")
+           << "\",\"pressure\":";
+    append_normalized_trust_result(report, trust.pressure);
+    report << ",\"combined\":";
+    append_normalized_trust_result(report, trust.combined);
+    report << "}"
+           << ",\"tape\":{\"status\":\""
+           << (tape.passed ? "PASS" : "FAIL")
+           << "\",\"exact\":" << (tape.exact ? "true" : "false")
+           << ",\"capacity_valid\":"
+           << (tape.capacity_valid ? "true" : "false")
+           << ",\"particles\":512"
+           << ",\"pairs\":" << tape.a2.maximum_pairs
+           << ",\"outer_trials\":" << tape.a2.solve.outer_trials
+           << ",\"hvp_calls\":" << tape.a2.solve.hvp_calls
+           << ",\"tape_hvp_checks\":" << tape.a2.hessian_tape_hvp_checks
+           << ",\"state_sha256\":\""
+           << hash_neighborhood_trust_state(tape.a2) << "\"}"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"selected\":" << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(result_material.str()) << "\"}";
     return {passed, report.str()};
 }
 
