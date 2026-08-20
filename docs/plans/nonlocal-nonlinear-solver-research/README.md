@@ -296,6 +296,12 @@ objective evaluation, so joint fluid/support cell neighborhoods are mandatory
 before nominal execution. The bounded pressure-only corpus is now frozen in
 [B4B](03b4b-tiny-pressure-corpus-contract.md): supported-column startup and a
 separate released-block/floor-impact phase, each with fixed `48/96/192`
-references and no viscosity/surface term. Execute B4B next; viscosity, surface
-tension, internal aperture, nominal execution, CUDA and runtime remain
-blocked.
+references and no viscosity/surface term. Viscosity, surface tension, internal
+aperture, nominal execution, CUDA and runtime remain blocked.
+B4B fails reproducibly at the first P1 fixed-96 substep; see the
+[dated evidence](../../development/nonlocal-nsr3b4b-tiny-pressure-corpus-evidence-2026-08-21.md).
+The adaptive trajectory alone is not accepted. Its 96/192 references expose a
+unilateral pressure-topology transition below the inherited energy floor when
+ghost support and a post-solve hard wall both represent the same boundary.
+Preserve all thresholds and research constrained contact KKT stationarity
+before assigning a new corpus identity.

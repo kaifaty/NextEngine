@@ -1,6 +1,6 @@
 # NSR3-B4B tiny pressure-corpus research -- 2026-08-21
 
-Status: `COMPLETE / TWO_PHASE_PRESSURE_CORPUS_SELECTED / EXECUTION_PENDING`
+Status: `COMPLETE / TWO_PHASE_PRESSURE_CORPUS_SELECTED / EXECUTED_FAIL`
 
 ## Question
 
@@ -76,3 +76,18 @@ Freeze and execute
 with `lambda=mu=gamma=0` and the unchanged B3R solver. Preserve the first
 failure; do not change a threshold after observing either trajectory.
 
+## Execution consequence
+
+B4B fails before P2: the P1 fixed-96 and fixed-192 references stop on their
+first substep at `REACTION_BELOW_ENERGY_RESOLUTION`. At the smaller step the
+post-solve composition first creates an infinitesimal ghost-pressure active
+set below the hard wall, then tries to remove the same penetration with a
+separate sweep. The proposed floor correction crosses the unilateral
+pressure active set, so the bounded unchanged-topology residual rule correctly
+refuses it.
+
+This is not evidence for changing `kappa`, the reference ladder or the energy
+floor. It exposes a missing constrained-contact stationarity equation. The
+next research question is whether a bound-constrained KKT solve can own the
+wall reaction while retaining ghost pressure support, displacement ownership
+and the complete impulse ledger.

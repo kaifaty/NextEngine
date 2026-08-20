@@ -1,6 +1,6 @@
 # NSR3-B4B -- tiny pressure-only physical corpus contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / NOMINAL_CORPUS_BLOCKED`
+Status: `EXECUTED_FAIL / P1_REFERENCE_RUN / NOMINAL_CORPUS_BLOCKED`
 
 Parent B4A semantic SHA-256 is
 `5e069b7e7c86da39aef944d31fc184a564eaa8e794c54f9e63d0e855852567b1`;
@@ -25,6 +25,11 @@ macro frame=1/240 s, lambda=mu=gamma=0.
 ```
 
 No coefficient or support normalization is selected by this corpus.
+
+Execution evidence is recorded in
+[the dated B4B report](../../development/nonlocal-nsr3b4b-tiny-pressure-corpus-evidence-2026-08-21.md).
+The frozen identity remains unchanged and failed at the first P1 fixed-96
+substep; P2 was therefore not executed.
 
 ## Fixture P1 -- supported-column startup
 
@@ -125,4 +130,3 @@ fluid/support neighborhood plus canonical-runner design. It does not authorize
 nominal hydro/dam-break, external-reference comparison, equilibrium, internal
 aperture, viscosity, surface tension, CUDA, performance, runtime or production
 integration.
-

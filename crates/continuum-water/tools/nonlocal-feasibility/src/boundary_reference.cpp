@@ -1064,6 +1064,12 @@ struct SmokeFixture {
     std::vector<Vec3> boundary;
     Vec3 gravity{0.0, -9.81, 0.0};
     std::array<bool, 3> lower_contact{};
+    bool closed_box_contact = false;
+    Vec3 contact_low{RADIUS, RADIUS, RADIUS};
+    Vec3 contact_high{RADIUS, RADIUS, RADIUS};
+    int macro_frames = SMOKE_FRAMES;
+    std::size_t maximum_participants = 512U;
+    std::size_t maximum_pairs = 0U;
     std::string geometry_sha256;
     double rejected_anchor_density_ratio = 0.0;
 };
@@ -1166,6 +1172,27 @@ struct SmokeRun {
     Vec3 gravity_impulse;
     double maximum_ledger_absolute = 0.0;
     std::vector<std::pair<std::size_t, int>> terminal_contacts;
+    double maximum_mechanical_energy = -std::numeric_limits<double>::infinity();
+    double maximum_positive_density_strain = 0.0;
+    double maximum_speed = 0.0;
+    int precontact_steps = 0;
+    int precontact_pressure_violations = 0;
+    double maximum_precontact_support_reaction = 0.0;
+    double maximum_precontact_position_error = 0.0;
+    double maximum_precontact_velocity_error = 0.0;
+    double maximum_precontact_velocity_spread = 0.0;
+    double failure_reaction_defect = 0.0;
+    double failure_reaction_limit = 0.0;
+    double failure_predicted_reduction = 0.0;
+    double failure_energy_floor = 0.0;
+    double failure_scaled_residual = 0.0;
+    double failure_step_dx = 0.0;
+    int failure_floor_merit_trials = 0;
+    int failure_floor_merit_accepts = 0;
+    double failure_floor_trial_defect = 0.0;
+    double failure_floor_trial_limit = 0.0;
+    double failure_floor_residual_ratio = 0.0;
+    bool failure_floor_topology_exact = false;
 };
 
 struct SmokeGate {
@@ -1191,6 +1218,8 @@ struct SmokeFrame {
     int executed_substeps = 0;
     int discarded_substeps = 0;
     SmokeGate gate;
+    std::vector<Vec3> position;
+    std::vector<Vec3> velocity;
 };
 
 struct SmokeController {
@@ -1216,6 +1245,7 @@ struct SmokeController {
     bool floor_conditions_exact = true;
     double maximum_penetration = 0.0;
     double maximum_ledger_residual = 0.0;
+    double maximum_support_reaction_closure = 0.0;
     double maximum_active_mixed_ratio = 0.0;
     double maximum_inactive_bound_ratio = 0.0;
     double cumulative_fp_bound = 0.0;
@@ -1227,6 +1257,21 @@ struct SmokeController {
     int failure_contact_events = 0;
     double first_contact_time = std::numeric_limits<double>::infinity();
     std::vector<std::pair<std::size_t, int>> terminal_contacts;
+    int accepted_active_steps = 0;
+    int accepted_inactive_steps = 0;
+    std::size_t maximum_pairs = 0;
+    Vec3 support_reaction;
+    Vec3 contact_reaction;
+    Vec3 gravity_impulse;
+    double maximum_mechanical_energy = -std::numeric_limits<double>::infinity();
+    double maximum_positive_density_strain = 0.0;
+    double maximum_speed = 0.0;
+    int precontact_steps = 0;
+    int precontact_pressure_violations = 0;
+    double maximum_precontact_support_reaction = 0.0;
+    double maximum_precontact_position_error = 0.0;
+    double maximum_precontact_velocity_error = 0.0;
+    double maximum_precontact_velocity_spread = 0.0;
 };
 
 struct SmokeReference {
@@ -1998,6 +2043,44 @@ SweepResult sweep_lower_planes_owned(
     return result;
 }
 
+SweepResult sweep_box_owned(
+    Vec3 start, Vec3 smooth_displacement, Vec3 low, Vec3 high,
+    double time_step);
+
+double rms_difference(
+    const std::vector<Vec3>& lhs, const std::vector<Vec3>& rhs);
+
+double mechanical_energy(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity) {
+    double potential = 0.0;
+    for (Vec3 value : position) {
+        potential += MASS * (-fixture.gravity.y) * value.y;
+    }
+    return kinetic_energy(velocity)
+        + evaluate(position, fixture.boundary).energy + potential;
+}
+
+double maximum_positive_density_strain(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& position) {
+    const Evaluation state = evaluate(position, fixture.boundary);
+    double result = 0.0;
+    for (double value : state.density) {
+        result = std::max(result, value / REST_DENSITY - 1.0);
+    }
+    return result;
+}
+
+double maximum_speed(const std::vector<Vec3>& velocity) {
+    double result = 0.0;
+    for (Vec3 value : velocity) {
+        result = std::max(result, norm(value));
+    }
+    return result;
+}
+
 SmokeStep execute_smoke_step(
     const SmokeFixture& fixture,
     const std::vector<Vec3>& position,
@@ -2056,12 +2139,18 @@ SmokeStep execute_smoke_step(
             reconstruction_defect += MASS
                 * ((predicted - position[i]) / time_step - v_star);
         }
-        const SweepResult contact = owned_displacement
-            ? sweep_lower_planes_owned(position[i],
-                result.smooth.displacement[i],
-                fixture.lower_contact, time_step)
-            : sweep_lower_planes(position[i], result.smooth.position[i],
-                fixture.lower_contact, time_step);
+        const SweepResult contact = fixture.closed_box_contact
+            ? sweep_box_owned(position[i],
+                owned_displacement
+                    ? result.smooth.displacement[i]
+                    : result.smooth.position[i] - position[i],
+                fixture.contact_low, fixture.contact_high, time_step)
+            : (owned_displacement
+                ? sweep_lower_planes_owned(position[i],
+                    result.smooth.displacement[i],
+                    fixture.lower_contact, time_step)
+                : sweep_lower_planes(position[i], result.smooth.position[i],
+                    fixture.lower_contact, time_step));
         result.position[i] = contact.position;
         result.velocity[i] = contact.velocity;
         result.displacement[i] = owned_displacement
@@ -2173,6 +2262,14 @@ SmokeRun run_smoke_interval(
     result.position = start_position;
     result.velocity = start_velocity;
     result.substeps = substeps;
+    result.maximum_mechanical_energy = mechanical_energy(
+        fixture, result.position, result.velocity);
+    result.maximum_positive_density_strain =
+        maximum_positive_density_strain(fixture, result.position);
+    result.maximum_speed = maximum_speed(result.velocity);
+    std::vector<Vec3> expected_position = start_position;
+    std::vector<Vec3> expected_velocity = start_velocity;
+    bool precontact = true;
     const double time_step = interval_duration / static_cast<double>(substeps);
     for (int substep = 0; substep < substeps; ++substep) {
         const SmokeStep step = execute_smoke_step(
@@ -2194,12 +2291,44 @@ SmokeRun run_smoke_interval(
             result.negative_curvature_exits =
                 step.smooth.negative_curvature_exits;
             result.floor_stops = step.smooth.floor_stops;
+            result.failure_reaction_defect =
+                step.smooth.reaction_stationarity_defect;
+            result.failure_reaction_limit =
+                step.smooth.reaction_mixed_limit;
+            result.failure_predicted_reduction =
+                step.smooth.last_predicted_reduction;
+            result.failure_energy_floor =
+                step.smooth.numerical_energy_floor;
+            result.failure_scaled_residual =
+                step.smooth.final_scaled_displacement_residual;
+            result.failure_step_dx = vector_norm(
+                step.smooth.last_step) / SPACING;
+            result.failure_floor_merit_trials =
+                step.smooth.floor_merit_trials;
+            result.failure_floor_merit_accepts =
+                step.smooth.floor_merit_accepts;
+            result.failure_floor_trial_defect =
+                step.smooth.floor_trial_reaction_defect;
+            result.failure_floor_trial_limit =
+                step.smooth.floor_trial_reaction_limit;
+            result.failure_floor_residual_ratio =
+                step.smooth.floor_trial_residual_ratio;
+            result.failure_floor_topology_exact =
+                step.smooth.floor_trial_topology_exact;
             result.failure = "SUBSTEP_" + std::to_string(substep)
                 + ':' + step.failure;
             return result;
         }
         result.position = step.position;
         result.velocity = step.velocity;
+        result.maximum_mechanical_energy = std::max(
+            result.maximum_mechanical_energy,
+            mechanical_energy(fixture, result.position, result.velocity));
+        result.maximum_positive_density_strain = std::max(
+            result.maximum_positive_density_strain,
+            maximum_positive_density_strain(fixture, result.position));
+        result.maximum_speed = std::max(
+            result.maximum_speed, maximum_speed(result.velocity));
         result.outer_trials += step.smooth.outer_trials;
         result.rejected_trials += step.smooth.rejected_trials;
         result.hvp_calls += step.smooth.hvp_calls;
@@ -2251,6 +2380,32 @@ SmokeRun run_smoke_interval(
         result.contact_reaction += step.contact_reaction;
         result.gravity_impulse += step.gravity_impulse;
         result.terminal_contacts = step.contact_features;
+        if (precontact && step.contact_features.empty()) {
+            for (std::size_t i = 0; i < expected_position.size(); ++i) {
+                expected_velocity[i] += time_step * fixture.gravity;
+                expected_position[i] += time_step * expected_velocity[i];
+            }
+            ++result.precontact_steps;
+            result.precontact_pressure_violations += active ? 1 : 0;
+            result.maximum_precontact_support_reaction = std::max(
+                result.maximum_precontact_support_reaction,
+                norm(step.support_reaction));
+            result.maximum_precontact_position_error = std::max(
+                result.maximum_precontact_position_error,
+                rms_difference(result.position, expected_position));
+            result.maximum_precontact_velocity_error = std::max(
+                result.maximum_precontact_velocity_error,
+                rms_difference(result.velocity, expected_velocity));
+            const Vec3 mean_velocity = average_values(result.velocity);
+            for (Vec3 value : result.velocity) {
+                result.maximum_precontact_velocity_spread = std::max(
+                    result.maximum_precontact_velocity_spread,
+                    norm(value - mean_velocity));
+            }
+        }
+        if (!step.contact_features.empty()) {
+            precontact = false;
+        }
         if (!step.contact_features.empty()
             && !std::isfinite(result.first_contact_time)) {
             result.first_contact_time = interval_start
@@ -2258,10 +2413,13 @@ SmokeRun run_smoke_interval(
                     + step.earliest_contact_fraction) * time_step;
         }
     }
+    const std::size_t maximum_pairs = fixture.maximum_pairs > 0U
+        ? fixture.maximum_pairs
+        : 80U * (fixture.position.size() + fixture.boundary.size());
     result.passed = result.contact_events == result.cache_invalidations
-        && result.maximum_pairs <= 80U
-            * (fixture.position.size() + fixture.boundary.size())
-        && fixture.position.size() + fixture.boundary.size() <= 512U;
+        && result.maximum_pairs <= maximum_pairs
+        && fixture.position.size() + fixture.boundary.size()
+            <= fixture.maximum_participants;
     if (!result.passed) {
         result.failure = "RUN_CAPACITY_OR_EPOCH";
     }
@@ -2384,7 +2542,9 @@ SmokeController run_smoke_controller(
     SmokeController result;
     result.position = fixture.position;
     result.velocity = fixture.velocity;
-    for (int frame_index = 0; frame_index < SMOKE_FRAMES; ++frame_index) {
+    bool global_precontact = true;
+    for (int frame_index = 0; frame_index < fixture.macro_frames;
+         ++frame_index) {
         SmokeFrame frame;
         frame.frame = frame_index;
         const Evaluation frame_state = evaluate(
@@ -2488,9 +2648,48 @@ SmokeController run_smoke_controller(
         result.maximum_ledger_residual = std::max(
             result.maximum_ledger_residual,
             accepted.maximum_ledger_residual);
+        result.maximum_support_reaction_closure = std::max(
+            result.maximum_support_reaction_closure,
+            accepted.maximum_support_reaction_closure);
         result.first_contact_time = std::min(
             result.first_contact_time, accepted.first_contact_time);
         result.terminal_contacts = accepted.terminal_contacts;
+        result.accepted_active_steps += accepted.active_steps;
+        result.accepted_inactive_steps += accepted.inactive_steps;
+        result.maximum_pairs = std::max(
+            result.maximum_pairs, accepted.maximum_pairs);
+        result.support_reaction += accepted.support_reaction;
+        result.contact_reaction += accepted.contact_reaction;
+        result.gravity_impulse += accepted.gravity_impulse;
+        result.maximum_mechanical_energy = std::max(
+            result.maximum_mechanical_energy,
+            accepted.maximum_mechanical_energy);
+        result.maximum_positive_density_strain = std::max(
+            result.maximum_positive_density_strain,
+            accepted.maximum_positive_density_strain);
+        result.maximum_speed = std::max(
+            result.maximum_speed, accepted.maximum_speed);
+        if (global_precontact) {
+            result.precontact_steps += accepted.precontact_steps;
+            result.precontact_pressure_violations +=
+                accepted.precontact_pressure_violations;
+            result.maximum_precontact_support_reaction = std::max(
+                result.maximum_precontact_support_reaction,
+                accepted.maximum_precontact_support_reaction);
+            result.maximum_precontact_position_error = std::max(
+                result.maximum_precontact_position_error,
+                accepted.maximum_precontact_position_error);
+            result.maximum_precontact_velocity_error = std::max(
+                result.maximum_precontact_velocity_error,
+                accepted.maximum_precontact_velocity_error);
+            result.maximum_precontact_velocity_spread = std::max(
+                result.maximum_precontact_velocity_spread,
+                accepted.maximum_precontact_velocity_spread);
+            global_precontact = !std::isfinite(
+                accepted.first_contact_time);
+        }
+        frame.position = result.position;
+        frame.velocity = result.velocity;
         frame.passed = true;
         result.frames.push_back(frame);
     }
@@ -2508,8 +2707,8 @@ SmokeRun run_fixed_smoke(
     int substeps_per_frame,
     bool owned_residual_candidate = false) {
     return run_smoke_interval(fixture, fixture.position, fixture.velocity,
-        SMOKE_FRAMES * substeps_per_frame, 0.0,
-        SMOKE_FRAMES * SMOKE_FRAME_TIME, true,
+        fixture.macro_frames * substeps_per_frame, 0.0,
+        fixture.macro_frames * SMOKE_FRAME_TIME, true,
         owned_residual_candidate, owned_residual_candidate,
         owned_residual_candidate, owned_residual_candidate);
 }
@@ -5191,6 +5390,838 @@ SplitBoundaryReport run_closed_box_eligibility_controls() {
            << (passed ? "true" : "false")
            << ",\"physical_trajectory_execution_authorized\":false"
            << ",\"runtime_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr std::array<int, 3> B4B_REFERENCE_COUNTS = {48, 96, 192};
+
+SmokeFixture make_b4b_supported_column_fixture() {
+    SmokeFixture result;
+    result.name = "b4b-supported-column-startup";
+    result.position = make_lattice_fluid({4, 3, 4});
+    result.velocity.resize(result.position.size());
+    result.boundary = make_box_owned_shell({4, 6, 4}, 2);
+    result.closed_box_contact = true;
+    result.contact_low = {RADIUS, RADIUS, RADIUS};
+    result.contact_high = {0.2 - RADIUS, 0.3 - RADIUS, 0.2 - RADIUS};
+    result.macro_frames = 8;
+    result.maximum_participants = 1280U;
+    result.maximum_pairs = 160U * result.position.size();
+    result.geometry_sha256 = geometry_hash(result);
+    return result;
+}
+
+SmokeFixture make_b4b_released_block_fixture() {
+    SmokeFixture result;
+    result.name = "b4b-released-block-floor-impact";
+    constexpr std::array<double, 3> horizontal = {0.125, 0.175, 0.225};
+    constexpr std::array<double, 3> vertical = {0.035, 0.085, 0.135};
+    for (double z : horizontal) {
+        for (double y : vertical) {
+            for (double x : horizontal) {
+                result.position.push_back({x, y, z});
+            }
+        }
+    }
+    result.velocity.resize(result.position.size());
+    result.boundary = make_box_owned_shell({8, 8, 8}, 2);
+    result.closed_box_contact = true;
+    result.contact_low = {RADIUS, RADIUS, RADIUS};
+    result.contact_high = {0.4 - RADIUS, 0.4 - RADIUS, 0.4 - RADIUS};
+    result.macro_frames = 16;
+    result.maximum_participants = 1280U;
+    result.maximum_pairs = 160U * result.position.size();
+    result.geometry_sha256 = geometry_hash(result);
+    return result;
+}
+
+struct B4BAggregate {
+    Vec3 center;
+    Vec3 momentum_value;
+    double q99_height = 0.0;
+    double q99_front = 0.0;
+    double kinetic = 0.0;
+    double pressure = 0.0;
+    double gravitational = 0.0;
+    double mechanical = 0.0;
+    double maximum_density_ratio = 0.0;
+    double maximum_positive_strain = 0.0;
+    double maximum_speed_value = 0.0;
+    bool finite_values = false;
+};
+
+double nearest_rank_q99(std::vector<double> values) {
+    std::sort(values.begin(), values.end());
+    const std::size_t rank = static_cast<std::size_t>(
+        std::ceil(0.99 * static_cast<double>(values.size())));
+    return values[std::max<std::size_t>(rank, 1U) - 1U];
+}
+
+B4BAggregate b4b_aggregate(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity) {
+    B4BAggregate result;
+    result.center = average_values(position);
+    result.momentum_value = momentum(velocity);
+    result.kinetic = kinetic_energy(velocity);
+    const Evaluation state = evaluate(position, fixture.boundary);
+    result.pressure = state.energy;
+    std::vector<double> heights;
+    std::vector<double> fronts;
+    heights.reserve(position.size());
+    fronts.reserve(position.size());
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        heights.push_back(position[i].y);
+        fronts.push_back(position[i].x);
+        result.gravitational += MASS * (-fixture.gravity.y) * position[i].y;
+        result.maximum_speed_value = std::max(
+            result.maximum_speed_value, norm(velocity[i]));
+        const double ratio = state.density[i] / REST_DENSITY;
+        result.maximum_density_ratio = std::max(
+            result.maximum_density_ratio, ratio);
+        result.maximum_positive_strain = std::max(
+            result.maximum_positive_strain, ratio - 1.0);
+    }
+    result.q99_height = nearest_rank_q99(std::move(heights));
+    result.q99_front = nearest_rank_q99(std::move(fronts));
+    result.mechanical = result.kinetic + result.pressure
+        + result.gravitational;
+    result.finite_values = finite(result.center)
+        && finite(result.momentum_value)
+        && std::isfinite(result.q99_height)
+        && std::isfinite(result.q99_front)
+        && std::isfinite(result.kinetic)
+        && std::isfinite(result.pressure)
+        && std::isfinite(result.gravitational)
+        && std::isfinite(result.mechanical)
+        && std::isfinite(result.maximum_density_ratio)
+        && std::isfinite(result.maximum_speed_value);
+    return result;
+}
+
+struct B4BFixedTrajectory {
+    bool passed = false;
+    int substeps_per_frame = 0;
+    std::string failure;
+    std::vector<SmokeRun> runs;
+    std::vector<B4BAggregate> aggregates;
+    std::vector<Vec3> position;
+    std::vector<Vec3> velocity;
+    int active_steps = 0;
+    int contact_events = 0;
+    int outer_trials = 0;
+    int rejected_trials = 0;
+    int hvp_calls = 0;
+    int floor_merit_accepts = 0;
+    std::size_t maximum_pairs = 0;
+    double maximum_penetration = 0.0;
+    double maximum_ledger_residual = 0.0;
+    double maximum_support_reaction_closure = 0.0;
+    double maximum_mechanical_energy = -std::numeric_limits<double>::infinity();
+    double first_contact_time = std::numeric_limits<double>::infinity();
+    std::vector<std::pair<std::size_t, int>> terminal_contacts;
+};
+
+B4BFixedTrajectory run_b4b_fixed_trajectory(
+    const SmokeFixture& fixture, int substeps_per_frame) {
+    B4BFixedTrajectory result;
+    result.substeps_per_frame = substeps_per_frame;
+    result.position = fixture.position;
+    result.velocity = fixture.velocity;
+    for (int frame = 0; frame < fixture.macro_frames; ++frame) {
+        SmokeRun run = run_smoke_interval(fixture,
+            result.position, result.velocity, substeps_per_frame,
+            static_cast<double>(frame) * SMOKE_FRAME_TIME,
+            SMOKE_FRAME_TIME, true, true, true, true, true);
+        result.runs.push_back(run);
+        if (!run.passed) {
+            result.failure = "FRAME_" + std::to_string(frame)
+                + ':' + run.failure;
+            return result;
+        }
+        result.position = run.position;
+        result.velocity = run.velocity;
+        result.aggregates.push_back(b4b_aggregate(
+            fixture, result.position, result.velocity));
+        result.active_steps += run.active_steps;
+        result.contact_events += run.contact_events;
+        result.outer_trials += run.outer_trials;
+        result.rejected_trials += run.rejected_trials;
+        result.hvp_calls += run.hvp_calls;
+        result.floor_merit_accepts += run.floor_merit_accepts;
+        result.maximum_pairs = std::max(
+            result.maximum_pairs, run.maximum_pairs);
+        result.maximum_penetration = std::max(
+            result.maximum_penetration, run.maximum_penetration);
+        result.maximum_ledger_residual = std::max(
+            result.maximum_ledger_residual, run.maximum_ledger_residual);
+        result.maximum_support_reaction_closure = std::max(
+            result.maximum_support_reaction_closure,
+            run.maximum_support_reaction_closure);
+        result.maximum_mechanical_energy = std::max(
+            result.maximum_mechanical_energy,
+            run.maximum_mechanical_energy);
+        result.first_contact_time = std::min(
+            result.first_contact_time, run.first_contact_time);
+        result.terminal_contacts = run.terminal_contacts;
+    }
+    result.passed = true;
+    return result;
+}
+
+double b4b_rms_floor(
+    const std::vector<Vec3>& lhs, const std::vector<Vec3>& rhs) {
+    double magnitude = 0.0;
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        magnitude += norm_squared(lhs[i]) + norm_squared(rhs[i]);
+    }
+    magnitude = std::sqrt(
+        magnitude / static_cast<double>(2U * lhs.size()));
+    return gamma_factor(16U + 6U * lhs.size())
+        * std::max(magnitude, std::numeric_limits<double>::min());
+}
+
+struct B4BConvergence {
+    bool passed = false;
+    std::array<double, 2> position_difference{};
+    std::array<double, 2> velocity_difference{};
+    std::array<double, 2> position_floor{};
+    std::array<double, 2> velocity_floor{};
+    double position_ratio = 0.0;
+    double velocity_ratio = 0.0;
+    bool position_floor_overlap = false;
+    bool velocity_floor_overlap = false;
+};
+
+struct B4BReference {
+    bool passed = false;
+    std::array<B4BFixedTrajectory, 3> levels;
+    B4BConvergence convergence;
+};
+
+B4BReference run_b4b_reference(const SmokeFixture& fixture) {
+    B4BReference result;
+    for (std::size_t i = 0; i < B4B_REFERENCE_COUNTS.size(); ++i) {
+        result.levels[i] = run_b4b_fixed_trajectory(
+            fixture, B4B_REFERENCE_COUNTS[i]);
+    }
+    B4BConvergence& value = result.convergence;
+    for (std::size_t i = 0; i < 2U; ++i) {
+        value.position_difference[i] = rms_difference(
+            result.levels[i].position, result.levels[i + 1U].position);
+        value.velocity_difference[i] = rms_difference(
+            result.levels[i].velocity, result.levels[i + 1U].velocity);
+        value.position_floor[i] = b4b_rms_floor(
+            result.levels[i].position, result.levels[i + 1U].position);
+        value.velocity_floor[i] = b4b_rms_floor(
+            result.levels[i].velocity, result.levels[i + 1U].velocity);
+    }
+    value.position_floor_overlap =
+        value.position_difference[0] <= value.position_floor[0]
+        && value.position_difference[1] <= value.position_floor[1];
+    value.velocity_floor_overlap =
+        value.velocity_difference[0] <= value.velocity_floor[0]
+        && value.velocity_difference[1] <= value.velocity_floor[1];
+    if (value.position_difference[1] > 0.0) {
+        value.position_ratio = value.position_difference[0]
+            / value.position_difference[1];
+    }
+    if (value.velocity_difference[1] > 0.0) {
+        value.velocity_ratio = value.velocity_difference[0]
+            / value.velocity_difference[1];
+    }
+    const bool position_order = value.position_difference[0] > 0.0
+        && value.position_difference[1] > 0.0
+        && value.position_ratio >= 1.25 && value.position_ratio <= 2.75;
+    const bool velocity_order = value.velocity_difference[0] > 0.0
+        && value.velocity_difference[1] > 0.0
+        && value.velocity_ratio >= 1.25 && value.velocity_ratio <= 2.75;
+    value.passed = (position_order || value.position_floor_overlap)
+        && (velocity_order || value.velocity_floor_overlap);
+    result.passed = std::all_of(result.levels.begin(), result.levels.end(),
+            [](const B4BFixedTrajectory& level) { return level.passed; })
+        && value.passed;
+    return result;
+}
+
+struct B4BFrameComparison {
+    int frame = 0;
+    double position_dx = 0.0;
+    double velocity_c = 0.0;
+    double center_dx = 0.0;
+    double q99_height_dx = 0.0;
+    double q99_front_dx = 0.0;
+    double kinetic_relative = 0.0;
+    double kinetic_absolute = 0.0;
+    double kinetic_floor = 0.0;
+    bool kinetic_floor_overlap = false;
+    bool passed = false;
+};
+
+double maximum_component_abs(Vec3 value) {
+    return std::max({std::abs(value.x), std::abs(value.y),
+        std::abs(value.z)});
+}
+
+B4BFrameComparison compare_b4b_frame(
+    int frame, const SmokeFixture& fixture,
+    const SmokeFrame& candidate,
+    const SmokeRun& reference_run,
+    const B4BAggregate& reference) {
+    B4BFrameComparison result;
+    result.frame = frame;
+    const B4BAggregate candidate_value = b4b_aggregate(
+        fixture, candidate.position, candidate.velocity);
+    result.position_dx = rms_difference(
+        candidate.position, reference_run.position) / SPACING;
+    result.velocity_c = rms_difference(
+        candidate.velocity, reference_run.velocity)
+        / std::sqrt(KAPPA / MASS);
+    result.center_dx = maximum_component_abs(
+        candidate_value.center - reference.center) / SPACING;
+    result.q99_height_dx = std::abs(
+        candidate_value.q99_height - reference.q99_height) / SPACING;
+    result.q99_front_dx = std::abs(
+        candidate_value.q99_front - reference.q99_front) / SPACING;
+    result.kinetic_absolute = std::abs(
+        candidate_value.kinetic - reference.kinetic);
+    const double kinetic_scale = std::max(
+        candidate_value.kinetic, reference.kinetic);
+    result.kinetic_floor = gamma_factor(
+        32U + 12U * candidate.velocity.size())
+        * std::max(kinetic_scale, std::numeric_limits<double>::min());
+    result.kinetic_floor_overlap = kinetic_scale <= 1.0e-12
+        && result.kinetic_absolute <= result.kinetic_floor;
+    if (kinetic_scale > 1.0e-12) {
+        result.kinetic_relative = result.kinetic_absolute / kinetic_scale;
+    }
+    result.passed = candidate_value.finite_values
+        && reference.finite_values
+        && result.position_dx <= 0.05
+        && result.velocity_c <= 0.001
+        && result.center_dx <= 0.05
+        && result.q99_height_dx <= 0.10
+        && result.q99_front_dx <= 0.10
+        && (kinetic_scale > 1.0e-12
+            ? result.kinetic_relative <= 0.15
+            : result.kinetic_floor_overlap);
+    return result;
+}
+
+struct B4BCase {
+    bool passed = false;
+    bool physical_passed = false;
+    bool comparison_passed = false;
+    bool work_passed = false;
+    std::string failure;
+    SmokeFixture fixture;
+    SmokeController candidate;
+    B4BReference reference;
+    std::vector<B4BFrameComparison> comparisons;
+    B4BAggregate initial;
+    B4BAggregate final;
+    double lateral_drift = 0.0;
+    double vertical_center_change = 0.0;
+    double energy_allowance = 0.0;
+    double energy_creation = 0.0;
+    double contact_time_error = 0.0;
+    double contact_time_limit = 0.0;
+    bool terminal_contacts_exact = false;
+};
+
+double b4b_contact_time_limit(const SmokeController& candidate) {
+    if (!std::isfinite(candidate.first_contact_time)
+        || candidate.frames.empty()) {
+        return 0.0;
+    }
+    const int frame = std::clamp(
+        static_cast<int>(candidate.first_contact_time / SMOKE_FRAME_TIME),
+        0, static_cast<int>(candidate.frames.size()) - 1);
+    return SMOKE_FRAME_TIME / static_cast<double>(
+        candidate.frames[static_cast<std::size_t>(frame)].accepted_substeps)
+        + 64.0 * std::numeric_limits<double>::epsilon();
+}
+
+bool b4b_work_gate(const B4BCase& value) {
+    bool passed = value.fixture.position.size()
+            + value.fixture.boundary.size() <= 1280U
+        && value.candidate.maximum_pairs
+            <= 160U * value.fixture.position.size();
+    for (const SmokeFrame& frame : value.candidate.frames) {
+        const int largest_level = frame.initial_substeps
+            * (1 << (frame.refinement_depth + 1));
+        passed = passed && frame.accepted_substeps <= 192
+            && largest_level <= 768;
+    }
+    for (const B4BFixedTrajectory& level : value.reference.levels) {
+        passed = passed && level.maximum_pairs
+            <= 160U * value.fixture.position.size();
+    }
+    return passed;
+}
+
+B4BCase run_b4b_case(SmokeFixture fixture, bool released_block) {
+    B4BCase result;
+    result.fixture = std::move(fixture);
+    result.initial = b4b_aggregate(result.fixture,
+        result.fixture.position, result.fixture.velocity);
+    result.candidate = run_smoke_controller(result.fixture, true, true);
+    if (!result.candidate.passed) {
+        result.failure = "CANDIDATE:" + result.candidate.failure;
+        return result;
+    }
+    result.reference = run_b4b_reference(result.fixture);
+    const bool reference_runs_passed = std::all_of(
+        result.reference.levels.begin(), result.reference.levels.end(),
+        [](const B4BFixedTrajectory& level) { return level.passed; });
+    if (!reference_runs_passed) {
+        result.failure = "REFERENCE_RUN";
+        return result;
+    }
+    if (!result.reference.convergence.passed) {
+        result.failure = "REFERENCE_CONVERGENCE";
+        return result;
+    }
+    const B4BFixedTrajectory& fine = result.reference.levels[2];
+    for (std::size_t frame = 0; frame < result.candidate.frames.size();
+         ++frame) {
+        result.comparisons.push_back(compare_b4b_frame(
+            static_cast<int>(frame), result.fixture,
+            result.candidate.frames[frame], fine.runs[frame],
+            fine.aggregates[frame]));
+    }
+    result.comparison_passed = std::all_of(
+        result.comparisons.begin(), result.comparisons.end(),
+        [](const B4BFrameComparison& value) { return value.passed; });
+    result.final = b4b_aggregate(result.fixture,
+        result.candidate.position, result.candidate.velocity);
+    result.lateral_drift = std::max(
+        std::abs(result.final.center.x - result.initial.center.x),
+        std::abs(result.final.center.z - result.initial.center.z));
+    result.vertical_center_change = std::abs(
+        result.final.center.y - result.initial.center.y);
+    result.energy_allowance = 0.01 * std::max({
+        std::abs(result.initial.mechanical),
+        static_cast<double>(result.fixture.position.size())
+            * MASS * (-result.fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
+    result.energy_creation = std::max(0.0,
+        result.candidate.maximum_mechanical_energy
+            - result.initial.mechanical);
+    result.contact_time_error = event_time_error(
+        result.candidate.first_contact_time, fine.first_contact_time);
+    result.contact_time_limit = b4b_contact_time_limit(result.candidate);
+    result.terminal_contacts_exact = result.candidate.terminal_contacts
+        == fine.terminal_contacts;
+
+    const bool common_physical = result.initial.finite_values
+        && result.final.finite_values
+        && result.fixture.velocity.size() == result.fixture.position.size()
+        && result.lateral_drift <= 1.0e-10
+        && result.candidate.contact_events > 0
+        && result.candidate.accepted_active_steps > 0
+        && result.candidate.maximum_penetration <= 1.0e-12
+        && result.candidate.maximum_ledger_residual <= 1.0e-9
+        && result.candidate.maximum_support_reaction_closure <= 1.0e-10
+        && result.energy_creation <= result.energy_allowance
+        && result.terminal_contacts_exact;
+    if (released_block) {
+        result.physical_passed = common_physical
+            && result.fixture.position.size() == 27U
+            && static_cast<double>(result.fixture.position.size()) * MASS
+                == 3.375
+            && result.candidate.precontact_steps > 0
+            && result.candidate.precontact_pressure_violations == 0
+            && result.candidate.maximum_precontact_support_reaction
+                <= 1.0e-12
+            && result.candidate.maximum_precontact_velocity_spread
+                <= 1.0e-12
+            && result.candidate.maximum_precontact_position_error
+                <= 1.0e-12
+            && result.candidate.maximum_precontact_velocity_error
+                <= 1.0e-12
+            && result.contact_time_error <= result.contact_time_limit;
+    } else {
+        result.physical_passed = common_physical
+            && result.fixture.position.size() == 48U
+            && static_cast<double>(result.fixture.position.size()) * MASS
+                == 6.0
+            && result.vertical_center_change <= 0.05 * SPACING
+            && result.candidate.maximum_positive_density_strain <= 1.0e-3
+            && result.candidate.maximum_speed
+                <= 0.01 * std::sqrt(KAPPA / MASS);
+    }
+    result.work_passed = b4b_work_gate(result);
+    result.passed = result.comparison_passed
+        && result.physical_passed && result.work_passed;
+    if (!result.comparison_passed) {
+        result.failure = "FRAME_COMPARISON";
+    } else if (!result.physical_passed) {
+        result.failure = "PHYSICAL_GATE";
+    } else if (!result.work_passed) {
+        result.failure = "WORK_GATE";
+    }
+    return result;
+}
+
+void append_b4b_number(std::ostringstream& output, double value) {
+    if (std::isfinite(value)) {
+        output << value;
+    } else {
+        output << "null";
+    }
+}
+
+void append_b4b_aggregate(
+    std::ostringstream& output, const B4BAggregate& value) {
+    output << "{\"center_m\":";
+    append_vec3(output, value.center);
+    output << ",\"momentum_kg_m_s\":";
+    append_vec3(output, value.momentum_value);
+    output << ",\"q99_height_m\":" << value.q99_height
+           << ",\"q99_front_m\":" << value.q99_front
+           << ",\"kinetic_j\":" << value.kinetic
+           << ",\"pressure_j\":" << value.pressure
+           << ",\"gravitational_j\":" << value.gravitational
+           << ",\"mechanical_j\":" << value.mechanical
+           << ",\"maximum_density_ratio\":"
+           << value.maximum_density_ratio
+           << ",\"maximum_positive_density_strain\":"
+           << value.maximum_positive_strain
+           << ",\"maximum_speed_m_s\":"
+           << value.maximum_speed_value
+           << ",\"finite\":"
+           << (value.finite_values ? "true" : "false") << '}';
+}
+
+void append_b4b_convergence(
+    std::ostringstream& output, const B4BConvergence& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"position_difference_m\":["
+           << value.position_difference[0] << ','
+           << value.position_difference[1]
+           << "],\"velocity_difference_m_s\":["
+           << value.velocity_difference[0] << ','
+           << value.velocity_difference[1]
+           << "],\"position_floor_m\":["
+           << value.position_floor[0] << ',' << value.position_floor[1]
+           << "],\"velocity_floor_m_s\":["
+           << value.velocity_floor[0] << ',' << value.velocity_floor[1]
+           << "],\"position_ratio\":";
+    append_b4b_number(output, value.position_ratio);
+    output << ",\"velocity_ratio\":";
+    append_b4b_number(output, value.velocity_ratio);
+    output << ",\"position_floor_overlap\":"
+           << (value.position_floor_overlap ? "true" : "false")
+           << ",\"velocity_floor_overlap\":"
+           << (value.velocity_floor_overlap ? "true" : "false") << '}';
+}
+
+void append_b4b_case(std::ostringstream& output, const B4BCase& value) {
+    output << "{\"name\":\"" << value.fixture.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"geometry_sha256\":\""
+           << value.fixture.geometry_sha256
+           << "\",\"fluid_samples\":" << value.fixture.position.size()
+           << ",\"support_samples\":" << value.fixture.boundary.size()
+           << ",\"mass_kg\":"
+           << static_cast<double>(value.fixture.position.size()) * MASS
+           << ",\"macro_frames\":" << value.fixture.macro_frames
+           << ",\"initial\":";
+    append_b4b_aggregate(output, value.initial);
+    output << ",\"final\":";
+    append_b4b_aggregate(output, value.final);
+    output << ",\"candidate\":{\"passed\":"
+           << (value.candidate.passed ? "true" : "false")
+           << ",\"failure\":\"" << value.candidate.failure
+           << "\",\"accepted_substeps\":"
+           << value.candidate.accepted_substeps
+           << ",\"executed_substeps\":"
+           << value.candidate.executed_substeps
+           << ",\"discarded_substeps\":"
+           << value.candidate.discarded_substeps
+           << ",\"spectral_hvp_calls\":"
+           << value.candidate.spectral_hvp_calls
+           << ",\"nonlinear_hvp_calls\":"
+           << value.candidate.nonlinear_hvp_calls
+           << ",\"outer_trials\":" << value.candidate.outer_trials
+           << ",\"rejected_trials\":"
+           << value.candidate.rejected_trials
+           << ",\"floor_merit_trials\":"
+           << value.candidate.floor_merit_trials
+           << ",\"floor_merit_accepts\":"
+           << value.candidate.floor_merit_accepts
+           << ",\"accepted_active_steps\":"
+           << value.candidate.accepted_active_steps
+           << ",\"accepted_inactive_steps\":"
+           << value.candidate.accepted_inactive_steps
+           << ",\"contact_events\":"
+           << value.candidate.contact_events
+           << ",\"maximum_pairs\":" << value.candidate.maximum_pairs
+           << ",\"maximum_penetration_m\":"
+           << value.candidate.maximum_penetration
+           << ",\"maximum_ledger_residual\":"
+           << value.candidate.maximum_ledger_residual
+           << ",\"maximum_support_reaction_closure\":"
+           << value.candidate.maximum_support_reaction_closure
+           << ",\"maximum_mechanical_energy_j\":";
+    append_b4b_number(output, value.candidate.maximum_mechanical_energy);
+    output << ",\"maximum_positive_density_strain\":"
+           << value.candidate.maximum_positive_density_strain
+           << ",\"maximum_speed_m_s\":"
+           << value.candidate.maximum_speed
+           << ",\"first_contact_time_s\":";
+    append_b4b_number(output, value.candidate.first_contact_time);
+    output << ",\"support_reaction_impulse_n_s\":";
+    append_vec3(output, value.candidate.support_reaction);
+    output << ",\"contact_reaction_impulse_n_s\":";
+    append_vec3(output, value.candidate.contact_reaction);
+    output << ",\"gravity_impulse_n_s\":";
+    append_vec3(output, value.candidate.gravity_impulse);
+    output << ",\"precontact\":{\"steps\":"
+           << value.candidate.precontact_steps
+           << ",\"pressure_violations\":"
+           << value.candidate.precontact_pressure_violations
+           << ",\"maximum_support_reaction_n_s\":"
+           << value.candidate.maximum_precontact_support_reaction
+           << ",\"maximum_position_error_m\":"
+           << value.candidate.maximum_precontact_position_error
+           << ",\"maximum_velocity_error_m_s\":"
+           << value.candidate.maximum_precontact_velocity_error
+           << ",\"maximum_velocity_spread_m_s\":"
+           << value.candidate.maximum_precontact_velocity_spread
+           << "},\"frames\":[";
+    for (std::size_t i = 0; i < value.candidate.frames.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        const SmokeFrame& frame = value.candidate.frames[i];
+        output << "{\"frame\":" << frame.frame
+               << ",\"active_centers_at_start\":"
+               << frame.active_centers
+               << ",\"spectral_hvp_calls\":"
+               << frame.spectral_hvp_calls
+               << ",\"maximum_eigenvalue\":"
+               << frame.maximum_eigenvalue
+               << ",\"initial_substeps\":"
+               << frame.initial_substeps
+               << ",\"refinement_depth\":"
+               << frame.refinement_depth
+               << ",\"accepted_substeps\":"
+               << frame.accepted_substeps
+               << ",\"executed_substeps\":"
+               << frame.executed_substeps
+               << ",\"discarded_substeps\":"
+               << frame.discarded_substeps << '}';
+    }
+    output << "]},\"reference\":{";
+    output << "\"levels\":[";
+    for (std::size_t i = 0; i < value.reference.levels.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        const B4BFixedTrajectory& level = value.reference.levels[i];
+        output << "{\"substeps_per_frame\":"
+               << level.substeps_per_frame
+               << ",\"passed\":" << (level.passed ? "true" : "false")
+               << ",\"failure\":\"" << level.failure
+               << "\",\"active_steps\":" << level.active_steps
+               << ",\"contact_events\":" << level.contact_events
+               << ",\"outer_trials\":" << level.outer_trials
+               << ",\"rejected_trials\":" << level.rejected_trials
+               << ",\"hvp_calls\":" << level.hvp_calls
+               << ",\"floor_merit_accepts\":"
+               << level.floor_merit_accepts
+               << ",\"maximum_pairs\":" << level.maximum_pairs
+               << ",\"maximum_penetration_m\":"
+               << level.maximum_penetration
+               << ",\"maximum_ledger_residual\":"
+               << level.maximum_ledger_residual
+               << ",\"failure_diagnostic\":{\"reaction_defect_n_s\":"
+               << (level.runs.empty()
+                    ? 0.0 : level.runs.back().failure_reaction_defect)
+               << ",\"reaction_limit_n_s\":"
+               << (level.runs.empty()
+                    ? 0.0 : level.runs.back().failure_reaction_limit)
+               << ",\"predicted_reduction_j\":"
+               << (level.runs.empty()
+                    ? 0.0 : level.runs.back().failure_predicted_reduction)
+               << ",\"energy_floor_j\":"
+               << (level.runs.empty()
+                    ? 0.0 : level.runs.back().failure_energy_floor)
+               << ",\"scaled_residual\":"
+               << (level.runs.empty()
+                    ? 0.0 : level.runs.back().failure_scaled_residual)
+               << ",\"step_dx\":"
+               << (level.runs.empty()
+                    ? 0.0 : level.runs.back().failure_step_dx)
+               << ",\"floor_trials\":"
+               << (level.runs.empty()
+                    ? 0 : level.runs.back().failure_floor_merit_trials)
+               << ",\"floor_accepts\":"
+               << (level.runs.empty()
+                    ? 0 : level.runs.back().failure_floor_merit_accepts)
+               << ",\"floor_trial_defect_n_s\":"
+               << (level.runs.empty()
+                    ? 0.0 : level.runs.back().failure_floor_trial_defect)
+               << ",\"floor_trial_limit_n_s\":"
+               << (level.runs.empty()
+                    ? 0.0 : level.runs.back().failure_floor_trial_limit)
+               << ",\"floor_residual_ratio\":"
+               << (level.runs.empty()
+                    ? 0.0 : level.runs.back().failure_floor_residual_ratio)
+               << ",\"floor_topology_exact\":"
+               << (!level.runs.empty()
+                    && level.runs.back().failure_floor_topology_exact
+                    ? "true" : "false") << '}'
+               << ",\"first_contact_time_s\":";
+        append_b4b_number(output, level.first_contact_time);
+        output << '}';
+    }
+    output << "],\"convergence\":";
+    append_b4b_convergence(output, value.reference.convergence);
+    output << "},\"frame_comparisons\":[";
+    for (std::size_t i = 0; i < value.comparisons.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        const B4BFrameComparison& frame = value.comparisons[i];
+        output << "{\"frame\":" << frame.frame
+               << ",\"status\":\"" << (frame.passed ? "PASS" : "FAIL")
+               << "\",\"position_dx\":" << frame.position_dx
+               << ",\"velocity_c\":" << frame.velocity_c
+               << ",\"center_dx\":" << frame.center_dx
+               << ",\"q99_height_dx\":" << frame.q99_height_dx
+               << ",\"q99_front_dx\":" << frame.q99_front_dx
+               << ",\"kinetic_relative\":"
+               << frame.kinetic_relative
+               << ",\"kinetic_absolute_j\":"
+               << frame.kinetic_absolute
+               << ",\"kinetic_floor_j\":" << frame.kinetic_floor
+               << ",\"kinetic_floor_overlap\":"
+               << (frame.kinetic_floor_overlap ? "true" : "false")
+               << '}';
+    }
+    output << "],\"physical\":{";
+    output << "\"status\":\"" << (value.physical_passed ? "PASS" : "FAIL")
+           << "\",\"lateral_center_drift_m\":" << value.lateral_drift
+           << ",\"vertical_center_change_m\":"
+           << value.vertical_center_change
+           << ",\"energy_creation_j\":" << value.energy_creation
+           << ",\"energy_allowance_j\":" << value.energy_allowance
+           << ",\"contact_time_error_s\":";
+    append_b4b_number(output, value.contact_time_error);
+    output << ",\"contact_time_limit_s\":" << value.contact_time_limit
+           << ",\"terminal_contacts_exact\":"
+           << (value.terminal_contacts_exact ? "true" : "false")
+           << ",\"bottom_to_top_density_ratio\":[";
+    if (value.fixture.position.size() == 48U
+        && value.candidate.position.size() == 48U) {
+        const Evaluation density = evaluate(
+            value.candidate.position, value.fixture.boundary);
+        std::array<double, 3> sum{};
+        std::array<int, 3> count{};
+        for (std::size_t i = 0; i < density.density.size(); ++i) {
+            const std::size_t row = (i / 4U) % 3U;
+            sum[row] += density.density[i] / REST_DENSITY;
+            ++count[row];
+        }
+        for (std::size_t row = 0; row < 3U; ++row) {
+            if (row != 0U) {
+                output << ',';
+            }
+            output << sum[row] / static_cast<double>(count[row]);
+        }
+    }
+    output << ']'
+           << "},\"comparison_status\":\""
+           << (value.comparison_passed ? "PASS" : "FAIL")
+           << "\",\"work_status\":\""
+           << (value.work_passed ? "PASS" : "FAIL") << "\"}";
+}
+
+} // namespace
+
+SplitBoundaryReport run_tiny_pressure_corpus_controls() {
+    const SplitBoundaryReport parent = run_closed_box_eligibility_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "7282f6ab736d4bea423cc20a1dd20092a156afb3eb5d61741d6b8b4e10674c51";
+    std::vector<B4BCase> cases;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4A_PARENT";
+    } else {
+        cases.push_back(run_b4b_case(
+            make_b4b_supported_column_fixture(), false));
+        if (!cases.back().passed) {
+            first_failure = "P1_SUPPORTED_COLUMN:" + cases.back().failure;
+        } else {
+            cases.push_back(run_b4b_case(
+                make_b4b_released_block_fixture(), true));
+            if (!cases.back().passed) {
+                first_failure = "P2_RELEASED_BLOCK:" + cases.back().failure;
+            }
+        }
+    }
+    const bool passed = parent_exact && cases.size() == 2U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const B4BCase& value) { return value.passed; });
+    const std::string disposition = passed
+        ? "TINY_PRESSURE_CORPUS_CANDIDATE"
+        : "TINY_PRESSURE_CORPUS_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << disposition;
+    for (const B4BCase& value : cases) {
+        material << '|' << value.fixture.name << ':' << value.passed
+                 << ':' << value.candidate.accepted_substeps
+                 << ':' << value.candidate.executed_substeps
+                 << ':' << value.candidate.nonlinear_hvp_calls
+                 << ':' << value.candidate.maximum_pairs
+                 << ':' << value.lateral_drift
+                 << ':' << value.vertical_center_change
+                 << ':' << value.energy_creation
+                 << ':' << value.contact_time_error;
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4b_pressure.v1\""
+           << ",\"identity\":\"tiny-pressure-water-corpus-r0\""
+           << ",\"parent_b4a_result_sha256\":\"5e069b7e7c86da39aef944d31fc184a564eaa8e794c54f9e63d0e855852567b1\""
+           << ",\"parent_b4a_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"terms\":{"
+           << "\"incompressibility\":true,\"viscosity\":false,"
+           << "\"surface_tension\":false}"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_b4b_case(report, cases[i]);
+    }
+    report << ']'
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c_neighborhood_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
            << ",\"historical_hash_check_required\":true"
            << ",\"repeatability_check_required\":true"
            << ",\"result_sha256\":\""

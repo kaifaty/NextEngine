@@ -550,6 +550,20 @@
 - **Consequence:** B4B can falsify the tiny pressure trajectory and split
   composition, but even PASS grants no equilibrium or nominal-water credit.
 
+### D-032 -- Reject post-solve wall splitting at the pressure active-set limit
+
+- **Observation:** adaptive P1 completes within its local physical scales,
+  but fixed 96/192 stop on their first substep. Their proposed residual steps
+  reduce the reaction defect by `7.8e3--3.1e4`, yet cross the unilateral
+  pressure active set while the predicted energy decrease is at or below the
+  inherited binary64 floor.
+- **Decision:** preserve B4B FAIL, the reference ladder and all thresholds.
+  Treat this as a boundary-composition defect: ghost pressure support and the
+  post-solve hard sweep cannot independently own stationarity in this limit.
+- **Consequence:** derive and test a bound-constrained KKT/contact-multiplier
+  formulation before any B4B retry. Do not relabel the unresolved floor,
+  remove ghost support, execute P2, or begin neighborhood/nominal work.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -562,10 +576,12 @@
 
 ## Exact next action
 
-1. Implement the frozen B4B supported-column and released-block fixtures.
-2. Keep `lambda=mu=gamma=0` and the selected B3R numerical solver unchanged.
-3. Execute twice and preserve the first exact failure or PASS; joint
-   neighborhood/canonical work remains mandatory before nominal B4E.
+1. Derive the box-contact KKT stationarity, multiplier signs and complete
+   pressure/contact impulse ledger in owned displacement coordinates.
+2. Freeze a minimal active-set discriminator at the exact P1 fixed-96/192
+   failed states before implementing a new full-corpus identity.
+3. Compare post-solve sweep, ghost-only and constrained-contact candidates;
+   preserve B4B and historical outputs byte-exact.
 
 ## Reconsideration triggers
 
