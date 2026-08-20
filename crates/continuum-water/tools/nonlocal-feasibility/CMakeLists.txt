@@ -39,3 +39,16 @@ target_compile_options(
     PRIVATE
         $<$<CXX_COMPILER_ID:GNU,Clang>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
 )
+
+add_executable(
+    nonlocal-formula-reclosure
+    src/formula_reclosure.cpp
+    src/formula_reclosure_main.cpp
+    src/sha256.cpp
+)
+target_compile_features(nonlocal-formula-reclosure PRIVATE cxx_std_17)
+target_compile_options(
+    nonlocal-formula-reclosure
+    PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-O3;-Wall;-Wextra;-Wpedantic;-Werror;-ffp-contract=off;-fno-fast-math>
+)
