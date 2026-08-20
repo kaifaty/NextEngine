@@ -17,10 +17,10 @@ fallbacks keep the game working when they are not.
 > Linux reference alpha and its deterministic headless counterpart work
 > locally. Windows host bring-up is intentionally deferred while development
 > continues on Linux. The bounded procedural physical-character baseline is
-> complete; public creator validate/cook/run/package/inspect/diff and the
-> independent project-package/projection slice are available, while templates,
-> scenarios/replay inspection, paired release evidence, hard release
-> performance, and v1 are not. See the
+> complete; the public creator project/template/scenario/replay workflow and
+> independent project-package/projection slice are available, while paired
+> release evidence, hard release performance, broader consumer-driven editor
+> tooling, and v1 are not. See the
 > [roadmap](docs/roadmap.md) for the current stage and open blockers.
 
 Next Engine is an independent project. It is not an OpenGothic port and it is
@@ -109,6 +109,16 @@ by itself a supported release.
 
 ## Try the creator workflow
 
+For a fresh independently namespaced project, start with the complete [Creator
+SDK beta guide](docs/creator-sdk.md). The cold-start command is:
+
+```bash
+cargo run --locked -p next_cli -- project create \
+  --template rpg-starter \
+  --project-id org.example.my-rpg \
+  --output target/my-rpg
+```
+
 Validate the independent data-only sample without writing output:
 
 ```bash
@@ -160,8 +170,9 @@ cargo run --locked -p next_cli -- project diff \
 Each command emits exactly one versioned JSON object. The creator package is a
 self-verifying content envelope for a compatible `next` runtime, not a native
 standalone game bundle. Inspect/diff are read-only and path-free; a valid
-non-empty diff is `PASS` with `different = true`. Templates, scenarios/replay
-tools and a complete v1 SDK workflow remain later R6 work.
+non-empty diff is `PASS` with `different = true`. The beta guide also covers
+the tracked scenario, production Replay V10 inspection, Luau/Wasm examples and
+the current pre-v1 compatibility boundary.
 
 ## Learn more
 
@@ -169,6 +180,8 @@ tools and a complete v1 SDK workflow remain later R6 work.
   boundary and v1 promises.
 - [Roadmap](docs/roadmap.md) — current progress, next milestones, and known
   blockers.
+- [Creator SDK beta](docs/creator-sdk.md) — cold project authoring, cooking,
+  packaging, inspection and extension examples.
 - [Architecture index](docs/architecture/README.md) — specifications and
   accepted decisions.
 - [Contributing](CONTRIBUTING.md) — the local development workflow.

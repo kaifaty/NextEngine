@@ -4,13 +4,14 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 4.7 |
+| Версия | 4.8 |
 | Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V4.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V4.6 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V4.7 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
-| Заменяет | SPEC-12 4.6; adds the R6f public Replay V10 first-divergence/domain-inspection matrix to existing checks without a new global category |
+| Дополнительные зависимости V4.8 | [ADR-089](adr/089-governed-external-creator-sdk-workflow.md) |
+| Заменяет | SPEC-12 4.7; governs the edited external creator SDK workflow inside `content-package` without a new global category |
 
 ## Назначение
 
@@ -103,6 +104,16 @@ one-tick domains, then checks first state-root divergence, retired V9, project
 mismatch and absent tick failures. Inspect must complete production replay
 before projection. This is not recording/editing, migration, capture, a live
 inspector or a new global ProductCheck category.
+
+R6g adds no command or ProductCheck category. Its governed creator SDK
+workflow maps to `fast` plus `content-package`: generate a fresh namespaced
+starter, apply the documented public JSON edit for NPC/ability/quest/chunk,
+then call public validate, cook, run, package, packaged run, inspect and diff.
+The edit must change the project lock; every later command must agree on the
+new exact closure and source/package diff must remain empty. The same check
+executes the externally visible Luau/Wasm example files without changing their
+bytes or manifest identity. GUI/MCP/live mutation and arbitrary project-local
+extension ingestion remain outside this bounded matrix.
 
 `cargo run -p xtask -- v1-closure` агрегирует реализованные v1 checks, exact
 project/content/mechanics/extension roots и target package descriptors. На
@@ -264,6 +275,12 @@ Check использует CC0/engine-owned neutral fixtures и public tooling. 
 reference project remains the complete gameplay/package oracle; the independent
 `creator-smoke` project additionally proves file-backed validate/cook/activate,
 run/package and source-neutral inspect/diff without a Rust fixture constructor:
+
+The cold SDK subscenario additionally creates a new project, edits public JSON
+for the documented NPC/ability/quest/chunk exercise, and completes public
+validate/cook/run/package/inspect/diff before cleanup. The Luau/Wasm source
+inputs come from `examples/creator-sdk/` and still cross the same manifest,
+capability, budget and common command validation path.
 
 Текущий M3/M10/R3 implementation gate покрывает пункты 1–6 для data-only, Luau и
 Wasm, storage/schema failure matrix и atomic four-region/64-chunk admission тем же

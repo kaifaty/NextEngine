@@ -9,7 +9,7 @@
 | Last verified | 2026-08-20 |
 | Normative dependencies | [SPEC-02](../02-runtime-ecs-and-data.md), [SPEC-03](../03-assets-world-streaming-and-persistence.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-11](../11-security-licensing-and-governance.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-21](../21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](../22-schema-registry-compatibility-and-migration.md), [ADR-022](022-deterministic-command-identity-ledger-and-causal-identity.md), [ADR-025](025-schema-content-and-migration-authority.md), [ADR-030](030-product-first-development-and-lightweight-validation.md), [ADR-046](046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-048](048-direct-exact-project-lock.md), [ADR-074](074-systemic-strategic-agent-owner-vertical.md), [ADR-082](082-linux-first-development-and-deferred-windows-host.md), [ADR-083](083-public-creator-project-cli-vertical.md), [ADR-084](084-public-creator-run-and-project-package-vertical.md), [ADR-087](087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Supersedes | Narrowly supersedes ADR-087 and SPEC-09/15 statements that public replay/domain inspection is unimplemented. Replay V10 wire semantics, scenario semantics and existing creator report families remain unchanged. |
-| Superseded by | not superseded |
+| Superseded by | Narrowly [ADR-089](089-governed-external-creator-sdk-workflow.md) for the later external SDK workflow/documentation closure; Replay V10 validation, first-divergence and domain-inspection semantics remain current. |
 
 ## Context
 

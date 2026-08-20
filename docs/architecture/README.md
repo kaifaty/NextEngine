@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.56 |
+| Версия | 2.57 |
 | Последняя проверка | 2026-08-20 |
-| Заменяет | INDEX-001 2.55; records the R6f public Replay V10 first-divergence and bounded one-tick domain-inspection vertical |
+| Заменяет | INDEX-001 2.56; records the governed external Creator SDK beta workflow and R6/B-09 closure |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -159,13 +159,13 @@ traceability — навигационная карта, не admission authority
 | SPEC-06 | [AI agents, perception и memory](06-ai-agents-perception-and-memory.md) | Accepted |
 | SPEC-07 | [RPG, scripting и plugins](07-rpg-scripting-and-plugins.md) | Accepted |
 | SPEC-08 | [Audio, navigation и world services](08-audio-navigation-and-world-services.md) | Accepted audio plus bounded engine-owned graph/query baseline; broader navmesh/traversal remains Proposed |
-| SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted; includes repository ProductChecks plus public project/scenario lifecycle and Replay V10 validate/inspect |
+| SPEC-09 | [Current tooling и observability](09-tooling-sdk-and-observability.md) | Accepted; includes repository ProductChecks plus the governed external Creator SDK beta project/scenario/replay workflow |
 | SPEC-10 | [Gothic importer boundary](10-gothic-importer-boundary.md) | Accepted |
 | SPEC-11 | [Runtime safety и license hygiene](11-security-licensing-and-governance.md) | Accepted; creator and replay inputs are bounded/current/exact, unsafe paths fail closed, and read-only projections expose no raw paths/private storage |
-| SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted; risk-scoped validation plus bounded R5 and R6a–R6f milestone matrices |
+| SPEC-12 | [Product checks и playable slice](12-vertical-slice-conformance.md) | Accepted; risk-scoped validation plus bounded R5 and complete R6a–R6g milestone matrices |
 | SPEC-13 | [Gameplay mechanics и mod packages](13-gameplay-mechanics-mod-packages-and-agent-authoring.md) | Accepted |
 | SPEC-14 | [Physical archetypes, BodySchema, motor skills и policy lifecycle](14-physical-archetypes-motor-skills-and-policy-lifecycle.md) | Accepted hierarchy/ownership; fixed-humanoid BodySchema V1 is current through SPEC-35, advanced skill/adaptation/family profiles remain Proposed |
-| SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted; includes creator scenario minimization plus production Replay V10 first-divergence/bounded domain inspection without a mutable backdoor |
+| SPEC-15 | [Local testing, headless scenarios и debugging](15-headless-testing-agent-validation-and-human-evidence.md) | Accepted; includes governed edited cold-start, creator scenario minimization and production Replay V10 inspection without a mutable backdoor |
 | SPEC-16 | [Text-canonical multimodal dialogue и model packs](16-text-canonical-multimodal-dialogue-and-model-packs.md) | Proposed |
 | SPEC-17 | [Direct project composition и activation](17-project-composition-configuration-and-application-lifecycle.md) | Accepted; creator project and scenario paths use the same exact V7 cook/activation, bounded headless tick/final-save lifecycle and source-neutral read-only projection |
 | SPEC-18 | [Player interaction, UI, camera, localization и accessibility](18-player-interaction-ui-camera-localization-and-accessibility.md) | Accepted; future qualitative body-status projection remains consumer-driven |
@@ -292,6 +292,7 @@ traceability — навигационная карта, не admission authority
 | ADR-086 | [Public creator RPG starter template](adr/086-public-creator-rpg-starter-template.md) | Accepted bounded built-in current-only starter, fresh-output atomic creation and complete cold-project lifecycle |
 | ADR-087 | [Public creator runtime scenario and prefix minimization](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) | Accepted exact-project-bound tick scenario, path-free final-proof assertions and failure-preserving fresh-output prefix minimization |
 | ADR-088 | [Public replay first-divergence and bounded domain inspection](adr/088-public-replay-first-divergence-and-domain-inspection.md) | Accepted current Replay V10 exact-project validation, production first-divergence and one-tick runtime/world/physics/owner projections |
+| ADR-089 | [Governed external creator SDK workflow](adr/089-governed-external-creator-sdk-workflow.md) | Accepted canonical beta guide, edited cold-start public lifecycle and externally visible byte-identical Luau/Wasm examples; no new command or report |
 
 ## Proposed tracks
 

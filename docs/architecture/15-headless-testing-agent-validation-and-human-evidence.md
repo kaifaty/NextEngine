@@ -4,13 +4,14 @@
 |---|---|
 | ID | SPEC-15 |
 | Статус | Accepted |
-| Версия | 3.7 |
+| Версия | 3.8 |
 | Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-01](01-system-architecture.md), [SPEC-02](02-runtime-ecs-and-data.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-04](04-rendering-and-platform.md), [SPEC-09](09-tooling-sdk-and-observability.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-13](13-gameplay-mechanics-mod-packages-and-agent-authoring.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V3.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V3.6 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V3.7 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
-| Заменяет | SPEC-15 3.6; promotes current Replay V10 first-divergence and bounded one-tick domain inspection while recording/capture/live-inspector breadth remains unpromoted |
+| Дополнительные зависимости V3.8 | [ADR-089](adr/089-governed-external-creator-sdk-workflow.md) |
+| Заменяет | SPEC-15 3.7; closes the externally documented and governed cold creator workflow while recording/capture/live-inspector breadth remains unpromoted |
 
 ## Назначение
 
@@ -206,9 +207,12 @@ diff remains a successful read-only observation.
 
 The matrix also creates the same namespaced `rpg-starter` in isolated roots,
 requires byte-identical source trees, checks the one NPC/ability/quest and
-three-chunk authoring closure, then validates, runs, packages, reruns and
-source/package-diffs the generated project through the existing public paths.
-Occupied or invalid destinations remain untouched.
+three-chunk authoring closure, then applies the canonical guide's public JSON
+edit to one generated project. The edited source must change its project lock
+and pass public validate, cook, run, package, rerun and source/package diff
+through the existing public paths. Occupied or invalid destinations remain
+untouched. The generated README names the canonical guide and complete command
+sequence.
 
 The tracked creator scenario advances three ordered production ticks from both
 authoring and packaged bytes, observes two population events and requires nine

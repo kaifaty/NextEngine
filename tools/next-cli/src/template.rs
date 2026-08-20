@@ -134,11 +134,18 @@ fn starter_readme(project_id: &str) -> Vec<u8> {
          Generated from the Next Engine `rpg-starter` template. The project is a complete\n\
          current-only Project Authoring V7 source with one NPC, ability, quest/dialogue\n\
          interaction and three streamed world chunks.\n\n\
+         The canonical cold-authoring and packaging guide is `docs/creator-sdk.md` in\n\
+         the Next Engine checkout.\n\n\
          From the Next Engine repository root:\n\n\
          ```text\n\
          cargo run --locked -p next_cli -- project validate --project <this-directory>\n\
+         cargo run --locked -p next_cli -- project cook --project <this-directory> --output <content-store-directory>\n\
          cargo run --locked -p next_cli -- project run --project <this-directory>\n\
          cargo run --locked -p next_cli -- project package --project <this-directory> --output <absent-package-directory>\n\
+         cargo run --locked -p next_cli -- project run --package <package-directory>\n\
+         cargo run --locked -p next_cli -- project inspect --project <this-directory>\n\
+         cargo run --locked -p next_cli -- project inspect --package <package-directory>\n\
+         cargo run --locked -p next_cli -- project diff --base-project <this-directory> --candidate-package <package-directory>\n\
          ```\n\n\
          Edit `project.authoring.json`; keep authored IDs inside the `{project_id}` namespace.\n\
          The format is pre-v1/current-only and unsupported revisions fail closed.\n"

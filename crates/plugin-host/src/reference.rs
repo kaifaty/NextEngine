@@ -6,17 +6,8 @@ pub const WASM_COMPONENT_MODEL_FEATURE_SET: &str =
 pub const WASM_AMBIENT_WASI_ENABLED: bool = false;
 pub const WIT_WORLD_V2_ID: &str = "nextengine.extension.plugin-v2";
 pub const WIT_WORLD_V3_ID: &str = "nextengine.extension.plugin-v3";
-pub const REFERENCE_COMPONENT_WAT: &str = r#"
-(component
-  (core module $module
-    (func (export "run") (param i32) (result i32)
-      local.get 0
-      i32.const 1
-      i32.add))
-  (core instance $instance (instantiate $module))
-  (func (export "run") (param "input" s32) (result s32)
-    (canon lift (core func $instance "run"))))
-"#;
+pub const REFERENCE_COMPONENT_WAT: &str =
+    include_str!("../../../examples/creator-sdk/wasm/increment-component.wat");
 pub const WIT_V2: &str = include_str!("../wit/v2/nextengine-extension.wit");
 pub const WIT_V3: &str = include_str!("../wit/v3/nextengine-extension.wit");
 const MECHANICS_PROPOSE_CAPABILITY: &str = "mechanics.effect.propose";

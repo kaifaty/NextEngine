@@ -5,6 +5,10 @@ R6 creator workflow. It is deliberately small, but it exercises the current
 authoring closure: character, item, ability, dialogue, quest, relationship,
 interaction, three streamed chunks, minimal render content and world services.
 
+The canonical clean-checkout tutorial, post-create JSON exercise, extension
+examples and failure/output rules are in the [Creator SDK beta
+guide](../../docs/creator-sdk.md).
+
 ## Cold authoring
 
 Create a new independently namespaced copy of this RPG starter in an absent

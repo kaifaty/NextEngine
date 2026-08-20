@@ -4,12 +4,13 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 4.8 |
+| Версия | 4.9 |
 | Последняя проверка | 2026-08-20 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V4.7 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
 | Дополнительные зависимости V4.8 | [ADR-088](adr/088-public-replay-first-divergence-and-domain-inspection.md) |
-| Заменяет | SPEC-09 4.7; adds current Replay V10 validation, production first-divergence verification and one-tick bounded domain inspection |
+| Дополнительные зависимости V4.9 | [ADR-089](adr/089-governed-external-creator-sdk-workflow.md) |
+| Заменяет | SPEC-09 4.8; closes the governed external creator-beta workflow and documentation without changing command or report contracts |
 
 ## Scope and authority
 
@@ -27,6 +28,7 @@ production dependencies and receive no mutation backdoor.
 The current public `next` commands are project create, validate, cook, run,
 package, inspect and diff, bounded scenario validate/run/minimize and Replay
 V10 validate/inspect below.
+The canonical source-build workflow is [Creator SDK beta](../creator-sdk.md).
 There is no current MCP tool protocol, public capture command, live
 inspector API, `AuthoringContextBundle`, `AgentChangeSet` or agent policy
 contract. Those remain later consumer-driven R6 possibilities and cannot be
@@ -136,6 +138,28 @@ Creator Replay Report V1 is a seventh independent family. Validate binds the
 current canonical Replay V10 to an exact activated project without execution;
 inspect completes production replay before exposing exactly one requested
 tick/domain. Divergence reports the first tick, stable stage and owner.
+
+## Creator SDK beta workflow
+
+The external workflow begins with an absent directory and the built-in
+`rpg-starter`. Its generated Project Authoring V7 contains the minimum current
+NPC/ability/quest and three-chunk closure. A creator edits only the public JSON
+source, then uses public validate, cook, run, package, inspect and diff; no
+engine crate, fixture constructor or identity override participates.
+
+The governing cold exercise changes one NPC role, ability ID, quest
+entry/source and streamed chunk/region, requires the project lock to change,
+and then requires public validate/cook to agree with the production cooker.
+The edited authoring and exact package must run and inspect identically, with
+an empty authoring-to-package diff. `content-package` executes this complete
+sequence in scratch storage.
+
+The exact Luau scripted-melee and Wasm Component sources executed by the same
+governing check live under `examples/creator-sdk/`; their bytes and package
+identities are unchanged from the prior embedded fixtures. Current WIT V3
+remains the host interface. Arbitrary project-local Luau/Wasm ingestion, GUI,
+MCP, live mutation, replay capture and alpha migration remain outside this
+bounded workflow until a concrete consumer admits them.
 
 ## Diagnostics and output safety
 
@@ -299,11 +323,12 @@ without affecting gameplay. A deterministic retry mismatch is
 Focused tooling tests cover command parsing, exact report schemas, atomic
 output, current-only rejection, creator project-root/output confinement,
 deterministic fresh RPG starter creation, location-independent repeated
-inspect, authoring/package empty diff, localized record drift, repeated
+inspect, an edited cold starter through public validate/cook/run/package,
+authoring/package empty diff, localized record drift, repeated
 three-tick scenario proof, assertion failure, shortest-prefix minimization and
 boundary scan. `content-package` reopens both the reference project and the independent
-creator fixture, generates another namespaced project, and compares their
-source/package projections; it also runs/minimizes the tracked creator scenario
+creator fixture, generates and edits another namespaced project, executes its
+complete public lifecycle, and compares source/package projections; it also runs/minimizes the tracked creator scenario
 from authoring/package bytes. `host-check` covers the workspace. The
 `performance` command covers V5 reports/baselines and all eight
 scenario routes; platform/GPU availability may legitimately yield typed

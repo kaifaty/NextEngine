@@ -21,13 +21,8 @@ use next_mechanics::{
 
 pub const LUAU_ADAPTER_VERSION: &str = "mlua-0.12.0+luau-728";
 pub const RPG_QUERY_CHARACTER_RESOURCE_CAPABILITY_ID: &str = "rpg.query.character-resource";
-pub const REFERENCE_SCRIPTED_MELEE_SOURCE: &str = r#"
-local health = nextengine.query_target_health()
-if health > 0 then
-    nextengine.propose_action("nextengine.action.melee")
-    nextengine.set_state("executed")
-end
-"#;
+pub const REFERENCE_SCRIPTED_MELEE_SOURCE: &str =
+    include_str!("../../../examples/creator-sdk/luau/scripted-melee.lua");
 const HOST_CALL_COST: u64 = 1;
 const NO_VIOLATION: u8 = 0;
 
