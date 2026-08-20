@@ -16,9 +16,9 @@ class SchedulerTests(unittest.TestCase):
         order: list[str] = []
         current = lambda generation: generation == 1
         scheduler.submit(JobPriority.EMOTION_FAST, 1, lambda: order.append("emotion"), is_current=current)
-        scheduler.submit(JobPriority.VOXTRAL_PUSH, 1, lambda: order.append("asr-1"), is_current=current)
-        scheduler.submit(JobPriority.VOXTRAL_PUSH, 1, lambda: order.append("asr-2"), is_current=current)
-        scheduler.submit(JobPriority.VOXTRAL_FINISH, 1, lambda: order.append("finish"), is_current=current)
+        scheduler.submit(JobPriority.ASR_PUSH, 1, lambda: order.append("asr-1"), is_current=current)
+        scheduler.submit(JobPriority.ASR_PUSH, 1, lambda: order.append("asr-2"), is_current=current)
+        scheduler.submit(JobPriority.ASR_FINISH, 1, lambda: order.append("finish"), is_current=current)
         while scheduler.run_next():
             pass
         self.assertEqual(order, ["finish", "asr-1", "asr-2", "emotion"])
@@ -64,9 +64,9 @@ class SchedulerTests(unittest.TestCase):
     def test_third_pending_asr_chunk_is_overload(self) -> None:
         scheduler = ModelScheduler(max_pending_asr=2)
         for _ in range(2):
-            scheduler.submit(JobPriority.VOXTRAL_PUSH, 1, lambda: None, is_current=lambda _: True)
+            scheduler.submit(JobPriority.ASR_PUSH, 1, lambda: None, is_current=lambda _: True)
         with self.assertRaises(SchedulerOverloaded):
-            scheduler.submit(JobPriority.VOXTRAL_PUSH, 1, lambda: None, is_current=lambda _: True)
+            scheduler.submit(JobPriority.ASR_PUSH, 1, lambda: None, is_current=lambda _: True)
 
     def test_started_scheduler_uses_one_dedicated_worker(self) -> None:
         scheduler = ModelScheduler()

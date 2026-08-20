@@ -67,8 +67,8 @@ class FakeTranscriberSession:
         self.revision += 1
         return TranscriptRevision(
             revision=self.revision,
-            full_text="готово",
-            committed_text="готово",
+            full_text=self.owner.final_text,
+            committed_text=self.owner.final_text,
             tentative_text="",
             final=True,
         )
@@ -81,7 +81,9 @@ class FakeTranscriberSession:
 
 
 class FakeTranscriber:
-    def __init__(self) -> None:
+    def __init__(self, adapter_id: str = "fake-asr/1", final_text: str = "готово") -> None:
+        self.adapter_id = adapter_id
+        self.final_text = final_text
         self.load_count = 0
         self.start_count = 0
         self.push_count = 0
@@ -97,7 +99,7 @@ class FakeTranscriber:
         return {"warmup_count": 1, "elapsed_ms": 0}
 
     def capabilities(self) -> dict[str, object]:
-        return {"adapter_id": "fake-asr/1", "timing_precision": "utterance"}
+        return {"adapter_id": self.adapter_id, "timing_precision": "utterance"}
 
     def start(self, config: object) -> FakeTranscriberSession:
         self.start_count += 1
@@ -265,6 +267,44 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.transcriber.start_count, 2)
         self.assertEqual([item.finalize_count for item in self.transcriber.sessions], [1, 1])
 
+    async def test_session_selects_one_resident_asr_model_without_reloading(self) -> None:
+        voxtral = FakeTranscriber("fake-voxtral/1", "потоковый результат")
+        gigaam = FakeTranscriber("fake-gigaam/1", "финальный результат гигаам")
+        service = SpeechTimelineWebSocketService(
+            SpeechTimelineRuntime(
+                {"voxtral-realtime": voxtral, "gigaam-v3-e2e-rnnt": gigaam},
+                FakeAffect(),
+                default_transcriber="voxtral-realtime",
+            ),
+            ready_file=Path(self.temp.name) / "selectable-asr-ready.json",
+            port=0,
+        )
+        ready = await service.start()
+        try:
+            self.assertEqual(
+                ready["asr_model_routing"],
+                {
+                    "default_model": "voxtral-realtime",
+                    "available_models": ["voxtral-realtime", "gigaam-v3-e2e-rnnt"],
+                },
+            )
+            events = await self._run_turn_against(
+                service,
+                "gigaam-turn",
+                asr_model="gigaam-v3-e2e-rnnt",
+            )
+            started = next(item for item in events if item["type"] == "session.started")
+            final = next(item for item in events if item["type"] == "utterance.final")
+            self.assertEqual(started["asr_model"], "gigaam-v3-e2e-rnnt")
+            self.assertEqual(final["asr_model"], "gigaam-v3-e2e-rnnt")
+            self.assertEqual(final["text"], "финальный результат гигаам")
+            self.assertEqual(voxtral.load_count, 1)
+            self.assertEqual(gigaam.load_count, 1)
+            self.assertEqual(voxtral.start_count, 0)
+            self.assertEqual(gigaam.start_count, 1)
+        finally:
+            await service.close()
+
     async def test_silence_is_vad_gated_and_final_timeline_is_no_speech(self) -> None:
         events = await self.run_turn("silence-turn")
         self.assertEqual(self.affect.observe_count, 0)
@@ -387,6 +427,7 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         session_id: str,
         *,
         asr_audio_route: str | None = None,
+        asr_model: str | None = None,
         vad_noise_floor_dbfs: float | None = None,
     ) -> list[dict[str, object]]:
         async with connect(service.uri, compression=None) as websocket:
@@ -411,6 +452,8 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
             }
             if asr_audio_route is not None:
                 start["asr_audio_route"] = asr_audio_route
+            if asr_model is not None:
+                start["asr_model"] = asr_model
             if vad_noise_floor_dbfs is not None:
                 start["vad_calibration"] = {
                     "noise_floor_dbfs": vad_noise_floor_dbfs,
@@ -751,7 +794,7 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
             self.service._release,
         )
         connection._job_metrics = [
-            ModelJobMetric(1, "voxtral_push", index * 1_000, (index + 1) * 1_000, 3, 40)
+            ModelJobMetric(1, "asr_push", index * 1_000, (index + 1) * 1_000, 3, 40)
             for index in range(1_000)
         ]
 

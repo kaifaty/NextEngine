@@ -472,6 +472,7 @@ async def benchmark_service(
     runs: int,
     chunk_ms: int,
     asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
+    asr_model: str | None = None,
 ) -> dict[str, object]:
     if mode not in {"paced", "unpaced"}:
         raise BenchmarkError("benchmark mode must be paced or unpaced")
@@ -516,6 +517,7 @@ async def benchmark_service(
             session_id=f"benchmark-{index + 1}",
             measurement=measurement,
             asr_audio_route=asr_audio_route,
+            asr_model=asr_model,
         )
         wall_ms = (time.monotonic() - started) * 1000
         wall_times.append(wall_ms)
@@ -621,6 +623,7 @@ async def benchmark_service(
         "run_configuration": {
             "chunk_ms": chunk_ms,
             "asr_audio_route": asr_audio_route,
+            "asr_model": asr_model or "service_default",
         },
         "service": {
             "protocol": ready.protocol,

@@ -30,6 +30,7 @@ class TranscriberCapabilities:
     supported_delay_ms: tuple[int, ...]
     configured_delay_ms: int
     partial_decode_interval_ms: int
+    max_audio_duration_ms: int | None = None
 
 
 @dataclass(frozen=True)

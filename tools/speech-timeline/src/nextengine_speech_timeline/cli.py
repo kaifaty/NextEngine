@@ -60,6 +60,10 @@ def parser() -> argparse.ArgumentParser:
     microphone.add_argument("--save-wav", type=Path)
     microphone.add_argument("--json", action="store_true", dest="json_output")
     microphone.add_argument(
+        "--asr-model",
+        help="resident ASR route ID advertised by the service (default: service default)",
+    )
+    microphone.add_argument(
         "--asr-audio-route",
         choices=sorted(ASR_AUDIO_ROUTES),
         default=ASR_AUDIO_ROUTE_RAW,
@@ -74,6 +78,10 @@ def parser() -> argparse.ArgumentParser:
     benchmark.add_argument("--runs", type=int, default=2)
     benchmark.add_argument("--chunk-ms", type=int, default=80)
     benchmark.add_argument("--out", type=Path, required=True)
+    benchmark.add_argument(
+        "--asr-model",
+        help="resident ASR route ID advertised by the service (default: service default)",
+    )
     benchmark.add_argument(
         "--asr-audio-route",
         choices=sorted(ASR_AUDIO_ROUTES),
@@ -109,8 +117,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         try:
             profile = load_profile(arguments.profile)
-            transcriber, affect, audio_preprocessor = build_adapters(profile)
-            runtime = SpeechTimelineRuntime(transcriber, affect, audio_preprocessor)
+            transcribers, default_transcriber, affect, audio_preprocessor = build_adapters(profile)
+            runtime = SpeechTimelineRuntime(
+                transcribers,
+                affect,
+                audio_preprocessor,
+                default_transcriber=default_transcriber,
+            )
             diagnostic_audio = (
                 DiagnosticAudioStore(
                     profile.service.diagnostic_audio_root,
@@ -128,6 +141,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 model_identity={
                     "voxtral_sha256": profile.voxtral.model_sha256,
                     "transcribe_revision": profile.voxtral.runtime_revision,
+                    "default_asr_model": profile.default_asr_model,
+                    **(
+                        {
+                            "gigaam_model_id": profile.gigaam.model_id,
+                            "gigaam_revision": profile.gigaam.model_revision,
+                            "gigaam_weights_sha256": profile.gigaam.weights_sha256,
+                            "gigaam_modeling_sha256": profile.gigaam.modeling_sha256,
+                            "gigaam_classification": profile.gigaam.classification,
+                        }
+                        if profile.gigaam is not None
+                        else {}
+                    ),
                     "emotion_adapter_id": profile.emotion.adapter_id,
                     "emotion_model_id": profile.emotion.model_id,
                     "emotion_revision": profile.emotion.model_revision,
@@ -198,6 +223,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     debug_wav=debug_wav,
                     json_output=arguments.json_output,
                     asr_audio_route=arguments.asr_audio_route,
+                    asr_model=arguments.asr_model,
                 )
             )
         except ClientError as error:
@@ -224,6 +250,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     runs=arguments.runs,
                     chunk_ms=arguments.chunk_ms,
                     asr_audio_route=arguments.asr_audio_route,
+                    asr_model=arguments.asr_model,
                 )
             )
             write_report(arguments.out, report)
@@ -323,6 +350,7 @@ async def _microphone(
     debug_wav: Path | None,
     json_output: bool,
     asr_audio_route: str,
+    asr_model: str | None,
 ) -> int:
     chunks = microphone_chunks(
         device,
@@ -336,6 +364,7 @@ async def _microphone(
         locale=locale,
         on_event=lambda payload: render_event(payload, json_output=json_output),
         asr_audio_route=asr_audio_route,
+        asr_model=asr_model,
     )
     if debug_wav is not None:
         print(f"saved debug WAV: {debug_wav}", flush=True)

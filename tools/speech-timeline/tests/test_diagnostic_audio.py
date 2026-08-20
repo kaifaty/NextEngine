@@ -34,10 +34,13 @@ class DiagnosticAudioStoreTests(unittest.TestCase):
                 raw,
                 asr_enhanced_pcm=enhanced,
                 asr_audio_route="whisper",
+                asr_model="gigaam-v3-e2e-rnnt",
             )
             self.assertTrue(record.enhanced_available)
             self.assertEqual(record.asr_audio_route, "whisper")
+            self.assertEqual(record.asr_model, "gigaam-v3-e2e-rnnt")
             self.assertEqual(store.list_records()[0].asr_audio_route, "whisper")
+            self.assertEqual(store.list_records()[0].asr_model, "gigaam-v3-e2e-rnnt")
             self.assertEqual(store.read(record.record_id, variant="asr_enhanced")[44:], enhanced)
             with self.assertRaisesRegex(Exception, "preserve the raw sample clock"):
                 store.record(

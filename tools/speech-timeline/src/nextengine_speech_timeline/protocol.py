@@ -65,6 +65,7 @@ class SessionStart:
     channels: int
     vad_calibration: VadCalibration | None = None
     asr_audio_route: str = ASR_AUDIO_ROUTE_RAW
+    asr_model: str | None = None
 
 
 @dataclass(frozen=True)
@@ -113,7 +114,7 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
                 "encoding",
                 "channels",
             },
-            optional={"vad_calibration", "asr_audio_route"},
+            optional={"vad_calibration", "asr_audio_route", "asr_model"},
         )
         session_id = _session_id(value.get("session_id"))
         locale_value = value.get("locale")
@@ -138,6 +139,15 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
                 f"asr_audio_route must be one of {sorted(ASR_AUDIO_ROUTES)}",
                 terminal=True,
             )
+        asr_model = value.get("asr_model")
+        if asr_model is not None:
+            asr_model = _bounded_string(asr_model, "asr_model", 128)
+            if SESSION_ID_PATTERN.fullmatch(asr_model) is None:
+                raise ProtocolError(
+                    "INVALID_FIELD",
+                    "asr_model contains unsupported characters",
+                    terminal=True,
+                )
         return SessionStart(
             session_id=session_id,
             locale=locale_value,
@@ -146,6 +156,7 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
             channels=channels,
             vad_calibration=calibration,
             asr_audio_route=asr_audio_route,
+            asr_model=asr_model,
         )
     if message_type in {"session.finish", "session.cancel"}:
         _require_keys(value, {"schema_version", "type", "session_id"})

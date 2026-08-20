@@ -23,6 +23,7 @@ export interface DiagnosticAudioRecord {
   created_at_unix_ms: number;
   enhanced_available: boolean;
   asr_audio_route: string | null;
+  asr_model: string | null;
 }
 
 export interface AffectSegment {
@@ -78,6 +79,7 @@ export interface TimelineUpdate {
 
 export interface FinalUtterance {
   text: string;
+  asr_model?: string;
   observed_vocal_expression: string;
   observed_vocal_expression_source?: string;
   vocal_expression_summary?: {

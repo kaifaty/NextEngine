@@ -21,6 +21,10 @@ from .adapters.dpdfnet import (
     SUPPORTED_MODELS as DPDFNET_MODELS,
 )
 from .adapters.emotion2vec import Emotion2VecAffectAdapter
+from .adapters.gigaam import (
+    MODEL_ROUTE_ID as GIGAAM_MODEL_ROUTE_ID,
+    GigaAmTranscriberAdapter,
+)
 from .adapters.voxtral_transcribe_cpp import VoxtralTranscriberAdapter
 from .adapters.wavlm_russian_resd import (
     ADAPTER_ID as WAVLM_RUSSIAN_RESD_ADAPTER_ID,
@@ -42,6 +46,8 @@ WAVLM_ADAPTER_IDS = {WAVLM_RUSSIAN_RESD_ADAPTER_ID, WAVLM_AUDIO_CLASSIFICATION_A
 TRANSFORMERS_AUDIO_ADAPTER_IDS = {*WAVLM_ADAPTER_IDS, TRANSFORMERS_AUDIO_CLASSIFICATION_ADAPTER_ID}
 SUPPORTED_EMOTION_ADAPTERS = {EMOTION2VEC_ADAPTER_ID, *TRANSFORMERS_AUDIO_ADAPTER_IDS}
 SUPPORTED_AUDIO_PREPROCESSORS = {DPDFNET_ADAPTER_ID}
+VOXTRAL_MODEL_ROUTE_ID = "voxtral-realtime"
+SUPPORTED_ASR_MODEL_ROUTES = {VOXTRAL_MODEL_ROUTE_ID, GIGAAM_MODEL_ROUTE_ID}
 
 
 class ProfileError(RuntimeError):
@@ -74,6 +80,19 @@ class EmotionProfile:
 
 
 @dataclass(frozen=True)
+class GigaAmProfile:
+    model_id: str
+    model_revision: str
+    snapshot_path: Path
+    device: str
+    classification: str
+    weights_sha256: str
+    modeling_sha256: str
+    config_sha256: str
+    tokenizer_sha256: str
+
+
+@dataclass(frozen=True)
 class AudioPreprocessorProfile:
     adapter_id: str
     model_id: str
@@ -100,6 +119,8 @@ class ServiceProfile:
 @dataclass(frozen=True)
 class SpeechTimelineProfile:
     voxtral: VoxtralProfile
+    gigaam: GigaAmProfile | None
+    default_asr_model: str
     emotion: EmotionProfile
     audio_preprocessor: AudioPreprocessorProfile | None
     service: ServiceProfile
@@ -121,7 +142,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
     root = _object_with_optional(
         value,
         {"schema_version", "voxtral", "emotion", "service"},
-        {"audio_preprocessor"},
+        {"audio_preprocessor", "gigaam", "default_asr_model"},
         "profile",
     )
     if root["schema_version"] != 1:
@@ -146,6 +167,25 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
         {"model_id", "model_revision", "cache_dir", "device", "classification"},
         {"adapter_id", "weights_sha256", "label_map"},
         "emotion",
+    )
+    gigaam = (
+        _object(
+            root["gigaam"],
+            {
+                "model_id",
+                "model_revision",
+                "snapshot_path",
+                "device",
+                "classification",
+                "weights_sha256",
+                "modeling_sha256",
+                "config_sha256",
+                "tokenizer_sha256",
+            },
+            "gigaam",
+        )
+        if "gigaam" in root
+        else None
     )
     audio_preprocessor = (
         _object_with_optional(
@@ -213,6 +253,40 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
                 voxtral.get("partial_decode_interval_ms", 240),
                 "partial_decode_interval_ms",
             ),
+        ),
+        gigaam=(
+            GigaAmProfile(
+                model_id=_string(gigaam["model_id"], "gigaam.model_id", 256),
+                model_revision=_string(
+                    gigaam["model_revision"], "gigaam.model_revision", 128
+                ),
+                snapshot_path=_path(gigaam["snapshot_path"], "gigaam.snapshot_path"),
+                device=_choice(gigaam["device"], "gigaam.device", {"auto", "cpu", "cuda"}),
+                classification=_choice(
+                    gigaam["classification"],
+                    "gigaam.classification",
+                    {"unclassified_local_only", "classified_local_only"},
+                ),
+                weights_sha256=_sha256(
+                    gigaam["weights_sha256"], "gigaam.weights_sha256"
+                ),
+                modeling_sha256=_sha256(
+                    gigaam["modeling_sha256"], "gigaam.modeling_sha256"
+                ),
+                config_sha256=_sha256(
+                    gigaam["config_sha256"], "gigaam.config_sha256"
+                ),
+                tokenizer_sha256=_sha256(
+                    gigaam["tokenizer_sha256"], "gigaam.tokenizer_sha256"
+                ),
+            )
+            if gigaam is not None
+            else None
+        ),
+        default_asr_model=_choice(
+            root.get("default_asr_model", VOXTRAL_MODEL_ROUTE_ID),
+            "default_asr_model",
+            SUPPORTED_ASR_MODEL_ROUTES,
         ),
         emotion=EmotionProfile(
             adapter_id=adapter_id,
@@ -350,6 +424,10 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
         raise ProfileError("emotion weights and label map are only valid for a WavLM adapter")
     if profile.audio_preprocessor is not None:
         _validate_audio_preprocessor(profile.audio_preprocessor)
+    if profile.gigaam is not None:
+        _validate_gigaam(profile.gigaam)
+    elif profile.default_asr_model == GIGAAM_MODEL_ROUTE_ID:
+        raise ProfileError("default_asr_model requires a configured gigaam profile")
     try:
         result = subprocess.run(
             ["git", "-C", str(profile.voxtral.transcribe_root), "rev-parse", "HEAD"],
@@ -377,18 +455,28 @@ def validate_profile_artifacts(profile: SpeechTimelineProfile) -> None:
 def build_adapters(
     profile: SpeechTimelineProfile,
 ) -> tuple[
-    VoxtralTranscriberAdapter,
+    dict[str, VoxtralTranscriberAdapter | GigaAmTranscriberAdapter],
+    str,
     Emotion2VecAffectAdapter | WavlmRussianResdAffectAdapter,
     DpdfNetAudioPreprocessor | None,
 ]:
-    transcriber = VoxtralTranscriberAdapter(
-        profile.voxtral.model_path,
-        profile.voxtral.transcribe_root,
-        profile.voxtral.library,
-        backend=profile.voxtral.backend,
-        delay_ms=profile.voxtral.delay_ms,
-        partial_decode_interval_ms=profile.voxtral.partial_decode_interval_ms,
-    )
+    transcribers: dict[str, VoxtralTranscriberAdapter | GigaAmTranscriberAdapter] = {
+        VOXTRAL_MODEL_ROUTE_ID: VoxtralTranscriberAdapter(
+            profile.voxtral.model_path,
+            profile.voxtral.transcribe_root,
+            profile.voxtral.library,
+            backend=profile.voxtral.backend,
+            delay_ms=profile.voxtral.delay_ms,
+            partial_decode_interval_ms=profile.voxtral.partial_decode_interval_ms,
+        )
+    }
+    if profile.gigaam is not None:
+        transcribers[GIGAAM_MODEL_ROUTE_ID] = GigaAmTranscriberAdapter(
+            profile.gigaam.snapshot_path,
+            model_id=profile.gigaam.model_id,
+            model_revision=profile.gigaam.model_revision,
+            device=profile.gigaam.device,
+        )
     if profile.emotion.adapter_id == EMOTION2VEC_ADAPTER_ID:
         probe = EmotionProbe(
             profile.emotion.model_id,
@@ -430,7 +518,7 @@ def build_adapters(
                 profile.audio_preprocessor.whisper_attenuation_limit_db
             ),
         )
-    return transcriber, affect, preprocessor
+    return transcribers, profile.default_asr_model, affect, preprocessor
 
 
 def _object(value: object, keys: set[str], name: str) -> dict[str, Any]:
@@ -602,6 +690,34 @@ def _validate_audio_preprocessor(preprocessor: AudioPreprocessorProfile) -> None
             digest.update(chunk)
     if f"sha256:{digest.hexdigest()}" != preprocessor.model_sha256:
         raise ProfileError("audio preprocessor model SHA-256 does not match the profile")
+
+
+def _validate_gigaam(gigaam: GigaAmProfile) -> None:
+    snapshot = gigaam.snapshot_path
+    _require_external(snapshot, "GigaAM snapshot")
+    if not snapshot.is_dir() or snapshot.is_symlink():
+        raise ProfileError(f"GigaAM snapshot does not exist: {snapshot}")
+    expected = {
+        "pytorch_model.bin": gigaam.weights_sha256,
+        "modeling_gigaam.py": gigaam.modeling_sha256,
+        "config.json": gigaam.config_sha256,
+        "tokenizer.model": gigaam.tokenizer_sha256,
+    }
+    for filename, expected_hash in expected.items():
+        path = snapshot / filename
+        if not path.is_file():
+            raise ProfileError(f"pinned GigaAM artifact does not exist: {path}")
+        actual_hash = _file_sha256(path)
+        if actual_hash != expected_hash:
+            raise ProfileError(f"GigaAM {filename} SHA-256 does not match the profile")
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
 
 
 def _require_external(path: Path, name: str) -> None:

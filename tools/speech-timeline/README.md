@@ -57,8 +57,9 @@ vocal expression only.
 ## Resident service
 
 The service accepts one explicit-finish utterance at a time over an
-authenticated `ws://127.0.0.1` listener. It loads and warms both pinned models
-before publishing its ready file. The explicit JSON profile, GGUF, emotion
+authenticated `ws://127.0.0.1` listener. It loads and warms every configured
+ASR adapter plus the selected vocal-affect model before publishing its ready
+file. The explicit JSON profile, GGUF, model snapshots, emotion
 cache, `transcribe.cpp` checkout/library, ready file, and any diagnostic output
 must all live outside the repository.
 
@@ -72,7 +73,11 @@ Once model warm-up completes, the ready JSON printed to stdout contains both
 `http://127.0.0.1:43721/`) in a browser, grant microphone access, select the
 exact input, and press **Начать запись**. The Vue dashboard is served by the
 same loopback process as the WebSocket, obtains its short-lived token from a
-same-origin `no-store` bootstrap response, and never writes raw audio.
+same-origin `no-store` bootstrap response, and never writes raw audio unless
+the explicit diagnostic-retention profile is configured. The ASR selector is
+locked for the duration of one utterance: Voxtral emits streaming revisions,
+while GigaAM-v3 produces one finalized-utterance result after **Завершить
+фразу**.
 The protocol defaults to `raw`. If the profile contains an audio preprocessor,
 the dashboard exposes four explicit per-utterance choices: **RAW**,
 **Gain only**, the previous full **DPDFNet** route, and the new
@@ -107,7 +112,7 @@ to individual words in this view. The final tagged-text form is a later derived
 consumer view.
 
 The profile is strict schema version 1 and contains three required objects plus
-an optional preprocessing branch:
+optional ASR/preprocessing branches:
 
 - `voxtral`: exact GGUF path, byte size, `sha256:` digest, `transcribe.cpp`
   root/library/revision, backend, model delay, and partial-decode interval
@@ -117,12 +122,56 @@ an optional preprocessing branch:
   and defaults to `emotion2vec-plus/1`.
 - `service`: loopback port (`0` selects an ephemeral port), external ready-file
   path, and aligned frame/turn byte ceilings.
+- `gigaam` (optional): a local pinned `ai-sage/GigaAM-v3` `e2e_rnnt` snapshot,
+  exact hashes for weights, executable model code, config and tokenizer, device,
+  and local-only classification. `default_asr_model` may select it; otherwise
+  Voxtral remains the backwards-compatible default.
 - `audio_preprocessor` (optional): a separately pinned, hash-validated
   streaming ONNX model and explicit routing. The current
 `dpdfnet-streaming/1` adapter is trial-only and permits only `asr_only`;
   VAD, vocal affect and the original sample clock remain on raw PCM. When
   explicit diagnostics are enabled, raw and ASR-enhanced WAV are retained as
   separate, clearly labelled variants.
+
+### Selectable GigaAM-v3 ASR
+
+Download the immutable `e2e_rnnt` snapshot outside the repository. Startup is
+offline-only and validates all four artifacts before executing the pinned model
+code:
+
+```bash
+hf download ai-sage/GigaAM-v3 \
+  --revision 7655ad717f8122257385bb4b2f373db3697e8680 \
+  --cache-dir ~/.cache/nextengine/gigaam-v3-e2e-rnnt/models
+```
+
+Add the following top-level profile object. Keep
+`default_asr_model: "voxtral-realtime"` to preserve the current default while
+exposing both choices in the dashboard.
+
+```json
+"default_asr_model": "voxtral-realtime",
+"gigaam": {
+  "model_id": "ai-sage/GigaAM-v3",
+  "model_revision": "7655ad717f8122257385bb4b2f373db3697e8680",
+  "snapshot_path": "/home/you/.cache/nextengine/gigaam-v3-e2e-rnnt/models/models--ai-sage--GigaAM-v3/snapshots/7655ad717f8122257385bb4b2f373db3697e8680",
+  "device": "cuda",
+  "classification": "unclassified_local_only",
+  "weights_sha256": "sha256:afc6dcbae8320ea56f2cddebc0f13fbf62c9d59b6ddcad899782623c8610826a",
+  "modeling_sha256": "sha256:269be43b635b1e510115baa2a843c5cbaa052e8adf0be30dc133a2ba5b5f2d86",
+  "config_sha256": "sha256:02361ba9cafd6c3ec66fcdd73494c3b562a60eb2a2d1b13f3cb04ae440d93e52",
+  "tokenizer_sha256": "sha256:828c12c991019eef952a960661f25a92d6ad279591e2ea466b4aeddf1d20a18a"
+}
+```
+
+The current GigaAM adapter is intentionally honest about its batch behavior:
+PCM chunks are accumulated under the existing bounded utterance clock, no
+intermediate transcript is fabricated, and inference runs once at finish.
+GigaAM's short-form limit is 25 seconds, so the browser and CLI use the lower
+per-model bound when it is selected; Voxtral keeps the service's 30-second
+ceiling. Both routes return the same transcript/timeline schema and report the
+selected `asr_model` in `session.started`, `utterance.final`, metrics and saved
+diagnostic-record metadata.
 
 ### DPDFNet ASR-only trial
 
@@ -268,6 +317,7 @@ In a second terminal, list inputs and connect the microphone client:
   --ready-file /path/outside/repository/speech-timeline-ready.json \
   --device 'pw:<exact-node-name>' \
   --locale ru \
+  --asr-model gigaam-v3-e2e-rnnt \
   --asr-audio-route raw
 ```
 
@@ -310,6 +360,7 @@ Measure sequential resident sessions with an external 16 kHz mono PCM WAV:
   --audio /path/outside/repository/sample.wav \
   --mode unpaced \
   --runs 2 \
+  --asr-model gigaam-v3-e2e-rnnt \
   --asr-audio-route raw \
   --out /path/outside/repository/speech-timeline-benchmark.json
 ```

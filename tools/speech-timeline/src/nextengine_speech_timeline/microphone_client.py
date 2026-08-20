@@ -113,6 +113,7 @@ async def run_websocket_session(
     session_id: str | None = None,
     measurement: dict[str, float] | None = None,
     asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
+    asr_model: str | None = None,
 ) -> dict[str, object]:
     if asr_audio_route not in ASR_AUDIO_ROUTES:
         raise ClientError(f"ASR audio route must be one of {sorted(ASR_AUDIO_ROUTES)}")
@@ -159,6 +160,32 @@ async def run_websocket_session(
             raise ClientError("service.ready has invalid ASR audio routing")
         if asr_audio_route not in available_routes:
             raise ClientError(f"ASR audio route is unavailable: {asr_audio_route}")
+        model_routing = service_ready.get("asr_model_routing")
+        if not isinstance(model_routing, dict):
+            raise ClientError("service.ready does not contain ASR model routing")
+        available_models = model_routing.get("available_models")
+        default_model = model_routing.get("default_model")
+        if (
+            not isinstance(available_models, list)
+            or any(not isinstance(item, str) for item in available_models)
+            or not isinstance(default_model, str)
+        ):
+            raise ClientError("service.ready has invalid ASR model routing")
+        selected_model = asr_model or default_model
+        if selected_model not in available_models:
+            raise ClientError(f"ASR model is unavailable: {selected_model}")
+        models = service_ready.get("models")
+        transcribers = models.get("transcribers") if isinstance(models, dict) else None
+        selected_capabilities = (
+            transcribers.get(selected_model) if isinstance(transcribers, dict) else None
+        )
+        model_limit_ms = (
+            selected_capabilities.get("max_audio_duration_ms")
+            if isinstance(selected_capabilities, dict)
+            else None
+        )
+        if isinstance(model_limit_ms, int) and model_limit_ms > 0:
+            max_turn_bytes = min(max_turn_bytes, model_limit_ms * 16_000 * 2 // 1_000)
         await websocket.send(
             json.dumps(
                 {
@@ -169,6 +196,7 @@ async def run_websocket_session(
                     "sample_rate_hz": 16_000,
                     "encoding": "pcm_s16le",
                     "channels": 1,
+                    "asr_model": selected_model,
                     "asr_audio_route": asr_audio_route,
                 },
                 separators=(",", ":"),

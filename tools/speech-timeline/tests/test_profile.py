@@ -132,6 +132,86 @@ class ProfileTests(unittest.TestCase):
             with self.assertRaises(ProfileError):
                 load_profile(profile)
 
+    def test_optional_gigaam_snapshot_is_hash_closed_and_selectable(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            voxtral = root / "model.gguf"
+            voxtral.write_bytes(b"voxtral")
+            library = root / "libtranscribe.so"
+            library.write_bytes(b"runtime")
+            transcribe_root = root / "transcribe.cpp"
+            transcribe_root.mkdir()
+            cache = root / "emotion-cache"
+            cache.mkdir()
+            snapshot = root / "gigaam-snapshot"
+            snapshot.mkdir()
+            artifacts = {
+                "pytorch_model.bin": b"weights",
+                "modeling_gigaam.py": b"modeling",
+                "config.json": b"{}",
+                "tokenizer.model": b"tokenizer",
+            }
+            for filename, payload in artifacts.items():
+                (snapshot / filename).write_bytes(payload)
+            revision = "a" * 40
+            profile_path = root / "profile.json"
+            profile_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "default_asr_model": "gigaam-v3-e2e-rnnt",
+                        "voxtral": {
+                            "model_path": str(voxtral),
+                            "model_size_bytes": voxtral.stat().st_size,
+                            "model_sha256": f"sha256:{hashlib.sha256(voxtral.read_bytes()).hexdigest()}",
+                            "transcribe_root": str(transcribe_root),
+                            "library": str(library),
+                            "runtime_revision": revision,
+                            "backend": "cuda",
+                            "delay_ms": 480,
+                        },
+                        "gigaam": {
+                            "model_id": "ai-sage/GigaAM-v3",
+                            "model_revision": "b" * 40,
+                            "snapshot_path": str(snapshot),
+                            "device": "cuda",
+                            "classification": "unclassified_local_only",
+                            "weights_sha256": f"sha256:{hashlib.sha256(artifacts['pytorch_model.bin']).hexdigest()}",
+                            "modeling_sha256": f"sha256:{hashlib.sha256(artifacts['modeling_gigaam.py']).hexdigest()}",
+                            "config_sha256": f"sha256:{hashlib.sha256(artifacts['config.json']).hexdigest()}",
+                            "tokenizer_sha256": f"sha256:{hashlib.sha256(artifacts['tokenizer.model']).hexdigest()}",
+                        },
+                        "emotion": {
+                            "model_id": "emotion/model",
+                            "model_revision": "c" * 40,
+                            "cache_dir": str(cache),
+                            "device": "cpu",
+                            "classification": "unclassified_local_only",
+                        },
+                        "service": {
+                            "port": 0,
+                            "ready_file": str(root / "ready.json"),
+                            "max_frame_bytes": 32_000,
+                            "max_turn_bytes": 960_000,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            completed = subprocess.CompletedProcess(
+                ["git"], 0, stdout=f"{revision}\n", stderr=""
+            )
+            with patch(
+                "nextengine_speech_timeline.profile.subprocess.run",
+                return_value=completed,
+            ):
+                profile = load_profile(profile_path)
+            self.assertEqual(profile.default_asr_model, "gigaam-v3-e2e-rnnt")
+            self.assertIsNotNone(profile.gigaam)
+            (snapshot / "modeling_gigaam.py").write_bytes(b"changed")
+            with self.assertRaisesRegex(ProfileError, "modeling_gigaam.py SHA-256"):
+                validate_profile_artifacts(profile)
+
     def test_optional_audio_preprocessor_requires_pinned_external_onnx(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

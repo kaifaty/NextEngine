@@ -29,6 +29,7 @@ class DiagnosticAudioRecord:
     created_at_unix_ms: int
     enhanced_available: bool
     asr_audio_route: str | None
+    asr_model: str | None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -38,6 +39,7 @@ class DiagnosticAudioRecord:
             "created_at_unix_ms": self.created_at_unix_ms,
             "enhanced_available": self.enhanced_available,
             "asr_audio_route": self.asr_audio_route,
+            "asr_model": self.asr_model,
         }
 
 
@@ -73,6 +75,7 @@ class DiagnosticAudioStore:
         *,
         asr_enhanced_pcm: bytes | None = None,
         asr_audio_route: str | None = None,
+        asr_model: str | None = None,
     ) -> DiagnosticAudioRecord:
         if not pcm or len(pcm) % 2:
             raise DiagnosticAudioError("diagnostic WAV requires non-empty aligned PCM")
@@ -87,6 +90,8 @@ class DiagnosticAudioStore:
                 raise DiagnosticAudioError("processed diagnostic WAV requires a bounded ASR route")
         elif asr_audio_route is not None:
             raise DiagnosticAudioError("raw diagnostic WAV cannot declare a processed ASR route")
+        if asr_model is not None and not _valid_identifier(asr_model):
+            raise DiagnosticAudioError("diagnostic ASR model route is invalid")
         with self._lock:
             self.start()
             record_id = secrets.token_hex(16)
@@ -111,9 +116,14 @@ class DiagnosticAudioStore:
                         destination.writeframes(asr_enhanced_pcm)
                     os.chmod(enhanced_temporary, 0o600)
                     os.replace(enhanced_temporary, enhanced_target)
+                if asr_audio_route is not None or asr_model is not None:
                     metadata_temporary.write_text(
                         json.dumps(
-                            {"schema_version": 1, "asr_audio_route": asr_audio_route},
+                            {
+                                "schema_version": 1,
+                                "asr_audio_route": asr_audio_route,
+                                "asr_model": asr_model,
+                            },
                             separators=(",", ":"),
                         ),
                         encoding="utf-8",
@@ -185,7 +195,7 @@ class DiagnosticAudioStore:
         record_id = path.stem.removeprefix(_PREFIX)
         enhanced_path = path.parent / f"{path.stem}.asr.wav"
         enhanced_available = enhanced_path.is_file() and not enhanced_path.is_symlink()
-        asr_audio_route = _read_route(path.parent / f"{path.stem}.meta.json")
+        asr_audio_route, asr_model = _read_metadata(path.parent / f"{path.stem}.meta.json")
         if enhanced_available and asr_audio_route is None:
             asr_audio_route = "enhanced"
         return DiagnosticAudioRecord(
@@ -195,6 +205,7 @@ class DiagnosticAudioStore:
             created_at_unix_ms=stat.st_mtime_ns // 1_000_000,
             enhanced_available=enhanced_available,
             asr_audio_route=asr_audio_route,
+            asr_model=asr_model,
         )
 
 
@@ -216,14 +227,30 @@ def _valid_route(value: object) -> bool:
     )
 
 
-def _read_route(path: Path) -> str | None:
+def _valid_identifier(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and 1 <= len(value) <= 128
+        and all(
+            character.isascii()
+            and (character.isalnum() or character in {"_", "-", "."})
+            for character in value
+        )
+    )
+
+
+def _read_metadata(path: Path) -> tuple[str | None, str | None]:
     if not path.is_file() or path.is_symlink() or path.stat().st_size > 1_024:
-        return None
+        return None, None
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return None
+        return None, None
     if not isinstance(value, dict) or value.get("schema_version") != 1:
-        return None
+        return None, None
     route = value.get("asr_audio_route")
-    return route if _valid_route(route) else None
+    model = value.get("asr_model")
+    return (
+        route if _valid_route(route) else None,
+        model if _valid_identifier(model) else None,
+    )

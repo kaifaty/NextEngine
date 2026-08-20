@@ -14,8 +14,8 @@ T = TypeVar("T")
 
 class JobPriority(IntEnum):
     STARTUP = -1
-    VOXTRAL_FINISH = 0
-    VOXTRAL_PUSH = 1
+    ASR_FINISH = 0
+    ASR_PUSH = 1
     EMOTION_FINAL = 2
     EMOTION_STABLE = 3
     EMOTION_FAST = 4
@@ -110,7 +110,7 @@ class ModelScheduler:
         with self._lock:
             if self._stopping:
                 raise SchedulerOverloaded("scheduler is stopping")
-            is_asr_push = priority is JobPriority.VOXTRAL_PUSH
+            is_asr_push = priority is JobPriority.ASR_PUSH
             pending_asr = self._pending_asr.get(generation, 0)
             if is_asr_push and pending_asr >= self.max_pending_asr:
                 self.metrics.overloads += 1
@@ -264,7 +264,7 @@ class ModelScheduler:
             )
 
     def _remove_pending(self, job: _Job[object]) -> None:
-        if job.priority == int(JobPriority.VOXTRAL_PUSH):
+        if job.priority == int(JobPriority.ASR_PUSH):
             remaining = self._pending_asr.get(job.generation, 0) - 1
             if remaining > 0:
                 self._pending_asr[job.generation] = remaining

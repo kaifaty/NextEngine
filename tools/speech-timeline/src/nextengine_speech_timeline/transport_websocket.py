@@ -93,6 +93,10 @@ class SpeechTimelineWebSocketService:
             uri=self.uri,
             models=startup,
             model_identity=self.model_identity,
+            asr_model_routing={
+                "default_model": self.runtime.default_transcriber,
+                "available_models": list(self.runtime.available_asr_models),
+            },
             asr_audio_routing={
                 "default_route": ASR_AUDIO_ROUTE_RAW,
                 "available_routes": list(self.runtime.available_asr_audio_routes),
@@ -126,6 +130,7 @@ class SpeechTimelineWebSocketService:
                     "protocol": SERVICE_PROTOCOL,
                     "models": startup,
                     "model_identity": self.model_identity,
+                    "asr_model_routing": self._ready_public["asr_model_routing"],
                     "asr_audio_routing": self._ready_public["asr_audio_routing"],
                 }
             )
@@ -391,6 +396,7 @@ class SpeechTimelineWebSocketService:
                             client_message.locale,
                             vad_calibration=client_message.vad_calibration,
                             asr_audio_route=client_message.asr_audio_route,
+                            asr_model=client_message.asr_model,
                         )
                     elif isinstance(client_message, SessionFinish):
                         await connection.finish(client_message.session_id)

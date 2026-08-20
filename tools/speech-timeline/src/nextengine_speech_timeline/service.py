@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, is_dataclass, replace
 import logging
@@ -8,9 +9,8 @@ import math
 import time
 from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 
-from .adapters.base import AudioWindow
+from .adapters.base import AudioWindow, TranscriberConfig, TranscriptRevision
 from .activity import EnergyVoiceActivityDetector, VoiceActivityConfig, VoiceActivityDetector
-from .adapters.voxtral_transcribe_cpp import TranscriberConfig, TranscriptRevision
 from .audio import pcm16le_to_float32, pcm16le_to_float32_array
 from .diagnostic_audio import DiagnosticAudioStore
 from .metrics import ModelJobMetric, ResourceMonitor
@@ -79,13 +79,26 @@ class SpeechTimelineRuntime:
 
     def __init__(
         self,
-        transcriber: Any,
+        transcriber: Any | Mapping[str, Any],
         affect_analyzer: Any,
         audio_preprocessor: Any | None = None,
         *,
+        default_transcriber: str | None = None,
         activity_factory: Callable[[], VoiceActivityDetector] = EnergyVoiceActivityDetector,
     ) -> None:
-        self.transcriber = transcriber
+        if isinstance(transcriber, Mapping):
+            self.transcribers = dict(transcriber)
+            if not self.transcribers:
+                raise ValueError("at least one transcriber must be configured")
+            if any(not isinstance(key, str) or not key for key in self.transcribers):
+                raise ValueError("transcriber route IDs must be non-empty strings")
+        else:
+            self.transcribers = {"default": transcriber}
+        self.default_transcriber = default_transcriber or next(iter(self.transcribers))
+        if self.default_transcriber not in self.transcribers:
+            raise ValueError("default transcriber is not configured")
+        # Compatibility surface for existing diagnostics and focused fakes.
+        self.transcriber = self.transcribers[self.default_transcriber]
         self.affect_analyzer = affect_analyzer
         self.audio_preprocessor = audio_preprocessor
         self.activity_factory = activity_factory
@@ -115,25 +128,52 @@ class SpeechTimelineRuntime:
             routes.extend(configured)
         return tuple(routes)
 
+    @property
+    def available_asr_models(self) -> tuple[str, ...]:
+        return tuple(self.transcribers)
+
+    def transcriber_for(self, route_id: str | None) -> tuple[str, Any]:
+        selected = route_id or self.default_transcriber
+        transcriber = self.transcribers.get(selected)
+        if transcriber is None:
+            raise KeyError(selected)
+        return selected, transcriber
+
+    def transcriber_capabilities(self, route_id: str) -> dict[str, object]:
+        if self._ready is None:
+            raise RuntimeError("speech runtime is not started")
+        values = self._ready.get("transcribers")
+        if not isinstance(values, dict) or not isinstance(values.get(route_id), dict):
+            raise RuntimeError("transcriber capabilities are unavailable")
+        return values[route_id]  # type: ignore[return-value]
+
     def start(self) -> dict[str, object]:
         if self._ready is not None:
             return self._ready
 
         def load_and_warm() -> dict[str, object]:
-            transcriber_load = self.transcriber.load()
-            transcriber_warmup = self.transcriber.warmup()
+            transcriber_load: dict[str, object] = {}
+            transcriber_warmup: dict[str, object] = {}
+            transcriber_capabilities: dict[str, object] = {}
+            for route_id, adapter in self.transcribers.items():
+                transcriber_load[route_id] = _value(adapter.load())
+                transcriber_warmup[route_id] = _value(adapter.warmup())
+                transcriber_capabilities[route_id] = _value(adapter.capabilities())
             affect_load = self.affect_analyzer.load()
             affect_warmup = self.affect_analyzer.warmup()
             return {
-                "transcriber": _value(self.transcriber.capabilities()),
+                "transcriber": transcriber_capabilities[self.default_transcriber],
+                "transcribers": transcriber_capabilities,
                 "vocal_affect": _value(self.affect_analyzer.capabilities()),
                 "vocal_activity": self.activity_factory().capabilities(),
                 "load": {
-                    "transcriber": _value(transcriber_load),
+                    "transcriber": transcriber_load[self.default_transcriber],
+                    "transcribers": transcriber_load,
                     "vocal_affect": _value(affect_load),
                 },
                 "warmup": {
-                    "transcriber": _value(transcriber_warmup),
+                    "transcriber": transcriber_warmup[self.default_transcriber],
+                    "transcribers": transcriber_warmup,
                     "vocal_affect": _value(affect_warmup),
                 },
             }
@@ -161,8 +201,9 @@ class SpeechTimelineRuntime:
             finally:
                 assert self._preprocessor_executor is not None
                 self._preprocessor_executor.shutdown(wait=True, cancel_futures=True)
-        if hasattr(self.transcriber, "close"):
-            self.scheduler.call_blocking(self.transcriber.close)
+        for adapter in reversed(tuple(self.transcribers.values())):
+            if hasattr(adapter, "close"):
+                self.scheduler.call_blocking(adapter.close)
         self.scheduler.close()
 
     async def reset_audio_preprocessor(
@@ -232,6 +273,9 @@ class SpeechConnection:
         self._diagnostic_asr_pcm = bytearray()
         self._diagnostic_asr_pcm_invalid = False
         self._transcriber_session: Any = None
+        self._transcriber: Any = None
+        self._asr_model = runtime.default_transcriber
+        self._asr_model_max_turn_bytes: int | None = None
         self._asr_tasks: set[asyncio.Task[None]] = set()
         self._emotion_tasks: set[asyncio.Task[None]] = set()
         self._asr_slots = asyncio.Semaphore(runtime.scheduler.max_pending_asr)
@@ -262,12 +306,27 @@ class SpeechConnection:
         locale: str | None,
         vad_calibration: VadCalibration | None = None,
         asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
+        asr_model: str | None = None,
     ) -> None:
         if asr_audio_route not in self.runtime.available_asr_audio_routes:
             raise SessionError(
                 "AUDIO_ROUTE_UNAVAILABLE",
                 f"ASR audio route is unavailable: {asr_audio_route}",
             )
+        try:
+            self._asr_model, self._transcriber = self.runtime.transcriber_for(asr_model)
+        except KeyError as error:
+            raise SessionError(
+                "ASR_MODEL_UNAVAILABLE",
+                f"ASR model is unavailable: {asr_model}",
+            ) from error
+        capabilities = self.runtime.transcriber_capabilities(self._asr_model)
+        max_audio_duration_ms = capabilities.get("max_audio_duration_ms")
+        self._asr_model_max_turn_bytes = (
+            max_audio_duration_ms * 16_000 * 2 // 1_000
+            if isinstance(max_audio_duration_ms, int) and max_audio_duration_ms > 0
+            else None
+        )
         if not await self._claim(self):
             raise SessionError("SERVICE_BUSY", "another speech session is active")
         try:
@@ -283,9 +342,10 @@ class SpeechConnection:
             self._transcriber_session = await self._execute(
                 JobPriority.STARTUP,
                 generation,
-                lambda: self.runtime.transcriber.start(TranscriberConfig(language=locale)),
+                lambda: self._transcriber.start(TranscriberConfig(language=locale)),
             )
         except SessionError:
+            await self._release_once()
             raise
         except Exception as error:
             self.session.fail()
@@ -299,6 +359,7 @@ class SpeechConnection:
                 sample_rate_hz=16_000,
                 encoding="pcm_s16le",
                 channels=1,
+                asr_model=self._asr_model,
                 asr_audio_route=self._asr_audio_route,
                 vocal_activity=self.activity.capabilities(),
             )
@@ -320,6 +381,14 @@ class SpeechConnection:
         self.activity = EnergyVoiceActivityDetector(config)
 
     async def append_pcm(self, payload: bytes) -> None:
+        if (
+            self._asr_model_max_turn_bytes is not None
+            and self.session.total_samples * 2 + len(payload) > self._asr_model_max_turn_bytes
+        ):
+            raise SessionError(
+                "TURN_TOO_LARGE",
+                f"utterance exceeds the selected ASR model limit: {self._asr_model}",
+            )
         await self._asr_slots.acquire()
         try:
             frame = self.session.append_pcm(payload)
@@ -460,7 +529,7 @@ class SpeechConnection:
 
         final_transcript_task = asyncio.create_task(
             self._execute(
-                JobPriority.VOXTRAL_FINISH,
+                JobPriority.ASR_FINISH,
                 generation,
                 finish_transcriber,
                 audio_start_sample=0,
@@ -533,6 +602,7 @@ class SpeechConnection:
                     asr_audio_route=(
                         self._asr_audio_route if enhanced_pcm is not None else None
                     ),
+                    asr_model=self._asr_model,
                 )
                 self._diagnostic_audio_saved = True
             except BaseException as error:
@@ -540,9 +610,10 @@ class SpeechConnection:
         raw_level = self._raw_signal_level.payload()
         asr_level = self._asr_signal_level.payload()
         logger.info(
-            "speech.asr_signal session_id=%s route=%s raw_rms_dbfs=%s raw_peak_dbfs=%s "
+            "speech.asr_signal session_id=%s model=%s route=%s raw_rms_dbfs=%s raw_peak_dbfs=%s "
             "asr_rms_dbfs=%s asr_peak_dbfs=%s asr_nonzero_ratio=%.4f",
             self.session.session_id,
+            self._asr_model,
             self._asr_audio_route,
             raw_level["rms_dbfs"],
             raw_level["peak_dbfs"],
@@ -558,6 +629,7 @@ class SpeechConnection:
             event(
                 "utterance.final",
                 session_id=session_id,
+                asr_model=self._asr_model,
                 **self.timeline.utterance_final(),
                 metrics=self.metrics_payload(),
             )
@@ -576,7 +648,7 @@ class SpeechConnection:
         if self._transcriber_session is not None:
             try:
                 await self._execute(
-                    JobPriority.VOXTRAL_FINISH,
+                    JobPriority.ASR_FINISH,
                     generation,
                     self._transcriber_session.cancel,
                     is_current=lambda _: True,
@@ -613,7 +685,7 @@ class SpeechConnection:
     ) -> None:
         try:
             revision = await self._execute(
-                JobPriority.VOXTRAL_PUSH,
+                JobPriority.ASR_PUSH,
                 generation,
                 lambda: self._transcriber_session.push_pcm(pcm16le_to_float32_array(pcm)),
                 audio_start_sample=start_sample,
@@ -812,7 +884,7 @@ class SpeechConnection:
         if self._transcriber_session is not None:
             try:
                 await self._execute(
-                    JobPriority.VOXTRAL_FINISH,
+                    JobPriority.ASR_FINISH,
                     self.session.generation,
                     self._transcriber_session.cancel,
                     is_current=lambda _: True,
@@ -871,6 +943,10 @@ class SpeechConnection:
             "scheduler": scheduler_delta,
             "model_load_count": {
                 "transcriber": getattr(self.runtime.transcriber, "load_count", None),
+                "transcribers": {
+                    route_id: getattr(adapter, "load_count", None)
+                    for route_id, adapter in self.runtime.transcribers.items()
+                },
                 "vocal_affect": getattr(self.runtime.affect_analyzer, "load_count", None),
                 "audio_preprocessor": (
                     getattr(self.runtime.audio_preprocessor, "load_count", None)
@@ -905,6 +981,10 @@ class SpeechConnection:
                 "flush_ms": self._preprocessor_flush_ms,
                 "raw_signal": self._raw_signal_level.payload(),
                 "asr_signal": self._asr_signal_level.payload(),
+            },
+            "asr": {
+                "selected_model": self._asr_model,
+                "selected_audio_route": self._asr_audio_route,
             },
             "vocal_affect": self.timeline.affect_diagnostics(),
             "events": {

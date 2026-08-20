@@ -16,6 +16,7 @@ import {
   loadDiagnosticAudio,
   SpeechTimelineClient,
   type AsrAudioRoute,
+  type AsrModelRoute,
 } from "./lib/speechClient";
 import type {
   ConnectionState,
@@ -33,6 +34,7 @@ const client = ref<SpeechTimelineClient | null>(null);
 const capture = ref<BrowserMicrophoneCapture | null>(null);
 const devices = ref<MediaDeviceInfo[]>([]);
 const selectedDevice = ref("");
+const selectedAsrModel = ref<AsrModelRoute>("");
 const selectedAsrAudioRoute = ref<AsrAudioRoute>("raw");
 const timeline = ref<TimelineUpdate | null>(null);
 const finalUtterance = ref<FinalUtterance | null>(null);
@@ -53,7 +55,13 @@ const canStart = computed(() => ["ready", "complete", "error"].includes(state.va
 const canCalibrate = computed(() => ["ready", "complete", "error"].includes(state.value));
 const currentSamples = computed(() => sentBytes.value / 2);
 const durationMs = computed(() => (sentBytes.value * 1_000) / 32_000);
-const limitMs = computed(() => client.value?.bounds?.maxTurnDurationMs ?? 30_000);
+const limitMs = computed(() => {
+  const serviceLimit = client.value?.bounds?.maxTurnDurationMs ?? 30_000;
+  const modelLimit = selectedTranscriber.value?.max_audio_duration_ms;
+  return typeof modelLimit === "number" && Number.isFinite(modelLimit)
+    ? Math.min(serviceLimit, modelLimit)
+    : serviceLimit;
+});
 const progress = computed(() => Math.min(100, (durationMs.value / limitMs.value) * 100));
 const levelDb = computed(() => 20 * Math.log10(Math.max(inputRms.value, 0.00001)));
 const currentExpression = computed(
@@ -77,6 +85,17 @@ const availableAsrAudioRoutes = computed<AsrAudioRoute[]>(() => {
       route === "whisper",
   );
 });
+const availableAsrModels = computed<AsrModelRoute[]>(() => {
+  const routing = objectValue(bootstrap.value?.service, "asr_model_routing");
+  const models = routing?.available_models;
+  if (!Array.isArray(models)) return [];
+  return models.filter((model): model is string => typeof model === "string" && model.length > 0);
+});
+const selectedTranscriber = computed(() => {
+  const models = objectValue(bootstrap.value?.service, "models");
+  const transcribers = objectValue(models, "transcribers");
+  return objectValue(transcribers, selectedAsrModel.value);
+});
 
 const stateText: Record<ConnectionState, string> = {
   loading: "Загрузка интерфейса",
@@ -89,7 +108,12 @@ const stateText: Record<ConnectionState, string> = {
   error: "Требуется внимание",
 };
 
-const transcriberName = computed(() => modelValue("transcriber", "adapter_id") || "Voxtral");
+const transcriberName = computed(
+  () => stringValue(selectedTranscriber.value, "model_id") || selectedAsrModel.value || "ASR",
+);
+const transcriberSupportsStreaming = computed(
+  () => selectedTranscriber.value?.supports_streaming === true,
+);
 const affectName = computed(() => modelValue("vocal_affect", "adapter_id") || "Emotion2Vec");
 const preprocessorSummary = computed(() => {
   if (selectedAsrAudioRoute.value === "raw") return "RAW PCM · контроль без gain/NS";
@@ -116,8 +140,13 @@ const asrSignalSummary = computed(() => {
   return `уровень RAW ${rawRms.toFixed(1)} → ASR ${asrRms.toFixed(1)} dBFS`;
 });
 const transcriberCadence = computed(() => {
-  const delay = numericModelValue("transcriber", "configured_delay_ms");
-  const partial = numericModelValue("transcriber", "partial_decode_interval_ms");
+  const model = selectedTranscriber.value;
+  if (model?.supports_streaming === false) {
+    const limit = model.max_audio_duration_ms;
+    return `final-only${typeof limit === "number" ? ` · ≤${limit / 1_000} с` : ""}`;
+  }
+  const delay = numericValue(model, "configured_delay_ms");
+  const partial = numericValue(model, "partial_decode_interval_ms");
   return delay !== null && partial !== null
     ? `delay ${delay} мс · partial ${partial} мс`
     : "параметры появятся после запуска";
@@ -149,9 +178,11 @@ const calibrationSummary = computed(() => {
 const identitySummary = computed(() => {
   const identity = objectValue(bootstrap.value?.service, "model_identity");
   if (!identity) return "точные revisions доступны после запуска";
-  const voxtral = stringValue(identity, "transcribe_revision");
+  const asr = selectedAsrModel.value === "gigaam-v3-e2e-rnnt"
+    ? stringValue(identity, "gigaam_revision")
+    : stringValue(identity, "transcribe_revision");
   const emotion = stringValue(identity, "emotion_revision");
-  return [voxtral && `ASR ${voxtral.slice(0, 8)}`, emotion && `affect ${emotion.slice(0, 8)}`]
+  return [asr && `ASR ${asr.slice(0, 8)}`, emotion && `affect ${emotion.slice(0, 8)}`]
     .filter(Boolean)
     .join(" · ");
 });
@@ -159,6 +190,11 @@ const identitySummary = computed(() => {
 onMounted(async () => {
   try {
     bootstrap.value = await loadBootstrap();
+    const routing = objectValue(bootstrap.value.service, "asr_model_routing");
+    const defaultModel = routing ? stringValue(routing, "default_model") : "";
+    selectedAsrModel.value = availableAsrModels.value.includes(defaultModel)
+      ? defaultModel
+      : availableAsrModels.value[0] ?? "";
     if (availableAsrAudioRoutes.value.includes("whisper")) {
       selectedAsrAudioRoute.value = "whisper";
     }
@@ -215,6 +251,7 @@ async function startRecording(): Promise<void> {
     client.value = nextClient;
     await nextClient.connectAndStart(
       "ru",
+      selectedAsrModel.value,
       selectedAsrAudioRoute.value,
       calibration.value
         ? {
@@ -259,7 +296,8 @@ function handleAudioChunk(chunk: Uint8Array): void {
     const result = client.value?.sendPcm(chunk);
     if (!result) return;
     sentBytes.value = result.sentBytes;
-    if (result.limitReached && !limitStopScheduled) {
+    const selectedLimitReached = result.sentBytes >= Math.floor(limitMs.value * 32);
+    if ((result.limitReached || selectedLimitReached) && !limitStopScheduled) {
       limitStopScheduled = true;
       notice.value = `Достигнут безопасный предел ${formatDuration(limitMs.value)} — запись остановлена и отправлена на финализацию.`;
       queueMicrotask(() => void stopRecording());
@@ -387,11 +425,9 @@ function modelValue(role: string, field: string): string {
   return model ? stringValue(model, field) : "";
 }
 
-function numericModelValue(role: string, field: string): number | null {
-  const models = objectValue(bootstrap.value?.service, "models");
-  const model = objectValue(models, role);
-  const value = model?.[field];
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+function numericValue(value: JsonObject | null, field: string): number | null {
+  const candidate = value?.[field];
+  return typeof candidate === "number" && Number.isFinite(candidate) ? candidate : null;
 }
 
 function objectValue(value: unknown, key: string): JsonObject | null {
@@ -402,8 +438,14 @@ function objectValue(value: unknown, key: string): JsonObject | null {
     : null;
 }
 
-function stringValue(value: JsonObject, key: string): string {
-  return typeof value[key] === "string" ? value[key] : "";
+function stringValue(value: JsonObject | null, key: string): string {
+  return value && typeof value[key] === "string" ? value[key] : "";
+}
+
+function asrModelLabel(model: string): string {
+  if (model === "gigaam-v3-e2e-rnnt") return "GigaAM-v3 e2e RNNT · финальный";
+  if (model === "voxtral-realtime") return "Voxtral Mini 4B · streaming";
+  return model;
 }
 
 function asrRouteLabel(route: string | null): string {
@@ -453,7 +495,22 @@ function asrRouteLabel(route: string | null): string {
             </select>
           </div>
           <div>
-            <p class="eyebrow">ASR-тракт</p>
+            <p class="eyebrow">ASR-модель</p>
+            <select
+              v-model="selectedAsrModel"
+              :disabled="isRecording || state === 'finalizing'"
+            >
+              <option
+                v-for="model in availableAsrModels"
+                :key="model"
+                :value="model"
+              >
+                {{ asrModelLabel(model) }}
+              </option>
+            </select>
+          </div>
+          <div class="asr-route-select">
+            <p class="eyebrow">Обработка сигнала</p>
             <select
               v-model="selectedAsrAudioRoute"
               :disabled="isRecording || state === 'finalizing'"
@@ -503,7 +560,7 @@ function asrRouteLabel(route: string | null): string {
     <section class="model-strip">
       <div>
         <span>ASR</span>
-        <b :title="transcriberCadence">{{ transcriberName }} · {{ transcriberCadence }}</b>
+        <b :title="`${selectedAsrModel} · ${transcriberCadence}`">{{ transcriberName }} · {{ transcriberCadence }}</b>
       </div>
       <div>
         <span>Vocal affect</span>
@@ -525,6 +582,8 @@ function asrRouteLabel(route: string | null): string {
 
     <section class="content-grid">
       <TranscriptPanel
+        :adapter-name="transcriberName"
+        :supports-streaming="transcriberSupportsStreaming"
         :text="timeline?.transcript.text ?? finalUtterance?.text ?? ''"
         :stable-prefix="timeline?.transcript.stable_prefix ?? ''"
         :final="Boolean(finalUtterance || timeline?.transcript.final)"
@@ -568,7 +627,10 @@ function asrRouteLabel(route: string | null): string {
       <p class="muted-copy">Хранятся только последние пять raw-WAV и, когда включён preprocessing, их ASR-вариант.</p>
       <div v-if="diagnosticAudio.length" class="diagnostic-audio-list">
         <div v-for="(record, index) in diagnosticAudio" :key="record.id" class="diagnostic-audio-row">
-          <span>Запись {{ diagnosticAudio.length - index }} · {{ formatDuration(record.duration_ms) }}</span>
+          <span>
+            Запись {{ diagnosticAudio.length - index }} · {{ formatDuration(record.duration_ms) }} ·
+            {{ asrModelLabel(record.asr_model ?? "неизвестный ASR") }}
+          </span>
           <div class="diagnostic-audio-variants">
             <label>
               <span>Raw микрофон</span>

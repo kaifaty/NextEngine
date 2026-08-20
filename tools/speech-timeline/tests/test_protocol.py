@@ -72,18 +72,24 @@ class ProtocolTests(unittest.TestCase):
             "encoding": "pcm_s16le",
             "channels": 1,
             "asr_audio_route": "enhanced",
+            "asr_model": "gigaam-v3-e2e-rnnt",
         }
         for route in ("enhanced", "gain_only", "whisper"):
             value["asr_audio_route"] = route
             start = parse_client_message(json.dumps(value))
             self.assertIsInstance(start, SessionStart)
             self.assertEqual(start.asr_audio_route, route)
+            self.assertEqual(start.asr_model, "gigaam-v3-e2e-rnnt")
 
         value["asr_audio_route"] = "automatic"
         with self.assertRaises(ProtocolError) as caught:
             parse_client_message(json.dumps(value))
         self.assertEqual(caught.exception.code, "INVALID_FIELD")
         value["asr_audio_route"] = ["raw"]
+        with self.assertRaises(ProtocolError):
+            parse_client_message(json.dumps(value))
+        value["asr_audio_route"] = "raw"
+        value["asr_model"] = "bad model"
         with self.assertRaises(ProtocolError):
             parse_client_message(json.dumps(value))
 

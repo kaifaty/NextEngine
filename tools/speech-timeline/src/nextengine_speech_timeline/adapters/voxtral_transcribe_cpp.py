@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from contextlib import ExitStack
-from dataclasses import dataclass
 import importlib
 import os
 from pathlib import Path
@@ -11,7 +10,7 @@ from types import ModuleType
 from typing import Any, Sequence
 
 from ..capabilities import ModelLoadEvidence, TranscriberCapabilities, WarmupEvidence
-from .base import AdapterError
+from .base import AdapterError, TranscriberConfig, TranscriptRevision
 
 
 SAMPLE_RATE_HZ = 16_000
@@ -65,21 +64,6 @@ def load_transcribe(root: Path, library: Path) -> ModuleType:
         return importlib.import_module("transcribe_cpp")
     except Exception as error:
         raise AdapterError(f"failed to load transcribe.cpp Python binding: {error}") from error
-
-
-@dataclass(frozen=True)
-class TranscriberConfig:
-    language: str | None = None
-
-
-@dataclass(frozen=True)
-class TranscriptRevision:
-    revision: int
-    full_text: str
-    committed_text: str
-    tentative_text: str
-    final: bool
-    timing_precision: str = "utterance"
 
 
 class VoxtralTranscriberAdapter:

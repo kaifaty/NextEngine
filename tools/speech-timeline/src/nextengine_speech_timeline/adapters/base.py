@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Mapping, Protocol
+from typing import TYPE_CHECKING, Mapping, Protocol, Sequence
 
 if TYPE_CHECKING:
     import numpy as np
@@ -9,6 +9,43 @@ if TYPE_CHECKING:
 
 class AdapterError(RuntimeError):
     """Typed failure at a replaceable model boundary."""
+
+
+@dataclass(frozen=True)
+class TranscriberConfig:
+    language: str | None = None
+
+
+@dataclass(frozen=True)
+class TranscriptRevision:
+    revision: int
+    full_text: str
+    committed_text: str
+    tentative_text: str
+    final: bool
+    timing_precision: str = "utterance"
+
+
+class TranscriberSession(Protocol):
+    def push_pcm(self, samples: Sequence[float]) -> TranscriptRevision | None: ...
+
+    def finish(self) -> TranscriptRevision: ...
+
+    def cancel(self) -> None: ...
+
+    def close(self) -> None: ...
+
+
+class Transcriber(Protocol):
+    def load(self) -> Mapping[str, object]: ...
+
+    def warmup(self) -> Mapping[str, object]: ...
+
+    def capabilities(self) -> Mapping[str, object]: ...
+
+    def start(self, config: TranscriberConfig | None = None) -> TranscriberSession: ...
+
+    def close(self) -> None: ...
 
 
 class AudioPreprocessor(Protocol):

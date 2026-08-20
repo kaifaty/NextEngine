@@ -17,6 +17,7 @@ export interface VadCalibrationInput {
 }
 
 export type AsrAudioRoute = "raw" | "gain_only" | "enhanced" | "whisper";
+export type AsrModelRoute = string;
 
 export async function loadBootstrap(): Promise<DashboardBootstrap> {
   const response = await fetch("/api/bootstrap", {
@@ -57,6 +58,7 @@ export async function loadDiagnosticAudio(): Promise<DiagnosticAudioRecord[]> {
     const enhancedAvailable = item.enhanced_available === true;
     const asrAudioRoute =
       typeof item.asr_audio_route === "string" ? item.asr_audio_route : null;
+    const asrModel = typeof item.asr_model === "string" ? item.asr_model : null;
     return duration >= 0 && size >= 44 && created >= 0
       ? [{
           id: item.id,
@@ -65,6 +67,7 @@ export async function loadDiagnosticAudio(): Promise<DiagnosticAudioRecord[]> {
           created_at_unix_ms: created,
           enhanced_available: enhancedAvailable,
           asr_audio_route: asrAudioRoute,
+          asr_model: asrModel,
         }]
       : [];
   });
@@ -90,6 +93,7 @@ export class SpeechTimelineClient {
 
   connectAndStart(
     locale: string,
+    asrModel: AsrModelRoute,
     asrAudioRoute: AsrAudioRoute,
     vadCalibration?: VadCalibrationInput,
   ): Promise<void> {
@@ -117,7 +121,7 @@ export class SpeechTimelineClient {
         });
       };
       socket.onmessage = (message) =>
-        this.handleMessage(message, locale, asrAudioRoute, vadCalibration);
+        this.handleMessage(message, locale, asrModel, asrAudioRoute, vadCalibration);
       socket.onerror = () => {
         if (!this.sessionStarted) {
           this.rejectStart(new Error("WebSocket connection failed"));
@@ -206,6 +210,7 @@ export class SpeechTimelineClient {
   private handleMessage(
     message: MessageEvent,
     locale: string,
+    asrModel: AsrModelRoute,
     asrAudioRoute: AsrAudioRoute,
     vadCalibration?: VadCalibrationInput,
   ): void {
@@ -232,6 +237,7 @@ export class SpeechTimelineClient {
     if (payload.type === "service.ready") {
       try {
         this.bounds = parseBounds(payload.bounds);
+        requireAsrModel(payload.asr_model_routing, asrModel);
         requireAsrAudioRoute(payload.asr_audio_routing, asrAudioRoute);
       } catch (error) {
         this.rejectStart(error instanceof Error ? error : new Error(String(error)));
@@ -246,6 +252,7 @@ export class SpeechTimelineClient {
         sample_rate_hz: 16_000,
         encoding: "pcm_s16le",
         channels: 1,
+        asr_model: asrModel,
         asr_audio_route: asrAudioRoute,
         ...(vadCalibration
           ? {
@@ -275,6 +282,15 @@ export class SpeechTimelineClient {
     this.startedReject?.(error);
     this.startedResolve = null;
     this.startedReject = null;
+  }
+}
+
+function requireAsrModel(value: unknown, model: AsrModelRoute): void {
+  if (!isObject(value) || !Array.isArray(value.available_models)) {
+    throw new Error("service.ready does not contain ASR model routing");
+  }
+  if (!value.available_models.includes(model)) {
+    throw new Error(`ASR model is unavailable: ${model}`);
   }
 }
 

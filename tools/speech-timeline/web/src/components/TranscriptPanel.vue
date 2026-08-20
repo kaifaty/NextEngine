@@ -7,6 +7,8 @@ const props = defineProps<{
   final: boolean;
   revision: number;
   timingPrecision: string;
+  adapterName: string;
+  supportsStreaming: boolean;
 }>();
 
 const stable = computed(() =>
@@ -19,19 +21,25 @@ const tentative = computed(() => props.text.slice(stable.value.length));
   <section class="panel transcript-panel">
     <header class="panel-header">
       <div>
-        <p class="eyebrow">Voxtral · ASR</p>
+        <p class="eyebrow">{{ adapterName }} · ASR</p>
         <h2>Транскрипт</h2>
       </div>
       <div class="header-tags">
         <span class="tag">rev {{ revision }}</span>
-        <span class="tag" :class="{ accent: final }">{{ final ? "final" : "stream" }}</span>
+        <span class="tag" :class="{ accent: final }">
+          {{ final ? "final" : supportsStreaming ? "stream" : "final-only" }}
+        </span>
       </div>
     </header>
     <div class="transcript-text" :class="{ empty: !text }">
       <template v-if="text">
         <span class="stable-text">{{ stable }}</span><span class="tentative-text">{{ tentative }}</span>
       </template>
-      <span v-else>Начните запись — здесь появятся стабильная и предварительная части текста.</span>
+      <span v-else>
+        {{ supportsStreaming
+          ? "Начните запись — здесь появятся стабильная и предварительная части текста."
+          : "Начните запись и завершите фразу — эта ASR-модель выдаёт только финальный текст." }}
+      </span>
     </div>
     <footer class="panel-note">
       <span class="legend-dot stable-dot"></span> стабильный префикс
