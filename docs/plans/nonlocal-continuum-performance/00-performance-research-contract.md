@@ -1,6 +1,6 @@
 # NP0–NP4 — Nonlocal performance reclosure contract
 
-Status: `SPECIFIED / IMPLEMENTATION_NOT_STARTED / REPORT_ONLY / NO_W2_CREDIT`
+Status: `ACTIVE / NP0_IMPLEMENTATION / REPORT_ONLY / NO_W2_CREDIT`
 
 ## Scope
 
@@ -58,6 +58,8 @@ The v1 profiles inherit no output digest or tolerance by name. NP0 derives and
 freezes their independent CPU `f64` oracle bounds before GPU timing. The
 advected corpus includes at least one topology-preserving and one
 topology-changing interval; a candidate cannot choose only the easier state.
+Exact dimensions, permutation and trajectory semantics are frozen in the
+[NP0 corpus specification](01-np0-corpus-and-baseline.md).
 
 ## Correctness and topology gates
 

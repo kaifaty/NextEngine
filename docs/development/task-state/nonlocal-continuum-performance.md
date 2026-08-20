@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_RESEARCH / NP0_NEXT / REPORT_ONLY` |
+| Status | `ACTIVE_IMPLEMENTATION / NP0 / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-performance` |
 | Scope | Design and execute a representative exact-50k Nonlocal performance reclosure |
@@ -17,8 +17,8 @@
 - **Why:** pair kernels own `84.0–94.3%` of final GPU kernel time, while O4 was
   tested only on an already coherent lattice. The current profile explicitly
   freezes neighbors from its initial position.
-- **Next action:** specify and implement NP0 exact-50k coherent, stable-ID-
-  permuted and advected profile generators plus a persistent p99 runner.
+- **Next action:** implement the frozen NP0 generators and persistent runner,
+  then bind profile/input/trace hashes before any NP1 candidate is built.
 - **Current blocker:** None for NP0. NP1 is blocked until the v1 denominator is
   reproducible.
 - **Do not retry:** O3 endpoint pre-addition or coherent-lattice O4 tuning;
@@ -35,6 +35,7 @@
 | [Next-performance research](../nonlocal-continuum-performance-roadmap-research-2026-08-20.md) | primary sources audited and candidates ranked | NP0/NP1 immediate; NP2 separate; NP3 conditional |
 | [Performance roadmap](../../plans/nonlocal-continuum-performance/README.md) | `SPECIFIED / NP0_NEXT` | stage, order and stop rules frozen |
 | [Research contract](../../plans/nonlocal-continuum-performance/00-performance-research-contract.md) | `SPECIFIED` | v1 families, measurement tiers and NP4 states frozen |
+| [NP0 corpus specification](../../plans/nonlocal-continuum-performance/01-np0-corpus-and-baseline.md) | `SPECIFIED / IMPLEMENTATION_NEXT` | dimensions, permutation, dynamic seed/trace and runner semantics frozen |
 
 ## Decisions that still constrain the work
 
@@ -127,10 +128,10 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Freeze NP0 generator dimensions, permutation, advected trace production and
-   v1 oracle tolerances in a dedicated NP0 spec.
-2. Implement the profiles and persistent runner without changing v0 outputs.
-3. Pass tiny/stiff/full controls and reproduce the retained v1 denominator.
+1. Implement the profiles and persistent runner without changing v0 outputs.
+2. Pass tiny/stiff/full controls and inspect the prescribed dynamic trace.
+3. Freeze generated profile/input/trace hashes and reproduce the retained v1
+   denominator.
 4. Roll back NP0 code if it changes any v0 profile hash or retained output.
 
 ## Do not retry
@@ -144,8 +145,8 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** roadmap research/specification docs are the only active
-  post-NR4 change; implementation has not started.
+- **Workspace state:** NP0 specification is frozen; code implementation is the
+  active next action.
 - **Checks:** documentation cheap path required; executable checks `NOT_RUN`.
 - **Remaining risk:** exact v1 dynamic generator and stationary residual are not
   yet frozen.

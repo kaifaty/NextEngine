@@ -1,6 +1,6 @@
 # Nonlocal continuum — performance reclosure roadmap
 
-Status: `SPECIFIED / NP0_NEXT / REPORT_ONLY / NO_W2_CREDIT`
+Status: `ACTIVE / NP0_IMPLEMENTATION / REPORT_ONLY / NO_W2_CREDIT`
 
 This roadmap follows the closed
 [NR4 `NONLOCAL_48K_RECLOSURE_CANDIDATE` decision](../../development/nonlocal-continuum-nr4-decision-2026-08-20.md).
@@ -12,6 +12,8 @@ The research basis and ranked algorithm choices are recorded in the
 [dated source audit](../../development/nonlocal-continuum-performance-roadmap-research-2026-08-20.md).
 The frozen hypotheses, profile families, measurement rules and terminal states
 are in the [performance research contract](00-performance-research-contract.md).
+The exact generator, trace and persistent-runner contract is in the
+[NP0 corpus specification](01-np0-corpus-and-baseline.md).
 
 ## Outcome
 
@@ -31,7 +33,7 @@ root work, PhysX coupling, persistence and the ADR-081 combined
 
 ```text
 NR4 48k feasibility decision                    COMPLETE
-  └─ NP0 exact-50k/dynamic workload reclosure   NEXT
+  └─ NP0 exact-50k/dynamic workload reclosure   IN_PROGRESS
       └─ NP1 exact-work GPU tournament          BLOCKED_BY_NP0
           ├─ P1 pair-term traversal fusion
           ├─ P2 compact CSR and memory path
