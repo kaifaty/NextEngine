@@ -121,6 +121,33 @@ their vectors early would hide double counting or a sign error.
    triangle mesh, but an exact swept sphere against the frozen axis plane/box
    is sufficient for this B3 discriminator only.
 
+## Wall-anchored layer invariant
+
+An adjacent counterexample was checked before implementation. If ghost
+positions are incorrectly anchored to a fluid sample initially at
+`y=0.035 m`, a nominal third sample at `-0.115 m` moves from `r=H` to
+`r=0.14 m` when the fluid reaches contact and changes density by about
+`5.6e-5 rho0`. Such a state would invalidate the B2 layer claim.
+
+That geometry is not the B2 side-oriented lattice. For a lower wall at `a`,
+the wall-owned layers are
+
+```text
+q_l = a + R - l*dx,  l=1,2,...
+```
+
+while every nonpenetrating fluid centre satisfies `y>=a+R`. Therefore the
+omitted third layer obeys
+
+```text
+|y-q_3| >= 3dx = H.
+```
+
+It is exactly zero at contact and outside support everywhere else; diagonal
+edge/corner distances are no smaller. Two layers are therefore sufficient
+through wallward motion **only with a boundary-owned lattice origin**. B3
+freezes this ownership and rejects any fluid-relative ghost translation.
+
 ## Decision
 
 Freeze and execute the bounded

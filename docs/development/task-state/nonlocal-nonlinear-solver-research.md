@@ -105,6 +105,10 @@
   order. B3 selects `smooth solve -> swept contact -> velocity reconstruction
   -> rebuild` as a falsifiable engine-side hypothesis; SAM's CCD-initialized
   contact energy remains a different solver identity.
+- **Current conclusion:** the apparent wallward third-layer counterexample is
+  a geometry-ownership bug: a wall-owned third layer is at `a+R-3dx`, so every
+  nonpenetrating centre remains at `r>=H`. Fluid-relative ghost anchoring would
+  contribute about `5.6e-5 rho0` at contact and is explicitly rejected.
 - **Current action:** implement the frozen B3 face/corner trajectory with
   fine-state ownership, fixed references and separate support/contact ledgers.
 - **Next gate:** B3 must prove time composition without weakening B1R1 error

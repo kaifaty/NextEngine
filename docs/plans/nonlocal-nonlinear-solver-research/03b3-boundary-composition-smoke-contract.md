@@ -50,6 +50,15 @@ coordinates and filtered by `r<=H`. The report publishes fluid/boundary
 counts, maximum pair count and exact geometry hashes. Each fixture must remain
 within 512 total samples and `80*(F+B)` unique support pairs.
 
+The static lattice origin is owned by boundary geometry. For a lower plane at
+coordinate `a`, layer `l` has normal coordinate `a+R-l*dx`; it is never
+translated with the fluid initial state. The report must prove for every
+accepted nonpenetrating state that an omitted third-layer sample has normal
+distance `>=3dx=H`, and must include the rejected fluid-relative anchoring
+counterexample (`q3=-0.115 m`, fluid at contact `0.025 m`) with nonzero density
+contribution. A boundary sample anchored to a fluid position invalidates the
+fixture before execution.
+
 ## Fine-owned transaction
 
 At each macroframe start:
