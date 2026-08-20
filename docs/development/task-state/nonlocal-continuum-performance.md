@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE_IMPLEMENTATION / NP1_P4 / REPORT_ONLY` |
+| Status | `ACTIVE_MEASUREMENT / NP4_FIXED_WORK_DECISION / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-performance` |
 | Scope | Design and execute a representative exact-50k Nonlocal performance reclosure |
@@ -11,13 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** P3 is exact and gives `1.779x` on permuted 50k, but
-  is not retained because viscous/surface controls regress `2.11/3.15%`.
-- **Why:** the complete remap is valuable for deliberately disordered IDs but
-  not a safe universal layer without a separately proven cheap classifier.
-- **Next action:** implement the specified P4 certified Verlet-skin cache on
-  retained P2, with exact active filtering and forced cache reset per epoch.
-- **Current blocker:** None for P4.
+- **Current conclusion:** P4 stops before timing: step-1 membership count is
+  covered, but cell migration changes ordered CSR and f32 output. P2 is the
+  complete NP1 finalist.
+- **Why:** a displacement certificate proves pair coverage, not preservation
+  of the retained current-cell traversal order.
+- **Next action:** run the frozen 64-warm-up/512-sample P1+P2 decision campaign
+  on coherent and advected exact-50k, then select NP4 or enter conditional NP2.
+- **Current blocker:** None for the fixed-work decision.
 - **Do not retry:** O3 endpoint pre-addition or coherent-lattice O4 tuning;
   their numeric/performance failures are closed evidence.
 - **Reconsider when:** a v1 dynamic profile exposes materially different
@@ -30,7 +31,7 @@
 | [NR4 decision](../nonlocal-continuum-nr4-decision-2026-08-20.md) | `NONLOCAL_48K_RECLOSURE_CANDIDATE` | fresh Proposed reclosure/corpus may be researched; no W2 credit |
 | [Final NR2 evidence](../nonlocal-continuum-nr2-o4-evidence-2026-08-20.md) | water-48k `4.019520 ms` p95; HN-3 `3.27688x`; pair kernels dominate | prioritize pair work; retain all negative boundaries |
 | [Next-performance research](../nonlocal-continuum-performance-roadmap-research-2026-08-20.md) | primary sources audited and candidates ranked | NP0/NP1 immediate; NP2 separate; NP3 conditional |
-| [Performance roadmap](../../plans/nonlocal-continuum-performance/README.md) | `SPECIFIED / NP0_NEXT` | stage, order and stop rules frozen |
+| [Performance roadmap](../../plans/nonlocal-continuum-performance/README.md) | `NP1_P2_FINALIST / FIXED_WORK_DECISION_NEXT` | stage, order and stop rules frozen |
 | [Research contract](../../plans/nonlocal-continuum-performance/00-performance-research-contract.md) | `SPECIFIED` | v1 families, measurement tiers and NP4 states frozen |
 | [NP0 corpus specification](../../plans/nonlocal-continuum-performance/01-np0-corpus-and-baseline.md) | `COMPLETE / NP1_INPUT` | seven generators and hashes frozen |
 | [NP0 evidence](../nonlocal-continuum-np0-evidence-2026-08-20.md) | `NP0_COMPLETE / NP1_P1_AUTHORIZED` | conditioned denominator, HP-1 confirmation and stiff-dynamic negative frozen |
@@ -40,7 +41,8 @@
 | [P2 evidence](../nonlocal-continuum-np1-p2-evidence-2026-08-20.md) | `P2_RETAINED / P3_NEXT` | exact compact/fallback paths, adjacent speedups and memory receipts frozen |
 | [P3 specification](../../plans/nonlocal-continuum-performance/04-np1-p3-dynamic-cell-local.md) | `COMPLETE / NOT_RETAINED / P2_ROLLBACK` | stable identity, timed remap/scatter and conditional rollback gate frozen |
 | [P3 evidence](../nonlocal-continuum-np1-p3-evidence-2026-08-20.md) | `P3_NOT_RETAINED / P2_ROLLBACK / P4_NEXT` | exact dynamic remap and positive/negative locality boundary frozen |
-| [P4 specification](../../plans/nonlocal-continuum-performance/05-np1-p4-certified-verlet-reuse.md) | `SPECIFIED / IMPLEMENTATION_NEXT` | fixed skin, conservative certificate, canonical filter and rollback frozen |
+| [P4 specification](../../plans/nonlocal-continuum-performance/05-np1-p4-certified-verlet-reuse.md) | `COMPLETE / CORRECTNESS_STOP / P2_ROLLBACK` | fixed skin, conservative certificate, canonical filter and rollback frozen |
+| [P4 evidence](../nonlocal-continuum-np1-p4-evidence-2026-08-20.md) | `P4_CORRECTNESS_STOP / P2_FINALIST` | reproduced active-order mismatch and rejected alternatives frozen |
 
 ## Decisions that still constrain the work
 

@@ -64,6 +64,9 @@ void print_usage() {
               << "       nonlocal-feasibility --p3-check <profile-id> --iterations <count>\n"
               << "       nonlocal-feasibility --p3-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
+              << "       nonlocal-feasibility --p4-check <profile-id> --iterations <count>\n"
+              << "       nonlocal-feasibility --p4-tournament <profile-id> --warmup 32 "
+                 "--runs 96\n"
               << "       nonlocal-feasibility --layout-tournament <profile-id> --warmup 32 "
                  "--runs 96\n"
               << "       nonlocal-feasibility --locality-tournament <profile-id> --warmup 32 "
@@ -389,6 +392,23 @@ int main(int argc, char** argv) {
         if (argc == 7 && std::string(argv[1]) == "--p3-tournament"
             && std::string(argv[3]) == "--warmup" && std::string(argv[5]) == "--runs") {
             const auto report = nextengine::nonlocal::run_cuda_p3_tournament(
+                nextengine::nonlocal::find_profile(argv[2]),
+                bounded_integer(argv[4], "warmup count"),
+                bounded_integer(argv[6], "run count"));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 5 && std::string(argv[1]) == "--p4-check"
+            && std::string(argv[3]) == "--iterations") {
+            const auto report = nextengine::nonlocal::run_cuda_p4_check(
+                nextengine::nonlocal::find_profile(argv[2]),
+                bounded_integer(argv[4], "iteration count"));
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (argc == 7 && std::string(argv[1]) == "--p4-tournament"
+            && std::string(argv[3]) == "--warmup" && std::string(argv[5]) == "--runs") {
+            const auto report = nextengine::nonlocal::run_cuda_p4_tournament(
                 nextengine::nonlocal::find_profile(argv[2]),
                 bounded_integer(argv[4], "warmup count"),
                 bounded_integer(argv[6], "run count"));

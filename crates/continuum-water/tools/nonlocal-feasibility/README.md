@@ -66,6 +66,10 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --p3-check nuv-surface-stiff-16k-i2.v1 --iterations 2
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --p3-tournament nuv-water-50k-permuted.v1 --warmup 32 --runs 96
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --p4-check nuv-water-50k-advected.v1 --iterations 5
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --p4-tournament nuv-water-50k-advected.v1 --warmup 32 --runs 96
 ```
 
 Each command writes one JSON value to stdout. Build trees, binaries, raw JSON
@@ -150,3 +154,10 @@ Every solve radix-sorts stable material IDs by horizon cell, gathers physical
 SoA state, executes the exact P1+P2 arithmetic and scatters an advected result
 back to stable-ID order. Sort, map, gather and scatter are timed. Captures
 validate inverse maps and remap output/CSR to canonical IDs outside timing.
+
+`--p4-check` and `--p4-tournament` compare retained P2 with the certified
+`verlet-skin-p4` cache. A fixed `0.04h` superset is reused only while the
+double-precision maximum-displacement certificate proves coverage. Every CSR
+consumer applies the retained `h` predicate; captures distinguish candidate
+superset CSR from exact active logical CSR. Cache state is invalidated at each
+explicit trace reset.

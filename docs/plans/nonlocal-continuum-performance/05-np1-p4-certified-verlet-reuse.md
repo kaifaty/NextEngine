@@ -1,6 +1,6 @@
 # NP1-P4 — certified Verlet neighbor reuse
 
-Status: `SPECIFIED / IMPLEMENTATION_NEXT / EXACT_RESULT_REUSE / REPORT_ONLY`
+Status: `COMPLETE / CORRECTNESS_STOP / P2_ROLLBACK / EXACT_RESULT_REUSE / REPORT_ONLY`
 
 ## Hypothesis
 
@@ -112,3 +112,6 @@ Retain P4 only if all gates pass, advected water total p95 improves by at least
 coupled 16k controls remain within `2%`. Otherwise retain P2 as the NP1
 finalist. A capacity overflow or active-CSR mismatch stops the family without
 skin tuning after the fact.
+
+P4 stopped at the reproduced step-1 active-order mismatch. See the
+[dated evidence](../../development/nonlocal-continuum-np1-p4-evidence-2026-08-20.md).

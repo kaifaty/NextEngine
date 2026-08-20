@@ -95,6 +95,13 @@ CommandReport run_cuda_p3_tournament(
     const Profile& profile,
     int warmup,
     int runs);
+CommandReport run_cuda_p4_check(
+    const Profile& profile,
+    int iterations);
+CommandReport run_cuda_p4_tournament(
+    const Profile& profile,
+    int warmup,
+    int runs);
 CommandReport run_cuda_layout_tournament(
     const Profile& profile,
     int warmup,
