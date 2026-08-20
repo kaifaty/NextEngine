@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3D2_PASS_STATIONARITY_SELECTED / NSR3B3D3_DESIGN` |
+| Status | `ACTIVE / NSR3B3D2_PASS_STATIONARITY_SELECTED / NSR3B3D3_FROZEN_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -151,8 +151,8 @@
 - **Current decision:** select `FLOOR_STATIONARITY_MERIT_CANDIDATE` for one
   separately frozen full-trajectory experiment. Do not relabel D1 or energy
   ascent as descent.
-- **Current action:** freeze D3 with a one-step stationarity acceptance only at
-  the inherited active energy-floor exit.
+- **Current action:** implement frozen D3 with one charged stationarity trial
+  only at the inherited active energy-floor exit.
 - **Next gate:** D3 must complete all six fixed trajectories, retain D1
   correspondence and publish the exact frequency/cost of floor-merit accepts.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
