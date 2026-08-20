@@ -162,3 +162,6 @@ B1S2 rejects spectrum as a standalone error policy: its 2% row remains just
 over the velocity threshold; see the
 [dated evidence](../../development/nonlocal-nsr3b1s2-spectral-policy-evidence-2026-08-20.md).
 Design an embedded error controller with a new amplitude holdout next.
+The controller is frozen in
+[NSR3-B1S3](03b1s3-embedded-error-controller-contract.md), including accepted
+state ownership, discarded comparator work and a new `0.97dx` holdout.
