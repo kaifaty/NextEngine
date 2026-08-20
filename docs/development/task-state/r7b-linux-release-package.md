@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / TOOL_VALIDATION_CORRECTED` |
+| Status | `COMPLETE / EXACT_LINUX_PASS` |
 | Updated | 2026-08-21 |
 | Task key | `r7b-linux-release-package` |
 | Scope | Freeze the representative Linux release input, publish a reproducible native package, validate its ELF/runtime prerequisites and run copied `game`, `headless` and tools in an isolated clean-install environment |
@@ -11,21 +11,22 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** The tool contract-selection error from the first clean
-  V5 attempt is corrected. The copied public tool now performs strict isolated
-  `project validate`; the real release package probe passes and binds the exact
-  frozen authoring identity, roots and counts.
-- **Why:** Game/headless already provide the package runtime proof, while the
-  public tool owns the authoring/cook validation boundary. This keeps the proof
-  meaningful without inventing generic-runtime support for the product-specific
-  reference bootstrap.
-- **Next action:** Commit the corrected implementation, then restart exact
-  evidence from that clean commit with two package builds and native gate.
+- **Current conclusion:** R7b is complete on exact clean Linux commit
+  `a5f896e94736c8d2c4aa70a81592a8e7e4507fdb`. Two independent 157-file V5
+  package trees are byte/mode-identical, and the exact native gate records all
+  eight checks `PASS` with `release_ready=true`.
+- **Why:** Copied game/headless prove isolated runtime launch, copied public
+  `next` proves the exact frozen authoring/cook boundary, and the manifest binds
+  all three ELF files, source/project roots, runtime prerequisites and complete
+  inventory without machine-local operational state.
+- **Next action:** Start R7c as a new bounded task: accept the Linux release
+  performance fingerprint and numeric policy before collecting baselines or
+  hard-gate samples.
 - **Current blocker:** None.
 - **Do not retry:** Do not add a Windows package slot, inherit THOTH timing, or
   treat the R7a package smoke as proof of the broader R7b clean-install matrix.
-- **Reconsider when:** A source audit proves one of these requirements already
-  exists with strict positive/failure coverage and exact evidence.
+- **Reconsider when:** A future Accepted contract changes the active Linux
+  target, package contents or public creator validation boundary.
 
 ## Current evidence
 
@@ -45,6 +46,9 @@
 | Release `next project validate --project projects/reference-alpha` | `PASS`, exact authoring/project/content/schema/world/mechanics roots and bounded counts | Valid discriminator: copied public tool can prove the frozen final source without expanding application runtime semantics |
 | Corrected focused package/schema/CLI tests and boundary scan | `22/22`, `1/1`, `44/44`, all `PASS` | Old `project.run` receipt is removed from executable package authority; proceed to a real copied-tool release probe |
 | Dirty real `v1-package` correction probe | `PASS`, schema 2; copied game/headless/tool all `PASS`; authoring hash `bcc23ec1…`, 76 neutral records, 141 publication files | Corrected public-tool boundary works with the real release ELF in the isolated package; safe to freeze a clean evidence commit |
+| Exact package A/B from `a5f896e…` | Both `PASS`; 157 files each; full-tree bytes and modes identical; manifest SHA-256 `4ece6d7c454869ebf6af3e58b532edb7c3aa572d28a9ef6fd3b77f54389c5097` | Reproducibility requirement is closed on one clean commit and target/toolchain |
+| Exact native gate from `a5f896e…` | Schema 2, all eight checks `PASS`, `release_ready=true`; target-report SHA-256 `2a92866141e70a970c1dea29d8581eba98c273127bffa04571d8edcb9658fdc7` | R7b package/runtime/desktop evidence is accepted on the active Linux target |
+| Exact native-gate package report/manifest | Report SHA-256 `7daefc1c…`; V5 manifest `4ece6d7c…`; copied tool `project.validate` PASS with authoring `bcc23ec1…`, 76 neutral records and 141 publication files | Bundle binds the same reproducible package and meaningful public-tool receipt inspected outside the aggregate |
 
 ## Decisions that still constrain the work
 
@@ -59,9 +63,9 @@
   relabel, or an external shell-only acceptance procedure.
 - **Consequences:** The final package descriptor and release report must bind
   the new manifest and copied-root results exactly.
-- **Uncertainty:** The smallest schema/version change is pending source audit.
-- **Reconsider when:** Existing code cannot express the accepted V4 package
-  boundary without a separate production consumer.
+- **Uncertainty:** None at the completed R7b boundary.
+- **Reconsider when:** A future package authority cannot evolve through the
+  same strict versioned native path.
 
 ### D-002 — Use an honest V5 manifest for the tools/source boundary
 
@@ -121,8 +125,8 @@
 | Hypothesis | Evidence for | Evidence against | Next discriminator |
 | --- | --- | --- | --- |
 | H1: current native manifest predates `PackageManifestV4` | R7b was still open after R7a | Rejected: strict V4 implementation and tests exist | Closed; advance only because tools/source are wire-incompatible |
-| H2: current native bundle omits a copied tools root | Confirmed in binary sources, inventory, report and smoke | None | Implement and prove V5 tool/source binding |
-| H3: current smoke environment is not fully clean-install isolated | R7b requires cleared loader/process state | Rejected: smoke uses `env_clear`, isolated HOME/state/temp and a narrow display allowlist | Reuse the same launcher policy for `next project validate` |
+| H2: current native bundle omits a copied tools root | Confirmed in the predecessor binary sources, inventory, report and smoke | Rejected by exact V5 bundle `a5f896e…`: copied `bin/next` and frozen source are mandatory and bound | Closed; future format changes require a new strict manifest version |
+| H3: current smoke environment is not fully clean-install isolated | R7b requires cleared loader/process state | Rejected by exact gate: `env_clear`, isolated HOME/state/temp and a narrow display allowlist cover all copied launches | Closed; retain the launcher policy for future package versions |
 
 ## Required context
 
@@ -136,9 +140,8 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Commit the coherent implementation so exact checks can reject dirty state.
-2. Build two Linux packages from that exact commit, compare their complete
-   trees, then run the affected fast/platform checks and exact native gate.
+R7b has no remaining implementation action. Open a separate R7c task-state
+before changing performance authority, fingerprints, budgets or evidence.
 
 ## Do not retry
 
@@ -152,15 +155,16 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** Failed exact implementation commit is `22459f9…`; the
-  corrected validation receipt, SPEC wording and task state are dirty. A real
-  release probe passed and remains under ignored `artifacts/r7b/`.
+- **Workspace state:** Exact executable commit is `a5f896e…`; package A/B and
+  native-gate evidence remain under ignored `artifacts/r7b/`. Only the closing
+  roadmap/task-state promotion is dirty and should be committed separately.
 - **Checks:** Corrected focused package `22/22`, current package report `1/1`,
   xtask command `44/44`, full xtask library `109/109`, clippy and boundary scan
-  pass. The real dirty release package probe also passes all three copied
-  binaries. Earlier Linux desktop platform evidence remains valid.
-- **Remaining risk:** Byte-for-byte two-build reproducibility and the complete
-  exact clean native-gate evidence have not run yet.
-- **Promotion needed:** SPEC-04 is aligned to the corrected validation boundary;
-  roadmap promotion waits for executable R7b evidence. No new ADR is expected
-  unless the accepted semantics must change.
+  pass. Exact package A/B and the complete eight-check native gate pass on the
+  same clean commit.
+- **Remaining risk:** No open R7b implementation or evidence gap. R7c Linux
+  performance authority, R7d hardening and R7e distribution closure remain
+  separate roadmap work.
+- **Promotion needed:** SPEC-04 and roadmap are aligned; commit this closing
+  documentation separately. No new ADR is expected unless accepted semantics
+  change.
