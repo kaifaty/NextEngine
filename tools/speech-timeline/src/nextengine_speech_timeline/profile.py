@@ -14,7 +14,9 @@ from nextengine_emotion_probe.probe import EmotionProbe
 from .adapters.dpdfnet import ADAPTER_ID as DPDFNET_ADAPTER_ID
 from .adapters.dpdfnet import (
     DpdfNetAudioPreprocessor,
+    GAIN_PLACEMENT_POST_DENOISE,
     SpeechAwareGainConfig,
+    SUPPORTED_GAIN_PLACEMENTS,
     SUPPORTED_MODELS as DPDFNET_MODELS,
 )
 from .adapters.emotion2vec import Emotion2VecAffectAdapter
@@ -81,6 +83,7 @@ class AudioPreprocessorProfile:
     model_sha256: str
     routing: str
     gain_config: SpeechAwareGainConfig
+    gain_placement: str
 
 
 @dataclass(frozen=True)
@@ -155,7 +158,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
                 "model_sha256",
                 "routing",
             },
-            {"gain"},
+            {"gain", "gain_placement"},
             "audio_preprocessor",
         )
         if "audio_preprocessor" in root
@@ -266,6 +269,11 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
                     {"asr_only"},
                 ),
                 gain_config=_gain_config(gain),
+                gain_placement=_choice(
+                    audio_preprocessor.get("gain_placement", GAIN_PLACEMENT_POST_DENOISE),
+                    "audio_preprocessor.gain_placement",
+                    SUPPORTED_GAIN_PLACEMENTS,
+                ),
             )
             if audio_preprocessor is not None
             else None
@@ -406,6 +414,7 @@ def build_adapters(
             model_name=profile.audio_preprocessor.model_name,
             onnx_path=profile.audio_preprocessor.model_path,
             gain_config=profile.audio_preprocessor.gain_config,
+            gain_placement=profile.audio_preprocessor.gain_placement,
         )
     return transcriber, affect, preprocessor
 

@@ -78,8 +78,11 @@ const preprocessorSummary = computed(() => {
   if (!model) return "raw PCM";
   const adapter = stringValue(model, "adapter_id") || "audio preprocessor";
   const gain = objectValue(model, "gain");
+  const gainPlacement = stringValue(model, "gain_placement");
   return gain?.enabled === true
-    ? `${adapter} · шумоподавление + усиление`
+    ? gainPlacement === "pre_and_post_denoise"
+      ? `${adapter} · усиление → шумоподавление → усиление`
+      : `${adapter} · шумоподавление + усиление`
     : `${adapter} · шумоподавление`;
 });
 const transcriberCadence = computed(() => {
@@ -508,7 +511,7 @@ function stringValue(value: JsonObject, key: string): string {
               <audio controls preload="metadata" :src="`/api/diagnostic-audio/${record.id}.wav`"></audio>
             </label>
             <label v-if="record.enhanced_available">
-              <span>ASR: DPDFNet + gain</span>
+              <span>ASR: обработанный сигнал</span>
               <audio controls preload="metadata" :src="`/api/diagnostic-audio/${record.id}.asr.wav`"></audio>
             </label>
           </div>

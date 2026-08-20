@@ -23,6 +23,12 @@ SUPPORTED_MODELS = {
 }
 HOP_SAMPLES = 160
 GAIN_FRAME_SAMPLES = 320
+GAIN_PLACEMENT_POST_DENOISE = "post_denoise"
+GAIN_PLACEMENT_PRE_AND_POST_DENOISE = "pre_and_post_denoise"
+SUPPORTED_GAIN_PLACEMENTS = {
+    GAIN_PLACEMENT_POST_DENOISE,
+    GAIN_PLACEMENT_PRE_AND_POST_DENOISE,
+}
 
 
 @dataclass(frozen=True)
@@ -126,15 +132,20 @@ class DpdfNetAudioPreprocessor:
         model_name: str,
         onnx_path: Path,
         gain_config: SpeechAwareGainConfig | None = None,
+        gain_placement: str = GAIN_PLACEMENT_POST_DENOISE,
     ) -> None:
         if model_name not in SUPPORTED_MODELS:
             raise AdapterError(f"unsupported DPDFNet model name: {model_name}")
+        if gain_placement not in SUPPORTED_GAIN_PLACEMENTS:
+            raise AdapterError(f"unsupported DPDFNet gain placement: {gain_placement}")
         self.model_id = model_id
         self.model_revision = model_revision
         self.model_name = model_name
         self.onnx_path = onnx_path.expanduser().resolve()
         self.gain_config = gain_config or SpeechAwareGainConfig()
-        self._gain = SpeechAwareGain(self.gain_config)
+        self.gain_placement = gain_placement
+        self._input_gain = SpeechAwareGain(self.gain_config)
+        self._output_gain = SpeechAwareGain(self.gain_config)
         self._enhancer: Any | None = None
         self.load_count = 0
         self._model_input_samples = 0
@@ -168,7 +179,8 @@ class DpdfNetAudioPreprocessor:
             # no artificial zero audio or recurrent state reaches a user turn.
             enhancer.process(np.zeros(320, dtype=np.float32), sample_rate=SAMPLE_RATE_HZ)
             enhancer.reset()
-            self._gain.reset()
+            self._input_gain.reset()
+            self._output_gain.reset()
         except Exception as error:
             raise AdapterError(f"DPDFNet warmup failed: {type(error).__name__}") from error
         return {"elapsed_ms": round((time.perf_counter_ns() - started) / 1_000_000)}
@@ -183,27 +195,37 @@ class DpdfNetAudioPreprocessor:
             "sample_rate_hz": SAMPLE_RATE_HZ,
             "streaming": True,
             "causal": True,
-            "algorithmic_latency_ms": 20 + (20 if self.gain_config.enabled else 0),
+            "algorithmic_latency_ms": (
+                20
+                + (20 if self.gain_config.enabled else 0)
+                + (
+                    20
+                    if self.gain_config.enabled
+                    and self.gain_placement == GAIN_PLACEMENT_PRE_AND_POST_DENOISE
+                    else 0
+                )
+            ),
             "routes": ["asr"],
             "affect_input": "raw_pcm",
             "vad_input": "raw_pcm",
             "runtime": "onnxruntime_cpu",
             "gain": self.gain_config.as_dict(),
+            "gain_placement": self.gain_placement,
         }
 
     def reset(self) -> None:
         self._require_loaded().reset()
-        self._gain.reset()
+        self._input_gain.reset()
+        self._output_gain.reset()
         self._model_input_samples = 0
         self._model_output_samples = 0
 
     def process_pcm(self, pcm: bytes) -> bytes:
         samples = pcm16le_to_float32(pcm)
         try:
-            output = self._require_loaded().process(samples, sample_rate=SAMPLE_RATE_HZ)
-            self._model_input_samples += len(samples)
-            self._model_output_samples += len(output)
-            return float32_to_pcm16le(self._gain.process(output))
+            model_input = self._input_gain.process(samples) if self._use_input_gain else samples
+            output = self._process_model_samples(model_input)
+            return float32_to_pcm16le(self._output_gain.process(output))
         except AdapterError:
             raise
         except Exception as error:
@@ -211,9 +233,11 @@ class DpdfNetAudioPreprocessor:
 
     def flush(self) -> bytes:
         try:
+            input_tail = self._input_gain.flush() if self._use_input_gain else np.zeros(0, dtype=np.float32)
+            input_tail_output = self._process_model_samples(input_tail)
             enhancer = self._require_loaded()
-            pieces = [enhancer.flush()]
-            produced = sum(len(piece) for piece in pieces)
+            tail_pieces = [enhancer.flush()]
+            produced = sum(len(piece) for piece in tail_pieces)
             # DPDFNet's public flush pads one causal frame.  If a turn ends
             # between hops, the last fractional hop remains in its internal
             # overlap buffer. Feed bounded zero context to drain that acoustic
@@ -227,22 +251,42 @@ class DpdfNetAudioPreprocessor:
                 if len(extra) == 0:
                     raise AdapterError("DPDFNet did not drain its causal tail")
                 piece = extra[:missing]
-                pieces.append(piece)
+                tail_pieces.append(piece)
                 produced += len(piece)
                 missing -= len(piece)
-            output = np.concatenate(pieces) if pieces else np.zeros(0, dtype=np.float32)
-            output = output[: max(0, self._model_input_samples - self._model_output_samples)]
-            self._model_output_samples += len(output)
-            gained = self._gain.process(output)
+            tail = np.concatenate(tail_pieces) if tail_pieces else np.zeros(0, dtype=np.float32)
+            tail = tail[: max(0, self._model_input_samples - self._model_output_samples)]
+            self._model_output_samples += len(tail)
+            output = np.concatenate((input_tail_output, tail)) if len(input_tail_output) else tail
+            gained = self._output_gain.process(output)
+            tail = self._output_gain.flush()
             return float32_to_pcm16le(
-                np.concatenate((gained, self._gain.flush()))
-                if len(gained)
-                else self._gain.flush()
+                np.concatenate((gained, tail)) if len(gained) else tail
             )
         except AdapterError:
             raise
         except Exception as error:
             raise AdapterError(f"DPDFNet flush failed: {type(error).__name__}") from error
+
+    @property
+    def _use_input_gain(self) -> bool:
+        return (
+            self.gain_config.enabled
+            and self.gain_placement == GAIN_PLACEMENT_PRE_AND_POST_DENOISE
+        )
+
+    def _process_model_samples(self, samples: np.ndarray) -> np.ndarray:
+        if len(samples) == 0:
+            return np.zeros(0, dtype=np.float32)
+        try:
+            output = self._require_loaded().process(samples, sample_rate=SAMPLE_RATE_HZ)
+            self._model_input_samples += len(samples)
+            self._model_output_samples += len(output)
+            return output
+        except AdapterError:
+            raise
+        except Exception as error:
+            raise AdapterError(f"DPDFNet streaming inference failed: {type(error).__name__}") from error
 
     def close(self) -> None:
         self._enhancer = None
