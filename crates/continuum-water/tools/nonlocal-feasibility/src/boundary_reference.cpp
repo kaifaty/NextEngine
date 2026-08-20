@@ -6240,6 +6240,9 @@ struct BoxKktState {
     int upper_axes = 0;
     int lower_y_axes = 0;
     int lateral_or_upper_axes = 0;
+    std::array<int, 6> face_counts{};
+    std::array<double, 6> face_multiplier_sum{};
+    std::array<double, 6> face_fluid_impulse{};
     double projected_impulse_residual = 0.0;
     double reaction_limit = 0.0;
     double complementarity = 0.0;
@@ -6287,6 +6290,11 @@ BoxKktState evaluate_box_kkt(
                 set_component(result.projected_gradient[i], axis, 0.0);
                 set_component(result.active_gradient[i], axis, gradient);
                 const double multiplier = lower ? gradient : -gradient;
+                const std::size_t face = static_cast<std::size_t>(
+                    2 * axis + (upper ? 1 : 0));
+                ++result.face_counts[face];
+                result.face_multiplier_sum[face] += multiplier;
+                result.face_fluid_impulse[face] += time_step * gradient;
                 result.minimum_multiplier = std::min(
                     result.minimum_multiplier, multiplier);
                 result.complementarity = std::max(result.complementarity,
@@ -6892,6 +6900,159 @@ SplitBoundaryReport run_box_contact_kkt_controls() {
            << ",\"constrained\":";
     append_b4bk_solve(report, detached.constrained);
     report << "},\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4b_r1_contract_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"full_trajectory_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+bool b4bk1_face_gate(const B4BKReplay& value) {
+    constexpr std::array<int, 6> expected = {12, 12, 16, 0, 12, 12};
+    const BoxKktState& state = value.constrained.state;
+    const double x_pair = state.face_fluid_impulse[0]
+        + state.face_fluid_impulse[1];
+    const double z_pair = state.face_fluid_impulse[4]
+        + state.face_fluid_impulse[5];
+    const Vec3 reconstructed{
+        x_pair,
+        state.face_fluid_impulse[2] + state.face_fluid_impulse[3],
+        z_pair,
+    };
+    return value.split_exact && value.constrained.passed
+        && state.face_counts == expected
+        && state.face_counts[3] == 0
+        && state.face_multiplier_sum[3] == 0.0
+        && std::abs(x_pair) <= 1.0e-12
+        && std::abs(z_pair) <= 1.0e-12
+        && norm(reconstructed - state.fluid_contact_impulse) <= 1.0e-12
+        && state.face_fluid_impulse[2] >= 0.0;
+}
+
+void append_b4bk1_faces(
+    std::ostringstream& output, const BoxKktState& state) {
+    output << "{\"counts\":[";
+    for (std::size_t i = 0; i < state.face_counts.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << state.face_counts[i];
+    }
+    output << "],\"multiplier_sum_n\":[";
+    for (std::size_t i = 0; i < state.face_multiplier_sum.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << state.face_multiplier_sum[i];
+    }
+    output << "],\"fluid_impulse_n_s\":[";
+    for (std::size_t i = 0; i < state.face_fluid_impulse.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << state.face_fluid_impulse[i];
+    }
+    const Vec3 reconstructed{
+        state.face_fluid_impulse[0] + state.face_fluid_impulse[1],
+        state.face_fluid_impulse[2] + state.face_fluid_impulse[3],
+        state.face_fluid_impulse[4] + state.face_fluid_impulse[5],
+    };
+    output << "],\"reconstructed_impulse_n_s\":";
+    append_vec3(output, reconstructed);
+    output << ",\"aggregate_error_n_s\":"
+           << norm(reconstructed - state.fluid_contact_impulse)
+           << ",\"x_pair_closure_n_s\":" << std::abs(reconstructed.x)
+           << ",\"z_pair_closure_n_s\":" << std::abs(reconstructed.z)
+           << '}';
+}
+
+} // namespace
+
+SplitBoundaryReport run_box_contact_kkt_face_controls() {
+    const SplitBoundaryReport parent = run_box_contact_kkt_controls();
+    const bool parent_exact = !parent.passed
+        && sha256_hex(parent.json)
+            == "b110585a9e8894126666c4f5c941b447361b15e3ea771deebdf0e760afbec716";
+    const SmokeFixture fixture = make_b4b_supported_column_fixture();
+    constexpr std::array<int, 3> counts = {48, 96, 192};
+    std::array<B4BKReplay, 3> replay;
+    bool face_passed = parent_exact;
+    if (parent_exact) {
+        for (std::size_t i = 0; i < counts.size(); ++i) {
+            replay[i] = run_b4bk_replay(fixture, counts[i]);
+            face_passed = face_passed && b4bk1_face_gate(replay[i]);
+        }
+    }
+    const B4BKDetached detached = parent_exact
+        ? run_b4bk_detached() : B4BKDetached{};
+    const bool passed = parent_exact && face_passed && detached.passed;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4BK_PARENT";
+    } else if (!face_passed) {
+        for (std::size_t i = 0; i < replay.size(); ++i) {
+            if (!b4bk1_face_gate(replay[i])) {
+                first_failure = "P1_FACE_"
+                    + std::to_string(replay[i].substeps_per_frame);
+                break;
+            }
+        }
+    } else if (!detached.passed) {
+        first_failure = "P2_DETACHED_NEGATIVE";
+    }
+    const std::string disposition = passed
+        ? "BOX_CONTACT_KKT_CANDIDATE"
+        : "BOX_CONTACT_KKT_FACE_REPAIR_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << disposition;
+    for (const B4BKReplay& value : replay) {
+        material << '|' << value.substeps_per_frame << ':'
+                 << b4bk1_face_gate(value);
+        for (std::size_t face = 0; face < 6U; ++face) {
+            material << ':' << value.constrained.state.face_counts[face]
+                     << ':'
+                     << value.constrained.state.face_fluid_impulse[face];
+        }
+    }
+    material << "|D:" << detached.passed;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4bk1_contact_face.v1\""
+           << ",\"identity\":\"box-contact-kkt-discriminator-r1-face-symmetry\""
+           << ",\"parent_b4bk_result_sha256\":\"7cb256e5b1c62db865c7230a03a94a9553b07f1112a7e9552c78bd6b273a9f93\""
+           << ",\"parent_b4bk_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"p1_face_controls\":[";
+    for (std::size_t i = 0; i < replay.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        report << "{\"substeps_per_frame\":"
+               << replay[i].substeps_per_frame
+               << ",\"status\":\""
+               << (b4bk1_face_gate(replay[i]) ? "PASS" : "FAIL")
+               << "\",\"faces\":";
+        append_b4bk1_faces(report, replay[i].constrained.state);
+        report << ",\"kkt\":";
+        append_b4bk_state(report, replay[i].constrained.state);
+        report << '}';
+    }
+    report << "],\"p2_detached_exact\":"
+           << (detached.passed ? "true" : "false")
+           << ",\"candidate_selected\":"
            << (passed ? "true" : "false")
            << ",\"b4b_r1_contract_design_authorized\":"
            << (passed ? "true" : "false")

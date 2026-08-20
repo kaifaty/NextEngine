@@ -589,6 +589,17 @@
 - **Consequence:** r1 changes no solver action, threshold or state. A second
   failure ends the hard-box lineage; PASS only permits B4B r1 contract design.
 
+### D-035 -- Select contact KKT for one full pressure-corpus retry
+
+- **Observation:** B4BK1 passes exact face counts at all three step sizes;
+  opposite lateral impulses cancel at `5.4e-17--1.6e-16 N s`, all KKT/ledger
+  gates remain closed, and detached P2 is bit-exact.
+- **Decision:** select `BOX_CONTACT_KKT_CANDIDATE` and freeze B4B1 with the
+  original P1/P2 fixtures, references and thresholds. Replace only post-solve
+  sweep with the constrained solve in every substep.
+- **Consequence:** B4B1 may test temporal/reference behavior. One-step PASS
+  does not authorize general collision, nominal water or runtime work.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -601,11 +612,11 @@
 
 ## Exact next action
 
-1. Implement B4BK1 face counters and signed per-face impulses without changing
-   the r0 solver or report.
-2. Execute r1 twice and verify r0/B4B/B4A/B3R/D5/B3/B2 raw hashes.
-3. Preserve a second failure or, on PASS, freeze B4B r1 before any full
-   trajectory execution.
+1. Generalize the selected KKT step from frozen initial states to immutable
+   arbitrary substep starts without changing B4BK1 output.
+2. Implement B4B1 adaptive and fixed trajectories with KKT-owned contacts.
+3. Execute twice, preserve the first temporal/reference failure or PASS, and
+   keep all historical raw reports exact.
 
 ## Reconsideration triggers
 

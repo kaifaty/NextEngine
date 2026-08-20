@@ -318,3 +318,10 @@ The full cross-section physically touches both x/z walls. Freeze the sole
 [B4BK1 face-symmetry repair](03b4bk1-contact-face-symmetry-contract.md) with
 exact face counts and unchanged numerical gates, then execute it before any
 trajectory retry.
+B4BK1 passes exact face populations, signed lateral symmetry, all inherited
+KKT/ledger gates and detached P2; see the
+[dated evidence](../../development/nonlocal-nsr3b4bk1-contact-face-evidence-2026-08-21.md).
+The full [B4B1 contract](03b4b1-tiny-pressure-contact-kkt-contract.md) is now
+frozen: it changes only post-solve sweep to constrained contact inside every
+substep and inherits the complete B4B corpus without looser thresholds.
+Execute B4B1 next; nominal/scalable work remains blocked.

@@ -1,6 +1,6 @@
 # NSR3-B4BK1 -- contact-face symmetry repair contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / B4B_RETRY_BLOCKED`
+Status: `EXECUTED_PASS / BOX_CONTACT_KKT_CANDIDATE / B4B_R1_DESIGN_AUTHORIZED`
 
 Parent B4BK is exact FAIL with semantic SHA-256
 `7cb256e5b1c62db865c7230a03a94a9553b07f1112a7e9552c78bd6b273a9f93`
@@ -49,3 +49,6 @@ frozen `tiny-pressure-water-corpus-r1-contact-kkt`. FAIL rejects this one
 geometry correction and opens the new contact-potential formula lineage.
 No full trajectory, neighborhood, nominal water, viscosity, surface tension,
 CUDA, runtime or production authority is granted.
+
+Execution evidence is recorded in the
+[dated B4BK1 report](../../development/nonlocal-nsr3b4bk1-contact-face-evidence-2026-08-21.md).
