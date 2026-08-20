@@ -9,6 +9,11 @@ from typing import Any
 import numpy as np
 
 from ..audio import float32_to_pcm16le, pcm16le_to_float32
+from ..protocol import (
+    ASR_AUDIO_ROUTE_ENHANCED,
+    ASR_AUDIO_ROUTE_GAIN_ONLY,
+    ASR_AUDIO_ROUTE_WHISPER,
+)
 from .base import AdapterError
 
 
@@ -29,6 +34,13 @@ SUPPORTED_GAIN_PLACEMENTS = {
     GAIN_PLACEMENT_POST_DENOISE,
     GAIN_PLACEMENT_PRE_AND_POST_DENOISE,
 }
+SUPPORTED_ASR_AUDIO_ROUTES = {
+    ASR_AUDIO_ROUTE_ENHANCED,
+    ASR_AUDIO_ROUTE_GAIN_ONLY,
+    ASR_AUDIO_ROUTE_WHISPER,
+}
+DEFAULT_WHISPER_ATTENUATION_LIMIT_DB = 12.0
+CALIBRATED_NOISE_MARGIN_DB = 6.0
 
 
 @dataclass(frozen=True)
@@ -66,9 +78,14 @@ class SpeechAwareGain:
         self.config = config
         self.reset()
 
-    def reset(self) -> None:
+    def reset(self, *, activation_threshold_dbfs: float | None = None) -> None:
         self._pending = np.zeros(0, dtype=np.float32)
         self._current_gain_db = 0.0
+        self._activation_threshold_dbfs = (
+            self.config.activation_threshold_dbfs
+            if activation_threshold_dbfs is None
+            else max(self.config.activation_threshold_dbfs, activation_threshold_dbfs)
+        )
 
     def process(self, samples: np.ndarray) -> np.ndarray:
         values = np.asarray(samples, dtype=np.float32)
@@ -100,7 +117,7 @@ class SpeechAwareGain:
         level_dbfs = 20.0 * math.log10(max(rms, 1e-8))
         desired_gain = (
             min(self.config.max_gain_db, max(0.0, self.config.target_dbfs - level_dbfs))
-            if level_dbfs >= self.config.activation_threshold_dbfs
+            if level_dbfs >= self._activation_threshold_dbfs
             else 0.0
         )
         interval_ms = GAIN_FRAME_SAMPLES * 1_000 / SAMPLE_RATE_HZ
@@ -133,23 +150,31 @@ class DpdfNetAudioPreprocessor:
         onnx_path: Path,
         gain_config: SpeechAwareGainConfig | None = None,
         gain_placement: str = GAIN_PLACEMENT_POST_DENOISE,
+        whisper_attenuation_limit_db: float = DEFAULT_WHISPER_ATTENUATION_LIMIT_DB,
     ) -> None:
         if model_name not in SUPPORTED_MODELS:
             raise AdapterError(f"unsupported DPDFNet model name: {model_name}")
         if gain_placement not in SUPPORTED_GAIN_PLACEMENTS:
             raise AdapterError(f"unsupported DPDFNet gain placement: {gain_placement}")
+        if not math.isfinite(whisper_attenuation_limit_db) or not (
+            0.0 <= whisper_attenuation_limit_db <= 40.0
+        ):
+            raise AdapterError("whisper attenuation limit must be between 0 and 40 dB")
         self.model_id = model_id
         self.model_revision = model_revision
         self.model_name = model_name
         self.onnx_path = onnx_path.expanduser().resolve()
         self.gain_config = gain_config or SpeechAwareGainConfig()
         self.gain_placement = gain_placement
+        self.whisper_attenuation_limit_db = float(whisper_attenuation_limit_db)
         self._input_gain = SpeechAwareGain(self.gain_config)
         self._output_gain = SpeechAwareGain(self.gain_config)
         self._enhancer: Any | None = None
         self.load_count = 0
         self._model_input_samples = 0
         self._model_output_samples = 0
+        self._route = ASR_AUDIO_ROUTE_ENHANCED
+        self._dry_queue = np.zeros(0, dtype=np.float32)
 
     def load(self) -> dict[str, int | str]:
         if self._enhancer is not None:
@@ -206,26 +231,70 @@ class DpdfNetAudioPreprocessor:
                 )
             ),
             "routes": ["asr"],
+            "asr_audio_routes": [
+                ASR_AUDIO_ROUTE_ENHANCED,
+                ASR_AUDIO_ROUTE_GAIN_ONLY,
+                ASR_AUDIO_ROUTE_WHISPER,
+            ],
+            "route_details": {
+                ASR_AUDIO_ROUTE_ENHANCED: {
+                    "stages": (
+                        ["gain_pre", "dpdfnet", "gain_post"]
+                        if self.gain_placement == GAIN_PLACEMENT_PRE_AND_POST_DENOISE
+                        else ["dpdfnet", "gain_post"]
+                    ),
+                    "attenuation_limit_db": None,
+                },
+                ASR_AUDIO_ROUTE_GAIN_ONLY: {
+                    "stages": ["gain"],
+                    "attenuation_limit_db": 0.0,
+                },
+                ASR_AUDIO_ROUTE_WHISPER: {
+                    "stages": ["gain", "dpdfnet", "dry_mix", "limiter"],
+                    "attenuation_limit_db": self.whisper_attenuation_limit_db,
+                    "dry_mix_ratio": self._whisper_dry_mix_ratio,
+                    "algorithmic_latency_ms": 40 if self.gain_config.enabled else 20,
+                },
+            },
             "affect_input": "raw_pcm",
             "vad_input": "raw_pcm",
             "runtime": "onnxruntime_cpu",
             "gain": self.gain_config.as_dict(),
             "gain_placement": self.gain_placement,
+            "calibrated_noise_margin_db": CALIBRATED_NOISE_MARGIN_DB,
         }
 
-    def reset(self) -> None:
+    def reset(
+        self,
+        route: str = ASR_AUDIO_ROUTE_ENHANCED,
+        *,
+        noise_floor_dbfs: float | None = None,
+    ) -> None:
+        if route not in SUPPORTED_ASR_AUDIO_ROUTES:
+            raise AdapterError(f"unsupported DPDFNet ASR route: {route}")
         self._require_loaded().reset()
-        self._input_gain.reset()
-        self._output_gain.reset()
+        activation_threshold = (
+            min(-25.0, noise_floor_dbfs + CALIBRATED_NOISE_MARGIN_DB)
+            if noise_floor_dbfs is not None
+            else None
+        )
+        self._input_gain.reset(activation_threshold_dbfs=activation_threshold)
+        self._output_gain.reset(activation_threshold_dbfs=activation_threshold)
         self._model_input_samples = 0
         self._model_output_samples = 0
+        self._route = route
+        self._dry_queue = np.zeros(0, dtype=np.float32)
 
     def process_pcm(self, pcm: bytes) -> bytes:
         samples = pcm16le_to_float32(pcm)
         try:
+            if self._route == ASR_AUDIO_ROUTE_GAIN_ONLY:
+                return float32_to_pcm16le(self._input_gain.process(samples))
             model_input = self._input_gain.process(samples) if self._use_input_gain else samples
+            self._append_dry(model_input)
             output = self._process_model_samples(model_input)
-            return float32_to_pcm16le(self._output_gain.process(output))
+            output = self._apply_whisper_attenuation_limit(output)
+            return float32_to_pcm16le(self._finalize_output(output))
         except AdapterError:
             raise
         except Exception as error:
@@ -233,8 +302,12 @@ class DpdfNetAudioPreprocessor:
 
     def flush(self) -> bytes:
         try:
+            if self._route == ASR_AUDIO_ROUTE_GAIN_ONLY:
+                return float32_to_pcm16le(self._input_gain.flush())
             input_tail = self._input_gain.flush() if self._use_input_gain else np.zeros(0, dtype=np.float32)
+            self._append_dry(input_tail)
             input_tail_output = self._process_model_samples(input_tail)
+            input_tail_output = self._apply_whisper_attenuation_limit(input_tail_output)
             enhancer = self._require_loaded()
             tail_pieces = [enhancer.flush()]
             produced = sum(len(piece) for piece in tail_pieces)
@@ -257,9 +330,16 @@ class DpdfNetAudioPreprocessor:
             tail = np.concatenate(tail_pieces) if tail_pieces else np.zeros(0, dtype=np.float32)
             tail = tail[: max(0, self._model_input_samples - self._model_output_samples)]
             self._model_output_samples += len(tail)
+            tail = self._apply_whisper_attenuation_limit(tail)
             output = np.concatenate((input_tail_output, tail)) if len(input_tail_output) else tail
-            gained = self._output_gain.process(output)
-            tail = self._output_gain.flush()
+            gained = self._finalize_output(output)
+            tail = (
+                np.zeros(0, dtype=np.float32)
+                if self._route == ASR_AUDIO_ROUTE_WHISPER
+                else self._output_gain.flush()
+            )
+            if self._route == ASR_AUDIO_ROUTE_WHISPER and len(self._dry_queue) != 0:
+                raise AdapterError("whisper dry path did not preserve the model sample clock")
             return float32_to_pcm16le(
                 np.concatenate((gained, tail)) if len(gained) else tail
             )
@@ -272,8 +352,42 @@ class DpdfNetAudioPreprocessor:
     def _use_input_gain(self) -> bool:
         return (
             self.gain_config.enabled
-            and self.gain_placement == GAIN_PLACEMENT_PRE_AND_POST_DENOISE
+            and (
+                self._route == ASR_AUDIO_ROUTE_WHISPER
+                or self.gain_placement == GAIN_PLACEMENT_PRE_AND_POST_DENOISE
+            )
         )
+
+    @property
+    def _whisper_dry_mix_ratio(self) -> float:
+        return 10.0 ** (-self.whisper_attenuation_limit_db / 20.0)
+
+    def _append_dry(self, samples: np.ndarray) -> None:
+        if self._route == ASR_AUDIO_ROUTE_WHISPER and len(samples):
+            self._dry_queue = np.concatenate((self._dry_queue, samples))
+
+    def _apply_whisper_attenuation_limit(self, enhanced: np.ndarray) -> np.ndarray:
+        if self._route != ASR_AUDIO_ROUTE_WHISPER or len(enhanced) == 0:
+            return enhanced
+        if len(self._dry_queue) < len(enhanced):
+            raise AdapterError("whisper dry path fell behind the enhanced sample clock")
+        dry = self._dry_queue[: len(enhanced)]
+        self._dry_queue = self._dry_queue[len(enhanced) :]
+        dry_ratio = self._whisper_dry_mix_ratio
+        return (
+            enhanced * (1.0 - dry_ratio) + dry * dry_ratio
+        ).astype(np.float32, copy=False)
+
+    def _finalize_output(self, output: np.ndarray) -> np.ndarray:
+        if self._route != ASR_AUDIO_ROUTE_WHISPER:
+            return self._output_gain.process(output)
+        if len(output) == 0:
+            return output
+        limit = 10.0 ** (self.gain_config.limiter_peak_dbfs / 20.0)
+        peak = float(np.max(np.abs(output)))
+        if peak > limit:
+            output = output * (limit / peak)
+        return output.astype(np.float32, copy=False)
 
     def _process_model_samples(self, samples: np.ndarray) -> np.ndarray:
         if len(samples) == 0:

@@ -70,12 +70,13 @@ const availableAsrAudioRoutes = computed<AsrAudioRoute[]>(() => {
   const routes = routing?.available_routes;
   if (!Array.isArray(routes)) return ["raw"];
   return routes.filter(
-    (route): route is AsrAudioRoute => route === "raw" || route === "enhanced",
+    (route): route is AsrAudioRoute =>
+      route === "raw" ||
+      route === "gain_only" ||
+      route === "enhanced" ||
+      route === "whisper",
   );
 });
-const enhancedRouteAvailable = computed(() =>
-  availableAsrAudioRoutes.value.includes("enhanced"),
-);
 
 const stateText: Record<ConnectionState, string> = {
   loading: "Загрузка интерфейса",
@@ -93,15 +94,26 @@ const affectName = computed(() => modelValue("vocal_affect", "adapter_id") || "E
 const preprocessorSummary = computed(() => {
   if (selectedAsrAudioRoute.value === "raw") return "RAW PCM · контроль без gain/NS";
   const model = objectValue(objectValue(bootstrap.value?.service, "models"), "audio_preprocessor");
-  if (!model) return "enhanced route недоступен";
+  if (!model) return "processed route недоступен";
   const adapter = stringValue(model, "adapter_id") || "audio preprocessor";
-  const gain = objectValue(model, "gain");
-  const gainPlacement = stringValue(model, "gain_placement");
-  return gain?.enabled === true
-    ? gainPlacement === "pre_and_post_denoise"
-      ? `${adapter} · усиление → шумоподавление → усиление`
-      : `${adapter} · шумоподавление + усиление`
-    : `${adapter} · шумоподавление`;
+  if (selectedAsrAudioRoute.value === "gain_only") {
+    return `${adapter} · только bounded gain/limiter`;
+  }
+  if (selectedAsrAudioRoute.value === "whisper") {
+    const details = objectValue(objectValue(model, "route_details"), "whisper");
+    const attenuation = details?.attenuation_limit_db;
+    return `${adapter} · gain → DPDFNet → dry safety floor → limiter${typeof attenuation === "number" ? ` (${attenuation} dB)` : ""}`;
+  }
+  return `${adapter} · полный DPDFNet + gain`;
+});
+const asrSignalSummary = computed(() => {
+  const metrics = objectValue(finalUtterance.value?.metrics, "audio_preprocessor");
+  const raw = objectValue(metrics, "raw_signal");
+  const asr = objectValue(metrics, "asr_signal");
+  const rawRms = raw?.rms_dbfs;
+  const asrRms = asr?.rms_dbfs;
+  if (typeof rawRms !== "number" || typeof asrRms !== "number") return "";
+  return `уровень RAW ${rawRms.toFixed(1)} → ASR ${asrRms.toFixed(1)} dBFS`;
 });
 const transcriberCadence = computed(() => {
   const delay = numericModelValue("transcriber", "configured_delay_ms");
@@ -131,8 +143,8 @@ const captureSummary = computed(() => {
 });
 const calibrationSummary = computed(() => {
   const result = calibration.value;
-  if (!result) return "VAD: для тихой речи сначала нажмите «Калибровать тишину» в полной тишине.";
-  return `VAD: whisper-aware · шум ${result.noiseFloorDbfs.toFixed(1)} dBFS · пик ${result.peakDbfs.toFixed(1)} dBFS · ${result.durationMs / 1_000} с`;
+  if (!result) return "VAD/gain: для тихой речи сначала нажмите «Калибровать тишину» в полной тишине.";
+  return `VAD/gain: whisper-aware · шум ${result.noiseFloorDbfs.toFixed(1)} dBFS · пик ${result.peakDbfs.toFixed(1)} dBFS · ${result.durationMs / 1_000} с`;
 });
 const identitySummary = computed(() => {
   const identity = objectValue(bootstrap.value?.service, "model_identity");
@@ -147,6 +159,9 @@ const identitySummary = computed(() => {
 onMounted(async () => {
   try {
     bootstrap.value = await loadBootstrap();
+    if (availableAsrAudioRoutes.value.includes("whisper")) {
+      selectedAsrAudioRoute.value = "whisper";
+    }
     await refreshDiagnosticAudio();
     await refreshDevices();
     state.value = "ready";
@@ -231,7 +246,7 @@ async function calibrateNoise(): Promise<void> {
   try {
     const result = await calibrateMicrophoneNoise(selectedDevice.value, 2_000);
     calibration.value = result;
-    notice.value = `Калибровка готова: фон ${result.noiseFloorDbfs.toFixed(1)} dBFS. Эти пороги используются только для VAD.`;
+    notice.value = `Калибровка готова: фон ${result.noiseFloorDbfs.toFixed(1)} dBFS. Порог применяется к VAD и усилению ASR-тракта.`;
     await refreshDevices();
     state.value = "ready";
   } catch (error) {
@@ -390,6 +405,13 @@ function objectValue(value: unknown, key: string): JsonObject | null {
 function stringValue(value: JsonObject, key: string): string {
   return typeof value[key] === "string" ? value[key] : "";
 }
+
+function asrRouteLabel(route: string | null): string {
+  if (route === "whisper") return "Whisper · gain + щадящий DPDFNet";
+  if (route === "gain_only") return "Gain only · диагностический контроль";
+  if (route === "enhanced") return "DPDFNet full · агрессивный A/B";
+  return "RAW · контроль";
+}
 </script>
 
 <template>
@@ -436,9 +458,12 @@ function stringValue(value: JsonObject, key: string): string {
               v-model="selectedAsrAudioRoute"
               :disabled="isRecording || state === 'finalizing'"
             >
-              <option value="raw">RAW · контроль</option>
-              <option v-if="enhancedRouteAvailable" value="enhanced">
-                DPDFNet + gain · A/B
+              <option
+                v-for="route in availableAsrAudioRoutes"
+                :key="route"
+                :value="route"
+              >
+                {{ asrRouteLabel(route) }}
               </option>
             </select>
           </div>
@@ -528,6 +553,7 @@ function stringValue(value: JsonObject, key: string): string {
         <small v-if="finalUtterance.observed_vocal_expression_source">
           {{ finalUtterance.observed_vocal_expression_source }}
         </small>
+        <small v-if="asrSignalSummary">{{ asrSignalSummary }}</small>
       </div>
     </section>
 
@@ -549,7 +575,7 @@ function stringValue(value: JsonObject, key: string): string {
               <audio controls preload="metadata" :src="`/api/diagnostic-audio/${record.id}.wav`"></audio>
             </label>
             <label v-if="record.enhanced_available">
-              <span>ASR: обработанный сигнал</span>
+              <span>ASR: {{ asrRouteLabel(record.asr_audio_route) }}</span>
               <audio controls preload="metadata" :src="`/api/diagnostic-audio/${record.id}.asr.wav`"></audio>
             </label>
           </div>

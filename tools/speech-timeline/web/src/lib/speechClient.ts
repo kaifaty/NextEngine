@@ -16,7 +16,7 @@ export interface VadCalibrationInput {
   durationMs: number;
 }
 
-export type AsrAudioRoute = "raw" | "enhanced";
+export type AsrAudioRoute = "raw" | "gain_only" | "enhanced" | "whisper";
 
 export async function loadBootstrap(): Promise<DashboardBootstrap> {
   const response = await fetch("/api/bootstrap", {
@@ -55,6 +55,8 @@ export async function loadDiagnosticAudio(): Promise<DiagnosticAudioRecord[]> {
     const size = integer(item.byte_length);
     const created = integer(item.created_at_unix_ms);
     const enhancedAvailable = item.enhanced_available === true;
+    const asrAudioRoute =
+      typeof item.asr_audio_route === "string" ? item.asr_audio_route : null;
     return duration >= 0 && size >= 44 && created >= 0
       ? [{
           id: item.id,
@@ -62,6 +64,7 @@ export async function loadDiagnosticAudio(): Promise<DiagnosticAudioRecord[]> {
           byte_length: size,
           created_at_unix_ms: created,
           enhanced_available: enhancedAvailable,
+          asr_audio_route: asrAudioRoute,
         }]
       : [];
   });

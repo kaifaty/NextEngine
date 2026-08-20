@@ -13,6 +13,7 @@ from nextengine_emotion_probe.probe import EmotionProbe
 
 from .adapters.dpdfnet import ADAPTER_ID as DPDFNET_ADAPTER_ID
 from .adapters.dpdfnet import (
+    DEFAULT_WHISPER_ATTENUATION_LIMIT_DB,
     DpdfNetAudioPreprocessor,
     GAIN_PLACEMENT_POST_DENOISE,
     SpeechAwareGainConfig,
@@ -84,6 +85,7 @@ class AudioPreprocessorProfile:
     routing: str
     gain_config: SpeechAwareGainConfig
     gain_placement: str
+    whisper_attenuation_limit_db: float
 
 
 @dataclass(frozen=True)
@@ -158,7 +160,7 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
                 "model_sha256",
                 "routing",
             },
-            {"gain", "gain_placement"},
+            {"gain", "gain_placement", "whisper_attenuation_limit_db"},
             "audio_preprocessor",
         )
         if "audio_preprocessor" in root
@@ -273,6 +275,15 @@ def load_profile(path: Path) -> SpeechTimelineProfile:
                     audio_preprocessor.get("gain_placement", GAIN_PLACEMENT_POST_DENOISE),
                     "audio_preprocessor.gain_placement",
                     SUPPORTED_GAIN_PLACEMENTS,
+                ),
+                whisper_attenuation_limit_db=_bounded_float(
+                    audio_preprocessor.get(
+                        "whisper_attenuation_limit_db",
+                        DEFAULT_WHISPER_ATTENUATION_LIMIT_DB,
+                    ),
+                    "audio_preprocessor.whisper_attenuation_limit_db",
+                    0.0,
+                    40.0,
                 ),
             )
             if audio_preprocessor is not None
@@ -415,6 +426,9 @@ def build_adapters(
             onnx_path=profile.audio_preprocessor.model_path,
             gain_config=profile.audio_preprocessor.gain_config,
             gain_placement=profile.audio_preprocessor.gain_placement,
+            whisper_attenuation_limit_db=(
+                profile.audio_preprocessor.whisper_attenuation_limit_db
+            ),
         )
     return transcriber, affect, preprocessor
 
@@ -465,6 +479,13 @@ def _finite_float(value: object, name: str) -> float:
     result = float(value)
     if not math.isfinite(result):
         raise ProfileError(f"{name} must be a finite number")
+    return result
+
+
+def _bounded_float(value: object, name: str, minimum: float, maximum: float) -> float:
+    result = _finite_float(value, name)
+    if not minimum <= result <= maximum:
+        raise ProfileError(f"{name} must be between {minimum} and {maximum}")
     return result
 
 

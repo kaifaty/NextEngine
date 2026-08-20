@@ -145,6 +145,7 @@ class FakeAudioPreprocessor:
         self.reset_count = 0
         self.process_count = 0
         self.flush_count = 0
+        self.reset_routes: list[tuple[str, float | None]] = []
 
     def load(self) -> dict[str, int]:
         self.load_count += 1
@@ -154,10 +155,20 @@ class FakeAudioPreprocessor:
         return {"elapsed_ms": 0}
 
     def capabilities(self) -> dict[str, object]:
-        return {"adapter_id": "fake-audio-preprocessor/1", "routes": ["asr"]}
+        return {
+            "adapter_id": "fake-audio-preprocessor/1",
+            "routes": ["asr"],
+            "asr_audio_routes": ["enhanced", "gain_only", "whisper"],
+        }
 
-    def reset(self) -> None:
+    def reset(
+        self,
+        route: str = "enhanced",
+        *,
+        noise_floor_dbfs: float | None = None,
+    ) -> None:
         self.reset_count += 1
+        self.reset_routes.append((route, noise_floor_dbfs))
 
     def process_pcm(self, pcm: bytes) -> bytes:
         self.process_count += 1
@@ -299,10 +310,12 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
                 service,
                 "preprocessed-turn",
                 asr_audio_route="enhanced",
+                vad_noise_floor_dbfs=-62.0,
             )
             final = next(item for item in events if item["type"] == "utterance.final")
             self.assertEqual(preprocessor.load_count, 1)
             self.assertEqual(preprocessor.reset_count, 1)
+            self.assertEqual(preprocessor.reset_routes, [("enhanced", -62.0)])
             self.assertEqual(preprocessor.process_count, 1)
             self.assertEqual(preprocessor.flush_count, 1)
             self.assertEqual(transcriber.sessions[0].pushed_samples[0][0], 0.125)
@@ -315,6 +328,7 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
             records = service.diagnostic_audio.list_records() if service.diagnostic_audio else []
             self.assertEqual(len(records), 1)
             self.assertTrue(records[0].enhanced_available)
+            self.assertEqual(records[0].asr_audio_route, "enhanced")
 
             def load_enhanced() -> bytes:
                 with urlopen(
@@ -343,7 +357,10 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         try:
             routing = ready["asr_audio_routing"]
             self.assertEqual(routing["default_route"], "raw")
-            self.assertEqual(routing["available_routes"], ["raw", "enhanced"])
+            self.assertEqual(
+                routing["available_routes"],
+                ["raw", "enhanced", "gain_only", "whisper"],
+            )
             events = await self._run_turn_against(service, "raw-default-turn")
             started = next(item for item in events if item["type"] == "session.started")
             final = next(item for item in events if item["type"] == "utterance.final")
@@ -370,6 +387,7 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         session_id: str,
         *,
         asr_audio_route: str | None = None,
+        vad_noise_floor_dbfs: float | None = None,
     ) -> list[dict[str, object]]:
         async with connect(service.uri, compression=None) as websocket:
             await websocket.send(
@@ -393,6 +411,11 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
             }
             if asr_audio_route is not None:
                 start["asr_audio_route"] = asr_audio_route
+            if vad_noise_floor_dbfs is not None:
+                start["vad_calibration"] = {
+                    "noise_floor_dbfs": vad_noise_floor_dbfs,
+                    "duration_ms": 2_000,
+                }
             await websocket.send(json.dumps(start))
             started = json.loads(await websocket.recv())
             await websocket.send(b"\0\0" * 4_000)

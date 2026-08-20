@@ -14,7 +14,16 @@ MAX_TOKEN_BYTES = 256
 SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]+$")
 ASR_AUDIO_ROUTE_RAW = "raw"
 ASR_AUDIO_ROUTE_ENHANCED = "enhanced"
-ASR_AUDIO_ROUTES = frozenset({ASR_AUDIO_ROUTE_RAW, ASR_AUDIO_ROUTE_ENHANCED})
+ASR_AUDIO_ROUTE_GAIN_ONLY = "gain_only"
+ASR_AUDIO_ROUTE_WHISPER = "whisper"
+ASR_AUDIO_ROUTES = frozenset(
+    {
+        ASR_AUDIO_ROUTE_RAW,
+        ASR_AUDIO_ROUTE_ENHANCED,
+        ASR_AUDIO_ROUTE_GAIN_ONLY,
+        ASR_AUDIO_ROUTE_WHISPER,
+    }
+)
 
 
 class ProtocolError(RuntimeError):
@@ -126,7 +135,7 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
         if not isinstance(asr_audio_route, str) or asr_audio_route not in ASR_AUDIO_ROUTES:
             raise ProtocolError(
                 "INVALID_FIELD",
-                "asr_audio_route must be raw or enhanced",
+                f"asr_audio_route must be one of {sorted(ASR_AUDIO_ROUTES)}",
                 terminal=True,
             )
         return SessionStart(

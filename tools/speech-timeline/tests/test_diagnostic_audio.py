@@ -30,11 +30,21 @@ class DiagnosticAudioStoreTests(unittest.TestCase):
             store = DiagnosticAudioStore(Path(temporary), max_records=5)
             raw = b"\x10\x00" * 800
             enhanced = b"\x20\x00" * 800
-            record = store.record(raw, asr_enhanced_pcm=enhanced)
+            record = store.record(
+                raw,
+                asr_enhanced_pcm=enhanced,
+                asr_audio_route="whisper",
+            )
             self.assertTrue(record.enhanced_available)
+            self.assertEqual(record.asr_audio_route, "whisper")
+            self.assertEqual(store.list_records()[0].asr_audio_route, "whisper")
             self.assertEqual(store.read(record.record_id, variant="asr_enhanced")[44:], enhanced)
             with self.assertRaisesRegex(Exception, "preserve the raw sample clock"):
-                store.record(raw, asr_enhanced_pcm=enhanced[:-2])
+                store.record(
+                    raw,
+                    asr_enhanced_pcm=enhanced[:-2],
+                    asr_audio_route="whisper",
+                )
 
 
 if __name__ == "__main__":

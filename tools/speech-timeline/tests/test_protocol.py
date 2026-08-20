@@ -62,7 +62,7 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(ProtocolError):
             parse_client_message(json.dumps(value))
 
-    def test_asr_audio_route_defaults_to_raw_and_accepts_enhanced(self) -> None:
+    def test_asr_audio_route_defaults_to_raw_and_accepts_declared_routes(self) -> None:
         value = {
             "schema_version": 1,
             "type": "session.start",
@@ -73,9 +73,11 @@ class ProtocolTests(unittest.TestCase):
             "channels": 1,
             "asr_audio_route": "enhanced",
         }
-        start = parse_client_message(json.dumps(value))
-        self.assertIsInstance(start, SessionStart)
-        self.assertEqual(start.asr_audio_route, "enhanced")
+        for route in ("enhanced", "gain_only", "whisper"):
+            value["asr_audio_route"] = route
+            start = parse_client_message(json.dumps(value))
+            self.assertIsInstance(start, SessionStart)
+            self.assertEqual(start.asr_audio_route, route)
 
         value["asr_audio_route"] = "automatic"
         with self.assertRaises(ProtocolError) as caught:

@@ -115,7 +115,7 @@ async def run_websocket_session(
     asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
 ) -> dict[str, object]:
     if asr_audio_route not in ASR_AUDIO_ROUTES:
-        raise ClientError("ASR audio route must be raw or enhanced")
+        raise ClientError(f"ASR audio route must be one of {sorted(ASR_AUDIO_ROUTES)}")
     identity = session_id or secrets.token_hex(16)
     async with connect(
         ready.uri,

@@ -30,7 +30,7 @@ from .microphone_client import (
     validate_debug_wav,
 )
 from .profile import ProfileError, build_adapters, load_profile
-from .protocol import ASR_AUDIO_ROUTE_ENHANCED, ASR_AUDIO_ROUTE_RAW
+from .protocol import ASR_AUDIO_ROUTES, ASR_AUDIO_ROUTE_RAW
 from .service import SpeechTimelineRuntime
 from .transport_websocket import SpeechTimelineWebSocketService
 
@@ -61,7 +61,7 @@ def parser() -> argparse.ArgumentParser:
     microphone.add_argument("--json", action="store_true", dest="json_output")
     microphone.add_argument(
         "--asr-audio-route",
-        choices=(ASR_AUDIO_ROUTE_RAW, ASR_AUDIO_ROUTE_ENHANCED),
+        choices=sorted(ASR_AUDIO_ROUTES),
         default=ASR_AUDIO_ROUTE_RAW,
         help="ASR input route; raw is the selected control (default: raw)",
     )
@@ -76,7 +76,7 @@ def parser() -> argparse.ArgumentParser:
     benchmark.add_argument("--out", type=Path, required=True)
     benchmark.add_argument(
         "--asr-audio-route",
-        choices=(ASR_AUDIO_ROUTE_RAW, ASR_AUDIO_ROUTE_ENHANCED),
+        choices=sorted(ASR_AUDIO_ROUTES),
         default=ASR_AUDIO_ROUTE_RAW,
         help="route the same benchmark WAV through raw or configured enhancement",
     )

@@ -22,6 +22,7 @@ export interface DiagnosticAudioRecord {
   duration_ms: number;
   created_at_unix_ms: number;
   enhanced_available: boolean;
+  asr_audio_route: string | null;
 }
 
 export interface AffectSegment {

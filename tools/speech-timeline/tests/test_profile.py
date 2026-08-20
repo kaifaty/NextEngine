@@ -200,6 +200,10 @@ class ProfileTests(unittest.TestCase):
             assert profile.audio_preprocessor is not None
             self.assertEqual(profile.audio_preprocessor.model_name, "dpdfnet2")
             self.assertEqual(profile.audio_preprocessor.gain_placement, "post_denoise")
+            self.assertEqual(
+                profile.audio_preprocessor.whisper_attenuation_limit_db,
+                12.0,
+            )
             damaged = preprocessor_model.write_bytes(b"altered.onx")
             self.assertGreater(damaged, 0)
             with self.assertRaisesRegex(ProfileError, "SHA-256"):

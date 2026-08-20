@@ -26,7 +26,12 @@ class AudioPreprocessor(Protocol):
 
     def capabilities(self) -> Mapping[str, object]: ...
 
-    def reset(self) -> None: ...
+    def reset(
+        self,
+        route: str,
+        *,
+        noise_floor_dbfs: float | None = None,
+    ) -> None: ...
 
     def process_pcm(self, pcm: bytes) -> bytes: ...
 

@@ -480,7 +480,9 @@ async def benchmark_service(
     if not 20 <= chunk_ms <= 1_000:
         raise BenchmarkError("benchmark chunk-ms must be between 20 and 1000")
     if asr_audio_route not in ASR_AUDIO_ROUTES:
-        raise BenchmarkError("benchmark ASR audio route must be raw or enhanced")
+        raise BenchmarkError(
+            f"benchmark ASR audio route must be one of {sorted(ASR_AUDIO_ROUTES)}"
+        )
     chunk_bytes = 16_000 * 2 * chunk_ms // 1_000
     audio_seconds = samples / 16_000
     run_reports = []

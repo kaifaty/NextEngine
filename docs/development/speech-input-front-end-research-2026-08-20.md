@@ -203,6 +203,59 @@ host-service seam.
 | H4: AEC is more valuable than generic denoising during actual gameplay | Smart-speaker systems use the exact playback reference; game/TTS speech otherwise resembles the target. | Current dashboard tests mostly isolated microphone input. | Replay identical utterances with controlled game/TTS render at several levels, with exact-reference AEC on/off. |
 | H5: one processed stream cannot optimize both ASR and emotion | NS/AGC can alter spectral/prosodic cues; current raw affect branch avoids that. | AEC may improve affect during playback by removing known interference. | Affect macro-F1/abstention on raw, AEC-only and ASR-enhanced branches with aligned labels. |
 
+## Implemented discriminator and result
+
+The smallest falsifiable increment is now implemented behind the existing
+local facade. The protocol keeps `raw` as its default and advertises three
+processed routes only when the pinned resident DPDFNet adapter is present:
+
+- `gain_only`: one bounded speech-aware gain plus limiter, without denoising;
+- `enhanced`: the previous full DPDFNet/configured-gain route, retained only as
+  a regression control;
+- `whisper`: calibrated one-stage gain, causal DPDFNet, an aligned dry safety
+  floor and a final peak limiter. The default attenuation limit is 12 dB, so
+  `10^(-12/20) ≈ 0.251` of the pre-gained dry path is retained.
+
+This mixture follows the official DeepFilterNet attenuation-limit mechanism:
+its [Python API](https://github.com/Rikorose/DeepFilterNet/blob/main/DeepFilterNet/df/enhance.py)
+describes retaining residual noisy signal at a bounded attenuation, and the
+[Rust inference implementation](https://github.com/Rikorose/DeepFilterNet/blob/main/libDF/src/tract.rs)
+mixes the aligned noisy spectrum back into the enhanced spectrum. It is applied
+here as a model-neutral safety property around pinned DPDFNet, not as a claim
+that the two enhancement models are equivalent.
+
+An exact 6.944-s external diagnostic WAV (file SHA-256
+`e25a9a1ad8fd1d11c1e208222063b9ef1866869471343f255ff62d5c5417c7ae`)
+was replayed in 80-ms chunks through the same resident Voxtral session contract.
+The isolated A/B used no calibration override, so the fixed −75 dBFS gain gate
+was the control; a real microphone session can additionally raise that gate to
+the measured noise floor plus 6 dB.
+
+| Route | ASR RMS | Non-zero ratio | Preprocess p95 | Voxtral final |
+| --- | ---: | ---: | ---: | --- |
+| `raw` | −46.47 dBFS | 0.8198 | 0 ms | empty |
+| `gain_only` | −26.75 dBFS | 0.8198 | 0 ms | empty |
+| `enhanced` | −29.01 dBFS | 0.4154 | 16 ms | empty |
+| final `whisper` | −33.62 dBFS | 0.7749 | 14 ms | empty |
+
+All routes preserved exactly 111,104 samples; final `whisper` flush took 3 ms
+and peaked at −4.32 dBFS. This closes the narrow wrapper defect: plausible
+quiet speech now has a dry safety floor and the front-end runs comfortably
+inside an 80-ms chunk budget. It does **not** close whispered recognition. The
+same clip remained empty even after the simpler gain-only route raised it by
+19.72 dB, so inadequate amplitude alone is falsified for this sample. H3 is now
+stronger: Voxtral acoustic-domain mismatch or insufficient captured linguistic
+evidence remains after successful level normalization. This is consistent with
+[whisper-ASR research](https://arxiv.org/abs/2311.05179), which identifies
+missing glottal information and reports improvement from pseudo-whispered
+training augmentation rather than gain alone.
+
+Consequently, do not add more gain or a stronger denoiser to this clip. The
+next quality discriminator is a small transcribed Russian normal/whisper corpus
+evaluated across the current route and a whisper-capable ASR/model adaptation.
+The dashboard exposes the new route and exact signal metrics for the user's
+live listening test, but no processed route is promoted as a product default.
+
 ## Evaluation protocol: “better than raw” means multiple outcomes
 
 Use consented, externally stored test audio; do not commit recordings. Record at
@@ -310,8 +363,9 @@ The only TTS-related work here is providing its render samples to future AEC.
 
 ## Smallest next action
 
-Restore raw ASR as the selected control and add route selection plus a paired
-benchmark before another denoiser or gain change. The first corpus run should
-compare raw, the current DPDF double-gain route and a one-gain conservative
-route on the same normal/whispered Russian takes. Only then should Silero VAD
-and render-reference AEC be implemented as independent, falsifiable increments.
+Use quiet calibration and let the user listen to one new microphone turn through
+the implemented `whisper` route beside its stored RAW variant. Then freeze a
+small reference-transcribed Russian normal/whisper set and compare the current
+front-end against a whisper-capable ASR or adaptation. The exact clip above has
+already falsified another gain/denoiser-only tweak; Silero VAD and
+render-reference AEC remain separate, independently measured increments.

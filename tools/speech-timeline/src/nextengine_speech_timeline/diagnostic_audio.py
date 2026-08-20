@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
 import secrets
@@ -27,6 +28,7 @@ class DiagnosticAudioRecord:
     duration_ms: int
     created_at_unix_ms: int
     enhanced_available: bool
+    asr_audio_route: str | None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -35,6 +37,7 @@ class DiagnosticAudioRecord:
             "duration_ms": self.duration_ms,
             "created_at_unix_ms": self.created_at_unix_ms,
             "enhanced_available": self.enhanced_available,
+            "asr_audio_route": self.asr_audio_route,
         }
 
 
@@ -64,7 +67,13 @@ class DiagnosticAudioStore:
             "variants": ["raw", "asr_enhanced"],
         }
 
-    def record(self, pcm: bytes, *, asr_enhanced_pcm: bytes | None = None) -> DiagnosticAudioRecord:
+    def record(
+        self,
+        pcm: bytes,
+        *,
+        asr_enhanced_pcm: bytes | None = None,
+        asr_audio_route: str | None = None,
+    ) -> DiagnosticAudioRecord:
         if not pcm or len(pcm) % 2:
             raise DiagnosticAudioError("diagnostic WAV requires non-empty aligned PCM")
         if len(pcm) > 960_000:
@@ -74,6 +83,10 @@ class DiagnosticAudioStore:
                 raise DiagnosticAudioError("enhanced diagnostic WAV requires non-empty aligned PCM")
             if len(asr_enhanced_pcm) != len(pcm):
                 raise DiagnosticAudioError("enhanced diagnostic WAV must preserve the raw sample clock")
+            if not _valid_route(asr_audio_route):
+                raise DiagnosticAudioError("processed diagnostic WAV requires a bounded ASR route")
+        elif asr_audio_route is not None:
+            raise DiagnosticAudioError("raw diagnostic WAV cannot declare a processed ASR route")
         with self._lock:
             self.start()
             record_id = secrets.token_hex(16)
@@ -81,6 +94,8 @@ class DiagnosticAudioStore:
             temporary = self.root / f".{_PREFIX}{record_id}.tmp"
             enhanced_target = self._enhanced_path(record_id)
             enhanced_temporary = self.root / f".{_PREFIX}{record_id}.asr.tmp"
+            metadata_target = self._metadata_path(record_id)
+            metadata_temporary = self.root / f".{_PREFIX}{record_id}.meta.tmp"
             try:
                 with wave.open(str(temporary), "wb") as destination:
                     destination.setnchannels(1)
@@ -96,11 +111,22 @@ class DiagnosticAudioStore:
                         destination.writeframes(asr_enhanced_pcm)
                     os.chmod(enhanced_temporary, 0o600)
                     os.replace(enhanced_temporary, enhanced_target)
+                    metadata_temporary.write_text(
+                        json.dumps(
+                            {"schema_version": 1, "asr_audio_route": asr_audio_route},
+                            separators=(",", ":"),
+                        ),
+                        encoding="utf-8",
+                    )
+                    os.chmod(metadata_temporary, 0o600)
+                    os.replace(metadata_temporary, metadata_target)
                 os.replace(temporary, target)
             except OSError as error:
                 temporary.unlink(missing_ok=True)
                 enhanced_temporary.unlink(missing_ok=True)
                 enhanced_target.unlink(missing_ok=True)
+                metadata_temporary.unlink(missing_ok=True)
+                metadata_target.unlink(missing_ok=True)
                 raise DiagnosticAudioError(f"cannot persist diagnostic WAV: {error}") from error
             record = self._record_from_path(target)
             self._prune_locked()
@@ -140,7 +166,9 @@ class DiagnosticAudioStore:
         )
         for path in paths[self.max_records :]:
             path.unlink(missing_ok=True)
-            self._enhanced_path(path.stem.removeprefix(_PREFIX)).unlink(missing_ok=True)
+            record_id = path.stem.removeprefix(_PREFIX)
+            self._enhanced_path(record_id).unlink(missing_ok=True)
+            self._metadata_path(record_id).unlink(missing_ok=True)
 
     def _path(self, record_id: str) -> Path:
         return self.root / f"{_PREFIX}{record_id}.wav"
@@ -148,19 +176,25 @@ class DiagnosticAudioStore:
     def _enhanced_path(self, record_id: str) -> Path:
         return self.root / f"{_PREFIX}{record_id}.asr.wav"
 
+    def _metadata_path(self, record_id: str) -> Path:
+        return self.root / f"{_PREFIX}{record_id}.meta.json"
+
     @staticmethod
     def _record_from_path(path: Path) -> DiagnosticAudioRecord:
         stat = path.stat()
         record_id = path.stem.removeprefix(_PREFIX)
+        enhanced_path = path.parent / f"{path.stem}.asr.wav"
+        enhanced_available = enhanced_path.is_file() and not enhanced_path.is_symlink()
+        asr_audio_route = _read_route(path.parent / f"{path.stem}.meta.json")
+        if enhanced_available and asr_audio_route is None:
+            asr_audio_route = "enhanced"
         return DiagnosticAudioRecord(
             record_id=record_id,
             byte_length=stat.st_size,
             duration_ms=max(0, (stat.st_size - 44) * 1_000 // (SAMPLE_RATE_HZ * 2)),
             created_at_unix_ms=stat.st_mtime_ns // 1_000_000,
-            enhanced_available=(
-                (path.parent / f"{path.stem}.asr.wav").is_file()
-                and not (path.parent / f"{path.stem}.asr.wav").is_symlink()
-            ),
+            enhanced_available=enhanced_available,
+            asr_audio_route=asr_audio_route,
         )
 
 
@@ -172,3 +206,24 @@ def _valid_filename(value: str) -> bool:
     return value.startswith(_PREFIX) and value.endswith(".wav") and _valid_record_id(
         value[len(_PREFIX) : -4]
     )
+
+
+def _valid_route(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and 1 <= len(value) <= 32
+        and all(character.isascii() and (character.isalnum() or character == "_") for character in value)
+    )
+
+
+def _read_route(path: Path) -> str | None:
+    if not path.is_file() or path.is_symlink() or path.stat().st_size > 1_024:
+        return None
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(value, dict) or value.get("schema_version") != 1:
+        return None
+    route = value.get("asr_audio_route")
+    return route if _valid_route(route) else None

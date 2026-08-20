@@ -4,6 +4,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, is_dataclass, replace
 import logging
+import math
 import time
 from typing import Any, Awaitable, Callable, Coroutine, TypeVar
 
@@ -14,7 +15,7 @@ from .audio import pcm16le_to_float32, pcm16le_to_float32_array
 from .diagnostic_audio import DiagnosticAudioStore
 from .metrics import ModelJobMetric, ResourceMonitor
 from .protocol import (
-    ASR_AUDIO_ROUTE_ENHANCED,
+    ASR_AUDIO_ROUTES,
     ASR_AUDIO_ROUTE_RAW,
     VadCalibration,
     event,
@@ -34,6 +35,43 @@ T = TypeVar("T")
 PUBLIC_JOB_METRIC_LIMIT = 64
 EVENT_TIMING_LIMIT = 128
 logger = logging.getLogger("nextengine.speech_timeline")
+
+
+class _PcmSignalLevel:
+    """Bounded content-free level telemetry for one ASR route."""
+
+    def __init__(self) -> None:
+        self.samples = 0
+        self.sum_squares = 0.0
+        self.peak = 0.0
+        self.nonzero_samples = 0
+
+    def add(self, pcm: bytes) -> None:
+        if not pcm:
+            return
+        samples = pcm16le_to_float32_array(pcm)
+        self.samples += len(samples)
+        for sample in samples:
+            absolute = abs(sample)
+            self.sum_squares += sample * sample
+            self.peak = max(self.peak, absolute)
+            self.nonzero_samples += int(absolute >= 1.0 / 32768.0)
+
+    def payload(self) -> dict[str, float | int | None]:
+        if self.samples == 0:
+            return {
+                "samples": 0,
+                "rms_dbfs": None,
+                "peak_dbfs": None,
+                "nonzero_ratio": 0.0,
+            }
+        rms = math.sqrt(self.sum_squares / self.samples)
+        return {
+            "samples": self.samples,
+            "rms_dbfs": round(20.0 * math.log10(max(rms, 1e-8)), 2),
+            "peak_dbfs": round(20.0 * math.log10(max(self.peak, 1e-8)), 2),
+            "nonzero_ratio": round(self.nonzero_samples / self.samples, 6),
+        }
 
 
 class SpeechTimelineRuntime:
@@ -65,7 +103,16 @@ class SpeechTimelineRuntime:
     def available_asr_audio_routes(self) -> tuple[str, ...]:
         routes = [ASR_AUDIO_ROUTE_RAW]
         if self.audio_preprocessor is not None:
-            routes.append(ASR_AUDIO_ROUTE_ENHANCED)
+            capabilities = self.audio_preprocessor.capabilities()
+            configured = capabilities.get("asr_audio_routes", ["enhanced"])
+            if not isinstance(configured, list) or any(
+                not isinstance(route, str)
+                or route == ASR_AUDIO_ROUTE_RAW
+                or route not in ASR_AUDIO_ROUTES
+                for route in configured
+            ):
+                raise RuntimeError("audio preprocessor advertised invalid ASR routes")
+            routes.extend(configured)
         return tuple(routes)
 
     def start(self) -> dict[str, object]:
@@ -118,10 +165,19 @@ class SpeechTimelineRuntime:
             self.scheduler.call_blocking(self.transcriber.close)
         self.scheduler.close()
 
-    async def reset_audio_preprocessor(self) -> None:
+    async def reset_audio_preprocessor(
+        self,
+        route: str,
+        noise_floor_dbfs: float | None,
+    ) -> None:
         if self.audio_preprocessor is None:
             return
-        await self._preprocessor_call(self.audio_preprocessor.reset)
+        await self._preprocessor_call(
+            lambda: self.audio_preprocessor.reset(
+                route,
+                noise_floor_dbfs=noise_floor_dbfs,
+            )
+        )
 
     async def preprocess_pcm(self, pcm: bytes) -> tuple[bytes, int]:
         if self.audio_preprocessor is None:
@@ -197,6 +253,8 @@ class SpeechConnection:
         self._preprocessor_stream_elapsed_ms: list[int] = []
         self._preprocessor_flush_ms: int | None = None
         self._asr_audio_route = ASR_AUDIO_ROUTE_RAW
+        self._raw_signal_level = _PcmSignalLevel()
+        self._asr_signal_level = _PcmSignalLevel()
 
     async def start(
         self,
@@ -217,8 +275,11 @@ class SpeechConnection:
             if vad_calibration is not None:
                 self._apply_vad_calibration(vad_calibration)
             generation = self.session.start(session_id, locale)
-            if self._asr_audio_route == ASR_AUDIO_ROUTE_ENHANCED:
-                await self.runtime.reset_audio_preprocessor()
+            if self._asr_audio_route != ASR_AUDIO_ROUTE_RAW:
+                await self.runtime.reset_audio_preprocessor(
+                    self._asr_audio_route,
+                    vad_calibration.noise_floor_dbfs if vad_calibration is not None else None,
+                )
             self._transcriber_session = await self._execute(
                 JobPriority.STARTUP,
                 generation,
@@ -267,6 +328,7 @@ class SpeechConnection:
             raise
         generation = self.session.generation
         self._ingress_frames += 1
+        self._raw_signal_level.add(frame.payload)
         try:
             activity_changed = self.activity.feed_pcm16(frame.start_sample, frame.payload)
         except BaseException as error:
@@ -297,7 +359,8 @@ class SpeechConnection:
                 await self._fail("AUDIO_PREPROCESSOR_FAILURE", _bounded_error(error))
                 return
         if asr_pcm:
-            if self._asr_audio_route == ASR_AUDIO_ROUTE_ENHANCED:
+            self._asr_signal_level.add(asr_pcm)
+            if self._asr_audio_route != ASR_AUDIO_ROUTE_RAW:
                 self._append_diagnostic_asr_pcm(asr_pcm)
             self._spawn(
                 self._asr_push_with_backpressure(
@@ -359,7 +422,7 @@ class SpeechConnection:
             return
         generation = self.session.generation
         total_samples = self.session.total_samples
-        if self._asr_audio_route == ASR_AUDIO_ROUTE_ENHANCED:
+        if self._asr_audio_route != ASR_AUDIO_ROUTE_RAW:
             try:
                 tail_pcm, flush_elapsed_ms = await self.runtime.flush_audio_preprocessor()
                 self._record_preprocessor_metric(
@@ -372,6 +435,7 @@ class SpeechConnection:
                     flush=True,
                 )
                 if tail_pcm:
+                    self._asr_signal_level.add(tail_pcm)
                     self._append_diagnostic_asr_pcm(tail_pcm)
                     await self._asr_push(
                         generation,
@@ -466,10 +530,26 @@ class SpeechConnection:
                     self._diagnostic_audio.record,
                     self.session.pcm_bytes,
                     asr_enhanced_pcm=enhanced_pcm,
+                    asr_audio_route=(
+                        self._asr_audio_route if enhanced_pcm is not None else None
+                    ),
                 )
                 self._diagnostic_audio_saved = True
             except BaseException as error:
                 logger.warning("speech.diagnostic_audio_save_failed kind=%s", type(error).__name__)
+        raw_level = self._raw_signal_level.payload()
+        asr_level = self._asr_signal_level.payload()
+        logger.info(
+            "speech.asr_signal session_id=%s route=%s raw_rms_dbfs=%s raw_peak_dbfs=%s "
+            "asr_rms_dbfs=%s asr_peak_dbfs=%s asr_nonzero_ratio=%.4f",
+            self.session.session_id,
+            self._asr_audio_route,
+            raw_level["rms_dbfs"],
+            raw_level["peak_dbfs"],
+            asr_level["rms_dbfs"],
+            asr_level["peak_dbfs"],
+            asr_level["nonzero_ratio"],
+        )
         self.session.complete(session_id)
         self.runtime.scheduler.invalidate_generation(generation)
         self._cancel_tasks(self._emotion_tasks)
@@ -605,7 +685,7 @@ class SpeechConnection:
 
     def _diagnostic_enhanced_pcm(self) -> bytes | None:
         if (
-            self._asr_audio_route != ASR_AUDIO_ROUTE_ENHANCED
+            self._asr_audio_route == ASR_AUDIO_ROUTE_RAW
             or self.runtime.audio_preprocessor is None
             or self._diagnostic_asr_pcm_invalid
         ):
@@ -817,12 +897,14 @@ class SpeechConnection:
             "audio_preprocessor": {
                 "enabled": self.runtime.audio_preprocessor is not None,
                 "selected_route": self._asr_audio_route,
-                "active": self._asr_audio_route == ASR_AUDIO_ROUTE_ENHANCED,
+                "active": self._asr_audio_route != ASR_AUDIO_ROUTE_RAW,
                 "input_samples": self._preprocessor_input_samples,
                 "output_samples": self._preprocessor_output_samples,
                 "stream_p50_ms": _percentile_int(self._preprocessor_stream_elapsed_ms, 50),
                 "stream_p95_ms": _percentile_int(self._preprocessor_stream_elapsed_ms, 95),
                 "flush_ms": self._preprocessor_flush_ms,
+                "raw_signal": self._raw_signal_level.payload(),
+                "asr_signal": self._asr_signal_level.payload(),
             },
             "vocal_affect": self.timeline.affect_diagnostics(),
             "events": {

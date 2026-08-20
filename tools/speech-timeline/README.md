@@ -73,9 +73,11 @@ Once model warm-up completes, the ready JSON printed to stdout contains both
 exact input, and press **Начать запись**. The Vue dashboard is served by the
 same loopback process as the WebSocket, obtains its short-lived token from a
 same-origin `no-store` bootstrap response, and never writes raw audio.
-`ASR-тракт` defaults to **RAW · контроль**. If the profile contains an audio
-preprocessor, **DPDFNet + gain · A/B** becomes available as an explicit
-per-utterance choice; merely configuring the adapter never changes ASR input.
+The protocol defaults to `raw`. If the profile contains an audio preprocessor,
+the dashboard exposes four explicit per-utterance choices: **RAW**,
+**Gain only**, the previous full **DPDFNet** route, and the new
+whisper-preserving **Whisper** route. The dashboard preselects Whisper for the
+current microphone trial; unsupported routes never fall back silently.
 
 The dashboard deliberately keeps these representations separate:
 
@@ -129,8 +131,8 @@ ASR A/B trial. It does not create a PipeWire/PulseAudio virtual device: the
 service accepts PCM from the host and keeps exactly one causal DPDFNet stream
 per utterance on a dedicated CPU worker. The model is loaded once at startup,
 but RAW remains the selected control. Only an utterance that requests the
-`enhanced` ASR route resets and runs its recurrent state; its causal tail is
-drained at finish so the ASR branch keeps the captured 16 kHz sample count.
+processed ASR route resets its resident state; its causal tail is drained at
+finish so the ASR branch keeps the captured 16 kHz sample count.
 VAD and vocal affect always receive raw PCM in both modes.
 
 Download the exact model outside the repository, record both the Hugging Face
@@ -146,6 +148,7 @@ commit and digest, then add this object to the existing profile:
   "model_size_bytes": 10178747,
   "model_sha256": "sha256:4f0ee28935b4a32abecc717d745416976565834d839601acf43031094b4dc94c",
   "routing": "asr_only",
+  "whisper_attenuation_limit_db": 12.0,
   "gain_placement": "pre_and_post_denoise",
   "gain": {
     "enabled": true,
@@ -162,26 +165,26 @@ commit and digest, then add this object to the existing profile:
 The adapter never auto-downloads a model at service startup. Its ONNX session
 uses CPU execution with a reported 20 ms causal delay. The optional gain is a
 20-ms speech-aware stage: it raises only frames above the gate, smooths
-attack/release and hard-limits peaks. `gain_placement` defaults to
-`post_denoise`, which preserves the original DPDFNet-only route. The explicit
-`pre_and_post_denoise` trial is for quiet microphones: it normalizes audible
-voice before DPDFNet so that the denoiser cannot erase it, then normalizes the
-denoised residual again for ASR. It adds at most 40 ms of gain buffering (60 ms
-including DPDFNet), does not change VAD/affect input, and is not an unbounded
-global AGC. Final metrics expose per-chunk p50/p95 preprocessing time,
-input/output sample counts and flush time; the ready payload exposes the exact
-adapter/model/gain-placement lineage. `session.started` and terminal metrics
-also report the selected route. Requesting `enhanced` when no preprocessor is
-configured fails before capture with `AUDIO_ROUTE_UNAVAILABLE`.
+attack/release and hard-limits peaks. `enhanced` retains the earlier configured
+DPDFNet/gain placement for regression comparison; `gain_only` isolates level
+normalization; `whisper` applies one adaptive gain before DPDFNet, mixes an
+aligned dry safety floor back into the denoised stream and applies only a peak
+limiter afterwards. The default 12 dB attenuation limit retains about 25% of
+the pre-gained dry signal, following the attenuation-limit form used by
+DeepFilterNet. All routes preserve the exact sample clock and leave VAD/affect
+on raw PCM. Final metrics expose raw/ASR RMS, peak, nonzero ratio, per-chunk
+p50/p95 preprocessing time, input/output counts and flush time; capabilities
+report each route's stages and exact attenuation setting. An unavailable route
+fails before capture with `AUDIO_ROUTE_UNAVAILABLE`.
 
 For a whisper test, first use **Калибровать тишину** in the dashboard while
-remaining silent. The calibrated VAD gate becomes relative to that measured
-noise floor and can admit quiet speech without globally treating all low-level
-audio as speech. Each completed diagnostic turn then exposes both **Raw
-микрофон** and **ASR: обработанный сигнал** WAV players when that turn selected
-the enhanced route. Select **RAW · контроль** (the default) to bypass DPDFNet
-immediately; removing the whole `audio_preprocessor` object also removes the
-A/B candidate after restart.
+remaining silent. The calibrated VAD and gain activation gates become relative
+to that measured noise floor plus their declared margins, so background is not
+amplified merely because the microphone is quiet. Each completed diagnostic
+turn exposes both **Raw микрофон** and a route-labelled **ASR** WAV when it used
+processing. Select **RAW · контроль** to bypass preprocessing immediately;
+removing the whole `audio_preprocessor` object removes all three candidates
+after restart.
 
 The ready file is created with mode `0600`, contains the random session token,
 and is removed on clean shutdown. Raw PCM, transcripts, and model outputs are
