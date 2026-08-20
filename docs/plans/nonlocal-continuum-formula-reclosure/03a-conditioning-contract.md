@@ -1,6 +1,6 @@
 # FCR3-A — local-curvature conditioning contract
 
-Status: `BLOCK_V1_REJECTED / HYBRID_V2_FROZEN FOR IMPLEMENTATION / REPORT_ONLY`
+Status: `CLOSED / BLOCK_V1_FAIL / HYBRID_V2_FAIL / FCR3B_NEXT`
 
 ## Candidate
 
@@ -75,3 +75,8 @@ The `16`-iteration switch is frozen because block v1 converged the surface
 control in `14` iterations while the pressure/combined controls still needed
 accurate polishing. No additional switch-point or relaxation sweep is allowed
 inside FCR3-A.
+
+Hybrid v2 also fails, first at combined final-gradient quality, and closes
+this conditioning branch. See the
+[hybrid evidence](../../development/nonlocal-continuum-fcr3a-hybrid-evidence-2026-08-20.md).
+FCR3-B corrected SISSM is the next distinct discriminator.
