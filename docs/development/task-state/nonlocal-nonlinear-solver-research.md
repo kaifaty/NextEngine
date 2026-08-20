@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1R_FAIL / NSR3B1R1_FINE_STATE_DESIGN` |
+| Status | `ACTIVE / NSR3B1R_FAIL / NSR3B1R1_FINE_STATE_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -75,7 +75,7 @@
   remaining horizon.
 - **Current decision:** reject `TRANSACTIONAL_COARSE_STATE_R0`. A local error
   gate is not a global trajectory bound when the coarse state owns commit.
-- **Current action:** freeze B1R1 with fine comparator state ownership; it adds
+- **Current action:** implement frozen B1R1 with fine state ownership; it adds
   no solver execution and reduces the accounting multiplier to `1.5x/1.75x`.
 - **Next gate:** B1R1 must pass the unchanged full-horizon references and caps
   before B2 may be designed.
@@ -251,11 +251,9 @@
 
 ## Exact next action
 
-1. Freeze fine-state commit while retaining the B1R cases, gates and
-   independent references exactly.
-2. Re-run transactional composition and publish the changed state/work
+1. Re-run transactional composition and publish the changed state/work
    ownership without crediting additional execution.
-3. Reclose/reject multi-step selection; authorize B2 design only on PASS.
+2. Reclose/reject multi-step selection; authorize B2 design only on PASS.
 
 ## Reconsideration triggers
 

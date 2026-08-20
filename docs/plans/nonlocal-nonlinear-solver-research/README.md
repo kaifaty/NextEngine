@@ -181,3 +181,7 @@ propagates; see the
 [dated evidence](../../development/nonlocal-nsr3b1r-transactional-composition-evidence-2026-08-21.md).
 Preserve that result and test fine-state ownership in B1R1. B2 remains
 blocked.
+The isolated ownership discriminator is frozen in
+[NSR3-B1R1](03b1r1-fine-state-ownership-contract.md). It commits the already
+computed fine member, retains every B1R reference/gate and must account for
+the coarser probe as discarded work.
