@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B3_FAIL / NSR3B3D_REACTION_DIAGNOSTIC_DESIGN` |
+| Status | `ACTIVE / NSR3B3_FAIL / NSR3B3D_REACTION_DIAGNOSTIC_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -122,8 +122,12 @@
   floor despite piconewton-second absolute defects.
 - **Current decision:** preserve B3 FAIL and do not loosen the ledger or
   globally tighten the solver without a cost/accuracy discriminator.
-- **Current action:** freeze B3D reaction-accuracy diagnostics with complete
-  non-aborting ledgers and a charged reaction-aware-stop counterfactual.
+- **Current conclusion:** B3D separates `D_stationarity`, `D_translation`,
+  `D_reconstruct` and `D_contact`. Only inactive reconstruction may use a
+  computed binary64 forward-error bound; active support requires a stricter
+  reaction-aware stop.
+- **Current action:** implement the frozen B3D non-aborting replays, forward-
+  error certificate and charged reaction-aware-stop counterfactual.
 - **Next gate:** B3D must derive a sound reaction certificate or select an
   affordable stricter solve before B3 can be retried.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
@@ -353,6 +357,16 @@
 - **Consequence:** B2 algebra remains selected, but no static-boundary
   trajectory, reaction authority or physical-corpus execution is authorized.
 
+### D-022 -- Certify inactive arithmetic; solve active reaction accuracy
+
+- **Observation:** a mixed tolerance without causal decomposition would hide
+  active stationarity error behind inactive subtraction roundoff.
+- **Decision:** compute a gamma-bound only for inactive reconstruction and
+  require active steps to continue until an impulse-based stationarity stop;
+  charge up to `2.5x + 2` HVPs before rejecting cost.
+- **Consequence:** B3 retry remains blocked until both parts pass. An energy-
+  floor exit before reaction closure explicitly rejects reaction authority.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -365,12 +379,12 @@
 
 ## Exact next action
 
-1. Freeze B3D observables for stationarity, reconstruction and contact ledger
-   components over non-aborting substep ladders.
-2. Compare the selected trajectory stop with one reaction-aware-stop
-   counterfactual and charge all additional HVP work.
-3. Derive a certificate or stop condition before freezing any B3 remediation;
-   keep the physical corpus blocked.
+1. Implement non-aborting B3D capture of all four defect classes and exact
+   causal state hashes.
+2. Evaluate the computed inactive gamma bound and reaction-aware active replay
+   with exact work accounting.
+3. Select a B3R input or stop reaction authority without changing the B3
+   failure, contact order or physical-corpus boundary.
 
 ## Reconsideration triggers
 
