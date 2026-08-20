@@ -59,6 +59,7 @@ struct SolveResult {
     Evaluation final;
     std::vector<Vec3> position;
     std::vector<Vec3> velocity;
+    std::string failure;
 };
 
 struct CaseResult {
@@ -496,6 +497,179 @@ SolveResult solve(
     return result;
 }
 
+SolveResult solve_sissm(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<Vec3>& velocity) {
+    constexpr double armijo = 1.0e-4;
+    constexpr int maximum_backtracks = 40;
+    const std::vector<Vec3> y_star = predict(config, x, velocity);
+    std::vector<Vec3> y = y_star;
+    Evaluation current = evaluate(config, x, y_star, y);
+    SolveResult result;
+    result.initial = current;
+    result.minimum_alpha = 1.0;
+    if (!current.finite) {
+        result.failure = "NONFINITE_INITIAL_STATE";
+        result.final = current;
+        return result;
+    }
+
+    for (int iteration = 0; iteration < config.maximum_iterations; ++iteration) {
+        if (current.gradient_norm <= 1.0e-10) {
+            break;
+        }
+        std::vector<Mat3> local_matrix(y.size());
+        std::vector<Vec3> source(y.size());
+
+        std::vector<double> density(
+            y.size(), config.mass * cubic_weight(0.0, config.horizon));
+        for (std::size_t i = 0; i < y.size(); ++i) {
+            for (std::size_t j = i + 1; j < y.size(); ++j) {
+                const double radius = norm(y[i] - y[j]);
+                if (radius <= config.horizon) {
+                    const double contribution =
+                        config.mass * cubic_weight(radius, config.horizon);
+                    density[i] += contribution;
+                    density[j] += contribution;
+                }
+            }
+        }
+        for (std::size_t center = 0; center < y.size(); ++center) {
+            if (config.kappa == 0.0 || density[center] <= config.rest_density) {
+                continue;
+            }
+            const double density_ratio = density[center] / config.rest_density;
+            for (std::size_t neighbor = 0; neighbor < y.size(); ++neighbor) {
+                if (neighbor == center) {
+                    continue;
+                }
+                const Vec3 displacement = y[center] - y[neighbor];
+                const double radius = norm(displacement);
+                if (radius <= 1.0e-15 || radius > config.horizon) {
+                    continue;
+                }
+                const double a = config.kappa * config.time_step * config.time_step
+                    / config.rest_density
+                    * cubic_gradient(radius, config.horizon) / radius;
+                const double positive_diagonal = -a;
+                source[center] += -a * y[neighbor]
+                    + density_ratio * a * (y[neighbor] - y[center]);
+                source[neighbor] += -a * y[center]
+                    + density_ratio * a * (y[center] - y[neighbor]);
+                local_matrix[center] +=
+                    positive_diagonal * Mat3::identity();
+                local_matrix[neighbor] +=
+                    positive_diagonal * Mat3::identity();
+            }
+        }
+
+        for (std::size_t i = 0; i < y.size(); ++i) {
+            for (std::size_t j = i + 1; j < y.size(); ++j) {
+                const Vec3 reference = x[i] - x[j];
+                const double radius = norm(reference);
+                if (radius <= 1.0e-15 || radius > config.horizon) {
+                    continue;
+                }
+                const Vec3 normal = reference / radius;
+                const Mat3 normal_projection = outer(normal, normal);
+                const Mat3 tangent_projection = Mat3::identity() - normal_projection;
+                const double scale = config.time_step
+                    * (-cubic_gradient(radius, config.horizon))
+                    / config.rest_density;
+                const Mat3 pair_matrix = scale
+                    * (2.0 * config.mu * tangent_projection
+                        + config.lambda * normal_projection);
+                source[i] += pair_matrix * (y[j] + (x[i] - x[j]));
+                source[j] += pair_matrix * (y[i] + (x[j] - x[i]));
+                local_matrix[i] += pair_matrix;
+                local_matrix[j] += pair_matrix;
+            }
+        }
+
+        const double surface_support = 3.0 * config.spacing;
+        for (std::size_t i = 0; i < y.size(); ++i) {
+            for (std::size_t j = i + 1; j < y.size(); ++j) {
+                const Vec3 displacement = y[i] - y[j];
+                const double radius = norm(displacement);
+                if (radius <= 1.0e-15 || radius >= surface_support) {
+                    continue;
+                }
+                const double coefficient = 2.0 * config.gamma * config.mass
+                    * config.time_step * config.time_step
+                    * surface_spline(radius, config.spacing) / radius;
+                if (coefficient >= 0.0) {
+                    source[i] += coefficient * y[j];
+                    source[j] += coefficient * y[i];
+                    local_matrix[i] += coefficient * Mat3::identity();
+                    local_matrix[j] += coefficient * Mat3::identity();
+                } else {
+                    source[i] += -coefficient * (y[i] - y[j]);
+                    source[j] += -coefficient * (y[j] - y[i]);
+                }
+            }
+        }
+
+        std::vector<Vec3> candidate(y.size());
+        std::vector<Vec3> direction(y.size());
+        for (std::size_t i = 0; i < y.size(); ++i) {
+            candidate[i] = inverse_without_regularization(
+                Mat3::identity() + local_matrix[i])
+                * (y_star[i] + source[i]);
+            direction[i] = candidate[i] - y[i];
+        }
+        const double slope = vector_dot(current.gradient, direction);
+        if (!std::isfinite(slope) || slope >= 0.0) {
+            result.failure = "NON_DESCENT_SISSM_DIRECTION";
+            result.final = current;
+            result.position = y;
+            return result;
+        }
+
+        double alpha = 1.0;
+        bool accepted = false;
+        Evaluation trial_evaluation;
+        std::vector<Vec3> trial(y.size());
+        for (int backtrack = 0; backtrack <= maximum_backtracks; ++backtrack) {
+            for (std::size_t i = 0; i < y.size(); ++i) {
+                trial[i] = y[i] + alpha * direction[i];
+            }
+            trial_evaluation = evaluate(config, x, y_star, trial);
+            if (trial_evaluation.finite
+                && trial_evaluation.total
+                    <= current.total + armijo * alpha * slope) {
+                accepted = true;
+                break;
+            }
+            alpha *= 0.5;
+            ++result.backtracks;
+        }
+        if (!accepted) {
+            result.failure = "SISSM_LINE_SEARCH_EXHAUSTED";
+            result.final = current;
+            result.position = y;
+            return result;
+        }
+        const double allowance = ENERGY_ALLOWANCE
+            * std::max({std::abs(current.total), std::abs(trial_evaluation.total), 1.0});
+        result.monotonic = result.monotonic
+            && trial_evaluation.total <= current.total + allowance;
+        y = trial;
+        current = trial_evaluation;
+        result.minimum_alpha = std::min(result.minimum_alpha, alpha);
+        ++result.iterations;
+    }
+
+    result.succeeded = current.finite && result.monotonic;
+    result.final = current;
+    result.position = y;
+    result.velocity.resize(y.size());
+    for (std::size_t i = 0; i < y.size(); ++i) {
+        result.velocity[i] = (y[i] - x[i]) / config.time_step;
+    }
+    return result;
+}
+
 Vec3 average(const std::vector<Vec3>& values) {
     Vec3 result;
     for (Vec3 value : values) {
@@ -815,6 +989,125 @@ void append_conditioning_case(
            << ",\"minimum_alpha_improvement\":" << alpha_ratio << '}';
 }
 
+struct SissmCase {
+    std::string name;
+    SolveResult baseline;
+    SolveResult candidate;
+    bool direction_preserved = false;
+    bool passed = false;
+};
+
+SissmCase make_sissm_compression_case() {
+    Config config;
+    config.kappa = 500.0;
+    const std::vector<Vec3> x = {{-0.025, 0.0, 0.0}, {0.025, 0.0, 0.0}};
+    const std::vector<Vec3> velocity(2);
+    config.rest_density = pair_density(norm(x[0] - x[1]), config) / 1.1;
+    SissmCase result;
+    result.name = "compressed_pair";
+    result.baseline = solve(config, x, velocity);
+    result.candidate = solve_sissm(config, x, velocity);
+    result.direction_preserved =
+        norm(result.candidate.position[0] - result.candidate.position[1])
+        > norm(x[0] - x[1]) + OBSERVABLE_FLOOR;
+    return result;
+}
+
+SissmCase make_sissm_viscosity_case(bool shear) {
+    Config config;
+    config.lambda = shear ? 0.0 : 100.0;
+    config.mu = shear ? 100.0 : 0.0;
+    const std::vector<Vec3> x = {{-0.04, 0.0, 0.0}, {0.04, 0.0, 0.0}};
+    const std::vector<Vec3> velocity = shear
+        ? std::vector<Vec3>{{0.0, 1.0, 0.0}, {0.0, -1.0, 0.0}}
+        : std::vector<Vec3>{{1.0, 0.0, 0.0}, {-1.0, 0.0, 0.0}};
+    const Vec3 normal = (x[0] - x[1]) / norm(x[0] - x[1]);
+    const Vec3 initial_relative = velocity[0] - velocity[1];
+    SissmCase result;
+    result.name = shear ? "shear_viscosity_pair" : "normal_viscosity_pair";
+    result.baseline = solve(config, x, velocity);
+    result.candidate = solve_sissm(config, x, velocity);
+    const Vec3 final_relative =
+        result.candidate.velocity[0] - result.candidate.velocity[1];
+    const double initial_component = shear
+        ? norm(project_tangent(initial_relative, normal))
+        : norm(project_normal(initial_relative, normal));
+    const double final_component = shear
+        ? norm(project_tangent(final_relative, normal))
+        : norm(project_normal(final_relative, normal));
+    result.direction_preserved = final_component
+        < initial_component - OBSERVABLE_FLOOR;
+    return result;
+}
+
+SissmCase make_sissm_surface_case(bool attractive) {
+    Config config;
+    config.gamma = 1000.0;
+    const double initial_distance = (attractive ? 1.7 : 0.8) * config.spacing;
+    const std::vector<Vec3> x = {
+        {-0.5 * initial_distance, 0.0, 0.0},
+        {0.5 * initial_distance, 0.0, 0.0},
+    };
+    const std::vector<Vec3> velocity(2);
+    SissmCase result;
+    result.name = attractive
+        ? "surface_attractive_pair" : "surface_repulsive_pair";
+    result.baseline = solve(config, x, velocity);
+    result.candidate = solve_sissm(config, x, velocity);
+    const double final_distance =
+        norm(result.candidate.position[0] - result.candidate.position[1]);
+    result.direction_preserved = attractive
+        ? final_distance < initial_distance - OBSERVABLE_FLOOR
+        : final_distance > initial_distance + OBSERVABLE_FLOOR;
+    return result;
+}
+
+SissmCase make_sissm_combined_case() {
+    const CombinedFixture fixture = combined_fixture();
+    SissmCase result;
+    result.name = "combined_tetrahedron";
+    result.baseline = solve(fixture.config, fixture.x, fixture.velocity);
+    result.candidate = solve_sissm(
+        fixture.config, fixture.x, fixture.velocity);
+    result.direction_preserved =
+        result.candidate.final.total < result.candidate.initial.total;
+    return result;
+}
+
+bool sissm_quality_passed(const SissmCase& value) {
+    const double objective_allowance = 1.0e-10
+        * std::max({std::abs(value.baseline.final.total),
+            std::abs(value.candidate.final.total), 1.0});
+    const double gradient_limit =
+        std::max(2.0 * value.baseline.final.gradient_norm, 1.0e-8);
+    return value.baseline.succeeded && value.candidate.succeeded
+        && value.candidate.failure.empty()
+        && value.baseline.monotonic && value.candidate.monotonic
+        && value.candidate.final.total <= value.baseline.final.total + objective_allowance
+        && value.candidate.final.gradient_norm <= gradient_limit
+        && value.candidate.final.internal_momentum_residual <= CONSERVATION_LIMIT
+        && value.direction_preserved;
+}
+
+void append_sissm_case(std::ostringstream& output, const SissmCase& value) {
+    output << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"direction_preserved\":"
+           << (value.direction_preserved ? "true" : "false")
+           << ",\"failure\":\"" << value.candidate.failure << '"'
+           << ",\"baseline\":{\"final_objective\":"
+           << value.baseline.final.total
+           << ",\"final_gradient_norm\":" << value.baseline.final.gradient_norm
+           << ",\"iterations\":" << value.baseline.iterations
+           << ",\"backtracks\":" << value.baseline.backtracks << '}'
+           << ",\"candidate\":{\"final_objective\":"
+           << value.candidate.final.total
+           << ",\"final_gradient_norm\":" << value.candidate.final.gradient_norm
+           << ",\"iterations\":" << value.candidate.iterations
+           << ",\"backtracks\":" << value.candidate.backtracks
+           << ",\"minimum_alpha\":" << value.candidate.minimum_alpha << "}}";
+}
+
 } // namespace
 
 ReferenceSolverReport run_reference_solver_controls() {
@@ -943,6 +1236,79 @@ ReferenceSolverReport run_conditioning_controls() {
         + std::to_string(candidate_backtracks) + '|'
         + std::to_string(compression_alpha_ratio) + '|'
         + std::to_string(combined_alpha_ratio);
+    report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_sissm_controls() {
+    std::array<SissmCase, 6> cases = {
+        make_sissm_compression_case(),
+        make_sissm_viscosity_case(false),
+        make_sissm_viscosity_case(true),
+        make_sissm_surface_case(false),
+        make_sissm_surface_case(true),
+        make_sissm_combined_case(),
+    };
+    for (SissmCase& value : cases) {
+        value.passed = sissm_quality_passed(value);
+    }
+    const std::array<std::size_t, 3> stiff_indices = {0, 3, 5};
+    int baseline_evaluations = 0;
+    int candidate_evaluations = 0;
+    for (std::size_t index : stiff_indices) {
+        baseline_evaluations +=
+            cases[index].baseline.iterations + cases[index].baseline.backtracks;
+        candidate_evaluations +=
+            cases[index].candidate.iterations + cases[index].candidate.backtracks;
+    }
+    const bool evaluation_gate =
+        4LL * static_cast<long long>(candidate_evaluations)
+        <= static_cast<long long>(baseline_evaluations);
+    std::string first_failure;
+    for (const SissmCase& value : cases) {
+        if (!value.passed && first_failure.empty()) {
+            first_failure = value.candidate.failure.empty()
+                ? "FCR3B_SISSM_QUALITY_FAILED:" + value.name
+                : "FCR3B_" + value.candidate.failure + ':' + value.name;
+        }
+    }
+    if (first_failure.empty() && !evaluation_gate) {
+        first_failure = "FCR3B_OBJECTIVE_EVALUATION_REDUCTION_FAILED";
+    }
+    const bool passed = first_failure.empty();
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.formula_reclosure_fcr3b.v1\""
+           << ",\"identity\":\"nuv-variational-fcr1\""
+           << ",\"candidate\":\"corrected-sissm-armijo-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"thresholds\":{\"objective_relative\":1e-10"
+           << ",\"gradient_ratio\":2,\"evaluation_reduction\":4}"
+           << ",\"aggregate\":{\"baseline_stiff_evaluations\":"
+           << baseline_evaluations
+           << ",\"candidate_stiff_evaluations\":" << candidate_evaluations
+           << ",\"evaluation_gate\":\""
+           << (evaluation_gate ? "PASS" : "FAIL") << "\"},\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_sissm_case(report, cases[i]);
+    }
+    report << "]"
+           << ",\"chebyshev_ab_authorized\":" << (passed ? "true" : "false")
+           << ",\"profile_reclosure_authorized\":false"
+           << ",\"runtime_authority\":false";
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure + '|' + std::to_string(baseline_evaluations) + '|'
+        + std::to_string(candidate_evaluations);
+    for (const SissmCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + std::to_string(value.candidate.final.total) + ':'
+            + std::to_string(value.candidate.final.gradient_norm);
+    }
     report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
     return {passed, report.str()};
 }
