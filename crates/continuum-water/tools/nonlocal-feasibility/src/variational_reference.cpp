@@ -1074,6 +1074,28 @@ SissmCase make_sissm_combined_case() {
     return result;
 }
 
+SissmCase make_sissm_mask_case(const std::string& mask) {
+    CombinedFixture fixture = combined_fixture();
+    if (mask.find('P') == std::string::npos) {
+        fixture.config.kappa = 0.0;
+    }
+    if (mask.find('V') == std::string::npos) {
+        fixture.config.lambda = 0.0;
+        fixture.config.mu = 0.0;
+    }
+    if (mask.find('S') == std::string::npos) {
+        fixture.config.gamma = 0.0;
+    }
+    SissmCase result;
+    result.name = mask;
+    result.baseline = solve(fixture.config, fixture.x, fixture.velocity);
+    result.candidate = solve_sissm(
+        fixture.config, fixture.x, fixture.velocity);
+    result.direction_preserved =
+        result.candidate.final.total < result.candidate.initial.total;
+    return result;
+}
+
 bool sissm_quality_passed(const SissmCase& value) {
     const double objective_allowance = 1.0e-10
         * std::max({std::abs(value.baseline.final.total),
@@ -1307,6 +1329,78 @@ ReferenceSolverReport run_sissm_controls() {
     for (const SissmCase& value : cases) {
         result_material += '|' + value.name + ':'
             + std::to_string(value.candidate.final.total) + ':'
+            + std::to_string(value.candidate.final.gradient_norm);
+    }
+    report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_sissm_term_local_controls() {
+    const std::array<std::string, 7> masks = {
+        "P", "V", "S", "PV", "PS", "VS", "PVS",
+    };
+    std::array<SissmCase, 7> cases;
+    for (std::size_t i = 0; i < masks.size(); ++i) {
+        cases[i] = make_sissm_mask_case(masks[i]);
+        cases[i].passed = sissm_quality_passed(cases[i]);
+    }
+
+    std::string selected_scope;
+    std::string first_failing_mask;
+    for (std::size_t i = 0; i < 3; ++i) {
+        if (!cases[i].passed) {
+            first_failing_mask = masks[i];
+            selected_scope = "isolated-" + masks[i];
+            break;
+        }
+    }
+    if (selected_scope.empty()) {
+        for (std::size_t i = 3; i < 6; ++i) {
+            if (!cases[i].passed) {
+                first_failing_mask = masks[i];
+                selected_scope = "pairwise-" + masks[i];
+                break;
+            }
+        }
+    }
+    if (selected_scope.empty() && !cases[6].passed) {
+        first_failing_mask = "PVS";
+        selected_scope = "three-way-composition";
+    }
+    const bool known_failure_reproduced = !cases[6].passed;
+    const bool passed = known_failure_reproduced && !selected_scope.empty();
+    const std::string first_failure = passed
+        ? std::string()
+        : "FCR3B1_EXPECTED_COUPLING_FAILURE_NOT_LOCALIZED";
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.formula_reclosure_fcr3b1.v1\""
+           << ",\"identity\":\"nuv-variational-fcr1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"selected_scope\":\"" << selected_scope << '"'
+           << ",\"first_failing_mask\":\"" << first_failing_mask << '"'
+           << ",\"known_pvs_failure_reproduced\":"
+           << (known_failure_reproduced ? "true" : "false")
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_sissm_case(report, cases[i]);
+    }
+    report << "]"
+           << ",\"term_local_remediation_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"chebyshev_ab_authorized\":false"
+           << ",\"profile_reclosure_authorized\":false"
+           << ",\"runtime_authority\":false";
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + selected_scope + '|' + first_failing_mask;
+    for (const SissmCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + (value.passed ? "PASS" : "FAIL") + ':'
             + std::to_string(value.candidate.final.gradient_norm);
     }
     report << ",\"result_sha256\":\"" << sha256_hex(result_material) << "\"}";
