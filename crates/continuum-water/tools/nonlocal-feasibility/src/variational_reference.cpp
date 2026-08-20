@@ -914,6 +914,317 @@ struct NeighborhoodHvpWorkspace {
     std::vector<Vec3> neighbor_jacobian;
 };
 
+struct CurrentPairHessianCoefficient {
+    ParticlePair pair;
+    Vec3 normal;
+    Vec3 pair_jacobian_i;
+    double density_radial = 0.0;
+    double density_tangential = 0.0;
+    double surface_radial = 0.0;
+    double surface_tangential = 0.0;
+    bool density_active = false;
+    bool surface_active = false;
+};
+
+struct ReferencePairHessianCoefficient {
+    ParticlePair pair;
+    Vec3 normal;
+    double scale = 0.0;
+    bool active = false;
+};
+
+struct PressureCenterHessianCoefficient {
+    Vec3 center_jacobian;
+    double compression = 0.0;
+};
+
+struct NeighborhoodHessianTape {
+    double inertia_scale = 0.0;
+    std::vector<CurrentPairHessianCoefficient> current_pairs;
+    std::vector<ReferencePairHessianCoefficient> reference_pairs;
+    std::vector<PressureCenterHessianCoefficient> pressure_centers;
+    std::vector<std::vector<std::size_t>> adjacency_pair_indices;
+};
+
+std::size_t hessian_tape_storage_bytes(const NeighborhoodHessianTape& tape) {
+    std::size_t result = tape.current_pairs.capacity()
+        * sizeof(CurrentPairHessianCoefficient);
+    result += tape.reference_pairs.capacity()
+        * sizeof(ReferencePairHessianCoefficient);
+    result += tape.pressure_centers.capacity()
+        * sizeof(PressureCenterHessianCoefficient);
+    result += tape.adjacency_pair_indices.capacity()
+        * sizeof(std::vector<std::size_t>);
+    for (const std::vector<std::size_t>& indices :
+         tape.adjacency_pair_indices) {
+        result += indices.capacity() * sizeof(std::size_t);
+    }
+    return result;
+}
+
+std::size_t hessian_tape_storage_limit(
+    std::size_t particles, std::size_t maximum_pairs) {
+    return 192 * maximum_pairs + 128 * particles;
+}
+
+std::size_t hessian_tape_required_upper_bytes(
+    std::size_t particles,
+    std::size_t current_pairs,
+    std::size_t reference_pairs) {
+    return current_pairs * sizeof(CurrentPairHessianCoefficient)
+        + reference_pairs * sizeof(ReferencePairHessianCoefficient)
+        + particles * sizeof(PressureCenterHessianCoefficient)
+        + particles * sizeof(std::vector<std::size_t>)
+        + 2 * current_pairs * sizeof(std::size_t);
+}
+
+void build_reference_hessian_tape(
+    const Config& config,
+    const std::vector<Vec3>& x,
+    const std::vector<ParticlePair>& reference_pairs,
+    NeighborhoodHessianTape& tape) {
+    tape.inertia_scale = config.mass
+        / (config.time_step * config.time_step);
+    tape.reference_pairs.resize(reference_pairs.size());
+    for (std::size_t index = 0; index < reference_pairs.size(); ++index) {
+        ReferencePairHessianCoefficient& coefficient =
+            tape.reference_pairs[index];
+        coefficient = {};
+        coefficient.pair = reference_pairs[index];
+        const Vec3 reference =
+            x[coefficient.pair.i] - x[coefficient.pair.j];
+        const double radius = norm(reference);
+        if (radius <= 1.0e-15 || radius > config.horizon) {
+            continue;
+        }
+        coefficient.normal = reference / radius;
+        coefficient.scale = config.mass
+            * (-cubic_gradient(radius, config.horizon))
+            / (config.rest_density * config.time_step);
+        coefficient.active = true;
+    }
+}
+
+bool build_current_hessian_tape(
+    const Config& config,
+    const std::vector<Vec3>& y,
+    const std::vector<ParticlePair>& current_pairs,
+    const std::vector<std::vector<std::size_t>>& adjacency,
+    NeighborhoodHessianTape& tape) {
+    tape.current_pairs.resize(current_pairs.size());
+    tape.adjacency_pair_indices.clear();
+    tape.adjacency_pair_indices.resize(y.size());
+    for (std::size_t particle = 0; particle < adjacency.size(); ++particle) {
+        tape.adjacency_pair_indices[particle].reserve(
+            adjacency[particle].size());
+    }
+    const double surface_support = 3.0 * config.spacing;
+    for (std::size_t index = 0; index < current_pairs.size(); ++index) {
+        CurrentPairHessianCoefficient& coefficient =
+            tape.current_pairs[index];
+        coefficient = {};
+        coefficient.pair = current_pairs[index];
+        tape.adjacency_pair_indices[coefficient.pair.i].push_back(index);
+        tape.adjacency_pair_indices[coefficient.pair.j].push_back(index);
+        const Vec3 displacement =
+            y[coefficient.pair.i] - y[coefficient.pair.j];
+        const double radius = norm(displacement);
+        if (radius <= 1.0e-15) {
+            continue;
+        }
+        coefficient.normal = displacement / radius;
+        if (radius <= config.horizon) {
+            coefficient.pair_jacobian_i = config.mass / config.rest_density
+                * cubic_gradient(radius, config.horizon)
+                * coefficient.normal;
+            coefficient.density_radial =
+                cubic_second_derivative(radius, config.horizon);
+            coefficient.density_tangential =
+                cubic_gradient(radius, config.horizon) / radius;
+            coefficient.density_active = true;
+        }
+        if (radius < surface_support) {
+            const double scale = 2.0 * config.gamma
+                * config.mass * config.mass;
+            coefficient.surface_radial = scale
+                * surface_spline_derivative(radius, config.spacing);
+            coefficient.surface_tangential = scale
+                * surface_spline(radius, config.spacing) / radius;
+            coefficient.surface_active = true;
+        }
+    }
+    for (std::size_t particle = 0; particle < adjacency.size(); ++particle) {
+        if (adjacency[particle].size()
+            != tape.adjacency_pair_indices[particle].size()) {
+            return false;
+        }
+        for (std::size_t slot = 0; slot < adjacency[particle].size(); ++slot) {
+            const CurrentPairHessianCoefficient& coefficient =
+                tape.current_pairs[
+                    tape.adjacency_pair_indices[particle][slot]];
+            const std::size_t neighbor = coefficient.pair.i == particle
+                ? coefficient.pair.j : coefficient.pair.i;
+            if (neighbor != adjacency[particle][slot]) {
+                return false;
+            }
+        }
+    }
+    tape.pressure_centers.resize(y.size());
+    std::vector<double> density(
+        y.size(), config.mass * cubic_weight(0.0, config.horizon));
+    for (const CurrentPairHessianCoefficient& coefficient :
+         tape.current_pairs) {
+        if (!coefficient.density_active) {
+            continue;
+        }
+        const double radius = norm(
+            y[coefficient.pair.i] - y[coefficient.pair.j]);
+        const double contribution =
+            config.mass * cubic_weight(radius, config.horizon);
+        density[coefficient.pair.i] += contribution;
+        density[coefficient.pair.j] += contribution;
+    }
+    for (std::size_t center = 0; center < y.size(); ++center) {
+        PressureCenterHessianCoefficient& center_coefficient =
+            tape.pressure_centers[center];
+        center_coefficient = {};
+        center_coefficient.compression =
+            density[center] / config.rest_density - 1.0;
+        if (center_coefficient.compression <= 0.0) {
+            continue;
+        }
+        for (std::size_t pair_index :
+             tape.adjacency_pair_indices[center]) {
+            const CurrentPairHessianCoefficient& pair =
+                tape.current_pairs[pair_index];
+            if (!pair.density_active) {
+                continue;
+            }
+            const Vec3 pair_jacobian = pair.pair.i == center
+                ? pair.pair_jacobian_i : -pair.pair_jacobian_i;
+            center_coefficient.center_jacobian += pair_jacobian;
+        }
+    }
+    return true;
+}
+
+const std::vector<Vec3>& apply_hessian_with_tape(
+    const Config& config,
+    const std::vector<Vec3>& direction,
+    const std::vector<std::vector<std::size_t>>& adjacency,
+    const NeighborhoodHessianTape& tape,
+    NeighborhoodHvpWorkspace& workspace) {
+    workspace.result.resize(direction.size());
+    std::fill(workspace.result.begin(), workspace.result.end(), Vec3{});
+    for (std::size_t i = 0; i < direction.size(); ++i) {
+        workspace.result[i] += tape.inertia_scale * direction[i];
+    }
+    if (config.kappa != 0.0) {
+        for (std::size_t center = 0; center < direction.size(); ++center) {
+            const PressureCenterHessianCoefficient& center_coefficient =
+                tape.pressure_centers[center];
+            if (center_coefficient.compression <= 0.0) {
+                continue;
+            }
+            double density_direction = 0.0;
+            bool center_visited = false;
+            for (std::size_t slot = 0; slot < adjacency[center].size(); ++slot) {
+                const std::size_t neighbor = adjacency[center][slot];
+                if (!center_visited && center < neighbor) {
+                    density_direction += dot(
+                        center_coefficient.center_jacobian,
+                        direction[center]);
+                    center_visited = true;
+                }
+                const CurrentPairHessianCoefficient& pair =
+                    tape.current_pairs[
+                        tape.adjacency_pair_indices[center][slot]];
+                const Vec3 neighbor_jacobian = pair.pair.i == center
+                    ? -pair.pair_jacobian_i : pair.pair_jacobian_i;
+                density_direction += dot(
+                    neighbor_jacobian, direction[neighbor]);
+            }
+            if (!center_visited) {
+                density_direction += dot(
+                    center_coefficient.center_jacobian, direction[center]);
+            }
+            center_visited = false;
+            for (std::size_t slot = 0; slot < adjacency[center].size(); ++slot) {
+                const std::size_t neighbor = adjacency[center][slot];
+                if (!center_visited && center < neighbor) {
+                    workspace.result[center] += config.kappa
+                        * density_direction
+                        * center_coefficient.center_jacobian;
+                    center_visited = true;
+                }
+                const CurrentPairHessianCoefficient& pair =
+                    tape.current_pairs[
+                        tape.adjacency_pair_indices[center][slot]];
+                const Vec3 neighbor_jacobian = pair.pair.i == center
+                    ? -pair.pair_jacobian_i : pair.pair_jacobian_i;
+                workspace.result[neighbor] += config.kappa
+                    * density_direction * neighbor_jacobian;
+            }
+            if (!center_visited) {
+                workspace.result[center] += config.kappa
+                    * density_direction
+                    * center_coefficient.center_jacobian;
+            }
+            for (std::size_t slot = 0; slot < adjacency[center].size(); ++slot) {
+                const std::size_t neighbor = adjacency[center][slot];
+                const CurrentPairHessianCoefficient& coefficient =
+                    tape.current_pairs[
+                        tape.adjacency_pair_indices[center][slot]];
+                if (!coefficient.density_active) {
+                    continue;
+                }
+                const Vec3 normal = coefficient.pair.i == center
+                    ? coefficient.normal : -coefficient.normal;
+                const Vec3 relative_direction =
+                    direction[center] - direction[neighbor];
+                const Vec3 pair = config.kappa
+                    * center_coefficient.compression * config.mass
+                    / config.rest_density
+                    * radial_hessian_product(normal,
+                        coefficient.density_radial,
+                        coefficient.density_tangential,
+                        relative_direction);
+                workspace.result[center] += pair;
+                workspace.result[neighbor] += -pair;
+            }
+        }
+    }
+    for (const ReferencePairHessianCoefficient& coefficient :
+         tape.reference_pairs) {
+        if (!coefficient.active) {
+            continue;
+        }
+        const Vec3 relative_direction = direction[coefficient.pair.i]
+            - direction[coefficient.pair.j];
+        const Vec3 pair = coefficient.scale
+            * (config.lambda
+                    * project_normal(relative_direction, coefficient.normal)
+                + 2.0 * config.mu
+                    * project_tangent(relative_direction, coefficient.normal));
+        workspace.result[coefficient.pair.i] += pair;
+        workspace.result[coefficient.pair.j] += -pair;
+    }
+    for (const CurrentPairHessianCoefficient& coefficient :
+         tape.current_pairs) {
+        if (!coefficient.surface_active) {
+            continue;
+        }
+        const Vec3 relative_direction = direction[coefficient.pair.i]
+            - direction[coefficient.pair.j];
+        const Vec3 pair = radial_hessian_product(coefficient.normal,
+            coefficient.surface_radial, coefficient.surface_tangential,
+            relative_direction);
+        workspace.result[coefficient.pair.i] += pair;
+        workspace.result[coefficient.pair.j] += -pair;
+    }
+    return workspace.result;
+}
+
 const std::vector<Vec3>& apply_hessian_with_workspace(
     const Config& config,
     const std::vector<Vec3>& x,
@@ -3045,6 +3356,14 @@ struct NeighborhoodTrustResult {
     std::uint64_t pair_and_adjacency_nanoseconds = 0;
     std::uint64_t objective_gradient_nanoseconds = 0;
     std::uint64_t hvp_nanoseconds = 0;
+    std::uint64_t hessian_tape_build_nanoseconds = 0;
+    std::size_t maximum_hessian_tape_bytes = 0;
+    std::size_t hessian_tape_capacity_bytes = 0;
+    std::size_t maximum_active_pressure_centers = 0;
+    std::size_t maximum_directed_pressure_records = 0;
+    std::size_t reference_viscosity_records = 0;
+    std::size_t maximum_surface_records = 0;
+    int hessian_tape_hvp_checks = 0;
     struct TrialTrace {
         int trial = 0;
         int inner_iterations = 0;
@@ -3152,7 +3471,8 @@ TrustStep truncated_neighborhood_trust_cg(
     const std::vector<std::vector<std::size_t>>& adjacency,
     double radius,
     bool capture_timing,
-    NeighborhoodHvpWorkspace* workspace) {
+    NeighborhoodHvpWorkspace* workspace,
+    const NeighborhoodHessianTape* tape) {
     TrustStep result;
     result.value.resize(y.size());
     std::vector<Vec3> residual = gradient;
@@ -3171,7 +3491,10 @@ TrustStep truncated_neighborhood_trust_cg(
         }
         std::vector<Vec3> baseline_hessian_direction;
         const std::vector<Vec3>* hessian_direction = nullptr;
-        if (workspace != nullptr) {
+        if (tape != nullptr && workspace != nullptr) {
+            hessian_direction = &apply_hessian_with_tape(
+                config, direction, adjacency, *tape, *workspace);
+        } else if (workspace != nullptr) {
             hessian_direction = &apply_hessian_with_workspace(
                 config, x, y, direction, current_pairs,
                 reference_pairs, adjacency, *workspace);
@@ -3250,7 +3573,9 @@ NeighborhoodTrustResult solve_neighborhood_trust_region(
     bool capture_trace = false,
     bool numerical_floor_stop = false,
     bool capture_timing = false,
-    bool optimized_hvp = false) {
+    bool optimized_hvp = false,
+    bool coefficient_tape = false,
+    bool verify_tape_hvp = false) {
     constexpr int maximum_outer_trials = 64;
     constexpr double accept_ratio = 0.1;
     std::chrono::steady_clock::time_point solve_begin;
@@ -3316,6 +3641,34 @@ NeighborhoodTrustResult solve_neighborhood_trust_region(
     result.solve.minimum_active_margin = minimum_active_margin(config, y);
     std::vector<int> active_signature = pressure_active_signature(config, y);
     NeighborhoodHvpWorkspace hvp_workspace;
+    NeighborhoodHessianTape hessian_tape;
+    bool current_tape_valid = false;
+    if (coefficient_tape) {
+        const std::size_t required = hessian_tape_required_upper_bytes(
+            y.size(), current_pairs.size(), reference_pairs.size());
+        result.hessian_tape_capacity_bytes = hessian_tape_storage_limit(
+            y.size(), std::max(current_pairs.size(), reference_pairs.size()));
+        if (required > result.hessian_tape_capacity_bytes) {
+            result.solve.failure = "HESSIAN_TAPE_CAPACITY";
+            result.solve.final = current;
+            return result;
+        }
+        std::chrono::steady_clock::time_point tape_begin;
+        if (capture_timing) {
+            tape_begin = std::chrono::steady_clock::now();
+        }
+        build_reference_hessian_tape(
+            config, x, reference_pairs, hessian_tape);
+        if (capture_timing) {
+            result.hessian_tape_build_nanoseconds +=
+                static_cast<std::uint64_t>(
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        std::chrono::steady_clock::now() - tape_begin)
+                        .count());
+        }
+        result.reference_viscosity_records =
+            hessian_tape.reference_pairs.size();
+    }
     if (!current.finite) {
         result.solve.failure = "NONFINITE_INITIAL_STATE";
         result.solve.final = current;
@@ -3328,10 +3681,87 @@ NeighborhoodTrustResult solve_neighborhood_trust_region(
             result.solve.succeeded = true;
             break;
         }
+        if (coefficient_tape && !current_tape_valid) {
+            const std::size_t required = hessian_tape_required_upper_bytes(
+                y.size(), current_pairs.size(), reference_pairs.size());
+            const std::size_t capacity = hessian_tape_storage_limit(
+                y.size(), result.maximum_pairs);
+            result.hessian_tape_capacity_bytes = std::max(
+                result.hessian_tape_capacity_bytes, capacity);
+            if (required > capacity) {
+                result.solve.failure = "HESSIAN_TAPE_CAPACITY";
+                break;
+            }
+            std::chrono::steady_clock::time_point tape_begin;
+            if (capture_timing) {
+                tape_begin = std::chrono::steady_clock::now();
+            }
+            const bool tape_valid = build_current_hessian_tape(
+                config, y, current_pairs, adjacency, hessian_tape);
+            if (capture_timing) {
+                result.hessian_tape_build_nanoseconds +=
+                    static_cast<std::uint64_t>(
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            std::chrono::steady_clock::now() - tape_begin)
+                            .count());
+            }
+            if (!tape_valid) {
+                result.solve.failure = "HESSIAN_TAPE_ADJACENCY";
+                break;
+            }
+            const std::size_t tape_bytes =
+                hessian_tape_storage_bytes(hessian_tape);
+            result.maximum_hessian_tape_bytes = std::max(
+                result.maximum_hessian_tape_bytes, tape_bytes);
+            if (tape_bytes > capacity) {
+                result.solve.failure = "HESSIAN_TAPE_CAPACITY";
+                break;
+            }
+            std::size_t active_pressure_centers = 0;
+            std::size_t directed_pressure_records = 0;
+            for (std::size_t center = 0;
+                 center < hessian_tape.pressure_centers.size(); ++center) {
+                if (hessian_tape.pressure_centers[center].compression > 0.0) {
+                    ++active_pressure_centers;
+                    directed_pressure_records += adjacency[center].size();
+                }
+            }
+            std::size_t surface_records = 0;
+            for (const CurrentPairHessianCoefficient& coefficient :
+                 hessian_tape.current_pairs) {
+                surface_records += coefficient.surface_active ? 1 : 0;
+            }
+            result.maximum_active_pressure_centers = std::max(
+                result.maximum_active_pressure_centers,
+                active_pressure_centers);
+            result.maximum_directed_pressure_records = std::max(
+                result.maximum_directed_pressure_records,
+                directed_pressure_records);
+            result.maximum_surface_records = std::max(
+                result.maximum_surface_records, surface_records);
+            if (verify_tape_hvp) {
+                NeighborhoodHvpWorkspace baseline_workspace;
+                NeighborhoodHvpWorkspace tape_workspace;
+                const std::vector<Vec3>& baseline_hvp =
+                    apply_hessian_with_workspace(config, x, y,
+                        current.gradient, current_pairs, reference_pairs,
+                        adjacency, baseline_workspace);
+                const std::vector<Vec3>& tape_hvp = apply_hessian_with_tape(
+                    config, current.gradient, adjacency,
+                    hessian_tape, tape_workspace);
+                ++result.hessian_tape_hvp_checks;
+                if (!exact_vectors(baseline_hvp, tape_hvp)) {
+                    result.solve.failure = "HESSIAN_TAPE_HVP_MISMATCH";
+                    break;
+                }
+            }
+            current_tape_valid = true;
+        }
         const TrustStep step = truncated_neighborhood_trust_cg(
             config, x, y, current.gradient, current_pairs,
             reference_pairs, adjacency, radius, capture_timing,
-            optimized_hvp ? &hvp_workspace : nullptr);
+            optimized_hvp ? &hvp_workspace : nullptr,
+            coefficient_tape ? &hessian_tape : nullptr);
         result.solve.hvp_calls += step.hvp_calls;
         result.hvp_nanoseconds += step.hvp_nanoseconds;
         if (step.reason == "NEGATIVE_CURVATURE") {
@@ -3354,7 +3784,11 @@ NeighborhoodTrustResult solve_neighborhood_trust_region(
         }
         std::vector<Vec3> baseline_hessian_step;
         const std::vector<Vec3>* hessian_step = nullptr;
-        if (optimized_hvp) {
+        if (coefficient_tape) {
+            hessian_step = &apply_hessian_with_tape(
+                config, step.value, adjacency,
+                hessian_tape, hvp_workspace);
+        } else if (optimized_hvp) {
             hessian_step = &apply_hessian_with_workspace(
                 config, x, y, step.value, current_pairs,
                 reference_pairs, adjacency, hvp_workspace);
@@ -3482,6 +3916,7 @@ NeighborhoodTrustResult solve_neighborhood_trust_region(
             current = trial_evaluation;
             current_pairs = trial_pairs;
             adjacency = trial_adjacency;
+            current_tape_valid = false;
             ++result.solve.accepted_trials;
             result.solve.minimum_accepted_ratio = std::min(
                 result.solve.minimum_accepted_ratio, ratio);
@@ -3882,6 +4317,8 @@ struct SerialTimingSample {
     std::uint64_t pair_and_adjacency = 0;
     std::uint64_t objective_gradient = 0;
     std::uint64_t hvp = 0;
+    std::uint64_t hessian_tape_build = 0;
+    std::uint64_t hvp_and_tape = 0;
     std::uint64_t control_and_vector = 0;
 };
 
@@ -4114,6 +4551,47 @@ bool workspace_hvp_exact_controls() {
     return true;
 }
 
+bool hessian_tape_hvp_exact_controls() {
+    const std::array<NeighborhoodFixture, 7> fixtures =
+        neighborhood_fixtures();
+    for (const NeighborhoodFixture& fixture : fixtures) {
+        const std::vector<Vec3> y =
+            predict(fixture.config, fixture.x, fixture.velocity);
+        const double support = std::max(
+            fixture.config.horizon, 3.0 * fixture.config.spacing);
+        const std::vector<ParticlePair> current_pairs =
+            build_cell_pairs(y, support);
+        const std::vector<ParticlePair> reference_pairs =
+            build_cell_pairs(fixture.x, fixture.config.horizon);
+        const std::vector<std::vector<std::size_t>> adjacency =
+            build_pair_adjacency(y.size(), current_pairs);
+        NeighborhoodHessianTape tape;
+        build_reference_hessian_tape(
+            fixture.config, fixture.x, reference_pairs, tape);
+        if (!build_current_hessian_tape(
+                fixture.config, y, current_pairs, adjacency, tape)) {
+            return false;
+        }
+        NeighborhoodHvpWorkspace baseline_workspace;
+        NeighborhoodHvpWorkspace tape_workspace;
+        const std::vector<Vec3>& baseline = apply_hessian_with_workspace(
+            fixture.config, fixture.x, y, fixture.direction,
+            current_pairs, reference_pairs, adjacency, baseline_workspace);
+        const std::vector<Vec3>& candidate = apply_hessian_with_tape(
+            fixture.config, fixture.direction, adjacency,
+            tape, tape_workspace);
+        if (!exact_vectors(baseline, candidate)) {
+            return false;
+        }
+        const std::size_t memory_limit = hessian_tape_storage_limit(
+            y.size(), std::max(current_pairs.size(), reference_pairs.size()));
+        if (hessian_tape_storage_bytes(tape) > memory_limit) {
+            return false;
+        }
+    }
+    return true;
+}
+
 struct HvpTournamentCase {
     std::string name;
     std::size_t particles = 0;
@@ -4133,9 +4611,13 @@ SerialTimingSample timing_sample(const NeighborhoodTrustResult& value) {
     result.pair_and_adjacency = value.pair_and_adjacency_nanoseconds;
     result.objective_gradient = value.objective_gradient_nanoseconds;
     result.hvp = value.hvp_nanoseconds;
+    result.hessian_tape_build = value.hessian_tape_build_nanoseconds;
+    result.hvp_and_tape = result.hvp + result.hessian_tape_build;
     const std::uint64_t timed_sum = result.pair_and_adjacency
-        + result.objective_gradient + result.hvp;
-    result.control_and_vector = value.total_nanoseconds - timed_sum;
+        + result.objective_gradient + result.hvp
+        + result.hessian_tape_build;
+    result.control_and_vector = value.total_nanoseconds >= timed_sum
+        ? value.total_nanoseconds - timed_sum : 0;
     return result;
 }
 
@@ -4143,6 +4625,7 @@ bool valid_timing(const SerialTimingSample& value) {
     return value.total > 0 && value.pair_and_adjacency > 0
         && value.objective_gradient > 0 && value.hvp > 0
         && value.pair_and_adjacency + value.objective_gradient + value.hvp
+            + value.hessian_tape_build
             <= value.total;
 }
 
@@ -4246,6 +4729,163 @@ void append_hvp_tournament_case(
     output << ",\"candidate_raw_hvp_ns\":";
     append_timing_samples(output, value.candidate_samples,
         &SerialTimingSample::hvp);
+    output << '}';
+}
+
+struct HessianTapeTournamentCase {
+    std::string name;
+    std::size_t particles = 0;
+    bool passed = false;
+    bool exact_state = true;
+    bool capacity_valid = true;
+    NeighborhoodTrustResult baseline_reference;
+    NeighborhoodTrustResult candidate_reference;
+    std::array<SerialTimingSample, 7> baseline_samples;
+    std::array<SerialTimingSample, 7> candidate_samples;
+    double combined_hvp_speedup = 0.0;
+    double total_speedup = 0.0;
+};
+
+HessianTapeTournamentCase make_hessian_tape_tournament_case(int side) {
+    const NeighborhoodFixture fixture = make_neighborhood_scale_fixture(side);
+    HessianTapeTournamentCase result;
+    result.name = fixture.name;
+    result.particles = fixture.x.size();
+    result.baseline_reference = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity,
+        false, true, false, true, false, false);
+    result.candidate_reference = solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity,
+        false, true, false, true, true, true);
+    result.exact_state = exact_neighborhood_trust_result(
+        result.baseline_reference, result.candidate_reference)
+        && result.candidate_reference.hessian_tape_hvp_checks
+            == result.candidate_reference.solve.outer_trials;
+    result.capacity_valid =
+        result.candidate_reference.maximum_hessian_tape_bytes
+            <= hessian_tape_storage_limit(result.particles,
+                result.candidate_reference.maximum_pairs)
+        && result.candidate_reference.maximum_hessian_tape_bytes
+            <= result.candidate_reference.hessian_tape_capacity_bytes;
+    static_cast<void>(solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity,
+        false, true, true, true, false, false));
+    static_cast<void>(solve_neighborhood_trust_region(
+        fixture.config, fixture.x, fixture.velocity,
+        false, true, true, true, true, false));
+    bool timings_valid = true;
+    for (std::size_t run = 0; run < result.baseline_samples.size(); ++run) {
+        NeighborhoodTrustResult baseline;
+        NeighborhoodTrustResult candidate;
+        if (run % 2 == 0) {
+            baseline = solve_neighborhood_trust_region(
+                fixture.config, fixture.x, fixture.velocity,
+                false, true, true, true, false, false);
+            candidate = solve_neighborhood_trust_region(
+                fixture.config, fixture.x, fixture.velocity,
+                false, true, true, true, true, false);
+        } else {
+            candidate = solve_neighborhood_trust_region(
+                fixture.config, fixture.x, fixture.velocity,
+                false, true, true, true, true, false);
+            baseline = solve_neighborhood_trust_region(
+                fixture.config, fixture.x, fixture.velocity,
+                false, true, true, true, false, false);
+        }
+        result.exact_state = result.exact_state
+            && exact_neighborhood_trust_result(
+                result.baseline_reference, baseline)
+            && exact_neighborhood_trust_result(
+                result.candidate_reference, candidate)
+            && exact_neighborhood_trust_result(baseline, candidate);
+        result.capacity_valid = result.capacity_valid
+            && candidate.maximum_hessian_tape_bytes
+                <= hessian_tape_storage_limit(
+                    result.particles, candidate.maximum_pairs)
+            && candidate.maximum_hessian_tape_bytes
+                <= candidate.hessian_tape_capacity_bytes;
+        result.baseline_samples[run] = timing_sample(baseline);
+        result.candidate_samples[run] = timing_sample(candidate);
+        timings_valid = timings_valid
+            && valid_timing(result.baseline_samples[run])
+            && valid_timing(result.candidate_samples[run])
+            && result.candidate_samples[run].hessian_tape_build > 0;
+    }
+    const double baseline_combined = static_cast<double>(timing_percentile(
+        result.baseline_samples, &SerialTimingSample::hvp_and_tape, 50));
+    const double candidate_combined = static_cast<double>(timing_percentile(
+        result.candidate_samples, &SerialTimingSample::hvp_and_tape, 50));
+    const double baseline_total = static_cast<double>(timing_percentile(
+        result.baseline_samples, &SerialTimingSample::total, 50));
+    const double candidate_total = static_cast<double>(timing_percentile(
+        result.candidate_samples, &SerialTimingSample::total, 50));
+    result.combined_hvp_speedup = baseline_combined / candidate_combined;
+    result.total_speedup = baseline_total / candidate_total;
+    const bool total_gate = side >= 12
+        ? result.total_speedup >= 1.10
+        : result.total_speedup >= (1.0 / 1.02);
+    result.passed = result.exact_state && result.capacity_valid
+        && timings_valid && result.combined_hvp_speedup >= 1.20
+        && total_gate;
+    return result;
+}
+
+void append_hessian_tape_tournament_case(
+    std::ostringstream& output,
+    const HessianTapeTournamentCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name << "\",\"status\":\""
+           << (value.passed ? "PASS" : "FAIL")
+           << "\",\"particles\":" << value.particles
+           << ",\"exact_state\":"
+           << (value.exact_state ? "true" : "false")
+           << ",\"capacity_valid\":"
+           << (value.capacity_valid ? "true" : "false")
+           << ",\"combined_hvp_speedup\":"
+           << value.combined_hvp_speedup
+           << ",\"total_speedup\":" << value.total_speedup
+           << ",\"maximum_hessian_tape_bytes\":"
+           << value.candidate_reference.maximum_hessian_tape_bytes
+           << ",\"hessian_tape_capacity_bytes\":"
+           << value.candidate_reference.hessian_tape_capacity_bytes
+           << ",\"maximum_active_pressure_centers\":"
+           << value.candidate_reference.maximum_active_pressure_centers
+           << ",\"maximum_directed_pressure_records\":"
+           << value.candidate_reference.maximum_directed_pressure_records
+           << ",\"reference_viscosity_records\":"
+           << value.candidate_reference.reference_viscosity_records
+           << ",\"maximum_surface_records\":"
+           << value.candidate_reference.maximum_surface_records
+           << ",\"baseline_median_ns\":{\"total\":"
+           << timing_percentile(value.baseline_samples,
+                &SerialTimingSample::total, 50)
+           << ",\"hvp_and_tape\":"
+           << timing_percentile(value.baseline_samples,
+                &SerialTimingSample::hvp_and_tape, 50) << "}"
+           << ",\"candidate_median_ns\":{\"total\":"
+           << timing_percentile(value.candidate_samples,
+                &SerialTimingSample::total, 50)
+           << ",\"hvp\":"
+           << timing_percentile(value.candidate_samples,
+                &SerialTimingSample::hvp, 50)
+           << ",\"hessian_tape_build\":"
+           << timing_percentile(value.candidate_samples,
+                &SerialTimingSample::hessian_tape_build, 50)
+           << ",\"hvp_and_tape\":"
+           << timing_percentile(value.candidate_samples,
+                &SerialTimingSample::hvp_and_tape, 50) << "}"
+           << ",\"baseline_raw_total_ns\":";
+    append_timing_samples(output, value.baseline_samples,
+        &SerialTimingSample::total);
+    output << ",\"candidate_raw_total_ns\":";
+    append_timing_samples(output, value.candidate_samples,
+        &SerialTimingSample::total);
+    output << ",\"baseline_raw_hvp_and_tape_ns\":";
+    append_timing_samples(output, value.baseline_samples,
+        &SerialTimingSample::hvp_and_tape);
+    output << ",\"candidate_raw_hvp_and_tape_ns\":";
+    append_timing_samples(output, value.candidate_samples,
+        &SerialTimingSample::hvp_and_tape);
     output << '}';
 }
 
@@ -5536,6 +6176,79 @@ ReferenceSolverReport run_hvp_workspace_stream_controls() {
         result_material += '|' + value.name + ':'
             + hash_neighborhood_trust_state(value.candidate_reference) + ':'
             + (value.exact_state ? "EXACT" : "MISMATCH");
+    }
+    report << "]"
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"runtime_authority\":false"
+           << ",\"result_sha256\":\"" << sha256_hex(result_material)
+           << "\"}";
+    return {passed, report.str()};
+}
+
+ReferenceSolverReport run_hessian_tape_controls() {
+    const bool hvp_exact = hessian_tape_hvp_exact_controls();
+    if (!hvp_exact) {
+        const std::string result_material = "FAIL|NSR3A2_HVP_EXACT|MISMATCH";
+        std::ostringstream report;
+        report << "{\"schema\":\"nextengine.nonlocal.nsr3a2_hessian_tape.v1\""
+               << ",\"identity\":\"nuv-newton-krylov-r0\""
+               << ",\"candidate\":\"outer-state-hessian-tape-v1\""
+               << ",\"status\":\"FAIL\""
+               << ",\"first_failure\":\"NSR3A2_HVP_EXACT\""
+               << ",\"hvp_controls_exact\":false"
+               << ",\"tournament_executed\":false"
+               << ",\"candidate_selected\":false"
+               << ",\"runtime_authority\":false"
+               << ",\"result_sha256\":\""
+               << sha256_hex(result_material) << "\"}";
+        return {false, report.str()};
+    }
+    std::array<HessianTapeTournamentCase, 4> cases = {
+        make_hessian_tape_tournament_case(8),
+        make_hessian_tape_tournament_case(10),
+        make_hessian_tape_tournament_case(12),
+        make_hessian_tape_tournament_case(16),
+    };
+    bool passed = true;
+    std::string first_failure;
+    for (const HessianTapeTournamentCase& value : cases) {
+        passed = passed && value.passed;
+        if (!value.passed && first_failure.empty()) {
+            first_failure = "NSR3A2_GATE:" + value.name;
+        }
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal.nsr3a2_hessian_tape.v1\""
+           << ",\"identity\":\"nuv-newton-krylov-r0\""
+           << ",\"candidate\":\"outer-state-hessian-tape-v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"hvp_controls_exact\":true"
+           << ",\"tournament_executed\":true"
+           << ",\"warmups_per_implementation\":1"
+           << ",\"alternating_pairs\":7"
+           << ",\"thresholds\":{\"minimum_combined_hvp_speedup\":1.2"
+           << ",\"minimum_large_total_speedup\":1.1"
+           << ",\"maximum_small_total_regression\":0.02"
+           << ",\"maximum_bytes_per_pair\":192"
+           << ",\"maximum_bytes_per_particle\":128}"
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0) {
+            report << ',';
+        }
+        append_hessian_tape_tournament_case(report, cases[i]);
+    }
+    std::string result_material = std::string(passed ? "PASS|" : "FAIL|")
+        + first_failure + "|EXACT";
+    for (const HessianTapeTournamentCase& value : cases) {
+        result_material += '|' + value.name + ':'
+            + hash_neighborhood_trust_state(value.candidate_reference) + ':'
+            + (value.exact_state ? "EXACT" : "MISMATCH") + ':'
+            + (value.capacity_valid ? "CAPACITY_OK" : "CAPACITY_FAIL") + ':'
+            + std::to_string(
+                value.candidate_reference.maximum_hessian_tape_bytes);
     }
     report << "]"
            << ",\"candidate_selected\":"

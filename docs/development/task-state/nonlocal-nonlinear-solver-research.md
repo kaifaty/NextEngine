@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3A1_PASS / NSR3A2_HESSIAN_TAPE` |
+| Status | `ACTIVE / NSR3A2_PASS / NSR3B0_PROFILE_DERIVATION` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -14,12 +14,13 @@
 - **Current conclusion:** NSR2-C2 passes all gates. At 512 particles the guarded
   floor stop reduces work from `26/13/153` outer/reject/HVP to `12/0/46` while
   retaining nanometric physical residual and exact oracle correspondence.
-- **Current conclusion:** `hvp-workspace-stream-v1` is bit-exact and improves
-  serial total median by `1.18x` across 512--4096 particles.
-- **Current action:** Implement the frozen per-outer-state Hessian coefficient
-  tape and charge its construction to the measured solve.
-- **Next gate:** NSR3-A2 must improve combined tape+HVP and large total time
-  without dense storage or arithmetic/order changes.
+- **Current conclusion:** `outer-state-hessian-tape-v1` is bit-exact, remains
+  inside its linear memory cap, improves build+HVP by `2.05x--2.43x` and total
+  solve by `1.36x--1.55x` across 512--4096 particles.
+- **Current action:** derive a dimensional coefficient map and nondimensional
+  profiles directly from the corrected objective and primary source formulas.
+- **Next gate:** NSR3-B0 must freeze water, viscosity and surface controls with
+  explicit units, similarity groups and no visual/best-of-sweep tuning.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -54,6 +55,18 @@
 - **Rejected:** simultaneous solver/model changes, which would make a result
   uninterpretable.
 
+### D-004 -- Reuse immutable outer-state curvature
+
+- **Observation:** positions, active pressure centers and pair support do not
+  change inside one trust-region outer state, but A1 recomputed their Hessian
+  coefficients for every Krylov product.
+- **Decision:** select `outer-state-hessian-tape-v1`; its construction is
+  charged to total work and storage is bounded linearly in particles/pairs.
+- **Evidence:** exact A1 correspondence, `2.05x--2.43x` combined build+HVP and
+  `1.36x--1.55x` total speedup in two clean pinned campaigns.
+- **Consequence:** use A2 for later report-only CPU research; retain A1 as the
+  exact oracle. This grants no physical, GPU or runtime authority.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -66,12 +79,12 @@
 
 ## Exact next action
 
-1. Assemble exact pressure/viscosity/surface HVP coefficients once per outer
-   state under the frozen memory cap.
-2. Prove every tape HVP and final solve bit-exact against A1.
-3. Run the frozen alternating A1/A2 tournament on logical CPU 4.
-4. Select/reject A2, then return to NSR3-B0 profile derivation before any long
-   physical trajectory or runtime proposal.
+1. Derive SI dimensions for every objective coefficient and state variable.
+2. Map publication parameters into dimensionless groups and identify any
+   coefficient that cannot be reconstructed from an authoritative source.
+3. Freeze separate water, viscosity and surface profiles plus tolerances before
+   implementing multi-step controls.
+4. Proceed to NSR3-B1 only after the profile contract is reviewable.
 
 ## Reconsideration triggers
 
