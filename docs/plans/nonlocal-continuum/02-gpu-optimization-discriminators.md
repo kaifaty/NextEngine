@@ -99,6 +99,9 @@ kept as its rollback comparator.
 Input identity:
 `nuv-gather-directed-r0 + pointer-swap-o1 + nuv-terms-specialized-o2`.
 
+Execution contract:
+[NR2-O3 accumulation-layout tournament](06-nr2-o3-accumulation-layout-tournament.md).
+
 Benchmark three explicit layouts where supported:
 
 | ID | Pair work | Writes | Principal risk |
