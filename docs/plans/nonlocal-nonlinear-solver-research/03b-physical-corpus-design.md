@@ -20,9 +20,11 @@ it does not select water coefficients or a boundary model.
    bulk/shear viscosity and surface energy. The current raw cubic must not be
    hidden by coefficient tuning; a failed normalization requires a new
    formula identity before profiles can be frozen.
-2. **NSR3-B1 multi-step manufactured controls.** Free flight, rigid
-   translation, uniform compression/relaxation and rotating material controls;
-   exact repeat, mass/momentum and step-doubling evidence.
+2. **NSR3-B1 multi-step manufactured controls.** Execute the
+   [frozen boundary-free contract](03b1-manufactured-multistep-contract.md):
+   free flight, rigid translation, Galilean covariance, uniform
+   compression/relaxation and rotating-material objectivity; exact repeat,
+   mass/momentum and step-doubling evidence.
 3. **NSR3-B2 static boundary formula.** Re-derive wall energy/contact and its
    gradient/HVP under the corrected objective; pass pair/edge/corner finite
    differences before trajectories.
