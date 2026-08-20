@@ -62,6 +62,29 @@ class ProtocolTests(unittest.TestCase):
         with self.assertRaises(ProtocolError):
             parse_client_message(json.dumps(value))
 
+    def test_asr_audio_route_defaults_to_raw_and_accepts_enhanced(self) -> None:
+        value = {
+            "schema_version": 1,
+            "type": "session.start",
+            "session_id": "turn-route",
+            "locale": "ru",
+            "sample_rate_hz": 16_000,
+            "encoding": "pcm_s16le",
+            "channels": 1,
+            "asr_audio_route": "enhanced",
+        }
+        start = parse_client_message(json.dumps(value))
+        self.assertIsInstance(start, SessionStart)
+        self.assertEqual(start.asr_audio_route, "enhanced")
+
+        value["asr_audio_route"] = "automatic"
+        with self.assertRaises(ProtocolError) as caught:
+            parse_client_message(json.dumps(value))
+        self.assertEqual(caught.exception.code, "INVALID_FIELD")
+        value["asr_audio_route"] = ["raw"]
+        with self.assertRaises(ProtocolError):
+            parse_client_message(json.dumps(value))
+
     def test_version_unknown_fields_and_audio_format_fail_closed(self) -> None:
         invalid = (
             {"schema_version": 2, "type": "client.hello", "token": "x"},

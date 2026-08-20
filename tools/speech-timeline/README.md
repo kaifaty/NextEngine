@@ -73,6 +73,9 @@ Once model warm-up completes, the ready JSON printed to stdout contains both
 exact input, and press **Начать запись**. The Vue dashboard is served by the
 same loopback process as the WebSocket, obtains its short-lived token from a
 same-origin `no-store` bootstrap response, and never writes raw audio.
+`ASR-тракт` defaults to **RAW · контроль**. If the profile contains an audio
+preprocessor, **DPDFNet + gain · A/B** becomes available as an explicit
+per-utterance choice; merely configuring the adapter never changes ASR input.
 
 The dashboard deliberately keeps these representations separate:
 
@@ -125,8 +128,10 @@ an optional preprocessing branch:
 ASR A/B trial. It does not create a PipeWire/PulseAudio virtual device: the
 service accepts PCM from the host and keeps exactly one causal DPDFNet stream
 per utterance on a dedicated CPU worker. The model is loaded once at startup,
-its recurrent state resets between utterances, and the causal tail is drained
-at finish so the ASR branch keeps the captured 16 kHz sample count.
+but RAW remains the selected control. Only an utterance that requests the
+`enhanced` ASR route resets and runs its recurrent state; its causal tail is
+drained at finish so the ASR branch keeps the captured 16 kHz sample count.
+VAD and vocal affect always receive raw PCM in both modes.
 
 Download the exact model outside the repository, record both the Hugging Face
 commit and digest, then add this object to the existing profile:
@@ -165,14 +170,18 @@ denoised residual again for ASR. It adds at most 40 ms of gain buffering (60 ms
 including DPDFNet), does not change VAD/affect input, and is not an unbounded
 global AGC. Final metrics expose per-chunk p50/p95 preprocessing time,
 input/output sample counts and flush time; the ready payload exposes the exact
-adapter/model/gain-placement lineage.
+adapter/model/gain-placement lineage. `session.started` and terminal metrics
+also report the selected route. Requesting `enhanced` when no preprocessor is
+configured fails before capture with `AUDIO_ROUTE_UNAVAILABLE`.
 
 For a whisper test, first use **Калибровать тишину** in the dashboard while
 remaining silent. The calibrated VAD gate becomes relative to that measured
 noise floor and can admit quiet speech without globally treating all low-level
 audio as speech. Each completed diagnostic turn then exposes both **Raw
-микрофон** and **ASR: обработанный сигнал** WAV players. Remove the whole
-`audio_preprocessor` object and restart to return to raw PCM immediately.
+микрофон** and **ASR: обработанный сигнал** WAV players when that turn selected
+the enhanced route. Select **RAW · контроль** (the default) to bypass DPDFNet
+immediately; removing the whole `audio_preprocessor` object also removes the
+A/B candidate after restart.
 
 The ready file is created with mode `0600`, contains the random session token,
 and is removed on clean shutdown. Raw PCM, transcripts, and model outputs are
@@ -255,7 +264,8 @@ In a second terminal, list inputs and connect the microphone client:
   microphone \
   --ready-file /path/outside/repository/speech-timeline-ready.json \
   --device 'pw:<exact-node-name>' \
-  --locale ru
+  --locale ru \
+  --asr-audio-route raw
 ```
 
 The client performs the same microphone preflight as the direct Voxtral probe,
@@ -297,8 +307,15 @@ Measure sequential resident sessions with an external 16 kHz mono PCM WAV:
   --audio /path/outside/repository/sample.wav \
   --mode unpaced \
   --runs 2 \
+  --asr-audio-route raw \
   --out /path/outside/repository/speech-timeline-benchmark.json
 ```
+
+For a comparable A/B, run the same hashed WAV and settings again with
+`--asr-audio-route enhanced` and a different output path. The report records
+the selected route under `run_configuration`; compare transcript quality
+outside this content-free timing report, then compare route latency and
+preprocessor metrics without relying on loudness as a quality oracle.
 
 The report is atomically replaced with mode `0600` and contains model identity,
 load counts, queue/inference latency, end-to-end RTF, and p50/p95 summaries. It

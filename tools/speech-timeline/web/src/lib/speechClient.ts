@@ -16,6 +16,8 @@ export interface VadCalibrationInput {
   durationMs: number;
 }
 
+export type AsrAudioRoute = "raw" | "enhanced";
+
 export async function loadBootstrap(): Promise<DashboardBootstrap> {
   const response = await fetch("/api/bootstrap", {
     cache: "no-store",
@@ -83,7 +85,11 @@ export class SpeechTimelineClient {
     private readonly onEvent: (event: SpeechEvent) => void,
   ) {}
 
-  connectAndStart(locale: string, vadCalibration?: VadCalibrationInput): Promise<void> {
+  connectAndStart(
+    locale: string,
+    asrAudioRoute: AsrAudioRoute,
+    vadCalibration?: VadCalibrationInput,
+  ): Promise<void> {
     if (this.socket !== null) {
       throw new Error("speech session is already connected");
     }
@@ -107,7 +113,8 @@ export class SpeechTimelineClient {
           token: this.bootstrap.token,
         });
       };
-      socket.onmessage = (message) => this.handleMessage(message, locale, vadCalibration);
+      socket.onmessage = (message) =>
+        this.handleMessage(message, locale, asrAudioRoute, vadCalibration);
       socket.onerror = () => {
         if (!this.sessionStarted) {
           this.rejectStart(new Error("WebSocket connection failed"));
@@ -196,6 +203,7 @@ export class SpeechTimelineClient {
   private handleMessage(
     message: MessageEvent,
     locale: string,
+    asrAudioRoute: AsrAudioRoute,
     vadCalibration?: VadCalibrationInput,
   ): void {
     if (typeof message.data !== "string") {
@@ -221,6 +229,7 @@ export class SpeechTimelineClient {
     if (payload.type === "service.ready") {
       try {
         this.bounds = parseBounds(payload.bounds);
+        requireAsrAudioRoute(payload.asr_audio_routing, asrAudioRoute);
       } catch (error) {
         this.rejectStart(error instanceof Error ? error : new Error(String(error)));
         this.socket?.close();
@@ -234,6 +243,7 @@ export class SpeechTimelineClient {
         sample_rate_hz: 16_000,
         encoding: "pcm_s16le",
         channels: 1,
+        asr_audio_route: asrAudioRoute,
         ...(vadCalibration
           ? {
               vad_calibration: {
@@ -262,6 +272,15 @@ export class SpeechTimelineClient {
     this.startedReject?.(error);
     this.startedResolve = null;
     this.startedReject = null;
+  }
+}
+
+function requireAsrAudioRoute(value: unknown, route: AsrAudioRoute): void {
+  if (!isObject(value) || !Array.isArray(value.available_routes)) {
+    throw new Error("service.ready does not contain ASR audio routing");
+  }
+  if (!value.available_routes.includes(route)) {
+    throw new Error(`ASR audio route is unavailable: ${route}`);
   }
 }
 

@@ -30,6 +30,7 @@ from .microphone_client import (
     validate_debug_wav,
 )
 from .profile import ProfileError, build_adapters, load_profile
+from .protocol import ASR_AUDIO_ROUTE_ENHANCED, ASR_AUDIO_ROUTE_RAW
 from .service import SpeechTimelineRuntime
 from .transport_websocket import SpeechTimelineWebSocketService
 
@@ -58,6 +59,12 @@ def parser() -> argparse.ArgumentParser:
     microphone.add_argument("--list-inputs", action="store_true")
     microphone.add_argument("--save-wav", type=Path)
     microphone.add_argument("--json", action="store_true", dest="json_output")
+    microphone.add_argument(
+        "--asr-audio-route",
+        choices=(ASR_AUDIO_ROUTE_RAW, ASR_AUDIO_ROUTE_ENHANCED),
+        default=ASR_AUDIO_ROUTE_RAW,
+        help="ASR input route; raw is the selected control (default: raw)",
+    )
     benchmark = commands.add_parser(
         "benchmark", help="stream an external WAV and write a content-free timing report"
     )
@@ -67,6 +74,12 @@ def parser() -> argparse.ArgumentParser:
     benchmark.add_argument("--runs", type=int, default=2)
     benchmark.add_argument("--chunk-ms", type=int, default=80)
     benchmark.add_argument("--out", type=Path, required=True)
+    benchmark.add_argument(
+        "--asr-audio-route",
+        choices=(ASR_AUDIO_ROUTE_RAW, ASR_AUDIO_ROUTE_ENHANCED),
+        default=ASR_AUDIO_ROUTE_RAW,
+        help="route the same benchmark WAV through raw or configured enhancement",
+    )
     evaluate_affect = commands.add_parser(
         "evaluate-affect",
         help="replay an external held-out affect manifest through the resident service",
@@ -184,6 +197,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     locale=arguments.locale,
                     debug_wav=debug_wav,
                     json_output=arguments.json_output,
+                    asr_audio_route=arguments.asr_audio_route,
                 )
             )
         except ClientError as error:
@@ -209,6 +223,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     mode=arguments.mode,
                     runs=arguments.runs,
                     chunk_ms=arguments.chunk_ms,
+                    asr_audio_route=arguments.asr_audio_route,
                 )
             )
             write_report(arguments.out, report)
@@ -307,6 +322,7 @@ async def _microphone(
     locale: str | None,
     debug_wav: Path | None,
     json_output: bool,
+    asr_audio_route: str,
 ) -> int:
     chunks = microphone_chunks(
         device,
@@ -319,6 +335,7 @@ async def _microphone(
         chunks,
         locale=locale,
         on_event=lambda payload: render_event(payload, json_output=json_output),
+        asr_audio_route=asr_audio_route,
     )
     if debug_wav is not None:
         print(f"saved debug WAV: {debug_wav}", flush=True)

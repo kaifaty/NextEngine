@@ -11,7 +11,12 @@ import {
   type NoiseCalibration,
 } from "./lib/audioCapture";
 import { emotionColor, emotionLabel, formatDuration } from "./lib/display";
-import { loadBootstrap, loadDiagnosticAudio, SpeechTimelineClient } from "./lib/speechClient";
+import {
+  loadBootstrap,
+  loadDiagnosticAudio,
+  SpeechTimelineClient,
+  type AsrAudioRoute,
+} from "./lib/speechClient";
 import type {
   ConnectionState,
   DiagnosticAudioRecord,
@@ -28,6 +33,7 @@ const client = ref<SpeechTimelineClient | null>(null);
 const capture = ref<BrowserMicrophoneCapture | null>(null);
 const devices = ref<MediaDeviceInfo[]>([]);
 const selectedDevice = ref("");
+const selectedAsrAudioRoute = ref<AsrAudioRoute>("raw");
 const timeline = ref<TimelineUpdate | null>(null);
 const finalUtterance = ref<FinalUtterance | null>(null);
 const events = ref<SpeechEvent[]>([]);
@@ -59,6 +65,17 @@ const currentExpression = computed(
 const diagnosticAudioEnabled = computed(
   () => objectValue(bootstrap.value?.service, "diagnostic_audio")?.enabled === true,
 );
+const availableAsrAudioRoutes = computed<AsrAudioRoute[]>(() => {
+  const routing = objectValue(bootstrap.value?.service, "asr_audio_routing");
+  const routes = routing?.available_routes;
+  if (!Array.isArray(routes)) return ["raw"];
+  return routes.filter(
+    (route): route is AsrAudioRoute => route === "raw" || route === "enhanced",
+  );
+});
+const enhancedRouteAvailable = computed(() =>
+  availableAsrAudioRoutes.value.includes("enhanced"),
+);
 
 const stateText: Record<ConnectionState, string> = {
   loading: "Загрузка интерфейса",
@@ -74,8 +91,9 @@ const stateText: Record<ConnectionState, string> = {
 const transcriberName = computed(() => modelValue("transcriber", "adapter_id") || "Voxtral");
 const affectName = computed(() => modelValue("vocal_affect", "adapter_id") || "Emotion2Vec");
 const preprocessorSummary = computed(() => {
+  if (selectedAsrAudioRoute.value === "raw") return "RAW PCM · контроль без gain/NS";
   const model = objectValue(objectValue(bootstrap.value?.service, "models"), "audio_preprocessor");
-  if (!model) return "raw PCM";
+  if (!model) return "enhanced route недоступен";
   const adapter = stringValue(model, "adapter_id") || "audio preprocessor";
   const gain = objectValue(model, "gain");
   const gainPlacement = stringValue(model, "gain_placement");
@@ -182,6 +200,7 @@ async function startRecording(): Promise<void> {
     client.value = nextClient;
     await nextClient.connectAndStart(
       "ru",
+      selectedAsrAudioRoute.value,
       calibration.value
         ? {
             noiseFloorDbfs: calibration.value.noiseFloorDbfs,
@@ -408,6 +427,18 @@ function stringValue(value: JsonObject, key: string): string {
               <option value="">Системный микрофон</option>
               <option v-for="(device, index) in devices" :key="device.deviceId" :value="device.deviceId">
                 {{ device.label || `Микрофон ${index + 1}` }}
+              </option>
+            </select>
+          </div>
+          <div>
+            <p class="eyebrow">ASR-тракт</p>
+            <select
+              v-model="selectedAsrAudioRoute"
+              :disabled="isRecording || state === 'finalizing'"
+            >
+              <option value="raw">RAW · контроль</option>
+              <option v-if="enhancedRouteAvailable" value="enhanced">
+                DPDFNet + gain · A/B
               </option>
             </select>
           </div>

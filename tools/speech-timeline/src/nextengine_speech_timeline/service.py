@@ -13,7 +13,12 @@ from .adapters.voxtral_transcribe_cpp import TranscriberConfig, TranscriptRevisi
 from .audio import pcm16le_to_float32, pcm16le_to_float32_array
 from .diagnostic_audio import DiagnosticAudioStore
 from .metrics import ModelJobMetric, ResourceMonitor
-from .protocol import VadCalibration, event
+from .protocol import (
+    ASR_AUDIO_ROUTE_ENHANCED,
+    ASR_AUDIO_ROUTE_RAW,
+    VadCalibration,
+    event,
+)
 from .scheduler import (
     JobCompletion,
     JobDiscarded,
@@ -55,6 +60,13 @@ class SpeechTimelineRuntime:
         self._ready: dict[str, object] | None = None
         self._closed = False
         self.resources = ResourceMonitor()
+
+    @property
+    def available_asr_audio_routes(self) -> tuple[str, ...]:
+        routes = [ASR_AUDIO_ROUTE_RAW]
+        if self.audio_preprocessor is not None:
+            routes.append(ASR_AUDIO_ROUTE_ENHANCED)
+        return tuple(routes)
 
     def start(self) -> dict[str, object]:
         if self._ready is not None:
@@ -184,20 +196,29 @@ class SpeechConnection:
         self._preprocessor_output_samples = 0
         self._preprocessor_stream_elapsed_ms: list[int] = []
         self._preprocessor_flush_ms: int | None = None
+        self._asr_audio_route = ASR_AUDIO_ROUTE_RAW
 
     async def start(
         self,
         session_id: str,
         locale: str | None,
         vad_calibration: VadCalibration | None = None,
+        asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
     ) -> None:
+        if asr_audio_route not in self.runtime.available_asr_audio_routes:
+            raise SessionError(
+                "AUDIO_ROUTE_UNAVAILABLE",
+                f"ASR audio route is unavailable: {asr_audio_route}",
+            )
         if not await self._claim(self):
             raise SessionError("SERVICE_BUSY", "another speech session is active")
         try:
+            self._asr_audio_route = asr_audio_route
             if vad_calibration is not None:
                 self._apply_vad_calibration(vad_calibration)
             generation = self.session.start(session_id, locale)
-            await self.runtime.reset_audio_preprocessor()
+            if self._asr_audio_route == ASR_AUDIO_ROUTE_ENHANCED:
+                await self.runtime.reset_audio_preprocessor()
             self._transcriber_session = await self._execute(
                 JobPriority.STARTUP,
                 generation,
@@ -217,6 +238,7 @@ class SpeechConnection:
                 sample_rate_hz=16_000,
                 encoding="pcm_s16le",
                 channels=1,
+                asr_audio_route=self._asr_audio_route,
                 vocal_activity=self.activity.capabilities(),
             )
         )
@@ -256,23 +278,27 @@ class SpeechConnection:
                 self.activity.timeline(frame.end_sample)
             )
             await self.events.put(self._timeline_event(activity_snapshot))
-        try:
-            asr_pcm, elapsed_ms = await self.runtime.preprocess_pcm(frame.payload)
-            self._record_preprocessor_metric(
-                generation,
-                frame.start_sample,
-                frame.end_sample,
-                len(frame.payload) // 2,
-                len(asr_pcm) // 2,
-                elapsed_ms,
-                flush=False,
-            )
-        except BaseException as error:
-            self._asr_slots.release()
-            await self._fail("AUDIO_PREPROCESSOR_FAILURE", _bounded_error(error))
-            return
+        if self._asr_audio_route == ASR_AUDIO_ROUTE_RAW:
+            asr_pcm = frame.payload
+        else:
+            try:
+                asr_pcm, elapsed_ms = await self.runtime.preprocess_pcm(frame.payload)
+                self._record_preprocessor_metric(
+                    generation,
+                    frame.start_sample,
+                    frame.end_sample,
+                    len(frame.payload) // 2,
+                    len(asr_pcm) // 2,
+                    elapsed_ms,
+                    flush=False,
+                )
+            except BaseException as error:
+                self._asr_slots.release()
+                await self._fail("AUDIO_PREPROCESSOR_FAILURE", _bounded_error(error))
+                return
         if asr_pcm:
-            self._append_diagnostic_asr_pcm(asr_pcm)
+            if self._asr_audio_route == ASR_AUDIO_ROUTE_ENHANCED:
+                self._append_diagnostic_asr_pcm(asr_pcm)
             self._spawn(
                 self._asr_push_with_backpressure(
                     generation,
@@ -333,28 +359,29 @@ class SpeechConnection:
             return
         generation = self.session.generation
         total_samples = self.session.total_samples
-        try:
-            tail_pcm, flush_elapsed_ms = await self.runtime.flush_audio_preprocessor()
-            self._record_preprocessor_metric(
-                generation,
-                max(0, total_samples - len(tail_pcm) // 2),
-                total_samples,
-                0,
-                len(tail_pcm) // 2,
-                flush_elapsed_ms,
-                flush=True,
-            )
-            if tail_pcm:
-                self._append_diagnostic_asr_pcm(tail_pcm)
-                await self._asr_push(
+        if self._asr_audio_route == ASR_AUDIO_ROUTE_ENHANCED:
+            try:
+                tail_pcm, flush_elapsed_ms = await self.runtime.flush_audio_preprocessor()
+                self._record_preprocessor_metric(
                     generation,
                     max(0, total_samples - len(tail_pcm) // 2),
                     total_samples,
-                    tail_pcm,
+                    0,
+                    len(tail_pcm) // 2,
+                    flush_elapsed_ms,
+                    flush=True,
                 )
-        except BaseException as error:
-            await self._fail("AUDIO_PREPROCESSOR_FAILURE", _bounded_error(error))
-            return
+                if tail_pcm:
+                    self._append_diagnostic_asr_pcm(tail_pcm)
+                    await self._asr_push(
+                        generation,
+                        max(0, total_samples - len(tail_pcm) // 2),
+                        total_samples,
+                        tail_pcm,
+                    )
+            except BaseException as error:
+                await self._fail("AUDIO_PREPROCESSOR_FAILURE", _bounded_error(error))
+                return
         if self.session.state is SessionState.FAILED:
             return
         self.activity.flush()
@@ -577,7 +604,11 @@ class SpeechConnection:
         self._diagnostic_asr_pcm.extend(pcm)
 
     def _diagnostic_enhanced_pcm(self) -> bytes | None:
-        if self.runtime.audio_preprocessor is None or self._diagnostic_asr_pcm_invalid:
+        if (
+            self._asr_audio_route != ASR_AUDIO_ROUTE_ENHANCED
+            or self.runtime.audio_preprocessor is None
+            or self._diagnostic_asr_pcm_invalid
+        ):
             return None
         raw_length = len(self.session.pcm_bytes)
         if len(self._diagnostic_asr_pcm) != raw_length:
@@ -785,6 +816,8 @@ class SpeechConnection:
             },
             "audio_preprocessor": {
                 "enabled": self.runtime.audio_preprocessor is not None,
+                "selected_route": self._asr_audio_route,
+                "active": self._asr_audio_route == ASR_AUDIO_ROUTE_ENHANCED,
                 "input_samples": self._preprocessor_input_samples,
                 "output_samples": self._preprocessor_output_samples,
                 "stream_p50_ms": _percentile_int(self._preprocessor_stream_elapsed_ms, 50),

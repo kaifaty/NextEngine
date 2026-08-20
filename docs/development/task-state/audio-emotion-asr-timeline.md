@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `PHASE_1_IMPLEMENTED`; raw-first speech front-end evaluation replaces the DPDF double-gain default hypothesis |
+| Status | `PHASE_1_IMPLEMENTED`; RAW is now the explicit default ASR route and configured DPDFNet is an opt-in A/B candidate |
 | Updated | `2026-08-20` |
 | Task key | `audio-emotion-asr-timeline` |
 | Scope | Phase 1 prototypes Voxtral/emotion2vec; Phase 2 adds replaceable LLM/TTS; Phase 3A proves them in a one-character simple-dialogue scene before 3B-3D boundary/internal-model work; prerequisite-gated Phase 4 fine-tunes FunctionGemma. |
@@ -11,14 +11,14 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Phase 1 implements the resident model-neutral timeline service, but the user's paired listening falsified “more retained whisper energy means better ASR audio”: raw sounds cleaner than the active `gain pre → DPDFNet → gain post` route. Raw is now the control/fallback; enhancement, activity and affect must be evaluated as separate front-end branches.
+- **Current conclusion:** Phase 1 implements the resident model-neutral timeline service. The user's paired listening falsified “more retained whisper energy means better ASR audio”, so the service now defaults every ASR utterance to RAW and invokes the resident `gain pre → DPDFNet → gain post` candidate only when the client explicitly selects `enhanced`. Activity and affect remain on raw PCM.
 - **Why:** The existing Voxtral wrapper already performs real streaming inside one invocation, while warm emotion2vec inference is fast. Reloading either model per connection/window is the avoidable delay.
 - **Critical limit:** Current Voxtral public APIs return streaming text but no lexical timestamps. `transcribe.cpp` reports timestamp kind `NONE`; its Voxtral `audio_committed_ms` remains zero during feed and is not a text boundary.
 - **Implementation plan:** `docs/plans/2026-08-18-speech-timeline-service-implementation.md` has approved scope `A/A/A/A`: standalone authenticated localhost WebSocket, explicit finish first and honest `utterance` alignment; VAD/model-slot remain later increments.
 - **Phase 2 plan:** `docs/plans/2026-08-18-conversation-service-phase-2.md` adds a `ConversationService` facade for large-LLM dialogue and TTS only; two Phase 2 scope choices remain pending.
 - **Phase 3 plan:** `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` now starts with 3A: one existing character, push-to-talk, session-local persona/history, subtitles/TTS and no world/internal-model/tool context. 3B-3D then harden proven boundaries, shadow-integrate the strategic model and freeze catalogs.
 - **Phase 4 plan:** `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` fine-tunes FunctionGemma only after Phase 3 freezes a consumer-backed strategic catalog and corpus seed.
-- **Next action:** Restore raw ASR as the selected control, expose explicit route A/B, and benchmark identical normal/whispered Russian takes across raw, current DPDF double-gain and one-gain conservative routes. Then evaluate neural VAD and render-reference AEC as independent increments; see `docs/development/speech-input-front-end-research-2026-08-20.md`.
+- **Next action:** Benchmark identical normal/whispered Russian takes across the implemented raw/current-DPDF routes, then add the one-gain conservative candidate only if the paired corpus and transcript scoring justify another route. Evaluate neural VAD and render-reference AEC as independent increments; see `docs/development/speech-input-front-end-research-2026-08-20.md`.
 - **Current blocker:** No service implementation blocker. Front-end selection is evidence-blocked: the repository lacks a frozen paired normal/whisper/noise/playback microphone corpus with transcripts, speech boundaries and blind preference labels.
 - **Do not retry:** Per-window process launch/checkpoint reload; ASR attachment through `audio_committed_ms`; fabricated word timestamps; RMS/retained energy as the quality oracle; always-on maximum denoising followed by duplicated high gain.
 - **Reconsider when:** A model/runtime exposes better timed lexical units, or measured model-slot boundary error is too high and justifies a final aligner.
@@ -33,6 +33,7 @@
 | `e839a38:docs/development/voxtral-mini-4b-realtime-2602-research-2026-08-17.md` | Q4_K_M ~4080 MiB process VRAM, ~3x realtime, 1.2–1.4 s model load | Plausible resident ASR on the 10 GiB host; joint peak remains mandatory evidence. |
 | `transcribe.cpp` commit `9315160` | Voxtral capability `TIMESTAMPS_NONE`; whole-text segment; feed cursor is not lexical time | Baseline fusion grade is `utterance`, not word. |
 | Official Voxtral/vLLM protocol | 80 ms aligned model slots but public Realtime events carry only text delta/final | Test a private token-slot adapter; keep timing capability explicit. |
+| `tools/speech-timeline` RAW/DPDF route contract, 2026-08-20 | protocol defaults to `raw`; dashboard/CLI expose explicit A/B; focused protocol/WebSocket tests prove raw bypasses `reset/process/flush` while the resident enhanced route preserves its sample clock | DPDFNet presence no longer silently changes ASR input; identical external WAVs can be replayed through either route with lineage and timing metrics. |
 | `docs/development/voxtral-emotion2vec-facade-research-2026-08-18.md` | bounded pair/facade research complete | Supersedes the prior SimulStreaming ASR selection and defines staged implementation/evidence. |
 | User confirmation `A/A/A/A`, 2026-08-18 | first implementation scope approved | Standalone / explicit finish / utterance MVP / authenticated localhost WebSocket; no engine-facing IPC, mandatory VAD or model-slot gate. |
 | `docs/plans/2026-08-18-speech-timeline-service-implementation.md` | approved implementation sequence | Defines the smallest resident vertical and commit/test boundaries; it does not promote SPEC-16. |
@@ -45,7 +46,7 @@
 | `docs/plans/2026-08-18-conversation-service-phase-2.md` | proposed Phase 2 sequence | Defines LLM/TTS worker topology, context seam, evidence and two pending scope choices without tool calling or strategic integration. |
 | `docs/plans/2026-08-18-engine-neural-capability-integration-phase-3.md` | proposed Phase 3 sequence | Maps actual models to engine-owned roles, validators, owners and fallbacks; shadow-integrates the strategic model and freezes consumer-backed catalogs. |
 | `docs/plans/2026-08-18-functiongemma-strategic-integration-phase-4.md` | deferred Phase 4 sequence | Reopens exact Phase 3 catalogs, then builds corpus, measures/fine-tunes FunctionGemma and integrates it shadow-first. |
-| `codex/speech-timeline-service`, Phase 1 fake suite | 53 Python service tests + 14 preserved Voxtral probe tests pass | Auth/version/size/state/fault/dashboard boundaries, second-session residency, cadence, no-word-span fusion, bounded terminal metrics and client/benchmark paths are executable without weights. |
+| `codex/speech-timeline-service`, Phase 1 fake suite | 83 Python service tests + 14 preserved Voxtral probe tests pass | Auth/version/size/state/fault/dashboard boundaries, raw/enhanced ASR routing, second-session residency, cadence, no-word-span fusion, bounded terminal metrics and client/benchmark paths are executable without weights. |
 | Joint RTX 3080 run, exact artifacts, 2026-08-18 | 2 × 4.5 s paced turns; load counts Voxtral/emotion `1/1`; worker-busy RTF p95 `0.690`; first chunk→update p95 `1.363 s`; finish→final p95 `0.970 s`; process peak `5870 MiB` VRAM | Both CUDA models remain resident with >1 GiB headroom; explicit-finish vertical passes. Report: `/tmp/nextengine-speech-timeline-phase1-benchmark.json` (external, content-free). |
 | 30 s paced soak, 2026-08-18 | worker-busy RTF `0.530`; first update `1.136 s`; finish→final `1.352 s`; no reload | Paced streaming remains faster than realtime without unbounded ASR backlog. Direct internal scheduler saturation still fails closed. |
 | Vue dashboard + turn-bound regression, 2026-08-18 | Browser source builds with pinned Vue/Vite/TypeScript; same-origin HTTP/bootstrap and WebSocket-origin tests pass; CLI/browser auto-finalize at the advertised 30 s/960,000-byte bound; overflow emits one terminal `TURN_TOO_LARGE` | The diagnostic view can expose transcript/raw affect/smoothed fusion without token copy-paste or repeated overflow spam. |
@@ -176,7 +177,7 @@
 ### D-014 — Embedded PCM preprocessing; no virtual capture-device dependency
 
 - **Observation:** The eventual consumer is an embedded game host, not a Linux-only diagnostic application. The user explicitly rejected creating a PipeWire or other virtual microphone as part of the product path.
-- **Decision:** A future preprocessing adapter accepts host-captured PCM and produces timestamp/length-preserving derived PCM branches. It is in-process or a declared bounded host service; it never installs, creates or depends on a system virtual audio device. Its public seam stays model-neutral and reports exact algorithm/model identity, configuration, delay and bypass state.
+- **Decision:** A preprocessing adapter accepts host-captured PCM and produces timestamp/length-preserving derived PCM branches. It is in-process or a declared bounded host service; it never installs, creates or depends on a system virtual audio device. Its public seam stays model-neutral and reports exact algorithm/model identity, configuration, delay and bypass state. The implemented session contract defaults to `raw`; a configured resident preprocessor runs only for an explicit `enhanced` request and otherwise receives no per-turn calls.
 - **Consequence:** The local Python prototype exposes the same model-neutral resident seam for evidence only; the future native Rust DSP must expose it directly. Raw is the selected control/fallback. ASR, neural activity and affect use separate derived branches; affect remains raw or AEC-only until its own labelled gate. WebRTC APM/AEC, Silero VAD and conservative DPDFNet/DeepFilterNet/RNNoise routes are independently evaluated; no enhancer is the native default yet. See [front-end research](../speech-input-front-end-research-2026-08-20.md).
 - **Rejected/reconsider:** No virtual device, global AGC/shared affect stream or per-window CLI filtering. Reconsider only if the in-process A/B trial has no benefit, fails its resource/latency envelope, or a cross-platform host boundary requires a different adapter contract.
 
@@ -216,8 +217,8 @@ Read in precedence order:
 
 ## Smallest next action
 
-1. Restore raw ASR as the selected control and add explicit dashboard route A/B plus a paired benchmark for raw/current-DPDF/one-gain conservative processing; retain one integer clock, raw affect, exact lineage and immediate bypass.
-2. Freeze comparable normal/whisper/noise/playback Russian takes externally; measure WER/CER, VAD boundary/whisper recall, P.835/DNSMOS proxy, blind preference, over-suppression, clipping and latency before changing the default.
+1. Freeze comparable normal/whisper/noise/playback Russian takes externally and replay each exact WAV through `raw` and `enhanced`; measure WER/CER, VAD boundary/whisper recall, blind preference, over-suppression, clipping and latency before changing the default.
+2. Add a one-gain conservative candidate only if the first paired result isolates duplicated gain or DPDFNet as the failure; do not use P.835/DNSMOS or energy alone as the promotion oracle.
 3. Confirm the two unresolved Phase 2 choices and execute its Commit A without merging LLM/TTS implementation into `SpeechTimelineService`.
 4. Keep VAD and Voxtral model-slot timing as separately measured increments; do not fabricate word spans meanwhile.
 5. After Phase 2 evidence, implement Phase 3A first: clean `reference-alpha`

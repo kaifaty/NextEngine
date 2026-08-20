@@ -12,6 +12,9 @@ MAX_JSON_BYTES = 64 * 1024
 MAX_SESSION_ID_BYTES = 128
 MAX_TOKEN_BYTES = 256
 SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]+$")
+ASR_AUDIO_ROUTE_RAW = "raw"
+ASR_AUDIO_ROUTE_ENHANCED = "enhanced"
+ASR_AUDIO_ROUTES = frozenset({ASR_AUDIO_ROUTE_RAW, ASR_AUDIO_ROUTE_ENHANCED})
 
 
 class ProtocolError(RuntimeError):
@@ -52,6 +55,7 @@ class SessionStart:
     encoding: str
     channels: int
     vad_calibration: VadCalibration | None = None
+    asr_audio_route: str = ASR_AUDIO_ROUTE_RAW
 
 
 @dataclass(frozen=True)
@@ -100,7 +104,7 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
                 "encoding",
                 "channels",
             },
-            optional={"vad_calibration"},
+            optional={"vad_calibration", "asr_audio_route"},
         )
         session_id = _session_id(value.get("session_id"))
         locale_value = value.get("locale")
@@ -118,13 +122,21 @@ def parse_client_message(payload: str | bytes) -> ClientMessage:
         calibration = None
         if "vad_calibration" in value:
             calibration = _vad_calibration(value["vad_calibration"])
+        asr_audio_route = value.get("asr_audio_route", ASR_AUDIO_ROUTE_RAW)
+        if not isinstance(asr_audio_route, str) or asr_audio_route not in ASR_AUDIO_ROUTES:
+            raise ProtocolError(
+                "INVALID_FIELD",
+                "asr_audio_route must be raw or enhanced",
+                terminal=True,
+            )
         return SessionStart(
-            session_id,
-            locale_value,
-            sample_rate,
-            encoding,
-            channels,
-            calibration,
+            session_id=session_id,
+            locale=locale_value,
+            sample_rate_hz=sample_rate,
+            encoding=encoding,
+            channels=channels,
+            vad_calibration=calibration,
+            asr_audio_route=asr_audio_route,
         )
     if message_type in {"session.finish", "session.cancel"}:
         _require_keys(value, {"schema_version", "type", "session_id"})

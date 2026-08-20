@@ -18,6 +18,7 @@ from websockets.http11 import Request, Response
 from . import SERVICE_PROTOCOL
 from .diagnostic_audio import DiagnosticAudioStore
 from .protocol import (
+    ASR_AUDIO_ROUTE_RAW,
     MAX_JSON_BYTES,
     ClientHello,
     ProtocolError,
@@ -92,6 +93,12 @@ class SpeechTimelineWebSocketService:
             uri=self.uri,
             models=startup,
             model_identity=self.model_identity,
+            asr_audio_routing={
+                "default_route": ASR_AUDIO_ROUTE_RAW,
+                "available_routes": list(self.runtime.available_asr_audio_routes),
+                "vocal_activity_route": ASR_AUDIO_ROUTE_RAW,
+                "vocal_affect_route": ASR_AUDIO_ROUTE_RAW,
+            },
             bounds={
                 "max_json_bytes": MAX_JSON_BYTES,
                 "max_frame_bytes": self.bounds.max_frame_bytes,
@@ -119,6 +126,7 @@ class SpeechTimelineWebSocketService:
                     "protocol": SERVICE_PROTOCOL,
                     "models": startup,
                     "model_identity": self.model_identity,
+                    "asr_audio_routing": self._ready_public["asr_audio_routing"],
                 }
             )
         except BaseException:
@@ -381,7 +389,8 @@ class SpeechTimelineWebSocketService:
                         await connection.start(
                             client_message.session_id,
                             client_message.locale,
-                            client_message.vad_calibration,
+                            vad_calibration=client_message.vad_calibration,
+                            asr_audio_route=client_message.asr_audio_route,
                         )
                     elif isinstance(client_message, SessionFinish):
                         await connection.finish(client_message.session_id)

@@ -15,6 +15,7 @@ from typing import Any
 
 from .microphone_client import ReadyInfo, run_websocket_session
 from .profile import REPOSITORY_ROOT
+from .protocol import ASR_AUDIO_ROUTES, ASR_AUDIO_ROUTE_RAW
 
 
 class BenchmarkError(RuntimeError):
@@ -470,6 +471,7 @@ async def benchmark_service(
     mode: str,
     runs: int,
     chunk_ms: int,
+    asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
 ) -> dict[str, object]:
     if mode not in {"paced", "unpaced"}:
         raise BenchmarkError("benchmark mode must be paced or unpaced")
@@ -477,6 +479,8 @@ async def benchmark_service(
         raise BenchmarkError("benchmark runs must be between 1 and 20")
     if not 20 <= chunk_ms <= 1_000:
         raise BenchmarkError("benchmark chunk-ms must be between 20 and 1000")
+    if asr_audio_route not in ASR_AUDIO_ROUTES:
+        raise BenchmarkError("benchmark ASR audio route must be raw or enhanced")
     chunk_bytes = 16_000 * 2 * chunk_ms // 1_000
     audio_seconds = samples / 16_000
     run_reports = []
@@ -509,6 +513,7 @@ async def benchmark_service(
             on_event=lambda _: None,
             session_id=f"benchmark-{index + 1}",
             measurement=measurement,
+            asr_audio_route=asr_audio_route,
         )
         wall_ms = (time.monotonic() - started) * 1000
         wall_times.append(wall_ms)
@@ -611,7 +616,10 @@ async def benchmark_service(
             "samples": samples,
             "duration_ms": round(audio_seconds * 1000),
         },
-        "run_configuration": {"chunk_ms": chunk_ms},
+        "run_configuration": {
+            "chunk_ms": chunk_ms,
+            "asr_audio_route": asr_audio_route,
+        },
         "service": {
             "protocol": ready.protocol,
             "models": ready.models or {},

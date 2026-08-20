@@ -23,7 +23,11 @@ from nextengine_speech_timeline.benchmark import (
     load_affect_calibration_manifest,
 )
 from nextengine_speech_timeline.diagnostic_audio import DiagnosticAudioStore
-from nextengine_speech_timeline.microphone_client import ReadyInfo, run_websocket_session
+from nextengine_speech_timeline.microphone_client import (
+    ClientError,
+    ReadyInfo,
+    run_websocket_session,
+)
 from nextengine_speech_timeline.metrics import ModelJobMetric
 from nextengine_speech_timeline.protocol import MAX_JSON_BYTES, encode_event, event
 from nextengine_speech_timeline.service import (
@@ -259,6 +263,26 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(activity[0]["state"], "no_speech")
         self.assertEqual(updates[-1]["vocal_affect"]["raw_observations"], [])
 
+    async def test_enhanced_route_fails_before_capture_when_not_configured(self) -> None:
+        async def chunks():
+            yield b"\0\0" * 160
+
+        ready = ReadyInfo(
+            uri=self.service.uri,
+            token=self.service.token,
+            protocol="nextengine.speech-timeline/1",
+            bounds={},
+        )
+        with self.assertRaises(ClientError) as caught:
+            await run_websocket_session(
+                ready,
+                chunks(),
+                locale="ru",
+                on_event=lambda _: None,
+                asr_audio_route="enhanced",
+            )
+        self.assertIn("unavailable", str(caught.exception))
+
     async def test_audio_preprocessor_is_resident_and_routes_only_asr(self) -> None:
         preprocessor = FakeAudioPreprocessor()
         transcriber = FakeTranscriber()
@@ -271,7 +295,11 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         await service.start()
         try:
-            events = await self._run_turn_against(service, "preprocessed-turn")
+            events = await self._run_turn_against(
+                service,
+                "preprocessed-turn",
+                asr_audio_route="enhanced",
+            )
             final = next(item for item in events if item["type"] == "utterance.final")
             self.assertEqual(preprocessor.load_count, 1)
             self.assertEqual(preprocessor.reset_count, 1)
@@ -280,6 +308,8 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(transcriber.sessions[0].pushed_samples[0][0], 0.125)
             metrics = final["metrics"]["audio_preprocessor"]
             self.assertTrue(metrics["enabled"])
+            self.assertTrue(metrics["active"])
+            self.assertEqual(metrics["selected_route"], "enhanced")
             self.assertEqual(metrics["input_samples"], 4_000)
             self.assertEqual(metrics["output_samples"], 4_000)
             records = service.diagnostic_audio.list_records() if service.diagnostic_audio else []
@@ -297,8 +327,49 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
         finally:
             await service.close()
 
+    async def test_raw_is_default_and_bypasses_resident_audio_preprocessor(self) -> None:
+        preprocessor = FakeAudioPreprocessor()
+        transcriber = FakeTranscriber()
+        runtime = SpeechTimelineRuntime(transcriber, FakeAffect(), preprocessor)
+        service = SpeechTimelineWebSocketService(
+            runtime,
+            ready_file=Path(self.temp.name) / "raw-default-ready.json",
+            port=0,
+            diagnostic_audio=DiagnosticAudioStore(
+                Path(self.temp.name) / "raw-default-diagnostic-audio"
+            ),
+        )
+        ready = await service.start()
+        try:
+            routing = ready["asr_audio_routing"]
+            self.assertEqual(routing["default_route"], "raw")
+            self.assertEqual(routing["available_routes"], ["raw", "enhanced"])
+            events = await self._run_turn_against(service, "raw-default-turn")
+            started = next(item for item in events if item["type"] == "session.started")
+            final = next(item for item in events if item["type"] == "utterance.final")
+            self.assertEqual(started["asr_audio_route"], "raw")
+            self.assertEqual(preprocessor.load_count, 1)
+            self.assertEqual(preprocessor.reset_count, 0)
+            self.assertEqual(preprocessor.process_count, 0)
+            self.assertEqual(preprocessor.flush_count, 0)
+            self.assertEqual(transcriber.sessions[0].pushed_samples[0][0], 0.0)
+            metrics = final["metrics"]["audio_preprocessor"]
+            self.assertTrue(metrics["enabled"])
+            self.assertFalse(metrics["active"])
+            self.assertEqual(metrics["selected_route"], "raw")
+            self.assertEqual(metrics["input_samples"], 0)
+            records = service.diagnostic_audio.list_records() if service.diagnostic_audio else []
+            self.assertEqual(len(records), 1)
+            self.assertFalse(records[0].enhanced_available)
+        finally:
+            await service.close()
+
     async def _run_turn_against(
-        self, service: SpeechTimelineWebSocketService, session_id: str
+        self,
+        service: SpeechTimelineWebSocketService,
+        session_id: str,
+        *,
+        asr_audio_route: str | None = None,
     ) -> list[dict[str, object]]:
         async with connect(service.uri, compression=None) as websocket:
             await websocket.send(
@@ -311,27 +382,26 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             await websocket.recv()
-            await websocket.send(
-                json.dumps(
-                    {
-                        "schema_version": 1,
-                        "type": "session.start",
-                        "session_id": session_id,
-                        "locale": "ru",
-                        "sample_rate_hz": 16_000,
-                        "encoding": "pcm_s16le",
-                        "channels": 1,
-                    }
-                )
-            )
-            await websocket.recv()
+            start = {
+                "schema_version": 1,
+                "type": "session.start",
+                "session_id": session_id,
+                "locale": "ru",
+                "sample_rate_hz": 16_000,
+                "encoding": "pcm_s16le",
+                "channels": 1,
+            }
+            if asr_audio_route is not None:
+                start["asr_audio_route"] = asr_audio_route
+            await websocket.send(json.dumps(start))
+            started = json.loads(await websocket.recv())
             await websocket.send(b"\0\0" * 4_000)
             await websocket.send(
                 json.dumps(
                     {"schema_version": 1, "type": "session.finish", "session_id": session_id}
                 )
             )
-            events = []
+            events = [started]
             while True:
                 event_value = json.loads(await asyncio.wait_for(websocket.recv(), 2))
                 events.append(event_value)
@@ -643,6 +713,7 @@ class WebSocketServiceTests(unittest.IsolatedAsyncioTestCase):
             chunk_ms=125,
         )
         self.assertEqual(len(report["runs"]), 2)
+        self.assertEqual(report["run_configuration"]["asr_audio_route"], "raw")
         self.assertEqual(report["privacy"], "audio_and_transcript_omitted")
         serialized = json.dumps(report, ensure_ascii=False)
         self.assertNotIn("готово", serialized)

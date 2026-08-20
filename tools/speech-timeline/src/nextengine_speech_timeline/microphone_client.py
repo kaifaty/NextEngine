@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 from websockets.asyncio.client import connect
 
 from . import SERVICE_PROTOCOL
-from .protocol import MAX_JSON_BYTES
+from .protocol import ASR_AUDIO_ROUTES, ASR_AUDIO_ROUTE_RAW, MAX_JSON_BYTES
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
@@ -112,7 +112,10 @@ async def run_websocket_session(
     on_event: Callable[[dict[str, object]], None],
     session_id: str | None = None,
     measurement: dict[str, float] | None = None,
+    asr_audio_route: str = ASR_AUDIO_ROUTE_RAW,
 ) -> dict[str, object]:
+    if asr_audio_route not in ASR_AUDIO_ROUTES:
+        raise ClientError("ASR audio route must be raw or enhanced")
     identity = session_id or secrets.token_hex(16)
     async with connect(
         ready.uri,
@@ -145,6 +148,17 @@ async def run_websocket_session(
             or max_turn_bytes % 2
         ):
             raise ClientError("service.ready has invalid max_turn_bytes")
+        routing = service_ready.get("asr_audio_routing")
+        if not isinstance(routing, dict):
+            raise ClientError("service.ready does not contain ASR audio routing")
+        available_routes = routing.get("available_routes")
+        if (
+            not isinstance(available_routes, list)
+            or any(not isinstance(item, str) for item in available_routes)
+        ):
+            raise ClientError("service.ready has invalid ASR audio routing")
+        if asr_audio_route not in available_routes:
+            raise ClientError(f"ASR audio route is unavailable: {asr_audio_route}")
         await websocket.send(
             json.dumps(
                 {
@@ -155,6 +169,7 @@ async def run_websocket_session(
                     "sample_rate_hz": 16_000,
                     "encoding": "pcm_s16le",
                     "channels": 1,
+                    "asr_audio_route": asr_audio_route,
                 },
                 separators=(",", ":"),
             )
