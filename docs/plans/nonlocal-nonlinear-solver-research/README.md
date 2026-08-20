@@ -141,3 +141,6 @@ B1D1 passes and confirms temporal stiffness with negligible nonlinear-solver
 sensitivity; see the
 [dated evidence](../../development/nonlocal-nsr3b1d1-floor-oracle-evidence-2026-08-20.md).
 Freeze a multi-fixture acoustic substep-policy gate next; B2 remains blocked.
+The six-case policy gate is frozen in
+[NSR3-B1S](03b1s-acoustic-substep-policy-contract.md) at target Courant
+`0.25`, with explicit `34/67` base/high-stiffness substep costs.
