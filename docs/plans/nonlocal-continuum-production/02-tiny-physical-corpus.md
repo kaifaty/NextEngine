@@ -1,6 +1,6 @@
 # NPR0-E — tiny physical corpus
 
-Status: SPECIFIED / IMPLEMENTATION_NEXT / REPORT_ONLY
+Status: EXECUTED / PROFILE_RECLOSURE_REMEDIATION_1 / NPR1_BLOCKED
 
 ## Purpose
 
@@ -100,9 +100,19 @@ Gates:
 
 No wall-clock timing participates in selection.
 
+## Execution result
+
+Both profiles pass free fall, reversible rigid mode and face/corner contact,
+but both fail the immutable hydro mean-positive-compression limit. The
+control result is 0.3325094461 and the derived result is 0.0078648680 against
+the 0.0001 gate. The exact result and authorized bounded diagnosis are in the
+[dated evidence](../../development/nonlocal-continuum-npr0-tiny-corpus-evidence-2026-08-20.md).
+
+The selection rule therefore emits PROFILE_RECLOSURE_REMEDIATION_1, selects
+no profile and leaves NPR1 blocked.
+
 ## Explicit exclusions
 
 Dam break, orifice, long still tank, surface tension, shear viscosity,
 moving rigid bodies, triangle/SDF boundaries, canonical micrometre
 publication, GPU physical agreement, runtime integration and Windows.
-

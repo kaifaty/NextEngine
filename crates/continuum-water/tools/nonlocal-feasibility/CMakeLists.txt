@@ -10,6 +10,7 @@ add_executable(
     src/oracle.cpp
     src/profiles.cpp
     src/sha256.cpp
+    src/tiny_corpus.cpp
 )
 target_compile_features(nonlocal-feasibility PRIVATE cxx_std_17 cuda_std_17)
 set_target_properties(

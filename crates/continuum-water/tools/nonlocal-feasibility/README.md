@@ -79,6 +79,8 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --cpu-boundary-discriminator
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
+  --cpu-tiny-physical-corpus
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --p2-check nuv-basin-48k-source-scale.v2 --iterations 5
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --p2-check nuv-basin-48k-static-support-derived.v3 --iterations 5
@@ -207,3 +209,9 @@ complement to 48,000 fluid samples. Their 72,704 total solver indices
 deliberately exceed u16; P2 must report an explicit checked u32 fallback.
 The GPU preflight evaluates density/constitutive support only. It does not
 execute the external swept contact or claim a sealed production step.
+
+The CPU tiny physical corpus evaluates both v3 coefficient profiles against
+the predeclared free-fall, hydro, reversible-mode and face/corner gates. The
+command succeeds when the bounded decision is produced; inspect
+selection.disposition and selection.selected_profile_id for the semantic
+outcome. A remediation result is not a selected profile.

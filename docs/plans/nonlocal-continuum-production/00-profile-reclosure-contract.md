@@ -1,6 +1,6 @@
 # NPR0 — Nonlocal product-profile reclosure contract
 
-Status: `NPR0_STATIC_BOUNDARY_SELECTED / TINY_CORPUS_NEXT / REPORT_ONLY`
+Status: `PROFILE_RECLOSURE_REMEDIATION_1 / NPR1_BLOCKED / REPORT_ONLY`
 
 ## Purpose
 

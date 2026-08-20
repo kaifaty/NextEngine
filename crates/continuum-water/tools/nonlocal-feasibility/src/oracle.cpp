@@ -672,8 +672,8 @@ OracleResult run_cpu_oracle(const Fixture& fixture) {
 }
 
 OracleResult run_cpu_gather_oracle(const Fixture& fixture) {
-    if (fixture.particles.empty() || fixture.particles.size() > 256) {
-        throw std::invalid_argument("gather oracle fixture sample count is outside 1..=256");
+    if (fixture.particles.empty() || fixture.particles.size() > 512) {
+        throw std::invalid_argument("gather oracle fixture sample count is outside 1..=512");
     }
     if (fixture.iterations < 1 || fixture.iterations > 4) {
         throw std::invalid_argument("gather oracle fixture iteration count is outside 1..=4");
