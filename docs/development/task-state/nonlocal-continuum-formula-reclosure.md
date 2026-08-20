@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / FCR1_PASS / FCR2_NEXT` |
+| Status | `ACTIVE / FCR2_PASS / FCR3A_NEXT` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-formula-reclosure` |
 | Scope | Prove or reject a separately rooted energy/force-consistent Nonlocal continuum identity through algebra, physical, CUDA and performance gates |
@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** Formula, CPU pair traversal and pressure semantics are closed; solver convergence and physical validity are still unknown.
-- **Why:** FCR1 rejects doubled/halved traversal at exact `0.5` error, selects compression-only free-surface behavior and closes `strength=gamma*m` byte-identically.
-- **Next action:** Specify and implement FCR2's minimal corrected f64 solver with objective/residual and tiny-physics gates.
+- **Current conclusion:** A slow corrected f64 variational reference passes tiny physics; efficient SISSM convergence and product calibration remain unknown.
+- **Why:** FCR2 passes all seven cases and full-gradient closure, but pressure/combined controls need accepted alphas down to `4.66e-10` and hundreds of backtracks.
+- **Next action:** Specify FCR3-A SISSM/reference correspondence and conditioning gates before any product-profile sweep.
 - **Current blocker:** None.
 - **Do not retry:** Repairing or retuning `nuv-basin-48k-static-support-h3-physical.v4`; its formula identity, coefficients and roots are closed historical evidence.
 - **Reconsider when:** Only a reviewed upstream erratum can change source interpretation; it still cannot relabel old roots.
@@ -27,6 +27,7 @@
 | `docs/plans/nonlocal-continuum-formula-reclosure/00-formula-contract.md` | `VERIFIED` | FCR0 algebra passes; no physical or runtime claim |
 | `docs/development/nonlocal-continuum-fcr0-algebra-evidence-2026-08-20.md` | `PASS` | `FCR_ALGEBRA_CANDIDATE`; FCR1 authorized |
 | `docs/development/nonlocal-continuum-fcr1-pair-pressure-evidence-2026-08-20.md` | `PASS` | CPU pair/pressure semantics selected; FCR2 authorized |
+| `docs/development/nonlocal-continuum-fcr2-reference-evidence-2026-08-20.md` | `PASS / CONDITIONING_RISK` | Slow CPU objective authority selected; FCR3-A required before profile sweep |
 
 ## Decisions that still constrain the work
 
@@ -90,9 +91,9 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Freeze FCR2 solver state, neighbor rebuild, objective/residual, accepted-step and tiny-case gates.
-2. Implement one strict-f64 unique-pair reference step without borrowing old coefficients.
-3. Pass tiny preflights before any support/coefficient sweep.
+1. Freeze FCR3-A's corrected SISSM split, overshoot policy and reference-comparison metrics.
+2. Compare objective/residual progress on the exact FCR2 active cases and identify the first conditioning boundary.
+3. Start h2/h3/coefficient/cadence reclosure only if SISSM passes the bounded correspondence gate.
 
 ## Do not retry
 
@@ -102,7 +103,7 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** branch `codex/nonlocal-continuum-n0`; FCR1 implementation committed at `f120614`; evidence/roadmap update is the current change.
-- **Checks:** FCR0/FCR1 PASS twice byte-identically; NPR1-A PASS unchanged; NPR1-B frozen FAIL unchanged; retained CUDA self-test PASS at FCR0.
+- **Workspace state:** branch `codex/nonlocal-continuum-n0`; FCR2 implementation committed at `829f044`; evidence/roadmap update is the current change.
+- **Checks:** FCR0/FCR1/FCR2 PASS twice byte-identically; NPR1-A PASS unchanged; NPR1-B frozen FAIL unchanged.
 - **Remaining risk:** Pair enumeration, nonlinear convergence, coefficient calibration and corrected CUDA cost remain open.
 - **Promotion needed:** Roadmap/evidence updates at each material gate; architecture promotion remains forbidden.

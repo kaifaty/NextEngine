@@ -1,6 +1,6 @@
 # Nonlocal continuum — formula reclosure roadmap
 
-Status: `ACTIVE / FCR1_PASS / FCR2_NEXT / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
+Status: `ACTIVE / FCR2_PASS / FCR3_NEXT / REPORT_ONLY / NO_RUNTIME_AUTHORITY`
 
 This roadmap is a new research lineage. It does not repair or relabel the
 stopped source-shaped profile `nuv-basin-48k-static-support-h3-physical.v4`.
@@ -86,5 +86,8 @@ FCR0 is implemented and passes with exact evidence in
 FCR1 then selects unique-pair CPU accumulation, compression-only pressure and
 the explicit surface parameter mapping in
 [its dated evidence](../../development/nonlocal-continuum-fcr1-pair-pressure-evidence-2026-08-20.md).
-The current next action is FCR2: specify and implement the minimal corrected
-f64 solver and tiny physical corpus.
+FCR2 now passes and supplies the slow
+[variational-reference evidence](../../development/nonlocal-continuum-fcr2-reference-evidence-2026-08-20.md).
+It also exposes severe stiffness in pressure/combined cases. The current next
+action is FCR3-A: corrected SISSM/reference correspondence and conditioning;
+profile selection cannot begin until that preflight passes.

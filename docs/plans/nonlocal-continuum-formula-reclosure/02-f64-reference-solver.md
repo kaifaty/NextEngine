@@ -1,6 +1,6 @@
 # FCR2 — corrected f64 variational reference solver
 
-Status: `FROZEN FOR IMPLEMENTATION / REPORT_ONLY`
+Status: `PASS / CPU_VARIATIONAL_REFERENCE / FCR3_AUTHORIZED / REPORT_ONLY`
 
 Predecessor: FCR1 pair/pressure semantics `PASS`.
 
@@ -85,3 +85,6 @@ they are not the FCR3 product profile and must not be promoted.
 Passing selects a corrected CPU variational reference for FCR3 only. It does
 not prove basin physics, coefficient calibration, SISSM correctness, CUDA or
 runtime authority.
+
+The implementation passes and exposes a material conditioning risk. See the
+[FCR2 evidence](../../development/nonlocal-continuum-fcr2-reference-evidence-2026-08-20.md).
