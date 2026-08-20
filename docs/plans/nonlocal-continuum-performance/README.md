@@ -16,6 +16,8 @@ The exact generator, trace and persistent-runner contract is in the
 [NP0 corpus specification](01-np0-corpus-and-baseline.md).
 P1 arithmetic, timing and rollback rules are frozen in the
 [fused owner-term specification](02-np1-p1-fused-owner-terms.md).
+P2 representation, fallback and capacity rules are frozen in the
+[compact CSR specification](03-np1-p2-compact-csr.md).
 
 ## Outcome
 

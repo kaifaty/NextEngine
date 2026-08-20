@@ -16,8 +16,8 @@
   adjacent totals remain above 4 ms, so compact CSR is next.
 - **Why:** removing redundant post-density CSR traversal satisfies HP-2 alone,
   while permuted storage remains `2.06x` slower in the retained pair stage.
-- **Next action:** specify and implement checked `u16` neighbor IDs with `u32`
-  offsets for `<=65,535` samples, leaving the 100k profile on `u32`.
+- **Next action:** implement the specified checked `u16` neighbor IDs with
+  32-bit offsets for `<=65,535` samples, leaving the 100k profile on `u32`.
 - **Current blocker:** None for P2.
 - **Do not retry:** O3 endpoint pre-addition or coherent-lattice O4 tuning;
   their numeric/performance failures are closed evidence.
@@ -37,6 +37,7 @@
 | [NP0 evidence](../nonlocal-continuum-np0-evidence-2026-08-20.md) | `NP0_COMPLETE / NP1_P1_AUTHORIZED` | conditioned denominator, HP-1 confirmation and stiff-dynamic negative frozen |
 | [P1 specification](../../plans/nonlocal-continuum-performance/02-np1-p1-fused-owner-terms.md) | `COMPLETE / RETAINED / P2_INPUT` | exact per-term association, timing attribution and rollback gate frozen |
 | [P1 evidence](../nonlocal-continuum-np1-p1-evidence-2026-08-20.md) | `P1_RETAINED / P2_NEXT` | exact trace equality, no spills, adjacent speedups and raw hashes frozen |
+| [P2 specification](../../plans/nonlocal-continuum-performance/03-np1-p2-compact-csr.md) | `SPECIFIED / IMPLEMENTATION_NEXT` | direct compact construction, exact fallback and rollback gate frozen |
 
 ## Decisions that still constrain the work
 
