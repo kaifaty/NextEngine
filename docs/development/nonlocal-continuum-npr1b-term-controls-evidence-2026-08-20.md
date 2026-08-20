@@ -2,6 +2,16 @@
 
 Status: `NONLOCAL_PRODUCTION_RESEARCH_STOP / REPORT_ONLY / FORMULA_MISMATCH`
 
+> Subsequent formula reclosure narrowed the surface-specific interpretation.
+> The `m/r0` repair below follows the NPR1-B diagnostic's dimensionless
+> potential convention; it is not uniquely required by Eq. 14/15. Defining
+> the physical potential as `C(r)=r0*C_hat(r/r0)` removes `1/r0`, while a
+> separate mass/parameter-unit mapping remains necessary. This clarification
+> does not change the stopped result: the independently confirmed cubic
+> derivative and viscosity-influence failures are sufficient to reject the
+> exact source-shaped identity. See the
+> [new research decision](nonlocal-continuum-formula-reclosure-research-2026-08-20.md).
+
 ## Outcome
 
 The exact NPR0 profile
