@@ -150,11 +150,11 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-1. Freeze P2 capacity/encoding/fallback and exact decode semantics.
-2. Implement `u16` neighbor storage for bounded v1 profiles behind a rollback
-   identity; offsets remain `u32`, 100k remains `u32`.
-3. Pass the P1 exact corpus, memory accounting and conditioned adjacent
-   tournaments before retention.
+1. Keep the completed P1+P2 identity frozen as the standalone performance
+   baseline.
+2. Continue through the separate
+   [productionization task](nonlocal-continuum-production.md); do not reopen
+   this roadmap to obtain product-profile, runtime or integration credit.
 
 ## Do not retry
 
@@ -167,11 +167,11 @@ Read these sources in precedence order before acting:
 
 ## Handoff
 
-- **Workspace state:** P1 implementation/evidence are ready for checkpoint;
-  P2 code has not started.
+- **Workspace state:** NP0–NP4 are complete at `e2b533b`; the successor
+  productionization roadmap owns all further work.
 - **Checks:** CPU, CPU-gather, retained CUDA self-tests, v0 repeatability, all
   v1 adjacent controls and duplicate exact-50k decisions pass.
-- **Remaining risk:** P1 alternating exact-50k totals still exceed 4 ms; P2
-  decode cost and dynamic locality are not yet proven.
-- **Promotion needed:** none for NP0 research; later Proposed solver/profile
-  reclosure only after NP4 evidence.
+- **Remaining risk:** the benchmark is not the product basin profile; physical
+  correctness, authority, coupling, persistence and integrated budget remain
+  outside this completed task.
+- **Promotion needed:** none here; follow the separately specified NPR stages.
