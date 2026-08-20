@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3A2_PASS / NSR3B0_NORMALIZATION_DIAGNOSTIC` |
+| Status | `ACTIVE / NSR3B0_PASS / B0R_NORMALIZATION_RECLOSURE` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -20,10 +20,13 @@
 - **Current conclusion:** the unscaled FCR cubic integrates to `1/8`; at
   `H=3dx` its infinite-lattice density is `0.125224*rho0`. The authors' code
   applies a missing fixed lattice normalization near `7.985668`.
-- **Current action:** execute the frozen NSR3-B0 dimensional/normalization
-  discriminator without changing FCR1.
-- **Next gate:** prove the gap and derived mappings; expected disposition is a
-  separately named normalized FCR2 identity before any physical profile.
+- **Current conclusion:** the independent B0 diagnostic passes twice
+  byte-identically and selects `FORMULA_RECLOSURE_REQUIRED`; all historical
+  raw hashes remain unchanged.
+- **Current action:** implement the one-change B0R contract under the new
+  `nuv-variational-fcr2` identity.
+- **Next gate:** normalized density plus gradient/HVP/trust/tape correspondence
+  must pass before any multi-step or boundary work.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
   iteration sweeps, product-scale/CUDA work.
 - **Runtime authority:** none.
@@ -70,6 +73,17 @@
 - **Consequence:** use A2 for later report-only CPU research; retain A1 as the
   exact oracle. This grants no physical, GPU or runtime authority.
 
+### D-005 -- Normalize the material kernel before selecting profiles
+
+- **Observation:** the FCR1 raw cubic integrates to `1/8` and produces
+  `0.125224338*rho0` on the `H=3dx` lattice; the authors' implementation uses
+  a separate fixed lattice scale not present in FCR1.
+- **Decision:** do not hide the deficit in `rho0`, mass or material strengths.
+  Reclose one explicit common scale for `W`, `dW/dr` and `d2W/dr2` under the
+  new `nuv-variational-fcr2` identity.
+- **Consequence:** all FCR1 solver evidence remains valid for its synthetic
+  objective but gives no physical-profile authority. NSR3-B1 stays blocked.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -82,12 +96,11 @@
 
 ## Exact next action
 
-1. Implement the independent NSR3-B0 algebra/lattice discriminator.
-2. Preserve all FCR1/NSR raw reports byte-identically.
-3. If the expected normalization gap is reproduced, freeze an FCR2 kernel
-   normalization reclosure rather than tuning material coefficients.
-4. Keep NSR3-B1 blocked until the new identity repeats formula, HVP and trust
-   correspondence.
+1. Add an explicitly selected immutable kernel scale without changing FCR1.
+2. Apply it identically to `W`, `dW/dr` and `d2W/dr2`.
+3. Run the frozen FCR2 derivative, active-density, HVP, trust and A1/A2 exact
+   controls plus historical hash checks.
+4. Select/stop FCR2, then return to NSR3-B1 only on PASS.
 
 ## Reconsideration triggers
 

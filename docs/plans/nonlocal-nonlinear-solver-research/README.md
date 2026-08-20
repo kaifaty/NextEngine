@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_ACTIVE / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_ACTIVE / REPORT_ONLY`
 
 Candidate identity:
 
@@ -113,5 +113,10 @@ exact per-outer-state Hessian coefficient tape. Including its construction,
 the tape improves build+HVP by `2.05x--2.43x` and total solve by
 `1.36x--1.55x` through 4096 particles while remaining under its linear memory
 cap; see the [dated evidence](../../development/nonlocal-nsr3a2-hessian-tape-evidence-2026-08-20.md).
-Proceed to NSR3-B0 dimensional/profile derivation. Physical execution remains
-blocked.
+NSR3-B0 then proves that the raw FCR cubic integrates to `1/8` and yields
+`0.125224338*rho0` on the canonical reference lattice. The authors' fixed
+lattice normalization reconstructs density correctly, so B0 selects
+`FORMULA_RECLOSURE_REQUIRED`, not a tuned profile; see the
+[dated evidence](../../development/nonlocal-nsr3b0-dimensional-profile-evidence-2026-08-20.md).
+Execute the separately frozen B0R normalization reclosure under
+`nuv-variational-fcr2`. NSR3-B1 and physical trajectories remain blocked.

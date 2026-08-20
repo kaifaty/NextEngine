@@ -25,5 +25,6 @@ ReferenceSolverReport run_numerical_floor_stop_controls();
 ReferenceSolverReport run_serial_cpu_baseline_controls();
 ReferenceSolverReport run_hvp_workspace_stream_controls();
 ReferenceSolverReport run_hessian_tape_controls();
+ReferenceSolverReport run_dimensional_profile_controls();
 
 } // namespace nextengine::nonlocal::fcr
