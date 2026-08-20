@@ -23,9 +23,9 @@ mod visual_smoke;
 use serde::{Serialize, Serializer};
 use xtask::native_gate::{
     LINUX_TARGET_TRIPLE, NATIVE_GATE_SCHEMA_VERSION, NativeGateCheckNameV1,
-    NativeGateCheckRecordV1, NativeGateCheckStatusV1, NativeGateClosureTargetSetV1,
-    NativeGateClosureTargetSummaryV1, NativeGateComparableRootsV1, NativeGateDiagnosticV1,
-    NativeGatePackageSummaryV1, NativeGatePackagedLaunchSummaryV1, NativeGateRunStatusV1,
+    NativeGateCheckRecordV1, NativeGateCheckStatusV1, NativeGateClosureTargetSummaryV1,
+    NativeGateDiagnosticV1, NativeGateLinuxReportV2, NativeGatePackageSummaryV1,
+    NativeGatePackagedLaunchSummaryV1, NativeGateReleaseRootsV2, NativeGateRunStatusV1,
     NativeGateTargetExecutionStatusV1, NativeGateTargetReportV1, WINDOWS_TARGET_TRIPLE,
 };
 use xtask::report::*;
@@ -59,14 +59,14 @@ struct NativeGateCheckExecutionFailure {
 
 struct NativeGateMatrixSuccess {
     records: Vec<NativeGateCheckRecordV1>,
-    closure_targets: NativeGateClosureTargetSetV1,
-    comparable_roots: NativeGateComparableRootsV1,
+    release_target: NativeGateClosureTargetSummaryV1,
+    release_roots: NativeGateReleaseRootsV2,
     package: NativeGatePackageSummaryV1,
 }
 
 struct NativeGateClosureCheckResult {
-    report: CommandReportV1<V1ClosureDetailsV1>,
-    targets: NativeGateClosureTargetSetV1,
+    report: CommandReportV2<V1ClosureDetailsV2>,
+    release_target: NativeGateClosureTargetSummaryV1,
 }
 
 impl Serialize for NativeGateClosureCheckResult {
@@ -77,8 +77,8 @@ impl Serialize for NativeGateClosureCheckResult {
 
 struct NativeGatePackageCheckResult {
     report: CommandReportV1<PackageDetailsV1>,
-    closure_targets: NativeGateClosureTargetSetV1,
-    comparable_roots: NativeGateComparableRootsV1,
+    release_target: NativeGateClosureTargetSummaryV1,
+    release_roots: NativeGateReleaseRootsV2,
     package: NativeGatePackageSummaryV1,
 }
 
@@ -320,23 +320,23 @@ fn v1_closure() -> Result<(), String> {
 
 fn v1_closure_report(
     state_root: Option<&Path>,
-) -> Result<CommandReportV1<V1ClosureDetailsV1>, String> {
-    let _ = run_tool_session("tools-v1-closure-v2", state_root)?;
+) -> Result<CommandReportV2<V1ClosureDetailsV2>, String> {
+    let _ = run_tool_session("tools-v1-closure-v3", state_root)?;
     let report = match state_root {
         Some(root) => next_verification::run_v1_closure_check_in(root),
         None => next_verification::run_v1_closure_check(),
     }
     .map_err(|error| error.to_string())?;
-    let status = if report.shipping_ready {
+    let status = if report.release_ready {
         "PASS"
     } else {
-        "LOCAL_PASS_SHIPPING_TARGETS_NOT_RUN"
+        "RELEASE_TARGET_NOT_READY"
     };
-    Ok(CommandReportV1::new(
+    Ok(CommandReportV2::new(
         "v1-closure",
         status,
-        V1ClosureDetailsV1 {
-            shipping_ready: report.shipping_ready,
+        V1ClosureDetailsV2 {
+            release_ready: report.release_ready,
             checks: vec![
                 "content_package".to_owned(),
                 "play".to_owned(),
@@ -362,17 +362,11 @@ fn v1_closure_report(
             replay_state_root: report.replay_state_root.to_hex(),
             replay_ledger_hash: report.replay_ledger_hash.to_hex(),
             audio_scene_pcm_digest: report.audio_scene_pcm_digest.to_hex(),
-            windows: TargetGateDetailsV1 {
-                target: report.windows.target_triple.to_owned(),
-                package_descriptor_hash: report.windows.package_descriptor_hash.to_hex(),
-                runtime_check: target_status(&report.windows.runtime_check_status),
-                desktop_smoke: target_status(&report.windows.desktop_smoke_status),
-            },
-            linux: TargetGateDetailsV1 {
-                target: report.linux.target_triple.to_owned(),
-                package_descriptor_hash: report.linux.package_descriptor_hash.to_hex(),
-                runtime_check: target_status(&report.linux.runtime_check_status),
-                desktop_smoke: target_status(&report.linux.desktop_smoke_status),
+            release_target: TargetGateDetailsV1 {
+                target: report.release_target.target_triple.to_owned(),
+                package_descriptor_hash: report.release_target.package_descriptor_hash.to_hex(),
+                runtime_check: target_status(&report.release_target.runtime_check_status),
+                desktop_smoke: target_status(&report.release_target.desktop_smoke_status),
             },
             closure_hash: report.closure_hash.to_hex(),
         },

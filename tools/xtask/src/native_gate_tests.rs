@@ -129,7 +129,7 @@ fn comparator_named_slots_reject_swapped_target_reports() {
 
 fn slot_report(target: &str) -> NativeGateTargetReportV1 {
     NativeGateTargetReportV1 {
-        schema_version: NATIVE_GATE_SCHEMA_VERSION,
+        schema_version: xtask::native_gate::LEGACY_NATIVE_GATE_SCHEMA_VERSION,
         status: NativeGateRunStatusV1::Fail,
         git_commit_sha: "1".repeat(40),
         cargo_lock_sha256: "2".repeat(64),
@@ -396,7 +396,7 @@ fn controlled_failure_bundle_is_published_atomically_and_collision_is_rejected()
     .expect("publish controlled failure");
     assert!(!staging.exists());
     assert!(target_output.join("target-report.json").is_file());
-    let report = xtask::native_gate::validate_native_gate_target_bundle(
+    let report = xtask::native_gate::validate_native_gate_linux_bundle(
         &target_output.join("target-report.json"),
     )
     .expect("validate published failure");
@@ -491,6 +491,9 @@ fn unsupported_native_host_and_disabled_desktop_feature_have_stable_diagnostics(
     let error =
         native_shipping_target_for_host("aarch64-unknown-linux-gnu").expect_err("unsupported");
     assert!(error.starts_with("NATIVE_GATE_UNSUPPORTED_TARGET"));
+    let error = native_shipping_target_for_host(WINDOWS_TARGET_TRIPLE)
+        .expect_err("Windows is outside the current release policy");
+    assert!(error.starts_with("NATIVE_GATE_UNSUPPORTED_TARGET"));
 
     #[cfg(not(feature = "desktop-sdl-ash"))]
     {
@@ -544,8 +547,8 @@ fn test_identity() -> NativeGateIdentity {
         git_object_format: "sha1".to_owned(),
         cargo_lock_sha256: "2".repeat(64),
         rustc_release: "1.97.1".to_owned(),
-        rustc_host: WINDOWS_TARGET_TRIPLE.to_owned(),
-        target_triple: WINDOWS_TARGET_TRIPLE.to_owned(),
+        rustc_host: LINUX_TARGET_TRIPLE.to_owned(),
+        target_triple: LINUX_TARGET_TRIPLE.to_owned(),
     }
 }
 

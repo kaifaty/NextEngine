@@ -37,6 +37,35 @@ impl<T: Serialize> CommandReportV1<T> {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct CommandReportV2<T> {
+    pub schema_version: u32,
+    pub status: String,
+    pub command: String,
+    pub details: T,
+}
+
+impl<T: Serialize> CommandReportV2<T> {
+    pub fn new(command: &str, status: &str, details: T) -> Self {
+        Self {
+            schema_version: 2,
+            status: status.to_owned(),
+            command: command.to_owned(),
+            details,
+        }
+    }
+
+    pub fn to_json(&self) -> Result<String, String> {
+        serde_json::to_string(self).map_err(|error| error.to_string())
+    }
+
+    pub fn emit_report(&self) -> Result<(), String> {
+        println!("{}", self.to_json()?);
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BoundaryScanDetailsV1 {
     pub checks: Vec<String>,
 }
@@ -92,6 +121,30 @@ pub struct V1ClosureDetailsV1 {
     pub audio_scene_pcm_digest: String,
     pub windows: TargetGateDetailsV1,
     pub linux: TargetGateDetailsV1,
+    pub closure_hash: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct V1ClosureDetailsV2 {
+    pub release_ready: bool,
+    pub checks: Vec<String>,
+    pub project_composition_lock_hash: String,
+    pub schema_registry_hash: String,
+    pub content_manifest_hash: String,
+    pub mechanics_lock_hash: String,
+    pub world_partition_hash: String,
+    pub luau_manifest_hash: String,
+    pub wasm_manifest_hash: String,
+    pub wit_v2_hash: String,
+    pub wit_v3_hash: String,
+    pub extension_compatibility_hash: String,
+    pub play_state_root: String,
+    pub play_ledger_hash: String,
+    pub replay_state_root: String,
+    pub replay_ledger_hash: String,
+    pub audio_scene_pcm_digest: String,
+    pub release_target: TargetGateDetailsV1,
     pub closure_hash: String,
 }
 

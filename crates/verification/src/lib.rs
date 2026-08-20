@@ -126,7 +126,7 @@ pub use streaming_performance::{
     run_streaming_performance_check_in,
 };
 pub use v1_closure::{
-    TargetGateStatusV1, V1ClosureCheckError, V1ClosureCheckReport, V1TargetGateV1,
+    TargetGateStatusV1, V1ClosureCheckError, V1ClosureCheckReportV2, V1ReleaseTargetGateV2,
     run_v1_closure_check, run_v1_closure_check_in,
 };
 

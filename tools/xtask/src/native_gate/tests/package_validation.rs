@@ -24,20 +24,22 @@ fn package_manifest_and_target_summary_must_match_exactly() {
     let report = report(WINDOWS_TARGET_TRIPLE);
     let summary = report.package.as_ref().expect("summary");
     let manifest = package_manifest_from_summary(&report);
-    validate_package_manifest_summary(&report, summary, &manifest)
+    validate_package_manifest_summary(&report.target_triple, summary, &manifest)
         .expect("matching manifest and summary");
 
     let mut tampered_manifest = manifest.clone();
     tampered_manifest.binaries.game.binary_sha256 = hash('f');
-    let error = validate_package_manifest_summary(&report, summary, &tampered_manifest)
-        .expect_err("tampered binary summary");
+    let error =
+        validate_package_manifest_summary(&report.target_triple, summary, &tampered_manifest)
+            .expect_err("tampered binary summary");
     assert_eq!(error.code(), NATIVE_GATE_PACKAGE_INVALID);
     assert!(error.detail().contains("game.binary_sha256"));
 
     let mut tampered_summary = summary.clone();
     tampered_summary.schema_registry_sha256 = hash('f');
-    let error = validate_package_manifest_summary(&report, &tampered_summary, &manifest)
-        .expect_err("tampered roots summary");
+    let error =
+        validate_package_manifest_summary(&report.target_triple, &tampered_summary, &manifest)
+            .expect_err("tampered roots summary");
     assert_eq!(error.code(), NATIVE_GATE_PACKAGE_INVALID);
     assert!(error.detail().contains("schema_registry_sha256"));
 }

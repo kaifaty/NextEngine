@@ -3,19 +3,21 @@ use std::path::Path;
 use serde::Deserialize;
 
 use crate::report::{
-    CommandReportV1, ContentPackageDetailsV1, HostCheckDetailsV1, PackageDetailsV1,
-    PerformanceDetailsV1, PersistenceReplayDetailsV1, PlatformDetailsV1, V1ClosureDetailsV1,
+    CommandReportV1, CommandReportV2, ContentPackageDetailsV1, HostCheckDetailsV1,
+    PackageDetailsV1, PerformanceDetailsV1, PersistenceReplayDetailsV1, PlatformDetailsV1,
+    V1ClosureDetailsV1, V1ClosureDetailsV2,
 };
 
 use super::{
     NATIVE_GATE_REPORT_INVALID, NativeGateCheckNameV1, NativeGateCheckStatusV1,
-    NativeGateComparisonError, NativeGateRunStatusV1, NativeGateTargetExecutionStatusV1,
-    NativeGateTargetReportV1, read_bounded_regular_file, report_invalid, sha256_hex,
-    validate_lower_hex,
+    NativeGateComparisonError, NativeGateLinuxReportV2, NativeGateRunStatusV1,
+    NativeGateTargetExecutionStatusV1, NativeGateTargetReportV1, read_bounded_regular_file,
+    report_invalid, sha256_hex, validate_lower_hex,
 };
 
 const MAX_CHECK_REPORT_BYTES: usize = 8 * 1024 * 1024;
 const COMMAND_REPORT_SCHEMA_VERSION: u32 = 1;
+const CLOSURE_REPORT_SCHEMA_VERSION: u32 = 2;
 
 pub(super) fn validate_target_report_json_shape(
     bytes: &[u8],
@@ -40,6 +42,59 @@ pub(super) fn validate_target_report_json_shape(
     if object.len() != FIELDS.len() || FIELDS.iter().any(|field| !object.contains_key(*field)) {
         return Err(report_invalid(
             "target report fields do not exactly match NativeGateTargetReportV1",
+        ));
+    }
+    let checks = object
+        .get("checks")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| report_invalid("target report checks must be an array"))?;
+    const CHECK_FIELDS: [&str; 6] = [
+        "check",
+        "status",
+        "report_path",
+        "report_sha256",
+        "diagnostic",
+        "elapsed_milliseconds",
+    ];
+    if checks.iter().any(|check| {
+        check.as_object().is_none_or(|record| {
+            record.len() != CHECK_FIELDS.len()
+                || CHECK_FIELDS
+                    .iter()
+                    .any(|field| !record.contains_key(*field))
+        })
+    }) {
+        return Err(report_invalid(
+            "target check record fields do not exactly match NativeGateCheckRecordV1",
+        ));
+    }
+    Ok(())
+}
+
+pub(super) fn validate_linux_target_report_json_shape(
+    bytes: &[u8],
+) -> Result<(), NativeGateComparisonError> {
+    const FIELDS: [&str; 11] = [
+        "schema_version",
+        "status",
+        "release_ready",
+        "git_commit_sha",
+        "cargo_lock_sha256",
+        "rustc_release",
+        "target_triple",
+        "checks",
+        "release_target",
+        "release_roots",
+        "package",
+    ];
+    let value: serde_json::Value = serde_json::from_slice(bytes)
+        .map_err(|error| report_invalid(format!("invalid target report JSON: {error}")))?;
+    let object = value
+        .as_object()
+        .ok_or_else(|| report_invalid("target report must be a JSON object"))?;
+    if object.len() != FIELDS.len() || FIELDS.iter().any(|field| !object.contains_key(*field)) {
+        return Err(report_invalid(
+            "target report fields do not exactly match NativeGateLinuxReportV2",
         ));
     }
     let checks = object
@@ -108,7 +163,58 @@ enum ValidatedCheckReportV1 {
     Platform(Box<CommandReportV1<PlatformDetailsV1>>),
     Performance(Box<CommandReportV1<PerformanceDetailsV1>>),
     V1Closure(Box<CommandReportV1<V1ClosureDetailsV1>>),
+    V1ClosureV2(Box<CommandReportV2<V1ClosureDetailsV2>>),
     V1Package(Box<CommandReportV1<PackageDetailsV1>>),
+}
+
+pub(super) fn validate_linux_check_reports(
+    bundle_root: &Path,
+    target: &NativeGateLinuxReportV2,
+) -> Result<(), NativeGateComparisonError> {
+    let mut reports = Vec::new();
+    for record in &target.checks {
+        let (Some(relative_path), Some(expected_hash)) =
+            (&record.report_path, &record.report_sha256)
+        else {
+            continue;
+        };
+        if record.status != NativeGateCheckStatusV1::Pass {
+            return Err(report_invalid(format!(
+                "{} check JSON may only accompany a PASS record",
+                record.check.as_str()
+            )));
+        }
+        let path = bundle_root.join(relative_path);
+        let bytes = read_bounded_regular_file(
+            &path,
+            MAX_CHECK_REPORT_BYTES,
+            NATIVE_GATE_REPORT_INVALID,
+            record.check.as_str(),
+        )?;
+        if sha256_hex(&bytes) != *expected_hash {
+            return Err(report_invalid(format!(
+                "{} report hash mismatch",
+                record.check.as_str()
+            )));
+        }
+        let parsed = if record.check == NativeGateCheckNameV1::V1Closure {
+            parse_linux_closure_report(&bytes)?
+        } else {
+            parse_check_report(
+                record.check,
+                &bytes,
+                &target.git_commit_sha,
+                &target.target_triple,
+                &target.rustc_release,
+            )?
+        };
+        reports.push(parsed);
+    }
+
+    if target.status == NativeGateRunStatusV1::Pass {
+        validate_linux_pass_bindings(target, &reports)?;
+    }
+    Ok(())
 }
 
 pub(super) fn validate_check_reports(
@@ -410,6 +516,24 @@ fn parse_check_report(
     }
 }
 
+fn parse_linux_closure_report(
+    bytes: &[u8],
+) -> Result<ValidatedCheckReportV1, NativeGateComparisonError> {
+    let report: CommandReportV2<V1ClosureDetailsV2> =
+        parse_json(NativeGateCheckNameV1::V1Closure, bytes)?;
+    if report.schema_version != CLOSURE_REPORT_SCHEMA_VERSION
+        || report.command != "v1-closure"
+        || report.status != "PASS"
+        || !report.details.release_ready
+    {
+        return Err(report_invalid(
+            "v1-closure report must use schema 2, command v1-closure, PASS and release_ready",
+        ));
+    }
+    validate_linux_closure_hashes(&report.details)?;
+    Ok(ValidatedCheckReportV1::V1ClosureV2(Box::new(report)))
+}
+
 fn validate_native_performance_environment(
     run: &crate::performance::PerformanceRunV5,
     expected_target: &str,
@@ -632,6 +756,42 @@ fn validate_closure_hashes(details: &V1ClosureDetailsV1) -> Result<(), NativeGat
         (
             "linux_package_descriptor_hash",
             &details.linux.package_descriptor_hash,
+        ),
+        ("closure_hash", &details.closure_hash),
+    ] {
+        validate_hash(field, value)?;
+    }
+    Ok(())
+}
+
+fn validate_linux_closure_hashes(
+    details: &V1ClosureDetailsV2,
+) -> Result<(), NativeGateComparisonError> {
+    for (field, value) in [
+        (
+            "project_composition_lock_hash",
+            &details.project_composition_lock_hash,
+        ),
+        ("schema_registry_hash", &details.schema_registry_hash),
+        ("content_manifest_hash", &details.content_manifest_hash),
+        ("mechanics_lock_hash", &details.mechanics_lock_hash),
+        ("world_partition_hash", &details.world_partition_hash),
+        ("luau_manifest_hash", &details.luau_manifest_hash),
+        ("wasm_manifest_hash", &details.wasm_manifest_hash),
+        ("wit_v2_hash", &details.wit_v2_hash),
+        ("wit_v3_hash", &details.wit_v3_hash),
+        (
+            "extension_compatibility_hash",
+            &details.extension_compatibility_hash,
+        ),
+        ("play_state_root", &details.play_state_root),
+        ("play_ledger_hash", &details.play_ledger_hash),
+        ("replay_state_root", &details.replay_state_root),
+        ("replay_ledger_hash", &details.replay_ledger_hash),
+        ("audio_scene_pcm_digest", &details.audio_scene_pcm_digest),
+        (
+            "package_descriptor_hash",
+            &details.release_target.package_descriptor_hash,
         ),
         ("closure_hash", &details.closure_hash),
     ] {
@@ -968,6 +1128,298 @@ fn target_status(status: &NativeGateTargetExecutionStatusV1) -> String {
             format!("NOT_RUN({reason})")
         }
     }
+}
+
+fn validate_linux_pass_bindings(
+    target: &NativeGateLinuxReportV2,
+    reports: &[ValidatedCheckReportV1],
+) -> Result<(), NativeGateComparisonError> {
+    if reports.len() != NativeGateCheckNameV1::ORDERED.len() {
+        return Err(report_invalid(
+            "PASS Linux bundle does not contain all typed check reports",
+        ));
+    }
+    let roots = target
+        .release_roots
+        .as_ref()
+        .ok_or_else(|| report_invalid("PASS Linux report has no release roots"))?;
+    let package = target
+        .package
+        .as_ref()
+        .ok_or_else(|| report_invalid("PASS Linux report has no package summary"))?;
+
+    let ValidatedCheckReportV1::Host(host) = &reports[0] else {
+        return Err(report_invalid("host-check typed report is out of order"));
+    };
+    bind("host target", &host.details.host, &target.target_triple)?;
+    bind(
+        "host rustc release",
+        &host.details.rustc_release,
+        &target.rustc_release,
+    )?;
+
+    let ValidatedCheckReportV1::Play(play) = &reports[1] else {
+        return Err(report_invalid("play typed report is out of order"));
+    };
+    for (field, actual, expected) in [
+        (
+            "play project composition",
+            play.project_composition_lock_hash.as_str(),
+            roots.project_composition_lock_hash.as_str(),
+        ),
+        (
+            "play state root",
+            play.authoritative_state_root.as_str(),
+            roots.play_state_root.as_str(),
+        ),
+        (
+            "play ledger hash",
+            play.command_ledger_hash.as_str(),
+            roots.play_ledger_hash.as_str(),
+        ),
+    ] {
+        bind(field, actual, expected)?;
+    }
+
+    let ValidatedCheckReportV1::PersistenceReplay(replay) = &reports[2] else {
+        return Err(report_invalid(
+            "persistence-replay typed report is out of order",
+        ));
+    };
+    bind(
+        "replay state root",
+        &replay.details.final_state_root,
+        &roots.replay_state_root,
+    )?;
+    bind(
+        "replay ledger hash",
+        &replay.details.final_ledger_root,
+        &roots.replay_ledger_hash,
+    )?;
+
+    let ValidatedCheckReportV1::ContentPackage(content) = &reports[3] else {
+        return Err(report_invalid(
+            "content-package typed report is out of order",
+        ));
+    };
+    for (field, actual, expected) in [
+        (
+            "content project composition",
+            content.details.composition_lock_hash.as_str(),
+            roots.project_composition_lock_hash.as_str(),
+        ),
+        (
+            "content schema registry",
+            content.details.schema_registry_hash.as_str(),
+            roots.schema_registry_hash.as_str(),
+        ),
+        (
+            "content manifest",
+            content.details.content_manifest_hash.as_str(),
+            roots.content_manifest_hash.as_str(),
+        ),
+        (
+            "content mechanics lock",
+            content.details.mechanics_lock_hash.as_str(),
+            roots.mechanics_lock_hash.as_str(),
+        ),
+        (
+            "content world partition",
+            content.details.world_partition_hash.as_str(),
+            roots.world_partition_hash.as_str(),
+        ),
+    ] {
+        bind(field, actual, expected)?;
+    }
+
+    let ValidatedCheckReportV1::Platform(platform) = &reports[4] else {
+        return Err(report_invalid("platform typed report is out of order"));
+    };
+    for (field, actual, expected) in [
+        (
+            "platform state root",
+            platform.details.state_root.as_str(),
+            roots.platform_state_root.as_str(),
+        ),
+        (
+            "platform ledger hash",
+            platform.details.ledger_hash.as_str(),
+            roots.platform_ledger_hash.as_str(),
+        ),
+        (
+            "presentation snapshot",
+            platform.details.presentation_snapshot_hash.as_str(),
+            roots.presentation_snapshot_hash.as_str(),
+        ),
+    ] {
+        bind(field, actual, expected)?;
+    }
+
+    let ValidatedCheckReportV1::Performance(performance) = &reports[5] else {
+        return Err(report_invalid("performance typed report is out of order"));
+    };
+    let streaming = performance
+        .details
+        .streaming
+        .as_ref()
+        .ok_or_else(|| report_invalid("performance streaming smoke result is missing"))?;
+    let agent_planning = performance
+        .details
+        .agent_planning
+        .as_ref()
+        .ok_or_else(|| report_invalid("performance agent smoke result is missing"))?;
+    bind(
+        "streaming performance root",
+        &streaming.final_world_state_hash,
+        &roots.streaming_performance_hash,
+    )?;
+    bind(
+        "agent performance root",
+        &agent_planning.final_plan_hash,
+        &roots.agent_performance_hash,
+    )?;
+
+    let ValidatedCheckReportV1::V1ClosureV2(closure) = &reports[6] else {
+        return Err(report_invalid(
+            "v1-closure schema 2 typed report is out of order",
+        ));
+    };
+    validate_linux_closure_bindings(target, &closure.details)?;
+
+    let ValidatedCheckReportV1::V1Package(package_report) = &reports[7] else {
+        return Err(report_invalid("v1-package typed report is out of order"));
+    };
+    for (field, actual, expected) in [
+        (
+            "package target",
+            package_report.details.target.as_str(),
+            package.target_triple.as_str(),
+        ),
+        (
+            "package manifest hash",
+            package_report.details.package_manifest_hash.as_str(),
+            package.package_manifest_sha256.as_str(),
+        ),
+        (
+            "package composition root",
+            package_report.details.composition_lock_hash.as_str(),
+            package.project_lock_sha256.as_str(),
+        ),
+        (
+            "package game binary",
+            package_report.details.game_binary_hash.as_str(),
+            package.game_binary_sha256.as_str(),
+        ),
+        (
+            "package headless binary",
+            package_report.details.headless_binary_hash.as_str(),
+            package.headless_binary_sha256.as_str(),
+        ),
+    ] {
+        bind(field, actual, expected)?;
+    }
+    Ok(())
+}
+
+fn validate_linux_closure_bindings(
+    target: &NativeGateLinuxReportV2,
+    details: &V1ClosureDetailsV2,
+) -> Result<(), NativeGateComparisonError> {
+    let roots = target
+        .release_roots
+        .as_ref()
+        .ok_or_else(|| report_invalid("PASS Linux report has no release roots"))?;
+    for (field, actual, expected) in [
+        (
+            "closure project composition",
+            details.project_composition_lock_hash.as_str(),
+            roots.project_composition_lock_hash.as_str(),
+        ),
+        (
+            "closure schema registry",
+            details.schema_registry_hash.as_str(),
+            roots.schema_registry_hash.as_str(),
+        ),
+        (
+            "closure content manifest",
+            details.content_manifest_hash.as_str(),
+            roots.content_manifest_hash.as_str(),
+        ),
+        (
+            "closure mechanics lock",
+            details.mechanics_lock_hash.as_str(),
+            roots.mechanics_lock_hash.as_str(),
+        ),
+        (
+            "closure world partition",
+            details.world_partition_hash.as_str(),
+            roots.world_partition_hash.as_str(),
+        ),
+        (
+            "closure Luau manifest",
+            details.luau_manifest_hash.as_str(),
+            roots.luau_manifest_hash.as_str(),
+        ),
+        (
+            "closure Wasm manifest",
+            details.wasm_manifest_hash.as_str(),
+            roots.wasm_manifest_hash.as_str(),
+        ),
+        (
+            "closure WIT v2",
+            details.wit_v2_hash.as_str(),
+            roots.wit_v2_hash.as_str(),
+        ),
+        (
+            "closure WIT v3",
+            details.wit_v3_hash.as_str(),
+            roots.wit_v3_hash.as_str(),
+        ),
+        (
+            "closure extension compatibility",
+            details.extension_compatibility_hash.as_str(),
+            roots.extension_compatibility_hash.as_str(),
+        ),
+        (
+            "closure play state",
+            details.play_state_root.as_str(),
+            roots.play_state_root.as_str(),
+        ),
+        (
+            "closure play ledger",
+            details.play_ledger_hash.as_str(),
+            roots.play_ledger_hash.as_str(),
+        ),
+        (
+            "closure replay state",
+            details.replay_state_root.as_str(),
+            roots.replay_state_root.as_str(),
+        ),
+        (
+            "closure replay ledger",
+            details.replay_ledger_hash.as_str(),
+            roots.replay_ledger_hash.as_str(),
+        ),
+        (
+            "closure hash",
+            details.closure_hash.as_str(),
+            roots.closure_hash.as_str(),
+        ),
+    ] {
+        bind(field, actual, expected)?;
+    }
+    let summary = target
+        .release_target
+        .as_ref()
+        .ok_or_else(|| report_invalid("PASS Linux report has no release target"))?;
+    validate_closure_target_binding(
+        "Linux release",
+        &details.release_target,
+        &summary.target_triple,
+        &summary.package_descriptor_hash,
+        &summary.runtime_check,
+        &summary.desktop_smoke,
+    )
 }
 
 fn bind(field: &str, actual: &str, expected: &str) -> Result<(), NativeGateComparisonError> {

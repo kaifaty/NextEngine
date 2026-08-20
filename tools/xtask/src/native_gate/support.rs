@@ -7,17 +7,15 @@ use super::{
     NATIVE_GATE_REPORT_INVALID, NATIVE_GATE_ROOT_MISMATCH, NATIVE_GATE_TARGET_SET_INVALID,
     NativeGateCheckStatusV1, NativeGateComparableRootsV1, NativeGateComparedTargetSummaryV1,
     NativeGateComparisonError, NativeGatePackageSummaryV1, NativeGatePackagedLaunchSummaryV1,
-    NativeGateTargetReportV1, WINDOWS_TARGET_TRIPLE,
+    NativeGateReleaseRootsV2, NativeGateTargetReportV1, WINDOWS_TARGET_TRIPLE,
 };
 
 pub(super) fn validate_package_manifest_summary(
-    report: &NativeGateTargetReportV1,
+    report_target: &str,
     summary: &NativeGatePackageSummaryV1,
     manifest: &crate::package::PackageManifestV4,
 ) -> Result<(), NativeGateComparisonError> {
-    if manifest.target_triple != report.target_triple
-        || manifest.target_triple != summary.target_triple
-    {
+    if manifest.target_triple != report_target || manifest.target_triple != summary.target_triple {
         return Err(package_invalid(
             "package manifest target does not match target report and package summary",
         ));
@@ -425,6 +423,106 @@ pub(super) fn target_package_descriptor_hash(
     }
     extend_hash_text(&mut bytes, "next_game");
     extend_hash_text(&mut bytes, "next_headless");
+    sha256_hex(&bytes)
+}
+
+pub(super) fn release_root_fields_v2(
+    roots: &NativeGateReleaseRootsV2,
+) -> [(&'static str, &str); 26] {
+    [
+        (
+            "project_composition_lock_hash",
+            &roots.project_composition_lock_hash,
+        ),
+        ("schema_registry_hash", &roots.schema_registry_hash),
+        ("content_manifest_hash", &roots.content_manifest_hash),
+        ("mechanics_lock_hash", &roots.mechanics_lock_hash),
+        ("world_partition_hash", &roots.world_partition_hash),
+        ("luau_manifest_hash", &roots.luau_manifest_hash),
+        ("wasm_manifest_hash", &roots.wasm_manifest_hash),
+        ("wit_v2_hash", &roots.wit_v2_hash),
+        ("wit_v3_hash", &roots.wit_v3_hash),
+        (
+            "extension_compatibility_hash",
+            &roots.extension_compatibility_hash,
+        ),
+        ("play_state_root", &roots.play_state_root),
+        ("play_ledger_hash", &roots.play_ledger_hash),
+        ("replay_state_root", &roots.replay_state_root),
+        ("replay_ledger_hash", &roots.replay_ledger_hash),
+        ("platform_state_root", &roots.platform_state_root),
+        ("platform_ledger_hash", &roots.platform_ledger_hash),
+        (
+            "presentation_snapshot_hash",
+            &roots.presentation_snapshot_hash,
+        ),
+        (
+            "streaming_performance_hash",
+            &roots.streaming_performance_hash,
+        ),
+        ("agent_performance_hash", &roots.agent_performance_hash),
+        ("audio_scene_pcm_digest", &roots.audio_scene_pcm_digest),
+        ("packaged_game_state_root", &roots.packaged_game_state_root),
+        (
+            "packaged_game_ledger_hash",
+            &roots.packaged_game_ledger_hash,
+        ),
+        (
+            "packaged_headless_state_root",
+            &roots.packaged_headless_state_root,
+        ),
+        (
+            "packaged_headless_ledger_hash",
+            &roots.packaged_headless_ledger_hash,
+        ),
+        ("closure_hash", &roots.closure_hash),
+        ("package_descriptor_hash", &roots.package_descriptor_hash),
+    ]
+}
+
+pub(super) fn linux_package_descriptor_hash_v2(roots: &NativeGateReleaseRootsV2) -> String {
+    let mut bytes = b"nextengine.v1-target-package-descriptor.v1\0".to_vec();
+    extend_hash_text(&mut bytes, LINUX_TARGET_TRIPLE);
+    extend_hash_text(&mut bytes, env!("CARGO_PKG_VERSION"));
+    for root in [
+        &roots.project_composition_lock_hash,
+        &roots.schema_registry_hash,
+        &roots.content_manifest_hash,
+        &roots.mechanics_lock_hash,
+        &roots.world_partition_hash,
+        &roots.extension_compatibility_hash,
+    ] {
+        bytes.extend_from_slice(
+            &decode_hash(root).expect("validated release root must decode as SHA-256"),
+        );
+    }
+    extend_hash_text(&mut bytes, "next_game");
+    extend_hash_text(&mut bytes, "next_headless");
+    sha256_hex(&bytes)
+}
+
+pub(super) fn linux_closure_hash_v2(roots: &NativeGateReleaseRootsV2) -> String {
+    let mut bytes = b"nextengine.v1-closure.v2\0".to_vec();
+    for root in [
+        &roots.project_composition_lock_hash,
+        &roots.schema_registry_hash,
+        &roots.content_manifest_hash,
+        &roots.mechanics_lock_hash,
+        &roots.world_partition_hash,
+        &roots.play_state_root,
+        &roots.play_ledger_hash,
+        &roots.replay_state_root,
+        &roots.replay_ledger_hash,
+        &roots.streaming_performance_hash,
+        &roots.agent_performance_hash,
+        &roots.audio_scene_pcm_digest,
+        &roots.extension_compatibility_hash,
+        &roots.package_descriptor_hash,
+    ] {
+        bytes.extend_from_slice(
+            &decode_hash(root).expect("validated release root must decode as SHA-256"),
+        );
+    }
     sha256_hex(&bytes)
 }
 

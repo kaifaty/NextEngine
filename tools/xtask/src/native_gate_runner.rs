@@ -242,16 +242,17 @@ pub(crate) fn native_gate_run(root: &Path, requested_output: &Path) -> Result<()
         return Err(failure.error);
     }
     remove_owned_directory(&staging.join(".state"))?;
-    let report = NativeGateTargetReportV1 {
+    let report = NativeGateLinuxReportV2 {
         schema_version: NATIVE_GATE_SCHEMA_VERSION,
         status: NativeGateRunStatusV1::Pass,
+        release_ready: true,
         git_commit_sha: identity.git_commit.clone(),
         cargo_lock_sha256: identity.cargo_lock_sha256.clone(),
         rustc_release: identity.rustc_release.clone(),
         target_triple: identity.target_triple.clone(),
         checks: matrix.records,
-        closure_targets: Some(matrix.closure_targets),
-        comparable_roots: Some(matrix.comparable_roots),
+        release_target: Some(matrix.release_target),
+        release_roots: Some(matrix.release_roots),
         package: Some(matrix.package),
     };
     publish_native_gate_target_report(&staging, &target_output, &report)?;
@@ -312,9 +313,12 @@ fn run_native_gate_matrix(
     });
     let closure = run_check!(NativeGateCheckNameV1::V1Closure, |state_root| {
         let report = v1_closure_report(Some(state_root))?;
-        let targets =
+        let release_target =
             validate_native_gate_closure(identity, &report, &play, &replay, &content, &platform)?;
-        Ok(NativeGateClosureCheckResult { report, targets })
+        Ok(NativeGateClosureCheckResult {
+            report,
+            release_target,
+        })
     });
     let package = run_check!(NativeGateCheckNameV1::V1Package, |_state_root| {
         let build = xtask::package::build_v1_package(root, &staging.join("package"))?;
@@ -333,8 +337,8 @@ fn run_native_gate_matrix(
 
     Ok(NativeGateMatrixSuccess {
         records,
-        closure_targets: package.closure_targets,
-        comparable_roots: package.comparable_roots,
+        release_target: package.release_target,
+        release_roots: package.release_roots,
         package: package.package,
     })
 }
@@ -467,16 +471,17 @@ pub(crate) fn publish_native_gate_failure(
     prepare_failure_staging(staging, completed_records)?;
 
     let checks = complete_native_gate_failure_records(completed_records)?;
-    let report = NativeGateTargetReportV1 {
+    let report = NativeGateLinuxReportV2 {
         schema_version: NATIVE_GATE_SCHEMA_VERSION,
         status: NativeGateRunStatusV1::Fail,
+        release_ready: false,
         git_commit_sha: identity.git_commit.clone(),
         cargo_lock_sha256: identity.cargo_lock_sha256.clone(),
         rustc_release: identity.rustc_release.clone(),
         target_triple: identity.target_triple.clone(),
         checks,
-        closure_targets: None,
-        comparable_roots: None,
+        release_target: None,
+        release_roots: None,
         package: None,
     };
     publish_native_gate_target_report(staging, target_output, &report)
@@ -676,9 +681,9 @@ pub(crate) fn complete_native_gate_failure_records(
 fn publish_native_gate_target_report(
     staging: &Path,
     target_output: &Path,
-    report: &NativeGateTargetReportV1,
+    report: &NativeGateLinuxReportV2,
 ) -> Result<(), String> {
-    xtask::native_gate::validate_native_gate_target_report(report)
+    xtask::native_gate::validate_native_gate_linux_report(report)
         .map_err(|error| error.to_string())?;
     let bytes = serde_json::to_vec(report)
         .map_err(|error| format!("NATIVE_GATE_REPORT_INVALID: {error}"))?;
@@ -689,7 +694,7 @@ fn publish_native_gate_target_report(
             report_path.display()
         )
     })?;
-    xtask::native_gate::validate_native_gate_target_bundle(&report_path)
+    xtask::native_gate::validate_native_gate_linux_bundle(&report_path)
         .map_err(|error| error.to_string())?;
     if path_exists_without_following(target_output)? {
         return Err(format!(

@@ -34,7 +34,7 @@ impl TargetGateStatusV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct V1TargetGateV1 {
+pub struct V1ReleaseTargetGateV2 {
     pub target_triple: &'static str,
     pub package_descriptor_hash: ContentHash,
     pub runtime_check_status: TargetGateStatusV1,
@@ -42,7 +42,7 @@ pub struct V1TargetGateV1 {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct V1ClosureCheckReport {
+pub struct V1ClosureCheckReportV2 {
     pub project_composition_lock_hash: ContentHash,
     pub schema_registry_hash: ContentHash,
     pub content_manifest_hash: ContentHash,
@@ -64,19 +64,18 @@ pub struct V1ClosureCheckReport {
     pub no_ai_host_fallback: bool,
     pub no_luau_fallback: bool,
     pub no_wasm_fallback: bool,
-    pub windows: V1TargetGateV1,
-    pub linux: V1TargetGateV1,
-    pub shipping_ready: bool,
+    pub release_target: V1ReleaseTargetGateV2,
+    pub release_ready: bool,
     pub closure_hash: ContentHash,
 }
 
-pub fn run_v1_closure_check() -> Result<V1ClosureCheckReport, V1ClosureCheckError> {
+pub fn run_v1_closure_check() -> Result<V1ClosureCheckReportV2, V1ClosureCheckError> {
     run_v1_closure_check_in(&std::env::temp_dir())
 }
 
 pub fn run_v1_closure_check_in(
     scratch_root: &Path,
-) -> Result<V1ClosureCheckReport, V1ClosureCheckError> {
+) -> Result<V1ClosureCheckReportV2, V1ClosureCheckError> {
     let scratch = ScratchContext::new(scratch_root)
         .map_err(|error| V1ClosureCheckError::new("scratch root", error.to_string()))?;
     run_v1_closure_check_with_scratch(&scratch)
@@ -84,7 +83,7 @@ pub fn run_v1_closure_check_in(
 
 pub(crate) fn run_v1_closure_check_with_scratch(
     scratch: &ScratchContext,
-) -> Result<V1ClosureCheckReport, V1ClosureCheckError> {
+) -> Result<V1ClosureCheckReportV2, V1ClosureCheckError> {
     let directory = scratch
         .create_directory("v1-closure")
         .map_err(|error| V1ClosureCheckError::new("v1-closure scratch", error.to_string()))?;
@@ -96,7 +95,7 @@ pub(crate) fn run_v1_closure_check_with_scratch(
 
 fn run_v1_closure_check_scoped(
     scratch: &ScratchContext,
-) -> Result<V1ClosureCheckReport, V1ClosureCheckError> {
+) -> Result<V1ClosureCheckReportV2, V1ClosureCheckError> {
     let content_directory = scratch
         .create_directory("content-package")
         .map_err(|error| V1ClosureCheckError::new("content-package scratch", error.to_string()))?;
@@ -220,18 +219,7 @@ fn run_v1_closure_check_scoped(
         wit_v3_hash,
     );
 
-    let windows = target_gate(
-        "x86_64-pc-windows-msvc",
-        cfg!(all(
-            target_arch = "x86_64",
-            target_os = "windows",
-            target_env = "msvc"
-        )),
-        platform.candidate_status,
-        &content,
-        extension_compatibility_hash,
-    );
-    let linux = target_gate(
+    let release_target = target_gate(
         "x86_64-unknown-linux-gnu",
         cfg!(all(
             target_arch = "x86_64",
@@ -242,10 +230,8 @@ fn run_v1_closure_check_scoped(
         &content,
         extension_compatibility_hash,
     );
-    let shipping_ready = windows.runtime_check_status.is_pass()
-        && windows.desktop_smoke_status.is_pass()
-        && linux.runtime_check_status.is_pass()
-        && linux.desktop_smoke_status.is_pass();
+    let release_ready = release_target.runtime_check_status.is_pass()
+        && release_target.desktop_smoke_status.is_pass();
 
     let closure_hash = closure_hash(
         &content,
@@ -255,10 +241,9 @@ fn run_v1_closure_check_scoped(
         agent.final_plan_hash,
         audio.pcm_digest,
         extension_compatibility_hash,
-        windows.package_descriptor_hash,
-        linux.package_descriptor_hash,
+        release_target.package_descriptor_hash,
     );
-    Ok(V1ClosureCheckReport {
+    Ok(V1ClosureCheckReportV2 {
         project_composition_lock_hash: content.composition_lock_hash,
         schema_registry_hash: content.schema_registry_hash,
         content_manifest_hash: content.content_manifest_hash,
@@ -280,9 +265,8 @@ fn run_v1_closure_check_scoped(
         no_ai_host_fallback: true,
         no_luau_fallback: true,
         no_wasm_fallback: true,
-        windows,
-        linux,
-        shipping_ready,
+        release_target,
+        release_ready,
         closure_hash,
     })
 }
@@ -293,11 +277,11 @@ fn target_gate(
     platform_candidate_status: crate::PlatformCandidateStatus,
     content: &crate::ContentPackageCheckReport,
     extension_compatibility_hash: ContentHash,
-) -> V1TargetGateV1 {
+) -> V1ReleaseTargetGateV2 {
     let package_descriptor_hash =
         target_package_descriptor_hash(target_triple, content, extension_compatibility_hash);
     if running_on_target && platform_candidate_status == crate::PlatformCandidateStatus::Pass {
-        V1TargetGateV1 {
+        V1ReleaseTargetGateV2 {
             target_triple,
             package_descriptor_hash,
             runtime_check_status: TargetGateStatusV1::Pass,
@@ -317,7 +301,7 @@ fn target_gate(
         } else {
             format!("TARGET_EXECUTION_UNAVAILABLE_ON_{}", current_host_label())
         };
-        V1TargetGateV1 {
+        V1ReleaseTargetGateV2 {
             target_triple,
             package_descriptor_hash,
             runtime_check_status: TargetGateStatusV1::NotRun {
@@ -385,10 +369,9 @@ fn closure_hash(
     agent_hash: ContentHash,
     audio_pcm_digest: ContentHash,
     extension_compatibility_hash: ContentHash,
-    windows_package_hash: ContentHash,
-    linux_package_hash: ContentHash,
+    release_package_hash: ContentHash,
 ) -> ContentHash {
-    let mut bytes = b"nextengine.v1-closure.v1\0".to_vec();
+    let mut bytes = b"nextengine.v1-closure.v2\0".to_vec();
     bytes.extend_from_slice(content.composition_lock_hash.as_bytes());
     bytes.extend_from_slice(content.schema_registry_hash.as_bytes());
     bytes.extend_from_slice(content.content_manifest_hash.as_bytes());
@@ -402,8 +385,7 @@ fn closure_hash(
     bytes.extend_from_slice(agent_hash.as_bytes());
     bytes.extend_from_slice(audio_pcm_digest.as_bytes());
     bytes.extend_from_slice(extension_compatibility_hash.as_bytes());
-    bytes.extend_from_slice(windows_package_hash.as_bytes());
-    bytes.extend_from_slice(linux_package_hash.as_bytes());
+    bytes.extend_from_slice(release_package_hash.as_bytes());
     content_hash_from_bytes(sha256(&bytes))
 }
 
@@ -549,8 +531,12 @@ mod tests {
         fs::remove_dir(&root).expect("remove closure scratch root");
         assert_ne!(report.closure_hash, ContentHash::default());
         assert_ne!(
-            report.windows.package_descriptor_hash,
-            report.linux.package_descriptor_hash
+            report.release_target.package_descriptor_hash,
+            ContentHash::default()
+        );
+        assert_eq!(
+            report.release_target.target_triple,
+            "x86_64-unknown-linux-gnu"
         );
         assert!(report.headless_game_parity);
         assert!(report.no_ai_host_fallback);
@@ -558,33 +544,22 @@ mod tests {
         assert!(report.no_wasm_fallback);
         if cfg!(all(
             target_arch = "x86_64",
-            target_os = "windows",
-            target_env = "msvc",
-            feature = "desktop-sdl-ash"
-        )) {
-            assert_eq!(
-                report.windows.runtime_check_status,
-                TargetGateStatusV1::Pass
-            );
-        } else {
-            assert!(matches!(
-                report.windows.runtime_check_status,
-                TargetGateStatusV1::NotRun { .. }
-            ));
-        }
-        if cfg!(all(
-            target_arch = "x86_64",
             target_os = "linux",
             target_env = "gnu",
             feature = "desktop-sdl-ash"
         )) && !current_host_is_wsl()
         {
-            assert_eq!(report.linux.desktop_smoke_status, TargetGateStatusV1::Pass);
+            assert_eq!(
+                report.release_target.desktop_smoke_status,
+                TargetGateStatusV1::Pass
+            );
+            assert!(report.release_ready);
         } else {
             assert!(matches!(
-                report.linux.desktop_smoke_status,
+                report.release_target.desktop_smoke_status,
                 TargetGateStatusV1::NotRun { .. }
             ));
+            assert!(!report.release_ready);
         }
     }
 

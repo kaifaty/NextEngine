@@ -3,18 +3,12 @@ use xtask::native_gate::LINUX_TARGET_TRIPLE;
 fn shipping_target_triple() -> Result<&'static str, String> {
     if cfg!(all(
         target_arch = "x86_64",
-        target_os = "windows",
-        target_env = "msvc"
-    )) {
-        Ok("x86_64-pc-windows-msvc")
-    } else if cfg!(all(
-        target_arch = "x86_64",
         target_os = "linux",
         target_env = "gnu"
     )) {
         Ok("x86_64-unknown-linux-gnu")
     } else {
-        Err("TARGET_PACKAGE_REQUIRES_NATIVE_WINDOWS_OR_LINUX_X86_64".to_owned())
+        Err("TARGET_PACKAGE_REQUIRES_NATIVE_LINUX_X86_64_GNU".to_owned())
     }
 }
 
@@ -22,7 +16,7 @@ pub(crate) fn native_shipping_target_for_host(rustc_host: &str) -> Result<String
     let target_triple = shipping_target_triple()
         .map_err(|_| {
             format!(
-                "NATIVE_GATE_UNSUPPORTED_TARGET: native gate requires x86_64 Windows MSVC or Linux GNU, got {rustc_host}"
+                "NATIVE_GATE_UNSUPPORTED_TARGET: native gate release evidence requires x86_64 Linux GNU, got {rustc_host}"
             )
         })?
         .to_owned();

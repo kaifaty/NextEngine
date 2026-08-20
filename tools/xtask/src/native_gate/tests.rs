@@ -166,7 +166,7 @@ fn package(target: &str, roots: &NativeGateComparableRootsV1) -> NativeGatePacka
 pub(super) fn report(target: &str) -> NativeGateTargetReportV1 {
     let comparable_roots = roots();
     NativeGateTargetReportV1 {
-        schema_version: NATIVE_GATE_SCHEMA_VERSION,
+        schema_version: LEGACY_NATIVE_GATE_SCHEMA_VERSION,
         status: NativeGateRunStatusV1::Pass,
         git_commit_sha: "a".repeat(40),
         cargo_lock_sha256: hash('b'),
@@ -530,7 +530,7 @@ fn strict_schema_round_trips_and_rejects_unknown_fields_and_statuses() {
     assert!(serde_json::from_str::<NativeGateTargetReportV1>(&invalid_status).is_err());
 
     let mut wrong_version = report(WINDOWS_TARGET_TRIPLE);
-    wrong_version.schema_version = NATIVE_GATE_SCHEMA_VERSION + 1;
+    wrong_version.schema_version = LEGACY_NATIVE_GATE_SCHEMA_VERSION + 1;
     assert_eq!(
         validate_native_gate_target_report(&wrong_version)
             .expect_err("unknown schema version")
@@ -557,33 +557,40 @@ fn comparison_accepts_either_input_order_and_preserves_target_local_summaries() 
 #[test]
 fn derived_descriptor_and_closure_hashes_match_the_verification_oracle() {
     let oracle = next_verification::run_v1_closure_check().expect("v1 closure oracle");
-    let mut roots = roots();
-    roots.project_composition_lock_hash = oracle.project_composition_lock_hash.to_hex();
-    roots.schema_registry_hash = oracle.schema_registry_hash.to_hex();
-    roots.content_manifest_hash = oracle.content_manifest_hash.to_hex();
-    roots.mechanics_lock_hash = oracle.mechanics_lock_hash.to_hex();
-    roots.world_partition_hash = oracle.world_partition_hash.to_hex();
-    roots.play_state_root = oracle.play_state_root.to_hex();
-    roots.play_ledger_hash = oracle.play_ledger_hash.to_hex();
-    roots.replay_state_root = oracle.replay_state_root.to_hex();
-    roots.replay_ledger_hash = oracle.replay_ledger_hash.to_hex();
-    roots.streaming_performance_hash = oracle.streaming_performance_hash.to_hex();
-    roots.agent_performance_hash = oracle.agent_performance_hash.to_hex();
-    roots.audio_scene_pcm_digest = oracle.audio_scene_pcm_digest.to_hex();
-    roots.extension_compatibility_hash = oracle.extension_compatibility_hash.to_hex();
-    roots.windows_package_descriptor_hash = oracle.windows.package_descriptor_hash.to_hex();
-    roots.linux_package_descriptor_hash = oracle.linux.package_descriptor_hash.to_hex();
-    roots.closure_hash = oracle.closure_hash.to_hex();
-
+    let legacy = roots();
+    let roots = NativeGateReleaseRootsV2 {
+        project_composition_lock_hash: oracle.project_composition_lock_hash.to_hex(),
+        schema_registry_hash: oracle.schema_registry_hash.to_hex(),
+        content_manifest_hash: oracle.content_manifest_hash.to_hex(),
+        mechanics_lock_hash: oracle.mechanics_lock_hash.to_hex(),
+        world_partition_hash: oracle.world_partition_hash.to_hex(),
+        luau_manifest_hash: oracle.luau_manifest_hash.to_hex(),
+        wasm_manifest_hash: oracle.wasm_manifest_hash.to_hex(),
+        wit_v2_hash: oracle.wit_v2_hash.to_hex(),
+        wit_v3_hash: oracle.wit_v3_hash.to_hex(),
+        extension_compatibility_hash: oracle.extension_compatibility_hash.to_hex(),
+        play_state_root: oracle.play_state_root.to_hex(),
+        play_ledger_hash: oracle.play_ledger_hash.to_hex(),
+        replay_state_root: oracle.replay_state_root.to_hex(),
+        replay_ledger_hash: oracle.replay_ledger_hash.to_hex(),
+        platform_state_root: legacy.platform_state_root,
+        platform_ledger_hash: legacy.platform_ledger_hash,
+        presentation_snapshot_hash: legacy.presentation_snapshot_hash,
+        streaming_performance_hash: oracle.streaming_performance_hash.to_hex(),
+        agent_performance_hash: oracle.agent_performance_hash.to_hex(),
+        audio_scene_pcm_digest: oracle.audio_scene_pcm_digest.to_hex(),
+        packaged_game_state_root: legacy.packaged_game_state_root,
+        packaged_game_ledger_hash: legacy.packaged_game_ledger_hash,
+        packaged_headless_state_root: legacy.packaged_headless_state_root,
+        packaged_headless_ledger_hash: legacy.packaged_headless_ledger_hash,
+        closure_hash: oracle.closure_hash.to_hex(),
+        package_descriptor_hash: oracle.release_target.package_descriptor_hash.to_hex(),
+    };
     assert_eq!(
-        target_package_descriptor_hash(WINDOWS_TARGET_TRIPLE, &roots),
-        roots.windows_package_descriptor_hash
+        linux_package_descriptor_hash_v2(&roots),
+        roots.package_descriptor_hash
     );
-    assert_eq!(
-        target_package_descriptor_hash(LINUX_TARGET_TRIPLE, &roots),
-        roots.linux_package_descriptor_hash
-    );
-    assert_eq!(closure_hash(&roots), roots.closure_hash);
+    assert_eq!(linux_closure_hash_v2(&roots), roots.closure_hash);
 }
 
 #[test]

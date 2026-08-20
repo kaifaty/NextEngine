@@ -3,8 +3,8 @@ use std::fs;
 use std::path::Path;
 
 use super::{
-    NATIVE_GATE_REPORT_INVALID, NativeGateComparisonError, NativeGateRunStatusV1,
-    NativeGateTargetReportV1, checked_bundle_metadata, report_invalid,
+    NATIVE_GATE_REPORT_INVALID, NativeGateCheckRecordV1, NativeGateComparisonError,
+    NativeGateRunStatusV1, checked_bundle_metadata, report_invalid,
 };
 
 const MAX_BUNDLE_DEPTH: usize = 16;
@@ -20,7 +20,8 @@ enum BundleEntryKind {
 
 pub(super) fn validate_bundle_tree(
     bundle_root: &Path,
-    report: &NativeGateTargetReportV1,
+    status: NativeGateRunStatusV1,
+    checks: &[NativeGateCheckRecordV1],
 ) -> Result<(), NativeGateComparisonError> {
     let root_metadata =
         checked_bundle_metadata(bundle_root, NATIVE_GATE_REPORT_INVALID, "bundle directory")?;
@@ -40,8 +41,8 @@ pub(super) fn validate_bundle_tree(
         &mut inventory,
         &mut total_bytes,
     )?;
-    validate_top_level_shape(&inventory, report.status)?;
-    validate_checks_shape(&inventory, report)?;
+    validate_top_level_shape(&inventory, status)?;
+    validate_checks_shape(&inventory, checks)?;
     Ok(())
 }
 
@@ -170,10 +171,9 @@ fn validate_top_level_shape(
 
 fn validate_checks_shape(
     inventory: &BTreeMap<String, BundleEntryKind>,
-    report: &NativeGateTargetReportV1,
+    checks: &[NativeGateCheckRecordV1],
 ) -> Result<(), NativeGateComparisonError> {
-    let expected = report
-        .checks
+    let expected = checks
         .iter()
         .filter_map(|record| record.report_path.clone())
         .collect::<BTreeSet<_>>();

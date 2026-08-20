@@ -2,15 +2,21 @@ use crate::*;
 
 pub(crate) fn validate_native_gate_closure(
     identity: &NativeGateIdentity,
-    closure: &CommandReportV1<V1ClosureDetailsV1>,
+    closure: &CommandReportV2<V1ClosureDetailsV2>,
     play: &next_application::RunReportV1,
     replay: &CommandReportV1<PersistenceReplayDetailsV1>,
     content: &CommandReportV1<ContentPackageDetailsV1>,
     platform: &CommandReportV1<PlatformDetailsV1>,
-) -> Result<NativeGateClosureTargetSetV1, String> {
-    if closure.status != "LOCAL_PASS_SHIPPING_TARGETS_NOT_RUN" || closure.details.shipping_ready {
+) -> Result<NativeGateClosureTargetSummaryV1, String> {
+    if identity.target_triple != LINUX_TARGET_TRIPLE {
         return Err(format!(
-            "NATIVE_GATE_REPORT_INVALID: v1-closure must report LOCAL_PASS_SHIPPING_TARGETS_NOT_RUN, got {}",
+            "NATIVE_GATE_TARGET_SET_INVALID: release target must be {LINUX_TARGET_TRIPLE}, got {}",
+            identity.target_triple
+        ));
+    }
+    if closure.status != "PASS" || !closure.details.release_ready {
+        return Err(format!(
+            "NATIVE_GATE_REPORT_INVALID: v1-closure schema 2 must report PASS and release_ready, got {}",
             closure.status
         ));
     }
@@ -75,44 +81,17 @@ pub(crate) fn validate_native_gate_closure(
         &platform.details.ledger_hash,
     )?;
 
-    let targets = NativeGateClosureTargetSetV1 {
-        windows: native_gate_closure_target(&closure.details.windows, WINDOWS_TARGET_TRIPLE)?,
-        linux: native_gate_closure_target(&closure.details.linux, LINUX_TARGET_TRIPLE)?,
-    };
-    let (native, remote) = if identity.target_triple == WINDOWS_TARGET_TRIPLE {
-        (&targets.windows, &targets.linux)
-    } else {
-        (&targets.linux, &targets.windows)
-    };
-    if native.runtime_check != NativeGateTargetExecutionStatusV1::Pass
-        || native.desktop_smoke != NativeGateTargetExecutionStatusV1::Pass
+    let release_target =
+        native_gate_closure_target(&closure.details.release_target, LINUX_TARGET_TRIPLE)?;
+    if release_target.runtime_check != NativeGateTargetExecutionStatusV1::Pass
+        || release_target.desktop_smoke != NativeGateTargetExecutionStatusV1::Pass
     {
         return Err(format!(
-            "NATIVE_GATE_REPORT_INVALID: native closure target {} did not PASS",
+            "NATIVE_GATE_REPORT_INVALID: Linux release target {} did not PASS",
             identity.target_triple
         ));
     }
-    let (
-        NativeGateTargetExecutionStatusV1::NotRun {
-            reason: runtime_reason,
-        },
-        NativeGateTargetExecutionStatusV1::NotRun {
-            reason: desktop_reason,
-        },
-    ) = (&remote.runtime_check, &remote.desktop_smoke)
-    else {
-        return Err(format!(
-            "NATIVE_GATE_REPORT_INVALID: remote closure target {} must be NOT_RUN",
-            remote.target_triple
-        ));
-    };
-    if runtime_reason != desktop_reason {
-        return Err(format!(
-            "NATIVE_GATE_REPORT_INVALID: remote closure target {} reasons differ",
-            remote.target_triple
-        ));
-    }
-    Ok(targets)
+    Ok(release_target)
 }
 
 fn native_gate_closure_target(
@@ -266,7 +245,7 @@ pub(crate) fn build_native_gate_package_result(
             ledger_hash: manifest.binaries.headless.command_ledger_hash.clone(),
         },
     };
-    let comparable_roots = NativeGateComparableRootsV1 {
+    let release_roots = NativeGateReleaseRootsV2 {
         project_composition_lock_hash: closure.report.details.project_composition_lock_hash.clone(),
         schema_registry_hash: closure.report.details.schema_registry_hash.clone(),
         content_manifest_hash: closure.report.details.content_manifest_hash.clone(),
@@ -309,14 +288,13 @@ pub(crate) fn build_native_gate_package_result(
         packaged_headless_state_root: package.headless.state_root.clone(),
         packaged_headless_ledger_hash: package.headless.ledger_hash.clone(),
         closure_hash: closure.report.details.closure_hash.clone(),
-        windows_package_descriptor_hash: closure.targets.windows.package_descriptor_hash.clone(),
-        linux_package_descriptor_hash: closure.targets.linux.package_descriptor_hash.clone(),
+        package_descriptor_hash: closure.release_target.package_descriptor_hash.clone(),
     };
     let report = package_command_report(build, "package".to_owned());
     Ok(NativeGatePackageCheckResult {
         report,
-        closure_targets: closure.targets.clone(),
-        comparable_roots,
+        release_target: closure.release_target.clone(),
+        release_roots,
         package,
     })
 }
