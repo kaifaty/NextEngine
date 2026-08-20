@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `W2_CURRENT_PROFILES_MISS / NONLOCAL_NR2_O2_RETAINED / O3_NEXT / REPORT_ONLY` |
+| Status | `W2_CURRENT_PROFILES_MISS / NONLOCAL_O3_SEGMENTED_NUMERIC_MISMATCH / GATHER_RETAINED / O4_SPECIFICATION_NEXT / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `continuum-material-physics` |
 | Scope | Proposed architecture and evidence-gated specifications for local water and deformable materials |
@@ -36,10 +36,12 @@
   `nuv-gather-directed-r0 + pointer-swap-o1 + nuv-terms-specialized-o2` after
   exact tiny masks, stiff-surface, reused-instance and full controls. Its
   O2-only adjacent HN-3 total-p95 geometric-mean speedup is `1.0635x`, and
-  same-process profiling attributes lower viscosity-launch time. O3
-  accumulation-layout research is next. The failed `source-atomic-v0` surface
-  record and RC1/O1/O2 boundaries remain immutable, and O2 alone receives no
-  aggregate NR2/NR4 credit. The
+  same-process profiling attributes lower viscosity-launch time. O3 segmented
+  accumulation is implemented but rejected at stiff-surface i2 gather
+  correspondence despite exact repeatability/reverse/work/capacity controls.
+  O4 locality specification is next from retained gather. The failed
+  `source-atomic-v0` and segmented surface records plus RC1/O1/O2 boundaries
+  remain immutable, and O2 alone receives no aggregate NR2/NR4 credit. The
   crate-private `64`-partition worker path is short-root exact for
   serial/`1/2/4/8` and reaches `3.105×`, but sealed-48k still averages
   `269.643 ms`. A clean standalone RTX 3080 discriminator then measures the
@@ -66,8 +68,9 @@
 - **Current uncertainty:** Windows/Linux equality, 50k performance, dynamic
   rigid reaction, fast impact and added-mass behavior remain open. Nonlocal
   formula reproduction, deterministic gather reclosure and retained O1/O2 now
-  have bounded local evidence; retained O3–O6 attribution and the final NR4
-  48k/local-domain decision remain unknown. W1 supplies only Linux serial
+  have bounded local evidence; O3 is rejected, while retained O4–O6
+  attribution and the final NR4 48k/local-domain decision remain unknown. W1
+  supplies only Linux serial
   correctness; every later `CONTINUUM-*` ProductCheck is `NOT_RUN`.
 - **Do not retry:** public `ContinuumMaterialSystem` first, GPU authority,
   hidden warm-start/float continuation, iterative coupling, sleep before exact
@@ -101,11 +104,12 @@
 | [W2 algorithm/data-structure research](../continuum-water-w2-algorithms-and-data-structures-research-2026-08-19.md) | `DRAFT_RESEARCH / OPTIONS_NOT_SELECTED / NO_W2_CREDIT` | Separates exact DFSPH layout probes, multilevel-QP research and a new particle-grid profile; records ranked bounded experiments without selecting one |
 | [W2 GPU feasibility discriminator](../continuum-water-w2-gpu-feasibility-2026-08-19.md) | `DIRECT_GRAPH_PORT_MISSES_4MS / GPU_ARCHITECTURE_UNDECIDED / NO_W2_CREDIT` | Clean RTX 3080 proxy p95 is `37.398 ms` `f64` and `18.015 ms` mixed before mandatory omitted stages; direct backend transfer is rejected as a 4 ms solution, while broader GPU/solver research remains open |
 | [Nonlocal primary-source audit](../nonlocal-unified-continuum-source-audit-2026-08-19.md) | `PRIMARY_SOURCES_INSPECTED / NR1_EXECUTED` | Confirms a published CUDA/SISSM baseline and concrete optimization targets while rejecting universal-solver and immediate-integration claims |
-| [Nonlocal bounded research roadmap](../../plans/nonlocal-continuum/README.md) | `NR2_O2_RETAINED_TERM_SPECIALIZATION / O3_NEXT / NO_W2_CREDIT` | Exact viscosity specialization passes O2 retention and admits the layout tournament; DFSPH roots and authority remain unchanged |
+| [Nonlocal bounded research roadmap](../../plans/nonlocal-continuum/README.md) | `O3_SEGMENTED_NUMERIC_MISMATCH / O4_SPECIFICATION_NEXT / NO_W2_CREDIT` | O3 deterministic segmented accumulation fails stiff-surface gather correspondence; O2 gather remains retained and DFSPH roots/authority stay unchanged |
 | [Nonlocal NR1 baseline evidence](../nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | `BASELINE_MISMATCH / NR2_BLOCKED` | Tiny/water/viscous controls pass; source-shaped surface atomics amplify repeated `f32` order noise beyond state tolerances |
 | [Nonlocal NR1-RC1 evidence](../nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md) and [plan](../../plans/nonlocal-continuum/03-nr1-deterministic-accumulation-reclosure.md) | `NR1_RECLOSED_GATHER_DIRECTED / NR2_UNBLOCKED` | CPU/CUDA gates and exact stiff-surface repeats pass; this remains the immutable input boundary before retained O1 |
 | [Nonlocal NR2-O1 evidence](../nonlocal-continuum-nr2-o1-evidence-2026-08-20.md) and [plan](../../plans/nonlocal-continuum/04-nr2-o1-pointer-swap.md) | `O1_RETAINED_POINTER_SWAP / O2_NEXT` | Copy/swap exactness, stale-state controls, unchanged memory and adjacent retention gates pass; no W2/NR4 credit |
 | [Nonlocal NR2-O2 evidence](../nonlocal-continuum-nr2-o2-evidence-2026-08-20.md) and [plan](../../plans/nonlocal-continuum/05-nr2-o2-term-specialization.md) | `O2_RETAINED_TERM_SPECIALIZATION / O3_NEXT` | Exact runtime/specialized correspondence, unchanged memory, adjacent gates and same-process profiler attribution pass; no aggregate NR2/W2/NR4 credit |
+| [Nonlocal NR2-O3 evidence](../nonlocal-continuum-nr2-o3-evidence-2026-08-20.md) and [plan](../../plans/nonlocal-continuum/06-nr2-o3-accumulation-layout-tournament.md) | `O3_SEGMENTED_NUMERIC_MISMATCH / GATHER_RETAINED` | Tiny/reverse/work/capacity and exact repeatability pass, but stiff-surface i2 gather correspondence fails before admissible retention timing; no O3 credit |
 | [Umbrella material series](../../plans/continuum-material-physics/README.md) | `SPECIFICATION_ONLY` | Terrain/wet/sleep/transfer dependencies no longer rely on the water critical path |
 | [Unified world-dynamics task](world-dynamics-architecture.md) | `READY_FOR_THERMOCHEMICAL_T0B_AND_CLASSICAL_GATES` | Thermochemical and neural work are separately gated downstream tracks |
 | `CONTINUUM-WATER-REF-P1` | `PASS / LINUX_W1_PASS / RESEARCH_ONLY` | Admits W2 work; does not imply performance, coupling, persistence, runtime or production readiness |
@@ -202,7 +206,7 @@
 | H2: 50k water fits the current THOTH budget without a new rooted algorithm/authority profile | bounded sealed region, `3.105×` CPU-worker speedup and strong GPU reconstruction acceleration | short 8-worker CPU mean is `269.643 ms`; clean direct GPU proxy p95 is still `37.398 ms` `f64` / `18.015 ms` mixed before omitted stages | `REJECTED_FOR_CURRENT_CPU_AND_DIRECT_GPU_PROFILES`; decide stop versus new rooted profile |
 | H3: one-pass coupling is stable for the basin crate | narrow consumer and fixed cadence | fast impact/added-mass behavior is unmeasured | W3 float/impact corpus and reaction closure |
 | H4: one Drucker-Prager profile covers the first wheel scenario | established dry-sand model | exact source material and curve thresholds are not selected | Package 10T calibration closure |
-| H5: source-faithful Nonlocal/SISSM can justify a separately rooted continuum profile | gather reclosure and O1/O2 pass all gates; retained O2 p95 is `3.595 ms` water-48k and `6.608 ms` viscous-16k; same-process profiler confirms lower specialised viscosity time | source-atomic stiff surface remains invalid; O3–O6, final profiler and production constraints are incomplete; Compute counters are unavailable | specify O3 accumulation-layout tournament in order; no NR4 claim yet |
+| H5: source-faithful Nonlocal/SISSM can justify a separately rooted continuum profile | gather reclosure and O1/O2 pass all gates; retained O2 p95 is `3.595 ms` water-48k and `6.608 ms` viscous-16k; same-process profiler confirms lower specialised viscosity time | source-atomic stiff surface remains invalid; O3 segmented pre-addition also fails stiff-surface gather correspondence; O4–O6, final profiler and production constraints are incomplete; Compute counters are unavailable | specify O4 stable cell sorting/locality against retained gather; no NR4 claim yet |
 
 ## Required context
 
@@ -226,10 +230,11 @@
 
 ## Next action
 
-1. Specify and execute Nonlocal NR2 O3 from the retained
-   `nuv-gather-directed-r0 + pointer-swap-o1 + nuv-terms-specialized-o2`
-   identity, keeping layout work separate from O5 pass fusion.
-2. Preserve the failed source-atomic record and RC1/O1/O2 evidence boundaries;
+1. Specify Nonlocal NR2 O4 stable cell sorting and neighbor locality from the
+   retained `nuv-gather-directed-r0 + pointer-swap-o1 +
+   nuv-terms-specialized-o2` identity before implementation.
+2. Preserve the failed source-atomic and segmented records plus RC1/O1/O2
+   evidence boundaries;
    do not promote adjacent speedups directly to aggregate NR2 or NR4 credit.
 3. Do not run long percentile/corpus repetitions merely to refine the current
    CPU/direct-GPU miss or a failed Nonlocal feasibility cutoff.
@@ -299,8 +304,8 @@
   pressure and matrix traversals. It is `REPORT_ONLY`, has no root or
   ProductCheck credit, and does not change CPU authority.
 - **Selected next research:** Nonlocal O2 retains exact compile-time viscosity
-  specialization. O3 accumulation-layout research is next from the
-  gather/swap/specialized identity; all work remains standalone/report-only
-  with no W2 or production credit.
+  specialization. O3 segmented accumulation is rejected at stiff-surface i2;
+  O4 locality specification is next from gather/swap/specialized. All work
+  remains standalone/report-only with no W2 or production credit.
 - **Remaining risk:** full-trajectory and Windows worker equality, formal
   percentiles, dynamic coupling, persistence and terrain evidence remain open.

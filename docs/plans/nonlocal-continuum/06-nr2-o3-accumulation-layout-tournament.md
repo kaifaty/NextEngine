@@ -1,11 +1,19 @@
 # NR2-O3 — Accumulation-layout tournament
 
-Status: `SPECIFIED / IMPLEMENTATION_NOT_STARTED / REPORT_ONLY`
+Status: `EXECUTED / O3_SEGMENTED_NUMERIC_MISMATCH / RETAIN_GATHER_DIRECTED / REPORT_ONLY`
 
 Prerequisite:
 [NR2-O2 evidence](../../development/nonlocal-continuum-nr2-o2-evidence-2026-08-20.md)
 exits `O2_RETAINED_TERM_SPECIALIZATION` and admits O3 from the exact
 gather/swap/specialized identity.
+
+Execution closure:
+[NR2-O3 evidence](../../development/nonlocal-continuum-nr2-o3-evidence-2026-08-20.md)
+records 11/11 tiny PASS, exact reverse/work/capacity identities and exact
+10/10 segmented surface repeats. Retained-gather correspondence fails at the
+first stiff-surface i2 gate, so O3 exits
+`O3_SEGMENTED_NUMERIC_MISMATCH`; no retention tournament or O3 speedup is
+admissible. Gather/swap/specialized remains the O4 input.
 
 ## Outcome
 

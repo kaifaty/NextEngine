@@ -1,6 +1,6 @@
 # NR2/NR3 — Nonlocal GPU optimization discriminators
 
-Status: `SPECIFIED / O2_RETAINED_TERM_SPECIALIZATION / O3_NEXT / REPORT_ONLY`
+Status: `SPECIFIED / O3_SEGMENTED_NUMERIC_MISMATCH / GATHER_RETAINED / O4_SPECIFICATION_NEXT / REPORT_ONLY`
 
 The source-atomic [NR1 evidence](../../development/nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md)
 did not authorize this ladder. The separately specified
@@ -13,6 +13,13 @@ retains `nuv-gather-directed-r0 + pointer-swap-o1` as the O2 input. The
 now retains `nuv-terms-specialized-o2` as the O3 input. RC1, O1 and O2 timings
 remain bounded observations until the ordered ladder and final retained-path
 profiler capture are complete.
+
+The [O3 execution report](../../development/nonlocal-continuum-nr2-o3-evidence-2026-08-20.md)
+rejects `nuv-unique-pair-segmented-o3` at stiff-surface i2 correspondence.
+The candidate is exact across cold/reused runs and its reverse/work/capacity
+proofs pass, but its pre-added endpoint association produces a different
+surface trajectory beyond the frozen tolerance. No O3 timing or speedup is
+credited; O4 continues from gather/swap/specialized.
 
 ## Outcome
 
@@ -120,6 +127,13 @@ NR2 retained-speedup claim by itself.
 The tournament report includes atomic transactions if counters are available,
 bytes/pair, pair evaluations, temporary memory and stage p95. Lack of privileged
 hardware counters is recorded and does not invalidate wall-time comparison.
+
+Execution closure: `O3_SEGMENTED_NUMERIC_MISMATCH`. Tiny, specialization-mask,
+reverse-map, work and reached capacity gates pass. Ten cold surface i2 runs
+are internally exact, but fail correspondence to retained gather; therefore
+the ordered workflow stops before an admissible tournament. The failed
+segmented identity stays selectable for diagnosis, while O4 receives the
+unchanged gather/swap/specialized stack.
 
 ### O4 — Cell sorting and neighbor locality
 

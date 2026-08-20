@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `NR2_O2_RETAINED / O3_SPECIFIED / IMPLEMENTATION_NEXT / REPORT_ONLY` |
+| Status | `NR2_O3_SEGMENTED_NUMERIC_MISMATCH / GATHER_RETAINED / O4_SPECIFICATION_NEXT / REPORT_ONLY` |
 | Updated | `2026-08-20` |
 | Task key | `nonlocal-continuum-research` |
 | Scope | Source-faithful Nonlocal/SISSM baseline and bounded GPU optimization research |
@@ -48,11 +48,16 @@
   existing `4/6 ms` production gate.
 - Pairwise Descent remains unavailable as a public paper/code input and is not
   implemented.
-- O2 is retained. O3 is specified as a three-layout observation with only
-  `nuv-unique-pair-segmented-o3 + pointer-swap-o1 +
-  nuv-terms-specialized-o2` retainable against gather. It uses one `48 B`
-  endpoint fragment plus one `4 B` reverse index per capacity slot, caps the
-  48k candidate at `339,733,770 B`, and requires same-process rotating timing.
+- O3 is implemented at `ffa3b02` as the separately selectable
+  `nuv-unique-pair-segmented-o3` identity. Tiny passes 11/11, specialization
+  masks/reverse/work/capacity pass and the candidate is exact across reused
+  and ten cold surface-i2 executions.
+- O3 fails retained-gather correspondence at surface-16k i2: maximum position
+  difference is `1.41834e-4 m` and velocity difference is `0.141834 m/s`.
+  The ordered stop gate selects `O3_SEGMENTED_NUMERIC_MISMATCH`; no O3
+  tournament or speedup is admissible.
+- O2 gather/swap/specialized remains retained. The failed O3 identity remains
+  report-only/selectable for diagnosis, and O4 specification is next.
 
 ## Decisions
 
@@ -139,34 +144,45 @@
   the viscosity-kernel attribution is credited. The `1.0635x` adjacent HN-3
   result is O2-only and grants no aggregate NR2, NR4, W2 or production credit.
 
+### D-NR-009 — Reject segmented endpoint pre-addition
+
+- **Decision:** preserve `nuv-unique-pair-segmented-o3` as failed evidence and
+  retain gather/swap/specialized as the O4 input.
+- **Reason:** the candidate is deterministic and its reverse/work/capacity
+  proofs pass, but endpoint pre-addition changes floating association enough
+  to exceed every retained-gather field bound at stiff-surface i2.
+- **Constraint:** do not widen tolerances, change association again or attempt
+  another segmented family without a new specification. No O3 timing or
+  speedup is credited.
+
 ## Evidence and sources
 
 | Evidence | Status | Consequence |
 |---|---|---|
 | [Source audit](../nonlocal-unified-continuum-source-audit-2026-08-19.md) | `PRIMARY_SOURCES_INSPECTED` | formulas/code are sufficient for a bounded experiment; universal-solver claim rejected |
-| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `NR2_O2_RETAINED_TERM_SPECIALIZATION / O3_NEXT` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
+| [Research roadmap](../../plans/nonlocal-continuum/README.md) | `O3_SEGMENTED_NUMERIC_MISMATCH / O4_SPECIFICATION_NEXT` | defines NR0–NR4 and preserves the no-credit relationship to W2 |
 | [Research contract](../../plans/nonlocal-continuum/00-research-contract.md) | `SPECIFIED` | freezes hypotheses, workloads, measurement scope and terminal states |
 | [Baseline/oracle specification](../../plans/nonlocal-continuum/01-source-faithful-baseline-and-oracle.md) | `EXECUTED / BASELINE_MISMATCH` | source-shaped NR1 may not enter NR2 |
 | [NR1 evidence](../nonlocal-continuum-nr1-baseline-evidence-2026-08-19.md) | `BASELINE_MISMATCH` | tiny/water/viscous reproduce; surface atomics amplify repeated `f32` order noise beyond state tolerances |
 | [Accumulation reclosure research](../nonlocal-continuum-accumulation-reclosure-research-2026-08-19.md) | `GATHER_DIRECTED_SELECTED` | formula closure, CUDA determinism limits and fragment memory select owner-only gather first |
 | [NR1-RC1 specification](../../plans/nonlocal-continuum/03-nr1-deterministic-accumulation-reclosure.md) | `EXECUTED / NR1_RECLOSED_GATHER_DIRECTED` | freezes and closes candidate identity, unchanged dimensions and ordered gates |
 | [NR1-RC1 evidence](../nonlocal-continuum-nr1-rc1-evidence-2026-08-19.md) | `NR1_RECLOSED_GATHER_DIRECTED / NR2_UNBLOCKED` | exact surface repeats support the atomic-order diagnosis; full controls and bounded adjacent costs pass |
-| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `O2_RETAINED_TERM_SPECIALIZATION / O3_NEXT` | continue in order from the exact gather/swap/specialized candidate |
+| [Optimization discriminators](../../plans/nonlocal-continuum/02-gpu-optimization-discriminators.md) | `O3_SEGMENTED_NUMERIC_MISMATCH / O4_SPECIFICATION_NEXT` | keep gather/swap/specialized and specify locality-only O4 next |
 | [O1 specification](../../plans/nonlocal-continuum/04-nr2-o1-pointer-swap.md) and [evidence](../nonlocal-continuum-nr2-o1-evidence-2026-08-20.md) | `EXECUTED / O1_RETAINED_POINTER_SWAP` | exact reused/copy correspondence, unchanged memory and adjacent retention gates pass |
 | [O2 specification](../../plans/nonlocal-continuum/05-nr2-o2-term-specialization.md) and [evidence](../nonlocal-continuum-nr2-o2-evidence-2026-08-20.md) | `EXECUTED / O2_RETAINED_TERM_SPECIALIZATION` | exact runtime/specialized correspondence, unchanged memory, adjacent gates and same-process profiler attribution pass; counters unavailable explicitly |
-| [O3 specification](../../plans/nonlocal-continuum/06-nr2-o3-accumulation-layout-tournament.md) | `SPECIFIED / IMPLEMENTATION_NEXT` | freezes unique-pair endpoint fragments, reverse-map/work proofs, byte ceilings, rotating three-layout timing and a `1.10x` memory-cost retention threshold |
+| [O3 specification](../../plans/nonlocal-continuum/06-nr2-o3-accumulation-layout-tournament.md) and [evidence](../nonlocal-continuum-nr2-o3-evidence-2026-08-20.md) | `EXECUTED / O3_SEGMENTED_NUMERIC_MISMATCH` | tiny/reverse/work/capacity and exact repeatability pass; stiff-surface i2 gather correspondence fails before admissible timing |
 | Pairwise Descent paper/code | `TO_APPEAR / NOT_AUDITABLE` | do not implement or infer formulas |
 
 ## Next action
 
-1. Implement only the specified segmented identity, reverse-map validation,
-   capacity/work reporting and same-process tournament command.
-2. Run tiny, stiff-surface and full correspondence before any tournament
-   timing; on numeric mismatch preserve gather and stop changing association.
+1. Specify O4 stable cell sorting and neighbor locality against the retained
+   gather/swap/specialized identity before implementation.
+2. Preserve the O3 numeric-mismatch boundary; do not rerun its tournament or
+   change endpoint association/tolerances without a new specification.
 3. Preserve runtime term dispatch, copy handoff, source-atomic, RC1, O1 and O2
    evidence boundaries. Do not add their non-adjacent percentages.
-4. Keep O3 report-only; do not infer NR2-SPEEDUP, NR4, W2 or production
-   authority from an implementation or timing result.
+4. Keep O3/O4 report-only; do not infer NR2-SPEEDUP, NR4, W2 or production
+   authority from an implementation or locality result.
 
 ## Do not retry or infer
 
@@ -182,16 +198,16 @@
 
 ## Handoff
 
-- **Current change:** O3 contract freezes one unique-pair/CSR-segmented
-  candidate, exact memory/work gates and rotating same-process timing; O2
-  binary `ae444274...c389` remains the implementation baseline.
-- **Executable checks:** build, both legacy tiny identities and specialised
-  tiny 11/11 PASS; invalid identity combinations reject; surface i2/i20
-  ten-repeat, reused-instance, runtime correspondence and all full controls
-  are exact; adjacent 5+50 timing gates PASS.
+- **Current change:** O3 implementation `ffa3b02` adds the isolated segmented
+  identity, reverse/work/capacity reporting and rotating tournament command;
+  evidence selects `O3_SEGMENTED_NUMERIC_MISMATCH` and retains O2 gather.
+- **Executable checks:** final build and both legacy tiny identities PASS
+  11/11; candidate tiny PASS 11/11 plus bulk-only smoke; invalid combinations
+  reject; surface i2 candidate repeatability is exact 10/10 with exact CSR
+  and reverse map but retained-gather correspondence FAILS.
 - **Profiler:** Nsight Systems same-process viscosity attribution is complete;
   Nsight Compute counter collection is explicitly unavailable under
   `ERR_NVGPUCTRPERM` and recorded by two hashed command logs.
-- **Remaining uncertainty:** O3 implementation/correctness/cost, O4–O6 retained attribution, final fixed-work
+- **Remaining uncertainty:** O4–O6 retained attribution, final fixed-work
   speedup after ordered optimization, privileged counter evidence and NR4
   product interpretation.
