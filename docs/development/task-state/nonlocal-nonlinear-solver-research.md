@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B1R1_PASS / NSR3B2_STATIC_BOUNDARY_RESEARCH` |
+| Status | `ACTIVE / NSR3B1R1_PASS / NSR3B2_SPLIT_BOUNDARY_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -83,8 +83,17 @@
   `1.5x/1.75x` accepted work.
 - **Current decision:** select `NSR_MULTISTEP_CANDIDATE`. The coarse trajectory
   is an error probe; the fine trajectory owns the committed transition.
-- **Current action:** research and freeze B2 static boundary support/contact
-  formula, ownership and derivative oracles under the corrected objective.
+- **Current conclusion:** the Nonlocal paper leaves fluid-solid collision to
+  future work. The 2026 semi-analytical boundary energy belongs to a separate
+  SISPH identity and explicitly lacks feedback-force modeling.
+- **Current decision:** B2 uses split static support/contact. Fixed samples
+  enter only fluid-centered pressure density; hard swept contact and its
+  reaction remain a separate nonsmooth operation.
+- **Current hypothesis:** two layers may remain sufficient at `H=3dx` because
+  the normalized cubic and its first two radial derivatives vanish at `H`;
+  B2 must prove this against a three-layer counterfactual.
+- **Current action:** implement the frozen B2 face/corner derivative,
+  reaction, layer-correspondence and face/edge/corner contact oracles.
 - **Next gate:** B2 design must separate density support from nonpenetration
   and prove gradient/HVP/reaction semantics before any boundary trajectory.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
@@ -258,6 +267,28 @@
   probe remains charged as discarded work; no boundary, CUDA, runtime or
   production execution is authorized.
 
+### D-017 -- Split boundary support, contact and reaction semantics
+
+- **Observation:** selected Nonlocal provides no validated collision formula;
+  the semi-analytical SISPH boundary paper changes solver/globalization and is
+  one-way without solid feedback forces.
+- **Decision:** use fixed samples only as fluid-centered pressure support;
+  derive their virtual reaction, and retain exact swept contact as a separate
+  operation with its own reaction.
+- **Consequence:** B2 pressure support receives gradient/HVP oracles; hard
+  contact deliberately does not. A unified boundary energy is deferred to a
+  new identity if split composition later fails.
+
+### D-018 -- Prove two layers from kernel closure, do not import three
+
+- **Observation:** FCR2 has `H=3dx`, but `W(H)=W'(H)=W''(H)=0`; the third axis
+  shell should carry zero density and curvature while exceeding the current
+  product capacity if retained mechanically.
+- **Decision:** make two-versus-three-layer face/edge/corner correspondence a
+  B2 gate before changing any profile or capacity.
+- **Consequence:** PASS preserves the bounded two-layer candidate; mismatch
+  stops for profile/capacity reclosure rather than silently raising limits.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -270,10 +301,11 @@
 
 ## Exact next action
 
-1. Audit prior boundary research against the FCR2 normalized objective and
-   selected fine-owned transition.
-2. Freeze separate support, nonpenetration, reaction and derivative oracles.
-3. Implement only the bounded B2 static-boundary formula discriminator.
+1. Implement fluid-only support energy and virtual boundary reaction on face
+   and corner fixtures.
+2. Prove gradient/HVP/dense and two-versus-three-layer correspondence.
+3. Run independent face/edge/corner hard-contact and ghost-only negative
+   controls; select/reject B2 without a trajectory.
 
 ## Reconsideration triggers
 

@@ -191,3 +191,9 @@ see the
 It selects `NSR_MULTISTEP_CANDIDATE` and authorizes B2 static-boundary formula
 design only. Boundary execution remains blocked until that contract is frozen
 and its derivative oracles pass.
+The primary-source audit selects a split support/contact model; see the
+[B2 research note](../../development/nonlocal-nsr3b2-boundary-formula-research-2026-08-21.md).
+The resulting
+[NSR3-B2 contract](03b2-split-static-boundary-contract.md) is frozen with
+fluid-only pressure centers, virtual support reaction, two-versus-three-layer
+correspondence and separate hard-contact oracles.
