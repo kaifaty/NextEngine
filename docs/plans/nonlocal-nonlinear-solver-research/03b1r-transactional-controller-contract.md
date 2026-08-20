@@ -42,8 +42,11 @@ coarse step with the existing binary64 allowance.
 An inactive snapshot may take one macro step with zero spectrum/comparator
 work only when its uniform-acceleration free-flight prediction is also
 pressure-inactive and every supported pair has non-negative relative radial
-velocity. Otherwise it enters the embedded path with initial `n=1`. The fast
-path must end pressure-inactive and retain the exact free-flight solution.
+velocity **and zero relative velocity under the selected viscosity model**
+(within the existing binary64 exact/finite comparison). Otherwise it enters
+the embedded path with initial `n=1`. This extra condition is required because
+pressure inactivity alone does not disable bulk viscosity. The fast path must
+end pressure-inactive and retain the exact free-flight solution.
 
 Spectrum is recomputed only at an active macro-frame boundary. It is not
 silently reused across accepted state changes.

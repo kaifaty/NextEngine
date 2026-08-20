@@ -65,6 +65,10 @@
   production policy.
 - **Current action:** implement the frozen B1R transactional composition over
   the original `0.05 s` horizon and fixed `96/192/384` reference ladder.
+- **Current constraint:** inactive pressure is not an inertia-only state while
+  bulk viscosity remains selected. The B1R one-step fast path additionally
+  requires zero relative bond velocity; relaxation frames use measured `1/2`
+  refinement instead.
 - **Next gate:** B1R must bound accumulated error and publish recurring
   spectrum/comparator work before B2 may be designed.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
@@ -203,6 +207,17 @@
   macro-frame composition and the `3x--3.5x` speculative-work multiplier must
   be tested before B2. Later performance research must reduce or amortize the
   comparator, not omit it.
+
+### D-014 -- Keep viscosity inside the inactive-state decision
+
+- **Observation:** a pressure-inactive expanding lattice can still have
+  nonzero bulk-viscosity energy; pressure count alone cannot authorize exact
+  free flight.
+- **Decision:** B1R's zero-comparator fast path also requires zero relative
+  velocity on every supported bond and an inactive free-flight endpoint.
+- **Consequence:** single-particle flight and rigid translation stay cheap;
+  relaxing material states enter the embedded `n=1` path even after pressure
+  switches off.
 
 ## Required context
 
