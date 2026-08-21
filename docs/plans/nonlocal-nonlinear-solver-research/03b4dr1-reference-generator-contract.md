@@ -132,6 +132,10 @@ payloads remain external under:
 
 No unverified copy, symlink target or `/tmp` staging path receives credit.
 
+The [frozen R1D child contract](03b4dr1d-full-generation-contract.md) reissues
+schedule-consistent scenario blocks, exact aggregate roots and the parallel
+two-wave publication protocol over the accepted R1C5 lineage.
+
 ## R1E -- new attestation and exit
 
 After R1D, freeze a new reader/profile contract containing actual source,

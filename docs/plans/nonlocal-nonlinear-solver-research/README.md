@@ -898,3 +898,10 @@ R1C5 now passes all three corrected pairs byte-identically; see the
 Orifice completes 24 steps with 28 final receiver samples while its source-
 support boundary remains unchanged. This opens only R1D full external
 generation; R1E, B4E, runtime and production authority remain blocked.
+The [R1D research](../../development/nonlocal-nsr3b4dr1d-full-generation-research-2026-08-21.md)
+shows that the short manifests cannot truthfully describe full schedules and
+selects schedule-only scenario reclosure. The
+[frozen R1D contract](03b4dr1d-full-generation-contract.md) binds exact
+51/181/181-frame sizes, domain-separated q99/receiver roots, two waves of at
+most three independent one-thread processes and verified content-addressed
+publication. Implement its manifest-only gate and generator next.

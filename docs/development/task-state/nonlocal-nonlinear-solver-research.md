@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1C5_PASS / R1D_DESIGN` |
+| Status | `ACTIVE / NSR3B4DR1_R1C5_PASS / R1D_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -80,9 +80,12 @@
 - **Current conclusion:** R1C5 passes all three pairs byte-identically. All six
   processes exit zero with empty stderr; Orifice completes with 28 receiver
   samples under analytical `x_max=2.0` and unchanged one-metre source support.
-- **Next action:** freeze and implement R1D full schedules under the corrected
-  profile, then run each scenario twice in fresh processes. Do not begin R1E
-  until all three full pairs pass.
+- **Current decision:** R1D uses new schedule-consistent scenario manifests,
+  unchanged frame format/physics and separate q99-x/q99-y/receiver roots.
+  Independent one-thread scenarios run in two waves of at most three.
+- **Next action:** implement and commit the R1D zero-Simulation manifest gate
+  plus full generator, then run all full pairs under the explicit external
+  artifact root. Do not begin R1E until all three pairs pass.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -113,6 +116,7 @@
 | NSR3B4DR1C4 execution | Hydro/Dam exact; Orifice fails before contact at extent mismatch | R1C4 FAIL; no R1D |
 | NSR3B4DR1C5 contract | explicit domain/support extent ownership | rerun all pairs under new identity |
 | NSR3B4DR1C5 PASS | all short pairs exact; Orifice reaches 28 receiver samples | R1D full generation only |
+| NSR3B4DR1D contract | full schedule manifests, aggregate roots and verified publication | implement preflight/generator, then run full pairs |
 
 Candidate solver identity remains:
 
@@ -310,6 +314,16 @@ adapter/source/binary SHA-256 values.
 - **Rejected:** inheriting short payloads as full references, starting R1E
   early or converting this research pass into runtime/production authority.
 
+### D-016 -- Reclose manifests at the full schedule
+
+- **Observation:** R1C blocks normatively claim 24 steps/every-step output and
+  cannot be embedded unchanged in truthful full-schedule payloads.
+- **Decision:** reissue only scenario schedule blocks and profile identity;
+  retain all R1C5 physical bytes and the frame layout. Run independent
+  scenarios concurrently, never parallelizing one solver process.
+- **Rejected:** a contradictory embedded manifest, OpenMP reduction changes,
+  `/tmp`-only output or publication before pair equality.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -334,9 +348,10 @@ adapter/source/binary SHA-256 values.
 
 ## Exact next action
 
-1. Freeze the R1D execution/profile projection over the accepted R1C5 lineage.
+1. Implement the frozen R1D schedule manifest/capacity preflight and forced
+   schedule-mismatch rejection without creating a Simulation.
 2. Implement output schedules Hydro `0..1200/24` and Dam/Orifice `0..720/4`
-   without changing solver/contact physics, R1B output or R1C1 manifests.
+   without changing solver/contact physics, R1B output or R1C1 preflight.
 3. Run each scenario twice from fresh one-thread processes into explicit
    external artifact roots; require byte-identical same-scenario payloads.
 4. Design R1E only after complete R1D PASS; keep B4E blocked until R1E passes.
