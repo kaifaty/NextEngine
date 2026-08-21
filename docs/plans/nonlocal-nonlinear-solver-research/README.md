@@ -418,3 +418,11 @@ frozen bounds and all four failure paths are atomic; see the
 This selects `JOINT_PRESSURE_CANONICAL_STAGE_CANDIDATE` and authorizes only
 B4C3T full canonical-controller physical-bound design. B4C4 and B4D remain
 blocked.
+The subsequent [B4C3Q audit](../../development/nonlocal-nsr3b4c3q-conservative-quantization-research-2026-08-21.md)
+finds that independent per-sample rounding adds an unreported aggregate
+position/momentum perturbation after the KKT ledger is closed. The
+[frozen discriminator](03b4c3q-balanced-quantization-contract.md) compares it
+with exact deterministic aggregate-balanced apportionment, including
+adversarial algebra, one-frame P1/P2 physics and long free-flight drift. B4C3T
+is now blocked until B4C3Q selects a publication policy and B4C3A1 revalidates
+the transaction under the resulting new profile identity.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3A_PASS / NSR3B4C3T_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3A_PASS / NSR3B4C3Q_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -10,6 +10,16 @@
 | Authority | Working context only; Accepted architecture, SPEC-38/ADR-076 and the frozen stage contracts outrank this file |
 
 ## Resume in 60 seconds
+
+- **Current finding:** independent nearest-even continuation introduces a
+  post-KKT aggregate position and velocity perturbation up to `N/2` canonical
+  units per component and substep. The existing ledger is evaluated before
+  that perturbation and therefore cannot claim conservation of published state.
+- **Current decision:** insert B4C3Q before B4C3T. Compare nearest-even with
+  exact deterministic aggregate-balanced apportionment; if selected, revalidate
+  B4C3A1 under a new profile before any complete trajectory.
+- **Current action:** implement the frozen B4C3Q algebraic, covariance,
+  one-frame physical and 1,024-step temporal discriminator. B4C3T is blocked.
 
 - **Current conclusion:** B4C3A passes P1 `21/42` and P2 `1/2` one-frame
   canonical transactions. Fine-only commit, decoded continuation, sample/step
@@ -843,6 +853,28 @@
   canonical trajectories, explicit checkpoint rollback and independent
   canonical-versus-binary physical envelopes.
 
+### D-045 -- Expose the post-KKT quantization ledger gap
+
+- **Observation:** B4C3A rounds every sample independently after the accepted
+  KKT solve. The local half-unit bound permits an aggregate velocity error of
+  `N/2` units per component per substep; its momentum impulse is absent from
+  the already-closed solver ledger. Position rounding likewise perturbs center
+  and pressure geometry before the next solve.
+- **Decision:** block B4C3T and insert B4C3Q. Test exact aggregate-balanced
+  apportionment that minimizes incremental squared error, has no hidden carry,
+  keeps local error below one unit and aggregate error within half a unit.
+- **Rejected alternatives:** do not ignore publication impulse, weaken the
+  ledger, use an unordered/binary64 aggregate sum, or silently retain binary64
+  continuation while claiming replay from canonical frames.
+- **Consequence:** balanced PASS requires a new canonical profile and B4C3A1
+  transaction revalidation. Balanced FAIL requires a new decision between
+  snapshot-only publication and another frozen state representation.
+- **Remaining uncertainty:** aggregate balancing may double the worst local
+  error, perturb local pair geometry or introduce tie-break symmetry artifacts;
+  its long-horizon physical benefit is not yet established.
+- **Smallest next action:** execute the frozen algebraic, symmetry, physical and
+  temporal discriminator before revisiting full-controller bounds.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -855,13 +887,13 @@
 
 ## Exact next action
 
-1. Audit complete B4B2 controller ownership for frame-start, forecast, coarse,
-   fine, fixed-reference and failure rollback under canonical continuation.
-2. Derive and freeze independent multi-frame canonical-versus-binary64 physical
-   envelopes, adaptive schedule/contact tolerances and exact trajectory-root
-   continuity without reusing invalid binary64 state equality.
-3. Implement B4C3T only after the discriminator is frozen. B4C4 packaging and
-   nominal B4D remain blocked.
+1. Implement B4C3Q exact aggregate target/residual arithmetic and the frozen
+   independent-versus-balanced discriminator.
+2. If balanced passes, bind a new canonical profile and re-run one-frame
+   transaction mechanics as B4C3A1; otherwise choose snapshot-only or freeze a
+   different state representation.
+3. Resume full B4C3T controller/ledger design only after publication policy is
+   selected. B4C4 packaging and nominal B4D remain blocked.
 
 ## Reconsideration triggers
 
