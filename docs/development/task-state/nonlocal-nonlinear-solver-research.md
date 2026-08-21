@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10R_FROZEN / SELECTED8_PROFILE_EXECUTION` |
+| Status | `ACTIVE / NSR3B4EP10R_FAIL / INTERNAL_PARALLEL_TIMING_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -262,8 +262,11 @@
 - **Current decision:** B4EP10R uses one unmodified gprofng 2.46 8-worker
   profile with 1 ms clock samples and native synchronization tracing. Exact
   output is required; profile overhead grants no speed credit.
-- **Next action:** execute the frozen B4EP10R profile and route by normalized
-  sync wait or a `1.20x` exclusive-CPU category leader.
+- **Negative result:** B4EP10R target output is exact, but the collector says
+  its interval changed from 1000 us to zero and marks the profile unreliable.
+  The 60.91% anonymous libgomp sample is diagnostic only and grants no route.
+- **Next action:** research and freeze opt-in internal 8-worker phase timing;
+  do not select an optimization from rejected gprofng samples.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -335,6 +338,7 @@
 | NSR3B4EP10S contract | three balanced serialized physical-core rounds | execute timing only; host-specific selection or serial fallback |
 | NSR3B4EP10S PASS | 8 workers, median `1.237020x`, 6.421 effective cores | B4EP10R selected-count residual profiling research only |
 | NSR3B4EP10R contract | one exact gprofng clock/sync profile at 8 workers | attribution only; route one next design target |
+| NSR3B4EP10R FAIL | exact target, unreliable collection-interval warning | preserve B4EP10S; internal parallel phase timing research only |
 
 Candidate solver identity remains:
 
@@ -408,6 +412,7 @@ production authority is created by this lineage.
 | [B4EP10S research](../nonlocal-nsr3b4ep10s-scaling-design-research-2026-08-22.md) | physical-core affinity and short balanced matrix selected | execute frozen scaling contract without concurrent conditions |
 | [B4EP10S](../nonlocal-nsr3b4ep10s-owner-parallel-scaling-evidence-2026-08-22.md) | 8-worker host-specific knee passes every frozen gate | attribute selected parallel residual before another change |
 | [B4EP10R research](../nonlocal-nsr3b4ep10r-selected8-profile-research-2026-08-22.md) | unmodified clock/sync profile selected | run exact profile and route one next design only |
+| [B4EP10R](../nonlocal-nsr3b4ep10r-selected8-profile-evidence-2026-08-22.md) | target exact but PC samples marked unreliable | discard attribution; design internal timing |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -778,6 +783,16 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** selecting 16 from minimum wall alone, treating 23.70% wall
   improvement as production readiness or optimizing without attribution.
 
+### D-036 -- Reject unreliable worker-thread sampling
+
+- **Observation:** gprofng preserves exact target output and records 32.302
+  sampled CPU seconds, but its own header says the 1 ms interval changed to
+  zero and the profile may be unreliable; native sync tracing is empty.
+- **Decision:** reject all sampled percentages for routing, preserve B4EP10S
+  and research opt-in internal parallel phase timing.
+- **Rejected:** waiving the frozen reliability gate because the raw 60.91%
+  libgomp sample appears plausible or treating the warning as a solver fail.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -823,9 +838,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Execute the frozen B4EP10R selected-8 gprofng profile and exact-output gate.
-2. Aggregate the frozen CPU/synchronization categories and route one next
-   design; do not infer production readiness.
+1. Research internal selected-8 phase timers that preserve exact result bytes
+   apart from explicitly excluded durations.
+2. Freeze and execute that timing discriminator before choosing a next design;
+   do not infer production readiness.
 
 ## Reconsideration triggers
 

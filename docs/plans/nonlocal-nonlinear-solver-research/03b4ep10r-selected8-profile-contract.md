@@ -1,6 +1,6 @@
 # NSR3-B4EP10R -- selected-8 residual profile contract
 
-Status: `FROZEN / EXECUTION_AUTHORIZED`
+Status: `CLOSED / FAIL / PROFILE_RELIABILITY_WARNING`
 
 Identity projection (exact bytes, no final LF):
 
@@ -69,3 +69,12 @@ PASS records one exact selected-count attribution and authorizes only the
 routed next design research. The profile has instrumentation overhead and is
 not a speed result. Failure preserves B4EP10S and starts no optimization.
 B4E2, broad corpus, runtime/GPU/schema and production remain blocked.
+
+## Closure
+
+B4EP10R fails; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10r-selected8-profile-evidence-2026-08-22.md).
+The target remains exact, but gprofng reports that its collection interval was
+changed and the profile may be unreliable. No category or next optimization
+inherits credit. B4EP10S remains selected and internal phase-timing research
+is permitted as a new, separately frozen stage.

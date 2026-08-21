@@ -1,6 +1,6 @@
 # NSR3-B4EP10R selected-8 residual profile research -- 2026-08-22
 
-Status: `COMPLETE / GPROFNG_CLOCK_AND_SYNC_SELECTED`
+Status: `COMPLETE / METHOD_FAILED / INTERNAL_TIMING_NEXT`
 
 ## Question
 
@@ -74,5 +74,7 @@ Routing is frozen:
 
 ## Decision
 
-Freeze one exact gprofng profile. B4EP10R cannot claim speed or authorize
-B4E2/runtime/GPU/production work; it may select only one next design target.
+The [dated evidence](nonlocal-nsr3b4ep10r-selected8-profile-evidence-2026-08-22.md)
+rejects the profile because its header marks clock samples unreliable. The
+exact target result preserves B4EP10S, but no raw sampled percentage may route
+an optimization. Research a new opt-in internal phase-timing stage.

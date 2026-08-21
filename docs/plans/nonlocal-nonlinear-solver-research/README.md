@@ -1155,3 +1155,9 @@ perf remains policy-blocked and classic gprof cannot reliably own worker
 samples. Its [frozen contract](03b4ep10r-selected8-profile-contract.md)
 routes only to persistent-region research, one `1.20x` CPU-category leader or
 scoped internal timing.
+B4EP10R fails; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10r-selected8-profile-evidence-2026-08-22.md).
+The target remains exact, but the collector reports that its sampling interval
+changed and the profile may be unreliable. Raw libgomp/kernel percentages
+receive no routing credit; B4EP10S remains valid and a separately frozen
+internal timing stage is required.
