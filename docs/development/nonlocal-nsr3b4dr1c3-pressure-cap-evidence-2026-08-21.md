@@ -70,4 +70,3 @@ physics unchanged. The cap is a limit, not a forced iteration count; step 1
 still stops at 220. Re-run the 24-step scenarios in the original paired,
 cost-aware order. Any later step reaching 300 without convergence fails
 closed. R1D remains blocked until all three pairs pass byte-identically.
-

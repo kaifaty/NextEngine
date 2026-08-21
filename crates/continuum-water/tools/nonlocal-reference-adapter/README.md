@@ -79,3 +79,15 @@ nonlocal_reference_adapter --r1c3-pressure-cap \
 
 It changes only the pressure iteration cap, executes one Hydro step and writes
 no payload. The external directory is still required as a fail-closed sentinel.
+
+The selected new-root R1C4 trajectory profile uses:
+
+```text
+nonlocal_reference_adapter --r1c4-trajectory \
+  <CW-HYDRO-001|CW-DAMBREAK-001|CW-ORIFICE-001> \
+  <absolute-empty-output-directory>
+```
+
+It retains the full R1C trajectory and payload path under a new identity and
+changes only the pressure maximum from 100 to 300. R1D is still a separate
+gate.

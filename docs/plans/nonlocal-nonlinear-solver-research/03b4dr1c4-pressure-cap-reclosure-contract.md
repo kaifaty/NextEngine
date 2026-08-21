@@ -50,4 +50,3 @@ failure. Record binary, report and payload identities plus timing.
 R1C4 passes only if all six processes pass and each same-scenario pair is
 byte-identical. PASS authorizes only R1D full-generation execution under this
 new cap-300 profile. R1E, B4E, runtime and production remain blocked.
-

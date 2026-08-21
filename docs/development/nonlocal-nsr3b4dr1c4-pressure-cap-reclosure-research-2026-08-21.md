@@ -31,4 +31,3 @@ Implement a distinct `--r1c4-trajectory` mode. Run two fresh Hydro processes
 and compare complete payload/report bytes. Only then advance to the Dam pair,
 then Orifice pair, stopping on the first failure or mismatch. This is still a
 short external reference gate, not R1D generation or a production claim.
-

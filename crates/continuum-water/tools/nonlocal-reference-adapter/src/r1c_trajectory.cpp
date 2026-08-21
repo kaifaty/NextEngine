@@ -47,6 +47,19 @@ constexpr std::string_view PRESSURE_SWEEP_SCHEMA =
     "nextengine.nonlocal.nsr3b4dr1c3-pressure-cap-sweep.v1";
 constexpr std::string_view PRESSURE_SWEEP_CONTRACT_IDENTITY =
     "926e594fedec03e9c3b08aa76fc57a22988049e97f60c5e47113387aae879678";
+constexpr std::string_view R1C4_SCHEMA =
+    "nextengine.nonlocal.nsr3b4dr1c4-trajectory.v1";
+constexpr std::string_view R1C4_CONTRACT_IDENTITY =
+    "7490aa5390296c5f7fc29a56f7039458ced1969ddee555bfe0ea07f50d49be41";
+constexpr std::string_view R1C4_PROFILE_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4dr1c4-pressure-cap-reclosure|v1|"
+    "parent=865570e18864ec55cdbbbbad8b9cfa3f200a085087ecf272366c342144488927|"
+    "diagnostic=926e594fedec03e9c3b08aa76fc57a22988049e97f60c5e47113387aae879678|"
+    "change=pressure-max:100->300|"
+    "observed=hydro-step1:iterations220,error:0x3fb965727028bcc7,"
+    "threshold:0x3fb999999999999a|volume=.000125|mass=.125|all-else=r1c1|"
+    "runs=2-fresh-byte-exact-per-scenario|"
+    "order=hydro,dam,orifice;stop-first-failure|credit=new-root-only";
 constexpr std::uint64_t DT_BITS = UINT64_C(0x3f71111111111111);
 constexpr std::uint32_t SAMPLE_COUNT = 6'000;
 constexpr std::uint32_t FRAME_COUNT = 25;
@@ -57,6 +70,7 @@ enum class TrajectoryMode {
     R1C,
     R1C2,
     R1C3PressureSweep,
+    R1C4,
 };
 
 std::string_view schema_for(TrajectoryMode mode) {
@@ -65,6 +79,9 @@ std::string_view schema_for(TrajectoryMode mode) {
     }
     if (mode == TrajectoryMode::R1C3PressureSweep) {
         return PRESSURE_SWEEP_SCHEMA;
+    }
+    if (mode == TrajectoryMode::R1C4) {
+        return R1C4_SCHEMA;
     }
     return SCHEMA;
 }
@@ -75,6 +92,9 @@ std::string_view contract_for(TrajectoryMode mode) {
     }
     if (mode == TrajectoryMode::R1C3PressureSweep) {
         return PRESSURE_SWEEP_CONTRACT_IDENTITY;
+    }
+    if (mode == TrajectoryMode::R1C4) {
+        return R1C4_CONTRACT_IDENTITY;
     }
     return CONTRACT_IDENTITY;
 }
@@ -466,7 +486,10 @@ AdapterRun run_r1c_trajectory_impl(
         payload.reserve(8U * 1024U * 1024U);
         const std::array<std::uint8_t, 8> magic = {'C', 'W', 'R', 'E', 'F', 'V', '2', 0};
         payload.insert(payload.end(), magic.begin(), magic.end());
-        std::string manifest(r1c_profile_identity_projection());
+        std::string manifest(
+            mode == TrajectoryMode::R1C4
+                ? R1C4_PROFILE_IDENTITY_PROJECTION
+                : r1c_profile_identity_projection());
         manifest.push_back('\n');
         manifest.append(scenario.manifest);
         append_u32(payload, checked_u32(manifest.size(), "MANIFEST_LENGTH"));
@@ -723,6 +746,16 @@ AdapterRun run_r1c_pressure_cap_sweep_point(
         output_dir,
         TrajectoryMode::R1C3PressureSweep,
         *parsed_cap);
+}
+
+AdapterRun run_r1c4_trajectory(
+    std::string_view scenario_id,
+    std::string_view output_dir) {
+    return run_r1c_trajectory_impl(
+        scenario_id,
+        output_dir,
+        TrajectoryMode::R1C4,
+        300U);
 }
 
 } // namespace nextengine::nonlocal_reference
