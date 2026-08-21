@@ -20,6 +20,15 @@ from .protocol import (
     VadCalibration,
     event,
 )
+from .reliability_features import (
+    FEATURE_SCHEMA,
+    SAMPLE_RATE_HZ,
+    ReliabilityFeatureError,
+    RevisionObservation,
+    TranscriptRevisionState,
+    build_feature_payload,
+    incomplete_feature_payload,
+)
 from .scheduler import (
     JobCompletion,
     JobDiscarded,
@@ -45,6 +54,7 @@ class _PcmSignalLevel:
         self.sum_squares = 0.0
         self.peak = 0.0
         self.nonzero_samples = 0
+        self.clipped_samples = 0
 
     def add(self, pcm: bytes) -> None:
         if not pcm:
@@ -56,6 +66,7 @@ class _PcmSignalLevel:
             self.sum_squares += sample * sample
             self.peak = max(self.peak, absolute)
             self.nonzero_samples += int(absolute >= 1.0 / 32768.0)
+            self.clipped_samples += int(absolute >= 32767.0 / 32768.0)
 
     def payload(self) -> dict[str, float | int | None]:
         if self.samples == 0:
@@ -64,6 +75,7 @@ class _PcmSignalLevel:
                 "rms_dbfs": None,
                 "peak_dbfs": None,
                 "nonzero_ratio": 0.0,
+                "clipping_ratio": 0.0,
             }
         rms = math.sqrt(self.sum_squares / self.samples)
         return {
@@ -71,6 +83,7 @@ class _PcmSignalLevel:
             "rms_dbfs": round(20.0 * math.log10(max(rms, 1e-8)), 2),
             "peak_dbfs": round(20.0 * math.log10(max(self.peak, 1e-8)), 2),
             "nonzero_ratio": round(self.nonzero_samples / self.samples, 6),
+            "clipping_ratio": round(self.clipped_samples / self.samples, 9),
         }
 
 
@@ -301,6 +314,11 @@ class SpeechConnection:
         self._retain_diagnostic_audio = True
         self._raw_signal_level = _PcmSignalLevel()
         self._asr_signal_level = _PcmSignalLevel()
+        self._reliability_transcript = TranscriptRevisionState()
+        self._reliability_fault: tuple[str, str] | None = None
+        self._reliability_expected_start_sample = 0
+        self._discontinuous_frames = 0
+        self._asr_job_failures = 0
 
     async def start(
         self,
@@ -427,6 +445,9 @@ class SpeechConnection:
             raise
         generation = self.session.generation
         self._ingress_frames += 1
+        if frame.start_sample != self._reliability_expected_start_sample:
+            self._discontinuous_frames += 1
+        self._reliability_expected_start_sample = frame.end_sample
         self._raw_signal_level.add(frame.payload)
         try:
             activity_changed = self.activity.feed_pcm16(frame.start_sample, frame.payload)
@@ -601,6 +622,7 @@ class SpeechConnection:
             final_transcript = results[0]
             final_affect = results[1] if final_affect_task is not None else None
         except BaseException as error:
+            self._asr_job_failures += 1
             await self._fail("MODEL_FAILURE", _bounded_error(error))
             return
         self._transcriber_session = None
@@ -609,6 +631,9 @@ class SpeechConnection:
             stable_prefix=final_transcript.committed_text,
             final=True,
             timing_precision=final_transcript.timing_precision,
+        )
+        self._record_revision(
+            final_transcript, audio_end_sample=self.session.total_samples
         )
         self.timeline.apply_activity(activity_segments)
         if final_affect is not None and final_span is not None:
@@ -702,6 +727,24 @@ class SpeechConnection:
         """Terminate an unrecoverable client-input fault exactly once."""
         await self._fail(code, detail)
 
+    def _record_revision(self, revision: Any, *, audio_end_sample: int) -> None:
+        """Fold one ASR revision into the bounded reliability accumulator."""
+
+        if self._reliability_fault is not None:
+            return
+        try:
+            self._reliability_transcript.observe(
+                RevisionObservation(
+                    full_text=revision.full_text,
+                    stable_prefix=revision.committed_text,
+                    final=bool(getattr(revision, "final", False)),
+                    audio_end_sample=audio_end_sample,
+                    wall_monotonic_ns=time.monotonic_ns(),
+                )
+            )
+        except ReliabilityFeatureError as error:
+            self._reliability_fault = (error.reason, str(error))
+
     async def _asr_push_with_backpressure(
         self, generation: int, start_sample: int, end_sample: int, pcm: bytes
     ) -> None:
@@ -722,6 +765,7 @@ class SpeechConnection:
                 audio_end_sample=end_sample,
             )
             if revision is not None:
+                self._record_revision(revision, audio_end_sample=end_sample)
                 snapshot = self.timeline.apply_transcript(
                     text=revision.full_text,
                     stable_prefix=revision.committed_text,
@@ -734,6 +778,7 @@ class SpeechConnection:
         except JobDiscarded:
             return
         except BaseException as error:
+            self._asr_job_failures += 1
             await self._fail("SERVICE_OVERLOADED" if isinstance(error, SchedulerOverloaded) else "MODEL_FAILURE", _bounded_error(error))
 
     def _record_preprocessor_metric(
@@ -964,6 +1009,10 @@ class SpeechConnection:
             for item in activity_segments
             if item.state == "speech"
         )
+        reliability_features = self._reliability_features(
+            activity_segments=activity_segments,
+            speech_samples=speech_samples,
+        )
         return {
             "audio_samples": self.session.total_samples,
             "jobs": [item.as_dict() for item in self._job_metrics[-PUBLIC_JOB_METRIC_LIMIT:]],
@@ -1018,6 +1067,7 @@ class SpeechConnection:
                 "selected_audio_route": self._asr_audio_route,
             },
             "vocal_affect": self.timeline.affect_diagnostics(),
+            "recognition_reliability_features": reliability_features,
             "events": {
                 "count": self._event_count,
                 "bytes_total": self._event_bytes,
@@ -1032,6 +1082,108 @@ class SpeechConnection:
                 "retention_requested": self._retain_diagnostic_audio,
             },
         }
+
+    def _reliability_features(
+        self,
+        *,
+        activity_segments: tuple[Any, ...],
+        speech_samples: int,
+    ) -> dict[str, object]:
+        """Build the bounded recognition-reliability feature payload.
+
+        Any capture fault or validation failure degrades to a typed
+        incomplete payload; it never raises out of terminal metrics.
+        """
+
+        if self._reliability_fault is not None:
+            reason, detail = self._reliability_fault
+            return incomplete_feature_payload(reason, detail)
+        try:
+            total_samples = self.session.total_samples
+            raw_signal = dict(self._raw_signal_level.payload())
+            route_signal = dict(self._asr_signal_level.payload())
+            calibration = getattr(self.activity, "config", None)
+            noise_floor = getattr(calibration, "calibration_noise_floor_dbfs", None)
+            noise_floor_source = (
+                "quiet_room_calibration"
+                if isinstance(noise_floor, float)
+                else "default_thresholds"
+            )
+            scheduler_current = asdict(self.runtime.scheduler.metrics)
+            preprocessor_capabilities: dict[str, object] = {}
+            algorithmic_delay_ms = 0
+            preprocessor_active = self._asr_audio_route != ASR_AUDIO_ROUTE_RAW
+            if (
+                preprocessor_active
+                and self.runtime.audio_preprocessor is not None
+            ):
+                preprocessor_capabilities = dict(
+                    self.runtime.audio_preprocessor.capabilities()
+                )
+                route_details = preprocessor_capabilities.get("route_details")
+                delay_value: object = preprocessor_capabilities.get(
+                    "algorithmic_latency_ms"
+                )
+                if isinstance(route_details, dict):
+                    details = route_details.get(self._asr_audio_route)
+                    if isinstance(details, dict):
+                        delay_value = details.get(
+                            "algorithmic_latency_ms", delay_value
+                        )
+                if isinstance(delay_value, int) and not isinstance(delay_value, bool):
+                    algorithmic_delay_ms = max(0, delay_value)
+            transcriber_caps = self.runtime.transcriber_capabilities(self._asr_model)
+            identities: dict[str, object] = {
+                "feature_schema": FEATURE_SCHEMA,
+                "sample_rate_hz": SAMPLE_RATE_HZ,
+                "asr_model": self._asr_model,
+                "asr_adapter_id": str(transcriber_caps.get("adapter_id", "")),
+                "asr_runtime_id": transcriber_caps.get("runtime_id"),
+                "asr_streaming_mode": transcriber_caps.get("streaming_mode"),
+                "selected_delay_ms": self._asr_delay_ms,
+                "partial_decode_interval_ms": transcriber_caps.get(
+                    "partial_decode_interval_ms"
+                ),
+                "audio_route": self._asr_audio_route,
+                "enhancer_adapter_id": preprocessor_capabilities.get("adapter_id"),
+                "enhancer_model_id": preprocessor_capabilities.get("model_id"),
+                "enhancer_model_revision": preprocessor_capabilities.get(
+                    "model_revision"
+                ),
+            }
+            return build_feature_payload(
+                identities=identities,
+                transcript=self._reliability_transcript.transcript_features(
+                    utterance_duration_ms=total_samples * 1_000 / SAMPLE_RATE_HZ
+                ),
+                raw_signal=raw_signal,
+                route_signal=route_signal,
+                noise_floor_dbfs=(
+                    noise_floor if isinstance(noise_floor, float) else None
+                ),
+                noise_floor_source=noise_floor_source,
+                speech_samples=speech_samples,
+                speech_ratio=(
+                    speech_samples / total_samples if total_samples > 0 else 0.0
+                ),
+                vad_segment_count=len(activity_segments),
+                ingress_frames=self._ingress_frames,
+                discontinuous_frames=self._discontinuous_frames,
+                route_sample_deficit=total_samples - int(route_signal["samples"]),
+                scheduler_overloads=max(
+                    0,
+                    scheduler_current["overloads"] - self._scheduler_baseline["overloads"],
+                ),
+                asr_job_failures=self._asr_job_failures,
+                preprocessor_active=preprocessor_active,
+                algorithmic_delay_ms=algorithmic_delay_ms,
+            )
+        except ReliabilityFeatureError as error:
+            return incomplete_feature_payload(error.reason, str(error))
+        except Exception as error:
+            return incomplete_feature_payload(
+                "FEATURE_CAPTURE_FAILED", type(error).__name__
+            )
 
     def _timeline_event(self, snapshot: TimelineSnapshot) -> dict[str, object]:
         observations = snapshot.vocal_affect.raw_observations
