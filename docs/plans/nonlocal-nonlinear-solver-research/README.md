@@ -522,3 +522,12 @@ canonical/legacy/policy roots, KKT-ledger and energy gates, and an explicit
 order-or-forward-floor convergence classification. The six independent lanes
 may execute concurrently with fixed report order; this changes harness
 resource utilization, not solver semantics. B4C3TC remains blocked.
+B4C3TR's isolated execution is a preserved FAIL; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3tr-fixed-reference-evidence-2026-08-21.md).
+All six lanes pass solver, transaction and KKT-policy gates, and parallel lane
+execution gives `3.06x` wall-time speedup. The blocking result is instead
+fundamental: fixed microunit publication after every substep injects the
+representation perturbation more frequently as `h` shrinks. P2 contact phase
+error grows from `0.260 ms` at 48 to `1.063 ms` at 192, and canonical final
+differences do not converge. B4C3TC remains blocked; only a publication-cadence
+reclosure may follow.

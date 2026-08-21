@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3TAR2_PASS / B4C3TR_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3TR_FAIL / B4C3P_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -19,12 +19,20 @@
   `CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_CANDIDATE`. B4C3TA and
   B4C3TAR remain preserved FAIL evidence; B4C3A2 remains the selected
   one-frame ledger transaction.
-- **Current action:** implement the frozen B4C3TR complete canonical fixed
-  `48/96/192` reference lanes. B4C3TC/B4C4/B4D remain blocked.
-- **Current contract:** each fixed lane owns independent contiguous canonical,
-  legacy-ledger and policy-ledger roots; it must remain in the pre-frozen
-  same-level binary tube. Temporal differences must show inherited first-order
-  convergence or explicit canonical forward-floor overlap.
+- **Current conclusion:** B4C3TR isolated lanes fail twice identically at raw
+  `b04a7c93...51be`. Every solver/transaction/ledger lane finishes, but
+  per-substep microunit continuation makes representation perturbations scale
+  with substep count: P2 contact error grows `0.260 -> 0.521 -> 1.063 ms` and
+  P1 fixed-192 changes the terminal contact set.
+- **Current decision:** preserve B4C3TR FAIL and keep B4C3TC blocked. Do not
+  widen tubes/event tolerances; the fixed-192 trajectory is not a valid
+  refinement reference under current publication cadence.
+- **Current action:** freeze B4C3P publication-cadence discriminator comparing
+  per-substep continuation with private binary64 substeps plus one canonical
+  macro-boundary transaction. B4C3TC/B4C4/B4D remain blocked.
+- **Performance finding:** six independent lanes use `311--312%` CPU and turn
+  `~60.4` CPU-seconds into `~19.7` wall-seconds (`3.06x`) with byte-identical
+  output. This validates harness parallelism, not solver/runtime performance.
 - **Current evidence:** full raw-with-LF `911f4ee0...81c6`, no-LF
   `5862a1c9...6c3d`, semantic `ae52a97a...77f7`; wall time
   `107.72/107.50 s`. P1 accepts/attempts `364/563` substeps and has two strict
@@ -1192,6 +1200,28 @@
 - **Smallest next action:** implement the corrected frozen contract before any
   fixed-lane measurement.
 
+### D-060 -- Reject per-substep canonical fixed reference
+
+- **Observation:** all six fixed lanes pass KKT, neighborhood, canonical
+  transaction, ledger and root gates, while the binary64 ladders retain
+  first-order convergence. Nevertheless canonical contact phase and same-level
+  velocity error grow with `48 -> 96 -> 192`; P2 final canonical differences
+  have position/velocity ratios `0.523/0.204` rather than positive order.
+- **Decision:** preserve B4C3TR FAIL. Fixed microunit publish/decode after every
+  physical substep is timestep-dependent model perturbation and cannot define
+  the higher-resolution reference.
+- **Rejected alternatives:** do not widen the event/tube gates, call the broad
+  representation floor convergence, discard terminal contact identity, reduce
+  fixed levels or proceed to adaptive-versus-fixed comparison.
+- **Consequence:** B4C3TC is blocked. B4C3P must separate internal integration
+  cadence from externally durable canonical publication cadence.
+- **Remaining uncertainty:** macro-boundary-only publication may restore
+  temporal convergence while retaining deterministic durable checkpoints, but
+  it changes substep replay semantics and must be tested under a new identity.
+- **Smallest next action:** derive and freeze a cadence discriminator with
+  current per-substep control, macro-boundary candidate and explicit
+  transaction/ledger semantics before implementation.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1204,12 +1234,12 @@
 
 ## Exact next action
 
-1. Implement B4C3TR's six independent fixed canonical lanes with exact roots,
-   work, same-level binary tubes and physical/energy accounting.
-2. Add the frozen binary and canonical convergence classifications plus
-   post-commit forced rollback.
-3. Run the isolated report first, then two complete parent-gated reports.
-   B4C3TC/B4C4/B4D remain blocked.
+1. Audit which B4C3Q/B4C3A2 invariants belong to durable macro publication and
+   which were accidentally imposed on private solver substeps.
+2. Freeze B4C3P with unchanged physics, per-substep control and one-publication-
+   per-macro candidate across fixed `48/96/192` P1/P2 lanes.
+3. Require temporal/event convergence, macro-root/ledger atomicity and
+   same-level binary correspondence before any B4C3TC redesign.
 
 ## Reconsideration triggers
 

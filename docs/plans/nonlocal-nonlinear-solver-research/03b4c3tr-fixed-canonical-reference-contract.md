@@ -1,6 +1,6 @@
 # NSR3-B4C3TR -- fixed canonical reference
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / B4C3TC_BLOCKED`
+Status: `EXECUTED_FAIL / B4C3TC_BLOCKED / CADENCE_RECLOSURE_ONLY`
 
 Parent B4C3TAR2 selects
 `CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_CANDIDATE`; its
@@ -126,3 +126,15 @@ PASS selects `CANONICAL_FIXED_REFERENCE_CANDIDATE` and authorizes only B4C3TC
 adaptive-versus-fixed comparison design. FAIL preserves B4C3TAR2 and all
 negative evidence. Nominal, B4C4, B4D, CUDA, runtime/schema and production
 authority remain blocked.
+
+## Recorded decision
+
+The isolated B4C3TR report fails twice byte-identically at raw JSON-with-LF
+`b04a7c93e3b90c67950b1460c48c99236f5cdc2829be4aabc010afa664b351be`
+and semantic result
+`bf92622cb719574b5d13a5bdae06b18adefee95dd34da1781bada1091f27e02f`.
+The KKT/ledger lanes pass, but per-substep canonical publication makes contact
+phase and same-level velocity error grow under refinement. See the
+[dated evidence](../../development/nonlocal-nsr3b4c3tr-fixed-reference-evidence-2026-08-21.md).
+Preserve the FAIL and authorize only a separately frozen publication-cadence
+discriminator. Full parent-gated B4C3TR replay was not executed.

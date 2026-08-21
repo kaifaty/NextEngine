@@ -1,6 +1,6 @@
 # B4C3TR fixed canonical reference research
 
-Status: `COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / EXECUTED_FAIL / CADENCE_RECLOSURE_NEXT`
 
 Date: `2026-08-21`
 
@@ -96,3 +96,9 @@ Freeze B4C3TR under identity
 `52bcd5bc908ea9b2afb36e15248bfe5a623e2b5b00f90e60e3fdddb2ec624b13`.
 A PASS can authorize only B4C3TC adaptive-versus-fixed comparison design. It
 cannot authorize the nominal corpus, runtime, CUDA or production integration.
+
+Execution is a preserved FAIL; see the
+[dated evidence](nonlocal-nsr3b4c3tr-fixed-reference-evidence-2026-08-21.md).
+All transactional/KKT lanes complete, but same-level event and velocity gates
+diverge as publication frequency increases. B4C3TC remains blocked; only a
+publication-cadence discriminator may follow.
