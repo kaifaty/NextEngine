@@ -1161,3 +1161,9 @@ The target remains exact, but the collector reports that its sampling interval
 changed and the profile may be unreliable. Raw libgomp/kernel percentages
 receive no routing credit; B4EP10S remains valid and a separately frozen
 internal timing stage is required.
+The [B4EP10R1 research](../../development/nonlocal-nsr3b4ep10r1-internal-parallel-timing-research-2026-08-22.md)
+selects opt-in hierarchical steady-clock timing plus per-worker active
+intervals. Its
+[frozen contract](03b4ep10r1-internal-parallel-timing-contract.md) separates
+active, imbalance and orchestration capacity across the exact 3,411 regions
+and keeps all old commands on the uninstrumented branch.
