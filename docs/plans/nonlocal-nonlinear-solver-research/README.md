@@ -1086,3 +1086,8 @@ selects one transaction-only flat-workspace fusion that preserves density and
 gradient accumulation order. Its
 [frozen contract](03b4ep7i-fused-evaluation-tape-contract.md) requires exact
 old/candidate bytes and three balanced Release wins before retaining it.
+B4EP7I passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep7i-fused-evaluation-tape-evidence-2026-08-22.md).
+The fused transaction is bit-exact and wins all three pairs with median
+`1.1111x` speedup, reducing median wall from 8.90 s to 8.00 s. The modest
+margin selects only B4EP8 exact residual profiling/design, not production.

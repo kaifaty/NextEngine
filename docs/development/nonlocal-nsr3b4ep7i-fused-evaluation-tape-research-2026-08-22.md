@@ -1,6 +1,6 @@
 # NSR3-B4EP7I fused evaluation/tape research -- 2026-08-22
 
-Status: `COMPLETE / EXACT_FUSION_AB_SELECTED / NO_IMPLEMENTATION_YET`
+Status: `COMPLETE / IMPLEMENTED_AND_PASS / RESEARCH_ONLY`
 
 ## Selected mechanism
 
@@ -57,3 +57,6 @@ least `1.10x`.
 Freeze one B4EP7I implementation/A-B. PASS selects the exact fused workspace
 candidate and authorizes only B4EP8 residual profiling/design. Failure keeps
 B4EP7D and forbids stacking another optimization.
+
+The candidate passes with median paired speedup `1.1111x`; see the
+[dated evidence](nonlocal-nsr3b4ep7i-fused-evaluation-tape-evidence-2026-08-22.md).

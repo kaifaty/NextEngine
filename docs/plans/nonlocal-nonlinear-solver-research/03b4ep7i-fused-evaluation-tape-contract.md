@@ -1,6 +1,6 @@
 # NSR3-B4EP7I -- fused evaluation/tape A/B contract
 
-Status: `FROZEN / IMPLEMENTATION_AND_AB_AUTHORIZED / RESEARCH_ONLY`
+Status: `CLOSED / PASS / B4EP8_PROFILE_DESIGN_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -58,3 +58,7 @@ PASS selects `EXACT_FUSED_EVALUATION_TAPE_CANDIDATE` and authorizes only
 B4EP8 residual profiling/design. Exactness failure rejects speed; speed failure
 preserves B4EP7D. B4E2, runtime/CUDA, references, parallelism, solver-policy
 and production remain blocked.
+
+Observed PASS: exact fused correspondence, three paired wins and median
+`1.111111111111x`; median wall is 8.90 s versus 8.00 s. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep7i-fused-evaluation-tape-evidence-2026-08-22.md).
