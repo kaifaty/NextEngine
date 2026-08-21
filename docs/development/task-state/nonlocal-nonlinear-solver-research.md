@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4M0_PASS / B4C4A_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C4A_PASS / B4C4A1_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -69,9 +69,14 @@
 - **Current decision:** isolate retained accepted-workspace ownership as
   B4C4A. Generic memoization is rejected; immutable support indexing and
   flat-only CSR remain separate B4C4B/B4C4C candidates.
-- **Current action:** implement B4C4A single-owner transfer, direct diagnostic
-  read, deterministic receipt and failure cleanup under exact `264/9` build
-  expectations. Complete lanes and B4D remain blocked.
+- **Current conclusion:** B4C4A passes twice byte-identically at full raw
+  `fdd2050a...c136`. It removes exactly `63/3` diagnostic rebuilds, reaches
+  `264/9` total P1/P2 builds and preserves all physical/canonical/ledger
+  values and roots. Success, consumer-abort and non-finite failure ownership
+  all end with zero live workspaces.
+- **Current action:** freeze B4C4A1 to apply the same retained ownership to
+  complete adaptive and macro-boundary fixed lanes under exact legacy
+  correspondence. B4C4B/B4C4C and B4D remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1592,6 +1597,27 @@
 - **Smallest next action:** freeze and execute a one-macro B4C4A correspondence
   gate before applying it to complete lanes.
 
+### D-078 -- Select B4C4A and isolate complete-lane application
+
+- **Observation:** B4C4A removes exactly the predeclared `63/3` one-macro
+  diagnostic rebuilds (`327->264`, `12->9`). Candidate and legacy adaptive
+  attempts, physical diagnostics, topology, canonical frames and ledger roots
+  are bit-exact; ordered receipts repeat and all ownership exits are clean.
+- **Decision:** select `ONE_MACRO_RETAINED_ACCEPTED_WORKSPACE_CANDIDATE` and
+  freeze B4C4A1 for complete adaptive plus macro-boundary fixed lanes before
+  touching static support indexing or CSR layout.
+- **Rejected alternatives:** apply the private change to every lane without a
+  correspondence gate, call one macro a complete-trajectory performance
+  result, or combine B4C4A with B4C4B/B4C4C.
+- **Consequence:** the legacy query transcript remains historical authority;
+  optimized lanes use a separate receipt/query policy. Runtime, schema and
+  production are unchanged.
+- **Remaining uncertainty:** complete-lane build totals, retained counts and
+  any accumulated wall-time effect have not been measured.
+- **Smallest next action:** derive exact expected removals from completed
+  substep counts, freeze complete-lane roots/work/failure correspondence and
+  execute it before B4C4B.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1604,9 +1630,9 @@
 
 ## Exact next action
 
-1. Freeze and validate B4C4A one-macro retained-workspace ownership.
-2. Reapply the selected optimization to complete adaptive/fixed lanes.
-3. Continue with isolated support-index and flat-CSR stages before B4D.
+1. Freeze and validate B4C4A1 complete adaptive/macro-fixed ownership.
+2. Continue with isolated support-index and flat-CSR stages.
+3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 
 ## Reconsideration triggers
 

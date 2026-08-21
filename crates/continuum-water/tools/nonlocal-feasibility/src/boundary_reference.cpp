@@ -8404,6 +8404,17 @@ struct JointQueryTrace {
     std::vector<JointQueryMetric> queries;
 };
 
+struct WorkspaceRetentionTrace {
+    int transfers = 0;
+    int reads = 0;
+    int releases = 0;
+    int live_retained = 0;
+    int maximum_live_retained = 0;
+    std::size_t receipt_sequence = 0U;
+    std::string receipt_sha256 =
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+};
+
 struct JointPressureWorkspace {
     bool passed = false;
     std::string failure;
@@ -10335,6 +10346,33 @@ void release_joint_query_workspace(
     workspace = JointPressureWorkspace{};
 }
 
+bool transfer_joint_query_workspace(
+    JointPressureWorkspace& workspace,
+    JointPressureWorkspace& retained,
+    WorkspaceRetentionTrace& retention) {
+    if (!workspace.passed || retained.passed) {
+        return false;
+    }
+    retained = std::move(workspace);
+    workspace = JointPressureWorkspace{};
+    ++retention.transfers;
+    ++retention.live_retained;
+    retention.maximum_live_retained = std::max(
+        retention.maximum_live_retained, retention.live_retained);
+    return true;
+}
+
+void release_retained_joint_query_workspace(
+    JointPressureWorkspace& workspace,
+    JointQueryTrace& trace,
+    WorkspaceRetentionTrace& retention) {
+    if (workspace.passed) {
+        ++retention.releases;
+        --retention.live_retained;
+    }
+    release_joint_query_workspace(workspace, trace);
+}
+
 SmoothEvaluation smooth_evaluate_joint_workspace(
     const JointPressureWorkspace& workspace,
     const std::vector<Vec3>& displacement,
@@ -10583,8 +10621,15 @@ BoxKktSolve solve_box_kkt_step_joint_query(
     const std::vector<Vec3>& start_velocity,
     double time_step,
     JointQueryTrace& trace,
-    bool audit = true) {
+    bool audit = true,
+    JointPressureWorkspace* retained_workspace = nullptr,
+    WorkspaceRetentionTrace* retention = nullptr) {
     BoxKktSolve result;
+    if ((retained_workspace == nullptr) != (retention == nullptr)
+        || (retained_workspace != nullptr && retained_workspace->passed)) {
+        result.failure = "RETAINED_WORKSPACE_OWNERSHIP";
+        return result;
+    }
     std::vector<Vec3> predicted(start_position.size());
     for (std::size_t i = 0; i < predicted.size(); ++i) {
         predicted[i] = time_step
@@ -10620,7 +10665,16 @@ BoxKktSolve solve_box_kkt_step_joint_query(
             if (!result.passed) {
                 result.failure = "OBJECTIVE_ABOVE_FEASIBLE_PREDICTOR";
             }
-            release_joint_query_workspace(current, trace);
+            if (result.passed && retained_workspace != nullptr) {
+                if (!transfer_joint_query_workspace(
+                        current, *retained_workspace, *retention)) {
+                    result.passed = false;
+                    result.failure = "RETAINED_WORKSPACE_TRANSFER";
+                    release_joint_query_workspace(current, trace);
+                }
+            } else {
+                release_joint_query_workspace(current, trace);
+            }
             return result;
         }
         bool negative_curvature = false;
@@ -11179,6 +11233,82 @@ bool joint_physical_diagnostic(
     return true;
 }
 
+bool joint_physical_diagnostic_from_workspace(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity,
+    const JointPressureWorkspace& workspace,
+    double& mechanical,
+    double& maximum_strain) {
+    if (!workspace.passed
+        || workspace.neighborhood.fluid.size() != position.size()
+        || workspace.neighborhood.support.size() != fixture.boundary.size()
+        || workspace.evaluation.density.size() < position.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        if (workspace.neighborhood.fluid[i].position.x != position[i].x
+            || workspace.neighborhood.fluid[i].position.y != position[i].y
+            || workspace.neighborhood.fluid[i].position.z != position[i].z) {
+            return false;
+        }
+    }
+    for (std::size_t i = 0; i < fixture.boundary.size(); ++i) {
+        if (workspace.neighborhood.support[i].position.x
+                != fixture.boundary[i].x
+            || workspace.neighborhood.support[i].position.y
+                != fixture.boundary[i].y
+            || workspace.neighborhood.support[i].position.z
+                != fixture.boundary[i].z) {
+            return false;
+        }
+    }
+    double potential = 0.0;
+    maximum_strain = 0.0;
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        potential += MASS * (-fixture.gravity.y) * position[i].y;
+        maximum_strain = std::max(maximum_strain,
+            workspace.evaluation.density[i] / REST_DENSITY - 1.0);
+    }
+    mechanical = kinetic_energy(velocity)
+        + workspace.evaluation.energy + potential;
+    return true;
+}
+
+std::uint64_t binary64_bits(double value) {
+    std::uint64_t bits = 0U;
+    std::memcpy(&bits, &value, sizeof(bits));
+    return bits;
+}
+
+bool consume_retained_joint_physical_diagnostic(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity,
+    JointPressureWorkspace& workspace,
+    JointQueryTrace& trace,
+    WorkspaceRetentionTrace& retention,
+    double& mechanical,
+    double& maximum_strain) {
+    const bool passed = joint_physical_diagnostic_from_workspace(
+        fixture, position, velocity, workspace,
+        mechanical, maximum_strain);
+    if (passed) {
+        std::ostringstream material;
+        material << std::hex << retention.receipt_sha256 << '|'
+                 << retention.receipt_sequence << '|'
+                 << workspace.state_sha256 << '|'
+                 << binary64_bits(mechanical) << ':'
+                 << binary64_bits(maximum_strain);
+        retention.receipt_sha256 = sha256_hex(material.str());
+        ++retention.receipt_sequence;
+        ++retention.reads;
+    }
+    release_retained_joint_query_workspace(
+        workspace, trace, retention);
+    return passed;
+}
+
 B4BAggregate b4b_aggregate_joint(
     const SmokeFixture& fixture,
     const std::vector<Vec3>& position,
@@ -11286,7 +11416,8 @@ SmokeRun run_b4b1_interval_joint(
     int substeps,
     double interval_start,
     double interval_duration,
-    JointQueryTrace& trace) {
+    JointQueryTrace& trace,
+    WorkspaceRetentionTrace* retention = nullptr) {
     SmokeRun result;
     result.position = start_position;
     result.velocity = start_velocity;
@@ -11307,14 +11438,21 @@ SmokeRun run_b4b1_interval_joint(
     bool precontact = true;
     const double time_step = interval_duration / static_cast<double>(substeps);
     for (int substep = 0; substep < substeps; ++substep) {
+        JointPressureWorkspace retained_workspace;
         const BoxKktSolve solve = solve_box_kkt_step_joint_query(
             fixture, result.position, result.velocity,
-            time_step, trace, false);
+            time_step, trace, false,
+            retention != nullptr ? &retained_workspace : nullptr,
+            retention);
         ++result.attempted_substeps;
         result.attempted_outer_trials += solve.outer_trials;
         result.attempted_rejected_trials += solve.rejected_trials;
         result.attempted_hvp_calls += solve.hvp_calls;
         if (!solve.passed) {
+            if (retained_workspace.passed && retention != nullptr) {
+                release_retained_joint_query_workspace(
+                    retained_workspace, trace, *retention);
+            }
             result.failure = "SUBSTEP_" + std::to_string(substep)
                 + ":KKT_SOLVE:" + solve.failure;
             result.outer_trials = solve.outer_trials;
@@ -11375,10 +11513,16 @@ SmokeRun run_b4b1_interval_joint(
         result.gravity_impulse += solve.state.gravity_impulse;
         double mechanical = 0.0;
         double strain = 0.0;
-        if (!joint_physical_diagnostic(fixture,
-                result.position, result.velocity,
+        const bool diagnostic_passed = retention != nullptr
+            ? consume_retained_joint_physical_diagnostic(
+                fixture, result.position, result.velocity,
+                retained_workspace, trace, *retention,
+                mechanical, strain)
+            : joint_physical_diagnostic(
+                fixture, result.position, result.velocity,
                 "RUN_SUBSTEP_DIAGNOSTIC_" + std::to_string(substep),
-                trace, mechanical, strain)) {
+                trace, mechanical, strain);
+        if (!diagnostic_passed) {
             result.failure = "RUN_SUBSTEP_DIAGNOSTIC";
             return result;
         }
@@ -16269,6 +16413,7 @@ struct MacroAdaptiveTransactionCase {
     std::string legacy_ledger_sha256;
     std::string policy_ledger_sha256;
     JointQueryTrace trace;
+    WorkspaceRetentionTrace retention;
 };
 
 struct MacroAdaptiveRollback {
@@ -16539,6 +16684,45 @@ struct WorkspaceReuseDiagnosticCase {
     std::string legacy_ledger_sha256;
     std::string policy_ledger_sha256;
     std::string query_chain_sha256;
+};
+
+struct RetainedWorkspaceCase {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    bool transaction_exact = false;
+    bool repeat_exact = false;
+    bool roots_exact = false;
+    bool build_counts_exact = false;
+    bool category_counts_exact = false;
+    bool ownership_exact = false;
+    bool query_policy_exact = false;
+    std::size_t expected_workspace_builds = 0U;
+    std::size_t legacy_workspace_builds = 0U;
+    std::size_t candidate_workspace_builds = 0U;
+    std::size_t removed_diagnostic_builds = 0U;
+    std::array<std::size_t, WORKSPACE_REUSE_CATEGORY_COUNT>
+        legacy_category_counts{};
+    std::array<std::size_t, WORKSPACE_REUSE_CATEGORY_COUNT>
+        candidate_category_counts{};
+    WorkspaceRetentionTrace retention;
+    int maximum_live_workspaces = 0;
+    int final_live_workspaces = 0;
+    std::string trajectory_sha256;
+    std::string legacy_ledger_sha256;
+    std::string policy_ledger_sha256;
+    std::string legacy_query_chain_sha256;
+    std::string candidate_query_chain_sha256;
+    std::string receipt_sha256;
+};
+
+struct RetainedWorkspaceNegatives {
+    bool passed = false;
+    bool consumer_abort_transferred = false;
+    bool consumer_abort_released = false;
+    bool nonfinite_solve_rejected = false;
+    bool nonfinite_retention_empty = false;
+    std::string nonfinite_failure;
 };
 
 bool macro_policy_entry_valid(
@@ -16870,7 +17054,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     const std::vector<Vec3>* start_velocity = nullptr,
     int frame_index = 0,
     std::uint32_t macro_step = 1U,
-    bool record_queries = false) {
+    bool record_queries = false,
+    bool retain_accepted_workspace = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -16948,7 +17133,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
             transaction_start_velocity,
             result.initial_substeps * (1 << level),
             static_cast<double>(frame_index) * SMOKE_FRAME_TIME,
-            SMOKE_FRAME_TIME, result.trace));
+            SMOKE_FRAME_TIME, result.trace,
+            retain_accepted_workspace ? &result.retention : nullptr));
         const SmokeRun& candidate = levels.back();
         MacroAdaptiveAttempt attempt;
         attempt.level = level;
@@ -17139,6 +17325,11 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         && result.maximum_attempted_level_substeps <= 768
         && result.trace.live_workspaces == 0
         && result.trace.maximum_live_workspaces <= 2
+        && (!retain_accepted_workspace
+            || (result.retention.transfers == result.retention.reads
+                && result.retention.reads == result.retention.releases
+                && result.retention.live_retained == 0
+                && result.retention.maximum_live_retained <= 1))
         && result.trace.exact && result.trace.work_reduced
         && result.trace.candidate_all_pair_evaluations == 0
         && result.trace.candidate_all_pair_hvps == 0;
@@ -19402,6 +19593,407 @@ WorkspaceReuseDiagnosticCase run_workspace_reuse_case(
         std::move(name), fixture, recorded, control);
 }
 
+bool exact_vec3_value(Vec3 lhs, Vec3 rhs) {
+    return lhs.x == rhs.x && lhs.y == rhs.y && lhs.z == rhs.z;
+}
+
+bool exact_smoke_gate_value(
+    const SmokeGate& lhs, const SmokeGate& rhs) {
+    return lhs.passed == rhs.passed
+        && lhs.position_difference == rhs.position_difference
+        && lhs.velocity_difference == rhs.velocity_difference
+        && lhs.normalized_position_error == rhs.normalized_position_error
+        && lhs.normalized_velocity_error == rhs.normalized_velocity_error
+        && lhs.relative_kinetic_error == rhs.relative_kinetic_error
+        && lhs.contact_time_error == rhs.contact_time_error;
+}
+
+bool exact_mixed_stability_field_value(
+    const MixedStabilityField& lhs,
+    const MixedStabilityField& rhs) {
+    return lhs.passed == rhs.passed
+        && lhs.temporal_resolved == rhs.temporal_resolved
+        && lhs.temporal_budget_passed == rhs.temporal_budget_passed
+        && lhs.absolute_budget_passed == rhs.absolute_budget_passed
+        && lhs.candidate_error == rhs.candidate_error
+        && lhs.temporal_difference == rhs.temporal_difference
+        && lhs.temporal_floor == rhs.temporal_floor
+        && lhs.temporal_utilization == rhs.temporal_utilization
+        && lhs.absolute_utilization == rhs.absolute_utilization
+        && lhs.classification == rhs.classification;
+}
+
+bool exact_b4b_aggregate_value(
+    const B4BAggregate& lhs, const B4BAggregate& rhs) {
+    return exact_vec3_value(lhs.center, rhs.center)
+        && exact_vec3_value(lhs.momentum_value, rhs.momentum_value)
+        && lhs.q99_height == rhs.q99_height
+        && lhs.q99_front == rhs.q99_front
+        && lhs.kinetic == rhs.kinetic
+        && lhs.pressure == rhs.pressure
+        && lhs.gravitational == rhs.gravitational
+        && lhs.mechanical == rhs.mechanical
+        && lhs.maximum_density_ratio == rhs.maximum_density_ratio
+        && lhs.maximum_positive_strain == rhs.maximum_positive_strain
+        && lhs.maximum_speed_value == rhs.maximum_speed_value
+        && lhs.finite_values == rhs.finite_values;
+}
+
+bool exact_smoke_run_value(
+    const SmokeRun& lhs, const SmokeRun& rhs) {
+    return lhs.passed == rhs.passed
+        && lhs.failure == rhs.failure
+        && exact_vec3_values(lhs.position, rhs.position)
+        && exact_vec3_values(lhs.velocity, rhs.velocity)
+        && lhs.substeps == rhs.substeps
+        && lhs.completed_substeps == rhs.completed_substeps
+        && lhs.attempted_substeps == rhs.attempted_substeps
+        && lhs.attempted_outer_trials == rhs.attempted_outer_trials
+        && lhs.attempted_rejected_trials == rhs.attempted_rejected_trials
+        && lhs.attempted_hvp_calls == rhs.attempted_hvp_calls
+        && lhs.outer_trials == rhs.outer_trials
+        && lhs.rejected_trials == rhs.rejected_trials
+        && lhs.hvp_calls == rhs.hvp_calls
+        && lhs.negative_curvature_exits == rhs.negative_curvature_exits
+        && lhs.floor_stops == rhs.floor_stops
+        && lhs.active_steps == rhs.active_steps
+        && lhs.inactive_steps == rhs.inactive_steps
+        && lhs.contact_events == rhs.contact_events
+        && lhs.floor_merit_trials == rhs.floor_merit_trials
+        && lhs.floor_merit_accepts == rhs.floor_merit_accepts
+        && lhs.maximum_floor_accepts_per_solve
+            == rhs.maximum_floor_accepts_per_solve
+        && lhs.floor_conditions_exact == rhs.floor_conditions_exact
+        && lhs.cache_invalidations == rhs.cache_invalidations
+        && lhs.maximum_pairs == rhs.maximum_pairs
+        && lhs.maximum_penetration == rhs.maximum_penetration
+        && lhs.maximum_ledger_residual == rhs.maximum_ledger_residual
+        && lhs.maximum_support_reaction_closure
+            == rhs.maximum_support_reaction_closure
+        && lhs.maximum_active_mixed_ratio
+            == rhs.maximum_active_mixed_ratio
+        && lhs.maximum_inactive_bound_ratio
+            == rhs.maximum_inactive_bound_ratio
+        && lhs.cumulative_fp_bound == rhs.cumulative_fp_bound
+        && lhs.first_contact_time == rhs.first_contact_time
+        && exact_vec3_value(
+            lhs.fluid_support_impulse, rhs.fluid_support_impulse)
+        && exact_vec3_value(lhs.support_reaction, rhs.support_reaction)
+        && exact_vec3_value(
+            lhs.fluid_contact_impulse, rhs.fluid_contact_impulse)
+        && exact_vec3_value(lhs.contact_reaction, rhs.contact_reaction)
+        && exact_vec3_value(lhs.gravity_impulse, rhs.gravity_impulse)
+        && lhs.maximum_ledger_absolute == rhs.maximum_ledger_absolute
+        && lhs.terminal_contacts == rhs.terminal_contacts
+        && lhs.maximum_mechanical_energy == rhs.maximum_mechanical_energy
+        && lhs.maximum_positive_density_strain
+            == rhs.maximum_positive_density_strain
+        && lhs.maximum_speed == rhs.maximum_speed
+        && lhs.precontact_steps == rhs.precontact_steps
+        && lhs.precontact_pressure_violations
+            == rhs.precontact_pressure_violations
+        && lhs.maximum_precontact_support_reaction
+            == rhs.maximum_precontact_support_reaction
+        && lhs.maximum_precontact_position_error
+            == rhs.maximum_precontact_position_error
+        && lhs.maximum_precontact_velocity_error
+            == rhs.maximum_precontact_velocity_error
+        && lhs.maximum_precontact_velocity_spread
+            == rhs.maximum_precontact_velocity_spread
+        && lhs.failure_reaction_defect == rhs.failure_reaction_defect
+        && lhs.failure_reaction_limit == rhs.failure_reaction_limit
+        && lhs.failure_predicted_reduction
+            == rhs.failure_predicted_reduction
+        && lhs.failure_energy_floor == rhs.failure_energy_floor
+        && lhs.failure_scaled_residual == rhs.failure_scaled_residual
+        && lhs.failure_step_dx == rhs.failure_step_dx
+        && lhs.failure_floor_merit_trials
+            == rhs.failure_floor_merit_trials
+        && lhs.failure_floor_merit_accepts
+            == rhs.failure_floor_merit_accepts
+        && lhs.failure_floor_trial_defect
+            == rhs.failure_floor_trial_defect
+        && lhs.failure_floor_trial_limit == rhs.failure_floor_trial_limit
+        && lhs.failure_floor_residual_ratio
+            == rhs.failure_floor_residual_ratio
+        && lhs.failure_floor_topology_exact
+            == rhs.failure_floor_topology_exact
+        && lhs.projected_trials == rhs.projected_trials
+        && lhs.active_set_changes == rhs.active_set_changes
+        && lhs.face_active_axes == rhs.face_active_axes
+        && lhs.face_multiplier_sum == rhs.face_multiplier_sum
+        && lhs.face_fluid_impulse == rhs.face_fluid_impulse;
+}
+
+bool exact_macro_adaptive_attempt_value(
+    const MacroAdaptiveAttempt& lhs,
+    const MacroAdaptiveAttempt& rhs) {
+    return lhs.level == rhs.level
+        && lhs.planned_substeps == rhs.planned_substeps
+        && lhs.completed_substeps == rhs.completed_substeps
+        && lhs.attempted_substeps == rhs.attempted_substeps
+        && lhs.outer_trials == rhs.outer_trials
+        && lhs.rejected_trials == rhs.rejected_trials
+        && lhs.hvp_calls == rhs.hvp_calls
+        && lhs.passed == rhs.passed
+        && lhs.recoverable == rhs.recoverable
+        && lhs.adjacent_gate_evaluated == rhs.adjacent_gate_evaluated
+        && exact_smoke_gate_value(lhs.adjacent_gate, rhs.adjacent_gate)
+        && lhs.failure == rhs.failure;
+}
+
+bool macro_transaction_physics_exact(
+    const MacroAdaptiveTransactionCase& lhs,
+    const MacroAdaptiveTransactionCase& rhs) {
+    if (!lhs.passed || !rhs.passed
+        || lhs.name != rhs.name
+        || lhs.failure != rhs.failure
+        || lhs.initial_substeps != rhs.initial_substeps
+        || lhs.selected_level != rhs.selected_level
+        || lhs.accepted_substeps != rhs.accepted_substeps
+        || lhs.attempted_substeps != rhs.attempted_substeps
+        || lhs.discarded_substeps != rhs.discarded_substeps
+        || lhs.outer_trials != rhs.outer_trials
+        || lhs.rejected_trials != rhs.rejected_trials
+        || lhs.nonlinear_hvp_calls != rhs.nonlinear_hvp_calls
+        || lhs.spectral_hvp_calls != rhs.spectral_hvp_calls
+        || lhs.maximum_attempted_level_substeps
+            != rhs.maximum_attempted_level_substeps
+        || lhs.spectrum_source != rhs.spectrum_source
+        || !exact_smoke_gate_value(lhs.selected_gate, rhs.selected_gate)
+        || lhs.attempts.size() != rhs.attempts.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < lhs.attempts.size(); ++i) {
+        if (!exact_macro_adaptive_attempt_value(
+                lhs.attempts[i], rhs.attempts[i])) {
+            return false;
+        }
+    }
+    return exact_vec3_values(lhs.committed_position, rhs.committed_position)
+        && exact_vec3_values(lhs.committed_velocity, rhs.committed_velocity)
+        && canonical_frame_roots(lhs.committed_frames)
+            == canonical_frame_roots(rhs.committed_frames)
+        && exact_publication_ledger(
+            lhs.committed_ledger, rhs.committed_ledger)
+        && exact_smoke_run_value(lhs.accepted_private, rhs.accepted_private)
+        && exact_b4b_aggregate_value(
+            lhs.decoded_aggregate, rhs.decoded_aggregate)
+        && exact_mixed_stability_field_value(
+            lhs.position_admission, rhs.position_admission)
+        && exact_mixed_stability_field_value(
+            lhs.velocity_admission, rhs.velocity_admission)
+        && lhs.boundary_membership_exact == rhs.boundary_membership_exact
+        && lhs.raw_boundary_membership_exact
+            == rhs.raw_boundary_membership_exact
+        && lhs.canonical_boundary_membership_exact
+            == rhs.canonical_boundary_membership_exact
+        && lhs.canonical_geometry_valid == rhs.canonical_geometry_valid
+        && lhs.canonical_decoded_inside == rhs.canonical_decoded_inside
+        && lhs.canonical_private_terminal_exact
+            == rhs.canonical_private_terminal_exact
+        && lhs.canonical_decoded_terminal_exact
+            == rhs.canonical_decoded_terminal_exact
+        && lhs.private_terminal_membership_exact
+            == rhs.private_terminal_membership_exact
+        && lhs.decoded_terminal_membership_exact
+            == rhs.decoded_terminal_membership_exact
+        && lhs.private_boundary_membership
+            == rhs.private_boundary_membership
+        && lhs.decoded_boundary_membership
+            == rhs.decoded_boundary_membership
+        && lhs.lost_boundary_membership == rhs.lost_boundary_membership
+        && lhs.gained_boundary_membership == rhs.gained_boundary_membership
+        && lhs.maximum_decoded_penetration
+            == rhs.maximum_decoded_penetration
+        && lhs.maximum_published_boundary_shift
+            == rhs.maximum_published_boundary_shift
+        && lhs.work_accounting_exact == rhs.work_accounting_exact
+        && lhs.root_recomputation_exact == rhs.root_recomputation_exact
+        && lhs.ledger_roots_exact == rhs.ledger_roots_exact
+        && lhs.fine_only_commit == rhs.fine_only_commit
+        && lhs.trajectory_sha256 == rhs.trajectory_sha256
+        && lhs.legacy_ledger_sha256 == rhs.legacy_ledger_sha256
+        && lhs.policy_ledger_sha256 == rhs.policy_ledger_sha256;
+}
+
+std::array<std::size_t, WORKSPACE_REUSE_CATEGORY_COUNT>
+workspace_reuse_category_counts(const JointQueryTrace& trace) {
+    std::array<std::size_t, WORKSPACE_REUSE_CATEGORY_COUNT> result{};
+    for (const JointQueryMetric& query : trace.queries) {
+        ++result[workspace_reuse_category(query.kind)];
+    }
+    return result;
+}
+
+RetainedWorkspaceCase run_retained_workspace_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    std::size_t expected_legacy_builds,
+    std::size_t expected_candidate_builds,
+    std::size_t expected_removed_builds) {
+    RetainedWorkspaceCase result;
+    result.name = name;
+    result.expected_workspace_builds = expected_candidate_builds;
+    const MacroAdaptiveTransactionCase legacy =
+        run_macro_adaptive_transaction_case(
+            name, fixture, scenario_sha256, false, true,
+            nullptr, nullptr, 0, 1U, true, false);
+    const MacroAdaptiveTransactionCase candidate =
+        run_macro_adaptive_transaction_case(
+            name, fixture, scenario_sha256, false, true,
+            nullptr, nullptr, 0, 1U, true, true);
+    const MacroAdaptiveTransactionCase repeated =
+        run_macro_adaptive_transaction_case(
+            name, fixture, scenario_sha256, false, true,
+            nullptr, nullptr, 0, 1U, true, true);
+    result.transaction_exact = macro_transaction_physics_exact(
+        candidate, legacy);
+    result.repeat_exact = macro_transaction_physics_exact(
+            repeated, candidate)
+        && repeated.trace.query_chain_sha256
+            == candidate.trace.query_chain_sha256
+        && repeated.retention.receipt_sha256
+            == candidate.retention.receipt_sha256;
+    result.roots_exact = candidate.trajectory_sha256
+            == legacy.trajectory_sha256
+        && candidate.legacy_ledger_sha256
+            == legacy.legacy_ledger_sha256
+        && candidate.policy_ledger_sha256
+            == legacy.policy_ledger_sha256;
+    result.legacy_workspace_builds = legacy.trace.queries.size();
+    result.candidate_workspace_builds = candidate.trace.queries.size();
+    result.removed_diagnostic_builds =
+        result.legacy_workspace_builds >= result.candidate_workspace_builds
+        ? result.legacy_workspace_builds
+            - result.candidate_workspace_builds
+        : 0U;
+    result.build_counts_exact = result.legacy_workspace_builds
+            == expected_legacy_builds
+        && result.candidate_workspace_builds
+            == expected_candidate_builds
+        && result.removed_diagnostic_builds == expected_removed_builds
+        && candidate.trace.neighborhood_builds
+            == static_cast<int>(expected_candidate_builds)
+        && candidate.trace.tape_builds
+            == static_cast<int>(expected_candidate_builds);
+    result.legacy_category_counts =
+        workspace_reuse_category_counts(legacy.trace);
+    result.candidate_category_counts =
+        workspace_reuse_category_counts(candidate.trace);
+    result.category_counts_exact =
+        result.legacy_category_counts[5] == expected_removed_builds
+        && result.candidate_category_counts[5] == 0U;
+    for (std::size_t i = 0U;
+         i < WORKSPACE_REUSE_CATEGORY_COUNT; ++i) {
+        if (i != 5U) {
+            result.category_counts_exact = result.category_counts_exact
+                && result.candidate_category_counts[i]
+                    == result.legacy_category_counts[i];
+        }
+    }
+    result.retention = candidate.retention;
+    result.maximum_live_workspaces =
+        candidate.trace.maximum_live_workspaces;
+    result.final_live_workspaces = candidate.trace.live_workspaces;
+    result.ownership_exact = candidate.retention.transfers
+            == static_cast<int>(expected_removed_builds)
+        && candidate.retention.reads
+            == static_cast<int>(expected_removed_builds)
+        && candidate.retention.releases
+            == static_cast<int>(expected_removed_builds)
+        && candidate.retention.receipt_sequence == expected_removed_builds
+        && candidate.retention.live_retained == 0
+        && candidate.retention.maximum_live_retained == 1
+        && candidate.trace.live_workspaces == 0
+        && candidate.trace.maximum_live_workspaces <= 2;
+    result.query_policy_exact = candidate.trace.query_chain_sha256
+            != legacy.trace.query_chain_sha256
+        && candidate.trace.query_chain_sha256
+            == repeated.trace.query_chain_sha256
+        && candidate.retention.receipt_sha256
+            == repeated.retention.receipt_sha256;
+    result.trajectory_sha256 = candidate.trajectory_sha256;
+    result.legacy_ledger_sha256 = candidate.legacy_ledger_sha256;
+    result.policy_ledger_sha256 = candidate.policy_ledger_sha256;
+    result.legacy_query_chain_sha256 = legacy.trace.query_chain_sha256;
+    result.candidate_query_chain_sha256 =
+        candidate.trace.query_chain_sha256;
+    result.receipt_sha256 = candidate.retention.receipt_sha256;
+    result.passed = result.transaction_exact && result.repeat_exact
+        && result.roots_exact && result.build_counts_exact
+        && result.category_counts_exact && result.ownership_exact
+        && result.query_policy_exact;
+    if (!result.transaction_exact) {
+        result.failure = "TRANSACTION_CORRESPONDENCE";
+    } else if (!result.repeat_exact) {
+        result.failure = "CANDIDATE_REPEAT";
+    } else if (!result.roots_exact) {
+        result.failure = "DURABLE_ROOTS";
+    } else if (!result.build_counts_exact) {
+        result.failure = "BUILD_COUNTS";
+    } else if (!result.category_counts_exact) {
+        result.failure = "QUERY_CATEGORIES";
+    } else if (!result.ownership_exact) {
+        result.failure = "OWNERSHIP_LIFECYCLE";
+    } else if (!result.query_policy_exact) {
+        result.failure = "QUERY_POLICY";
+    }
+    return result;
+}
+
+RetainedWorkspaceNegatives run_retained_workspace_negatives() {
+    RetainedWorkspaceNegatives result;
+    SmokeFixture fixture = make_b4b_supported_column_fixture();
+    JointQueryTrace abort_trace;
+    abort_trace.record_queries = false;
+    WorkspaceRetentionTrace abort_retention;
+    JointPressureWorkspace aborted;
+    const BoxKktSolve valid = solve_box_kkt_step_joint_query(
+        fixture, fixture.position, fixture.velocity,
+        SMOKE_FRAME_TIME / 48.0, abort_trace, false,
+        &aborted, &abort_retention);
+    result.consumer_abort_transferred = valid.passed && aborted.passed
+        && abort_retention.transfers == 1
+        && abort_retention.reads == 0
+        && abort_retention.releases == 0
+        && abort_retention.live_retained == 1
+        && abort_trace.live_workspaces == 1;
+    release_retained_joint_query_workspace(
+        aborted, abort_trace, abort_retention);
+    result.consumer_abort_released = !aborted.passed
+        && abort_retention.transfers == 1
+        && abort_retention.reads == 0
+        && abort_retention.releases == 1
+        && abort_retention.live_retained == 0
+        && abort_trace.live_workspaces == 0;
+
+    std::vector<Vec3> nonfinite = fixture.position;
+    nonfinite.front().x = std::numeric_limits<double>::quiet_NaN();
+    JointQueryTrace nonfinite_trace;
+    nonfinite_trace.record_queries = false;
+    WorkspaceRetentionTrace nonfinite_retention;
+    JointPressureWorkspace nonfinite_workspace;
+    const BoxKktSolve invalid = solve_box_kkt_step_joint_query(
+        fixture, nonfinite, fixture.velocity,
+        SMOKE_FRAME_TIME / 48.0, nonfinite_trace, false,
+        &nonfinite_workspace, &nonfinite_retention);
+    result.nonfinite_failure = invalid.failure;
+    result.nonfinite_solve_rejected = !invalid.passed;
+    result.nonfinite_retention_empty = !nonfinite_workspace.passed
+        && nonfinite_retention.transfers == 0
+        && nonfinite_retention.reads == 0
+        && nonfinite_retention.releases == 0
+        && nonfinite_retention.live_retained == 0
+        && nonfinite_trace.live_workspaces == 0;
+    result.passed = result.consumer_abort_transferred
+        && result.consumer_abort_released
+        && result.nonfinite_solve_rejected
+        && result.nonfinite_retention_empty;
+    return result;
+}
+
 CanonicalMacroRollback run_macro_publication_rollback() {
     CanonicalMacroRollback result;
     SmokeFixture fixture = make_b4b_supported_column_fixture();
@@ -20617,6 +21209,96 @@ void append_workspace_reuse_case(
            << value.policy_ledger_sha256
            << "\",\"query_chain_sha256\":\""
            << value.query_chain_sha256 << "\"}";
+}
+
+void append_retained_workspace_case(
+    std::ostringstream& output,
+    const RetainedWorkspaceCase& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"transaction_exact\":"
+           << (value.transaction_exact ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"roots_exact\":"
+           << (value.roots_exact ? "true" : "false")
+           << ",\"build_counts_exact\":"
+           << (value.build_counts_exact ? "true" : "false")
+           << ",\"category_counts_exact\":"
+           << (value.category_counts_exact ? "true" : "false")
+           << ",\"ownership_exact\":"
+           << (value.ownership_exact ? "true" : "false")
+           << ",\"query_policy_exact\":"
+           << (value.query_policy_exact ? "true" : "false")
+           << ",\"expected_workspace_builds\":"
+           << value.expected_workspace_builds
+           << ",\"legacy_workspace_builds\":"
+           << value.legacy_workspace_builds
+           << ",\"candidate_workspace_builds\":"
+           << value.candidate_workspace_builds
+           << ",\"removed_diagnostic_builds\":"
+           << value.removed_diagnostic_builds
+           << ",\"legacy_category_counts\":{";
+    for (std::size_t i = 0U;
+         i < WORKSPACE_REUSE_CATEGORY_COUNT; ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << '\"' << workspace_reuse_category_name(i) << "\":"
+               << value.legacy_category_counts[i];
+    }
+    output << "},\"candidate_category_counts\":{";
+    for (std::size_t i = 0U;
+         i < WORKSPACE_REUSE_CATEGORY_COUNT; ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << '\"' << workspace_reuse_category_name(i) << "\":"
+               << value.candidate_category_counts[i];
+    }
+    output << "},\"retention\":{\"transfers\":"
+           << value.retention.transfers
+           << ",\"reads\":" << value.retention.reads
+           << ",\"releases\":" << value.retention.releases
+           << ",\"maximum_live_retained\":"
+           << value.retention.maximum_live_retained
+           << ",\"final_live_retained\":"
+           << value.retention.live_retained
+           << ",\"receipt_sequence\":"
+           << value.retention.receipt_sequence
+           << "},\"maximum_live_workspaces\":"
+           << value.maximum_live_workspaces
+           << ",\"final_live_workspaces\":"
+           << value.final_live_workspaces
+           << ",\"trajectory_sha256\":\""
+           << value.trajectory_sha256
+           << "\",\"legacy_ledger_sha256\":\""
+           << value.legacy_ledger_sha256
+           << "\",\"policy_ledger_sha256\":\""
+           << value.policy_ledger_sha256
+           << "\",\"legacy_query_chain_sha256\":\""
+           << value.legacy_query_chain_sha256
+           << "\",\"candidate_query_chain_sha256\":\""
+           << value.candidate_query_chain_sha256
+           << "\",\"receipt_sha256\":\""
+           << value.receipt_sha256 << "\"}";
+}
+
+void append_retained_workspace_negatives(
+    std::ostringstream& output,
+    const RetainedWorkspaceNegatives& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"consumer_abort_transferred\":"
+           << (value.consumer_abort_transferred ? "true" : "false")
+           << ",\"consumer_abort_released\":"
+           << (value.consumer_abort_released ? "true" : "false")
+           << ",\"nonfinite_solve_rejected\":"
+           << (value.nonfinite_solve_rejected ? "true" : "false")
+           << ",\"nonfinite_retention_empty\":"
+           << (value.nonfinite_retention_empty ? "true" : "false")
+           << ",\"nonfinite_failure\":\""
+           << value.nonfinite_failure << "\"}";
 }
 
 } // namespace
@@ -24177,6 +24859,149 @@ SplitBoundaryReport run_workspace_reuse_diagnostic_probe_controls() {
 
 SplitBoundaryReport run_workspace_reuse_diagnostic_controls() {
     return run_workspace_reuse_diagnostic_impl(true);
+}
+
+namespace {
+
+SplitBoundaryReport run_retained_workspace_impl(bool require_parent) {
+    bool parent_exact = true;
+    if (require_parent) {
+        const SplitBoundaryReport parent =
+            run_workspace_reuse_diagnostic_controls();
+        parent_exact = parent.passed
+            && sha256_hex(parent.json)
+                == "479dad60d89f3c6cec0555c9ee364f16644fafdbe4ae55966dee6b357d1bb38e";
+    }
+    std::array<RetainedWorkspaceCase, 2> cases;
+    RetainedWorkspaceNegatives negatives;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C4M0_PARENT";
+    } else {
+        std::future<RetainedWorkspaceCase> p1 = std::async(
+            std::launch::async, []() {
+                return run_retained_workspace_case(
+                    "p1-supported-retained-workspace",
+                    make_b4b_supported_column_fixture(),
+                    B4C3TA_P1_SCENARIO_SHA256,
+                    327U, 264U, 63U);
+            });
+        std::future<RetainedWorkspaceCase> p2 = std::async(
+            std::launch::async, []() {
+                return run_retained_workspace_case(
+                    "p2-released-retained-workspace",
+                    make_b4b_released_block_fixture(),
+                    B4C3TA_P2_SCENARIO_SHA256,
+                    12U, 9U, 3U);
+            });
+        cases = {p1.get(), p2.get()};
+        negatives = run_retained_workspace_negatives();
+        for (const RetainedWorkspaceCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!negatives.passed && first_failure.empty()) {
+            first_failure = "RETENTION_NEGATIVES";
+        }
+    }
+    const bool correspondence_exact = parent_exact
+        && std::all_of(
+            cases.begin(), cases.end(),
+            [](const RetainedWorkspaceCase& value) {
+                return value.passed;
+            });
+    const bool passed = correspondence_exact && negatives.passed;
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|identity:c0f837c569b6e4eaf362e972ac46b7582b31944f2f96d57668913f9da653badf";
+    if (parent_exact) {
+        for (const RetainedWorkspaceCase& value : cases) {
+            material << '|' << value.name << ':' << value.passed << ':'
+                     << value.transaction_exact << ':' << value.repeat_exact
+                     << ':' << value.roots_exact << ':'
+                     << value.build_counts_exact << ':'
+                     << value.category_counts_exact << ':'
+                     << value.ownership_exact << ':'
+                     << value.query_policy_exact << ':'
+                     << value.legacy_workspace_builds << ':'
+                     << value.candidate_workspace_builds << ':'
+                     << value.removed_diagnostic_builds << ':'
+                     << value.retention.transfers << ':'
+                     << value.retention.reads << ':'
+                     << value.retention.releases << ':'
+                     << value.maximum_live_workspaces << ':'
+                     << value.final_live_workspaces << ':'
+                     << value.trajectory_sha256 << ':'
+                     << value.legacy_ledger_sha256 << ':'
+                     << value.policy_ledger_sha256 << ':'
+                     << value.legacy_query_chain_sha256 << ':'
+                     << value.candidate_query_chain_sha256 << ':'
+                     << value.receipt_sha256;
+            for (std::size_t count : value.legacy_category_counts) {
+                material << ':' << count;
+            }
+            for (std::size_t count : value.candidate_category_counts) {
+                material << ':' << count;
+            }
+        }
+        material << "|N:" << negatives.passed << ':'
+                 << negatives.consumer_abort_transferred << ':'
+                 << negatives.consumer_abort_released << ':'
+                 << negatives.nonfinite_solve_rejected << ':'
+                 << negatives.nonfinite_retention_empty << ':'
+                 << negatives.nonfinite_failure;
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+           << (require_parent
+                ? "nsr3b4c4a_retained_workspace.v1"
+                : "nsr3b4c4a_retained_workspace_probe.v1")
+           << "\",\"identity_sha256\":\"c0f837c569b6e4eaf362e972ac46b7582b31944f2f96d57668913f9da653badf\""
+           << ",\"parent_b4c4m0_raw_sha256\":\"479dad60d89f3c6cec0555c9ee364f16644fafdbe4ae55966dee6b357d1bb38e\""
+           << ",\"parent_b4c4m0_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"parent_gate_required\":"
+           << (require_parent ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '\"'
+           << ",\"first_failure\":\"" << first_failure << '\"'
+           << ",\"authority\":\"ONE_MACRO_PRIVATE_OWNERSHIP_ONLY\""
+           << ",\"cases\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0U; i < cases.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_retained_workspace_case(report, cases[i]);
+        }
+    }
+    report << "],\"negative_controls\":";
+    append_retained_workspace_negatives(report, negatives);
+    report << ",\"retained_workspace_candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"complete_lane_application_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"static_support_index_authorized\":false"
+           << ",\"flat_csr_authorized\":false"
+           << ",\"b4d_reference_execution_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_retained_workspace_probe_controls() {
+    return run_retained_workspace_impl(false);
+}
+
+SplitBoundaryReport run_retained_workspace_controls() {
+    return run_retained_workspace_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr
