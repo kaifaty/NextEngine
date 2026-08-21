@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E1S_PASS / B4E1M_RESEARCH` |
+| Status | `ACTIVE / NSR3B4E1S_PASS / B4E1M_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -122,9 +122,13 @@
 - **Performance fact:** a process containing two complete B4E1S estimates
   takes 0.51 s wall and about 64 MiB RSS at 99% CPU. This is spectrum preflight
   cost, not macro-step or production throughput.
-- **Next action:** research and freeze B4E1M as one exact Hydro macro
-  transaction with solver/refinement/rollback/cost observability. Do not open
-  the external reference or run more than macro step 1.
+- **Current decision:** B4E1M reuses the complete retained-flat adaptive
+  transaction at exact nominal Hydro. It may attempt only `14,28,56,112`,
+  commits one selected fine step, and runs once per fresh process under an
+  external 900-second watchdog.
+- **Next action:** implement `--nominal-hydro-macro-probe`, then run one macro
+  in each of two independent builds. Keep time/RSS external, reference closed
+  and step 2 forbidden.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -164,6 +168,7 @@
 | NSR3B4E0 PASS | exact 6k Hydro/Dam inputs and capacity-valid flat neighborhoods | B4E1 one-macro contract design only |
 | NSR3B4E1S contract | isolate nominal Hydro 48-HVP spectrum and temporal capacity | implement/execute spectrum only; no KKT or trajectory |
 | NSR3B4E1S PASS | deterministic 48-HVP spectrum; 14 initial substeps | B4E1M one-macro contract design only |
+| NSR3B4E1M contract | one nominal retained-flat Hydro transaction | implement/execute step 1 only; reference remains closed |
 
 Candidate solver identity remains:
 
@@ -204,6 +209,7 @@ production authority is created by this lineage.
 | [B4E0](../nonlocal-nsr3b4e0-nominal-alignment-evidence-2026-08-21.md) | exact roots/aggregates/mutations; nominal degrees 118/117; no trajectory | design one-macro Hydro resource probe only |
 | [B4E1S research](../nonlocal-nsr3b4e1s-spectrum-research-2026-08-21.md) | epsilon-active parent forces spectrum before KKT; initial count must be <=96 | execute isolated spectrum before one-macro design |
 | [B4E1S](../nonlocal-nsr3b4e1s-hydro-spectrum-evidence-2026-08-21.md) | four bit-exact estimates give 14 initial substeps and zero all-pairs work | design one Hydro macro transaction only |
+| [B4E1M research](../nonlocal-nsr3b4e1m-hydro-macro-research-2026-08-21.md) | complete transaction can isolate levels `14,28,56,112`, fine commit and cost | execute one step-1 macro per fresh process |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -450,6 +456,15 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** interpreting the spectrum probe as macro throughput, opening
   the reference curve early or advancing directly to a multi-step run.
 
+### D-024 -- Bound the first nominal nonlinear transaction
+
+- **Observation:** the existing adaptive path must test adjacent temporal
+  levels, so B4E1M can cost more than the 14-substep spectrum forecast alone.
+- **Decision:** run exactly one retained-flat step-1 transaction per process
+  over levels `14,28,56,112`, with a non-physical 900-second watchdog.
+- **Rejected:** two in-process macros, a forced-failure duplicate, opening the
+  first reference output early or treating a watchdog exit as physics FAIL.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -476,12 +491,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research the existing adaptive macro transaction entry point and enumerate
-   every nominal step-1 solver, refinement, rollback and ownership invariant.
-2. Freeze B4E1M before implementation: exact Hydro parent roots, initial
-   substeps 14, one committed macro, deterministic report and external cost.
-3. Run no external-reference decode and no step beyond macro 1; a capacity or
-   physics failure must remain exact negative evidence rather than be tuned.
+1. Implement `--nominal-hydro-macro-probe` over the frozen B4E1M transaction.
+2. Build independently twice, then run one step-1 macro per process under the
+   external watchdog and require byte-identical deterministic reports.
+3. Preserve any failure without tuning; authorize B4E2 design only after
+   physical, publication, ownership and repeatability gates all pass.
 
 ## Reconsideration triggers
 

@@ -953,3 +953,9 @@ and 14 initial substeps, safely below the frozen capacity boundary of 96. Two
 independent builds/processes agree exactly and use no all-pairs fallback. This
 authorizes only B4E1M one-macro research and contract design; no KKT trajectory
 or external-reference comparison has run.
+The [B4E1M research](../../development/nonlocal-nsr3b4e1m-hydro-macro-research-2026-08-21.md)
+maps the existing complete adaptive transaction onto exact nominal Hydro. Its
+[frozen contract](03b4e1m-hydro-macro-contract.md) admits one step-1
+transaction per fresh process over levels `14,28,56,112`, with retained flat
+workspaces, fine-only publication and an external 900-second watchdog. No
+reference file or second macro may be opened. Implement only B4E1M next.
