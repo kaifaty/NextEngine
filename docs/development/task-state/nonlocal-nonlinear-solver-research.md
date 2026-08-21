@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP9_PASS / B4EP10_CPU_PARALLEL_ARCHITECTURE_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10D_FROZEN / OWNER_COMPUTES_AUDIT_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -235,8 +235,13 @@
 - **Current decision:** select B4EP10 deterministic CPU-parallel architecture
   research only. Freeze ownership, partition, reduction, scheduling, failure
   and A/B gates before implementing threads.
-- **Next action:** research/freeze the B4EP10 architecture discriminator; do
-  not implement parallelism yet.
+- **Current decision:** select 64 fixed logical partitions and owner-computes
+  gathers. Reject atomics and per-worker floating partials because neither
+  preserves the serial addition order. OpenMP/static is only a future research
+  backend after a serial dataflow proof.
+- **Next action:** implement/run B4EP10D: audit 226 topology plans, 226 fused
+  owner evaluations and 459 owner HVPs against the unchanged returned oracle.
+  Do not add threads or timing.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -301,6 +306,7 @@
 | NSR3B4EP8 PASS | workspace/HVP balanced `3.61/3.59s`; fused subphases inlined | B4EP9 scoped internal phase timing only |
 | NSR3B4EP9 contract | opt-in non-overlapping transaction phase timers | implement/measure only; no parallel implementation or throughput claim |
 | NSR3B4EP9 PASS | stable conservative parallelizable fraction, median `0.921879` | B4EP10 deterministic CPU-parallel architecture research only |
+| NSR3B4EP10D contract | serial topology-plan and owner-computes exactness audit | implement/run only; no threads/timing/production claim |
 
 Candidate solver identity remains:
 
@@ -367,6 +373,7 @@ production authority is created by this lineage.
 | [B4EP8](../nonlocal-nsr3b4ep8-fused-residual-attribution-evidence-2026-08-22.md) | no top-level leader and gprof cannot split fused subphases | design isolated phase timers; no optimization selected |
 | [B4EP9 research](../nonlocal-nsr3b4ep9-fused-phase-timing-research-2026-08-22.md) | Amdahl-ready phase boundary and stability gate frozen | implement opt-in timers and run three fresh processes only |
 | [B4EP9](../nonlocal-nsr3b4ep9-fused-phase-timing-evidence-2026-08-22.md) | exact semantics; 92.19% median conservative parallelizable fraction | research/freeze deterministic CPU parallel architecture before threads |
+| [B4EP10 research](../nonlocal-nsr3b4ep10-cpu-parallel-architecture-research-2026-08-22.md) | fixed partitions plus target-owned canonical gathers selected | prove serial dataflow exact before linking OpenMP |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -758,10 +765,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research/freeze B4EP10 deterministic CPU parallel ownership, partition,
-   reduction order, scheduling, capacity/failure and rollback boundaries.
-2. Define exact correspondence and controlled scaling gates before any thread
-   implementation; keep B4E2, GPU/runtime and production work blocked.
+1. Implement the frozen B4EP10D serial dataflow audit without threads/timing.
+2. Run two byte-exact processes and B4EP7I/B4EP9 regressions; only PASS may
+   authorize a separately frozen B4EP10I OpenMP A/B contract.
 
 ## Reconsideration triggers
 

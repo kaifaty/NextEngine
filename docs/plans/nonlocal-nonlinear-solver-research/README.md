@@ -1114,3 +1114,9 @@ The conservative parallelizable fraction is 92.14--92.22%, with median
 92.19% and range 0.08 percentage point. Exact old-command regressions remain
 unchanged. This selects B4EP10 deterministic CPU-parallel architecture
 research only; no thread implementation or speedup claim exists yet.
+The [B4EP10 research](../../development/nonlocal-nsr3b4ep10-cpu-parallel-architecture-research-2026-08-22.md)
+selects fixed logical partitions plus owner-computes gathers; atomics and
+partial floating reductions are rejected. The first
+[frozen contract](03b4ep10d-owner-computes-dataflow-contract.md) is a serial
+dataflow audit over all 226 topology/evaluation and 459 HVP calls. Threads and
+OpenMP linkage remain blocked until it passes.
