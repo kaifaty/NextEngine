@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3A1_PASS / NSR3B4C3TA_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3TA_FAIL_PRESERVED / NSR3B4C3TAR_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,21 +11,18 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** B4C3A1 passes twice at raw `bfce9a11...eb68`.
-  Fine-only frames and ledger entries commit atomically; raw published residual
-  reaches `9.98e-6`, while explicit impulse compensation restores `<=4.67e-10`.
-  P1 fine absolute pressure publication delta is `6.55e-5 J` in one frame.
-- **Current decision:** select `CANONICAL_BALANCED_STAGE_LEDGER_CANDIDATE` and
-  authorize B4C3T full-controller/long-horizon gate design only. Do not fit a
-  pressure-energy cap from the one-frame value.
-- **Current action:** design complete P1/P2 adaptive and fixed canonical lanes,
-  global step/root continuity, macro-frame rollback and independent cumulative
-  physical/publication-energy envelopes. B4C4/B4D remain blocked.
-- **Current design:** split B4C3T into adaptive B4C3TA, fixed-reference B4C3TR
-  and final comparison B4C3TC. B4C3TA freezes full P1/P2 transactions first;
-  its binary error envelope uses pre-run B4C3A1 factors `8/32` and existing B4B
-  ceilings, while publication pressure/mechanical energy gets a `1%` physical
-  scale budget.
+- **Current conclusion:** preserve B4C3TA FAIL. P1 frame four rejects at the
+  16-substep candidate, but exact replay passes at 32/64/128 and the unchanged
+  32/64 embedded gate passes. This is a recoverable refinement signal, not a
+  formula failure. P2 otherwise passes and exposes only an erroneous exact-zero
+  harness predicate for a `1.925e-7 m/s` local canonical velocity difference.
+- **Current decision:** freeze B4C3TAR. Permit only nonlinear
+  `KKT_SOLVE:REJECT_LIMIT` to skip a private level and continue refinement;
+  still require an adjacent passing pair and unchanged gate. Restore the
+  already-frozen `<1e-6` local precontact position/velocity allowances.
+- **Current action:** preserve the original failure/probe hashes, freeze the
+  repair transaction and execute it twice. B4C3TR/B4C3TC/B4C4/B4D remain
+  blocked.
 
 - **Current conclusion:** B4C3Q exact aggregate-balanced apportionment passes
   twice at raw `ae44e39f...0731`. Biased aggregate error and 1,024-step center
@@ -986,6 +983,31 @@
 - **Smallest next action:** implement global-offset canonical intervals and the
   complete transactional adaptive controller, then run B4C3TA twice.
 
+### D-050 -- Preserve B4C3TA and isolate refinement recovery
+
+- **Observation:** the first B4C3TA run aborts after four P1 frames when the
+  16-substep level reaches `KKT_SOLVE:REJECT_LIMIT`. Exact-state replay passes
+  at 32, 64 and 128 substeps; both adjacent passing gates pass. P2 completes
+  with schedule, contacts, binary envelope and energy budgets intact, but its
+  case gate accidentally demands exact-zero precontact velocity error instead
+  of the frozen local canonical bound.
+- **Decision:** preserve B4C3TA FAIL and authorize a separate B4C3TAR repair.
+  Only `KKT_SOLVE:REJECT_LIMIT` is refinable. Failed levels remain private and
+  counted, while selection still needs an adjacent passing pair. Restore the
+  `<1e-6` local position/velocity comparisons already frozen by B4C3TA.
+- **Rejected alternatives:** do not loosen KKT, embedded, contact, activation,
+  ledger or energy gates; do not commit a failed/isolated passing level; do not
+  reinterpret B4C3TA as PASS.
+- **Consequence:** the evidence distinguishes a controller-policy defect from a
+  formula failure. B4C3TR and all later authority remain blocked until B4C3TAR
+  passes twice and preserves parent reports.
+- **Remaining uncertainty:** later P1 frames may require repeated recovery or
+  exhaust four levels, and accumulated canonical energy may still exceed its
+  frozen budget.
+- **Smallest next action:** freeze B4C3TAR exact failure classification,
+  attempted-work accounting and local precontact bounds, then implement and
+  execute two byte-identical complete reports.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -998,12 +1020,11 @@
 
 ## Exact next action
 
-1. Extend selected canonical intervals with explicit start state and global
-   accepted-step offset without changing one-frame hashes.
-2. Implement complete B4C3TA P1/P2 adaptive transactions, binary envelope,
-   energy utilization, exact onset schedule and post-commit rollback.
-3. Run twice before designing B4C3TR fixed canonical references. B4C4 and B4D
-   remain blocked.
+1. Freeze B4C3TAR over the preserved B4C3TA FAIL and diagnostic probe roots.
+2. Continue only after `KKT_SOLVE:REJECT_LIMIT`, count every attempted private
+   level, and select only an adjacent passing/gated pair.
+3. Restore the already-frozen `<1e-6` local canonical precontact position and
+   velocity bounds; run twice before designing B4C3TR. B4C4/B4D remain blocked.
 
 ## Reconsideration triggers
 

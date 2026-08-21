@@ -59,7 +59,10 @@ int main(int argc, char** argv) {
                          "--joint-pressure-controller-self-test|"
                          "--canonical-stage-self-test|"
                          "--canonical-conservation-self-test|"
-                         "--canonical-stage-ledger-self-test\n";
+                         "--canonical-stage-ledger-self-test|"
+                         "--canonical-adaptive-self-test|"
+                         "--canonical-adaptive-failure-probe|"
+                         "--canonical-adaptive-p2-probe\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -412,6 +415,27 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--canonical-adaptive-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_canonical_adaptive_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--canonical-adaptive-failure-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_canonical_adaptive_failure_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--canonical-adaptive-p2-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_canonical_adaptive_p2_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -461,7 +485,10 @@ int main(int argc, char** argv) {
                      "--joint-pressure-controller-self-test|"
                      "--canonical-stage-self-test|"
                      "--canonical-conservation-self-test|"
-                     "--canonical-stage-ledger-self-test\n";
+                     "--canonical-stage-ledger-self-test|"
+                     "--canonical-adaptive-self-test|"
+                     "--canonical-adaptive-failure-probe|"
+                     "--canonical-adaptive-p2-probe\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

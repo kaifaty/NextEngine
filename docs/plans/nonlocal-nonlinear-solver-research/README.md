@@ -456,3 +456,10 @@ complete P1/P2 adaptive lanes, global step/root continuity, post-commit
 rollback, exact P2 pressure-onset schedule, a binary envelope derived from
 B4C3A1 with `8/32` position/velocity safety factors, and a `1%` independent
 publication-energy budget.
+Its first execution is a preserved FAIL; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3ta-adaptive-canonical-evidence-2026-08-21.md).
+P1's failed 16-substep candidate recovers at 32 and 64 substeps, and that
+adjacent pair passes the unchanged embedded gate. P2 independently revealed
+that the harness used an exact-zero precontact velocity predicate despite the
+frozen local canonical allowance. B4C3TR remains blocked; only a separately
+frozen B4C3TAR refinement-recovery repair is authorized.

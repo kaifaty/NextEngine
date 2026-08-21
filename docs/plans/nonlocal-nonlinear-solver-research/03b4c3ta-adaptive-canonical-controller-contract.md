@@ -1,6 +1,6 @@
 # NSR3-B4C3TA -- complete adaptive balanced canonical controller
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / B4C3TR_BLOCKED`
+Status: `EXECUTED / FAIL_PRESERVED / B4C3TAR_REPAIR_ONLY`
 
 Parent B4C3A1 selects `CANONICAL_BALANCED_STAGE_LEDGER_CANDIDATE`; semantic
 SHA-256 is `5b50800cc5427e812cd5637b2952e6f4657803e430203214bf95de3667620367`
@@ -92,3 +92,14 @@ PASS selects `CANONICAL_BALANCED_ADAPTIVE_CONTROLLER_CANDIDATE` and authorizes
 only B4C3TR fixed-reference design. FAIL preserves B4C3A1 and blocks complete
 canonical continuation. No fixed canonical reference, nominal, CUDA, runtime,
 schema or production authority is granted.
+
+## Executed outcome
+
+The first execution failed on P1 frame four because a 16-substep candidate hit
+`KKT_SOLVE:REJECT_LIMIT`; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3ta-adaptive-canonical-evidence-2026-08-21.md).
+The exact failed state passes at 32 and 64 substeps and their unchanged embedded
+gate passes. P2 also exposed an implementation mismatch: this contract froze a
+local canonical precontact allowance, while the harness required exact-zero
+velocity error. These results do not change this contract or convert its FAIL
+to PASS. They authorize only a separately frozen B4C3TAR repair discriminator.

@@ -8633,6 +8633,80 @@ struct BalancedLedgerNegative {
     bool pretransaction_exact = false;
 };
 
+struct CanonicalAdaptiveRun {
+    bool passed = false;
+    std::string failure;
+    SmokeController controller;
+    std::vector<canonical::Frame> committed_frames;
+    std::vector<CanonicalPublicationLedgerEntry> committed_ledger;
+    std::vector<std::size_t> committed_prefix;
+    JointQueryTrace trace;
+    bool global_steps_exact = true;
+    bool fine_only_commit = true;
+    Vec3 cumulative_publication_impulse;
+    double cumulative_absolute_pressure_delta = 0.0;
+    double cumulative_absolute_mechanical_delta = 0.0;
+    double maximum_raw_ledger_residual = 0.0;
+    double maximum_compensated_ledger_residual = 0.0;
+    std::string trajectory_sha256;
+};
+
+struct CanonicalAdaptiveCase {
+    std::string name;
+    bool passed = false;
+    std::string failure;
+    CanonicalAdaptiveRun candidate;
+    SmokeController binary;
+    double maximum_position_bound_ratio = 0.0;
+    double maximum_velocity_bound_ratio = 0.0;
+    double maximum_center_dx = 0.0;
+    double maximum_q99_height_dx = 0.0;
+    double maximum_q99_front_dx = 0.0;
+    double maximum_kinetic_relative = 0.0;
+    int worst_position_frame = -1;
+    int worst_velocity_frame = -1;
+    bool frame_envelope_exact = false;
+    bool schedule_exact = false;
+    bool terminal_contacts_exact = false;
+    double contact_time_error = 0.0;
+    double contact_time_limit = 0.0;
+    double lateral_drift = 0.0;
+    double lateral_drift_limit = 0.0;
+    double energy_scale = 0.0;
+    double pressure_budget = 0.0;
+    double mechanical_budget = 0.0;
+    double pressure_budget_utilization = 0.0;
+    double mechanical_budget_utilization = 0.0;
+    bool physical_exact = false;
+    JointQueryTrace binary_trace;
+};
+
+struct CanonicalAdaptiveRollback {
+    bool passed = false;
+    std::string failure;
+    std::size_t committed_frames_before = 0U;
+    std::size_t committed_ledger_before = 0U;
+    std::size_t private_frames = 0U;
+    std::size_t private_ledger_entries = 0U;
+    bool state_exact = false;
+    bool roots_exact = false;
+    bool ledger_exact = false;
+    bool step_count_exact = false;
+};
+
+struct CanonicalAdaptiveFailureProbe {
+    bool passed = false;
+    std::string failure;
+    int failed_frame = -1;
+    int initial_substeps = 0;
+    int spectral_hvp_calls = 0;
+    double maximum_eigenvalue = 0.0;
+    std::vector<CanonicalStageRun> levels;
+    std::vector<SmokeGate> gates;
+    int first_passing_level = -1;
+    int selected_fine_level = -1;
+};
+
 bool joint_cell_less(
     std::int64_t ax, std::int64_t ay, std::int64_t az,
     std::int64_t bx, std::int64_t by, std::int64_t bz) {
@@ -11530,6 +11604,10 @@ constexpr const char* B4C3Q_P2_SCENARIO_SHA256 =
     "5755be013a3704373b7cb2d21ea1608d6497dec980120af42d73fa7d9f802cd8";
 constexpr const char* B4C3Q_TEMPORAL_SHA256 =
     "f90fed20f6ecd56c7b52fe57f7f0d90afc8b17957aa4e0c33c61d3d1e8b37aa3";
+constexpr const char* B4C3TA_P1_SCENARIO_SHA256 =
+    "4128b11190366b45aa6511946cb23b46f254445e5a707ff9cdf7e67a2781aaa6";
+constexpr const char* B4C3TA_P2_SCENARIO_SHA256 =
+    "013a83460fabbded819b7d5d9608747f8bc9548c798d71718603d785c238b3c1";
 
 std::vector<canonical::FloatSample> canonical_float_samples(
     const std::vector<Vec3>& position,
@@ -11624,7 +11702,11 @@ CanonicalStageRun run_canonical_stage_interval(
     int force_failure_after = -1,
     bool aggregate_balanced = false,
     const char* profile_sha256 = B4C3_PROFILE_SHA256,
-    bool publication_ledger = false) {
+    bool publication_ledger = false,
+    const std::vector<Vec3>* start_position = nullptr,
+    const std::vector<Vec3>* start_velocity = nullptr,
+    std::uint32_t step_offset = 0U,
+    double interval_start = 0.0) {
     CanonicalStageRun result;
     if (publication_ledger && !aggregate_balanced) {
         result.failure = "PUBLICATION_LEDGER_REQUIRES_BALANCED_POLICY";
@@ -11632,11 +11714,27 @@ CanonicalStageRun run_canonical_stage_interval(
         return result;
     }
     result.trace.record_queries = false;
-    result.run.position = fixture.position;
-    result.run.velocity = fixture.velocity;
+    if ((start_position == nullptr) != (start_velocity == nullptr)) {
+        result.failure = "CANONICAL_START_STATE_MISMATCH";
+        result.run.failure = result.failure;
+        return result;
+    }
+    if (substeps <= 0
+        || static_cast<std::uint64_t>(step_offset)
+                + static_cast<std::uint64_t>(substeps)
+            > std::numeric_limits<std::uint32_t>::max()) {
+        result.failure = "CANONICAL_STEP_RANGE";
+        result.run.failure = result.failure;
+        return result;
+    }
+    result.run.position = start_position == nullptr
+        ? fixture.position : *start_position;
+    result.run.velocity = start_velocity == nullptr
+        ? fixture.velocity : *start_velocity;
     result.run.substeps = substeps;
     const double time_step = SMOKE_FRAME_TIME
         / static_cast<double>(substeps);
+    bool precontact = true;
     for (int substep = 0; substep < substeps; ++substep) {
         if (force_failure_after == substep) {
             result.failure = "FORCED_SOLVER_FAILURE";
@@ -11686,10 +11784,14 @@ CanonicalStageRun run_canonical_stage_interval(
         std::sort(contacts.begin(), contacts.end());
         result.run.contact_events += static_cast<int>(contacts.size());
         result.run.terminal_contacts = contacts;
+        const bool precontact_step = precontact && contacts.empty();
         if (!contacts.empty()
             && !std::isfinite(result.run.first_contact_time)) {
-            result.run.first_contact_time =
-                static_cast<double>(substep + 1) * time_step;
+            result.run.first_contact_time = interval_start
+                + static_cast<double>(substep + 1) * time_step;
+        }
+        if (!contacts.empty()) {
+            precontact = false;
         }
         try {
             canonical::Frame frame;
@@ -11701,7 +11803,8 @@ CanonicalStageRun run_canonical_stage_interval(
                 balanced_canonical::PublishResult publication =
                     balanced_canonical::publish_frame(
                         profile_sha256, scenario_sha256,
-                        static_cast<std::uint32_t>(substep + 1),
+                        step_offset
+                            + static_cast<std::uint32_t>(substep + 1),
                         canonical_float_samples(
                             solve.position, solve.velocity, order_mode));
                 frame = std::move(publication.frame);
@@ -11710,7 +11813,8 @@ CanonicalStageRun run_canonical_stage_interval(
             } else {
                 frame = canonical::publish_frame(
                     profile_sha256, scenario_sha256,
-                    static_cast<std::uint32_t>(substep + 1),
+                    step_offset
+                        + static_cast<std::uint32_t>(substep + 1),
                     canonical_float_samples(
                         solve.position, solve.velocity, order_mode));
             }
@@ -11719,7 +11823,8 @@ CanonicalStageRun run_canonical_stage_interval(
             const std::vector<Vec3> decoded_velocity =
                 decode_canonical_velocity(frame);
             result.step_sequence_exact = result.step_sequence_exact
-                && frame.step == static_cast<std::uint32_t>(substep + 1);
+                && frame.step == step_offset
+                    + static_cast<std::uint32_t>(substep + 1);
             result.sample_identity_exact = result.sample_identity_exact
                 && frame.samples.size() == solve.position.size();
             for (std::size_t i = 0; i < solve.position.size(); ++i) {
@@ -11865,8 +11970,6 @@ CanonicalStageRun run_canonical_stage_interval(
                     entry.pressure_delta =
                         decoded_workspace.evaluation.energy
                         - solve.state.smooth.support.energy;
-                    release_joint_query_workspace(
-                        decoded_workspace, result.trace);
                     const auto gravitational_energy =
                         [&fixture](const std::vector<Vec3>& position) {
                             double value = 0.0;
@@ -11883,8 +11986,7 @@ CanonicalStageRun run_canonical_stage_interval(
                         + solve.state.smooth.support.energy
                         + gravitational_energy(solve.position);
                     const double mechanical_after = kinetic_after
-                        + (solve.state.smooth.support.energy
-                            + entry.pressure_delta)
+                        + decoded_workspace.evaluation.energy
                         + gravitational_energy(decoded_position);
                     entry.mechanical_delta = mechanical_after
                         - mechanical_before;
@@ -11977,6 +12079,123 @@ CanonicalStageRun run_canonical_stage_interval(
                     result.cumulative_absolute_mechanical_delta +=
                         std::abs(entry.mechanical_delta);
                     result.publication_ledger.push_back(entry);
+
+                    result.run.maximum_pairs = std::max(
+                        result.run.maximum_pairs,
+                        decoded_workspace.neighborhood.pairs.size());
+                    result.run.maximum_penetration = std::max(
+                        result.run.maximum_penetration,
+                        solve.state.maximum_penetration);
+                    for (const Vec3& sample : decoded_position) {
+                        result.run.maximum_penetration = std::max({
+                            result.run.maximum_penetration,
+                            fixture.contact_low.x - sample.x,
+                            fixture.contact_low.y - sample.y,
+                            fixture.contact_low.z - sample.z,
+                            sample.x - fixture.contact_high.x,
+                            sample.y - fixture.contact_high.y,
+                            sample.z - fixture.contact_high.z,
+                        });
+                    }
+                    result.run.maximum_ledger_residual = std::max(
+                        result.run.maximum_ledger_residual,
+                        entry.compensated_ledger_residual);
+                    result.run.maximum_ledger_absolute = std::max(
+                        result.run.maximum_ledger_absolute,
+                        norm(entry.compensated_ledger));
+                    result.run.maximum_support_reaction_closure = std::max(
+                        result.run.maximum_support_reaction_closure,
+                        solve.state.support_translation_closure);
+                    result.run.maximum_active_mixed_ratio = std::max(
+                        result.run.maximum_active_mixed_ratio,
+                        solve.state.projected_impulse_residual
+                            / std::max(solve.state.reaction_limit, 1.0e-300));
+                    result.run.fluid_support_impulse +=
+                        solve.state.fluid_pressure_impulse;
+                    result.run.support_reaction +=
+                        solve.state.support_reaction;
+                    result.run.fluid_contact_impulse +=
+                        solve.state.fluid_contact_impulse;
+                    result.run.contact_reaction +=
+                        solve.state.contact_reaction;
+                    result.run.gravity_impulse +=
+                        solve.state.gravity_impulse;
+                    result.run.maximum_mechanical_energy = std::max(
+                        result.run.maximum_mechanical_energy,
+                        mechanical_after);
+                    for (std::size_t i = 0;
+                         i < decoded_position.size(); ++i) {
+                        result.run.maximum_positive_density_strain = std::max(
+                            result.run.maximum_positive_density_strain,
+                            decoded_workspace.evaluation.density[i]
+                                / REST_DENSITY - 1.0);
+                        result.run.maximum_speed = std::max(
+                            result.run.maximum_speed,
+                            norm(decoded_velocity[i]));
+                    }
+                    result.run.cache_invalidations +=
+                        static_cast<int>(contacts.size());
+                    for (std::size_t face = 0; face < 6U; ++face) {
+                        result.run.face_active_axes[face] +=
+                            solve.state.face_counts[face];
+                        result.run.face_multiplier_sum[face] +=
+                            solve.state.face_multiplier_sum[face];
+                        result.run.face_fluid_impulse[face] +=
+                            solve.state.face_fluid_impulse[face];
+                    }
+                    const bool pressure_active =
+                        solve.state.smooth.support.active_centers > 0U;
+                    if (precontact_step) {
+                        std::vector<Vec3> expected_velocity = input_velocity;
+                        std::vector<Vec3> expected_position = input_position;
+                        for (std::size_t i = 0;
+                             i < expected_position.size(); ++i) {
+                            expected_velocity[i] += time_step
+                                * fixture.gravity;
+                            expected_position[i] += time_step
+                                * expected_velocity[i];
+                        }
+                        const balanced_canonical::PublishResult expected =
+                            balanced_canonical::publish_frame(
+                                profile_sha256, scenario_sha256,
+                                step_offset + static_cast<std::uint32_t>(
+                                    substep + 1),
+                                canonical_float_samples(
+                                    expected_position,
+                                    expected_velocity, order_mode));
+                        const std::vector<Vec3> expected_decoded_position =
+                            decode_canonical_position(expected.frame);
+                        const std::vector<Vec3> expected_decoded_velocity =
+                            decode_canonical_velocity(expected.frame);
+                        ++result.run.precontact_steps;
+                        result.run.precontact_pressure_violations +=
+                            pressure_active ? 1 : 0;
+                        result.run.maximum_precontact_support_reaction =
+                            std::max(
+                                result.run.maximum_precontact_support_reaction,
+                                norm(solve.state.support_reaction));
+                        result.run.maximum_precontact_position_error =
+                            std::max(
+                                result.run.maximum_precontact_position_error,
+                                rms_difference(decoded_position,
+                                    expected_decoded_position));
+                        result.run.maximum_precontact_velocity_error =
+                            std::max(
+                                result.run.maximum_precontact_velocity_error,
+                                rms_difference(decoded_velocity,
+                                    expected_decoded_velocity));
+                        const Vec3 mean_velocity =
+                            average_values(decoded_velocity);
+                        for (const Vec3& value : decoded_velocity) {
+                            result.run.maximum_precontact_velocity_spread =
+                                std::max(
+                                    result.run
+                                        .maximum_precontact_velocity_spread,
+                                    norm(value - mean_velocity));
+                        }
+                    }
+                    release_joint_query_workspace(
+                        decoded_workspace, result.trace);
                 }
             }
             result.staged_frames.push_back(std::move(frame));
@@ -12907,6 +13126,604 @@ BalancedLedgerNegative run_balanced_ledger_negative() {
     return result;
 }
 
+CanonicalAdaptiveRun run_canonical_adaptive_controller(
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256) {
+    CanonicalAdaptiveRun result;
+    result.trace.record_queries = false;
+    result.controller.position = fixture.position;
+    result.controller.velocity = fixture.velocity;
+    bool global_precontact = true;
+    for (int frame_index = 0; frame_index < fixture.macro_frames;
+         ++frame_index) {
+        SmokeFrame frame;
+        frame.frame = frame_index;
+        JointPressureWorkspace frame_workspace = build_joint_query_workspace(
+            result.controller.position, fixture.boundary,
+            "CANONICAL_FRAME_START_" + std::to_string(frame_index),
+            false, result.trace, false);
+        if (!frame_workspace.passed) {
+            result.failure = "FRAME_START_WORKSPACE";
+            return result;
+        }
+        frame.active_centers = static_cast<int>(
+            frame_workspace.evaluation.active_centers);
+        bool spectrum_required = false;
+        if (frame.active_centers > 0) {
+            frame.spectrum_source = "START_ACTIVE";
+            spectrum_required = true;
+        } else {
+            release_joint_query_workspace(frame_workspace, result.trace);
+            std::vector<Vec3> predicted(result.controller.position.size());
+            for (std::size_t i = 0; i < predicted.size(); ++i) {
+                predicted[i] = SMOKE_FRAME_TIME
+                    * (result.controller.velocity[i]
+                        + SMOKE_FRAME_TIME * fixture.gravity);
+            }
+            predicted = clamp_box_displacement(
+                fixture, result.controller.position, predicted);
+            const std::vector<Vec3> projected = materialize_displacement(
+                result.controller.position, predicted);
+            frame_workspace = build_joint_query_workspace(
+                projected, fixture.boundary,
+                "CANONICAL_FRAME_FORECAST_" + std::to_string(frame_index),
+                false, result.trace, false);
+            if (!frame_workspace.passed) {
+                result.failure = "FRAME_FORECAST_WORKSPACE";
+                return result;
+            }
+            if (frame_workspace.evaluation.active_centers > 0U) {
+                frame.spectrum_source = "FORECAST_ACTIVE";
+                spectrum_required = true;
+            } else {
+                frame.spectrum_source = "INACTIVE_EXACT";
+            }
+        }
+        if (spectrum_required) {
+            const SpectralEstimate spectrum =
+                boundary_pressure_spectrum_joint_workspace(
+                    frame_workspace, result.trace, false);
+            frame.spectral_hvp_calls = spectrum.calls;
+            frame.maximum_eigenvalue = spectrum.maximum_eigenvalue;
+            frame.maximum_eigenfrequency = std::sqrt(
+                std::max(spectrum.maximum_eigenvalue, 0.0) / MASS);
+            if (!spectrum.passed) {
+                release_joint_query_workspace(frame_workspace, result.trace);
+                result.failure = "FRAME_SPECTRUM";
+                return result;
+            }
+            frame.initial_substeps = std::max(1,
+                static_cast<int>(std::ceil(SMOKE_FRAME_TIME
+                    * frame.maximum_eigenfrequency / SPECTRAL_TARGET)));
+        } else {
+            frame.initial_substeps = 1;
+        }
+        release_joint_query_workspace(frame_workspace, result.trace);
+
+        const std::vector<Vec3> committed_position =
+            result.controller.position;
+        const std::vector<Vec3> committed_velocity =
+            result.controller.velocity;
+        const std::size_t committed_before =
+            result.committed_frames.size();
+        std::vector<CanonicalStageRun> levels;
+        for (int level = 0; level < 4; ++level) {
+            levels.push_back(run_canonical_stage_interval(
+                fixture, scenario_sha256,
+                frame.initial_substeps * (1 << level),
+                0, -1, true, B4C3Q_PROFILE_SHA256, true,
+                &committed_position, &committed_velocity,
+                static_cast<std::uint32_t>(committed_before),
+                static_cast<double>(frame_index) * SMOKE_FRAME_TIME));
+            if (!levels.back().passed) {
+                result.failure = "FRAME_CANDIDATE:"
+                    + levels.back().failure;
+                return result;
+            }
+            if (level > 0) {
+                frame.gate = smoke_gate(
+                    levels[static_cast<std::size_t>(level - 1)].run,
+                    levels[static_cast<std::size_t>(level)].run);
+                if (frame.gate.passed) {
+                    frame.refinement_depth = level - 1;
+                    frame.accepted_substeps =
+                        levels[static_cast<std::size_t>(level)]
+                            .run.substeps;
+                    break;
+                }
+            }
+        }
+        if (frame.refinement_depth < 0) {
+            result.failure = "FRAME_ERROR_GATE";
+            return result;
+        }
+        for (int level = 0; level <= frame.refinement_depth + 1; ++level) {
+            const SmokeRun& run =
+                levels[static_cast<std::size_t>(level)].run;
+            frame.executed_substeps += run.substeps;
+            result.controller.nonlinear_hvp_calls += run.hvp_calls;
+            result.controller.outer_trials += run.outer_trials;
+            result.controller.rejected_trials += run.rejected_trials;
+            result.controller.projected_trials += run.projected_trials;
+            result.controller.active_set_changes += run.active_set_changes;
+            result.controller.active_steps += run.active_steps;
+            result.controller.inactive_steps += run.inactive_steps;
+        }
+        frame.discarded_substeps = frame.executed_substeps
+            - frame.accepted_substeps;
+        const CanonicalStageRun& accepted = levels[
+            static_cast<std::size_t>(frame.refinement_depth + 1)];
+        result.controller.position = accepted.run.position;
+        result.controller.velocity = accepted.run.velocity;
+        result.committed_frames.insert(result.committed_frames.end(),
+            accepted.staged_frames.begin(), accepted.staged_frames.end());
+        result.committed_ledger.insert(result.committed_ledger.end(),
+            accepted.publication_ledger.begin(),
+            accepted.publication_ledger.end());
+        result.fine_only_commit = result.fine_only_commit
+            && result.committed_frames.size()
+                == committed_before
+                    + static_cast<std::size_t>(frame.accepted_substeps)
+            && result.committed_ledger.size()
+                == result.committed_frames.size();
+        for (std::size_t i = committed_before;
+             i < result.committed_frames.size(); ++i) {
+            result.global_steps_exact = result.global_steps_exact
+                && result.committed_frames[i].step
+                    == static_cast<std::uint32_t>(i + 1U);
+        }
+        result.committed_prefix.push_back(result.committed_frames.size());
+        result.controller.accepted_substeps += frame.accepted_substeps;
+        result.controller.executed_substeps += frame.executed_substeps;
+        result.controller.discarded_substeps += frame.discarded_substeps;
+        result.controller.spectral_hvp_calls += frame.spectral_hvp_calls;
+        result.controller.contact_events += accepted.run.contact_events;
+        result.controller.accepted_active_steps += accepted.run.active_steps;
+        result.controller.accepted_inactive_steps +=
+            accepted.run.inactive_steps;
+        result.controller.maximum_pairs = std::max(
+            result.controller.maximum_pairs, accepted.run.maximum_pairs);
+        result.controller.maximum_penetration = std::max(
+            result.controller.maximum_penetration,
+            accepted.run.maximum_penetration);
+        result.controller.maximum_ledger_residual = std::max(
+            result.controller.maximum_ledger_residual,
+            accepted.run.maximum_ledger_residual);
+        result.controller.maximum_support_reaction_closure = std::max(
+            result.controller.maximum_support_reaction_closure,
+            accepted.run.maximum_support_reaction_closure);
+        result.controller.maximum_active_mixed_ratio = std::max(
+            result.controller.maximum_active_mixed_ratio,
+            accepted.run.maximum_active_mixed_ratio);
+        result.controller.support_reaction +=
+            accepted.run.support_reaction;
+        result.controller.contact_reaction +=
+            accepted.run.contact_reaction;
+        result.controller.gravity_impulse += accepted.run.gravity_impulse;
+        result.controller.maximum_mechanical_energy = std::max(
+            result.controller.maximum_mechanical_energy,
+            accepted.run.maximum_mechanical_energy);
+        result.controller.maximum_positive_density_strain = std::max(
+            result.controller.maximum_positive_density_strain,
+            accepted.run.maximum_positive_density_strain);
+        result.controller.maximum_speed = std::max(
+            result.controller.maximum_speed, accepted.run.maximum_speed);
+        for (std::size_t face = 0; face < 6U; ++face) {
+            frame.face_active_axes[face] =
+                accepted.run.face_active_axes[face];
+            frame.face_multiplier_sum[face] =
+                accepted.run.face_multiplier_sum[face];
+            frame.face_fluid_impulse[face] =
+                accepted.run.face_fluid_impulse[face];
+            result.controller.face_active_axes[face] +=
+                accepted.run.face_active_axes[face];
+            result.controller.face_multiplier_sum[face] +=
+                accepted.run.face_multiplier_sum[face];
+            result.controller.face_fluid_impulse[face] +=
+                accepted.run.face_fluid_impulse[face];
+        }
+        result.controller.first_contact_time = std::min(
+            result.controller.first_contact_time,
+            accepted.run.first_contact_time);
+        result.controller.terminal_contacts =
+            accepted.run.terminal_contacts;
+        if (global_precontact) {
+            result.controller.precontact_steps +=
+                accepted.run.precontact_steps;
+            result.controller.precontact_pressure_violations +=
+                accepted.run.precontact_pressure_violations;
+            result.controller.maximum_precontact_support_reaction = std::max(
+                result.controller.maximum_precontact_support_reaction,
+                accepted.run.maximum_precontact_support_reaction);
+            result.controller.maximum_precontact_position_error = std::max(
+                result.controller.maximum_precontact_position_error,
+                accepted.run.maximum_precontact_position_error);
+            result.controller.maximum_precontact_velocity_error = std::max(
+                result.controller.maximum_precontact_velocity_error,
+                accepted.run.maximum_precontact_velocity_error);
+            result.controller.maximum_precontact_velocity_spread = std::max(
+                result.controller.maximum_precontact_velocity_spread,
+                accepted.run.maximum_precontact_velocity_spread);
+            global_precontact = !std::isfinite(
+                accepted.run.first_contact_time);
+        }
+        result.cumulative_publication_impulse +=
+            accepted.cumulative_publication_impulse;
+        result.cumulative_absolute_pressure_delta +=
+            accepted.cumulative_absolute_pressure_delta;
+        result.cumulative_absolute_mechanical_delta +=
+            accepted.cumulative_absolute_mechanical_delta;
+        result.maximum_raw_ledger_residual = std::max(
+            result.maximum_raw_ledger_residual,
+            accepted.maximum_raw_published_ledger_residual);
+        result.maximum_compensated_ledger_residual = std::max(
+            result.maximum_compensated_ledger_residual,
+            accepted.maximum_compensated_ledger_residual);
+        frame.position = result.controller.position;
+        frame.velocity = result.controller.velocity;
+        frame.passed = true;
+        result.controller.frames.push_back(std::move(frame));
+    }
+    result.trajectory_sha256 = canonical::trajectory_root(
+        B4C3Q_PROFILE_SHA256, scenario_sha256,
+        canonical_frame_roots(result.committed_frames));
+    const double impulse_bound = static_cast<double>(
+            result.committed_ledger.size())
+            * MASS * std::sqrt(3.0) * 0.5e-6
+        + gamma_factor(32U + 3U * result.committed_ledger.size())
+            * std::max(norm(result.cumulative_publication_impulse), 1.0e-30);
+    result.controller.passed = result.controller.contact_events > 0
+        && result.controller.maximum_penetration <= 1.0e-6
+            + 64.0 * std::numeric_limits<double>::epsilon()
+        && result.controller.maximum_ledger_residual <= 1.0e-9
+        && result.controller.maximum_support_reaction_closure <= 1.0e-10;
+    result.passed = result.controller.passed
+        && result.global_steps_exact && result.fine_only_commit
+        && result.committed_frames.size() == result.committed_ledger.size()
+        && result.trace.live_workspaces == 0
+        && result.trace.maximum_live_workspaces <= 2
+        && result.trace.exact && result.trace.work_reduced
+        && result.maximum_compensated_ledger_residual <= 1.0e-9
+        && norm(result.cumulative_publication_impulse) <= impulse_bound;
+    if (!result.passed) {
+        result.failure = "CANONICAL_ADAPTIVE_GATE";
+        result.controller.failure = result.failure;
+    }
+    return result;
+}
+
+CanonicalAdaptiveCase run_canonical_adaptive_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    bool released_block) {
+    CanonicalAdaptiveCase result;
+    result.name = std::move(name);
+    result.candidate = run_canonical_adaptive_controller(
+        fixture, scenario_sha256);
+    result.binary_trace.record_queries = false;
+    result.binary = run_b4b1_controller_joint(
+        fixture, true, result.binary_trace);
+    if (!result.candidate.passed || !result.binary.passed) {
+        result.failure = "ADAPTIVE_LANE";
+        return result;
+    }
+    std::size_t binary_prefix = 0U;
+    result.frame_envelope_exact =
+        result.candidate.controller.frames.size()
+            == result.binary.frames.size();
+    for (std::size_t frame_index = 0;
+         frame_index < result.candidate.controller.frames.size();
+         ++frame_index) {
+        const SmokeFrame& candidate =
+            result.candidate.controller.frames[frame_index];
+        const SmokeFrame& binary = result.binary.frames[frame_index];
+        binary_prefix += static_cast<std::size_t>(binary.accepted_substeps);
+        const std::size_t steps = std::max(
+            result.candidate.committed_prefix[frame_index], binary_prefix);
+        const double elapsed = static_cast<double>(frame_index + 1U)
+            * SMOKE_FRAME_TIME;
+        const double position_bound = std::min(
+            0.05 * SPACING,
+            8.0 * static_cast<double>(steps) * 1.0e-6
+                * (1.0 + elapsed));
+        const double velocity_bound = std::min(
+            0.001 * std::sqrt(KAPPA / MASS),
+            32.0 * static_cast<double>(steps) * 1.0e-6);
+        const double position_error = rms_difference(
+            candidate.position, binary.position);
+        const double velocity_error = rms_difference(
+            candidate.velocity, binary.velocity);
+        const double position_ratio = position_error
+            / std::max(position_bound, 1.0e-300);
+        const double velocity_ratio = velocity_error
+            / std::max(velocity_bound, 1.0e-300);
+        if (position_ratio > result.maximum_position_bound_ratio) {
+            result.maximum_position_bound_ratio = position_ratio;
+            result.worst_position_frame = static_cast<int>(frame_index);
+        }
+        if (velocity_ratio > result.maximum_velocity_bound_ratio) {
+            result.maximum_velocity_bound_ratio = velocity_ratio;
+            result.worst_velocity_frame = static_cast<int>(frame_index);
+        }
+        JointQueryTrace aggregate_trace;
+        aggregate_trace.record_queries = false;
+        const B4BAggregate candidate_value = b4b_aggregate_joint(
+            fixture, candidate.position, candidate.velocity,
+            "CANONICAL_ADAPTIVE_COMPARE_"
+                + std::to_string(frame_index), aggregate_trace);
+        const B4BAggregate binary_value = b4b_aggregate(
+            fixture, binary.position, binary.velocity);
+        result.candidate.trace.exact = result.candidate.trace.exact
+            && aggregate_trace.exact;
+        result.maximum_center_dx = std::max(
+            result.maximum_center_dx,
+            maximum_component_abs(
+                candidate_value.center - binary_value.center) / SPACING);
+        result.maximum_q99_height_dx = std::max(
+            result.maximum_q99_height_dx,
+            std::abs(candidate_value.q99_height
+                - binary_value.q99_height) / SPACING);
+        result.maximum_q99_front_dx = std::max(
+            result.maximum_q99_front_dx,
+            std::abs(candidate_value.q99_front
+                - binary_value.q99_front) / SPACING);
+        const double kinetic_scale = std::max(
+            candidate_value.kinetic, binary_value.kinetic);
+        const double kinetic_difference = std::abs(
+            candidate_value.kinetic - binary_value.kinetic);
+        const double kinetic_relative = kinetic_scale > 1.0e-12
+            ? kinetic_difference / kinetic_scale : 0.0;
+        result.maximum_kinetic_relative = std::max(
+            result.maximum_kinetic_relative, kinetic_relative);
+        const bool kinetic_exact = kinetic_scale > 1.0e-12
+            ? kinetic_relative <= 0.15
+            : kinetic_difference <= gamma_factor(
+                32U + 12U * candidate.velocity.size())
+                    * std::max(kinetic_scale,
+                        std::numeric_limits<double>::min());
+        result.frame_envelope_exact = result.frame_envelope_exact
+            && candidate_value.finite_values
+            && binary_value.finite_values
+            && position_error <= position_bound
+            && velocity_error <= velocity_bound
+            && result.maximum_center_dx <= 0.05
+            && result.maximum_q99_height_dx <= 0.10
+            && result.maximum_q99_front_dx <= 0.10
+            && kinetic_exact;
+    }
+    result.schedule_exact =
+        !result.candidate.controller.frames.empty()
+        && result.candidate.controller.frames[0].spectrum_source
+            == "FORECAST_ACTIVE";
+    if (released_block
+        && result.candidate.controller.frames.size() == 16U) {
+        result.schedule_exact = true;
+        for (std::size_t frame = 0; frame < 14U; ++frame) {
+            result.schedule_exact = result.schedule_exact
+                && result.candidate.controller.frames[frame].spectrum_source
+                    == "INACTIVE_EXACT";
+        }
+        result.schedule_exact = result.schedule_exact
+            && result.candidate.controller.frames[14].spectrum_source
+                == "FORECAST_ACTIVE"
+            && result.candidate.controller.frames[15].spectrum_source
+                == "START_ACTIVE";
+    }
+    result.terminal_contacts_exact =
+        result.candidate.controller.terminal_contacts
+        == result.binary.terminal_contacts;
+    result.contact_time_error = event_time_error(
+        result.candidate.controller.first_contact_time,
+        result.binary.first_contact_time);
+    if (std::isfinite(result.candidate.controller.first_contact_time)) {
+        const std::size_t frame = std::min(
+            static_cast<std::size_t>(
+                result.candidate.controller.first_contact_time
+                    / SMOKE_FRAME_TIME),
+            result.candidate.controller.frames.size() - 1U);
+        result.contact_time_limit = std::max(
+            SMOKE_FRAME_TIME / static_cast<double>(
+                result.candidate.controller.frames[frame]
+                    .accepted_substeps),
+            SMOKE_FRAME_TIME / static_cast<double>(
+                result.binary.frames[frame].accepted_substeps))
+            + 64.0 * std::numeric_limits<double>::epsilon();
+    }
+    const B4BAggregate initial = b4b_aggregate(
+        fixture, fixture.position, fixture.velocity);
+    const B4BAggregate final = b4b_aggregate_joint(
+        fixture, result.candidate.controller.position,
+        result.candidate.controller.velocity,
+        "CANONICAL_ADAPTIVE_FINAL", result.candidate.trace);
+    result.lateral_drift = std::max(
+        std::abs(final.center.x - initial.center.x),
+        std::abs(final.center.z - initial.center.z));
+    result.lateral_drift_limit = static_cast<double>(
+            result.candidate.committed_frames.size())
+            * 0.5e-6 / static_cast<double>(fixture.position.size())
+        + 1.0e-10;
+    result.energy_scale = std::max({
+        std::abs(initial.mechanical),
+        static_cast<double>(fixture.position.size()) * MASS
+            * std::abs(fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
+    result.pressure_budget = 0.01 * result.energy_scale;
+    result.mechanical_budget = 0.01 * result.energy_scale;
+    result.pressure_budget_utilization =
+        result.candidate.cumulative_absolute_pressure_delta
+        / result.pressure_budget;
+    result.mechanical_budget_utilization =
+        result.candidate.cumulative_absolute_mechanical_delta
+        / result.mechanical_budget;
+    const double energy_creation = std::max(0.0,
+        result.candidate.controller.maximum_mechanical_energy
+            - initial.mechanical);
+    const double energy_creation_limit = 0.01 * result.energy_scale
+        + result.candidate.cumulative_absolute_mechanical_delta;
+    const bool common = result.frame_envelope_exact
+        && result.schedule_exact && result.terminal_contacts_exact
+        && result.contact_time_error <= result.contact_time_limit
+        && result.lateral_drift <= result.lateral_drift_limit
+        && result.candidate.controller.maximum_penetration
+            <= 1.0e-6 + 64.0 * std::numeric_limits<double>::epsilon()
+        && result.candidate.controller.maximum_ledger_residual <= 1.0e-9
+        && result.candidate.controller.maximum_support_reaction_closure
+            <= 1.0e-10
+        && result.candidate.cumulative_absolute_pressure_delta
+            <= result.pressure_budget
+        && result.candidate.cumulative_absolute_mechanical_delta
+            <= result.mechanical_budget
+        && energy_creation <= energy_creation_limit;
+    if (released_block) {
+        const double spread_limit = 2.0e-6
+            * static_cast<double>(
+                result.candidate.controller.precontact_steps)
+            + 64.0 * std::numeric_limits<double>::epsilon();
+        result.physical_exact = common
+            && fixture.position.size() == 27U
+            && result.candidate.controller.precontact_steps > 0
+            && result.candidate.controller.precontact_pressure_violations == 0
+            && result.candidate.controller
+                .maximum_precontact_support_reaction <= 1.0e-12
+            && result.candidate.controller
+                .maximum_precontact_position_error == 0.0
+            && result.candidate.controller
+                .maximum_precontact_velocity_error == 0.0
+            && result.candidate.controller
+                .maximum_precontact_velocity_spread <= spread_limit;
+    } else {
+        result.physical_exact = common
+            && fixture.position.size() == 48U
+            && std::abs(final.center.y - initial.center.y)
+                <= 0.05 * SPACING
+            && result.candidate.controller.maximum_positive_density_strain
+                <= 1.0e-3
+            && result.candidate.controller.maximum_speed
+                <= 0.01 * std::sqrt(KAPPA / MASS);
+    }
+    result.passed = result.candidate.passed && result.binary.passed
+        && result.binary_trace.exact && result.physical_exact;
+    if (!result.passed) {
+        result.failure = "CANONICAL_ADAPTIVE_CASE_GATE";
+    }
+    return result;
+}
+
+CanonicalAdaptiveRollback run_canonical_adaptive_rollback() {
+    CanonicalAdaptiveRollback result;
+    SmokeFixture fixture = make_b4b_supported_column_fixture();
+    fixture.macro_frames = 1;
+    const CanonicalAdaptiveRun committed =
+        run_canonical_adaptive_controller(
+            fixture, B4C3TA_P1_SCENARIO_SHA256);
+    if (!committed.passed) {
+        result.failure = "ROLLBACK_PREFIX";
+        return result;
+    }
+    const std::vector<Vec3> position = committed.controller.position;
+    const std::vector<Vec3> velocity = committed.controller.velocity;
+    const std::vector<std::string> roots = canonical_frame_roots(
+        committed.committed_frames);
+    const std::vector<CanonicalPublicationLedgerEntry> ledger =
+        committed.committed_ledger;
+    result.committed_frames_before = roots.size();
+    result.committed_ledger_before = ledger.size();
+    const CanonicalStageRun forced = run_canonical_stage_interval(
+        fixture, B4C3TA_P1_SCENARIO_SHA256, 4,
+        0, 2, true, B4C3Q_PROFILE_SHA256, true,
+        &position, &velocity, static_cast<std::uint32_t>(roots.size()),
+        SMOKE_FRAME_TIME);
+    result.failure = forced.failure;
+    result.private_frames = forced.staged_frames.size();
+    result.private_ledger_entries = forced.publication_ledger.size();
+    result.state_exact = exact_vec3_values(
+            position, committed.controller.position)
+        && exact_vec3_values(velocity, committed.controller.velocity);
+    result.roots_exact = roots
+        == canonical_frame_roots(committed.committed_frames);
+    result.ledger_exact = exact_publication_ledger(
+        ledger, committed.committed_ledger);
+    result.step_count_exact = committed.committed_frames.size()
+        == committed.committed_ledger.size();
+    result.passed = !forced.passed
+        && result.failure == "FORCED_SOLVER_FAILURE"
+        && result.private_frames == 2U
+        && result.private_ledger_entries == 2U
+        && result.state_exact && result.roots_exact
+        && result.ledger_exact && result.step_count_exact;
+    return result;
+}
+
+CanonicalAdaptiveFailureProbe run_canonical_adaptive_failure_probe() {
+    CanonicalAdaptiveFailureProbe result;
+    const SmokeFixture fixture = make_b4b_supported_column_fixture();
+    const CanonicalAdaptiveRun prefix = run_canonical_adaptive_controller(
+        fixture, B4C3TA_P1_SCENARIO_SHA256);
+    result.failed_frame = static_cast<int>(prefix.controller.frames.size());
+    if (prefix.passed || result.failed_frame < 0
+        || result.failed_frame >= fixture.macro_frames) {
+        result.failure = "EXPECTED_ADAPTIVE_FAILURE_MISSING";
+        return result;
+    }
+    JointQueryTrace trace;
+    trace.record_queries = false;
+    JointPressureWorkspace workspace = build_joint_query_workspace(
+        prefix.controller.position, fixture.boundary,
+        "ADAPTIVE_FAILURE_PROBE", false, trace, false);
+    if (!workspace.passed) {
+        result.failure = "PROBE_WORKSPACE";
+        return result;
+    }
+    const SpectralEstimate spectrum =
+        boundary_pressure_spectrum_joint_workspace(
+            workspace, trace, false);
+    release_joint_query_workspace(workspace, trace);
+    if (!spectrum.passed) {
+        result.failure = "PROBE_SPECTRUM";
+        return result;
+    }
+    result.spectral_hvp_calls = spectrum.calls;
+    result.maximum_eigenvalue = spectrum.maximum_eigenvalue;
+    result.initial_substeps = std::max(1,
+        static_cast<int>(std::ceil(SMOKE_FRAME_TIME
+            * std::sqrt(std::max(spectrum.maximum_eigenvalue, 0.0) / MASS)
+            / SPECTRAL_TARGET)));
+    for (int level = 0; level < 4; ++level) {
+        result.levels.push_back(run_canonical_stage_interval(
+            fixture, B4C3TA_P1_SCENARIO_SHA256,
+            result.initial_substeps * (1 << level),
+            0, -1, true, B4C3Q_PROFILE_SHA256, true,
+            &prefix.controller.position, &prefix.controller.velocity,
+            static_cast<std::uint32_t>(prefix.committed_frames.size()),
+            static_cast<double>(result.failed_frame) * SMOKE_FRAME_TIME));
+        if (result.levels.back().passed
+            && result.first_passing_level < 0) {
+            result.first_passing_level = level;
+        }
+        if (level > 0 && result.levels[static_cast<std::size_t>(level - 1)].passed
+            && result.levels[static_cast<std::size_t>(level)].passed) {
+            const SmokeGate gate = smoke_gate(
+                result.levels[static_cast<std::size_t>(level - 1)].run,
+                result.levels[static_cast<std::size_t>(level)].run);
+            result.gates.push_back(gate);
+            if (gate.passed && result.selected_fine_level < 0) {
+                result.selected_fine_level = level;
+            }
+        }
+    }
+    result.passed = result.failed_frame == 4
+        && !result.levels.empty()
+        && !result.levels[0].passed
+        && result.first_passing_level > 0
+        && result.selected_fine_level > result.first_passing_level;
+    if (!result.passed) {
+        result.failure = "REFINEMENT_RECOVERY_NOT_ESTABLISHED";
+    }
+    return result;
+}
+
 void append_canonical_stage_run(
     std::ostringstream& output, const CanonicalStageRun& value) {
     output << std::setprecision(17)
@@ -13440,6 +14257,187 @@ void append_balanced_ledger_negative(
            << value.committed_ledger_entries
            << ",\"pretransaction_exact\":"
            << (value.pretransaction_exact ? "true" : "false") << '}';
+}
+
+void append_canonical_adaptive_run(
+    std::ostringstream& output, const CanonicalAdaptiveRun& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"macro_frames\":" << value.controller.frames.size()
+           << ",\"accepted_substeps\":"
+           << value.controller.accepted_substeps
+           << ",\"executed_substeps\":"
+           << value.controller.executed_substeps
+           << ",\"discarded_substeps\":"
+           << value.controller.discarded_substeps
+           << ",\"spectral_hvp_calls\":"
+           << value.controller.spectral_hvp_calls
+           << ",\"nonlinear_hvp_calls\":"
+           << value.controller.nonlinear_hvp_calls
+           << ",\"committed_frames\":" << value.committed_frames.size()
+           << ",\"committed_ledger_entries\":"
+           << value.committed_ledger.size()
+           << ",\"global_steps_exact\":"
+           << (value.global_steps_exact ? "true" : "false")
+           << ",\"fine_only_commit\":"
+           << (value.fine_only_commit ? "true" : "false")
+           << ",\"maximum_raw_ledger_residual\":"
+           << value.maximum_raw_ledger_residual
+           << ",\"maximum_compensated_ledger_residual\":"
+           << value.maximum_compensated_ledger_residual
+           << ",\"cumulative_publication_impulse\":";
+    append_vec3(output, value.cumulative_publication_impulse);
+    output << ",\"cumulative_absolute_pressure_delta_j\":"
+           << value.cumulative_absolute_pressure_delta
+           << ",\"cumulative_absolute_mechanical_delta_j\":"
+           << value.cumulative_absolute_mechanical_delta
+           << ",\"maximum_penetration_m\":"
+           << value.controller.maximum_penetration
+           << ",\"maximum_positive_density_strain\":"
+           << value.controller.maximum_positive_density_strain
+           << ",\"maximum_speed_m_s\":"
+           << value.controller.maximum_speed
+           << ",\"precontact_steps\":"
+           << value.controller.precontact_steps
+           << ",\"precontact_pressure_violations\":"
+           << value.controller.precontact_pressure_violations
+           << ",\"maximum_precontact_velocity_spread_m_s\":"
+           << value.controller.maximum_precontact_velocity_spread
+           << ",\"trajectory_sha256\":\""
+           << value.trajectory_sha256
+           << "\",\"ledger_sha256\":\""
+           << publication_ledger_hash(value.committed_ledger)
+           << "\",\"frames\":[";
+    for (std::size_t i = 0; i < value.controller.frames.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        const SmokeFrame& frame = value.controller.frames[i];
+        output << "{\"frame\":" << frame.frame
+               << ",\"spectrum_source\":\"" << frame.spectrum_source
+               << "\",\"initial_substeps\":" << frame.initial_substeps
+               << ",\"accepted_substeps\":" << frame.accepted_substeps
+               << ",\"executed_substeps\":" << frame.executed_substeps
+               << ",\"discarded_substeps\":" << frame.discarded_substeps
+               << ",\"committed_prefix\":"
+               << value.committed_prefix[i] << '}';
+    }
+    output << "],\"trace\":";
+    append_joint_query_trace(output, value.trace);
+    output << '}';
+}
+
+void append_canonical_adaptive_case(
+    std::ostringstream& output, const CanonicalAdaptiveCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"candidate\":";
+    append_canonical_adaptive_run(output, value.candidate);
+    output << ",\"binary_accepted_substeps\":"
+           << value.binary.accepted_substeps
+           << ",\"maximum_position_bound_ratio\":"
+           << value.maximum_position_bound_ratio
+           << ",\"worst_position_frame\":" << value.worst_position_frame
+           << ",\"maximum_velocity_bound_ratio\":"
+           << value.maximum_velocity_bound_ratio
+           << ",\"worst_velocity_frame\":" << value.worst_velocity_frame
+           << ",\"maximum_center_dx\":" << value.maximum_center_dx
+           << ",\"maximum_q99_height_dx\":"
+           << value.maximum_q99_height_dx
+           << ",\"maximum_q99_front_dx\":"
+           << value.maximum_q99_front_dx
+           << ",\"maximum_kinetic_relative\":"
+           << value.maximum_kinetic_relative
+           << ",\"frame_envelope_exact\":"
+           << (value.frame_envelope_exact ? "true" : "false")
+           << ",\"schedule_exact\":"
+           << (value.schedule_exact ? "true" : "false")
+           << ",\"terminal_contacts_exact\":"
+           << (value.terminal_contacts_exact ? "true" : "false")
+           << ",\"contact_time_error_s\":"
+           << value.contact_time_error
+           << ",\"contact_time_limit_s\":"
+           << value.contact_time_limit
+           << ",\"lateral_drift_m\":" << value.lateral_drift
+           << ",\"lateral_drift_limit_m\":"
+           << value.lateral_drift_limit
+           << ",\"energy_scale_j\":" << value.energy_scale
+           << ",\"pressure_budget_j\":" << value.pressure_budget
+           << ",\"mechanical_budget_j\":" << value.mechanical_budget
+           << ",\"pressure_budget_utilization\":"
+           << value.pressure_budget_utilization
+           << ",\"mechanical_budget_utilization\":"
+           << value.mechanical_budget_utilization
+           << ",\"physical_exact\":"
+           << (value.physical_exact ? "true" : "false") << '}';
+}
+
+void append_canonical_adaptive_rollback(
+    std::ostringstream& output, const CanonicalAdaptiveRollback& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"committed_frames_before\":"
+           << value.committed_frames_before
+           << ",\"committed_ledger_before\":"
+           << value.committed_ledger_before
+           << ",\"private_frames\":" << value.private_frames
+           << ",\"private_ledger_entries\":"
+           << value.private_ledger_entries
+           << ",\"state_exact\":"
+           << (value.state_exact ? "true" : "false")
+           << ",\"roots_exact\":"
+           << (value.roots_exact ? "true" : "false")
+           << ",\"ledger_exact\":"
+           << (value.ledger_exact ? "true" : "false")
+           << ",\"step_count_exact\":"
+           << (value.step_count_exact ? "true" : "false") << '}';
+}
+
+void append_canonical_adaptive_failure_probe(
+    std::ostringstream& output,
+    const CanonicalAdaptiveFailureProbe& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"failed_frame\":" << value.failed_frame
+           << ",\"initial_substeps\":" << value.initial_substeps
+           << ",\"spectral_hvp_calls\":" << value.spectral_hvp_calls
+           << ",\"maximum_eigenvalue\":" << value.maximum_eigenvalue
+           << ",\"first_passing_level\":" << value.first_passing_level
+           << ",\"selected_fine_level\":" << value.selected_fine_level
+           << ",\"levels\":[";
+    for (std::size_t i = 0; i < value.levels.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << "{\"level\":" << i
+               << ",\"substeps\":" << value.levels[i].run.substeps
+               << ",\"status\":\""
+               << (value.levels[i].passed ? "PASS" : "FAIL")
+               << "\",\"failure\":\"" << value.levels[i].failure
+               << "\",\"outer_trials\":"
+               << value.levels[i].run.outer_trials
+               << ",\"hvp_calls\":" << value.levels[i].run.hvp_calls
+               << "}";
+    }
+    output << "],\"adjacent_passing_gates\":[";
+    for (std::size_t i = 0; i < value.gates.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << "{\"passed\":"
+               << (value.gates[i].passed ? "true" : "false")
+               << ",\"position_dx\":"
+               << value.gates[i].normalized_position_error
+               << ",\"velocity_c\":"
+               << value.gates[i].normalized_velocity_error
+               << ",\"kinetic_relative\":"
+               << value.gates[i].relative_kinetic_error << '}';
+    }
+    output << "]}";
 }
 
 } // namespace
@@ -14462,6 +15460,186 @@ SplitBoundaryReport run_balanced_stage_ledger_controls() {
            << ",\"result_sha256\":\""
            << sha256_hex(material.str()) << "\"}";
     return {passed, report.str()};
+}
+
+SplitBoundaryReport run_canonical_adaptive_controls() {
+    const SplitBoundaryReport parent =
+        run_balanced_stage_ledger_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "107e56e5be49ebb157b0662767c934ced6addf6f3a7054d696772d6699ee1e90";
+    std::vector<CanonicalAdaptiveCase> cases;
+    CanonicalAdaptiveRollback rollback;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3A1_PARENT";
+    } else {
+        cases.push_back(run_canonical_adaptive_case(
+            "p1-supported-adaptive-balanced",
+            make_b4b_supported_column_fixture(),
+            B4C3TA_P1_SCENARIO_SHA256, false));
+        cases.push_back(run_canonical_adaptive_case(
+            "p2-released-adaptive-balanced",
+            make_b4b_released_block_fixture(),
+            B4C3TA_P2_SCENARIO_SHA256, true));
+        rollback = run_canonical_adaptive_rollback();
+        for (const CanonicalAdaptiveCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!rollback.passed && first_failure.empty()) {
+            first_failure = "POST_COMMIT_ROLLBACK";
+        }
+    }
+    const bool cases_passed = cases.size() == 2U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const CanonicalAdaptiveCase& value) {
+                return value.passed;
+            });
+    const bool passed = parent_exact && cases_passed && rollback.passed;
+    const std::string disposition = passed
+        ? "CANONICAL_BALANCED_ADAPTIVE_CONTROLLER_CANDIDATE"
+        : "CANONICAL_BALANCED_ADAPTIVE_CONTROLLER_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition;
+    for (const CanonicalAdaptiveCase& value : cases) {
+        material << '|' << value.name << ':'
+                 << value.candidate.trajectory_sha256 << ':'
+                 << publication_ledger_hash(
+                        value.candidate.committed_ledger)
+                 << ':' << value.candidate.controller.accepted_substeps
+                 << ':' << value.candidate.controller.executed_substeps
+                 << ':' << value.maximum_position_bound_ratio
+                 << ':' << value.maximum_velocity_bound_ratio
+                 << ':' << value.pressure_budget_utilization
+                 << ':' << value.mechanical_budget_utilization
+                 << ':' << value.schedule_exact;
+    }
+    material << "|R:" << rollback.failure
+             << ':' << rollback.committed_frames_before
+             << ':' << rollback.private_frames
+             << ':' << rollback.private_ledger_entries
+             << ':' << rollback.state_exact
+             << ':' << rollback.roots_exact
+             << ':' << rollback.ledger_exact;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3ta_adaptive_canonical.v1\""
+           << ",\"identity\":\"joint-pressure-canonical-balanced-adaptive-r0\""
+           << ",\"parent_b4c3a1_result_sha256\":\"5b50800cc5427e812cd5637b2952e6f4657803e430203214bf95de3667620367\""
+           << ",\"parent_b4c3a1_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"profile_sha256\":\"" << B4C3Q_PROFILE_SHA256 << '"'
+           << ",\"scenario_sha256\":{\"p1\":\""
+           << B4C3TA_P1_SCENARIO_SHA256 << "\",\"p2\":\""
+           << B4C3TA_P2_SCENARIO_SHA256 << "\"}"
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_canonical_adaptive_case(report, cases[i]);
+    }
+    report << "],\"post_commit_rollback\":";
+    append_canonical_adaptive_rollback(report, rollback);
+    report << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c3tr_fixed_reference_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"canonical_fixed_reference_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_canonical_adaptive_failure_probe_controls() {
+    const CanonicalAdaptiveFailureProbe value =
+        run_canonical_adaptive_failure_probe();
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (value.passed ? "PASS|" : "FAIL|") << value.failure
+             << '|' << value.failed_frame << ':' << value.initial_substeps
+             << ':' << value.first_passing_level
+             << ':' << value.selected_fine_level;
+    for (const CanonicalStageRun& level : value.levels) {
+        material << '|' << level.run.substeps << ':' << level.passed
+                 << ':' << level.failure << ':' << level.run.outer_trials
+                 << ':' << level.run.hvp_calls;
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3ta_failure_probe.v1\""
+           << ",\"identity\":\"canonical-adaptive-failed-level-refinement-probe-r0\""
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL") << '"'
+           << ",\"authority\":\"DIAGNOSTIC_ONLY\""
+           << ",\"probe\":";
+    append_canonical_adaptive_failure_probe(report, value);
+    report << ",\"repair_contract_required\":true"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {value.passed, report.str()};
+}
+
+SplitBoundaryReport run_canonical_adaptive_p2_probe_controls() {
+    const CanonicalAdaptiveCase value = run_canonical_adaptive_case(
+        "p2-released-adaptive-balanced",
+        make_b4b_released_block_fixture(),
+        B4C3TA_P2_SCENARIO_SHA256, true);
+    const bool diagnostic_complete = value.candidate.passed
+        && value.binary.passed && value.binary_trace.exact;
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (diagnostic_complete ? "PASS|" : "FAIL|")
+             << value.failure << '|'
+             << value.candidate.controller.maximum_precontact_support_reaction
+             << ':'
+             << value.candidate.controller.maximum_precontact_position_error
+             << ':'
+             << value.candidate.controller.maximum_precontact_velocity_error
+             << ':'
+             << value.candidate.controller.maximum_precontact_velocity_spread
+             << ':' << value.physical_exact;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3ta_p2_probe.v1\""
+           << ",\"identity\":\"canonical-adaptive-p2-physical-probe-r0\""
+           << ",\"status\":\""
+           << (diagnostic_complete ? "PASS" : "FAIL") << '"'
+           << ",\"authority\":\"DIAGNOSTIC_ONLY\""
+           << ",\"case\":";
+    append_canonical_adaptive_case(report, value);
+    report << ",\"observed\":{\"maximum_precontact_support_reaction\":"
+           << value.candidate.controller.maximum_precontact_support_reaction
+           << ",\"maximum_precontact_position_error_m\":"
+           << value.candidate.controller.maximum_precontact_position_error
+           << ",\"maximum_precontact_velocity_error_m_s\":"
+           << value.candidate.controller.maximum_precontact_velocity_error
+           << ",\"maximum_precontact_velocity_spread_m_s\":"
+           << value.candidate.controller.maximum_precontact_velocity_spread
+           << ",\"maximum_support_reaction_closure\":"
+           << value.candidate.controller.maximum_support_reaction_closure
+           << ",\"maximum_mechanical_energy_j\":";
+    append_b4b_number(
+        report, value.candidate.controller.maximum_mechanical_energy);
+    report << "}"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {diagnostic_complete, report.str()};
 }
 
 } // namespace nextengine::nonlocal::fcr
