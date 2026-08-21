@@ -93,7 +93,8 @@ int main(int argc, char** argv) {
                          "--adaptive-accuracy-budget-self-test|"
                          "--workspace-reuse-diagnostic-probe|"
                          "--workspace-reuse-diagnostic-self-test|"
-                         "--reference-attestation-self-test\n";
+                         "--reference-attestation-self-test|"
+                         "--nominal-alignment-preflight\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -775,6 +776,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nominal-alignment-preflight") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_nominal_alignment_preflight_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -871,7 +879,8 @@ int main(int argc, char** argv) {
                      "--complete-flat-adjacency-self-test|"
                      "--workspace-reuse-diagnostic-probe|"
                      "--workspace-reuse-diagnostic-self-test|"
-                     "--reference-attestation-self-test\n";
+                     "--reference-attestation-self-test|"
+                     "--nominal-alignment-preflight\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

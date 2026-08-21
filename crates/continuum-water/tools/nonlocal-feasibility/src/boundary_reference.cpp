@@ -30247,4 +30247,609 @@ SplitBoundaryReport run_complete_flat_adjacency_controls() {
     return run_complete_flat_adjacency_impl(true);
 }
 
+namespace {
+
+constexpr const char* B4E0_IDENTITY_SHA256 =
+    "c53a112830cb94c4139da75c2044d28f61673cb1aa05c116098967aee41f7bbe";
+constexpr const char* B4E0_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e0-nominal-alignment|v1|"
+    "candidate=66e318cb69e0b0c0a3a40a2beafa2099ebf151287581b191a242e82dac6d6f3c|"
+    "formula=nuv-variational-fcr2+split-static-boundary-r0|"
+    "solver=nuv-newton-krylov-r0+outer-state-hessian-tape-v1|"
+    "publication=e713a61649fc230b189fca9eda3628b69f9369c706df35f0a2b080a4bd189a70|"
+    "reference-attestation=9cf5fc571fee7bc0be5585d9b467f90cd8a27f40d9cf39d6be999b0c466cbccc|"
+    "reference-profile=ba34b4e3b12986ebc831320d6811551d5311a6774a64f079aabe3a5eaa6bb746|"
+    "scenarios=hydro,dam;orifice-excluded|"
+    "alignment=ids,coordinates,boundary-set,dt,mass,density,gravity,schedule,canonical-q99|"
+    "controls=id-swap,boundary-um1,schedule-step|trajectory=none|"
+    "credit=b4e1-design-only";
+constexpr const char* B4E0_PUBLICATION_SHA256 =
+    "e713a61649fc230b189fca9eda3628b69f9369c706df35f0a2b080a4bd189a70";
+
+struct NominalAlignmentSpec {
+    const char* id;
+    const char* kind;
+    int box_x_cells;
+    int steps;
+    int output_stride;
+    std::size_t support_count;
+    const char* fluid_root;
+    const char* boundary_root;
+    const char* scenario_root;
+};
+
+constexpr std::array<NominalAlignmentSpec, 2> B4E0_SCENARIOS = {{
+    {
+        "CW-HYDRO-001", "hydrostatic-cube", 20, 1200, 24, 5824U,
+        "7d4e661d08de08b18d43a76342329b51f6ae98bca9baee3d850e0f403eae5606",
+        "25de85b5eeec041c12bbb5de10e00b8374457b4cf09cb61d99dfc4d5511d8d62",
+        "c430b679dfeec33a6ac12c51df75ddee7e7bc48484c6c05188219f0a727909a0",
+    },
+    {
+        "CW-DAMBREAK-001", "dam-break", 80, 720, 4, 16384U,
+        "9c12e445666c7b0eada3e6e2c258c733323e4eb8ca6474a6f3d5b863f1566e76",
+        "1cf0fd172dcb321e995f372119ea956d1e376b8a409b804bc07e31a729aa830d",
+        "8d0a0a85adba50d4784245d460c83757bcce92841d804f4739b81faf27fd5f09",
+    },
+}};
+
+struct NominalAlignmentCase {
+    bool passed = false;
+    std::string failure;
+    std::string id;
+    std::string fluid_root;
+    std::string boundary_root;
+    std::string scenario_root;
+    std::string support_set_root;
+    std::string static_index_root;
+    std::string pair_root;
+    std::string initial_frame_root;
+    std::string initial_aggregate_root;
+    std::size_t fluid_samples = 0U;
+    std::size_t support_samples = 0U;
+    std::size_t pairs = 0U;
+    std::size_t directed = 0U;
+    std::size_t maximum_degree = 0U;
+    std::size_t active_centers = 0U;
+    std::size_t distance_tests = 0U;
+    std::size_t flat_offsets = 0U;
+    double maximum_positive_strain = 0.0;
+    double minimum_branch_margin = 0.0;
+    bool coordinate_set_exact = false;
+    bool canonical_initial_exact = false;
+    bool evaluation_finite = false;
+    bool repeat_exact = false;
+    bool id_mutation_rejected = false;
+    bool boundary_mutation_rejected = false;
+    bool schedule_mutation_rejected = false;
+};
+
+std::string b4e0_nominal_manifest(
+    const NominalAlignmentSpec& spec,
+    bool mutate_schedule) {
+    const int steps = spec.steps + (mutate_schedule ? 1 : 0);
+    std::ostringstream output;
+    output << "B4DR1D_SCENARIO_V1_BEGIN\n"
+           << "scenario_id=" << spec.id << '\n'
+           << "kind=" << spec.kind << '\n'
+           << "box_um=0,0,0;" << spec.box_x_cells * 50000
+           << ",1000000,1000000\n"
+           << "fluid=20,15,20;first=(25000,25000,25000);"
+              "velocity=(0,0,0);id=iy-iz-ix\n"
+           << "fluid_root=" << spec.fluid_root << '\n'
+           << "boundary=two-layer-outer-complement\n"
+           << "boundary_count=" << spec.support_count << '\n'
+           << "boundary_root=" << spec.boundary_root << '\n'
+           << "steps=" << steps << '\n'
+           << "outputs=0.." << steps << "/every="
+           << spec.output_stride << '\n'
+           << "B4DR1D_SCENARIO_V1_END\n";
+    return output.str();
+}
+
+std::string b4e0_scenario_root(const std::string& manifest) {
+    constexpr char DOMAIN[] =
+        "nextengine.nonlocal.nsr3b4dr1d-scenario.v1";
+    std::string projection(DOMAIN, sizeof(DOMAIN));
+    projection.append(manifest);
+    return sha256_hex(projection);
+}
+
+std::string b4e0_fluid_projection(
+    const NominalAlignmentSpec& spec,
+    bool swap_first_ids) {
+    std::ostringstream output;
+    output << "B4DR1C_FLUID_V1_BEGIN\n"
+           << "scenario=" << spec.id << '\n'
+           << "count=6000\n";
+    for (std::uint32_t iy = 0U; iy < 15U; ++iy) {
+        for (std::uint32_t iz = 0U; iz < 20U; ++iz) {
+            for (std::uint32_t ix = 0U; ix < 20U; ++ix) {
+                const std::uint32_t id = ((iy * 20U) + iz) * 20U + ix;
+                const std::uint32_t projected_id =
+                    swap_first_ids && id < 2U ? 1U - id : id;
+                output << projected_id << '='
+                       << 25000U + 50000U * ix << ','
+                       << 25000U + 50000U * iy << ','
+                       << 25000U + 50000U * iz << ";0,0,0\n";
+            }
+        }
+    }
+    output << "B4DR1C_FLUID_V1_END\n";
+    return output.str();
+}
+
+std::string b4e0_boundary_projection(
+    const NominalAlignmentSpec& spec,
+    bool mutate_first_x,
+    std::size_t& count) {
+    std::ostringstream output;
+    output << "B4DR1C_BOUNDARY_V1_BEGIN\n"
+           << "scenario=" << spec.id << '\n';
+    count = 0U;
+    for (int ix = -2; ix < spec.box_x_cells + 2; ++ix) {
+        for (int iy = -2; iy < 22; ++iy) {
+            for (int iz = -2; iz < 22; ++iz) {
+                const bool interior = ix >= 0 && ix < spec.box_x_cells
+                    && iy >= 0 && iy < 20 && iz >= 0 && iz < 20;
+                if (interior) {
+                    continue;
+                }
+                std::int64_t x = 25000 + 50000 * static_cast<std::int64_t>(ix);
+                if (mutate_first_x && count == 0U) {
+                    ++x;
+                }
+                output << count << '=' << x << ','
+                       << 25000 + 50000 * static_cast<std::int64_t>(iy)
+                       << ','
+                       << 25000 + 50000 * static_cast<std::int64_t>(iz)
+                       << '\n';
+                ++count;
+            }
+        }
+    }
+    output << "count=" << count
+           << "\nB4DR1C_BOUNDARY_V1_END\n";
+    return output.str();
+}
+
+std::vector<Vec3> b4e0_nominal_fluid() {
+    std::vector<Vec3> result;
+    result.reserve(6000U);
+    for (int iy = 0; iy < 15; ++iy) {
+        for (int iz = 0; iz < 20; ++iz) {
+            for (int ix = 0; ix < 20; ++ix) {
+                result.push_back(lattice_position(ix, iy, iz));
+            }
+        }
+    }
+    return result;
+}
+
+std::vector<Vec3> b4e0_reference_support(
+    const NominalAlignmentSpec& spec) {
+    std::vector<Vec3> result;
+    result.reserve(spec.support_count);
+    for (int ix = -2; ix < spec.box_x_cells + 2; ++ix) {
+        for (int iy = -2; iy < 22; ++iy) {
+            for (int iz = -2; iz < 22; ++iz) {
+                if (ix >= 0 && ix < spec.box_x_cells
+                    && iy >= 0 && iy < 20 && iz >= 0 && iz < 20) {
+                    continue;
+                }
+                result.push_back(lattice_position(ix, iy, iz));
+            }
+        }
+    }
+    return result;
+}
+
+using CanonicalCoordinate = std::array<std::int64_t, 3>;
+
+std::vector<CanonicalCoordinate> b4e0_canonical_coordinates(
+    const std::vector<Vec3>& input) {
+    std::vector<CanonicalCoordinate> result;
+    result.reserve(input.size());
+    for (const Vec3 value : input) {
+        result.push_back({canonical::quantize_position(value.x),
+            canonical::quantize_position(value.y),
+            canonical::quantize_position(value.z)});
+    }
+    std::sort(result.begin(), result.end());
+    return result;
+}
+
+std::string b4e0_coordinate_set_root(
+    const std::vector<CanonicalCoordinate>& coordinates) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.nsr3b4e0-coordinate-set.v1|"
+             << coordinates.size() << '|';
+    for (const CanonicalCoordinate& value : coordinates) {
+        material << value[0] << ',' << value[1] << ',' << value[2] << ';';
+    }
+    return sha256_hex(material.str());
+}
+
+std::string b4e0_initial_aggregate_root(
+    const canonical::Frame& frame) {
+    std::vector<std::int64_t> x;
+    std::vector<std::int64_t> y;
+    x.reserve(frame.samples.size());
+    y.reserve(frame.samples.size());
+    std::int64_t sum_x = 0;
+    std::int64_t sum_y = 0;
+    std::int64_t sum_z = 0;
+    for (const canonical::Sample& sample : frame.samples) {
+        x.push_back(sample.position_um[0]);
+        y.push_back(sample.position_um[1]);
+        sum_x += sample.position_um[0];
+        sum_y += sample.position_um[1];
+        sum_z += sample.position_um[2];
+    }
+    std::sort(x.begin(), x.end());
+    std::sort(y.begin(), y.end());
+    const std::size_t q99 = 5939U;
+    std::ostringstream material;
+    material << "nextengine.nonlocal.nsr3b4e0-initial-aggregate.v1|"
+             << frame.samples.size() << '|' << sum_x << ':' << sum_y
+             << ':' << sum_z << '|' << x.at(q99) << ':' << y.at(q99);
+    return sha256_hex(material.str());
+}
+
+bool b4e0_initial_canonical_exact(const canonical::Frame& frame) {
+    if (frame.step != 0U || frame.samples.size() != 6000U) {
+        return false;
+    }
+    std::vector<std::int64_t> x;
+    std::vector<std::int64_t> y;
+    x.reserve(frame.samples.size());
+    y.reserve(frame.samples.size());
+    std::int64_t sum_x = 0;
+    std::int64_t sum_y = 0;
+    std::int64_t sum_z = 0;
+    for (std::size_t index = 0U; index < frame.samples.size(); ++index) {
+        const canonical::Sample& sample = frame.samples[index];
+        const std::int64_t iy = static_cast<std::int64_t>(index / 400U);
+        const std::int64_t remainder = static_cast<std::int64_t>(index % 400U);
+        const std::int64_t iz = remainder / 20;
+        const std::int64_t ix = remainder % 20;
+        if (sample.sample_id != index
+            || sample.position_um[0] != 25000 + 50000 * ix
+            || sample.position_um[1] != 25000 + 50000 * iy
+            || sample.position_um[2] != 25000 + 50000 * iz
+            || sample.velocity_um_s != std::array<std::int64_t, 3>{0, 0, 0}) {
+            return false;
+        }
+        x.push_back(sample.position_um[0]);
+        y.push_back(sample.position_um[1]);
+        sum_x += sample.position_um[0];
+        sum_y += sample.position_um[1];
+        sum_z += sample.position_um[2];
+    }
+    std::sort(x.begin(), x.end());
+    std::sort(y.begin(), y.end());
+    return sum_x == 3000000000LL
+        && sum_y == 2250000000LL
+        && sum_z == 3000000000LL
+        && x[5939U] == 975000 && y[5939U] == 725000;
+}
+
+bool b4e0_evaluation_finite(const Evaluation& value) {
+    return std::isfinite(value.energy)
+        && std::isfinite(value.minimum_branch_margin)
+        && std::all_of(value.density.begin(), value.density.end(),
+            [](double item) { return std::isfinite(item); })
+        && std::all_of(value.gradient.begin(), value.gradient.end(),
+            [](Vec3 item) { return finite(item); });
+}
+
+NominalAlignmentCase run_b4e0_alignment_case(
+    const NominalAlignmentSpec& spec) {
+    NominalAlignmentCase result;
+    result.id = spec.id;
+    const std::string manifest = b4e0_nominal_manifest(spec, false);
+    result.scenario_root = b4e0_scenario_root(manifest);
+    result.schedule_mutation_rejected =
+        result.scenario_root != b4e0_scenario_root(
+            b4e0_nominal_manifest(spec, true));
+
+    const std::string fluid_projection =
+        b4e0_fluid_projection(spec, false);
+    result.fluid_root = sha256_hex(fluid_projection);
+    result.id_mutation_rejected = result.fluid_root
+        != sha256_hex(b4e0_fluid_projection(spec, true));
+
+    std::size_t boundary_count = 0U;
+    std::size_t mutated_boundary_count = 0U;
+    const std::string boundary_projection =
+        b4e0_boundary_projection(spec, false, boundary_count);
+    const std::string mutated_boundary_projection =
+        b4e0_boundary_projection(spec, true, mutated_boundary_count);
+    result.boundary_root = sha256_hex(boundary_projection);
+
+    const std::vector<Vec3> fluid = b4e0_nominal_fluid();
+    const std::vector<Vec3> support = make_box_owned_shell(
+        {spec.box_x_cells, 20, 20}, 2);
+    const std::vector<Vec3> reference_support =
+        b4e0_reference_support(spec);
+    result.fluid_samples = fluid.size();
+    result.support_samples = support.size();
+    const std::vector<CanonicalCoordinate> candidate_coordinates =
+        b4e0_canonical_coordinates(support);
+    const std::vector<CanonicalCoordinate> reference_coordinates =
+        b4e0_canonical_coordinates(reference_support);
+    result.support_set_root = b4e0_coordinate_set_root(candidate_coordinates);
+    result.coordinate_set_exact = candidate_coordinates == reference_coordinates
+        && std::adjacent_find(candidate_coordinates.begin(),
+            candidate_coordinates.end()) == candidate_coordinates.end();
+
+    std::vector<Vec3> mutated_support = support;
+    mutated_support.front().x += 1.0e-6;
+    const std::string mutated_set_root = b4e0_coordinate_set_root(
+        b4e0_canonical_coordinates(mutated_support));
+
+    const balanced_canonical::PublishResult publication =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, result.scenario_root, 0U,
+            canonical_float_samples(fluid, std::vector<Vec3>(6000U), 0));
+    result.initial_frame_root = publication.frame.root_sha256;
+    result.initial_aggregate_root =
+        b4e0_initial_aggregate_root(publication.frame);
+    result.canonical_initial_exact = b4e0_initial_canonical_exact(
+            publication.frame)
+        && publication.frame.root_sha256 == canonical::frame_root(
+            B4E0_PUBLICATION_SHA256, result.scenario_root, 0U,
+            publication.frame.samples);
+
+    StaticSupportWorkTrace static_work;
+    const JointStaticSupportIndex static_index =
+        build_joint_static_support_index(tagged_points(support), &static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointNeighborhood neighborhood =
+        build_joint_neighborhood_with_static_support(
+            tagged_points(fluid), &binding, true, &static_work,
+            true, &adjacency_work);
+    const Evaluation evaluation = neighborhood.passed
+        ? evaluate_joint(neighborhood) : Evaluation{};
+
+    StaticSupportWorkTrace repeat_static_work;
+    const JointStaticSupportIndex repeat_index =
+        build_joint_static_support_index(
+            tagged_points(support), &repeat_static_work);
+    const JointStaticSupportBinding repeat_binding =
+        bind_joint_static_support_index(
+            &repeat_index, repeat_index.identity_sha256);
+    FlatAdjacencyWorkTrace repeat_adjacency_work;
+    const JointNeighborhood repeated =
+        build_joint_neighborhood_with_static_support(
+            tagged_points(fluid), &repeat_binding, true,
+            &repeat_static_work, true, &repeat_adjacency_work);
+    const Evaluation repeated_evaluation = repeated.passed
+        ? evaluate_joint(repeated) : Evaluation{};
+
+    const JointStaticSupportIndex mutated_index =
+        build_joint_static_support_index(tagged_points(mutated_support));
+    result.boundary_mutation_rejected = boundary_count
+            == mutated_boundary_count
+        && result.boundary_root != sha256_hex(mutated_boundary_projection)
+        && result.support_set_root != mutated_set_root
+        && mutated_index.passed && static_index.passed
+        && mutated_index.identity_sha256 != static_index.identity_sha256;
+
+    result.static_index_root = static_index.identity_sha256;
+    result.pair_root = neighborhood.passed
+        ? joint_pair_hash(neighborhood) : std::string{};
+    result.pairs = neighborhood.pairs.size();
+    result.directed = neighborhood.flat_directed_pair_indices.size();
+    result.maximum_degree = neighborhood.maximum_degree;
+    result.active_centers = evaluation.active_centers;
+    for (const double density : evaluation.density) {
+        result.maximum_positive_strain = std::max(
+            result.maximum_positive_strain,
+            density / REST_DENSITY - 1.0);
+    }
+    result.minimum_branch_margin = evaluation.minimum_branch_margin;
+    result.distance_tests = neighborhood.construction_distance_tests;
+    result.flat_offsets = neighborhood.flat_offsets.size();
+    result.evaluation_finite = neighborhood.passed
+        && b4e0_evaluation_finite(evaluation);
+    result.repeat_exact = static_index.passed && repeat_index.passed
+        && static_index.identity_sha256 == repeat_index.identity_sha256
+        && neighborhood.passed && repeated.passed
+        && exact_joint_neighborhood_value(neighborhood, repeated)
+        && exact_evaluation_values(evaluation, repeated_evaluation)
+        && static_work.static_index_builds == 1U
+        && repeat_static_work.static_index_builds == 1U
+        && adjacency_work.workspace_builds == 1U
+        && adjacency_work.nested_row_objects == 0U
+        && adjacency_work.nested_participant_records == 0U
+        && adjacency_work.nested_row_sorts == 0U
+        && adjacency_work.flat_offset_records == 6001U
+        && repeat_adjacency_work.flat_offset_records == 6001U
+        && adjacency_work.flat_pair_index_records == result.directed
+        && repeat_adjacency_work.flat_pair_index_records == result.directed;
+
+    result.passed = sha256_hex(B4E0_IDENTITY_PROJECTION)
+            == B4E0_IDENTITY_SHA256
+        && result.scenario_root == spec.scenario_root
+        && result.fluid_root == spec.fluid_root
+        && result.boundary_root == spec.boundary_root
+        && boundary_count == spec.support_count
+        && result.fluid_samples == 6000U
+        && result.support_samples == spec.support_count
+        && result.coordinate_set_exact
+        && result.canonical_initial_exact
+        && result.evaluation_finite
+        && result.pairs <= 960000U
+        && result.maximum_degree <= B4C0_MAX_NEIGHBORS
+        && result.flat_offsets == 6001U
+        && result.repeat_exact
+        && result.id_mutation_rejected
+        && result.boundary_mutation_rejected
+        && result.schedule_mutation_rejected;
+    if (result.scenario_root != spec.scenario_root) {
+        result.failure = "SCENARIO_ROOT";
+    } else if (result.fluid_root != spec.fluid_root) {
+        result.failure = "FLUID_ROOT";
+    } else if (result.boundary_root != spec.boundary_root
+        || boundary_count != spec.support_count) {
+        result.failure = "BOUNDARY_ROOT";
+    } else if (!result.coordinate_set_exact) {
+        result.failure = "BOUNDARY_COORDINATE_SET";
+    } else if (!result.canonical_initial_exact) {
+        result.failure = "CANONICAL_INITIAL";
+    } else if (!result.evaluation_finite) {
+        result.failure = "INITIAL_EVALUATION";
+    } else if (result.pairs > 960000U
+        || result.maximum_degree > B4C0_MAX_NEIGHBORS) {
+        result.failure = "NEIGHBOR_CAPACITY";
+    } else if (!result.repeat_exact) {
+        result.failure = "NEIGHBOR_REPEAT";
+    } else if (!result.id_mutation_rejected
+        || !result.boundary_mutation_rejected
+        || !result.schedule_mutation_rejected) {
+        result.failure = "MUTATION_CONTROL";
+    } else if (!result.passed) {
+        result.failure = "IDENTITY_OR_PROFILE";
+    }
+    return result;
+}
+
+void append_b4e0_case(
+    std::ostringstream& output,
+    const NominalAlignmentCase& value) {
+    output << "{\"scenario\":\"" << value.id
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"fluid_root\":\"" << value.fluid_root
+           << "\",\"boundary_root\":\"" << value.boundary_root
+           << "\",\"scenario_root\":\"" << value.scenario_root
+           << "\",\"support_set_root\":\"" << value.support_set_root
+           << "\",\"static_index_root\":\"" << value.static_index_root
+           << "\",\"pair_root\":\"" << value.pair_root
+           << "\",\"initial_frame_root\":\"" << value.initial_frame_root
+           << "\",\"initial_aggregate_root\":\""
+           << value.initial_aggregate_root
+           << "\",\"fluid_samples\":" << value.fluid_samples
+           << ",\"support_samples\":" << value.support_samples
+           << ",\"pairs\":" << value.pairs
+           << ",\"directed\":" << value.directed
+           << ",\"maximum_degree\":" << value.maximum_degree
+           << ",\"active_centers\":" << value.active_centers
+           << ",\"maximum_positive_strain\":"
+           << value.maximum_positive_strain
+           << ",\"minimum_branch_margin\":"
+           << value.minimum_branch_margin
+           << ",\"distance_tests\":" << value.distance_tests
+           << ",\"flat_offsets\":" << value.flat_offsets
+           << ",\"coordinate_set_exact\":"
+           << (value.coordinate_set_exact ? "true" : "false")
+           << ",\"canonical_initial_exact\":"
+           << (value.canonical_initial_exact ? "true" : "false")
+           << ",\"evaluation_finite\":"
+           << (value.evaluation_finite ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"mutations\":{\"id_swap\":"
+           << (value.id_mutation_rejected ? "true" : "false")
+           << ",\"boundary_um1\":"
+           << (value.boundary_mutation_rejected ? "true" : "false")
+           << ",\"schedule_step\":"
+           << (value.schedule_mutation_rejected ? "true" : "false")
+           << "}}";
+}
+
+} // namespace
+
+SplitBoundaryReport run_nominal_alignment_preflight_controls() {
+    const bool profile_exact = REST_DENSITY == 1000.0
+        && SPACING == 0.05 && HORIZON == 0.15 && RADIUS == 0.025
+        && std::abs(MASS - 0.125) <= 1.0e-15
+        && TIME_STEP == 1.0 / 240.0 && KAPPA == 1226.25;
+    std::array<NominalAlignmentCase, 2> cases;
+    for (std::size_t i = 0U; i < cases.size(); ++i) {
+        cases[i] = run_b4e0_alignment_case(B4E0_SCENARIOS[i]);
+    }
+    const bool passed = profile_exact
+        && std::all_of(cases.begin(), cases.end(),
+            [](const NominalAlignmentCase& value) {
+                return value.passed;
+            });
+    std::string first_failure;
+    if (!profile_exact) {
+        first_failure = "PROFILE";
+    } else {
+        for (const NominalAlignmentCase& value : cases) {
+            if (!value.passed) {
+                first_failure = value.id + ':' + value.failure;
+                break;
+            }
+        }
+    }
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|identity:" << B4E0_IDENTITY_SHA256
+             << "|profile:" << profile_exact;
+    for (const NominalAlignmentCase& value : cases) {
+        material << '|' << value.id << ':' << value.passed
+                 << ':' << value.fluid_root << ':' << value.boundary_root
+                 << ':' << value.scenario_root << ':' << value.support_set_root
+                 << ':' << value.static_index_root << ':' << value.pair_root
+                 << ':' << value.initial_frame_root
+                 << ':' << value.initial_aggregate_root
+                 << ':' << value.pairs << ':' << value.directed
+                 << ':' << value.maximum_degree << ':' << value.active_centers
+                 << ':' << value.maximum_positive_strain
+                 << ':' << value.minimum_branch_margin
+                 << ':' << value.distance_tests << ':' << value.repeat_exact
+                 << ':' << value.id_mutation_rejected
+                 << ':' << value.boundary_mutation_rejected
+                 << ':' << value.schedule_mutation_rejected;
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4e0_nominal_alignment.v1\""
+           << ",\"identity_sha256\":\"" << B4E0_IDENTITY_SHA256
+           << "\",\"candidate_b4c4c1_identity\":\"66e318cb69e0b0c0a3a40a2beafa2099ebf151287581b191a242e82dac6d6f3c\""
+           << ",\"publication_profile_sha256\":\""
+           << B4E0_PUBLICATION_SHA256
+           << "\",\"reference_attestation_sha256\":\"9cf5fc571fee7bc0be5585d9b467f90cd8a27f40d9cf39d6be999b0c466cbccc\""
+           << ",\"reference_profile_sha256\":\"ba34b4e3b12986ebc831320d6811551d5311a6774a64f079aabe3a5eaa6bb746\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"profile_exact\":" << (profile_exact ? "true" : "false")
+           << ",\"profile\":{\"spacing_m\":" << SPACING
+           << ",\"radius_m\":" << RADIUS
+           << ",\"horizon_m\":" << HORIZON
+           << ",\"mass_kg\":" << MASS
+           << ",\"rest_density_kg_m3\":" << REST_DENSITY
+           << ",\"macro_dt_s\":" << TIME_STEP
+           << ",\"gravity_m_s2\":-9.81,\"mass_mg\":750000000}"
+           << ",\"scenarios\":[";
+    for (std::size_t i = 0U; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_b4e0_case(report, cases[i]);
+    }
+    report << "]"
+           << ",\"orifice_excluded_until_b4o\":true"
+           << ",\"trajectory_started\":false"
+           << ",\"reference_curve_decoded\":false"
+           << ",\"nominal_alignment_candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4e1_contract_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"b4e_comparison_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\"" << sha256_hex(material.str())
+           << "\"}";
+    return {passed, report.str()};
+}
+
 } // namespace nextengine::nonlocal::fcr
