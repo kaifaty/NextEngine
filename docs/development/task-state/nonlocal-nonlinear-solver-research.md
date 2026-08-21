@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4BM_PASS / B4C4B1_DESIGN` |
+| Status | `ACTIVE / NSR3B4C4BM_PASS / B4C4B1_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -84,8 +84,9 @@
 - **Current conclusion:** B4C4BM passes three sequential runs with exact
   deterministic root `66cccf12...465`. Candidate wins all paired rounds;
   median process-level construction speedups are `1.1399x/2.5952x` P1/P2.
-- **Current action:** freeze B4C4B1 complete adaptive/macro-fixed static-index
-  lifetime and correspondence before rollout. B4C4C and B4D remain blocked.
+- **Current action:** implement frozen B4C4B1 one-index-per-lane composition
+  over all eight complete retained lanes and forced rollback. B4C4C and B4D
+  remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1725,6 +1726,22 @@
 - **Smallest next action:** derive exact complete-lane workspace/support-record
   counts from B4C4A1 evidence and freeze B4C4B1 before modifying lane runners.
 
+### D-084 -- Freeze one immutable index per complete lane
+
+- **Observation:** B4C4A1 fixes exact workspace counts, so B4C4B1 support-sort
+  removals are derivable before execution and range from `391,552` to
+  `4,192,768` records per lane.
+- **Decision:** own one validated index inside each complete adaptive/fixed
+  lane and pass it read-only through all macro transactions and ledgers.
+- **Rejected alternatives:** one index per macro frame, a process-global cache,
+  cross-fixture sharing, or combining support lifetime with flat CSR.
+- **Consequence:** legacy/candidate/repeat and rollback can reuse B4C4A1 exact
+  roots while adding deterministic index-work receipts.
+- **Remaining uncertainty:** complete-lane implementation correspondence and
+  measured total-suite wall effect.
+- **Smallest next action:** thread the opt-in binding through complete runners,
+  assert the eight predeclared work rows and rerun B4C4B/B4C4A1 regressions.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1737,7 +1754,7 @@
 
 ## Exact next action
 
-1. Freeze and execute B4C4B1 complete-lane static-index application.
+1. Implement and execute B4C4B1 complete-lane static-index application.
 2. Measure its whole-solver effect, then approach B4C4C flat-only CSR.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 

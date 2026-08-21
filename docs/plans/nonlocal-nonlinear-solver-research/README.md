@@ -723,3 +723,9 @@ The deterministic corpus/checksum result repeats exactly. Candidate wins all
 `63/63` paired rounds per fixture, with median process-level construction
 speedup `1.1399x` P1 and `2.5952x` P2. Freeze complete-lane static-index
 rollout next; this is not yet a whole-solver speed claim.
+The
+[B4C4B1 design](../../development/nonlocal-nsr3b4c4b1-complete-static-index-research-2026-08-21.md)
+freezes one immutable index per complete adaptive or macro-fixed lane. Its
+[contract](03b4c4b1-complete-static-index-contract.md) derives exact support
+record removals from B4C4A1 workspace counts, retains every physical/root/
+rollback gate and keeps B4C4C separate.
