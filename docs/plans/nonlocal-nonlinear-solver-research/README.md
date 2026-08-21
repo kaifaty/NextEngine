@@ -611,3 +611,10 @@ keeps long-horizon composition separate from fixed-reference accuracy. Its
 all 8/16 frames with private recovery, one accepted macro publication, mixed
 admission, canonical topology and macro ledger per frame. A PASS may authorize
 only a later adaptive-versus-fixed comparison design.
+B4C3MAR passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3mar-complete-adaptive-macro-evidence-2026-08-21.md).
+P1 completes at `296/444` accepted/attempted substeps with no recovery, versus
+the old cadence's `364/563` and two recovery frames; P2 preserves `82/124` and
+its exact onset schedule. All topology, mixed-budget, physical, energy, root,
+work and post-first-commit rollback gates pass. Fixed comparison design is now
+authorized, but its execution is not.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3MAG_PASS / B4C3MAR_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3MAR_PASS / ADAPTIVE_FIXED_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -41,9 +41,8 @@
 - **Current decision:** B4C3PE1 selects the macro-boundary canonical fixed
   reference candidate with 89 temporal, 55 absolute and zero rejected field/
   frame admissions. B4C3P remains the preserved legacy-tube FAIL.
-- **Current action:** implement frozen B4C3MAR complete 8/16-frame adaptive
-  macro recovery replay and post-commit rollback. Comparison/B4C4/B4D remain
-  blocked.
+- **Current action:** design the adaptive-versus-fixed macro comparison against
+  the selected fixed `48/96/192` candidate. B4C4/B4D remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1448,6 +1447,23 @@
   not executed.
 - **Smallest next action:** implement B4C3MAR using the B4C3MAG frame primitive.
 
+### D-072 -- Select complete adaptive macro controller
+
+- **Observation:** B4C3MAR passes twice. P1 completes at `296/444` accepted/
+  attempted substeps with no recovery; P2 retains `82/124` and the exact onset
+  schedule. All accumulated gates and post-first-commit rollback pass.
+- **Decision:** select
+  `COMPLETE_CANONICAL_TOPOLOGY_ADAPTIVE_MACRO_CONTROLLER_CANDIDATE` and
+  authorize only adaptive-versus-fixed macro comparison design.
+- **Rejected alternatives:** inferring accuracy from completion, treating lower
+  P1 work as a production performance result, or comparing against the rejected
+  per-substep canonical reference.
+- **Consequence:** the comparison must use the selected macro-publication fixed
+  lanes and preserve adaptive/fixed roots separately.
+- **Remaining uncertainty:** adaptive trajectory error relative to convergent
+  fixed-192 and its temporal uncertainty has not been measured.
+- **Smallest next action:** freeze comparison fields and admission before run.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1460,9 +1476,9 @@
 
 ## Exact next action
 
-1. Implement complete P1/P2 B4C3MAR lanes and accepted-only accumulation.
-2. Implement post-first-commit forced rollback and exact global roots.
-3. Execute isolated, then twice parent-gated before comparison design.
+1. Define adaptive-versus-fixed-192 frame/aggregate/contact comparisons.
+2. Freeze temporal-versus-physical admission without fitting B4C3MAR output.
+3. Execute only after the comparison contract and report identity are fixed.
 
 ## Reconsideration triggers
 

@@ -1,6 +1,6 @@
 # B4C3MAR complete adaptive macro replay research
 
-Status: `COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / PASS / ADAPTIVE_FIXED_COMPARISON_DESIGN_AUTHORIZED`
 
 Date: `2026-08-21`
 
@@ -53,3 +53,8 @@ lifecycle.
 Freeze the [B4C3MAR contract](../plans/nonlocal-nonlinear-solver-research/03b4c3mar-complete-adaptive-macro-replay-contract.md).
 PASS selects a complete adaptive macro controller candidate and authorizes only
 adaptive-versus-fixed macro comparison design.
+
+B4C3MAR passes twice byte-identically; see the
+[dated evidence](nonlocal-nsr3b4c3mar-complete-adaptive-macro-evidence-2026-08-21.md).
+Both complete lanes compose without recovery, retain exact topology/schedule/
+roots and satisfy every accumulated physical and transaction gate.

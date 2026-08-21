@@ -83,7 +83,9 @@ int main(int argc, char** argv) {
                          "--macro-adaptive-transaction-probe|"
                          "--macro-adaptive-transaction-self-test|"
                          "--canonical-topology-probe|"
-                         "--canonical-topology-self-test\n";
+                         "--canonical-topology-self-test|"
+                         "--macro-adaptive-replay-probe|"
+                         "--macro-adaptive-replay-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -604,6 +606,20 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--macro-adaptive-replay-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_macro_adaptive_replay_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--macro-adaptive-replay-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_macro_adaptive_replay_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -677,7 +693,9 @@ int main(int argc, char** argv) {
                      "--macro-adaptive-transaction-probe|"
                      "--macro-adaptive-transaction-self-test|"
                      "--canonical-topology-probe|"
-                     "--canonical-topology-self-test\n";
+                     "--canonical-topology-self-test|"
+                     "--macro-adaptive-replay-probe|"
+                     "--macro-adaptive-replay-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';
