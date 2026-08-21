@@ -326,7 +326,7 @@ fn r5_physics_methodology_binds_the_production_humanoid_workload() {
     assert_eq!(
         performance_scenario_hash(scenario),
         sha256_hex(
-            b"nextengine.performance.r5-physics-16.v2:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:fixed-standing-controller:fresh-scene-restore:adr062-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v1:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
+            b"nextengine.performance.r5-physics-16.v3:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:worker-placement=deterministic-physical-core-v1:fixed-standing-controller:fresh-scene-restore:adr062-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v1:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
         )
     );
 }

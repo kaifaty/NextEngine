@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / R5_W8_RESEARCH_PAUSE / AUTHORITY_DECISION_NEEDED` |
+| Status | `ACTIVE / ADR093_PLACEMENT_IMPLEMENTED / EVIDENCE_PENDING` |
 | Updated | 2026-08-21 |
 | Task key | `r7c-linux-performance-authority` |
 | Scope | Accept one exact Linux release-performance profile and numeric policy, then collect compatible ten-run baselines and fixed three-run hard gates for the representative R2, R3, R4 and R5 workloads |
@@ -82,6 +82,7 @@
 | R5 v10 baseline/gate set 2 on `aac4fc6` | Ten-run baseline published after rebuild; isolated fresh-process gate returns `WARNING` again, now on three w8-config rows (`worker-8.physics-motor-frame` `+364bp`, `physics-substep-cost`/`motor-frame-cost` `+262bp`), every CI crossing zero; all absolute rows PASS with headroom, ratios stay absolute-only `PASS`, peak RSS improved | Second coherent occurrence under improved conditions triggers the pre-declared two-strike stop: no further collection attempts |
 | Set-2 w8 research mining | Host quiescence collapsed w4 spread `35% -> 7%` and w1 spread `29% -> 6%`, but w8 spread stayed `28% -> 34%`; within slow runs entire distribution segments shift (decile medians up to `2–3x` typical for `250`-frame plateaus, clustered early and in bursts); no monotone thermal drift; recorded pre/post clock/load percentages do not discriminate; no thread-affinity API exists anywhere in engine, motor workers are unpinned `std::thread`s, PhysX bridge uses `PxDefaultCpuDispatcherCreate(1)` | Residual w8 variance is structural per-process state (consistent with core/CCD placement lottery on the dual-CCD SMT 3950X), not desktop load or thermal ramp; discriminating experiment would be an affinity A/B probe plus an Accepted authority decision before any new evidence set |
 | Non-evidence affinity probe `256a64a` | Topology shows four L3 CCX domains (cores `0–3/4–7/8–11/12–15`, siblings `+16..+31`). Pinning the whole process to `0–7` (one logical CPU per physical core, one CCD pair) made w8 slower and less stable: p95s `2503/2557/7132` versus unpinned `1378–1843`; a fourth attempt was a typed preflight rejection (`PERF_CPU_LOAD_LIMIT_EXCEEDED`) | Naive single-mask pinning refuted: restricting headroom oversubscribes the mask and moves the w8 path onto a scheduling knee. The untested variant is deterministic per-worker placement spread over all physical cores inside the workload/engine, which changes measured conditions and requires Accepted authority regardless of outcome |
+| ADR-093 implementation | Product owner chose deterministic per-worker placement. New Accepted ADR-093; new reviewed `next_cpu_affinity` crate joins the FFI allowlist (`boundary-scan PASS`) with one unsafe mask application plus read-back verification; motor workload detects topology, interleaves cache domains round-robin, pins each worker before warm-up and fails closed via `MOTOR_PERF_WORKER_PLACEMENT_FAILED`; scenario preimage advances to `r5-physics-16.v3`; focused placement tests pass on synthetic topologies, root parity holds with real pinning, end-to-end probe keeps root `6b6fee74…` with w8 p50 `1242 us` and zero diagnostics | The placement lottery is removed by construction; all prior R5 v10 baselines are incompatible via the scenario-hash bump and the next evidence set must be collected on the commit carrying this change |
 
 ## Decisions that constrain the work
 
@@ -140,11 +141,11 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-Product-owner authority decision from the research checkpoint: deterministic
-per-worker placement (ADR + engine change + fresh evidence) or CI-based
-warning semantics for noise-dominated direct rows (methodology ADR). Only
-after that decision collect the next R5 set (and then R3/R4 on the same final
-commit). R2 still waits for an OS-visible physical display.
+Commit the ADR-093 implementation, then collect the fresh R5 ten-run baseline
+plus isolated fixed three-run gate on that exact commit under the documented
+host discipline (indexer stopped, load settled). After R5 closes, collect R3
+and R4 evidence on the same final commit. R2 still waits for an OS-visible
+physical display.
 
 ## Do not retry
 

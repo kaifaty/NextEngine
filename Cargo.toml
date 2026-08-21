@@ -6,6 +6,7 @@ members = [
     "crates/application",
     "crates/assets",
     "crates/contracts",
+    "crates/cpu-affinity",
     "crates/continuum-water",
     "crates/desktop-sdl-ash",
     "crates/mechanics",
@@ -62,6 +63,7 @@ next_script_luau = { path = "crates/script-luau" }
 next_verification = { path = "crates/verification" }
 next_world = { path = "crates/world" }
 next_cli = { path = "tools/next-cli" }
+next_cpu_affinity = { path = "crates/cpu-affinity" }
 sha2 = "=0.10.9"
 unicode-normalization = "=0.1.25"
 ash = { version = "=0.38.0", default-features = false, features = ["loaded", "std"] }
@@ -75,6 +77,8 @@ rayon = "=1.12.0"
 # Keep every unrelated format disabled while enabling that compile-time companion.
 goblin = { version = "=0.10.7", default-features = false, features = ["std", "elf32", "elf64", "pe64"] }
 tracy-client = { version = "=0.18.4", default-features = false }
+libc = "=0.2.186"
+tempfile = "=3.20.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -85,7 +89,7 @@ todo = "deny"
 unimplemented = "deny"
 
 [workspace.metadata.nextengine.ffi]
-allowed_crates = ["next_desktop_sdl_ash", "next_physics_physx_ffi"]
+allowed_crates = ["next_cpu_affinity", "next_desktop_sdl_ash", "next_physics_physx_ffi"]
 
 [profile.profiling]
 inherits = "release"

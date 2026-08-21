@@ -203,6 +203,11 @@ fn run_worker_configuration(
     config: WorkloadConfig,
     worker_count: u32,
 ) -> Result<WorkerRun, HumanoidPerformanceError> {
+    let topology = next_cpu_affinity::CpuTopology::detect()
+        .map_err(HumanoidPerformanceError::WorkerPlacementFailed)?;
+    let placement = topology
+        .deterministic_worker_placement(worker_count as usize)
+        .map_err(HumanoidPerformanceError::WorkerPlacementFailed)?;
     let start_barrier = Arc::new(Barrier::new(worker_count as usize + 1));
     let frame_barrier = Arc::new(Barrier::new(worker_count as usize));
     let (ready_sender, ready_receiver) = mpsc::sync_channel(worker_count as usize);
@@ -215,7 +220,13 @@ fn run_worker_configuration(
                 let start_barrier = Arc::clone(&start_barrier);
                 let frame_barrier = Arc::clone(&frame_barrier);
                 let ready_sender = ready_sender.clone();
+                let pinned_cpu = placement[worker_index as usize];
                 handles.push(scope.spawn(move || {
+                    // ADR-093: each worker pins itself before any warm-up so
+                    // every measured frame runs in the declared scheduling
+                    // state; failures fail closed before timing starts.
+                    next_cpu_affinity::pin_current_thread(pinned_cpu)
+                        .map_err(HumanoidPerformanceError::WorkerPlacementFailed)?;
                     run_shard(
                         config,
                         worker_count,
@@ -488,6 +499,7 @@ pub enum HumanoidPerformanceError {
     CompileFailed,
     WorkerFailed,
     WorkerPanicked,
+    WorkerPlacementFailed(next_cpu_affinity::AffinityError),
     SlotEvidenceInvalid,
     WorkerRootDivergence,
     RestoreEvidenceMissing,
@@ -505,6 +517,7 @@ impl HumanoidPerformanceError {
             Self::CompileFailed => "MOTOR_PERF_BODY_COMPILE_FAILED",
             Self::WorkerFailed => "MOTOR_PERF_WORKER_FAILED",
             Self::WorkerPanicked => "MOTOR_PERF_WORKER_PANICKED",
+            Self::WorkerPlacementFailed(_) => "MOTOR_PERF_WORKER_PLACEMENT_FAILED",
             Self::SlotEvidenceInvalid => "MOTOR_PERF_SLOT_EVIDENCE_INVALID",
             Self::WorkerRootDivergence => "MOTOR_PERF_WORKER_ROOT_DIVERGENCE",
             Self::RestoreEvidenceMissing => "MOTOR_PERF_RESTORE_EVIDENCE_MISSING",

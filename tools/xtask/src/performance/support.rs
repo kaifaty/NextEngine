@@ -107,6 +107,7 @@ pub fn methodology_for(scenario: PerformanceScenarioV1) -> PerformanceMethodolog
             methodology.notes = vec![
                 "16 independent engine-owned 23-DoF humanoids use the production PhysX CPU articulation path, fixed standing residual targets, 240 Hz physics and 60 Hz motor cadence".to_owned(),
                 "each 1/4/8-worker configuration receives the same semantic slot identities, 240 warm-up physics substeps per slot and 10,000 measured physics substeps per slot".to_owned(),
+                "under ADR-093 every worker pins itself to a deterministic physical core drawn from a round-robin cache-domain interleave before warm-up; placement failures fail closed before timing".to_owned(),
                 "worker shards advance in lockstep; publication and root aggregation are ordered by vector slot rather than worker completion".to_owned(),
                 "the eight-worker run records per-slot canonical checkpoint size and fresh-scene replay-prefix restore latency; restore replays post-safety efforts without PD re-evaluation".to_owned(),
                 "throughput and scaling efficiency are descriptive higher-is-better details; hard metrics remain lower-is-better latency, memory and restore costs".to_owned(),

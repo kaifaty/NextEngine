@@ -4,10 +4,10 @@
 |---|---|
 | ID | SPEC-35 |
 | Статус | Accepted |
-| Версия | 2.3 |
-| Последняя проверка | 2026-08-20 |
+| Версия | 2.4 |
+| Последняя проверка | 2026-08-21 |
 | Нормативные зависимости | [SPEC-05](05-physics-animation-and-motor-control.md), [SPEC-14](14-physical-archetypes-motor-skills-and-policy-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-22](22-schema-registry-compatibility-and-migration.md), [SPEC-26](26-physics-world-collision-constraints-queries-and-canonical-snapshots.md), [SPEC-27](27-motor-observation-action-and-deterministic-inference.md), [SPEC-34](34-model-training-environments-trajectories-and-consolidation-lifecycle.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-058](adr/058-physx-only-deterministic-humanoid-training-substrate.md), [ADR-059](adr/059-event-sourced-physx-continuation-reconstruction.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-064](adr/064-canonical-flat-command-locomotion-environment.md), [ADR-065](adr/065-curriculum-flat-command-locomotion-profile.md), [ADR-066](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md), [ADR-067](adr/067-stage0-profile-identity-and-curriculum-hash-closure.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
-| Заменяет | SPEC-35 2.2; keeps Stage 0 optional and moves Windows/cross-target readiness outside current v1 scope indefinitely |
+| Заменяет | SPEC-35 2.3; binds the current R5 performance consumer to ADR-093 deterministic worker placement and workload identity v3 |
 | Дополнительные зависимости V1.9 | [ADR-069](adr/069-biomechanics-body-schema-v2-and-solver-projection.md), [ADR-070](adr/070-biomechanics-reference-tracking-training-environment.md), [ADR-071](adr/071-canonical-physics-material-lineage.md) |
 
 ## Назначение и ownership
@@ -271,11 +271,15 @@ the uncommitted step/session and retains only the last committed checkpoint.
 
 ## Product checks and completion
 
-`r5-physics-16.v1` is the current performance consumer for this substrate. It
+`r5-physics-16.v3` is the current performance consumer for this substrate. It
 runs 16 independent reference humanoids, 240 warm-up plus 10,000 measured
 physics substeps per slot and the same standing action stream under 1/4/8
-workers. Exact canonical root parity across those modes and the profiler
-control is mandatory. It reports direct physics/motor throughput, reciprocal
+workers. Under [ADR-093](adr/093-deterministic-r5-worker-placement.md) every
+worker pins itself to a deterministic physical core drawn from a round-robin
+cache-domain interleave before warm-up, through the one reviewed
+`next_cpu_affinity` boundary; placement failures fail closed before timing and
+authoritative roots remain byte-exact across worker counts. Exact canonical
+root parity across those modes and the profiler control is mandatory. It reports direct physics/motor throughput, reciprocal
 cost, lockstep p95/p99, scaling, checkpoint size, fresh-scene restore,
 replay-prefix overhead and host/logical memory. ADR-062 owns the exact THOTH
 budgets and separates restore latency from the live 4/6 ms PHYS-P4 deadline.

@@ -13,6 +13,7 @@ physx-sdk = ["next_physics_physx/physx-sdk", "next_physics_physx_ffi/physx-sdk"]
 
 [dependencies]
 next_contracts.workspace = true
+next_cpu_affinity.workspace = true
 next_physics_physx.workspace = true
 next_physics_physx_ffi.workspace = true
 serde_json.workspace = true

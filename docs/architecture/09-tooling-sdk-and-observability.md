@@ -4,7 +4,7 @@
 |---|---|
 | ID | SPEC-09 |
 | Статус | Accepted |
-| Версия | 5.3 |
+| Версия | 5.4 |
 | Последняя проверка | 2026-08-21 |
 | Нормативные зависимости | [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-12](12-vertical-slice-conformance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-038](adr/038-versioned-production-worker-handoff-diagnostic.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md), [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
 | Дополнительные зависимости V4.7 | [ADR-087](adr/087-public-creator-runtime-scenario-and-prefix-minimization.md) |
@@ -13,7 +13,8 @@
 | Дополнительные зависимости V5.0 | [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
 | Дополнительные зависимости V5.1 | [ADR-091](adr/091-linux-release-performance-authority.md) |
 | Дополнительные зависимости V5.3 | [ADR-092](adr/092-dimensional-relative-performance-comparison.md) |
-| Заменяет | SPEC-09 5.2; advances Performance V6 to methodology v10 with canonical direct-relative versus normalized-ratio absolute-only comparison classes |
+| Дополнительные зависимости V5.4 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
+| Заменяет | SPEC-09 5.3; adds deterministic physical-core placement for the R5 performance workload under ADR-093 |
 
 ## Scope and authority
 

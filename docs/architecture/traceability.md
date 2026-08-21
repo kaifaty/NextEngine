@@ -16,7 +16,8 @@
 | Дополнительные зависимости V8.7 | [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
 | Дополнительные зависимости V8.8 | [ADR-091](adr/091-linux-release-performance-authority.md) |
 | Дополнительные зависимости V8.9 | [ADR-092](adr/092-dimensional-relative-performance-comparison.md) |
-| Заменяет | TRACE-001 8.8; maps dimensional relative comparison and Performance V6/methodology v10 |
+| Дополнительные зависимости V9.0 | [ADR-093](adr/093-deterministic-r5-worker-placement.md) |
+| Заменяет | TRACE-001 8.9; maps deterministic R5 worker placement under Performance V6/methodology v10 |
 
 ## Назначение
 
@@ -108,6 +109,13 @@ ADR-063 ten-run calibration, one fixed three-run batch, explicit boundaries,
 worst-run absolute tails and whole-run relative bootstrap for direct metrics.
 Normalized R5 ratios remain absolute-only hard metrics. Older artifacts are
 not compatible.
+
+ADR-093 places every `r5-physics-16` worker on a deterministic physical core
+drawn from a round-robin cache-domain interleave before warm-up, through the
+one reviewed `next_cpu_affinity` unsafe boundary. Placement failures fail
+closed before timing; authoritative roots stay byte-exact across worker
+counts, and the workload preimage advances to
+`r5-physics-16.v3`, making earlier R5 baselines incompatible.
 
 ## REQ/FAIL identifiers
 

@@ -134,7 +134,7 @@ pub fn performance_scenario_hash(scenario: PerformanceScenarioV1) -> String {
             b"nextengine.performance.r4-100npc.v2:reference-alpha:npcs=100:cadence=16x3+32x15+52x60:warmup=1000:measured=10000:production-joint-world-services-tick:engine-graph-navigation:adr016-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v1:exact-due-trace:no-starvation:logical-accounting=r4-100npc-v1"
         }
         PerformanceScenarioV1::R5Physics16 => {
-            b"nextengine.performance.r5-physics-16.v2:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:fixed-standing-controller:fresh-scene-restore:adr062-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v1:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
+            b"nextengine.performance.r5-physics-16.v3:slots=16:dof=23:physics=240hz:motor=60hz:warmup-substeps-per-slot=240:measured-substeps-per-slot=10000:workers=1+4+8:worker-placement=deterministic-physical-core-v1:fixed-standing-controller:fresh-scene-restore:adr062-budgets:hard-host=ref-linux-b550i-3950x-rtx3080-v1:exact-worker-root-parity:logical-accounting=r5-physics-16-v1"
         }
     };
     sha256_hex(preimage)
