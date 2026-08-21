@@ -1,6 +1,6 @@
 # NSR3-B4EP1 query-evidence separation research -- 2026-08-21
 
-Status: `COMPLETE / WORK_ONLY_TRANSACTION_POLICY_SELECTED / NO_PHYSICS_CHANGE`
+Status: `COMPLETE / VALIDATED_3.0168X / NO_PHYSICS_CHANGE`
 
 ## Problem
 
@@ -59,9 +59,19 @@ corpus gap. From B4EP0, deleting the entire SHA share has only a `~1.70x`
 ceiling. HVP and neighborhood/topology work remain mandatory next research
 regardless of B4EP1 PASS.
 
+The controlled Release experiment subsequently measured `3.0068x`, `3.0168x`
+and `3.0254x` paired wins with byte-exact physics. The larger-than-profile
+estimate result means the gprof share was not a calibrated Amdahl model: hash
+serialization/allocation was partly charged below callers and instrumentation
+changed the cost mix. The direct A/B result supersedes the ceiling estimate
+for this ablation without invalidating the residual HVP/topology hypotheses.
+
 ## Decision
 
 Freeze B4EP1 as a query-evidence-policy ablation with no mathematical or
 temporal changes. PASS retains work-only as the nominal research hot-path
 candidate and authorizes residual-cost profiling/B4EP2 design only. B4E2,
 runtime and production remain blocked.
+
+Execution evidence is recorded in
+[B4EP1](nonlocal-nsr3b4ep1-query-evidence-evidence-2026-08-21.md).

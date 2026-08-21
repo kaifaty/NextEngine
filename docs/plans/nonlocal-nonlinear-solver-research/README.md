@@ -987,3 +987,10 @@ final publication/ledger roots. Its
 as the byte-exact default, introduces a work-only transaction policy and
 requires exact B4E1M roots/counters plus three balanced Release timing wins.
 Implement and A/B only B4EP1 next.
+B4EP1 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep1-query-evidence-evidence-2026-08-21.md).
+The full-state oracle remains byte-exact, the work-only candidate repeats
+across both builds and all three alternating pairs win with median `3.0168x`
+speedup. Median one-macro wall is now 16.15 s and RSS is 62,016 KiB, but this
+still leaves material HVP/topology cost. Only B4EP2 residual profiling and
+design are authorized; B4E2, runtime, CUDA and production remain blocked.

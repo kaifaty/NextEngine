@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP0_PASS / B4EP1_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4EP1_PASS / B4EP2_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -149,9 +149,15 @@
 - **Current decision:** the frozen B4EP1 work-only policy skips only transient
   workspace/pair/tape hashes, retains a small domain-separated work chain and
   leaves parent/final publication evidence unchanged.
-- **Next action:** implement the dedicated work-only command, preserve exact
-  B4E1M stdout, then run two deterministic candidates and three alternating
-  Release timing pairs.
+- **Current conclusion:** B4EP1 passes byte-exactly across both builds. All
+  three alternating timing pairs win; median paired speedup is `3.0168x`,
+  median wall falls from 48.74 s to 16.15 s and median RSS from 93,060 KiB to
+  62,016 KiB.
+- **Current constraint:** this removes only transient research evidence cost.
+  It changes no physics and does not make the remaining 16.15 s macro
+  production-ready; HVP and topology remain live residual categories.
+- **Next action:** freeze B4EP2 residual-attribution design over the work-only
+  candidate, then select exactly one topology/HVP optimization experiment.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -196,6 +202,7 @@
 | NSR3B4EP0 contract | exact-output gprof attribution of B4E1M | external profile only; no optimization or B4E2 |
 | NSR3B4EP0 PASS | SHA 41.36%, HVP 23.4%, neighborhood 22.7%, evaluation 8.3% | B4EP1 query-evidence separation design only |
 | NSR3B4EP1 contract | full-state default plus work-only nominal transaction | implement/A-B only; physics and B4E2 unchanged |
+| NSR3B4EP1 PASS | exact physics with median `3.0168x` paired speedup | B4EP2 residual attribution/design only |
 
 Candidate solver identity remains:
 
@@ -241,6 +248,7 @@ production authority is created by this lineage.
 | [B4EP0 research](../nonlocal-nsr3b4ep0-attribution-research-2026-08-21.md) | four competing serial-cost hypotheses; perf events unavailable | run exact-output gprof attribution only |
 | [B4EP0](../nonlocal-nsr3b4ep0-attribution-evidence-2026-08-21.md) | exact-output profile selects SHA as largest leaf with `~1.70x` ceiling | freeze one Release evidence-policy ablation |
 | [B4EP1 research](../nonlocal-nsr3b4ep1-query-evidence-research-2026-08-21.md) | inner hashes are non-physical and separable from parent/final roots | implement work-only policy and balanced A/B |
+| [B4EP1](../nonlocal-nsr3b4ep1-query-evidence-evidence-2026-08-21.md) | exact roots/counters with `3.0168x` median paired speedup | retain full default; profile residual work-only cost before one next optimization |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -537,6 +545,17 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** replacing final hashes, silently changing existing commands,
   timing different binaries or granting B4E2 authority from this ablation.
 
+### D-029 -- Retain work-only for nominal research and reprofile the residual
+
+- **Observation:** all three controlled pairs win at about `3.0x` with exact
+  physics, but the remaining macro still takes 16.15 s and constructs all 227
+  neighborhoods/workspaces.
+- **Decision:** use work-only only in dedicated nominal research commands and
+  freeze B4EP2 residual attribution before choosing topology reuse, HVP
+  traversal or nonlinear-control work.
+- **Rejected:** changing the default oracle, extrapolating this result to GPU
+  or production, or starting B4E2 before the next cost boundary is measured.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -550,6 +569,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - B4E1M takes 48.83/48.80 s, about 92 MiB RSS and 99% of one core; 42
   attempted substeps contain 221 outer trials, 459 total HVPs and 227 flat
   workspace builds.
+- B4EP1 work-only retains the same physical/work counts and wins all three
+  Release pairs with `3.0168x` median paired speedup; median wall/RSS are
+  16.15 s and 62,016 KiB versus full-state 48.74 s and 93,060 KiB.
 - No multi-macro nominal, 50k, GPU or production performance result exists
   for this corrected Nonlocal lineage; B4E1M is one CPU research macro only.
 
@@ -566,12 +588,13 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement internal full/work-only policy, counters and the dedicated B4EP1
-   command without changing any default report bytes.
-2. Rebuild twice; require exact oracle regression and candidate physical roots,
-   then run two candidate repeats plus the frozen six-process timing order.
-3. Close B4EP1 with paired medians/Amdahl residual and route to B4EP2; keep
-   B4E2, references, runtime and production work blocked.
+1. Freeze B4EP2 residual-attribution research and contract over implementation
+   `5e40aa2...a660f1` and the exact B4EP1 candidate result.
+2. Profile only the work-only nominal command with exact stdout
+   correspondence; distinguish HVP, topology/tape build, evaluation and
+   nonlinear-control residuals.
+3. Select exactly one controlled next optimization; keep B4E2, references,
+   runtime and production work blocked.
 
 ## Reconsideration triggers
 

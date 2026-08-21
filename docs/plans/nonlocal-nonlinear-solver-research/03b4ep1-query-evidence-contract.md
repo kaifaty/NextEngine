@@ -1,6 +1,6 @@
 # NSR3-B4EP1 -- query-evidence separation contract
 
-Status: `FROZEN / IMPLEMENTATION_AND_AB_AUTHORIZED / RESEARCH_ONLY`
+Status: `FROZEN / PASS / B4EP2_DESIGN_AUTHORIZED / RESEARCH_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -80,3 +80,12 @@ gate failure preserves the exact negative and removes no full-state evidence.
 PASS selects only `WORK_ONLY_NOMINAL_RESEARCH_CANDIDATE` and authorizes B4EP2
 residual profiling/design. B4E2, references, runtime/CUDA and production work
 remain blocked.
+
+## Closed result
+
+B4EP1 passes at implementation commit `5e40aa26e6ba0fcf2d0f3c4ca8d6f77857a660f1`.
+The three alternating pairs produce speedups `3.0068x`, `3.0168x` and
+`3.0254x`; median paired speedup is `3.0168x`. Full-state stdout remains the
+exact 6,151-byte B4E1M oracle, and work-only stdout repeats byte-exactly across
+both builds. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep1-query-evidence-evidence-2026-08-21.md).
