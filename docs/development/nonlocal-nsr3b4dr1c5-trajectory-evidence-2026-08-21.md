@@ -30,9 +30,9 @@ The verified ordinary full upstream clone remains pinned at
 `git fsck --full --no-dangling` closure and the eight reproduced upstream
 library hashes are unchanged from R1A. The tracked cold-start/diagnostic patch
 remains the only upstream source patch. R1B report SHA-256
-`c6a4950dc5fa1db6f2269009111e8f711582327857a87110187518714213ea8a`
+`c6a4950d45270eede2a89a3cecfb4502aa4dd801ecb203d971f312a383203a8a`
 and R1C1 manifest report SHA-256
-`6d293328ce6f4dab5065558b54e7f6eec9a0927a53b2d6d2c4791065343988f3`
+`6d2933283281591cc1dd259053de2b68b1f27188e945c7e753ef21323eb558f3`
 remain exact.
 
 ## Paired trajectory results

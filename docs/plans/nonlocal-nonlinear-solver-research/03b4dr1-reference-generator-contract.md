@@ -1,6 +1,6 @@
 # NSR3-B4DR1 -- reproducible external-reference generator contract
 
-Status: `FROZEN / R1C5_PASS / R1D_EXECUTION / NEW_ROOT_ONLY`
+Status: `FROZEN / R1D_PASS / R1E_DESIGN / NEW_ROOT_ONLY`
 
 Identity projection:
 
@@ -135,6 +135,11 @@ No unverified copy, symlink target or `/tmp` staging path receives credit.
 The [frozen R1D child contract](03b4dr1d-full-generation-contract.md) reissues
 schedule-consistent scenario blocks, exact aggregate roots and the parallel
 two-wave publication protocol over the accepted R1C5 lineage.
+
+R1D passes all three full pairs and verified content-addressed publication;
+see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1d-full-generation-evidence-2026-08-21.md).
+This authorizes only R1E reader/profile contract design.
 
 ## R1E -- new attestation and exit
 

@@ -905,3 +905,9 @@ selects schedule-only scenario reclosure. The
 51/181/181-frame sizes, domain-separated q99/receiver roots, two waves of at
 most three independent one-thread processes and verified content-addressed
 publication. Implement its manifest-only gate and generator next.
+R1D now passes all three full pairs; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1d-full-generation-evidence-2026-08-21.md).
+The six processes are byte-identical per scenario, Orifice ends with 1,172
+receiver samples and three verified regular files live under the explicit
+content-addressed external profile. Only R1E reader/profile contract design is
+authorized next; B4E and every runtime/production claim remain blocked.

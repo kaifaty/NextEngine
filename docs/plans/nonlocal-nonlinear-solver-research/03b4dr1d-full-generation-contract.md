@@ -1,6 +1,6 @@
 # NSR3-B4DR1D -- full external generation contract
 
-Status: `FROZEN / IMPLEMENTATION_AND_EXECUTION_AUTHORIZED / NEW_ROOT_ONLY`
+Status: `FROZEN / PASS / R1E_CONTRACT_DESIGN_AUTHORIZED / NEW_ROOT_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -170,3 +170,8 @@ external evidence.
 
 Only complete three-pair PASS authorizes R1E contract design. A first failure
 stops publication and preserves R1E, B4E, runtime and production as blocked.
+
+R1D passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1d-full-generation-evidence-2026-08-21.md).
+All three full pairs are byte-identical and published under the frozen
+content-addressed profile. Proceed only to R1E contract design.

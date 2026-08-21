@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1C5_PASS / R1D_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4DR1_R1D_PASS / R1E_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -83,9 +83,15 @@
 - **Current decision:** R1D uses new schedule-consistent scenario manifests,
   unchanged frame format/physics and separate q99-x/q99-y/receiver roots.
   Independent one-thread scenarios run in two waves of at most three.
-- **Next action:** implement and commit the R1D zero-Simulation manifest gate
-  plus full generator, then run all full pairs under the explicit external
-  artifact root. Do not begin R1E until all three pairs pass.
+- **Current conclusion:** R1D passes. All full scenario reports/payloads are
+  pairwise byte-exact and published as verified regular content-addressed
+  files. Orifice ends with 1,172 receiver samples.
+- **Performance fact:** two three-process waves reduce harness wall by about
+  `1.58x`; Hydro nevertheless takes 7:43 per 1,200-step process, exposing a
+  real late-state DFSPH reference cost rather than I/O or memory starvation.
+- **Next action:** design/freeze R1E reader/profile attestation over the exact
+  R1D source, binary, scenario, payload and aggregate roots. Do not execute a
+  reader or begin B4E until that contract is committed.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -117,6 +123,7 @@
 | NSR3B4DR1C5 contract | explicit domain/support extent ownership | rerun all pairs under new identity |
 | NSR3B4DR1C5 PASS | all short pairs exact; Orifice reaches 28 receiver samples | R1D full generation only |
 | NSR3B4DR1D contract | full schedule manifests, aggregate roots and verified publication | implement preflight/generator, then run full pairs |
+| NSR3B4DR1D PASS | three full pairs exact and content-addressed | R1E contract design only |
 
 Candidate solver identity remains:
 
@@ -151,6 +158,7 @@ production authority is created by this lineage.
 | [B4DR1C3](../nonlocal-nsr3b4dr1c3-pressure-cap-evidence-2026-08-21.md) | residual falls monotonically and crosses threshold at iteration 220; physical volume is lattice-normalized | reclose cap 300 only; retain mass/volume and cold policy |
 | [B4DR1C4](../nonlocal-nsr3b4dr1c4-trajectory-evidence-2026-08-21.md) | Hydro/Dam pairs exact; Orifice domain extent conflated with source support | preserve partial evidence but grant no pass; separate ownership in R1C5 |
 | [B4DR1C5](../nonlocal-nsr3b4dr1c5-trajectory-evidence-2026-08-21.md) | all three pairs byte-exact; corrected Orifice crosses into receiver | execute R1D full schedules; retain all earlier negative evidence |
+| [B4DR1D](../nonlocal-nsr3b4dr1d-full-generation-evidence-2026-08-21.md) | all full pairs exact; verified external publication | freeze R1E reader/profile contract over actual roots |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -324,6 +332,15 @@ adapter/source/binary SHA-256 values.
 - **Rejected:** a contradictory embedded manifest, OpenMP reduction changes,
   `/tmp`-only output or publication before pair equality.
 
+### D-017 -- Admit full references to attestation design
+
+- **Observation:** all three full pairs and reports compare byte-for-byte;
+  final content-addressed files rehash to their reported roots.
+- **Decision:** select R1D PASS and authorize only R1E reader/profile contract
+  design over the actual closure.
+- **Rejected:** direct B4E use without a fail-closed reader, old W1 credit or a
+  production claim from external-reference generation.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -348,13 +365,13 @@ adapter/source/binary SHA-256 values.
 
 ## Exact next action
 
-1. Implement the frozen R1D schedule manifest/capacity preflight and forced
-   schedule-mismatch rejection without creating a Simulation.
-2. Implement output schedules Hydro `0..1200/24` and Dam/Orifice `0..720/4`
-   without changing solver/contact physics, R1B output or R1C1 preflight.
-3. Run each scenario twice from fresh one-thread processes into explicit
-   external artifact roots; require byte-identical same-scenario payloads.
-4. Design R1E only after complete R1D PASS; keep B4E blocked until R1E passes.
+1. Freeze an R1E profile containing actual source/build/binary, scenario,
+   payload, size and aggregate roots from R1D.
+2. Specify a fail-closed `CWREFV2` reader with capacity, path/type, complete
+   hash, exact-manifest and frame-structure checks before semantic comparison.
+3. Require full-file and post-parse in-memory mutation rejection plus two
+   byte-identical attestation reports.
+4. Keep B4E blocked until R1E passes; retain external payloads outside Git.
 
 ## Reconsideration triggers
 
