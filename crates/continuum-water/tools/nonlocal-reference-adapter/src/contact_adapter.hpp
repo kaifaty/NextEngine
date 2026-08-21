@@ -17,5 +17,6 @@ struct AdapterRun {
 
 AdapterRun run_contact_adapter(PreflightMutation mutation);
 AdapterRun reject_unknown_argument();
+std::string process_preflight_failure();
 
 } // namespace nextengine::nonlocal_reference

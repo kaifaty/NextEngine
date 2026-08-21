@@ -1,4 +1,5 @@
 #include "contact_adapter.hpp"
+#include "r1c_manifest.hpp"
 
 #include "SPlisHSPlasH/Common.h"
 #include "Utilities/Counting.h"
@@ -24,6 +25,16 @@ int main(int argc, char **argv) {
             mutation = PreflightMutation::RoundDown;
         } else if (argument == "--negative-ftz") {
             mutation = PreflightMutation::FtzOn;
+        } else if (argument == "--r1c-manifest-preflight") {
+            const auto run =
+                nextengine::nonlocal_reference::run_r1c_manifest_preflight(false);
+            std::cout << run.report;
+            return run.passed ? 0 : 1;
+        } else if (argument == "--r1c-negative-manifest-mismatch") {
+            const auto run =
+                nextengine::nonlocal_reference::run_r1c_manifest_preflight(true);
+            std::cout << run.report;
+            return run.passed ? 0 : 1;
         } else {
             const auto run = nextengine::nonlocal_reference::reject_unknown_argument();
             std::cout << run.report;

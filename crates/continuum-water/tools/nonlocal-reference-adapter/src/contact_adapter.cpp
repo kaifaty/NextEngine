@@ -581,7 +581,7 @@ std::string profile_projection(
     return output.str();
 }
 
-std::string preflight_failure() {
+std::string preflight_failure_impl() {
     const char *locale = std::setlocale(LC_ALL, "");
     if (locale == nullptr || std::string_view(locale) != "C") {
         return "LOCALE_NOT_C";
@@ -659,6 +659,10 @@ AdapterRun reject_unknown_argument() {
     return {false, rejected_report("UNKNOWN_ARGUMENT")};
 }
 
+std::string process_preflight_failure() {
+    return preflight_failure_impl();
+}
+
 AdapterRun run_contact_adapter(PreflightMutation mutation) {
     if (mutation == PreflightMutation::RoundDown) {
         if (std::fesetround(FE_DOWNWARD) != 0) {
@@ -668,7 +672,7 @@ AdapterRun run_contact_adapter(PreflightMutation mutation) {
         _mm_setcsr(_mm_getcsr() | MXCSR_FTZ);
     }
 
-    const std::string preflight = preflight_failure();
+    const std::string preflight = process_preflight_failure();
     if (!preflight.empty()) {
         return {false, rejected_report(preflight)};
     }

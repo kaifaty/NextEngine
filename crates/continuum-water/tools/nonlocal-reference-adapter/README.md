@@ -1,8 +1,9 @@
 # Nonlocal external-reference adapter
 
 This is a standalone research tool for the B4DR1 new-root external comparator.
-It is not runtime code, a public ABI, a solver plugin or a trajectory generator
-at R1B.
+It is not runtime code, a public ABI or a solver plugin. The default mode is
+the closed R1B contact gate; the R1C manifest-only mode creates no physical
+world and is the prerequisite for the separately gated trajectory path.
 
 The tool independently implements the frozen analytical hard-contact vectors
 and validator. It links the exact external SPlisHSPlasH R1A static closure only
@@ -36,4 +37,8 @@ LC_ALL=C OMP_NUM_THREADS=1 OMP_DYNAMIC=FALSE \
 
 `--negative-rounding` and `--negative-ftz` are fail-closed evidence modes.
 They must exit nonzero before contact starts. Unknown arguments are rejected.
-No mode currently writes files.
+`--r1c-manifest-preflight` independently regenerates the frozen R1C scenario,
+fluid and boundary roots without creating a SPlisHSPlasH model or time step.
+`--r1c-negative-manifest-mismatch` must reject with
+`simulation_created=false` and `trajectory_started=false`. No current mode
+writes files.

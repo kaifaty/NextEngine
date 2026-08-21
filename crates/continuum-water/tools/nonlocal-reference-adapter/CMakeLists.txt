@@ -38,6 +38,8 @@ find_package(OpenMP REQUIRED COMPONENTS CXX)
 add_executable(nonlocal_reference_adapter
     src/contact_adapter.cpp
     src/contact_adapter.hpp
+    src/r1c_manifest.cpp
+    src/r1c_manifest.hpp
     src/main.cpp
     "${NEXTENGINE_SHA256_DIR}/sha256.cpp"
     "${NEXTENGINE_SHA256_DIR}/sha256.hpp")
@@ -86,16 +88,23 @@ if(BUILD_TESTING)
         COMMAND nonlocal_reference_adapter --negative-ftz)
     add_test(NAME nonlocal_reference_adapter.reject_unknown
         COMMAND nonlocal_reference_adapter --unknown)
+    add_test(NAME nonlocal_reference_adapter.r1c_manifest
+        COMMAND nonlocal_reference_adapter --r1c-manifest-preflight)
+    add_test(NAME nonlocal_reference_adapter.r1c_reject_manifest_mismatch
+        COMMAND nonlocal_reference_adapter --r1c-negative-manifest-mismatch)
 
     set_tests_properties(
         nonlocal_reference_adapter.pass
         nonlocal_reference_adapter.reject_rounding
         nonlocal_reference_adapter.reject_ftz
         nonlocal_reference_adapter.reject_unknown
+        nonlocal_reference_adapter.r1c_manifest
+        nonlocal_reference_adapter.r1c_reject_manifest_mismatch
         PROPERTIES ENVIRONMENT "LC_ALL=C;OMP_NUM_THREADS=1;OMP_DYNAMIC=FALSE")
     set_tests_properties(
         nonlocal_reference_adapter.reject_rounding
         nonlocal_reference_adapter.reject_ftz
         nonlocal_reference_adapter.reject_unknown
+        nonlocal_reference_adapter.r1c_reject_manifest_mismatch
         PROPERTIES WILL_FAIL TRUE)
 endif()
