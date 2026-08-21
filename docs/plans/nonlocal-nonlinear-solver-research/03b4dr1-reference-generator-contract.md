@@ -152,3 +152,8 @@ R1E PASS selects only `NEW_EXTERNAL_DFSPH_REFERENCE_CANDIDATE` and authorizes
 B4E nominal-corpus contract design. Any earlier failure preserves B4D/B4E as
 blocked. It cannot issue old W1 credit, runtime authority, a public schema or a
 production claim.
+
+The [frozen R1E child contract](03b4dr1e-reference-attestation-contract.md)
+binds the actual R1D generator/payload/aggregate closure and selects a separate
+no-SPlisHSPlasH reader with descriptor-safe paths, full parse, canonical
+reconstruction and two mutation layers.

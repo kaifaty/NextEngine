@@ -911,3 +911,10 @@ The six processes are byte-identical per scenario, Orifice ends with 1,172
 receiver samples and three verified regular files live under the explicit
 content-addressed external profile. Only R1E reader/profile contract design is
 authorized next; B4E and every runtime/production claim remain blocked.
+The [R1E research](../../development/nonlocal-nsr3b4dr1e-reference-attestation-research-2026-08-21.md)
+selects a standalone reader rather than generator reuse. The
+[frozen R1E contract](03b4dr1e-reference-attestation-contract.md) binds actual
+generator source/build, payload, semantic and aggregate roots; descriptor-safe
+path admission; full independent parse/re-encoding; and external plus decoded
+mutation controls. Implement only that reader next. B4E execution remains
+blocked.

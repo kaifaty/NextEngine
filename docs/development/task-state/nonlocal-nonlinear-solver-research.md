@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1D_PASS / R1E_DESIGN` |
+| Status | `ACTIVE / NSR3B4DR1_R1D_PASS / R1E_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -89,9 +89,12 @@
 - **Performance fact:** two three-process waves reduce harness wall by about
   `1.58x`; Hydro nevertheless takes 7:43 per 1,200-step process, exposing a
   real late-state DFSPH reference cost rather than I/O or memory starvation.
-- **Next action:** design/freeze R1E reader/profile attestation over the exact
-  R1D source, binary, scenario, payload and aggregate roots. Do not execute a
-  reader or begin B4E until that contract is committed.
+- **Current decision:** R1E uses a separate no-SPlisHSPlasH C++17 reader with
+  descriptor-safe path admission, full independent parse, canonical decoded
+  root, regenerated aggregates and serialized/decoded mutation controls.
+- **Next action:** implement/commit the frozen R1E reader, reproduce its build,
+  execute external negative fixtures and run positive attestation twice. Do
+  not begin B4E unless the entire R1E gate passes.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -124,6 +127,7 @@
 | NSR3B4DR1C5 PASS | all short pairs exact; Orifice reaches 28 receiver samples | R1D full generation only |
 | NSR3B4DR1D contract | full schedule manifests, aggregate roots and verified publication | implement preflight/generator, then run full pairs |
 | NSR3B4DR1D PASS | three full pairs exact and content-addressed | R1E contract design only |
+| NSR3B4DR1E contract | actual reference closure plus independent fail-closed reader | implement/attest only; no B4E execution |
 
 Candidate solver identity remains:
 
@@ -341,6 +345,15 @@ adapter/source/binary SHA-256 values.
 - **Rejected:** direct B4E use without a fail-closed reader, old W1 credit or a
   production claim from external-reference generation.
 
+### D-018 -- Keep reader independent from generator
+
+- **Observation:** generator parser reuse could reproduce a common layout bug
+  while still matching complete-file hashes.
+- **Decision:** implement a standalone reader that canonically reconstructs
+  every decoded field and independently regenerates aggregate roots.
+- **Rejected:** generator-source reuse, filename/report trust, path checks
+  separated from open, or full hash without decoded semantic controls.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -365,13 +378,11 @@ adapter/source/binary SHA-256 values.
 
 ## Exact next action
 
-1. Freeze an R1E profile containing actual source/build/binary, scenario,
-   payload, size and aggregate roots from R1D.
-2. Specify a fail-closed `CWREFV2` reader with capacity, path/type, complete
-   hash, exact-manifest and frame-structure checks before semantic comparison.
-3. Require full-file and post-parse in-memory mutation rejection plus two
-   byte-identical attestation reports.
-4. Keep B4E blocked until R1E passes; retain external payloads outside Git.
+1. Implement the standalone R1E reader without generator/SPlisHSPlasH reuse.
+2. Build it twice byte-identically and run profile/self/negative gates.
+3. Run positive attestation twice against the published R1D root and require
+   byte-identical reports plus all semantic/aggregate/mutation checks.
+4. Keep B4E blocked until dated R1E PASS evidence is committed.
 
 ## Reconsideration triggers
 
