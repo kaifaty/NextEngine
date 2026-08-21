@@ -4,11 +4,11 @@
 |---|---|
 | ID | ADR-091 |
 | Статус | Accepted |
-| Версия | 1.1 |
+| Версия | 1.2 |
 | Дата решения | 2026-08-21 |
 | Последняя проверка | 2026-08-21 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-04](../04-rendering-and-platform.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-29](../29-platform-host-and-application-session.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-045](045-low-overhead-hard-performance-evidence.md), [ADR-049](049-performance-evidence-without-allocator-instrumentation.md), [ADR-062](062-r5-physx-humanoid-performance-authority.md), [ADR-063](063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md) |
-| Заменяет | Linux `REPORT_ONLY` clauses of ADR-036/062/063/090 for the exact profile below; historical Windows/THOTH authority remains outside current scope |
+| Заменяет | Linux `REPORT_ONLY` clauses of ADR-036/062/063/090 for the exact profile below; historical Windows/THOTH authority remains outside current scope. [ADR-092](092-dimensional-relative-performance-comparison.md) narrowly supersedes generic relative comparison for normalized R5 ratios and advances methodology to v10. |
 
 ## Контекст
 
@@ -102,12 +102,12 @@ shape, but cannot fail or pass a gate through an accidental lower-is-better
 interpretation. Exact roots, required resource counters and workload-specific
 closure invariants remain mandatory independently of metric verdicts.
 
-### Performance V6 / methodology v9
+### Performance V6 / methodology v10
 
 Current evidence advances to strict `PerformanceRunV6`,
 `PerformanceBaselineV6`, `performance-report-v6.json`,
 `performance-baseline-v6.json` and methodology
-`nextengine-performance-v9`.
+`nextengine-performance-v10`.
 
 V6 retains ADR-063 semantics:
 
@@ -125,6 +125,11 @@ V6 additionally stores the canonical absolute budget beside every baseline
 metric and validates the scenario's full hard/diagnostic policy before baseline
 publication or gate comparison. V5 remains historical evidence only and is not
 decoded as current Linux authority.
+
+ADR-092 retains all absolute rows and whole-run relative comparison for direct
+durations, reciprocal costs and bytes. The already normalized R5 scaling and
+replay-overhead ratios are absolute-only to avoid a second percentage over a
+changing denominator; their samples remain mandatory hard evidence.
 
 Each of the three fixed gate members executes in a fresh process of the same
 release binary. This makes gate members operationally symmetric with the ten
@@ -169,7 +174,7 @@ drop, select or rerun a member.
 
 ## Последствия
 
-- R7c implementation may now replace THOTH-only current tooling with V6/v9
+- R7c implementation may now replace THOTH-only current tooling with V6/v10
   Linux authority and collect fresh evidence.
 - R4 optimization and a real desktop display remain concrete prerequisites for
   a complete R7c PASS.

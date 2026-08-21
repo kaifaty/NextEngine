@@ -46,6 +46,19 @@ pub fn canonical_budget_for_metric(
     Some(budget)
 }
 
+pub(super) fn uses_relative_comparison(scenario: PerformanceScenarioV1, name: &str) -> bool {
+    canonical_budget_for_metric(scenario, name).is_some()
+        && !matches!(
+            (scenario, name),
+            (
+                PerformanceScenarioV1::R5Physics16,
+                "r5-physics-16.worker-4.scaling-inefficiency"
+                    | "r5-physics-16.worker-8.scaling-inefficiency"
+                    | "r5-physics-16.replay-prefix-overhead"
+            )
+        )
+}
+
 pub fn validate_metric_policy(
     scenario: PerformanceScenarioV1,
     metrics: &[PerformanceMetricV1],
@@ -183,5 +196,26 @@ mod tests {
                     .all(|name| canonical_budget_for_metric(scenario, name).is_some())
             );
         }
+    }
+
+    #[test]
+    fn normalized_r5_ratios_are_absolute_only() {
+        for name in [
+            "r5-physics-16.worker-4.scaling-inefficiency",
+            "r5-physics-16.worker-8.scaling-inefficiency",
+            "r5-physics-16.replay-prefix-overhead",
+        ] {
+            assert!(
+                canonical_budget_for_metric(PerformanceScenarioV1::R5Physics16, name).is_some()
+            );
+            assert!(!uses_relative_comparison(
+                PerformanceScenarioV1::R5Physics16,
+                name
+            ));
+        }
+        assert!(uses_relative_comparison(
+            PerformanceScenarioV1::R5Physics16,
+            "r5-physics-16.worker-8.physics-motor-frame"
+        ));
     }
 }

@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-21 |
-| Текущая точка | R1–R6 завершены на current Linux product boundary. [R7a Linux release authority](development/task-state/r7a-linux-release-authority.md) и [R7b release package/clean install](development/task-state/r7b-linux-release-package.md) завершены exact Linux bundles с `PASS / release_ready=true`. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) now has Accepted ADR-091, strict Performance V6/v9 tooling and optimized R4 production path; clean ten-run baselines/fixed gates remain the active evidence work. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
+| Текущая точка | R1–R6 завершены на current Linux product boundary. [R7a Linux release authority](development/task-state/r7a-linux-release-authority.md) и [R7b release package/clean install](development/task-state/r7b-linux-release-package.md) завершены exact Linux bundles с `PASS / release_ready=true`. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) now has Accepted ADR-091/092, strict Performance V6/v10 tooling and optimized R4/R5 paths; clean ten-run baselines/fixed gates remain the active evidence work. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
 | Host policy checkpoint | `LINUX_V1_ONLY / WINDOWS_OUT_OF_SCOPE_INDEFINITE`: current Linux hardware target проходит desktop/package paths and is the sole active development/release target. Historical Windows results retain exact-commit meaning only. No Windows runs, THOTH calibration, same-commit compare or live Windows backlog are scheduled or required for R7/v1. Re-entry requires a new Accepted ADR and separate roadmap slot. |
 | R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v3` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. B-12 is now the R7c Linux hard-performance authority gap. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -834,7 +834,7 @@ policy дала
 ADR-063 и Performance V5/v8 исправляют evidence unit: baseline хранит 10
 independent runs, hard gate является fixed three-run batch, relative bootstrap
 работает по whole-run p95. Fresh compatible Linux calibration/gate ещё не
-запускались. ADR-091 now accepts the Linux V6/v9 profile for those runs;
+запускались. ADR-091/092 now accept the Linux V6/v10 profile for those runs;
 Isaac correspondence remains optional Stage 0 evidence. Current work runs
 affected Linux platform/replay/report-only performance inline. This does not
 declare Stage 0 ready or close B-12/v1.
@@ -1872,7 +1872,7 @@ indefinitely under ADR-090 and does not gate any R7 package.
 3. **R7c — Linux performance authority
    (`IN_PROGRESS / V6_IMPLEMENTED / CLEAN_EVIDENCE_NEXT`):** ADR-091 accepts
    exact `ref-linux-b550i-3950x-rtx3080-v1`, canonical R2–R5 numeric policy and
-   Performance V6/methodology v9. Tooling and R4 cached-revision fast path are
+   Performance V6/methodology v10. Tooling and R4 cached-revision fast path are
    implemented; collect compatible clean ten-run baselines and fixed gates.
    Historical THOTH budgets/evidence are not inherited.
 4. **R7d — final product hardening:** close only release-blocking gameplay,
@@ -2060,7 +2060,7 @@ reference, coupling or persistence path.
 | B-09 | `CLOSED / R6G_CREATOR_SDK_WORKFLOW`: public path-free project create/validate/cook/run/package/inspect/diff, scenario validate/run/minimize and Replay V10 validate/inspect cover an independent project lifecycle, exact source/package closure, shortest failure-preserving action prefix, production first divergence and bounded runtime/world/physics/owner projections. The canonical external guide is governed by a real post-create JSON edit through the complete public lifecycle, and exact Luau/Wasm sources are externally visible without changing package identity. No tool-only replay model, private owner bytes, ID override, assertion weakening or mutable inspector backdoor exists. | — | Closed under ADR-089. Broader inspectors, GUI/MCP, replay capture and arbitrary project-local extension ingestion require concrete future consumers and do not reopen R6 by default. |
 | B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
 | B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Current creator examples are governed by R6/B-09 and do not create a staffing gate. | R2, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
-| B-12 | `OPEN / R7C_CLEAN_EVIDENCE`: ADR-091 accepts exact Linux authority, Performance V6/v9 and canonical R2–R5 budgets. Tooling and R4 production optimization are implemented; diagnostic R3/R4/R5 runs preserve exact roots and R4 is within all rows. Clean baseline/gate evidence remains, and R2 additionally requires an OS-visible physical display. | R7c | On one exact clean commit collect compatible ten-run baselines and one fixed three-run hard gate for R2–R5, without retry-to-green. Historical reports cannot be relabelled; virtual/software R2 does not count. |
+| B-12 | `OPEN / R7C_CLEAN_EVIDENCE`: ADR-091/092 accept exact Linux authority, Performance V6/v10, canonical R2–R5 budgets and dimensional comparison policy. R4/R5 production and evidence-lifetime defects are optimized without root changes. Fresh v10 baseline/gate evidence remains, and R2 additionally requires an OS-visible physical display. | R7c | On one exact clean commit collect compatible ten-run baselines and one isolated fixed three-run hard gate for R2–R5, without retry-to-green. Historical reports cannot be relabelled; virtual/software R2 does not count. |
 | B-13 | `OPTIONAL R8 GAP / NOT V1 BLOCKER`: нет canonical behavior-training data plane, vendor-neutral evaluator, trained strategic/tactical bundles и runtime-training parity. | — | Возвращается только для optional R8 production profile. Каждая activated role проходит applicable SPEC-33/34 and ADR-050/053/054 data/provenance/export/multi-seed/parity/fallback checks; joint suite нужна только профилю с обеими roles. Отсутствие этого трека не блокирует R4/v1 и сохраняет deterministic ADR-056 path. |
 
 ## Решения, которые нужно принять вовремя
@@ -2128,7 +2128,7 @@ host/capability registration отклоняет stale adapter events; Load ра�
 
 Historical performance measurement foundation (`DONE_LOCAL_WINDOWS`) использует
 `PerformanceRunV5`/`PerformanceResourceCountersV4`/`PerformanceMetricV1`/
-`PerformanceBaselineV5`; current Linux release authority is its strict V6/v9
+`PerformanceBaselineV5`; current Linux release authority is its strict V6/v10
 successor under ADR-091. V2/V3/V4 readers удалены. Полный historical THOTH
 fingerprint and ready load/RAM/thermal preflight, profile `profiling`,
 raw nearest-rank metrics с explicit independent-run boundaries и explicit
@@ -2236,7 +2236,7 @@ ADR-049 удалил allocator-counter subsystem после того, как о�
 быть hard evidence. Retained failed candidates остаются историческим фактом в
 Git history; они не требуют live crate, unsafe hook или compatibility reader.
 Этот абзац описывает historical V4 state. Current representative workloads use
-Performance V6/v9 under ADR-091; B-12 remains open only until compatible clean
+Performance V6/v10 under ADR-091/092; B-12 remains open only until compatible clean
 Linux R2–R5 baselines/fixed gates are collected.
 
 Отдельно реализован bounded incremental checkpoint

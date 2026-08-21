@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / R5_GATE_WARNING / PROCESS_ISOLATION_IN_PROGRESS` |
+| Status | `ACTIVE / R5_DERIVED_RATIO_FALSE_REGRESSION / V10_IN_PROGRESS` |
 | Updated | 2026-08-21 |
 | Task key | `r7c-linux-performance-authority` |
 | Scope | Accept one exact Linux release-performance profile and numeric policy, then collect compatible ten-run baselines and fixed three-run hard gates for the representative R2, R3, R4 and R5 workloads |
@@ -11,9 +11,9 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** ADR-091 accepts exact Linux profile
+- **Current conclusion:** ADR-091/092 accept exact Linux profile
   `ref-linux-b550i-3950x-rtx3080-v1`, canonical R2–R5 budgets and strict
-  Performance V6/methodology v9. R3 and R4 now have complete clean baseline and
+  Performance V6/methodology v10. R3 and R4 have historical clean baseline and
   gate evidence on `2bdd20c`. The first R5 calibration run on that commit is an
   immutable `FAIL`: peak process working set is `355,880,960` bytes against the
   accepted `335,544,320`-byte ceiling; every timing, restore, logical-memory,
@@ -22,14 +22,18 @@
   one-minute CPU load was 41%, so no workload executed. The next clean
   `feae4f0` baseline is valid, but its sole fixed gate is `WARNING`: same-process
   members accumulate Linux high-water/vendor-runtime state unlike the ten
-  fresh-process calibration runs.
+  fresh-process calibration runs. Fresh-process `3bbc19e` fixes that asymmetry,
+  but its sole R5 gate is `FAIL` only because generic percentage comparison
+  double-normalizes an already normalized scaling ratio while direct costs
+  improve or remain flat.
 - **Why:** Diagnostic R3/R5 already passed their accepted rows and exact-root
   closure. Cached immutable catalog revisions reduce R4 navigation from roughly
   `4.24/4.79 ms` to `0.67/0.76 ms` and integrated production ticks from
   `15.43/16.10 ms` to `2.25/2.39 ms` p95/p99 without root changes.
-- **Next action:** Execute every fixed-gate member in a fresh process of the
-  same release binary, retain parent-only aggregation and verify the conversion
-  plus hard-evidence path. Commit, then collect a fresh R5 baseline/gate set.
+- **Next action:** Implement ADR-092 and methodology v10: direct costs retain
+  whole-run relative comparison; normalized scaling/replay ratios retain
+  unchanged absolute hard budgets but no second percent-over-percent verdict.
+  Verify, commit and collect a fresh R5 baseline/gate set.
 - **Current blocker:** R2 only: the Linux session currently exposes no active
   physical display (`xrandr` 0×0, empty Mutter display state, NVIDIA display
   inactive), so the production Vulkan workload correctly returns `NOT_RUN`.
@@ -44,7 +48,7 @@
 
 | Evidence | Result | Consequence |
 | --- | --- | --- |
-| ADR-091 | Accepted exact Linux fingerprint, preflight, canonical R2–R5 budgets and V6/v9 evidence semantics | Normative authority is complete; Windows/THOTH stays historical |
+| ADR-091/092 | Accepted exact Linux fingerprint, preflight, canonical R2–R5 budgets and V6/v10 dimensional evidence semantics | Normative authority is complete; Windows/THOTH stays historical |
 | Performance V6 implementation | Linux-only baseline/gate prerequisites, budget-bearing baseline V2 metrics, canonical hard/diagnostic policy and R2–R5 gate routing compile and pass focused tests | Clean evidence may now be collected without relabelling V5 |
 | R3/R5 diagnostics | R3 completes in `868,855 us`; R5 passes every existing row with exact worker roots and clean environment boundaries | Accepted budgets have observed headroom |
 | R4 pre-optimization diagnostic | Exact roots and zero defer/drop/starvation/fabrication, but navigation `4,236/4,793 us` and integrated `15,425/16,100 us` exceed ADR-016 | Optimize; do not widen budgets |
@@ -58,6 +62,8 @@
 | R5 checkpoint-retention optimization | Production diagnostic `PASS`; peak working set falls to `191,184,896` bytes, exact root remains `6b6fee7492dc5ac600a6e75aa8a0c1aab830ee5174e797bbd1eaafe758c19f31`, worker parity remains true and diagnostics remain empty | Optimization is sufficient without changing budgets or authoritative results; commit before new evidence |
 | R5 calibration set on `57739ea` | Ten reports are typed `NOT_RUN` at preflight with CPU load `41%`; zero metrics and roots prove the workload never started | Preserve the rejected set; allow the one-minute load to settle, record the transition on a new commit and do not treat these entries as calibration runs |
 | R5 clean evidence on `feae4f0` | Ten-run baseline accepted; the sole fixed gate preserves exact root and passes every absolute row, but returns `WARNING` for relative 4/8-worker and peak-RSS variance | Preserve the gate; fix baseline/gate process-lifetime asymmetry on a new commit rather than rerunning it |
+| R3 isolated-gate evidence on `3bbc19e` | Ten-run baseline plus three fresh-process members produce `PASS`, six ready boundaries and exact streaming root | Fresh-process aggregation is functional |
+| R5 isolated gate on `3bbc19e` | Ten-run baseline accepted; fresh-process gate passes every absolute row/root/environment check and direct costs are flat or faster, but generic relative comparison returns `FAIL` only for 4-worker scaling inefficiency `1108 -> 1535 bp` | Preserve the gate; adopt ADR-092 dimensional comparison on a new methodology/commit, never retry v9 |
 
 ## Decisions that constrain the work
 
@@ -107,7 +113,7 @@
 
 Read these sources in precedence order before acting:
 
-1. `AGENTS.md`, `docs/architecture/agent-routing.md`, ADR-090 and ADR-091
+1. `AGENTS.md`, `docs/architecture/agent-routing.md`, ADR-090 through ADR-092
 2. SPEC-00, SPEC-04, SPEC-09, SPEC-12, SPEC-15, SPEC-29 and SPEC-35
 3. ADR-001, ADR-003, ADR-016, ADR-028, ADR-030, ADR-035, ADR-036,
    ADR-038, ADR-045, ADR-049, ADR-060 through ADR-063 and ADR-074
@@ -116,9 +122,10 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-Complete and verify fresh-process fixed-gate members, then commit and collect a
-fresh R5 set. Continue R3/R4 on the same commit only after R5 closes. R2 still
-waits for an OS-visible physical display.
+Complete and verify Performance V6/methodology v10 plus ADR-092 canonical
+comparison classes, then commit and collect a fresh R5 set. Continue R3/R4 on
+the same commit only after R5 closes. R2 still waits for an OS-visible physical
+display.
 
 ## Do not retry
 
@@ -137,6 +144,8 @@ waits for an OS-visible physical display.
   rejection is complete negative evidence even though the workload never ran.
 - Any further R5 gate on unchanged `feae4f0`; its `WARNING` is a complete fixed
   batch and cannot be selected or repeated.
+- Any further R5 gate on unchanged `3bbc19e`; its derived-ratio `FAIL` is a
+  complete v9 batch even though all absolute/direct-cost rows pass.
 
 ## Handoff
 
@@ -147,7 +156,8 @@ waits for an OS-visible physical display.
   but its first ten-entry R5 set was rejected before execution because the
   post-build one-minute CPU load was 41%. Clean `feae4f0` publishes a valid R5
   baseline and one immutable `WARNING` gate; fresh-process member isolation is
-  now the bounded implementation change.
+  implemented by `3bbc19e`, whose immutable R5 gate exposes the separate
+  percent-over-percent derived-ratio defect. ADR-092/v10 is in progress.
 - **Checks:** Focused contracts/world/agent/verification tests pass; xtask
   performance lib tests pass `46/46`; workspace clippy is warning-free and the
   broad Linux `host-check` passes. Optimized dirty-worktree R4 report passes

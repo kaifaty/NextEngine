@@ -107,7 +107,7 @@ fn schema_round_trip_rejects_unknown_fields() {
     assert_eq!(run.schema_version, 6);
     assert_eq!(
         run.methodology.methodology_version,
-        "nextengine-performance-v9"
+        "nextengine-performance-v10"
     );
     assert_eq!(PERFORMANCE_REPORT_FILE_NAME, "performance-report-v6.json");
     assert_eq!(

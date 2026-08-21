@@ -338,7 +338,9 @@ pub fn compare_metrics_to_baseline(
             diagnostics.push(format!("PERF_BASELINE_BUDGET_MISMATCH: {}", metric.name));
             continue;
         }
-        if metric.absolute_budget.is_none() {
+        if metric.absolute_budget.is_none()
+            || !super::policy::uses_relative_comparison(run.scenario, &metric.name)
+        {
             metric.relative = None;
             continue;
         }

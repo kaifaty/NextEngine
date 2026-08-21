@@ -4,9 +4,9 @@
 |---|---|
 | ID | INDEX-001 |
 | Статус | Accepted |
-| Версия | 2.59 |
+| Версия | 2.60 |
 | Последняя проверка | 2026-08-21 |
-| Заменяет | INDEX-001 2.58; accepts the exact Linux Performance V6 release authority under ADR-091 |
+| Заменяет | INDEX-001 2.59; adds ADR-092 dimensional relative comparison and Performance V6/methodology v10 |
 
 Этот каталог задаёт архитектуру независимого AI-first open-source RPG engine.
 Next Engine не является переносом OpenGothic и не является general-purpose
@@ -266,7 +266,7 @@ traceability — навигационная карта, не admission authority
 | ADR-060 | [Relaxed THOTH performance preflight](adr/060-relaxed-thoth-performance-preflight.md) | Accepted historical THOTH 10 GiB free-RAM threshold outside current v1 authority under ADR-090; below-15% load and methodology v5 are superseded by ADR-061 |
 | ADR-061 | [Forty-percent THOTH load preflight](adr/061-forty-percent-thoth-load-preflight.md) | Accepted historical THOTH CPU/GPU start-load threshold; methodology identity is superseded by ADR-063 and Windows execution is outside current scope under ADR-090 |
 | ADR-062 | [R5 PhysX humanoid performance authority](adr/062-r5-physx-humanoid-performance-authority.md) | Accepted 16-slot 23-DoF PhysX workload and historical Windows budgets/driver; Windows hard authority is outside current scope under ADR-090 and single-run relative gate/methodology v7 are superseded by ADR-063 |
-| ADR-063 | [Run-level performance evidence and fixed gate batches](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) | Accepted run-level/fixed-batch design; Performance V5/methodology v8 and Windows execution are historical, superseded for current Linux release evidence by ADR-091 V6/v9 |
+| ADR-063 | [Run-level performance evidence and fixed gate batches](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md) | Accepted run-level/fixed-batch design; current Linux evidence uses ADR-091/092 Performance V6/methodology v10 |
 | ADR-064 | [Canonical flat-command locomotion environment](adr/064-canonical-flat-command-locomotion-environment.md) | Accepted engine-owned 23-DoF flat locomotion commands, root-local observation, Q16 reward, partial reset/checkpoint lifecycle, protocol/mirror v2 boundary; no learned-policy claim |
 | ADR-065 | [Curriculum flat-command locomotion profile](adr/065-curriculum-flat-command-locomotion-profile.md) | Accepted engine-owned episode-ordinal curriculum, sharper Q16 reward/support shaping and full-stage held-out evaluation; V1 remains unchanged and learned quality remains unproven |
 | ADR-066 | [Contact-centric physical skills and morphology-conditioned motor architecture](adr/066-contact-centric-physical-skill-and-morphology-conditioned-motor-architecture.md) | Accepted no-text physical-skill hierarchy, heterogeneous BodySchema, `PhysicalActionChunk`, family graph-controller and deterministic rollout boundaries; exact learned profiles remain Proposed |
@@ -294,7 +294,8 @@ traceability — навигационная карта, не admission authority
 | ADR-088 | [Public replay first-divergence and bounded domain inspection](adr/088-public-replay-first-divergence-and-domain-inspection.md) | Accepted current Replay V10 exact-project validation, production first-divergence and one-tick runtime/world/physics/owner projections |
 | ADR-089 | [Governed external creator SDK workflow](adr/089-governed-external-creator-sdk-workflow.md) | Accepted canonical beta guide, edited cold-start public lifecycle and externally visible byte-identical Luau/Wasm examples; no new command or report |
 | ADR-090 | [Linux-only v1 and indefinitely deferred Windows](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) | Accepted sole Linux v1/R7 shipping boundary, dormant Windows scope and bounded R7a–R7e release outcomes |
-| ADR-091 | [Linux release performance authority](adr/091-linux-release-performance-authority.md) | Accepted exact Ryzen 9 3950X/RTX 3080 Linux release profile, Performance V6/methodology v9, canonical R2–R5 budgets and ten-run/fixed-three-run evidence policy |
+| ADR-091 | [Linux release performance authority](adr/091-linux-release-performance-authority.md) | Accepted exact Ryzen 9 3950X/RTX 3080 Linux release profile, canonical R2–R5 budgets and ten-run/fixed-three-run evidence policy |
+| ADR-092 | [Dimensional relative performance comparison](adr/092-dimensional-relative-performance-comparison.md) | Accepted Performance V6/methodology v10 direct-relative and normalized-ratio absolute-only comparison classes |
 
 ## Proposed tracks
 
