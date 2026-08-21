@@ -448,3 +448,11 @@ publication impulse reproduces the KKT ledger at `4.67e-10` or below. Fine-only
 frame/ledger commit, rollback, order, energy decomposition and P1/P2 physical
 gates pass. This selects `CANONICAL_BALANCED_STAGE_LEDGER_CANDIDATE` and
 authorizes B4C3T design only.
+The [full-controller split](../../development/nonlocal-nsr3b4c3t-full-controller-split-research-2026-08-21.md)
+decomposes the long run into adaptive ownership (B4C3TA), fixed canonical
+convergence (B4C3TR) and their final physical comparison (B4C3TC). The first
+[B4C3TA contract](03b4c3ta-adaptive-canonical-controller-contract.md) freezes
+complete P1/P2 adaptive lanes, global step/root continuity, post-commit
+rollback, exact P2 pressure-onset schedule, a binary envelope derived from
+B4C3A1 with `8/32` position/velocity safety factors, and a `1%` independent
+publication-energy budget.

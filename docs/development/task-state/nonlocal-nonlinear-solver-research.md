@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3A1_PASS / NSR3B4C3T_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3A1_PASS / NSR3B4C3TA_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -21,6 +21,11 @@
 - **Current action:** design complete P1/P2 adaptive and fixed canonical lanes,
   global step/root continuity, macro-frame rollback and independent cumulative
   physical/publication-energy envelopes. B4C4/B4D remain blocked.
+- **Current design:** split B4C3T into adaptive B4C3TA, fixed-reference B4C3TR
+  and final comparison B4C3TC. B4C3TA freezes full P1/P2 transactions first;
+  its binary error envelope uses pre-run B4C3A1 factors `8/32` and existing B4B
+  ceilings, while publication pressure/mechanical energy gets a `1%` physical
+  scale budget.
 
 - **Current conclusion:** B4C3Q exact aggregate-balanced apportionment passes
   twice at raw `ae44e39f...0731`. Biased aggregate error and 1,024-step center
@@ -961,6 +966,26 @@
 - **Smallest next action:** audit full lane ownership and freeze B4C3T physical,
   root, rollback and cumulative publication-ledger bounds before implementation.
 
+### D-049 -- Split and freeze the full canonical controller
+
+- **Observation:** adaptive transaction identity, fixed canonical convergence
+  and adaptive-versus-fixed comparison have independent failure modes and would
+  make one long B4C3T report diagnostically ambiguous.
+- **Decision:** execute B4C3TA adaptive lanes first, then B4C3TR fixed
+  `48/96/192`, then B4C3TC comparison. Freeze B4C3TA with global steps, exact P2
+  onset schedule, post-commit rollback and binary/energy envelopes derived
+  before its run.
+- **Rejected alternatives:** do not combine all long lanes, loosen schedule
+  activation after observing canonical noise, or derive trajectory tolerances
+  from the B4C3TA result itself.
+- **Consequence:** B4C3TR remains blocked until adaptive canonical ownership and
+  ledger pass independently.
+- **Remaining uncertainty:** aggregate balancing may seed precontact local
+  pressure or change accepted refinement; cumulative pressure-energy may exceed
+  the independent `1%` budget.
+- **Smallest next action:** implement global-offset canonical intervals and the
+  complete transactional adaptive controller, then run B4C3TA twice.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -973,12 +998,12 @@
 
 ## Exact next action
 
-1. Audit complete adaptive/fixed lane ownership and freeze independent B4C3T
-   physical and cumulative publication-ledger envelopes.
-2. Bind global accepted-step numbering, per-lane trajectory roots and
-   macro-frame rollback without publishing forecast/coarse/diagnostic states.
-3. Implement B4C3T only after its full-horizon discriminator is frozen. B4C4
-   packaging and nominal B4D remain blocked.
+1. Extend selected canonical intervals with explicit start state and global
+   accepted-step offset without changing one-frame hashes.
+2. Implement complete B4C3TA P1/P2 adaptive transactions, binary envelope,
+   energy utilization, exact onset schedule and post-commit rollback.
+3. Run twice before designing B4C3TR fixed canonical references. B4C4 and B4D
+   remain blocked.
 
 ## Reconsideration triggers
 
