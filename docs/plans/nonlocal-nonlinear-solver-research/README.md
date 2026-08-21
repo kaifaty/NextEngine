@@ -598,3 +598,9 @@ selects exact canonical integer equality instead of an epsilon. Its
 terminal features to equal both private and decoded feature sets after exact
 `quantize_position`, while raw equality, feature differences and penetration
 remain diagnostics. Solver state and publication are unchanged.
+B4C3MAG passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3mag-canonical-topology-evidence-2026-08-21.md).
+P1 retains all 64 KKT features exactly in canonical integer coordinates while
+the 24-feature raw mismatch remains visible as the intended discriminator.
+Both one-frame adaptive transactions, all negatives and rollback pass. Only
+complete adaptive macro replay design is authorized next.

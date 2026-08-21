@@ -55,5 +55,7 @@ SplitBoundaryReport run_mixed_stability_budget_probe_controls();
 SplitBoundaryReport run_mixed_stability_budget_controls();
 SplitBoundaryReport run_macro_adaptive_transaction_probe_controls();
 SplitBoundaryReport run_macro_adaptive_transaction_controls();
+SplitBoundaryReport run_canonical_topology_probe_controls();
+SplitBoundaryReport run_canonical_topology_controls();
 
 } // namespace nextengine::nonlocal::fcr

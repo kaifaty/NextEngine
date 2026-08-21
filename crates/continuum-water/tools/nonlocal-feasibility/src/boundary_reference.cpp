@@ -16245,6 +16245,12 @@ struct MacroAdaptiveTransactionCase {
     MixedStabilityField position_admission;
     MixedStabilityField velocity_admission;
     bool boundary_membership_exact = false;
+    bool raw_boundary_membership_exact = false;
+    bool canonical_boundary_membership_exact = false;
+    bool canonical_geometry_valid = false;
+    bool canonical_decoded_inside = false;
+    bool canonical_private_terminal_exact = false;
+    bool canonical_decoded_terminal_exact = false;
     bool private_terminal_membership_exact = false;
     bool decoded_terminal_membership_exact = false;
     std::vector<std::pair<std::size_t, int>> private_boundary_membership;
@@ -16284,6 +16290,16 @@ struct MacroAdaptivePolicyNegatives {
     bool other_kkt_rejected = false;
     bool non_adjacent_rejected = false;
     bool exhaustion_rejected = false;
+};
+
+struct CanonicalTopologyNegatives {
+    bool passed = false;
+    bool raw_mismatch_present = false;
+    bool canonical_equivalence_exact = false;
+    bool one_unit_separation_rejected = false;
+    bool feature_identity_bound = false;
+    bool collapsed_geometry_rejected = false;
+    bool outside_geometry_rejected = false;
 };
 
 bool macro_policy_entry_valid(
@@ -16550,11 +16566,67 @@ std::vector<std::pair<std::size_t, int>> boundary_membership(
     return result;
 }
 
+std::vector<std::pair<std::size_t, int>> canonical_boundary_membership(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& position) {
+    std::vector<std::pair<std::size_t, int>> result;
+    for (std::size_t sample = 0; sample < position.size(); ++sample) {
+        for (int axis = 0; axis < 3; ++axis) {
+            const std::int64_t value = canonical::quantize_position(
+                component(position[sample], axis));
+            if (value == canonical::quantize_position(
+                    component(fixture.contact_low, axis))) {
+                result.emplace_back(sample, 2 * axis);
+            }
+            if (value == canonical::quantize_position(
+                    component(fixture.contact_high, axis))) {
+                result.emplace_back(sample, 2 * axis + 1);
+            }
+        }
+    }
+    return result;
+}
+
+bool canonical_box_geometry_valid(const SmokeFixture& fixture) {
+    for (int axis = 0; axis < 3; ++axis) {
+        if (canonical::quantize_position(
+                component(fixture.contact_low, axis))
+            >= canonical::quantize_position(
+                component(fixture.contact_high, axis))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool canonical_positions_inside(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& position) {
+    if (!canonical_box_geometry_valid(fixture)) {
+        return false;
+    }
+    for (const Vec3& sample : position) {
+        for (int axis = 0; axis < 3; ++axis) {
+            const std::int64_t value = canonical::quantize_position(
+                component(sample, axis));
+            const std::int64_t low = canonical::quantize_position(
+                component(fixture.contact_low, axis));
+            const std::int64_t high = canonical::quantize_position(
+                component(fixture.contact_high, axis));
+            if (value < low || value > high) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     std::string name,
     SmokeFixture fixture,
     const std::string& scenario_sha256,
-    bool force_prepublication_failure = false) {
+    bool force_prepublication_failure = false,
+    bool use_canonical_topology = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -16728,13 +16800,34 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         result.private_boundary_membership.begin(),
         result.private_boundary_membership.end(),
         std::back_inserter(result.gained_boundary_membership));
-    result.boundary_membership_exact =
+    result.raw_boundary_membership_exact =
         result.lost_boundary_membership.empty()
         && result.gained_boundary_membership.empty();
     result.private_terminal_membership_exact = fine.terminal_contacts
         == result.private_boundary_membership;
     result.decoded_terminal_membership_exact = fine.terminal_contacts
         == result.decoded_boundary_membership;
+    const std::vector<std::pair<std::size_t, int>> canonical_private =
+        canonical_boundary_membership(fixture, fine.position);
+    const std::vector<std::pair<std::size_t, int>> canonical_decoded =
+        canonical_boundary_membership(
+            fixture, publication.decoded_position);
+    result.canonical_boundary_membership_exact =
+        canonical_private == canonical_decoded;
+    result.canonical_geometry_valid = canonical_box_geometry_valid(fixture);
+    result.canonical_decoded_inside = canonical_positions_inside(
+        fixture, publication.decoded_position);
+    result.canonical_private_terminal_exact = fine.terminal_contacts
+        == canonical_private;
+    result.canonical_decoded_terminal_exact = fine.terminal_contacts
+        == canonical_decoded;
+    result.boundary_membership_exact = use_canonical_topology
+        ? (result.canonical_boundary_membership_exact
+            && result.canonical_geometry_valid
+            && result.canonical_decoded_inside
+            && result.canonical_private_terminal_exact
+            && result.canonical_decoded_terminal_exact)
+        : result.raw_boundary_membership_exact;
     for (const Vec3& sample : publication.decoded_position) {
         result.maximum_decoded_penetration = std::max({
             result.maximum_decoded_penetration,
@@ -16840,6 +16933,38 @@ MacroAdaptivePolicyNegatives run_macro_adaptive_policy_negatives() {
         && result.other_kkt_rejected
         && result.non_adjacent_rejected
         && result.exhaustion_rejected;
+    return result;
+}
+
+CanonicalTopologyNegatives run_canonical_topology_negatives() {
+    CanonicalTopologyNegatives result;
+    const double computed = 0.2 - 0.025;
+    const double literal = 0.175;
+    result.raw_mismatch_present = computed != literal;
+    result.canonical_equivalence_exact =
+        canonical::quantize_position(computed)
+            == canonical::quantize_position(literal);
+    result.one_unit_separation_rejected =
+        canonical::quantize_position(literal + 1.0e-6)
+            != canonical::quantize_position(literal);
+    const std::vector<std::pair<std::size_t, int>> feature = {{0U, 1}};
+    const std::vector<std::pair<std::size_t, int>> substituted = {{1U, 1}};
+    result.feature_identity_bound = feature != substituted;
+    SmokeFixture collapsed = make_b4b_supported_column_fixture();
+    collapsed.contact_high.x = collapsed.contact_low.x + 0.4e-6;
+    result.collapsed_geometry_rejected =
+        !canonical_box_geometry_valid(collapsed);
+    SmokeFixture fixture = make_b4b_supported_column_fixture();
+    std::vector<Vec3> outside = fixture.position;
+    outside.front().x = fixture.contact_low.x - 1.0e-6;
+    result.outside_geometry_rejected =
+        !canonical_positions_inside(fixture, outside);
+    result.passed = result.raw_mismatch_present
+        && result.canonical_equivalence_exact
+        && result.one_unit_separation_rejected
+        && result.feature_identity_bound
+        && result.collapsed_geometry_rejected
+        && result.outside_geometry_rejected;
     return result;
 }
 
@@ -18697,6 +18822,45 @@ void append_macro_adaptive_policy_negatives(
            << (value.non_adjacent_rejected ? "true" : "false")
            << ",\"exhaustion_rejected\":"
            << (value.exhaustion_rejected ? "true" : "false") << '}';
+}
+
+void append_canonical_topology_transaction_case(
+    std::ostringstream& output,
+    const MacroAdaptiveTransactionCase& value) {
+    output << "{\"transaction\":";
+    append_macro_adaptive_transaction_case(output, value);
+    output << ",\"topology\":{\"raw_boundary_membership_exact\":"
+           << (value.raw_boundary_membership_exact ? "true" : "false")
+           << ",\"canonical_boundary_membership_exact\":"
+           << (value.canonical_boundary_membership_exact
+                ? "true" : "false")
+           << ",\"canonical_geometry_valid\":"
+           << (value.canonical_geometry_valid ? "true" : "false")
+           << ",\"canonical_decoded_inside\":"
+           << (value.canonical_decoded_inside ? "true" : "false")
+           << ",\"canonical_private_terminal_exact\":"
+           << (value.canonical_private_terminal_exact ? "true" : "false")
+           << ",\"canonical_decoded_terminal_exact\":"
+           << (value.canonical_decoded_terminal_exact ? "true" : "false")
+           << "}}";
+}
+
+void append_canonical_topology_negatives(
+    std::ostringstream& output,
+    const CanonicalTopologyNegatives& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"raw_mismatch_present\":"
+           << (value.raw_mismatch_present ? "true" : "false")
+           << ",\"canonical_equivalence_exact\":"
+           << (value.canonical_equivalence_exact ? "true" : "false")
+           << ",\"one_unit_separation_rejected\":"
+           << (value.one_unit_separation_rejected ? "true" : "false")
+           << ",\"feature_identity_bound\":"
+           << (value.feature_identity_bound ? "true" : "false")
+           << ",\"collapsed_geometry_rejected\":"
+           << (value.collapsed_geometry_rejected ? "true" : "false")
+           << ",\"outside_geometry_rejected\":"
+           << (value.outside_geometry_rejected ? "true" : "false") << '}';
 }
 
 void append_macro_adaptive_rollback(
@@ -21491,6 +21655,179 @@ SplitBoundaryReport run_macro_adaptive_transaction_probe_controls() {
 
 SplitBoundaryReport run_macro_adaptive_transaction_controls() {
     return run_macro_adaptive_transaction_impl(true);
+}
+
+namespace {
+
+SplitBoundaryReport run_canonical_topology_impl(bool require_parent) {
+    const SplitBoundaryReport negative_parent =
+        run_macro_adaptive_transaction_probe_controls();
+    const bool negative_parent_exact = !negative_parent.passed
+        && sha256_hex(negative_parent.json)
+            == "8def13d3b0f54fdffaa451846219d9a842acda416e2270464349aff6831847a1";
+    bool positive_parent_exact = true;
+    if (require_parent && negative_parent_exact) {
+        const SplitBoundaryReport positive_parent =
+            run_mixed_stability_budget_controls();
+        positive_parent_exact = positive_parent.passed
+            && sha256_hex(positive_parent.json)
+                == "eb4d82300653d779baf00620cb83a2526d164347c1b97a65b487f1955a3b8d60";
+    }
+    std::array<MacroAdaptiveTransactionCase, 2> cases;
+    MacroAdaptivePolicyNegatives policy_negatives;
+    CanonicalTopologyNegatives topology_negatives;
+    MacroAdaptiveRollback rollback;
+    std::string first_failure;
+    if (!negative_parent_exact) {
+        first_failure = "NSR3B4C3MA_NEGATIVE_PARENT";
+    } else if (!positive_parent_exact) {
+        first_failure = "NSR3B4C3PE1_POSITIVE_PARENT";
+    } else {
+        std::future<MacroAdaptiveTransactionCase> p1 = std::async(
+            std::launch::async, []() {
+                return run_macro_adaptive_transaction_case(
+                    "p1-supported-canonical-topology",
+                    make_b4b_supported_column_fixture(),
+                    B4C3TA_P1_SCENARIO_SHA256, false, true);
+            });
+        std::future<MacroAdaptiveTransactionCase> p2 = std::async(
+            std::launch::async, []() {
+                return run_macro_adaptive_transaction_case(
+                    "p2-released-canonical-topology",
+                    make_b4b_released_block_fixture(),
+                    B4C3TA_P2_SCENARIO_SHA256, false, true);
+            });
+        std::future<MacroAdaptiveRollback> rollback_future = std::async(
+            std::launch::async, []() {
+                return run_macro_adaptive_rollback();
+            });
+        policy_negatives = run_macro_adaptive_policy_negatives();
+        topology_negatives = run_canonical_topology_negatives();
+        cases = {p1.get(), p2.get()};
+        rollback = rollback_future.get();
+        for (const MacroAdaptiveTransactionCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!policy_negatives.passed && first_failure.empty()) {
+            first_failure = "POLICY_NEGATIVE_CONTROLS";
+        }
+        if (!topology_negatives.passed && first_failure.empty()) {
+            first_failure = "TOPOLOGY_NEGATIVE_CONTROLS";
+        }
+        if (!rollback.passed && first_failure.empty()) {
+            first_failure = "PREPUBLICATION_ROLLBACK";
+        }
+    }
+    const bool cases_exact = negative_parent_exact && positive_parent_exact
+        && std::all_of(
+            cases.begin(), cases.end(),
+            [](const MacroAdaptiveTransactionCase& value) {
+                return value.passed
+                    && value.canonical_boundary_membership_exact
+                    && value.canonical_geometry_valid
+                    && value.canonical_decoded_inside
+                    && value.canonical_private_terminal_exact
+                    && value.canonical_decoded_terminal_exact;
+            });
+    const bool raw_discriminator_exact = cases_exact
+        && !cases[0].raw_boundary_membership_exact
+        && cases[1].raw_boundary_membership_exact;
+    const bool passed = negative_parent_exact && positive_parent_exact
+        && cases_exact && raw_discriminator_exact
+        && policy_negatives.passed && topology_negatives.passed
+        && rollback.passed;
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|negative-parent:" << negative_parent_exact
+             << "|positive-parent:" << positive_parent_exact
+             << "|policy:422ae7267170615c23e1757c5b80b14e5811dae7721b170cc9586a957835fa63"
+             << "|raw-discriminator:" << raw_discriminator_exact
+             << "|negatives:" << policy_negatives.passed << ':'
+             << topology_negatives.passed
+             << "|rollback:" << rollback.passed;
+    if (negative_parent_exact && positive_parent_exact) {
+        for (const MacroAdaptiveTransactionCase& value : cases) {
+            material << '|' << value.name << ':' << value.passed << ':'
+                     << value.raw_boundary_membership_exact << ':'
+                     << value.canonical_boundary_membership_exact << ':'
+                     << value.canonical_geometry_valid << ':'
+                     << value.canonical_decoded_inside << ':'
+                     << value.canonical_private_terminal_exact << ':'
+                     << value.canonical_decoded_terminal_exact << ':'
+                     << value.lost_boundary_membership.size() << ':'
+                     << value.gained_boundary_membership.size() << ':'
+                     << value.maximum_decoded_penetration << ':'
+                     << value.maximum_published_boundary_shift << ':'
+                     << value.trajectory_sha256 << ':'
+                     << value.policy_ledger_sha256;
+        }
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+           << (require_parent
+                ? "nsr3b4c3mag_canonical_topology.v1"
+                : "nsr3b4c3mag_canonical_topology_probe.v1")
+           << "\",\"identity_sha256\":\"422ae7267170615c23e1757c5b80b14e5811dae7721b170cc9586a957835fa63\""
+           << ",\"negative_parent_b4c3ma_raw_sha256\":\"8def13d3b0f54fdffaa451846219d9a842acda416e2270464349aff6831847a1\""
+           << ",\"negative_parent_exact\":"
+           << (negative_parent_exact ? "true" : "false")
+           << ",\"positive_parent_b4c3pe1_raw_sha256\":\"eb4d82300653d779baf00620cb83a2526d164347c1b97a65b487f1955a3b8d60\""
+           << ",\"positive_parent_exact\":"
+           << (positive_parent_exact ? "true" : "false")
+           << ",\"positive_parent_required\":"
+           << (require_parent ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"authority\":\"TOPOLOGY_RESEARCH_ONLY\""
+           << ",\"topology_identity\":\"CANONICAL_POSITION_INTEGER\""
+           << ",\"raw_binary_equality_is_diagnostic\":true"
+           << ",\"raw_discriminator_exact\":"
+           << (raw_discriminator_exact ? "true" : "false")
+           << ",\"cases\":[";
+    if (negative_parent_exact && positive_parent_exact) {
+        for (std::size_t i = 0; i < cases.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_canonical_topology_transaction_case(report, cases[i]);
+        }
+    }
+    report << "],\"policy_negative_controls\":";
+    append_macro_adaptive_policy_negatives(report, policy_negatives);
+    report << ",\"topology_negative_controls\":";
+    append_canonical_topology_negatives(report, topology_negatives);
+    report << ",\"prepublication_rollback\":";
+    append_macro_adaptive_rollback(report, rollback);
+    report << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"disposition\":\""
+           << (passed
+                ? "CANONICAL_TOPOLOGY_ADAPTIVE_MACRO_TRANSACTION_CANDIDATE"
+                : "CANONICAL_TOPOLOGY_REJECTED") << '"'
+           << ",\"complete_adaptive_macro_replay_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"adaptive_fixed_comparison_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_canonical_topology_probe_controls() {
+    return run_canonical_topology_impl(false);
+}
+
+SplitBoundaryReport run_canonical_topology_controls() {
+    return run_canonical_topology_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr

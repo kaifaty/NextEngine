@@ -81,7 +81,9 @@ int main(int argc, char** argv) {
                          "--mixed-stability-budget-probe|"
                          "--mixed-stability-budget-self-test|"
                          "--macro-adaptive-transaction-probe|"
-                         "--macro-adaptive-transaction-self-test\n";
+                         "--macro-adaptive-transaction-self-test|"
+                         "--canonical-topology-probe|"
+                         "--canonical-topology-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -588,6 +590,20 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--canonical-topology-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_canonical_topology_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--canonical-topology-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_canonical_topology_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -659,7 +675,9 @@ int main(int argc, char** argv) {
                      "--mixed-stability-budget-probe|"
                      "--mixed-stability-budget-self-test|"
                      "--macro-adaptive-transaction-probe|"
-                     "--macro-adaptive-transaction-self-test\n";
+                     "--macro-adaptive-transaction-self-test|"
+                     "--canonical-topology-probe|"
+                     "--canonical-topology-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

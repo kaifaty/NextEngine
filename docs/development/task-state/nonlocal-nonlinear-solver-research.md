@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3MA_FAIL / B4C3MAG_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3MAG_PASS / FULL_ADAPTIVE_MACRO_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -41,9 +41,9 @@
 - **Current decision:** B4C3PE1 selects the macro-boundary canonical fixed
   reference candidate with 89 temporal, 55 absolute and zero rejected field/
   frame admissions. B4C3P remains the preserved legacy-tube FAIL.
-- **Current action:** implement frozen B4C3MAG exact canonical-integer topology
-  admission and negative controls. Complete replay/B4C3TC/B4C4/B4D remain
-  blocked.
+- **Current action:** design the complete 8/16-frame adaptive macro recovery
+  replay around the selected topology/transaction boundary. B4C3TC/B4C4/B4D
+  remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1415,6 +1415,23 @@
   replay have not executed.
 - **Smallest next action:** implement the exact feature map and discriminator.
 
+### D-070 -- Select canonical-topology adaptive macro transaction
+
+- **Observation:** B4C3MAG passes twice with exact positive/negative parents.
+  P1 canonical features equal all 64 KKT terminal features before and after
+  decode; P2 remains empty/exact; topology negatives and rollback pass.
+- **Decision:** select
+  `CANONICAL_TOPOLOGY_ADAPTIVE_MACRO_TRANSACTION_CANDIDATE` and authorize only
+  complete adaptive macro replay design.
+- **Rejected alternatives:** reviving raw equality, adding a contact epsilon or
+  treating the one-frame result as long-horizon evidence.
+- **Consequence:** complete adaptive state advances by one canonical frame and
+  one macro-ledger entry per accepted macro interval, irrespective of private
+  substeps.
+- **Remaining uncertainty:** recovery schedule, accumulated publication effects,
+  contacts, physical gates, roots and work have not run over 8/16 frames.
+- **Smallest next action:** freeze the full adaptive macro recovery contract.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1427,9 +1444,10 @@
 
 ## Exact next action
 
-1. Implement B4C3MAG exact integer topology map and geometry validation.
-2. Reuse B4C3MA unchanged except for topology admission and new identity.
-3. Execute isolated, then twice parent-gated before any complete replay design.
+1. Freeze full adaptive macro recovery state, schedule and ledger ownership.
+2. Define fixed-reference comparison and mixed admission without using the
+   rejected per-substep trajectory.
+3. Implement only after report identity and negative controls are immutable.
 
 ## Reconsideration triggers
 

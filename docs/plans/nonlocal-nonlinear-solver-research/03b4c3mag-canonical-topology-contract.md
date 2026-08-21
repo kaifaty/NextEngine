@@ -1,6 +1,6 @@
 # NSR3-B4C3MAG -- canonical topology reclosure
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / FULL_REPLAY_BLOCKED`
+Status: `FROZEN / PASS / FULL_ADAPTIVE_MACRO_DESIGN_AUTHORIZED`
 
 The B4C3MA raw-equality negative control has JSON-without-final-LF SHA-256
 `8def13d3b0f54fdffaa451846219d9a842acda416e2270464349aff6831847a1`
