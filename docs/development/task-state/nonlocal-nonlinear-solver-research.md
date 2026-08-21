@@ -612,6 +612,19 @@
 - **Consequence:** B4BF is a one-frame controller discriminator with a full
   level curve and detached P2 negative. No full B4B2 retry is authorized yet.
 
+### D-037 -- Select feasible-predictor spectrum for the full retry
+
+- **Observation:** every adjacent small-count pair passes despite fixed-192
+  kinetic failures through `n=4`; a generic consecutive-pair rule is not
+  sufficient. The feasible predictor activates 16 pressure centres, derives
+  `n=21`, and its fine-42 member is only `2.05%` from fixed-192. Detached P2
+  remains exact at zero forecast HVPs.
+- **Decision:** select `CONTACT_ONSET_SPECTRAL_FORECAST_CANDIDATE` and freeze
+  B4B2. Use start spectrum when already active, forecast spectrum only for an
+  inactive start that becomes active under feasible macro prediction.
+- **Consequence:** the full corpus may be retried without changing KKT,
+  thresholds or references. PASS is still only tiny pressure authority.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -624,11 +637,11 @@
 
 ## Exact next action
 
-1. Implement B4BF's immutable first-frame level curve and feasible projected
-   pressure spectrum.
-2. Test its derived `(n,2n)` pair against fixed-192 and detached P2.
-3. Execute twice and preserve the first forecast/accuracy failure or PASS;
-   keep all historical raw reports exact.
+1. Implement B4B2 spectrum-source selection in the KKT controller without
+   changing any fixed reference or solver path.
+2. Execute P1 then P2 under the frozen stop policy and publish forecast work.
+3. Repeat, verify all historical raw hashes and preserve the first failure or
+   PASS before B4C design.
 
 ## Reconsideration triggers
 

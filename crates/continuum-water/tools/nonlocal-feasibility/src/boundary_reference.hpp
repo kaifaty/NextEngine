@@ -23,5 +23,6 @@ SplitBoundaryReport run_tiny_pressure_corpus_controls();
 SplitBoundaryReport run_box_contact_kkt_controls();
 SplitBoundaryReport run_box_contact_kkt_face_controls();
 SplitBoundaryReport run_tiny_pressure_contact_kkt_controls();
+SplitBoundaryReport run_contact_onset_forecast_controls();
 
 } // namespace nextengine::nonlocal::fcr

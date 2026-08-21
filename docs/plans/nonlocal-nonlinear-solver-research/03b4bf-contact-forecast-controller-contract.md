@@ -1,6 +1,6 @@
 # NSR3-B4BF -- contact-onset forecast controller contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / B4B2_BLOCKED`
+Status: `EXECUTED_PASS / CONTACT_ONSET_SPECTRAL_FORECAST_CANDIDATE / B4B2_DESIGN_AUTHORIZED`
 
 Parent B4B1 is exact FAIL with semantic SHA-256
 `11302033bacf1a3656c3b584f9db68f573e088b786c56ceea10b32dfee509a2e`
@@ -62,3 +62,6 @@ minimum count.
 
 No P2 impact, general mesh, nominal water, neighborhood, CUDA, runtime or
 production authority is granted.
+
+Execution evidence is recorded in the
+[dated B4BF report](../../development/nonlocal-nsr3b4bf-contact-forecast-evidence-2026-08-21.md).

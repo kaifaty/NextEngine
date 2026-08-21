@@ -7785,4 +7785,291 @@ SplitBoundaryReport run_tiny_pressure_contact_kkt_controls() {
     return {passed, report.str()};
 }
 
+namespace {
+
+constexpr std::array<int, 9> B4BF_LEVELS = {
+    1, 2, 4, 8, 16, 32, 48, 96, 192,
+};
+
+struct B4BFForecast {
+    bool passed = false;
+    int pressure_active_centers = 0;
+    int spectral_hvp_calls = 0;
+    double maximum_eigenvalue = 0.0;
+    double maximum_eigenfrequency = 0.0;
+    int substeps = 1;
+    std::vector<Vec3> projected_position;
+};
+
+B4BFForecast b4bf_forecast(const SmokeFixture& fixture) {
+    B4BFForecast result;
+    std::vector<Vec3> predicted(fixture.position.size());
+    for (std::size_t i = 0; i < predicted.size(); ++i) {
+        predicted[i] = SMOKE_FRAME_TIME
+            * (fixture.velocity[i]
+                + SMOKE_FRAME_TIME * fixture.gravity);
+    }
+    const std::vector<Vec3> projected = clamp_box_displacement(
+        fixture, fixture.position, predicted);
+    result.projected_position = materialize_displacement(
+        fixture.position, projected);
+    const Evaluation state = evaluate(
+        result.projected_position, fixture.boundary);
+    result.pressure_active_centers = static_cast<int>(state.active_centers);
+    if (result.pressure_active_centers > 0) {
+        const SpectralEstimate spectrum = boundary_pressure_spectrum(
+            result.projected_position, fixture.boundary);
+        result.spectral_hvp_calls = spectrum.calls;
+        result.maximum_eigenvalue = spectrum.maximum_eigenvalue;
+        result.maximum_eigenfrequency = std::sqrt(
+            std::max(result.maximum_eigenvalue, 0.0) / MASS);
+        if (!spectrum.passed) {
+            return result;
+        }
+        result.substeps = std::max(1,
+            static_cast<int>(std::ceil(SMOKE_FRAME_TIME
+                * result.maximum_eigenfrequency / SPECTRAL_TARGET)));
+    }
+    result.passed = result.substeps >= 1 && result.substeps <= 192
+        && (result.pressure_active_centers == 0
+            ? result.spectral_hvp_calls == 0 && result.substeps == 1
+            : result.spectral_hvp_calls == 48
+                && result.maximum_eigenvalue > 0.0);
+    return result;
+}
+
+B4BFrameComparison b4bf_compare(
+    int label, const SmokeFixture& fixture,
+    const SmokeRun& candidate, const SmokeRun& reference) {
+    SmokeFrame frame;
+    frame.position = candidate.position;
+    frame.velocity = candidate.velocity;
+    return compare_b4b_frame(label, fixture, frame, reference,
+        b4b_aggregate(fixture, reference.position, reference.velocity));
+}
+
+struct B4BFResult {
+    bool passed = false;
+    std::string failure;
+    SmokeFixture p1;
+    B4BFForecast p1_forecast;
+    std::array<SmokeRun, 9> curve;
+    std::array<SmokeGate, 8> adjacent;
+    std::array<B4BFrameComparison, 9> comparison;
+    SmokeRun forecast_coarse;
+    SmokeRun forecast_fine;
+    SmokeGate forecast_gate;
+    B4BFrameComparison forecast_reference;
+    SmokeFixture p2;
+    B4BFForecast p2_forecast;
+    SmokeRun p2_one_step;
+    double p2_position_error = 0.0;
+    double p2_velocity_error = 0.0;
+    bool p2_exact = false;
+};
+
+B4BFResult run_b4bf() {
+    B4BFResult result;
+    result.p1 = make_b4b_supported_column_fixture();
+    for (std::size_t i = 0; i < B4BF_LEVELS.size(); ++i) {
+        result.curve[i] = run_b4b1_interval(result.p1,
+            result.p1.position, result.p1.velocity,
+            B4BF_LEVELS[i], 0.0, SMOKE_FRAME_TIME);
+    }
+    const SmokeRun& reference = result.curve.back();
+    for (std::size_t i = 0; i + 1U < B4BF_LEVELS.size(); ++i) {
+        result.adjacent[i] = smoke_gate(
+            result.curve[i], result.curve[i + 1U]);
+    }
+    for (std::size_t i = 0; i < B4BF_LEVELS.size(); ++i) {
+        result.comparison[i] = b4bf_compare(
+            B4BF_LEVELS[i], result.p1, result.curve[i], reference);
+    }
+    result.p1_forecast = b4bf_forecast(result.p1);
+    if (!result.p1_forecast.passed
+        || 2 * result.p1_forecast.substeps > 192) {
+        result.failure = "P1_FORECAST";
+        return result;
+    }
+    result.forecast_coarse = run_b4b1_interval(result.p1,
+        result.p1.position, result.p1.velocity,
+        result.p1_forecast.substeps, 0.0, SMOKE_FRAME_TIME);
+    result.forecast_fine = run_b4b1_interval(result.p1,
+        result.p1.position, result.p1.velocity,
+        2 * result.p1_forecast.substeps, 0.0, SMOKE_FRAME_TIME);
+    result.forecast_gate = smoke_gate(
+        result.forecast_coarse, result.forecast_fine);
+    result.forecast_reference = b4bf_compare(
+        result.p1_forecast.substeps * 2,
+        result.p1, result.forecast_fine, reference);
+
+    result.p2 = make_b4b_released_block_fixture();
+    result.p2_forecast = b4bf_forecast(result.p2);
+    result.p2_one_step = run_b4b1_interval(result.p2,
+        result.p2.position, result.p2.velocity, 1, 0.0,
+        SMOKE_FRAME_TIME);
+    std::vector<Vec3> expected_position = result.p2.position;
+    std::vector<Vec3> expected_velocity = result.p2.velocity;
+    for (std::size_t i = 0; i < expected_position.size(); ++i) {
+        expected_velocity[i] += SMOKE_FRAME_TIME * result.p2.gravity;
+        expected_position[i] += SMOKE_FRAME_TIME * expected_velocity[i];
+    }
+    result.p2_position_error = rms_difference(
+        result.p2_one_step.position, expected_position);
+    result.p2_velocity_error = rms_difference(
+        result.p2_one_step.velocity, expected_velocity);
+    result.p2_exact = result.p2_forecast.passed
+        && result.p2_forecast.pressure_active_centers == 0
+        && result.p2_forecast.spectral_hvp_calls == 0
+        && result.p2_forecast.substeps == 1
+        && result.p2_one_step.passed
+        && result.p2_position_error == 0.0
+        && result.p2_velocity_error == 0.0
+        && result.p2_one_step.contact_events == 0
+        && result.p2_one_step.active_steps == 0
+        && norm(result.p2_one_step.support_reaction) == 0.0
+        && norm(result.p2_one_step.contact_reaction) == 0.0;
+    const bool curve_passed = std::all_of(
+        result.curve.begin(), result.curve.end(),
+        [](const SmokeRun& value) { return value.passed; });
+    result.passed = curve_passed
+        && result.p1_forecast.pressure_active_centers > 0
+        && result.p1_forecast.spectral_hvp_calls == 48
+        && result.forecast_coarse.passed && result.forecast_fine.passed
+        && result.forecast_gate.passed
+        && result.forecast_reference.passed
+        && result.p2_exact;
+    if (!curve_passed) {
+        result.failure = "P1_LEVEL_CURVE";
+    } else if (!result.forecast_gate.passed) {
+        result.failure = "P1_EMBEDDED_GATE";
+    } else if (!result.forecast_reference.passed) {
+        result.failure = "P1_REFERENCE_GATE";
+    } else if (!result.p2_exact) {
+        result.failure = "P2_DETACHED_NEGATIVE";
+    }
+    return result;
+}
+
+void append_b4bf_comparison(
+    std::ostringstream& output, const B4BFrameComparison& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"position_dx\":" << value.position_dx
+           << ",\"velocity_c\":" << value.velocity_c
+           << ",\"center_dx\":" << value.center_dx
+           << ",\"q99_height_dx\":" << value.q99_height_dx
+           << ",\"q99_front_dx\":" << value.q99_front_dx
+           << ",\"kinetic_relative\":" << value.kinetic_relative
+           << ",\"kinetic_absolute_j\":" << value.kinetic_absolute
+           << '}';
+}
+
+void append_b4bf_gate(std::ostringstream& output, const SmokeGate& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"position_dx\":" << value.normalized_position_error
+           << ",\"velocity_c\":" << value.normalized_velocity_error
+           << ",\"kinetic_relative\":" << value.relative_kinetic_error
+           << ",\"contact_time_error_s\":" << value.contact_time_error
+           << '}';
+}
+
+void append_b4bf_forecast(
+    std::ostringstream& output, const B4BFForecast& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"pressure_active_centers\":"
+           << value.pressure_active_centers
+           << ",\"spectral_hvp_calls\":" << value.spectral_hvp_calls
+           << ",\"maximum_eigenvalue\":" << value.maximum_eigenvalue
+           << ",\"maximum_eigenfrequency_rad_s\":"
+           << value.maximum_eigenfrequency
+           << ",\"selected_substeps\":" << value.substeps << '}';
+}
+
+} // namespace
+
+SplitBoundaryReport run_contact_onset_forecast_controls() {
+    const SplitBoundaryReport parent =
+        run_tiny_pressure_contact_kkt_controls();
+    const bool parent_exact = !parent.passed
+        && sha256_hex(parent.json)
+            == "2b40f5662f9aa38f2bc6bae35d4e9d2e21c9b0f967af40c1831562d7fa4c98c9";
+    const B4BFResult value = parent_exact ? run_b4bf() : B4BFResult{};
+    const bool passed = parent_exact && value.passed;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4B1_PARENT";
+    } else {
+        first_failure = value.failure;
+    }
+    const std::string disposition = passed
+        ? "CONTACT_ONSET_SPECTRAL_FORECAST_CANDIDATE"
+        : "CONTACT_ONSET_SPECTRAL_FORECAST_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << disposition << '|' << value.p1_forecast.substeps << ':'
+             << value.p1_forecast.maximum_eigenvalue << ':'
+             << value.forecast_gate.relative_kinetic_error << ':'
+             << value.forecast_reference.kinetic_relative << ':'
+             << value.p2_exact;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4bf_contact_forecast.v1\""
+           << ",\"identity\":\"feasible-contact-onset-spectrum-r0\""
+           << ",\"parent_b4b1_result_sha256\":\"11302033bacf1a3656c3b584f9db68f573e088b786c56ceea10b32dfee509a2e\""
+           << ",\"parent_b4b1_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"p1_level_curve\":[";
+    for (std::size_t i = 0; i < B4BF_LEVELS.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        report << "{\"substeps\":" << B4BF_LEVELS[i]
+               << ",\"run_passed\":"
+               << (value.curve[i].passed ? "true" : "false")
+               << ",\"outer_trials\":" << value.curve[i].outer_trials
+               << ",\"hvp_calls\":" << value.curve[i].hvp_calls
+               << ",\"projected_trials\":"
+               << value.curve[i].projected_trials
+               << ",\"versus_fixed192\":";
+        append_b4bf_comparison(report, value.comparison[i]);
+        if (i + 1U < B4BF_LEVELS.size()) {
+            report << ",\"adjacent_gate\":";
+            append_b4bf_gate(report, value.adjacent[i]);
+        }
+        report << '}';
+    }
+    report << "],\"p1_forecast\":";
+    append_b4bf_forecast(report, value.p1_forecast);
+    report << ",\"p1_forecast_pair\":{\"coarse_substeps\":"
+           << value.p1_forecast.substeps
+           << ",\"fine_substeps\":"
+           << 2 * value.p1_forecast.substeps
+           << ",\"embedded\":";
+    append_b4bf_gate(report, value.forecast_gate);
+    report << ",\"fine_versus_fixed192\":";
+    append_b4bf_comparison(report, value.forecast_reference);
+    report << "},\"p2_forecast\":";
+    append_b4bf_forecast(report, value.p2_forecast);
+    report << ",\"p2_detached\":{\"status\":\""
+           << (value.p2_exact ? "PASS" : "FAIL")
+           << "\",\"position_error_m\":" << value.p2_position_error
+           << ",\"velocity_error_m_s\":" << value.p2_velocity_error
+           << "},\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4b2_contract_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"full_trajectory_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
 } // namespace nextengine::nonlocal::fcr

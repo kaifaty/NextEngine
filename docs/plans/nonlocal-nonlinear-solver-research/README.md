@@ -332,4 +332,11 @@ The pressure-inactive start chooses `n=1`, and its passing `1/2` pair misses
 contact-created stiffness. The selected
 [B4BF research](../../development/nonlocal-nsr3b4bf-contact-forecast-research-2026-08-21.md)
 freezes a [feasible-predictor spectrum discriminator](03b4bf-contact-forecast-controller-contract.md)
-before any full retry. Execute B4BF next; do not relax the kinetic gate.
+before any full retry. The kinetic gate remains unchanged.
+B4BF passes: the feasible predictor selects the derived `21/42` pair, whose
+fine member is `2.05%` from fixed-192 kinetic energy, while detached P2 keeps
+the exact zero-HVP path; see the
+[dated evidence](../../development/nonlocal-nsr3b4bf-contact-forecast-evidence-2026-08-21.md).
+The full [B4B2 contract](03b4b2-tiny-pressure-contact-forecast-contract.md)
+is frozen with this sole initial-substep repair. Execute B4B2 next; all
+nominal/scalable work remains blocked.
