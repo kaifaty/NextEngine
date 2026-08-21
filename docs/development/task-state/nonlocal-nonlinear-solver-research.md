@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3TR_FAIL / B4C3P_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3TR_FAIL / B4C3P_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -27,9 +27,13 @@
 - **Current decision:** preserve B4C3TR FAIL and keep B4C3TC blocked. Do not
   widen tubes/event tolerances; the fixed-192 trajectory is not a valid
   refinement reference under current publication cadence.
-- **Current action:** freeze B4C3P publication-cadence discriminator comparing
-  per-substep continuation with private binary64 substeps plus one canonical
-  macro-boundary transaction. B4C3TC/B4C4/B4D remain blocked.
+- **Current action:** implement frozen B4C3P private binary64 intervals plus
+  one atomic balanced macro-boundary publication. B4C3TC/B4C4/B4D remain
+  blocked.
+- **Current contract:** new profile `e713a616...9a70` and macro-ledger policy
+  `39bac593...6e21` bind exactly 8/16 durable publications independent of
+  fixed private substep level. The B4C3TR per-substep report remains the exact
+  negative control.
 - **Performance finding:** six independent lanes use `311--312%` CPU and turn
   `~60.4` CPU-seconds into `~19.7` wall-seconds (`3.06x`) with byte-identical
   output. This validates harness parallelism, not solver/runtime performance.
@@ -1222,6 +1226,28 @@
   current per-substep control, macro-boundary candidate and explicit
   transaction/ledger semantics before implementation.
 
+### D-061 -- Freeze macro-boundary publication discriminator
+
+- **Observation:** fixed integration level must control only private physical
+  accuracy; durable representation frequency must remain fixed per simulated
+  second. The macro frame is the existing stable transaction boundary shared
+  by every adaptive/fixed lane.
+- **Decision:** B4C3P runs unchanged private binary64 KKT intervals and one
+  balanced publish/decode per macro frame. A new profile binds cadence and a
+  new macro-ledger identity binds aggregate interval closure without pretending
+  there is one macro KKT solve.
+- **Rejected alternatives:** do not scale the durable quantum with timestep,
+  remove canonical continuation entirely, reuse per-substep profile/root,
+  compare only final state, or alter solver/contact tolerances.
+- **Consequence:** fixed `48/96/192` lanes now have identical durable
+  publication counts, so temporal refinement no longer changes representation
+  injection frequency.
+- **Remaining uncertainty:** private solver differences may be amplified by
+  macro quantization, and aggregate impulse cancellation may challenge the new
+  macro ledger even if every substep ledger passes.
+- **Smallest next action:** implement candidate macro transaction/ledger,
+  same-level tubes, convergence and pre-publication rollback; execute twice.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1234,12 +1260,12 @@
 
 ## Exact next action
 
-1. Audit which B4C3Q/B4C3A2 invariants belong to durable macro publication and
-   which were accidentally imposed on private solver substeps.
-2. Freeze B4C3P with unchanged physics, per-substep control and one-publication-
-   per-macro candidate across fixed `48/96/192` P1/P2 lanes.
-3. Require temporal/event convergence, macro-root/ledger atomicity and
-   same-level binary correspondence before any B4C3TC redesign.
+1. Implement B4C3P's one-publication-per-macro fixed lanes and macro ledger
+   without modifying the private KKT solver.
+2. Add exact pre-publication rollback, same-level binary tubes and canonical
+   convergence classification using publication count.
+3. Execute the isolated candidate twice. Adaptive redesign and every later
+   stage remain blocked until PASS.
 
 ## Reconsideration triggers
 

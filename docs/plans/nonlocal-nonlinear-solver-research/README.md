@@ -531,3 +531,12 @@ representation perturbation more frequently as `h` shrinks. P2 contact phase
 error grows from `0.260 ms` at 48 to `1.063 ms` at 192, and canonical final
 differences do not converge. B4C3TC remains blocked; only a publication-cadence
 reclosure may follow.
+The
+[B4C3P cadence audit](../../development/nonlocal-nsr3b4c3p-publication-cadence-research-2026-08-21.md)
+identifies the durable macro boundary, rather than private nonlinear substep,
+as the candidate canonical transaction. Its
+[frozen contract](03b4c3p-publication-cadence-contract.md) compares the exact
+per-substep FAIL control with private binary64 `48/96/192` intervals followed
+by one balanced macro publication. A new profile and macro-ledger policy bind
+that changed state ownership. A PASS can authorize only adaptive transaction
+redesign, not the previously planned B4C3TC comparison.
