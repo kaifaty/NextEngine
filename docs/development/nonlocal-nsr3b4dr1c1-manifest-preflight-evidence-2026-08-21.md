@@ -32,11 +32,14 @@ The tracked-input root is SHA-256 over concatenated GNU `sha256sum` rows in
 this exact order: shared `sha256.cpp/.hpp`, adapter `CMakeLists.txt`, README,
 `contact_adapter.cpp/.hpp`, `main.cpp`, then `r1c_manifest.cpp/.hpp`.
 
-Two ordinary full clones at the pinned upstream commit have no tracked diff;
-each contains only CMake-generated untracked `Utilities/Version.h`. Separate
-Release/Ninja adapter builds use GCC 15.2 and the unchanged R1A/R1B strict
-binary64/no-fast-math/no-AVX/no-FMA flags. Their final executables are byte-
-identical. Disassembly finds zero AVX-like and zero FMA instructions.
+The two original Release/Ninja builds used GCC 15.2 and the unchanged R1A/R1B
+strict binary64/no-fast-math/no-AVX/no-FMA flags, and their final executables
+were byte-identical. A later audit found that one retained source tree did not
+have a complete Git object database. The historical implementation was
+therefore rebuilt against a verified true full clone and reproduced the same
+executable and report hashes with `6/6` focused tests. See the
+[dated provenance correction](nonlocal-nsr3b4dr1a-full-clone-provenance-correction-evidence-2026-08-21.md).
+Disassembly finds zero AVX-like and zero FMA instructions.
 
 The default R1B report remains byte-identical at SHA-256
 `c6a4950d45270eede2a89a3cecfb4502aa4dd801ecb203d971f312a383203a8a`.

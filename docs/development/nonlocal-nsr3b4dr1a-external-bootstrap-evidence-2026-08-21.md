@@ -5,10 +5,15 @@ Status: `PASS / R1B_DESIGN_AUTHORIZED / NO_TRAJECTORY_AUTHORITY`
 ## Result
 
 The pinned external SPlisHSPlasH library and the dependencies needed by its
-DFSPH target build reproducibly under the strict B4DR1 binary64 profile. Two
-fresh full Git checkouts in different source/build paths produced identical
-normalized command roots and byte-identical static artifacts. No adapter,
-contact vector, particle trajectory or `CWREFV2` payload executed.
+DFSPH target build reproducibly under the strict B4DR1 binary64 profile.
+Different source/build paths produced identical normalized command roots and
+byte-identical static artifacts, and a later verified true-full-clone build
+reproduced the complete artifact closure. No adapter, contact vector, particle
+trajectory or `CWREFV2` payload executed.
+
+The original wording that both first source trees were full Git clones was
+too strong. The exact correction and true-full-clone revalidation are recorded
+in the [dated provenance correction](nonlocal-nsr3b4dr1a-full-clone-provenance-correction-evidence-2026-08-21.md).
 
 ## Source and dependency closure
 
@@ -52,20 +57,21 @@ Path-normalized command-stream roots are:
 
 ## Reproducibility result
 
-Two ordinary fresh full-clone builds in different absolute paths matched:
+The two original builds matched, and a later verified true-full-clone build
+reproduced the same identities:
 
 | Artifact | Bytes | SHA-256 | Result |
 |---|---:|---|---|
-| `libSPlisHSPlasH.a` | 5,016,786 | `172e6777027564566d6282f8679f4d93cbd4cdc193fc236eb9fdaa210ea07d20` | 2/2 exact |
-| `libUtilities.a` | 15,604 | `93c6dd16ae500aae89b370b8a3bca902da3ba5a32e91a99630f66dfa89a1d0c4` | 2/2 exact |
-| `libtinyexpr.a` | 28,228 | `63e8e8bda564e8738dfbb085a4032ba893207b4dffb2ba0b3acb25f723126cbc` | 2/2 exact |
-| `libMD5.a` | 15,110 | `e983a90676a7200508467fc2a8e1ae3c0453515cdc77d9ca3c0e620ab0d11239` | 2/2 exact |
-| `libpartio.a` | 927,100 | `a0f9ae32d8661ea47e848fbed167ea2ed9d1f652293736b3700eb6d360892494` | 2/2 exact |
-| `libzlib.a` | 152,300 | `70f93ec9b3400961560606548e672b036106d82e6ba8b37aa2d870a00cbf7d97` | 2/2 exact |
-| `libCompactNSearch.a` | 86,922 | `5d3df5a05d8148b2fae02a7cd9a81a2fe09d06af82c5a98a041255f772c87e61` | 2/2 exact |
-| `libDiscregrid.a` | 172,112 | `8f6fa4d0f0992e0154e02554a836673ad676e3b52bc68ef773bc9c2c3885c19a` | 2/2 exact |
+| `libSPlisHSPlasH.a` | 5,016,786 | `172e6777027564566d6282f8679f4d93cbd4cdc193fc236eb9fdaa210ea07d20` | exact after revalidation |
+| `libUtilities.a` | 15,604 | `93c6dd16ae500aae89b370b8a3bca902da3ba5a32e91a99630f66dfa89a1d0c4` | exact after revalidation |
+| `libtinyexpr.a` | 28,228 | `63e8e8bda564e8738dfbb085a4032ba893207b4dffb2ba0b3acb25f723126cbc` | exact after revalidation |
+| `libMD5.a` | 15,110 | `e983a90676a7200508467fc2a8e1ae3c0453515cdc77d9ca3c0e620ab0d11239` | exact after revalidation |
+| `libpartio.a` | 927,100 | `a0f9ae32d8661ea47e848fbed167ea2ed9d1f652293736b3700eb6d360892494` | exact after revalidation |
+| `libzlib.a` | 152,300 | `70f93ec9b3400961560606548e672b036106d82e6ba8b37aa2d870a00cbf7d97` | exact after revalidation |
+| `libCompactNSearch.a` | 86,922 | `5d3df5a05d8148b2fae02a7cd9a81a2fe09d06af82c5a98a041255f772c87e61` | exact after revalidation |
+| `libDiscregrid.a` | 172,112 | `8f6fa4d0f0992e0154e02554a836673ad676e3b52bc68ef773bc9c2c3885c19a` | exact after revalidation |
 
-Both full clones generated the same upstream `Utilities/Version.h`, SHA-256
+All builds generated the same upstream `Utilities/Version.h`, SHA-256
 `72be70658e43ed1f6e310de446ad5153ccb3f505f853b2040ffcf99a1ed8c900`.
 GNU `ar` used deterministic member metadata.
 

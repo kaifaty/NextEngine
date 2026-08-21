@@ -24,9 +24,11 @@
 - **Current decision:** select `NEW_REFERENCE_PROFILE_REQUIRED`. Preserve B4D
   FAIL and historical W0I/W1, then freeze a new reproducible external
   generator/profile; never synthesize old hashes or inherit W1 credit.
-- **Current conclusion:** B4DR1 R1A passes. Two fresh full-clone strict builds
-  reproduce all eight static artifacts byte-for-byte; main/nested normalized
-  command roots match and disassembly contains no AVX/FMA instructions.
+- **Current conclusion:** B4DR1 R1A passes after explicit provenance
+  correction. One originally retained source copy lacked a complete Git
+  object database; a verified true-full-clone build reproduces all eight
+  static artifacts, and the historical R1C1 build reproduces executable/report
+  roots exactly. The incomplete-clone fact remains recorded.
 - **Current constraint:** upstream configure writes `Utilities/Version.h` into
   the source tree, and its revision probe rejects linked Git worktrees. Every
   profile build starts from an ordinary clean full clone and binds the
@@ -99,7 +101,7 @@ production authority is created by this lineage.
 | [B4C3MC1](../nonlocal-nsr3b4c3mc1-adaptive-accuracy-budget-evidence-2026-08-21.md) | unchanged B4B physical budgets pass on P1/P2 | expand diversity before physical production claims |
 | [B4C4C1](../nonlocal-nsr3b4c4c1-complete-flat-adjacency-evidence-2026-08-21.md) | all eight lanes/rollback exact; zero final ownership | B4C4 is closed; keep legacy path as oracle/rollback |
 | [B4D](../nonlocal-nsr3b4d-reference-reattestation-evidence-2026-08-21.md) | local identities exact, all external files missing | no nominal trajectory until reference closure is restored |
-| [B4DR1A](../nonlocal-nsr3b4dr1a-external-bootstrap-evidence-2026-08-21.md) | strict external library closure reproduces 8/8 artifacts across full clones | freeze adapter/contact semantics before execution; never use linked worktrees |
+| [B4DR1A](../nonlocal-nsr3b4dr1a-external-bootstrap-evidence-2026-08-21.md) | strict closure reproduces 8/8 artifacts from a verified full clone after [provenance correction](../nonlocal-nsr3b4dr1a-full-clone-provenance-correction-evidence-2026-08-21.md) | require complete-object `fsck` before configure; never use linked upstream worktrees |
 | [B4DR1B](../nonlocal-nsr3b4dr1b-contact-adapter-evidence-2026-08-21.md) | adapter binary/output reproduce and all contact/preflight gates pass | freeze R1C manifests before the first DFSPH step; do not inherit W1 credit |
 | [B4DR1C research](../nonlocal-nsr3b4dr1c-trajectory-preflight-research-2026-08-21.md) | warm starts and hidden convergence diagnostics violate the intended profile | use only the tracked equation-preserving patch; pass manifest preflight first |
 | [B4DR1C negative](../nonlocal-nsr3b4dr1c-manifest-preflight-negative-evidence-2026-08-21.md) | shortened dam ID contradicts frozen fluid/boundary roots; stopped before Simulation | preserve rejection; use only R1C1 normative ID reclosure |
@@ -172,10 +174,12 @@ adapter/source/binary SHA-256 values.
 - **Reconsider when:** exact W0I files or exact source/diff/binary lineage is
   restored; otherwise only a newly rooted reference profile may proceed.
 
-### D-006 -- Select a strict fresh-clone external build profile
+### D-006 -- Select a strict complete-clone external build profile
 
-- **Observation:** GCC/CMake/Ninja and all required pinned dependencies build
-  twice byte-identically with binary64, AVX/FMA/fast-math disabled.
+- **Observation:** GCC/CMake/Ninja and all required pinned dependencies
+  reproduce byte-identically with binary64, AVX/FMA/fast-math disabled from a
+  verified complete clone. One originally retained source copy was not a
+  complete object database and is preserved as negative provenance evidence.
 - **Decision:** select B4DR1 R1A and require an ordinary clean full Git clone
   for every reference build; bind generated `Utilities/Version.h` separately.
 - **Rejected:** lazy blob-by-blob checkout and linked Git worktrees.
