@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1C_CONTRACT_FROZEN / MANIFEST_PREFLIGHT` |
+| Status | `ACTIVE / NSR3B4DR1_R1C_REJECTED / R1C1_MANIFEST_PREFLIGHT` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -42,11 +42,14 @@
   `c1150fad...a5da`, two processes reproduce stdout SHA `c6a4950d...a8a`, all
   eight contact cases pass, and float/locale/OpenMP mutations reject before
   contact. No trajectory ran.
-- **Current decision:** R1C freezes exact hydro/dam/orifice scenario, fluid and
-  boundary projections, an equation-preserving upstream cold-start/diagnostic
-  patch and an explicit-ID `CWREFV2` container.
-- **Next action:** implement and run the manifest-only preflight twice. It must
-  pass before creating any upstream solver object or running a trajectory.
+- **Negative result:** first R1C manifest-only run stopped at
+  `CW-DAM-001:FLUID_ROOT`, with `simulation_created=false` and
+  `trajectory_started=false`. The shortened ID conflicts with roots computed
+  from normative `CW-DAMBREAK-001`; this is not a physics failure.
+- **Current decision:** reject R1C identity `a061f43e...99d0` and select the
+  narrow R1C1 manifest-identity reclosure `865570e1...8927`.
+- **Next action:** implement the R1C1 ID/root correction and run manifest-only
+  preflight twice. It must pass before any solver object or trajectory.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -66,6 +69,7 @@
 | NSR3B4DR1A | reproducible strict external DFSPH library bootstrap | build/toolchain candidate only; no adapter or trajectory |
 | NSR3B4DR1B | reproducible standalone contact/validation adapter | contact algebra and ABI gate only; R1C design authorized |
 | NSR3B4DR1C contract | frozen manifests, source patch and short-trajectory format | manifest-only implementation; trajectory conditional on preflight PASS |
+| NSR3B4DR1C1 | corrected normative dam scenario identity | repeat manifest-only gate; no solver object yet |
 
 Candidate solver identity remains:
 
@@ -93,6 +97,7 @@ production authority is created by this lineage.
 | [B4DR1A](../nonlocal-nsr3b4dr1a-external-bootstrap-evidence-2026-08-21.md) | strict external library closure reproduces 8/8 artifacts across full clones | freeze adapter/contact semantics before execution; never use linked worktrees |
 | [B4DR1B](../nonlocal-nsr3b4dr1b-contact-adapter-evidence-2026-08-21.md) | adapter binary/output reproduce and all contact/preflight gates pass | freeze R1C manifests before the first DFSPH step; do not inherit W1 credit |
 | [B4DR1C research](../nonlocal-nsr3b4dr1c-trajectory-preflight-research-2026-08-21.md) | warm starts and hidden convergence diagnostics violate the intended profile | use only the tracked equation-preserving patch; pass manifest preflight first |
+| [B4DR1C negative](../nonlocal-nsr3b4dr1c-manifest-preflight-negative-evidence-2026-08-21.md) | shortened dam ID contradicts frozen fluid/boundary roots; stopped before Simulation | preserve rejection; use only R1C1 normative ID reclosure |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -189,6 +194,16 @@ adapter/source/binary SHA-256 values.
   iteration counter, running full schedules first, or modifying DFSPH
   equations.
 
+### D-009 -- Reject the inconsistent shortened dam identity
+
+- **Observation:** `CW-DAM-001` generates neither of the dam roots frozen by
+  R1C; normative `CW-DAMBREAK-001` generates both exactly.
+- **Decision:** preserve the failed R1C identity and reclose only the scenario
+  ID and derived manifest root under R1C1.
+- **Rejected:** changing the expected roots to fit the shortened ID, editing a
+  frozen contract into an apparent PASS, or treating the manifest failure as
+  DFSPH evidence.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -213,8 +228,8 @@ adapter/source/binary SHA-256 values.
 
 ## Exact next action
 
-1. Commit the R1C contract and tracked upstream patch.
-2. Implement and execute the manifest-only preflight twice; record dated
+1. Commit the R1C1 manifest-identity reclosure.
+2. Implement and execute the corrected manifest-only preflight twice; record dated
    evidence without constructing an upstream solver object.
 3. Only manifest-preflight PASS authorizes two 24-step processes per scenario;
    any failure stops before R1D.

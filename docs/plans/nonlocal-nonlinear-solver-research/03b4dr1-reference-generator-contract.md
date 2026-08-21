@@ -1,6 +1,6 @@
 # NSR3-B4DR1 -- reproducible external-reference generator contract
 
-Status: `FROZEN / R1B_PASS / R1C_CONTRACT_FROZEN / NEW_ROOT_ONLY`
+Status: `FROZEN / R1B_PASS / R1C_REJECTED / R1C1_FROZEN / NEW_ROOT_ONLY`
 
 Identity projection:
 
@@ -70,11 +70,13 @@ order and one altered clearance value must change the adapter/profile root.
 
 ## R1C -- 24-step trajectory gate
 
-The exact manifests, patch boundary, serialization and conditional execution
-ladder are frozen by the
-[R1C contract](03b4dr1c-trajectory-preflight-contract.md). Manifest-only
-preflight must pass and receive dated evidence before the first solver object
-or trajectory is authorized.
+The first
+[R1C contract](03b4dr1c-trajectory-preflight-contract.md) is rejected because
+its shortened dam ID is inconsistent with its own fluid/boundary roots. The
+[R1C1 reclosure](03b4dr1c1-manifest-identity-reclosure-contract.md) changes
+only that identity and derived manifest root. Its manifest-only preflight must
+pass and receive dated evidence before the first solver object or trajectory
+is authorized.
 
 Freeze three scenario manifests before execution. Common requirements are
 binary64 DFSPH, `dt=1/240 s`, CFL/warm starts/viscosity/surface/vorticity off,

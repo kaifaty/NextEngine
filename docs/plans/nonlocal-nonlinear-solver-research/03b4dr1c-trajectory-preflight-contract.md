@@ -1,6 +1,13 @@
 # NSR3-B4DR1C -- external 24-step trajectory-preflight contract
 
-Status: `FROZEN / MANIFEST_PREFLIGHT_IMPLEMENTATION_AUTHORIZED / TRAJECTORY_CONDITIONAL`
+Status: `REJECTED / DAM_SCENARIO_ID_INCONSISTENT / NO_EXECUTION_AUTHORITY`
+
+This identity is preserved as negative evidence. Its dam block uses
+`CW-DAM-001` while its fluid/boundary roots bind `CW-DAMBREAK-001`; see the
+[negative evidence](../../development/nonlocal-nsr3b4dr1c-manifest-preflight-negative-evidence-2026-08-21.md).
+Only the
+[R1C1 reclosure](03b4dr1c1-manifest-identity-reclosure-contract.md) has current
+manifest-preflight implementation authority.
 
 Identity projection (exact bytes, no final LF):
 

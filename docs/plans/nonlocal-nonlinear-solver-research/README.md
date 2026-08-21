@@ -838,3 +838,10 @@ binds a minimal equation-preserving cold-start/diagnostics patch, exact
 fluid/boundary/scenario projections and `CWREFV2` layout. Implement and attest
 the manifest-only preflight first. A trajectory is conditionally authorized
 only after that gate passes; R1D and B4E remain blocked.
+The first R1C manifest implementation fails closed before Simulation creation:
+the contract shortened `CW-DAMBREAK-001` to `CW-DAM-001` but retained roots
+computed from the normative ID. Preserve the
+[negative evidence](../../development/nonlocal-nsr3b4dr1c-manifest-preflight-negative-evidence-2026-08-21.md)
+and use only the
+[R1C1 reclosure](03b4dr1c1-manifest-identity-reclosure-contract.md). Repeat the
+manifest-only gate twice; no trajectory is authorized by the failed run.
