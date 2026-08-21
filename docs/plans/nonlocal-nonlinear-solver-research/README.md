@@ -830,3 +830,11 @@ Two builds produce the same adapter ELF and normalized command root, two fresh
 processes produce the same 1,730-byte report, all eight contact cases pass and
 all environment mutations fail before contact. Freeze R1C manifests next;
 no 24-step trajectory or B4E design is authorized yet.
+The [R1C research](../../development/nonlocal-nsr3b4dr1c-trajectory-preflight-research-2026-08-21.md)
+finds that the pinned upstream enables warm starts and hides divergence/last-
+error convergence state. The
+[frozen R1C contract](03b4dr1c-trajectory-preflight-contract.md) therefore
+binds a minimal equation-preserving cold-start/diagnostics patch, exact
+fluid/boundary/scenario projections and `CWREFV2` layout. Implement and attest
+the manifest-only preflight first. A trajectory is conditionally authorized
+only after that gate passes; R1D and B4E remain blocked.

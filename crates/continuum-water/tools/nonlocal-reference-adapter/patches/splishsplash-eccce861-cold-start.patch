@@ -1,0 +1,72 @@
+diff --git a/SPlisHSPlasH/DFSPH/TimeStepDFSPH.cpp b/SPlisHSPlasH/DFSPH/TimeStepDFSPH.cpp
+--- a/SPlisHSPlasH/DFSPH/TimeStepDFSPH.cpp
++++ b/SPlisHSPlasH/DFSPH/TimeStepDFSPH.cpp
+@@ -37,6 +37,10 @@ TimeStepDFSPH::TimeStepDFSPH() :
+ 	m_maxError = static_cast<Real>(0.01);
+ 	m_iterationsV = 0;
+ 	m_enableDivergenceSolver = true;
++	m_lastPressureError = 0.0;
++	m_lastDivergenceError = 0.0;
++	m_lastPressureConverged = false;
++	m_lastDivergenceConverged = false;
+ 	m_maxIterationsV = 100;
+ 	m_maxErrorV = static_cast<Real>(0.1);
+ 
+@@ -338,6 +342,9 @@ void TimeStepDFSPH::pressureSolve()
+ 		m_iterations++;
+ 	}
+ 
++	m_lastPressureError = avg_density_err;
++	m_lastPressureConverged = chk;
++
+ 	INCREASE_COUNTER("DFSPH - iterations", static_cast<Real>(m_iterations));
+ 
+ 	for (unsigned int fluidModelIndex = 0; fluidModelIndex < nFluids; fluidModelIndex++)
+@@ -492,6 +499,9 @@ void TimeStepDFSPH::divergenceSolve()
+ 		m_iterationsV++;
+ 	}
+ 
++	m_lastDivergenceError = avg_density_err;
++	m_lastDivergenceConverged = chk;
++
+ 	INCREASE_COUNTER("DFSPH - iterationsV", static_cast<Real>(m_iterationsV));
+ 
+ 	
+diff --git a/SPlisHSPlasH/DFSPH/TimeStepDFSPH.h b/SPlisHSPlasH/DFSPH/TimeStepDFSPH.h
+--- a/SPlisHSPlasH/DFSPH/TimeStepDFSPH.h
++++ b/SPlisHSPlasH/DFSPH/TimeStepDFSPH.h
+@@ -6,8 +6,8 @@
+ #include "SimulationDataDFSPH.h"
+ #include "SPlisHSPlasH/SPHKernels.h"
+ 
+-#define USE_WARMSTART
+-#define USE_WARMSTART_V
++// NextEngine B4DR1 external-reference profile: cold solve every step.
++// #define USE_WARMSTART / USE_WARMSTART_V
+ 
+ namespace SPH
+ {
+@@ -35,6 +35,11 @@ namespace SPH
+ 		Real m_maxErrorV;
+ 		unsigned int m_maxIterationsV;
+ 
++		Real m_lastPressureError;
++		Real m_lastDivergenceError;
++		bool m_lastPressureConverged;
++		bool m_lastDivergenceConverged;
++
+ 		void computeDFSPHFactor(const unsigned int fluidModelIndex);
+ 		void pressureSolve();
+ 		void pressureSolveIteration(const unsigned int fluidModelIndex, Real &avg_density_err);
+@@ -73,6 +78,11 @@ namespace SPH
+ 		virtual void resize();
+ 		virtual std::string getMethodName() { return METHOD_NAME; }
+ 		virtual int getNumIterations() { return m_iterations; }
++		unsigned int getNumDivergenceIterations() const { return m_iterationsV; }
++		Real getLastPressureError() const { return m_lastPressureError; }
++		Real getLastDivergenceError() const { return m_lastDivergenceError; }
++		bool lastPressureConverged() const { return m_lastPressureConverged; }
++		bool lastDivergenceConverged() const { return m_lastDivergenceConverged; }
+ 	};
+ }
+ 
