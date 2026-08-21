@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4M0_PASS / B4C4A_DESIGN` |
+| Status | `ACTIVE / NSR3B4C4M0_PASS / B4C4A_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -69,8 +69,9 @@
 - **Current decision:** isolate retained accepted-workspace ownership as
   B4C4A. Generic memoization is rejected; immutable support indexing and
   flat-only CSR remain separate B4C4B/B4C4C candidates.
-- **Current action:** freeze B4C4A with exact `327->264` and `12->9` one-macro
-  work expectations plus physical/root correspondence. B4D remains blocked.
+- **Current action:** implement B4C4A single-owner transfer, direct diagnostic
+  read, deterministic receipt and failure cleanup under exact `264/9` build
+  expectations. Complete lanes and B4D remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.

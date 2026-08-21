@@ -664,3 +664,11 @@ It measures `327/12` P1/P2 one-macro builds. P1 has 195 distinct trial builds,
 but every completed private substep causes an immediate equal-state diagnostic
 rebuild (`63/3`). B4C4A will isolate retained accepted-workspace ownership;
 immutable support indexing and flat-only CSR remain separate later stages.
+The
+[B4C4A design](../../development/nonlocal-nsr3b4c4a-retained-workspace-research-2026-08-21.md)
+freezes a single-owner
+[retention contract](03b4c4a-retained-workspace-contract.md). A successful KKT
+solve lends its accepted workspace to exactly one same-state physical
+diagnostic and then releases it. The one-macro work result is predeclared as
+`327->264` builds for P1 and `12->9` for P2; all physical and durable roots
+must remain exact.
