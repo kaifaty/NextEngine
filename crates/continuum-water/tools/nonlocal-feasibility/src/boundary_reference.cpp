@@ -16512,6 +16512,35 @@ struct AdaptiveAccuracyNegatives {
     bool invalid_temporal_rejected = false;
 };
 
+constexpr std::size_t WORKSPACE_REUSE_CATEGORY_COUNT = 8U;
+
+struct WorkspaceReuseDiagnosticCase {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    bool transaction_exact = false;
+    bool query_chain_exact = false;
+    bool classification_exact = false;
+    std::size_t fluid_samples = 0U;
+    std::size_t support_samples = 0U;
+    std::size_t total_workspace_builds = 0U;
+    std::size_t unique_workspace_states = 0U;
+    std::size_t duplicate_workspace_builds = 0U;
+    std::size_t consecutive_equal_states = 0U;
+    std::size_t maximum_state_multiplicity = 0U;
+    std::array<std::size_t, WORKSPACE_REUSE_CATEGORY_COUNT>
+        category_counts{};
+    std::size_t static_support_index_builds = 0U;
+    std::size_t static_support_index_lower_bound = 0U;
+    std::size_t static_support_records_rebuilt = 0U;
+    std::size_t nested_adjacency_rows_built = 0U;
+    std::size_t nested_adjacency_records_built = 0U;
+    std::string trajectory_sha256;
+    std::string legacy_ledger_sha256;
+    std::string policy_ledger_sha256;
+    std::string query_chain_sha256;
+};
+
 bool macro_policy_entry_valid(
     const CanonicalPublicationLedgerEntry& entry) {
     return entry.non_residual_gates_exact
@@ -16840,11 +16869,12 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     const std::vector<Vec3>* start_position = nullptr,
     const std::vector<Vec3>* start_velocity = nullptr,
     int frame_index = 0,
-    std::uint32_t macro_step = 1U) {
+    std::uint32_t macro_step = 1U,
+    bool record_queries = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
-    result.trace.record_queries = false;
+    result.trace.record_queries = record_queries;
     const std::vector<Vec3> transaction_start_position = start_position
         ? *start_position : fixture.position;
     const std::vector<Vec3> transaction_start_velocity = start_velocity
@@ -19178,6 +19208,200 @@ AdaptiveAccuracyNegatives run_adaptive_accuracy_negatives() {
     return result;
 }
 
+std::size_t workspace_reuse_category(const std::string& kind) {
+    const auto starts_with = [&kind](const char* prefix) {
+        return kind.rfind(prefix, 0U) == 0U;
+    };
+    if (starts_with("MACRO_ADAPTIVE_FRAME_START")) {
+        return 0U;
+    }
+    if (starts_with("MACRO_ADAPTIVE_FRAME_FORECAST")) {
+        return 1U;
+    }
+    if (starts_with("RUN_INITIAL_DIAGNOSTIC")) {
+        return 2U;
+    }
+    if (starts_with("CURRENT_")) {
+        return 3U;
+    }
+    if (starts_with("TRIAL_")) {
+        return 4U;
+    }
+    if (starts_with("RUN_SUBSTEP_DIAGNOSTIC")) {
+        return 5U;
+    }
+    if (starts_with("CANONICAL_LEDGER_")
+        || starts_with("MACRO_LEDGER_")) {
+        return 6U;
+    }
+    return 7U;
+}
+
+const char* workspace_reuse_category_name(std::size_t index) {
+    constexpr std::array<const char*, WORKSPACE_REUSE_CATEGORY_COUNT>
+        names = {
+            "FRAME_START", "FORECAST", "INTERVAL_INITIAL", "CURRENT",
+            "TRIAL", "SUBSTEP_DIAGNOSTIC", "CANONICAL_LEDGER", "OTHER",
+        };
+    return index < names.size() ? names[index] : "INVALID";
+}
+
+bool macro_transaction_recording_exact(
+    const MacroAdaptiveTransactionCase& recorded,
+    const MacroAdaptiveTransactionCase& control) {
+    return recorded.passed && control.passed
+        && recorded.failure == control.failure
+        && recorded.initial_substeps == control.initial_substeps
+        && recorded.selected_level == control.selected_level
+        && recorded.accepted_substeps == control.accepted_substeps
+        && recorded.attempted_substeps == control.attempted_substeps
+        && recorded.discarded_substeps == control.discarded_substeps
+        && recorded.outer_trials == control.outer_trials
+        && recorded.rejected_trials == control.rejected_trials
+        && recorded.nonlinear_hvp_calls == control.nonlinear_hvp_calls
+        && recorded.spectral_hvp_calls == control.spectral_hvp_calls
+        && recorded.maximum_attempted_level_substeps
+            == control.maximum_attempted_level_substeps
+        && recorded.spectrum_source == control.spectrum_source
+        && recorded.attempts.size() == control.attempts.size()
+        && exact_vec3_values(
+            recorded.committed_position, control.committed_position)
+        && exact_vec3_values(
+            recorded.committed_velocity, control.committed_velocity)
+        && canonical_frame_roots(recorded.committed_frames)
+            == canonical_frame_roots(control.committed_frames)
+        && exact_publication_ledger(
+            recorded.committed_ledger, control.committed_ledger)
+        && recorded.trajectory_sha256 == control.trajectory_sha256
+        && recorded.legacy_ledger_sha256 == control.legacy_ledger_sha256
+        && recorded.policy_ledger_sha256 == control.policy_ledger_sha256
+        && recorded.boundary_membership_exact
+            == control.boundary_membership_exact
+        && recorded.work_accounting_exact == control.work_accounting_exact
+        && recorded.trace.joint_evaluation_queries
+            == control.trace.joint_evaluation_queries
+        && recorded.trace.joint_hvp_queries
+            == control.trace.joint_hvp_queries
+        && recorded.trace.neighborhood_builds
+            == control.trace.neighborhood_builds
+        && recorded.trace.tape_builds == control.trace.tape_builds
+        && recorded.trace.trial_workspace_builds
+            == control.trace.trial_workspace_builds
+        && recorded.trace.total_pairs == control.trace.total_pairs
+        && recorded.trace.total_directed == control.trace.total_directed
+        && recorded.trace.total_cell_distance_tests
+            == control.trace.total_cell_distance_tests
+        && recorded.trace.total_all_pair_candidate_checks
+            == control.trace.total_all_pair_candidate_checks
+        && recorded.trace.maximum_tape_payload_bytes
+            == control.trace.maximum_tape_payload_bytes;
+}
+
+WorkspaceReuseDiagnosticCase analyze_workspace_reuse_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const MacroAdaptiveTransactionCase& recorded,
+    const MacroAdaptiveTransactionCase& control) {
+    WorkspaceReuseDiagnosticCase result;
+    result.name = std::move(name);
+    result.fluid_samples = fixture.position.size();
+    result.support_samples = fixture.boundary.size();
+    result.transaction_exact = macro_transaction_recording_exact(
+        recorded, control);
+    result.query_chain_exact = recorded.trace.query_chain_sha256
+            == control.trace.query_chain_sha256
+        && control.trace.queries.empty();
+    result.total_workspace_builds = recorded.trace.queries.size();
+    result.static_support_index_builds =
+        recorded.trace.neighborhood_builds;
+    result.static_support_index_lower_bound =
+        result.total_workspace_builds > 0U ? 1U : 0U;
+    bool bounded = result.support_samples == 0U
+        || result.total_workspace_builds
+            <= std::numeric_limits<std::size_t>::max()
+                / result.support_samples;
+    if (bounded) {
+        result.static_support_records_rebuilt =
+            result.total_workspace_builds * result.support_samples;
+    }
+    bounded = bounded && (result.fluid_samples == 0U
+        || result.total_workspace_builds
+            <= std::numeric_limits<std::size_t>::max()
+                / result.fluid_samples);
+    if (bounded) {
+        result.nested_adjacency_rows_built =
+            result.total_workspace_builds * result.fluid_samples;
+    }
+    result.nested_adjacency_records_built = recorded.trace.total_directed;
+    std::vector<std::string> states;
+    states.reserve(recorded.trace.queries.size());
+    for (std::size_t index = 0;
+         index < recorded.trace.queries.size(); ++index) {
+        const JointQueryMetric& query = recorded.trace.queries[index];
+        states.push_back(query.state_sha256);
+        ++result.category_counts[workspace_reuse_category(query.kind)];
+        if (index > 0U
+            && query.state_sha256
+                == recorded.trace.queries[index - 1U].state_sha256) {
+            ++result.consecutive_equal_states;
+        }
+    }
+    std::sort(states.begin(), states.end());
+    for (std::size_t begin = 0U; begin < states.size();) {
+        std::size_t end = begin + 1U;
+        while (end < states.size() && states[end] == states[begin]) {
+            ++end;
+        }
+        ++result.unique_workspace_states;
+        result.maximum_state_multiplicity = std::max(
+            result.maximum_state_multiplicity, end - begin);
+        begin = end;
+    }
+    result.duplicate_workspace_builds = result.total_workspace_builds
+        - result.unique_workspace_states;
+    const std::size_t classified = std::accumulate(
+        result.category_counts.begin(), result.category_counts.end(),
+        std::size_t{0U});
+    result.classification_exact = bounded
+        && classified == result.total_workspace_builds
+        && result.total_workspace_builds
+            == static_cast<std::size_t>(recorded.trace.neighborhood_builds)
+        && recorded.trace.neighborhood_builds
+            == recorded.trace.tape_builds
+        && recorded.trace.live_workspaces == 0
+        && recorded.trace.maximum_live_workspaces <= 2;
+    result.trajectory_sha256 = recorded.trajectory_sha256;
+    result.legacy_ledger_sha256 = recorded.legacy_ledger_sha256;
+    result.policy_ledger_sha256 = recorded.policy_ledger_sha256;
+    result.query_chain_sha256 = recorded.trace.query_chain_sha256;
+    result.passed = result.transaction_exact && result.query_chain_exact
+        && result.classification_exact;
+    if (!result.transaction_exact) {
+        result.failure = "QUERY_RECORDING_PERTURBATION";
+    } else if (!result.query_chain_exact) {
+        result.failure = "QUERY_CHAIN_MISMATCH";
+    } else if (!result.classification_exact) {
+        result.failure = "QUERY_CLASSIFICATION";
+    }
+    return result;
+}
+
+WorkspaceReuseDiagnosticCase run_workspace_reuse_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256) {
+    const MacroAdaptiveTransactionCase recorded =
+        run_macro_adaptive_transaction_case(
+            name, fixture, scenario_sha256, false, true,
+            nullptr, nullptr, 0, 1U, true);
+    const MacroAdaptiveTransactionCase control =
+        run_macro_adaptive_transaction_case(
+            name, fixture, scenario_sha256, false, true,
+            nullptr, nullptr, 0, 1U, false);
+    return analyze_workspace_reuse_case(
+        std::move(name), fixture, recorded, control);
+}
+
 CanonicalMacroRollback run_macro_publication_rollback() {
     CanonicalMacroRollback result;
     SmokeFixture fixture = make_b4b_supported_column_fixture();
@@ -20340,6 +20564,59 @@ void append_adaptive_accuracy_negatives(
            << ",\"invalid_temporal_rejected\":"
            << (value.invalid_temporal_rejected ? "true" : "false")
            << '}';
+}
+
+void append_workspace_reuse_case(
+    std::ostringstream& output,
+    const WorkspaceReuseDiagnosticCase& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"transaction_exact\":"
+           << (value.transaction_exact ? "true" : "false")
+           << ",\"query_chain_exact\":"
+           << (value.query_chain_exact ? "true" : "false")
+           << ",\"classification_exact\":"
+           << (value.classification_exact ? "true" : "false")
+           << ",\"fluid_samples\":" << value.fluid_samples
+           << ",\"support_samples\":" << value.support_samples
+           << ",\"total_workspace_builds\":"
+           << value.total_workspace_builds
+           << ",\"unique_workspace_states\":"
+           << value.unique_workspace_states
+           << ",\"duplicate_workspace_builds\":"
+           << value.duplicate_workspace_builds
+           << ",\"consecutive_equal_states\":"
+           << value.consecutive_equal_states
+           << ",\"maximum_state_multiplicity\":"
+           << value.maximum_state_multiplicity
+           << ",\"category_counts\":{";
+    for (std::size_t index = 0;
+         index < value.category_counts.size(); ++index) {
+        if (index != 0U) {
+            output << ',';
+        }
+        output << '"' << workspace_reuse_category_name(index) << "\":"
+               << value.category_counts[index];
+    }
+    output << "},\"static_support_index_builds\":"
+           << value.static_support_index_builds
+           << ",\"static_support_index_lower_bound\":"
+           << value.static_support_index_lower_bound
+           << ",\"static_support_records_rebuilt\":"
+           << value.static_support_records_rebuilt
+           << ",\"nested_adjacency_rows_built\":"
+           << value.nested_adjacency_rows_built
+           << ",\"nested_adjacency_records_built\":"
+           << value.nested_adjacency_records_built
+           << ",\"trajectory_sha256\":\""
+           << value.trajectory_sha256
+           << "\",\"legacy_ledger_sha256\":\""
+           << value.legacy_ledger_sha256
+           << "\",\"policy_ledger_sha256\":\""
+           << value.policy_ledger_sha256
+           << "\",\"query_chain_sha256\":\""
+           << value.query_chain_sha256 << "\"}";
 }
 
 } // namespace
@@ -23779,6 +24056,127 @@ SplitBoundaryReport run_adaptive_accuracy_budget_probe_controls() {
 
 SplitBoundaryReport run_adaptive_accuracy_budget_controls() {
     return run_adaptive_accuracy_budget_impl(true);
+}
+
+namespace {
+
+SplitBoundaryReport run_workspace_reuse_diagnostic_impl(
+    bool require_parent) {
+    bool parent_exact = true;
+    if (require_parent) {
+        const SplitBoundaryReport parent =
+            run_adaptive_accuracy_budget_controls();
+        parent_exact = parent.passed
+            && sha256_hex(parent.json)
+                == "d19d2f451a48bdc400de03edb157356e3eec8b7ef20e79d3fb2a808b69c44d7c";
+    }
+    std::array<WorkspaceReuseDiagnosticCase, 2> cases;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3MC1_PARENT";
+    } else {
+        std::future<WorkspaceReuseDiagnosticCase> p1 = std::async(
+            std::launch::async, []() {
+                return run_workspace_reuse_case(
+                    "p1-supported-workspace-reuse",
+                    make_b4b_supported_column_fixture(),
+                    B4C3TA_P1_SCENARIO_SHA256);
+            });
+        std::future<WorkspaceReuseDiagnosticCase> p2 = std::async(
+            std::launch::async, []() {
+                return run_workspace_reuse_case(
+                    "p2-released-workspace-reuse",
+                    make_b4b_released_block_fixture(),
+                    B4C3TA_P2_SCENARIO_SHA256);
+            });
+        cases = {p1.get(), p2.get()};
+        for (const WorkspaceReuseDiagnosticCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+    }
+    const bool measurement_exact = parent_exact
+        && std::all_of(
+            cases.begin(), cases.end(),
+            [](const WorkspaceReuseDiagnosticCase& value) {
+                return value.passed;
+            });
+    const bool passed = parent_exact && measurement_exact;
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|identity:5dc38b6fc6e5dae57954357d53c1960bb5fe7444a70f558ee0f963ce216ff6f1";
+    if (parent_exact) {
+        for (const WorkspaceReuseDiagnosticCase& value : cases) {
+            material << '|' << value.name << ':' << value.passed << ':'
+                     << value.transaction_exact << ':'
+                     << value.query_chain_exact << ':'
+                     << value.classification_exact << ':'
+                     << value.fluid_samples << ':' << value.support_samples
+                     << ':' << value.total_workspace_builds << ':'
+                     << value.unique_workspace_states << ':'
+                     << value.duplicate_workspace_builds << ':'
+                     << value.consecutive_equal_states << ':'
+                     << value.maximum_state_multiplicity << ':'
+                     << value.static_support_index_builds << ':'
+                     << value.static_support_index_lower_bound << ':'
+                     << value.static_support_records_rebuilt << ':'
+                     << value.nested_adjacency_rows_built << ':'
+                     << value.nested_adjacency_records_built << ':'
+                     << value.trajectory_sha256 << ':'
+                     << value.legacy_ledger_sha256 << ':'
+                     << value.policy_ledger_sha256 << ':'
+                     << value.query_chain_sha256;
+            for (std::size_t count : value.category_counts) {
+                material << ':' << count;
+            }
+        }
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+           << (require_parent
+                ? "nsr3b4c4m0_workspace_reuse_diagnostic.v1"
+                : "nsr3b4c4m0_workspace_reuse_diagnostic_probe.v1")
+           << "\",\"identity_sha256\":\"5dc38b6fc6e5dae57954357d53c1960bb5fe7444a70f558ee0f963ce216ff6f1\""
+           << ",\"parent_b4c3mc1_raw_sha256\":\"d19d2f451a48bdc400de03edb157356e3eec8b7ef20e79d3fb2a808b69c44d7c\""
+           << ",\"parent_b4c3mc1_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"parent_gate_required\":"
+           << (require_parent ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"authority\":\"MEASUREMENT_ONLY\""
+           << ",\"performance_threshold_applied\":false"
+           << ",\"cases\":[";
+    if (parent_exact) {
+        for (std::size_t index = 0; index < cases.size(); ++index) {
+            if (index != 0U) {
+                report << ',';
+            }
+            append_workspace_reuse_case(report, cases[index]);
+        }
+    }
+    report << "],\"b4c4_packaging_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"b4d_reference_execution_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_workspace_reuse_diagnostic_probe_controls() {
+    return run_workspace_reuse_diagnostic_impl(false);
+}
+
+SplitBoundaryReport run_workspace_reuse_diagnostic_controls() {
+    return run_workspace_reuse_diagnostic_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr

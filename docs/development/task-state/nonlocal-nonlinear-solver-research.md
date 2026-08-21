@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3MC1_PASS / B4C4M0_MEASUREMENT` |
+| Status | `ACTIVE / NSR3B4C4M0_PASS / B4C4A_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -62,8 +62,15 @@
 - **Current decision:** do not skip B4C4. Measure exact query-state duplication,
   request categories, immutable support rebuilds and nested-row duplication
   before selecting an optimization.
-- **Current action:** implement threshold-free B4C4M0 one-macro P1/P2
-  workspace-reuse diagnostic. B4D and nominal execution remain blocked.
+- **Current conclusion:** B4C4M0 passes twice at raw `4e2741dd...cf50`.
+  P1/P2 have `327/12` builds, `261/5` unique states and `66/7` duplicates.
+  Every completed private substep immediately rebuilds its accepted state for
+  diagnostics: exactly `63/3` removable builds.
+- **Current decision:** isolate retained accepted-workspace ownership as
+  B4C4A. Generic memoization is rejected; immutable support indexing and
+  flat-only CSR remain separate B4C4B/B4C4C candidates.
+- **Current action:** freeze B4C4A with exact `327->264` and `12->9` one-macro
+  work expectations plus physical/root correspondence. B4D remains blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1564,6 +1571,26 @@
 - **Smallest next action:** execute B4C4M0 on one P1/P2 macro transaction and
   classify every query before freezing an optimization contract.
 
+### D-077 -- Select retained accepted-workspace ownership first
+
+- **Observation:** B4C4M0 shows 195 P1 trial builds are distinct, but all 63 P1
+  and three P2 completed private substeps release an accepted workspace and
+  immediately rebuild the same state for diagnostics. P1 also rebuilds 544
+  static support records 327 times and duplicates 1.52M adjacency records.
+- **Decision:** B4C4A retains the solver's accepted workspace through the
+  immediately following read-only physical diagnostic, then releases it.
+  Require exact totals `264/9` on the one-macro controls.
+- **Rejected alternatives:** general hash memoization, combining static index
+  and row-layout refactors in the same gate, or preserving an old query-chain
+  hash after intentionally removing queries.
+- **Consequence:** physical/canonical/ledger roots must stay exact, while a new
+  optimization-policy transcript binds the omitted equal-state diagnostic and
+  preserved legacy query root. B4C4B/B4C4C remain independently measurable.
+- **Remaining uncertainty:** lifetime transfer has not been implemented across
+  success/failure exits; full P1/P2 work and wall-time effects remain unknown.
+- **Smallest next action:** freeze and execute a one-macro B4C4A correspondence
+  gate before applying it to complete lanes.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1576,9 +1603,9 @@
 
 ## Exact next action
 
-1. Execute B4C4M0 workspace lifecycle measurement.
-2. Freeze and validate the smallest evidence-backed B4C4 packaging change.
-3. Attest the restored DFSPH references before nominal corpus design.
+1. Freeze and validate B4C4A one-macro retained-workspace ownership.
+2. Reapply the selected optimization to complete adaptive/fixed lanes.
+3. Continue with isolated support-index and flat-CSR stages before B4D.
 
 ## Reconsideration triggers
 

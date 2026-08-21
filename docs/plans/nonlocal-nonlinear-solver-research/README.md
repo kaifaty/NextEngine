@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / NSR3B3R_PASS / NSR3B4A_PASS / NSR3B4B_FAIL / NSR3B4BK_FAIL / NSR3B4BK1_PASS / NSR3B4B1_FAIL / NSR3B4BF_PASS / NSR3B4B2_PASS / NSR3B4C3MC1_TINY_ACCURACY_PASS / NSR3B4C4M0_DESIGN / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / NSR3B3R_PASS / NSR3B4A_PASS / NSR3B4B_FAIL / NSR3B4BK_FAIL / NSR3B4BK1_PASS / NSR3B4B1_FAIL / NSR3B4BF_PASS / NSR3B4B2_PASS / NSR3B4C3MC1_TINY_ACCURACY_PASS / NSR3B4C4M0_PASS / REPORT_ONLY`
 
 Candidate identity:
 
@@ -658,3 +658,9 @@ committed states, immutable support-index rebuilds, duplicate nested rows and
 irreducible nonlinear trial states before choosing the B4C4 optimization.
 The three DFSPH files are present and hash-exact again, but this is only an
 availability preflight; B4D remains blocked.
+B4C4M0 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4m0-workspace-reuse-diagnostic-evidence-2026-08-21.md).
+It measures `327/12` P1/P2 one-macro builds. P1 has 195 distinct trial builds,
+but every completed private substep causes an immediate equal-state diagnostic
+rebuild (`63/3`). B4C4A will isolate retained accepted-workspace ownership;
+immutable support indexing and flat-only CSR remain separate later stages.

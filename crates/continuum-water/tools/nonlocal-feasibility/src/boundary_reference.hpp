@@ -63,5 +63,7 @@ SplitBoundaryReport run_adaptive_fixed_diagnostic_probe_controls();
 SplitBoundaryReport run_adaptive_fixed_diagnostic_controls();
 SplitBoundaryReport run_adaptive_accuracy_budget_probe_controls();
 SplitBoundaryReport run_adaptive_accuracy_budget_controls();
+SplitBoundaryReport run_workspace_reuse_diagnostic_probe_controls();
+SplitBoundaryReport run_workspace_reuse_diagnostic_controls();
 
 } // namespace nextengine::nonlocal::fcr

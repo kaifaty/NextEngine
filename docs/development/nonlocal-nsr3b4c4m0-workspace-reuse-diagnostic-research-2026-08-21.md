@@ -1,6 +1,6 @@
 # B4C4M0 workspace-reuse diagnostic research
 
-Status: `COMPLETE / CONTRACT FROZEN / MEASUREMENT NEXT`
+Status: `COMPLETE / PASS / B4C4A DESIGN AUTHORIZED`
 
 Date: `2026-08-21`
 
@@ -61,3 +61,10 @@ Freeze the
 [B4C4M0 contract](../plans/nonlocal-nonlinear-solver-research/03b4c4m0-workspace-reuse-diagnostic-contract.md).
 Its PASS may authorize one evidence-backed B4C4 packaging design; it cannot
 authorize B4D execution, nominal corpus, CUDA, runtime or production.
+
+Execution passed twice byte-identically. The
+[dated evidence](nonlocal-nsr3b4c4m0-workspace-reuse-diagnostic-evidence-2026-08-21.md)
+finds one exact rebuild after each completed private substep (`63` P1 and `3`
+P2), while most P1 trials are distinct. Retained accepted-workspace ownership
+is selected as B4C4A; static support indexing and flat-only CSR remain separate
+later candidates.
