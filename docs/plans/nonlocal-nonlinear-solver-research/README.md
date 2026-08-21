@@ -1007,3 +1007,10 @@ hashing only 0.46%. Topology alone and HVP are nearly tied, so no final
 bottleneck is claimed. Design a bounded B4EP3 canonical-superset feasibility
 audit that preserves the earlier P4 order-mismatch negative and proves the
 current lexicographic-pair invariant before any timing candidate.
+The [B4EP3 research](../../development/nonlocal-nsr3b4ep3-canonical-superset-research-2026-08-21.md)
+preserves the P4 negative and freezes one untuned `0.04h` discriminator over
+all 227 nominal query states. Its
+[frozen contract](03b4ep3-canonical-superset-audit-contract.md) requires exact
+filtered pair order/CSR, evaluation and tape, plus capacity, overhead, reuse
+and negative-control gates. Implement and run this audit only; it is not yet a
+cache optimization or timing claim.

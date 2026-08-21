@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP2_PASS / B4EP3_TOPOLOGY_AUDIT_DESIGN` |
+| Status | `ACTIVE / NSR3B4EP2_PASS / B4EP3_AUDIT_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -166,9 +166,12 @@
   f32 association after a cell crossing. Current CPU/f64 pairs are explicitly
   lexicographically sorted, but B4EP3 must prove this distinction rather than
   inherit credit.
-- **Next action:** freeze and execute one 227-state canonical-superset
-  feasibility audit. On any pair/CSR mismatch or weak reuse, route to HVP
-  design without timing a topology candidate.
+- **Current decision:** B4EP3 uses fixed `0.04h` skin and the conservative
+  `4*d_max^2` certificate. It is an offline audit over the captured query
+  sequence, not a solver cache implementation.
+- **Next action:** implement the dedicated audit command, require two
+  byte-identical reports and stop without tuning on the first exactness,
+  capacity, overhead or reuse failure.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -216,6 +219,7 @@
 | NSR3B4EP1 PASS | exact physics with median `3.0168x` paired speedup | B4EP2 residual attribution/design only |
 | NSR3B4EP2 contract | exact-output work-only residual gprof | one external profile only; no optimization/B4E2 |
 | NSR3B4EP2 PASS | workspace 58.33%, HVP 39.64%, SHA 0.46% | B4EP3 exact topology-reuse audit design only |
+| NSR3B4EP3 contract | fixed-skin 227-state canonical superset audit | implementation/two runs only; no hot-path cache or timing claim |
 
 Candidate solver identity remains:
 
@@ -264,6 +268,7 @@ production authority is created by this lineage.
 | [B4EP1](../nonlocal-nsr3b4ep1-query-evidence-evidence-2026-08-21.md) | exact roots/counters with `3.0168x` median paired speedup | retain full default; profile residual work-only cost before one next optimization |
 | [B4EP2 research](../nonlocal-nsr3b4ep2-residual-attribution-research-2026-08-21.md) | HVP/topology/evaluation/control remain competing residual hypotheses | run one exact-output work-only gprof profile |
 | [B4EP2](../nonlocal-nsr3b4ep2-residual-attribution-evidence-2026-08-21.md) | workspace pipeline leads; topology and HVP nearly tie | audit canonical superset feasibility before implementing reuse |
+| [B4EP3 research](../nonlocal-nsr3b4ep3-canonical-superset-research-2026-08-21.md) | current lexicographic pair sort may avoid old anchor-cell order failure | run fixed `0.04h` 227-state audit; no tuning on failure |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -616,11 +621,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Freeze the B4EP3 canonical-superset feasibility contract over the exact
-   227-state work-only query sequence and the preserved P4 negative.
-2. Capture/analyse the sequence once; require exact filtered pair order/CSR,
+1. Implement the B4EP3 audit without routing solver work through the cache.
+2. Capture/analyse the sequence; require exact filtered pair order/CSR,
    conservative displacement coverage, capacity and predeclared useful reuse.
-3. Only a PASS may authorize a Release cache implementation/A-B; otherwise
+3. Repeat in a fresh process. Only a PASS may authorize a Release cache
+   implementation/A-B; otherwise
    route to HVP design. Keep B4E2/runtime/production blocked.
 
 ## Reconsideration triggers
