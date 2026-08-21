@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / NSR3B3R_PASS / NSR3B4A_PASS / NSR3B4B_FAIL / NSR3B4BK_FAIL / NSR3B4BK1_PASS / NSR3B4B1_FAIL / NSR3B4BF_PASS / NSR3B4B2_PASS / NSR3B4C3MC1_TINY_ACCURACY_PASS / NSR3B4C4M0_PASS / NSR3B4C4A_PASS / NSR3B4C4A1_PASS / NSR3B4C4B_PASS / NSR3B4C4BM_PASS / NSR3B4C4B1_PASS / NSR3B4C4C_PASS / NSR3B4C4CM_PASS / NSR3B4C4C1_PASS / NSR3B4D_MISSING_ARTIFACT / NSR3B4DR1E_PASS / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / NSR3B3R_PASS / NSR3B4A_PASS / NSR3B4B_FAIL / NSR3B4BK_FAIL / NSR3B4BK1_PASS / NSR3B4B1_FAIL / NSR3B4BF_PASS / NSR3B4B2_PASS / NSR3B4C3MC1_TINY_ACCURACY_PASS / NSR3B4C4M0_PASS / NSR3B4C4A_PASS / NSR3B4C4A1_PASS / NSR3B4C4B_PASS / NSR3B4C4BM_PASS / NSR3B4C4B1_PASS / NSR3B4C4C_PASS / NSR3B4C4CM_PASS / NSR3B4C4C1_PASS / NSR3B4D_MISSING_ARTIFACT / NSR3B4DR1E_PASS / NSR3B4EP3I_PASS / REPORT_ONLY`
 
 Candidate identity:
 
@@ -1025,3 +1025,17 @@ selects an optional transaction-local cache carried by the internal query
 trace. Its [frozen contract](03b4ep3i-hotpath-cache-contract.md) preserves the
 full parent and all default bytes, requires exact B4EP1 physics/cache work and
 three balanced Release wins. Implement and A/B only this dedicated command.
+B4EP3I passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep3i-hotpath-cache-evidence-2026-08-22.md).
+The dedicated cached transaction performs one superset build and 225 certified
+reuses with exact B4EP1 physics and unchanged B4EP1/B4EP3 report bytes. All
+three Release pairs win; median paired speedup is `1.5899x` and median wall
+falls from 16.71 s to 10.40 s. This selects
+`HOTPATH_CANONICAL_SUPERSET_CANDIDATE` and authorizes only B4EP4 residual
+profiling/design. B4E2, CUDA, runtime and production remain blocked.
+The [B4EP4 research](../../development/nonlocal-nsr3b4ep4-cached-residual-attribution-research-2026-08-22.md)
+keeps HVP, filtered workspace refresh and nonlinear bookkeeping as competing
+residual hypotheses. Its
+[frozen contract](03b4ep4-cached-residual-attribution-contract.md) selects one
+exact-output GCC/gprof run and a predeclared `1.20x` leader rule. Execute that
+profile only; do not implement the next optimization yet.

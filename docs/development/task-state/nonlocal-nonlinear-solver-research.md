@@ -2,8 +2,8 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP3_PASS / B4EP3I_IMPLEMENTATION` |
-| Updated | `2026-08-21` |
+| Status | `ACTIVE / NSR3B4EP3I_PASS / B4EP4_PROFILE_AUTHORIZED` |
+| Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
 | Definition of done | NSR0--NSR6 select a production-roadmap candidate or stop at an exact reproducible boundary |
@@ -175,9 +175,16 @@
 - **Current decision:** B4EP3I is transaction-local and query-trace-owned;
   defaults remain null, parent remains canonical/full-state, and certificate
   or capacity errors fail closed without fallback.
-- **Next action:** implement the dedicated cached command, prove B4EP1/B4EP3
-  byte regressions and candidate correspondence, then run three balanced
-  uncached/cached Release pairs.
+- **Current conclusion:** B4EP3I preserves exact B4EP1 physics and old report
+  bytes. One superset build serves 225 certified reuses; all three timing pairs
+  win with median paired speedup `1.5899x`, and median wall falls from 16.71 s
+  to 10.40 s.
+- **Next action:** reprofile the exact cached command in B4EP4 and distinguish
+  residual HVP, evaluation/tape, superset filtering/CSR and nonlinear-control
+  cost before selecting another implementation.
+- **Current decision:** B4EP4 uses one exact-output GCC/gprof profile and
+  selects a next design only when one comparable category leads by at least
+  `1.20x`; otherwise it routes to scoped internal phase timing.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -228,6 +235,7 @@
 | NSR3B4EP3 contract | fixed-skin 227-state canonical superset audit | implementation/two runs only; no hot-path cache or timing claim |
 | NSR3B4EP3 PASS | one build, 226 exact reuses, work proxy `0.1998` | B4EP3I internal cache design/A-B only |
 | NSR3B4EP3I contract | transaction-local cached work-only A/B | implement and time only; no default/runtime/B4E2 change |
+| NSR3B4EP3I PASS | exact cached transaction and median `1.5899x` paired speedup | B4EP4 residual profiling/design only |
 
 Candidate solver identity remains:
 
@@ -279,6 +287,8 @@ production authority is created by this lineage.
 | [B4EP3 research](../nonlocal-nsr3b4ep3-canonical-superset-research-2026-08-21.md) | current lexicographic pair sort may avoid old anchor-cell order failure | run fixed `0.04h` 227-state audit; no tuning on failure |
 | [B4EP3](../nonlocal-nsr3b4ep3-canonical-superset-evidence-2026-08-21.md) | 227/227 exact; one rebuild, 226 reuse; candidate work ratio `0.1998` | design optional internal hot-path cache and controlled Release A/B |
 | [B4EP3I research](../nonlocal-nsr3b4ep3i-hotpath-cache-research-2026-08-21.md) | trace ownership avoids global/persistent state and signature fan-out | implement dedicated cached candidate; defaults remain byte-exact |
+| [B4EP3I](../nonlocal-nsr3b4ep3i-hotpath-cache-evidence-2026-08-22.md) | exact physics, one build/225 reuse and median `1.5899x` paired speedup | retain cache for nominal research and reprofile optimized residual before another change |
+| [B4EP4 research](../nonlocal-nsr3b4ep4-cached-residual-attribution-research-2026-08-22.md) | HVP, filtered workspace and nonlinear control remain competing residual costs | execute one frozen exact-output gprof profile; select no optimization before attribution |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -607,6 +617,18 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** treating the audit's 31-second dual-path process as a speed
   result, exposing a runtime option, or dropping per-query CSR/tape refresh.
 
+### D-032 -- Retain the transaction-local cache and reprofile
+
+- **Observation:** the cached command preserves all B4EP1 physical roots and
+  counters, performs one build plus 225 certified reuses, and wins all three
+  Release pairs at median `1.5899x` paired speedup.
+- **Decision:** select `HOTPATH_CANONICAL_SUPERSET_CANDIDATE` for nominal
+  research commands and run B4EP4 residual attribution before choosing the
+  next optimization.
+- **Rejected:** enabling the cache by default/runtime, claiming audit work as
+  whole-solver speed, starting B4E2 at 10.4 s per macro, or assuming HVP is now
+  dominant without a fresh profile.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -625,6 +647,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   16.15 s and 62,016 KiB versus full-state 48.74 s and 93,060 KiB.
 - B4EP2's exact-output gprof records 1,728 samples: workspace construction is
   58.33% inclusive, HVP 39.64%, and residual SHA self time is 0.46%.
+- B4EP3I cached work-only retains exact physics and wins all three Release
+  pairs. Median paired speedup is `1.5899x`; median wall/RSS change from
+  16.71 s/62,672 KiB to 10.40 s/62,416 KiB.
 - No multi-macro nominal, 50k, GPU or production performance result exists
   for this corrected Nonlocal lineage; B4E1M is one CPU research macro only.
 
@@ -641,11 +666,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement only the dedicated cached work-only command and require exact
-   B4EP1 physical roots/counters plus the B4EP3 cache facts.
-2. Run two-build deterministic/regression gates, then three alternating
-   Release timing pairs. Keep the cache only on three
-   wins and median speedup `>=1.10`; otherwise route to HVP design.
+1. Build the frozen external B4EP4 `-pg` profile and require exact cached
+   stdout plus nonempty gprof samples.
+2. Distinguish HVP, evaluation/tape, superset filtering/CSR and nonlinear
+   bookkeeping under the `1.20x` routing rule. Do not start B4E2 or implement
+   the next optimization before the attribution is closed.
 
 ## Reconsideration triggers
 
