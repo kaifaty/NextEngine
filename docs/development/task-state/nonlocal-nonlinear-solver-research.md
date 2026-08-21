@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4A_PASS / B4C4A1_DESIGN` |
+| Status | `ACTIVE / NSR3B4C4A_PASS / B4C4A1_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -74,9 +74,10 @@
   `264/9` total P1/P2 builds and preserves all physical/canonical/ledger
   values and roots. Success, consumer-abort and non-finite failure ownership
   all end with zero live workspaces.
-- **Current action:** freeze B4C4A1 to apply the same retained ownership to
-  complete adaptive and macro-boundary fixed lanes under exact legacy
-  correspondence. B4C4B/B4C4C and B4D remain blocked.
+- **Current action:** implement the frozen B4C4A1 complete adaptive and
+  macro-fixed correspondence. Required removed-build deltas are adaptive
+  `444/124` and fixed P1 `384/768/1536`, P2 `768/1536/3072`.
+  B4C4B/B4C4C and B4D remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.

@@ -679,3 +679,11 @@ physical, topology, canonical and ledger value stays bit-exact. Ownership and
 failure controls end with zero live workspaces. Only a separately frozen
 complete adaptive/macro-fixed lane application is authorized; B4C4B/B4C4C and
 B4D remain blocked.
+The
+[B4C4A1 design](../../development/nonlocal-nsr3b4c4a1-complete-retention-research-2026-08-21.md)
+freezes a
+[complete-lane contract](03b4c4a1-complete-retention-contract.md) before the
+local optimization is composed over full adaptive and macro-fixed P1/P2
+trajectories. Expected removed builds are derived from existing executed
+substep schedules, not from candidate measurements. B4C4B/B4C4C remain
+blocked until this correspondence passes.
