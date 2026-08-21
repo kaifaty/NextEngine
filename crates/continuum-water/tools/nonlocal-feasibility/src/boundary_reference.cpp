@@ -8375,6 +8375,8 @@ struct JointPressureTape {
     std::vector<std::uint32_t> directed_pair_indices;
     std::vector<double> radius;
     std::vector<double> compression;
+    std::vector<double> hvp_gradient;
+    std::vector<double> hvp_second;
     std::size_t active_centers = 0;
     std::size_t active_directed = 0;
     std::size_t payload_bytes = 0;
@@ -8472,6 +8474,14 @@ struct JointQueryTrace {
     int workspace_state_hashes = 0;
     int workspace_state_hashes_skipped = 0;
     JointTopologySupersetCache* topology_cache = nullptr;
+    bool cache_hvp_coefficients = false;
+    std::size_t coefficient_tape_builds = 0U;
+    std::size_t coefficient_pairs = 0U;
+    std::size_t coefficient_kernel_evaluations = 0U;
+    std::size_t coefficient_hvp_lookups = 0U;
+    std::size_t maximum_coefficient_payload_bytes = 0U;
+    std::size_t coefficient_mismatches = 0U;
+    std::size_t coefficient_fallbacks = 0U;
     std::string query_chain_sha256 =
         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
     std::size_t total_pairs = 0;
@@ -10647,16 +10657,60 @@ JointPressureTape build_joint_pressure_tape_from_flat(
     return candidate;
 }
 
+bool populate_joint_hvp_coefficients(
+    JointPressureTape& tape,
+    JointQueryTrace& trace) {
+    if (!tape.passed || !tape.hvp_gradient.empty()
+        || !tape.hvp_second.empty()) {
+        ++trace.coefficient_mismatches;
+        return false;
+    }
+    const std::size_t pair_count = tape.radius.size();
+    if (pair_count > std::numeric_limits<std::size_t>::max()
+            / (2U * sizeof(double))) {
+        ++trace.coefficient_mismatches;
+        return false;
+    }
+    const std::size_t payload_bytes =
+        pair_count * 2U * sizeof(double);
+    if (tape.payload_bytes > std::numeric_limits<std::size_t>::max()
+            - payload_bytes) {
+        ++trace.coefficient_mismatches;
+        return false;
+    }
+    tape.hvp_gradient.resize(pair_count);
+    tape.hvp_second.resize(pair_count);
+    for (std::size_t pair_index = 0U;
+         pair_index < pair_count; ++pair_index) {
+        const double radius = tape.radius[pair_index];
+        tape.hvp_gradient[pair_index] = weight_gradient(radius);
+        tape.hvp_second[pair_index] = weight_second(radius);
+    }
+    tape.payload_bytes += payload_bytes;
+    ++trace.coefficient_tape_builds;
+    trace.coefficient_pairs += pair_count;
+    trace.coefficient_kernel_evaluations += 2U * pair_count;
+    trace.maximum_coefficient_payload_bytes = std::max(
+        trace.maximum_coefficient_payload_bytes, payload_bytes);
+    return true;
+}
+
 std::vector<Vec3> apply_joint_pressure_tape(
     const JointNeighborhood& neighborhood,
     const JointPressureTape& tape,
     const std::vector<Vec3>& direction) {
     const std::size_t fluid_count = neighborhood.fluid.size();
     const std::size_t total = fluid_count + neighborhood.support.size();
+    const bool any_cached_coefficient = !tape.hvp_gradient.empty()
+        || !tape.hvp_second.empty();
+    const bool cached_coefficients =
+        tape.hvp_gradient.size() == neighborhood.pairs.size()
+        && tape.hvp_second.size() == neighborhood.pairs.size();
     if (!tape.passed || direction.size() != total
         || tape.offsets.size() != fluid_count + 1U
         || tape.radius.size() != neighborhood.pairs.size()
-        || tape.compression.size() != fluid_count) {
+        || tape.compression.size() != fluid_count
+        || (any_cached_coefficient && !cached_coefficients)) {
         throw std::invalid_argument("B4C1 pressure tape mismatch");
     }
     std::vector<Vec3> result(total);
@@ -10680,8 +10734,13 @@ std::vector<Vec3> apply_joint_pressure_tape(
             if (radius <= 1.0e-15 || radius > HORIZON) {
                 continue;
             }
+            const std::size_t pair_index =
+                tape.directed_pair_indices[slot];
+            const double gradient = cached_coefficients
+                ? tape.hvp_gradient[pair_index]
+                : weight_gradient(radius);
             const Vec3 jacobian = MASS / REST_DENSITY
-                * weight_gradient(radius) * (displacement / radius);
+                * gradient * (displacement / radius);
             compression_direction += dot(
                 jacobian, direction[center] - direction[participant]);
         }
@@ -10697,15 +10756,26 @@ std::vector<Vec3> apply_joint_pressure_tape(
             if (radius <= 1.0e-15 || radius > HORIZON) {
                 continue;
             }
+            const std::size_t pair_index =
+                tape.directed_pair_indices[slot];
+            const double jacobian_gradient = cached_coefficients
+                ? tape.hvp_gradient[pair_index]
+                : weight_gradient(radius);
+            const double second = cached_coefficients
+                ? tape.hvp_second[pair_index]
+                : weight_second(radius);
+            const double tangential_gradient = cached_coefficients
+                ? tape.hvp_gradient[pair_index]
+                : weight_gradient(radius);
             const Vec3 normal = displacement / radius;
             const Vec3 jacobian = MASS / REST_DENSITY
-                * weight_gradient(radius) * normal;
+                * jacobian_gradient * normal;
             const Vec3 relative_direction =
                 direction[center] - direction[participant];
             const Vec3 curvature = MASS / REST_DENSITY
                 * radial_hessian_product(normal,
-                    weight_second(radius),
-                    weight_gradient(radius) / radius,
+                    second,
+                    tangential_gradient / radius,
                     relative_direction);
             const Vec3 pair_value = KAPPA
                 * (compression_direction * jacobian
@@ -11173,6 +11243,12 @@ JointPressureWorkspace build_joint_query_workspace(
         trace.exact = false;
         return result;
     }
+    if (trace.cache_hvp_coefficients
+        && !populate_joint_hvp_coefficients(result.tape, trace)) {
+        result.failure = "HVP_COEFFICIENT_TAPE";
+        trace.exact = false;
+        return result;
+    }
     if (audit) {
         const Evaluation oracle = evaluate(position, boundary);
         ++trace.audit_all_pair_evaluations;
@@ -11316,6 +11392,10 @@ std::vector<Vec3> smooth_hvp_joint_workspace(
     std::copy(direction.begin(), direction.end(), joint_direction.begin());
     const std::vector<Vec3> taped = apply_joint_pressure_tape(
         workspace.neighborhood, workspace.tape, joint_direction);
+    if (trace.cache_hvp_coefficients) {
+        trace.coefficient_hvp_lookups +=
+            4U * workspace.tape.active_directed;
+    }
     ++trace.joint_hvp_queries;
     if (audit) {
         const std::vector<Vec3> oracle = apply_hessian(
@@ -11801,6 +11881,10 @@ std::vector<Vec3> pressure_hvp_joint_workspace(
     std::copy(direction.begin(), direction.end(), joint_direction.begin());
     const std::vector<Vec3> taped = apply_joint_pressure_tape(
         workspace.neighborhood, workspace.tape, joint_direction);
+    if (trace.cache_hvp_coefficients) {
+        trace.coefficient_hvp_lookups +=
+            4U * workspace.tape.active_directed;
+    }
     ++trace.joint_hvp_queries;
     if (audit) {
         const std::vector<Vec3> oracle = apply_hessian(
@@ -18087,7 +18171,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     bool flat_adjacency = false,
     FlatAdjacencyWorkTrace* adjacency_work = nullptr,
     bool hash_workspace_states = true,
-    JointTopologySupersetCache* topology_cache = nullptr) {
+    JointTopologySupersetCache* topology_cache = nullptr,
+    bool cache_hvp_coefficients = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -18096,6 +18181,7 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         ? JointWorkspaceEvidencePolicy::FullState
         : JointWorkspaceEvidencePolicy::WorkOnly;
     result.trace.topology_cache = topology_cache;
+    result.trace.cache_hvp_coefficients = cache_hvp_coefficients;
     struct TopologyCachePointerReset {
         JointQueryTrace& trace;
         ~TopologyCachePointerReset() {
@@ -33218,6 +33304,330 @@ SplitBoundaryReport run_nominal_hydro_cached_topology_ablation_controls() {
            << (passed ? "true" : "false")
            << ",\"b4ep4_design_authorized\":false"
            << ",\"b4ep4_design_requires_external_timing\":true"
+           << ",\"b4e2_execution_authorized\":false"
+           << ",\"reference_curve_decoded\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"timing_external\":true"
+           << ",\"watchdog_seconds\":900"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4EP5_IDENTITY_SHA256 =
+    "46224e0e70c3fa1a21b3a1fa3b8e5aec81f10fcc6312d99314caec6c91e45e40";
+constexpr const char* B4EP5_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep5-hvp-coefficient-tape|v1|"
+    "parent=4240148cadb765b33d6b72b55b84d523cbcce5456774dad1d3918faecdeee42e:"
+    "171f1544bfbd65a999f393e88d7c32afd6f36df4fdf7fc360fb5527acf614779|"
+    "candidate=e617043b55349894356ce3eda95aca538e99aeec8b127c418d8273bc408a1474:"
+    "99a7e4b183f844390dca81beba0d83585bf938cb08e0dd6bd6794c82079fd3fe:"
+    "b0ed87ff3e9cd1131b0c188c84634ab4c01e0453b91342abd4d6f5bb3ae99055|"
+    "implementation=65ce739e17def07266f0d2f72b00178451a1fb3e|"
+    "cache=transaction-only;topology=selected;coeff=gradient,second;"
+    "build=once-per-pair-per-workspace;hvp=lookup;fallback=none|"
+    "defaults=byte-unchanged;parent=full-state-canonical;candidate=work-only-cached|"
+    "physics=bit-exact-roots+counters|"
+    "work=queries226;hvp459;coeff-builds226;coeff-pairs85716150;"
+    "kernel-evals171432300;hvp-lookups971831424;payload<=15360000|"
+    "runs=candidate2-byte-exact;regressions=b4ep1,b4ep3,b4ep3i-byte-exact|"
+    "timing=BASELINE,CANDIDATE,CANDIDATE,BASELINE,BASELINE,CANDIDATE;"
+    "gate=3/3-wins;median-speedup>=1.10|watchdog=900s|reference=closed|"
+    "credit=b4ep6-design-only";
+
+std::string b4ep5_work_receipt(
+    const NominalMacroParent& parent,
+    const JointStaticSupportIndex& index,
+    const MacroAdaptiveTransactionCase& transaction,
+    const StaticSupportWorkTrace& static_work,
+    const FlatAdjacencyWorkTrace& adjacency_work,
+    const JointTopologySupersetCache& cache,
+    double candidate_active_ratio) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.nsr3b4ep5-work|v1|"
+             << b4ep3i_work_receipt(
+                    parent, index, transaction, static_work,
+                    adjacency_work, cache, candidate_active_ratio)
+             << '|' << transaction.trace.coefficient_tape_builds
+             << ':' << transaction.trace.coefficient_pairs
+             << ':' << transaction.trace.coefficient_kernel_evaluations
+             << ':' << transaction.trace.coefficient_hvp_lookups
+             << ':' << transaction.trace.maximum_coefficient_payload_bytes
+             << ':' << transaction.trace.coefficient_mismatches
+             << ':' << transaction.trace.coefficient_fallbacks;
+    return sha256_hex(material.str());
+}
+
+void append_b4ep5_coefficients(
+    std::ostringstream& output,
+    const JointQueryTrace& trace) {
+    output << "{\"enabled\":"
+           << (trace.cache_hvp_coefficients ? "true" : "false")
+           << ",\"tape_builds\":" << trace.coefficient_tape_builds
+           << ",\"pairs\":" << trace.coefficient_pairs
+           << ",\"kernel_evaluations\":"
+           << trace.coefficient_kernel_evaluations
+           << ",\"hvp_calls\":" << trace.joint_hvp_queries
+           << ",\"hvp_lookups\":" << trace.coefficient_hvp_lookups
+           << ",\"maximum_added_payload_bytes\":"
+           << trace.maximum_coefficient_payload_bytes
+           << ",\"mismatches\":" << trace.coefficient_mismatches
+           << ",\"fallbacks\":" << trace.coefficient_fallbacks
+           << '}';
+}
+
+} // namespace
+
+SplitBoundaryReport run_nominal_hydro_hvp_coefficient_ablation_controls() {
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(
+                fixture.position, fixture.velocity, 0));
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index =
+        build_joint_static_support_index(
+            tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4EP5_IDENTITY_PROJECTION)
+            == B4EP5_IDENTITY_SHA256
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && B4EP3_SKIN == 0.006
+        && B4EP3_LIST_RADIUS == 0.156
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297";
+
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    JointTopologySupersetCache cache;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        transaction = run_macro_adaptive_transaction_case(
+            "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
+            false, true, nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work, false,
+            &cache, true);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const double energy_allowance = 0.01 * std::max({
+        std::abs(parent.initial_mechanical),
+        static_cast<double>(fixture.position.size()) * MASS
+            * (-fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
+    const double candidate_active_ratio =
+        b4ep3i_candidate_active_ratio(cache);
+    const bool parent_evidence_exact = parent.passed
+        && parent.workspace_state_hashes == 1
+        && parent.workspace_state_hashes_skipped == 0;
+    const bool transaction_evidence_exact =
+        b4ep1_queries_work_only_exact(transaction.trace);
+    const bool physics_exact = b4ep1_frozen_physics_exact(
+            transaction, output, energy_creation)
+        && b4e1m_levels_exact(transaction)
+        && transaction.accepted_private.maximum_mechanical_energy
+            == parent.initial_mechanical
+        && energy_creation <= energy_allowance;
+    const bool cache_exact = transaction.passed && !cache.failed
+        && cache.queries == 226U
+        && cache.rebuilds == 1U
+        && cache.reuses == 225U
+        && cache.certificate_passes == 225U
+        && cache.certificate_failures == 0U
+        && cache.fallback_builds == 0U
+        && cache.rebuilds + cache.reuses == cache.queries
+        && cache.maximum_candidate_degree == 122U
+        && cache.anchor.size() == 6000U
+        && cache.superset.passed
+        && cache.filtered_candidate_checks > 0U
+        && cache.active_pair_visits == 85716150U
+        && std::isfinite(candidate_active_ratio)
+        && candidate_active_ratio <= 1.25;
+    const bool coefficient_exact = transaction.passed
+        && transaction.trace.cache_hvp_coefficients
+        && transaction.trace.coefficient_tape_builds == 226U
+        && transaction.trace.coefficient_pairs == 85716150U
+        && transaction.trace.coefficient_kernel_evaluations == 171432300U
+        && transaction.trace.joint_hvp_queries == 459
+        && transaction.trace.coefficient_hvp_lookups == 971831424U
+        && transaction.trace.maximum_coefficient_payload_bytes
+            <= 15360000U
+        && transaction.trace.coefficient_mismatches == 0U
+        && transaction.trace.coefficient_fallbacks == 0U;
+    const bool work_exact = transaction.passed
+        && static_work.static_index_builds == 1U
+        && static_work.support_canonicalizations == 1U
+        && static_work.support_records_sorted == 5824U
+        && static_work.fluid_records_sorted == 12000U
+        && static_work.workspace_builds == 227U
+        && adjacency_work.workspace_builds == 227U
+        && adjacency_work.nested_row_objects == 0U
+        && adjacency_work.nested_participant_records == 0U
+        && adjacency_work.nested_row_sorts == 0U
+        && adjacency_work.flat_offset_records == 1362227U
+        && adjacency_work.flat_pair_index_records == 151461068U
+        && adjacency_work.csr_ownership_transfers == 227U
+        && transaction.retention.transfers == 42
+        && transaction.retention.reads == 42
+        && transaction.retention.releases == 42
+        && transaction.retention.live_retained == 0
+        && transaction.trace.candidate_all_pair_evaluations == 0
+        && transaction.trace.candidate_all_pair_hvps == 0
+        && transaction.trace.audit_all_pair_evaluations == 0
+        && transaction.trace.audit_all_pair_hvps == 0
+        && transaction.trace.live_workspaces == 0;
+    const bool passed = identity_exact && parent_evidence_exact
+        && transaction_evidence_exact && physics_exact
+        && cache_exact && coefficient_exact && work_exact;
+    std::string failure;
+    if (!identity_exact) {
+        failure = "IDENTITY_OR_PARENT";
+    } else if (!parent_evidence_exact) {
+        failure = "PARENT_FULL_EVIDENCE";
+    } else if (!transaction.passed) {
+        failure = "TRANSACTION:" + transaction.failure;
+    } else if (!transaction_evidence_exact) {
+        failure = "WORK_ONLY_EVIDENCE";
+    } else if (!physics_exact) {
+        failure = "PHYSICS_CORRESPONDENCE";
+    } else if (!cache_exact) {
+        failure = "CACHE_CORRESPONDENCE";
+    } else if (!coefficient_exact) {
+        failure = "COEFFICIENT_CORRESPONDENCE";
+    } else if (!work_exact) {
+        failure = "WORK_CORRESPONDENCE";
+    }
+    const std::string work_receipt = b4ep5_work_receipt(
+        parent, index, transaction, static_work, adjacency_work,
+        cache, candidate_active_ratio);
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << failure
+             << '|' << B4EP5_IDENTITY_SHA256 << '|' << identity_exact
+             << '|' << parent.workspace_state_hashes << ':'
+             << parent.workspace_state_hashes_skipped << ':'
+             << parent.query_root
+             << '|' << transaction.trace.workspace_state_hashes << ':'
+             << transaction.trace.workspace_state_hashes_skipped << ':'
+             << transaction.trace.query_chain_sha256
+             << '|' << transaction.initial_substeps << ':'
+             << transaction.selected_level << ':'
+             << transaction.accepted_substeps << ':'
+             << transaction.attempted_substeps << ':'
+             << transaction.outer_trials << ':'
+             << transaction.nonlinear_hvp_calls << ':'
+             << transaction.spectral_hvp_calls
+             << '|' << output.frame_root << ':' << output.aggregate_root
+             << '|' << transaction.trajectory_sha256 << ':'
+             << transaction.legacy_ledger_sha256 << ':'
+             << transaction.policy_ledger_sha256
+             << '|' << cache.queries << ':' << cache.rebuilds << ':'
+             << cache.reuses << ':' << cache.certificate_passes << ':'
+             << cache.certificate_failures << ':'
+             << cache.fallback_builds << ':'
+             << cache.maximum_candidate_degree << ':'
+             << candidate_active_ratio
+             << '|' << transaction.trace.coefficient_tape_builds << ':'
+             << transaction.trace.coefficient_pairs << ':'
+             << transaction.trace.coefficient_kernel_evaluations << ':'
+             << transaction.trace.coefficient_hvp_lookups << ':'
+             << transaction.trace.maximum_coefficient_payload_bytes
+             << '|' << work_receipt;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4ep5_hvp_coefficient_tape.v1\""
+           << ",\"identity_sha256\":\"" << B4EP5_IDENTITY_SHA256
+           << "\",\"parent_b4ep4_profile_attestation\":\""
+              "171f1544bfbd65a999f393e88d7c32afd6f36df4fdf7fc360fb5527acf614779\""
+           << ",\"oracle_b4ep3i_result\":\""
+              "99a7e4b183f844390dca81beba0d83585bf938cb08e0dd6bd6794c82079fd3fe\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"identity_exact\":"
+           << (identity_exact ? "true" : "false")
+           << ",\"parent_preflight\":";
+    append_b4e1m_parent(report, parent);
+    report << ",\"transaction\":";
+    append_macro_adaptive_transaction_case(report, transaction);
+    report << ",\"output\":";
+    append_b4e1m_output(
+        report, output, transaction, energy_creation, energy_allowance);
+    report << ",\"cache\":";
+    append_b4ep3i_cache(report, cache, candidate_active_ratio);
+    report << ",\"coefficients\":";
+    append_b4ep5_coefficients(report, transaction.trace);
+    report << ",\"evidence_policy\":{\"parent\":\"FULL_STATE\""
+           << ",\"transaction\":\"WORK_ONLY_CACHED_COEFFICIENTS\""
+           << ",\"parent_hashes_computed\":"
+           << parent.workspace_state_hashes
+           << ",\"parent_hashes_skipped\":"
+           << parent.workspace_state_hashes_skipped
+           << ",\"transaction_hashes_computed\":"
+           << transaction.trace.workspace_state_hashes
+           << ",\"transaction_hashes_skipped\":"
+           << transaction.trace.workspace_state_hashes_skipped
+           << ",\"work_chain_root\":\""
+           << transaction.trace.query_chain_sha256 << "\"}"
+           << ",\"work_receipt\":\"" << work_receipt
+           << "\",\"work\":{\"static_index_builds\":"
+           << static_work.static_index_builds
+           << ",\"static_workspace_builds\":"
+           << static_work.workspace_builds
+           << ",\"support_records_sorted\":"
+           << static_work.support_records_sorted
+           << ",\"fluid_records_sorted\":"
+           << static_work.fluid_records_sorted
+           << ",\"flat_workspace_builds\":"
+           << adjacency_work.workspace_builds
+           << ",\"flat_offset_records\":"
+           << adjacency_work.flat_offset_records
+           << ",\"flat_pair_index_records\":"
+           << adjacency_work.flat_pair_index_records
+           << ",\"csr_ownership_transfers\":"
+           << adjacency_work.csr_ownership_transfers
+           << ",\"retained_transfers\":"
+           << transaction.retention.transfers
+           << ",\"retained_reads\":"
+           << transaction.retention.reads
+           << ",\"retained_releases\":"
+           << transaction.retention.releases << '}'
+           << ",\"parent_evidence_exact\":"
+           << (parent_evidence_exact ? "true" : "false")
+           << ",\"transaction_evidence_exact\":"
+           << (transaction_evidence_exact ? "true" : "false")
+           << ",\"physics_correspondence_exact\":"
+           << (physics_exact ? "true" : "false")
+           << ",\"cache_correspondence_exact\":"
+           << (cache_exact ? "true" : "false")
+           << ",\"coefficient_correspondence_exact\":"
+           << (coefficient_exact ? "true" : "false")
+           << ",\"work_correspondence_exact\":"
+           << (work_exact ? "true" : "false")
+           << ",\"hvp_invariant_coefficient_tape_candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4ep6_design_authorized\":false"
+           << ",\"b4ep6_design_requires_external_timing\":true"
            << ",\"b4e2_execution_authorized\":false"
            << ",\"reference_curve_decoded\":false"
            << ",\"runtime_authority\":false"
