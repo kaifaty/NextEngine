@@ -70,3 +70,10 @@ runtime or production work is authorized by this profile.
 
 Freeze B4EP2 as a work-only residual gprof run. This stage makes no source or
 solver change. Its only possible credit is one B4EP3 optimization design.
+
+The exact-output run subsequently assigns 58.33% inclusive time to workspace
+construction, 39.64% to HVP and only 0.46% to hashing. Topology/CSR alone is
+40.97%, too close to HVP for a final bottleneck claim. The selected B4EP3
+therefore audits exact canonical superset reuse before any hot-path candidate;
+see the
+[dated evidence](nonlocal-nsr3b4ep2-residual-attribution-evidence-2026-08-21.md).

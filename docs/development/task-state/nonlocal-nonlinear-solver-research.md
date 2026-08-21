@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP1_PASS / B4EP2_PROFILE_AUTHORIZED` |
+| Status | `ACTIVE / NSR3B4EP2_PASS / B4EP3_TOPOLOGY_AUDIT_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -159,9 +159,16 @@
 - **Current decision:** B4EP2 freezes one exact-output GCC/gprof run over the
   work-only command. It ranks HVP, topology/CSR, evaluation/tape and nonlinear
   bookkeeping without changing source or host policy.
-- **Next action:** build the separate instrumented B4EP1 implementation, run
-  one work-only macro, require exact stdout and select exactly one B4EP3
-  design from the residual profile.
+- **Current conclusion:** B4EP2 matches B4EP1 stdout exactly. Workspace
+  construction is 58.33% inclusive (40.97% topology, 16.84% evaluation/tape),
+  HVP is 39.64% and SHA is 0.46% of 1,728 samples.
+- **Preserved negative:** NP1-P4 stopped because anchor-cell order changed
+  f32 association after a cell crossing. Current CPU/f64 pairs are explicitly
+  lexicographically sorted, but B4EP3 must prove this distinction rather than
+  inherit credit.
+- **Next action:** freeze and execute one 227-state canonical-superset
+  feasibility audit. On any pair/CSR mismatch or weak reuse, route to HVP
+  design without timing a topology candidate.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -208,6 +215,7 @@
 | NSR3B4EP1 contract | full-state default plus work-only nominal transaction | implement/A-B only; physics and B4E2 unchanged |
 | NSR3B4EP1 PASS | exact physics with median `3.0168x` paired speedup | B4EP2 residual attribution/design only |
 | NSR3B4EP2 contract | exact-output work-only residual gprof | one external profile only; no optimization/B4E2 |
+| NSR3B4EP2 PASS | workspace 58.33%, HVP 39.64%, SHA 0.46% | B4EP3 exact topology-reuse audit design only |
 
 Candidate solver identity remains:
 
@@ -255,6 +263,7 @@ production authority is created by this lineage.
 | [B4EP1 research](../nonlocal-nsr3b4ep1-query-evidence-research-2026-08-21.md) | inner hashes are non-physical and separable from parent/final roots | implement work-only policy and balanced A/B |
 | [B4EP1](../nonlocal-nsr3b4ep1-query-evidence-evidence-2026-08-21.md) | exact roots/counters with `3.0168x` median paired speedup | retain full default; profile residual work-only cost before one next optimization |
 | [B4EP2 research](../nonlocal-nsr3b4ep2-residual-attribution-research-2026-08-21.md) | HVP/topology/evaluation/control remain competing residual hypotheses | run one exact-output work-only gprof profile |
+| [B4EP2](../nonlocal-nsr3b4ep2-residual-attribution-evidence-2026-08-21.md) | workspace pipeline leads; topology and HVP nearly tie | audit canonical superset feasibility before implementing reuse |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -562,6 +571,17 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** changing the default oracle, extrapolating this result to GPU
   or production, or starting B4E2 before the next cost boundary is measured.
 
+### D-030 -- Audit canonical topology reuse before optimizing it
+
+- **Observation:** workspace construction is 58.33% inclusive, but topology
+  alone (40.97%) nearly ties HVP (39.64%). An older GPU/f32 Verlet candidate
+  failed exact order after cell crossing.
+- **Decision:** exploit the current builder's explicit lexicographic final
+  pair sort only after a 227-state filtered-superset audit proves pair/CSR
+  equality, certificate coverage, capacity and useful reuse.
+- **Rejected:** transferring P4 credit, assuming geometric coverage implies
+  reduction-order equality, or implementing/timing cache reuse first.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -578,6 +598,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - B4EP1 work-only retains the same physical/work counts and wins all three
   Release pairs with `3.0168x` median paired speedup; median wall/RSS are
   16.15 s and 62,016 KiB versus full-state 48.74 s and 93,060 KiB.
+- B4EP2's exact-output gprof records 1,728 samples: workspace construction is
+  58.33% inclusive, HVP 39.64%, and residual SHA self time is 0.46%.
 - No multi-macro nominal, 50k, GPU or production performance result exists
   for this corrected Nonlocal lineage; B4E1M is one CPU research macro only.
 
@@ -594,11 +616,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Profile only the work-only nominal command with exact stdout
-   correspondence; distinguish HVP, topology/tape build, evaluation and
-   nonlinear-control residuals.
-2. Select exactly one controlled B4EP3 optimization design; keep B4E2, references,
-   runtime and production work blocked.
+1. Freeze the B4EP3 canonical-superset feasibility contract over the exact
+   227-state work-only query sequence and the preserved P4 negative.
+2. Capture/analyse the sequence once; require exact filtered pair order/CSR,
+   conservative displacement coverage, capacity and predeclared useful reuse.
+3. Only a PASS may authorize a Release cache implementation/A-B; otherwise
+   route to HVP design. Keep B4E2/runtime/production blocked.
 
 ## Reconsideration triggers
 

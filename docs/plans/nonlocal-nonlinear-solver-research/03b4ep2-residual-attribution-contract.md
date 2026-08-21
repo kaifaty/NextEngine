@@ -1,6 +1,6 @@
 # NSR3-B4EP2 -- work-only residual-attribution contract
 
-Status: `FROZEN / PROFILE_AUTHORIZED / NO_OPTIMIZATION`
+Status: `FROZEN / PASS / B4EP3_TOPOLOGY_AUDIT_DESIGN_AUTHORIZED / NO_OPTIMIZATION`
 
 Identity projection (exact bytes, no final LF):
 
@@ -59,3 +59,12 @@ or select scoped timing if attribution is ambiguous. A stdout mismatch is
 
 B4E2 execution, reference decode, runtime/CUDA integration and production
 claims remain blocked.
+
+## Closed result
+
+The exact-output profile records 1,728 samples. Workspace construction is
+58.33% inclusive, split into 40.97% topology/CSR and 16.84% evaluation/tape;
+HVP is 39.64% and SHA-256 is 0.46%. The near-tied topology/HVP result selects
+only a bounded B4EP3 canonical-superset feasibility audit, not a performance
+implementation. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep2-residual-attribution-evidence-2026-08-21.md).

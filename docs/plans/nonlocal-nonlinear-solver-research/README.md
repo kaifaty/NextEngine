@@ -1000,3 +1000,10 @@ gprof run. The
 [frozen B4EP2 contract](03b4ep2-residual-attribution-contract.md) binds the
 B4EP1 implementation/source/output bytes and permits only one external
 profile. Run attribution only; do not optimize or start B4E2 yet.
+B4EP2 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep2-residual-attribution-evidence-2026-08-21.md).
+Workspace construction owns 58.33% inclusive sampled time, HVP 39.64% and
+hashing only 0.46%. Topology alone and HVP are nearly tied, so no final
+bottleneck is claimed. Design a bounded B4EP3 canonical-superset feasibility
+audit that preserves the earlier P4 order-mismatch negative and proves the
+current lexicographic-pair invariant before any timing candidate.
