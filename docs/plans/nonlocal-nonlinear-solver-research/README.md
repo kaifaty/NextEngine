@@ -1096,3 +1096,8 @@ resets attribution after fusion. Its
 [frozen contract](03b4ep8-fused-residual-attribution-contract.md) authorizes
 one exact-output gprof run and no optimization. A missing `1.20x` leader routes
 to scoped internal phase timing.
+B4EP8 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep8-fused-residual-attribution-evidence-2026-08-22.md).
+Fused workspace and HVP are 3.61 s and 3.59 s (`1.0056x`), and gprof cannot
+separate the inlined pair/center loops. This selects B4EP9 opt-in internal
+phase timing and no optimization.

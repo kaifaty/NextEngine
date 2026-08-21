@@ -1,6 +1,6 @@
 # NSR3-B4EP8 -- fused residual-attribution contract
 
-Status: `FROZEN / PROFILE_EXECUTION_AUTHORIZED / NO_OPTIMIZATION`
+Status: `CLOSED / PASS / B4EP9_PHASE_TIMING_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -42,3 +42,7 @@ otherwise select `SCOPED_INTERNAL_PHASE_TIMING` and no optimization.
 
 B4E2, references, runtime/CUDA, parallelism, solver-policy and production
 remain blocked.
+
+Observed PASS: workspace 3.61 s and HVP 3.59 s differ by only `1.0056x`;
+gprof also cannot split the inlined fused pair/center loops. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep8-fused-residual-attribution-evidence-2026-08-22.md).

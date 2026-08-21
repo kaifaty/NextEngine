@@ -1,6 +1,6 @@
 # NSR3-B4EP8 fused residual-attribution research -- 2026-08-22
 
-Status: `COMPLETE / EXACT_OUTPUT_GPROF_SELECTED / NO_OPTIMIZATION_YET`
+Status: `COMPLETE / PASS / SCOPED_PHASE_TIMING_SELECTED`
 
 ## Question
 
@@ -47,3 +47,6 @@ production remain blocked by this profile.
 ## Decision
 
 Freeze one exact-output B4EP8 profile. It may authorize one B4EP9 design only.
+
+The profile finds no `1.20x` leader and selects phase timing; see the
+[dated evidence](nonlocal-nsr3b4ep8-fused-residual-attribution-evidence-2026-08-22.md).
