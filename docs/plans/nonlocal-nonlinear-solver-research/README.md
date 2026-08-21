@@ -1125,3 +1125,9 @@ B4EP10D passes; see the
 All alternative topology/evaluation/HVP values are bit-exact with zero
 mismatch, and the maximum added nominal payload is 28.19 MiB. This authorizes
 only B4EP10I OpenMP contract research; no parallel result exists yet.
+The [B4EP10I research](../../development/nonlocal-nsr3b4ep10i-openmp-implementation-research-2026-08-22.md)
+selects a research-only OpenMP backend with 64 fixed logical partitions and
+explicit `1/2/4/8/16` worker commands. Its
+[frozen contract](03b4ep10i-owner-parallel-contract.md) requires exact
+cross-count correspondence and fail-closed worker negatives before a separate
+B4EP10S timing stage.
