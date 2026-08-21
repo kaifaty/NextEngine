@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP4_PASS / B4EP5_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4EP5_PASS / B4EP6_PROFILE_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -191,6 +191,11 @@
 - **Current decision:** B4EP5 optionally caches only `weight_gradient(radius)`
   and `weight_second(radius)` once per pair/tape. All vector arithmetic,
   traversal and reduction order remain unchanged; defaults remain empty.
+- **Current conclusion:** B4EP5 preserves exact physics and all old command
+  bytes. Three of three Release pairs win; median wall falls from 10.61 s to
+  8.50 s (`1.2482x`) with zero coefficient mismatch/fallback.
+- **Next action:** freeze one B4EP6 exact-output residual profile of the B4EP5
+  command before selecting another implementation. Do not stack changes.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -244,6 +249,7 @@
 | NSR3B4EP3I PASS | exact cached transaction and median `1.5899x` paired speedup | B4EP4 residual profiling/design only |
 | NSR3B4EP4 PASS | exact-output profile; HVP 62.14% versus workspace 35.52% | B4EP5 HVP research/design only |
 | NSR3B4EP5 contract | optional invariant scalar tape over selected topology cache | implement/A-B only; no default/runtime/B4E2 change |
+| NSR3B4EP5 PASS | exact candidate and median `1.2482x` paired speedup | B4EP6 residual profiling/design only |
 
 Candidate solver identity remains:
 
@@ -299,6 +305,7 @@ production authority is created by this lineage.
 | [B4EP4 research](../nonlocal-nsr3b4ep4-cached-residual-attribution-research-2026-08-22.md) | HVP, filtered workspace and nonlinear control remain competing residual costs | execute one frozen exact-output gprof profile; select no optimization before attribution |
 | [B4EP4](../nonlocal-nsr3b4ep4-cached-residual-attribution-evidence-2026-08-22.md) | HVP leads complete cached workspace `1.749x` with exact output | research one HVP-only mechanical discriminator before implementation |
 | [B4EP5 research](../nonlocal-nsr3b4ep5-hvp-coefficient-tape-research-2026-08-22.md) | repeated invariant kernel coefficients dominate the safe HVP opportunity | implement optional two-scalar tape and controlled exact A/B only |
+| [B4EP5](../nonlocal-nsr3b4ep5-hvp-coefficient-tape-evidence-2026-08-22.md) | exact physics/old bytes and median `1.2482x` paired speedup | retain coefficient tape for research; exact-profile residual before one next change |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -687,11 +694,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement only the dedicated B4EP5 invariant-coefficient command with
-   exact B4EP3I physics/cache facts and frozen coefficient-work counters.
-2. Prove B4EP1/B4EP3/B4EP3I byte regressions and candidate repeat, then run
-   the three balanced Release pairs. Do not stack output-buffer, parallel or
-   solver-policy changes.
+1. Research and freeze one B4EP6 exact-output residual attribution contract
+   over the dedicated B4EP5 command.
+2. Profile once with unchanged stdout and use a predeclared leader rule.
+   Do not start a second optimization, parallel path, B4E2 or GPU work from
+   timing alone.
 
 ## Reconsideration triggers
 

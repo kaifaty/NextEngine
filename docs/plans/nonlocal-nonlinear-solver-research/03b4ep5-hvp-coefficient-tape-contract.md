@@ -1,6 +1,6 @@
 # NSR3-B4EP5 -- HVP invariant-coefficient tape A/B contract
 
-Status: `FROZEN / IMPLEMENTATION_AND_AB_AUTHORIZED / RESEARCH_ONLY`
+Status: `CLOSED / PASS / B4EP6_PROFILE_DESIGN_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -74,3 +74,8 @@ PASS selects `HVP_INVARIANT_COEFFICIENT_TAPE_CANDIDATE` and authorizes only
 B4EP6 residual profiling/design. Correspondence failure rejects the candidate
 regardless of speed. Speed failure preserves B4EP4 and returns to HVP research.
 B4E2, runtime/CUDA, references and production remain blocked.
+
+Observed PASS: exact candidate stdout
+`dac62e75...ae73b`, three paired wins, median `1.248235294118x`, maximum
+coefficient payload 6,088,176 bytes and zero fallback. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep5-hvp-coefficient-tape-evidence-2026-08-22.md).

@@ -1,6 +1,6 @@
 # NSR3-B4EP5 HVP coefficient-tape research -- 2026-08-22
 
-Status: `COMPLETE / INVARIANT_SCALAR_TAPE_AB_SELECTED / NO_IMPLEMENTATION_YET`
+Status: `COMPLETE / IMPLEMENTED_AND_PASS / RESEARCH_ONLY`
 
 ## Question
 
@@ -79,3 +79,6 @@ Release A/B against B4EP3I. Keep it only on exact B4EP1 physics, exact old
 command bytes, the predeclared work counts, three timing wins and median
 speedup at least `1.10x`. Otherwise preserve B4EP4 and research another HVP
 mechanism without stacking changes.
+
+The implementation passes all gates with median paired speedup `1.2482x`;
+see the [dated evidence](nonlocal-nsr3b4ep5-hvp-coefficient-tape-evidence-2026-08-22.md).

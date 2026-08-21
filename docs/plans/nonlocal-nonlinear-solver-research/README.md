@@ -1051,3 +1051,10 @@ path, while allocator work receives no samples. Its
 [frozen contract](03b4ep5-hvp-coefficient-tape-contract.md) selects only an
 optional two-scalar pressure-tape extension with exact B4EP3I correspondence
 and balanced Release timing. Implement and A/B that command only.
+B4EP5 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep5-hvp-coefficient-tape-evidence-2026-08-22.md).
+The candidate preserves every frozen physics/root/counter fact and all three
+old command bytes. All three timing pairs win; median wall falls from 10.61 s
+to 8.50 s for `1.2482x` paired speedup. This selects the internal invariant
+coefficient tape and authorizes only B4EP6 exact residual profiling/design.
+B4E2, CUDA, runtime and production remain blocked.
