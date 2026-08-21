@@ -8452,6 +8452,44 @@ struct JointTopologySupersetCache {
     double maximum_anchor_displacement_squared = 0.0;
 };
 
+using JointPhaseClock = std::chrono::steady_clock;
+
+struct JointPhaseTimingTrace {
+    bool enabled = false;
+    std::uint64_t transaction_total_ns = 0U;
+    std::uint64_t topology_ns = 0U;
+    std::uint64_t fused_setup_ns = 0U;
+    std::uint64_t fused_pair_ns = 0U;
+    std::uint64_t fused_center_ns = 0U;
+    std::uint64_t fused_finalize_ns = 0U;
+    std::uint64_t hvp_apply_ns = 0U;
+    std::size_t transaction_calls = 0U;
+    std::size_t topology_calls = 0U;
+    std::size_t fused_setup_calls = 0U;
+    std::size_t fused_pair_calls = 0U;
+    std::size_t fused_center_calls = 0U;
+    std::size_t fused_finalize_calls = 0U;
+    std::size_t hvp_apply_calls = 0U;
+    std::size_t failures = 0U;
+};
+
+void record_joint_phase_duration(
+    JointPhaseTimingTrace& trace,
+    JointPhaseClock::time_point start,
+    std::uint64_t& total_ns,
+    std::size_t& calls) {
+    const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        JointPhaseClock::now() - start).count();
+    ++calls;
+    if (elapsed < 0
+        || static_cast<std::uint64_t>(elapsed)
+            > std::numeric_limits<std::uint64_t>::max() - total_ns) {
+        ++trace.failures;
+        return;
+    }
+    total_ns += static_cast<std::uint64_t>(elapsed);
+}
+
 struct JointQueryTrace {
     bool exact = true;
     bool work_reduced = true;
@@ -8476,6 +8514,7 @@ struct JointQueryTrace {
     JointTopologySupersetCache* topology_cache = nullptr;
     bool cache_hvp_coefficients = false;
     bool fuse_evaluation_tape = false;
+    JointPhaseTimingTrace phase_timing;
     std::size_t coefficient_tape_builds = 0U;
     std::size_t coefficient_pairs = 0U;
     std::size_t coefficient_kernel_evaluations = 0U;
@@ -10717,8 +10756,11 @@ struct JointEvaluationTape {
 
 JointEvaluationTape build_joint_evaluation_tape_from_flat(
     JointNeighborhood& neighborhood,
-    FlatAdjacencyWorkTrace* adjacency_work = nullptr) {
+    FlatAdjacencyWorkTrace* adjacency_work = nullptr,
+    JointPhaseTimingTrace* phase_timing = nullptr) {
     JointEvaluationTape result;
+    const JointPhaseClock::time_point setup_start = phase_timing != nullptr
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     const std::size_t fluid_count = neighborhood.fluid.size();
     const std::size_t total = fluid_count + neighborhood.support.size();
     if (!neighborhood.passed || !neighborhood.flat_adjacency
@@ -10812,6 +10854,14 @@ JointEvaluationTape build_joint_evaluation_tape_from_flat(
     result.tape.hvp_gradient.resize(pair_count);
     result.tape.hvp_second.resize(pair_count);
     result.tape.payload_bytes = payload_bytes;
+    if (phase_timing != nullptr) {
+        record_joint_phase_duration(
+            *phase_timing, setup_start,
+            phase_timing->fused_setup_ns,
+            phase_timing->fused_setup_calls);
+    }
+    const JointPhaseClock::time_point pair_start = phase_timing != nullptr
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     for (std::size_t pair_index = 0U;
          pair_index < pair_count; ++pair_index) {
         const JointPair pair = neighborhood.pairs[pair_index];
@@ -10830,6 +10880,14 @@ JointEvaluationTape build_joint_evaluation_tape_from_flat(
         result.tape.hvp_gradient[pair_index] = weight_gradient(radius);
         result.tape.hvp_second[pair_index] = weight_second(radius);
     }
+    if (phase_timing != nullptr) {
+        record_joint_phase_duration(
+            *phase_timing, pair_start,
+            phase_timing->fused_pair_ns,
+            phase_timing->fused_pair_calls);
+    }
+    const JointPhaseClock::time_point center_start = phase_timing != nullptr
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     for (std::size_t center = 0U; center < fluid_count; ++center) {
         const std::size_t begin = neighborhood.flat_offsets[center];
         const std::size_t end = neighborhood.flat_offsets[center + 1U];
@@ -10869,6 +10927,14 @@ JointEvaluationTape build_joint_evaluation_tape_from_flat(
             result.evaluation.gradient[participant] += -pair_value;
         }
     }
+    if (phase_timing != nullptr) {
+        record_joint_phase_duration(
+            *phase_timing, center_start,
+            phase_timing->fused_center_ns,
+            phase_timing->fused_center_calls);
+    }
+    const JointPhaseClock::time_point finalize_start = phase_timing != nullptr
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     result.tape.offsets = std::move(neighborhood.flat_offsets);
     result.tape.directed_pair_indices = std::move(
         neighborhood.flat_directed_pair_indices);
@@ -10877,6 +10943,12 @@ JointEvaluationTape build_joint_evaluation_tape_from_flat(
     }
     result.tape.passed = true;
     result.passed = true;
+    if (phase_timing != nullptr) {
+        record_joint_phase_duration(
+            *phase_timing, finalize_start,
+            phase_timing->fused_finalize_ns,
+            phase_timing->fused_finalize_calls);
+    }
     return result;
 }
 
@@ -11392,6 +11464,9 @@ JointPressureWorkspace build_joint_query_workspace(
     FlatAdjacencyWorkTrace* adjacency_work = nullptr) {
     JointPressureWorkspace result;
     const std::vector<JointPoint> fluid = tagged_points(position);
+    const JointPhaseClock::time_point topology_start =
+        trace.phase_timing.enabled
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     if (trace.topology_cache != nullptr) {
         result.neighborhood = b4ep3_cached_topology(
             fluid, static_support, *trace.topology_cache,
@@ -11404,6 +11479,12 @@ JointPressureWorkspace build_joint_query_workspace(
             : build_joint_neighborhood_with_static_support(
                 fluid, static_support, true, static_work,
                 flat_adjacency, adjacency_work);
+    }
+    if (trace.phase_timing.enabled) {
+        record_joint_phase_duration(
+            trace.phase_timing, topology_start,
+            trace.phase_timing.topology_ns,
+            trace.phase_timing.topology_calls);
     }
     ++trace.neighborhood_builds;
     if (!result.neighborhood.passed) {
@@ -11420,7 +11501,9 @@ JointPressureWorkspace build_joint_query_workspace(
         }
         JointEvaluationTape fused =
             build_joint_evaluation_tape_from_flat(
-                result.neighborhood, adjacency_work);
+                result.neighborhood, adjacency_work,
+                trace.phase_timing.enabled
+                    ? &trace.phase_timing : nullptr);
         ++trace.joint_evaluation_queries;
         ++trace.tape_builds;
         if (!fused.passed || !fused.tape.passed) {
@@ -11616,8 +11699,16 @@ std::vector<Vec3> smooth_hvp_joint_workspace(
     }
     std::vector<Vec3> joint_direction(fluid_count + support_count);
     std::copy(direction.begin(), direction.end(), joint_direction.begin());
+    const JointPhaseClock::time_point hvp_start = trace.phase_timing.enabled
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     const std::vector<Vec3> taped = apply_joint_pressure_tape(
         workspace.neighborhood, workspace.tape, joint_direction);
+    if (trace.phase_timing.enabled) {
+        record_joint_phase_duration(
+            trace.phase_timing, hvp_start,
+            trace.phase_timing.hvp_apply_ns,
+            trace.phase_timing.hvp_apply_calls);
+    }
     if (trace.cache_hvp_coefficients) {
         trace.coefficient_hvp_lookups +=
             4U * workspace.tape.active_directed;
@@ -12105,8 +12196,16 @@ std::vector<Vec3> pressure_hvp_joint_workspace(
     const std::size_t support_count = workspace.neighborhood.support.size();
     std::vector<Vec3> joint_direction(fluid_count + support_count);
     std::copy(direction.begin(), direction.end(), joint_direction.begin());
+    const JointPhaseClock::time_point hvp_start = trace.phase_timing.enabled
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     const std::vector<Vec3> taped = apply_joint_pressure_tape(
         workspace.neighborhood, workspace.tape, joint_direction);
+    if (trace.phase_timing.enabled) {
+        record_joint_phase_duration(
+            trace.phase_timing, hvp_start,
+            trace.phase_timing.hvp_apply_ns,
+            trace.phase_timing.hvp_apply_calls);
+    }
     if (trace.cache_hvp_coefficients) {
         trace.coefficient_hvp_lookups +=
             4U * workspace.tape.active_directed;
@@ -18399,7 +18498,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     bool hash_workspace_states = true,
     JointTopologySupersetCache* topology_cache = nullptr,
     bool cache_hvp_coefficients = false,
-    bool fuse_evaluation_tape = false) {
+    bool fuse_evaluation_tape = false,
+    bool capture_phase_timing = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -18410,6 +18510,7 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     result.trace.topology_cache = topology_cache;
     result.trace.cache_hvp_coefficients = cache_hvp_coefficients;
     result.trace.fuse_evaluation_tape = fuse_evaluation_tape;
+    result.trace.phase_timing.enabled = capture_phase_timing;
     struct TopologyCachePointerReset {
         JointQueryTrace& trace;
         ~TopologyCachePointerReset() {
@@ -34423,6 +34524,348 @@ run_nominal_hydro_fused_evaluation_tape_ablation_controls() {
            << ",\"production_authority\":false"
            << ",\"timing_external\":true"
            << ",\"watchdog_seconds\":900"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4EP9_IDENTITY_SHA256 =
+    "a75c1db690e26805b7f5d900a053be789316688c9ac033fd7db902f26e37cad6";
+constexpr const char* B4EP9_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep9-fused-phase-timing|v1|"
+    "parent=d8c6584ee93f8b3232441c061bacfb6ddb8f50d5a80805a57c6b53b0968a65e1:"
+    "8a8d15c316b7e03d1eccfad527543e6a428264f8c339be71efd875b0e7079c4b|"
+    "candidate=441ac76483748631f94ae4f2d092b97ba4d271fb2c380d2b6e889245527821c9:"
+    "e3453dc158a8eace69b468ac84641cccdcad221dcc05695d06b6f400039e775c:"
+    "8d3c8115861feb80e322a594be8f338dcab9622ac7b2839ec17a0f779fac2095|"
+    "implementation=a3aa054217cfd9d21193f8943effe10b7ebce7bf|"
+    "timers=steady-clock;opt-in;transaction-only;non-overlap;defaults=absent|"
+    "phases=topology;fused-setup;fused-pair;fused-center;fused-finalize;"
+    "hvp-apply;residual|calls=transaction1;topology226;fused226;hvp459|"
+    "runs=3;semantic-exact;timing-json-nondeterministic;result-excludes-time|"
+    "route=median-parallelizable>=0.80;each>=0.75;range<=0.05=>"
+    "cpu-parallel-research;otherwise=serial-residual-research|"
+    "timing=no-throughput-claim|reference=closed|"
+    "credit=b4ep10-architecture-only";
+
+bool add_phase_duration(
+    std::uint64_t value,
+    std::uint64_t& sum) {
+    if (value > std::numeric_limits<std::uint64_t>::max() - sum) {
+        return false;
+    }
+    sum += value;
+    return true;
+}
+
+} // namespace
+
+SplitBoundaryReport run_nominal_hydro_fused_phase_timing_controls() {
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(
+                fixture.position, fixture.velocity, 0));
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index =
+        build_joint_static_support_index(
+            tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4EP9_IDENTITY_PROJECTION)
+            == B4EP9_IDENTITY_SHA256
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297";
+
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    JointTopologySupersetCache cache;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        const JointPhaseClock::time_point transaction_start =
+            JointPhaseClock::now();
+        transaction = run_macro_adaptive_transaction_case(
+            "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
+            false, true, nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work, false,
+            &cache, true, true, true);
+        record_joint_phase_duration(
+            transaction.trace.phase_timing, transaction_start,
+            transaction.trace.phase_timing.transaction_total_ns,
+            transaction.trace.phase_timing.transaction_calls);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const double energy_allowance = 0.01 * std::max({
+        std::abs(parent.initial_mechanical),
+        static_cast<double>(fixture.position.size()) * MASS
+            * (-fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
+    const double candidate_active_ratio =
+        b4ep3i_candidate_active_ratio(cache);
+    const bool parent_evidence_exact = parent.passed
+        && parent.workspace_state_hashes == 1
+        && parent.workspace_state_hashes_skipped == 0;
+    const bool transaction_evidence_exact =
+        b4ep1_queries_work_only_exact(transaction.trace)
+        && transaction.trace.query_chain_sha256
+            == "6a220a4e6f4d6d06ab54fe043a9ddf49606aae40e598e43f1c331c78b7802991";
+    const bool physics_exact = b4ep1_frozen_physics_exact(
+            transaction, output, energy_creation)
+        && b4e1m_levels_exact(transaction)
+        && transaction.accepted_private.maximum_mechanical_energy
+            == parent.initial_mechanical
+        && energy_creation <= energy_allowance;
+    const bool cache_exact = transaction.passed && !cache.failed
+        && cache.queries == 226U
+        && cache.rebuilds == 1U
+        && cache.reuses == 225U
+        && cache.certificate_passes == 225U
+        && cache.certificate_failures == 0U
+        && cache.fallback_builds == 0U
+        && cache.maximum_candidate_degree == 122U
+        && cache.active_pair_visits == 85716150U
+        && std::isfinite(candidate_active_ratio)
+        && candidate_active_ratio <= 1.25;
+    const bool coefficient_exact = transaction.passed
+        && transaction.trace.cache_hvp_coefficients
+        && transaction.trace.coefficient_tape_builds == 226U
+        && transaction.trace.coefficient_pairs == 85716150U
+        && transaction.trace.coefficient_kernel_evaluations == 171432300U
+        && transaction.trace.coefficient_hvp_lookups == 971831424U
+        && transaction.trace.maximum_coefficient_payload_bytes
+            == 6088176U
+        && transaction.trace.coefficient_mismatches == 0U
+        && transaction.trace.coefficient_fallbacks == 0U;
+    const bool fusion_exact = transaction.passed
+        && transaction.trace.fuse_evaluation_tape
+        && transaction.trace.fused_workspace_builds == 226U
+        && transaction.trace.fused_pair_visits == 85716150U
+        && transaction.trace.fused_active_directed_visits == 131987230U
+        && transaction.trace.fused_center_visits == 1356000U
+        && transaction.trace.fused_radius_evaluations == 85716150U
+        && transaction.trace.fused_gradient_evaluations == 85716150U
+        && transaction.trace.fused_second_evaluations == 85716150U
+        && transaction.trace.fused_compression_evaluations == 1356000U
+        && transaction.trace.fusion_mismatches == 0U
+        && transaction.trace.fusion_fallbacks == 0U;
+    const bool work_exact = transaction.passed
+        && transaction.trace.total_pairs == 85716150U
+        && transaction.trace.total_active_directed == 131987230U
+        && transaction.trace.total_fluid_centers == 1356000U
+        && static_work.static_index_builds == 1U
+        && static_work.workspace_builds == 227U
+        && adjacency_work.workspace_builds == 227U
+        && adjacency_work.flat_offset_records == 1362227U
+        && adjacency_work.flat_pair_index_records == 151461068U
+        && adjacency_work.csr_ownership_transfers == 227U
+        && transaction.retention.transfers == 42
+        && transaction.retention.reads == 42
+        && transaction.retention.releases == 42
+        && transaction.retention.live_retained == 0
+        && transaction.trace.live_workspaces == 0;
+
+    const JointPhaseTimingTrace& timing = transaction.trace.phase_timing;
+    std::uint64_t measured_sum_ns = 0U;
+    const bool measured_sum_safe =
+        add_phase_duration(timing.topology_ns, measured_sum_ns)
+        && add_phase_duration(timing.fused_setup_ns, measured_sum_ns)
+        && add_phase_duration(timing.fused_pair_ns, measured_sum_ns)
+        && add_phase_duration(timing.fused_center_ns, measured_sum_ns)
+        && add_phase_duration(timing.fused_finalize_ns, measured_sum_ns)
+        && add_phase_duration(timing.hvp_apply_ns, measured_sum_ns);
+    std::uint64_t parallelizable_ns = 0U;
+    const bool parallelizable_sum_safe =
+        add_phase_duration(timing.topology_ns, parallelizable_ns)
+        && add_phase_duration(timing.fused_pair_ns, parallelizable_ns)
+        && add_phase_duration(timing.fused_center_ns, parallelizable_ns)
+        && add_phase_duration(timing.hvp_apply_ns, parallelizable_ns);
+    const bool residual_safe = measured_sum_safe
+        && measured_sum_ns <= timing.transaction_total_ns;
+    const std::uint64_t residual_ns = residual_safe
+        ? timing.transaction_total_ns - measured_sum_ns : 0U;
+    const double parallelizable_fraction =
+        parallelizable_sum_safe && timing.transaction_total_ns > 0U
+        ? static_cast<double>(parallelizable_ns)
+            / static_cast<double>(timing.transaction_total_ns)
+        : 0.0;
+    const bool phase_exact = transaction.passed
+        && timing.enabled
+        && timing.transaction_calls == 1U
+        && timing.topology_calls == 226U
+        && timing.fused_setup_calls == 226U
+        && timing.fused_pair_calls == 226U
+        && timing.fused_center_calls == 226U
+        && timing.fused_finalize_calls == 226U
+        && timing.hvp_apply_calls == 459U
+        && timing.transaction_total_ns > 0U
+        && timing.topology_ns > 0U
+        && timing.fused_setup_ns > 0U
+        && timing.fused_pair_ns > 0U
+        && timing.fused_center_ns > 0U
+        && timing.fused_finalize_ns > 0U
+        && timing.hvp_apply_ns > 0U
+        && measured_sum_safe && parallelizable_sum_safe && residual_safe
+        && std::isfinite(parallelizable_fraction)
+        && parallelizable_fraction >= 0.0
+        && parallelizable_fraction <= 1.0
+        && timing.failures == 0U;
+    const bool passed = identity_exact && parent_evidence_exact
+        && transaction_evidence_exact && physics_exact && cache_exact
+        && coefficient_exact && fusion_exact && work_exact && phase_exact;
+    std::string failure;
+    if (!identity_exact) {
+        failure = "IDENTITY_OR_PARENT";
+    } else if (!parent_evidence_exact) {
+        failure = "PARENT_FULL_EVIDENCE";
+    } else if (!transaction.passed) {
+        failure = "TRANSACTION:" + transaction.failure;
+    } else if (!transaction_evidence_exact) {
+        failure = "WORK_ONLY_EVIDENCE";
+    } else if (!physics_exact) {
+        failure = "PHYSICS_CORRESPONDENCE";
+    } else if (!cache_exact) {
+        failure = "CACHE_CORRESPONDENCE";
+    } else if (!coefficient_exact) {
+        failure = "COEFFICIENT_CORRESPONDENCE";
+    } else if (!fusion_exact) {
+        failure = "FUSION_CORRESPONDENCE";
+    } else if (!work_exact) {
+        failure = "WORK_CORRESPONDENCE";
+    } else if (!phase_exact) {
+        failure = "PHASE_TIMING_CORRESPONDENCE";
+    }
+
+    const std::string base_work_receipt = b4ep5_work_receipt(
+        parent, index, transaction, static_work, adjacency_work,
+        cache, candidate_active_ratio);
+    std::ostringstream work_material;
+    work_material << "nextengine.nonlocal.nsr3b4ep7i-work|v1|"
+                  << base_work_receipt << '|'
+                  << transaction.trace.fused_workspace_builds << ':'
+                  << transaction.trace.fused_pair_visits << ':'
+                  << transaction.trace.fused_active_directed_visits << ':'
+                  << transaction.trace.fused_center_visits << ':'
+                  << transaction.trace.fused_radius_evaluations << ':'
+                  << transaction.trace.fused_gradient_evaluations << ':'
+                  << transaction.trace.fused_second_evaluations << ':'
+                  << transaction.trace.fused_compression_evaluations;
+    const std::string work_receipt = sha256_hex(work_material.str());
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << failure
+             << '|' << B4EP9_IDENTITY_SHA256 << '|'
+             << output.frame_root << ':' << output.aggregate_root << '|'
+             << transaction.trajectory_sha256 << ':'
+             << transaction.legacy_ledger_sha256 << ':'
+             << transaction.policy_ledger_sha256 << '|'
+             << transaction.trace.query_chain_sha256 << '|'
+             << base_work_receipt << ':' << work_receipt << '|'
+             << timing.transaction_calls << ':'
+             << timing.topology_calls << ':'
+             << timing.fused_setup_calls << ':'
+             << timing.fused_pair_calls << ':'
+             << timing.fused_center_calls << ':'
+             << timing.fused_finalize_calls << ':'
+             << timing.hvp_apply_calls << ':' << timing.failures << '|'
+             << parent_evidence_exact << ':' << transaction_evidence_exact
+             << ':' << physics_exact << ':' << cache_exact << ':'
+             << coefficient_exact << ':' << fusion_exact << ':'
+             << work_exact << ':' << phase_exact;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4ep9_fused_phase_timing.v1\""
+           << ",\"identity_sha256\":\"" << B4EP9_IDENTITY_SHA256
+           << "\",\"parent_b4ep8_evidence\":\""
+              "8a8d15c316b7e03d1eccfad527543e6a428264f8c339be71efd875b0e7079c4b\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"identity_exact\":"
+           << (identity_exact ? "true" : "false")
+           << ",\"parent_preflight\":";
+    append_b4e1m_parent(report, parent);
+    report << ",\"transaction\":";
+    append_macro_adaptive_transaction_case(report, transaction);
+    report << ",\"output\":";
+    append_b4e1m_output(
+        report, output, transaction, energy_creation, energy_allowance);
+    report << ",\"cache\":";
+    append_b4ep3i_cache(report, cache, candidate_active_ratio);
+    report << ",\"coefficients\":";
+    append_b4ep5_coefficients(report, transaction.trace);
+    report << ",\"fusion\":";
+    append_b4ep7i_fusion(report, transaction.trace);
+    report << ",\"phase_timing\":{\"clock\":\"steady_clock\""
+           << ",\"enabled\":" << (timing.enabled ? "true" : "false")
+           << ",\"transaction_total_ns\":"
+           << timing.transaction_total_ns
+           << ",\"topology_ns\":" << timing.topology_ns
+           << ",\"fused_setup_ns\":" << timing.fused_setup_ns
+           << ",\"fused_pair_ns\":" << timing.fused_pair_ns
+           << ",\"fused_center_ns\":" << timing.fused_center_ns
+           << ",\"fused_finalize_ns\":" << timing.fused_finalize_ns
+           << ",\"hvp_apply_ns\":" << timing.hvp_apply_ns
+           << ",\"residual_ns\":" << residual_ns
+           << ",\"measured_sum_ns\":" << measured_sum_ns
+           << ",\"parallelizable_ns\":" << parallelizable_ns
+           << ",\"parallelizable_fraction\":"
+           << parallelizable_fraction
+           << ",\"transaction_calls\":" << timing.transaction_calls
+           << ",\"topology_calls\":" << timing.topology_calls
+           << ",\"fused_setup_calls\":" << timing.fused_setup_calls
+           << ",\"fused_pair_calls\":" << timing.fused_pair_calls
+           << ",\"fused_center_calls\":" << timing.fused_center_calls
+           << ",\"fused_finalize_calls\":"
+           << timing.fused_finalize_calls
+           << ",\"hvp_apply_calls\":" << timing.hvp_apply_calls
+           << ",\"failures\":" << timing.failures
+           << ",\"run_minimum_parallel_fraction_pass\":"
+           << (parallelizable_fraction >= 0.75 ? "true" : "false")
+           << ",\"semantic_hash_excludes_durations\":true}"
+           << ",\"base_work_receipt\":\"" << base_work_receipt << '"'
+           << ",\"work_receipt\":\"" << work_receipt << '"'
+           << ",\"parent_evidence_exact\":"
+           << (parent_evidence_exact ? "true" : "false")
+           << ",\"transaction_evidence_exact\":"
+           << (transaction_evidence_exact ? "true" : "false")
+           << ",\"physics_correspondence_exact\":"
+           << (physics_exact ? "true" : "false")
+           << ",\"cache_correspondence_exact\":"
+           << (cache_exact ? "true" : "false")
+           << ",\"coefficient_correspondence_exact\":"
+           << (coefficient_exact ? "true" : "false")
+           << ",\"fusion_correspondence_exact\":"
+           << (fusion_exact ? "true" : "false")
+           << ",\"work_correspondence_exact\":"
+           << (work_exact ? "true" : "false")
+           << ",\"phase_timing_correspondence_exact\":"
+           << (phase_exact ? "true" : "false")
+           << ",\"routing_requires_three_runs\":true"
+           << ",\"b4ep10_architecture_authorized\":false"
+           << ",\"b4e2_execution_authorized\":false"
+           << ",\"reference_curve_decoded\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"throughput_claim\":false"
            << ",\"result_sha256\":\""
            << sha256_hex(material.str()) << "\"}";
     return {passed, report.str()};

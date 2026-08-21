@@ -88,5 +88,6 @@ SplitBoundaryReport run_nominal_hydro_cached_topology_ablation_controls();
 SplitBoundaryReport run_nominal_hydro_hvp_coefficient_ablation_controls();
 SplitBoundaryReport run_nominal_hydro_evaluation_tape_dataflow_audit_controls();
 SplitBoundaryReport run_nominal_hydro_fused_evaluation_tape_ablation_controls();
+SplitBoundaryReport run_nominal_hydro_fused_phase_timing_controls();
 
 } // namespace nextengine::nonlocal::fcr
