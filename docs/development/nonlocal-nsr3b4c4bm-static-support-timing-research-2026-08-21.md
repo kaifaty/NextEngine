@@ -1,6 +1,6 @@
 # B4C4BM static-support timing discriminator design
 
-Status: `COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `PASS / COMPLETE-LANE ROLLOUT DESIGN AUTHORIZED`
 
 Date: `2026-08-21`
 
@@ -57,7 +57,11 @@ application from a fitted threshold.
 
 ## Decision
 
-Freeze the
-[B4C4BM contract](../plans/nonlocal-nonlinear-solver-research/03b4c4bm-static-support-timing-contract.md).
-B4C4C, complete-lane rollout, B4D, nominal corpus, CUDA, runtime and production
-remain blocked until its evidence is classified.
+The frozen
+[B4C4BM contract](../plans/nonlocal-nonlinear-solver-research/03b4c4bm-static-support-timing-contract.md)
+passes in three sequential processes; see the
+[dated evidence](nonlocal-nsr3b4c4bm-static-support-timing-evidence-2026-08-21.md).
+The candidate wins all `63/63` paired rounds per fixture across the three runs,
+with median process-level speedup `1.1399x` P1 and `2.5952x` P2. Authorize only
+a separately frozen complete-lane rollout. B4C4C, B4D, nominal corpus, CUDA,
+runtime and production remain blocked.

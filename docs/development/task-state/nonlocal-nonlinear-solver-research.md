@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4B_PASS / B4C4BM_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C4BM_PASS / B4C4B1_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -81,9 +81,11 @@
 - **Current conclusion:** B4C4B passes twice byte-identically at full raw
   `a0829e6c...5f28`. It preserves exact one-macro physics and removes
   `143,072/9,728` P1/P2 support sort records, but doubles range lookups.
-- **Current action:** implement the frozen B4C4BM recorded-corpus benchmark:
-  three warmups, 21 alternating AB/BA rounds and exact untimed checksums for
-  all `264/9` P1/P2 workspace states. B4C4C and B4D remain blocked.
+- **Current conclusion:** B4C4BM passes three sequential runs with exact
+  deterministic root `66cccf12...465`. Candidate wins all paired rounds;
+  median process-level construction speedups are `1.1399x/2.5952x` P1/P2.
+- **Current action:** freeze B4C4B1 complete adaptive/macro-fixed static-index
+  lifetime and correspondence before rollout. B4C4C and B4D remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1704,6 +1706,25 @@
 - **Smallest next action:** add opt-in corpus capture and a benchmark CLI whose
   timed region contains only builder plus checksum accumulation.
 
+### D-083 -- Observe stable construction speedup and authorize rollout design
+
+- **Observation:** three sequential B4C4BM processes reproduce the same
+  parent/corpus/checksum root. Candidate wins all 63 paired rounds per fixture;
+  process medians are `1.1306--1.1603x` P1 and `2.5883--2.5982x` P2.
+- **Decision:** retain the B4C4B split traversal and freeze complete-lane index
+  lifetime/correspondence. Do not claim whole-solver speedup from construction
+  timing.
+- **Rejected alternatives:** redesign range lookup despite uniformly positive
+  measurement, deploy directly from one-macro lifetime, or fit a new minimum
+  ratio gate to the observations.
+- **Consequence:** B4C4B1 must build exactly one index per immutable fixture
+  lane, preserve all complete A1 roots/work/rollback and release lane ownership
+  without a mutable global cache.
+- **Remaining uncertainty:** complete-lane index build counts, accumulated
+  physical correspondence and whole-solver wall effect.
+- **Smallest next action:** derive exact complete-lane workspace/support-record
+  counts from B4C4A1 evidence and freeze B4C4B1 before modifying lane runners.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1716,9 +1737,8 @@
 
 ## Exact next action
 
-1. Implement and execute B4C4BM interleaved static-index timing.
-2. Use its threshold-free result to decide complete-lane application versus
-   traversal redesign; only then approach B4C4C flat-only CSR.
+1. Freeze and execute B4C4B1 complete-lane static-index application.
+2. Measure its whole-solver effect, then approach B4C4C flat-only CSR.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 
 ## Reconsideration triggers

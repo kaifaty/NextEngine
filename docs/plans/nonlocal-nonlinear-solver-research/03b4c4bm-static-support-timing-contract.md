@@ -1,6 +1,6 @@
 # NSR3-B4C4BM -- static-support timing discriminator
 
-Status: `FROZEN / MEASUREMENT_AUTHORIZED / ROLLOUT_BLOCKED`
+Status: `PASS / CANDIDATE_FASTER_OBSERVED / ROLLOUT_DESIGN_AUTHORIZED`
 
 Parent B4C4B isolated probe passes with JSON-without-final-LF SHA-256
 `187cff865ea739f96c1440f3041e7fd1f6de1a8c95436ae810f604850d80c90e`

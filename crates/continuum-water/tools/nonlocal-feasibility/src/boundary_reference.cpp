@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -8282,6 +8283,8 @@ struct StaticSupportWorkTrace {
     std::size_t combined_range_lookups = 0U;
     std::size_t fluid_range_lookups = 0U;
     std::size_t support_range_lookups = 0U;
+    bool capture_fluid_states = false;
+    std::vector<std::vector<JointPoint>> fluid_states;
 };
 
 struct JointStaticSupportIndex {
@@ -9503,6 +9506,9 @@ JointNeighborhood build_joint_neighborhood(
         result.support.clear();
         return result;
     }
+    if (work != nullptr && work->capture_fluid_states) {
+        work->fluid_states.push_back(result.fluid);
+    }
     if (result.fluid.size() > std::numeric_limits<std::size_t>::max()
             - result.support.size()) {
         result.failure = "JOINT_PAIR_CAPACITY";
@@ -9767,6 +9773,9 @@ JointNeighborhood build_joint_neighborhood_with_static_support(
             ? "JOINT_DUPLICATE_ID" : "JOINT_POSITION_INVALID";
         result.fluid.clear();
         return result;
+    }
+    if (work != nullptr && work->capture_fluid_states) {
+        work->fluid_states.push_back(result.fluid);
     }
     result.support = support_index.support;
     if (result.fluid.size() > std::numeric_limits<std::size_t>::max()
@@ -27096,6 +27105,424 @@ SplitBoundaryReport run_static_support_index_probe_controls() {
 
 SplitBoundaryReport run_static_support_index_controls() {
     return run_static_support_index_impl(true);
+}
+
+namespace {
+
+struct StaticSupportTimedPass {
+    bool passed = false;
+    std::uint64_t elapsed_ns = 0U;
+    std::uint64_t checksum = 0U;
+};
+
+struct StaticSupportTimingCase {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    std::size_t corpus_states = 0U;
+    bool source_transaction_exact = false;
+    bool corpus_exact = false;
+    bool preflight_exact = false;
+    bool warmup_exact = false;
+    bool samples_valid = false;
+    std::string corpus_sha256;
+    std::string index_identity_sha256;
+    std::uint64_t checksum = 0U;
+    std::vector<std::uint64_t> legacy_ns;
+    std::vector<std::uint64_t> candidate_ns;
+    std::uint64_t legacy_min_ns = 0U;
+    std::uint64_t legacy_median_ns = 0U;
+    std::uint64_t legacy_max_ns = 0U;
+    std::uint64_t legacy_mad_ns = 0U;
+    std::uint64_t candidate_min_ns = 0U;
+    std::uint64_t candidate_median_ns = 0U;
+    std::uint64_t candidate_max_ns = 0U;
+    std::uint64_t candidate_mad_ns = 0U;
+    int candidate_wins = 0;
+    double median_speedup = 0.0;
+    std::string classification;
+};
+
+std::uint64_t static_support_checksum_mix(
+    std::uint64_t seed, std::uint64_t value) {
+    seed ^= value + 0x9e3779b97f4a7c15ULL
+        + (seed << 6U) + (seed >> 2U);
+    return seed;
+}
+
+std::uint64_t static_support_neighborhood_checksum(
+    std::uint64_t seed,
+    const JointNeighborhood& value) {
+    seed = static_support_checksum_mix(seed, value.pairs.size());
+    seed = static_support_checksum_mix(seed, value.fluid_pairs);
+    seed = static_support_checksum_mix(seed, value.support_pairs);
+    seed = static_support_checksum_mix(
+        seed, value.construction_distance_tests);
+    seed = static_support_checksum_mix(seed, value.maximum_degree);
+    if (!value.pairs.empty()) {
+        const JointPair first = value.pairs.front();
+        const JointPair last = value.pairs.back();
+        seed = static_support_checksum_mix(
+            seed, (static_cast<std::uint64_t>(first.fluid) << 32U)
+                | first.participant);
+        seed = static_support_checksum_mix(
+            seed, (static_cast<std::uint64_t>(last.fluid) << 32U)
+                | last.participant);
+    }
+    return seed;
+}
+
+std::string static_support_timing_corpus_hash(
+    const std::string& name,
+    const std::vector<std::vector<JointPoint>>& states,
+    const std::string& support_identity) {
+    std::ostringstream material;
+    material << std::hex << "static-support-timing-corpus-r0|"
+             << name << '|' << support_identity << '|';
+    for (std::size_t state_index = 0U;
+         state_index < states.size(); ++state_index) {
+        material << state_index << ':';
+        for (const JointPoint& point : states[state_index]) {
+            material << point.id << ':';
+            for (double value : {
+                     point.position.x,
+                     point.position.y,
+                     point.position.z}) {
+                std::uint64_t bits = 0U;
+                std::memcpy(&bits, &value, sizeof(bits));
+                material << bits << ',';
+            }
+            material << ';';
+        }
+        material << '|';
+    }
+    return sha256_hex(material.str());
+}
+
+StaticSupportTimedPass run_static_support_timed_pass(
+    const std::vector<std::vector<JointPoint>>& states,
+    const std::vector<JointPoint>& support,
+    const JointStaticSupportBinding* binding) {
+    StaticSupportTimedPass result;
+    std::uint64_t checksum = 0xcbf29ce484222325ULL;
+    const auto start = std::chrono::steady_clock::now();
+    for (const std::vector<JointPoint>& fluid : states) {
+        const JointNeighborhood value = binding == nullptr
+            ? build_joint_neighborhood(fluid, support, true)
+            : build_joint_neighborhood_with_static_support(
+                fluid, binding, true);
+        if (!value.passed) {
+            return result;
+        }
+        checksum = static_support_neighborhood_checksum(checksum, value);
+    }
+    const auto end = std::chrono::steady_clock::now();
+    const auto elapsed = std::chrono::duration_cast<
+        std::chrono::nanoseconds>(end - start).count();
+    if (elapsed <= 0) {
+        return result;
+    }
+    result.elapsed_ns = static_cast<std::uint64_t>(elapsed);
+    result.checksum = checksum;
+    result.passed = true;
+    return result;
+}
+
+std::uint64_t median_u64(std::vector<std::uint64_t> values) {
+    std::sort(values.begin(), values.end());
+    return values[values.size() / 2U];
+}
+
+std::uint64_t median_absolute_deviation_u64(
+    const std::vector<std::uint64_t>& values,
+    std::uint64_t median) {
+    std::vector<std::uint64_t> deviations;
+    deviations.reserve(values.size());
+    for (std::uint64_t value : values) {
+        deviations.push_back(value >= median
+            ? value - median : median - value);
+    }
+    return median_u64(std::move(deviations));
+}
+
+StaticSupportTimingCase run_static_support_timing_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    std::size_t expected_states) {
+    StaticSupportTimingCase result;
+    result.name = name;
+    StaticSupportWorkTrace capture;
+    capture.capture_fluid_states = true;
+    const MacroAdaptiveTransactionCase source =
+        run_macro_adaptive_transaction_case(
+            name + "-source", fixture, scenario_sha256, false, true,
+            nullptr, nullptr, 0, 1U, false, true,
+            nullptr, &capture);
+    result.source_transaction_exact = source.passed
+        && source.trace.live_workspaces == 0
+        && source.retention.live_retained == 0
+        && capture.workspace_builds == expected_states;
+    result.corpus_states = capture.fluid_states.size();
+
+    const std::vector<JointPoint> support = tagged_points(fixture.boundary);
+    const JointStaticSupportIndex index =
+        build_joint_static_support_index(support);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &index, index.identity_sha256);
+    result.index_identity_sha256 = index.identity_sha256;
+    result.corpus_sha256 = static_support_timing_corpus_hash(
+        name, capture.fluid_states, index.identity_sha256);
+    result.corpus_exact = result.source_transaction_exact
+        && result.corpus_states == expected_states
+        && index.passed && binding.passed;
+    if (!result.corpus_exact) {
+        result.failure = "TIMING_CORPUS";
+        return result;
+    }
+
+    std::uint64_t preflight_checksum = 0xcbf29ce484222325ULL;
+    for (const std::vector<JointPoint>& fluid : capture.fluid_states) {
+        const JointNeighborhood legacy = build_joint_neighborhood(
+            fluid, support, true);
+        const JointNeighborhood candidate =
+            build_joint_neighborhood_with_static_support(
+                fluid, &binding, true);
+        if (!legacy.passed || !candidate.passed
+            || !exact_joint_neighborhood_value(candidate, legacy)
+            || joint_pair_hash(candidate) != joint_pair_hash(legacy)) {
+            result.failure = "TIMING_PREFLIGHT";
+            return result;
+        }
+        preflight_checksum = static_support_neighborhood_checksum(
+            preflight_checksum, legacy);
+    }
+    result.preflight_exact = true;
+    result.checksum = preflight_checksum;
+
+    result.warmup_exact = true;
+    for (int warmup = 0; warmup < 3; ++warmup) {
+        const StaticSupportTimedPass legacy =
+            run_static_support_timed_pass(
+                capture.fluid_states, support, nullptr);
+        const StaticSupportTimedPass candidate =
+            run_static_support_timed_pass(
+                capture.fluid_states, support, &binding);
+        result.warmup_exact = result.warmup_exact
+            && legacy.passed && candidate.passed
+            && legacy.checksum == result.checksum
+            && candidate.checksum == result.checksum;
+    }
+    if (!result.warmup_exact) {
+        result.failure = "TIMING_WARMUP";
+        return result;
+    }
+
+    result.legacy_ns.reserve(21U);
+    result.candidate_ns.reserve(21U);
+    result.samples_valid = true;
+    for (int round = 0; round < 21; ++round) {
+        StaticSupportTimedPass legacy;
+        StaticSupportTimedPass candidate;
+        if (round % 2 == 0) {
+            legacy = run_static_support_timed_pass(
+                capture.fluid_states, support, nullptr);
+            candidate = run_static_support_timed_pass(
+                capture.fluid_states, support, &binding);
+        } else {
+            candidate = run_static_support_timed_pass(
+                capture.fluid_states, support, &binding);
+            legacy = run_static_support_timed_pass(
+                capture.fluid_states, support, nullptr);
+        }
+        result.samples_valid = result.samples_valid
+            && legacy.passed && candidate.passed
+            && legacy.elapsed_ns > 0U && candidate.elapsed_ns > 0U
+            && legacy.checksum == result.checksum
+            && candidate.checksum == result.checksum;
+        result.legacy_ns.push_back(legacy.elapsed_ns);
+        result.candidate_ns.push_back(candidate.elapsed_ns);
+        result.candidate_wins +=
+            candidate.elapsed_ns < legacy.elapsed_ns ? 1 : 0;
+    }
+    if (!result.samples_valid) {
+        result.failure = "TIMING_SAMPLE";
+        return result;
+    }
+    result.legacy_min_ns = *std::min_element(
+        result.legacy_ns.begin(), result.legacy_ns.end());
+    result.legacy_max_ns = *std::max_element(
+        result.legacy_ns.begin(), result.legacy_ns.end());
+    result.legacy_median_ns = median_u64(result.legacy_ns);
+    result.legacy_mad_ns = median_absolute_deviation_u64(
+        result.legacy_ns, result.legacy_median_ns);
+    result.candidate_min_ns = *std::min_element(
+        result.candidate_ns.begin(), result.candidate_ns.end());
+    result.candidate_max_ns = *std::max_element(
+        result.candidate_ns.begin(), result.candidate_ns.end());
+    result.candidate_median_ns = median_u64(result.candidate_ns);
+    result.candidate_mad_ns = median_absolute_deviation_u64(
+        result.candidate_ns, result.candidate_median_ns);
+    result.median_speedup = static_cast<double>(result.legacy_median_ns)
+        / static_cast<double>(result.candidate_median_ns);
+    result.classification = result.candidate_median_ns
+            < result.legacy_median_ns
+        ? "CANDIDATE_FASTER" : "CANDIDATE_NOT_FASTER";
+    result.passed = std::chrono::steady_clock::is_steady
+        && result.source_transaction_exact && result.corpus_exact
+        && result.preflight_exact && result.warmup_exact
+        && result.samples_valid && result.legacy_ns.size() == 21U
+        && result.candidate_ns.size() == 21U
+        && std::isfinite(result.median_speedup)
+        && result.median_speedup > 0.0;
+    if (!result.passed) {
+        result.failure = "TIMING_GATE";
+    }
+    return result;
+}
+
+void append_u64_samples(
+    std::ostringstream& output,
+    const std::vector<std::uint64_t>& values) {
+    output << '[';
+    for (std::size_t i = 0U; i < values.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << values[i];
+    }
+    output << ']';
+}
+
+void append_static_support_timing_case(
+    std::ostringstream& output,
+    const StaticSupportTimingCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"corpus_states\":" << value.corpus_states
+           << ",\"source_transaction_exact\":"
+           << (value.source_transaction_exact ? "true" : "false")
+           << ",\"corpus_exact\":"
+           << (value.corpus_exact ? "true" : "false")
+           << ",\"preflight_exact\":"
+           << (value.preflight_exact ? "true" : "false")
+           << ",\"warmup_exact\":"
+           << (value.warmup_exact ? "true" : "false")
+           << ",\"samples_valid\":"
+           << (value.samples_valid ? "true" : "false")
+           << ",\"corpus_sha256\":\"" << value.corpus_sha256
+           << "\",\"index_identity_sha256\":\""
+           << value.index_identity_sha256
+           << "\",\"checksum\":" << value.checksum
+           << ",\"legacy_ns\":";
+    append_u64_samples(output, value.legacy_ns);
+    output << ",\"candidate_ns\":";
+    append_u64_samples(output, value.candidate_ns);
+    output << ",\"legacy_min_ns\":" << value.legacy_min_ns
+           << ",\"legacy_median_ns\":" << value.legacy_median_ns
+           << ",\"legacy_max_ns\":" << value.legacy_max_ns
+           << ",\"legacy_mad_ns\":" << value.legacy_mad_ns
+           << ",\"candidate_min_ns\":" << value.candidate_min_ns
+           << ",\"candidate_median_ns\":"
+           << value.candidate_median_ns
+           << ",\"candidate_max_ns\":" << value.candidate_max_ns
+           << ",\"candidate_mad_ns\":" << value.candidate_mad_ns
+           << ",\"candidate_wins\":" << value.candidate_wins
+           << ",\"median_speedup\":" << value.median_speedup
+           << ",\"classification\":\"" << value.classification
+           << "\"}";
+}
+
+SplitBoundaryReport run_static_support_timing_impl() {
+    const SplitBoundaryReport parent =
+        run_static_support_index_probe_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "187cff865ea739f96c1440f3041e7fd1f6de1a8c95436ae810f604850d80c90e";
+    std::vector<StaticSupportTimingCase> cases;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C4B_PARENT";
+    } else {
+        cases.push_back(run_static_support_timing_case(
+            "p1-static-support-timing",
+            make_b4b_supported_column_fixture(),
+            B4C3TA_P1_SCENARIO_SHA256, 264U));
+        cases.push_back(run_static_support_timing_case(
+            "p2-static-support-timing",
+            make_b4b_released_block_fixture(),
+            B4C3TA_P2_SCENARIO_SHA256, 9U));
+        for (const StaticSupportTimingCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+    }
+    const bool passed = parent_exact && cases.size() == 2U
+        && std::all_of(
+            cases.begin(), cases.end(),
+            [](const StaticSupportTimingCase& value) {
+                return value.passed;
+            });
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|identity:eaed90deca8ca29ff07fb1b7df3ecbb3c1ca868181a4835c28caecc25c379758";
+    if (parent_exact) {
+        for (const StaticSupportTimingCase& value : cases) {
+            material << '|' << value.name << ':' << value.passed << ':'
+                     << value.corpus_states << ':'
+                     << value.source_transaction_exact << ':'
+                     << value.corpus_exact << ':' << value.preflight_exact
+                     << ':' << value.warmup_exact << ':'
+                     << value.samples_valid << ':' << value.corpus_sha256
+                     << ':' << value.index_identity_sha256 << ':'
+                     << value.checksum;
+        }
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal.nsr3b4c4bm_static_support_timing.v1\""
+           << ",\"identity_sha256\":\"eaed90deca8ca29ff07fb1b7df3ecbb3c1ca868181a4835c28caecc25c379758\""
+           << ",\"parent_b4c4b_probe_raw_sha256\":\"187cff865ea739f96c1440f3041e7fd1f6de1a8c95436ae810f604850d80c90e\""
+           << ",\"parent_b4c4b_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"authority\":\"MEASUREMENT_ONLY\""
+           << ",\"clock\":\"STEADY_NANOSECONDS\""
+           << ",\"warmup_passes\":3"
+           << ",\"measured_rounds\":21"
+           << ",\"order\":\"ALTERNATING_AB_BA\""
+           << ",\"cases\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0U; i < cases.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_static_support_timing_case(report, cases[i]);
+        }
+    }
+    report << "]"
+           << ",\"timing_threshold_applied\":false"
+           << ",\"complete_lane_application_selected\":false"
+           << ",\"flat_csr_authorized\":false"
+           << ",\"b4d_reference_execution_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"raw_repeatability_required\":false"
+           << ",\"deterministic_result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_static_support_timing_controls() {
+    return run_static_support_timing_impl();
 }
 
 } // namespace nextengine::nonlocal::fcr
