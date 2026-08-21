@@ -604,3 +604,10 @@ P1 retains all 64 KKT features exactly in canonical integer coordinates while
 the 24-feature raw mismatch remains visible as the intended discriminator.
 Both one-frame adaptive transactions, all negatives and rollback pass. Only
 complete adaptive macro replay design is authorized next.
+The
+[B4C3MAR audit](../../development/nonlocal-nsr3b4c3mar-complete-adaptive-macro-research-2026-08-21.md)
+keeps long-horizon composition separate from fixed-reference accuracy. Its
+[frozen contract](03b4c3mar-complete-adaptive-macro-replay-contract.md) runs
+all 8/16 frames with private recovery, one accepted macro publication, mixed
+admission, canonical topology and macro ledger per frame. A PASS may authorize
+only a later adaptive-versus-fixed comparison design.

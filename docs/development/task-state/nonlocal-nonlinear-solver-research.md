@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3MAG_PASS / FULL_ADAPTIVE_MACRO_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3MAG_PASS / B4C3MAR_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -41,9 +41,9 @@
 - **Current decision:** B4C3PE1 selects the macro-boundary canonical fixed
   reference candidate with 89 temporal, 55 absolute and zero rejected field/
   frame admissions. B4C3P remains the preserved legacy-tube FAIL.
-- **Current action:** design the complete 8/16-frame adaptive macro recovery
-  replay around the selected topology/transaction boundary. B4C3TC/B4C4/B4D
-  remain blocked.
+- **Current action:** implement frozen B4C3MAR complete 8/16-frame adaptive
+  macro recovery replay and post-commit rollback. Comparison/B4C4/B4D remain
+  blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1432,6 +1432,22 @@
   contacts, physical gates, roots and work have not run over 8/16 frames.
 - **Smallest next action:** freeze the full adaptive macro recovery contract.
 
+### D-071 -- Separate complete composition from fixed accuracy
+
+- **Observation:** one-frame selection/topology now passes, but long-horizon
+  recovery and accumulated publication effects are independent hypotheses from
+  adaptive-versus-fixed accuracy.
+- **Decision:** B4C3MAR proves only complete 8/16-frame composition, schedule,
+  physics, roots, work and rollback. A later stage owns fixed comparison.
+- **Rejected alternatives:** combining replay and reference accuracy, reusing
+  per-substep canonical references, or freezing observed adaptive counts before
+  execution.
+- **Consequence:** every frame owns one durable step/ledger entry while all
+  candidate attempts remain visible only as work evidence.
+- **Remaining uncertainty:** complete lanes and post-first-commit rollback have
+  not executed.
+- **Smallest next action:** implement B4C3MAR using the B4C3MAG frame primitive.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1444,10 +1460,9 @@
 
 ## Exact next action
 
-1. Freeze full adaptive macro recovery state, schedule and ledger ownership.
-2. Define fixed-reference comparison and mixed admission without using the
-   rejected per-substep trajectory.
-3. Implement only after report identity and negative controls are immutable.
+1. Implement complete P1/P2 B4C3MAR lanes and accepted-only accumulation.
+2. Implement post-first-commit forced rollback and exact global roots.
+3. Execute isolated, then twice parent-gated before comparison design.
 
 ## Reconsideration triggers
 
