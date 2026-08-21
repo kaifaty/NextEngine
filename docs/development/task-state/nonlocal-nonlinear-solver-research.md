@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP1_PASS / B4EP2_DESIGN` |
+| Status | `ACTIVE / NSR3B4EP1_PASS / B4EP2_PROFILE_AUTHORIZED` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -156,8 +156,12 @@
 - **Current constraint:** this removes only transient research evidence cost.
   It changes no physics and does not make the remaining 16.15 s macro
   production-ready; HVP and topology remain live residual categories.
-- **Next action:** freeze B4EP2 residual-attribution design over the work-only
-  candidate, then select exactly one topology/HVP optimization experiment.
+- **Current decision:** B4EP2 freezes one exact-output GCC/gprof run over the
+  work-only command. It ranks HVP, topology/CSR, evaluation/tape and nonlinear
+  bookkeeping without changing source or host policy.
+- **Next action:** build the separate instrumented B4EP1 implementation, run
+  one work-only macro, require exact stdout and select exactly one B4EP3
+  design from the residual profile.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -203,6 +207,7 @@
 | NSR3B4EP0 PASS | SHA 41.36%, HVP 23.4%, neighborhood 22.7%, evaluation 8.3% | B4EP1 query-evidence separation design only |
 | NSR3B4EP1 contract | full-state default plus work-only nominal transaction | implement/A-B only; physics and B4E2 unchanged |
 | NSR3B4EP1 PASS | exact physics with median `3.0168x` paired speedup | B4EP2 residual attribution/design only |
+| NSR3B4EP2 contract | exact-output work-only residual gprof | one external profile only; no optimization/B4E2 |
 
 Candidate solver identity remains:
 
@@ -249,6 +254,7 @@ production authority is created by this lineage.
 | [B4EP0](../nonlocal-nsr3b4ep0-attribution-evidence-2026-08-21.md) | exact-output profile selects SHA as largest leaf with `~1.70x` ceiling | freeze one Release evidence-policy ablation |
 | [B4EP1 research](../nonlocal-nsr3b4ep1-query-evidence-research-2026-08-21.md) | inner hashes are non-physical and separable from parent/final roots | implement work-only policy and balanced A/B |
 | [B4EP1](../nonlocal-nsr3b4ep1-query-evidence-evidence-2026-08-21.md) | exact roots/counters with `3.0168x` median paired speedup | retain full default; profile residual work-only cost before one next optimization |
+| [B4EP2 research](../nonlocal-nsr3b4ep2-residual-attribution-research-2026-08-21.md) | HVP/topology/evaluation/control remain competing residual hypotheses | run one exact-output work-only gprof profile |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -588,12 +594,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Freeze B4EP2 residual-attribution research and contract over implementation
-   `5e40aa2...a660f1` and the exact B4EP1 candidate result.
-2. Profile only the work-only nominal command with exact stdout
+1. Profile only the work-only nominal command with exact stdout
    correspondence; distinguish HVP, topology/tape build, evaluation and
    nonlinear-control residuals.
-3. Select exactly one controlled next optimization; keep B4E2, references,
+2. Select exactly one controlled B4EP3 optimization design; keep B4E2, references,
    runtime and production work blocked.
 
 ## Reconsideration triggers

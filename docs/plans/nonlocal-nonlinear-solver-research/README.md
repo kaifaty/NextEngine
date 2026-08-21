@@ -994,3 +994,9 @@ across both builds and all three alternating pairs win with median `3.0168x`
 speedup. Median one-macro wall is now 16.15 s and RSS is 62,016 KiB, but this
 still leaves material HVP/topology cost. Only B4EP2 residual profiling and
 design are authorized; B4E2, runtime, CUDA and production remain blocked.
+The [B4EP2 research](../../development/nonlocal-nsr3b4ep2-residual-attribution-research-2026-08-21.md)
+keeps four residual hypotheses live and selects an exact-output work-only
+gprof run. The
+[frozen B4EP2 contract](03b4ep2-residual-attribution-contract.md) binds the
+B4EP1 implementation/source/output bytes and permits only one external
+profile. Run attribution only; do not optimize or start B4E2 yet.
