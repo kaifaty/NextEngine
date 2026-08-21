@@ -1,6 +1,6 @@
 # NSR3-B4E0 -- nominal alignment preflight contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / NO_TRAJECTORY`
+Status: `FROZEN / PASS / B4E1_CONTRACT_DESIGN_AUTHORIZED / NO_TRAJECTORY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -103,3 +103,9 @@ resource-probe research/contract design. It keeps
 `trajectory_started=false`, `reference_curve_decoded=false`,
 `b4e_comparison_execution_authorized=false`, `runtime_authority=false` and
 `production_authority=false`. Any mismatch stops before B4E1.
+
+B4E0 passes twice byte-identically with exact Hydro/Dam projections,
+canonical initial aggregates, nominal flat-neighborhood capacity and all
+three mutation controls; see the
+[dated evidence](../../development/nonlocal-nsr3b4e0-nominal-alignment-evidence-2026-08-21.md).
+This authorizes only B4E1 one-macro resource-probe contract design.

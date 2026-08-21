@@ -933,3 +933,10 @@ cost failures. The
 only Hydro/Dam zero-trajectory geometry, stable-ID, canonical aggregate and
 flat-neighborhood preflight. Orifice remains B4O. Implement B4E0 next; no
 reference curve or candidate trajectory is authorized yet.
+B4E0 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e0-nominal-alignment-evidence-2026-08-21.md).
+Hydro/Dam exact roots, initial aggregates and nominal flat neighborhoods agree
+twice and remain within 118/117 neighbors. The zero-step probe takes about
+0.4 s and 47 MiB, but this is not solver throughput. Hydro's nine active
+centres are only `6.66e-16` positive strain and remain an explicit B4E1 cost
+diagnostic. Design only the one-macro resource probe next.

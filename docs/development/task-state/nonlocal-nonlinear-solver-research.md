@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1E_PASS / B4E0_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4E0_PASS / B4E1_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -106,9 +106,15 @@
   one-macro cost probe and first-output pilots before any full run. Orifice is
   deferred to B4O; a projected combined cost above four machine-hours routes
   to B4EP optimization without becoming a physics failure.
-- **Next action:** implement the frozen B4E0 exact geometry/ID/schedule/
-  canonical aggregate/flat-neighborhood preflight twice. Do not open a
-  reference curve or run a solver.
+- **Current conclusion:** B4E0 passes twice and across two identical builds.
+  Hydro/Dam need at most 118/117 neighbors, about 47 MiB RSS and 0.4 s for the
+  zero-step preflight; all roots and mutations are exact.
+- **Numerical diagnostic:** Hydro has nine active centres at only
+  `6.6613381477509392e-16` positive strain. This is machine-floor branch
+  sensitivity, not pressure evidence; B4E1 must show its spectral cost.
+- **Next action:** research and freeze B4E1 as one Hydro macro step twice with
+  deterministic physics/work roots and timing outside the report. It grants
+  no DFSPH comparison credit.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -145,6 +151,7 @@
 | NSR3B4DR1E PASS | independently decoded full DFSPH references and deterministic negative controls | new reference candidate; B4E contract design only |
 | NSR3B4E research | staged Hydro/Dam aggregate comparison and cost ladder | B4E0 alignment preflight only; Orifice remains B4O |
 | NSR3B4E0 contract | exact zero-trajectory nominal alignment | implement preflight only; B4E1 still blocked |
+| NSR3B4E0 PASS | exact 6k Hydro/Dam inputs and capacity-valid flat neighborhoods | B4E1 one-macro contract design only |
 
 Candidate solver identity remains:
 
@@ -182,6 +189,7 @@ production authority is created by this lineage.
 | [B4DR1D](../nonlocal-nsr3b4dr1d-full-generation-evidence-2026-08-21.md) | all full pairs exact; verified external publication | freeze R1E reader/profile contract over actual roots |
 | [B4DR1E](../nonlocal-nsr3b4dr1e-reference-attestation-evidence-2026-08-21.md) | independent reader accepts all full references; both mutation layers and four external negatives reject | design B4E against the new candidate; no execution before a frozen comparison contract |
 | [B4E research](../nonlocal-nsr3b4e-nominal-corpus-research-2026-08-21.md) | Hydro/Dam align at input/step level; nominal entry point and cost evidence are missing | execute B4E0 alignment before any trajectory |
+| [B4E0](../nonlocal-nsr3b4e0-nominal-alignment-evidence-2026-08-21.md) | exact roots/aggregates/mutations; nominal degrees 118/117; no trajectory | design one-macro Hydro resource probe only |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -399,6 +407,15 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** full-run-first execution, cross-solver iteration/density or
   per-particle gates, Orifice before B4O, and timing as a physics tolerance.
 
+### D-021 -- Admit nominal alignment to one-macro cost design
+
+- **Observation:** both 6k cases reproduce exact R1D roots and remain below
+  flat-neighborhood capacities; two processes/builds agree exactly.
+- **Decision:** select B4E0 PASS and design one Hydro macro step with timing
+  outside deterministic physics/work evidence.
+- **Rejected:** treating the 0.4 s zero-step preflight as solver throughput or
+  interpreting machine-floor Hydro active centres as physical pressure.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -423,12 +440,13 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement `--nominal-alignment-preflight` under the frozen B4E0 identity.
-2. Prove exact Hydro/Dam roots, canonical initial aggregates, static index,
-   flat CSR and ID/boundary/schedule mutation rejection twice byte-identically.
-3. Commit dated B4E0 evidence only if no solver or reference curve starts.
-4. Freeze B4E1 one-macro resource-probe design after B4E0 PASS; keep full B4E
-   execution blocked.
+1. Audit the one-macro path's spectrum, refinement, KKT, work and failure
+   fields at 6,000 samples without executing it.
+2. Freeze a B4E1 Hydro-step-1 identity, count capacities, deterministic
+   report, paired-run rule and external timing/RSS measurement.
+3. Execute only after the B4E1 contract is committed; stop at the first
+   capacity/convergence/ledger failure.
+4. Keep reference-curve decode, first-output pilots and full B4E blocked.
 
 ## Reconsideration triggers
 
