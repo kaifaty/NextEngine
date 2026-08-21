@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4CM_FROZEN / B4C4CM_EXECUTION` |
+| Status | `ACTIVE / NSR3B4C4CM_PASS / B4C4C1_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -94,6 +94,11 @@
 - **Current action:** freeze an interleaved B4C4CM construction timing
   discriminator, then freeze complete-lane CSR ownership separately. B4D
   remains blocked.
+- **Current conclusion:** three B4C4CM processes reproduce deterministic root
+  `472c4378...1600`. Candidate wins all `63/63` paired rounds per fixture;
+  median process construction speedups are `1.2274x/1.2055x` P1/P2.
+- **Current action:** freeze B4C4C1 complete-lane CSR ownership and rollback
+  accounting. Do not infer a whole-solver ratio from the local benchmark.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1818,6 +1823,22 @@
 - **Smallest next action:** implement the B4C4CM timed pass and run three
   sequential reports.
 
+### D-089 -- Roll out flat adjacency across complete lanes
+
+- **Observation:** three threshold-free processes show a consistent local
+  `1.20--1.24x` construction gain with exact corpus/checksum and all paired
+  rounds faster.
+- **Decision:** authorize a separately frozen complete adaptive/fixed-lane
+  rollout with one ownership transfer per workspace.
+- **Rejected alternatives:** claim whole-solver speedup, alter arithmetic,
+  remove the legacy path, or combine support views with the rollout.
+- **Consequence:** B4C4C1 must preserve every B4C4B1 physical/root/work result,
+  add exact layout-work counts and prove success/forced rollback ownership.
+- **Remaining uncertainty:** complete-lane directed volumes and accumulated
+  lifetime behavior under all adaptive/fixed schedules.
+- **Smallest next action:** derive fixed row/offset/transfer counts from the
+  B4C4B1 workspace table and freeze B4C4C1.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1830,8 +1851,7 @@
 
 ## Exact next action
 
-1. Execute frozen B4C4CM timing over the recorded one-macro states.
-2. Freeze and execute complete-lane flat-CSR ownership/rollback.
+1. Freeze and execute complete-lane flat-CSR ownership/rollback.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 
 ## Reconsideration triggers

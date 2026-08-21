@@ -29221,4 +29221,418 @@ SplitBoundaryReport run_flat_adjacency_controls() {
     return run_flat_adjacency_impl(true);
 }
 
+namespace {
+
+struct FlatAdjacencyTimingCase {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    std::size_t corpus_states = 0U;
+    bool source_transaction_exact = false;
+    bool corpus_exact = false;
+    bool preflight_exact = false;
+    bool warmup_exact = false;
+    bool samples_valid = false;
+    std::string corpus_sha256;
+    std::string index_identity_sha256;
+    std::uint64_t checksum = 0U;
+    std::vector<std::uint64_t> legacy_ns;
+    std::vector<std::uint64_t> candidate_ns;
+    std::uint64_t legacy_min_ns = 0U;
+    std::uint64_t legacy_median_ns = 0U;
+    std::uint64_t legacy_max_ns = 0U;
+    std::uint64_t legacy_mad_ns = 0U;
+    std::uint64_t candidate_min_ns = 0U;
+    std::uint64_t candidate_median_ns = 0U;
+    std::uint64_t candidate_max_ns = 0U;
+    std::uint64_t candidate_mad_ns = 0U;
+    int candidate_wins = 0;
+    double median_speedup = 0.0;
+    std::string classification;
+};
+
+std::uint64_t flat_adjacency_workspace_checksum(
+    std::uint64_t seed,
+    const JointNeighborhood& neighborhood,
+    const Evaluation& evaluation,
+    const JointPressureTape& tape) {
+    seed = static_support_neighborhood_checksum(seed, neighborhood);
+    const auto mix_double = [&](double value) {
+        return static_support_checksum_mix(seed, binary64_bits(value));
+    };
+    seed = mix_double(evaluation.energy);
+    seed = static_support_checksum_mix(seed, evaluation.active_centers);
+    seed = static_support_checksum_mix(seed, evaluation.fluid_pairs);
+    seed = static_support_checksum_mix(seed, evaluation.boundary_pairs);
+    seed = mix_double(evaluation.minimum_branch_margin);
+    for (double value : evaluation.density) {
+        seed = mix_double(value);
+    }
+    for (const Vec3 value : evaluation.gradient) {
+        seed = mix_double(value.x);
+        seed = mix_double(value.y);
+        seed = mix_double(value.z);
+    }
+    for (std::uint32_t value : tape.offsets) {
+        seed = static_support_checksum_mix(seed, value);
+    }
+    for (std::uint32_t value : tape.directed_pair_indices) {
+        seed = static_support_checksum_mix(seed, value);
+    }
+    for (double value : tape.radius) {
+        seed = mix_double(value);
+    }
+    for (double value : tape.compression) {
+        seed = mix_double(value);
+    }
+    seed = static_support_checksum_mix(seed, tape.active_centers);
+    seed = static_support_checksum_mix(seed, tape.active_directed);
+    seed = static_support_checksum_mix(seed, tape.payload_bytes);
+    return seed;
+}
+
+StaticSupportTimedPass run_flat_adjacency_timed_pass(
+    const std::vector<std::vector<JointPoint>>& states,
+    const JointStaticSupportBinding& binding,
+    bool flat_adjacency) {
+    StaticSupportTimedPass result;
+    std::uint64_t checksum = 0xcbf29ce484222325ULL;
+    const auto start = std::chrono::steady_clock::now();
+    for (const std::vector<JointPoint>& fluid : states) {
+        JointNeighborhood neighborhood =
+            build_joint_neighborhood_with_static_support(
+                fluid, &binding, true, nullptr, flat_adjacency);
+        if (!neighborhood.passed) {
+            return result;
+        }
+        const Evaluation evaluation = evaluate_joint(neighborhood);
+        const JointPressureTape tape = flat_adjacency
+            ? build_joint_pressure_tape_from_flat(
+                neighborhood, evaluation)
+            : build_joint_pressure_tape(neighborhood, evaluation);
+        if (!tape.passed) {
+            return result;
+        }
+        checksum = flat_adjacency_workspace_checksum(
+            checksum, neighborhood, evaluation, tape);
+    }
+    const auto end = std::chrono::steady_clock::now();
+    const auto elapsed = std::chrono::duration_cast<
+        std::chrono::nanoseconds>(end - start).count();
+    if (elapsed <= 0) {
+        return result;
+    }
+    result.elapsed_ns = static_cast<std::uint64_t>(elapsed);
+    result.checksum = checksum;
+    result.passed = true;
+    return result;
+}
+
+FlatAdjacencyTimingCase run_flat_adjacency_timing_case(
+    std::string name,
+    std::string corpus_name,
+    std::string expected_corpus_sha256,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    std::size_t expected_states) {
+    FlatAdjacencyTimingCase result;
+    result.name = std::move(name);
+    StaticSupportWorkTrace capture;
+    capture.capture_fluid_states = true;
+    const MacroAdaptiveTransactionCase source =
+        run_macro_adaptive_transaction_case(
+            result.name + "-source", fixture, scenario_sha256,
+            false, true, nullptr, nullptr, 0, 1U, false, true,
+            nullptr, &capture);
+    result.source_transaction_exact = source.passed
+        && source.trace.live_workspaces == 0
+        && source.retention.live_retained == 0
+        && capture.workspace_builds == expected_states;
+    result.corpus_states = capture.fluid_states.size();
+
+    const std::vector<JointPoint> support = tagged_points(fixture.boundary);
+    const JointStaticSupportIndex index =
+        build_joint_static_support_index(support);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &index, index.identity_sha256);
+    result.index_identity_sha256 = index.identity_sha256;
+    result.corpus_sha256 = static_support_timing_corpus_hash(
+        corpus_name, capture.fluid_states, index.identity_sha256);
+    result.corpus_exact = result.source_transaction_exact
+        && result.corpus_states == expected_states
+        && result.corpus_sha256 == expected_corpus_sha256
+        && index.passed && binding.passed;
+    if (!result.corpus_exact) {
+        result.failure = "TIMING_CORPUS";
+        return result;
+    }
+
+    std::uint64_t preflight_checksum = 0xcbf29ce484222325ULL;
+    for (const std::vector<JointPoint>& fluid : capture.fluid_states) {
+        JointNeighborhood legacy =
+            build_joint_neighborhood_with_static_support(
+                fluid, &binding, true);
+        JointNeighborhood candidate =
+            build_joint_neighborhood_with_static_support(
+                fluid, &binding, true, nullptr, true);
+        if (!legacy.passed || !candidate.passed
+            || !flat_rows_equal_nested(legacy, candidate)) {
+            result.failure = "TIMING_PREFLIGHT_ROWS";
+            return result;
+        }
+        const Evaluation legacy_evaluation = evaluate_joint(legacy);
+        const Evaluation candidate_evaluation = evaluate_joint(candidate);
+        const std::vector<Vec3> direction = deterministic_direction(
+            legacy.fluid.size() + legacy.support.size());
+        if (!exact_evaluation_values(
+                candidate_evaluation, legacy_evaluation)
+            || !exact_vec3_values(
+                apply_joint_hessian(candidate, direction),
+                apply_joint_hessian(legacy, direction))) {
+            result.failure = "TIMING_PREFLIGHT_EVALUATION";
+            return result;
+        }
+        const JointPressureTape legacy_tape = build_joint_pressure_tape(
+            legacy, legacy_evaluation);
+        const JointPressureTape candidate_tape =
+            build_joint_pressure_tape_from_flat(
+                candidate, candidate_evaluation);
+        if (!legacy_tape.passed || !candidate_tape.passed
+            || !exact_joint_pressure_tape_value(
+                candidate_tape, legacy_tape)) {
+            result.failure = "TIMING_PREFLIGHT_TAPE";
+            return result;
+        }
+        const std::uint64_t legacy_checksum =
+            flat_adjacency_workspace_checksum(
+                preflight_checksum, legacy,
+                legacy_evaluation, legacy_tape);
+        const std::uint64_t candidate_checksum =
+            flat_adjacency_workspace_checksum(
+                preflight_checksum, candidate,
+                candidate_evaluation, candidate_tape);
+        if (legacy_checksum != candidate_checksum) {
+            result.failure = "TIMING_PREFLIGHT_CHECKSUM";
+            return result;
+        }
+        preflight_checksum = legacy_checksum;
+    }
+    result.preflight_exact = true;
+    result.checksum = preflight_checksum;
+
+    result.warmup_exact = true;
+    for (int warmup = 0; warmup < 3; ++warmup) {
+        const StaticSupportTimedPass legacy =
+            run_flat_adjacency_timed_pass(
+                capture.fluid_states, binding, false);
+        const StaticSupportTimedPass candidate =
+            run_flat_adjacency_timed_pass(
+                capture.fluid_states, binding, true);
+        result.warmup_exact = result.warmup_exact
+            && legacy.passed && candidate.passed
+            && legacy.checksum == result.checksum
+            && candidate.checksum == result.checksum;
+    }
+    if (!result.warmup_exact) {
+        result.failure = "TIMING_WARMUP";
+        return result;
+    }
+
+    result.legacy_ns.reserve(21U);
+    result.candidate_ns.reserve(21U);
+    result.samples_valid = true;
+    for (int round = 0; round < 21; ++round) {
+        StaticSupportTimedPass legacy;
+        StaticSupportTimedPass candidate;
+        if (round % 2 == 0) {
+            legacy = run_flat_adjacency_timed_pass(
+                capture.fluid_states, binding, false);
+            candidate = run_flat_adjacency_timed_pass(
+                capture.fluid_states, binding, true);
+        } else {
+            candidate = run_flat_adjacency_timed_pass(
+                capture.fluid_states, binding, true);
+            legacy = run_flat_adjacency_timed_pass(
+                capture.fluid_states, binding, false);
+        }
+        result.samples_valid = result.samples_valid
+            && legacy.passed && candidate.passed
+            && legacy.elapsed_ns > 0U && candidate.elapsed_ns > 0U
+            && legacy.checksum == result.checksum
+            && candidate.checksum == result.checksum;
+        result.legacy_ns.push_back(legacy.elapsed_ns);
+        result.candidate_ns.push_back(candidate.elapsed_ns);
+        result.candidate_wins +=
+            candidate.elapsed_ns < legacy.elapsed_ns ? 1 : 0;
+    }
+    if (!result.samples_valid) {
+        result.failure = "TIMING_SAMPLE";
+        return result;
+    }
+    result.legacy_min_ns = *std::min_element(
+        result.legacy_ns.begin(), result.legacy_ns.end());
+    result.legacy_max_ns = *std::max_element(
+        result.legacy_ns.begin(), result.legacy_ns.end());
+    result.legacy_median_ns = median_u64(result.legacy_ns);
+    result.legacy_mad_ns = median_absolute_deviation_u64(
+        result.legacy_ns, result.legacy_median_ns);
+    result.candidate_min_ns = *std::min_element(
+        result.candidate_ns.begin(), result.candidate_ns.end());
+    result.candidate_max_ns = *std::max_element(
+        result.candidate_ns.begin(), result.candidate_ns.end());
+    result.candidate_median_ns = median_u64(result.candidate_ns);
+    result.candidate_mad_ns = median_absolute_deviation_u64(
+        result.candidate_ns, result.candidate_median_ns);
+    result.median_speedup = static_cast<double>(result.legacy_median_ns)
+        / static_cast<double>(result.candidate_median_ns);
+    result.classification = result.candidate_median_ns
+            < result.legacy_median_ns
+        ? "CANDIDATE_FASTER" : "CANDIDATE_NOT_FASTER";
+    result.passed = std::chrono::steady_clock::is_steady
+        && result.source_transaction_exact && result.corpus_exact
+        && result.preflight_exact && result.warmup_exact
+        && result.samples_valid && result.legacy_ns.size() == 21U
+        && result.candidate_ns.size() == 21U
+        && std::isfinite(result.median_speedup)
+        && result.median_speedup > 0.0;
+    if (!result.passed) {
+        result.failure = "TIMING_GATE";
+    }
+    return result;
+}
+
+void append_flat_adjacency_timing_case(
+    std::ostringstream& output,
+    const FlatAdjacencyTimingCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"corpus_states\":" << value.corpus_states
+           << ",\"source_transaction_exact\":"
+           << (value.source_transaction_exact ? "true" : "false")
+           << ",\"corpus_exact\":"
+           << (value.corpus_exact ? "true" : "false")
+           << ",\"preflight_exact\":"
+           << (value.preflight_exact ? "true" : "false")
+           << ",\"warmup_exact\":"
+           << (value.warmup_exact ? "true" : "false")
+           << ",\"samples_valid\":"
+           << (value.samples_valid ? "true" : "false")
+           << ",\"corpus_sha256\":\"" << value.corpus_sha256
+           << "\",\"index_identity_sha256\":\""
+           << value.index_identity_sha256
+           << "\",\"checksum\":" << value.checksum
+           << ",\"legacy_ns\":";
+    append_u64_samples(output, value.legacy_ns);
+    output << ",\"candidate_ns\":";
+    append_u64_samples(output, value.candidate_ns);
+    output << ",\"legacy_min_ns\":" << value.legacy_min_ns
+           << ",\"legacy_median_ns\":" << value.legacy_median_ns
+           << ",\"legacy_max_ns\":" << value.legacy_max_ns
+           << ",\"legacy_mad_ns\":" << value.legacy_mad_ns
+           << ",\"candidate_min_ns\":" << value.candidate_min_ns
+           << ",\"candidate_median_ns\":"
+           << value.candidate_median_ns
+           << ",\"candidate_max_ns\":" << value.candidate_max_ns
+           << ",\"candidate_mad_ns\":" << value.candidate_mad_ns
+           << ",\"candidate_wins\":" << value.candidate_wins
+           << ",\"median_speedup\":" << value.median_speedup
+           << ",\"classification\":\"" << value.classification
+           << "\"}";
+}
+
+SplitBoundaryReport run_flat_adjacency_timing_impl() {
+    const SplitBoundaryReport parent =
+        run_flat_adjacency_probe_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "45f340a34f2e970179bf30358c126dc1ea30302c8bcca70c1c190715836f5a7b";
+    std::array<FlatAdjacencyTimingCase, 2> cases;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C4C_PARENT";
+    } else {
+        cases[0] = run_flat_adjacency_timing_case(
+            "p1-flat-adjacency-timing", "p1-static-support-timing",
+            "04b72b013b4c88709b3dca83ed1454b56c85acb278f233ed03aee1d96fab3755",
+            make_b4b_supported_column_fixture(),
+            B4C3TA_P1_SCENARIO_SHA256, 264U);
+        cases[1] = run_flat_adjacency_timing_case(
+            "p2-flat-adjacency-timing", "p2-static-support-timing",
+            "446daff2b5e78531dd7ca1c96bf75c1adf669ff38359a591d23d96e746f960f6",
+            make_b4b_released_block_fixture(),
+            B4C3TA_P2_SCENARIO_SHA256, 9U);
+        for (const FlatAdjacencyTimingCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+    }
+    const bool passed = parent_exact
+        && std::all_of(cases.begin(), cases.end(),
+            [](const FlatAdjacencyTimingCase& value) {
+                return value.passed;
+            });
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|identity:1ebff56a6509b8f2b3fa2fbdf90f48abfa58abfc1db8d63d0f0c4982d28a4e51";
+    if (parent_exact) {
+        for (const FlatAdjacencyTimingCase& value : cases) {
+            material << '|' << value.name << ':' << value.passed
+                     << ':' << value.corpus_states
+                     << ':' << value.source_transaction_exact
+                     << ':' << value.corpus_exact
+                     << ':' << value.preflight_exact
+                     << ':' << value.warmup_exact
+                     << ':' << value.samples_valid
+                     << ':' << value.corpus_sha256
+                     << ':' << value.index_identity_sha256
+                     << ':' << value.checksum;
+        }
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal.nsr3b4c4cm_flat_adjacency_timing.v1\""
+           << ",\"identity_sha256\":\"1ebff56a6509b8f2b3fa2fbdf90f48abfa58abfc1db8d63d0f0c4982d28a4e51\""
+           << ",\"parent_b4c4c_probe_raw_sha256\":\"45f340a34f2e970179bf30358c126dc1ea30302c8bcca70c1c190715836f5a7b\""
+           << ",\"parent_exact\":" << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"authority\":\"MEASUREMENT_ONLY\""
+           << ",\"clock\":\"STEADY_NANOSECONDS\""
+           << ",\"timed_scope\":\"NEIGHBORHOOD_EVALUATION_TAPE_CHECKSUM\""
+           << ",\"warmup_passes\":3"
+           << ",\"measured_rounds\":21"
+           << ",\"order\":\"ALTERNATING_AB_BA\""
+           << ",\"cases\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0U; i < cases.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_flat_adjacency_timing_case(report, cases[i]);
+        }
+    }
+    report << "]"
+           << ",\"timing_threshold_applied\":false"
+           << ",\"complete_lane_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"b4d_reference_execution_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"raw_repeatability_required\":false"
+           << ",\"deterministic_result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_flat_adjacency_timing_controls() {
+    return run_flat_adjacency_timing_impl();
+}
+
 } // namespace nextengine::nonlocal::fcr

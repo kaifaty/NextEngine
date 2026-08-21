@@ -757,3 +757,9 @@ freezes a
 over the same recorded `264/9` states. It times neighborhood, evaluation and
 tape creation together with exact preflight outside timing, three warmups and
 21 alternating paired rounds. Complete-lane rollout waits for this evidence.
+B4C4CM passes in three independent processes; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4cm-flat-adjacency-timing-evidence-2026-08-21.md).
+The deterministic corpus/checksum result repeats exactly, and the candidate
+wins all `63/63` paired rounds per fixture. Median process-level construction
+speedup is `1.2274x/1.2055x` P1/P2. Freeze complete-lane ownership next; this
+is not a whole-solver performance claim.
