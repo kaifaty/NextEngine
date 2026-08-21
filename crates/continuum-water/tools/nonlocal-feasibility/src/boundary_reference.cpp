@@ -30852,4 +30852,280 @@ SplitBoundaryReport run_nominal_alignment_preflight_controls() {
     return {passed, report.str()};
 }
 
+namespace {
+
+constexpr const char* B4E1S_IDENTITY_SHA256 =
+    "76453ea9d74f996c52a710a126c444b57662485aaad74c71e041e9e952fe17ac";
+constexpr const char* B4E1S_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e1s-hydro-spectrum|v1|"
+    "parent=c53a112830cb94c4139da75c2044d28f61673cb1aa05c116098967aee41f7bbe:"
+    "79a8932136a64c1cfa953caafe323cb9e860cb134c1d4dc0907be7f40891587a|"
+    "scenario=c430b679dfeec33a6ac12c51df75ddee7e7bc48484c6c05188219f0a727909a0|"
+    "initial-frame=999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7|"
+    "static=daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297|"
+    "pairs=26ab8b79194d53686510d59a11e013900c79ccad57585549acc2007aa1e66414:"
+    "354630:615072:118|active=9;strain=6.6613381477509392e-16|"
+    "spectrum=lanczos48;target=.15;mass=.125;macro-dt=1/240|"
+    "runs=2-byte-exact;timing=external|"
+    "gate=finite,repeat,initial-substeps<=96|trajectory=none|"
+    "credit=b4e1m-design-only";
+
+struct NominalSpectrumRun {
+    bool passed = false;
+    std::string failure;
+    std::string workspace_root;
+    std::string pair_root;
+    std::string query_root;
+    int calls = 0;
+    int initial_substeps = 0;
+    std::size_t pairs = 0U;
+    std::size_t directed = 0U;
+    std::size_t maximum_degree = 0U;
+    std::size_t active_centers = 0U;
+    std::size_t distance_tests = 0U;
+    std::size_t tape_payload_bytes = 0U;
+    double maximum_positive_strain = 0.0;
+    double maximum_eigenvalue = 0.0;
+    double maximum_eigenfrequency = 0.0;
+    JointQueryTrace trace;
+    FlatAdjacencyWorkTrace adjacency_work;
+    StaticSupportWorkTrace static_work;
+};
+
+NominalSpectrumRun run_b4e1s_spectrum_once(
+    const std::vector<Vec3>& fluid,
+    const std::vector<Vec3>& support,
+    const JointStaticSupportBinding& binding) {
+    NominalSpectrumRun result;
+    result.trace.record_queries = true;
+    JointPressureWorkspace workspace = build_joint_query_workspace(
+        fluid, support, "NOMINAL_HYDRO_SPECTRUM", false,
+        result.trace, false, &binding, &result.static_work,
+        true, &result.adjacency_work);
+    if (!workspace.passed) {
+        result.failure = "WORKSPACE:" + workspace.failure;
+        return result;
+    }
+    result.workspace_root = workspace.state_sha256;
+    result.pair_root = joint_pair_hash(workspace.neighborhood);
+    result.pairs = workspace.neighborhood.pairs.size();
+    result.directed = workspace.tape.directed_pair_indices.size();
+    result.maximum_degree = workspace.neighborhood.maximum_degree;
+    result.active_centers = workspace.evaluation.active_centers;
+    result.distance_tests = workspace.neighborhood.construction_distance_tests;
+    result.tape_payload_bytes = workspace.tape.payload_bytes;
+    for (const double density : workspace.evaluation.density) {
+        result.maximum_positive_strain = std::max(
+            result.maximum_positive_strain,
+            density / REST_DENSITY - 1.0);
+    }
+    const SpectralEstimate spectrum =
+        boundary_pressure_spectrum_joint_workspace(
+            workspace, result.trace, false);
+    result.calls = spectrum.calls;
+    result.maximum_eigenvalue = spectrum.maximum_eigenvalue;
+    result.maximum_eigenfrequency = std::sqrt(
+        std::max(result.maximum_eigenvalue, 0.0) / MASS);
+    result.initial_substeps = std::max(1,
+        static_cast<int>(std::ceil(TIME_STEP
+            * result.maximum_eigenfrequency / SPECTRAL_TARGET)));
+    release_joint_query_workspace(workspace, result.trace);
+    result.query_root = result.trace.query_chain_sha256;
+    result.passed = spectrum.passed && result.calls == 48
+        && result.pair_root
+            == "26ab8b79194d53686510d59a11e013900c79ccad57585549acc2007aa1e66414"
+        && result.pairs == 354630U && result.directed == 615072U
+        && result.maximum_degree == 118U && result.active_centers == 9U
+        && result.maximum_positive_strain
+            == 6.6613381477509392e-16
+        && std::isfinite(result.maximum_eigenvalue)
+        && result.maximum_eigenvalue > 0.0
+        && std::isfinite(result.maximum_eigenfrequency)
+        && result.initial_substeps >= 1 && result.initial_substeps <= 96
+        && result.trace.joint_evaluation_queries == 1
+        && result.trace.joint_hvp_queries == 48
+        && result.trace.candidate_all_pair_evaluations == 0
+        && result.trace.candidate_all_pair_hvps == 0
+        && result.trace.audit_all_pair_evaluations == 0
+        && result.trace.audit_all_pair_hvps == 0
+        && result.trace.neighborhood_builds == 1
+        && result.trace.tape_builds == 1
+        && result.trace.live_workspaces == 0
+        && result.trace.maximum_live_workspaces == 1
+        && result.trace.exact && result.trace.work_reduced
+        && result.adjacency_work.workspace_builds == 1U
+        && result.adjacency_work.nested_row_objects == 0U
+        && result.adjacency_work.flat_offset_records == 6001U
+        && result.adjacency_work.csr_ownership_transfers == 1U;
+    if (!spectrum.passed || result.calls != 48) {
+        result.failure = "SPECTRUM";
+    } else if (result.initial_substeps > 96) {
+        result.failure = "TEMPORAL_POLICY_CAPACITY";
+    } else if (!result.passed) {
+        result.failure = "SPECTRUM_WORK_OR_PARENT";
+    }
+    return result;
+}
+
+bool b4e1s_repeat_exact(
+    const NominalSpectrumRun& lhs,
+    const NominalSpectrumRun& rhs) {
+    return lhs.passed && rhs.passed
+        && lhs.workspace_root == rhs.workspace_root
+        && lhs.pair_root == rhs.pair_root
+        && lhs.query_root == rhs.query_root
+        && lhs.calls == rhs.calls
+        && lhs.initial_substeps == rhs.initial_substeps
+        && lhs.pairs == rhs.pairs && lhs.directed == rhs.directed
+        && lhs.maximum_degree == rhs.maximum_degree
+        && lhs.active_centers == rhs.active_centers
+        && lhs.distance_tests == rhs.distance_tests
+        && lhs.tape_payload_bytes == rhs.tape_payload_bytes
+        && lhs.maximum_positive_strain == rhs.maximum_positive_strain
+        && lhs.maximum_eigenvalue == rhs.maximum_eigenvalue
+        && lhs.maximum_eigenfrequency == rhs.maximum_eigenfrequency
+        && exact_static_support_work(lhs.static_work, rhs.static_work)
+        && exact_flat_adjacency_work(
+            lhs.adjacency_work, rhs.adjacency_work)
+        && lhs.trace.joint_evaluation_queries
+            == rhs.trace.joint_evaluation_queries
+        && lhs.trace.joint_hvp_queries == rhs.trace.joint_hvp_queries
+        && lhs.trace.total_pairs == rhs.trace.total_pairs
+        && lhs.trace.total_directed == rhs.trace.total_directed
+        && lhs.trace.total_cell_distance_tests
+            == rhs.trace.total_cell_distance_tests;
+}
+
+void append_b4e1s_run(
+    std::ostringstream& output,
+    const NominalSpectrumRun& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"workspace_root\":\"" << value.workspace_root
+           << "\",\"pair_root\":\"" << value.pair_root
+           << "\",\"query_root\":\"" << value.query_root
+           << "\",\"calls\":" << value.calls
+           << ",\"maximum_eigenvalue\":" << value.maximum_eigenvalue
+           << ",\"maximum_eigenfrequency\":"
+           << value.maximum_eigenfrequency
+           << ",\"initial_substeps\":" << value.initial_substeps
+           << ",\"pairs\":" << value.pairs
+           << ",\"directed\":" << value.directed
+           << ",\"maximum_degree\":" << value.maximum_degree
+           << ",\"active_centers\":" << value.active_centers
+           << ",\"maximum_positive_strain\":"
+           << value.maximum_positive_strain
+           << ",\"distance_tests\":" << value.distance_tests
+           << ",\"tape_payload_bytes\":" << value.tape_payload_bytes
+           << ",\"trace\":{\"evaluations\":"
+           << value.trace.joint_evaluation_queries
+           << ",\"hvps\":" << value.trace.joint_hvp_queries
+           << ",\"candidate_all_pair_evaluations\":"
+           << value.trace.candidate_all_pair_evaluations
+           << ",\"candidate_all_pair_hvps\":"
+           << value.trace.candidate_all_pair_hvps
+           << ",\"audit_all_pair_evaluations\":"
+           << value.trace.audit_all_pair_evaluations
+           << ",\"audit_all_pair_hvps\":"
+           << value.trace.audit_all_pair_hvps
+           << ",\"live_workspaces\":" << value.trace.live_workspaces
+           << ",\"maximum_live_workspaces\":"
+           << value.trace.maximum_live_workspaces << "}}";
+}
+
+} // namespace
+
+SplitBoundaryReport run_nominal_hydro_spectrum_probe_controls() {
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const std::vector<Vec3> fluid = b4e0_nominal_fluid();
+    const std::vector<Vec3> support = make_box_owned_shell({20, 20, 20}, 2);
+    StaticSupportWorkTrace index_work;
+    const JointStaticSupportIndex index =
+        build_joint_static_support_index(tagged_points(support), &index_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(&index, index.identity_sha256);
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(fluid, std::vector<Vec3>(6000U), 0));
+    const bool parent_exact = sha256_hex(B4E1S_IDENTITY_PROJECTION)
+            == B4E1S_IDENTITY_SHA256
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297";
+    NominalSpectrumRun first;
+    NominalSpectrumRun second;
+    if (parent_exact) {
+        first = run_b4e1s_spectrum_once(fluid, support, binding);
+        second = run_b4e1s_spectrum_once(fluid, support, binding);
+    }
+    const bool repeat_exact = parent_exact
+        && b4e1s_repeat_exact(first, second);
+    const bool passed = parent_exact && first.passed && second.passed
+        && repeat_exact;
+    std::string failure;
+    if (!parent_exact) {
+        failure = "B4E0_PARENT";
+    } else if (!first.passed) {
+        failure = "FIRST:" + first.failure;
+    } else if (!second.passed) {
+        failure = "SECOND:" + second.failure;
+    } else if (!repeat_exact) {
+        failure = "SPECTRUM_REPEAT";
+    }
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << failure
+             << "|identity:" << B4E1S_IDENTITY_SHA256
+             << "|parent:" << parent_exact << "|repeat:" << repeat_exact;
+    const NominalSpectrumRun* runs[] = {&first, &second};
+    for (const NominalSpectrumRun* value : runs) {
+        material << '|' << value->passed << ':' << value->workspace_root
+                 << ':' << value->pair_root << ':' << value->query_root
+                 << ':' << value->calls << ':' << value->maximum_eigenvalue
+                 << ':' << value->maximum_eigenfrequency
+                 << ':' << value->initial_substeps
+                 << ':' << value->pairs << ':' << value->directed
+                 << ':' << value->maximum_degree
+                 << ':' << value->active_centers
+                 << ':' << value->maximum_positive_strain
+                 << ':' << value->distance_tests
+                 << ':' << value->tape_payload_bytes;
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal.nsr3b4e1s_hydro_spectrum.v1\""
+           << ",\"identity_sha256\":\"" << B4E1S_IDENTITY_SHA256
+           << "\",\"parent_b4e0_identity\":\"" << B4E0_IDENTITY_SHA256
+           << "\",\"parent_b4e0_result\":\"79a8932136a64c1cfa953caafe323cb9e860cb134c1d4dc0907be7f40891587a\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"parent_exact\":" << (parent_exact ? "true" : "false")
+           << ",\"repeat_exact\":" << (repeat_exact ? "true" : "false")
+           << ",\"runs\":[";
+    append_b4e1s_run(report, first);
+    report << ',';
+    append_b4e1s_run(report, second);
+    report << "]"
+           << ",\"temporal_policy_capacity_passed\":"
+           << (passed ? "true" : "false")
+           << ",\"nominal_hydro_spectrum_candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4e1m_contract_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"kkt_started\":false"
+           << ",\"trajectory_started\":false"
+           << ",\"reference_curve_decoded\":false"
+           << ",\"b4e_comparison_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\"" << sha256_hex(material.str())
+           << "\"}";
+    return {passed, report.str()};
+}
+
 } // namespace nextengine::nonlocal::fcr

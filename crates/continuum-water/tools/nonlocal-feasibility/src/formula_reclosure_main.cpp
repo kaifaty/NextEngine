@@ -94,7 +94,8 @@ int main(int argc, char** argv) {
                          "--workspace-reuse-diagnostic-probe|"
                          "--workspace-reuse-diagnostic-self-test|"
                          "--reference-attestation-self-test|"
-                         "--nominal-alignment-preflight\n";
+                         "--nominal-alignment-preflight|"
+                         "--nominal-hydro-spectrum-probe\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -783,6 +784,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--nominal-hydro-spectrum-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_nominal_hydro_spectrum_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -880,7 +888,8 @@ int main(int argc, char** argv) {
                      "--workspace-reuse-diagnostic-probe|"
                      "--workspace-reuse-diagnostic-self-test|"
                      "--reference-attestation-self-test|"
-                     "--nominal-alignment-preflight\n";
+                     "--nominal-alignment-preflight|"
+                     "--nominal-hydro-spectrum-probe\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';
