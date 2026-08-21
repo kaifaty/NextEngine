@@ -626,3 +626,10 @@ accuracy budget is chosen. Its
 macro frame against fixed `48/96/192`, reports fine `96/192` temporal ratios,
 physical-scale utilization, aggregates and contacts, and cannot select
 accuracy. Only a later frozen budget may do so.
+B4C3MC0 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3mc0-adaptive-fixed-diagnostic-evidence-2026-08-21.md).
+P1's maximum position/velocity physical utilization is `0.00647/0.07028`.
+P2 remains within `0.18631/0.79151`, but its resolved adaptive/fine ratios are
+`60--100x` for position and `94x` for contact velocity. This authorizes only a
+two-axis B4C3MC1 design: unchanged physical accuracy budgets plus an independent
+temporal-reference classification, never an observed-ratio fit.

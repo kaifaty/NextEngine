@@ -1,6 +1,6 @@
 # B4C3MC0 adaptive-versus-fixed diagnostic research
 
-Status: `COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / PASS / B4C3MC1 DESIGN AUTHORIZED`
 
 Date: `2026-08-21`
 
@@ -38,3 +38,10 @@ Freeze the [B4C3MC0 contract](../plans/nonlocal-nonlinear-solver-research/03b4c3
 PASS means only that the measurement is aligned, finite and reproducible. It
 may authorize B4C3MC1 accuracy-budget design; no accuracy or production claim
 follows from the diagnostic itself.
+
+Execution passed twice byte-identically. The
+[dated evidence](nonlocal-nsr3b4c3mc0-adaptive-fixed-diagnostic-evidence-2026-08-21.md)
+shows that P1 stays close to the fine reference while P2 consumes at most
+`0.1863` of the position scale and `0.7915` of the velocity scale but lies far
+outside the fine temporal difference. B4C3MC1 must keep physical admission and
+temporal-reference classification separate; no observed ratio becomes a gate.

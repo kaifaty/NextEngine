@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3MAR_PASS / B4C3MC0_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3MC0_PASS / B4C3MC1_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -41,8 +41,16 @@
 - **Current decision:** B4C3PE1 selects the macro-boundary canonical fixed
   reference candidate with 89 temporal, 55 absolute and zero rejected field/
   frame admissions. B4C3P remains the preserved legacy-tube FAIL.
-- **Current action:** implement frozen threshold-free B4C3MC0 adaptive-versus-
-  fixed diagnostic. Accuracy selection/B4C4/B4D remain blocked.
+- **Current conclusion:** B4C3MC0 passes twice byte-identically at full raw
+  `cc05d841...8937`. P1 consumes at most `0.00647/0.07028` of the established
+  position/velocity physical scales. P2 consumes `0.18631/0.79151`, while its
+  resolved error is `60--100x`/`94x` the fine temporal difference.
+- **Current decision:** physical accuracy and temporal-reference proximity are
+  independent claims. Design B4C3MC1 against unchanged B4B budgets and classify
+  resolved, floor-coincident and stable-reference-separated fields without a
+  fitted ratio threshold.
+- **Current action:** freeze B4C3MC1 two-axis comparison-budget contract.
+  Accuracy selection, nominal corpus, B4C4/B4D remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1480,6 +1488,28 @@
   fixed temporal ratios are unknown.
 - **Smallest next action:** implement and replay the complete diagnostic.
 
+### D-074 -- Separate physical accuracy from temporal-reference proximity
+
+- **Observation:** B4C3MC0 is reproducible and all errors are finite. P1's
+  adaptive/fine error is `1.86--3.94x` the resolved fixed temporal difference;
+  P2 position is `60.72--100.42x`, and P2 velocity is temporally resolved only
+  at the contact frame where it is `94.04x`. Nevertheless all state errors and
+  aggregates remain inside the independently frozen B4B physical envelope.
+- **Decision:** B4C3MC1 reuses the unchanged B4B state, aggregate, kinetic and
+  onset/contact budgets as its accuracy gate. Separately classify temporal
+  evidence as resolved ratio, binary-floor coincidence or stable-reference
+  separation; no ratio threshold selects accuracy.
+- **Rejected alternatives:** fit a ratio ceiling above `100.42`, require the
+  adaptive controller to match fixed-192 truncation uncertainty, treat an
+  unresolved denominator as ratio zero, or widen the physical envelope.
+- **Consequence:** a B4C3MC1 PASS may select accuracy only for the tiny P1/P2
+  research corpus and authorize nominal-corpus contract design. It cannot claim
+  temporal equivalence, performance, runtime integration or production.
+- **Remaining uncertainty:** the inherited gate has not executed on the
+  adaptive macro trajectory and has no diversity beyond the two tiny fixtures.
+- **Smallest next action:** freeze and run the two-axis B4C3MC1 gate with exact
+  parent/root preservation and branch-discriminating negative controls.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1492,9 +1522,10 @@
 
 ## Exact next action
 
-1. Implement B4C3MC0 aligned state, temporal, aggregate and contact metrics.
-2. Execute isolated and twice parent-gated with no accuracy threshold.
-3. Use only that evidence to design a separately frozen B4C3MC1 gate.
+1. Freeze B4C3MC1 without changing any B4B physical threshold.
+2. Implement physical admission and three-way temporal classification with
+   explicit negative controls.
+3. Execute isolated and twice parent-gated before nominal-corpus design.
 
 ## Reconsideration triggers
 

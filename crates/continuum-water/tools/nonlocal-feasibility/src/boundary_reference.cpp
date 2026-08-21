@@ -16379,6 +16379,56 @@ struct MacroAdaptiveReplayRollback {
     bool cumulative_totals_exact = false;
 };
 
+struct AdaptiveFixedFieldDiagnostic {
+    bool passed = false;
+    bool temporal_resolved = false;
+    std::array<double, 3> fixed_level_error{};
+    double temporal_difference = 0.0;
+    double temporal_floor = 0.0;
+    double temporal_ratio = 0.0;
+    double physical_scale_utilization = 0.0;
+};
+
+struct AdaptiveFixedFrameDiagnostic {
+    bool passed = false;
+    int frame = -1;
+    AdaptiveFixedFieldDiagnostic position;
+    AdaptiveFixedFieldDiagnostic velocity;
+    double center_dx = 0.0;
+    double q99_height_dx = 0.0;
+    double q99_front_dx = 0.0;
+    double kinetic_absolute = 0.0;
+    double kinetic_relative = 0.0;
+    double kinetic_floor = 0.0;
+    bool kinetic_floor_overlap = false;
+    bool terminal_contacts_exact = false;
+};
+
+struct AdaptiveFixedDiagnosticCase {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    std::vector<AdaptiveFixedFrameDiagnostic> frames;
+    int unresolved_position_frames = 0;
+    int unresolved_velocity_frames = 0;
+    double maximum_position_temporal_ratio = 0.0;
+    double maximum_velocity_temporal_ratio = 0.0;
+    double maximum_position_physical_utilization = 0.0;
+    double maximum_velocity_physical_utilization = 0.0;
+    double maximum_center_dx = 0.0;
+    double maximum_q99_height_dx = 0.0;
+    double maximum_q99_front_dx = 0.0;
+    double maximum_kinetic_relative = 0.0;
+    double contact_time_error = 0.0;
+    bool final_terminal_contacts_exact = false;
+    std::string adaptive_trajectory_sha256;
+    std::string adaptive_legacy_ledger_sha256;
+    std::string adaptive_policy_ledger_sha256;
+    std::array<std::string, 3> fixed_trajectory_sha256;
+    std::array<std::string, 3> fixed_legacy_ledger_sha256;
+    std::array<std::string, 3> fixed_policy_ledger_sha256;
+};
+
 bool macro_policy_entry_valid(
     const CanonicalPublicationLedgerEntry& entry) {
     return entry.non_residual_gates_exact
@@ -18539,6 +18589,185 @@ std::array<MixedStabilityCase, 2> analyze_mixed_stability_cases(
     };
 }
 
+AdaptiveFixedFieldDiagnostic analyze_adaptive_fixed_field(
+    const std::vector<Vec3>& adaptive,
+    const std::array<const std::vector<Vec3>*, 3>& fixed,
+    double physical_scale) {
+    AdaptiveFixedFieldDiagnostic result;
+    if (std::any_of(
+            fixed.begin(), fixed.end(),
+            [&adaptive](const std::vector<Vec3>* value) {
+                return value == nullptr || value->size() != adaptive.size();
+            })) {
+        return result;
+    }
+    for (std::size_t level = 0; level < fixed.size(); ++level) {
+        result.fixed_level_error[level] = rms_difference(
+            adaptive, *fixed[level]);
+    }
+    result.temporal_difference = rms_difference(*fixed[1], *fixed[2]);
+    result.temporal_floor = b4b_rms_floor(*fixed[1], *fixed[2]);
+    result.temporal_resolved = result.temporal_difference
+        > result.temporal_floor;
+    if (result.temporal_resolved) {
+        result.temporal_ratio = result.fixed_level_error[2]
+            / result.temporal_difference;
+    }
+    result.physical_scale_utilization = result.fixed_level_error[2]
+        / std::max(physical_scale, 1.0e-300);
+    result.passed = std::all_of(
+            result.fixed_level_error.begin(),
+            result.fixed_level_error.end(),
+            [](double value) { return std::isfinite(value); })
+        && std::isfinite(result.temporal_difference)
+        && std::isfinite(result.temporal_floor)
+        && (!result.temporal_resolved
+            || std::isfinite(result.temporal_ratio))
+        && std::isfinite(result.physical_scale_utilization);
+    return result;
+}
+
+AdaptiveFixedDiagnosticCase analyze_adaptive_fixed_case(
+    const MacroAdaptiveReplay& adaptive,
+    const CanonicalFixedCase& fixed,
+    const MixedStabilityCase& fixed_admission) {
+    AdaptiveFixedDiagnosticCase result;
+    result.name = adaptive.name;
+    result.adaptive_trajectory_sha256 = adaptive.trajectory_sha256;
+    result.adaptive_legacy_ledger_sha256 =
+        adaptive.legacy_ledger_sha256;
+    result.adaptive_policy_ledger_sha256 =
+        adaptive.policy_ledger_sha256;
+    bool aligned = adaptive.passed && fixed_admission.passed;
+    for (std::size_t level = 0; level < fixed.lanes.size(); ++level) {
+        result.fixed_trajectory_sha256[level] =
+            fixed.lanes[level].trajectory_sha256;
+        result.fixed_legacy_ledger_sha256[level] =
+            fixed.lanes[level].legacy_ledger_sha256;
+        result.fixed_policy_ledger_sha256[level] =
+            fixed.lanes[level].policy_ledger_sha256;
+        aligned = aligned && fixed.lanes[level].passed
+            && fixed.lanes[level].runs.size() == adaptive.frames.size();
+    }
+    const std::size_t frame_count = std::min({
+        adaptive.frames.size(), fixed.lanes[0].runs.size(),
+        fixed.lanes[1].runs.size(), fixed.lanes[2].runs.size()});
+    bool measurements_exact = aligned;
+    for (std::size_t frame = 0; frame < frame_count; ++frame) {
+        AdaptiveFixedFrameDiagnostic measurement;
+        measurement.frame = static_cast<int>(frame);
+        const MacroAdaptiveTransactionCase& candidate =
+            adaptive.frames[frame];
+        measurement.position = analyze_adaptive_fixed_field(
+            candidate.committed_position,
+            {&fixed.lanes[0].runs[frame].position,
+             &fixed.lanes[1].runs[frame].position,
+             &fixed.lanes[2].runs[frame].position},
+            0.05 * SPACING);
+        measurement.velocity = analyze_adaptive_fixed_field(
+            candidate.committed_velocity,
+            {&fixed.lanes[0].runs[frame].velocity,
+             &fixed.lanes[1].runs[frame].velocity,
+             &fixed.lanes[2].runs[frame].velocity},
+            0.001 * std::sqrt(KAPPA / MASS));
+        const B4BAggregate& candidate_aggregate =
+            candidate.decoded_aggregate;
+        const B4BAggregate& reference_aggregate =
+            fixed.lanes[2].aggregates[frame];
+        measurement.center_dx = maximum_component_abs(
+            candidate_aggregate.center - reference_aggregate.center)
+            / SPACING;
+        measurement.q99_height_dx = std::abs(
+            candidate_aggregate.q99_height
+                - reference_aggregate.q99_height) / SPACING;
+        measurement.q99_front_dx = std::abs(
+            candidate_aggregate.q99_front
+                - reference_aggregate.q99_front) / SPACING;
+        measurement.kinetic_absolute = std::abs(
+            candidate_aggregate.kinetic - reference_aggregate.kinetic);
+        const double kinetic_scale = std::max(
+            candidate_aggregate.kinetic, reference_aggregate.kinetic);
+        measurement.kinetic_floor = gamma_factor(
+            32U + 12U * candidate.committed_velocity.size())
+            * std::max(kinetic_scale,
+                std::numeric_limits<double>::min());
+        measurement.kinetic_floor_overlap = kinetic_scale <= 1.0e-12
+            && measurement.kinetic_absolute <= measurement.kinetic_floor;
+        if (kinetic_scale > 1.0e-12) {
+            measurement.kinetic_relative =
+                measurement.kinetic_absolute / kinetic_scale;
+        }
+        measurement.terminal_contacts_exact =
+            candidate.accepted_private.terminal_contacts
+                == fixed.lanes[2].runs[frame].terminal_contacts;
+        measurement.passed = measurement.position.passed
+            && measurement.velocity.passed
+            && candidate_aggregate.finite_values
+            && reference_aggregate.finite_values
+            && std::isfinite(measurement.center_dx)
+            && std::isfinite(measurement.q99_height_dx)
+            && std::isfinite(measurement.q99_front_dx)
+            && std::isfinite(measurement.kinetic_absolute)
+            && std::isfinite(measurement.kinetic_relative)
+            && std::isfinite(measurement.kinetic_floor);
+        measurements_exact = measurements_exact && measurement.passed;
+        if (measurement.position.temporal_resolved) {
+            result.maximum_position_temporal_ratio = std::max(
+                result.maximum_position_temporal_ratio,
+                measurement.position.temporal_ratio);
+        } else {
+            ++result.unresolved_position_frames;
+        }
+        if (measurement.velocity.temporal_resolved) {
+            result.maximum_velocity_temporal_ratio = std::max(
+                result.maximum_velocity_temporal_ratio,
+                measurement.velocity.temporal_ratio);
+        } else {
+            ++result.unresolved_velocity_frames;
+        }
+        result.maximum_position_physical_utilization = std::max(
+            result.maximum_position_physical_utilization,
+            measurement.position.physical_scale_utilization);
+        result.maximum_velocity_physical_utilization = std::max(
+            result.maximum_velocity_physical_utilization,
+            measurement.velocity.physical_scale_utilization);
+        result.maximum_center_dx = std::max(
+            result.maximum_center_dx, measurement.center_dx);
+        result.maximum_q99_height_dx = std::max(
+            result.maximum_q99_height_dx, measurement.q99_height_dx);
+        result.maximum_q99_front_dx = std::max(
+            result.maximum_q99_front_dx, measurement.q99_front_dx);
+        result.maximum_kinetic_relative = std::max(
+            result.maximum_kinetic_relative,
+            measurement.kinetic_relative);
+        result.frames.push_back(measurement);
+    }
+    result.contact_time_error = event_time_error(
+        adaptive.first_contact_time, fixed.lanes[2].first_contact_time);
+    result.final_terminal_contacts_exact = adaptive.terminal_contacts
+        == fixed.lanes[2].terminal_contacts;
+    result.passed = measurements_exact
+        && frame_count == adaptive.frames.size()
+        && std::isfinite(result.contact_time_error);
+    if (!result.passed) {
+        result.failure = "ADAPTIVE_FIXED_DIAGNOSTIC_GATE";
+    }
+    return result;
+}
+
+std::array<AdaptiveFixedDiagnosticCase, 2>
+analyze_adaptive_fixed_cases(
+    const std::array<MacroAdaptiveReplay, 2>& adaptive,
+    const std::array<CanonicalFixedCase, 2>& fixed,
+    const std::array<MixedStabilityCase, 2>& fixed_admission) {
+    return {
+        analyze_adaptive_fixed_case(
+            adaptive[0], fixed[0], fixed_admission[0]),
+        analyze_adaptive_fixed_case(
+            adaptive[1], fixed[1], fixed_admission[1]),
+    };
+}
+
 CanonicalMacroRollback run_macro_publication_rollback() {
     CanonicalMacroRollback result;
     SmokeFixture fixture = make_b4b_supported_column_fixture();
@@ -19434,6 +19663,108 @@ void append_macro_adaptive_replay_rollback(
            << (value.roots_exact ? "true" : "false")
            << ",\"cumulative_totals_exact\":"
            << (value.cumulative_totals_exact ? "true" : "false") << '}';
+}
+
+void append_adaptive_fixed_field_diagnostic(
+    std::ostringstream& output,
+    const AdaptiveFixedFieldDiagnostic& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"fixed_level_error\":["
+           << value.fixed_level_error[0] << ','
+           << value.fixed_level_error[1] << ','
+           << value.fixed_level_error[2]
+           << "],\"temporal_difference\":"
+           << value.temporal_difference
+           << ",\"temporal_floor\":" << value.temporal_floor
+           << ",\"temporal_resolved\":"
+           << (value.temporal_resolved ? "true" : "false")
+           << ",\"temporal_ratio\":" << value.temporal_ratio
+           << ",\"physical_scale_utilization\":"
+           << value.physical_scale_utilization << '}';
+}
+
+void append_adaptive_fixed_diagnostic_case(
+    std::ostringstream& output,
+    const AdaptiveFixedDiagnosticCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"unresolved_position_frames\":"
+           << value.unresolved_position_frames
+           << ",\"unresolved_velocity_frames\":"
+           << value.unresolved_velocity_frames
+           << ",\"maximum_position_temporal_ratio\":"
+           << value.maximum_position_temporal_ratio
+           << ",\"maximum_velocity_temporal_ratio\":"
+           << value.maximum_velocity_temporal_ratio
+           << ",\"maximum_position_physical_utilization\":"
+           << value.maximum_position_physical_utilization
+           << ",\"maximum_velocity_physical_utilization\":"
+           << value.maximum_velocity_physical_utilization
+           << ",\"maximum_center_dx\":" << value.maximum_center_dx
+           << ",\"maximum_q99_height_dx\":"
+           << value.maximum_q99_height_dx
+           << ",\"maximum_q99_front_dx\":"
+           << value.maximum_q99_front_dx
+           << ",\"maximum_kinetic_relative\":"
+           << value.maximum_kinetic_relative
+           << ",\"contact_time_error_s\":" << value.contact_time_error
+           << ",\"final_terminal_contacts_exact\":"
+           << (value.final_terminal_contacts_exact ? "true" : "false")
+           << ",\"adaptive_trajectory_sha256\":\""
+           << value.adaptive_trajectory_sha256
+           << "\",\"adaptive_legacy_ledger_sha256\":\""
+           << value.adaptive_legacy_ledger_sha256
+           << "\",\"adaptive_policy_ledger_sha256\":\""
+           << value.adaptive_policy_ledger_sha256
+           << "\",\"fixed_trajectory_sha256\":[";
+    for (std::size_t i = 0; i < value.fixed_trajectory_sha256.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << '"' << value.fixed_trajectory_sha256[i] << '"';
+    }
+    output << "],\"fixed_legacy_ledger_sha256\":[";
+    for (std::size_t i = 0;
+         i < value.fixed_legacy_ledger_sha256.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << '"' << value.fixed_legacy_ledger_sha256[i] << '"';
+    }
+    output << "],\"fixed_policy_ledger_sha256\":[";
+    for (std::size_t i = 0;
+         i < value.fixed_policy_ledger_sha256.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << '"' << value.fixed_policy_ledger_sha256[i] << '"';
+    }
+    output << "],\"frames\":[";
+    for (std::size_t i = 0; i < value.frames.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        const AdaptiveFixedFrameDiagnostic& frame = value.frames[i];
+        output << "{\"frame\":" << frame.frame << ",\"position\":";
+        append_adaptive_fixed_field_diagnostic(output, frame.position);
+        output << ",\"velocity\":";
+        append_adaptive_fixed_field_diagnostic(output, frame.velocity);
+        output << ",\"center_dx\":" << frame.center_dx
+               << ",\"q99_height_dx\":" << frame.q99_height_dx
+               << ",\"q99_front_dx\":" << frame.q99_front_dx
+               << ",\"kinetic_absolute_j\":" << frame.kinetic_absolute
+               << ",\"kinetic_relative\":" << frame.kinetic_relative
+               << ",\"kinetic_floor_j\":" << frame.kinetic_floor
+               << ",\"kinetic_floor_overlap\":"
+               << (frame.kinetic_floor_overlap ? "true" : "false")
+               << ",\"terminal_contacts_exact\":"
+               << (frame.terminal_contacts_exact ? "true" : "false")
+               << '}';
+    }
+    output << "]}";
 }
 
 } // namespace
@@ -22543,6 +22874,154 @@ SplitBoundaryReport run_macro_adaptive_replay_probe_controls() {
 
 SplitBoundaryReport run_macro_adaptive_replay_controls() {
     return run_macro_adaptive_replay_impl(true);
+}
+
+namespace {
+
+SplitBoundaryReport run_adaptive_fixed_diagnostic_impl(
+    bool require_parent) {
+    bool parent_exact = true;
+    if (require_parent) {
+        const SplitBoundaryReport parent = run_macro_adaptive_replay_controls();
+        parent_exact = parent.passed
+            && sha256_hex(parent.json)
+                == "b1549cc6929f86256d81330a7a6d70cdb8df0e8db81f1d9d3e3fbf5d684b9dff";
+    }
+    std::array<MacroAdaptiveReplay, 2> adaptive;
+    std::array<CanonicalFixedCase, 2> fixed;
+    std::array<MixedStabilityCase, 2> fixed_admission;
+    std::array<AdaptiveFixedDiagnosticCase, 2> diagnostics;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3MAR_PARENT";
+    } else {
+        std::future<MacroAdaptiveReplay> p1 = std::async(
+            std::launch::async, []() {
+                return run_macro_adaptive_replay(
+                    "p1-supported-adaptive-fixed-diagnostic",
+                    make_b4b_supported_column_fixture(),
+                    B4C3TA_P1_SCENARIO_SHA256, false);
+            });
+        std::future<MacroAdaptiveReplay> p2 = std::async(
+            std::launch::async, []() {
+                return run_macro_adaptive_replay(
+                    "p2-released-adaptive-fixed-diagnostic",
+                    make_b4b_released_block_fixture(),
+                    B4C3TA_P2_SCENARIO_SHA256, true);
+            });
+        std::future<std::array<CanonicalFixedCase, 2>> fixed_future =
+            std::async(std::launch::async, []() {
+                return run_macro_publication_fixed_cases();
+            });
+        adaptive = {p1.get(), p2.get()};
+        fixed = fixed_future.get();
+        fixed_admission = analyze_mixed_stability_cases(fixed);
+        diagnostics = analyze_adaptive_fixed_cases(
+            adaptive, fixed, fixed_admission);
+        for (const AdaptiveFixedDiagnosticCase& value : diagnostics) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+    }
+    const bool adaptive_exact = parent_exact
+        && std::all_of(
+            adaptive.begin(), adaptive.end(),
+            [](const MacroAdaptiveReplay& value) { return value.passed; });
+    const bool fixed_exact = parent_exact
+        && std::all_of(
+            fixed_admission.begin(), fixed_admission.end(),
+            [](const MixedStabilityCase& value) { return value.passed; });
+    const bool measurements_exact = parent_exact
+        && std::all_of(
+            diagnostics.begin(), diagnostics.end(),
+            [](const AdaptiveFixedDiagnosticCase& value) {
+                return value.passed;
+            });
+    const bool passed = parent_exact && adaptive_exact
+        && fixed_exact && measurements_exact;
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|identity:6b233bc82ede0dca0a5585b9c6baf7c957ae6eb193c60e94c65a5ab41e326ac2"
+             << "|adaptive:" << adaptive_exact
+             << "|fixed:" << fixed_exact;
+    if (parent_exact) {
+        for (const AdaptiveFixedDiagnosticCase& value : diagnostics) {
+            material << '|' << value.name << ':' << value.passed << ':'
+                     << value.maximum_position_temporal_ratio << ':'
+                     << value.maximum_velocity_temporal_ratio << ':'
+                     << value.unresolved_position_frames << ':'
+                     << value.unresolved_velocity_frames << ':'
+                     << value.maximum_position_physical_utilization << ':'
+                     << value.maximum_velocity_physical_utilization << ':'
+                     << value.maximum_center_dx << ':'
+                     << value.maximum_q99_height_dx << ':'
+                     << value.maximum_q99_front_dx << ':'
+                     << value.maximum_kinetic_relative << ':'
+                     << value.contact_time_error << ':'
+                     << value.final_terminal_contacts_exact << ':'
+                     << value.adaptive_trajectory_sha256 << ':'
+                     << value.adaptive_legacy_ledger_sha256 << ':'
+                     << value.adaptive_policy_ledger_sha256;
+            for (std::size_t level = 0; level < 3U; ++level) {
+                material << ':' << value.fixed_trajectory_sha256[level]
+                         << ':' << value.fixed_legacy_ledger_sha256[level]
+                         << ':' << value.fixed_policy_ledger_sha256[level];
+            }
+        }
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+           << (require_parent
+                ? "nsr3b4c3mc0_adaptive_fixed_diagnostic.v1"
+                : "nsr3b4c3mc0_adaptive_fixed_diagnostic_probe.v1")
+           << "\",\"identity_sha256\":\"6b233bc82ede0dca0a5585b9c6baf7c957ae6eb193c60e94c65a5ab41e326ac2\""
+           << ",\"parent_b4c3mar_raw_sha256\":\"b1549cc6929f86256d81330a7a6d70cdb8df0e8db81f1d9d3e3fbf5d684b9dff\""
+           << ",\"parent_b4c3mar_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"parent_gate_required\":"
+           << (require_parent ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"authority\":\"MEASUREMENT_ONLY\""
+           << ",\"accuracy_thresholds_applied\":false"
+           << ",\"adaptive_sources_exact\":"
+           << (adaptive_exact ? "true" : "false")
+           << ",\"fixed_sources_exact\":"
+           << (fixed_exact ? "true" : "false")
+           << ",\"cases\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0; i < diagnostics.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_adaptive_fixed_diagnostic_case(
+                report, diagnostics[i]);
+        }
+    }
+    report << "],\"accuracy_budget_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"adaptive_accuracy_selected\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_adaptive_fixed_diagnostic_probe_controls() {
+    return run_adaptive_fixed_diagnostic_impl(false);
+}
+
+SplitBoundaryReport run_adaptive_fixed_diagnostic_controls() {
+    return run_adaptive_fixed_diagnostic_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr
