@@ -220,6 +220,13 @@ if(BUILD_TESTING)
     add_test(NAME nonlocal_reference_adapter.r1c5_reject_relative_output
         COMMAND nonlocal_reference_adapter
             --r1c5-trajectory CW-HYDRO-001 relative)
+    add_test(NAME nonlocal_reference_adapter.r1d_manifest
+        COMMAND nonlocal_reference_adapter --r1d-manifest-preflight)
+    add_test(NAME nonlocal_reference_adapter.r1d_reject_schedule_mismatch
+        COMMAND nonlocal_reference_adapter --r1d-negative-schedule-mismatch)
+    add_test(NAME nonlocal_reference_adapter.r1d_reject_relative_output
+        COMMAND nonlocal_reference_adapter
+            --r1d-generate CW-HYDRO-001 relative)
 
     set_tests_properties(
         nonlocal_reference_adapter.pass
@@ -234,6 +241,9 @@ if(BUILD_TESTING)
         nonlocal_reference_adapter.r1c3_reject_invalid_cap
         nonlocal_reference_adapter.r1c4_reject_relative_output
         nonlocal_reference_adapter.r1c5_reject_relative_output
+        nonlocal_reference_adapter.r1d_manifest
+        nonlocal_reference_adapter.r1d_reject_schedule_mismatch
+        nonlocal_reference_adapter.r1d_reject_relative_output
         PROPERTIES ENVIRONMENT "LC_ALL=C;OMP_NUM_THREADS=1;OMP_DYNAMIC=FALSE")
     set_tests_properties(
         nonlocal_reference_adapter.reject_rounding
@@ -246,5 +256,7 @@ if(BUILD_TESTING)
         nonlocal_reference_adapter.r1c3_reject_invalid_cap
         nonlocal_reference_adapter.r1c4_reject_relative_output
         nonlocal_reference_adapter.r1c5_reject_relative_output
+        nonlocal_reference_adapter.r1d_reject_schedule_mismatch
+        nonlocal_reference_adapter.r1d_reject_relative_output
         PROPERTIES WILL_FAIL TRUE)
 endif()

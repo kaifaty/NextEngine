@@ -102,3 +102,25 @@ nonlocal_reference_adapter --r1c5-trajectory \
 
 The Orifice domain remains two metres while its Akinci boundary lattice stays
 source-side and one metre wide. The global payload profile identity is new.
+
+After R1C5 PASS, R1D first exposes a no-Simulation schedule/capacity gate:
+
+```text
+nonlocal_reference_adapter --r1d-manifest-preflight
+nonlocal_reference_adapter --r1d-negative-schedule-mismatch
+```
+
+Full generation then uses:
+
+```text
+nonlocal_reference_adapter --r1d-generate \
+  <CW-HYDRO-001|CW-DAMBREAK-001|CW-ORIFICE-001> \
+  <absolute-empty-output-directory>
+```
+
+It executes the frozen `0..1200/every24` Hydro or `0..720/every4`
+Dam/Orifice schedule, keeps the frame format unchanged and reports complete
+payload plus domain-separated q99-x/q99-y/receiver roots. Each invocation
+remains one-threaded. The external harness may run at most one invocation per
+scenario concurrently and publishes only after fresh same-scenario pairs are
+byte-identical.

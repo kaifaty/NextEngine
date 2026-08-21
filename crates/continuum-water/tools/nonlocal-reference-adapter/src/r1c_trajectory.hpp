@@ -20,5 +20,9 @@ AdapterRun run_r1c4_trajectory(
 AdapterRun run_r1c5_trajectory(
     std::string_view scenario_id,
     std::string_view output_dir);
+AdapterRun run_r1d_manifest_preflight(bool force_schedule_mismatch);
+AdapterRun run_r1d_generation(
+    std::string_view scenario_id,
+    std::string_view output_dir);
 
 } // namespace nextengine::nonlocal_reference

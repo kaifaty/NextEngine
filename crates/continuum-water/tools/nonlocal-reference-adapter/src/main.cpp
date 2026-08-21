@@ -20,6 +20,13 @@ int main(int argc, char **argv) {
     using nextengine::nonlocal_reference::PreflightMutation;
 
     PreflightMutation mutation = PreflightMutation::None;
+    if (argc == 4 && std::string_view(argv[1]) == "--r1d-generate") {
+        const auto run = nextengine::nonlocal_reference::run_r1d_generation(
+            argv[2],
+            argv[3]);
+        std::cout << run.report;
+        return run.passed ? 0 : 1;
+    }
     if (argc == 4 && std::string_view(argv[1]) == "--r1c5-trajectory") {
         const auto run = nextengine::nonlocal_reference::run_r1c5_trajectory(
             argv[2],
@@ -69,6 +76,16 @@ int main(int argc, char **argv) {
         } else if (argument == "--r1c-negative-manifest-mismatch") {
             const auto run =
                 nextengine::nonlocal_reference::run_r1c_manifest_preflight(true);
+            std::cout << run.report;
+            return run.passed ? 0 : 1;
+        } else if (argument == "--r1d-manifest-preflight") {
+            const auto run =
+                nextengine::nonlocal_reference::run_r1d_manifest_preflight(false);
+            std::cout << run.report;
+            return run.passed ? 0 : 1;
+        } else if (argument == "--r1d-negative-schedule-mismatch") {
+            const auto run =
+                nextengine::nonlocal_reference::run_r1d_manifest_preflight(true);
             std::cout << run.report;
             return run.passed ? 0 : 1;
         } else {

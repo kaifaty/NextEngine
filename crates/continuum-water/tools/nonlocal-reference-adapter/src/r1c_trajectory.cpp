@@ -72,9 +72,67 @@ constexpr std::string_view R1C5_PROFILE_IDENTITY_PROJECTION =
     "geometry=hydro:1,dam:4,orifice:2|pressure-max=300|all-else=r1c4|"
     "runs=2-fresh-byte-exact-per-scenario|"
     "order=hydro,dam,orifice;stop-first-failure|credit=new-root-only";
+constexpr std::string_view R1D_SCHEMA =
+    "nextengine.nonlocal.nsr3b4dr1d-full-generation.v1";
+constexpr std::string_view R1D_MANIFEST_SCHEMA =
+    "nextengine.nonlocal.nsr3b4dr1d-manifest-preflight.v1";
+constexpr std::string_view R1D_CONTRACT_IDENTITY =
+    "ba34b4e3b12986ebc831320d6811551d5311a6774a64f079aabe3a5eaa6bb746";
+constexpr std::string_view R1D_PROFILE_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4dr1d-full-generation|v1|"
+    "parent=3f5a73693f05daf487898fd692160357c1775652a1c11e65205356243c57386f|"
+    "schedule=hydro:0..1200/every24;dam:0..720/every4;orifice:0..720/every4|"
+    "format=CWREFV2;frame=unchanged|"
+    "summary=nearest-rank-q99-x-f64bits;nearest-rank-q99-y-f64bits;"
+    "receiver-u32;domain-separated-sha256|"
+    "publication=external-content-addressed;regular-file;no-tmp;"
+    "verified-copy-only|runs=2-fresh-byte-exact-per-scenario|"
+    "parallel=max3;omp1|report-order=hydro,dam,orifice|pressure-max=300|"
+    "all-else=r1c5|credit=new-root-only";
+constexpr std::string_view R1D_HYDRO_MANIFEST = R"(B4DR1D_SCENARIO_V1_BEGIN
+scenario_id=CW-HYDRO-001
+kind=hydrostatic-cube
+box_um=0,0,0;1000000,1000000,1000000
+fluid=20,15,20;first=(25000,25000,25000);velocity=(0,0,0);id=iy-iz-ix
+fluid_root=7d4e661d08de08b18d43a76342329b51f6ae98bca9baee3d850e0f403eae5606
+boundary=two-layer-outer-complement
+boundary_count=5824
+boundary_root=25de85b5eeec041c12bbb5de10e00b8374457b4cf09cb61d99dfc4d5511d8d62
+steps=1200
+outputs=0..1200/every=24
+B4DR1D_SCENARIO_V1_END
+)";
+constexpr std::string_view R1D_DAM_MANIFEST = R"(B4DR1D_SCENARIO_V1_BEGIN
+scenario_id=CW-DAMBREAK-001
+kind=dam-break
+box_um=0,0,0;4000000,1000000,1000000
+fluid=20,15,20;first=(25000,25000,25000);velocity=(0,0,0);id=iy-iz-ix
+fluid_root=9c12e445666c7b0eada3e6e2c258c733323e4eb8ca6474a6f3d5b863f1566e76
+boundary=two-layer-outer-complement
+boundary_count=16384
+boundary_root=1cf0fd172dcb321e995f372119ea956d1e376b8a409b804bc07e31a729aa830d
+steps=720
+outputs=0..720/every=4
+B4DR1D_SCENARIO_V1_END
+)";
+constexpr std::string_view R1D_ORIFICE_MANIFEST = R"(B4DR1D_SCENARIO_V1_BEGIN
+scenario_id=CW-ORIFICE-001
+kind=orifice-release
+box_um=0,0,0;2000000,1000000,1000000
+wall_um=x=1000000;opening_y=200000..400000;opening_z=400000..600000;radius=25000
+fluid=20,15,20;first=(25000,25000,25000);velocity=(0,0,0);id=iy-iz-ix
+fluid_root=21307ab2d1655ab5da33f3b5d4e887152601ed531679723b8452023df1f48425
+boundary=source-chamber-two-layer-minus-safe-opening
+boundary_count=5792
+boundary_root=5d23bd8c407c1b1d6bb86fc6dda2250c36db4cde1227d9f48fc6239c728a2cb3
+steps=720
+outputs=0..720/every=4
+B4DR1D_SCENARIO_V1_END
+)";
 constexpr std::uint64_t DT_BITS = UINT64_C(0x3f71111111111111);
 constexpr std::uint32_t SAMPLE_COUNT = 6'000;
 constexpr std::uint32_t FRAME_COUNT = 25;
+constexpr std::size_t FRAME_BYTES = 312'156U;
 constexpr std::size_t FEATURE_COUNT = 25;
 constexpr std::size_t MAX_FILE_BYTES = 64U * 1024U * 1024U;
 
@@ -84,6 +142,7 @@ enum class TrajectoryMode {
     R1C3PressureSweep,
     R1C4,
     R1C5,
+    R1D,
 };
 
 std::string_view schema_for(TrajectoryMode mode) {
@@ -98,6 +157,9 @@ std::string_view schema_for(TrajectoryMode mode) {
     }
     if (mode == TrajectoryMode::R1C5) {
         return R1C5_SCHEMA;
+    }
+    if (mode == TrajectoryMode::R1D) {
+        return R1D_SCHEMA;
     }
     return SCHEMA;
 }
@@ -115,7 +177,74 @@ std::string_view contract_for(TrajectoryMode mode) {
     if (mode == TrajectoryMode::R1C5) {
         return R1C5_CONTRACT_IDENTITY;
     }
+    if (mode == TrajectoryMode::R1D) {
+        return R1D_CONTRACT_IDENTITY;
+    }
     return CONTRACT_IDENTITY;
+}
+
+struct R1DSchedule {
+    std::string_view scenario_id;
+    std::string_view manifest;
+    std::string_view manifest_root;
+    std::uint32_t total_steps;
+    std::uint32_t output_stride;
+    std::uint32_t frame_count;
+    std::size_t expected_payload_bytes;
+};
+
+constexpr std::array<R1DSchedule, 3> R1D_SCHEDULES = {{
+    {
+        "CW-HYDRO-001",
+        R1D_HYDRO_MANIFEST,
+        "c430b679dfeec33a6ac12c51df75ddee7e7bc48484c6c05188219f0a727909a0",
+        1'200U,
+        24U,
+        51U,
+        15'920'965U,
+    },
+    {
+        "CW-DAMBREAK-001",
+        R1D_DAM_MANIFEST,
+        "8d0a0a85adba50d4784245d460c83757bcce92841d804f4739b81faf27fd5f09",
+        720U,
+        4U,
+        181U,
+        56'501'239U,
+    },
+    {
+        "CW-ORIFICE-001",
+        R1D_ORIFICE_MANIFEST,
+        "53d0db457091d7a7d6ede58a0628688b701850d6de30dacdb14ee9951d036961",
+        720U,
+        4U,
+        181U,
+        56'501'341U,
+    },
+}};
+
+const R1DSchedule &r1d_schedule(std::string_view scenario_id) {
+    for (const R1DSchedule &schedule : R1D_SCHEDULES) {
+        if (schedule.scenario_id == scenario_id) {
+            return schedule;
+        }
+    }
+    throw std::runtime_error("UNKNOWN_R1D_SCENARIO");
+}
+
+std::string r1d_scenario_root(std::string_view manifest) {
+    constexpr char DOMAIN[] = "nextengine.nonlocal.nsr3b4dr1d-scenario.v1";
+    std::string projection(DOMAIN, sizeof(DOMAIN));
+    projection.append(manifest);
+    return nextengine::nonlocal::sha256_hex(projection);
+}
+
+std::size_t expected_payload_bytes(
+    std::string_view profile,
+    std::string_view manifest,
+    std::uint32_t frame_count) {
+    return 20U + profile.size() + 1U + manifest.size()
+        + (FRAME_BYTES * static_cast<std::size_t>(frame_count));
 }
 
 std::uint64_t to_bits(double value) {
@@ -252,6 +381,79 @@ void append_frame(
             append_f64(payload, component);
         }
     }
+}
+
+struct AggregateProjections {
+    std::vector<std::uint8_t> q99_x;
+    std::vector<std::uint8_t> q99_y;
+    std::vector<std::uint8_t> receiver_count;
+};
+
+std::vector<std::uint8_t> aggregate_projection(
+    std::string_view domain,
+    std::uint32_t frame_count) {
+    std::vector<std::uint8_t> projection(domain.begin(), domain.end());
+    projection.push_back(0U);
+    append_u32(projection, SAMPLE_COUNT);
+    append_u32(projection, frame_count);
+    return projection;
+}
+
+AggregateProjections make_aggregate_projections(std::uint32_t frame_count) {
+    return {
+        aggregate_projection(
+            "nextengine.nonlocal.nsr3b4dr1d-q99-x.v1",
+            frame_count),
+        aggregate_projection(
+            "nextengine.nonlocal.nsr3b4dr1d-q99-y.v1",
+            frame_count),
+        aggregate_projection(
+            "nextengine.nonlocal.nsr3b4dr1d-receiver-count.v1",
+            frame_count),
+    };
+}
+
+double nearest_rank_q99(std::vector<double> values) {
+    if (values.size() != SAMPLE_COUNT) {
+        throw std::runtime_error("Q99_SAMPLE_COUNT_MISMATCH");
+    }
+    for (double value : values) {
+        require_finite(value, "Q99_POSITION");
+    }
+    std::sort(values.begin(), values.end());
+    const std::size_t one_based_rank =
+        ((99U * values.size()) + 99U) / 100U;
+    if (one_based_rank == 0U || one_based_rank > values.size()) {
+        throw std::runtime_error("Q99_RANK_OUT_OF_RANGE");
+    }
+    return values[one_based_rank - 1U];
+}
+
+void append_aggregate_frame(
+    AggregateProjections &projections,
+    SPH::FluidModel &model,
+    const FrameDiagnostics &diagnostics) {
+    std::vector<double> x_positions;
+    std::vector<double> y_positions;
+    x_positions.reserve(SAMPLE_COUNT);
+    y_positions.reserve(SAMPLE_COUNT);
+    for (std::uint32_t id = 0; id < SAMPLE_COUNT; ++id) {
+        const std::array<double, 3> position = position_by_id(model, id);
+        x_positions.push_back(position[0]);
+        y_positions.push_back(position[1]);
+    }
+    append_u32(projections.q99_x, diagnostics.step);
+    append_f64(projections.q99_x, nearest_rank_q99(std::move(x_positions)));
+    append_u32(projections.q99_y, diagnostics.step);
+    append_f64(projections.q99_y, nearest_rank_q99(std::move(y_positions)));
+    append_u32(projections.receiver_count, diagnostics.step);
+    append_u32(projections.receiver_count, diagnostics.receiver_count);
+}
+
+std::string projection_hash(const std::vector<std::uint8_t> &projection) {
+    return nextengine::nonlocal::sha256_hex(std::string_view(
+        reinterpret_cast<const char *>(projection.data()),
+        projection.size()));
 }
 
 void write_all(int descriptor, const std::vector<std::uint8_t> &payload) {
@@ -461,6 +663,113 @@ std::string failure_report(
     return output.str();
 }
 
+std::string r1d_manifest_rejected_report(std::string_view reason) {
+    std::ostringstream output;
+    output << "schema=" << R1D_MANIFEST_SCHEMA << '\n'
+           << "contract_identity=" << R1D_CONTRACT_IDENTITY << '\n'
+           << "status=REJECTED\n"
+           << "reason=" << reason << '\n'
+           << "simulation_created=false\n"
+           << "trajectory_started=false\n"
+           << "r1e_authorized=false\n"
+           << "b4e_authorized=false\n";
+    return output.str();
+}
+
+AdapterRun run_r1d_manifest_preflight_impl(bool force_schedule_mismatch) {
+    const std::string process_failure = process_preflight_failure();
+    if (!process_failure.empty()) {
+        return {false, r1d_manifest_rejected_report(process_failure)};
+    }
+    const AdapterRun r1c_preflight = run_r1c_manifest_preflight(false);
+    if (!r1c_preflight.passed) {
+        return {false, r1d_manifest_rejected_report("R1C_PREFLIGHT_NOT_PASS")};
+    }
+    try {
+        if (nextengine::nonlocal::sha256_hex(R1D_PROFILE_IDENTITY_PROJECTION)
+            != R1D_CONTRACT_IDENTITY) {
+            throw std::runtime_error("R1D_PROFILE_IDENTITY_MISMATCH");
+        }
+        std::vector<double> initial_x;
+        std::vector<double> initial_y;
+        initial_x.reserve(SAMPLE_COUNT);
+        initial_y.reserve(SAMPLE_COUNT);
+        for (std::uint32_t iy = 0; iy < 15U; ++iy) {
+            for (std::uint32_t iz = 0; iz < 20U; ++iz) {
+                for (std::uint32_t ix = 0; ix < 20U; ++ix) {
+                    initial_x.push_back(
+                        static_cast<double>(25'000U + (50'000U * ix))
+                        / 1'000'000.0);
+                    initial_y.push_back(
+                        static_cast<double>(25'000U + (50'000U * iy))
+                        / 1'000'000.0);
+                }
+            }
+        }
+        if (to_bits(nearest_rank_q99(std::move(initial_x)))
+                != UINT64_C(0x3fef333333333333)
+            || to_bits(nearest_rank_q99(std::move(initial_y)))
+                != UINT64_C(0x3fe7333333333333)) {
+            throw std::runtime_error("R1D_Q99_INITIAL_LATTICE_MISMATCH");
+        }
+        std::ostringstream scenario_report;
+        for (const R1DSchedule &schedule : R1D_SCHEDULES) {
+            const std::string actual_root = r1d_scenario_root(schedule.manifest);
+            std::string_view expected_root = schedule.manifest_root;
+            if (force_schedule_mismatch
+                && schedule.scenario_id == "CW-ORIFICE-001") {
+                expected_root = R1D_CONTRACT_IDENTITY;
+            }
+            if (actual_root != expected_root) {
+                throw std::runtime_error(
+                    std::string(schedule.scenario_id) + ":SCHEDULE_MANIFEST_ROOT");
+            }
+            if (schedule.output_stride == 0U
+                || (schedule.total_steps % schedule.output_stride) != 0U
+                || (schedule.total_steps / schedule.output_stride) + 1U
+                    != schedule.frame_count) {
+                throw std::runtime_error(
+                    std::string(schedule.scenario_id) + ":SCHEDULE_FRAME_COUNT");
+            }
+            const std::size_t actual_payload_bytes = expected_payload_bytes(
+                R1D_PROFILE_IDENTITY_PROJECTION,
+                schedule.manifest,
+                schedule.frame_count);
+            if (actual_payload_bytes != schedule.expected_payload_bytes) {
+                throw std::runtime_error(
+                    std::string(schedule.scenario_id) + ":PAYLOAD_SIZE");
+            }
+            if (actual_payload_bytes > MAX_FILE_BYTES) {
+                throw std::runtime_error(
+                    std::string(schedule.scenario_id) + ":PAYLOAD_CAPACITY");
+            }
+            scenario_report << "scenario." << schedule.scenario_id
+                            << "=PASS;manifest_bytes=" << schedule.manifest.size()
+                            << ";manifest_root=" << actual_root
+                            << ";total_steps=" << schedule.total_steps
+                            << ";output_stride=" << schedule.output_stride
+                            << ";frames=" << schedule.frame_count
+                            << ";payload_bytes=" << actual_payload_bytes << '\n';
+        }
+        std::ostringstream output;
+        output << "schema=" << R1D_MANIFEST_SCHEMA << '\n'
+               << "contract_identity=" << R1D_CONTRACT_IDENTITY << '\n'
+               << "parent_identity=" << R1C5_CONTRACT_IDENTITY << '\n'
+               << "status=PASS\n"
+               << "simulation_created=false\n"
+               << "trajectory_started=false\n"
+               << scenario_report.str()
+               << "q99_initial_lattice_checked=true\n"
+               << "schedule_mismatch_rejected=true\n"
+               << "full_generation_authorized=true\n"
+               << "r1e_authorized=false\n"
+               << "b4e_authorized=false\n";
+        return {true, output.str()};
+    } catch (const std::exception &error) {
+        return {false, r1d_manifest_rejected_report(error.what())};
+    }
+}
+
 AdapterRun run_r1c_trajectory_impl(
     std::string_view scenario_id,
     std::string_view output_dir,
@@ -487,6 +796,25 @@ AdapterRun run_r1c_trajectory_impl(
         }
         const std::filesystem::path directory = validate_output_directory(output_dir);
         const R1CScenarioData scenario = build_r1c_scenario(scenario_id);
+        std::uint32_t total_steps = 24U;
+        std::uint32_t output_stride = 1U;
+        std::uint32_t frame_count = FRAME_COUNT;
+        std::string_view scenario_manifest = scenario.manifest;
+        std::string_view scenario_manifest_root;
+        std::size_t frozen_expected_payload_bytes = 0U;
+        if (mode == TrajectoryMode::R1D) {
+            const AdapterRun r1d_preflight = run_r1d_manifest_preflight_impl(false);
+            if (!r1d_preflight.passed) {
+                throw std::runtime_error("R1D_MANIFEST_PREFLIGHT_NOT_PASS");
+            }
+            const R1DSchedule &schedule = r1d_schedule(scenario_id);
+            total_steps = schedule.total_steps;
+            output_stride = schedule.output_stride;
+            frame_count = schedule.frame_count;
+            scenario_manifest = schedule.manifest;
+            scenario_manifest_root = schedule.manifest_root;
+            frozen_expected_payload_bytes = schedule.expected_payload_bytes;
+        }
 
         std::vector<Vector3r> fluid_positions;
         std::vector<Vector3r> fluid_velocities(SAMPLE_COUNT, Vector3r::Zero());
@@ -502,7 +830,17 @@ AdapterRun run_r1c_trajectory_impl(
         }
 
         std::vector<std::uint8_t> payload;
-        payload.reserve(8U * 1024U * 1024U);
+        const std::size_t computed_expected_payload_bytes = expected_payload_bytes(
+            mode == TrajectoryMode::R1D
+                ? R1D_PROFILE_IDENTITY_PROJECTION
+                : (mode == TrajectoryMode::R1C5
+                    ? R1C5_PROFILE_IDENTITY_PROJECTION
+                    : (mode == TrajectoryMode::R1C4
+                        ? R1C4_PROFILE_IDENTITY_PROJECTION
+                        : r1c_profile_identity_projection())),
+            scenario_manifest,
+            frame_count);
+        payload.reserve(computed_expected_payload_bytes);
         const std::array<std::uint8_t, 8> magic = {'C', 'W', 'R', 'E', 'F', 'V', '2', 0};
         payload.insert(payload.end(), magic.begin(), magic.end());
         std::string_view profile_identity = r1c_profile_identity_projection();
@@ -510,14 +848,16 @@ AdapterRun run_r1c_trajectory_impl(
             profile_identity = R1C4_PROFILE_IDENTITY_PROJECTION;
         } else if (mode == TrajectoryMode::R1C5) {
             profile_identity = R1C5_PROFILE_IDENTITY_PROJECTION;
+        } else if (mode == TrajectoryMode::R1D) {
+            profile_identity = R1D_PROFILE_IDENTITY_PROJECTION;
         }
         std::string manifest(profile_identity);
         manifest.push_back('\n');
-        manifest.append(scenario.manifest);
+        manifest.append(scenario_manifest);
         append_u32(payload, checked_u32(manifest.size(), "MANIFEST_LENGTH"));
         payload.insert(payload.end(), manifest.begin(), manifest.end());
         append_u32(payload, SAMPLE_COUNT);
-        append_u32(payload, FRAME_COUNT);
+        append_u32(payload, frame_count);
 
         SimulationGuard simulation_guard;
         SPH::Simulation *simulation = SPH::Simulation::getCurrent();
@@ -595,13 +935,19 @@ AdapterRun run_r1c_trajectory_impl(
         simulation->updateBoundaryVolume();
 
         FrameDiagnostics initial;
+        std::optional<AggregateProjections> aggregates;
+        if (mode == TrajectoryMode::R1D) {
+            aggregates = make_aggregate_projections(frame_count);
+            append_aggregate_frame(*aggregates, *fluid_model, initial);
+        }
         append_frame(payload, *fluid_model, initial);
+        std::uint32_t serialized_frames = 1U;
         std::uint32_t maximum_pressure_iterations = 0;
         std::uint32_t maximum_divergence_iterations = 0;
         std::uint64_t total_contact_hits = 0;
         std::uint32_t final_receiver_count = 0;
         trajectory_started = true;
-        for (std::uint32_t step = 1; step < FRAME_COUNT; ++step) {
+        for (std::uint32_t step = 1; step <= total_steps; ++step) {
             std::vector<std::array<double, 3>> previous_positions(SAMPLE_COUNT);
             for (std::uint32_t id = 0; id < SAMPLE_COUNT; ++id) {
                 previous_positions[id] = position_by_id(*fluid_model, id);
@@ -660,13 +1006,27 @@ AdapterRun run_r1c_trajectory_impl(
             for (std::uint32_t count : diagnostics.feature_counts) {
                 total_contact_hits += count;
             }
-            append_frame(payload, *fluid_model, diagnostics);
+            if ((step % output_stride) == 0U) {
+                if (aggregates.has_value()) {
+                    append_aggregate_frame(*aggregates, *fluid_model, diagnostics);
+                }
+                append_frame(payload, *fluid_model, diagnostics);
+                ++serialized_frames;
+            }
         }
         failure_phase = "serialization";
+        if (serialized_frames != frame_count) {
+            throw std::runtime_error("CWREFV2_FRAME_COUNT_MISMATCH");
+        }
         const std::size_t expected_size =
-            8U + 4U + manifest.size() + 4U + 4U + (312'156U * FRAME_COUNT);
-        if (payload.size() != expected_size) {
+            20U + manifest.size() + (FRAME_BYTES * frame_count);
+        if (expected_size != computed_expected_payload_bytes
+            || payload.size() != expected_size) {
             throw std::runtime_error("CWREFV2_SIZE_MISMATCH");
+        }
+        if (mode == TrajectoryMode::R1D
+            && payload.size() != frozen_expected_payload_bytes) {
+            throw std::runtime_error("R1D_FROZEN_PAYLOAD_SIZE_MISMATCH");
         }
         if (payload.size() > MAX_FILE_BYTES) {
             throw std::runtime_error("CWREFV2_EXCEEDS_CAPACITY");
@@ -686,7 +1046,7 @@ AdapterRun run_r1c_trajectory_impl(
                << "status=PASS\n"
                << "simulation_created=true\n"
                << "trajectory_started=true\n"
-               << "frames=" << FRAME_COUNT << '\n'
+               << "frames=" << frame_count << '\n'
                << "samples=" << SAMPLE_COUNT << '\n'
                << "payload_file=" << filename << '\n'
                << "payload_bytes=" << payload.size() << '\n'
@@ -695,12 +1055,30 @@ AdapterRun run_r1c_trajectory_impl(
                << "max_divergence_iterations=" << maximum_divergence_iterations << '\n'
                << "total_contact_hits=" << total_contact_hits << '\n'
                << "final_receiver_count=" << final_receiver_count << '\n';
+        if (mode == TrajectoryMode::R1D) {
+            if (!aggregates.has_value()) {
+                throw std::runtime_error("R1D_AGGREGATES_NOT_INITIALIZED");
+            }
+            output << "total_steps=" << total_steps << '\n'
+                   << "output_stride=" << output_stride << '\n'
+                   << "scenario_manifest_root=" << scenario_manifest_root << '\n'
+                   << "q99_x_root=" << projection_hash(aggregates->q99_x) << '\n'
+                   << "q99_y_root=" << projection_hash(aggregates->q99_y) << '\n'
+                   << "receiver_count_root="
+                   << projection_hash(aggregates->receiver_count) << '\n'
+                   << "full_generation_candidate=true\n";
+        }
         if (mode == TrajectoryMode::R1C2) {
             output << "diagnostic_only=true\n"
                    << "r1c_authorized=false\n";
         }
-        output << "r1d_authorized=false\n"
-               << "b4e_authorized=false\n";
+        if (mode == TrajectoryMode::R1D) {
+            output << "r1e_authorized=false\n"
+                   << "b4e_authorized=false\n";
+        } else {
+            output << "r1d_authorized=false\n"
+                   << "b4e_authorized=false\n";
+        }
         return {true, output.str()};
     } catch (const std::exception &error) {
         return {
@@ -787,6 +1165,20 @@ AdapterRun run_r1c5_trajectory(
         scenario_id,
         output_dir,
         TrajectoryMode::R1C5,
+        300U);
+}
+
+AdapterRun run_r1d_manifest_preflight(bool force_schedule_mismatch) {
+    return run_r1d_manifest_preflight_impl(force_schedule_mismatch);
+}
+
+AdapterRun run_r1d_generation(
+    std::string_view scenario_id,
+    std::string_view output_dir) {
+    return run_r1c_trajectory_impl(
+        scenario_id,
+        output_dir,
+        TrajectoryMode::R1D,
         300U);
 }
 
