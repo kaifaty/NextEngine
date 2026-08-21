@@ -1,6 +1,6 @@
 # NSR3-B4EP3 canonical superset feasibility research -- 2026-08-21
 
-Status: `COMPLETE / 227_STATE_AUDIT_SELECTED / NO_CACHE_IMPLEMENTATION_YET`
+Status: `COMPLETE / 227_STATE_AUDIT_PASS / B4EP3I_DESIGN_AUTHORIZED`
 
 ## Question
 
@@ -75,3 +75,8 @@ Run the report twice in fresh processes and require byte equality.
 - no skin/capacity tuning follows a failure under this identity.
 
 B4E2, CUDA, runtime and production remain blocked.
+
+The audit subsequently passes all 227 states with one rebuild, 226 reuses,
+maximum candidate degree 122, `1.0689` candidate/active ratio and `0.1998`
+construction-work ratio. See the
+[dated evidence](nonlocal-nsr3b4ep3-canonical-superset-evidence-2026-08-21.md).

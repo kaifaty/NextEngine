@@ -1,6 +1,6 @@
 # NSR3-B4EP3 -- canonical superset feasibility-audit contract
 
-Status: `FROZEN / IMPLEMENTATION_AND_TWO_RUNS_AUTHORIZED / RESEARCH_ONLY`
+Status: `FROZEN / PASS / B4EP3I_DESIGN_AUTHORIZED / RESEARCH_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -65,3 +65,11 @@ PASS selects `CANONICAL_SUPERSET_FEASIBLE` and authorizes only B4EP3I cache
 implementation/A-B design. Any failure records its first exact state/predicate,
 stops this topology family without skin/capacity tuning and authorizes only
 HVP design. B4E2, references, runtime/CUDA and production remain blocked.
+
+## Closed result
+
+B4EP3 passes at implementation commit `42b068fbaf366a74136f27b86f29106e1395e807`.
+All 227 states are exact, one build serves 226 certified reuses, maximum
+candidate degree is 122, candidate/active visits are `1.0689` and the
+construction-work ratio is `0.1998`. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep3-canonical-superset-evidence-2026-08-21.md).

@@ -1014,3 +1014,9 @@ all 227 nominal query states. Its
 filtered pair order/CSR, evaluation and tape, plus capacity, overhead, reuse
 and negative-control gates. Implement and run this audit only; it is not yet a
 cache optimization or timing claim.
+B4EP3 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep3-canonical-superset-evidence-2026-08-21.md).
+All 227 states reproduce exact pairs/CSR/evaluation/tape. One initial list
+covers 226 certified reuses with maximum candidate degree 122, 6.89% extra
+pair visits and a 0.1998 construction-work ratio. This authorizes only B4EP3I
+hot-path cache design/A-B; it is not yet a measured solver speedup.

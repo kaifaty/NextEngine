@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP2_PASS / B4EP3_AUDIT_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4EP3_PASS / B4EP3I_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -169,9 +169,12 @@
 - **Current decision:** B4EP3 uses fixed `0.04h` skin and the conservative
   `4*d_max^2` certificate. It is an offline audit over the captured query
   sequence, not a solver cache implementation.
-- **Next action:** implement the dedicated audit command, require two
-  byte-identical reports and stop without tuning on the first exactness,
-  capacity, overhead or reuse failure.
+- **Current conclusion:** all 227 B4EP3 states match exact pair/CSR/evaluation/
+  tape. One superset build serves 226 reuses; maximum degree is 122,
+  candidate/active visits `1.0689` and construction-work ratio `0.1998`.
+- **Next action:** freeze B4EP3I internal hot-path cache/A-B. Keep parent full
+  and existing commands unchanged; require exact B4EP1 roots/counters before
+  three balanced Release timing pairs.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -220,6 +223,7 @@
 | NSR3B4EP2 contract | exact-output work-only residual gprof | one external profile only; no optimization/B4E2 |
 | NSR3B4EP2 PASS | workspace 58.33%, HVP 39.64%, SHA 0.46% | B4EP3 exact topology-reuse audit design only |
 | NSR3B4EP3 contract | fixed-skin 227-state canonical superset audit | implementation/two runs only; no hot-path cache or timing claim |
+| NSR3B4EP3 PASS | one build, 226 exact reuses, work proxy `0.1998` | B4EP3I internal cache design/A-B only |
 
 Candidate solver identity remains:
 
@@ -269,6 +273,7 @@ production authority is created by this lineage.
 | [B4EP2 research](../nonlocal-nsr3b4ep2-residual-attribution-research-2026-08-21.md) | HVP/topology/evaluation/control remain competing residual hypotheses | run one exact-output work-only gprof profile |
 | [B4EP2](../nonlocal-nsr3b4ep2-residual-attribution-evidence-2026-08-21.md) | workspace pipeline leads; topology and HVP nearly tie | audit canonical superset feasibility before implementing reuse |
 | [B4EP3 research](../nonlocal-nsr3b4ep3-canonical-superset-research-2026-08-21.md) | current lexicographic pair sort may avoid old anchor-cell order failure | run fixed `0.04h` 227-state audit; no tuning on failure |
+| [B4EP3](../nonlocal-nsr3b4ep3-canonical-superset-evidence-2026-08-21.md) | 227/227 exact; one rebuild, 226 reuse; candidate work ratio `0.1998` | design optional internal hot-path cache and controlled Release A/B |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -587,6 +592,16 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** transferring P4 credit, assuming geometric coverage implies
   reduction-order equality, or implementing/timing cache reuse first.
 
+### D-031 -- Admit exact superset reuse to a hot-path A/B only
+
+- **Observation:** every captured state reproduces exact topology/evaluation/
+  tape, one list covers the sequence and the candidate work proxy is 0.1998.
+- **Decision:** integrate an optional internal cache into the research query
+  trace, leave all defaults/full parent unchanged and require exact physical
+  correspondence before balanced Release timing.
+- **Rejected:** treating the audit's 31-second dual-path process as a speed
+  result, exposing a runtime option, or dropping per-query CSR/tape refresh.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -621,12 +636,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the B4EP3 audit without routing solver work through the cache.
-2. Capture/analyse the sequence; require exact filtered pair order/CSR,
-   conservative displacement coverage, capacity and predeclared useful reuse.
-3. Repeat in a fresh process. Only a PASS may authorize a Release cache
-   implementation/A-B; otherwise
-   route to HVP design. Keep B4E2/runtime/production blocked.
+1. Freeze B4EP3I cache ownership, failure and work-accounting semantics; keep
+   the full parent and all existing commands byte-exact.
+2. Implement only a dedicated cached work-only command and require exact
+   B4EP1 physical roots/counters plus the B4EP3 cache facts.
+3. Run three alternating Release timing pairs. Keep the cache only on three
+   wins and median speedup `>=1.10`; otherwise route to HVP design.
 
 ## Reconsideration triggers
 
