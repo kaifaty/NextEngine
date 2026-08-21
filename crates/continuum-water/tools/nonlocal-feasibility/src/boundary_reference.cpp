@@ -8508,6 +8508,7 @@ struct CanonicalStageRun {
     double maximum_raw_published_ledger_residual = 0.0;
     double maximum_compensated_ledger_residual = 0.0;
     double maximum_kkt_ledger_residual = 0.0;
+    double maximum_compensated_kkt_residual = 0.0;
     double maximum_impulse_report_closure = 0.0;
     double maximum_compensated_ledger_closure = 0.0;
     double maximum_center_report_closure = 0.0;
@@ -8693,6 +8694,7 @@ struct CanonicalAdaptiveRun {
     double cumulative_absolute_mechanical_delta = 0.0;
     double maximum_raw_ledger_residual = 0.0;
     double maximum_compensated_ledger_residual = 0.0;
+    double maximum_kkt_scale_ledger_residual = 0.0;
     std::vector<CanonicalAdaptiveAttempt> attempts;
     int recovered_frames = 0;
     int recoverable_failed_levels = 0;
@@ -12272,7 +12274,9 @@ CanonicalStageRun run_canonical_stage_interval(
                         result.publication_ledger_exact
                         && (kkt_scale_ledger
                             ? (entry.non_residual_gates_exact
-                                && entry.kkt_scale_residual_passed)
+                                && entry.kkt_scale_residual_passed
+                                && std::isfinite(
+                                    entry.compensated_ledger_residual))
                             : entry.passed);
                     result.cumulative_publication_impulse +=
                         entry.direct_impulse;
@@ -12285,6 +12289,9 @@ CanonicalStageRun run_canonical_stage_interval(
                     result.maximum_kkt_ledger_residual = std::max(
                         result.maximum_kkt_ledger_residual,
                         solve.state.ledger_residual);
+                    result.maximum_compensated_kkt_residual = std::max(
+                        result.maximum_compensated_kkt_residual,
+                        entry.compensated_kkt_residual);
                     result.maximum_impulse_report_closure = std::max(
                         result.maximum_impulse_report_closure,
                         entry.impulse_report_closure);
@@ -12326,7 +12333,9 @@ CanonicalStageRun run_canonical_stage_interval(
                     }
                     result.run.maximum_ledger_residual = std::max(
                         result.run.maximum_ledger_residual,
-                        entry.compensated_ledger_residual);
+                        kkt_scale_ledger
+                            ? entry.compensated_kkt_residual
+                            : entry.compensated_ledger_residual);
                     result.run.maximum_ledger_absolute = std::max(
                         result.run.maximum_ledger_absolute,
                         norm(entry.compensated_ledger));
@@ -13690,7 +13699,8 @@ bool canonical_kkt_scale_ledger_exact(
         stage.publication_ledger.end(),
         [](const CanonicalPublicationLedgerEntry& entry) {
             return entry.non_residual_gates_exact
-                && entry.kkt_scale_residual_passed;
+                && entry.kkt_scale_residual_passed
+                && std::isfinite(entry.compensated_ledger_residual);
         });
     const double cumulative_bound = static_cast<double>(stage.run.substeps)
             * MASS * std::sqrt(3.0) * 0.5e-6
@@ -13917,7 +13927,8 @@ LedgerNormalizationRealControls run_ledger_normalization_real_controls() {
 CanonicalAdaptiveRun run_canonical_adaptive_controller(
     const SmokeFixture& fixture,
     const std::string& scenario_sha256,
-    bool recovery = false) {
+    bool recovery = false,
+    bool kkt_scale_ledger = false) {
     CanonicalAdaptiveRun result;
     result.trace.record_queries = false;
     result.controller.position = fixture.position;
@@ -14040,7 +14051,7 @@ CanonicalAdaptiveRun run_canonical_adaptive_controller(
                 &committed_position, &committed_velocity,
                 static_cast<std::uint32_t>(committed_before),
                 static_cast<double>(frame_index) * SMOKE_FRAME_TIME,
-                recovery));
+                recovery, kkt_scale_ledger));
             if (!recovery) {
                 if (!levels.back().passed) {
                     result.failure = "FRAME_CANDIDATE:"
@@ -14304,6 +14315,9 @@ CanonicalAdaptiveRun run_canonical_adaptive_controller(
         result.maximum_compensated_ledger_residual = std::max(
             result.maximum_compensated_ledger_residual,
             accepted.maximum_compensated_ledger_residual);
+        result.maximum_kkt_scale_ledger_residual = std::max(
+            result.maximum_kkt_scale_ledger_residual,
+            accepted.maximum_compensated_kkt_residual);
         frame.position = result.controller.position;
         frame.velocity = result.controller.velocity;
         frame.passed = true;
@@ -14328,7 +14342,11 @@ CanonicalAdaptiveRun run_canonical_adaptive_controller(
         && result.trace.live_workspaces == 0
         && result.trace.maximum_live_workspaces <= 2
         && result.trace.exact && result.trace.work_reduced
-        && result.maximum_compensated_ledger_residual <= 1.0e-9
+        && (kkt_scale_ledger
+            ? (result.maximum_kkt_scale_ledger_residual <= 1.0e-9
+                && std::isfinite(
+                    result.maximum_compensated_ledger_residual))
+            : result.maximum_compensated_ledger_residual <= 1.0e-9)
         && norm(result.cumulative_publication_impulse) <= impulse_bound
         && (!recovery
             || (result.attempted_candidate_substeps
@@ -14352,11 +14370,12 @@ CanonicalAdaptiveCase run_canonical_adaptive_case(
     const SmokeFixture& fixture,
     const std::string& scenario_sha256,
     bool released_block,
-    bool recovery = false) {
+    bool recovery = false,
+    bool kkt_scale_ledger = false) {
     CanonicalAdaptiveCase result;
     result.name = std::move(name);
     result.candidate = run_canonical_adaptive_controller(
-        fixture, scenario_sha256, recovery);
+        fixture, scenario_sha256, recovery, kkt_scale_ledger);
     result.binary_trace.record_queries = false;
     result.binary = run_b4b1_controller_joint(
         fixture, true, result.binary_trace);
@@ -14578,13 +14597,15 @@ CanonicalAdaptiveCase run_canonical_adaptive_case(
 }
 
 CanonicalAdaptiveRollback run_canonical_adaptive_rollback(
-    bool recovery = false) {
+    bool recovery = false,
+    bool kkt_scale_ledger = false) {
     CanonicalAdaptiveRollback result;
     SmokeFixture fixture = make_b4b_supported_column_fixture();
     fixture.macro_frames = 1;
     const CanonicalAdaptiveRun committed =
         run_canonical_adaptive_controller(
-            fixture, B4C3TA_P1_SCENARIO_SHA256, recovery);
+            fixture, B4C3TA_P1_SCENARIO_SHA256,
+            recovery, kkt_scale_ledger);
     if (!committed.passed) {
         result.failure = "ROLLBACK_PREFIX";
         return result;
@@ -17533,6 +17554,256 @@ SplitBoundaryReport run_kkt_scale_stage_ledger_controls() {
            << ",\"complete_adaptive_recovery_design_authorized\":"
            << (passed ? "true" : "false")
            << ",\"complete_adaptive_replay_authorized\":false"
+           << ",\"canonical_fixed_reference_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_combined_adaptive_replay_probe_controls() {
+    std::vector<CanonicalAdaptiveCase> cases;
+    cases.push_back(run_canonical_adaptive_case(
+        "p1-supported-adaptive-r2",
+        make_b4b_supported_column_fixture(),
+        B4C3TA_P1_SCENARIO_SHA256, false, true, true));
+    cases.push_back(run_canonical_adaptive_case(
+        "p2-released-adaptive-r2",
+        make_b4b_released_block_fixture(),
+        B4C3TA_P2_SCENARIO_SHA256, true, true, true));
+    const CanonicalAdaptiveRollback rollback =
+        run_canonical_adaptive_rollback(true, true);
+    const CanonicalRecoveryNegatives recovery_negatives =
+        run_canonical_recovery_negatives();
+    const KktScaleLedgerNegatives ledger_negatives =
+        run_kkt_scale_ledger_negatives();
+    bool cases_exact = cases.size() == 2U;
+    for (const CanonicalAdaptiveCase& value : cases) {
+        const int attempt_sum = std::accumulate(
+            value.candidate.attempts.begin(),
+            value.candidate.attempts.end(), 0,
+            [](int total, const CanonicalAdaptiveAttempt& attempt) {
+                return total + attempt.attempted_substeps;
+            });
+        cases_exact = cases_exact && value.passed
+            && attempt_sum == value.candidate.attempted_candidate_substeps
+            && attempt_sum == value.candidate.controller.executed_substeps
+            && value.candidate.committed_frames.size()
+                == value.candidate.committed_ledger.size()
+            && std::all_of(
+                value.candidate.committed_ledger.begin(),
+                value.candidate.committed_ledger.end(),
+                kkt_policy_entry_valid);
+    }
+    const bool passed = cases_exact && rollback.passed
+        && recovery_negatives.passed && ledger_negatives.passed;
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS" : "FAIL")
+             << "|R:" << rollback.passed
+             << "|RN:" << recovery_negatives.passed
+             << "|LN:" << ledger_negatives.passed;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3tar2_combined_replay_probe.v1\""
+           << ",\"identity\":\"joint-pressure-canonical-balanced-adaptive-r2-recovery-kkt-ledger\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"authority\":\"DIAGNOSTIC_ONLY\""
+           << ",\"representation_profile_sha256\":\""
+           << B4C3Q_PROFILE_SHA256 << '"'
+           << ",\"ledger_policy_sha256\":\""
+           << B4C3L_POLICY_SHA256 << '"'
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        const CanonicalAdaptiveCase& value = cases[i];
+        const std::string legacy_root = publication_ledger_hash(
+            value.candidate.committed_ledger);
+        const std::string policy_root = kkt_policy_ledger_hash(
+            value.candidate.committed_ledger, B4C3L_POLICY_SHA256);
+        const std::size_t strict_excursions = static_cast<std::size_t>(
+            std::count_if(
+                value.candidate.committed_ledger.begin(),
+                value.candidate.committed_ledger.end(),
+                [](const CanonicalPublicationLedgerEntry& entry) {
+                    return entry.compensated_ledger_residual > 1.0e-9;
+                }));
+        material << '|' << value.name << ':' << value.passed << ':'
+                 << value.candidate.trajectory_sha256 << ':'
+                 << legacy_root << ':' << policy_root << ':'
+                 << value.candidate.controller.accepted_substeps << ':'
+                 << value.candidate.attempted_candidate_substeps << ':'
+                 << value.candidate.maximum_compensated_ledger_residual << ':'
+                 << value.candidate.maximum_kkt_scale_ledger_residual;
+        report << "{\"physical\":";
+        append_canonical_adaptive_case(report, value);
+        report << ",\"recovery\":";
+        append_canonical_adaptive_attempts(report, value.candidate);
+        report << ",\"maximum_strict_ledger_residual\":"
+               << value.candidate.maximum_compensated_ledger_residual
+               << ",\"maximum_kkt_ledger_residual\":"
+               << value.candidate.maximum_kkt_scale_ledger_residual
+               << ",\"strict_residual_excursions\":"
+               << strict_excursions
+               << ",\"legacy_ledger_sha256\":\"" << legacy_root
+               << "\",\"policy_ledger_sha256\":\"" << policy_root
+               << "\"}";
+    }
+    report << "],\"post_commit_rollback\":";
+    append_canonical_adaptive_rollback(report, rollback);
+    report << ",\"recovery_negative_controls\":";
+    append_canonical_recovery_negatives(report, recovery_negatives);
+    report << ",\"ledger_negative_controls\":";
+    append_kkt_scale_ledger_negatives(report, ledger_negatives);
+    report << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_combined_adaptive_replay_controls() {
+    const SplitBoundaryReport parent =
+        run_kkt_scale_stage_ledger_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "8ebee39be668d1b99758040b42936ceeea3dfc6bc6d09888a4a99c35612ed0d9";
+    std::vector<CanonicalAdaptiveCase> cases;
+    CanonicalAdaptiveRollback rollback;
+    CanonicalRecoveryNegatives recovery_negatives;
+    KktScaleLedgerNegatives ledger_negatives;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3A2_PARENT";
+    } else {
+        cases.push_back(run_canonical_adaptive_case(
+            "p1-supported-adaptive-r2",
+            make_b4b_supported_column_fixture(),
+            B4C3TA_P1_SCENARIO_SHA256, false, true, true));
+        cases.push_back(run_canonical_adaptive_case(
+            "p2-released-adaptive-r2",
+            make_b4b_released_block_fixture(),
+            B4C3TA_P2_SCENARIO_SHA256, true, true, true));
+        rollback = run_canonical_adaptive_rollback(true, true);
+        recovery_negatives = run_canonical_recovery_negatives();
+        ledger_negatives = run_kkt_scale_ledger_negatives();
+        for (const CanonicalAdaptiveCase& value : cases) {
+            const int attempt_sum = std::accumulate(
+                value.candidate.attempts.begin(),
+                value.candidate.attempts.end(), 0,
+                [](int total, const CanonicalAdaptiveAttempt& attempt) {
+                    return total + attempt.attempted_substeps;
+                });
+            const bool work_exact = attempt_sum
+                    == value.candidate.attempted_candidate_substeps
+                && attempt_sum
+                    == value.candidate.controller.executed_substeps;
+            const bool roots_exact = value.candidate.committed_frames.size()
+                    == value.candidate.committed_ledger.size()
+                && std::all_of(
+                    value.candidate.committed_ledger.begin(),
+                    value.candidate.committed_ledger.end(),
+                    kkt_policy_entry_valid);
+            if ((!value.passed || !work_exact || !roots_exact)
+                && first_failure.empty()) {
+                first_failure = value.name + ':'
+                    + (!value.passed ? value.failure
+                        : (!work_exact ? "ATTEMPTED_WORK"
+                                      : "POLICY_ROOT_INPUT"));
+            }
+        }
+        if (!rollback.passed && first_failure.empty()) {
+            first_failure = "POST_COMMIT_ROLLBACK";
+        }
+        if (!recovery_negatives.passed && first_failure.empty()) {
+            first_failure = "RECOVERY_NEGATIVES";
+        }
+        if (!ledger_negatives.passed && first_failure.empty()) {
+            first_failure = "LEDGER_NEGATIVES";
+        }
+    }
+    const bool cases_passed = cases.size() == 2U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const CanonicalAdaptiveCase& value) {
+                return value.passed;
+            });
+    const bool passed = parent_exact && cases_passed && rollback.passed
+        && recovery_negatives.passed && ledger_negatives.passed;
+    const std::string disposition = passed
+        ? "CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_CANDIDATE"
+        : "CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3tar2_combined_replay.v1\""
+           << ",\"identity\":\"joint-pressure-canonical-balanced-adaptive-r2-recovery-kkt-ledger\""
+           << ",\"parent_b4c3a2_raw_sha256\":\"8ebee39be668d1b99758040b42936ceeea3dfc6bc6d09888a4a99c35612ed0d9\""
+           << ",\"parent_b4c3a2_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"representation_profile_sha256\":\""
+           << B4C3Q_PROFILE_SHA256 << '"'
+           << ",\"ledger_policy_sha256\":\""
+           << B4C3L_POLICY_SHA256 << '"'
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        const CanonicalAdaptiveCase& value = cases[i];
+        const std::string legacy_root = publication_ledger_hash(
+            value.candidate.committed_ledger);
+        const std::string policy_root = kkt_policy_ledger_hash(
+            value.candidate.committed_ledger, B4C3L_POLICY_SHA256);
+        const std::size_t strict_excursions = static_cast<std::size_t>(
+            std::count_if(
+                value.candidate.committed_ledger.begin(),
+                value.candidate.committed_ledger.end(),
+                [](const CanonicalPublicationLedgerEntry& entry) {
+                    return entry.compensated_ledger_residual > 1.0e-9;
+                }));
+        material << '|' << value.name << ':' << value.passed << ':'
+                 << value.candidate.trajectory_sha256 << ':'
+                 << legacy_root << ':' << policy_root << ':'
+                 << value.candidate.controller.accepted_substeps << ':'
+                 << value.candidate.attempted_candidate_substeps << ':'
+                 << value.candidate.maximum_compensated_ledger_residual << ':'
+                 << value.candidate.maximum_kkt_scale_ledger_residual;
+        report << "{\"physical\":";
+        append_canonical_adaptive_case(report, value);
+        report << ",\"recovery\":";
+        append_canonical_adaptive_attempts(report, value.candidate);
+        report << ",\"maximum_strict_ledger_residual\":"
+               << value.candidate.maximum_compensated_ledger_residual
+               << ",\"maximum_kkt_ledger_residual\":"
+               << value.candidate.maximum_kkt_scale_ledger_residual
+               << ",\"strict_residual_excursions\":"
+               << strict_excursions
+               << ",\"legacy_ledger_sha256\":\"" << legacy_root
+               << "\",\"policy_ledger_sha256\":\"" << policy_root
+               << "\"}";
+    }
+    report << "],\"post_commit_rollback\":";
+    append_canonical_adaptive_rollback(report, rollback);
+    report << ",\"recovery_negative_controls\":";
+    append_canonical_recovery_negatives(report, recovery_negatives);
+    report << ",\"ledger_negative_controls\":";
+    append_kkt_scale_ledger_negatives(report, ledger_negatives);
+    report << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c3tr_fixed_reference_design_authorized\":"
+           << (passed ? "true" : "false")
            << ",\"canonical_fixed_reference_authorized\":false"
            << ",\"nominal_corpus_execution_authorized\":false"
            << ",\"runtime_authority\":false"

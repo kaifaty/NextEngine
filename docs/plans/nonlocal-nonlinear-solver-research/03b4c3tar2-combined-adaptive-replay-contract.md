@@ -1,6 +1,6 @@
 # NSR3-B4C3TAR2 -- combined adaptive recovery replay
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / B4C3TR_BLOCKED`
+Status: `PASS / B4C3TR_DESIGN_AUTHORIZED`
 
 Parent B4C3A2 selects `CANONICAL_KKT_SCALE_STAGE_LEDGER_CANDIDATE`; its
 JSON-without-final-LF SHA-256 is
@@ -80,3 +80,13 @@ PASS selects `CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_CANDIDATE` and
 authorizes only B4C3TR fixed canonical reference design. FAIL preserves B4C3A2
 and all negative results. No fixed canonical execution, nominal, CUDA, runtime,
 schema or production authority is granted.
+
+## Recorded decision
+
+B4C3TAR2 passes twice byte-identically at raw JSON-with-LF
+`911f4ee088d3c8a2e9ad8d5e11d2060295207ff57c70a003147dcd80b30d81c6`
+and semantic result
+`ae52a97a6c0bd6fe5cacd7746d3131a7f45ebc1e9a79e231e665e1e87cb777f7`.
+Select `CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_CANDIDATE`; authorize
+only B4C3TR fixed canonical reference design. See the
+[dated evidence](../../development/nonlocal-nsr3b4c3tar2-combined-replay-evidence-2026-08-21.md).

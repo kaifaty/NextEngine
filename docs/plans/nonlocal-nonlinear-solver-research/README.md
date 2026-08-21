@@ -505,3 +505,10 @@ The
 freezes that composition: exact reject-limit refinement plus KKT-scale ledger
 admission, with unchanged P1/P2 horizons, binary/energy/schedule gates,
 attempted-work accounting and atomic canonical/legacy/policy roots.
+B4C3TAR2 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3tar2-combined-replay-evidence-2026-08-21.md).
+It completes all eight P1 and sixteen P2 macro frames, recovers only the two
+known exact reject-limit failures, preserves atomic roots and schedules, and
+passes every pre-frozen physical and energy bound. This selects
+`CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_CANDIDATE` and authorizes only
+B4C3TR complete fixed canonical reference design.

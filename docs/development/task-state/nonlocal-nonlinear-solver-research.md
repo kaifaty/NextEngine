@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3A2_PASS / B4C3TAR2_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3TAR2_PASS / B4C3TR_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,23 +11,21 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** B4C3A2 passes twice at raw `aa7b3489...7c9b`.
-  Canonical trajectory and legacy ledger roots remain exact; new policy roots
-  bind both residual semantics. Atomic commit, rollback, order/repeat, energy
-  and physical correspondence all pass.
-- **Current decision:** select `CANONICAL_KKT_SCALE_STAGE_LEDGER_CANDIDATE`.
-  This supersedes B4C3A1 only as proposed ledger admission evidence; B4C3TAR
-  remains a preserved FAIL.
-- **Current action:** design a new complete adaptive replay that combines the
-  exact B4C3TAR `REJECT_LIMIT` recovery policy with B4C3A2 ledger admission,
-  while retaining the original binary/energy/schedule gates. B4C3TR/B4C3TC/
-  B4C4/B4D remain blocked.
-- **Current contract:** B4C3TAR2 freezes the two-policy composition, complete
-  P1/P2 gates, global canonical/legacy/policy roots, exact attempted work and
-  post-commit rollback. No other solver or tolerance change is allowed.
-- **Current contract:** B4C3A2 binds unchanged representation/trajectory and
-  legacy ledger roots plus a new policy-ledger hash over both residual
-  normalizers, correspondence, closure and energy fields.
+- **Current conclusion:** B4C3TAR2 passes twice byte-identically at raw
+  `911f4ee0...81c6`. It completes all 8/16 P1/P2 macro frames, recovers only
+  the two exact reject-limit failures and preserves canonical, legacy-ledger
+  and KKT-policy roots, schedules, physical envelopes and energy budgets.
+- **Current decision:** select
+  `CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_CANDIDATE`. B4C3TA and
+  B4C3TAR remain preserved FAIL evidence; B4C3A2 remains the selected
+  one-frame ledger transaction.
+- **Current action:** design B4C3TR complete canonical fixed `48/96/192`
+  reference lanes and convergence gates. Do not execute them before freezing
+  the contract. B4C3TC/B4C4/B4D remain blocked.
+- **Current evidence:** full raw-with-LF `911f4ee0...81c6`, no-LF
+  `5862a1c9...6c3d`, semantic `ae52a97a...77f7`; wall time
+  `107.72/107.50 s`. P1 accepts/attempts `364/563` substeps and has two strict
+  diagnostic excursions while KKT residual stays `<=1e-9`.
 
 - **Current conclusion:** B4C3Q exact aggregate-balanced apportionment passes
   twice at raw `ae44e39f...0731`. Biased aggregate error and 1,024-step center
@@ -1126,6 +1124,29 @@
 - **Smallest next action:** implement the frozen r2 controller and execute its
   isolated lanes before the two complete parent-gated reports.
 
+### D-057 -- Select combined adaptive recovery candidate
+
+- **Observation:** B4C3TAR2 completes both long-horizon scenarios twice
+  byte-identically while preserving all inherited physical, energy, schedule,
+  root, rollback and negative gates. P1 recovers exactly two classified
+  reject-limit failures; its two strict-normalizer excursions remain finite
+  diagnostics and pass the KKT sum-scale gate.
+- **Decision:** select
+  `CANONICAL_BALANCED_ADAPTIVE_RECOVERY_KKT_LEDGER_CANDIDATE` and authorize
+  B4C3TR fixed canonical reference design only.
+- **Rejected alternatives:** do not erase the B4C3TA/B4C3TAR failures, treat
+  strict residual excursions as unreported, change solver tolerances, compare
+  adaptive versus fixed before validating the fixed canonical references, or
+  begin nominal/runtime/GPU work.
+- **Consequence:** complete fixed `48/96/192` canonical lanes may now be
+  specified. B4C3TC and all downstream authority remain blocked.
+- **Remaining uncertainty:** fixed lanes have not yet proven temporal
+  convergence under balanced publication and KKT-policy ledgers, and their
+  cost may materially exceed the already long adaptive replay.
+- **Smallest next action:** derive and freeze B4C3TR identity, fixed-lane root
+  ownership, convergence/floor gates, exact work accounting and failure
+  atomicity before implementation.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1138,12 +1159,12 @@
 
 ## Exact next action
 
-1. Implement the frozen B4C3TAR2 controller without changing the B4C3TAR
-   recovery classifier or long-horizon physical gates.
-2. Bind global policy-ledger roots, exact attempted-work accounting, rollback,
-   P2 onset schedule and binary/energy envelopes.
-3. Execute twice before reopening B4C3TR fixed canonical design. B4C4/B4D
-   remain blocked.
+1. Audit the existing binary fixed `48/96/192` references and canonical stage
+   ownership; derive B4C3TR gates without using future results.
+2. Freeze B4C3TR canonical trajectory plus legacy/policy ledger roots,
+   convergence-or-floor rules, exact work accounting and failure atomicity.
+3. Implement only after the contract is frozen. B4C3TC/B4C4/B4D remain
+   blocked.
 
 ## Reconsideration triggers
 
