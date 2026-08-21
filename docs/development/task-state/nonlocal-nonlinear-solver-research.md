@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4B1_PASS / B4C4C_DESIGN` |
+| Status | `ACTIVE / NSR3B4C4C_FROZEN / B4C4C_EXECUTION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -1764,6 +1764,24 @@
 - **Smallest next action:** map every adjacency consumer and prove whether the
   existing pressure tape already contains all required ordered row data.
 
+### D-086 -- Transfer a single canonical flat adjacency into the tape
+
+- **Observation:** nested adjacency is read only by initial evaluation,
+  untaped reference HVP and tape construction; the tape then owns an
+  equivalent CSR for every remaining workspace query.
+- **Decision:** construct sorted CSR pair indices directly, evaluate through
+  them, validate, then move those same allocations into the pressure tape.
+- **Rejected alternatives:** keep both layouts, store a second flat
+  participant array, lend neighborhood memory to the tape, or combine this
+  change with support views or solver arithmetic.
+- **Consequence:** the one-macro candidate must remove `12,672/243` P1/P2
+  nested row objects and both row-sort passes while preserving exact final
+  tape bytes and all durable roots.
+- **Remaining uncertainty:** measured directed-record volume, candidate
+  construction timing and complete-lane ownership under every rollback.
+- **Smallest next action:** implement the opt-in flat builder/tape transfer and
+  run the frozen B4C4C one-macro correspondence and corruption controls.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1776,9 +1794,9 @@
 
 ## Exact next action
 
-1. Audit and freeze B4C4C flat-only CSR against the selected retained/static
-   complete-lane baseline.
-2. Execute it separately, then re-attest B4D reference inputs.
+1. Execute frozen B4C4C flat-only CSR against the selected retained/static
+   one-macro baseline.
+2. If exact, freeze its timing discriminator and complete-lane rollout.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 
 ## Reconsideration triggers

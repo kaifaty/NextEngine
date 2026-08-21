@@ -735,3 +735,11 @@ All eight lanes build exactly one immutable index and preserve every B4C4A1
 physical, query, retention and durable result. Predeclared removals through
 `4,192,768` support records per lane are exact. B4C4C flat-only CSR design is
 authorized next; B4D remains blocked.
+The
+[B4C4C audit](../../development/nonlocal-nsr3b4c4c-flat-adjacency-research-2026-08-21.md)
+proves that the existing pressure tape contains every ordered adjacency datum
+needed after initial evaluation. Its
+[frozen contract](03b4c4c-flat-adjacency-contract.md) constructs canonical
+CSR pair indices once, evaluates through them and transfers their ownership
+to the tape. The isolated gate predeclares removal of `12,672/243` nested row
+objects and both sets of row sorts; B4D remains blocked until execution.
