@@ -8368,6 +8368,15 @@ struct JointNegative {
     bool passed = false;
 };
 
+struct JointOwnerGatherPlan {
+    bool passed = false;
+    std::string failure;
+    std::vector<std::uint32_t> source_by_slot;
+    std::vector<std::uint32_t> target_offsets;
+    std::vector<std::uint32_t> target_slots;
+    std::size_t payload_bytes = 0U;
+};
+
 struct JointPressureTape {
     bool passed = false;
     std::string failure;
@@ -8377,6 +8386,7 @@ struct JointPressureTape {
     std::vector<double> compression;
     std::vector<double> hvp_gradient;
     std::vector<double> hvp_second;
+    JointOwnerGatherPlan owner_gather_plan;
     std::size_t active_centers = 0;
     std::size_t active_directed = 0;
     std::size_t payload_bytes = 0;
@@ -8434,6 +8444,14 @@ enum class JointWorkspaceEvidencePolicy {
     WorkOnly = 1,
 };
 
+struct JointOwnerTopologyPlan {
+    bool passed = false;
+    std::string failure;
+    std::vector<std::uint32_t> offsets;
+    std::vector<std::uint32_t> pair_indices;
+    std::size_t payload_bytes = 0U;
+};
+
 struct JointTopologySupersetCache {
     bool failed = false;
     std::string failure;
@@ -8450,6 +8468,7 @@ struct JointTopologySupersetCache {
     std::size_t active_pair_visits = 0U;
     std::size_t maximum_candidate_degree = 0U;
     double maximum_anchor_displacement_squared = 0.0;
+    JointOwnerTopologyPlan owner_topology_plan;
 };
 
 using JointPhaseClock = std::chrono::steady_clock;
@@ -8471,6 +8490,29 @@ struct JointPhaseTimingTrace {
     std::size_t fused_finalize_calls = 0U;
     std::size_t hvp_apply_calls = 0U;
     std::size_t failures = 0U;
+};
+
+struct JointOwnerDataflowTrace {
+    bool enabled = false;
+    std::size_t topology_audits = 0U;
+    std::size_t topology_pair_flags = 0U;
+    std::size_t topology_compacted_pairs = 0U;
+    std::size_t evaluation_audits = 0U;
+    std::size_t evaluation_density_gathers = 0U;
+    std::size_t evaluation_directed_values = 0U;
+    std::size_t evaluation_target_gathers = 0U;
+    std::size_t plan_validations = 0U;
+    std::size_t hvp_audits = 0U;
+    std::size_t hvp_directed_values = 0U;
+    std::size_t hvp_target_gathers = 0U;
+    std::size_t maximum_topology_payload_bytes = 0U;
+    std::size_t maximum_owner_payload_bytes = 0U;
+    std::size_t topology_mismatches = 0U;
+    std::size_t evaluation_mismatches = 0U;
+    std::size_t hvp_mismatches = 0U;
+    std::size_t order_mismatches = 0U;
+    std::size_t coverage_mismatches = 0U;
+    std::size_t fallbacks = 0U;
 };
 
 void record_joint_phase_duration(
@@ -8515,6 +8557,7 @@ struct JointQueryTrace {
     bool cache_hvp_coefficients = false;
     bool fuse_evaluation_tape = false;
     JointPhaseTimingTrace phase_timing;
+    JointOwnerDataflowTrace owner_dataflow;
     std::size_t coefficient_tape_builds = 0U;
     std::size_t coefficient_pairs = 0U;
     std::size_t coefficient_kernel_evaluations = 0U;
@@ -10754,10 +10797,270 @@ struct JointEvaluationTape {
     JointPressureTape tape;
 };
 
+bool exact_evaluation_values(
+    const Evaluation& lhs, const Evaluation& rhs);
+
+JointOwnerGatherPlan build_joint_owner_gather_plan(
+    const JointNeighborhood& neighborhood,
+    const std::vector<double>& compression,
+    JointOwnerDataflowTrace& trace) {
+    JointOwnerGatherPlan plan;
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    const std::size_t total = fluid_count + neighborhood.support.size();
+    const std::size_t directed =
+        neighborhood.flat_directed_pair_indices.size();
+    if (!neighborhood.passed || !neighborhood.flat_adjacency
+        || neighborhood.flat_offsets.size() != fluid_count + 1U
+        || compression.size() != fluid_count
+        || directed > std::numeric_limits<std::uint32_t>::max()
+        || total >= std::numeric_limits<std::uint32_t>::max()) {
+        plan.failure = "OWNER_GATHER_SOURCE";
+        return plan;
+    }
+    plan.source_by_slot.resize(directed);
+    std::vector<std::size_t> target_degree(total);
+    std::size_t active_directed = 0U;
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        const std::size_t begin = neighborhood.flat_offsets[center];
+        const std::size_t end = neighborhood.flat_offsets[center + 1U];
+        if (end < begin || end > directed) {
+            plan.failure = "OWNER_GATHER_ADJACENCY";
+            return plan;
+        }
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            plan.source_by_slot[slot] = static_cast<std::uint32_t>(center);
+            if (compression[center] <= 0.0) {
+                continue;
+            }
+            const std::size_t pair_index =
+                neighborhood.flat_directed_pair_indices[slot];
+            if (pair_index >= neighborhood.pairs.size()) {
+                plan.failure = "OWNER_GATHER_PAIR";
+                return plan;
+            }
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, neighborhood.pairs[pair_index], center);
+            if (participant >= total || participant == center) {
+                plan.failure = "OWNER_GATHER_TARGET";
+                return plan;
+            }
+            if (active_directed == std::numeric_limits<std::size_t>::max()
+                || target_degree[center]
+                    == std::numeric_limits<std::size_t>::max()
+                || target_degree[participant]
+                    == std::numeric_limits<std::size_t>::max()) {
+                plan.failure = "OWNER_GATHER_CAPACITY";
+                return plan;
+            }
+            ++active_directed;
+            ++target_degree[center];
+            ++target_degree[participant];
+        }
+    }
+    if (active_directed
+            > std::numeric_limits<std::uint32_t>::max() / 2U) {
+        plan.failure = "OWNER_GATHER_CAPACITY";
+        return plan;
+    }
+    const std::size_t target_entries = 2U * active_directed;
+    plan.target_offsets.resize(total + 1U);
+    plan.target_slots.resize(target_entries);
+    std::vector<std::size_t> cursor(total);
+    std::size_t offset = 0U;
+    for (std::size_t target = 0U; target < total; ++target) {
+        plan.target_offsets[target] = static_cast<std::uint32_t>(offset);
+        cursor[target] = offset;
+        offset += target_degree[target];
+    }
+    plan.target_offsets[total] = static_cast<std::uint32_t>(offset);
+    if (offset != target_entries) {
+        ++trace.coverage_mismatches;
+        plan.failure = "OWNER_GATHER_COVERAGE";
+        return plan;
+    }
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        if (compression[center] <= 0.0) {
+            continue;
+        }
+        const std::size_t begin = neighborhood.flat_offsets[center];
+        const std::size_t end = neighborhood.flat_offsets[center + 1U];
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                neighborhood.flat_directed_pair_indices[slot];
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, neighborhood.pairs[pair_index], center);
+            plan.target_slots[cursor[center]++] =
+                static_cast<std::uint32_t>(slot);
+            plan.target_slots[cursor[participant]++] =
+                static_cast<std::uint32_t>(slot);
+        }
+    }
+    for (std::size_t target = 0U; target < total; ++target) {
+        std::size_t previous = 0U;
+        bool have_previous = false;
+        for (std::size_t entry = plan.target_offsets[target];
+             entry < plan.target_offsets[target + 1U]; ++entry) {
+            const std::size_t slot = plan.target_slots[entry];
+            if (slot >= directed || (have_previous && slot <= previous)) {
+                ++trace.order_mismatches;
+                plan.failure = "OWNER_GATHER_ORDER";
+                return plan;
+            }
+            const std::size_t source = plan.source_by_slot[slot];
+            const std::size_t pair_index =
+                neighborhood.flat_directed_pair_indices[slot];
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, neighborhood.pairs[pair_index], source);
+            if (target != source && target != participant) {
+                ++trace.coverage_mismatches;
+                plan.failure = "OWNER_GATHER_TARGET";
+                return plan;
+            }
+            previous = slot;
+            have_previous = true;
+        }
+    }
+    plan.payload_bytes =
+        plan.source_by_slot.size() * sizeof(std::uint32_t)
+        + plan.target_offsets.size() * sizeof(std::uint32_t)
+        + plan.target_slots.size() * sizeof(std::uint32_t);
+    ++trace.plan_validations;
+    plan.passed = true;
+    return plan;
+}
+
+struct JointOwnerEvaluation {
+    bool passed = false;
+    std::string failure;
+    Evaluation evaluation;
+    std::vector<double> compression;
+    JointOwnerGatherPlan plan;
+    std::size_t density_gathers = 0U;
+    std::size_t directed_values = 0U;
+    std::size_t target_gathers = 0U;
+    std::size_t scratch_payload_bytes = 0U;
+};
+
+JointOwnerEvaluation evaluate_joint_owner_gather(
+    const JointNeighborhood& neighborhood,
+    const JointPressureTape& oracle_tape,
+    JointOwnerDataflowTrace& trace) {
+    JointOwnerEvaluation result;
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    const std::size_t total = fluid_count + neighborhood.support.size();
+    const std::size_t directed =
+        neighborhood.flat_directed_pair_indices.size();
+    if (!neighborhood.passed || !neighborhood.flat_adjacency
+        || oracle_tape.radius.size() != neighborhood.pairs.size()
+        || oracle_tape.hvp_gradient.size() != neighborhood.pairs.size()) {
+        result.failure = "OWNER_EVALUATION_SOURCE";
+        return result;
+    }
+    result.evaluation.gradient.resize(total);
+    result.evaluation.density.assign(fluid_count, MASS * weight(0.0));
+    std::vector<double> density_contribution(neighborhood.pairs.size());
+    for (std::size_t pair_index = 0U;
+         pair_index < neighborhood.pairs.size(); ++pair_index) {
+        density_contribution[pair_index] =
+            MASS * weight(oracle_tape.radius[pair_index]);
+        if (neighborhood.pairs[pair_index].participant < fluid_count) {
+            ++result.evaluation.fluid_pairs;
+        } else {
+            ++result.evaluation.boundary_pairs;
+        }
+    }
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        const std::size_t begin = neighborhood.flat_offsets[center];
+        const std::size_t end = neighborhood.flat_offsets[center + 1U];
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                neighborhood.flat_directed_pair_indices[slot];
+            result.evaluation.density[center] +=
+                density_contribution[pair_index];
+            ++result.density_gathers;
+        }
+    }
+    result.compression.resize(fluid_count);
+    std::vector<double> center_energy(fluid_count);
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        const double compression =
+            result.evaluation.density[center] / REST_DENSITY - 1.0;
+        result.compression[center] = compression;
+        result.evaluation.minimum_branch_margin = std::min(
+            result.evaluation.minimum_branch_margin,
+            std::abs(compression));
+        if (compression > 0.0) {
+            ++result.evaluation.active_centers;
+            center_energy[center] =
+                0.5 * KAPPA * compression * compression;
+        }
+    }
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        if (result.compression[center] > 0.0) {
+            result.evaluation.energy += center_energy[center];
+        }
+    }
+    result.plan = build_joint_owner_gather_plan(
+        neighborhood, result.compression, trace);
+    if (!result.plan.passed) {
+        result.failure = result.plan.failure;
+        return result;
+    }
+    std::vector<Vec3> directed_value(directed);
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        const double compression = result.compression[center];
+        if (compression <= 0.0) {
+            continue;
+        }
+        const double scale = KAPPA * compression
+            * MASS / REST_DENSITY;
+        const std::size_t begin = neighborhood.flat_offsets[center];
+        const std::size_t end = neighborhood.flat_offsets[center + 1U];
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                neighborhood.flat_directed_pair_indices[slot];
+            const JointPair pair = neighborhood.pairs[pair_index];
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, pair, center);
+            const Vec3 displacement = neighborhood.fluid[center].position
+                - joint_position(neighborhood, participant);
+            const double radius = oracle_tape.radius[pair_index];
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            directed_value[slot] = scale
+                * oracle_tape.hvp_gradient[pair_index]
+                * (displacement / radius);
+            ++result.directed_values;
+        }
+    }
+    for (std::size_t target = 0U; target < total; ++target) {
+        for (std::size_t entry = result.plan.target_offsets[target];
+             entry < result.plan.target_offsets[target + 1U]; ++entry) {
+            const std::size_t slot = result.plan.target_slots[entry];
+            const std::size_t source = result.plan.source_by_slot[slot];
+            const Vec3 value = directed_value[slot];
+            result.evaluation.gradient[target] +=
+                target == source ? value : -value;
+            ++result.target_gathers;
+        }
+    }
+    result.scratch_payload_bytes =
+        density_contribution.size() * sizeof(double)
+        + center_energy.size() * sizeof(double)
+        + directed_value.size() * sizeof(Vec3);
+    result.passed = result.compression == oracle_tape.compression;
+    if (!result.passed) {
+        result.failure = "OWNER_EVALUATION_COMPRESSION";
+    }
+    return result;
+}
+
 JointEvaluationTape build_joint_evaluation_tape_from_flat(
     JointNeighborhood& neighborhood,
     FlatAdjacencyWorkTrace* adjacency_work = nullptr,
-    JointPhaseTimingTrace* phase_timing = nullptr) {
+    JointPhaseTimingTrace* phase_timing = nullptr,
+    JointOwnerDataflowTrace* owner_dataflow = nullptr) {
     JointEvaluationTape result;
     const JointPhaseClock::time_point setup_start = phase_timing != nullptr
         ? JointPhaseClock::now() : JointPhaseClock::time_point{};
@@ -10933,6 +11236,29 @@ JointEvaluationTape build_joint_evaluation_tape_from_flat(
             phase_timing->fused_center_ns,
             phase_timing->fused_center_calls);
     }
+    if (owner_dataflow != nullptr) {
+        JointOwnerEvaluation owner = evaluate_joint_owner_gather(
+            neighborhood, result.tape, *owner_dataflow);
+        ++owner_dataflow->evaluation_audits;
+        owner_dataflow->evaluation_density_gathers +=
+            owner.density_gathers;
+        owner_dataflow->evaluation_directed_values +=
+            owner.directed_values;
+        owner_dataflow->evaluation_target_gathers +=
+            owner.target_gathers;
+        owner_dataflow->maximum_owner_payload_bytes = std::max(
+            owner_dataflow->maximum_owner_payload_bytes,
+            owner.plan.payload_bytes + owner.scratch_payload_bytes);
+        if (!owner.passed
+            || !exact_evaluation_values(
+                owner.evaluation, result.evaluation)) {
+            ++owner_dataflow->evaluation_mismatches;
+            result.failure = "OWNER_EVALUATION_MISMATCH:"
+                + owner.failure;
+            return result;
+        }
+        result.tape.owner_gather_plan = std::move(owner.plan);
+    }
     const JointPhaseClock::time_point finalize_start = phase_timing != nullptr
         ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     result.tape.offsets = std::move(neighborhood.flat_offsets);
@@ -11093,6 +11419,142 @@ bool exact_evaluation_values(
         && lhs.fluid_pairs == rhs.fluid_pairs
         && lhs.boundary_pairs == rhs.boundary_pairs
         && lhs.minimum_branch_margin == rhs.minimum_branch_margin;
+}
+
+struct JointOwnerHvp {
+    bool passed = false;
+    std::string failure;
+    std::vector<Vec3> value;
+    std::size_t directed_values = 0U;
+    std::size_t target_gathers = 0U;
+    std::size_t scratch_payload_bytes = 0U;
+};
+
+JointOwnerHvp apply_joint_pressure_tape_owner_gather(
+    const JointNeighborhood& neighborhood,
+    const JointPressureTape& tape,
+    const std::vector<Vec3>& direction) {
+    JointOwnerHvp owner;
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    const std::size_t total = fluid_count + neighborhood.support.size();
+    const std::size_t directed = tape.directed_pair_indices.size();
+    const JointOwnerGatherPlan& plan = tape.owner_gather_plan;
+    if (!tape.passed || !plan.passed || direction.size() != total
+        || tape.offsets.size() != fluid_count + 1U
+        || plan.source_by_slot.size() != directed
+        || plan.target_offsets.size() != total + 1U
+        || tape.hvp_gradient.size() != neighborhood.pairs.size()
+        || tape.hvp_second.size() != neighborhood.pairs.size()) {
+        owner.failure = "OWNER_HVP_SOURCE";
+        return owner;
+    }
+    std::vector<double> compression_direction(fluid_count);
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        if (tape.compression[center] <= 0.0) {
+            continue;
+        }
+        const std::size_t begin = tape.offsets[center];
+        const std::size_t end = tape.offsets[center + 1U];
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                tape.directed_pair_indices[slot];
+            const JointPair pair = neighborhood.pairs[pair_index];
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, pair, center);
+            const Vec3 displacement = neighborhood.fluid[center].position
+                - joint_position(neighborhood, participant);
+            const double radius = tape.radius[pair_index];
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * tape.hvp_gradient[pair_index]
+                * (displacement / radius);
+            compression_direction[center] += dot(
+                jacobian,
+                direction[center] - direction[participant]);
+        }
+    }
+    std::vector<Vec3> directed_value(directed);
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        const double compression = tape.compression[center];
+        if (compression <= 0.0) {
+            continue;
+        }
+        const std::size_t begin = tape.offsets[center];
+        const std::size_t end = tape.offsets[center + 1U];
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                tape.directed_pair_indices[slot];
+            const JointPair pair = neighborhood.pairs[pair_index];
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, pair, center);
+            const Vec3 displacement = neighborhood.fluid[center].position
+                - joint_position(neighborhood, participant);
+            const double radius = tape.radius[pair_index];
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            const Vec3 normal = displacement / radius;
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * tape.hvp_gradient[pair_index] * normal;
+            const Vec3 relative_direction =
+                direction[center] - direction[participant];
+            const Vec3 curvature = MASS / REST_DENSITY
+                * radial_hessian_product(
+                    normal,
+                    tape.hvp_second[pair_index],
+                    tape.hvp_gradient[pair_index] / radius,
+                    relative_direction);
+            directed_value[slot] = KAPPA
+                * (compression_direction[center] * jacobian
+                    + compression * curvature);
+            ++owner.directed_values;
+        }
+    }
+    owner.value.resize(total);
+    for (std::size_t target = 0U; target < total; ++target) {
+        for (std::size_t entry = plan.target_offsets[target];
+             entry < plan.target_offsets[target + 1U]; ++entry) {
+            const std::size_t slot = plan.target_slots[entry];
+            if (slot >= directed) {
+                owner.failure = "OWNER_HVP_SLOT";
+                return owner;
+            }
+            const std::size_t source = plan.source_by_slot[slot];
+            const Vec3 value = directed_value[slot];
+            owner.value[target] += target == source ? value : -value;
+            ++owner.target_gathers;
+        }
+    }
+    owner.scratch_payload_bytes =
+        compression_direction.size() * sizeof(double)
+        + directed_value.size() * sizeof(Vec3);
+    owner.passed = true;
+    return owner;
+}
+
+void audit_joint_owner_hvp(
+    const JointPressureWorkspace& workspace,
+    const std::vector<Vec3>& direction,
+    const std::vector<Vec3>& oracle,
+    JointQueryTrace& trace) {
+    if (!trace.owner_dataflow.enabled) {
+        return;
+    }
+    const JointOwnerHvp owner = apply_joint_pressure_tape_owner_gather(
+        workspace.neighborhood, workspace.tape, direction);
+    ++trace.owner_dataflow.hvp_audits;
+    trace.owner_dataflow.hvp_directed_values += owner.directed_values;
+    trace.owner_dataflow.hvp_target_gathers += owner.target_gathers;
+    trace.owner_dataflow.maximum_owner_payload_bytes = std::max(
+        trace.owner_dataflow.maximum_owner_payload_bytes,
+        workspace.tape.owner_gather_plan.payload_bytes
+            + owner.scratch_payload_bytes);
+    if (!owner.passed || !exact_vec3_values(owner.value, oracle)) {
+        ++trace.owner_dataflow.hvp_mismatches;
+        trace.exact = false;
+    }
 }
 
 std::vector<JointPoint> tagged_points(const std::vector<Vec3>& position) {
@@ -11449,7 +11911,8 @@ JointNeighborhood b4ep3_cached_topology(
     JointTopologySupersetCache& cache,
     StaticSupportWorkTrace* static_work,
     bool flat_adjacency,
-    FlatAdjacencyWorkTrace* adjacency_work);
+    FlatAdjacencyWorkTrace* adjacency_work,
+    JointOwnerDataflowTrace* owner_dataflow = nullptr);
 
 JointPressureWorkspace build_joint_query_workspace(
     const std::vector<Vec3>& position,
@@ -11470,7 +11933,9 @@ JointPressureWorkspace build_joint_query_workspace(
     if (trace.topology_cache != nullptr) {
         result.neighborhood = b4ep3_cached_topology(
             fluid, static_support, *trace.topology_cache,
-            static_work, flat_adjacency, adjacency_work);
+            static_work, flat_adjacency, adjacency_work,
+            trace.owner_dataflow.enabled
+                ? &trace.owner_dataflow : nullptr);
     } else {
         result.neighborhood = static_support == nullptr
             ? build_joint_neighborhood(
@@ -11503,7 +11968,9 @@ JointPressureWorkspace build_joint_query_workspace(
             build_joint_evaluation_tape_from_flat(
                 result.neighborhood, adjacency_work,
                 trace.phase_timing.enabled
-                    ? &trace.phase_timing : nullptr);
+                    ? &trace.phase_timing : nullptr,
+                trace.owner_dataflow.enabled
+                    ? &trace.owner_dataflow : nullptr);
         ++trace.joint_evaluation_queries;
         ++trace.tape_builds;
         if (!fused.passed || !fused.tape.passed) {
@@ -11709,6 +12176,8 @@ std::vector<Vec3> smooth_hvp_joint_workspace(
             trace.phase_timing.hvp_apply_ns,
             trace.phase_timing.hvp_apply_calls);
     }
+    audit_joint_owner_hvp(
+        workspace, joint_direction, taped, trace);
     if (trace.cache_hvp_coefficients) {
         trace.coefficient_hvp_lookups +=
             4U * workspace.tape.active_directed;
@@ -12206,6 +12675,8 @@ std::vector<Vec3> pressure_hvp_joint_workspace(
             trace.phase_timing.hvp_apply_ns,
             trace.phase_timing.hvp_apply_calls);
     }
+    audit_joint_owner_hvp(
+        workspace, joint_direction, taped, trace);
     if (trace.cache_hvp_coefficients) {
         trace.coefficient_hvp_lookups +=
             4U * workspace.tape.active_directed;
@@ -18499,7 +18970,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     JointTopologySupersetCache* topology_cache = nullptr,
     bool cache_hvp_coefficients = false,
     bool fuse_evaluation_tape = false,
-    bool capture_phase_timing = false) {
+    bool capture_phase_timing = false,
+    bool audit_owner_dataflow = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -18511,6 +18983,7 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     result.trace.cache_hvp_coefficients = cache_hvp_coefficients;
     result.trace.fuse_evaluation_tape = fuse_evaluation_tape;
     result.trace.phase_timing.enabled = capture_phase_timing;
+    result.trace.owner_dataflow.enabled = audit_owner_dataflow;
     struct TopologyCachePointerReset {
         JointQueryTrace& trace;
         ~TopologyCachePointerReset() {
@@ -32724,6 +33197,215 @@ JointNeighborhood b4ep3_filter_superset(
     return result;
 }
 
+JointOwnerTopologyPlan b4ep10d_build_owner_topology_plan(
+    const JointNeighborhood& superset) {
+    JointOwnerTopologyPlan plan;
+    const std::size_t fluid_count = superset.fluid.size();
+    if (!superset.passed || fluid_count == 0U
+        || fluid_count >= std::numeric_limits<std::uint32_t>::max()
+        || superset.pairs.size()
+            > std::numeric_limits<std::uint32_t>::max()) {
+        plan.failure = "OWNER_TOPOLOGY_SOURCE";
+        return plan;
+    }
+    std::vector<std::size_t> degree(fluid_count);
+    for (std::size_t pair_index = 0U;
+         pair_index < superset.pairs.size(); ++pair_index) {
+        const JointPair pair = superset.pairs[pair_index];
+        if (pair.fluid >= fluid_count
+            || pair.participant >= fluid_count + superset.support.size()) {
+            plan.failure = "OWNER_TOPOLOGY_PAIR";
+            return plan;
+        }
+        ++degree[pair.fluid];
+        if (pair.participant < fluid_count) {
+            ++degree[pair.participant];
+        }
+    }
+    std::size_t directed = 0U;
+    for (const std::size_t value : degree) {
+        if (value > std::numeric_limits<std::uint32_t>::max() - directed) {
+            plan.failure = "OWNER_TOPOLOGY_CAPACITY";
+            return plan;
+        }
+        directed += value;
+    }
+    plan.offsets.resize(fluid_count + 1U);
+    plan.pair_indices.resize(directed);
+    std::vector<std::size_t> cursor(fluid_count);
+    std::size_t offset = 0U;
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        plan.offsets[center] = static_cast<std::uint32_t>(offset);
+        cursor[center] = offset;
+        offset += degree[center];
+    }
+    plan.offsets[fluid_count] = static_cast<std::uint32_t>(offset);
+    for (std::size_t pair_index = 0U;
+         pair_index < superset.pairs.size(); ++pair_index) {
+        const JointPair pair = superset.pairs[pair_index];
+        plan.pair_indices[cursor[pair.fluid]++] =
+            static_cast<std::uint32_t>(pair_index);
+        if (pair.participant < fluid_count) {
+            plan.pair_indices[cursor[pair.participant]++] =
+                static_cast<std::uint32_t>(pair_index);
+        }
+    }
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        std::size_t previous = 0U;
+        bool have_previous = false;
+        for (std::size_t slot = plan.offsets[center];
+             slot < plan.offsets[center + 1U]; ++slot) {
+            const std::size_t pair_index = plan.pair_indices[slot];
+            const std::size_t participant = joint_pair_participant(
+                superset, superset.pairs[pair_index], center);
+            if (participant >= fluid_count + superset.support.size()
+                || participant == center
+                || (have_previous && participant <= previous)) {
+                plan.failure = "OWNER_TOPOLOGY_ORDER";
+                return plan;
+            }
+            previous = participant;
+            have_previous = true;
+        }
+    }
+    plan.payload_bytes = plan.offsets.size() * sizeof(std::uint32_t)
+        + plan.pair_indices.size() * sizeof(std::uint32_t);
+    plan.passed = true;
+    return plan;
+}
+
+struct B4EP10DOwnerTopologyResult {
+    JointNeighborhood neighborhood;
+    std::size_t pair_flags = 0U;
+    std::size_t compacted_pairs = 0U;
+    std::size_t scratch_payload_bytes = 0U;
+};
+
+B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
+    const std::vector<JointPoint>& fluid_input,
+    const JointNeighborhood& superset,
+    const JointOwnerTopologyPlan& plan) {
+    B4EP10DOwnerTopologyResult audit;
+    JointNeighborhood& result = audit.neighborhood;
+    if (!superset.passed || !plan.passed
+        || !canonicalize_joint_points(fluid_input, result.fluid)
+        || result.fluid.size() != superset.fluid.size()
+        || plan.offsets.size() != result.fluid.size() + 1U) {
+        result.failure = "OWNER_FILTER_SOURCE";
+        return audit;
+    }
+    for (std::size_t index = 0U; index < result.fluid.size(); ++index) {
+        if (result.fluid[index].id != superset.fluid[index].id) {
+            result.failure = "OWNER_FILTER_IDENTITY";
+            return audit;
+        }
+    }
+    result.support = superset.support;
+    const std::size_t pair_limit = checked_joint_pair_limit(
+        result.fluid.size());
+    result.pair_payload_capacity_bytes = pair_limit * sizeof(JointPair);
+    result.adjacency_payload_capacity_bytes = pair_limit
+        * sizeof(std::uint32_t);
+    std::vector<std::uint8_t> active(superset.pairs.size());
+    std::vector<std::uint32_t> prefix(superset.pairs.size() + 1U);
+    for (std::size_t pair_index = 0U;
+         pair_index < superset.pairs.size(); ++pair_index) {
+        const JointPair pair = superset.pairs[pair_index];
+        if (pair.fluid >= result.fluid.size()
+            || pair.participant >= result.fluid.size()
+                + result.support.size()) {
+            result.failure = "OWNER_FILTER_PAIR";
+            return audit;
+        }
+        active[pair_index] = static_cast<std::uint8_t>(
+            norm(result.fluid[pair.fluid].position
+                - joint_position(result, pair.participant)) <= HORIZON);
+        if (prefix[pair_index]
+                == std::numeric_limits<std::uint32_t>::max()
+            && active[pair_index] != 0U) {
+            result.failure = "OWNER_FILTER_CAPACITY";
+            return audit;
+        }
+        prefix[pair_index + 1U] = prefix[pair_index]
+            + active[pair_index];
+    }
+    audit.pair_flags = active.size();
+    audit.compacted_pairs = prefix.back();
+    if (audit.compacted_pairs > pair_limit) {
+        result.failure = "OWNER_FILTER_CAPACITY";
+        return audit;
+    }
+    result.pairs.resize(audit.compacted_pairs);
+    for (std::size_t pair_index = 0U;
+         pair_index < superset.pairs.size(); ++pair_index) {
+        if (active[pair_index] == 0U) {
+            continue;
+        }
+        const JointPair pair = superset.pairs[pair_index];
+        result.pairs[prefix[pair_index]] = pair;
+        if (pair.participant < result.fluid.size()) {
+            ++result.fluid_pairs;
+        } else {
+            ++result.support_pairs;
+        }
+    }
+    std::vector<std::size_t> degree(result.fluid.size());
+    for (std::size_t center = 0U;
+         center < result.fluid.size(); ++center) {
+        for (std::size_t slot = plan.offsets[center];
+             slot < plan.offsets[center + 1U]; ++slot) {
+            const std::size_t pair_index = plan.pair_indices[slot];
+            if (pair_index >= active.size()) {
+                result.failure = "OWNER_FILTER_PLAN";
+                return audit;
+            }
+            degree[center] += active[pair_index] != 0U ? 1U : 0U;
+        }
+        if (degree[center] > B4C0_MAX_NEIGHBORS) {
+            result.failure = "JOINT_NEIGHBOR_CAPACITY";
+            return audit;
+        }
+    }
+    std::size_t directed = 0U;
+    for (const std::size_t value : degree) {
+        if (value > std::numeric_limits<std::uint32_t>::max() - directed) {
+            result.failure = "OWNER_FILTER_CAPACITY";
+            return audit;
+        }
+        directed += value;
+    }
+    result.flat_adjacency = true;
+    result.flat_offsets.resize(result.fluid.size() + 1U);
+    result.flat_directed_pair_indices.resize(directed);
+    std::size_t output = 0U;
+    for (std::size_t center = 0U;
+         center < result.fluid.size(); ++center) {
+        result.flat_offsets[center] = static_cast<std::uint32_t>(output);
+        for (std::size_t slot = plan.offsets[center];
+             slot < plan.offsets[center + 1U]; ++slot) {
+            const std::size_t pair_index = plan.pair_indices[slot];
+            if (active[pair_index] == 0U) {
+                continue;
+            }
+            result.flat_directed_pair_indices[output++] =
+                prefix[pair_index];
+        }
+    }
+    result.flat_offsets[result.fluid.size()] =
+        static_cast<std::uint32_t>(output);
+    result.distance_tests_per_pass = superset.pairs.size();
+    result.construction_distance_tests = superset.pairs.size();
+    result.maximum_degree = *std::max_element(degree.begin(), degree.end());
+    audit.scratch_payload_bytes = active.size() * sizeof(std::uint8_t)
+        + prefix.size() * sizeof(std::uint32_t)
+        + degree.size() * sizeof(std::size_t);
+    result.passed = output == directed;
+    if (!result.passed) {
+        result.failure = "OWNER_FILTER_COVERAGE";
+    }
+    return audit;
+}
+
 bool b4ep3_logical_neighborhood_exact(
     const JointNeighborhood& lhs,
     const JointNeighborhood& rhs) {
@@ -32779,7 +33461,8 @@ JointNeighborhood b4ep3_cached_topology(
     JointTopologySupersetCache& cache,
     StaticSupportWorkTrace* static_work,
     bool flat_adjacency,
-    FlatAdjacencyWorkTrace* adjacency_work) {
+    FlatAdjacencyWorkTrace* adjacency_work,
+    JointOwnerDataflowTrace* owner_dataflow) {
     JointNeighborhood failure;
     ++cache.queries;
     if (cache.failed) {
@@ -32843,6 +33526,18 @@ JointNeighborhood b4ep3_cached_topology(
         if (static_work != nullptr) {
             static_work->fluid_records_sorted += fluid.size();
         }
+        if (owner_dataflow != nullptr) {
+            cache.owner_topology_plan =
+                b4ep10d_build_owner_topology_plan(cache.superset);
+            if (!cache.owner_topology_plan.passed) {
+                ++owner_dataflow->order_mismatches;
+                cache.failed = true;
+                cache.failure = "OWNER_TOPOLOGY_PLAN:"
+                    + cache.owner_topology_plan.failure;
+                failure.failure = cache.failure;
+                return failure;
+            }
+        }
     }
     JointNeighborhood result = b4ep3_filter_superset(
         fluid, cache.superset, adjacency_work);
@@ -32850,6 +33545,27 @@ JointNeighborhood b4ep3_cached_topology(
         cache.failed = true;
         cache.failure = "TOPOLOGY_CACHE_FILTER:" + result.failure;
         return result;
+    }
+    if (owner_dataflow != nullptr) {
+        const B4EP10DOwnerTopologyResult owner =
+            b4ep10d_owner_filter_superset(
+                fluid, cache.superset, cache.owner_topology_plan);
+        ++owner_dataflow->topology_audits;
+        owner_dataflow->topology_pair_flags += owner.pair_flags;
+        owner_dataflow->topology_compacted_pairs += owner.compacted_pairs;
+        owner_dataflow->maximum_topology_payload_bytes = std::max(
+            owner_dataflow->maximum_topology_payload_bytes,
+            cache.owner_topology_plan.payload_bytes
+                + owner.scratch_payload_bytes);
+        if (!b4ep3_logical_neighborhood_exact(
+                result, owner.neighborhood)) {
+            ++owner_dataflow->topology_mismatches;
+            cache.failed = true;
+            cache.failure = "OWNER_TOPOLOGY_MISMATCH:"
+                + owner.neighborhood.failure;
+            failure.failure = cache.failure;
+            return failure;
+        }
     }
     cache.filtered_candidate_checks += cache.superset.pairs.size();
     cache.active_pair_visits += result.pairs.size();
@@ -34866,6 +35582,358 @@ SplitBoundaryReport run_nominal_hydro_fused_phase_timing_controls() {
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
            << ",\"throughput_claim\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4EP10D_IDENTITY_SHA256 =
+    "db02821e280df90a285fbbebeea8cc2ec87630891cef105e0d2a4b9f6c3bdc88";
+constexpr const char* B4EP10D_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep10d-owner-computes-dataflow-audit|v1|"
+    "parent=a75c1db690e26805b7f5d900a053be789316688c9ac033fd7db902f26e37cad6:"
+    "b557d20b0e67755228c94b67be11a4371e2a9bd355a70a4bd176e2ecaa62872b:"
+    "44e93e6e4ee24dcc623fe36d4c99ad4456f482fe1b47d18410ffb08204f9cd72|"
+    "implementation=706f071d4f7331e64b722143707ae491e59f6030|"
+    "topology=active-flags;exclusive-prefix;canonical-compact;row-owner-csr;"
+    "oracle=selected-cached|evaluation=pair-local-density-scalar;"
+    "row-owner-density;canonical-center-energy-fold;active-directed-values;"
+    "target-owner-transpose-gather|hvp=row-owner-compression-direction;"
+    "active-directed-values;target-owner-transpose-gather|"
+    "order=global-pair-restriction;global-center-slot-restriction;"
+    "exact-serial-arithmetic|returned=existing-oracle|"
+    "audits=topology226;evaluation226;hvp459;zero-mismatch|"
+    "memory=nominal-added-peak<=67108864|runs=2-byte-exact|"
+    "regressions=b4ep7i-byte-exact;b4ep9-result-exact|"
+    "timing=none|threads=none|reference=closed|"
+    "credit=b4ep10i-parallel-contract-only";
+
+void append_b4ep10d_owner_dataflow(
+    std::ostringstream& output,
+    const JointOwnerDataflowTrace& trace,
+    std::size_t maximum_added_payload_bytes) {
+    output << "{\"enabled\":"
+           << (trace.enabled ? "true" : "false")
+           << ",\"topology_audits\":" << trace.topology_audits
+           << ",\"topology_pair_flags\":" << trace.topology_pair_flags
+           << ",\"topology_compacted_pairs\":"
+           << trace.topology_compacted_pairs
+           << ",\"evaluation_audits\":" << trace.evaluation_audits
+           << ",\"evaluation_density_gathers\":"
+           << trace.evaluation_density_gathers
+           << ",\"evaluation_directed_values\":"
+           << trace.evaluation_directed_values
+           << ",\"evaluation_target_gathers\":"
+           << trace.evaluation_target_gathers
+           << ",\"plan_validations\":" << trace.plan_validations
+           << ",\"hvp_audits\":" << trace.hvp_audits
+           << ",\"hvp_directed_values\":"
+           << trace.hvp_directed_values
+           << ",\"hvp_target_gathers\":"
+           << trace.hvp_target_gathers
+           << ",\"maximum_topology_payload_bytes\":"
+           << trace.maximum_topology_payload_bytes
+           << ",\"maximum_owner_payload_bytes\":"
+           << trace.maximum_owner_payload_bytes
+           << ",\"maximum_added_payload_bytes\":"
+           << maximum_added_payload_bytes
+           << ",\"topology_mismatches\":"
+           << trace.topology_mismatches
+           << ",\"evaluation_mismatches\":"
+           << trace.evaluation_mismatches
+           << ",\"hvp_mismatches\":" << trace.hvp_mismatches
+           << ",\"order_mismatches\":" << trace.order_mismatches
+           << ",\"coverage_mismatches\":"
+           << trace.coverage_mismatches
+           << ",\"fallbacks\":" << trace.fallbacks << '}';
+}
+
+} // namespace
+
+SplitBoundaryReport
+run_nominal_hydro_owner_computes_dataflow_audit_controls() {
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(
+                fixture.position, fixture.velocity, 0));
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index =
+        build_joint_static_support_index(
+            tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4EP10D_IDENTITY_PROJECTION)
+            == B4EP10D_IDENTITY_SHA256
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297";
+
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    JointTopologySupersetCache cache;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        transaction = run_macro_adaptive_transaction_case(
+            "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
+            false, true, nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work, false,
+            &cache, true, true, false, true);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const double energy_allowance = 0.01 * std::max({
+        std::abs(parent.initial_mechanical),
+        static_cast<double>(fixture.position.size()) * MASS
+            * (-fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
+    const double candidate_active_ratio =
+        b4ep3i_candidate_active_ratio(cache);
+    const bool parent_evidence_exact = parent.passed
+        && parent.workspace_state_hashes == 1
+        && parent.workspace_state_hashes_skipped == 0;
+    const bool transaction_evidence_exact =
+        b4ep1_queries_work_only_exact(transaction.trace)
+        && transaction.trace.query_chain_sha256
+            == "6a220a4e6f4d6d06ab54fe043a9ddf49606aae40e598e43f1c331c78b7802991";
+    const bool physics_exact = b4ep1_frozen_physics_exact(
+            transaction, output, energy_creation)
+        && b4e1m_levels_exact(transaction)
+        && transaction.accepted_private.maximum_mechanical_energy
+            == parent.initial_mechanical
+        && energy_creation <= energy_allowance;
+    const bool cache_exact = transaction.passed && !cache.failed
+        && cache.queries == 226U
+        && cache.rebuilds == 1U
+        && cache.reuses == 225U
+        && cache.certificate_passes == 225U
+        && cache.certificate_failures == 0U
+        && cache.fallback_builds == 0U
+        && cache.maximum_candidate_degree == 122U
+        && cache.active_pair_visits == 85716150U
+        && std::isfinite(candidate_active_ratio)
+        && candidate_active_ratio <= 1.25;
+    const bool coefficient_exact = transaction.passed
+        && transaction.trace.cache_hvp_coefficients
+        && transaction.trace.coefficient_tape_builds == 226U
+        && transaction.trace.coefficient_pairs == 85716150U
+        && transaction.trace.coefficient_kernel_evaluations == 171432300U
+        && transaction.trace.coefficient_hvp_lookups == 971831424U
+        && transaction.trace.maximum_coefficient_payload_bytes
+            == 6088176U
+        && transaction.trace.coefficient_mismatches == 0U
+        && transaction.trace.coefficient_fallbacks == 0U;
+    const bool fusion_exact = transaction.passed
+        && transaction.trace.fuse_evaluation_tape
+        && transaction.trace.fused_workspace_builds == 226U
+        && transaction.trace.fused_pair_visits == 85716150U
+        && transaction.trace.fused_active_directed_visits == 131987230U
+        && transaction.trace.fused_center_visits == 1356000U
+        && transaction.trace.fused_radius_evaluations == 85716150U
+        && transaction.trace.fused_gradient_evaluations == 85716150U
+        && transaction.trace.fused_second_evaluations == 85716150U
+        && transaction.trace.fused_compression_evaluations == 1356000U
+        && transaction.trace.fusion_mismatches == 0U
+        && transaction.trace.fusion_fallbacks == 0U;
+    const bool work_exact = transaction.passed
+        && transaction.trace.total_pairs == 85716150U
+        && transaction.trace.total_active_directed == 131987230U
+        && transaction.trace.total_fluid_centers == 1356000U
+        && static_work.static_index_builds == 1U
+        && static_work.workspace_builds == 227U
+        && adjacency_work.workspace_builds == 227U
+        && adjacency_work.flat_offset_records == 1362227U
+        && adjacency_work.flat_pair_index_records == 151461068U
+        && adjacency_work.csr_ownership_transfers == 227U
+        && transaction.retention.transfers == 42
+        && transaction.retention.reads == 42
+        && transaction.retention.releases == 42
+        && transaction.retention.live_retained == 0
+        && transaction.trace.live_workspaces == 0;
+
+    const JointOwnerDataflowTrace& audit =
+        transaction.trace.owner_dataflow;
+    std::size_t maximum_added_payload_bytes =
+        audit.maximum_topology_payload_bytes;
+    bool payload_safe = cache.owner_topology_plan.payload_bytes
+        <= std::numeric_limits<std::size_t>::max()
+            - audit.maximum_owner_payload_bytes;
+    if (payload_safe) {
+        maximum_added_payload_bytes = std::max(
+            maximum_added_payload_bytes,
+            cache.owner_topology_plan.payload_bytes
+                + audit.maximum_owner_payload_bytes);
+    }
+    const bool target_relations_safe =
+        audit.evaluation_directed_values
+            <= std::numeric_limits<std::size_t>::max() / 2U
+        && audit.hvp_directed_values
+            <= std::numeric_limits<std::size_t>::max() / 2U;
+    const bool owner_exact = transaction.passed && audit.enabled
+        && audit.topology_audits == 226U
+        && audit.topology_pair_flags == cache.filtered_candidate_checks
+        && audit.topology_compacted_pairs
+            == transaction.trace.total_pairs
+        && audit.evaluation_audits == 226U
+        && audit.evaluation_density_gathers
+            == transaction.trace.total_directed
+        && audit.evaluation_directed_values
+            == transaction.trace.total_active_directed
+        && target_relations_safe
+        && audit.evaluation_target_gathers
+            == 2U * audit.evaluation_directed_values
+        && audit.plan_validations == 226U
+        && audit.hvp_audits == 459U
+        && transaction.trace.coefficient_hvp_lookups % 4U == 0U
+        && audit.hvp_directed_values
+            == transaction.trace.coefficient_hvp_lookups / 4U
+        && audit.hvp_target_gathers
+            == 2U * audit.hvp_directed_values
+        && payload_safe
+        && maximum_added_payload_bytes <= 67108864U
+        && audit.topology_mismatches == 0U
+        && audit.evaluation_mismatches == 0U
+        && audit.hvp_mismatches == 0U
+        && audit.order_mismatches == 0U
+        && audit.coverage_mismatches == 0U
+        && audit.fallbacks == 0U;
+    const bool passed = identity_exact && parent_evidence_exact
+        && transaction_evidence_exact && physics_exact && cache_exact
+        && coefficient_exact && fusion_exact && work_exact && owner_exact;
+    std::string failure;
+    if (!identity_exact) {
+        failure = "IDENTITY_OR_PARENT";
+    } else if (!parent_evidence_exact) {
+        failure = "PARENT_FULL_EVIDENCE";
+    } else if (!transaction.passed) {
+        failure = "TRANSACTION:" + transaction.failure;
+    } else if (!transaction_evidence_exact) {
+        failure = "WORK_ONLY_EVIDENCE";
+    } else if (!physics_exact) {
+        failure = "PHYSICS_CORRESPONDENCE";
+    } else if (!cache_exact) {
+        failure = "CACHE_CORRESPONDENCE";
+    } else if (!coefficient_exact) {
+        failure = "COEFFICIENT_CORRESPONDENCE";
+    } else if (!fusion_exact) {
+        failure = "FUSION_CORRESPONDENCE";
+    } else if (!work_exact) {
+        failure = "WORK_CORRESPONDENCE";
+    } else if (!owner_exact) {
+        failure = "OWNER_DATAFLOW_CORRESPONDENCE";
+    }
+
+    const std::string base_work_receipt = b4ep5_work_receipt(
+        parent, index, transaction, static_work, adjacency_work,
+        cache, candidate_active_ratio);
+    std::ostringstream work_material;
+    work_material << "nextengine.nonlocal.nsr3b4ep7i-work|v1|"
+                  << base_work_receipt << '|'
+                  << transaction.trace.fused_workspace_builds << ':'
+                  << transaction.trace.fused_pair_visits << ':'
+                  << transaction.trace.fused_active_directed_visits << ':'
+                  << transaction.trace.fused_center_visits << ':'
+                  << transaction.trace.fused_radius_evaluations << ':'
+                  << transaction.trace.fused_gradient_evaluations << ':'
+                  << transaction.trace.fused_second_evaluations << ':'
+                  << transaction.trace.fused_compression_evaluations;
+    const std::string work_receipt = sha256_hex(work_material.str());
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << failure
+             << '|' << B4EP10D_IDENTITY_SHA256 << '|'
+             << output.frame_root << ':' << output.aggregate_root << '|'
+             << transaction.trajectory_sha256 << ':'
+             << transaction.legacy_ledger_sha256 << ':'
+             << transaction.policy_ledger_sha256 << '|'
+             << transaction.trace.query_chain_sha256 << '|'
+             << base_work_receipt << ':' << work_receipt << '|'
+             << audit.topology_audits << ':'
+             << audit.topology_pair_flags << ':'
+             << audit.topology_compacted_pairs << '|'
+             << audit.evaluation_audits << ':'
+             << audit.evaluation_density_gathers << ':'
+             << audit.evaluation_directed_values << ':'
+             << audit.evaluation_target_gathers << ':'
+             << audit.plan_validations << '|'
+             << audit.hvp_audits << ':' << audit.hvp_directed_values
+             << ':' << audit.hvp_target_gathers << '|'
+             << maximum_added_payload_bytes << '|'
+             << audit.topology_mismatches << ':'
+             << audit.evaluation_mismatches << ':'
+             << audit.hvp_mismatches << ':' << audit.order_mismatches
+             << ':' << audit.coverage_mismatches << ':'
+             << audit.fallbacks;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4ep10d_owner_computes_dataflow.v1\""
+           << ",\"identity_sha256\":\"" << B4EP10D_IDENTITY_SHA256
+           << "\",\"parent_b4ep9_evidence\":\""
+              "b557d20b0e67755228c94b67be11a4371e2a9bd355a70a4bd176e2ecaa62872b\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"identity_exact\":"
+           << (identity_exact ? "true" : "false")
+           << ",\"parent_preflight\":";
+    append_b4e1m_parent(report, parent);
+    report << ",\"transaction\":";
+    append_macro_adaptive_transaction_case(report, transaction);
+    report << ",\"output\":";
+    append_b4e1m_output(
+        report, output, transaction, energy_creation, energy_allowance);
+    report << ",\"cache\":";
+    append_b4ep3i_cache(report, cache, candidate_active_ratio);
+    report << ",\"coefficients\":";
+    append_b4ep5_coefficients(report, transaction.trace);
+    report << ",\"fusion\":";
+    append_b4ep7i_fusion(report, transaction.trace);
+    report << ",\"owner_dataflow\":";
+    append_b4ep10d_owner_dataflow(
+        report, audit, maximum_added_payload_bytes);
+    report << ",\"base_work_receipt\":\"" << base_work_receipt << '"'
+           << ",\"work_receipt\":\"" << work_receipt << '"'
+           << ",\"parent_evidence_exact\":"
+           << (parent_evidence_exact ? "true" : "false")
+           << ",\"transaction_evidence_exact\":"
+           << (transaction_evidence_exact ? "true" : "false")
+           << ",\"physics_correspondence_exact\":"
+           << (physics_exact ? "true" : "false")
+           << ",\"cache_correspondence_exact\":"
+           << (cache_exact ? "true" : "false")
+           << ",\"coefficient_correspondence_exact\":"
+           << (coefficient_exact ? "true" : "false")
+           << ",\"fusion_correspondence_exact\":"
+           << (fusion_exact ? "true" : "false")
+           << ",\"work_correspondence_exact\":"
+           << (work_exact ? "true" : "false")
+           << ",\"owner_dataflow_correspondence_exact\":"
+           << (owner_exact ? "true" : "false")
+           << ",\"b4ep10i_contract_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"threads_used\":1"
+           << ",\"timing_admitted\":false"
+           << ",\"b4e2_execution_authorized\":false"
+           << ",\"reference_curve_decoded\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
            << ",\"result_sha256\":\""
            << sha256_hex(material.str()) << "\"}";
     return {passed, report.str()};
