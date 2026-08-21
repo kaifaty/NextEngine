@@ -8781,6 +8781,8 @@ struct CanonicalFixedLane {
     std::vector<Vec3> velocity;
     std::vector<SmokeRun> runs;
     std::vector<B4BAggregate> aggregates;
+    std::vector<std::vector<Vec3>> private_positions;
+    std::vector<std::vector<Vec3>> private_velocities;
     std::vector<canonical::Frame> committed_frames;
     std::vector<CanonicalPublicationLedgerEntry> committed_ledger;
     bool global_steps_exact = true;
@@ -8885,6 +8887,73 @@ struct CanonicalMacroRollback {
     bool legacy_ledger_root_exact = false;
     bool policy_ledger_root_exact = false;
     bool cumulative_totals_exact = false;
+};
+
+struct MacroErrorComponents {
+    bool passed = false;
+    bool gain_resolved = false;
+    double start_error = 0.0;
+    double start_floor = 0.0;
+    double propagated_error = 0.0;
+    double direct_error = 0.0;
+    double published_error = 0.0;
+    double triangle_allowance = 0.0;
+    double propagation_gain = 0.0;
+    double direct_share = 0.0;
+};
+
+struct MacroStabilityFrame {
+    int frame = -1;
+    MacroErrorComponents position;
+    MacroErrorComponents velocity;
+};
+
+struct MacroStabilityLevel {
+    bool passed = false;
+    int substeps_per_frame = 0;
+    std::vector<MacroStabilityFrame> frames;
+    int unresolved_position_gains = 0;
+    int unresolved_velocity_gains = 0;
+    double maximum_position_gain = 0.0;
+    double maximum_velocity_gain = 0.0;
+    int maximum_position_gain_frame = -1;
+    int maximum_velocity_gain_frame = -1;
+    double maximum_position_direct_share = 0.0;
+    double maximum_velocity_direct_share = 0.0;
+};
+
+struct FineContaminationField {
+    bool passed = false;
+    bool temporal_resolved = false;
+    double candidate_error = 0.0;
+    double temporal_difference = 0.0;
+    double temporal_floor = 0.0;
+    double contamination_ratio = 0.0;
+    double physical_scale_utilization = 0.0;
+};
+
+struct FineContaminationFrame {
+    int frame = -1;
+    FineContaminationField position;
+    FineContaminationField velocity;
+};
+
+struct MacroStabilityCase {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    std::array<MacroStabilityLevel, 3> levels;
+    std::vector<FineContaminationFrame> fine_frames;
+    int unresolved_position_contamination = 0;
+    int unresolved_velocity_contamination = 0;
+    double maximum_position_contamination = 0.0;
+    double maximum_velocity_contamination = 0.0;
+    int maximum_position_contamination_frame = -1;
+    int maximum_velocity_contamination_frame = -1;
+    double maximum_position_physical_utilization = 0.0;
+    double maximum_velocity_physical_utilization = 0.0;
+    bool contact_time_exact = false;
+    bool terminal_contacts_exact = false;
 };
 
 struct CanonicalAdaptiveFailureProbe {
@@ -16340,6 +16409,8 @@ CanonicalFixedLane run_macro_publication_fixed_lane(
                 + ':' + publication.failure;
             return result;
         }
+        result.private_positions.push_back(run.position);
+        result.private_velocities.push_back(run.velocity);
         result.position = publication.decoded_position;
         result.velocity = publication.decoded_velocity;
         result.committed_frames.push_back(
@@ -16980,6 +17051,250 @@ std::array<CanonicalFixedCase, 2> run_macro_publication_fixed_cases() {
     return {p1.get(), p2.get()};
 }
 
+MacroErrorComponents analyze_macro_error_components(
+    const std::vector<Vec3>& canonical_start,
+    const std::vector<Vec3>& binary_start,
+    const std::vector<Vec3>& private_end,
+    const std::vector<Vec3>& published_end,
+    const std::vector<Vec3>& binary_end) {
+    MacroErrorComponents result;
+    if (canonical_start.size() != binary_start.size()
+        || private_end.size() != binary_end.size()
+        || published_end.size() != private_end.size()) {
+        return result;
+    }
+    result.start_error = rms_difference(canonical_start, binary_start);
+    result.start_floor = b4b_rms_floor(
+        canonical_start, binary_start);
+    result.propagated_error = rms_difference(private_end, binary_end);
+    result.direct_error = rms_difference(published_end, private_end);
+    result.published_error = rms_difference(published_end, binary_end);
+    result.triangle_allowance = b4b_rms_floor(
+            private_end, binary_end)
+        + b4b_rms_floor(published_end, private_end)
+        + b4b_rms_floor(published_end, binary_end);
+    result.gain_resolved = result.start_error > result.start_floor;
+    if (result.gain_resolved) {
+        result.propagation_gain = result.propagated_error
+            / result.start_error;
+    }
+    const double published_floor = b4b_rms_floor(
+        published_end, binary_end);
+    if (result.published_error > published_floor) {
+        result.direct_share = result.direct_error
+            / result.published_error;
+    }
+    result.passed = std::isfinite(result.start_error)
+        && std::isfinite(result.start_floor)
+        && std::isfinite(result.propagated_error)
+        && std::isfinite(result.direct_error)
+        && std::isfinite(result.published_error)
+        && std::isfinite(result.triangle_allowance)
+        && (!result.gain_resolved
+            || std::isfinite(result.propagation_gain))
+        && std::isfinite(result.direct_share)
+        && result.published_error
+            <= result.propagated_error + result.direct_error
+                + result.triangle_allowance;
+    return result;
+}
+
+FineContaminationField analyze_fine_contamination(
+    const std::vector<Vec3>& candidate_fine,
+    const std::vector<Vec3>& binary_fine,
+    const std::vector<Vec3>& binary_coarse,
+    double physical_scale) {
+    FineContaminationField result;
+    if (candidate_fine.size() != binary_fine.size()
+        || binary_coarse.size() != binary_fine.size()) {
+        return result;
+    }
+    result.candidate_error = rms_difference(
+        candidate_fine, binary_fine);
+    result.temporal_difference = rms_difference(
+        binary_coarse, binary_fine);
+    result.temporal_floor = b4b_rms_floor(
+        binary_coarse, binary_fine);
+    result.temporal_resolved = result.temporal_difference
+        > result.temporal_floor;
+    if (result.temporal_resolved) {
+        result.contamination_ratio = result.candidate_error
+            / result.temporal_difference;
+    }
+    result.physical_scale_utilization = result.candidate_error
+        / std::max(physical_scale, 1.0e-300);
+    result.passed = std::isfinite(result.candidate_error)
+        && std::isfinite(result.temporal_difference)
+        && std::isfinite(result.temporal_floor)
+        && (!result.temporal_resolved
+            || std::isfinite(result.contamination_ratio))
+        && std::isfinite(result.physical_scale_utilization);
+    return result;
+}
+
+MacroStabilityCase analyze_macro_stability_case(
+    const SmokeFixture& fixture,
+    const CanonicalFixedCase& value) {
+    MacroStabilityCase result;
+    result.name = value.name;
+    bool all_exact = true;
+    for (std::size_t level = 0; level < value.lanes.size(); ++level) {
+        const CanonicalFixedLane& lane = value.lanes[level];
+        const B4BFixedTrajectory& binary =
+            value.binary_reference.levels[level];
+        MacroStabilityLevel& output = result.levels[level];
+        output.substeps_per_frame = lane.substeps_per_frame;
+        const bool aligned = lane.runs.size() == binary.runs.size()
+            && lane.private_positions.size() == lane.runs.size()
+            && lane.private_velocities.size() == lane.runs.size()
+            && lane.runs.size()
+                == static_cast<std::size_t>(fixture.macro_frames);
+        all_exact = all_exact && aligned && lane.passed && binary.passed;
+        const std::size_t frames = std::min({
+            lane.runs.size(), binary.runs.size(),
+            lane.private_positions.size(), lane.private_velocities.size()});
+        for (std::size_t frame = 0; frame < frames; ++frame) {
+            const std::vector<Vec3>& canonical_start = frame == 0U
+                ? fixture.position : lane.runs[frame - 1U].position;
+            const std::vector<Vec3>& canonical_start_velocity = frame == 0U
+                ? fixture.velocity : lane.runs[frame - 1U].velocity;
+            const std::vector<Vec3>& binary_start = frame == 0U
+                ? fixture.position : binary.runs[frame - 1U].position;
+            const std::vector<Vec3>& binary_start_velocity = frame == 0U
+                ? fixture.velocity : binary.runs[frame - 1U].velocity;
+            MacroStabilityFrame measurement;
+            measurement.frame = static_cast<int>(frame);
+            measurement.position = analyze_macro_error_components(
+                canonical_start, binary_start,
+                lane.private_positions[frame],
+                lane.runs[frame].position,
+                binary.runs[frame].position);
+            measurement.velocity = analyze_macro_error_components(
+                canonical_start_velocity, binary_start_velocity,
+                lane.private_velocities[frame],
+                lane.runs[frame].velocity,
+                binary.runs[frame].velocity);
+            all_exact = all_exact && measurement.position.passed
+                && measurement.velocity.passed;
+            if (measurement.position.gain_resolved) {
+                if (measurement.position.propagation_gain
+                    > output.maximum_position_gain) {
+                    output.maximum_position_gain =
+                        measurement.position.propagation_gain;
+                    output.maximum_position_gain_frame =
+                        static_cast<int>(frame);
+                }
+            } else {
+                ++output.unresolved_position_gains;
+            }
+            if (measurement.velocity.gain_resolved) {
+                if (measurement.velocity.propagation_gain
+                    > output.maximum_velocity_gain) {
+                    output.maximum_velocity_gain =
+                        measurement.velocity.propagation_gain;
+                    output.maximum_velocity_gain_frame =
+                        static_cast<int>(frame);
+                }
+            } else {
+                ++output.unresolved_velocity_gains;
+            }
+            output.maximum_position_direct_share = std::max(
+                output.maximum_position_direct_share,
+                measurement.position.direct_share);
+            output.maximum_velocity_direct_share = std::max(
+                output.maximum_velocity_direct_share,
+                measurement.velocity.direct_share);
+            output.frames.push_back(measurement);
+        }
+        output.passed = aligned
+            && std::all_of(
+                output.frames.begin(), output.frames.end(),
+                [](const MacroStabilityFrame& frame) {
+                    return frame.position.passed && frame.velocity.passed;
+                });
+    }
+    const CanonicalFixedLane& fine = value.lanes[2];
+    const B4BFixedTrajectory& binary_fine =
+        value.binary_reference.levels[2];
+    const B4BFixedTrajectory& binary_coarse =
+        value.binary_reference.levels[1];
+    const std::size_t fine_frames = std::min({
+        fine.runs.size(), binary_fine.runs.size(),
+        binary_coarse.runs.size()});
+    for (std::size_t frame = 0; frame < fine_frames; ++frame) {
+        FineContaminationFrame measurement;
+        measurement.frame = static_cast<int>(frame);
+        measurement.position = analyze_fine_contamination(
+            fine.runs[frame].position,
+            binary_fine.runs[frame].position,
+            binary_coarse.runs[frame].position,
+            0.05 * SPACING);
+        measurement.velocity = analyze_fine_contamination(
+            fine.runs[frame].velocity,
+            binary_fine.runs[frame].velocity,
+            binary_coarse.runs[frame].velocity,
+            0.001 * std::sqrt(KAPPA / MASS));
+        all_exact = all_exact && measurement.position.passed
+            && measurement.velocity.passed;
+        if (measurement.position.temporal_resolved) {
+            if (measurement.position.contamination_ratio
+                > result.maximum_position_contamination) {
+                result.maximum_position_contamination =
+                    measurement.position.contamination_ratio;
+                result.maximum_position_contamination_frame =
+                    static_cast<int>(frame);
+            }
+        } else {
+            ++result.unresolved_position_contamination;
+        }
+        if (measurement.velocity.temporal_resolved) {
+            if (measurement.velocity.contamination_ratio
+                > result.maximum_velocity_contamination) {
+                result.maximum_velocity_contamination =
+                    measurement.velocity.contamination_ratio;
+                result.maximum_velocity_contamination_frame =
+                    static_cast<int>(frame);
+            }
+        } else {
+            ++result.unresolved_velocity_contamination;
+        }
+        result.maximum_position_physical_utilization = std::max(
+            result.maximum_position_physical_utilization,
+            measurement.position.physical_scale_utilization);
+        result.maximum_velocity_physical_utilization = std::max(
+            result.maximum_velocity_physical_utilization,
+            measurement.velocity.physical_scale_utilization);
+        result.fine_frames.push_back(measurement);
+    }
+    result.contact_time_exact = std::all_of(
+        value.lane_gates.begin(), value.lane_gates.end(),
+        [](const CanonicalFixedLaneGate& gate) {
+            return gate.contact_time_error == 0.0;
+        });
+    result.terminal_contacts_exact = std::all_of(
+        value.lane_gates.begin(), value.lane_gates.end(),
+        [](const CanonicalFixedLaneGate& gate) {
+            return gate.terminal_contacts_exact;
+        });
+    result.passed = all_exact
+        && fine_frames == static_cast<std::size_t>(fixture.macro_frames)
+        && result.contact_time_exact && result.terminal_contacts_exact;
+    if (!result.passed) {
+        result.failure = "MACRO_STABILITY_MEASUREMENT_GATE";
+    }
+    return result;
+}
+
+std::array<MacroStabilityCase, 2> analyze_macro_stability_cases(
+    const std::array<CanonicalFixedCase, 2>& cases) {
+    return {
+        analyze_macro_stability_case(
+            make_b4b_supported_column_fixture(), cases[0]),
+        analyze_macro_stability_case(
+            make_b4b_released_block_fixture(), cases[1]),
+    };
+}
+
 CanonicalMacroRollback run_macro_publication_rollback() {
     CanonicalMacroRollback result;
     SmokeFixture fixture = make_b4b_supported_column_fixture();
@@ -17329,6 +17644,127 @@ void append_canonical_macro_rollback(
            << (value.policy_ledger_root_exact ? "true" : "false")
            << ",\"cumulative_totals_exact\":"
            << (value.cumulative_totals_exact ? "true" : "false") << '}';
+}
+
+void append_macro_error_components(
+    std::ostringstream& output,
+    const MacroErrorComponents& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"start_error\":" << value.start_error
+           << ",\"start_floor\":" << value.start_floor
+           << ",\"propagated_error\":" << value.propagated_error
+           << ",\"direct_error\":" << value.direct_error
+           << ",\"published_error\":" << value.published_error
+           << ",\"triangle_allowance\":" << value.triangle_allowance
+           << ",\"gain_resolved\":"
+           << (value.gain_resolved ? "true" : "false")
+           << ",\"propagation_gain\":" << value.propagation_gain
+           << ",\"direct_share\":" << value.direct_share << '}';
+}
+
+void append_macro_stability_level(
+    std::ostringstream& output,
+    const MacroStabilityLevel& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"substeps_per_frame\":" << value.substeps_per_frame
+           << ",\"unresolved_position_gains\":"
+           << value.unresolved_position_gains
+           << ",\"unresolved_velocity_gains\":"
+           << value.unresolved_velocity_gains
+           << ",\"maximum_position_gain\":"
+           << value.maximum_position_gain
+           << ",\"maximum_position_gain_frame\":"
+           << value.maximum_position_gain_frame
+           << ",\"maximum_velocity_gain\":"
+           << value.maximum_velocity_gain
+           << ",\"maximum_velocity_gain_frame\":"
+           << value.maximum_velocity_gain_frame
+           << ",\"maximum_position_direct_share\":"
+           << value.maximum_position_direct_share
+           << ",\"maximum_velocity_direct_share\":"
+           << value.maximum_velocity_direct_share
+           << ",\"frames\":[";
+    for (std::size_t i = 0; i < value.frames.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << "{\"frame\":" << value.frames[i].frame
+               << ",\"position\":";
+        append_macro_error_components(output, value.frames[i].position);
+        output << ",\"velocity\":";
+        append_macro_error_components(output, value.frames[i].velocity);
+        output << '}';
+    }
+    output << "]}";
+}
+
+void append_fine_contamination_field(
+    std::ostringstream& output,
+    const FineContaminationField& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"temporal_resolved\":"
+           << (value.temporal_resolved ? "true" : "false")
+           << ",\"candidate_error\":" << value.candidate_error
+           << ",\"temporal_difference\":"
+           << value.temporal_difference
+           << ",\"temporal_floor\":" << value.temporal_floor
+           << ",\"contamination_ratio\":"
+           << value.contamination_ratio
+           << ",\"physical_scale_utilization\":"
+           << value.physical_scale_utilization << '}';
+}
+
+void append_macro_stability_case(
+    std::ostringstream& output,
+    const MacroStabilityCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"levels\":[";
+    for (std::size_t i = 0; i < value.levels.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        append_macro_stability_level(output, value.levels[i]);
+    }
+    output << "],\"fine_contamination\":{\"unresolved_position\":"
+           << value.unresolved_position_contamination
+           << ",\"unresolved_velocity\":"
+           << value.unresolved_velocity_contamination
+           << ",\"maximum_position_ratio\":"
+           << value.maximum_position_contamination
+           << ",\"maximum_position_ratio_frame\":"
+           << value.maximum_position_contamination_frame
+           << ",\"maximum_velocity_ratio\":"
+           << value.maximum_velocity_contamination
+           << ",\"maximum_velocity_ratio_frame\":"
+           << value.maximum_velocity_contamination_frame
+           << ",\"maximum_position_physical_utilization\":"
+           << value.maximum_position_physical_utilization
+           << ",\"maximum_velocity_physical_utilization\":"
+           << value.maximum_velocity_physical_utilization
+           << ",\"frames\":[";
+    for (std::size_t i = 0; i < value.fine_frames.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << "{\"frame\":" << value.fine_frames[i].frame
+               << ",\"position\":";
+        append_fine_contamination_field(
+            output, value.fine_frames[i].position);
+        output << ",\"velocity\":";
+        append_fine_contamination_field(
+            output, value.fine_frames[i].velocity);
+        output << '}';
+    }
+    output << "]},\"contact_time_exact\":"
+           << (value.contact_time_exact ? "true" : "false")
+           << ",\"terminal_contacts_exact\":"
+           << (value.terminal_contacts_exact ? "true" : "false") << '}';
 }
 
 } // namespace
@@ -19592,6 +20028,210 @@ SplitBoundaryReport run_publication_cadence_controls() {
            << (passed ? "true" : "false")
            << ",\"adaptive_fixed_comparison_authorized\":false"
            << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_publication_stability_probe_controls() {
+    const std::array<CanonicalFixedCase, 2> candidate_cases =
+        run_macro_publication_fixed_cases();
+    const std::array<MacroStabilityCase, 2> measurements =
+        analyze_macro_stability_cases(candidate_cases);
+    const CanonicalMacroRollback rollback =
+        run_macro_publication_rollback();
+    const bool lane_transactions_exact = std::all_of(
+        candidate_cases.begin(), candidate_cases.end(),
+        [](const CanonicalFixedCase& value) {
+            return value.binary_reference.passed
+                && std::all_of(
+                    value.lanes.begin(), value.lanes.end(),
+                    [](const CanonicalFixedLane& lane) {
+                        return lane.passed;
+                    });
+        });
+    const bool measurements_exact = std::all_of(
+        measurements.begin(), measurements.end(),
+        [](const MacroStabilityCase& value) { return value.passed; });
+    const bool passed = lane_transactions_exact
+        && measurements_exact && rollback.passed;
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS" : "FAIL")
+             << "|lanes:" << lane_transactions_exact
+             << "|rollback:" << rollback.passed;
+    for (std::size_t case_index = 0;
+         case_index < measurements.size(); ++case_index) {
+        const MacroStabilityCase& value = measurements[case_index];
+        material << '|' << value.name << ':' << value.passed << ':'
+                 << value.maximum_position_contamination << ':'
+                 << value.maximum_velocity_contamination << ':'
+                 << value.unresolved_position_contamination << ':'
+                 << value.unresolved_velocity_contamination;
+        for (std::size_t level = 0; level < value.levels.size(); ++level) {
+            material << '|' << value.levels[level].substeps_per_frame << ':'
+                     << value.levels[level].maximum_position_gain << ':'
+                     << value.levels[level].maximum_velocity_gain << ':'
+                     << candidate_cases[case_index].lanes[level]
+                            .trajectory_sha256;
+        }
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3pe_stability_probe.v1\""
+           << ",\"identity_sha256\":\"b9ef5dc35652e3a708ae3b36aa6fae12e1a1ede8b8817dc1ea7ba1179e33ca65\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"authority\":\"MEASUREMENT_ONLY\""
+           << ",\"b4c3p_remains_fail\":true"
+           << ",\"representation_profile_sha256\":\""
+           << B4C3P_PROFILE_SHA256 << '"'
+           << ",\"macro_ledger_policy_sha256\":\""
+           << B4C3P_LEDGER_POLICY_SHA256 << '"'
+           << ",\"candidate_cases\":[";
+    for (std::size_t i = 0; i < candidate_cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_canonical_fixed_case(report, candidate_cases[i]);
+    }
+    report << "],\"measurements\":[";
+    for (std::size_t i = 0; i < measurements.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_macro_stability_case(report, measurements[i]);
+    }
+    report << "],\"prepublication_rollback\":";
+    append_canonical_macro_rollback(report, rollback);
+    report << ",\"stability_budget_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"candidate_selected\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_publication_stability_controls() {
+    const SplitBoundaryReport parent =
+        run_publication_cadence_probe_controls();
+    const bool parent_exact = !parent.passed
+        && sha256_hex(parent.json)
+            == "2cbeaafe6b7cdf06a1d982bbdb4134823aecc71247b3fed496bd48e5e32b5b1c";
+    std::array<CanonicalFixedCase, 2> candidate_cases;
+    std::array<MacroStabilityCase, 2> measurements;
+    CanonicalMacroRollback rollback;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3P_PARENT";
+    } else {
+        candidate_cases = run_macro_publication_fixed_cases();
+        measurements = analyze_macro_stability_cases(candidate_cases);
+        rollback = run_macro_publication_rollback();
+        for (const CanonicalFixedCase& value : candidate_cases) {
+            const bool lanes_exact = value.binary_reference.passed
+                && std::all_of(
+                    value.lanes.begin(), value.lanes.end(),
+                    [](const CanonicalFixedLane& lane) {
+                        return lane.passed;
+                    });
+            if (!lanes_exact && first_failure.empty()) {
+                first_failure = value.name + ":LANE_TRANSACTION";
+            }
+        }
+        for (const MacroStabilityCase& value : measurements) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!rollback.passed && first_failure.empty()) {
+            first_failure = "PREPUBLICATION_ROLLBACK";
+        }
+    }
+    const bool lane_transactions_exact = parent_exact
+        && std::all_of(
+            candidate_cases.begin(), candidate_cases.end(),
+            [](const CanonicalFixedCase& value) {
+                return value.binary_reference.passed
+                    && std::all_of(
+                        value.lanes.begin(), value.lanes.end(),
+                        [](const CanonicalFixedLane& lane) {
+                            return lane.passed;
+                        });
+            });
+    const bool measurements_exact = parent_exact
+        && std::all_of(
+            measurements.begin(), measurements.end(),
+            [](const MacroStabilityCase& value) {
+                return value.passed;
+            });
+    const bool passed = parent_exact && lane_transactions_exact
+        && measurements_exact && rollback.passed;
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|lanes:" << lane_transactions_exact
+             << "|rollback:" << rollback.passed;
+    if (parent_exact) {
+        for (std::size_t case_index = 0;
+             case_index < measurements.size(); ++case_index) {
+            const MacroStabilityCase& value = measurements[case_index];
+            material << '|' << value.name << ':' << value.passed << ':'
+                     << value.maximum_position_contamination << ':'
+                     << value.maximum_velocity_contamination << ':'
+                     << value.unresolved_position_contamination << ':'
+                     << value.unresolved_velocity_contamination;
+            for (std::size_t level = 0;
+                 level < value.levels.size(); ++level) {
+                material << '|'
+                         << value.levels[level].substeps_per_frame << ':'
+                         << value.levels[level].maximum_position_gain << ':'
+                         << value.levels[level].maximum_velocity_gain << ':'
+                         << candidate_cases[case_index].lanes[level]
+                                .trajectory_sha256;
+            }
+        }
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3pe_stability.v1\""
+           << ",\"identity_sha256\":\"b9ef5dc35652e3a708ae3b36aa6fae12e1a1ede8b8817dc1ea7ba1179e33ca65\""
+           << ",\"parent_b4c3p_raw_sha256\":\"2cbeaafe6b7cdf06a1d982bbdb4134823aecc71247b3fed496bd48e5e32b5b1c\""
+           << ",\"parent_b4c3p_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"authority\":\"MEASUREMENT_ONLY\""
+           << ",\"b4c3p_remains_fail\":true"
+           << ",\"candidate_cases\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0; i < candidate_cases.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_canonical_fixed_case(report, candidate_cases[i]);
+        }
+    }
+    report << "],\"measurements\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0; i < measurements.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_macro_stability_case(report, measurements[i]);
+        }
+    }
+    report << "],\"prepublication_rollback\":";
+    append_canonical_macro_rollback(report, rollback);
+    report << ",\"stability_budget_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"candidate_selected\":false"
+           << ",\"adaptive_redesign_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
            << ",\"repeatability_check_required\":true"

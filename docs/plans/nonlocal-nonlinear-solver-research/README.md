@@ -556,3 +556,10 @@ macro-map error and fine-192 contamination relative to independent binary
 [measurement contract](03b4c3pe-stability-diagnostic-contract.md) changes no
 gate and cannot reclassify B4C3P; it may only authorize a separately frozen
 stability-budget design.
+B4C3PE passes twice with exact decomposition and parent replay; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3pe-stability-diagnostic-evidence-2026-08-21.md).
+It rejects scalar macro-map gain because contact and near-zero starts make the
+ratio ill-conditioned. Resolved temporal contamination and absolute physical
+utilization instead support a mixed budget: at most half of resolved binary
+temporal error, or 1% of the existing physical comparison scale. Only B4C3PE1
+design is authorized; B4C3P remains FAIL.

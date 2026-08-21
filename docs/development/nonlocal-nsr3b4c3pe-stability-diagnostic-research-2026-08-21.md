@@ -1,6 +1,6 @@
 # B4C3PE macro publication stability diagnostic
 
-Status: `COMPLETE / MEASUREMENT_CONTRACT_FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / PASS / MIXED_BUDGET_DESIGN_NEXT`
 
 Date: `2026-08-21`
 
@@ -61,3 +61,8 @@ budgets:
 
 B4C3P is not reclassified by this diagnostic. No adaptive, runtime or
 production authority is granted.
+
+The diagnostic passes twice with exact parent replay; see the
+[dated evidence](nonlocal-nsr3b4c3pe-stability-diagnostic-evidence-2026-08-21.md).
+It rejects a scalar macro-gain gate and authorizes only mixed temporal/absolute
+stability-budget design.

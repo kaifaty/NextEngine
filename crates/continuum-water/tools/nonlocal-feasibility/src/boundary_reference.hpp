@@ -49,5 +49,7 @@ SplitBoundaryReport run_fixed_canonical_reference_probe_controls();
 SplitBoundaryReport run_fixed_canonical_reference_controls();
 SplitBoundaryReport run_publication_cadence_probe_controls();
 SplitBoundaryReport run_publication_cadence_controls();
+SplitBoundaryReport run_publication_stability_probe_controls();
+SplitBoundaryReport run_publication_stability_controls();
 
 } // namespace nextengine::nonlocal::fcr

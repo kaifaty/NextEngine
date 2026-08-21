@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3P_FAIL / B4C3PE_DIAGNOSTIC_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3PE_PASS / B4C3PE1_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -34,13 +34,16 @@
 - **Current decision:** preserve B4C3P FAIL. Do not increase coefficient 32;
   the reused envelope omits pressure/contact propagation of prior published
   position error.
-- **Current action:** implement frozen B4C3PE threshold-free direct/propagated/
-  fine-contamination diagnostic. Adaptive redesign/B4C3TC/B4C4/B4D remain
-  blocked.
-- **Current contract:** preserve private prepublication state for every
-  B4C3P lane/frame, require error-decomposition triangle closure and report
-  resolved macro gains plus fine-192/binary-96-192 ratios without selecting a
-  threshold.
+- **Current conclusion:** B4C3PE passes twice at full raw `a2b55ae6...b986`.
+  Decomposition is exact; scalar gain is ill-conditioned (`75--107x` in P1,
+  one near-zero P2 ratio `7.74e9`). Fine contamination is resolved where
+  meaningful, while absolute physical utilization stays below `0.00286`.
+- **Current decision:** authorize B4C3PE1 mixed stability-budget design: error
+  may use at most half a resolved temporal estimate or 1% of the existing
+  physical comparison scale. B4C3P remains FAIL.
+- **Current action:** freeze B4C3PE1 and replay the complete macro-publication
+  candidate under the new stability admission. Adaptive redesign/B4C3TC/B4C4/
+  B4D remain blocked.
 - **Performance finding:** six independent lanes use `311--312%` CPU and turn
   `~60.4` CPU-seconds into `~19.7` wall-seconds (`3.06x`) with byte-identical
   output. This validates harness parallelism, not solver/runtime performance.
@@ -1299,6 +1302,28 @@
 - **Smallest next action:** implement exact per-frame decomposition and run it
   twice before designing B4C3PE1.
 
+### D-064 -- Select mixed stability-budget direction
+
+- **Observation:** B4C3PE proves every error triangle exactly. Scalar gains are
+  not a stable admission variable, and pure temporal ratios exceed one when
+  the binary temporal difference is materially smaller than a direct durable
+  quantum. Nevertheless maximum canonical error uses only `0.286%` of the
+  existing velocity and `0.069%` of the existing position accuracy scales.
+- **Decision:** design B4C3PE1 with two explicit classifications: temporal
+  budget `<=0.5` of a resolved adjacent binary difference, otherwise absolute
+  representation budget `<=1%` of the already frozen physical comparison
+  scale. Neither branch is called a solver convergence order.
+- **Rejected alternatives:** no scalar macro gain, post-hoc `32 -> 36`
+  coefficient, pure relative division, full physical-tolerance waiver or
+  unreported fallback.
+- **Consequence:** every accepted frame must name the branch and utilization;
+  canonical fixed levels must still show observed first-order convergence and
+  exact events/transactions.
+- **Remaining uncertainty:** the mixed rule has not yet been applied to every
+  level/frame or combined with an exact B4C3PE parent replay.
+- **Smallest next action:** freeze the B4C3PE1 policy identity, adjacent-level
+  mapping, branch priority, rollback and unchanged gates before implementation.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1311,12 +1336,11 @@
 
 ## Exact next action
 
-1. Extend B4C3P diagnostic state with private prepublication boundaries without
-   changing its existing report hash.
-2. Implement B4C3PE triangle closure, resolved gain and fine-contamination
-   reports; execute twice.
-3. Select or reject a separately frozen stability budget only from that
-   evidence. Adaptive redesign and every later stage remain blocked.
+1. Freeze B4C3PE1 policy identity and per-level adjacent binary temporal
+   estimator, with explicit temporal/absolute classifications.
+2. Apply it to all P1/P2 `48/96/192` macro-publication frames while retaining
+   observed first-order, event, physical, ledger and rollback gates.
+3. Execute twice before authorizing any adaptive macro-transaction redesign.
 
 ## Reconsideration triggers
 

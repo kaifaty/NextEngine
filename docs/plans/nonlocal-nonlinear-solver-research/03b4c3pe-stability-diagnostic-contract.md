@@ -1,6 +1,6 @@
 # NSR3-B4C3PE -- macro publication stability diagnostic
 
-Status: `FROZEN / DIAGNOSTIC_IMPLEMENTATION_AUTHORIZED`
+Status: `PASS / MIXED_BUDGET_DESIGN_AUTHORIZED`
 
 Parent B4C3P is an exact FAIL with JSON-without-final-LF SHA-256
 `2cbeaafe6b7cdf06a1d982bbdb4134823aecc71247b3fed496bd48e5e32b5b1c`
@@ -58,3 +58,14 @@ the decomposition is exact and may authorize stability-budget design. FAIL
 means the measurement model itself is invalid. B4C3P remains FAIL in both
 cases; adaptive redesign, B4C3TC, nominal, CUDA, runtime/schema and production
 remain blocked.
+
+## Recorded decision
+
+B4C3PE passes twice byte-identically at full raw JSON-with-LF
+`a2b55ae6e200bded7832d839bc1c892a5b7863e09af3e04747fb22199d70b986`
+and semantic result
+`584db48c73b11131db26c5a76758111bd47a7569d85599936fb007951d089395`.
+See the
+[dated evidence](../../development/nonlocal-nsr3b4c3pe-stability-diagnostic-evidence-2026-08-21.md).
+Authorize only B4C3PE1 mixed temporal/absolute stability-budget design; B4C3P
+remains FAIL.
