@@ -53,7 +53,8 @@ int main(int argc, char** argv) {
                          "--contact-onset-forecast-self-test|"
                          "--tiny-pressure-contact-forecast-self-test|"
                          "--joint-neighborhood-self-test|"
-                         "--joint-neighborhood-one-pass-self-test\n";
+                         "--joint-neighborhood-one-pass-self-test|"
+                         "--joint-pressure-tape-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -368,6 +369,12 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--joint-pressure-tape-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::run_joint_pressure_tape_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -411,7 +418,8 @@ int main(int argc, char** argv) {
                      "--contact-onset-forecast-self-test|"
                      "--tiny-pressure-contact-forecast-self-test|"
                      "--joint-neighborhood-self-test|"
-                     "--joint-neighborhood-one-pass-self-test\n";
+                     "--joint-neighborhood-one-pass-self-test|"
+                     "--joint-pressure-tape-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

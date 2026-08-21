@@ -8309,6 +8309,54 @@ struct JointNegative {
     bool passed = false;
 };
 
+struct JointPressureTape {
+    bool passed = false;
+    std::string failure;
+    std::vector<std::uint32_t> offsets;
+    std::vector<std::uint32_t> directed_pair_indices;
+    std::vector<double> radius;
+    std::vector<double> compression;
+    std::size_t active_centers = 0;
+    std::size_t active_directed = 0;
+    std::size_t payload_bytes = 0;
+};
+
+struct JointTapeCase {
+    std::string name;
+    bool passed = false;
+    std::string failure;
+    std::size_t fluid_samples = 0;
+    std::size_t support_samples = 0;
+    std::size_t pairs = 0;
+    std::size_t directed = 0;
+    std::size_t active_centers = 0;
+    std::size_t active_directed = 0;
+    std::size_t payload_bytes = 0;
+    std::size_t untaped_radial_work = 0;
+    std::size_t taped_radial_work = 0;
+    bool csr_exact = false;
+    bool radius_exact = false;
+    bool compression_exact = false;
+    bool hvp_exact = false;
+    bool inactive_zero = false;
+    bool repeat_exact = false;
+    bool permutation_exact = false;
+    bool work_ratio_applicable = false;
+    bool work_gate = false;
+    std::string tape_sha256;
+};
+
+struct JointTapeNegative {
+    std::string name;
+    std::string expected;
+    std::string observed;
+    std::size_t partial_offsets = 0;
+    std::size_t partial_indices = 0;
+    std::size_t partial_radii = 0;
+    std::size_t partial_compression = 0;
+    bool passed = false;
+};
+
 bool joint_cell_less(
     std::int64_t ax, std::int64_t ay, std::int64_t az,
     std::int64_t bx, std::int64_t by, std::int64_t bz) {
@@ -8778,6 +8826,267 @@ std::vector<Vec3> apply_joint_hessian(
     return result;
 }
 
+std::size_t joint_pair_participant(
+    const JointNeighborhood& neighborhood,
+    const JointPair& pair,
+    std::size_t center) {
+    if (pair.fluid == center) {
+        return pair.participant;
+    }
+    if (pair.participant < neighborhood.fluid.size()
+        && pair.participant == center) {
+        return pair.fluid;
+    }
+    return neighborhood.fluid.size() + neighborhood.support.size();
+}
+
+JointPressureTape build_joint_pressure_tape(
+    const JointNeighborhood& neighborhood,
+    const Evaluation& state,
+    std::size_t payload_limit = std::numeric_limits<std::size_t>::max(),
+    std::size_t directed_limit =
+        std::numeric_limits<std::uint32_t>::max()) {
+    JointPressureTape result;
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    const std::size_t total = fluid_count + neighborhood.support.size();
+    if (!neighborhood.passed || neighborhood.adjacency.size() != fluid_count
+        || state.density.size() != fluid_count) {
+        result.failure = "PRESSURE_TAPE_SOURCE";
+        return result;
+    }
+    if (neighborhood.pairs.size()
+            > std::numeric_limits<std::uint32_t>::max()
+        || fluid_count >= std::numeric_limits<std::uint32_t>::max()) {
+        result.failure = "PRESSURE_TAPE_OFFSET_CAPACITY";
+        return result;
+    }
+    for (const JointPair pair : neighborhood.pairs) {
+        if (pair.fluid >= fluid_count || pair.participant >= total
+            || (pair.participant < fluid_count
+                && pair.fluid >= pair.participant)) {
+            result.failure = "PRESSURE_TAPE_PAIR_INDEX";
+            return result;
+        }
+    }
+    std::size_t directed = 0U;
+    for (std::size_t center = 0; center < fluid_count; ++center) {
+        std::uint32_t previous = 0U;
+        bool have_previous = false;
+        for (std::uint32_t participant : neighborhood.adjacency[center]) {
+            if (participant >= total || participant == center
+                || (have_previous && participant <= previous)) {
+                result.failure = "PRESSURE_TAPE_ADJACENCY";
+                return result;
+            }
+            previous = participant;
+            have_previous = true;
+        }
+        if (neighborhood.adjacency[center].size()
+                > std::numeric_limits<std::size_t>::max() - directed) {
+            result.failure = "PRESSURE_TAPE_OFFSET_CAPACITY";
+            return result;
+        }
+        directed += neighborhood.adjacency[center].size();
+    }
+    if (directed > directed_limit
+        || directed > std::numeric_limits<std::uint32_t>::max()) {
+        result.failure = "PRESSURE_TAPE_OFFSET_CAPACITY";
+        return result;
+    }
+    const std::size_t offsets_bytes = (fluid_count + 1U)
+        * sizeof(std::uint32_t);
+    const std::size_t indices_bytes = directed * sizeof(std::uint32_t);
+    const std::size_t radii_bytes = neighborhood.pairs.size()
+        * sizeof(double);
+    const std::size_t compression_bytes = fluid_count * sizeof(double);
+    if (offsets_bytes > std::numeric_limits<std::size_t>::max()
+            - indices_bytes
+        || offsets_bytes + indices_bytes
+            > std::numeric_limits<std::size_t>::max() - radii_bytes
+        || offsets_bytes + indices_bytes + radii_bytes
+            > std::numeric_limits<std::size_t>::max() - compression_bytes) {
+        result.failure = "PRESSURE_TAPE_CAPACITY";
+        return result;
+    }
+    const std::size_t payload_bytes = offsets_bytes + indices_bytes
+        + radii_bytes + compression_bytes;
+    if (payload_bytes > payload_limit) {
+        result.failure = "PRESSURE_TAPE_CAPACITY";
+        return result;
+    }
+
+    JointPressureTape candidate;
+    candidate.offsets.resize(fluid_count + 1U);
+    candidate.directed_pair_indices.resize(directed);
+    candidate.radius.resize(neighborhood.pairs.size());
+    candidate.compression.resize(fluid_count);
+    candidate.payload_bytes = payload_bytes;
+    std::vector<std::size_t> degree(fluid_count);
+    for (const JointPair pair : neighborhood.pairs) {
+        ++degree[pair.fluid];
+        if (pair.participant < fluid_count) {
+            ++degree[pair.participant];
+        }
+    }
+    std::size_t offset = 0U;
+    for (std::size_t center = 0; center < fluid_count; ++center) {
+        candidate.offsets[center] = static_cast<std::uint32_t>(offset);
+        offset += degree[center];
+    }
+    candidate.offsets[fluid_count] = static_cast<std::uint32_t>(offset);
+    if (offset != directed) {
+        result.failure = "PRESSURE_TAPE_ADJACENCY";
+        return result;
+    }
+    std::vector<std::size_t> cursor(fluid_count);
+    for (std::size_t center = 0; center < fluid_count; ++center) {
+        cursor[center] = candidate.offsets[center];
+    }
+    for (std::size_t pair_index = 0;
+         pair_index < neighborhood.pairs.size(); ++pair_index) {
+        const JointPair pair = neighborhood.pairs[pair_index];
+        candidate.directed_pair_indices[cursor[pair.fluid]++] =
+            static_cast<std::uint32_t>(pair_index);
+        if (pair.participant < fluid_count) {
+            candidate.directed_pair_indices[cursor[pair.participant]++] =
+                static_cast<std::uint32_t>(pair_index);
+        }
+        candidate.radius[pair_index] = norm(
+            neighborhood.fluid[pair.fluid].position
+            - joint_position(neighborhood, pair.participant));
+    }
+    for (std::size_t center = 0; center < fluid_count; ++center) {
+        const std::size_t begin = candidate.offsets[center];
+        const std::size_t end = candidate.offsets[center + 1U];
+        std::sort(candidate.directed_pair_indices.begin() + begin,
+            candidate.directed_pair_indices.begin() + end,
+            [&](std::uint32_t lhs, std::uint32_t rhs) {
+                return joint_pair_participant(
+                           neighborhood, neighborhood.pairs[lhs], center)
+                    < joint_pair_participant(
+                           neighborhood, neighborhood.pairs[rhs], center);
+            });
+        if (end - begin != neighborhood.adjacency[center].size()) {
+            result.failure = "PRESSURE_TAPE_ADJACENCY";
+            return result;
+        }
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t participant = joint_pair_participant(
+                neighborhood,
+                neighborhood.pairs[candidate.directed_pair_indices[slot]],
+                center);
+            if (participant
+                != neighborhood.adjacency[center][slot - begin]) {
+                result.failure = "PRESSURE_TAPE_ADJACENCY";
+                return result;
+            }
+        }
+        candidate.compression[center] =
+            state.density[center] / REST_DENSITY - 1.0;
+        if (candidate.compression[center] > 0.0) {
+            ++candidate.active_centers;
+            candidate.active_directed += end - begin;
+        }
+    }
+    candidate.passed = true;
+    return candidate;
+}
+
+std::vector<Vec3> apply_joint_pressure_tape(
+    const JointNeighborhood& neighborhood,
+    const JointPressureTape& tape,
+    const std::vector<Vec3>& direction) {
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    const std::size_t total = fluid_count + neighborhood.support.size();
+    if (!tape.passed || direction.size() != total
+        || tape.offsets.size() != fluid_count + 1U
+        || tape.radius.size() != neighborhood.pairs.size()
+        || tape.compression.size() != fluid_count) {
+        throw std::invalid_argument("B4C1 pressure tape mismatch");
+    }
+    std::vector<Vec3> result(total);
+    for (std::size_t center = 0; center < fluid_count; ++center) {
+        const double compression = tape.compression[center];
+        if (compression <= 0.0) {
+            continue;
+        }
+        const std::size_t begin = tape.offsets[center];
+        const std::size_t end = tape.offsets[center + 1U];
+        double compression_direction = 0.0;
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const JointPair pair = neighborhood.pairs[
+                tape.directed_pair_indices[slot]];
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, pair, center);
+            const Vec3 displacement = neighborhood.fluid[center].position
+                - joint_position(neighborhood, participant);
+            const double radius = tape.radius[
+                tape.directed_pair_indices[slot]];
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * weight_gradient(radius) * (displacement / radius);
+            compression_direction += dot(
+                jacobian, direction[center] - direction[participant]);
+        }
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const JointPair pair = neighborhood.pairs[
+                tape.directed_pair_indices[slot]];
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, pair, center);
+            const Vec3 displacement = neighborhood.fluid[center].position
+                - joint_position(neighborhood, participant);
+            const double radius = tape.radius[
+                tape.directed_pair_indices[slot]];
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            const Vec3 normal = displacement / radius;
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * weight_gradient(radius) * normal;
+            const Vec3 relative_direction =
+                direction[center] - direction[participant];
+            const Vec3 curvature = MASS / REST_DENSITY
+                * radial_hessian_product(normal,
+                    weight_second(radius),
+                    weight_gradient(radius) / radius,
+                    relative_direction);
+            const Vec3 pair_value = KAPPA
+                * (compression_direction * jacobian
+                    + compression * curvature);
+            result[center] += pair_value;
+            result[participant] += -pair_value;
+        }
+    }
+    return result;
+}
+
+std::string joint_pressure_tape_hash(const JointPressureTape& tape) {
+    std::ostringstream material;
+    material << std::hex << "joint-pressure-radius-tape-csr-r0|";
+    for (std::uint32_t value : tape.offsets) {
+        material << value << ',';
+    }
+    material << '|';
+    for (std::uint32_t value : tape.directed_pair_indices) {
+        material << value << ',';
+    }
+    material << '|';
+    for (double value : tape.radius) {
+        std::uint64_t bits = 0U;
+        std::memcpy(&bits, &value, sizeof(bits));
+        material << bits << ',';
+    }
+    material << '|';
+    for (double value : tape.compression) {
+        std::uint64_t bits = 0U;
+        std::memcpy(&bits, &value, sizeof(bits));
+        material << bits << ',';
+    }
+    return sha256_hex(material.str());
+}
+
 bool exact_vec3_values(
     const std::vector<Vec3>& lhs, const std::vector<Vec3>& rhs) {
     if (lhs.size() != rhs.size()) {
@@ -8832,6 +9141,273 @@ std::vector<JointPoint> permute_joint_points(
             (multiplier * slot + 1U) % input.size()]);
     }
     return result;
+}
+
+std::array<std::vector<Vec3>, 4> joint_tape_directions(
+    std::size_t fluid_count, std::size_t support_count) {
+    const std::size_t total = fluid_count + support_count;
+    std::array<std::vector<Vec3>, 4> result;
+    result[0] = deterministic_direction(total);
+    result[1] = result[0];
+    result[2] = result[0];
+    for (std::size_t i = 0; i < total; ++i) {
+        const Vec3 value = result[0][i];
+        result[1][i] = {value.y, value.z, value.x};
+        result[2][i] = {-value.x, value.z, -value.y};
+    }
+    result[3].resize(total);
+    const std::vector<Vec3> fluid_only =
+        deterministic_direction(fluid_count);
+    std::copy(fluid_only.begin(), fluid_only.end(), result[3].begin());
+    return result;
+}
+
+bool exact_zero_vec3(const std::vector<Vec3>& values) {
+    return std::all_of(values.begin(), values.end(), [](Vec3 value) {
+        return value.x == 0.0 && value.y == 0.0 && value.z == 0.0;
+    });
+}
+
+JointTapeCase run_joint_tape_case(
+    std::string name,
+    const std::vector<JointPoint>& fluid,
+    const std::vector<JointPoint>& support) {
+    JointTapeCase result;
+    result.name = std::move(name);
+    const JointNeighborhood value =
+        build_joint_neighborhood(fluid, support, true);
+    if (!value.passed) {
+        result.failure = value.failure;
+        return result;
+    }
+    const Evaluation state = evaluate_joint(value);
+    const JointPressureTape tape = build_joint_pressure_tape(value, state);
+    if (!tape.passed) {
+        result.failure = tape.failure;
+        return result;
+    }
+    result.fluid_samples = value.fluid.size();
+    result.support_samples = value.support.size();
+    result.pairs = value.pairs.size();
+    result.directed = tape.directed_pair_indices.size();
+    result.active_centers = tape.active_centers;
+    result.active_directed = tape.active_directed;
+    result.payload_bytes = tape.payload_bytes;
+    result.tape_sha256 = joint_pressure_tape_hash(tape);
+    result.csr_exact = tape.offsets.size() == value.fluid.size() + 1U;
+    if (result.csr_exact) {
+        for (std::size_t center = 0;
+             center < value.fluid.size(); ++center) {
+            const std::size_t begin = tape.offsets[center];
+            const std::size_t end = tape.offsets[center + 1U];
+            if (end < begin || end > tape.directed_pair_indices.size()
+                || end - begin != value.adjacency[center].size()) {
+                result.csr_exact = false;
+                break;
+            }
+            for (std::size_t slot = begin; slot < end; ++slot) {
+                const std::uint32_t pair_index =
+                    tape.directed_pair_indices[slot];
+                if (pair_index >= value.pairs.size()
+                    || joint_pair_participant(
+                           value, value.pairs[pair_index], center)
+                        != value.adjacency[center][slot - begin]) {
+                    result.csr_exact = false;
+                    break;
+                }
+            }
+        }
+    }
+    result.radius_exact = tape.radius.size() == value.pairs.size();
+    for (std::size_t pair_index = 0;
+         result.radius_exact && pair_index < value.pairs.size();
+         ++pair_index) {
+        const JointPair pair = value.pairs[pair_index];
+        result.radius_exact = tape.radius[pair_index] == norm(
+            value.fluid[pair.fluid].position
+            - joint_position(value, pair.participant));
+    }
+    result.compression_exact =
+        tape.compression.size() == value.fluid.size();
+    for (std::size_t center = 0;
+         result.compression_exact && center < value.fluid.size(); ++center) {
+        result.compression_exact = tape.compression[center]
+            == state.density[center] / REST_DENSITY - 1.0;
+    }
+    const std::array<std::vector<Vec3>, 4> directions =
+        joint_tape_directions(value.fluid.size(), value.support.size());
+    result.hvp_exact = true;
+    result.inactive_zero = tape.active_centers != 0U;
+    std::array<std::vector<Vec3>, 4> taped_hvp;
+    for (std::size_t direction = 0;
+         direction < directions.size(); ++direction) {
+        const std::vector<Vec3> untaped = apply_joint_hessian(
+            value, directions[direction]);
+        taped_hvp[direction] = apply_joint_pressure_tape(
+            value, tape, directions[direction]);
+        result.hvp_exact = result.hvp_exact
+            && exact_vec3_values(untaped, taped_hvp[direction]);
+        if (tape.active_centers == 0U) {
+            result.inactive_zero = result.inactive_zero
+                || exact_zero_vec3(taped_hvp[direction]);
+        }
+    }
+    if (tape.active_centers == 0U) {
+        result.inactive_zero = std::all_of(
+            taped_hvp.begin(), taped_hvp.end(),
+            [](const std::vector<Vec3>& values) {
+                return exact_zero_vec3(values);
+            });
+    }
+    const JointNeighborhood repeated_neighborhood =
+        build_joint_neighborhood(fluid, support, true);
+    const JointPressureTape repeated = repeated_neighborhood.passed
+        ? build_joint_pressure_tape(
+            repeated_neighborhood, evaluate_joint(repeated_neighborhood))
+        : JointPressureTape{};
+    result.repeat_exact = repeated.passed
+        && joint_pressure_tape_hash(repeated) == result.tape_sha256
+        && repeated.offsets == tape.offsets
+        && repeated.directed_pair_indices == tape.directed_pair_indices
+        && repeated.radius == tape.radius
+        && repeated.compression == tape.compression;
+    result.permutation_exact = true;
+    for (int mode = 1; mode <= 2; ++mode) {
+        const JointNeighborhood permuted = build_joint_neighborhood(
+            permute_joint_points(fluid, mode),
+            permute_joint_points(support, mode), true);
+        const JointPressureTape permuted_tape = permuted.passed
+            ? build_joint_pressure_tape(permuted, evaluate_joint(permuted))
+            : JointPressureTape{};
+        if (!permuted_tape.passed
+            || joint_pressure_tape_hash(permuted_tape)
+                != result.tape_sha256) {
+            result.permutation_exact = false;
+            continue;
+        }
+        for (std::size_t direction = 0;
+             direction < directions.size(); ++direction) {
+            if (!exact_vec3_values(
+                    apply_joint_pressure_tape(
+                        permuted, permuted_tape, directions[direction]),
+                    taped_hvp[direction])) {
+                result.permutation_exact = false;
+            }
+        }
+    }
+    result.untaped_radial_work = 3U
+        * (result.pairs + 3U * result.active_directed);
+    result.taped_radial_work = result.pairs;
+    result.work_ratio_applicable = result.active_centers != 0U;
+    result.work_gate = !result.work_ratio_applicable
+        || 2U * result.taped_radial_work < result.untaped_radial_work;
+    result.passed = result.csr_exact && result.radius_exact
+        && result.compression_exact && result.hvp_exact
+        && result.inactive_zero && result.repeat_exact
+        && result.permutation_exact && result.work_gate;
+    if (!result.passed) {
+        result.failure = "PRESSURE_TAPE_GATE";
+    }
+    return result;
+}
+
+JointTapeNegative joint_tape_negative(
+    std::string name, std::string expected,
+    const JointPressureTape& value) {
+    JointTapeNegative result;
+    result.name = std::move(name);
+    result.expected = std::move(expected);
+    result.observed = value.failure;
+    result.partial_offsets = value.offsets.size();
+    result.partial_indices = value.directed_pair_indices.size();
+    result.partial_radii = value.radius.size();
+    result.partial_compression = value.compression.size();
+    result.passed = !value.passed && result.observed == result.expected
+        && result.partial_offsets == 0U && result.partial_indices == 0U
+        && result.partial_radii == 0U
+        && result.partial_compression == 0U;
+    return result;
+}
+
+std::array<JointTapeNegative, 3> run_joint_tape_negatives() {
+    std::array<JointTapeNegative, 3> result;
+    const SmokeFixture fixture = make_b4b_supported_column_fixture();
+    const JointNeighborhood value = build_joint_neighborhood(
+        tagged_points(fixture.position), tagged_points(fixture.boundary), true);
+    if (!value.passed || value.pairs.empty()) {
+        return result;
+    }
+    const Evaluation state = evaluate_joint(value);
+    const JointPressureTape valid = build_joint_pressure_tape(value, state);
+    if (!valid.passed || valid.directed_pair_indices.empty()
+        || valid.payload_bytes == 0U) {
+        return result;
+    }
+    JointNeighborhood corrupt = value;
+    corrupt.pairs.front().participant = static_cast<std::uint32_t>(
+        corrupt.fluid.size() + corrupt.support.size());
+    result[0] = joint_tape_negative(
+        "pair-index", "PRESSURE_TAPE_PAIR_INDEX",
+        build_joint_pressure_tape(corrupt, state));
+    result[1] = joint_tape_negative(
+        "offset-capacity", "PRESSURE_TAPE_OFFSET_CAPACITY",
+        build_joint_pressure_tape(value, state,
+            std::numeric_limits<std::size_t>::max(),
+            valid.directed_pair_indices.size() - 1U));
+    result[2] = joint_tape_negative(
+        "payload-capacity", "PRESSURE_TAPE_CAPACITY",
+        build_joint_pressure_tape(
+            value, state, valid.payload_bytes - 1U));
+    return result;
+}
+
+void append_joint_tape_case(
+    std::ostringstream& output, const JointTapeCase& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"fluid_samples\":" << value.fluid_samples
+           << ",\"support_samples\":" << value.support_samples
+           << ",\"pairs\":" << value.pairs
+           << ",\"directed_records\":" << value.directed
+           << ",\"active_centers\":" << value.active_centers
+           << ",\"active_directed_records\":" << value.active_directed
+           << ",\"tape_payload_bytes\":" << value.payload_bytes
+           << ",\"untaped_radial_work_k3\":"
+           << value.untaped_radial_work
+           << ",\"taped_radial_work_k3\":" << value.taped_radial_work
+           << ",\"tape_sha256\":\"" << value.tape_sha256
+           << "\",\"csr_exact\":"
+           << (value.csr_exact ? "true" : "false")
+           << ",\"radius_exact\":"
+           << (value.radius_exact ? "true" : "false")
+           << ",\"compression_exact\":"
+           << (value.compression_exact ? "true" : "false")
+           << ",\"hvp_exact\":"
+           << (value.hvp_exact ? "true" : "false")
+           << ",\"inactive_zero\":"
+           << (value.inactive_zero ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"permutation_exact\":"
+           << (value.permutation_exact ? "true" : "false")
+           << ",\"work_ratio_applicable\":"
+           << (value.work_ratio_applicable ? "true" : "false")
+           << ",\"work_gate\":"
+           << (value.work_gate ? "true" : "false") << '}';
+}
+
+void append_joint_tape_negative(
+    std::ostringstream& output, const JointTapeNegative& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"expected\":\"" << value.expected
+           << "\",\"observed\":\"" << value.observed
+           << "\",\"partial_offsets\":" << value.partial_offsets
+           << ",\"partial_indices\":" << value.partial_indices
+           << ",\"partial_radii\":" << value.partial_radii
+           << ",\"partial_compression\":"
+           << value.partial_compression << '}';
 }
 
 std::size_t all_joint_candidate_checks(
@@ -9284,6 +9860,173 @@ SplitBoundaryReport run_joint_neighborhood_one_pass_controls() {
     report << "],\"candidate_selected\":"
            << (passed ? "true" : "false")
            << ",\"b4c1_pressure_tape_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"trajectory_substitution_authorized\":false"
+           << ",\"canonical_continuation_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_joint_pressure_tape_controls() {
+    const SplitBoundaryReport parent =
+        run_joint_neighborhood_one_pass_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "5ecaa4d5356611863dbd80fd8e261f16aa3410907e4a15739875521fb578d493";
+    std::vector<JointTapeCase> cases;
+    std::array<JointTapeNegative, 3> negatives{};
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C0R_PARENT";
+    } else {
+        const SmokeFixture p1 = make_b4b_supported_column_fixture();
+        cases.push_back(run_joint_tape_case(
+            "p1-initial", tagged_points(p1.position),
+            tagged_points(p1.boundary)));
+        std::vector<Vec3> prediction(p1.position.size());
+        for (std::size_t i = 0; i < prediction.size(); ++i) {
+            prediction[i] = SMOKE_FRAME_TIME
+                * (p1.velocity[i] + SMOKE_FRAME_TIME * p1.gravity);
+        }
+        prediction = clamp_box_displacement(
+            p1, p1.position, prediction);
+        cases.push_back(run_joint_tape_case(
+            "p1-feasible-forecast",
+            tagged_points(materialize_displacement(
+                p1.position, prediction)),
+            tagged_points(p1.boundary)));
+        const SmokeFixture p2 = make_b4b_released_block_fixture();
+        cases.push_back(run_joint_tape_case(
+            "p2-detached-initial", tagged_points(p2.position),
+            tagged_points(p2.boundary)));
+        const double below = std::nextafter(HORIZON, 0.0);
+        const double above = std::nextafter(
+            HORIZON, std::numeric_limits<double>::infinity());
+        cases.push_back(run_joint_tape_case(
+            "signed-cutoff",
+            {{9U, {0.0, 0.0, 0.0}},
+             {2U, {below, 0.0, 0.0}},
+             {5U, {-0.31, -0.15, 0.07}}},
+            {{9U, {-HORIZON, 0.0, 0.0}},
+             {1U, {0.0, HORIZON, 0.0}},
+             {4U, {above, 0.0, 0.0}}}));
+        std::vector<Vec3> compressed = p1.position;
+        const Vec3 center = average_values(compressed);
+        for (Vec3& value : compressed) {
+            value = center + 0.99 * (value - center);
+        }
+        cases.push_back(run_joint_tape_case(
+            "p1-compressed-0.99", tagged_points(compressed),
+            tagged_points(p1.boundary)));
+        for (const JointTapeCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        negatives = run_joint_tape_negatives();
+        for (const JointTapeNegative& value : negatives) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ":FAILURE_CONTROL";
+            }
+        }
+    }
+    const bool cases_passed = cases.size() == 5U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const JointTapeCase& value) { return value.passed; });
+    const bool negatives_passed = parent_exact
+        && std::all_of(negatives.begin(), negatives.end(),
+            [](const JointTapeNegative& value) { return value.passed; });
+    const std::size_t maximum_pairs = checked_joint_pair_limit(
+        B4C0_MAX_FLUID);
+    const std::size_t maximum_pair_payload =
+        maximum_pairs * sizeof(JointPair);
+    const std::size_t maximum_radii_payload =
+        maximum_pairs * sizeof(double);
+    const std::size_t maximum_directed_payload =
+        maximum_pairs * sizeof(std::uint32_t);
+    const std::size_t maximum_offsets_payload =
+        (B4C0_MAX_FLUID + 1U) * sizeof(std::uint32_t);
+    const std::size_t maximum_compression_payload =
+        B4C0_MAX_FLUID * sizeof(double);
+    const std::size_t maximum_combined_payload = maximum_pair_payload
+        + maximum_radii_payload + maximum_directed_payload
+        + maximum_offsets_payload + maximum_compression_payload;
+    const bool payload_gate = sizeof(JointPair) == 8U
+        && maximum_pair_payload == 64000000U
+        && maximum_radii_payload == 64000000U
+        && maximum_directed_payload == 32000000U
+        && maximum_offsets_payload == 200004U
+        && maximum_compression_payload == 400000U
+        && maximum_combined_payload == 160600004U;
+    if (!payload_gate && first_failure.empty()) {
+        first_failure = "PRESSURE_TAPE_PAYLOAD";
+    }
+    const bool passed = parent_exact && cases_passed
+        && negatives_passed && payload_gate;
+    const std::string disposition = passed
+        ? "JOINT_PRESSURE_RADIUS_TAPE_CANDIDATE"
+        : "JOINT_PRESSURE_RADIUS_TAPE_REJECTED";
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition << '|' << maximum_combined_payload;
+    for (const JointTapeCase& value : cases) {
+        material << '|' << value.name << ':' << value.tape_sha256
+                 << ':' << value.pairs << ':' << value.directed
+                 << ':' << value.active_centers
+                 << ':' << value.active_directed
+                 << ':' << value.untaped_radial_work
+                 << ':' << value.taped_radial_work;
+    }
+    for (const JointTapeNegative& value : negatives) {
+        material << '|' << value.name << ':' << value.observed
+                 << ':' << value.partial_offsets
+                 << ':' << value.partial_indices
+                 << ':' << value.partial_radii
+                 << ':' << value.partial_compression;
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal.nsr3b4c1_pressure_tape.v1\""
+           << ",\"identity\":\"joint-pressure-radius-tape-csr-r0\""
+           << ",\"parent_b4c0r_result_sha256\":\"bc60400325bfa0e7a3109fe8df037ff8ff2bd8e2362f378347e61c7514ad8047\""
+           << ",\"parent_b4c0r_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"payload_ceiling\":{\"pair_list_bytes\":"
+           << maximum_pair_payload
+           << ",\"radius_bytes\":" << maximum_radii_payload
+           << ",\"directed_index_bytes\":"
+           << maximum_directed_payload
+           << ",\"offset_bytes\":" << maximum_offsets_payload
+           << ",\"compression_bytes\":"
+           << maximum_compression_payload
+           << ",\"combined_bytes\":" << maximum_combined_payload
+           << ",\"exact\":" << (payload_gate ? "true" : "false")
+           << "},\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_joint_tape_case(report, cases[i]);
+    }
+    report << "],\"failure_controls\":[";
+    for (std::size_t i = 0; i < negatives.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_joint_tape_negative(report, negatives[i]);
+    }
+    report << ']'
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c2_solver_query_substitution_design_authorized\":"
            << (passed ? "true" : "false")
            << ",\"trajectory_substitution_authorized\":false"
            << ",\"canonical_continuation_authorized\":false"

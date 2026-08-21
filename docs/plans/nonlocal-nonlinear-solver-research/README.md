@@ -367,3 +367,15 @@ to `0.665x` all-pairs for P1 and `0.237x` for P2; see the
 This selects `JOINT_PRESSURE_NEIGHBORHOOD_CANDIDATE` and authorizes only B4C1
 compact CSR/pressure-tape design. No solver substitution or nominal run is
 authorized.
+The [B4C1 research](../../development/nonlocal-nsr3b4c1-pressure-tape-research-2026-08-21.md)
+rejects copying the full multi-term A2 record into pressure-only support
+states. The [B4C1 contract](03b4c1-compact-pressure-tape-contract.md) instead
+freezes a compact CSR of pair indices, one exact radius per unique pair and
+one compression per fluid centre. B4C1 passes exact CSR/radius/compression,
+four-direction full reaction HVP, permutation, inactive and typed-capacity
+gates. Across the active controls, three HVPs reduce exact norm/sqrt work from
+`24,846` to `3,626` and from `22,494` to `3,682`; see the
+[dated evidence](../../development/nonlocal-nsr3b4c1-pressure-tape-evidence-2026-08-21.md).
+This selects `JOINT_PRESSURE_RADIUS_TAPE_CANDIDATE` and authorizes only B4C2
+one-substep current/trial/forecast solver-query substitution design. Full
+trajectory and nominal execution remain blocked.

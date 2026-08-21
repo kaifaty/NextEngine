@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4B2_PASS / NSR3B4C_DESIGN` |
+| Status | `ACTIVE / NSR3B4C1_PASS / NSR3B4C2_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -43,6 +43,14 @@
 - **Current decision:** select `JOINT_PRESSURE_NEIGHBORHOOD_CANDIDATE` and
   authorize only B4C1 compact CSR/pressure-tape design. Nested-vector row
   overhead remains diagnostic and carries no nominal memory credit.
+- **Current conclusion:** B4C1 passes bit-exact CSR, radius, compression,
+  full fluid/support HVP, permutation, inactive and failure-atomicity gates.
+  On its two active controls, three HVPs reduce modeled norm/sqrt work from
+  `24,846` to `3,626` and from `22,494` to `3,682`.
+- **Current decision:** select `JOINT_PRESSURE_RADIUS_TAPE_CANDIDATE` and
+  authorize only B4C2 one-substep current/trial/forecast query-substitution
+  design. This is algorithmic-work evidence, not wall-clock or trajectory
+  authority.
 
 - **Current conclusion:** NSR2-C2 passes all gates. At 512 particles the guarded
   floor stop reduces work from `26/13/153` outer/reject/HVP to `12/0/46` while
@@ -718,6 +726,29 @@
 - **Smallest next action:** freeze a B4C1 compact-CSR/tape discriminator with
   exact untaped HVP/reaction correspondence and explicit byte formulas.
 
+### D-041 -- Select compact CSR pressure-radius tape
+
+- **Observation:** B4C1 reproduces every nested adjacency row, stored radius,
+  outer-state compression and complete fluid/support HVP bit-for-bit for five
+  controls, four directions and two input permutations. All three failure
+  controls publish empty output. Three reports are byte-identical; B4C0R and
+  B4C0 raw hashes remain exact.
+- **Decision:** select `JOINT_PRESSURE_RADIUS_TAPE_CANDIDATE`. Reuse the
+  canonical pair list plus `u32` CSR pair indices, binary64 radius and one
+  binary64 compression per fluid centre.
+- **Rejected alternatives:** do not copy the full multi-term A2 record, store
+  binary32 coefficients, search the pair list from participant-only rows, or
+  recompute density and gradient in every HVP.
+- **Consequence:** B4C2 may design a one-substep substitution of current,
+  trial and feasible-forecast pressure queries. Full trajectory, canonical
+  publish/decode continuation and nominal execution remain blocked.
+- **Remaining uncertainty:** a correct standalone HVP tape does not prove that
+  trust trials rebuild membership at the right candidate state, that forecast
+  queries remain read-only, or that every all-pairs solver call was removed.
+- **Smallest next action:** audit the B4B2 call graph and freeze a paired
+  all-pairs-versus-joint one-substep trace with exact query identities,
+  trial-state rebuilds, result and work counters.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -730,12 +761,13 @@
 
 ## Exact next action
 
-1. Derive compact CSR offsets/neighbors and pressure-tape records in the exact
-   B4C0R reduction order; freeze byte and capacity formulas before code.
-2. Require bit-exact untaped/taped HVP and support-reaction rows on inactive,
-   onset-active and compressed states plus storage permutations.
-3. Only B4C1 PASS may authorize one-substep solver substitution. Full
-   trajectory and nominal water remain blocked.
+1. Audit every B4B2 pressure evaluation, gradient, HVP, current, trial and
+   feasible-forecast query used inside one accepted or rejected substep.
+2. Freeze B4C2 as an all-pairs-versus-joint trace discriminator. Require exact
+   query-state identities, rebuilt trial membership, read-only forecast state,
+   solve result, support reaction, KKT and work counters.
+3. Only B4C2 PASS may authorize B4C3 canonical publish/decode continuation.
+   Full trajectory and nominal water remain blocked.
 
 ## Reconsideration triggers
 
