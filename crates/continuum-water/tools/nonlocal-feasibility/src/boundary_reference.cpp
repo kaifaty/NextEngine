@@ -8468,6 +8468,7 @@ struct CanonicalPublicationLedgerEntry {
     double center_report_closure = 0.0;
     double raw_ledger_residual = 0.0;
     double compensated_ledger_residual = 0.0;
+    double kkt_ledger_residual = 0.0;
     double kinetic_delta = 0.0;
     double pressure_delta = 0.0;
     double gravitational_delta = 0.0;
@@ -8498,6 +8499,7 @@ struct CanonicalStageRun {
     Vec3 cumulative_publication_impulse;
     double maximum_raw_published_ledger_residual = 0.0;
     double maximum_compensated_ledger_residual = 0.0;
+    double maximum_kkt_ledger_residual = 0.0;
     double maximum_impulse_report_closure = 0.0;
     double maximum_compensated_ledger_closure = 0.0;
     double maximum_center_report_closure = 0.0;
@@ -8633,6 +8635,41 @@ struct BalancedLedgerNegative {
     bool pretransaction_exact = false;
 };
 
+struct CanonicalAdaptiveAttempt {
+    int frame = -1;
+    int level = -1;
+    int planned_substeps = 0;
+    int completed_substeps = 0;
+    int attempted_substeps = 0;
+    bool passed = false;
+    bool recoverable = false;
+    bool adjacent_gate_evaluated = false;
+    SmokeGate adjacent_gate;
+    std::string failure;
+    int outer_trials = 0;
+    int rejected_trials = 0;
+    int hvp_calls = 0;
+    bool publication_error_bounded = false;
+    bool decode_chain_exact = false;
+    bool sample_identity_exact = false;
+    bool step_sequence_exact = false;
+    bool aggregate_bounds_exact = false;
+    bool kinetic_bound_exact = false;
+    bool publication_ledger_exact = false;
+    bool trace_lifecycle_exact = false;
+    bool staged_count_exact = false;
+    long double maximum_position_error = 0.0L;
+    long double maximum_velocity_error = 0.0L;
+    double maximum_raw_published_ledger_residual = 0.0;
+    double maximum_compensated_ledger_residual = 0.0;
+    double maximum_kkt_ledger_residual = 0.0;
+    double maximum_impulse_report_closure = 0.0;
+    double maximum_compensated_ledger_closure = 0.0;
+    double maximum_center_report_closure = 0.0;
+    double maximum_energy_decomposition_error = 0.0;
+    Vec3 cumulative_publication_impulse;
+};
+
 struct CanonicalAdaptiveRun {
     bool passed = false;
     std::string failure;
@@ -8648,6 +8685,13 @@ struct CanonicalAdaptiveRun {
     double cumulative_absolute_mechanical_delta = 0.0;
     double maximum_raw_ledger_residual = 0.0;
     double maximum_compensated_ledger_residual = 0.0;
+    std::vector<CanonicalAdaptiveAttempt> attempts;
+    int recovered_frames = 0;
+    int recoverable_failed_levels = 0;
+    int attempted_candidate_substeps = 0;
+    int maximum_attempted_level_substeps = 0;
+    std::size_t private_frames_discarded = 0U;
+    std::size_t private_ledger_entries_discarded = 0U;
     std::string trajectory_sha256;
 };
 
@@ -8705,6 +8749,38 @@ struct CanonicalAdaptiveFailureProbe {
     std::vector<SmokeGate> gates;
     int first_passing_level = -1;
     int selected_fine_level = -1;
+};
+
+struct CanonicalAdaptiveLedgerProbe {
+    bool passed = false;
+    std::string failure;
+    int failed_frame = -1;
+    int initial_substeps = 0;
+    std::vector<CanonicalStageRun> levels;
+    std::vector<SmokeGate> gates;
+    int first_ledger_failure_level = -1;
+    int selected_fine_level = -1;
+};
+
+struct CanonicalRecoveryPolicyStep {
+    bool passed = false;
+    bool recoverable = false;
+    bool gate_with_previous = false;
+};
+
+struct CanonicalRecoveryPolicyDecision {
+    int selected_level = -1;
+    int fatal_level = -1;
+};
+
+struct CanonicalRecoveryNegatives {
+    bool passed = false;
+    bool exact_classifier = false;
+    bool forced_failure_fatal = false;
+    bool nonadjacent_not_bridged = false;
+    bool later_adjacent_selected = false;
+    bool exhaustion_no_selection = false;
+    bool rollback_exact = false;
 };
 
 bool joint_cell_less(
@@ -11706,7 +11782,8 @@ CanonicalStageRun run_canonical_stage_interval(
     const std::vector<Vec3>* start_position = nullptr,
     const std::vector<Vec3>* start_velocity = nullptr,
     std::uint32_t step_offset = 0U,
-    double interval_start = 0.0) {
+    double interval_start = 0.0,
+    bool capture_failure_work = false) {
     CanonicalStageRun result;
     if (publication_ledger && !aggregate_balanced) {
         result.failure = "PUBLICATION_LEDGER_REQUIRES_BALANCED_POLICY";
@@ -11756,6 +11833,18 @@ CanonicalStageRun run_canonical_stage_interval(
             fixture, input_position, input_velocity,
             time_step, result.trace, false);
         if (!solve.passed) {
+            if (capture_failure_work) {
+                result.run.outer_trials += solve.outer_trials;
+                result.run.rejected_trials += solve.rejected_trials;
+                result.run.hvp_calls += solve.hvp_calls;
+                result.run.negative_curvature_exits +=
+                    solve.negative_curvature_exits;
+                result.run.projected_trials += solve.projected_trials;
+                result.run.active_set_changes += solve.active_set_changes;
+                result.run.floor_merit_trials += solve.floor_merit_trials;
+                result.run.floor_merit_accepts +=
+                    solve.floor_merit_accepts;
+            }
             result.failure = "KKT_SOLVE:" + solve.failure;
             result.run.failure = result.failure;
             return result;
@@ -11955,6 +12044,8 @@ CanonicalStageRun run_canonical_stage_interval(
                         entry.raw_published_ledger) / raw_scale;
                     entry.compensated_ledger_residual = norm(
                         entry.compensated_ledger) / compensated_scale;
+                    entry.kkt_ledger_residual =
+                        solve.state.ledger_residual;
                     entry.kinetic_delta = kinetic_after - kinetic_before;
                     JointPressureWorkspace decoded_workspace =
                         build_joint_query_workspace(
@@ -12058,6 +12149,9 @@ CanonicalStageRun run_canonical_stage_interval(
                     result.maximum_compensated_ledger_residual = std::max(
                         result.maximum_compensated_ledger_residual,
                         entry.compensated_ledger_residual);
+                    result.maximum_kkt_ledger_residual = std::max(
+                        result.maximum_kkt_ledger_residual,
+                        solve.state.ledger_residual);
                     result.maximum_impulse_report_closure = std::max(
                         result.maximum_impulse_report_closure,
                         entry.impulse_report_closure);
@@ -13126,9 +13220,109 @@ BalancedLedgerNegative run_balanced_ledger_negative() {
     return result;
 }
 
+bool canonical_recoverable_candidate_failure(const std::string& failure) {
+    return failure == "KKT_SOLVE:REJECT_LIMIT";
+}
+
+CanonicalRecoveryPolicyDecision canonical_recovery_policy(
+    const std::vector<CanonicalRecoveryPolicyStep>& steps) {
+    CanonicalRecoveryPolicyDecision result;
+    int previous_passing_level = -2;
+    for (std::size_t index = 0; index < steps.size(); ++index) {
+        const CanonicalRecoveryPolicyStep& step = steps[index];
+        const int level = static_cast<int>(index);
+        if (!step.passed) {
+            previous_passing_level = -2;
+            if (!step.recoverable) {
+                result.fatal_level = level;
+                return result;
+            }
+            continue;
+        }
+        if (previous_passing_level == level - 1
+            && step.gate_with_previous) {
+            result.selected_level = level;
+            return result;
+        }
+        previous_passing_level = level;
+    }
+    return result;
+}
+
+CanonicalRecoveryNegatives run_canonical_recovery_negatives() {
+    CanonicalRecoveryNegatives result;
+    result.exact_classifier = canonical_recoverable_candidate_failure(
+            "KKT_SOLVE:REJECT_LIMIT")
+        && !canonical_recoverable_candidate_failure(
+            "KKT_SOLVE:NONFINITE")
+        && !canonical_recoverable_candidate_failure(
+            "FRAME:KKT_SOLVE:REJECT_LIMIT")
+        && !canonical_recoverable_candidate_failure(
+            "KKT_SOLVE:REJECT_LIMIT:SUFFIX")
+        && !canonical_recoverable_candidate_failure(
+            "FORCED_SOLVER_FAILURE");
+    const CanonicalRecoveryPolicyDecision forced =
+        canonical_recovery_policy({
+            {true, false, false},
+            {false, false, false},
+            {true, false, true},
+        });
+    result.forced_failure_fatal = forced.selected_level < 0
+        && forced.fatal_level == 1;
+    const CanonicalRecoveryPolicyDecision nonadjacent =
+        canonical_recovery_policy({
+            {true, false, false},
+            {false, true, false},
+            {true, false, true},
+        });
+    result.nonadjacent_not_bridged = nonadjacent.selected_level < 0
+        && nonadjacent.fatal_level < 0;
+    const CanonicalRecoveryPolicyDecision later_adjacent =
+        canonical_recovery_policy({
+            {true, false, false},
+            {false, true, false},
+            {true, false, true},
+            {true, false, true},
+        });
+    result.later_adjacent_selected = later_adjacent.selected_level == 3
+        && later_adjacent.fatal_level < 0;
+    const CanonicalRecoveryPolicyDecision exhausted =
+        canonical_recovery_policy({
+            {false, true, false},
+            {true, false, false},
+            {false, true, false},
+            {true, false, false},
+        });
+    result.exhaustion_no_selection = exhausted.selected_level < 0
+        && exhausted.fatal_level < 0;
+    const std::vector<Vec3> position = {{1.0, 2.0, 3.0}};
+    const std::vector<Vec3> velocity = {{4.0, 5.0, 6.0}};
+    const std::vector<std::string> roots = {"committed-root"};
+    const std::size_t ledger_entries = 1U;
+    const std::uint32_t global_step = 7U;
+    const std::vector<Vec3> private_position = {{7.0, 8.0, 9.0}};
+    const std::vector<std::string> private_roots = {"private-root"};
+    static_cast<void>(private_position);
+    static_cast<void>(private_roots);
+    result.rollback_exact = exact_vec3_values(
+            position, std::vector<Vec3>{{1.0, 2.0, 3.0}})
+        && exact_vec3_values(
+            velocity, std::vector<Vec3>{{4.0, 5.0, 6.0}})
+        && roots == std::vector<std::string>{"committed-root"}
+        && ledger_entries == 1U && global_step == 7U;
+    result.passed = result.exact_classifier
+        && result.forced_failure_fatal
+        && result.nonadjacent_not_bridged
+        && result.later_adjacent_selected
+        && result.exhaustion_no_selection
+        && result.rollback_exact;
+    return result;
+}
+
 CanonicalAdaptiveRun run_canonical_adaptive_controller(
     const SmokeFixture& fixture,
-    const std::string& scenario_sha256) {
+    const std::string& scenario_sha256,
+    bool recovery = false) {
     CanonicalAdaptiveRun result;
     result.trace.record_queries = false;
     result.controller.position = fixture.position;
@@ -13207,6 +13401,42 @@ CanonicalAdaptiveRun run_canonical_adaptive_controller(
         const std::size_t committed_before =
             result.committed_frames.size();
         std::vector<CanonicalStageRun> levels;
+        std::vector<CanonicalRecoveryPolicyStep> policy_steps;
+        const std::size_t attempt_begin = result.attempts.size();
+        int selected_level = -1;
+        bool frame_recovered = false;
+        const auto account_candidate_levels =
+            [&](int last_level, int accepted_level) {
+                for (int accounted_level = 0;
+                     accounted_level <= last_level; ++accounted_level) {
+                    const SmokeRun& run = levels[
+                        static_cast<std::size_t>(accounted_level)].run;
+                    const int attempted_substeps = recovery
+                        ? result.attempts[attempt_begin
+                            + static_cast<std::size_t>(accounted_level)]
+                                .attempted_substeps
+                        : run.substeps;
+                    frame.executed_substeps += attempted_substeps;
+                    result.controller.nonlinear_hvp_calls += run.hvp_calls;
+                    result.controller.outer_trials += run.outer_trials;
+                    result.controller.rejected_trials +=
+                        run.rejected_trials;
+                    result.controller.projected_trials +=
+                        run.projected_trials;
+                    result.controller.active_set_changes +=
+                        run.active_set_changes;
+                    result.controller.active_steps += run.active_steps;
+                    result.controller.inactive_steps += run.inactive_steps;
+                    if (recovery && accounted_level != accepted_level) {
+                        result.private_frames_discarded += levels[
+                            static_cast<std::size_t>(accounted_level)]
+                                .staged_frames.size();
+                        result.private_ledger_entries_discarded += levels[
+                            static_cast<std::size_t>(accounted_level)]
+                                .publication_ledger.size();
+                    }
+                }
+            };
         for (int level = 0; level < 4; ++level) {
             levels.push_back(run_canonical_stage_interval(
                 fixture, scenario_sha256,
@@ -13214,40 +13444,156 @@ CanonicalAdaptiveRun run_canonical_adaptive_controller(
                 0, -1, true, B4C3Q_PROFILE_SHA256, true,
                 &committed_position, &committed_velocity,
                 static_cast<std::uint32_t>(committed_before),
-                static_cast<double>(frame_index) * SMOKE_FRAME_TIME));
-            if (!levels.back().passed) {
+                static_cast<double>(frame_index) * SMOKE_FRAME_TIME,
+                recovery));
+            if (!recovery) {
+                if (!levels.back().passed) {
+                    result.failure = "FRAME_CANDIDATE:"
+                        + levels.back().failure;
+                    return result;
+                }
+                if (level > 0) {
+                    frame.gate = smoke_gate(
+                        levels[static_cast<std::size_t>(level - 1)].run,
+                        levels[static_cast<std::size_t>(level)].run);
+                    if (frame.gate.passed) {
+                        frame.refinement_depth = level - 1;
+                        frame.accepted_substeps =
+                            levels[static_cast<std::size_t>(level)]
+                                .run.substeps;
+                        selected_level = level;
+                        break;
+                    }
+                }
+                continue;
+            }
+
+            const CanonicalStageRun& candidate = levels.back();
+            CanonicalAdaptiveAttempt attempt;
+            attempt.frame = frame_index;
+            attempt.level = level;
+            attempt.planned_substeps = candidate.run.substeps;
+            attempt.completed_substeps = static_cast<int>(
+                candidate.staged_frames.size());
+            attempt.passed = candidate.passed;
+            attempt.failure = candidate.failure;
+            attempt.recoverable = !candidate.passed
+                && canonical_recoverable_candidate_failure(
+                    candidate.failure);
+            attempt.attempted_substeps = candidate.passed
+                ? candidate.run.substeps
+                : attempt.completed_substeps
+                    + (candidate.failure.rfind("KKT_SOLVE:", 0U) == 0U
+                        ? 1 : 0);
+            attempt.outer_trials = candidate.run.outer_trials;
+            attempt.rejected_trials = candidate.run.rejected_trials;
+            attempt.hvp_calls = candidate.run.hvp_calls;
+            attempt.publication_error_bounded =
+                candidate.publication_error_bounded;
+            attempt.decode_chain_exact = candidate.decode_chain_exact;
+            attempt.sample_identity_exact = candidate.sample_identity_exact;
+            attempt.step_sequence_exact = candidate.step_sequence_exact;
+            attempt.aggregate_bounds_exact =
+                candidate.aggregate_bounds_exact;
+            attempt.kinetic_bound_exact = candidate.kinetic_bound_exact;
+            attempt.publication_ledger_exact =
+                candidate.publication_ledger_exact;
+            attempt.trace_lifecycle_exact =
+                candidate.trace.live_workspaces == 0
+                && candidate.trace.maximum_live_workspaces <= 2
+                && candidate.trace.exact && candidate.trace.work_reduced;
+            attempt.staged_count_exact = candidate.staged_frames.size()
+                == static_cast<std::size_t>(candidate.run.substeps);
+            attempt.maximum_position_error =
+                candidate.maximum_position_error;
+            attempt.maximum_velocity_error =
+                candidate.maximum_velocity_error;
+            attempt.maximum_raw_published_ledger_residual =
+                candidate.maximum_raw_published_ledger_residual;
+            attempt.maximum_compensated_ledger_residual =
+                candidate.maximum_compensated_ledger_residual;
+            attempt.maximum_kkt_ledger_residual =
+                candidate.maximum_kkt_ledger_residual;
+            attempt.maximum_impulse_report_closure =
+                candidate.maximum_impulse_report_closure;
+            attempt.maximum_compensated_ledger_closure =
+                candidate.maximum_compensated_ledger_closure;
+            attempt.maximum_center_report_closure =
+                candidate.maximum_center_report_closure;
+            attempt.maximum_energy_decomposition_error =
+                candidate.maximum_energy_decomposition_error;
+            attempt.cumulative_publication_impulse =
+                candidate.cumulative_publication_impulse;
+            CanonicalRecoveryPolicyStep policy;
+            policy.passed = candidate.passed;
+            policy.recoverable = attempt.recoverable;
+            if (candidate.passed && level > 0
+                && levels[static_cast<std::size_t>(level - 1)].passed) {
+                attempt.adjacent_gate_evaluated = true;
+                attempt.adjacent_gate = smoke_gate(
+                    levels[static_cast<std::size_t>(level - 1)].run,
+                    candidate.run);
+                policy.gate_with_previous =
+                    attempt.adjacent_gate.passed;
+                frame.gate = attempt.adjacent_gate;
+            }
+            result.attempts.push_back(attempt);
+            policy_steps.push_back(policy);
+            result.maximum_attempted_level_substeps = std::max(
+                result.maximum_attempted_level_substeps,
+                candidate.run.substeps);
+            if (attempt.recoverable) {
+                ++result.recoverable_failed_levels;
+                frame_recovered = true;
+            }
+            const CanonicalRecoveryPolicyDecision decision =
+                canonical_recovery_policy(policy_steps);
+            if (decision.fatal_level >= 0) {
+                account_candidate_levels(level, -1);
+                frame.discarded_substeps = frame.executed_substeps;
+                result.controller.executed_substeps +=
+                    frame.executed_substeps;
+                result.controller.discarded_substeps +=
+                    frame.discarded_substeps;
+                result.controller.spectral_hvp_calls +=
+                    frame.spectral_hvp_calls;
+                result.attempted_candidate_substeps +=
+                    frame.executed_substeps;
                 result.failure = "FRAME_CANDIDATE:"
-                    + levels.back().failure;
+                    + candidate.failure;
                 return result;
             }
-            if (level > 0) {
-                frame.gate = smoke_gate(
-                    levels[static_cast<std::size_t>(level - 1)].run,
-                    levels[static_cast<std::size_t>(level)].run);
-                if (frame.gate.passed) {
-                    frame.refinement_depth = level - 1;
-                    frame.accepted_substeps =
-                        levels[static_cast<std::size_t>(level)]
-                            .run.substeps;
-                    break;
-                }
+            if (decision.selected_level >= 0) {
+                selected_level = decision.selected_level;
+                frame.refinement_depth = selected_level - 1;
+                frame.accepted_substeps = levels[
+                    static_cast<std::size_t>(selected_level)]
+                        .run.substeps;
+                break;
             }
         }
         if (frame.refinement_depth < 0) {
-            result.failure = "FRAME_ERROR_GATE";
+            if (recovery && !levels.empty()) {
+                account_candidate_levels(
+                    static_cast<int>(levels.size()) - 1, -1);
+                frame.discarded_substeps = frame.executed_substeps;
+                result.controller.executed_substeps +=
+                    frame.executed_substeps;
+                result.controller.discarded_substeps +=
+                    frame.discarded_substeps;
+                result.controller.spectral_hvp_calls +=
+                    frame.spectral_hvp_calls;
+                result.attempted_candidate_substeps +=
+                    frame.executed_substeps;
+            }
+            result.failure = recovery
+                ? "FRAME_RECOVERY_EXHAUSTED" : "FRAME_ERROR_GATE";
             return result;
         }
-        for (int level = 0; level <= frame.refinement_depth + 1; ++level) {
-            const SmokeRun& run =
-                levels[static_cast<std::size_t>(level)].run;
-            frame.executed_substeps += run.substeps;
-            result.controller.nonlinear_hvp_calls += run.hvp_calls;
-            result.controller.outer_trials += run.outer_trials;
-            result.controller.rejected_trials += run.rejected_trials;
-            result.controller.projected_trials += run.projected_trials;
-            result.controller.active_set_changes += run.active_set_changes;
-            result.controller.active_steps += run.active_steps;
-            result.controller.inactive_steps += run.inactive_steps;
+        selected_level = frame.refinement_depth + 1;
+        account_candidate_levels(selected_level, selected_level);
+        if (recovery && frame_recovered) {
+            ++result.recovered_frames;
         }
         frame.discarded_substeps = frame.executed_substeps
             - frame.accepted_substeps;
@@ -13276,6 +13622,10 @@ CanonicalAdaptiveRun run_canonical_adaptive_controller(
         result.controller.accepted_substeps += frame.accepted_substeps;
         result.controller.executed_substeps += frame.executed_substeps;
         result.controller.discarded_substeps += frame.discarded_substeps;
+        if (recovery) {
+            result.attempted_candidate_substeps +=
+                frame.executed_substeps;
+        }
         result.controller.spectral_hvp_calls += frame.spectral_hvp_calls;
         result.controller.contact_events += accepted.run.contact_events;
         result.controller.accepted_active_steps += accepted.run.active_steps;
@@ -13384,7 +13734,17 @@ CanonicalAdaptiveRun run_canonical_adaptive_controller(
         && result.trace.maximum_live_workspaces <= 2
         && result.trace.exact && result.trace.work_reduced
         && result.maximum_compensated_ledger_residual <= 1.0e-9
-        && norm(result.cumulative_publication_impulse) <= impulse_bound;
+        && norm(result.cumulative_publication_impulse) <= impulse_bound
+        && (!recovery
+            || (result.attempted_candidate_substeps
+                    == result.controller.executed_substeps
+                && std::all_of(
+                    result.controller.frames.begin(),
+                    result.controller.frames.end(),
+                    [](const SmokeFrame& frame) {
+                        return frame.accepted_substeps <= 192;
+                    })
+                && result.maximum_attempted_level_substeps <= 768));
     if (!result.passed) {
         result.failure = "CANONICAL_ADAPTIVE_GATE";
         result.controller.failure = result.failure;
@@ -13396,11 +13756,12 @@ CanonicalAdaptiveCase run_canonical_adaptive_case(
     std::string name,
     const SmokeFixture& fixture,
     const std::string& scenario_sha256,
-    bool released_block) {
+    bool released_block,
+    bool recovery = false) {
     CanonicalAdaptiveCase result;
     result.name = std::move(name);
     result.candidate = run_canonical_adaptive_controller(
-        fixture, scenario_sha256);
+        fixture, scenario_sha256, recovery);
     result.binary_trace.record_queries = false;
     result.binary = run_b4b1_controller_joint(
         fixture, true, result.binary_trace);
@@ -13587,10 +13948,20 @@ CanonicalAdaptiveCase run_canonical_adaptive_case(
             && result.candidate.controller.precontact_pressure_violations == 0
             && result.candidate.controller
                 .maximum_precontact_support_reaction <= 1.0e-12
-            && result.candidate.controller
-                .maximum_precontact_position_error == 0.0
-            && result.candidate.controller
-                .maximum_precontact_velocity_error == 0.0
+            && (recovery
+                ? result.candidate.controller
+                        .maximum_precontact_position_error
+                    < 1.0e-6
+                        + 64.0 * std::numeric_limits<double>::epsilon()
+                : result.candidate.controller
+                        .maximum_precontact_position_error == 0.0)
+            && (recovery
+                ? result.candidate.controller
+                        .maximum_precontact_velocity_error
+                    < 1.0e-6
+                        + 64.0 * std::numeric_limits<double>::epsilon()
+                : result.candidate.controller
+                        .maximum_precontact_velocity_error == 0.0)
             && result.candidate.controller
                 .maximum_precontact_velocity_spread <= spread_limit;
     } else {
@@ -13611,13 +13982,14 @@ CanonicalAdaptiveCase run_canonical_adaptive_case(
     return result;
 }
 
-CanonicalAdaptiveRollback run_canonical_adaptive_rollback() {
+CanonicalAdaptiveRollback run_canonical_adaptive_rollback(
+    bool recovery = false) {
     CanonicalAdaptiveRollback result;
     SmokeFixture fixture = make_b4b_supported_column_fixture();
     fixture.macro_frames = 1;
     const CanonicalAdaptiveRun committed =
         run_canonical_adaptive_controller(
-            fixture, B4C3TA_P1_SCENARIO_SHA256);
+            fixture, B4C3TA_P1_SCENARIO_SHA256, recovery);
     if (!committed.passed) {
         result.failure = "ROLLBACK_PREFIX";
         return result;
@@ -13720,6 +14092,77 @@ CanonicalAdaptiveFailureProbe run_canonical_adaptive_failure_probe() {
         && result.selected_fine_level > result.first_passing_level;
     if (!result.passed) {
         result.failure = "REFINEMENT_RECOVERY_NOT_ESTABLISHED";
+    }
+    return result;
+}
+
+CanonicalAdaptiveLedgerProbe run_canonical_adaptive_ledger_probe() {
+    CanonicalAdaptiveLedgerProbe result;
+    const SmokeFixture fixture = make_b4b_supported_column_fixture();
+    const CanonicalAdaptiveRun prefix = run_canonical_adaptive_controller(
+        fixture, B4C3TA_P1_SCENARIO_SHA256, true);
+    result.failed_frame = static_cast<int>(prefix.controller.frames.size());
+    if (prefix.passed || result.failed_frame != 7
+        || prefix.failure != "FRAME_CANDIDATE:CANONICAL_STAGE_RUN_GATE") {
+        result.failure = "EXPECTED_LEDGER_FAILURE_MISSING";
+        return result;
+    }
+    JointQueryTrace trace;
+    trace.record_queries = false;
+    JointPressureWorkspace workspace = build_joint_query_workspace(
+        prefix.controller.position, fixture.boundary,
+        "ADAPTIVE_LEDGER_FAILURE_PROBE", false, trace, false);
+    if (!workspace.passed) {
+        result.failure = "PROBE_WORKSPACE";
+        return result;
+    }
+    const SpectralEstimate spectrum =
+        boundary_pressure_spectrum_joint_workspace(
+            workspace, trace, false);
+    release_joint_query_workspace(workspace, trace);
+    if (!spectrum.passed) {
+        result.failure = "PROBE_SPECTRUM";
+        return result;
+    }
+    result.initial_substeps = std::max(1,
+        static_cast<int>(std::ceil(SMOKE_FRAME_TIME
+            * std::sqrt(std::max(spectrum.maximum_eigenvalue, 0.0) / MASS)
+            / SPECTRAL_TARGET)));
+    for (int level = 0; level < 4; ++level) {
+        result.levels.push_back(run_canonical_stage_interval(
+            fixture, B4C3TA_P1_SCENARIO_SHA256,
+            result.initial_substeps * (1 << level),
+            0, -1, true, B4C3Q_PROFILE_SHA256, true,
+            &prefix.controller.position, &prefix.controller.velocity,
+            static_cast<std::uint32_t>(prefix.committed_frames.size()),
+            static_cast<double>(result.failed_frame) * SMOKE_FRAME_TIME));
+        const CanonicalStageRun& candidate = result.levels.back();
+        if (!candidate.passed
+            && candidate.failure == "CANONICAL_STAGE_RUN_GATE"
+            && !candidate.publication_ledger_exact
+            && result.first_ledger_failure_level < 0) {
+            result.first_ledger_failure_level = level;
+        }
+        if (level > 0
+            && result.levels[static_cast<std::size_t>(level - 1)].passed
+            && candidate.passed) {
+            const SmokeGate gate = smoke_gate(
+                result.levels[static_cast<std::size_t>(level - 1)].run,
+                candidate.run);
+            result.gates.push_back(gate);
+            if (gate.passed && result.selected_fine_level < 0) {
+                result.selected_fine_level = level;
+            }
+        }
+    }
+    result.passed = result.initial_substeps == 16
+        && result.levels.size() == 4U
+        && result.levels[0].passed
+        && !result.levels[1].passed
+        && result.first_ledger_failure_level == 1
+        && result.selected_fine_level >= 3;
+    if (!result.passed) {
+        result.failure = "LEDGER_REFINEMENT_RECOVERY_NOT_ESTABLISHED";
     }
     return result;
 }
@@ -14438,6 +14881,187 @@ void append_canonical_adaptive_failure_probe(
                << value.gates[i].relative_kinetic_error << '}';
     }
     output << "]}";
+}
+
+void append_canonical_adaptive_ledger_probe(
+    std::ostringstream& output,
+    const CanonicalAdaptiveLedgerProbe& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure << '"'
+           << ",\"failed_frame\":" << value.failed_frame
+           << ",\"initial_substeps\":" << value.initial_substeps
+           << ",\"first_ledger_failure_level\":"
+           << value.first_ledger_failure_level
+           << ",\"selected_fine_level\":"
+           << value.selected_fine_level
+           << ",\"levels\":[";
+    for (std::size_t i = 0; i < value.levels.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        const CanonicalStageRun& level = value.levels[i];
+        const CanonicalPublicationLedgerEntry* worst_entry = nullptr;
+        for (const CanonicalPublicationLedgerEntry& entry
+             : level.publication_ledger) {
+            if (worst_entry == nullptr
+                || entry.compensated_ledger_residual
+                    > worst_entry->compensated_ledger_residual) {
+                worst_entry = &entry;
+            }
+        }
+        const double worst_absolute = worst_entry == nullptr
+            ? 0.0 : norm(worst_entry->compensated_ledger);
+        const double worst_scale = worst_entry == nullptr
+                || worst_entry->compensated_ledger_residual == 0.0
+            ? 0.0
+            : worst_absolute
+                / worst_entry->compensated_ledger_residual;
+        const double worst_kkt_residual = worst_entry == nullptr
+            ? 0.0 : worst_entry->kkt_ledger_residual;
+        output << "{\"level\":" << i
+               << ",\"substeps\":" << level.run.substeps
+               << ",\"status\":\"" << (level.passed ? "PASS" : "FAIL")
+               << "\",\"failure\":\"" << level.failure << '"'
+               << ",\"publication_ledger_exact\":"
+               << (level.publication_ledger_exact ? "true" : "false")
+               << ",\"maximum_compensated_ledger_residual\":"
+               << level.maximum_compensated_ledger_residual
+               << ",\"maximum_kkt_ledger_residual\":"
+               << level.maximum_kkt_ledger_residual
+               << ",\"maximum_normalization_ratio\":"
+               << (worst_entry == nullptr ? 0.0
+                    : worst_entry->compensated_ledger_residual
+                        / std::max(worst_kkt_residual, 1.0e-300))
+               << ",\"worst_kkt_ledger_residual\":"
+               << worst_kkt_residual
+               << ",\"worst_compensated_ledger_absolute\":"
+               << worst_absolute
+               << ",\"worst_compensated_ledger_scale\":"
+               << worst_scale
+               << ",\"maximum_compensated_ledger_closure\":"
+               << level.maximum_compensated_ledger_closure
+               << ",\"staged_frames\":"
+               << level.staged_frames.size()
+               << ",\"outer_trials\":" << level.run.outer_trials
+               << ",\"hvp_calls\":" << level.run.hvp_calls << '}';
+    }
+    output << "],\"adjacent_passing_gates\":[";
+    for (std::size_t i = 0; i < value.gates.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << "{\"passed\":"
+               << (value.gates[i].passed ? "true" : "false")
+               << ",\"position_dx\":"
+               << value.gates[i].normalized_position_error
+               << ",\"velocity_c\":"
+               << value.gates[i].normalized_velocity_error
+               << ",\"kinetic_relative\":"
+               << value.gates[i].relative_kinetic_error << '}';
+    }
+    output << "]}";
+}
+
+void append_canonical_adaptive_attempts(
+    std::ostringstream& output, const CanonicalAdaptiveRun& value) {
+    output << "{\"recovered_frames\":" << value.recovered_frames
+           << ",\"recoverable_failed_levels\":"
+           << value.recoverable_failed_levels
+           << ",\"attempted_candidate_substeps\":"
+           << value.attempted_candidate_substeps
+           << ",\"maximum_attempted_level_substeps\":"
+           << value.maximum_attempted_level_substeps
+           << ",\"private_frames_discarded\":"
+           << value.private_frames_discarded
+           << ",\"private_ledger_entries_discarded\":"
+           << value.private_ledger_entries_discarded
+           << ",\"attempts\":[";
+    for (std::size_t i = 0; i < value.attempts.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        const CanonicalAdaptiveAttempt& attempt = value.attempts[i];
+        output << std::setprecision(17)
+               << "{\"frame\":" << attempt.frame
+               << ",\"level\":" << attempt.level
+               << ",\"planned_substeps\":"
+               << attempt.planned_substeps
+               << ",\"completed_substeps\":"
+               << attempt.completed_substeps
+               << ",\"attempted_substeps\":"
+               << attempt.attempted_substeps
+               << ",\"status\":\""
+               << (attempt.passed ? "PASS" : "FAIL") << '"'
+               << ",\"failure\":\"" << attempt.failure << '"'
+               << ",\"recoverable\":"
+               << (attempt.recoverable ? "true" : "false")
+               << ",\"adjacent_gate_evaluated\":"
+               << (attempt.adjacent_gate_evaluated ? "true" : "false")
+               << ",\"adjacent_gate_passed\":"
+               << (attempt.adjacent_gate.passed ? "true" : "false")
+               << ",\"outer_trials\":" << attempt.outer_trials
+               << ",\"rejected_trials\":"
+               << attempt.rejected_trials
+               << ",\"hvp_calls\":" << attempt.hvp_calls
+               << ",\"publication_error_bounded\":"
+               << (attempt.publication_error_bounded ? "true" : "false")
+               << ",\"decode_chain_exact\":"
+               << (attempt.decode_chain_exact ? "true" : "false")
+               << ",\"sample_identity_exact\":"
+               << (attempt.sample_identity_exact ? "true" : "false")
+               << ",\"step_sequence_exact\":"
+               << (attempt.step_sequence_exact ? "true" : "false")
+               << ",\"aggregate_bounds_exact\":"
+               << (attempt.aggregate_bounds_exact ? "true" : "false")
+               << ",\"kinetic_bound_exact\":"
+               << (attempt.kinetic_bound_exact ? "true" : "false")
+               << ",\"publication_ledger_exact\":"
+               << (attempt.publication_ledger_exact ? "true" : "false")
+               << ",\"trace_lifecycle_exact\":"
+               << (attempt.trace_lifecycle_exact ? "true" : "false")
+               << ",\"staged_count_exact\":"
+               << (attempt.staged_count_exact ? "true" : "false")
+               << ",\"maximum_position_error_m\":"
+               << static_cast<double>(attempt.maximum_position_error)
+               << ",\"maximum_velocity_error_m_s\":"
+               << static_cast<double>(attempt.maximum_velocity_error)
+               << ",\"maximum_raw_ledger_residual\":"
+               << attempt.maximum_raw_published_ledger_residual
+               << ",\"maximum_compensated_ledger_residual\":"
+               << attempt.maximum_compensated_ledger_residual
+               << ",\"maximum_impulse_report_closure\":"
+               << attempt.maximum_impulse_report_closure
+               << ",\"maximum_compensated_ledger_closure\":"
+               << attempt.maximum_compensated_ledger_closure
+               << ",\"maximum_center_report_closure\":"
+               << attempt.maximum_center_report_closure
+               << ",\"maximum_energy_decomposition_error\":"
+               << attempt.maximum_energy_decomposition_error
+               << ",\"cumulative_publication_impulse\":";
+        append_vec3(output, attempt.cumulative_publication_impulse);
+        output
+               << '}';
+    }
+    output << "]}";
+}
+
+void append_canonical_recovery_negatives(
+    std::ostringstream& output,
+    const CanonicalRecoveryNegatives& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"exact_classifier\":"
+           << (value.exact_classifier ? "true" : "false")
+           << ",\"forced_failure_fatal\":"
+           << (value.forced_failure_fatal ? "true" : "false")
+           << ",\"nonadjacent_not_bridged\":"
+           << (value.nonadjacent_not_bridged ? "true" : "false")
+           << ",\"later_adjacent_selected\":"
+           << (value.later_adjacent_selected ? "true" : "false")
+           << ",\"exhaustion_no_selection\":"
+           << (value.exhaustion_no_selection ? "true" : "false")
+           << ",\"rollback_exact\":"
+           << (value.rollback_exact ? "true" : "false") << '}';
 }
 
 } // namespace
@@ -15593,6 +16217,37 @@ SplitBoundaryReport run_canonical_adaptive_failure_probe_controls() {
     return {value.passed, report.str()};
 }
 
+SplitBoundaryReport run_canonical_adaptive_ledger_probe_controls() {
+    const CanonicalAdaptiveLedgerProbe value =
+        run_canonical_adaptive_ledger_probe();
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (value.passed ? "PASS|" : "FAIL|") << value.failure
+             << '|' << value.failed_frame << ':' << value.initial_substeps
+             << ':' << value.first_ledger_failure_level
+             << ':' << value.selected_fine_level;
+    for (const CanonicalStageRun& level : value.levels) {
+        material << '|' << level.run.substeps << ':' << level.passed
+                 << ':' << level.failure << ':'
+                 << level.maximum_compensated_ledger_residual
+                 << ':' << level.maximum_compensated_ledger_closure;
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3tar_ledger_probe.v1\""
+           << ",\"identity\":\"canonical-adaptive-ledger-refinement-probe-r0\""
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL") << '"'
+           << ",\"authority\":\"DIAGNOSTIC_ONLY\""
+           << ",\"probe\":";
+    append_canonical_adaptive_ledger_probe(report, value);
+    report << ",\"repair_contract_required\":true"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {value.passed, report.str()};
+}
+
 SplitBoundaryReport run_canonical_adaptive_p2_probe_controls() {
     const CanonicalAdaptiveCase value = run_canonical_adaptive_case(
         "p2-released-adaptive-balanced",
@@ -15640,6 +16295,195 @@ SplitBoundaryReport run_canonical_adaptive_p2_probe_controls() {
            << ",\"result_sha256\":\""
            << sha256_hex(material.str()) << "\"}";
     return {diagnostic_complete, report.str()};
+}
+
+SplitBoundaryReport run_canonical_adaptive_recovery_lanes_probe_controls() {
+    std::vector<CanonicalAdaptiveCase> cases;
+    cases.push_back(run_canonical_adaptive_case(
+        "p1-supported-adaptive-balanced-recovery",
+        make_b4b_supported_column_fixture(),
+        B4C3TA_P1_SCENARIO_SHA256, false, true));
+    cases.push_back(run_canonical_adaptive_case(
+        "p2-released-adaptive-balanced-recovery",
+        make_b4b_released_block_fixture(),
+        B4C3TA_P2_SCENARIO_SHA256, true, true));
+    const bool passed = std::all_of(
+        cases.begin(), cases.end(),
+        [](const CanonicalAdaptiveCase& value) {
+            return value.passed;
+        });
+    std::ostringstream material;
+    material << (passed ? "PASS" : "FAIL");
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3tar_lanes_probe.v1\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"authority\":\"DIAGNOSTIC_ONLY\""
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        material << '|' << cases[i].name << ':' << cases[i].failure
+                 << ':' << cases[i].candidate.trajectory_sha256
+                 << ':' << cases[i].candidate.recovered_frames
+                 << ':' << cases[i].candidate.recoverable_failed_levels;
+        report << "{\"physical\":";
+        append_canonical_adaptive_case(report, cases[i]);
+        report << ",\"recovery\":";
+        append_canonical_adaptive_attempts(report, cases[i].candidate);
+        report << ",\"precontact_position_error_m\":"
+               << cases[i].candidate.controller
+                    .maximum_precontact_position_error
+               << ",\"precontact_velocity_error_m_s\":"
+               << cases[i].candidate.controller
+                    .maximum_precontact_velocity_error
+               << '}';
+    }
+    report << "],\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_canonical_adaptive_recovery_controls() {
+    const SplitBoundaryReport parent = run_canonical_adaptive_controls();
+    const bool parent_exact = !parent.passed
+        && sha256_hex(parent.json)
+            == "52d9c1c9cce975927c7230ee5f68e7871ab6a345a3b227f8467d6f8ce2d8c377";
+    const SplitBoundaryReport failure_probe =
+        run_canonical_adaptive_failure_probe_controls();
+    const bool failure_probe_exact = failure_probe.passed
+        && sha256_hex(failure_probe.json)
+            == "522aa97ecbb3016bb9ff70d7c6675044e8c2de3dcb15ee76d607f15018295078";
+    const SplitBoundaryReport p2_probe =
+        run_canonical_adaptive_p2_probe_controls();
+    const bool p2_probe_exact = p2_probe.passed
+        && sha256_hex(p2_probe.json)
+            == "2cb51b5eae3d02dbfb783c0f672600a922eb4ce6ba55ae1baca26981ca51a3d9";
+    std::vector<CanonicalAdaptiveCase> cases;
+    CanonicalAdaptiveRollback rollback;
+    CanonicalRecoveryNegatives negatives;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3TA_PARENT";
+    } else if (!failure_probe_exact) {
+        first_failure = "REFINEMENT_PROBE";
+    } else if (!p2_probe_exact) {
+        first_failure = "P2_PHYSICAL_PROBE";
+    } else {
+        cases.push_back(run_canonical_adaptive_case(
+            "p1-supported-adaptive-balanced-recovery",
+            make_b4b_supported_column_fixture(),
+            B4C3TA_P1_SCENARIO_SHA256, false, true));
+        cases.push_back(run_canonical_adaptive_case(
+            "p2-released-adaptive-balanced-recovery",
+            make_b4b_released_block_fixture(),
+            B4C3TA_P2_SCENARIO_SHA256, true, true));
+        rollback = run_canonical_adaptive_rollback(true);
+        negatives = run_canonical_recovery_negatives();
+        for (const CanonicalAdaptiveCase& value : cases) {
+            const int attempt_sum = std::accumulate(
+                value.candidate.attempts.begin(),
+                value.candidate.attempts.end(), 0,
+                [](int total, const CanonicalAdaptiveAttempt& attempt) {
+                    return total + attempt.attempted_substeps;
+                });
+            const bool work_exact = attempt_sum
+                    == value.candidate.attempted_candidate_substeps
+                && attempt_sum
+                    == value.candidate.controller.executed_substeps;
+            if ((!value.passed || !work_exact) && first_failure.empty()) {
+                first_failure = value.name + ':'
+                    + (work_exact ? value.failure : "ATTEMPTED_WORK");
+            }
+        }
+        if (!rollback.passed && first_failure.empty()) {
+            first_failure = "POST_COMMIT_ROLLBACK";
+        }
+        if (!negatives.passed && first_failure.empty()) {
+            first_failure = "RECOVERY_NEGATIVES";
+        }
+    }
+    const bool cases_passed = cases.size() == 2U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const CanonicalAdaptiveCase& value) {
+                return value.passed;
+            });
+    const bool passed = parent_exact && failure_probe_exact && p2_probe_exact
+        && cases_passed && rollback.passed && negatives.passed;
+    const std::string disposition = passed
+        ? "CANONICAL_BALANCED_ADAPTIVE_RECOVERY_CANDIDATE"
+        : "CANONICAL_BALANCED_ADAPTIVE_RECOVERY_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition;
+    for (const CanonicalAdaptiveCase& value : cases) {
+        material << '|' << value.name << ':'
+                 << value.candidate.trajectory_sha256 << ':'
+                 << publication_ledger_hash(
+                        value.candidate.committed_ledger)
+                 << ':' << value.candidate.controller.accepted_substeps
+                 << ':' << value.candidate.attempted_candidate_substeps
+                 << ':' << value.candidate.recovered_frames
+                 << ':' << value.candidate.recoverable_failed_levels
+                 << ':' << value.maximum_position_bound_ratio
+                 << ':' << value.maximum_velocity_bound_ratio
+                 << ':' << value.pressure_budget_utilization
+                 << ':' << value.mechanical_budget_utilization;
+    }
+    material << "|R:" << rollback.passed << ':' << rollback.ledger_exact
+             << "|N:" << negatives.passed;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3tar_adaptive_recovery.v1\""
+           << ",\"identity\":\"joint-pressure-canonical-balanced-adaptive-r1-recovery\""
+           << ",\"parent_b4c3ta_raw_sha256\":\"52d9c1c9cce975927c7230ee5f68e7871ab6a345a3b227f8467d6f8ce2d8c377\""
+           << ",\"parent_b4c3ta_fail_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"failure_probe_exact\":"
+           << (failure_probe_exact ? "true" : "false")
+           << ",\"p2_probe_exact\":"
+           << (p2_probe_exact ? "true" : "false")
+           << ",\"profile_sha256\":\"" << B4C3Q_PROFILE_SHA256 << '"'
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        report << "{\"physical\":";
+        append_canonical_adaptive_case(report, cases[i]);
+        report << ",\"recovery\":";
+        append_canonical_adaptive_attempts(report, cases[i].candidate);
+        report << ",\"precontact_position_error_m\":"
+               << cases[i].candidate.controller
+                    .maximum_precontact_position_error
+               << ",\"precontact_velocity_error_m_s\":"
+               << cases[i].candidate.controller
+                    .maximum_precontact_velocity_error
+               << '}';
+    }
+    report << "],\"post_commit_rollback\":";
+    append_canonical_adaptive_rollback(report, rollback);
+    report << ",\"negative_controls\":";
+    append_canonical_recovery_negatives(report, negatives);
+    report << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c3tr_fixed_reference_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"canonical_fixed_reference_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
 }
 
 } // namespace nextengine::nonlocal::fcr

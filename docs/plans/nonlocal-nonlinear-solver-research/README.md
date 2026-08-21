@@ -468,3 +468,11 @@ The
 now freezes exact `REJECT_LIMIT` classification, adjacent-pass selection,
 attempted-work accounting, rollback and the pre-existing local canonical
 free-flight bounds. Its implementation is the only authorized next step.
+That implementation is now a preserved FAIL; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3tar-refinement-recovery-evidence-2026-08-21.md).
+It successfully recovers two exact nonlinear failures and completes P2, then
+finds a distinct non-monotonic ledger-normalization conflict at P1 frame seven.
+The publication-compensated vector reproduces the KKT ledger, but a stricter
+normalizer rejects a residual already accepted by the KKT gate. The next step
+is a separately frozen ledger reclosure, not broader failure recovery or a
+larger tolerance.

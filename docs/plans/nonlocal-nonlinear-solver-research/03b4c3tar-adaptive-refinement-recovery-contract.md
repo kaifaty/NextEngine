@@ -1,6 +1,6 @@
 # NSR3-B4C3TAR -- adaptive canonical refinement recovery
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / B4C3TR_BLOCKED`
+Status: `EXECUTED / FAIL_PRESERVED / LEDGER_RECLOSURE_REQUIRED`
 
 Parent B4C3TA is the preserved negative report with JSON-without-final-LF
 SHA-256
@@ -106,3 +106,15 @@ PASS selects `CANONICAL_BALANCED_ADAPTIVE_RECOVERY_CANDIDATE` and authorizes
 only B4C3TR fixed canonical reference design. FAIL preserves B4C3A1 and the
 B4C3TA negative result. No fixed canonical, nominal, CUDA, runtime, schema or
 production authority is granted.
+
+## Executed outcome
+
+The r1 controller recovers the exact P1 frame-four and frame-five
+`KKT_SOLVE:REJECT_LIMIT` events, and P2 passes completely. It then stops
+correctly at P1 frame seven on a non-recoverable publication-ledger gate; see
+the
+[dated evidence](../../development/nonlocal-nsr3b4c3tar-refinement-recovery-evidence-2026-08-21.md).
+The compensated vector has zero closure to the KKT ledger, but its different
+normalizer turns an accepted `9.9175e-10` KKT residual into a rejected
+`1.1268e-9` publication residual. B4C3TAR remains FAIL. Only a separate ledger
+normalization reclosure is authorized; B4C3TR stays blocked.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3TA_FAIL_PRESERVED / NSR3B4C3TAR_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3TAR_FAIL_PRESERVED / LEDGER_RECLOSURE_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,21 +11,17 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** preserve B4C3TA FAIL. P1 frame four rejects at the
-  16-substep candidate, but exact replay passes at 32/64/128 and the unchanged
-  32/64 embedded gate passes. This is a recoverable refinement signal, not a
-  formula failure. P2 otherwise passes and exposes only an erroneous exact-zero
-  harness predicate for a `1.925e-7 m/s` local canonical velocity difference.
-- **Current decision:** freeze B4C3TAR. Permit only nonlinear
-  `KKT_SOLVE:REJECT_LIMIT` to skip a private level and continue refinement;
-  still require an adjacent passing pair and unchanged gate. Restore the
-  already-frozen `<1e-6` local precontact position/velocity allowances.
-- **Current action:** preserve the original failure/probe hashes, freeze the
-  repair transaction and execute it twice. B4C3TR/B4C3TC/B4C4/B4D remain
-  blocked.
-- **Current contract:** B4C3TAR binds exact `KKT_SOLVE:REJECT_LIMIT`
-  classification, adjacent-pass selection, exact attempted-work accounting,
-  rollback negatives and the pre-existing local `<1e-6` released-flight bounds.
+- **Current conclusion:** preserve B4C3TAR FAIL. It recovers two P1 nonlinear
+  failures and P2 passes, but P1 frame seven exposes a non-monotonic ledger
+  normalization conflict: 16/64 substeps pass while 32/128 fail. Publication
+  closure to the KKT ledger is zero or near zero.
+- **Current decision:** do not broaden recovery and do not raise `1e-9`.
+  Reclose ledger normalization so the compensated physical residual uses the
+  same scale as the KKT state it reproduces; retain the stricter max-scaled
+  residual as diagnostic evidence.
+- **Current action:** freeze an algebraic and real-state ledger-normalization
+  discriminator, then revalidate the one-frame stage ledger before another
+  complete adaptive controller. B4C3TR/B4C3TC/B4C4/B4D remain blocked.
 
 - **Current conclusion:** B4C3Q exact aggregate-balanced apportionment passes
   twice at raw `ae44e39f...0731`. Biased aggregate error and 1,024-step center
@@ -1011,6 +1007,29 @@
   classification, attempted-work accounting and local precontact bounds, then
   execute two byte-identical complete reports.
 
+### D-051 -- Preserve B4C3TAR and reclose ledger normalization
+
+- **Observation:** B4C3TAR recovers P1 frames four and five, accounts 563
+  attempted substeps exactly and passes P2. At P1 frame seven the compensated
+  publication ledger has zero closure to the KKT ledger, yet 32/128 levels fail
+  at `1.1268e-9/1.0709e-9` while their KKT residuals remain below `1e-9`.
+  Levels 16/64 pass, so refinement is non-monotonic.
+- **Decision:** preserve B4C3TAR FAIL. Treat this as a residual-normalization
+  contract conflict, not a recoverable stage failure. Keep the max-scaled
+  publication residual for diagnostics, but test a separately frozen
+  KKT-scale compensated residual for physical admission.
+- **Rejected alternatives:** do not raise the threshold, silently accept stage
+  failures, classify all ledger failures as refinement signals, or erase the
+  stricter residual.
+- **Consequence:** B4C3A1 ledger admission must be revalidated under a new
+  identity before complete-controller work resumes. Existing frame/root and
+  quantization identities remain evidence, not automatically selected policy.
+- **Remaining uncertainty:** scale alignment may remove the false rejection but
+  could reveal a true ledger or energy failure later in the complete P1 lane.
+- **Smallest next action:** freeze a ledger-normalization discriminator with a
+  synthetic near-factor-two case, exact vector/closure identity, one-frame
+  P1/P2 replay and the real 16/32/64/128 frame-seven checkpoint.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1023,11 +1042,12 @@
 
 ## Exact next action
 
-1. Implement B4C3TAR over the preserved B4C3TA FAIL and diagnostic probe roots.
-2. Continue only after exact `KKT_SOLVE:REJECT_LIMIT`, count every attempted private
-   level, and select only an adjacent passing/gated pair.
-3. Restore the already-frozen `<1e-6` local canonical precontact position and
-   velocity bounds; run twice before designing B4C3TR. B4C4/B4D remain blocked.
+1. Freeze the ledger-normalization discriminator over the preserved B4C3A1 and
+   B4C3TAR evidence roots.
+2. Prove algebraically and numerically that KKT-scale compensated admission
+   reproduces the source KKT gate while max-scale residual remains diagnostic.
+3. Revalidate one-frame P1/P2 plus the real frame-seven four-level checkpoint
+   before resuming the complete controller. B4C3TR/B4C4/B4D remain blocked.
 
 ## Reconsideration triggers
 

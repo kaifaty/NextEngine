@@ -62,7 +62,10 @@ int main(int argc, char** argv) {
                          "--canonical-stage-ledger-self-test|"
                          "--canonical-adaptive-self-test|"
                          "--canonical-adaptive-failure-probe|"
-                         "--canonical-adaptive-p2-probe\n";
+                         "--canonical-adaptive-ledger-probe|"
+                         "--canonical-adaptive-p2-probe|"
+                         "--canonical-adaptive-recovery-lanes-probe|"
+                         "--canonical-adaptive-recovery-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -429,10 +432,31 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--canonical-adaptive-ledger-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_canonical_adaptive_ledger_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         if (command == "--canonical-adaptive-p2-probe") {
             const nextengine::nonlocal::fcr::SplitBoundaryReport report =
                 nextengine::nonlocal::fcr::
                     run_canonical_adaptive_p2_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--canonical-adaptive-recovery-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_canonical_adaptive_recovery_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--canonical-adaptive-recovery-lanes-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_canonical_adaptive_recovery_lanes_probe_controls();
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
@@ -488,7 +512,10 @@ int main(int argc, char** argv) {
                      "--canonical-stage-ledger-self-test|"
                      "--canonical-adaptive-self-test|"
                      "--canonical-adaptive-failure-probe|"
-                     "--canonical-adaptive-p2-probe\n";
+                     "--canonical-adaptive-ledger-probe|"
+                     "--canonical-adaptive-p2-probe|"
+                     "--canonical-adaptive-recovery-lanes-probe|"
+                     "--canonical-adaptive-recovery-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';
