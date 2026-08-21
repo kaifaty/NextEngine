@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3Q_PASS / NSR3B4C3A1_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3Q_PASS / NSR3B4C3A1_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -20,6 +20,10 @@
   reuse B4C3A nearest-even roots.
 - **Current action:** freeze B4C3A1 with fine-only atomic commit plus explicit
   publication impulse, center and kinetic ledger terms. B4C3T remains blocked.
+- **Current design:** B4C3A1 records raw published momentum closure separately
+  from `L_raw-I_q`, which must reproduce the KKT ledger. It also decomposes the
+  publication energy jump into kinetic, decoded-pressure and gravitational
+  terms without fitting a pressure-energy cap before long-horizon evidence.
 
 - **Current finding:** independent nearest-even continuation introduces a
   post-KKT aggregate position and velocity perturbation up to `N/2` canonical
@@ -905,6 +909,26 @@
 - **Smallest next action:** freeze B4C3A1 selected-policy roots, ledger equations
   and atomic rollback; then implement it independently of full-controller gates.
 
+### D-047 -- Freeze the quantization-aware publication ledger
+
+- **Observation:** published momentum closure equals the solver ledger plus a
+  deterministic numerical impulse `I_q`; raw published residual is therefore
+  not expected to retain the physical `1e-9` ratio unless `I_q` is modeled.
+  Position rounding also changes pressure and gravitational energy.
+- **Decision:** B4C3A1 records `I_q`, raw and compensated momentum ledgers,
+  center shift, and kinetic/pressure/gravity/mechanical publication deltas per
+  staged frame. Only fine entries commit with fine frames.
+- **Rejected alternatives:** do not label quantization impulse as a boundary
+  reaction, silently subtract an unreported correction, or fit a universal
+  pressure-energy threshold from the first observed result.
+- **Consequence:** one-frame ledger mechanics can be tested independently;
+  full-horizon pressure-energy accumulation remains a B4C3T design input.
+- **Remaining uncertainty:** decoded pressure-energy perturbations and local
+  topology changes may accumulate nonlinearly even when momentum aggregation is
+  bounded.
+- **Smallest next action:** implement the frozen B4C3A1 transaction and ledger,
+  preserve all parent hashes and execute two byte-identical reports.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -917,13 +941,12 @@
 
 ## Exact next action
 
-1. Freeze B4C3A1 selected-policy profile/scenario roots and one-frame atomic
-   transaction contract.
-2. Include per-publication aggregate position/velocity error, momentum impulse,
-   center shift and kinetic perturbation in an explicit canonical ledger; keep
-   the exact B4C3Q local/aggregate bounds.
-3. Implement and repeat B4C3A1 before resuming B4C3T. B4C4 packaging and nominal
-   B4D remain blocked.
+1. Implement B4C3A1 per-stage raw/compensated momentum and decomposed energy
+   publication ledger under the selected balanced profile.
+2. Prove fine-only frame/ledger commit, exact order/repeat and zero-ledger
+   rollback for forced and typed publication failures.
+3. Execute twice and preserve parent hashes before resuming B4C3T. B4C4
+   packaging and nominal B4D remain blocked.
 
 ## Reconsideration triggers
 

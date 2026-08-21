@@ -433,3 +433,11 @@ It selects `CANONICAL_AGGREGATE_BALANCED_CANDIDATE`: aggregate error and the
 residual-stress center drift improve `49x`, at the explicit cost of increasing
 the local bound from half a unit to below one unit. Only B4C3A1 selected-policy
 transaction design is authorized next.
+The [B4C3A1 audit](../../development/nonlocal-nsr3b4c3a1-publication-ledger-research-2026-08-21.md)
+separates the physical KKT transition from the subsequent deterministic
+representation transition. Its
+[frozen contract](03b4c3a1-balanced-stage-ledger-contract.md) requires
+fine-only atomic frame/ledger commit, explicit quantization impulse and center
+shift, compensated momentum closure and a decomposed kinetic/pressure/gravity
+publication-energy record. It intentionally leaves the pressure-energy
+long-horizon cap to B4C3T evidence rather than fitting one before measurement.
