@@ -75,6 +75,9 @@
 | R3 isolated-gate evidence on `3bbc19e` | Ten-run baseline plus three fresh-process members produce `PASS`, six ready boundaries and exact streaming root | Fresh-process aggregation is functional |
 | R5 isolated gate on `3bbc19e` | Ten-run baseline accepted; fresh-process gate passes every absolute row/root/environment check and direct costs are flat or faster, but generic relative comparison returns `FAIL` only for 4-worker scaling inefficiency `1108 -> 1535 bp` | Preserve the gate; adopt ADR-092 dimensional comparison on a new methodology/commit, never retry v9 |
 | ADR-092/v10 implementation `22c8049`/`26097e2`/`896e000` | Methodology identity advances to `nextengine-performance-v10`; the three normalized R5 ratios keep budgets but skip relative comparison (`relative: null`); direct costs retain whole-run bootstrap; focused tests bind ratio classes and v9-baseline rejection to v10 admission; codegen workload-unavailability test is honest under `physx`; xtask lib tests pass `113/113` under `desktop-sdl-ash,physx` with clean fmt/clippy | Implementation authority is complete; all final R2–R5 release evidence must be recollected under v10 on one exact clean commit |
+| First uninstrumented R5 set on `9dc6919` | Ten report runs pass every absolute row, but baseline publication rejects them: runs lacked `NEXTENGINE_PERFORMANCE_PROFILER=on` and the explicit `--target ref-linux-b550i-3950x-rtx3080-v1`, so each carries `PERF_PROFILER_DISABLED` and `observed-host-v1` target identity | Preserve under `target/perf/r5-v10-cal-uninstrumented`; hard evidence requires the profiler env and exact target id; not a calibration set |
+| R5 v10 baseline/gate set 1 on `9dc6919` | Ten-run baseline published (`f18fa243…cb85`); isolated fresh-process gate (`25171f98…1a00`) returns `WARNING`: only `worker-8.physics-motor-frame` is relative-warning at `+589bp` (CI `[-1952, +884]`); all 16 absolute rows PASS with headroom, exact root `6b6fee74…` unchanged, peak RSS `199,487,488` bytes; the three normalized ratios are absolute-only `PASS` with `relative: null`, so the v9 derived-ratio defect is gone | Preserve as complete immutable evidence; do not rerun this baseline/gate pair |
+| Set-1 w8 warning analysis | Gate member run-p95s `[1381, 1652, 1674]` lie fully inside the baseline run-p95 range `[1391–1787]`; nearest-rank p50 of ten takes the lower-middle order statistic `1560` while the three-member median is `1652`, so an order-statistic gap plus real host noise yields `+589bp`; during collection the desktop ran `localsearch-3` (~13%) and `steamwebhelper` (~12%) alongside the agent process | The warning is measurement-noise sensitivity of the accepted conservative policy, not a slower workload; quiesce optional desktop load and recollect on a new commit instead of retrying unchanged |
 
 ## Decisions that constrain the work
 
@@ -133,9 +136,12 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-On a new exact clean v10 commit collect the fresh R5 ten-run baseline and one
-isolated fixed three-run gate; after R5 closes, re-collect R3/R4 evidence on
-that same commit. R2 still waits for an OS-visible physical display.
+Commit this state, quiesce optional desktop CPU consumers (`localsearch-3`
+indexer; record any that cannot be stopped), then collect one fresh R5
+ten-run baseline plus isolated fixed three-run gate on the new commit. If the
+w8 relative warning recurs under quiesced load, stop and run bounded research.
+After R5 closes, re-collect R3/R4 evidence on the same final commit under the
+same host discipline. R2 still waits for an OS-visible physical display.
 
 ## Do not retry
 
@@ -159,6 +165,10 @@ that same commit. R2 still waits for an OS-visible physical display.
 - Reusing the v9 R3/R4 evidence on `2bdd20c` as final release evidence; the
   methodology bump makes it incompatible with v10 gates even though its
   absolute rows passed.
+- Rerunning the set-1 `9dc6919` baseline/gate pair unchanged; its `WARNING`
+  is a complete fixed batch. A new set requires the documented host-quiescence
+  control on a new commit, and a second w8 warning under quiesced load
+  escalates to bounded research instead of another collection attempt.
 
 ## Handoff
 
