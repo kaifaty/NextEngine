@@ -1,6 +1,6 @@
 # B4C3MA adaptive macro transaction research
 
-Status: `COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / EXECUTED_FAIL / CANONICAL_TOPOLOGY_RECLOSURE_NEXT`
 
 Date: `2026-08-21`
 
@@ -75,3 +75,9 @@ Freeze the [B4C3MA contract](../plans/nonlocal-nonlinear-solver-research/03b4c3m
 PASS authorizes only a complete adaptive macro recovery replay. It cannot
 authorize adaptive-versus-fixed comparison, nominal corpus, CUDA, runtime,
 schema or production work.
+
+The isolated execution preserves a FAIL: raw binary64 boundary equality loses
+24 P1 upper-face memberships after decode even though the maximum displacement
+is only `2.78e-17 m` and penetration is zero. See the
+[dated evidence](nonlocal-nsr3b4c3ma-macro-adaptive-transaction-evidence-2026-08-21.md).
+Only a separately frozen canonical-integer topology discriminator may follow.

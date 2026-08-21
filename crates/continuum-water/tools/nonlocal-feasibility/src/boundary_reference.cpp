@@ -12,6 +12,7 @@
 #include <cstring>
 #include <future>
 #include <iomanip>
+#include <iterator>
 #include <limits>
 #include <numeric>
 #include <sstream>
@@ -1148,6 +1149,11 @@ struct SmokeRun {
     std::vector<Vec3> position;
     std::vector<Vec3> velocity;
     int substeps = 0;
+    int completed_substeps = 0;
+    int attempted_substeps = 0;
+    int attempted_outer_trials = 0;
+    int attempted_rejected_trials = 0;
+    int attempted_hvp_calls = 0;
     int outer_trials = 0;
     int rejected_trials = 0;
     int hvp_calls = 0;
@@ -9006,6 +9012,13 @@ struct MixedStabilityCase {
     bool velocity_order_exact = false;
 };
 
+MixedStabilityField analyze_mixed_stability_field(
+    const std::vector<Vec3>& candidate,
+    const std::vector<Vec3>& binary_same_level,
+    const std::vector<Vec3>& binary_temporal_coarse,
+    const std::vector<Vec3>& binary_temporal_fine,
+    double physical_scale);
+
 struct CanonicalAdaptiveFailureProbe {
     bool passed = false;
     std::string failure;
@@ -11297,6 +11310,10 @@ SmokeRun run_b4b1_interval_joint(
         const BoxKktSolve solve = solve_box_kkt_step_joint_query(
             fixture, result.position, result.velocity,
             time_step, trace, false);
+        ++result.attempted_substeps;
+        result.attempted_outer_trials += solve.outer_trials;
+        result.attempted_rejected_trials += solve.rejected_trials;
+        result.attempted_hvp_calls += solve.hvp_calls;
         if (!solve.passed) {
             result.failure = "SUBSTEP_" + std::to_string(substep)
                 + ":KKT_SOLVE:" + solve.failure;
@@ -11427,6 +11444,7 @@ SmokeRun run_b4b1_interval_joint(
             }
             precontact = false;
         }
+        ++result.completed_substeps;
     }
     const std::size_t maximum_pairs = fixture.maximum_pairs > 0U
         ? fixture.maximum_pairs
@@ -16188,6 +16206,86 @@ struct MacroPublicationTransaction {
     bool aggregate_bounds_exact = true;
 };
 
+struct MacroAdaptiveAttempt {
+    int level = -1;
+    int planned_substeps = 0;
+    int completed_substeps = 0;
+    int attempted_substeps = 0;
+    int outer_trials = 0;
+    int rejected_trials = 0;
+    int hvp_calls = 0;
+    bool passed = false;
+    bool recoverable = false;
+    bool adjacent_gate_evaluated = false;
+    SmokeGate adjacent_gate;
+    std::string failure;
+};
+
+struct MacroAdaptiveTransactionCase {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    int initial_substeps = 0;
+    int selected_level = -1;
+    int accepted_substeps = 0;
+    int attempted_substeps = 0;
+    int discarded_substeps = 0;
+    int outer_trials = 0;
+    int rejected_trials = 0;
+    int nonlinear_hvp_calls = 0;
+    int spectral_hvp_calls = 0;
+    int maximum_attempted_level_substeps = 0;
+    std::string spectrum_source;
+    SmokeGate selected_gate;
+    std::vector<MacroAdaptiveAttempt> attempts;
+    std::vector<Vec3> committed_position;
+    std::vector<Vec3> committed_velocity;
+    std::vector<canonical::Frame> committed_frames;
+    std::vector<CanonicalPublicationLedgerEntry> committed_ledger;
+    MixedStabilityField position_admission;
+    MixedStabilityField velocity_admission;
+    bool boundary_membership_exact = false;
+    bool private_terminal_membership_exact = false;
+    bool decoded_terminal_membership_exact = false;
+    std::vector<std::pair<std::size_t, int>> private_boundary_membership;
+    std::vector<std::pair<std::size_t, int>> decoded_boundary_membership;
+    std::vector<std::pair<std::size_t, int>> lost_boundary_membership;
+    std::vector<std::pair<std::size_t, int>> gained_boundary_membership;
+    double maximum_decoded_penetration = 0.0;
+    double maximum_published_boundary_shift = 0.0;
+    bool work_accounting_exact = false;
+    bool root_recomputation_exact = false;
+    bool ledger_roots_exact = false;
+    bool fine_only_commit = false;
+    std::string trajectory_sha256;
+    std::string legacy_ledger_sha256;
+    std::string policy_ledger_sha256;
+    JointQueryTrace trace;
+};
+
+struct MacroAdaptiveRollback {
+    bool passed = false;
+    std::string failure;
+    int selected_level = -1;
+    int attempted_substeps = 0;
+    bool state_exact = false;
+    bool frame_count_exact = false;
+    bool ledger_count_exact = false;
+    bool roots_exact = false;
+};
+
+struct MacroAdaptivePolicyNegatives {
+    bool passed = false;
+    bool exact_failure_accepted = false;
+    bool wrong_index_rejected = false;
+    bool wrong_suffix_rejected = false;
+    bool prefix_injection_rejected = false;
+    bool non_decimal_rejected = false;
+    bool other_kkt_rejected = false;
+    bool non_adjacent_rejected = false;
+    bool exhaustion_rejected = false;
+};
+
 bool macro_policy_entry_valid(
     const CanonicalPublicationLedgerEntry& entry) {
     return entry.non_residual_gates_exact
@@ -16418,6 +16516,363 @@ MacroPublicationTransaction publish_macro_transaction(
     } catch (const std::exception& error) {
         result.failure = std::string("MACRO_PUBLICATION:") + error.what();
     }
+    return result;
+}
+
+bool macro_private_recoverable_failure(
+    const std::string& failure,
+    int completed_substeps,
+    int attempted_substeps) {
+    if (completed_substeps < 0
+        || attempted_substeps != completed_substeps + 1) {
+        return false;
+    }
+    return failure == "SUBSTEP_"
+        + std::to_string(completed_substeps)
+        + ":KKT_SOLVE:REJECT_LIMIT";
+}
+
+std::vector<std::pair<std::size_t, int>> boundary_membership(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& position) {
+    std::vector<std::pair<std::size_t, int>> result;
+    for (std::size_t sample = 0; sample < position.size(); ++sample) {
+        for (int axis = 0; axis < 3; ++axis) {
+            const double value = component(position[sample], axis);
+            if (value == component(fixture.contact_low, axis)) {
+                result.emplace_back(sample, 2 * axis);
+            }
+            if (value == component(fixture.contact_high, axis)) {
+                result.emplace_back(sample, 2 * axis + 1);
+            }
+        }
+    }
+    return result;
+}
+
+MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
+    std::string name,
+    SmokeFixture fixture,
+    const std::string& scenario_sha256,
+    bool force_prepublication_failure = false) {
+    MacroAdaptiveTransactionCase result;
+    result.name = std::move(name);
+    fixture.macro_frames = 1;
+    result.trace.record_queries = false;
+    result.committed_position = fixture.position;
+    result.committed_velocity = fixture.velocity;
+    JointPressureWorkspace frame_workspace = build_joint_query_workspace(
+        result.committed_position, fixture.boundary,
+        "MACRO_ADAPTIVE_FRAME_START", false, result.trace, false);
+    if (!frame_workspace.passed) {
+        result.failure = "FRAME_START_WORKSPACE";
+        return result;
+    }
+    bool spectrum_required = false;
+    if (frame_workspace.evaluation.active_centers > 0U) {
+        result.spectrum_source = "START_ACTIVE";
+        spectrum_required = true;
+    } else {
+        release_joint_query_workspace(frame_workspace, result.trace);
+        std::vector<Vec3> predicted(result.committed_position.size());
+        for (std::size_t i = 0; i < predicted.size(); ++i) {
+            predicted[i] = SMOKE_FRAME_TIME
+                * (result.committed_velocity[i]
+                    + SMOKE_FRAME_TIME * fixture.gravity);
+        }
+        predicted = clamp_box_displacement(
+            fixture, result.committed_position, predicted);
+        frame_workspace = build_joint_query_workspace(
+            materialize_displacement(
+                result.committed_position, predicted),
+            fixture.boundary, "MACRO_ADAPTIVE_FRAME_FORECAST",
+            false, result.trace, false);
+        if (!frame_workspace.passed) {
+            result.failure = "FRAME_FORECAST_WORKSPACE";
+            return result;
+        }
+        if (frame_workspace.evaluation.active_centers > 0U) {
+            result.spectrum_source = "FORECAST_ACTIVE";
+            spectrum_required = true;
+        } else {
+            result.spectrum_source = "INACTIVE_EXACT";
+        }
+    }
+    if (spectrum_required) {
+        const SpectralEstimate spectrum =
+            boundary_pressure_spectrum_joint_workspace(
+                frame_workspace, result.trace, false);
+        result.spectral_hvp_calls = spectrum.calls;
+        if (!spectrum.passed) {
+            release_joint_query_workspace(frame_workspace, result.trace);
+            result.failure = "FRAME_SPECTRUM";
+            return result;
+        }
+        const double maximum_eigenfrequency = std::sqrt(
+            std::max(spectrum.maximum_eigenvalue, 0.0) / MASS);
+        result.initial_substeps = std::max(1,
+            static_cast<int>(std::ceil(SMOKE_FRAME_TIME
+                * maximum_eigenfrequency / SPECTRAL_TARGET)));
+    } else {
+        result.initial_substeps = 1;
+    }
+    release_joint_query_workspace(frame_workspace, result.trace);
+
+    std::vector<SmokeRun> levels;
+    std::vector<CanonicalRecoveryPolicyStep> policy_steps;
+    for (int level = 0; level < 4; ++level) {
+        levels.push_back(run_b4b1_interval_joint(
+            fixture, fixture.position, fixture.velocity,
+            result.initial_substeps * (1 << level),
+            0.0, SMOKE_FRAME_TIME, result.trace));
+        const SmokeRun& candidate = levels.back();
+        MacroAdaptiveAttempt attempt;
+        attempt.level = level;
+        attempt.planned_substeps = candidate.substeps;
+        attempt.completed_substeps = candidate.completed_substeps;
+        attempt.attempted_substeps = candidate.attempted_substeps;
+        attempt.outer_trials = candidate.attempted_outer_trials;
+        attempt.rejected_trials = candidate.attempted_rejected_trials;
+        attempt.hvp_calls = candidate.attempted_hvp_calls;
+        attempt.passed = candidate.passed;
+        attempt.failure = candidate.failure;
+        attempt.recoverable = !candidate.passed
+            && macro_private_recoverable_failure(
+                candidate.failure, candidate.completed_substeps,
+                candidate.attempted_substeps);
+        CanonicalRecoveryPolicyStep policy;
+        policy.passed = candidate.passed;
+        policy.recoverable = attempt.recoverable;
+        if (candidate.passed && level > 0
+            && levels[static_cast<std::size_t>(level - 1)].passed) {
+            attempt.adjacent_gate_evaluated = true;
+            attempt.adjacent_gate = smoke_gate(
+                levels[static_cast<std::size_t>(level - 1)], candidate);
+            policy.gate_with_previous = attempt.adjacent_gate.passed;
+        }
+        result.attempted_substeps += attempt.attempted_substeps;
+        result.outer_trials += attempt.outer_trials;
+        result.rejected_trials += attempt.rejected_trials;
+        result.nonlinear_hvp_calls += attempt.hvp_calls;
+        result.maximum_attempted_level_substeps = std::max(
+            result.maximum_attempted_level_substeps,
+            attempt.planned_substeps);
+        result.attempts.push_back(attempt);
+        policy_steps.push_back(policy);
+        const CanonicalRecoveryPolicyDecision decision =
+            canonical_recovery_policy(policy_steps);
+        if (decision.fatal_level >= 0) {
+            result.failure = "FRAME_CANDIDATE:" + candidate.failure;
+            return result;
+        }
+        if (decision.selected_level >= 0) {
+            result.selected_level = decision.selected_level;
+            result.selected_gate = result.attempts[
+                static_cast<std::size_t>(result.selected_level)]
+                    .adjacent_gate;
+            break;
+        }
+    }
+    if (result.selected_level < 1) {
+        result.failure = "FRAME_RECOVERY_EXHAUSTED";
+        return result;
+    }
+    const SmokeRun& coarse = levels[
+        static_cast<std::size_t>(result.selected_level - 1)];
+    const SmokeRun& fine = levels[
+        static_cast<std::size_t>(result.selected_level)];
+    result.accepted_substeps = fine.substeps;
+    result.discarded_substeps = result.attempted_substeps
+        - result.accepted_substeps;
+    result.work_accounting_exact = result.attempted_substeps
+            == std::accumulate(
+                result.attempts.begin(), result.attempts.end(), 0,
+                [](int total, const MacroAdaptiveAttempt& attempt) {
+                    return total + attempt.attempted_substeps;
+                })
+        && result.discarded_substeps >= 0
+        && result.attempted_substeps
+            == result.accepted_substeps + result.discarded_substeps;
+    if (force_prepublication_failure) {
+        result.failure = "FORCED_PREPUBLICATION_FAILURE";
+        return result;
+    }
+
+    MacroPublicationTransaction publication = publish_macro_transaction(
+        fixture, scenario_sha256, 1U,
+        fixture.velocity, fine, result.trace);
+    if (!publication.passed) {
+        result.failure = publication.failure;
+        return result;
+    }
+    result.position_admission = analyze_mixed_stability_field(
+        publication.decoded_position, fine.position,
+        coarse.position, fine.position, 0.05 * SPACING);
+    result.velocity_admission = analyze_mixed_stability_field(
+        publication.decoded_velocity, fine.velocity,
+        coarse.velocity, fine.velocity,
+        0.001 * std::sqrt(KAPPA / MASS));
+    result.private_boundary_membership = boundary_membership(
+        fixture, fine.position);
+    result.decoded_boundary_membership = boundary_membership(
+        fixture, publication.decoded_position);
+    std::set_difference(
+        result.private_boundary_membership.begin(),
+        result.private_boundary_membership.end(),
+        result.decoded_boundary_membership.begin(),
+        result.decoded_boundary_membership.end(),
+        std::back_inserter(result.lost_boundary_membership));
+    std::set_difference(
+        result.decoded_boundary_membership.begin(),
+        result.decoded_boundary_membership.end(),
+        result.private_boundary_membership.begin(),
+        result.private_boundary_membership.end(),
+        std::back_inserter(result.gained_boundary_membership));
+    result.boundary_membership_exact =
+        result.lost_boundary_membership.empty()
+        && result.gained_boundary_membership.empty();
+    result.private_terminal_membership_exact = fine.terminal_contacts
+        == result.private_boundary_membership;
+    result.decoded_terminal_membership_exact = fine.terminal_contacts
+        == result.decoded_boundary_membership;
+    for (const Vec3& sample : publication.decoded_position) {
+        result.maximum_decoded_penetration = std::max({
+            result.maximum_decoded_penetration,
+            fixture.contact_low.x - sample.x,
+            fixture.contact_low.y - sample.y,
+            fixture.contact_low.z - sample.z,
+            sample.x - fixture.contact_high.x,
+            sample.y - fixture.contact_high.y,
+            sample.z - fixture.contact_high.z,
+        });
+    }
+    for (const auto& [sample, feature] :
+         result.private_boundary_membership) {
+        const int axis = feature / 2;
+        const double boundary = feature % 2 == 0
+            ? component(fixture.contact_low, axis)
+            : component(fixture.contact_high, axis);
+        result.maximum_published_boundary_shift = std::max(
+            result.maximum_published_boundary_shift,
+            std::abs(component(
+                publication.decoded_position[sample], axis) - boundary));
+    }
+    result.committed_position = publication.decoded_position;
+    result.committed_velocity = publication.decoded_velocity;
+    result.committed_frames.push_back(std::move(publication.frame));
+    result.committed_ledger.push_back(publication.ledger);
+    result.fine_only_commit = result.committed_frames.size() == 1U
+        && result.committed_ledger.size() == 1U
+        && result.committed_frames.front().step == 1U;
+    result.trajectory_sha256 = canonical::trajectory_root(
+        B4C3P_PROFILE_SHA256, scenario_sha256,
+        canonical_frame_roots(result.committed_frames));
+    result.legacy_ledger_sha256 = publication_ledger_hash(
+        result.committed_ledger);
+    result.policy_ledger_sha256 = macro_policy_ledger_hash(
+        result.committed_ledger);
+    result.root_recomputation_exact = result.trajectory_sha256
+        == canonical::trajectory_root(
+            B4C3P_PROFILE_SHA256, scenario_sha256,
+            canonical_frame_roots(result.committed_frames));
+    result.ledger_roots_exact = result.legacy_ledger_sha256
+            == publication_ledger_hash(result.committed_ledger)
+        && result.policy_ledger_sha256
+            == macro_policy_ledger_hash(result.committed_ledger);
+    result.passed = fine.passed && result.selected_gate.passed
+        && result.position_admission.passed
+        && result.velocity_admission.passed
+        && result.boundary_membership_exact
+        && result.work_accounting_exact
+        && result.fine_only_commit
+        && result.root_recomputation_exact
+        && result.ledger_roots_exact
+        && macro_policy_entry_valid(result.committed_ledger.front())
+        && result.accepted_substeps <= 192
+        && result.maximum_attempted_level_substeps <= 768
+        && result.trace.live_workspaces == 0
+        && result.trace.maximum_live_workspaces <= 2
+        && result.trace.exact && result.trace.work_reduced
+        && result.trace.candidate_all_pair_evaluations == 0
+        && result.trace.candidate_all_pair_hvps == 0;
+    if (!result.passed) {
+        result.failure = "ADAPTIVE_MACRO_TRANSACTION_GATE";
+    }
+    return result;
+}
+
+MacroAdaptivePolicyNegatives run_macro_adaptive_policy_negatives() {
+    MacroAdaptivePolicyNegatives result;
+    result.exact_failure_accepted = macro_private_recoverable_failure(
+        "SUBSTEP_16:KKT_SOLVE:REJECT_LIMIT", 16, 17);
+    result.wrong_index_rejected = !macro_private_recoverable_failure(
+        "SUBSTEP_15:KKT_SOLVE:REJECT_LIMIT", 16, 17);
+    result.wrong_suffix_rejected = !macro_private_recoverable_failure(
+        "SUBSTEP_16:KKT_SOLVE:REJECT_LIMIT:MORE", 16, 17);
+    result.prefix_injection_rejected = !macro_private_recoverable_failure(
+        "FRAME:SUBSTEP_16:KKT_SOLVE:REJECT_LIMIT", 16, 17);
+    result.non_decimal_rejected = !macro_private_recoverable_failure(
+        "SUBSTEP_X:KKT_SOLVE:REJECT_LIMIT", 16, 17);
+    result.other_kkt_rejected = !macro_private_recoverable_failure(
+        "SUBSTEP_16:KKT_SOLVE:NONFINITE", 16, 17);
+    const CanonicalRecoveryPolicyDecision nonadjacent =
+        canonical_recovery_policy({
+            {true, false, false},
+            {false, true, false},
+            {true, false, true},
+        });
+    result.non_adjacent_rejected = nonadjacent.selected_level < 0
+        && nonadjacent.fatal_level < 0;
+    const CanonicalRecoveryPolicyDecision exhausted =
+        canonical_recovery_policy({
+            {true, false, false},
+            {true, false, false},
+            {true, false, false},
+            {true, false, false},
+        });
+    result.exhaustion_rejected = exhausted.selected_level < 0
+        && exhausted.fatal_level < 0;
+    result.passed = result.exact_failure_accepted
+        && result.wrong_index_rejected
+        && result.wrong_suffix_rejected
+        && result.prefix_injection_rejected
+        && result.non_decimal_rejected
+        && result.other_kkt_rejected
+        && result.non_adjacent_rejected
+        && result.exhaustion_rejected;
+    return result;
+}
+
+MacroAdaptiveRollback run_macro_adaptive_rollback() {
+    MacroAdaptiveRollback result;
+    SmokeFixture fixture = make_b4b_supported_column_fixture();
+    fixture.macro_frames = 1;
+    const std::string empty_legacy = publication_ledger_hash({});
+    const std::string empty_policy = macro_policy_ledger_hash({});
+    const MacroAdaptiveTransactionCase forced =
+        run_macro_adaptive_transaction_case(
+            "p1-forced-prepublication", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, true);
+    result.failure = forced.failure;
+    result.selected_level = forced.selected_level;
+    result.attempted_substeps = forced.attempted_substeps;
+    result.state_exact = exact_vec3_values(
+            forced.committed_position, fixture.position)
+        && exact_vec3_values(forced.committed_velocity, fixture.velocity);
+    result.frame_count_exact = forced.committed_frames.empty();
+    result.ledger_count_exact = forced.committed_ledger.empty();
+    result.roots_exact = forced.committed_frames.empty()
+        && empty_legacy
+            == publication_ledger_hash(forced.committed_ledger)
+        && empty_policy
+            == macro_policy_ledger_hash(forced.committed_ledger);
+    result.passed = !forced.passed
+        && result.failure == "FORCED_PREPUBLICATION_FAILURE"
+        && result.selected_level >= 1
+        && result.attempted_substeps > 0
+        && forced.work_accounting_exact
+        && result.state_exact && result.frame_count_exact
+        && result.ledger_count_exact && result.roots_exact;
     return result;
 }
 
@@ -18087,6 +18542,178 @@ void append_mixed_stability_case(
         append_mixed_stability_level(output, value.levels[i]);
     }
     output << "]}";
+}
+
+void append_macro_adaptive_attempt(
+    std::ostringstream& output,
+    const MacroAdaptiveAttempt& value) {
+    output << "{\"level\":" << value.level
+           << ",\"planned_substeps\":" << value.planned_substeps
+           << ",\"completed_substeps\":" << value.completed_substeps
+           << ",\"attempted_substeps\":" << value.attempted_substeps
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"recoverable\":"
+           << (value.recoverable ? "true" : "false")
+           << ",\"outer_trials\":" << value.outer_trials
+           << ",\"rejected_trials\":" << value.rejected_trials
+           << ",\"hvp_calls\":" << value.hvp_calls
+           << ",\"adjacent_gate_evaluated\":"
+           << (value.adjacent_gate_evaluated ? "true" : "false");
+    if (value.adjacent_gate_evaluated) {
+        output << ",\"adjacent_gate\":";
+        append_b4bf_gate(output, value.adjacent_gate);
+    }
+    output << '}';
+}
+
+void append_macro_adaptive_transaction_case(
+    std::ostringstream& output,
+    const MacroAdaptiveTransactionCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"spectrum_source\":\"" << value.spectrum_source
+           << "\",\"initial_substeps\":" << value.initial_substeps
+           << ",\"spectral_hvp_calls\":" << value.spectral_hvp_calls
+           << ",\"selected_level\":" << value.selected_level
+           << ",\"accepted_substeps\":" << value.accepted_substeps
+           << ",\"attempted_substeps\":" << value.attempted_substeps
+           << ",\"discarded_substeps\":" << value.discarded_substeps
+           << ",\"outer_trials\":" << value.outer_trials
+           << ",\"rejected_trials\":" << value.rejected_trials
+           << ",\"nonlinear_hvp_calls\":" << value.nonlinear_hvp_calls
+           << ",\"maximum_attempted_level_substeps\":"
+           << value.maximum_attempted_level_substeps
+           << ",\"attempts\":[";
+    for (std::size_t i = 0; i < value.attempts.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        append_macro_adaptive_attempt(output, value.attempts[i]);
+    }
+    output << "],\"selected_gate\":";
+    append_b4bf_gate(output, value.selected_gate);
+    output << ",\"position_admission\":";
+    append_mixed_stability_field(output, value.position_admission);
+    output << ",\"velocity_admission\":";
+    append_mixed_stability_field(output, value.velocity_admission);
+    output << ",\"boundary_membership_exact\":"
+           << (value.boundary_membership_exact ? "true" : "false")
+           << ",\"private_terminal_membership_exact\":"
+           << (value.private_terminal_membership_exact ? "true" : "false")
+           << ",\"decoded_terminal_membership_exact\":"
+           << (value.decoded_terminal_membership_exact ? "true" : "false")
+           << ",\"private_boundary_membership_count\":"
+           << value.private_boundary_membership.size()
+           << ",\"decoded_boundary_membership_count\":"
+           << value.decoded_boundary_membership.size()
+           << ",\"maximum_decoded_penetration_m\":"
+           << value.maximum_decoded_penetration
+           << ",\"maximum_published_boundary_shift_m\":"
+           << value.maximum_published_boundary_shift
+           << ",\"lost_boundary_membership\":[";
+    for (std::size_t i = 0;
+         i < value.lost_boundary_membership.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << '[' << value.lost_boundary_membership[i].first << ','
+               << value.lost_boundary_membership[i].second << ']';
+    }
+    output << "],\"gained_boundary_membership\":[";
+    for (std::size_t i = 0;
+         i < value.gained_boundary_membership.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << '[' << value.gained_boundary_membership[i].first << ','
+               << value.gained_boundary_membership[i].second << ']';
+    }
+    output << ']'
+           << ",\"work_accounting_exact\":"
+           << (value.work_accounting_exact ? "true" : "false")
+           << ",\"fine_only_commit\":"
+           << (value.fine_only_commit ? "true" : "false")
+           << ",\"root_recomputation_exact\":"
+           << (value.root_recomputation_exact ? "true" : "false")
+           << ",\"ledger_roots_exact\":"
+           << (value.ledger_roots_exact ? "true" : "false")
+           << ",\"committed_frames\":" << value.committed_frames.size()
+           << ",\"committed_ledger_entries\":"
+           << value.committed_ledger.size();
+    if (!value.committed_ledger.empty()) {
+        const CanonicalPublicationLedgerEntry& entry =
+            value.committed_ledger.front();
+        output << ",\"macro_ledger\":{\"non_residual_gates_exact\":"
+               << (entry.non_residual_gates_exact ? "true" : "false")
+               << ",\"strict_residual\":"
+               << entry.compensated_ledger_residual
+               << ",\"kkt_scale_residual\":"
+               << entry.compensated_kkt_residual
+               << ",\"source_kkt_residual\":"
+               << entry.kkt_ledger_residual
+               << ",\"residual_correspondence\":"
+               << entry.kkt_residual_correspondence
+               << ",\"residual_correspondence_bound\":"
+               << entry.kkt_residual_correspondence_bound << '}';
+    }
+    output << ",\"trajectory_sha256\":\"" << value.trajectory_sha256
+           << "\",\"legacy_ledger_sha256\":\""
+           << value.legacy_ledger_sha256
+           << "\",\"policy_ledger_sha256\":\""
+           << value.policy_ledger_sha256
+           << "\",\"work\":{\"joint_evaluations\":"
+           << value.trace.joint_evaluation_queries
+           << ",\"joint_hvps\":" << value.trace.joint_hvp_queries
+           << ",\"candidate_all_pair_evaluations\":"
+           << value.trace.candidate_all_pair_evaluations
+           << ",\"candidate_all_pair_hvps\":"
+           << value.trace.candidate_all_pair_hvps
+           << ",\"maximum_live_workspaces\":"
+           << value.trace.maximum_live_workspaces
+           << ",\"final_live_workspaces\":"
+           << value.trace.live_workspaces << "}}";
+}
+
+void append_macro_adaptive_policy_negatives(
+    std::ostringstream& output,
+    const MacroAdaptivePolicyNegatives& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"exact_failure_accepted\":"
+           << (value.exact_failure_accepted ? "true" : "false")
+           << ",\"wrong_index_rejected\":"
+           << (value.wrong_index_rejected ? "true" : "false")
+           << ",\"wrong_suffix_rejected\":"
+           << (value.wrong_suffix_rejected ? "true" : "false")
+           << ",\"prefix_injection_rejected\":"
+           << (value.prefix_injection_rejected ? "true" : "false")
+           << ",\"non_decimal_rejected\":"
+           << (value.non_decimal_rejected ? "true" : "false")
+           << ",\"other_kkt_rejected\":"
+           << (value.other_kkt_rejected ? "true" : "false")
+           << ",\"non_adjacent_rejected\":"
+           << (value.non_adjacent_rejected ? "true" : "false")
+           << ",\"exhaustion_rejected\":"
+           << (value.exhaustion_rejected ? "true" : "false") << '}';
+}
+
+void append_macro_adaptive_rollback(
+    std::ostringstream& output,
+    const MacroAdaptiveRollback& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"selected_level\":" << value.selected_level
+           << ",\"attempted_substeps\":" << value.attempted_substeps
+           << ",\"state_exact\":"
+           << (value.state_exact ? "true" : "false")
+           << ",\"frame_count_exact\":"
+           << (value.frame_count_exact ? "true" : "false")
+           << ",\"ledger_count_exact\":"
+           << (value.ledger_count_exact ? "true" : "false")
+           << ",\"roots_exact\":"
+           << (value.roots_exact ? "true" : "false") << '}';
 }
 
 } // namespace
@@ -20714,6 +21341,156 @@ SplitBoundaryReport run_mixed_stability_budget_probe_controls() {
 
 SplitBoundaryReport run_mixed_stability_budget_controls() {
     return run_mixed_stability_budget_impl(true);
+}
+
+namespace {
+
+SplitBoundaryReport run_macro_adaptive_transaction_impl(
+    bool require_parent) {
+    SplitBoundaryReport parent;
+    bool parent_exact = true;
+    if (require_parent) {
+        parent = run_mixed_stability_budget_controls();
+        parent_exact = parent.passed
+            && sha256_hex(parent.json)
+                == "eb4d82300653d779baf00620cb83a2526d164347c1b97a65b487f1955a3b8d60";
+    }
+    std::array<MacroAdaptiveTransactionCase, 2> cases;
+    MacroAdaptivePolicyNegatives negatives;
+    MacroAdaptiveRollback rollback;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3PE1_PARENT";
+    } else {
+        std::future<MacroAdaptiveTransactionCase> p1 = std::async(
+            std::launch::async, []() {
+                return run_macro_adaptive_transaction_case(
+                    "p1-supported-adaptive-macro-transaction",
+                    make_b4b_supported_column_fixture(),
+                    B4C3TA_P1_SCENARIO_SHA256);
+            });
+        std::future<MacroAdaptiveTransactionCase> p2 = std::async(
+            std::launch::async, []() {
+                return run_macro_adaptive_transaction_case(
+                    "p2-released-adaptive-macro-transaction",
+                    make_b4b_released_block_fixture(),
+                    B4C3TA_P2_SCENARIO_SHA256);
+            });
+        std::future<MacroAdaptiveRollback> rollback_future = std::async(
+            std::launch::async, []() {
+                return run_macro_adaptive_rollback();
+            });
+        negatives = run_macro_adaptive_policy_negatives();
+        cases = {p1.get(), p2.get()};
+        rollback = rollback_future.get();
+        for (const MacroAdaptiveTransactionCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!negatives.passed && first_failure.empty()) {
+            first_failure = "POLICY_NEGATIVE_CONTROLS";
+        }
+        if (!rollback.passed && first_failure.empty()) {
+            first_failure = "PREPUBLICATION_ROLLBACK";
+        }
+    }
+    const bool cases_exact = parent_exact
+        && std::all_of(
+            cases.begin(), cases.end(),
+            [](const MacroAdaptiveTransactionCase& value) {
+                return value.passed;
+            });
+    const bool passed = parent_exact && cases_exact
+        && negatives.passed && rollback.passed;
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|policy:4d36cdbc2e10e02a054156d5f6d1faaf5d0cffaa8364386098406eb8283de38e"
+             << "|negatives:" << negatives.passed
+             << "|rollback:" << rollback.passed;
+    if (parent_exact) {
+        for (const MacroAdaptiveTransactionCase& value : cases) {
+            material << '|' << value.name << ':' << value.passed << ':'
+                     << value.spectrum_source << ':'
+                     << value.initial_substeps << ':'
+                     << value.selected_level << ':'
+                     << value.accepted_substeps << ':'
+                     << value.attempted_substeps << ':'
+                     << value.discarded_substeps << ':'
+                     << value.nonlinear_hvp_calls << ':'
+                     << value.position_admission.classification << ':'
+                     << value.position_admission.temporal_utilization << ':'
+                     << value.position_admission.absolute_utilization << ':'
+                     << value.velocity_admission.classification << ':'
+                     << value.velocity_admission.temporal_utilization << ':'
+                     << value.velocity_admission.absolute_utilization << ':'
+                     << value.trajectory_sha256 << ':'
+                     << value.legacy_ledger_sha256 << ':'
+                     << value.policy_ledger_sha256;
+        }
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+           << (require_parent
+                ? "nsr3b4c3ma_macro_adaptive_transaction.v1"
+                : "nsr3b4c3ma_macro_adaptive_transaction_probe.v1")
+           << "\",\"identity_sha256\":\"4d36cdbc2e10e02a054156d5f6d1faaf5d0cffaa8364386098406eb8283de38e\""
+           << ",\"parent_b4c3pe1_raw_sha256\":\"eb4d82300653d779baf00620cb83a2526d164347c1b97a65b487f1955a3b8d60\""
+           << ",\"parent_b4c3pe1_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"parent_gate_required\":"
+           << (require_parent ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"authority\":\"TRANSACTION_RESEARCH_ONLY\""
+           << ",\"publication_cadence\":\"ACCEPTED_MACRO_ONLY\""
+           << ",\"representation_profile_sha256\":\""
+           << B4C3P_PROFILE_SHA256 << '"'
+           << ",\"macro_ledger_policy_sha256\":\""
+           << B4C3P_LEDGER_POLICY_SHA256 << '"'
+           << ",\"execution_policy\":\"PARALLEL_INDEPENDENT_CASES_AND_ROLLBACK\""
+           << ",\"worker_lanes\":3,\"cases\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0; i < cases.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_macro_adaptive_transaction_case(report, cases[i]);
+        }
+    }
+    report << "],\"policy_negative_controls\":";
+    append_macro_adaptive_policy_negatives(report, negatives);
+    report << ",\"prepublication_rollback\":";
+    append_macro_adaptive_rollback(report, rollback);
+    report << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"disposition\":\""
+           << (passed
+                ? "ADAPTIVE_MACRO_TRANSACTION_CANDIDATE"
+                : "ADAPTIVE_MACRO_TRANSACTION_REJECTED") << '"'
+           << ",\"complete_adaptive_macro_replay_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"adaptive_fixed_comparison_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_macro_adaptive_transaction_probe_controls() {
+    return run_macro_adaptive_transaction_impl(false);
+}
+
+SplitBoundaryReport run_macro_adaptive_transaction_controls() {
+    return run_macro_adaptive_transaction_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr

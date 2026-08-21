@@ -585,3 +585,9 @@ Its [frozen contract](03b4c3ma-macro-adaptive-transaction-contract.md) keeps
 spectrum, binary64 candidate levels, exact reject-limit recovery and adjacent
 fine selection private; only the accepted endpoint is published once and owns
 a macro ledger/root. B4C3MA must pass before any complete adaptive replay.
+B4C3MA's isolated execution is a preserved FAIL; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3ma-macro-adaptive-transaction-evidence-2026-08-21.md).
+All solver/selection/ledger/mixed-budget gates pass, but raw binary equality
+loses 24 P1 upper-face memberships after canonical decode at only `2.78e-17 m`
+coordinate difference and zero penetration. No epsilon is authorized; a new
+canonical-integer topology discriminator must run first.

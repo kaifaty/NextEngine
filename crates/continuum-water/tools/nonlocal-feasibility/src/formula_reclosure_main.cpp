@@ -79,7 +79,9 @@ int main(int argc, char** argv) {
                          "--publication-stability-probe|"
                          "--publication-stability-self-test|"
                          "--mixed-stability-budget-probe|"
-                         "--mixed-stability-budget-self-test\n";
+                         "--mixed-stability-budget-self-test|"
+                         "--macro-adaptive-transaction-probe|"
+                         "--macro-adaptive-transaction-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -572,6 +574,20 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--macro-adaptive-transaction-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_macro_adaptive_transaction_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--macro-adaptive-transaction-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_macro_adaptive_transaction_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -641,7 +657,9 @@ int main(int argc, char** argv) {
                      "--publication-stability-probe|"
                      "--publication-stability-self-test|"
                      "--mixed-stability-budget-probe|"
-                     "--mixed-stability-budget-self-test\n";
+                     "--mixed-stability-budget-self-test|"
+                     "--macro-adaptive-transaction-probe|"
+                     "--macro-adaptive-transaction-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3PE1_PASS / B4C3MA_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3MA_FAIL / CANONICAL_TOPOLOGY_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -41,9 +41,8 @@
 - **Current decision:** B4C3PE1 selects the macro-boundary canonical fixed
   reference candidate with 89 temporal, 55 absolute and zero rejected field/
   frame admissions. B4C3P remains the preserved legacy-tube FAIL.
-- **Current action:** implement frozen B4C3MA one-frame adaptive macro
-  transaction, exact recovery parser, no-selection and prepublication rollback
-  controls. Complete replay/B4C3TC/B4C4/B4D remain blocked.
+- **Current action:** preserve B4C3MA FAIL and freeze a canonical-integer
+  topology discriminator. Complete replay/B4C3TC/B4C4/B4D remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1382,6 +1381,25 @@
   have not yet executed.
 - **Smallest next action:** implement B4C3MA and replay its B4C3PE1 parent twice.
 
+### D-068 -- Reject raw floating equality as canonical topology identity
+
+- **Observation:** B4C3MA passes every numerical/transaction gate but raw
+  binary equality loses 24 of 64 P1 boundary features after decode. The maximum
+  coordinate difference is `2.78e-17 m`, no feature is gained and penetration
+  is zero.
+- **Decision:** preserve B4C3MA FAIL. Define durable topology by exact equality
+  of `canonical::quantize_position` integer coordinates for both state and
+  boundary geometry; retain raw equality and penetration as diagnostics.
+- **Rejected alternatives:** epsilon contact tests, snapping decoded state away
+  from its committed frame, changing fixture geometry inside the failed stage,
+  or ignoring topology because the long fixed lanes happened to recover it.
+- **Consequence:** the repair changes identity and must rerun the complete
+  B4C3MA transaction plus parent. It does not change solver coordinates,
+  publication samples or mixed budgets.
+- **Remaining uncertainty:** canonical-integer topology identity has not yet
+  been implemented or checked against KKT terminal features.
+- **Smallest next action:** freeze and execute the B4C3MAG topology reclosure.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1394,10 +1412,9 @@
 
 ## Exact next action
 
-1. Implement B4C3MA private P1/P2 candidate levels and exact recovery parser.
-2. Gate the selected one-frame publication with B4C3PE1, macro ledger/root and
-   rollback/negative controls.
-3. Execute twice before designing the complete adaptive macro replay.
+1. Freeze B4C3MAG exact integer topology identity and negative controls.
+2. Reuse B4C3MA unchanged except for the topology admission and new identity.
+3. Execute isolated, then twice parent-gated before any complete replay design.
 
 ## Reconsideration triggers
 

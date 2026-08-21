@@ -1,6 +1,6 @@
 # NSR3-B4C3MA -- adaptive macro transaction
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / FULL_REPLAY_BLOCKED`
+Status: `EXECUTED / FAIL_PRESERVED / TOPOLOGY_RECLOSURE_REQUIRED`
 
 Parent B4C3PE1 passes with JSON-without-final-LF SHA-256
 `eb4d82300653d779baf00620cb83a2526d164347c1b97a65b487f1955a3b8d60`
@@ -68,3 +68,12 @@ PASS selects `ADAPTIVE_MACRO_TRANSACTION_CANDIDATE` and authorizes only design
 of a complete P1/P2 adaptive macro recovery replay. FAIL preserves B4C3PE1 as
 the last positive boundary. Adaptive-versus-fixed comparison, nominal corpus,
 B4C4/B4D, CUDA, runtime/schema and production remain blocked.
+
+## Executed outcome
+
+The isolated transaction fails only raw binary64 boundary-membership equality:
+P1 retains 40 of 64 exact-equality features after decode, with 24 lost, none
+gained, zero penetration and maximum coordinate difference `2.78e-17 m`.
+Every solver, selection, mixed-budget, ledger, root, work and rollback gate
+passes. Preserve this FAIL; only a new canonical-integer topology contract is
+authorized.
