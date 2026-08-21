@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / R5_DERIVED_RATIO_FALSE_REGRESSION / V10_IN_PROGRESS` |
+| Status | `ACTIVE / V10_IMPLEMENTED / R5_EVIDENCE_PENDING` |
 | Updated | 2026-08-21 |
 | Task key | `r7c-linux-performance-authority` |
 | Scope | Accept one exact Linux release-performance profile and numeric policy, then collect compatible ten-run baselines and fixed three-run hard gates for the representative R2, R3, R4 and R5 workloads |
@@ -14,26 +14,36 @@
 - **Current conclusion:** ADR-091/092 accept exact Linux profile
   `ref-linux-b550i-3950x-rtx3080-v1`, canonical R2–R5 budgets and strict
   Performance V6/methodology v10. R3 and R4 have historical clean baseline and
-  gate evidence on `2bdd20c`. The first R5 calibration run on that commit is an
-  immutable `FAIL`: peak process working set is `355,880,960` bytes against the
-  accepted `335,544,320`-byte ceiling; every timing, restore, logical-memory,
-  root and environment row passes. Commit `57739ea` fixes the retention defect,
-  but its first evidence set is an immutable preflight rejection: post-build
-  one-minute CPU load was 41%, so no workload executed. The next clean
-  `feae4f0` baseline is valid, but its sole fixed gate is `WARNING`: same-process
-  members accumulate Linux high-water/vendor-runtime state unlike the ten
-  fresh-process calibration runs. Fresh-process `3bbc19e` fixes that asymmetry,
-  but its sole R5 gate is `FAIL` only because generic percentage comparison
-  double-normalizes an already normalized scaling ratio while direct costs
-  improve or remain flat.
-- **Why:** Diagnostic R3/R5 already passed their accepted rows and exact-root
-  closure. Cached immutable catalog revisions reduce R4 navigation from roughly
-  `4.24/4.79 ms` to `0.67/0.76 ms` and integrated production ticks from
-  `15.43/16.10 ms` to `2.25/2.39 ms` p95/p99 without root changes.
-- **Next action:** Implement ADR-092 and methodology v10: direct costs retain
-  whole-run relative comparison; normalized scaling/replay ratios retain
-  unchanged absolute hard budgets but no second percent-over-percent verdict.
-  Verify, commit and collect a fresh R5 baseline/gate set.
+  gate evidence on `2bdd20c` under v9; the methodology bump makes that
+  historical evidence incompatible with v10 gates, so all final R2–R5 evidence
+  must be recollected on one exact v10 commit. The first R5 calibration run on
+  `2bdd20c` is an immutable `FAIL`: peak process working set is
+  `355,880,960` bytes against the accepted `335,544,320`-byte ceiling; every
+  timing, restore, logical-memory, root and environment row passes. Commit
+  `57739ea` fixes the retention defect, but its first evidence set is an
+  immutable preflight rejection: post-build one-minute CPU load was 41%, so no
+  workload executed. The next clean `feae4f0` baseline is valid, but its sole
+  fixed gate is `WARNING`: same-process members accumulate Linux
+  high-water/vendor-runtime state unlike the ten fresh-process calibration
+  runs. Fresh-process `3bbc19e` fixes that asymmetry, and its sole R5 gate
+  `FAIL` was a generic percentage comparison double-normalizing an already
+  normalized scaling ratio. Commit `22c8049` implements the v10 dimensional
+  classes (the three normalized R5 ratios are absolute-only with
+  `relative: null`; direct costs keep whole-run relative bootstrap), and
+  commits `26097e2`/`896e000` bind v9-baseline rejection to v10 gate admission
+  by focused tests and keep the codegen workload-unavailability test honest
+  under the production `physx` feature.
+- **Why:** Direct physics-substep cost changed by `-0.25%`, one-worker cost
+  improved about 5% and eight-worker cost improved about 7.5% in the recorded
+  `3bbc19e` gate, so the derived-ratio `FAIL` was a measurement-semantics
+  defect, not a slower workload. Cached immutable catalog revisions reduce R4
+  navigation from roughly `4.24/4.79 ms` to `0.67/0.76 ms` and integrated
+  production ticks from `15.43/16.10 ms` to `2.25/2.39 ms` p95/p99 without
+  root changes.
+- **Next action:** On a new exact clean v10 commit collect the fresh R5
+  ten-run baseline plus one isolated fixed three-run gate, then re-collect R3
+  and R4 evidence on that same commit. R2 still waits for an OS-visible
+  physical display.
 - **Current blocker:** R2 only: the Linux session currently exposes no active
   physical display (`xrandr` 0×0, empty Mutter display state, NVIDIA display
   inactive), so the production Vulkan workload correctly returns `NOT_RUN`.
@@ -64,6 +74,7 @@
 | R5 clean evidence on `feae4f0` | Ten-run baseline accepted; the sole fixed gate preserves exact root and passes every absolute row, but returns `WARNING` for relative 4/8-worker and peak-RSS variance | Preserve the gate; fix baseline/gate process-lifetime asymmetry on a new commit rather than rerunning it |
 | R3 isolated-gate evidence on `3bbc19e` | Ten-run baseline plus three fresh-process members produce `PASS`, six ready boundaries and exact streaming root | Fresh-process aggregation is functional |
 | R5 isolated gate on `3bbc19e` | Ten-run baseline accepted; fresh-process gate passes every absolute row/root/environment check and direct costs are flat or faster, but generic relative comparison returns `FAIL` only for 4-worker scaling inefficiency `1108 -> 1535 bp` | Preserve the gate; adopt ADR-092 dimensional comparison on a new methodology/commit, never retry v9 |
+| ADR-092/v10 implementation `22c8049`/`26097e2`/`896e000` | Methodology identity advances to `nextengine-performance-v10`; the three normalized R5 ratios keep budgets but skip relative comparison (`relative: null`); direct costs retain whole-run bootstrap; focused tests bind ratio classes and v9-baseline rejection to v10 admission; codegen workload-unavailability test is honest under `physx`; xtask lib tests pass `113/113` under `desktop-sdl-ash,physx` with clean fmt/clippy | Implementation authority is complete; all final R2–R5 release evidence must be recollected under v10 on one exact clean commit |
 
 ## Decisions that constrain the work
 
@@ -122,10 +133,9 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-Complete and verify Performance V6/methodology v10 plus ADR-092 canonical
-comparison classes, then commit and collect a fresh R5 set. Continue R3/R4 on
-the same commit only after R5 closes. R2 still waits for an OS-visible physical
-display.
+On a new exact clean v10 commit collect the fresh R5 ten-run baseline and one
+isolated fixed three-run gate; after R5 closes, re-collect R3/R4 evidence on
+that same commit. R2 still waits for an OS-visible physical display.
 
 ## Do not retry
 
@@ -146,22 +156,26 @@ display.
   batch and cannot be selected or repeated.
 - Any further R5 gate on unchanged `3bbc19e`; its derived-ratio `FAIL` is a
   complete v9 batch even though all absolute/direct-cost rows pass.
+- Reusing the v9 R3/R4 evidence on `2bdd20c` as final release evidence; the
+  methodology bump makes it incompatible with v10 gates even though its
+  absolute rows passed.
 
 ## Handoff
 
 - **Workspace state:** The ADR-091/V6/R4 boundary is commit `368d216`. Its first
   clean R3 set found a missing CPU-only device declaration. Commit `2bdd20c`
-  fixes that boundary and closes R3/R4 evidence, but its first R5 report fails
-  only the process peak. Commit `57739ea` contains the verified optimization,
-  but its first ten-entry R5 set was rejected before execution because the
-  post-build one-minute CPU load was 41%. Clean `feae4f0` publishes a valid R5
-  baseline and one immutable `WARNING` gate; fresh-process member isolation is
-  implemented by `3bbc19e`, whose immutable R5 gate exposes the separate
-  percent-over-percent derived-ratio defect. ADR-092/v10 is in progress.
-- **Checks:** Focused contracts/world/agent/verification tests pass; xtask
-  performance lib tests pass `46/46`; workspace clippy is warning-free and the
-  broad Linux `host-check` passes. Optimized dirty-worktree R4 report passes
-  every numeric/root/instrumentation check with no diagnostics.
+  fixes that boundary and closes v9 R3/R4 evidence, but its first R5 report
+  fails only the process peak. Commit `57739ea` contains the verified
+  optimization, but its first ten-entry R5 set was rejected before execution
+  because the post-build one-minute CPU load was 41%. Clean `feae4f0` publishes
+  a valid R5 baseline and one immutable `WARNING` gate; fresh-process member
+  isolation is implemented by `3bbc19e`, whose immutable R5 gate exposes the
+  percent-over-percent derived-ratio defect. Commits `22c8049`/`26097e2`/
+  `896e000` implement and test-verify ADR-092/methodology v10.
+- **Checks:** Focused contracts/world/agent/verification tests pass; xtask lib
+  tests pass `113/113` under `desktop-sdl-ash,physx`; workspace clippy is
+  warning-free; fmt is clean. The broad Linux `host-check` passed earlier in
+  R7c and has not been rerun after the test-only commits.
 - **Remaining risk:** Physical-display availability for R2 and total clean
   evidence runtime.
 - **Promotion needed:** Exact clean R2–R5 baselines/gates, then record their
