@@ -31950,4 +31950,835 @@ SplitBoundaryReport run_nominal_hydro_query_evidence_ablation_controls() {
     return {passed, report.str()};
 }
 
+namespace {
+
+constexpr const char* B4EP3_IDENTITY_SHA256 =
+    "19c2c1f27c1bec7444743c1d67ce1bb5d69b8acc22804513ef5e8a6cc21e2552";
+constexpr const char* B4EP3_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep3-canonical-superset-audit|v1|"
+    "parent=3268d59c30c11f892e45c5d781989fb085d54b7d5924069285fa4b56e8d0196d:"
+    "314bc306099a28f46d1856704145eddb90f9410fe94050cadc9dffcbf3557693|"
+    "oracle=470a0f4ec9b51ac57f1ecb69e937bb9d2756db41299a0dc01fa427ae63a78e99:"
+    "25b1f00c0c7477a03532dca2acb97314853e9b4184962d9695792273280f5e04:"
+    "4d63f5f05811357b958b18380ec483cd97073ae02c3a0228098e255d73da8112|"
+    "states=227;skin=0.04h=0.006;superset=0.156;cell=h;reach=2;"
+    "certificate=4*d2<=s2*(1-2e-12)|"
+    "order=lexicographic-fluid-participant;filter=norm<=h;flat-csr=exact;"
+    "evaluation+tape=bit-exact|capacity=max-degree<=160;"
+    "candidate-active<=1.25;reused>=114;candidate-work<full-cell-tests|"
+    "negatives=certificate-overflow;pair-removal;order-swap|"
+    "runs=2-byte-exact|reference=closed|"
+    "credit=b4ep3i-design-only-or-hvp-route";
+constexpr double B4EP3_SKIN = 0.04 * HORIZON;
+constexpr double B4EP3_LIST_RADIUS = HORIZON + B4EP3_SKIN;
+constexpr double B4EP3_CERTIFICATE_CONTRACTION = 1.0 - 2.0e-12;
+
+void b4ep3_append_u32(std::string& output, std::uint32_t value) {
+    for (int shift = 24; shift >= 0; shift -= 8) {
+        output.push_back(static_cast<char>(value >> shift));
+    }
+}
+
+void b4ep3_append_u64(std::string& output, std::uint64_t value) {
+    for (int shift = 56; shift >= 0; shift -= 8) {
+        output.push_back(static_cast<char>(value >> shift));
+    }
+}
+
+std::string b4ep3_corpus_root(
+    const std::vector<std::vector<JointPoint>>& states,
+    const std::string& support_identity) {
+    std::string chain =
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    for (std::size_t state_index = 0U;
+         state_index < states.size(); ++state_index) {
+        const std::vector<JointPoint>& state = states[state_index];
+        std::string bytes;
+        bytes.reserve(state.size() * (sizeof(std::uint32_t)
+            + 3U * sizeof(std::uint64_t)));
+        for (const JointPoint& point : state) {
+            b4ep3_append_u32(bytes, point.id);
+            for (double value : {
+                     point.position.x,
+                     point.position.y,
+                     point.position.z}) {
+                std::uint64_t bits = 0U;
+                std::memcpy(&bits, &value, sizeof(bits));
+                b4ep3_append_u64(bytes, bits);
+            }
+        }
+        std::ostringstream material;
+        material << "b4ep3-state-chain-r0|" << chain << '|'
+                 << state_index << ':' << state.size() << ':'
+                 << sha256_hex(bytes);
+        chain = sha256_hex(material.str());
+    }
+    std::ostringstream material;
+    material << "nextengine.nonlocal.nsr3b4ep3-corpus|v1|"
+             << support_identity << '|' << states.size() << '|' << chain;
+    return sha256_hex(material.str());
+}
+
+JointNeighborhood b4ep3_build_superset(
+    const std::vector<JointPoint>& fluid_input,
+    const JointStaticSupportBinding& binding) {
+    JointNeighborhood result;
+    if (!binding.passed || binding.index == nullptr
+        || binding.index->identity_sha256
+            != binding.expected_identity_sha256) {
+        result.failure = "STATIC_SUPPORT_INDEX_IDENTITY";
+        return result;
+    }
+    const JointStaticSupportIndex& support_index = *binding.index;
+    if (fluid_input.empty() || fluid_input.size() > B4C0_MAX_FLUID) {
+        result.failure = "JOINT_FLUID_CAPACITY";
+        return result;
+    }
+    const std::size_t pair_limit = checked_joint_pair_limit(
+        fluid_input.size());
+    if (pair_limit == 0U) {
+        result.failure = "JOINT_PAIR_CAPACITY";
+        return result;
+    }
+    result.pair_payload_capacity_bytes = pair_limit * sizeof(JointPair);
+    result.adjacency_payload_capacity_bytes = pair_limit
+        * sizeof(std::uint32_t);
+    if (!canonicalize_joint_points(fluid_input, result.fluid)) {
+        result.failure = "JOINT_FLUID_INVALID";
+        return result;
+    }
+    result.support = support_index.support;
+
+    std::vector<JointCellRecord> fluid_records;
+    fluid_records.reserve(result.fluid.size());
+    for (std::size_t participant = 0U;
+         participant < result.fluid.size(); ++participant) {
+        JointCellRecord record;
+        record.participant = participant;
+        const Vec3& position = result.fluid[participant].position;
+        if (!joint_cell_coordinate(position.x, record.x)
+            || !joint_cell_coordinate(position.y, record.y)
+            || !joint_cell_coordinate(position.z, record.z)) {
+            result.failure = "JOINT_POSITION_INVALID";
+            return result;
+        }
+        fluid_records.push_back(record);
+    }
+    std::sort(fluid_records.begin(), fluid_records.end(),
+        joint_cell_record_less);
+    std::vector<JointCellRange> fluid_ranges;
+    fluid_ranges.reserve(fluid_records.size());
+    for (std::size_t begin = 0U; begin < fluid_records.size();) {
+        std::size_t end = begin + 1U;
+        while (end < fluid_records.size()
+            && fluid_records[end].x == fluid_records[begin].x
+            && fluid_records[end].y == fluid_records[begin].y
+            && fluid_records[end].z == fluid_records[begin].z) {
+            ++end;
+        }
+        fluid_ranges.push_back({fluid_records[begin].x,
+            fluid_records[begin].y, fluid_records[begin].z, begin, end});
+        begin = end;
+    }
+
+    std::vector<std::size_t> degree(result.fluid.size());
+    result.pairs.reserve(pair_limit);
+    const auto admit = [&](std::size_t center,
+                           std::size_t participant) {
+        if (result.pairs.size() == pair_limit) {
+            result.failure = "JOINT_PAIR_CAPACITY";
+            return false;
+        }
+        if (degree[center] == B4C0_MAX_NEIGHBORS
+            || (participant < result.fluid.size()
+                && degree[participant] == B4C0_MAX_NEIGHBORS)) {
+            result.failure = "JOINT_NEIGHBOR_CAPACITY";
+            return false;
+        }
+        ++degree[center];
+        if (participant < result.fluid.size()) {
+            ++degree[participant];
+            ++result.fluid_pairs;
+        } else {
+            ++result.support_pairs;
+        }
+        result.pairs.push_back({static_cast<std::uint32_t>(center),
+            static_cast<std::uint32_t>(participant)});
+        return true;
+    };
+
+    for (std::size_t center = 0U;
+         center < result.fluid.size(); ++center) {
+        std::int64_t cx = 0;
+        std::int64_t cy = 0;
+        std::int64_t cz = 0;
+        const Vec3& center_position = result.fluid[center].position;
+        if (!joint_cell_coordinate(center_position.x, cx)
+            || !joint_cell_coordinate(center_position.y, cy)
+            || !joint_cell_coordinate(center_position.z, cz)) {
+            result.failure = "JOINT_POSITION_INVALID";
+            return result;
+        }
+        for (int dx = -2; dx <= 2; ++dx) {
+            for (int dy = -2; dy <= 2; ++dy) {
+                for (int dz = -2; dz <= 2; ++dz) {
+                    const std::int64_t qx = cx + dx;
+                    const std::int64_t qy = cy + dy;
+                    const std::int64_t qz = cz + dz;
+                    const auto fluid_range = std::lower_bound(
+                        fluid_ranges.begin(), fluid_ranges.end(),
+                        JointCellRange{qx, qy, qz, 0U, 0U},
+                        joint_cell_range_less);
+                    if (fluid_range != fluid_ranges.end()
+                        && fluid_range->x == qx
+                        && fluid_range->y == qy
+                        && fluid_range->z == qz) {
+                        for (std::size_t slot = fluid_range->begin;
+                             slot < fluid_range->end; ++slot) {
+                            const std::size_t participant =
+                                fluid_records[slot].participant;
+                            if (participant <= center) {
+                                continue;
+                            }
+                            ++result.distance_tests_per_pass;
+                            if (norm(center_position
+                                    - result.fluid[participant].position)
+                                    <= B4EP3_LIST_RADIUS
+                                && !admit(center, participant)) {
+                                return result;
+                            }
+                        }
+                    }
+                    const auto support_range = std::lower_bound(
+                        support_index.ranges.begin(),
+                        support_index.ranges.end(),
+                        JointCellRange{qx, qy, qz, 0U, 0U},
+                        joint_cell_range_less);
+                    if (support_range == support_index.ranges.end()
+                        || support_range->x != qx
+                        || support_range->y != qy
+                        || support_range->z != qz) {
+                        continue;
+                    }
+                    for (std::size_t slot = support_range->begin;
+                         slot < support_range->end; ++slot) {
+                        const std::size_t participant = result.fluid.size()
+                            + support_index.records[slot].participant;
+                        ++result.distance_tests_per_pass;
+                        if (norm(center_position
+                                - joint_position(result, participant))
+                                <= B4EP3_LIST_RADIUS
+                            && !admit(center, participant)) {
+                            return result;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    result.construction_distance_tests = result.distance_tests_per_pass;
+    result.maximum_degree = *std::max_element(
+        degree.begin(), degree.end());
+    std::sort(result.pairs.begin(), result.pairs.end(),
+        [](const JointPair& lhs, const JointPair& rhs) {
+            return lhs.fluid < rhs.fluid
+                || (lhs.fluid == rhs.fluid
+                    && lhs.participant < rhs.participant);
+        });
+    if (std::adjacent_find(result.pairs.begin(), result.pairs.end())
+        != result.pairs.end()) {
+        result.failure = "JOINT_DUPLICATE_PAIR";
+        return result;
+    }
+    result.passed = true;
+    return result;
+}
+
+JointNeighborhood b4ep3_filter_superset(
+    const std::vector<JointPoint>& fluid_input,
+    const JointNeighborhood& superset) {
+    JointNeighborhood result;
+    if (!superset.passed
+        || !canonicalize_joint_points(fluid_input, result.fluid)
+        || result.fluid.size() != superset.fluid.size()) {
+        result.failure = "SUPERSET_SOURCE";
+        return result;
+    }
+    for (std::size_t i = 0U; i < result.fluid.size(); ++i) {
+        if (result.fluid[i].id != superset.fluid[i].id) {
+            result.failure = "SUPERSET_IDENTITY";
+            return result;
+        }
+    }
+    result.support = superset.support;
+    const std::size_t pair_limit = checked_joint_pair_limit(
+        result.fluid.size());
+    result.pair_payload_capacity_bytes = pair_limit * sizeof(JointPair);
+    result.adjacency_payload_capacity_bytes = pair_limit
+        * sizeof(std::uint32_t);
+    std::vector<std::size_t> degree(result.fluid.size());
+    result.pairs.reserve(superset.pairs.size());
+    for (const JointPair pair : superset.pairs) {
+        if (pair.fluid >= result.fluid.size()
+            || pair.participant >= result.fluid.size()
+                + result.support.size()) {
+            result.failure = "SUPERSET_PAIR";
+            return result;
+        }
+        if (norm(result.fluid[pair.fluid].position
+                - joint_position(result, pair.participant)) > HORIZON) {
+            continue;
+        }
+        if (result.pairs.size() == pair_limit
+            || degree[pair.fluid] == B4C0_MAX_NEIGHBORS
+            || (pair.participant < result.fluid.size()
+                && degree[pair.participant] == B4C0_MAX_NEIGHBORS)) {
+            result.failure = "JOINT_NEIGHBOR_CAPACITY";
+            return result;
+        }
+        ++degree[pair.fluid];
+        if (pair.participant < result.fluid.size()) {
+            ++degree[pair.participant];
+            ++result.fluid_pairs;
+        } else {
+            ++result.support_pairs;
+        }
+        result.pairs.push_back(pair);
+    }
+    result.distance_tests_per_pass = superset.pairs.size();
+    result.construction_distance_tests = superset.pairs.size();
+    result.maximum_degree = *std::max_element(
+        degree.begin(), degree.end());
+    if (!std::is_sorted(result.pairs.begin(), result.pairs.end(),
+            [](const JointPair& lhs, const JointPair& rhs) {
+                return lhs.fluid < rhs.fluid
+                    || (lhs.fluid == rhs.fluid
+                        && lhs.participant < rhs.participant);
+            })
+        || !finalize_joint_adjacency(
+            result, degree, true, nullptr)) {
+        if (result.failure.empty()) {
+            result.failure = "SUPERSET_FILTER_ORDER";
+        }
+        return result;
+    }
+    result.passed = true;
+    return result;
+}
+
+bool b4ep3_logical_neighborhood_exact(
+    const JointNeighborhood& lhs,
+    const JointNeighborhood& rhs) {
+    return lhs.passed && rhs.passed
+        && exact_joint_points(lhs.fluid, rhs.fluid)
+        && exact_joint_points(lhs.support, rhs.support)
+        && lhs.pairs == rhs.pairs
+        && lhs.flat_adjacency && rhs.flat_adjacency
+        && lhs.flat_offsets == rhs.flat_offsets
+        && lhs.flat_directed_pair_indices
+            == rhs.flat_directed_pair_indices
+        && lhs.fluid_pairs == rhs.fluid_pairs
+        && lhs.support_pairs == rhs.support_pairs
+        && lhs.maximum_degree == rhs.maximum_degree
+        && lhs.pair_payload_capacity_bytes
+            == rhs.pair_payload_capacity_bytes
+        && lhs.adjacency_payload_capacity_bytes
+            == rhs.adjacency_payload_capacity_bytes;
+}
+
+bool b4ep3_max_displacement_squared(
+    const std::vector<JointPoint>& anchor,
+    const std::vector<JointPoint>& current,
+    double& maximum_squared) {
+    if (anchor.size() != current.size()) {
+        return false;
+    }
+    maximum_squared = 0.0;
+    for (std::size_t i = 0U; i < anchor.size(); ++i) {
+        if (anchor[i].id != current[i].id) {
+            return false;
+        }
+        const double squared = norm_squared(
+            current[i].position - anchor[i].position);
+        if (!std::isfinite(squared)) {
+            return false;
+        }
+        maximum_squared = std::max(maximum_squared, squared);
+    }
+    return true;
+}
+
+bool b4ep3_certificate(double maximum_squared) {
+    return std::isfinite(maximum_squared) && maximum_squared >= 0.0
+        && 4.0 * maximum_squared
+            <= B4EP3_SKIN * B4EP3_SKIN
+                * B4EP3_CERTIFICATE_CONTRACTION;
+}
+
+struct B4EP3Audit {
+    bool passed = false;
+    std::string failure;
+    int failure_state = -1;
+    std::size_t states = 0U;
+    std::size_t canonical_states = 0U;
+    std::size_t candidate_states = 0U;
+    std::size_t rebuilds = 0U;
+    std::size_t reuses = 0U;
+    std::size_t certificate_passes = 0U;
+    std::size_t certificate_failures = 0U;
+    std::size_t canonical_cell_tests = 0U;
+    std::size_t superset_build_cell_tests = 0U;
+    std::size_t filtered_candidate_checks = 0U;
+    std::size_t active_pair_visits = 0U;
+    std::size_t maximum_candidate_degree = 0U;
+    std::size_t maximum_active_degree = 0U;
+    double maximum_anchor_displacement_squared = 0.0;
+    double candidate_active_ratio = 0.0;
+    double candidate_work_ratio = 0.0;
+    bool topology_exact = true;
+    bool evaluation_exact = true;
+    bool tape_exact = true;
+    bool capacity_gate = false;
+    bool reuse_gate = false;
+    bool candidate_ratio_gate = false;
+    bool work_gate = false;
+    bool certificate_overflow_rejected = false;
+    bool removed_pair_rejected = false;
+    bool swapped_order_rejected = false;
+    std::string topology_root;
+    std::string work_receipt;
+};
+
+B4EP3Audit b4ep3_audit_states(
+    const std::vector<std::vector<JointPoint>>& states,
+    const JointStaticSupportBinding& binding,
+    const std::string& corpus_root) {
+    B4EP3Audit result;
+    result.states = states.size();
+    if (states.size() != 227U) {
+        result.failure = "STATE_COUNT";
+        return result;
+    }
+    JointNeighborhood superset;
+    std::vector<JointPoint> anchor;
+    JointNeighborhood last_canonical;
+    JointNeighborhood last_candidate;
+    std::uint64_t topology_checksum = 0xcbf29ce484222325ULL;
+    for (std::size_t state_index = 0U;
+         state_index < states.size(); ++state_index) {
+        const std::vector<JointPoint>& state = states[state_index];
+        JointNeighborhood canonical =
+            build_joint_neighborhood_with_static_support(
+                state, &binding, true, nullptr, true, nullptr);
+        if (!canonical.passed) {
+            result.failure = "CANONICAL:" + canonical.failure;
+            result.failure_state = static_cast<int>(state_index);
+            return result;
+        }
+        ++result.canonical_states;
+        result.canonical_cell_tests +=
+            canonical.construction_distance_tests;
+        result.maximum_active_degree = std::max(
+            result.maximum_active_degree, canonical.maximum_degree);
+
+        bool rebuild = state_index == 0U;
+        double maximum_squared = 0.0;
+        if (!rebuild) {
+            if (!b4ep3_max_displacement_squared(
+                    anchor, state, maximum_squared)) {
+                result.failure = "CERTIFICATE_INPUT";
+                result.failure_state = static_cast<int>(state_index);
+                return result;
+            }
+            result.maximum_anchor_displacement_squared = std::max(
+                result.maximum_anchor_displacement_squared,
+                maximum_squared);
+            if (b4ep3_certificate(maximum_squared)) {
+                ++result.certificate_passes;
+                ++result.reuses;
+            } else {
+                ++result.certificate_failures;
+                rebuild = true;
+            }
+        }
+        if (rebuild) {
+            anchor = state;
+            superset = b4ep3_build_superset(state, binding);
+            ++result.rebuilds;
+            if (!superset.passed) {
+                result.failure = "SUPERSET:" + superset.failure;
+                result.failure_state = static_cast<int>(state_index);
+                return result;
+            }
+            result.superset_build_cell_tests +=
+                superset.construction_distance_tests;
+            result.maximum_candidate_degree = std::max(
+                result.maximum_candidate_degree,
+                superset.maximum_degree);
+        }
+
+        JointNeighborhood candidate = b4ep3_filter_superset(
+            state, superset);
+        if (!candidate.passed) {
+            result.failure = "FILTER:" + candidate.failure;
+            result.failure_state = static_cast<int>(state_index);
+            return result;
+        }
+        ++result.candidate_states;
+        result.filtered_candidate_checks += superset.pairs.size();
+        result.active_pair_visits += canonical.pairs.size();
+        if (!b4ep3_logical_neighborhood_exact(candidate, canonical)) {
+            result.topology_exact = false;
+            result.failure = "TOPOLOGY_EXACT";
+            result.failure_state = static_cast<int>(state_index);
+            return result;
+        }
+        const Evaluation canonical_evaluation = evaluate_joint(canonical);
+        const Evaluation candidate_evaluation = evaluate_joint(candidate);
+        if (!exact_evaluation_values(
+                candidate_evaluation, canonical_evaluation)) {
+            result.evaluation_exact = false;
+            result.failure = "EVALUATION_EXACT";
+            result.failure_state = static_cast<int>(state_index);
+            return result;
+        }
+        const JointPressureTape canonical_tape =
+            build_joint_pressure_tape_from_flat(
+                canonical, canonical_evaluation);
+        const JointPressureTape candidate_tape =
+            build_joint_pressure_tape_from_flat(
+                candidate, candidate_evaluation);
+        if (!canonical_tape.passed || !candidate_tape.passed
+            || !exact_joint_pressure_tape_value(
+                candidate_tape, canonical_tape)) {
+            result.tape_exact = false;
+            result.failure = "TAPE_EXACT";
+            result.failure_state = static_cast<int>(state_index);
+            return result;
+        }
+
+        topology_checksum = static_support_checksum_mix(
+            topology_checksum, state_index);
+        topology_checksum = static_support_checksum_mix(
+            topology_checksum, rebuild ? 1U : 0U);
+        topology_checksum = static_support_checksum_mix(
+            topology_checksum, candidate.pairs.size());
+        for (const JointPair pair : candidate.pairs) {
+            topology_checksum = static_support_checksum_mix(
+                topology_checksum,
+                (static_cast<std::uint64_t>(pair.fluid) << 32U)
+                    | pair.participant);
+        }
+        for (std::uint32_t value : candidate.flat_offsets) {
+            topology_checksum = static_support_checksum_mix(
+                topology_checksum, value);
+        }
+        last_canonical = std::move(canonical);
+        last_candidate = std::move(candidate);
+    }
+
+    result.candidate_active_ratio =
+        static_cast<double>(result.filtered_candidate_checks)
+        / static_cast<double>(result.active_pair_visits);
+    const std::size_t candidate_work =
+        result.superset_build_cell_tests
+        + result.filtered_candidate_checks;
+    result.candidate_work_ratio = static_cast<double>(candidate_work)
+        / static_cast<double>(result.canonical_cell_tests);
+    result.capacity_gate = result.maximum_candidate_degree
+        <= B4C0_MAX_NEIGHBORS;
+    result.reuse_gate = result.reuses >= 114U;
+    result.candidate_ratio_gate = result.candidate_active_ratio <= 1.25;
+    result.work_gate = candidate_work < result.canonical_cell_tests;
+
+    const double certificate_limit = B4EP3_SKIN * B4EP3_SKIN
+        * B4EP3_CERTIFICATE_CONTRACTION / 4.0;
+    const double below = std::nextafter(certificate_limit, 0.0);
+    const double above = std::nextafter(
+        certificate_limit, std::numeric_limits<double>::infinity());
+    result.certificate_overflow_rejected = b4ep3_certificate(below)
+        && !b4ep3_certificate(above);
+    if (!last_candidate.pairs.empty()) {
+        JointNeighborhood removed = last_candidate;
+        removed.pairs.erase(removed.pairs.begin());
+        result.removed_pair_rejected =
+            !b4ep3_logical_neighborhood_exact(
+                removed, last_canonical);
+    }
+    if (last_candidate.pairs.size() >= 2U) {
+        JointNeighborhood swapped = last_candidate;
+        std::swap(swapped.pairs[0], swapped.pairs[1]);
+        result.swapped_order_rejected =
+            !b4ep3_logical_neighborhood_exact(
+                swapped, last_canonical);
+    }
+    std::ostringstream topology_material;
+    topology_material << std::hex
+                      << "nextengine.nonlocal.nsr3b4ep3-topology|v1|"
+                      << corpus_root << '|' << topology_checksum;
+    result.topology_root = sha256_hex(topology_material.str());
+    std::ostringstream work_material;
+    work_material << std::setprecision(17)
+                  << "nextengine.nonlocal.nsr3b4ep3-work|v1|"
+                  << result.states << ':' << result.rebuilds << ':'
+                  << result.reuses << ':'
+                  << result.canonical_cell_tests << ':'
+                  << result.superset_build_cell_tests << ':'
+                  << result.filtered_candidate_checks << ':'
+                  << result.active_pair_visits << ':'
+                  << result.maximum_candidate_degree << ':'
+                  << result.maximum_active_degree << ':'
+                  << result.candidate_active_ratio << ':'
+                  << result.candidate_work_ratio << '|'
+                  << result.topology_root;
+    result.work_receipt = sha256_hex(work_material.str());
+
+    result.passed = result.topology_exact && result.evaluation_exact
+        && result.tape_exact && result.capacity_gate && result.reuse_gate
+        && result.candidate_ratio_gate && result.work_gate
+        && result.certificate_overflow_rejected
+        && result.removed_pair_rejected
+        && result.swapped_order_rejected;
+    if (!result.passed) {
+        if (!result.capacity_gate) {
+            result.failure = "CAPACITY_GATE";
+        } else if (!result.reuse_gate) {
+            result.failure = "REUSE_GATE";
+        } else if (!result.candidate_ratio_gate) {
+            result.failure = "CANDIDATE_RATIO_GATE";
+        } else if (!result.work_gate) {
+            result.failure = "WORK_GATE";
+        } else {
+            result.failure = "NEGATIVE_GATE";
+        }
+    }
+    return result;
+}
+
+void append_b4ep3_audit(
+    std::ostringstream& output,
+    const B4EP3Audit& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"failure_state\":" << value.failure_state
+           << ",\"skin_m\":" << B4EP3_SKIN
+           << ",\"list_radius_m\":" << B4EP3_LIST_RADIUS
+           << ",\"cell_search_reach\":2"
+           << ",\"states\":" << value.states
+           << ",\"canonical_states\":" << value.canonical_states
+           << ",\"candidate_states\":" << value.candidate_states
+           << ",\"rebuilds\":" << value.rebuilds
+           << ",\"reuses\":" << value.reuses
+           << ",\"certificate_passes\":"
+           << value.certificate_passes
+           << ",\"certificate_failures\":"
+           << value.certificate_failures
+           << ",\"maximum_anchor_displacement_squared_m2\":"
+           << value.maximum_anchor_displacement_squared
+           << ",\"canonical_cell_tests\":"
+           << value.canonical_cell_tests
+           << ",\"superset_build_cell_tests\":"
+           << value.superset_build_cell_tests
+           << ",\"filtered_candidate_checks\":"
+           << value.filtered_candidate_checks
+           << ",\"active_pair_visits\":"
+           << value.active_pair_visits
+           << ",\"maximum_candidate_degree\":"
+           << value.maximum_candidate_degree
+           << ",\"maximum_active_degree\":"
+           << value.maximum_active_degree
+           << ",\"candidate_active_ratio\":"
+           << value.candidate_active_ratio
+           << ",\"candidate_work_ratio\":"
+           << value.candidate_work_ratio
+           << ",\"topology_exact\":"
+           << (value.topology_exact ? "true" : "false")
+           << ",\"evaluation_exact\":"
+           << (value.evaluation_exact ? "true" : "false")
+           << ",\"tape_exact\":"
+           << (value.tape_exact ? "true" : "false")
+           << ",\"capacity_gate\":"
+           << (value.capacity_gate ? "true" : "false")
+           << ",\"reuse_gate\":"
+           << (value.reuse_gate ? "true" : "false")
+           << ",\"candidate_ratio_gate\":"
+           << (value.candidate_ratio_gate ? "true" : "false")
+           << ",\"work_gate\":"
+           << (value.work_gate ? "true" : "false")
+           << ",\"topology_root\":\"" << value.topology_root
+           << "\",\"work_receipt\":\"" << value.work_receipt
+           << "\"}";
+}
+
+} // namespace
+
+SplitBoundaryReport run_nominal_hydro_topology_reuse_audit_controls() {
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(
+                fixture.position, fixture.velocity, 0));
+    StaticSupportWorkTrace static_work;
+    static_work.capture_fluid_states = true;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index =
+        build_joint_static_support_index(
+            tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4EP3_IDENTITY_PROJECTION)
+            == B4EP3_IDENTITY_SHA256
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && B4EP3_SKIN == 0.006
+        && B4EP3_LIST_RADIUS == 0.156
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297";
+
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        transaction = run_macro_adaptive_transaction_case(
+            "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
+            false, true, nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work, false);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const double energy_allowance = 0.01 * std::max({
+        std::abs(parent.initial_mechanical),
+        static_cast<double>(fixture.position.size()) * MASS
+            * (-fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
+    const bool source_exact = parent.passed
+        && parent.workspace_state_hashes == 1
+        && parent.workspace_state_hashes_skipped == 0
+        && b4ep1_queries_work_only_exact(transaction.trace)
+        && b4ep1_frozen_physics_exact(
+            transaction, output, energy_creation)
+        && b4e1m_levels_exact(transaction)
+        && transaction.accepted_private.maximum_mechanical_energy
+            == parent.initial_mechanical
+        && energy_creation <= energy_allowance
+        && static_work.static_index_builds == 1U
+        && static_work.workspace_builds == 227U
+        && adjacency_work.workspace_builds == 227U
+        && adjacency_work.flat_offset_records == 1362227U
+        && adjacency_work.flat_pair_index_records == 151461068U
+        && adjacency_work.csr_ownership_transfers == 227U
+        && transaction.retention.transfers == 42
+        && transaction.retention.reads == 42
+        && transaction.retention.releases == 42
+        && transaction.retention.live_retained == 0
+        && transaction.trace.live_workspaces == 0
+        && static_work.fluid_states.size() == 227U;
+    const std::string corpus_root = source_exact
+        ? b4ep3_corpus_root(
+            static_work.fluid_states, index.identity_sha256)
+        : std::string{};
+    const B4EP3Audit audit = source_exact
+        ? b4ep3_audit_states(
+            static_work.fluid_states, binding, corpus_root)
+        : B4EP3Audit{};
+    const bool negative_exact = audit.certificate_overflow_rejected
+        && audit.removed_pair_rejected
+        && audit.swapped_order_rejected;
+    const bool passed = identity_exact && source_exact
+        && audit.passed && negative_exact;
+    std::string failure;
+    if (!identity_exact) {
+        failure = "IDENTITY_OR_PARENT";
+    } else if (!transaction.passed) {
+        failure = "TRANSACTION:" + transaction.failure;
+    } else if (!source_exact) {
+        failure = "SOURCE_CORRESPONDENCE";
+    } else if (!audit.passed) {
+        failure = "AUDIT:" + audit.failure;
+    } else if (!negative_exact) {
+        failure = "NEGATIVE_CONTROL";
+    }
+    const std::string source_work_receipt = b4e1m_work_receipt(
+        parent, index, transaction, static_work, adjacency_work);
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << failure
+             << '|' << B4EP3_IDENTITY_SHA256 << '|'
+             << corpus_root << '|' << audit.topology_root << '|'
+             << audit.work_receipt << '|'
+             << transaction.trajectory_sha256 << ':'
+             << transaction.legacy_ledger_sha256 << ':'
+             << transaction.policy_ledger_sha256 << '|'
+             << output.frame_root << ':' << output.aggregate_root << '|'
+             << audit.states << ':' << audit.rebuilds << ':'
+             << audit.reuses << ':' << audit.maximum_candidate_degree
+             << ':' << audit.candidate_active_ratio << ':'
+             << audit.candidate_work_ratio << '|'
+             << negative_exact << '|' << source_work_receipt;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4ep3_topology_reuse_audit.v1\""
+           << ",\"identity_sha256\":\"" << B4EP3_IDENTITY_SHA256
+           << "\",\"parent_b4ep2_result\":\""
+              "314bc306099a28f46d1856704145eddb90f9410fe94050cadc9dffcbf3557693\""
+           << ",\"oracle_b4ep1_result\":\""
+              "25b1f00c0c7477a03532dca2acb97314853e9b4184962d9695792273280f5e04\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"identity_exact\":"
+           << (identity_exact ? "true" : "false")
+           << ",\"source_correspondence_exact\":"
+           << (source_exact ? "true" : "false")
+           << ",\"corpus_root\":\"" << corpus_root << '"'
+           << ",\"parent_preflight\":";
+    append_b4e1m_parent(report, parent);
+    report << ",\"transaction\":";
+    append_macro_adaptive_transaction_case(report, transaction);
+    report << ",\"output\":";
+    append_b4e1m_output(
+        report, output, transaction, energy_creation, energy_allowance);
+    report << ",\"audit\":";
+    append_b4ep3_audit(report, audit);
+    report << ",\"negative_controls\":{"
+           << "\"certificate_overflow_rejected\":"
+           << (audit.certificate_overflow_rejected ? "true" : "false")
+           << ",\"removed_pair_rejected\":"
+           << (audit.removed_pair_rejected ? "true" : "false")
+           << ",\"swapped_order_rejected\":"
+           << (audit.swapped_order_rejected ? "true" : "false")
+           << '}'
+           << ",\"source_work_receipt\":\""
+           << source_work_receipt << '"'
+           << ",\"canonical_superset_feasible\":"
+           << (passed ? "true" : "false")
+           << ",\"b4ep3i_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"hvp_route_authorized\":"
+           << (passed ? "false" : "true")
+           << ",\"b4e2_execution_authorized\":false"
+           << ",\"reference_curve_decoded\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"timing_external\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
 } // namespace nextengine::nonlocal::fcr

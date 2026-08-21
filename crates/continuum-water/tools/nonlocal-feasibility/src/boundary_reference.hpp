@@ -83,5 +83,6 @@ SplitBoundaryReport run_nominal_alignment_preflight_controls();
 SplitBoundaryReport run_nominal_hydro_spectrum_probe_controls();
 SplitBoundaryReport run_nominal_hydro_macro_probe_controls();
 SplitBoundaryReport run_nominal_hydro_query_evidence_ablation_controls();
+SplitBoundaryReport run_nominal_hydro_topology_reuse_audit_controls();
 
 } // namespace nextengine::nonlocal::fcr
