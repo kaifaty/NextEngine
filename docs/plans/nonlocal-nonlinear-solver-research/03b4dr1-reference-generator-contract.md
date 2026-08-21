@@ -1,6 +1,6 @@
 # NSR3-B4DR1 -- reproducible external-reference generator contract
 
-Status: `FROZEN / R1C_TRAJECTORY_FAIL / R1C2_PASS / R1C3_CAP_SWEEP / NEW_ROOT_ONLY`
+Status: `FROZEN / R1C_FAIL / R1C3_PASS / R1C4_TRAJECTORY_RECLOSURE / NEW_ROOT_ONLY`
 
 Identity projection:
 
@@ -100,6 +100,10 @@ R1C2 confirms a step-1 pressure cap hit at 100 iterations while divergence
 and timestep remain exact. The
 [R1C3 cap-sweep contract](03b4dr1c3-pressure-cap-sweep-contract.md) authorizes
 only fixed one-step diagnostic caps before any reference-profile reclosure.
+
+R1C3 first converges at iteration 220 under cap 300. The
+[R1C4 reclosure](03b4dr1c4-pressure-cap-reclosure-contract.md) changes only
+pressure maximum and profile identity, then repeats the paired short gate.
 
 ## R1D -- full external generation
 

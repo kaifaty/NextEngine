@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1C2_PASS / R1C3_CAP_SWEEP_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4DR1_R1C3_PASS / R1C4_TRAJECTORY_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -64,8 +64,15 @@
   iteration with zero residual and timestep bits remain exact.
 - **Current decision:** select an ascending one-step R1C3 pressure-cap sweep
   over `25,50,75,100,125,150,200,300`, changing no other profile value.
-- **Next action:** implement the report-only fixed-cap mode, commit it, then
-  run fresh processes until the first converged point. Do not run R1D.
+- **Current conclusion:** R1C3 residual decreases monotonically; cap 300
+  first permits convergence at iteration 220 with residual `0.0992042`.
+- **Calibration conclusion:** `spacing^3` yields infinite-lattice density
+  ratio `0.999972`; upstream's 0.8 startup heuristic yields `0.799978` and
+  changes mass by 20%, so it is not selected for this comparator.
+- **Current decision:** reclose R1C4 with pressure cap 300 only, new profile
+  identity and otherwise byte-identical physics/serialization.
+- **Next action:** implement and commit `--r1c4-trajectory`, then run paired
+  Hydro/Dam/Orifice in order with stop-on-first-failure. Do not run R1D yet.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -91,6 +98,8 @@
 | NSR3B4DR1C2 contract | observability-only diagnostic reclosure | one Hydro diagnostic; no solver tuning or R1C credit |
 | NSR3B4DR1C2 PASS | step-1 cap hit isolated to pressure; divergence/dt exact | R1C3 cap-sweep design only |
 | NSR3B4DR1C3 contract | fixed one-step pressure-cap sweep | diagnose bounded convergence; no payload or R1C credit |
+| NSR3B4DR1C3 PASS | monotone residual; first convergence at iteration 220 | R1C4 cap-300 profile reclosure only |
+| NSR3B4DR1C4 contract | cap 300 and new trajectory identity | paired short scenarios; R1D still blocked |
 
 Candidate solver identity remains:
 
@@ -122,6 +131,7 @@ production authority is created by this lineage.
 | [B4DR1C1](../nonlocal-nsr3b4dr1c1-manifest-preflight-evidence-2026-08-21.md) | two builds/reports exact; roots and negative mismatch gate pass without Simulation | apply frozen patch in a fresh clone and implement short trajectory only |
 | [B4DR1C trajectory](../nonlocal-nsr3b4dr1c-trajectory-negative-evidence-2026-08-21.md) | first Hydro fails at pressure convergence; current report hides solver fields | preserve FAIL; instrument only R1C2 observability before any tuning |
 | [B4DR1C2](../nonlocal-nsr3b4dr1c2-failure-observability-evidence-2026-08-21.md) | pressure hits 100 iterations at `8.2744x` threshold on step 1; divergence and dt exact | sweep pressure cap before changing calibration/tolerance |
+| [B4DR1C3](../nonlocal-nsr3b4dr1c3-pressure-cap-evidence-2026-08-21.md) | residual falls monotonically and crosses threshold at iteration 220; physical volume is lattice-normalized | reclose cap 300 only; retain mass/volume and cold policy |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -256,6 +266,15 @@ adapter/source/binary SHA-256 values.
   first converged result and changing no other profile field.
 - **Rejected:** immediate cap promotion, tolerance loosening or simultaneous
   mass/volume/boundary changes.
+
+### D-013 -- Reclose the short reference profile at cap 300
+
+- **Observation:** cap 300 permits normal step-1 exit at iteration 220, while
+  the selected physical volume gives an almost unit lattice density sum.
+- **Decision:** create new-root R1C4 by changing only pressure maximum to 300;
+  repeat paired short scenarios before R1D.
+- **Rejected:** upstream 0.8 underdensity heuristic, warm starts, tolerance
+  loosening and inheriting any payload/root from failed R1C.
 
 ## Performance facts retained
 

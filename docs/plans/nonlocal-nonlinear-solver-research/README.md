@@ -874,3 +874,13 @@ The [R1C3 research](../../development/nonlocal-nsr3b4dr1c3-pressure-cap-research
 and [frozen sweep contract](03b4dr1c3-pressure-cap-sweep-contract.md) select a
 one-step ascending cap discriminator next. It changes no other profile value,
 writes no payload and grants no R1C/R1D authority.
+R1C3 finds a monotone pressure curve and first convergence at iteration 220
+when cap 300 is allowed; see the
+[sweep evidence](../../development/nonlocal-nsr3b4dr1c3-pressure-cap-evidence-2026-08-21.md).
+The accompanying lattice check shows the selected `0.000125` volume is nearly
+unit-normalized, while upstream's 0.8 startup heuristic is intentionally about
+20% underdense. The
+[R1C4 research](../../development/nonlocal-nsr3b4dr1c4-pressure-cap-reclosure-research-2026-08-21.md)
+and [frozen contract](03b4dr1c4-pressure-cap-reclosure-contract.md) therefore
+change only pressure cap 100 to 300 under a new identity. Implement and run
+paired short scenarios next; R1D remains blocked until all pairs pass.

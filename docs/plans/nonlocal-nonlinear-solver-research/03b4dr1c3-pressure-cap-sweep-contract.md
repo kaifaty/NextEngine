@@ -1,6 +1,6 @@
 # NSR3-B4DR1C3 -- one-step pressure-cap sweep contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / DIAGNOSTIC_ONLY`
+Status: `PASS / FIRST_CONVERGENCE_AT_220 / R1C4_DESIGN_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -47,3 +47,7 @@ converges by 300, preserve that boundary.
 
 R1C3 PASS means only that the sweep is complete and deterministic enough to
 select the next remediation design. It cannot itself modify or pass R1C.
+
+The sweep decreases monotonically and first converges under cap 300 at
+iteration 220 with residual bits `0x3fb965727028bcc7`. See the
+[dated evidence](../../development/nonlocal-nsr3b4dr1c3-pressure-cap-evidence-2026-08-21.md).
