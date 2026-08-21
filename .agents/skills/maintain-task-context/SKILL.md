@@ -50,6 +50,11 @@ payloads. Record the reviewable engineering result instead:
 
 ## Record a decision
 
+When unresolved causal uncertainty drives the next action, use
+`$investigate-with-hypotheses` for the live prediction, experiment and belief-update
+loop. Keep task-state as the bounded resume surface: promote only material outcomes,
+rejected paths and the next discriminator, not every probe.
+
 For every material change of direction, record:
 
 - the exact observation and evidence pointer, including IDs, hashes or first

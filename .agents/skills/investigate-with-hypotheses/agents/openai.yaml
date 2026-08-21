@@ -1,0 +1,4 @@
+interface:
+  display_name: "Investigate with Hypotheses"
+  short_description: "Run falsifiable, evidence-driven investigations"
+  default_prompt: "Use $investigate-with-hypotheses to diagnose this uncertainty with the smallest discriminating experiment."
