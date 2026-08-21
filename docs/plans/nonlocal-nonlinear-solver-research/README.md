@@ -476,3 +476,10 @@ The publication-compensated vector reproduces the KKT ledger, but a stricter
 normalizer rejects a residual already accepted by the KKT gate. The next step
 is a separately frozen ledger reclosure, not broader failure recovery or a
 larger tolerance.
+The
+[B4C3L contract](03b4c3l-ledger-normalization-contract.md)
+now freezes the isolated normalization discriminator. It keeps raw and
+max-scaled residuals as mandatory diagnostics, gates the compensated physical
+ledger only on the source KKT sum scale, and requires synthetic factor-two,
+one-frame P1/P2 and exact frame-seven four-level controls before any B4C3A2
+revalidation.

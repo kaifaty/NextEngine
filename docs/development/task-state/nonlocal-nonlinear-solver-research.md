@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3TAR_FAIL_PRESERVED / LEDGER_RECLOSURE_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3TAR_FAIL_PRESERVED / B4C3L_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -22,6 +22,9 @@
 - **Current action:** freeze an algebraic and real-state ledger-normalization
   discriminator, then revalidate the one-frame stage ledger before another
   complete adaptive controller. B4C3TR/B4C3TC/B4C4/B4D remain blocked.
+- **Current contract:** B4C3L freezes a distinct policy identity, sum-scale KKT
+  admission, max-scale diagnostics, synthetic factor-two/threshold separation,
+  B4C3A1 one-frame replay and the real frame-seven four-level checkpoint.
 
 - **Current conclusion:** B4C3Q exact aggregate-balanced apportionment passes
   twice at raw `ae44e39f...0731`. Biased aggregate error and 1,024-step center
@@ -1030,6 +1033,26 @@
   synthetic near-factor-two case, exact vector/closure identity, one-frame
   P1/P2 replay and the real 16/32/64/128 frame-seven checkpoint.
 
+### D-052 -- Freeze compensated-ledger normalization discriminator
+
+- **Observation:** for `d=|DeltaP|` and external impulse magnitude sum `e`, the
+  existing KKT and publication scales are `d+e` and `max(d,e)`. Their residual
+  ratio is bounded by `[1,2]`; therefore the latter is a conditioning diagnostic
+  but not semantically equivalent physical admission.
+- **Decision:** B4C3L records both scales/residuals, preserves raw/max evidence,
+  and gates only compensated KKT-scale residual at the unchanged `1e-9`.
+  Synthetic separation and real B4C3A1/frame-seven states are frozen before
+  implementation.
+- **Rejected alternatives:** do not copy the source PASS boolean without
+  recomputation, erase the stricter diagnostic, tune a threshold from the
+  observed residual or alter canonical frames/physical coefficients.
+- **Consequence:** a PASS can authorize only B4C3A2 one-frame ledger replay.
+  Complete adaptive recovery remains blocked.
+- **Remaining uncertainty:** recomputed and source KKT residuals may differ by
+  floating evaluation order; that difference must fit a derived forward bound.
+- **Smallest next action:** implement B4C3L as a read-only discriminator and run
+  twice before defining B4C3A2 identity or changing selected ledger admission.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1042,7 +1065,7 @@
 
 ## Exact next action
 
-1. Freeze the ledger-normalization discriminator over the preserved B4C3A1 and
+1. Implement the frozen B4C3L discriminator over the preserved B4C3A1 and
    B4C3TAR evidence roots.
 2. Prove algebraically and numerically that KKT-scale compensated admission
    reproduces the source KKT gate while max-scale residual remains diagnostic.
