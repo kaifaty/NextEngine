@@ -763,3 +763,10 @@ The deterministic corpus/checksum result repeats exactly, and the candidate
 wins all `63/63` paired rounds per fixture. Median process-level construction
 speedup is `1.2274x/1.2055x` P1/P2. Freeze complete-lane ownership next; this
 is not a whole-solver performance claim.
+The
+[B4C4C1 design](../../development/nonlocal-nsr3b4c4c1-complete-flat-adjacency-research-2026-08-21.md)
+freezes complete adaptive/fixed ownership over the
+[B4C4C1 contract](03b4c4c1-complete-flat-adjacency-contract.md).
+Workspace counts predeclare `8,721--222,288` removed nested rows per lane and
+one transfer per workspace; directed volume remains an exact measured
+correspondence. B4D waits for this final packaging gate.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4CM_PASS / B4C4C1_DESIGN` |
+| Status | `ACTIVE / NSR3B4C4C1_FROZEN / B4C4C1_EXECUTION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -1839,6 +1839,23 @@
 - **Smallest next action:** derive fixed row/offset/transfer counts from the
   B4C4B1 workspace table and freeze B4C4C1.
 
+### D-090 -- Freeze complete CSR ownership and rollback counts
+
+- **Observation:** B4C4B1 fixes every complete-lane workspace count and fluid
+  count, so row, offset and transfer totals are derivable before execution.
+- **Decision:** compose one lane-local static index, retained accepted
+  workspaces and one flat-to-tape transfer per workspace across all eight
+  lanes and forced rollback.
+- **Rejected alternatives:** borrow adjacency across workspace lifetimes,
+  combine support views, change tape schema, or skip fixed lanes after the
+  one-macro result.
+- **Consequence:** exact predeclared rows range from `8,721` to `222,288`; the
+  rollback requires `540` transfers and zero final ownership.
+- **Remaining uncertainty:** state-derived directed volumes and complete-lane
+  implementation correspondence.
+- **Smallest next action:** thread the opt-in layout through complete adaptive,
+  fixed and rollback runners and execute twice.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1851,7 +1868,7 @@
 
 ## Exact next action
 
-1. Freeze and execute complete-lane flat-CSR ownership/rollback.
+1. Execute frozen complete-lane flat-CSR ownership/rollback.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 
 ## Reconsideration triggers
