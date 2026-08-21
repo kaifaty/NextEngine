@@ -1,6 +1,6 @@
 # B4C4B immutable static-support-index research
 
-Status: `COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `PASS / TIMING DISCRIMINATOR REQUIRED`
 
 Date: `2026-08-21`
 
@@ -89,8 +89,11 @@ a threshold-free structural result rather than a wall-time claim.
 
 ## Decision
 
-Freeze the
-[B4C4B contract](../plans/nonlocal-nonlinear-solver-research/03b4c4b-static-support-index-contract.md).
-A PASS selects only the one-macro static-index candidate and authorizes a
-separate complete-lane application decision. B4C4C, B4D, nominal corpus, CUDA,
-runtime and production remain blocked.
+The frozen
+[B4C4B contract](../plans/nonlocal-nonlinear-solver-research/03b4c4b-static-support-index-contract.md)
+passes exact one-macro correspondence and every invalidation control; see the
+[dated evidence](nonlocal-nsr3b4c4b-static-support-index-evidence-2026-08-21.md).
+The candidate removes `91.54%/86.96%` of P1/P2 sort-record admissions but
+doubles cell-range lookups. Freeze a threshold-free timing discriminator
+before complete-lane application. B4C4C, B4D, nominal corpus, CUDA, runtime and
+production remain blocked.

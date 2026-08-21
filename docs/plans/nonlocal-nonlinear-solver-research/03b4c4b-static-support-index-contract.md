@@ -1,6 +1,6 @@
 # NSR3-B4C4B -- immutable static-support index
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / B4C4C_BLOCKED`
+Status: `PASS / ONE_MACRO_CANDIDATE_SELECTED / TIMING_DESIGN_AUTHORIZED`
 
 Parent B4C4A1 passes with JSON-without-final-LF SHA-256
 `243989062c55bccfbbf59aaa9119645c305cd5b2b233fb37bb7b3db8ce23cf39`

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4A1_PASS / B4C4B_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C4B_PASS / B4C4BM_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -78,10 +78,12 @@
   `7d562356...94db`. All eight complete adaptive/macro-fixed lanes remove
   exactly the predeclared builds, preserve physical and durable results, and
   finish success and rollback with zero live ownership.
-- **Current action:** implement the frozen B4C4B one-macro static-support-index
-  discriminator. Exact index-build counts are `264->1` P1 and `9->1` P2;
-  exact removed support sort records are `143,072/9,728`. Do not combine it
-  with B4C4C flat-only CSR. B4D remains blocked.
+- **Current conclusion:** B4C4B passes twice byte-identically at full raw
+  `a0829e6c...5f28`. It preserves exact one-macro physics and removes
+  `143,072/9,728` P1/P2 support sort records, but doubles range lookups.
+- **Current action:** freeze a threshold-free interleaved B4C4BM timing
+  discriminator before complete-lane application. Do not combine it with
+  B4C4C flat-only CSR. B4D remains blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1665,6 +1667,26 @@
 - **Smallest next action:** implement the frozen builder/context and execute
   legacy/candidate/repeat P1/P2 plus stale/corrupt/permutation negatives.
 
+### D-081 -- Select B4C4B correctness and require a timing discriminator
+
+- **Observation:** B4C4B passes exact neighborhood, evaluation, tape,
+  transaction, roots, retention and failure gates. Sort-record admissions fall
+  `91.54%/86.96%`, while range lookups exactly double.
+- **Decision:** select
+  `ONE_MACRO_IMMUTABLE_STATIC_SUPPORT_INDEX_CANDIDATE` for correctness/work,
+  but measure alternating legacy/candidate construction before complete-lane
+  application.
+- **Rejected alternatives:** infer speedup from record counts, benchmark the
+  full parent chain, or permanently select a candidate that may regress due to
+  the second binary search.
+- **Consequence:** B4C4BM must time equivalent pre-generated fluid states with
+  identical output checks outside timed regions. It is diagnostic and cannot
+  change physics or select B4C4C.
+- **Remaining uncertainty:** net neighborhood construction latency, variance
+  and dependence on P1 versus P2 support-to-fluid ratio are unmeasured.
+- **Smallest next action:** freeze repetitions, warmup, alternating order,
+  reported statistics and stop/disposition rules before timing code.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1677,9 +1699,9 @@
 
 ## Exact next action
 
-1. Implement and execute the frozen B4C4B one-macro discriminator.
-2. If it passes, freeze complete-lane static-index application before B4C4C
-   flat-only CSR.
+1. Freeze and execute B4C4BM interleaved static-index timing.
+2. Use its threshold-free result to decide complete-lane application versus
+   traversal redesign; only then approach B4C4C flat-only CSR.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 
 ## Reconsideration triggers
