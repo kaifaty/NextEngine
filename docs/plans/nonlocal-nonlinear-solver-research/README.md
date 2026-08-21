@@ -578,3 +578,10 @@ zero rejected. Both scenarios retain observed first-order convergence, exact
 events, non-tube physics, roots and rollback while the legacy B4C3P tube FAIL
 remains visible. The macro-boundary fixed reference candidate is selected and
 only adaptive macro-transaction design is authorized.
+The
+[B4C3MA audit](../../development/nonlocal-nsr3b4c3ma-macro-adaptive-transaction-research-2026-08-21.md)
+separates one-frame transaction ownership from long-horizon adaptive behavior.
+Its [frozen contract](03b4c3ma-macro-adaptive-transaction-contract.md) keeps
+spectrum, binary64 candidate levels, exact reject-limit recovery and adjacent
+fine selection private; only the accepted endpoint is published once and owns
+a macro ledger/root. B4C3MA must pass before any complete adaptive replay.

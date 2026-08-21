@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3PE1_PASS / ADAPTIVE_MACRO_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3PE1_PASS / B4C3MA_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -41,9 +41,9 @@
 - **Current decision:** B4C3PE1 selects the macro-boundary canonical fixed
   reference candidate with 89 temporal, 55 absolute and zero rejected field/
   frame admissions. B4C3P remains the preserved legacy-tube FAIL.
-- **Current action:** design an adaptive macro-boundary transaction with all
-  trial levels private in binary64 and one canonical publication only after
-  frame acceptance. B4C3TC/B4C4/B4D remain blocked.
+- **Current action:** implement frozen B4C3MA one-frame adaptive macro
+  transaction, exact recovery parser, no-selection and prepublication rollback
+  controls. Complete replay/B4C3TC/B4C4/B4D remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1365,6 +1365,23 @@
 - **Smallest next action:** freeze the adaptive macro transaction state machine,
   comparison estimator and rejection/rollback controls before implementation.
 
+### D-067 -- Split adaptive macro transaction from full replay
+
+- **Observation:** B4C3TAR2's recovery/selection policy is reusable, but its
+  per-substep canonical staging is exactly the cadence rejected by B4C3TR.
+- **Decision:** B4C3MA runs private binary64 levels, selects an adjacent fine
+  endpoint and performs one atomic macro publication. Test one P1/P2 frame
+  before any long-horizon replay.
+- **Rejected alternatives:** porting the old canonical stage unchanged,
+  publishing every passing trial, counting only accepted work, or accepting a
+  `REJECT_LIMIT` substring without exact substep identity.
+- **Consequence:** canonical frame/root/ledger count advances once per accepted
+  macro frame regardless of its private substep count. Discarded trials have
+  no durable representation or energy effects.
+- **Remaining uncertainty:** the one-frame implementation and negative controls
+  have not yet executed.
+- **Smallest next action:** implement B4C3MA and replay its B4C3PE1 parent twice.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1377,11 +1394,10 @@
 
 ## Exact next action
 
-1. Define the adaptive macro-frame transaction: private coarse/fine trials,
-   explicit accept/refine/fail decision and one post-acceptance publication.
-2. Bind work counters, KKT-ledger validity, mixed representation admission and
-   rollback to the accepted frame only.
-3. Freeze failure controls and exact report identity before implementation.
+1. Implement B4C3MA private P1/P2 candidate levels and exact recovery parser.
+2. Gate the selected one-frame publication with B4C3PE1, macro ledger/root and
+   rollback/negative controls.
+3. Execute twice before designing the complete adaptive macro replay.
 
 ## Reconsideration triggers
 
