@@ -31128,4 +31128,525 @@ SplitBoundaryReport run_nominal_hydro_spectrum_probe_controls() {
     return {passed, report.str()};
 }
 
+namespace {
+
+constexpr const char* B4E1M_IDENTITY_SHA256 =
+    "0cdc26e1d0b406fecc39c64cebfee080be32804b993e6d433fa0a74658efb4cc";
+constexpr const char* B4E1M_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4e1m-hydro-macro|v1|"
+    "parent=76453ea9d74f996c52a710a126c444b57662485aaad74c71e041e9e952fe17ac:"
+    "f57c9ed22f8988a20f88b2f877b9bdf6b328f17b677cc68ceaf02251287e37c9|"
+    "alignment=c53a112830cb94c4139da75c2044d28f61673cb1aa05c116098967aee41f7bbe:"
+    "79a8932136a64c1cfa953caafe323cb9e860cb134c1d4dc0907be7f40891587a|"
+    "candidate=66e318cb69e0b0c0a3a40a2beafa2099ebf151287581b191a242e82dac6d6f3c|"
+    "publication=e713a61649fc230b189fca9eda3628b69f9369c706df35f0a2b080a4bd189a70|"
+    "scenario=c430b679dfeec33a6ac12c51df75ddee7e7bc48484c6c05188219f0a727909a0|"
+    "initial-frame=999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7|"
+    "static=daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297|"
+    "pairs=26ab8b79194d53686510d59a11e013900c79ccad57585549acc2007aa1e66414:"
+    "354630:615072:118|"
+    "spectrum=31179.700485618621:499.43728723929792:14:48|"
+    "macro=step1;levels=14,28,56,112;selected=adjacent-pass;accepted<=112|"
+    "transaction=retained-flat-csr;fine-only;one-frame;one-ledger|"
+    "physics=strain<=1e-3;energy<=1%;penetration<=2.5mm;ledger<=1e-9|"
+    "work=static-index1;no-all-pairs;live0|"
+    "runs=2-process-byte-exact;timing=external;watchdog=900s|"
+    "reference=closed|credit=b4e2-design-only";
+
+struct NominalMacroParent {
+    bool passed = false;
+    std::string failure;
+    std::string workspace_root;
+    std::string pair_root;
+    std::string query_root;
+    std::size_t pairs = 0U;
+    std::size_t directed = 0U;
+    std::size_t maximum_degree = 0U;
+    std::size_t active_centers = 0U;
+    double maximum_positive_strain = 0.0;
+    double initial_mechanical = 0.0;
+};
+
+struct NominalMacroOutput {
+    bool passed = false;
+    std::string frame_root;
+    std::string aggregate_root;
+    std::int64_t position_sum_x_um = 0;
+    std::int64_t position_sum_y_um = 0;
+    std::int64_t position_sum_z_um = 0;
+    std::int64_t velocity_sum_x_um_s = 0;
+    std::int64_t velocity_sum_y_um_s = 0;
+    std::int64_t velocity_sum_z_um_s = 0;
+    std::int64_t q99_x_um = 0;
+    std::int64_t q99_y_um = 0;
+};
+
+SmokeFixture make_b4e1m_hydro_fixture() {
+    SmokeFixture result;
+    result.name = "b4e1m-nominal-hydro-step1";
+    result.position = b4e0_nominal_fluid();
+    result.velocity.resize(result.position.size());
+    result.boundary = make_box_owned_shell({20, 20, 20}, 2);
+    result.closed_box_contact = true;
+    result.contact_low = {RADIUS, RADIUS, RADIUS};
+    result.contact_high = {
+        1.0 - RADIUS, 1.0 - RADIUS, 1.0 - RADIUS};
+    result.macro_frames = 1;
+    result.maximum_participants =
+        result.position.size() + result.boundary.size();
+    result.maximum_pairs = B4C0_MAX_NEIGHBORS * result.position.size();
+    result.geometry_sha256 = geometry_hash(result);
+    return result;
+}
+
+NominalMacroParent b4e1m_parent_preflight(
+    const SmokeFixture& fixture,
+    const JointStaticSupportBinding& binding,
+    StaticSupportWorkTrace& static_work,
+    FlatAdjacencyWorkTrace& adjacency_work) {
+    NominalMacroParent result;
+    JointQueryTrace trace;
+    trace.record_queries = true;
+    JointPressureWorkspace workspace = build_joint_query_workspace(
+        fixture.position, fixture.boundary, "NOMINAL_HYDRO_MACRO_PARENT",
+        false, trace, false, &binding, &static_work,
+        true, &adjacency_work);
+    if (!workspace.passed) {
+        result.failure = "WORKSPACE:" + workspace.failure;
+        return result;
+    }
+    result.workspace_root = workspace.state_sha256;
+    result.pair_root = joint_pair_hash(workspace.neighborhood);
+    result.pairs = workspace.neighborhood.pairs.size();
+    result.directed = workspace.tape.directed_pair_indices.size();
+    result.maximum_degree = workspace.neighborhood.maximum_degree;
+    result.active_centers = workspace.evaluation.active_centers;
+    result.initial_mechanical = workspace.evaluation.energy;
+    for (std::size_t i = 0U; i < fixture.position.size(); ++i) {
+        result.maximum_positive_strain = std::max(
+            result.maximum_positive_strain,
+            workspace.evaluation.density[i] / REST_DENSITY - 1.0);
+        result.initial_mechanical += MASS * (-fixture.gravity.y)
+            * fixture.position[i].y;
+    }
+    release_joint_query_workspace(workspace, trace);
+    result.query_root = trace.query_chain_sha256;
+    result.passed = result.pair_root
+            == "26ab8b79194d53686510d59a11e013900c79ccad57585549acc2007aa1e66414"
+        && result.pairs == 354630U && result.directed == 615072U
+        && result.maximum_degree == 118U && result.active_centers == 9U
+        && result.maximum_positive_strain == 6.6613381477509392e-16
+        && std::isfinite(result.initial_mechanical)
+        && trace.joint_evaluation_queries == 1
+        && trace.joint_hvp_queries == 0
+        && trace.candidate_all_pair_evaluations == 0
+        && trace.candidate_all_pair_hvps == 0
+        && trace.audit_all_pair_evaluations == 0
+        && trace.audit_all_pair_hvps == 0
+        && trace.live_workspaces == 0
+        && trace.maximum_live_workspaces == 1
+        && trace.exact && trace.work_reduced;
+    if (!result.passed) {
+        result.failure = "PARENT_FACTS";
+    }
+    return result;
+}
+
+NominalMacroOutput b4e1m_output(
+    const MacroAdaptiveTransactionCase& transaction) {
+    NominalMacroOutput result;
+    if (transaction.committed_frames.size() != 1U) {
+        return result;
+    }
+    const canonical::Frame& frame = transaction.committed_frames.front();
+    if (frame.step != 1U || frame.samples.size() != 6000U) {
+        return result;
+    }
+    std::vector<std::int64_t> x;
+    std::vector<std::int64_t> y;
+    x.reserve(frame.samples.size());
+    y.reserve(frame.samples.size());
+    bool ids_exact = true;
+    for (std::size_t i = 0U; i < frame.samples.size(); ++i) {
+        const canonical::Sample& sample = frame.samples[i];
+        ids_exact = ids_exact && sample.sample_id == i;
+        result.position_sum_x_um += sample.position_um[0];
+        result.position_sum_y_um += sample.position_um[1];
+        result.position_sum_z_um += sample.position_um[2];
+        result.velocity_sum_x_um_s += sample.velocity_um_s[0];
+        result.velocity_sum_y_um_s += sample.velocity_um_s[1];
+        result.velocity_sum_z_um_s += sample.velocity_um_s[2];
+        x.push_back(sample.position_um[0]);
+        y.push_back(sample.position_um[1]);
+    }
+    std::sort(x.begin(), x.end());
+    std::sort(y.begin(), y.end());
+    result.q99_x_um = x[5939U];
+    result.q99_y_um = y[5939U];
+    result.frame_root = frame.root_sha256;
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << "nextengine.nonlocal.nsr3b4e1m-output-aggregate|v1|"
+             << frame.root_sha256 << '|' << frame.samples.size() << '|'
+             << result.position_sum_x_um << ':'
+             << result.position_sum_y_um << ':'
+             << result.position_sum_z_um << '|'
+             << result.velocity_sum_x_um_s << ':'
+             << result.velocity_sum_y_um_s << ':'
+             << result.velocity_sum_z_um_s << '|'
+             << result.q99_x_um << ':' << result.q99_y_um << '|'
+             << transaction.decoded_aggregate.center.x << ':'
+             << transaction.decoded_aggregate.center.y << ':'
+             << transaction.decoded_aggregate.center.z << '|'
+             << transaction.decoded_aggregate.momentum_value.x << ':'
+             << transaction.decoded_aggregate.momentum_value.y << ':'
+             << transaction.decoded_aggregate.momentum_value.z << '|'
+             << transaction.decoded_aggregate.kinetic << ':'
+             << transaction.decoded_aggregate.pressure << ':'
+             << transaction.decoded_aggregate.gravitational << ':'
+             << transaction.decoded_aggregate.mechanical;
+    result.aggregate_root = sha256_hex(material.str());
+    result.passed = ids_exact && transaction.decoded_aggregate.finite_values
+        && !result.frame_root.empty() && !result.aggregate_root.empty();
+    return result;
+}
+
+bool b4e1m_levels_exact(const MacroAdaptiveTransactionCase& value) {
+    if (value.initial_substeps != 14
+        || value.attempts.size() < 2U || value.attempts.size() > 4U
+        || value.selected_level < 1 || value.selected_level > 3
+        || value.selected_level
+            != static_cast<int>(value.attempts.size()) - 1
+        || value.accepted_substeps != 14 * (1 << value.selected_level)
+        || value.accepted_substeps > 112) {
+        return false;
+    }
+    for (std::size_t i = 0U; i < value.attempts.size(); ++i) {
+        const MacroAdaptiveAttempt& attempt = value.attempts[i];
+        if (attempt.level != static_cast<int>(i)
+            || attempt.planned_substeps != 14 * (1 << attempt.level)) {
+            return false;
+        }
+        if (!attempt.passed && !attempt.recoverable) {
+            return false;
+        }
+    }
+    return value.attempts.back().passed
+        && value.attempts.back().adjacent_gate_evaluated
+        && value.attempts.back().adjacent_gate.passed;
+}
+
+std::string b4e1m_work_receipt(
+    const NominalMacroParent& parent,
+    const JointStaticSupportIndex& index,
+    const MacroAdaptiveTransactionCase& transaction,
+    const StaticSupportWorkTrace& static_work,
+    const FlatAdjacencyWorkTrace& adjacency_work) {
+    std::ostringstream material;
+    material << "nextengine.nonlocal.nsr3b4e1m-work|v1|"
+             << parent.query_root << '|' << index.identity_sha256 << '|'
+             << transaction.trace.query_chain_sha256 << '|'
+             << transaction.retention.receipt_sha256 << '|'
+             << static_work.workspace_builds << ':'
+             << static_work.static_index_builds << ':'
+             << static_work.support_canonicalizations << ':'
+             << static_work.support_records_sorted << ':'
+             << static_work.fluid_records_sorted << '|'
+             << adjacency_work.workspace_builds << ':'
+             << adjacency_work.nested_row_objects << ':'
+             << adjacency_work.nested_participant_records << ':'
+             << adjacency_work.nested_row_sorts << ':'
+             << adjacency_work.flat_offset_records << ':'
+             << adjacency_work.flat_pair_index_records << ':'
+             << adjacency_work.csr_ownership_transfers;
+    return sha256_hex(material.str());
+}
+
+void append_b4e1m_parent(
+    std::ostringstream& output,
+    const NominalMacroParent& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"workspace_root\":\"" << value.workspace_root
+           << "\",\"pair_root\":\"" << value.pair_root
+           << "\",\"query_root\":\"" << value.query_root
+           << "\",\"pairs\":" << value.pairs
+           << ",\"directed\":" << value.directed
+           << ",\"maximum_degree\":" << value.maximum_degree
+           << ",\"active_centers\":" << value.active_centers
+           << ",\"maximum_positive_strain\":"
+           << value.maximum_positive_strain
+           << ",\"initial_mechanical_j\":"
+           << value.initial_mechanical << '}';
+}
+
+void append_b4e1m_output(
+    std::ostringstream& output,
+    const NominalMacroOutput& value,
+    const MacroAdaptiveTransactionCase& transaction,
+    double energy_creation,
+    double energy_allowance) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"frame_root\":\"" << value.frame_root
+           << "\",\"aggregate_root\":\"" << value.aggregate_root
+           << "\",\"sample_count\":6000,\"mass_kg\":750"
+           << ",\"position_sum_um\":[" << value.position_sum_x_um << ','
+           << value.position_sum_y_um << ',' << value.position_sum_z_um
+           << "],\"velocity_sum_um_s\":["
+           << value.velocity_sum_x_um_s << ','
+           << value.velocity_sum_y_um_s << ','
+           << value.velocity_sum_z_um_s << ']'
+           << ",\"q99_position_um\":[" << value.q99_x_um << ','
+           << value.q99_y_um << "],\"center_m\":";
+    append_vec3(output, transaction.decoded_aggregate.center);
+    output << ",\"momentum_kg_m_s\":";
+    append_vec3(output, transaction.decoded_aggregate.momentum_value);
+    output << ",\"kinetic_j\":"
+           << transaction.decoded_aggregate.kinetic
+           << ",\"pressure_j\":"
+           << transaction.decoded_aggregate.pressure
+           << ",\"gravitational_j\":"
+           << transaction.decoded_aggregate.gravitational
+           << ",\"mechanical_j\":"
+           << transaction.decoded_aggregate.mechanical
+           << ",\"maximum_mechanical_j\":"
+           << transaction.accepted_private.maximum_mechanical_energy
+           << ",\"energy_creation_j\":" << energy_creation
+           << ",\"energy_allowance_j\":" << energy_allowance
+           << ",\"maximum_positive_density_strain\":"
+           << transaction.accepted_private.maximum_positive_density_strain
+           << ",\"maximum_private_penetration_m\":"
+           << transaction.accepted_private.maximum_penetration
+           << '}';
+}
+
+} // namespace
+
+SplitBoundaryReport run_nominal_hydro_macro_probe_controls() {
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(
+                fixture.position, fixture.velocity, 0));
+
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index =
+        build_joint_static_support_index(
+            tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4E1M_IDENTITY_PROJECTION)
+            == B4E1M_IDENTITY_SHA256
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && fixture.position.size() == 6000U
+        && fixture.boundary.size() == 5824U
+        && fixture.maximum_participants == 11824U
+        && fixture.maximum_pairs == 960000U
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297";
+
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        transaction = run_macro_adaptive_transaction_case(
+            fixture.name, fixture, scenario_root, false, true,
+            nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const double energy_allowance = 0.01 * std::max({
+        std::abs(parent.initial_mechanical),
+        static_cast<double>(fixture.position.size()) * MASS
+            * (-fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
+    const bool levels_exact = b4e1m_levels_exact(transaction);
+    const bool physics_exact = transaction.passed && output.passed
+        && std::isfinite(energy_creation)
+        && std::isfinite(energy_allowance)
+        && energy_creation <= energy_allowance
+        && transaction.accepted_private.maximum_positive_density_strain
+            <= 1.0e-3
+        && transaction.maximum_decoded_penetration <= 0.0025;
+    const std::size_t expected_workspaces =
+        1U + static_cast<std::size_t>(
+            std::max(transaction.trace.neighborhood_builds, 0));
+    const bool work_exact = transaction.passed
+        && static_work.static_index_builds == 1U
+        && static_work.support_canonicalizations == 1U
+        && static_work.support_records_sorted == 5824U
+        && static_work.workspace_builds == expected_workspaces
+        && adjacency_work.workspace_builds == expected_workspaces
+        && adjacency_work.nested_row_objects == 0U
+        && adjacency_work.nested_participant_records == 0U
+        && adjacency_work.nested_row_sorts == 0U
+        && adjacency_work.flat_offset_records
+            == expected_workspaces * 6001U
+        && adjacency_work.legacy_tape_offset_records == 0U
+        && adjacency_work.legacy_tape_pair_index_records == 0U
+        && adjacency_work.legacy_tape_row_sorts == 0U
+        && adjacency_work.csr_ownership_transfers
+            == expected_workspaces
+        && transaction.retention.transfers
+            == transaction.retention.reads
+        && transaction.retention.reads
+            == transaction.retention.releases
+        && transaction.retention.live_retained == 0
+        && transaction.retention.maximum_live_retained <= 1
+        && transaction.trace.candidate_all_pair_evaluations == 0
+        && transaction.trace.candidate_all_pair_hvps == 0
+        && transaction.trace.audit_all_pair_evaluations == 0
+        && transaction.trace.audit_all_pair_hvps == 0
+        && transaction.trace.live_workspaces == 0
+        && transaction.trace.maximum_live_workspaces <= 2;
+    const bool transaction_exact = transaction.passed
+        && transaction.spectrum_source == "START_ACTIVE"
+        && transaction.spectral_hvp_calls == 48
+        && levels_exact && transaction.work_accounting_exact
+        && transaction.fine_only_commit
+        && transaction.committed_frames.size() == 1U
+        && transaction.committed_frames.front().step == 1U
+        && transaction.committed_ledger.size() == 1U
+        && transaction.root_recomputation_exact
+        && transaction.ledger_roots_exact;
+    const bool passed = identity_exact && parent.passed
+        && transaction_exact && physics_exact && work_exact;
+    std::string failure;
+    if (!identity_exact) {
+        failure = "IDENTITY_OR_PARENT";
+    } else if (!parent.passed) {
+        failure = "PARENT:" + parent.failure;
+    } else if (!transaction.passed) {
+        failure = "TRANSACTION:" + transaction.failure;
+    } else if (!levels_exact) {
+        failure = "TEMPORAL_LEVELS";
+    } else if (!physics_exact) {
+        failure = "PHYSICS_OR_PUBLICATION";
+    } else if (!work_exact) {
+        failure = "WORK_OR_OWNERSHIP";
+    } else if (!transaction_exact) {
+        failure = "TRANSACTION_COMMIT";
+    }
+    const std::string work_receipt = b4e1m_work_receipt(
+        parent, index, transaction, static_work, adjacency_work);
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << failure
+             << '|' << B4E1M_IDENTITY_SHA256 << '|' << identity_exact
+             << '|' << parent.passed << ':' << parent.workspace_root
+             << ':' << parent.pair_root << ':' << parent.query_root
+             << ':' << parent.initial_mechanical
+             << '|' << transaction.passed << ':'
+             << transaction.initial_substeps << ':'
+             << transaction.selected_level << ':'
+             << transaction.accepted_substeps << ':'
+             << transaction.attempted_substeps << ':'
+             << transaction.discarded_substeps << ':'
+             << transaction.outer_trials << ':'
+             << transaction.rejected_trials << ':'
+             << transaction.nonlinear_hvp_calls << ':'
+             << transaction.spectral_hvp_calls << ':'
+             << transaction.trajectory_sha256 << ':'
+             << transaction.legacy_ledger_sha256 << ':'
+             << transaction.policy_ledger_sha256
+             << '|' << output.frame_root << ':' << output.aggregate_root
+             << ':' << energy_creation << ':' << energy_allowance
+             << ':'
+             << transaction.accepted_private.maximum_positive_density_strain
+             << '|' << transaction.trace.query_chain_sha256
+             << ':' << transaction.retention.receipt_sha256
+             << ':' << work_receipt;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4e1m_hydro_macro.v1\""
+           << ",\"identity_sha256\":\"" << B4E1M_IDENTITY_SHA256
+           << "\",\"parent_b4e1s_identity\":\""
+           << B4E1S_IDENTITY_SHA256
+           << "\",\"parent_b4e1s_result\":\"f57c9ed22f8988a20f88b2f877b9bdf6b328f17b677cc68ceaf02251287e37c9\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"identity_exact\":"
+           << (identity_exact ? "true" : "false")
+           << ",\"scenario_root\":\"" << scenario_root
+           << "\",\"initial_frame_root\":\""
+           << initial.frame.root_sha256
+           << "\",\"static_index_root\":\""
+           << index.identity_sha256
+           << "\",\"fixture_geometry_root\":\""
+           << fixture.geometry_sha256 << "\",\"parent_preflight\":";
+    append_b4e1m_parent(report, parent);
+    report << ",\"transaction\":";
+    append_macro_adaptive_transaction_case(report, transaction);
+    report << ",\"output\":";
+    append_b4e1m_output(
+        report, output, transaction, energy_creation, energy_allowance);
+    report << ",\"work_receipt\":\"" << work_receipt
+           << "\",\"work\":{\"static_index_builds\":"
+           << static_work.static_index_builds
+           << ",\"static_workspace_builds\":"
+           << static_work.workspace_builds
+           << ",\"flat_workspace_builds\":"
+           << adjacency_work.workspace_builds
+           << ",\"nested_row_objects\":"
+           << adjacency_work.nested_row_objects
+           << ",\"flat_offset_records\":"
+           << adjacency_work.flat_offset_records
+           << ",\"flat_pair_index_records\":"
+           << adjacency_work.flat_pair_index_records
+           << ",\"csr_ownership_transfers\":"
+           << adjacency_work.csr_ownership_transfers
+           << ",\"retained_transfers\":"
+           << transaction.retention.transfers
+           << ",\"retained_reads\":"
+           << transaction.retention.reads
+           << ",\"retained_releases\":"
+           << transaction.retention.releases
+           << ",\"retention_receipt\":\""
+           << transaction.retention.receipt_sha256
+           << "\",\"query_chain_root\":\""
+           << transaction.trace.query_chain_sha256 << "\"}"
+           << ",\"temporal_levels_exact\":"
+           << (levels_exact ? "true" : "false")
+           << ",\"physics_publication_exact\":"
+           << (physics_exact ? "true" : "false")
+           << ",\"work_ownership_exact\":"
+           << (work_exact ? "true" : "false")
+           << ",\"nominal_hydro_one_macro_candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4e2_contract_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"trajectory_started\":"
+           << (!transaction.attempts.empty() ? "true" : "false")
+           << ",\"macro_steps_committed\":"
+           << transaction.committed_frames.size()
+           << ",\"reference_curve_decoded\":false"
+           << ",\"b4e_comparison_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"timing_external\":true"
+           << ",\"watchdog_seconds\":900"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
 } // namespace nextengine::nonlocal::fcr
