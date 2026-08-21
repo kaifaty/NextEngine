@@ -10,6 +10,7 @@
 #include <cstring>
 #include <iomanip>
 #include <limits>
+#include <numeric>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -8216,6 +8217,882 @@ SplitBoundaryReport run_tiny_pressure_contact_forecast_controls() {
            << (passed ? "true" : "false")
            << ",\"b4c_neighborhood_design_authorized\":"
            << (passed ? "true" : "false")
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr std::size_t B4C0_MAX_FLUID = 50000U;
+constexpr std::size_t B4C0_MAX_SUPPORT = 32768U;
+constexpr std::size_t B4C0_MAX_NEIGHBORS = 160U;
+
+struct JointPoint {
+    std::uint32_t id = 0;
+    Vec3 position;
+};
+
+struct JointPair {
+    std::size_t fluid = 0;
+    std::size_t participant = 0;
+};
+
+bool operator==(const JointPair& lhs, const JointPair& rhs) {
+    return lhs.fluid == rhs.fluid
+        && lhs.participant == rhs.participant;
+}
+
+struct JointCellRecord {
+    std::int64_t x = 0;
+    std::int64_t y = 0;
+    std::int64_t z = 0;
+    std::size_t participant = 0;
+};
+
+struct JointCellRange {
+    std::int64_t x = 0;
+    std::int64_t y = 0;
+    std::int64_t z = 0;
+    std::size_t begin = 0;
+    std::size_t end = 0;
+};
+
+struct JointNeighborhood {
+    bool passed = false;
+    std::string failure;
+    std::vector<JointPoint> fluid;
+    std::vector<JointPoint> support;
+    std::vector<JointPair> pairs;
+    std::vector<std::vector<std::size_t>> adjacency;
+    std::size_t fluid_pairs = 0;
+    std::size_t support_pairs = 0;
+    std::size_t maximum_degree = 0;
+    std::size_t distance_tests_per_pass = 0;
+    std::size_t construction_distance_tests = 0;
+};
+
+struct JointCase {
+    std::string name;
+    bool passed = false;
+    std::string failure;
+    std::size_t fluid_samples = 0;
+    std::size_t support_samples = 0;
+    std::size_t fluid_pairs = 0;
+    std::size_t support_pairs = 0;
+    std::size_t maximum_degree = 0;
+    std::size_t all_pair_candidate_checks = 0;
+    std::size_t cell_distance_tests = 0;
+    bool pair_exact = false;
+    bool evaluation_exact = false;
+    bool joint_hvp_exact = false;
+    bool fluid_hvp_exact = false;
+    bool repeat_exact = false;
+    bool permutation_exact = false;
+    bool work_reduced = false;
+    std::string pair_sha256;
+};
+
+struct JointNegative {
+    std::string name;
+    std::string expected;
+    std::string observed;
+    std::size_t partial_pairs = 0;
+    std::size_t partial_adjacency_rows = 0;
+    bool passed = false;
+};
+
+bool joint_cell_less(
+    std::int64_t ax, std::int64_t ay, std::int64_t az,
+    std::int64_t bx, std::int64_t by, std::int64_t bz) {
+    if (ax != bx) {
+        return ax < bx;
+    }
+    if (ay != by) {
+        return ay < by;
+    }
+    return az < bz;
+}
+
+bool joint_cell_coordinate(double value, std::int64_t& output) {
+    const double coordinate = std::floor(value / HORIZON);
+    const double low = static_cast<double>(
+        std::numeric_limits<std::int64_t>::min() + 1);
+    const double high = static_cast<double>(
+        std::numeric_limits<std::int64_t>::max() - 1);
+    if (!std::isfinite(coordinate)
+        || coordinate < low || coordinate > high) {
+        return false;
+    }
+    output = static_cast<std::int64_t>(coordinate);
+    return true;
+}
+
+bool canonicalize_joint_points(
+    const std::vector<JointPoint>& input,
+    std::vector<JointPoint>& output) {
+    output = input;
+    std::sort(output.begin(), output.end(),
+        [](const JointPoint& lhs, const JointPoint& rhs) {
+            return lhs.id < rhs.id;
+        });
+    for (std::size_t i = 0; i < output.size(); ++i) {
+        if (!finite(output[i].position)) {
+            return false;
+        }
+        if (i > 0U && output[i - 1U].id == output[i].id) {
+            return false;
+        }
+    }
+    return true;
+}
+
+const Vec3& joint_position(
+    const JointNeighborhood& value, std::size_t participant) {
+    if (participant < value.fluid.size()) {
+        return value.fluid[participant].position;
+    }
+    return value.support[participant - value.fluid.size()].position;
+}
+
+std::size_t checked_joint_pair_limit(std::size_t fluid) {
+    if (fluid > std::numeric_limits<std::size_t>::max()
+            / B4C0_MAX_NEIGHBORS) {
+        return 0U;
+    }
+    return fluid * B4C0_MAX_NEIGHBORS;
+}
+
+JointNeighborhood build_joint_neighborhood(
+    const std::vector<JointPoint>& fluid_input,
+    const std::vector<JointPoint>& support_input) {
+    JointNeighborhood result;
+    if (fluid_input.empty() || fluid_input.size() > B4C0_MAX_FLUID) {
+        result.failure = "JOINT_FLUID_CAPACITY";
+        return result;
+    }
+    if (support_input.size() > B4C0_MAX_SUPPORT) {
+        result.failure = "JOINT_SUPPORT_CAPACITY";
+        return result;
+    }
+    const std::size_t pair_limit = checked_joint_pair_limit(
+        fluid_input.size());
+    if (pair_limit == 0U) {
+        result.failure = "JOINT_PAIR_CAPACITY";
+        return result;
+    }
+    if (!canonicalize_joint_points(fluid_input, result.fluid)
+        || !canonicalize_joint_points(support_input, result.support)) {
+        bool all_finite = true;
+        const auto finite_point = [&](const JointPoint& value) {
+            all_finite = all_finite && finite(value.position);
+        };
+        std::for_each(fluid_input.begin(), fluid_input.end(), finite_point);
+        std::for_each(support_input.begin(), support_input.end(), finite_point);
+        result.failure = all_finite
+            ? "JOINT_DUPLICATE_ID" : "JOINT_POSITION_INVALID";
+        result.fluid.clear();
+        result.support.clear();
+        return result;
+    }
+    if (result.fluid.size() > std::numeric_limits<std::size_t>::max()
+            - result.support.size()) {
+        result.failure = "JOINT_PAIR_CAPACITY";
+        result.fluid.clear();
+        result.support.clear();
+        return result;
+    }
+    const std::size_t total = result.fluid.size() + result.support.size();
+    std::vector<JointCellRecord> records;
+    records.reserve(total);
+    for (std::size_t participant = 0; participant < total; ++participant) {
+        const Vec3& position = joint_position(result, participant);
+        JointCellRecord record;
+        record.participant = participant;
+        if (!joint_cell_coordinate(position.x, record.x)
+            || !joint_cell_coordinate(position.y, record.y)
+            || !joint_cell_coordinate(position.z, record.z)) {
+            result.failure = "JOINT_POSITION_INVALID";
+            result.fluid.clear();
+            result.support.clear();
+            return result;
+        }
+        records.push_back(record);
+    }
+    std::sort(records.begin(), records.end(),
+        [](const JointCellRecord& lhs, const JointCellRecord& rhs) {
+            if (joint_cell_less(
+                    lhs.x, lhs.y, lhs.z, rhs.x, rhs.y, rhs.z)) {
+                return true;
+            }
+            if (joint_cell_less(
+                    rhs.x, rhs.y, rhs.z, lhs.x, lhs.y, lhs.z)) {
+                return false;
+            }
+            return lhs.participant < rhs.participant;
+        });
+    std::vector<JointCellRange> ranges;
+    ranges.reserve(records.size());
+    for (std::size_t begin = 0; begin < records.size();) {
+        std::size_t end = begin + 1U;
+        while (end < records.size()
+            && records[end].x == records[begin].x
+            && records[end].y == records[begin].y
+            && records[end].z == records[begin].z) {
+            ++end;
+        }
+        ranges.push_back({records[begin].x, records[begin].y,
+            records[begin].z, begin, end});
+        begin = end;
+    }
+
+    const auto visit = [&](const auto& callback,
+                           std::size_t& distance_tests) {
+        for (std::size_t center = 0; center < result.fluid.size(); ++center) {
+            std::int64_t cx = 0;
+            std::int64_t cy = 0;
+            std::int64_t cz = 0;
+            if (!joint_cell_coordinate(result.fluid[center].position.x, cx)
+                || !joint_cell_coordinate(result.fluid[center].position.y, cy)
+                || !joint_cell_coordinate(result.fluid[center].position.z, cz)) {
+                return false;
+            }
+            for (int dx = -1; dx <= 1; ++dx) {
+                for (int dy = -1; dy <= 1; ++dy) {
+                    for (int dz = -1; dz <= 1; ++dz) {
+                        const std::int64_t qx = cx + dx;
+                        const std::int64_t qy = cy + dy;
+                        const std::int64_t qz = cz + dz;
+                        const auto range = std::lower_bound(
+                            ranges.begin(), ranges.end(),
+                            JointCellRange{qx, qy, qz, 0U, 0U},
+                            [](const JointCellRange& lhs,
+                               const JointCellRange& rhs) {
+                                return joint_cell_less(
+                                    lhs.x, lhs.y, lhs.z,
+                                    rhs.x, rhs.y, rhs.z);
+                            });
+                        if (range == ranges.end()
+                            || range->x != qx || range->y != qy
+                            || range->z != qz) {
+                            continue;
+                        }
+                        for (std::size_t slot = range->begin;
+                             slot < range->end; ++slot) {
+                            const std::size_t participant =
+                                records[slot].participant;
+                            if (participant < result.fluid.size()
+                                && participant <= center) {
+                                continue;
+                            }
+                            ++distance_tests;
+                            if (norm(result.fluid[center].position
+                                    - joint_position(result, participant))
+                                    <= HORIZON
+                                && !callback(center, participant)) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return true;
+    };
+
+    std::vector<std::size_t> degree(result.fluid.size());
+    std::size_t pair_count = 0U;
+    const bool counted = visit(
+        [&](std::size_t center, std::size_t participant) {
+            if (pair_count == pair_limit) {
+                result.failure = "JOINT_PAIR_CAPACITY";
+                return false;
+            }
+            ++pair_count;
+            if (++degree[center] > B4C0_MAX_NEIGHBORS) {
+                result.failure = "JOINT_NEIGHBOR_CAPACITY";
+                return false;
+            }
+            if (participant < result.fluid.size()
+                && ++degree[participant] > B4C0_MAX_NEIGHBORS) {
+                result.failure = "JOINT_NEIGHBOR_CAPACITY";
+                return false;
+            }
+            return true;
+        }, result.distance_tests_per_pass);
+    if (!counted) {
+        if (result.failure.empty()) {
+            result.failure = "JOINT_POSITION_INVALID";
+        }
+        result.fluid.clear();
+        result.support.clear();
+        return result;
+    }
+    result.maximum_degree = *std::max_element(degree.begin(), degree.end());
+    result.pairs.reserve(pair_count);
+    std::size_t fill_tests = 0U;
+    const bool filled = visit(
+        [&](std::size_t center, std::size_t participant) {
+            result.pairs.push_back({center, participant});
+            if (participant < result.fluid.size()) {
+                ++result.fluid_pairs;
+            } else {
+                ++result.support_pairs;
+            }
+            return true;
+        }, fill_tests);
+    if (!filled || result.pairs.size() != pair_count) {
+        result.failure = "JOINT_POSITION_INVALID";
+        result.pairs.clear();
+        result.fluid.clear();
+        result.support.clear();
+        return result;
+    }
+    result.construction_distance_tests =
+        result.distance_tests_per_pass + fill_tests;
+    std::sort(result.pairs.begin(), result.pairs.end(),
+        [](const JointPair& lhs, const JointPair& rhs) {
+            return lhs.fluid < rhs.fluid
+                || (lhs.fluid == rhs.fluid
+                    && lhs.participant < rhs.participant);
+        });
+    if (std::adjacent_find(result.pairs.begin(), result.pairs.end())
+        != result.pairs.end()) {
+        result.failure = "JOINT_DUPLICATE_PAIR";
+        result.pairs.clear();
+        result.fluid.clear();
+        result.support.clear();
+        return result;
+    }
+    result.adjacency.resize(result.fluid.size());
+    for (std::size_t center = 0; center < result.fluid.size(); ++center) {
+        result.adjacency[center].reserve(degree[center]);
+    }
+    for (const JointPair pair : result.pairs) {
+        result.adjacency[pair.fluid].push_back(pair.participant);
+        if (pair.participant < result.fluid.size()) {
+            result.adjacency[pair.participant].push_back(pair.fluid);
+        }
+    }
+    for (std::vector<std::size_t>& row : result.adjacency) {
+        std::sort(row.begin(), row.end());
+    }
+    result.passed = true;
+    return result;
+}
+
+std::vector<JointPair> all_joint_pairs(
+    const std::vector<JointPoint>& fluid,
+    const std::vector<JointPoint>& support) {
+    std::vector<JointPair> result;
+    for (std::size_t i = 0; i < fluid.size(); ++i) {
+        for (std::size_t j = i + 1U; j < fluid.size(); ++j) {
+            if (norm(fluid[i].position - fluid[j].position) <= HORIZON) {
+                result.push_back({i, j});
+            }
+        }
+        for (std::size_t b = 0; b < support.size(); ++b) {
+            if (norm(fluid[i].position - support[b].position) <= HORIZON) {
+                result.push_back({i, fluid.size() + b});
+            }
+        }
+    }
+    return result;
+}
+
+std::string joint_pair_hash(const JointNeighborhood& value) {
+    std::ostringstream material;
+    material << "joint-fluid-support-r0|";
+    for (const JointPair pair : value.pairs) {
+        material << value.fluid[pair.fluid].id << ':';
+        if (pair.participant < value.fluid.size()) {
+            material << 'F' << ':'
+                     << value.fluid[pair.participant].id;
+        } else {
+            material << 'S' << ':'
+                     << value.support[
+                            pair.participant - value.fluid.size()].id;
+        }
+        material << '|';
+    }
+    return sha256_hex(material.str());
+}
+
+Evaluation evaluate_joint(const JointNeighborhood& neighborhood) {
+    Evaluation result;
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    result.gradient.resize(fluid_count + neighborhood.support.size());
+    result.density.assign(fluid_count, MASS * weight(0.0));
+    for (const JointPair pair : neighborhood.pairs) {
+        const double radius = norm(
+            neighborhood.fluid[pair.fluid].position
+            - joint_position(neighborhood, pair.participant));
+        const double contribution = MASS * weight(radius);
+        result.density[pair.fluid] += contribution;
+        if (pair.participant < fluid_count) {
+            result.density[pair.participant] += contribution;
+            ++result.fluid_pairs;
+        } else {
+            ++result.boundary_pairs;
+        }
+    }
+    for (std::size_t center = 0; center < fluid_count; ++center) {
+        const double compression =
+            result.density[center] / REST_DENSITY - 1.0;
+        result.minimum_branch_margin = std::min(
+            result.minimum_branch_margin, std::abs(compression));
+        if (compression <= 0.0) {
+            continue;
+        }
+        ++result.active_centers;
+        result.energy += 0.5 * KAPPA * compression * compression;
+        const double scale = KAPPA * compression
+            * MASS / REST_DENSITY;
+        for (std::size_t participant : neighborhood.adjacency[center]) {
+            const Vec3 displacement =
+                neighborhood.fluid[center].position
+                - joint_position(neighborhood, participant);
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            const Vec3 pair = scale * weight_gradient(radius)
+                * (displacement / radius);
+            result.gradient[center] += pair;
+            result.gradient[participant] += -pair;
+        }
+    }
+    return result;
+}
+
+std::vector<Vec3> apply_joint_hessian(
+    const JointNeighborhood& neighborhood,
+    const std::vector<Vec3>& direction) {
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    const std::size_t total = fluid_count + neighborhood.support.size();
+    if (direction.size() != total) {
+        throw std::invalid_argument("B4C0 HVP direction size mismatch");
+    }
+    const Evaluation state = evaluate_joint(neighborhood);
+    std::vector<Vec3> result(total);
+    for (std::size_t center = 0; center < fluid_count; ++center) {
+        const double compression =
+            state.density[center] / REST_DENSITY - 1.0;
+        if (compression <= 0.0) {
+            continue;
+        }
+        double compression_direction = 0.0;
+        for (std::size_t participant : neighborhood.adjacency[center]) {
+            const Vec3 displacement =
+                neighborhood.fluid[center].position
+                - joint_position(neighborhood, participant);
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * weight_gradient(radius) * (displacement / radius);
+            compression_direction += dot(
+                jacobian, direction[center] - direction[participant]);
+        }
+        for (std::size_t participant : neighborhood.adjacency[center]) {
+            const Vec3 displacement =
+                neighborhood.fluid[center].position
+                - joint_position(neighborhood, participant);
+            const double radius = norm(displacement);
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            const Vec3 normal = displacement / radius;
+            const Vec3 jacobian = MASS / REST_DENSITY
+                * weight_gradient(radius) * normal;
+            const Vec3 relative_direction =
+                direction[center] - direction[participant];
+            const Vec3 curvature = MASS / REST_DENSITY
+                * radial_hessian_product(normal,
+                    weight_second(radius),
+                    weight_gradient(radius) / radius,
+                    relative_direction);
+            const Vec3 pair = KAPPA
+                * (compression_direction * jacobian
+                    + compression * curvature);
+            result[center] += pair;
+            result[participant] += -pair;
+        }
+    }
+    return result;
+}
+
+bool exact_vec3_values(
+    const std::vector<Vec3>& lhs, const std::vector<Vec3>& rhs) {
+    if (lhs.size() != rhs.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        if (lhs[i].x != rhs[i].x
+            || lhs[i].y != rhs[i].y
+            || lhs[i].z != rhs[i].z) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool exact_evaluation_values(
+    const Evaluation& lhs, const Evaluation& rhs) {
+    return lhs.energy == rhs.energy
+        && lhs.density == rhs.density
+        && exact_vec3_values(lhs.gradient, rhs.gradient)
+        && lhs.active_centers == rhs.active_centers
+        && lhs.fluid_pairs == rhs.fluid_pairs
+        && lhs.boundary_pairs == rhs.boundary_pairs
+        && lhs.minimum_branch_margin == rhs.minimum_branch_margin;
+}
+
+std::vector<JointPoint> tagged_points(const std::vector<Vec3>& position) {
+    std::vector<JointPoint> result(position.size());
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        result[i] = {static_cast<std::uint32_t>(i), position[i]};
+    }
+    return result;
+}
+
+std::vector<JointPoint> permute_joint_points(
+    const std::vector<JointPoint>& input, int mode) {
+    if (mode == 0 || input.size() < 2U) {
+        return input;
+    }
+    std::vector<JointPoint> result;
+    result.reserve(input.size());
+    if (mode == 1) {
+        result.assign(input.rbegin(), input.rend());
+        return result;
+    }
+    std::size_t multiplier = 2U;
+    while (std::gcd(multiplier, input.size()) != 1U) {
+        ++multiplier;
+    }
+    for (std::size_t slot = 0; slot < input.size(); ++slot) {
+        result.push_back(input[
+            (multiplier * slot + 1U) % input.size()]);
+    }
+    return result;
+}
+
+std::size_t all_joint_candidate_checks(
+    std::size_t fluid, std::size_t support) {
+    return fluid * (fluid - 1U) / 2U + fluid * support;
+}
+
+JointCase run_joint_case(
+    std::string name,
+    const std::vector<JointPoint>& fluid,
+    const std::vector<JointPoint>& support,
+    bool require_work_reduction) {
+    JointCase result;
+    result.name = std::move(name);
+    const JointNeighborhood value =
+        build_joint_neighborhood(fluid, support);
+    if (!value.passed) {
+        result.failure = value.failure;
+        return result;
+    }
+    result.fluid_samples = value.fluid.size();
+    result.support_samples = value.support.size();
+    result.fluid_pairs = value.fluid_pairs;
+    result.support_pairs = value.support_pairs;
+    result.maximum_degree = value.maximum_degree;
+    result.all_pair_candidate_checks = all_joint_candidate_checks(
+        value.fluid.size(), value.support.size());
+    result.cell_distance_tests = value.construction_distance_tests;
+    result.pair_sha256 = joint_pair_hash(value);
+    const std::vector<JointPair> oracle_pairs = all_joint_pairs(
+        value.fluid, value.support);
+    result.pair_exact = value.pairs == oracle_pairs;
+    std::vector<Vec3> canonical_fluid;
+    std::vector<Vec3> canonical_support;
+    canonical_fluid.reserve(value.fluid.size());
+    canonical_support.reserve(value.support.size());
+    for (const JointPoint& point : value.fluid) {
+        canonical_fluid.push_back(point.position);
+    }
+    for (const JointPoint& point : value.support) {
+        canonical_support.push_back(point.position);
+    }
+    const Evaluation oracle_evaluation = evaluate(
+        canonical_fluid, canonical_support);
+    const Evaluation cell_evaluation = evaluate_joint(value);
+    result.evaluation_exact = exact_evaluation_values(
+        oracle_evaluation, cell_evaluation);
+    const std::vector<Vec3> joint_direction =
+        deterministic_direction(value.fluid.size() + value.support.size());
+    const std::vector<Vec3> oracle_joint_hvp = apply_hessian(
+        canonical_fluid, canonical_support, joint_direction);
+    const std::vector<Vec3> cell_joint_hvp = apply_joint_hessian(
+        value, joint_direction);
+    result.joint_hvp_exact = exact_vec3_values(
+        oracle_joint_hvp, cell_joint_hvp);
+    std::vector<Vec3> fluid_direction(
+        value.fluid.size() + value.support.size());
+    const std::vector<Vec3> fluid_only =
+        deterministic_direction(value.fluid.size());
+    std::copy(fluid_only.begin(), fluid_only.end(), fluid_direction.begin());
+    result.fluid_hvp_exact = exact_vec3_values(
+        apply_hessian(canonical_fluid, canonical_support, fluid_direction),
+        apply_joint_hessian(value, fluid_direction));
+    const JointNeighborhood repeated =
+        build_joint_neighborhood(fluid, support);
+    result.repeat_exact = repeated.passed
+        && repeated.pairs == value.pairs
+        && joint_pair_hash(repeated) == result.pair_sha256;
+    result.permutation_exact = true;
+    for (int mode = 1; mode <= 2; ++mode) {
+        const JointNeighborhood permuted = build_joint_neighborhood(
+            permute_joint_points(fluid, mode),
+            permute_joint_points(support, mode));
+        if (!permuted.passed || permuted.pairs != value.pairs
+            || joint_pair_hash(permuted) != result.pair_sha256
+            || !exact_evaluation_values(
+                evaluate_joint(permuted), cell_evaluation)
+            || !exact_vec3_values(
+                apply_joint_hessian(permuted, joint_direction),
+                cell_joint_hvp)) {
+            result.permutation_exact = false;
+        }
+    }
+    result.work_reduced = !require_work_reduction
+        || result.cell_distance_tests < result.all_pair_candidate_checks;
+    result.passed = result.pair_exact && result.evaluation_exact
+        && result.joint_hvp_exact && result.fluid_hvp_exact
+        && result.repeat_exact && result.permutation_exact
+        && result.work_reduced
+        && result.maximum_degree <= B4C0_MAX_NEIGHBORS
+        && value.pairs.size() <= checked_joint_pair_limit(value.fluid.size());
+    if (!result.passed) {
+        result.failure = "CORRESPONDENCE_GATE";
+    }
+    return result;
+}
+
+JointNegative joint_negative(
+    std::string name, std::string expected,
+    const std::vector<JointPoint>& fluid,
+    const std::vector<JointPoint>& support) {
+    const JointNeighborhood value =
+        build_joint_neighborhood(fluid, support);
+    JointNegative result;
+    result.name = std::move(name);
+    result.expected = std::move(expected);
+    result.observed = value.failure;
+    result.partial_pairs = value.pairs.size();
+    result.partial_adjacency_rows = value.adjacency.size();
+    result.passed = !value.passed
+        && result.observed == result.expected
+        && result.partial_pairs == 0U
+        && result.partial_adjacency_rows == 0U;
+    return result;
+}
+
+std::array<JointNegative, 6> run_joint_negatives() {
+    std::array<JointNegative, 6> result;
+    result[0] = joint_negative(
+        "zero-fluid", "JOINT_FLUID_CAPACITY", {}, {});
+    std::vector<JointPoint> too_many_fluid(B4C0_MAX_FLUID + 1U);
+    result[1] = joint_negative(
+        "fluid-capacity", "JOINT_FLUID_CAPACITY",
+        too_many_fluid, {});
+    std::vector<JointPoint> one_fluid(1U);
+    std::vector<JointPoint> too_much_support(B4C0_MAX_SUPPORT + 1U);
+    result[2] = joint_negative(
+        "support-capacity", "JOINT_SUPPORT_CAPACITY",
+        one_fluid, too_much_support);
+    std::vector<JointPoint> duplicate = {
+        {7U, {0.0, 0.0, 0.0}},
+        {7U, {SPACING, 0.0, 0.0}},
+    };
+    result[3] = joint_negative(
+        "duplicate-fluid-id", "JOINT_DUPLICATE_ID",
+        duplicate, {});
+    std::vector<JointPoint> nonfinite = {
+        {0U, {std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0}},
+    };
+    result[4] = joint_negative(
+        "nonfinite-position", "JOINT_POSITION_INVALID",
+        nonfinite, {});
+    std::vector<JointPoint> dense(B4C0_MAX_NEIGHBORS + 2U);
+    for (std::size_t i = 0; i < dense.size(); ++i) {
+        dense[i].id = static_cast<std::uint32_t>(i);
+    }
+    result[5] = joint_negative(
+        "neighbor-capacity", "JOINT_NEIGHBOR_CAPACITY",
+        dense, {});
+    return result;
+}
+
+void append_joint_case(std::ostringstream& output, const JointCase& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"fluid_samples\":" << value.fluid_samples
+           << ",\"support_samples\":" << value.support_samples
+           << ",\"fluid_pairs\":" << value.fluid_pairs
+           << ",\"fluid_support_pairs\":" << value.support_pairs
+           << ",\"maximum_degree\":" << value.maximum_degree
+           << ",\"all_pair_candidate_checks\":"
+           << value.all_pair_candidate_checks
+           << ",\"cell_construction_distance_tests\":"
+           << value.cell_distance_tests
+           << ",\"pair_sha256\":\"" << value.pair_sha256
+           << "\",\"pair_exact\":"
+           << (value.pair_exact ? "true" : "false")
+           << ",\"evaluation_exact\":"
+           << (value.evaluation_exact ? "true" : "false")
+           << ",\"joint_hvp_exact\":"
+           << (value.joint_hvp_exact ? "true" : "false")
+           << ",\"fluid_hvp_exact\":"
+           << (value.fluid_hvp_exact ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"permutation_exact\":"
+           << (value.permutation_exact ? "true" : "false")
+           << ",\"work_reduced\":"
+           << (value.work_reduced ? "true" : "false") << '}';
+}
+
+void append_joint_negative(
+    std::ostringstream& output, const JointNegative& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"expected\":\"" << value.expected
+           << "\",\"observed\":\"" << value.observed
+           << "\",\"partial_pairs\":" << value.partial_pairs
+           << ",\"partial_adjacency_rows\":"
+           << value.partial_adjacency_rows << '}';
+}
+
+} // namespace
+
+SplitBoundaryReport run_joint_neighborhood_controls() {
+    const SplitBoundaryReport parent =
+        run_tiny_pressure_contact_forecast_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "8f9c0fb92216770a11f8f0b603bb66f5ce27858815d73b90b2e09266ec19e64b";
+    std::vector<JointCase> cases;
+    std::array<JointNegative, 6> negatives{};
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4B2_PARENT";
+    } else {
+        const SmokeFixture p1 = make_b4b_supported_column_fixture();
+        cases.push_back(run_joint_case(
+            "p1-initial", tagged_points(p1.position),
+            tagged_points(p1.boundary), true));
+        std::vector<Vec3> prediction(p1.position.size());
+        for (std::size_t i = 0; i < prediction.size(); ++i) {
+            prediction[i] = SMOKE_FRAME_TIME
+                * (p1.velocity[i] + SMOKE_FRAME_TIME * p1.gravity);
+        }
+        prediction = clamp_box_displacement(
+            p1, p1.position, prediction);
+        const std::vector<Vec3> forecast = materialize_displacement(
+            p1.position, prediction);
+        cases.push_back(run_joint_case(
+            "p1-feasible-forecast", tagged_points(forecast),
+            tagged_points(p1.boundary), true));
+        const SmokeFixture p2 = make_b4b_released_block_fixture();
+        cases.push_back(run_joint_case(
+            "p2-detached-initial", tagged_points(p2.position),
+            tagged_points(p2.boundary), true));
+        const double below = std::nextafter(HORIZON, 0.0);
+        const double above = std::nextafter(
+            HORIZON, std::numeric_limits<double>::infinity());
+        const std::vector<JointPoint> signed_fluid = {
+            {9U, {0.0, 0.0, 0.0}},
+            {2U, {below, 0.0, 0.0}},
+            {5U, {-0.31, -0.15, 0.07}},
+        };
+        const std::vector<JointPoint> signed_support = {
+            {9U, {-HORIZON, 0.0, 0.0}},
+            {1U, {0.0, HORIZON, 0.0}},
+            {4U, {above, 0.0, 0.0}},
+        };
+        cases.push_back(run_joint_case(
+            "signed-cutoff", signed_fluid, signed_support, false));
+        for (const JointCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        negatives = run_joint_negatives();
+        for (const JointNegative& value : negatives) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ":FAILURE_CONTROL";
+            }
+        }
+    }
+    const bool cases_passed = cases.size() == 4U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const JointCase& value) { return value.passed; });
+    const bool negatives_passed = parent_exact
+        && std::all_of(negatives.begin(), negatives.end(),
+            [](const JointNegative& value) { return value.passed; });
+    const bool passed = parent_exact && cases_passed && negatives_passed;
+    const std::string disposition = passed
+        ? "JOINT_PRESSURE_NEIGHBORHOOD_CANDIDATE"
+        : "JOINT_PRESSURE_NEIGHBORHOOD_REJECTED";
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition;
+    for (const JointCase& value : cases) {
+        material << '|' << value.name << ':' << value.pair_sha256
+                 << ':' << value.fluid_pairs << ':' << value.support_pairs
+                 << ':' << value.maximum_degree
+                 << ':' << value.cell_distance_tests;
+    }
+    for (const JointNegative& value : negatives) {
+        material << '|' << value.name << ':' << value.observed
+                 << ':' << value.partial_pairs
+                 << ':' << value.partial_adjacency_rows;
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal.nsr3b4c0_joint_neighborhood.v1\""
+           << ",\"identity\":\"joint-fluid-support-cell-pairs-r0\""
+           << ",\"parent_b4b2_result_sha256\":\"b79e537d44519391d9ec65f56134f409122c10ca7135d62f797b026d062b7286\""
+           << ",\"parent_b4b2_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"limits\":{\"fluid_samples\":" << B4C0_MAX_FLUID
+           << ",\"support_samples\":" << B4C0_MAX_SUPPORT
+           << ",\"participants_per_fluid\":" << B4C0_MAX_NEIGHBORS
+           << ",\"pairs_per_fluid\":" << B4C0_MAX_NEIGHBORS
+           << "},\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_joint_case(report, cases[i]);
+    }
+    report << "],\"failure_controls\":[";
+    for (std::size_t i = 0; i < negatives.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_joint_negative(report, negatives[i]);
+    }
+    report << "],\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c1_pressure_tape_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"trajectory_substitution_authorized\":false"
+           << ",\"canonical_continuation_authorized\":false"
            << ",\"nominal_corpus_execution_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"

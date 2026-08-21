@@ -346,3 +346,14 @@ This selects `TINY_PRESSURE_CONTACT_FORECAST_CANDIDATE` and authorizes B4C
 joint fluid/support neighborhood plus canonical-runner design only. Nominal
 execution remains blocked until B4C freezes and passes correspondence,
 capacity and publication-identity gates.
+The [B4C research](../../development/nonlocal-nsr3b4c-scalable-runner-research-2026-08-21.md)
+shows that membership, pressure tape, solver substitution and canonical
+publish/decode continuation have independent failure modes. The first
+[B4C0 contract](03b4c0-joint-neighborhood-contract.md) is frozen for exact
+joint fluid/support membership, reduction order and capacity negatives.
+B4C0 preserves exact pair/evaluation/HVP/permutation results and every typed
+capacity negative, but fails the P1 work gate: its exact-count plus fill scans
+perform `36,240` distance tests versus `27,240` all-pairs checks; see the
+[dated evidence](../../development/nonlocal-nsr3b4c0-joint-neighborhood-evidence-2026-08-21.md).
+Preserve this failure and freeze a one-pass pre-admitted-workspace revision.
+B4C1--B4C3 and all nominal execution remain blocked.

@@ -22,9 +22,21 @@
 - **Current cost:** P1 executes `444` substeps and `3391` total spectral plus
   nonlinear HVPs; P2 executes `124` substeps and `314` HVPs. This proves tiny
   correctness, not production performance.
-- **Current action:** research and freeze B4C joint fluid/support canonical
-  cell neighborhoods and canonical-runner publication identity. Do not run a
-  nominal water corpus before B4C correspondence and capacity gates pass.
+- **Current decision:** decompose B4C into C0 membership/order/capacity, C1
+  pressure tape, C2 complete solver substitution and C3 canonical
+  publish/decode continuation. Equal pair sets alone are insufficient because
+  binary64 reduction order is part of the selected result.
+- **Current action:** implement the frozen B4C0 exact all-pairs-versus-joint-
+  cell discriminator. Do not run a nominal water corpus before B4C0--B4C3
+  pass independently.
+- **Current conclusion:** B4C0 proves exact membership, reduction order,
+  pressure evaluation/HVP and permutation identity, but its two exact cell
+  scans cost `36,240` distance tests versus P1's `27,240` all-pairs checks.
+  P2 still improves to `15,726/33,183`.
+- **Current decision:** preserve B4C0 FAIL. The blocker is the exact-count
+  allocation policy, not the cell broad phase or pressure formula. Test a
+  separately frozen one-pass builder over a pre-admitted bounded workspace;
+  do not weaken the original executed-work predicate.
 
 - **Current conclusion:** NSR2-C2 passes all gates. At 512 particles the guarded
   floor stop reduces work from `26/13/153` outer/reject/HVP to `12/0/46` while
@@ -664,6 +676,25 @@
   all-pairs-versus-joint-cell discriminator before implementing or executing
   any nominal corpus.
 
+### D-039 -- Reject two-pass exact-count neighborhood construction
+
+- **Observation:** B4C0 is bit-exact in every mathematical and ordering gate,
+  but P1's dense tiny box reduces candidates only from `27,240` to `18,120`
+  per cell pass. Repeating the scan to count then fill raises actual work to
+  `36,240`; P2's sparser box still improves to `15,726/33,183`.
+- **Decision:** preserve B4C0 FAIL and its two-pass report. Investigate one
+  pass into capacity admitted before execution, clearing private output on any
+  overflow. Capacity admission, not exact-size allocation, is the normative
+  requirement.
+- **Rejected alternatives:** do not report only the cheaper of two executed
+  passes, remove the small dense control, loosen the work gate, or select a
+  finer cell solely from unmeasured distance-test counts.
+- **Consequence:** B4C1 pressure tape remains blocked. A repair must retain all
+  exact correspondence, storage-order and typed negative controls and publish
+  its reserved memory bound.
+- **Smallest next action:** freeze B4C0R with one-pass membership and an exact
+  pre-admitted workspace byte ceiling, then rerun the unchanged controls.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -676,12 +707,12 @@
 
 ## Exact next action
 
-1. Audit every all-pairs query used by the selected B4B2 objective, HVP,
-   forecast and constrained contact path and state its exact cutoff/order.
-2. Freeze B4C all-pairs-versus-joint-cell correspondence, capacity-failure and
-   canonical-runner identity gates before implementation.
-3. Execute only the bounded B4C discriminator; nominal water remains blocked
-   until its result and all historical hashes are recorded.
+1. Freeze B4C0R one-pass pre-admitted workspace semantics and byte ceiling;
+   inherit every B4C0 pair/math/permutation/failure control unchanged.
+2. Execute the bounded repair twice and verify B4C0 plus all historical raw
+   hashes remain exact.
+3. Only PASS may authorize B4C1 pressure-tape design; nominal water remains
+   blocked.
 
 ## Reconsideration triggers
 
