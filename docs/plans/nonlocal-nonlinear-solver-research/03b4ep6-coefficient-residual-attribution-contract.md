@@ -1,6 +1,6 @@
 # NSR3-B4EP6 -- coefficient-candidate residual-attribution contract
 
-Status: `FROZEN / PROFILE_EXECUTION_AUTHORIZED / NO_OPTIMIZATION`
+Status: `CLOSED / PASS / B4EP7_EVALUATION_BASE_DESIGN_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -54,3 +54,8 @@ Select a leader only at `>=1.20x` runner-up; otherwise select
 
 B4E2, references, runtime/CUDA, solver-policy changes and production remain
 blocked.
+
+Observed PASS: workspace 4.66 s versus HVP 3.45 s (`1.3507x`); within
+workspace, evaluation/base tape 2.73 s versus topology/CSR 1.09 s
+(`2.5046x`). See the
+[dated evidence](../../development/nonlocal-nsr3b4ep6-coefficient-residual-attribution-evidence-2026-08-22.md).

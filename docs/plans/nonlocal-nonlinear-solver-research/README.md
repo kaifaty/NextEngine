@@ -1064,3 +1064,9 @@ resets attribution after coefficient caching. Its
 requires one exact-output gprof run and a `1.20x` top-level leader. Execute
 that profile only; if no leader clears the rule, instrument scoped internal
 phases before any further optimization.
+B4EP6 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep6-coefficient-residual-attribution-evidence-2026-08-22.md).
+Complete workspace leads HVP `1.3507x`; evaluation plus base pressure tape
+then leads topology/CSR `2.5046x`. This selects only B4EP7 research/design of
+an exact evaluation/base-tape mechanical discriminator. No implementation,
+B4E2, CUDA, runtime or production authority is created.

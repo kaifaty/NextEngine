@@ -1,6 +1,6 @@
 # NSR3-B4EP6 coefficient residual-attribution research -- 2026-08-22
 
-Status: `COMPLETE / EXACT_OUTPUT_GPROF_SELECTED / NO_OPTIMIZATION_YET`
+Status: `COMPLETE / PASS / WORKSPACE_EVALUATION_BASE_TAPE_SELECTED`
 
 ## Question
 
@@ -59,3 +59,6 @@ coefficient-tape population. Keep instrumented wall/RSS descriptive only.
 
 Freeze one B4EP6 exact-output profile. It may route to one B4EP7 design or to
 internal phase timing; it cannot itself authorize an implementation.
+
+The exact profile selects evaluation/base tape by the frozen two-level rule;
+see the [dated evidence](nonlocal-nsr3b4ep6-coefficient-residual-attribution-evidence-2026-08-22.md).

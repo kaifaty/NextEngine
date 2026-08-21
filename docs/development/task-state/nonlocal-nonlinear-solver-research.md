@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP5_PASS / B4EP6_PROFILE_EXECUTION` |
+| Status | `ACTIVE / NSR3B4EP6_PASS / B4EP7_EVALUATION_TAPE_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -199,6 +199,11 @@
 - **Current decision:** B4EP6 compares HVP, complete workspace and residual
   control with a `1.20x` leader rule; workspace has three explicit
   subcategories. No leader routes to internal phase timing.
+- **Current conclusion:** exact B4EP6 profiling selects workspace over HVP
+  `1.3507x`, then evaluation/base tape over topology/CSR `2.5046x`.
+- **Next action:** audit a single exact evaluation/base-tape discriminator;
+  do not implement fusion or another cache before its arithmetic/ownership
+  boundary is frozen.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -254,6 +259,7 @@
 | NSR3B4EP5 contract | optional invariant scalar tape over selected topology cache | implement/A-B only; no default/runtime/B4E2 change |
 | NSR3B4EP5 PASS | exact candidate and median `1.2482x` paired speedup | B4EP6 residual profiling/design only |
 | NSR3B4EP6 contract | one exact-output coefficient-candidate gprof profile | execute profile only; no optimization/B4E2 change |
+| NSR3B4EP6 PASS | workspace `4.66s` over HVP `3.45s`; eval/base `2.73s` | B4EP7 evaluation/base-tape research/design only |
 
 Candidate solver identity remains:
 
@@ -311,6 +317,7 @@ production authority is created by this lineage.
 | [B4EP5 research](../nonlocal-nsr3b4ep5-hvp-coefficient-tape-research-2026-08-22.md) | repeated invariant kernel coefficients dominate the safe HVP opportunity | implement optional two-scalar tape and controlled exact A/B only |
 | [B4EP5](../nonlocal-nsr3b4ep5-hvp-coefficient-tape-evidence-2026-08-22.md) | exact physics/old bytes and median `1.2482x` paired speedup | retain coefficient tape for research; exact-profile residual before one next change |
 | [B4EP6 research](../nonlocal-nsr3b4ep6-coefficient-residual-attribution-research-2026-08-22.md) | old profile is invalid after 800M removed kernel calls | execute one exact-output profile with frozen leader rule |
+| [B4EP6](../nonlocal-nsr3b4ep6-coefficient-residual-attribution-evidence-2026-08-22.md) | workspace leads; evaluation/base tape dominates its subcategories | audit one exact fusion/reuse discriminator before implementation |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -699,11 +706,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Build the frozen external B4EP6 gprof executable and run the dedicated
-   B4EP5 command once with exact stdout admission.
-2. Attribute the predeclared categories and route by the `1.20x` rule. Do not
-   start a second optimization, parallel path, B4E2 or GPU work from timing
-   alone.
+1. Audit exact dataflow and floating-point order between `evaluate_joint`,
+   radius/compression tape construction and coefficient population.
+2. Freeze at most one B4EP7 mechanical discriminator. Do not implement
+   fusion, parallelism, B4E2 or GPU work until that contract exists.
 
 ## Reconsideration triggers
 
