@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3A2_PASS / COMPLETE_RECOVERY_REPLAY_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3A2_PASS / B4C3TAR2_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -22,6 +22,9 @@
   exact B4C3TAR `REJECT_LIMIT` recovery policy with B4C3A2 ledger admission,
   while retaining the original binary/energy/schedule gates. B4C3TR/B4C3TC/
   B4C4/B4D remain blocked.
+- **Current contract:** B4C3TAR2 freezes the two-policy composition, complete
+  P1/P2 gates, global canonical/legacy/policy roots, exact attempted work and
+  post-commit rollback. No other solver or tolerance change is allowed.
 - **Current contract:** B4C3A2 binds unchanged representation/trajectory and
   legacy ledger roots plus a new policy-ledger hash over both residual
   normalizers, correspondence, closure and energy fields.
@@ -1106,6 +1109,23 @@
 - **Smallest next action:** freeze the combined replay's parent hashes, policy
   identity, attempted-work/rollback semantics and unchanged long-horizon gates.
 
+### D-056 -- Freeze combined complete adaptive replay
+
+- **Observation:** reject-limit recovery and KKT-scale ledger admission now
+  pass independently, with distinct historical and policy identities.
+- **Decision:** B4C3TAR2 composes only those two policies over the unchanged
+  B4C3TA long-horizon corpus/gates and commits canonical, legacy-ledger and
+  policy-ledger roots atomically.
+- **Rejected alternatives:** do not fold another repair into the replay,
+  refit energy/binary gates, alter recovery classification or reinterpret r0/r1
+  FAIL reports.
+- **Consequence:** a PASS can reopen B4C3TR fixed-reference design; nothing
+  later is currently authorized.
+- **Remaining uncertainty:** the combined P1 lane may expose a later physical,
+  energy, schedule or solver failure not present in either local discriminator.
+- **Smallest next action:** implement the frozen r2 controller and execute its
+  isolated lanes before the two complete parent-gated reports.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1118,8 +1138,8 @@
 
 ## Exact next action
 
-1. Freeze a new complete recovery replay over B4C3A2, without changing the
-   B4C3TAR recovery classifier or long-horizon physical gates.
+1. Implement the frozen B4C3TAR2 controller without changing the B4C3TAR
+   recovery classifier or long-horizon physical gates.
 2. Bind global policy-ledger roots, exact attempted-work accounting, rollback,
    P2 onset schedule and binary/energy envelopes.
 3. Execute twice before reopening B4C3TR fixed canonical design. B4C4/B4D

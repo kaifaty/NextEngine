@@ -500,3 +500,8 @@ B4C3A2 passes twice byte-identically and selects
 It preserves canonical and legacy ledger roots, adds deterministic policy
 roots, and passes atomicity/physical/negative gates. Only a new complete
 adaptive recovery replay design is authorized.
+The
+[B4C3TAR2 contract](03b4c3tar2-combined-adaptive-replay-contract.md)
+freezes that composition: exact reject-limit refinement plus KKT-scale ledger
+admission, with unchanged P1/P2 horizons, binary/energy/schedule gates,
+attempted-work accounting and atomic canonical/legacy/policy roots.
