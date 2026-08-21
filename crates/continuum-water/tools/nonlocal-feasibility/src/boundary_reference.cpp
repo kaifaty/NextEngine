@@ -8519,6 +8519,55 @@ struct JointOwnerDataflowTrace {
 constexpr int B4EP10_LOGICAL_PARTITIONS = 64;
 constexpr int B4EP10_MAXIMUM_WORKERS = 16;
 
+enum class JointParallelPhase : std::size_t {
+    TopologySetup,
+    TopologyActive,
+    TopologyPrefix,
+    TopologyCompact,
+    TopologyMetadata,
+    TopologyRowCount,
+    TopologyOffsets,
+    TopologyRowFill,
+    TopologyFinalize,
+    EvaluationSetup,
+    EvaluationPair,
+    EvaluationMetadata,
+    EvaluationDensity,
+    EvaluationCenter,
+    EvaluationPlan,
+    EvaluationDirected,
+    EvaluationTarget,
+    EvaluationFinalize,
+    HvpSetup,
+    HvpCompression,
+    HvpDirected,
+    HvpTarget,
+    HvpFinalize,
+    Count,
+};
+
+constexpr std::size_t JOINT_PARALLEL_PHASE_COUNT =
+    static_cast<std::size_t>(JointParallelPhase::Count);
+
+struct JointParallelPhaseTimingTrace {
+    bool enabled = false;
+    std::array<std::uint64_t, JOINT_PARALLEL_PHASE_COUNT> phase_ns{};
+    std::array<std::size_t, JOINT_PARALLEL_PHASE_COUNT> phase_calls{};
+    std::uint64_t transaction_total_ns = 0U;
+    std::uint64_t topology_total_ns = 0U;
+    std::uint64_t evaluation_total_ns = 0U;
+    std::uint64_t hvp_total_ns = 0U;
+    std::size_t transaction_calls = 0U;
+    std::size_t topology_calls = 0U;
+    std::size_t evaluation_calls = 0U;
+    std::size_t hvp_calls = 0U;
+    std::uint64_t executor_region_wall_ns = 0U;
+    std::uint64_t executor_active_ns = 0U;
+    std::uint64_t executor_max_active_ns = 0U;
+    std::size_t executor_regions = 0U;
+    std::size_t failures = 0U;
+};
+
 struct JointParallelTrace {
     bool enabled = false;
     int requested_workers = 0;
@@ -8544,7 +8593,36 @@ struct JointParallelTrace {
     std::size_t hvp_directed_values = 0U;
     std::size_t hvp_target_gathers = 0U;
     std::size_t maximum_added_payload_bytes = 0U;
+    JointParallelPhaseTimingTrace phase_timing;
 };
+
+bool add_joint_parallel_duration(
+    JointParallelPhaseTimingTrace& trace,
+    JointPhaseClock::time_point start,
+    std::uint64_t& total_ns,
+    std::size_t& calls) {
+    const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        JointPhaseClock::now() - start).count();
+    if (elapsed < 0
+        || static_cast<std::uint64_t>(elapsed)
+            > std::numeric_limits<std::uint64_t>::max() - total_ns) {
+        ++trace.failures;
+        return false;
+    }
+    total_ns += static_cast<std::uint64_t>(elapsed);
+    ++calls;
+    return true;
+}
+
+bool record_joint_parallel_phase(
+    JointParallelPhaseTimingTrace& trace,
+    JointParallelPhase phase,
+    JointPhaseClock::time_point start) {
+    const std::size_t index = static_cast<std::size_t>(phase);
+    return index < JOINT_PARALLEL_PHASE_COUNT
+        && add_joint_parallel_duration(
+            trace, start, trace.phase_ns[index], trace.phase_calls[index]);
+}
 
 bool valid_joint_parallel_worker_count(int workers) {
     return workers >= 1 && workers <= B4EP10_MAXIMUM_WORKERS;
@@ -8568,28 +8646,95 @@ bool joint_parallel_for(
     std::array<int, B4EP10_LOGICAL_PARTITIONS> status{};
     std::array<int, B4EP10_LOGICAL_PARTITIONS> visits{};
     int observed_team = 0;
-#pragma omp parallel num_threads(trace.requested_workers) shared(observed_team, status, visits)
-    {
+    const auto run_partition = [&](int ordinal) {
+        visits[static_cast<std::size_t>(ordinal)] = 1;
+        if (ordinal == trace.injected_failure_partition) {
+            status[static_cast<std::size_t>(ordinal)] = 1;
+            return;
+        }
+        const std::size_t count = static_cast<std::size_t>(partition_count);
+        const std::size_t base = item_count / count;
+        const std::size_t remainder = item_count % count;
+        const std::size_t index = static_cast<std::size_t>(ordinal);
+        const std::size_t begin = index * base + std::min(index, remainder);
+        const std::size_t end = begin + base
+            + (index < remainder ? 1U : 0U);
+        if (!operation(begin, end, ordinal)) {
+            status[index] = 1;
+        }
+    };
+    if (trace.phase_timing.enabled) {
+        struct alignas(64) ActiveSlot {
+            std::uint64_t ns = 0U;
+        };
+        std::array<ActiveSlot, B4EP10_MAXIMUM_WORKERS> active{};
+        const JointPhaseClock::time_point region_start =
+            JointPhaseClock::now();
+#pragma omp parallel num_threads(trace.requested_workers) shared(observed_team, status, visits, active)
+        {
 #pragma omp single
-        observed_team = omp_get_num_threads();
-#pragma omp for schedule(static, 1)
-        for (int ordinal = 0; ordinal < partition_count; ++ordinal) {
-            visits[static_cast<std::size_t>(ordinal)] = 1;
-            if (ordinal == trace.injected_failure_partition) {
-                status[static_cast<std::size_t>(ordinal)] = 1;
-                continue;
+            observed_team = omp_get_num_threads();
+            const JointPhaseClock::time_point active_start =
+                JointPhaseClock::now();
+#pragma omp for schedule(static, 1) nowait
+            for (int ordinal = 0; ordinal < partition_count; ++ordinal) {
+                run_partition(ordinal);
             }
-            const std::size_t count = static_cast<std::size_t>(
-                partition_count);
-            const std::size_t base = item_count / count;
-            const std::size_t remainder = item_count % count;
-            const std::size_t index = static_cast<std::size_t>(ordinal);
-            const std::size_t begin = index * base
-                + std::min(index, remainder);
-            const std::size_t end = begin + base
-                + (index < remainder ? 1U : 0U);
-            if (!operation(begin, end, ordinal)) {
-                status[index] = 1;
+            const auto active_elapsed =
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    JointPhaseClock::now() - active_start).count();
+            if (active_elapsed >= 0) {
+                active[static_cast<std::size_t>(omp_get_thread_num())].ns =
+                    static_cast<std::uint64_t>(active_elapsed);
+            } else {
+                active[static_cast<std::size_t>(omp_get_thread_num())].ns =
+                    std::numeric_limits<std::uint64_t>::max();
+            }
+#pragma omp barrier
+        }
+        const auto region_elapsed =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                JointPhaseClock::now() - region_start).count();
+        std::uint64_t active_sum = 0U;
+        std::uint64_t active_maximum = 0U;
+        bool timing_safe = region_elapsed >= 0;
+        for (int worker = 0; timing_safe && worker < observed_team; ++worker) {
+            const std::uint64_t value =
+                active[static_cast<std::size_t>(worker)].ns;
+            timing_safe = value
+                <= std::numeric_limits<std::uint64_t>::max() - active_sum;
+            if (timing_safe) {
+                active_sum += value;
+                active_maximum = std::max(active_maximum, value);
+            }
+        }
+        const std::uint64_t wall = timing_safe
+            ? static_cast<std::uint64_t>(region_elapsed) : 0U;
+        timing_safe = timing_safe && active_maximum <= wall
+            && wall <= std::numeric_limits<std::uint64_t>::max()
+                - trace.phase_timing.executor_region_wall_ns
+            && active_sum <= std::numeric_limits<std::uint64_t>::max()
+                - trace.phase_timing.executor_active_ns
+            && active_maximum <= std::numeric_limits<std::uint64_t>::max()
+                - trace.phase_timing.executor_max_active_ns;
+        if (!timing_safe) {
+            ++trace.phase_timing.failures;
+            trace.failed = true;
+            trace.failure = "OWNER_PARALLEL_TIMING";
+            return false;
+        }
+        trace.phase_timing.executor_region_wall_ns += wall;
+        trace.phase_timing.executor_active_ns += active_sum;
+        trace.phase_timing.executor_max_active_ns += active_maximum;
+        ++trace.phase_timing.executor_regions;
+    } else {
+#pragma omp parallel num_threads(trace.requested_workers) shared(observed_team, status, visits)
+        {
+#pragma omp single
+            observed_team = omp_get_num_threads();
+#pragma omp for schedule(static, 1)
+            for (int ordinal = 0; ordinal < partition_count; ++ordinal) {
+                run_partition(ordinal);
             }
         }
     }
@@ -11171,6 +11316,21 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
     FlatAdjacencyWorkTrace* adjacency_work,
     JointParallelTrace& parallel) {
     JointEvaluationTape result;
+    JointPhaseClock::time_point phase_start = parallel.phase_timing.enabled
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+    const auto finish_phase = [&](JointParallelPhase phase) {
+        if (!parallel.phase_timing.enabled) {
+            return true;
+        }
+        const bool recorded = record_joint_parallel_phase(
+            parallel.phase_timing, phase, phase_start);
+        phase_start = JointPhaseClock::now();
+        if (!recorded) {
+            parallel.failed = true;
+            parallel.failure = "OWNER_EVALUATION_PHASE_TIMING";
+        }
+        return recorded;
+    };
     const std::size_t fluid_count = neighborhood.fluid.size();
     const std::size_t total = fluid_count + neighborhood.support.size();
     if (!neighborhood.passed || !neighborhood.flat_adjacency
@@ -11232,6 +11392,10 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
     result.tape.hvp_gradient.resize(pair_count);
     result.tape.hvp_second.resize(pair_count);
     std::vector<double> density_contribution(pair_count);
+    if (!finish_phase(JointParallelPhase::EvaluationSetup)) {
+        result.failure = parallel.failure;
+        return result;
+    }
     const auto fill_pairs = [&](std::size_t begin, std::size_t end, int) {
         for (std::size_t pair_index = begin;
              pair_index < end; ++pair_index) {
@@ -11251,12 +11415,20 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         result.failure = parallel.failure;
         return result;
     }
+    if (!finish_phase(JointParallelPhase::EvaluationPair)) {
+        result.failure = parallel.failure;
+        return result;
+    }
     for (const JointPair pair : neighborhood.pairs) {
         if (pair.participant < fluid_count) {
             ++result.evaluation.fluid_pairs;
         } else {
             ++result.evaluation.boundary_pairs;
         }
+    }
+    if (!finish_phase(JointParallelPhase::EvaluationMetadata)) {
+        result.failure = parallel.failure;
+        return result;
     }
     const auto fill_density = [&](std::size_t begin, std::size_t end, int) {
         for (std::size_t center = begin; center < end; ++center) {
@@ -11274,6 +11446,10 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         result.failure = parallel.failure;
         return result;
     }
+    if (!finish_phase(JointParallelPhase::EvaluationDensity)) {
+        result.failure = parallel.failure;
+        return result;
+    }
     std::vector<double> center_energy(fluid_count);
     const auto fill_centers = [&](std::size_t begin, std::size_t end, int) {
         for (std::size_t center = begin; center < end; ++center) {
@@ -11288,6 +11464,10 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         return true;
     };
     if (!joint_parallel_for(fluid_count, parallel, fill_centers)) {
+        result.failure = parallel.failure;
+        return result;
+    }
+    if (!finish_phase(JointParallelPhase::EvaluationCenter)) {
         result.failure = parallel.failure;
         return result;
     }
@@ -11312,6 +11492,10 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         parallel.failed = true;
         parallel.failure = "OWNER_PARALLEL_PLAN:"
             + result.tape.owner_gather_plan.failure;
+        result.failure = parallel.failure;
+        return result;
+    }
+    if (!finish_phase(JointParallelPhase::EvaluationPlan)) {
         result.failure = parallel.failure;
         return result;
     }
@@ -11350,6 +11534,10 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         result.failure = parallel.failure;
         return result;
     }
+    if (!finish_phase(JointParallelPhase::EvaluationDirected)) {
+        result.failure = parallel.failure;
+        return result;
+    }
     const JointOwnerGatherPlan& plan = result.tape.owner_gather_plan;
     const auto fill_targets = [&](std::size_t begin,
                                   std::size_t end, int) {
@@ -11367,6 +11555,10 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
         return true;
     };
     if (!joint_parallel_for(total, parallel, fill_targets)) {
+        result.failure = parallel.failure;
+        return result;
+    }
+    if (!finish_phase(JointParallelPhase::EvaluationTarget)) {
         result.failure = parallel.failure;
         return result;
     }
@@ -11391,6 +11583,11 @@ JointEvaluationTape build_joint_evaluation_tape_owner_parallel_from_flat(
     }
     result.tape.passed = true;
     result.passed = true;
+    if (!finish_phase(JointParallelPhase::EvaluationFinalize)) {
+        result.tape.passed = false;
+        result.passed = false;
+        result.failure = parallel.failure;
+    }
     return result;
 }
 
@@ -11778,6 +11975,22 @@ JointOwnerHvp apply_joint_pressure_tape_owner_gather(
     const std::size_t total = fluid_count + neighborhood.support.size();
     const std::size_t directed = tape.directed_pair_indices.size();
     const JointOwnerGatherPlan& plan = tape.owner_gather_plan;
+    JointPhaseClock::time_point phase_start =
+        parallel != nullptr && parallel->phase_timing.enabled
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+    const auto finish_phase = [&](JointParallelPhase phase) {
+        if (parallel == nullptr || !parallel->phase_timing.enabled) {
+            return true;
+        }
+        const bool recorded = record_joint_parallel_phase(
+            parallel->phase_timing, phase, phase_start);
+        phase_start = JointPhaseClock::now();
+        if (!recorded) {
+            parallel->failed = true;
+            parallel->failure = "OWNER_HVP_PHASE_TIMING";
+        }
+        return recorded;
+    };
     if (!tape.passed || !plan.passed || direction.size() != total
         || tape.offsets.size() != fluid_count + 1U
         || plan.source_by_slot.size() != directed
@@ -11788,6 +12001,10 @@ JointOwnerHvp apply_joint_pressure_tape_owner_gather(
         return owner;
     }
     std::vector<double> compression_direction(fluid_count);
+    if (!finish_phase(JointParallelPhase::HvpSetup)) {
+        owner.failure = parallel->failure;
+        return owner;
+    }
     const auto fill_compression = [&](std::size_t begin,
                                       std::size_t end, int) {
         for (std::size_t center = begin; center < end; ++center) {
@@ -11826,6 +12043,10 @@ JointOwnerHvp apply_joint_pressure_tape_owner_gather(
         }
     } else {
         fill_compression(0U, fluid_count, 0);
+    }
+    if (!finish_phase(JointParallelPhase::HvpCompression)) {
+        owner.failure = parallel->failure;
+        return owner;
     }
     std::vector<Vec3> directed_value(directed);
     const auto fill_directed = [&](std::size_t begin,
@@ -11876,6 +12097,10 @@ JointOwnerHvp apply_joint_pressure_tape_owner_gather(
     } else {
         fill_directed(0U, fluid_count, 0);
     }
+    if (!finish_phase(JointParallelPhase::HvpDirected)) {
+        owner.failure = parallel->failure;
+        return owner;
+    }
     owner.value.resize(total);
     const auto fill_targets = [&](std::size_t begin,
                                   std::size_t end, int) {
@@ -11900,6 +12125,10 @@ JointOwnerHvp apply_joint_pressure_tape_owner_gather(
     } else {
         fill_targets(0U, total, 0);
     }
+    if (!finish_phase(JointParallelPhase::HvpTarget)) {
+        owner.failure = parallel->failure;
+        return owner;
+    }
     owner.directed_values = tape.active_directed;
     owner.target_gathers = plan.target_slots.size();
     owner.scratch_payload_bytes =
@@ -11914,6 +12143,10 @@ JointOwnerHvp apply_joint_pressure_tape_owner_gather(
             plan.payload_bytes + owner.scratch_payload_bytes);
     }
     owner.passed = true;
+    if (!finish_phase(JointParallelPhase::HvpFinalize)) {
+        owner.passed = false;
+        owner.failure = parallel->failure;
+    }
     return owner;
 }
 
@@ -12325,6 +12558,9 @@ JointPressureWorkspace build_joint_query_workspace(
     const JointPhaseClock::time_point topology_start =
         trace.phase_timing.enabled
         ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+    const JointPhaseClock::time_point parallel_topology_start =
+        trace.owner_parallel.phase_timing.enabled
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     if (trace.topology_cache != nullptr) {
         result.neighborhood = b4ep3_cached_topology(
             fluid, static_support, *trace.topology_cache,
@@ -12348,6 +12584,15 @@ JointPressureWorkspace build_joint_query_workspace(
             trace.phase_timing.topology_ns,
             trace.phase_timing.topology_calls);
     }
+    if (trace.owner_parallel.phase_timing.enabled
+        && !add_joint_parallel_duration(
+            trace.owner_parallel.phase_timing, parallel_topology_start,
+            trace.owner_parallel.phase_timing.topology_total_ns,
+            trace.owner_parallel.phase_timing.topology_calls)) {
+        result.failure = "OWNER_PARALLEL_TOPOLOGY_TIMING";
+        trace.exact = false;
+        return result;
+    }
     ++trace.neighborhood_builds;
     if (!result.neighborhood.passed) {
         result.failure = result.neighborhood.failure;
@@ -12361,6 +12606,9 @@ JointPressureWorkspace build_joint_query_workspace(
             trace.exact = false;
             return result;
         }
+        const JointPhaseClock::time_point parallel_evaluation_start =
+            trace.owner_parallel.phase_timing.enabled
+            ? JointPhaseClock::now() : JointPhaseClock::time_point{};
         JointEvaluationTape fused = trace.owner_parallel.enabled
             ? build_joint_evaluation_tape_owner_parallel_from_flat(
                 result.neighborhood, adjacency_work,
@@ -12371,6 +12619,17 @@ JointPressureWorkspace build_joint_query_workspace(
                     ? &trace.phase_timing : nullptr,
                 trace.owner_dataflow.enabled
                     ? &trace.owner_dataflow : nullptr);
+        if (trace.owner_parallel.phase_timing.enabled
+            && !add_joint_parallel_duration(
+                trace.owner_parallel.phase_timing,
+                parallel_evaluation_start,
+                trace.owner_parallel.phase_timing.evaluation_total_ns,
+                trace.owner_parallel.phase_timing.evaluation_calls)) {
+            ++trace.fusion_mismatches;
+            result.failure = "OWNER_PARALLEL_EVALUATION_TIMING";
+            trace.exact = false;
+            return result;
+        }
         ++trace.joint_evaluation_queries;
         ++trace.tape_builds;
         if (!fused.passed || !fused.tape.passed) {
@@ -12568,6 +12827,9 @@ std::vector<Vec3> smooth_hvp_joint_workspace(
     std::copy(direction.begin(), direction.end(), joint_direction.begin());
     const JointPhaseClock::time_point hvp_start = trace.phase_timing.enabled
         ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+    const JointPhaseClock::time_point parallel_hvp_start =
+        trace.owner_parallel.phase_timing.enabled
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     std::vector<Vec3> taped;
     if (trace.owner_parallel.enabled) {
         JointOwnerHvp owner = apply_joint_pressure_tape_owner_gather(
@@ -12587,6 +12849,14 @@ std::vector<Vec3> smooth_hvp_joint_workspace(
             trace.phase_timing, hvp_start,
             trace.phase_timing.hvp_apply_ns,
             trace.phase_timing.hvp_apply_calls);
+    }
+    if (trace.owner_parallel.phase_timing.enabled
+        && !add_joint_parallel_duration(
+            trace.owner_parallel.phase_timing, parallel_hvp_start,
+            trace.owner_parallel.phase_timing.hvp_total_ns,
+            trace.owner_parallel.phase_timing.hvp_calls)) {
+        trace.exact = false;
+        return std::vector<Vec3>(fluid_count);
     }
     audit_joint_owner_hvp(
         workspace, joint_direction, taped, trace);
@@ -13079,6 +13349,9 @@ std::vector<Vec3> pressure_hvp_joint_workspace(
     std::copy(direction.begin(), direction.end(), joint_direction.begin());
     const JointPhaseClock::time_point hvp_start = trace.phase_timing.enabled
         ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+    const JointPhaseClock::time_point parallel_hvp_start =
+        trace.owner_parallel.phase_timing.enabled
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     std::vector<Vec3> taped;
     if (trace.owner_parallel.enabled) {
         JointOwnerHvp owner = apply_joint_pressure_tape_owner_gather(
@@ -13098,6 +13371,14 @@ std::vector<Vec3> pressure_hvp_joint_workspace(
             trace.phase_timing, hvp_start,
             trace.phase_timing.hvp_apply_ns,
             trace.phase_timing.hvp_apply_calls);
+    }
+    if (trace.owner_parallel.phase_timing.enabled
+        && !add_joint_parallel_duration(
+            trace.owner_parallel.phase_timing, parallel_hvp_start,
+            trace.owner_parallel.phase_timing.hvp_total_ns,
+            trace.owner_parallel.phase_timing.hvp_calls)) {
+        trace.exact = false;
+        return std::vector<Vec3>(fluid_count);
     }
     audit_joint_owner_hvp(
         workspace, joint_direction, taped, trace);
@@ -19396,7 +19677,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     bool fuse_evaluation_tape = false,
     bool capture_phase_timing = false,
     bool audit_owner_dataflow = false,
-    int owner_parallel_workers = 0) {
+    int owner_parallel_workers = 0,
+    bool capture_parallel_phase_timing = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -19412,6 +19694,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     result.trace.owner_parallel.enabled = owner_parallel_workers != 0;
     result.trace.owner_parallel.requested_workers =
         owner_parallel_workers;
+    result.trace.owner_parallel.phase_timing.enabled =
+        capture_parallel_phase_timing;
     struct TopologyCachePointerReset {
         JointQueryTrace& trace;
         ~TopologyCachePointerReset() {
@@ -33716,6 +34000,23 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
     JointParallelTrace* owner_parallel = nullptr) {
     B4EP10DOwnerTopologyResult audit;
     JointNeighborhood& result = audit.neighborhood;
+    const bool timing_enabled = owner_parallel != nullptr
+        && owner_parallel->phase_timing.enabled;
+    JointPhaseClock::time_point phase_start = timing_enabled
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
+    const auto finish_phase = [&](JointParallelPhase phase) {
+        if (!timing_enabled) {
+            return true;
+        }
+        const bool recorded = record_joint_parallel_phase(
+            owner_parallel->phase_timing, phase, phase_start);
+        phase_start = JointPhaseClock::now();
+        if (!recorded) {
+            owner_parallel->failed = true;
+            owner_parallel->failure = "OWNER_TOPOLOGY_PHASE_TIMING";
+        }
+        return recorded;
+    };
     if (!superset.passed || !plan.passed
         || !canonicalize_joint_points(fluid_input, result.fluid)
         || result.fluid.size() != superset.fluid.size()
@@ -33766,6 +34067,10 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
     } else {
         fill_active(0U, superset.pairs.size(), 0);
     }
+    if (!finish_phase(JointParallelPhase::TopologyActive)) {
+        result.failure = owner_parallel->failure;
+        return audit;
+    }
     for (std::size_t pair_index = 0U;
          pair_index < superset.pairs.size(); ++pair_index) {
         if (prefix[pair_index]
@@ -33781,6 +34086,10 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
     audit.compacted_pairs = prefix.back();
     if (audit.compacted_pairs > pair_limit) {
         result.failure = "OWNER_FILTER_CAPACITY";
+        return audit;
+    }
+    if (!finish_phase(JointParallelPhase::TopologyPrefix)) {
+        result.failure = owner_parallel->failure;
         return audit;
     }
     result.pairs.resize(audit.compacted_pairs);
@@ -33803,12 +34112,20 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
     } else {
         compact_pairs(0U, superset.pairs.size(), 0);
     }
+    if (!finish_phase(JointParallelPhase::TopologyCompact)) {
+        result.failure = owner_parallel->failure;
+        return audit;
+    }
     for (const JointPair pair : result.pairs) {
         if (pair.participant < result.fluid.size()) {
             ++result.fluid_pairs;
         } else {
             ++result.support_pairs;
         }
+    }
+    if (!finish_phase(JointParallelPhase::TopologyMetadata)) {
+        result.failure = owner_parallel->failure;
+        return audit;
     }
     std::vector<std::size_t> degree(result.fluid.size());
     const auto count_rows = [&](std::size_t begin, std::size_t end, int) {
@@ -33831,6 +34148,10 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
         }
     } else {
         count_rows(0U, result.fluid.size(), 0);
+    }
+    if (!finish_phase(JointParallelPhase::TopologyRowCount)) {
+        result.failure = owner_parallel->failure;
+        return audit;
     }
     for (std::size_t center = 0U;
          center < result.fluid.size(); ++center) {
@@ -33858,6 +34179,10 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
     }
     result.flat_offsets[result.fluid.size()] =
         static_cast<std::uint32_t>(output);
+    if (!finish_phase(JointParallelPhase::TopologyOffsets)) {
+        result.failure = owner_parallel->failure;
+        return audit;
+    }
     const auto fill_rows = [&](std::size_t begin, std::size_t end, int) {
         for (std::size_t center = begin; center < end; ++center) {
             std::size_t row_output = result.flat_offsets[center];
@@ -33881,6 +34206,10 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
     } else {
         fill_rows(0U, result.fluid.size(), 0);
     }
+    if (!finish_phase(JointParallelPhase::TopologyRowFill)) {
+        result.failure = owner_parallel->failure;
+        return audit;
+    }
     result.distance_tests_per_pass = superset.pairs.size();
     result.construction_distance_tests = superset.pairs.size();
     result.maximum_degree = *std::max_element(degree.begin(), degree.end());
@@ -33899,6 +34228,10 @@ B4EP10DOwnerTopologyResult b4ep10d_owner_filter_superset(
         owner_parallel->maximum_added_payload_bytes = std::max(
             owner_parallel->maximum_added_payload_bytes,
             plan.payload_bytes + audit.scratch_payload_bytes);
+    }
+    if (!finish_phase(JointParallelPhase::TopologyFinalize)) {
+        result.passed = false;
+        result.failure = owner_parallel->failure;
     }
     return audit;
 }
@@ -33961,6 +34294,10 @@ JointNeighborhood b4ep3_cached_topology(
     FlatAdjacencyWorkTrace* adjacency_work,
     JointOwnerDataflowTrace* owner_dataflow,
     JointParallelTrace* owner_parallel) {
+    const JointPhaseClock::time_point owner_setup_start =
+        owner_parallel != nullptr
+            && owner_parallel->phase_timing.enabled
+        ? JointPhaseClock::now() : JointPhaseClock::time_point{};
     JointNeighborhood failure;
     ++cache.queries;
     if (cache.failed) {
@@ -34045,6 +34382,16 @@ JointNeighborhood b4ep3_cached_topology(
     }
     JointNeighborhood result;
     if (owner_parallel != nullptr) {
+        if (owner_parallel->phase_timing.enabled
+            && !record_joint_parallel_phase(
+                owner_parallel->phase_timing,
+                JointParallelPhase::TopologySetup,
+                owner_setup_start)) {
+            owner_parallel->failed = true;
+            owner_parallel->failure = "OWNER_TOPOLOGY_SETUP_TIMING";
+            failure.failure = owner_parallel->failure;
+            return failure;
+        }
         B4EP10DOwnerTopologyResult owner =
             b4ep10d_owner_filter_superset(
                 fluid, cache.superset, cache.owner_topology_plan,
@@ -36925,6 +37272,411 @@ SplitBoundaryReport run_nominal_hydro_owner_parallel_controls(
            << ",\"production_authority\":false"
            << ",\"result_sha256\":\""
            << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4EP10R1_IDENTITY_SHA256 =
+    "ab9f3e0bca369c80e0185d6c73cb8334ff4baa6a9aa8728758b6fe162975d638";
+constexpr const char* B4EP10R1_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep10r1-internal-parallel-phase-timing|v1|"
+    "parent=6a3b44a4012d23e9ff218e33ebfc896d4e61d566bc34affc42949f3ef68a4358:"
+    "1ceaa1eda36280916a2fad0a17a65532c6db29e3ab91ebacbb07e2ba574d89aa:"
+    "f034be427e9ca744391df7848e8c1237d6bda6485126dd1444e4286f6392ea03:"
+    "839fe1bb6fedadfafd5fe44866723026096124a89bf824ac2fd2c839787f5167|"
+    "implementation=abb7a06bdc16c3a906ce3b0e5d85f19a250dd9bd|"
+    "command=nominal-hydro-owner-parallel-phase-timing-8;workers=8;"
+    "affinity=0-7|clock=steady;opt-in;transaction-only;runs=3;"
+    "durations-excluded-result|topology=setup,active,prefix,compact,metadata,"
+    "row-count,offsets,row-fill,finalize;calls=226|evaluation=setup,pair,"
+    "metadata,density,center,plan,directed,target,finalize;calls=226|"
+    "hvp=setup,compression,directed,target,finalize;calls=459|"
+    "executor=regions3411;logical-partitions218304;region-wall;sum-active;"
+    "max-active;orchestration;imbalance|semantics=b4ep10i-common-"
+    "correspondence;old-commands-exact|stability=share-range<=0.05|"
+    "route=orchestration>=0.20=>persistent-region;imbalance>=0.20=>"
+    "partition-balance;else-stage-leader>=1.20=>stage-design;else=>"
+    "deeper-timing|timing=no-speed-claim;reference=closed|"
+    "credit=one-next-design-only";
+
+constexpr std::array<const char*, JOINT_PARALLEL_PHASE_COUNT>
+    B4EP10R1_PHASE_NAMES{{
+        "topology_setup", "topology_active", "topology_prefix",
+        "topology_compact", "topology_metadata", "topology_row_count",
+        "topology_offsets", "topology_row_fill", "topology_finalize",
+        "evaluation_setup", "evaluation_pair", "evaluation_metadata",
+        "evaluation_density", "evaluation_center", "evaluation_plan",
+        "evaluation_directed", "evaluation_target", "evaluation_finalize",
+        "hvp_setup", "hvp_compression", "hvp_directed", "hvp_target",
+        "hvp_finalize",
+    }};
+
+bool add_checked_u64(std::uint64_t value, std::uint64_t& total) {
+    if (value > std::numeric_limits<std::uint64_t>::max() - total) {
+        return false;
+    }
+    total += value;
+    return true;
+}
+
+bool sum_parallel_phases(
+    const JointParallelPhaseTimingTrace& timing,
+    std::size_t begin,
+    std::size_t end,
+    std::uint64_t& total) {
+    total = 0U;
+    for (std::size_t index = begin; index < end; ++index) {
+        if (!add_checked_u64(timing.phase_ns[index], total)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace
+
+SplitBoundaryReport
+run_nominal_hydro_owner_parallel_phase_timing_controls() {
+    constexpr int worker_count = 8;
+    omp_set_dynamic(0);
+    omp_set_max_active_levels(1);
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(fixture.position, fixture.velocity, 0));
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index = build_joint_static_support_index(
+        tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding = bind_joint_static_support_index(
+        &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4EP10R1_IDENTITY_PROJECTION)
+            == B4EP10R1_IDENTITY_SHA256
+        && omp_get_dynamic() == 0 && omp_get_max_active_levels() == 1
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297";
+
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    JointTopologySupersetCache cache;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        const JointPhaseClock::time_point transaction_start =
+            JointPhaseClock::now();
+        transaction = run_macro_adaptive_transaction_case(
+            "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
+            false, true, nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work, false,
+            &cache, true, true, false, false, worker_count, true);
+        add_joint_parallel_duration(
+            transaction.trace.owner_parallel.phase_timing,
+            transaction_start,
+            transaction.trace.owner_parallel.phase_timing.transaction_total_ns,
+            transaction.trace.owner_parallel.phase_timing.transaction_calls);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const double energy_allowance = 0.01 * std::max({
+        std::abs(parent.initial_mechanical),
+        static_cast<double>(fixture.position.size()) * MASS
+            * (-fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
+    const double candidate_active_ratio = b4ep3i_candidate_active_ratio(cache);
+    const bool parent_exact = parent.passed
+        && parent.workspace_state_hashes == 1
+        && parent.workspace_state_hashes_skipped == 0;
+    const bool transaction_exact = b4ep1_queries_work_only_exact(
+            transaction.trace)
+        && transaction.trace.query_chain_sha256
+            == "6a220a4e6f4d6d06ab54fe043a9ddf49606aae40e598e43f1c331c78b7802991";
+    const bool physics_exact = b4ep1_frozen_physics_exact(
+            transaction, output, energy_creation)
+        && b4e1m_levels_exact(transaction)
+        && transaction.accepted_private.maximum_mechanical_energy
+            == parent.initial_mechanical
+        && energy_creation <= energy_allowance;
+    const bool cache_exact = transaction.passed && !cache.failed
+        && cache.queries == 226U && cache.rebuilds == 1U
+        && cache.reuses == 225U && cache.certificate_passes == 225U
+        && cache.certificate_failures == 0U && cache.fallback_builds == 0U
+        && cache.maximum_candidate_degree == 122U
+        && cache.active_pair_visits == 85716150U
+        && std::isfinite(candidate_active_ratio)
+        && candidate_active_ratio <= 1.25;
+    const bool coefficient_exact = transaction.passed
+        && transaction.trace.coefficient_tape_builds == 226U
+        && transaction.trace.coefficient_pairs == 85716150U
+        && transaction.trace.coefficient_kernel_evaluations == 171432300U
+        && transaction.trace.coefficient_hvp_lookups == 971831424U
+        && transaction.trace.coefficient_mismatches == 0U
+        && transaction.trace.coefficient_fallbacks == 0U;
+    const bool fusion_exact = transaction.passed
+        && transaction.trace.fused_workspace_builds == 226U
+        && transaction.trace.fused_pair_visits == 85716150U
+        && transaction.trace.fused_active_directed_visits == 131987230U
+        && transaction.trace.fused_center_visits == 1356000U
+        && transaction.trace.fusion_mismatches == 0U
+        && transaction.trace.fusion_fallbacks == 0U;
+    const bool work_exact = transaction.passed
+        && transaction.trace.total_pairs == 85716150U
+        && transaction.trace.total_active_directed == 131987230U
+        && transaction.trace.total_fluid_centers == 1356000U
+        && static_work.static_index_builds == 1U
+        && static_work.workspace_builds == 227U
+        && adjacency_work.workspace_builds == 227U
+        && adjacency_work.flat_offset_records == 1362227U
+        && adjacency_work.flat_pair_index_records == 151461068U
+        && adjacency_work.csr_ownership_transfers == 227U
+        && transaction.retention.transfers == 42
+        && transaction.retention.reads == 42
+        && transaction.retention.releases == 42
+        && transaction.retention.live_retained == 0;
+    const JointParallelTrace& parallel = transaction.trace.owner_parallel;
+    const bool parallel_exact = transaction.passed && parallel.enabled
+        && parallel.requested_workers == worker_count && !parallel.failed
+        && parallel.regions == 3411U
+        && parallel.logical_partitions == 218304U
+        && parallel.minimum_observed_team == worker_count
+        && parallel.maximum_observed_team == worker_count
+        && parallel.team_mismatches == 0U
+        && parallel.coverage_mismatches == 0U
+        && parallel.worker_failures == 0U
+        && parallel.topology_calls == 226U
+        && parallel.topology_pair_flags == cache.filtered_candidate_checks
+        && parallel.topology_compacted_pairs == transaction.trace.total_pairs
+        && parallel.evaluation_calls == 226U
+        && parallel.evaluation_density_gathers
+            == transaction.trace.total_directed
+        && parallel.evaluation_directed_values
+            == transaction.trace.total_active_directed
+        && parallel.evaluation_target_gathers
+            == 2U * parallel.evaluation_directed_values
+        && parallel.plan_builds == 226U && parallel.hvp_calls == 459U
+        && parallel.hvp_directed_values
+            == transaction.trace.coefficient_hvp_lookups / 4U
+        && parallel.hvp_target_gathers
+            == 2U * parallel.hvp_directed_values;
+
+    const std::string base_work_receipt = b4ep5_work_receipt(
+        parent, index, transaction, static_work, adjacency_work,
+        cache, candidate_active_ratio);
+    std::ostringstream work_material;
+    work_material << "nextengine.nonlocal.nsr3b4ep7i-work|v1|"
+                  << base_work_receipt << '|'
+                  << transaction.trace.fused_workspace_builds << ':'
+                  << transaction.trace.fused_pair_visits << ':'
+                  << transaction.trace.fused_active_directed_visits << ':'
+                  << transaction.trace.fused_center_visits << ':'
+                  << transaction.trace.fused_radius_evaluations << ':'
+                  << transaction.trace.fused_gradient_evaluations << ':'
+                  << transaction.trace.fused_second_evaluations << ':'
+                  << transaction.trace.fused_compression_evaluations;
+    const std::string work_receipt = sha256_hex(work_material.str());
+    std::ostringstream correspondence_material;
+    correspondence_material
+        << "nextengine.nonlocal.nsr3b4ep10i-correspondence|v1|"
+        << output.frame_root << ':' << output.aggregate_root << '|'
+        << transaction.trajectory_sha256 << ':'
+        << transaction.legacy_ledger_sha256 << ':'
+        << transaction.policy_ledger_sha256 << '|'
+        << transaction.trace.query_chain_sha256 << '|'
+        << base_work_receipt << ':' << work_receipt << '|'
+        << parallel.regions << ':' << parallel.logical_partitions << '|'
+        << parallel.topology_calls << ':' << parallel.topology_pair_flags
+        << ':' << parallel.topology_compacted_pairs << '|'
+        << parallel.evaluation_calls << ':'
+        << parallel.evaluation_density_gathers << ':'
+        << parallel.evaluation_directed_values << ':'
+        << parallel.evaluation_target_gathers << ':'
+        << parallel.plan_builds << '|' << parallel.hvp_calls << ':'
+        << parallel.hvp_directed_values << ':'
+        << parallel.hvp_target_gathers << '|'
+        << parallel.maximum_added_payload_bytes << '|'
+        << parent_exact << ':' << transaction_exact << ':' << physics_exact
+        << ':' << cache_exact << ':' << coefficient_exact << ':'
+        << fusion_exact << ':' << work_exact << ':' << true;
+    const std::string correspondence_sha256 = sha256_hex(
+        correspondence_material.str());
+    const bool correspondence_exact = correspondence_sha256
+        == "917a04d31bb849a9bee5dd190ad6d15e07c9c90a9c2822130ae1adac6ebcb4ca";
+
+    const JointParallelPhaseTimingTrace& timing = parallel.phase_timing;
+    bool calls_exact = timing.enabled && timing.transaction_calls == 1U
+        && timing.topology_calls == 226U
+        && timing.evaluation_calls == 226U && timing.hvp_calls == 459U
+        && timing.executor_regions == 3411U;
+    for (std::size_t phase = 0U;
+         calls_exact && phase < JOINT_PARALLEL_PHASE_COUNT; ++phase) {
+        const std::size_t expected = phase < 18U ? 226U : 459U;
+        calls_exact = timing.phase_calls[phase] == expected
+            && timing.phase_ns[phase] > 0U;
+    }
+    std::uint64_t topology_components = 0U;
+    std::uint64_t evaluation_components = 0U;
+    std::uint64_t hvp_components = 0U;
+    const bool component_sums_safe = sum_parallel_phases(
+            timing, 0U, 9U, topology_components)
+        && sum_parallel_phases(timing, 9U, 18U, evaluation_components)
+        && sum_parallel_phases(
+            timing, 18U, JOINT_PARALLEL_PHASE_COUNT, hvp_components);
+    std::uint64_t stage_sum = 0U;
+    const bool stage_sum_safe = add_checked_u64(
+            timing.topology_total_ns, stage_sum)
+        && add_checked_u64(timing.evaluation_total_ns, stage_sum)
+        && add_checked_u64(timing.hvp_total_ns, stage_sum);
+    const bool capacity_multiply_safe =
+        timing.executor_region_wall_ns
+            <= std::numeric_limits<std::uint64_t>::max() / worker_count
+        && timing.executor_max_active_ns
+            <= std::numeric_limits<std::uint64_t>::max() / worker_count;
+    const std::uint64_t wall_capacity = capacity_multiply_safe
+        ? worker_count * timing.executor_region_wall_ns : 0U;
+    const std::uint64_t maximum_capacity = capacity_multiply_safe
+        ? worker_count * timing.executor_max_active_ns : 0U;
+    const bool capacity_ordered = capacity_multiply_safe
+        && timing.executor_active_ns <= maximum_capacity
+        && maximum_capacity <= wall_capacity;
+    const std::uint64_t imbalance_capacity = capacity_ordered
+        ? maximum_capacity - timing.executor_active_ns : 0U;
+    const std::uint64_t orchestration_capacity = capacity_ordered
+        ? wall_capacity - maximum_capacity : 0U;
+    std::uint64_t reconstructed_capacity = timing.executor_active_ns;
+    const bool capacity_identity = capacity_ordered
+        && add_checked_u64(imbalance_capacity, reconstructed_capacity)
+        && add_checked_u64(orchestration_capacity, reconstructed_capacity)
+        && reconstructed_capacity == wall_capacity;
+    const bool timing_exact = calls_exact && component_sums_safe
+        && topology_components <= timing.topology_total_ns
+        && evaluation_components <= timing.evaluation_total_ns
+        && hvp_components <= timing.hvp_total_ns
+        && stage_sum_safe && stage_sum <= timing.transaction_total_ns
+        && timing.transaction_total_ns > 0U
+        && timing.topology_total_ns > 0U
+        && timing.evaluation_total_ns > 0U && timing.hvp_total_ns > 0U
+        && timing.executor_region_wall_ns > 0U
+        && capacity_identity && timing.failures == 0U;
+    const std::uint64_t residual_ns = stage_sum_safe
+            && stage_sum <= timing.transaction_total_ns
+        ? timing.transaction_total_ns - stage_sum : 0U;
+    const double active_share = wall_capacity > 0U
+        ? static_cast<double>(timing.executor_active_ns)
+            / static_cast<double>(wall_capacity) : 0.0;
+    const double imbalance_share = wall_capacity > 0U
+        ? static_cast<double>(imbalance_capacity)
+            / static_cast<double>(wall_capacity) : 0.0;
+    const double orchestration_share = wall_capacity > 0U
+        ? static_cast<double>(orchestration_capacity)
+            / static_cast<double>(wall_capacity) : 0.0;
+
+    const bool passed = identity_exact && parent_exact && transaction_exact
+        && physics_exact && cache_exact && coefficient_exact && fusion_exact
+        && work_exact && parallel_exact && correspondence_exact && timing_exact;
+    std::string failure;
+    if (!identity_exact) {
+        failure = "IDENTITY_OR_RUNTIME";
+    } else if (!transaction.passed) {
+        failure = "TRANSACTION:" + transaction.failure;
+    } else if (!parent_exact || !transaction_exact || !physics_exact) {
+        failure = "PHYSICS_CORRESPONDENCE";
+    } else if (!cache_exact || !coefficient_exact
+            || !fusion_exact || !work_exact || !parallel_exact
+            || !correspondence_exact) {
+        failure = "WORK_CORRESPONDENCE";
+    } else if (!timing_exact) {
+        failure = "PARALLEL_PHASE_TIMING";
+    }
+    std::ostringstream semantic_material;
+    semantic_material << (passed ? "PASS|" : "FAIL|") << failure
+        << '|' << B4EP10R1_IDENTITY_SHA256 << '|'
+        << correspondence_sha256 << '|' << timing.transaction_calls << ':'
+        << timing.topology_calls << ':' << timing.evaluation_calls << ':'
+        << timing.hvp_calls << ':' << timing.executor_regions << '|'
+        << calls_exact << ':' << capacity_identity << ':'
+        << timing.failures;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4ep10r1_internal_parallel_timing.v1\""
+           << ",\"identity_sha256\":\"" << B4EP10R1_IDENTITY_SHA256
+           << "\",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"identity_exact\":"
+           << (identity_exact ? "true" : "false")
+           << ",\"correspondence_sha256\":\""
+           << correspondence_sha256 << '"'
+           << ",\"correspondence_exact\":"
+           << (correspondence_exact ? "true" : "false")
+           << ",\"roots\":{\"frame\":\"" << output.frame_root
+           << "\",\"aggregate\":\"" << output.aggregate_root
+           << "\",\"trajectory\":\"" << transaction.trajectory_sha256
+           << "\",\"legacy_ledger\":\""
+           << transaction.legacy_ledger_sha256
+           << "\",\"policy_ledger\":\""
+           << transaction.policy_ledger_sha256 << "\"}"
+           << ",\"phase_timing\":{\"clock\":\"steady_clock\""
+           << ",\"workers\":" << worker_count
+           << ",\"transaction_total_ns\":"
+           << timing.transaction_total_ns
+           << ",\"topology_total_ns\":" << timing.topology_total_ns
+           << ",\"evaluation_total_ns\":" << timing.evaluation_total_ns
+           << ",\"hvp_total_ns\":" << timing.hvp_total_ns
+           << ",\"residual_ns\":" << residual_ns
+           << ",\"transaction_calls\":" << timing.transaction_calls
+           << ",\"topology_calls\":" << timing.topology_calls
+           << ",\"evaluation_calls\":" << timing.evaluation_calls
+           << ",\"hvp_calls\":" << timing.hvp_calls
+           << ",\"subphases\":[";
+    for (std::size_t phase = 0U;
+         phase < JOINT_PARALLEL_PHASE_COUNT; ++phase) {
+        if (phase != 0U) {
+            report << ',';
+        }
+        report << "{\"name\":\"" << B4EP10R1_PHASE_NAMES[phase]
+               << "\",\"ns\":" << timing.phase_ns[phase]
+               << ",\"calls\":" << timing.phase_calls[phase] << '}';
+    }
+    report << "]}"
+           << ",\"executor_capacity\":{\"regions\":"
+           << timing.executor_regions
+           << ",\"logical_partitions\":" << parallel.logical_partitions
+           << ",\"region_wall_ns\":"
+           << timing.executor_region_wall_ns
+           << ",\"wall_capacity_ns\":" << wall_capacity
+           << ",\"active_ns\":" << timing.executor_active_ns
+           << ",\"maximum_active_capacity_ns\":" << maximum_capacity
+           << ",\"imbalance_ns\":" << imbalance_capacity
+           << ",\"orchestration_ns\":" << orchestration_capacity
+           << ",\"active_share\":" << active_share
+           << ",\"imbalance_share\":" << imbalance_share
+           << ",\"orchestration_share\":" << orchestration_share
+           << ",\"identity_exact\":"
+           << (capacity_identity ? "true" : "false") << '}'
+           << ",\"calls_exact\":" << (calls_exact ? "true" : "false")
+           << ",\"timing_exact\":"
+           << (timing_exact ? "true" : "false")
+           << ",\"durations_excluded_from_result\":true"
+           << ",\"throughput_claim\":false"
+           << ",\"b4e2_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(semantic_material.str()) << "\"}";
     return {passed, report.str()};
 }
 

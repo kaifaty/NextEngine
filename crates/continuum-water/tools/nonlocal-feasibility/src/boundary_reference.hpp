@@ -93,5 +93,7 @@ SplitBoundaryReport
 run_nominal_hydro_owner_computes_dataflow_audit_controls();
 SplitBoundaryReport
 run_nominal_hydro_owner_parallel_controls(int worker_count);
+SplitBoundaryReport
+run_nominal_hydro_owner_parallel_phase_timing_controls();
 
 } // namespace nextengine::nonlocal::fcr
