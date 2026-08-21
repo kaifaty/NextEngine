@@ -1,6 +1,6 @@
 # NSR3-B4EP10S -- owner-parallel serialized scaling contract
 
-Status: `FROZEN / EXECUTION_AUTHORIZED`
+Status: `CLOSED / PASS / B4EP10R_PROFILE_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -88,3 +88,12 @@ implementation result.
 
 This experiment cannot claim broad-corpus throughput, 50k scaling, real-time,
 runtime/GPU readiness or production suitability. B4E2 remains blocked.
+
+## Closure
+
+B4EP10S passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10s-owner-parallel-scaling-evidence-2026-08-22.md).
+The frozen knee rule selects 8 workers at median `1.2370200585216442x`
+same-round speedup and 6.421 median effective cores. Worker 16 is only 1.70%
+faster while consuming nearly twice the CPU. This authorizes only B4EP10R
+selected-count residual profile research.

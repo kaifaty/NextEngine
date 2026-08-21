@@ -1,6 +1,6 @@
 # NSR3-B4EP10S serialized scaling design research -- 2026-08-22
 
-Status: `COMPLETE / BALANCED_PHYSICAL_CORE_SCALING_SELECTED`
+Status: `COMPLETE / OWNER_PARALLEL_8_SELECTED / B4EP10R_NEXT`
 
 ## Question
 
@@ -81,5 +81,7 @@ public schema or production claims.
 
 ## Decision
 
-Freeze B4EP10S with the three-round physical-core design. Do not run or alter
-the matrix until its exact identity is committed.
+The [dated evidence](nonlocal-nsr3b4ep10s-owner-parallel-scaling-evidence-2026-08-22.md)
+passes all gates and selects 8 workers. Retain that host-specific count and
+research B4EP10R residual attribution before another optimization. Do not
+generalize the result to runtime or production.

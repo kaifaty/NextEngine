@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10S_FROZEN / SERIALIZED_SCALING_EXECUTION` |
+| Status | `ACTIVE / NSR3B4EP10S_PASS / B4EP10R_PROFILE_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -253,8 +253,14 @@
   serialized S/1/2/4/8/16 rounds pinned to distinct physical cores. It selects
   the smallest count within 3% of the fastest median only after speed,
   utilization, stability and exactness gates.
-- **Next action:** execute the frozen B4EP10S matrix exactly once and route to
-  B4EP10R only on PASS. Do not run conditions concurrently.
+- **Current conclusion:** B4EP10S selects 8 workers. Median wall falls from
+  7.313827799 s serial to 5.912456915 s (`1.237020x`) with 6.421 effective
+  cores; 16 workers are only 1.70% faster at 12.488 effective cores.
+- **Performance problem:** owner-computes at one worker takes 11.416808981 s,
+  exposing about 4.10 s of transpose/region/memory overhead before scaling.
+  The result is far below B4EP9's idealized parallel-fraction ceiling.
+- **Next action:** research and freeze B4EP10R residual attribution at the
+  selected 8-worker count. Do not add threads or another optimization first.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -324,6 +330,7 @@
 | NSR3B4EP10I contract | opt-in OpenMP owner-computes at `1/2/4/8/16` workers | implement/correspondence only; timing deferred to B4EP10S |
 | NSR3B4EP10I PASS | common exact correspondence at all worker counts; exact 16-worker repeat | B4EP10S serialized scaling contract research only |
 | NSR3B4EP10S contract | three balanced serialized physical-core rounds | execute timing only; host-specific selection or serial fallback |
+| NSR3B4EP10S PASS | 8 workers, median `1.237020x`, 6.421 effective cores | B4EP10R selected-count residual profiling research only |
 
 Candidate solver identity remains:
 
@@ -395,6 +402,7 @@ production authority is created by this lineage.
 | [B4EP10I research](../nonlocal-nsr3b4ep10i-openmp-implementation-research-2026-08-22.md) | OpenMP static logical-partition executor selected | implement exact cross-count gate; no timing until B4EP10S |
 | [B4EP10I](../nonlocal-nsr3b4ep10i-owner-parallel-evidence-2026-08-22.md) | exact cross-count correspondence and fail-closed negatives | freeze balanced serialized scaling before any speedup claim |
 | [B4EP10S research](../nonlocal-nsr3b4ep10s-scaling-design-research-2026-08-22.md) | physical-core affinity and short balanced matrix selected | execute frozen scaling contract without concurrent conditions |
+| [B4EP10S](../nonlocal-nsr3b4ep10s-owner-parallel-scaling-evidence-2026-08-22.md) | 8-worker host-specific knee passes every frozen gate | attribute selected parallel residual before another change |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -754,6 +762,17 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** using unordered correspondence-process durations as a speedup
   result, enabling the backend by default or inferring production readiness.
 
+### D-035 -- Select the 8-core knee and attribute parallel overhead next
+
+- **Observation:** 8 workers improve exact whole-macro wall by `1.237020x`
+  and use 6.421 effective cores. Sixteen workers reduce wall only another
+  1.70% while raising effective use to 12.488 cores; one-worker owner dataflow
+  is about 4.10 s slower than serial.
+- **Decision:** retain 8 workers for this host/nominal research path and
+  profile the selected parallel residual before changing code again.
+- **Rejected:** selecting 16 from minimum wall alone, treating 23.70% wall
+  improvement as production readiness or optimizing without attribution.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -782,6 +801,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - B4EP9 measures a stable 92.19% median conservative parallelizable fraction
   over one exact nominal transaction. This is an architecture discriminator,
   not parallel throughput or production evidence.
+- B4EP10S selects 8 physical-core workers: median wall is 5.912456915 s versus
+  serial 7.313827799 s (`1.237020x`), with 6.421 effective cores. Sixteen
+  workers reach 5.813467075 s but consume 12.488 effective cores.
 
 ## Required context
 
@@ -796,10 +818,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Execute the frozen B4EP10S warmups and three serialized timing rounds with
-   exact affinity, stdout and resource gates.
-2. Route the measured result to B4EP10R or a retained serial fallback; do not
-   infer production readiness.
+1. Research the least intrusive exact B4EP10R attribution method for the
+   selected 8-worker command under the blocked Linux perf policy.
+2. Freeze and execute one residual profile before choosing another
+   optimization; do not infer production readiness.
 
 ## Reconsideration triggers
 

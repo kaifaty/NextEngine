@@ -1143,3 +1143,9 @@ selects three serialized balanced rounds on distinct physical cores. Its
 smallest count within 3% of the fastest median only after exactness, 3/3 wins,
 10% speedup, utilization and stability gates. B4EP10S is host-specific and
 authorizes at most a selected-count residual profile.
+B4EP10S passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10s-owner-parallel-scaling-evidence-2026-08-22.md).
+Eight workers are selected at `1.237020x` median same-round speedup and 6.421
+effective cores. Sixteen workers are only 1.70% faster while using nearly
+twice the CPU. This authorizes only B4EP10R selected-count residual profile
+research; one macro still takes 5.91 s.
