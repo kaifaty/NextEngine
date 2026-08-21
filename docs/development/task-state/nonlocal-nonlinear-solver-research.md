@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP6_PASS / B4EP7_EVALUATION_TAPE_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP6_PASS / B4EP7D_DATAFLOW_AUDIT_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -204,6 +204,9 @@
 - **Next action:** audit a single exact evaluation/base-tape discriminator;
   do not implement fusion or another cache before its arithmetic/ownership
   boundary is frozen.
+- **Current decision:** B4EP7D counts active directed records only after each
+  valid tape, derives `2N+D -> N` radius and `N+D -> N` gradient work, and
+  performs no fusion or timing.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -260,6 +263,7 @@
 | NSR3B4EP5 PASS | exact candidate and median `1.2482x` paired speedup | B4EP6 residual profiling/design only |
 | NSR3B4EP6 contract | one exact-output coefficient-candidate gprof profile | execute profile only; no optimization/B4E2 change |
 | NSR3B4EP6 PASS | workspace `4.66s` over HVP `3.45s`; eval/base `2.73s` | B4EP7 evaluation/base-tape research/design only |
+| NSR3B4EP7D contract | post-tape derived duplicate-work audit | implement/run twice only; no fusion/timing |
 
 Candidate solver identity remains:
 
@@ -318,6 +322,7 @@ production authority is created by this lineage.
 | [B4EP5](../nonlocal-nsr3b4ep5-hvp-coefficient-tape-evidence-2026-08-22.md) | exact physics/old bytes and median `1.2482x` paired speedup | retain coefficient tape for research; exact-profile residual before one next change |
 | [B4EP6 research](../nonlocal-nsr3b4ep6-coefficient-residual-attribution-research-2026-08-22.md) | old profile is invalid after 800M removed kernel calls | execute one exact-output profile with frozen leader rule |
 | [B4EP6](../nonlocal-nsr3b4ep6-coefficient-residual-attribution-evidence-2026-08-22.md) | workspace leads; evaluation/base tape dominates its subcategories | audit one exact fusion/reuse discriminator before implementation |
+| [B4EP7D research](../nonlocal-nsr3b4ep7d-evaluation-tape-dataflow-research-2026-08-22.md) | radius, gradient kernel and compression repeat across evaluation/tape | run derived-counter audit; freeze exact removable work before fusion |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -706,10 +711,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Audit exact dataflow and floating-point order between `evaluate_joint`,
-   radius/compression tape construction and coefficient population.
-2. Freeze at most one B4EP7 mechanical discriminator. Do not implement
-   fusion, parallelism, B4E2 or GPU work until that contract exists.
+1. Implement only the B4EP7D post-tape counters and dedicated audit command.
+2. Prove two-build repeat plus B4EP1/B4EP3/B4EP3I/B4EP5 byte regressions.
+   Do not implement or time fusion, parallelism, B4E2 or GPU work.
 
 ## Reconsideration triggers
 

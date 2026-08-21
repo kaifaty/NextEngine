@@ -1070,3 +1070,9 @@ Complete workspace leads HVP `1.3507x`; evaluation plus base pressure tape
 then leads topology/CSR `2.5046x`. This selects only B4EP7 research/design of
 an exact evaluation/base-tape mechanical discriminator. No implementation,
 B4E2, CUDA, runtime or production authority is created.
+The [B4EP7D research](../../development/nonlocal-nsr3b4ep7d-evaluation-tape-dataflow-research-2026-08-22.md)
+finds duplicate pair radius, gradient-kernel and compression work across
+evaluation and tape construction. Its
+[frozen contract](03b4ep7d-evaluation-tape-dataflow-contract.md) adds only
+post-tape derived counters and a dedicated audit command. Run that audit twice;
+do not implement fusion or time it yet.
