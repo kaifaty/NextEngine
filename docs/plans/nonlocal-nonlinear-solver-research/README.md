@@ -743,3 +743,10 @@ needed after initial evaluation. Its
 CSR pair indices once, evaluates through them and transfers their ownership
 to the tape. The isolated gate predeclares removal of `12,672/243` nested row
 objects and both sets of row sorts; B4D remains blocked until execution.
+B4C4C passes twice byte-identically in both isolated and full-parent modes;
+see the
+[dated evidence](../../development/nonlocal-nsr3b4c4c-flat-adjacency-evidence-2026-08-21.md).
+It removes duplicate construction of `1,223,663/9,623` directed records and
+both `12,672/243` row-sort passes while preserving the final tape, physics and
+all durable roots exactly. Freeze timing and complete-lane rollout separately;
+no whole-solver or production claim is authorized.

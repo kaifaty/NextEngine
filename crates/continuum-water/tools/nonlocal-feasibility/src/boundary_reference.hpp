@@ -74,5 +74,7 @@ SplitBoundaryReport run_static_support_index_controls();
 SplitBoundaryReport run_static_support_timing_controls();
 SplitBoundaryReport run_complete_static_index_probe_controls();
 SplitBoundaryReport run_complete_static_index_controls();
+SplitBoundaryReport run_flat_adjacency_probe_controls();
+SplitBoundaryReport run_flat_adjacency_controls();
 
 } // namespace nextengine::nonlocal::fcr

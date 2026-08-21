@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4C_FROZEN / B4C4C_EXECUTION` |
+| Status | `ACTIVE / NSR3B4C4C_PASS / B4C4CM_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -87,9 +87,13 @@
 - **Current conclusion:** B4C4B1 passes twice byte-identically at full raw
   `2dc13154...6146`. All eight lanes build one index, preserve exact A1
   results and remove every predeclared support record; rollback is clean.
-- **Current action:** audit and freeze B4C4C flat-only CSR without changing
-  pair discovery, static-index lifetime or solver arithmetic. B4D remains
-  blocked.
+- **Current conclusion:** B4C4C passes twice byte-identically at full raw
+  `2559f1c8...d425`. It removes duplicate construction of
+  `1,223,663/9,623` directed records and both `12,672/243` row-sort passes;
+  final tape, physics, query chains and durable roots remain bit-exact.
+- **Current action:** freeze an interleaved B4C4CM construction timing
+  discriminator, then freeze complete-lane CSR ownership separately. B4D
+  remains blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1782,6 +1786,22 @@
 - **Smallest next action:** implement the opt-in flat builder/tape transfer and
   run the frozen B4C4C one-macro correspondence and corruption controls.
 
+### D-087 -- Select isolated flat adjacency and measure before rollout
+
+- **Observation:** B4C4C preserves exact final tape/physics/roots while
+  removing one full directed-record construction and both row-sort passes.
+- **Decision:** select the isolated single-owner transfer candidate and
+  measure co-resident legacy/candidate construction over the frozen recorded
+  state corpus before complete-lane application.
+- **Rejected alternatives:** infer speed from work counts, infer whole-solver
+  speed from the full parent gate, or deploy the representation immediately.
+- **Consequence:** B4C4CM must time neighborhood + evaluation + tape creation,
+  validate exact output outside timing and apply no fitted speed threshold.
+- **Remaining uncertainty:** allocator/cache effect, end-to-end construction
+  speed and complete-lane rollback ownership.
+- **Smallest next action:** freeze B4C4CM protocol over the existing
+  `264/9` captured one-macro fluid-state corpora.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1794,9 +1814,8 @@
 
 ## Exact next action
 
-1. Execute frozen B4C4C flat-only CSR against the selected retained/static
-   one-macro baseline.
-2. If exact, freeze its timing discriminator and complete-lane rollout.
+1. Freeze and execute B4C4CM timing over the recorded one-macro states.
+2. Freeze and execute complete-lane flat-CSR ownership/rollback.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 
 ## Reconsideration triggers
