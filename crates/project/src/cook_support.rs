@@ -1,9 +1,7 @@
 //! Shared cook-time helpers: schema reference derivation, uniqueness
 //! validation and the ADR-044 text-catalog fallback closure check.
 //!
-//! These live outside `cook.rs` to keep each source file within the
-//! repository 1000-line limit. Behavior is unchanged; visibility is
-//! crate-local.
+//! These helpers are crate-local.
 
 use std::collections::BTreeSet;
 

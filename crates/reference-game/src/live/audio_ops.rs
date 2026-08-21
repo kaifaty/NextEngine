@@ -1,6 +1,5 @@
 //! Baseline audio operations of the live reference driver: per-tick audio
 //! scene publication, canonical PCM mixing and read-only accessors.
-//! Kept out of `live.rs` to respect the 1000-line source-file limit.
 
 use std::sync::Arc;
 

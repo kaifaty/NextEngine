@@ -1,6 +1,5 @@
 //! Live driver state structures: the durable live-state bundle and the exact
-//! recovery evidence of the interactive reference driver. Kept out of
-//! `live.rs` to respect the 1000-line source-file limit.
+//! recovery evidence of the interactive reference driver.
 
 use next_contracts::cognition::{AgentCognitionSnapshotV1, AgentMemorySnapshotV1};
 use next_contracts::ids::ContentHash;

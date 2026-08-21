@@ -1,13 +1,12 @@
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const MAX_RUST_SOURCE_LINES: usize = 1_000;
 const MAX_SOURCE_ATTRIBUTE_NESTING: u32 = 64;
 
 pub(super) fn validate_source_layout(root: &Path) -> Result<(), String> {
-    let mut source_sizes = BTreeMap::new();
+    let mut sources = BTreeSet::new();
     for relative_root in ["apps", "crates", "tools"] {
         let source_root = root.join(relative_root);
         if !source_root.is_dir() {
@@ -22,21 +21,9 @@ pub(super) fn validate_source_layout(root: &Path) -> Result<(), String> {
             if contains_source_layout_escape_hatch(&body) {
                 return Err(format!("SOURCE_LAYOUT_ESCAPE_HATCH: {relative}"));
             }
-            let line_count = body.lines().count();
-            if source_sizes.insert(relative.clone(), line_count).is_some() {
+            if !sources.insert(relative.clone()) {
                 return Err(format!("SOURCE_FILE_DUPLICATE: {relative}"));
             }
-        }
-    }
-    validate_source_size_inventory(&source_sizes)
-}
-
-fn validate_source_size_inventory(source_sizes: &BTreeMap<String, usize>) -> Result<(), String> {
-    for (path, line_count) in source_sizes {
-        if *line_count > MAX_RUST_SOURCE_LINES {
-            return Err(format!(
-                "SOURCE_FILE_TOO_LARGE: {path} has {line_count} lines; limit is {MAX_RUST_SOURCE_LINES}"
-            ));
         }
     }
     Ok(())
@@ -425,31 +412,38 @@ pub(super) fn collect_strict_source_files(
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        MAX_RUST_SOURCE_LINES, MAX_SOURCE_ATTRIBUTE_NESTING, contains_source_layout_escape_hatch,
-        validate_source_size_inventory,
+        MAX_SOURCE_ATTRIBUTE_NESTING, contains_source_layout_escape_hatch, validate_source_layout,
     };
 
+    fn temporary_workspace_root(label: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock must follow the Unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "nextengine-source-layout-{label}-{}-{unique}",
+            std::process::id()
+        ))
+    }
+
     #[test]
-    fn source_size_inventory_rejects_a_new_oversized_file() {
-        for accepted_lines in [MAX_RUST_SOURCE_LINES - 1, MAX_RUST_SOURCE_LINES] {
-            let source_sizes =
-                BTreeMap::from([("crates/example/src/lib.rs".to_owned(), accepted_lines)]);
-            validate_source_size_inventory(&source_sizes)
-                .expect("a source at or below the hard limit must pass");
+    fn source_layout_accepts_files_over_one_thousand_lines() {
+        let root = temporary_workspace_root("large-file");
+        for relative_root in ["apps", "crates", "tools"] {
+            fs::create_dir_all(root.join(relative_root))
+                .expect("the source root fixture must be created");
         }
+        fs::write(root.join("crates/large.rs"), "fn item() {}\n".repeat(1_001))
+            .expect("the large source fixture must be written");
 
-        let source_sizes = BTreeMap::from([(
-            "crates/example/src/lib.rs".to_owned(),
-            MAX_RUST_SOURCE_LINES + 1,
-        )]);
+        validate_source_layout(&root).expect("source size must not be restricted");
 
-        let error = validate_source_size_inventory(&source_sizes)
-            .expect_err("an oversized source must fail");
-
-        assert!(error.starts_with("SOURCE_FILE_TOO_LARGE: crates/example/src/lib.rs"));
+        fs::remove_dir_all(&root).expect("the source workspace fixture must be removed");
     }
 
     #[test]

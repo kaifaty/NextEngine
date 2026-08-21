@@ -1,5 +1,4 @@
 //! Baseline-audio read API of the interactive simulation worker (A4).
-//! Kept out of `runtime.rs` to respect the 1000-line source-file limit.
 
 use super::*;
 

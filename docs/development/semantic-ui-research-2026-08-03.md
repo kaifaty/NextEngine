@@ -261,9 +261,8 @@ SPEC-24 (v1.0), SPEC-12 (v2.4), а также секции SPEC-17 о `Configura
 - **ADR граница**: новый text-catalog schema — semantic change к SPEC-24;
   оформить короткий ADR и синхронно обновить SPEC-24, routing table и
   traceability в том же change (правило AGENTS.md).
-- **File layout**: соблюдать действующий лимит ~1000 строк/файл в contracts
-  (см. прецедент переноса helpers в roadmap notes) и
-  `docs/development/source-layout.md`.
+- **File layout**: следовать рекомендациям по cohesive modules из
+  `docs/development/source-layout.md`; hard limit на число строк отсутствует.
 - **B-03/B-11**: пакет не закрывает lawful representative content; UI
   текст/placeholder контент для reference slice — engine-owned, provenance
   фиксируется как обычно.
