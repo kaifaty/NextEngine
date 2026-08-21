@@ -49,6 +49,7 @@ add_executable(
     src/formula_discriminators.cpp
     src/formula_reclosure.cpp
     src/formula_reclosure_main.cpp
+    src/reference_attestation.cpp
     src/sha256.cpp
     src/variational_reference.cpp
 )

@@ -1,6 +1,7 @@
 #include "boundary_reference.hpp"
 #include "formula_discriminators.hpp"
 #include "formula_reclosure.hpp"
+#include "reference_attestation.hpp"
 #include "variational_reference.hpp"
 
 #include <exception>
@@ -91,7 +92,8 @@ int main(int argc, char** argv) {
                          "--adaptive-accuracy-budget-probe|"
                          "--adaptive-accuracy-budget-self-test|"
                          "--workspace-reuse-diagnostic-probe|"
-                         "--workspace-reuse-diagnostic-self-test\n";
+                         "--workspace-reuse-diagnostic-self-test|"
+                         "--reference-attestation-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -766,6 +768,13 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--reference-attestation-self-test") {
+            const nextengine::nonlocal::fcr::ReferenceAttestationReport report =
+                nextengine::nonlocal::fcr::
+                    run_reference_attestation_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -861,7 +870,8 @@ int main(int argc, char** argv) {
                      "--complete-flat-adjacency-probe|"
                      "--complete-flat-adjacency-self-test|"
                      "--workspace-reuse-diagnostic-probe|"
-                     "--workspace-reuse-diagnostic-self-test\n";
+                     "--workspace-reuse-diagnostic-self-test|"
+                     "--reference-attestation-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';
