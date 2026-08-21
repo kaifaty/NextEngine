@@ -633,3 +633,11 @@ P2 remains within `0.18631/0.79151`, but its resolved adaptive/fine ratios are
 `60--100x` for position and `94x` for contact velocity. This authorizes only a
 two-axis B4C3MC1 design: unchanged physical accuracy budgets plus an independent
 temporal-reference classification, never an observed-ratio fit.
+The
+[B4C3MC1 design](../../development/nonlocal-nsr3b4c3mc1-adaptive-accuracy-budget-research-2026-08-21.md)
+freezes that separation in an
+[accuracy contract](03b4c3mc1-adaptive-accuracy-budget-contract.md). It reuses
+the B4B state, aggregate, kinetic and one-adaptive-substep onset limits exactly,
+while temporal evidence is classified as resolved ratio, floor coincidence or
+stable-reference separation. A PASS may select accuracy only for the two tiny
+research fixtures and authorize nominal-corpus design.

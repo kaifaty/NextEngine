@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3MC0_PASS / B4C3MC1_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3MC0_PASS / B4C3MC1_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -49,8 +49,9 @@
   independent claims. Design B4C3MC1 against unchanged B4B budgets and classify
   resolved, floor-coincident and stable-reference-separated fields without a
   fitted ratio threshold.
-- **Current action:** freeze B4C3MC1 two-axis comparison-budget contract.
-  Accuracy selection, nominal corpus, B4C4/B4D remain blocked.
+- **Current action:** implement frozen B4C3MC1 two-axis comparison-budget gate
+  and branch-discriminating negative controls. Nominal corpus and B4C4/B4D
+  remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
