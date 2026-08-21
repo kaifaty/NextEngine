@@ -710,3 +710,10 @@ while reducing P1/P2 records admitted to sorting by `91.54%/86.96%`. Split
 traversal also doubles ordered cell-range lookups, so complete-lane rollout is
 deferred until a separately frozen interleaved timing discriminator measures
 the net effect. B4C4C remains blocked.
+The
+[B4C4BM design](../../development/nonlocal-nsr3b4c4bm-static-support-timing-research-2026-08-21.md)
+freezes a
+[threshold-free timing contract](03b4c4bm-static-support-timing-contract.md)
+over all `264/9` recorded one-macro query states. It uses three warmups and 21
+alternating AB/BA paired rounds per fixture, validates exact outputs outside
+timing and reports robust statistics without a fitted speed gate.

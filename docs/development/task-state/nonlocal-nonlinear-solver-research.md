@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4B_PASS / B4C4BM_DESIGN` |
+| Status | `ACTIVE / NSR3B4C4B_PASS / B4C4BM_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -81,9 +81,9 @@
 - **Current conclusion:** B4C4B passes twice byte-identically at full raw
   `a0829e6c...5f28`. It preserves exact one-macro physics and removes
   `143,072/9,728` P1/P2 support sort records, but doubles range lookups.
-- **Current action:** freeze a threshold-free interleaved B4C4BM timing
-  discriminator before complete-lane application. Do not combine it with
-  B4C4C flat-only CSR. B4D remains blocked.
+- **Current action:** implement the frozen B4C4BM recorded-corpus benchmark:
+  three warmups, 21 alternating AB/BA rounds and exact untimed checksums for
+  all `264/9` P1/P2 workspace states. B4C4C and B4D remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1687,6 +1687,23 @@
 - **Smallest next action:** freeze repetitions, warmup, alternating order,
   reported statistics and stop/disposition rules before timing code.
 
+### D-082 -- Freeze recorded-corpus interleaved timing
+
+- **Observation:** construction is the only stage changed by B4C4B; full
+  solver timing would dilute the effect and parent timing would measure
+  unrelated correctness work.
+- **Decision:** capture the exact `264/9` retained one-macro fluid states, check
+  all outputs outside timing and measure 21 paired corpus passes after three
+  warmups, alternating AB/BA order.
+- **Rejected alternatives:** one initial-state microbenchmark, concurrent P1/P2
+  timing, timing index construction, or a speed threshold chosen without data.
+- **Consequence:** raw reports are intentionally non-repeatable in time fields;
+  parent/corpus/checksum semantic material must repeat across three runs.
+- **Remaining uncertainty:** measured direction, magnitude and stability across
+  independent processes.
+- **Smallest next action:** add opt-in corpus capture and a benchmark CLI whose
+  timed region contains only builder plus checksum accumulation.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1699,7 +1716,7 @@
 
 ## Exact next action
 
-1. Freeze and execute B4C4BM interleaved static-index timing.
+1. Implement and execute B4C4BM interleaved static-index timing.
 2. Use its threshold-free result to decide complete-lane application versus
    traversal redesign; only then approach B4C4C flat-only CSR.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
