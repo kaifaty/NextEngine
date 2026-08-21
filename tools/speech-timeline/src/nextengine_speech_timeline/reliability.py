@@ -535,6 +535,23 @@ def prepare_reliability_index(
     }
 
 
+def verify_indexed_audio(
+    store: Path,
+    row: Mapping[str, object],
+    source_id: str,
+    entry_id: str,
+    *,
+    maximum_samples: int = MAX_AUDIO_SAMPLES,
+) -> tuple[str, str, int]:
+    """Verify one externally stored indexed WAV and return its identity.
+
+    Public wrapper over the strict prepare-time verification: relative path
+    containment, SHA-256 match and the 16 kHz mono pcm_s16le WAV contract.
+    """
+
+    return _verify_indexed_wav(store, row, source_id, entry_id, maximum_samples)
+
+
 def assign_split(recipe: DatasetRecipe, source_id: str, partition_group_id: str) -> str:
     policy = recipe.split_policy
     if source_id in policy.forced_held_out_sources:

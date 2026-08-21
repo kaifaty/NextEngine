@@ -18,6 +18,11 @@ from .benchmark import (
     load_benchmark_wav,
     write_report,
 )
+from .corpus_replay import (
+    DEFAULT_TIMEOUT_SECONDS,
+    ReliabilityReplayError,
+    replay_corpus,
+)
 from .diagnostic_audio import DiagnosticAudioStore
 from .microphone_client import (
     ClientError,
@@ -150,6 +155,52 @@ def parser() -> argparse.ArgumentParser:
     )
     reliability_score.add_argument("--reference", required=True)
     reliability_score.add_argument("--hypothesis", required=True)
+    reliability_replay = reliability_commands.add_parser(
+        "replay",
+        help="replay one prepared hash-closed corpus through the resident service",
+    )
+    reliability_replay.add_argument("--manifest", type=Path, required=True)
+    reliability_replay.add_argument("--store", type=Path, required=True)
+    reliability_replay.add_argument("--prepared-index", type=Path, required=True)
+    reliability_replay.add_argument("--ready-file", type=Path, required=True)
+    reliability_replay.add_argument("--out-dir", type=Path, required=True)
+    reliability_replay.add_argument(
+        "--asr-model",
+        required=True,
+        help="one exact resident ASR route ID for the whole run",
+    )
+    reliability_replay.add_argument(
+        "--asr-delay-ms",
+        type=int,
+        choices=(480, 960, 2_400),
+        help="lock a supported ASR delay for every replayed turn",
+    )
+    reliability_replay.add_argument(
+        "--asr-audio-route",
+        choices=sorted(ASR_AUDIO_ROUTES),
+        default=ASR_AUDIO_ROUTE_RAW,
+        help="single ASR audio route for the whole run (default: raw)",
+    )
+    reliability_replay.add_argument(
+        "--mode",
+        choices=("paced", "unpaced"),
+        default="paced",
+        help="paced preserves realtime ingress shape (default)",
+    )
+    reliability_replay.add_argument("--limit", type=int)
+    reliability_replay.add_argument(
+        "--split",
+        action="append",
+        choices=("train", "calibration", "held_out"),
+        dest="splits",
+        help="restrict replay to a split; repeatable (default: all)",
+    )
+    reliability_replay.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=DEFAULT_TIMEOUT_SECONDS,
+        help="per-clip session timeout before a typed failure",
+    )
     return root
 
 
@@ -432,6 +483,40 @@ def main(argv: Sequence[str] | None = None) -> int:
                     flush=True,
                 )
                 return 0
+            if arguments.reliability_command == "replay":
+                ready = load_ready_file(arguments.ready_file)
+                report = asyncio.run(
+                    replay_corpus(
+                        ready,
+                        manifest_path=arguments.manifest,
+                        store=arguments.store,
+                        prepared_index_path=arguments.prepared_index,
+                        out_dir=arguments.out_dir,
+                        asr_model=arguments.asr_model,
+                        asr_audio_route=arguments.asr_audio_route,
+                        asr_delay_ms=arguments.asr_delay_ms,
+                        mode=arguments.mode,
+                        splits=(
+                            tuple(arguments.splits) if arguments.splits else None
+                        ),
+                        limit=arguments.limit,
+                        timeout_seconds=arguments.timeout_seconds,
+                    )
+                )
+                print(
+                    json.dumps(
+                        {
+                            "schema_version": 0,
+                            "status": report["status"],
+                            "report": report["written_files"]["report.json"],
+                            "counts": report["counts"],
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    flush=True,
+                )
+                return 0
             recipe = load_dataset_recipe(arguments.manifest)
             if arguments.reliability_command == "dry-run":
                 report = dry_run_reliability_corpus(recipe, arguments.store)
@@ -458,7 +543,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 flush=True,
             )
             return 0
-        except ReliabilityCorpusError as error:
+        except (ReliabilityCorpusError, ReliabilityReplayError, ClientError) as error:
             print(
                 json.dumps(
                     {

@@ -655,3 +655,74 @@ check:
   --reference "Привет, мир!" \
   --hypothesis "привет"
 ```
+
+## Recognition reliability feature capture (R1)
+
+Every completed utterance now carries a bounded internal diagnostic payload at
+`utterance.final` → `metrics.recognition_reliability_features`
+(`nextengine.speech-reliability.features`, schema
+`speech-reliability-features-v0`).  It folds the whole turn into fixed-size
+numeric features; no transcript history is serialized into any event.
+
+- Transcript revisions are folded by `TranscriptRevisionState`
+  (`reliability_features.py`) with O(1) memory: revision/non-empty counts,
+  audio and wall time of first text and last change, normalized Levenshtein
+  churn between consecutive revisions (`lev/max(1,len,len)`, initial
+  previous state is the empty string), cumulative/maximum churn,
+  stable-prefix ratio over the current normalized text, final-to-previous
+  edit distance, final word/character counts, utterance duration and typed
+  flags (`all_revisions_empty`, `final_empty`,
+  `text_appeared_then_vanished`, `final_matches_previous`).  Texts are
+  normalized with the same `ru-asr-normalize-v0` as corpus scoring.
+- Acoustic features keep raw PCM and the selected ASR route explicitly
+  separate (`acoustic.raw` / `acoustic.asr_route`): samples, RMS/peak dBFS,
+  non-zero ratio and clipping ratio (int16 saturation ≥ 32767).  Neither
+  branch retains audio.  VAD speech samples/ratio/segment count, calibrated
+  noise floor plus its source, route-minus-raw RMS/peak deltas complete the
+  group.
+- Runtime features record ingress frames, discontinuous-frame count,
+  ASR-route sample deficit, scheduler overload delta, ASR job failures,
+  preprocessor active/bypass state, algorithmic delay and exact identity:
+  selected model, adapter/runtime IDs, delay, partial-decode interval,
+  audio route and enhancer model identity.
+
+The payload fails closed: NaN/infinite values, unknown schema versions,
+missing identity fields or an unexpected adapter identity produce a typed
+incomplete payload (`completeness: "incomplete"`, stable `invalid_reason`)
+instead of a silently degraded vector.  It remains a tool-local experiment:
+no public engine contract changes, and intermediate ASR text is never
+gameplay authority.
+
+## Prepared-corpus replay through the resident service
+
+`reliability-corpus replay` sends every speech clip of one prepared
+hash-closed index through the real resident WebSocket path exactly once per
+clip — 16 kHz mono PCM in production 80 ms chunks, paced or unpaced, explicit
+finish, one locked ASR model/route for the whole run.  The runner refuses
+planned recipes, unclosed sources, tampered audio (every WAV is re-hashed)
+and any mismatch between the recipe's pinned adapter identity and the live
+service before touching the first clip.  Overload, turn overflow, timeout,
+no-speech, speech-but-empty and technical failures are recorded as typed
+outcomes; nothing is retried to green.
+
+```bash
+~/.cache/nextengine/emotion2vec-plus-base/venv/bin/next-speech-timeline \
+  reliability-corpus replay \
+  --manifest /path/outside/repository/speech-reliability/closed-recipe.json \
+  --store /path/outside/repository/speech-reliability \
+  --prepared-index /path/outside/repository/speech-reliability/prepared.jsonl \
+  --ready-file /path/outside/repository/speech-timeline-ready.json \
+  --out-dir /path/outside/repository/speech-reliability/replay-runs/run-001 \
+  --asr-model voxtral-realtime \
+  --asr-audio-route raw \
+  --mode paced
+```
+
+Outputs stay in the external directory with private (0600) permissions and
+are replaced atomically: `results.jsonl` (typed outcome, timing, deterministic
+WER/CER/exact-match against the prepared normalized reference),
+`features.jsonl` (the terminal reliability feature payload per clip),
+`trace.jsonl` (bounded per-revision metadata: delivery sample cursor, service
+elapsed ms, text and stable prefix, capped at 512 revisions per utterance
+with a truncation counter) and `report.json` (hashes, identities, run
+configuration and outcome counts; no transcript content).
