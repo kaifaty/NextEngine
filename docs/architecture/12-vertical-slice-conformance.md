@@ -4,7 +4,7 @@
 |---|---|
 | ID | SPEC-12 |
 | Статус | Accepted |
-| Версия | 5.0 |
+| Версия | 5.1 |
 | Последняя проверка | 2026-08-21 |
 | Нормативные зависимости | [SPEC-00](00-product-contract.md), [SPEC-01](01-system-architecture.md), [SPEC-03](03-assets-world-streaming-and-persistence.md), [SPEC-07](07-rpg-scripting-and-plugins.md), [SPEC-11](11-security-licensing-and-governance.md), [SPEC-15](15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-17](17-project-composition-configuration-and-application-lifecycle.md), [SPEC-20](20-world-simulation-and-population-lifecycle.md), [SPEC-21](21-deterministic-runtime-primitives-command-ledger-and-causal-identity.md), [SPEC-24](24-content-catalog-bundle-and-neutral-asset-schemas.md), [SPEC-25](25-world-partition-streaming-admission-and-persistent-spatial-objects.md), [SPEC-32](32-npc-cognition-intention-lifecycle-and-deterministic-behavior-inference.md), [ADR-030](adr/030-product-first-development-and-lightweight-validation.md), [ADR-036](adr/036-thoth-reference-performance-profile.md), [ADR-045](adr/045-low-overhead-hard-performance-evidence.md), [ADR-046](adr/046-consumer-driven-contracts-and-current-only-alpha-formats.md), [ADR-049](adr/049-performance-evidence-without-allocator-instrumentation.md), [ADR-051](adr/051-r3a-packaged-chunk-streaming-commit-boundary.md), [ADR-052](adr/052-derived-world-calendar-and-authored-routine-vertical.md), [ADR-060](adr/060-relaxed-thoth-performance-preflight.md), [ADR-061](adr/061-forty-percent-thoth-load-preflight.md), [ADR-062](adr/062-r5-physx-humanoid-performance-authority.md), [ADR-063](adr/063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-072](adr/072-deterministic-population-tier-and-graph-navigation-vertical.md), [ADR-073](adr/073-deterministic-cognition-owner-vertical.md), [ADR-074](adr/074-systemic-strategic-agent-owner-vertical.md), [ADR-082](adr/082-linux-first-development-and-deferred-windows-host.md), [ADR-083](adr/083-public-creator-project-cli-vertical.md), [ADR-084](adr/084-public-creator-run-and-project-package-vertical.md), [ADR-085](adr/085-public-creator-project-inspect-and-diff-vertical.md) |
 | Дополнительные зависимости V4.5 | [ADR-086](adr/086-public-creator-rpg-starter-template.md) |
@@ -13,7 +13,7 @@
 | Дополнительные зависимости V4.8 | [ADR-089](adr/089-governed-external-creator-sdk-workflow.md) |
 | Дополнительные зависимости V4.9 | [ADR-090](adr/090-linux-only-v1-and-indefinitely-deferred-windows.md) |
 | Дополнительные зависимости V5.0 | [ADR-091](adr/091-linux-release-performance-authority.md) |
-| Заменяет | SPEC-12 4.9; accepts the fail-closed Linux Performance V6 R2–R5 release gate without restoring Windows scope |
+| Заменяет | SPEC-12 5.0; retains the fail-closed Linux Performance V6 R2–R5 release gate and requires fresh-process isolation for every fixed-gate member |
 
 ## Назначение
 
@@ -375,7 +375,9 @@ ADR-091 Linux profile; report mode остаётся `REPORT_ONLY`.
 Baseline строится из десяти independent clean runs одного commit, каждый с
 полным start/postflight environment pair. Hard gate является одним fixed batch
 из трёх independent runs и не разрешает отбрасывать либо выборочно повторять
-его members. Raw samples сохраняются с explicit run boundaries. Absolute
+его members. Каждый member запускается отдельным процессом того же release
+binary, поэтому process high-water, allocator и vendor-runtime lifetime
+симметричны отдельным calibration runs. Raw samples сохраняются с explicit run boundaries. Absolute
 budgets применяются к worst per-run p95/p99; relative point estimate сравнивает
 median candidate-run p95 с median baseline-run p95, а deterministic 95%
 bootstrap resamples whole runs. Compatible relative regression `<2%` считается

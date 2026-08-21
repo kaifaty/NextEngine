@@ -4,7 +4,7 @@
 |---|---|
 | ID | ADR-091 |
 | Статус | Accepted |
-| Версия | 1.0 |
+| Версия | 1.1 |
 | Дата решения | 2026-08-21 |
 | Последняя проверка | 2026-08-21 |
 | Нормативные зависимости | [SPEC-00](../00-product-contract.md), [SPEC-04](../04-rendering-and-platform.md), [SPEC-09](../09-tooling-sdk-and-observability.md), [SPEC-12](../12-vertical-slice-conformance.md), [SPEC-15](../15-headless-testing-agent-validation-and-human-evidence.md), [SPEC-29](../29-platform-host-and-application-session.md), [SPEC-35](../35-deterministic-humanoid-training-substrate.md), [ADR-016](016-compositional-gameplay-budgets.md), [ADR-045](045-low-overhead-hard-performance-evidence.md), [ADR-049](049-performance-evidence-without-allocator-instrumentation.md), [ADR-062](062-r5-physx-humanoid-performance-authority.md), [ADR-063](063-run-level-performance-evidence-and-fixed-gate-batches.md), [ADR-090](090-linux-only-v1-and-indefinitely-deferred-windows.md) |
@@ -125,6 +125,13 @@ V6 additionally stores the canonical absolute budget beside every baseline
 metric and validates the scenario's full hard/diagnostic policy before baseline
 publication or gate comparison. V5 remains historical evidence only and is not
 decoded as current Linux authority.
+
+Each of the three fixed gate members executes in a fresh process of the same
+release binary. This makes gate members operationally symmetric with the ten
+fresh-process calibration reports and prevents cumulative process high-water,
+allocator or vendor-runtime state from leaking across independent evidence
+units. The parent process alone aggregates the three strict reports; it cannot
+drop, select or rerun a member.
 
 ## Failure semantics
 

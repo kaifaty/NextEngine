@@ -184,13 +184,19 @@ fn performance_gate_batch_report_for(
     request: &PerformanceArguments,
     state_root: Option<&Path>,
 ) -> Result<CommandReportV1<PerformanceDetailsV1>, String> {
+    if state_root.is_some() {
+        return Err("PERF_GATE_MEMBER_STATE_ROOT_UNSUPPORTED".to_owned());
+    }
+    if let Some(report) = gate_admission_failure(root, request) {
+        return Ok(report);
+    }
     let mut reports = Vec::with_capacity(
         usize::try_from(xtask::performance::HARD_GATE_EVIDENCE_RUNS)
             .map_err(|error| error.to_string())?,
     );
     for _ in 0..xtask::performance::HARD_GATE_EVIDENCE_RUNS {
-        let mut report = performance_report_once(root, request, state_root, false)?;
-        append_environment_postflight(request, &mut report, true);
+        let mut report = run_isolated_gate_member(root, request)?;
+        promote_report_to_gate_member(&mut report)?;
         let Some(run) = report.details.run.as_mut() else {
             return Err("PERF_GATE_RUN_EVIDENCE_MISSING".to_owned());
         };
@@ -205,6 +211,87 @@ fn performance_gate_batch_report_for(
         reports.push(report);
     }
     aggregate_gate_batch(request, reports)
+}
+
+fn gate_admission_failure(
+    root: &Path,
+    request: &PerformanceArguments,
+) -> Option<CommandReportV1<PerformanceDetailsV1>> {
+    let mut run = xtask::performance::PerformanceRunV6::empty(
+        request.scenario,
+        xtask::performance::PerformanceModeV1::Gate,
+        env!("NEXTENGINE_BUILD_PROFILE"),
+    );
+    populate_performance_identity(root, &mut run);
+    populate_performance_host(request, &mut run);
+    if let Some(diagnostic) = report_only_gate_diagnostic(request.scenario) {
+        run.diagnostics.push(diagnostic.to_owned());
+    }
+    validate_gate_prerequisites(request, &mut run);
+    if run.diagnostics.is_empty() {
+        None
+    } else {
+        run.diagnostics.sort();
+        run.diagnostics.dedup();
+        run.verdict = xtask::performance::PerformanceVerdict::NotRun;
+        Some(performance_command_report(
+            run, None, None, None, None, None,
+        ))
+    }
+}
+
+fn run_isolated_gate_member(
+    root: &Path,
+    request: &PerformanceArguments,
+) -> Result<CommandReportV1<PerformanceDetailsV1>, String> {
+    let executable = env::current_exe()
+        .map_err(|error| format!("PERF_GATE_MEMBER_EXECUTABLE_UNAVAILABLE: {error}"))?;
+    let target = request
+        .target
+        .as_deref()
+        .ok_or_else(|| "PERF_GATE_TARGET_REQUIRED".to_owned())?;
+    let output = Command::new(executable)
+        .args([
+            "performance",
+            "--scenario",
+            request.scenario.as_str(),
+            "--mode",
+            "report",
+            "--target",
+            target,
+            "--require-ready-preflight",
+        ])
+        .current_dir(root)
+        .output()
+        .map_err(|error| format!("PERF_GATE_MEMBER_LAUNCH_FAILED: {error}"))?;
+    serde_json::from_slice::<CommandReportV1<PerformanceDetailsV1>>(&output.stdout).map_err(
+        |error| {
+            format!(
+                "PERF_GATE_MEMBER_REPORT_INVALID: {error}; status={}; stderr={}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr).trim()
+            )
+        },
+    )
+}
+
+fn promote_report_to_gate_member(
+    report: &mut CommandReportV1<PerformanceDetailsV1>,
+) -> Result<(), String> {
+    if report.schema_version != 1 || report.command != "performance" {
+        return Err("PERF_GATE_MEMBER_REPORT_ENVELOPE_INVALID".to_owned());
+    }
+    let run = report
+        .details
+        .run
+        .as_mut()
+        .ok_or_else(|| "PERF_GATE_RUN_EVIDENCE_MISSING".to_owned())?;
+    run.mode = xtask::performance::PerformanceModeV1::Gate;
+    if run.verdict == xtask::performance::PerformanceVerdict::ReportOnly {
+        run.verdict = xtask::performance::aggregate_metric_verdict(&run.metrics);
+    }
+    report.status = run.verdict.command_report_status().to_owned();
+    Ok(())
 }
 
 fn append_environment_postflight(

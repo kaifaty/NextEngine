@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / R5_PREFLIGHT_SET_REJECTED / HOST_READY_NEXT` |
+| Status | `ACTIVE / R5_GATE_WARNING / PROCESS_ISOLATION_IN_PROGRESS` |
 | Updated | 2026-08-21 |
 | Task key | `r7c-linux-performance-authority` |
 | Scope | Accept one exact Linux release-performance profile and numeric policy, then collect compatible ten-run baselines and fixed three-run hard gates for the representative R2, R3, R4 and R5 workloads |
@@ -19,14 +19,17 @@
   accepted `335,544,320`-byte ceiling; every timing, restore, logical-memory,
   root and environment row passes. Commit `57739ea` fixes the retention defect,
   but its first evidence set is an immutable preflight rejection: post-build
-  one-minute CPU load was 41%, so no workload executed.
+  one-minute CPU load was 41%, so no workload executed. The next clean
+  `feae4f0` baseline is valid, but its sole fixed gate is `WARNING`: same-process
+  members accumulate Linux high-water/vendor-runtime state unlike the ten
+  fresh-process calibration runs.
 - **Why:** Diagnostic R3/R5 already passed their accepted rows and exact-root
   closure. Cached immutable catalog revisions reduce R4 navigation from roughly
   `4.24/4.79 ms` to `0.67/0.76 ms` and integrated production ticks from
   `15.43/16.10 ms` to `2.25/2.39 ms` p95/p99 without root changes.
-- **Next action:** Commit this material evidence transition after the observed
-  one-minute load falls below 40%, then collect a fresh complete exact-commit
-  evidence set without running build/test load immediately beforehand.
+- **Next action:** Execute every fixed-gate member in a fresh process of the
+  same release binary, retain parent-only aggregation and verify the conversion
+  plus hard-evidence path. Commit, then collect a fresh R5 baseline/gate set.
 - **Current blocker:** R2 only: the Linux session currently exposes no active
   physical display (`xrandr` 0×0, empty Mutter display state, NVIDIA display
   inactive), so the production Vulkan workload correctly returns `NOT_RUN`.
@@ -54,6 +57,7 @@
 | R5 first calibration run on `2bdd20c` | Immutable `FAIL`: process peak working set `355,880,960 / 335,544,320` bytes; all other rows and root parity pass under ready pre/postflight | Preserve the run; reduce live checkpoint retention on a new commit, never widen the accepted budget or retry unchanged |
 | R5 checkpoint-retention optimization | Production diagnostic `PASS`; peak working set falls to `191,184,896` bytes, exact root remains `6b6fee7492dc5ac600a6e75aa8a0c1aab830ee5174e797bbd1eaafe758c19f31`, worker parity remains true and diagnostics remain empty | Optimization is sufficient without changing budgets or authoritative results; commit before new evidence |
 | R5 calibration set on `57739ea` | Ten reports are typed `NOT_RUN` at preflight with CPU load `41%`; zero metrics and roots prove the workload never started | Preserve the rejected set; allow the one-minute load to settle, record the transition on a new commit and do not treat these entries as calibration runs |
+| R5 clean evidence on `feae4f0` | Ten-run baseline accepted; the sole fixed gate preserves exact root and passes every absolute row, but returns `WARNING` for relative 4/8-worker and peak-RSS variance | Preserve the gate; fix baseline/gate process-lifetime asymmetry on a new commit rather than rerunning it |
 
 ## Decisions that constrain the work
 
@@ -112,10 +116,9 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-After the one-minute Linux load average is below the accepted 40% threshold,
-commit this evidence transition and collect a fresh complete R2–R5 exact-commit
-set without immediately preceding compilation load. R2 still waits for an
-OS-visible physical display.
+Complete and verify fresh-process fixed-gate members, then commit and collect a
+fresh R5 set. Continue R3/R4 on the same commit only after R5 closes. R2 still
+waits for an OS-visible physical display.
 
 ## Do not retry
 
@@ -132,6 +135,8 @@ OS-visible physical display.
   relabel its recorded failure.
 - Any further calibration run on unchanged `57739ea`; its ten-entry preflight
   rejection is complete negative evidence even though the workload never ran.
+- Any further R5 gate on unchanged `feae4f0`; its `WARNING` is a complete fixed
+  batch and cannot be selected or repeated.
 
 ## Handoff
 
@@ -140,7 +145,9 @@ OS-visible physical display.
   fixes that boundary and closes R3/R4 evidence, but its first R5 report fails
   only the process peak. Commit `57739ea` contains the verified optimization,
   but its first ten-entry R5 set was rejected before execution because the
-  post-build one-minute CPU load was 41%.
+  post-build one-minute CPU load was 41%. Clean `feae4f0` publishes a valid R5
+  baseline and one immutable `WARNING` gate; fresh-process member isolation is
+  now the bounded implementation change.
 - **Checks:** Focused contracts/world/agent/verification tests pass; xtask
   performance lib tests pass `46/46`; workspace clippy is warning-free and the
   broad Linux `host-check` passes. Optimized dirty-worktree R4 report passes

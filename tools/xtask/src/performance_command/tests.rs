@@ -267,6 +267,36 @@ fn gate_batch_aggregation_keeps_runs_independent() {
 }
 
 #[test]
+fn report_member_promotion_restores_gate_mode_and_absolute_verdict() {
+    let mut run = xtask::performance::PerformanceRunV6::empty(
+        xtask::performance::PerformanceScenarioV1::R3MultiregionStreaming,
+        xtask::performance::PerformanceModeV1::Report,
+        "release",
+    );
+    run.metrics = vec![
+        xtask::performance::PerformanceMetricV1::from_samples(
+            "r3-multiregion-streaming.total",
+            "microseconds",
+            vec![1_500_001],
+            xtask::performance::canonical_budget_for_metric(
+                run.scenario,
+                "r3-multiregion-streaming.total",
+            ),
+        )
+        .expect("metric"),
+    ];
+    run.verdict = xtask::performance::PerformanceVerdict::ReportOnly;
+    let mut report = performance_command_report(run, None, None, None, None, None);
+
+    promote_report_to_gate_member(&mut report).expect("promote report member");
+
+    let run = report.details.run.expect("run");
+    assert_eq!(run.mode, xtask::performance::PerformanceModeV1::Gate);
+    assert_eq!(run.verdict, xtask::performance::PerformanceVerdict::Fail);
+    assert_eq!(report.status, "FAIL");
+}
+
+#[test]
 fn r5_gate_details_report_medians_and_worst_tails_across_the_fixed_batch() {
     let reports = [0_u64, 10, 20]
         .into_iter()
