@@ -64,14 +64,19 @@ unbounded canonical trajectory.
 ## Physics and ledger gates
 
 Every level retains B4C3TAR2's non-adaptive physical gates: finite state,
-capacity, pressure/contact activation, penetration, KKT/support closure,
-P1 center/density/speed, P2 canonical free-flight and terminal contact
-properties. Publication pressure and mechanical absolute-delta budgets remain
-`1%` of the independent case energy scale. Strict max-scale residual stays a
-finite diagnostic; compensated KKT-scale residual remains gated at `1e-9`.
+capacity, pressure/contact activation, KKT/support closure, P1
+center/density/speed, P2 canonical free-flight and terminal contact
+properties. The solved KKT state retains exact contact feasibility; decoded
+published geometry uses the already frozen one-quantum `1e-6 m` allowance.
+Publication pressure and mechanical absolute-delta budgets remain `1%` of the
+independent case energy scale. Strict max-scale residual stays a finite
+diagnostic; compensated KKT-scale residual remains gated at `1e-9`.
 
 Terminal contacts must equal the corresponding binary lane. P2 first-contact
 time may differ by no more than one fixed substep plus binary64 allowance.
+Mechanical-energy creation retains the canonical accounting rule: `1%` of the
+independent scale plus the explicitly measured cumulative absolute publication
+mechanical delta.
 
 ## Work and scheduling
 

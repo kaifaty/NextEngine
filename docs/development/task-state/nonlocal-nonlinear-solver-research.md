@@ -1171,6 +1171,27 @@
 - **Smallest next action:** implement isolated lane execution, convergence and
   rollback controls, then run the isolated report before parent-gated replay.
 
+### D-059 -- Preserve physical versus published feasibility semantics
+
+- **Observation:** the first B4C3TR draft copied binary64 penetration and COM
+  limits onto decoded microunit state, contradicting the already selected
+  B4C3TAR2 representation allowance. It also omitted the explicit publication
+  term from the canonical energy-creation allowance.
+- **Decision:** before any B4C3TR execution, restore the inherited canonical
+  bounds: decoded penetration `<=1e-6+64epsilon`, aggregate-balanced COM bound
+  `steps*0.5e-6/N+1e-10`, and energy creation `<=1% scale + cumulative
+  absolute publication mechanical delta`. The constrained KKT/contact and
+  ledger tolerances do not change.
+- **Rejected alternatives:** do not run a knowingly contradictory contract,
+  loosen KKT feasibility, hide quantization in a generic epsilon, or refit a
+  bound from future fixed-lane output.
+- **Consequence:** B4C3TR now tests the same two-stage physical/published state
+  semantics already proven by B4C3TAR2.
+- **Remaining uncertainty:** the much longer fixed lanes may accumulate enough
+  quantization energy or drift to exhaust these pre-existing allowances.
+- **Smallest next action:** implement the corrected frozen contract before any
+  fixed-lane measurement.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.

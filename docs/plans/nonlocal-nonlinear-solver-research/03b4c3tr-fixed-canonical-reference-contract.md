@@ -86,15 +86,19 @@ overlap as an observed convergence order.
 Each canonical lane must satisfy:
 
 - exact fluid count/mass, finite aggregates and inherited capacity limits;
-- contact and pressure activation, penetration `<=1e-12 m`, support closure
-  `<=1e-10` and compensated KKT ledger residual `<=1e-9`;
+- contact and pressure activation, decoded penetration
+  `<=1e-6 m + 64*epsilon`, support closure `<=1e-10` and compensated KKT
+  ledger residual `<=1e-9`; the underlying constrained solve retains its
+  unchanged contact feasibility gate;
 - finite strict residual diagnostic and exact publication correspondence;
-- P1 lateral drift `<=1e-10 m`, vertical center change `<=0.05dx`, density
-  strain `<=1e-3` and speed `<=0.01c`;
+- P1 lateral drift
+  `<=committed_steps*0.5e-6/fluid_count + 1e-10 m`, vertical center change
+  `<=0.05dx`, density strain `<=1e-3` and speed `<=0.01c`;
 - P2 canonical precontact free-flight bounds `<1e-6 m` and `<1e-6 m/s`,
   velocity spread/support-reaction/pressure gates, plus terminal pressure and
   contact activation;
-- no mechanical-energy creation above the inherited `1%` allowance;
+- no mechanical-energy creation above `1%` of the independent scale plus the
+  explicitly measured cumulative absolute publication mechanical delta;
 - cumulative absolute publication pressure and mechanical deltas each
   `<=1%` of the independently defined case energy scale.
 
