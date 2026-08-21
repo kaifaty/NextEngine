@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3MAR_PASS / ADAPTIVE_FIXED_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3MAR_PASS / B4C3MC0_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -41,8 +41,8 @@
 - **Current decision:** B4C3PE1 selects the macro-boundary canonical fixed
   reference candidate with 89 temporal, 55 absolute and zero rejected field/
   frame admissions. B4C3P remains the preserved legacy-tube FAIL.
-- **Current action:** design the adaptive-versus-fixed macro comparison against
-  the selected fixed `48/96/192` candidate. B4C4/B4D remain blocked.
+- **Current action:** implement frozen threshold-free B4C3MC0 adaptive-versus-
+  fixed diagnostic. Accuracy selection/B4C4/B4D remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1464,6 +1464,22 @@
   fixed-192 and its temporal uncertainty has not been measured.
 - **Smallest next action:** freeze comparison fields and admission before run.
 
+### D-073 -- Measure adaptive accuracy before assigning a budget
+
+- **Observation:** fixed macro `96/192` supplies an independent temporal scale,
+  but contact/free-flight frames may make it unresolved and the adaptive/global
+  relationship has not been observed.
+- **Decision:** B4C3MC0 is threshold-free and reports all fixed levels, fine
+  temporal ratio, physical utilization, aggregates and contacts per frame.
+- **Rejected alternatives:** choosing a multiplier now, using only final state,
+  comparing to rejected per-substep fixed lanes, or treating physical gates as
+  a hidden accuracy waiver.
+- **Consequence:** a PASS authorizes only B4C3MC1 budget design from explicit
+  evidence; it cannot select adaptive accuracy.
+- **Remaining uncertainty:** the distribution and conditioning of adaptive/
+  fixed temporal ratios are unknown.
+- **Smallest next action:** implement and replay the complete diagnostic.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1476,9 +1492,9 @@
 
 ## Exact next action
 
-1. Define adaptive-versus-fixed-192 frame/aggregate/contact comparisons.
-2. Freeze temporal-versus-physical admission without fitting B4C3MAR output.
-3. Execute only after the comparison contract and report identity are fixed.
+1. Implement B4C3MC0 aligned state, temporal, aggregate and contact metrics.
+2. Execute isolated and twice parent-gated with no accuracy threshold.
+3. Use only that evidence to design a separately frozen B4C3MC1 gate.
 
 ## Reconsideration triggers
 

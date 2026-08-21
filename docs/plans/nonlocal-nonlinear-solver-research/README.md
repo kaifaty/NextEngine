@@ -618,3 +618,11 @@ the old cadence's `364/563` and two recovery frames; P2 preserves `82/124` and
 its exact onset schedule. All topology, mixed-budget, physical, energy, root,
 work and post-first-commit rollback gates pass. Fixed comparison design is now
 authorized, but its execution is not.
+The
+[B4C3MC0 audit](../../development/nonlocal-nsr3b4c3mc0-adaptive-fixed-diagnostic-research-2026-08-21.md)
+introduces a threshold-free adaptive-versus-fixed measurement before any
+accuracy budget is chosen. Its
+[frozen contract](03b4c3mc0-adaptive-fixed-diagnostic-contract.md) aligns every
+macro frame against fixed `48/96/192`, reports fine `96/192` temporal ratios,
+physical-scale utilization, aggregates and contacts, and cannot select
+accuracy. Only a later frozen budget may do so.
