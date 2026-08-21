@@ -1,6 +1,6 @@
 # NSR3-B4EP7D evaluation/tape dataflow research -- 2026-08-22
 
-Status: `COMPLETE / DERIVED_COUNTER_AUDIT_SELECTED / NO_FUSION_YET`
+Status: `COMPLETE / PASS / EXACT_FUSION_FEASIBLE`
 
 ## Question
 
@@ -62,3 +62,6 @@ contract. A failure preserves B4EP6 without attempting fusion.
 Freeze B4EP7D as a two-build deterministic dataflow audit only. On PASS it may
 authorize B4EP7I fusion design/A-B; runtime, GPU, parallel and solver-policy
 work remain blocked.
+
+The audit passes and freezes `D=131,987,230`; see the
+[dated evidence](nonlocal-nsr3b4ep7d-evaluation-tape-dataflow-evidence-2026-08-22.md).

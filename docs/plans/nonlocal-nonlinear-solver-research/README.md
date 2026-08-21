@@ -1076,3 +1076,8 @@ evaluation and tape construction. Its
 [frozen contract](03b4ep7d-evaluation-tape-dataflow-contract.md) adds only
 post-tape derived counters and a dedicated audit command. Run that audit twice;
 do not implement fusion or time it yet.
+B4EP7D passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep7d-evaluation-tape-dataflow-evidence-2026-08-22.md).
+The audit freezes 131,987,230 active directed records and shows that exact
+fusion can remove 71.75% of radius evaluations and 60.63% of gradient-kernel
+evaluations. This authorizes only a frozen B4EP7I exact fusion A/B contract.

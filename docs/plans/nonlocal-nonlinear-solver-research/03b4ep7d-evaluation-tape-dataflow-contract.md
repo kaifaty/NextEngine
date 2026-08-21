@@ -1,6 +1,6 @@
 # NSR3-B4EP7D -- evaluation/tape dataflow audit contract
 
-Status: `FROZEN / AUDIT_IMPLEMENTATION_AND_RUN_AUTHORIZED / NO_FUSION`
+Status: `CLOSED / PASS / B4EP7I_DESIGN_AND_AB_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -47,3 +47,7 @@ B4EP5. No timing is admitted.
 PASS freezes `D` and authorizes only B4EP7I fused evaluation/tape design and
 controlled A/B. Failure preserves B4EP6. B4E2, references, runtime/CUDA,
 parallelism, solver-policy and production remain blocked.
+
+Observed PASS freezes `D=131,987,230`, 71.75% removable radius work and
+60.63% removable gradient-kernel work. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep7d-evaluation-tape-dataflow-evidence-2026-08-22.md).
