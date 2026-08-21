@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1A_PASS / R1B_DESIGN` |
+| Status | `ACTIVE / NSR3B4DR1_R1A_PASS / R1B_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -31,8 +31,12 @@
   the source tree, and its revision probe rejects linked Git worktrees. Every
   profile build starts from an ordinary clean full clone and binds the
   generated header separately.
-- **Next action:** freeze the R1B standalone contact-adapter contract and six
-  vectors before compiling or executing adapter code.
+- **Current decision:** R1B freezes an independent standalone contact tool,
+  separate validator, six parent vectors and internal-face/one-ulp restart
+  sentinels. Process preflight must fail before contact on float/OMP/locale/ABI
+  mismatch.
+- **Next action:** implement and link only the R1B no-trajectory self-test,
+  then bind source/build/binary/output roots and negative mutations.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -50,6 +54,7 @@
 | NSR3B4C4A/B/C | retained workspace, immutable support index and flat CSR ownership | packaged complete adaptive/fixed research runner |
 | NSR3B4D | fail-closed external reference reader | deterministic missing-artifact boundary only |
 | NSR3B4DR1A | reproducible strict external DFSPH library bootstrap | build/toolchain candidate only; no adapter or trajectory |
+| NSR3B4DR1B | frozen standalone contact/validation contract | implementation authorized; no particle world |
 
 Candidate solver identity remains:
 
@@ -175,9 +180,9 @@ adapter/source/binary SHA-256 values.
 
 ## Exact next action
 
-1. Freeze the R1B adapter/contact contract and all six exact test vectors.
-2. Implement the standalone geometry/environment self-test without starting a
-   particle simulation; bind source, compiler/link, ABI and binary roots.
+1. Implement the frozen R1B standalone geometry/environment self-test without
+   starting a particle simulation.
+2. Bind tracked source, compiler/link, ABI, binary, stdout and mutation roots.
 3. Only R1B PASS may freeze and run R1C 24-step scenario manifests.
 4. Keep B4E blocked until a new R1E reference attestation passes twice.
 

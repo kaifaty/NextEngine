@@ -812,3 +812,10 @@ commands, and all eight static artifacts match across paths. Linked Git
 worktrees are rejected because upstream's old revision probe reports
 `HEAD-HASH-NOTFOUND`. Freeze the standalone R1B contact adapter and six-vector
 contract next; no particle trajectory is authorized.
+The [R1B design](../../development/nonlocal-nsr3b4dr1b-contact-adapter-research-2026-08-21.md)
+freezes a standalone independent C++ contact/validation tool over the
+[R1B contract](03b4dr1b-contact-adapter-contract.md). Six parent vectors plus
+internal-face and one-ulp `t=0` sentinels close all outer/plane/edge/corner
+branches, strict process/ABI preflight and structural root mutations before
+any particle world exists. Implement only this self-test next; R1C and B4E
+remain blocked.
