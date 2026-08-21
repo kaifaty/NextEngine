@@ -930,9 +930,15 @@ LLVM version: 22.1.6"
         let diagnostics =
             compare_codegen_run_sets(CodegenCandidateV1::ThinLto, &baseline, &candidate, &[], &[])
                 .expect_err("missing scenarios cannot produce a comparison");
-        assert!(diagnostics.iter().any(|diagnostic| {
-            diagnostic.starts_with("CODEGEN_REPRESENTATIVE_WORKLOAD_UNAVAILABLE")
-        }));
+        if cfg!(feature = "physx") {
+            assert!(diagnostics.iter().any(|diagnostic| {
+                diagnostic.starts_with("CODEGEN_SCENARIO_SET_INVALID: baseline: r5-physics-16")
+            }));
+        } else {
+            assert!(diagnostics.iter().any(|diagnostic| {
+                diagnostic.starts_with("CODEGEN_REPRESENTATIVE_WORKLOAD_UNAVAILABLE")
+            }));
+        }
     }
 
     #[test]
