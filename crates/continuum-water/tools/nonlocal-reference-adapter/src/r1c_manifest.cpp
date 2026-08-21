@@ -25,6 +25,15 @@ constexpr std::string_view UPSTREAM_COMMIT =
     "eccce86155776f6ac52d5080b1f720a52bf29450";
 constexpr std::string_view PATCH_SHA256 =
     "e89cf9befc2a08a9c15bd6b290a97b3f6815da1ea699508c41c15645f86c33bc";
+constexpr std::string_view PROFILE_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4dr1c1-manifest-identity-reclosure|v1|"
+    "parent=a061f43ea3bc60fc3ff3af03aa242c298ad059e094e2215bab71642902f199d0|"
+    "correction=CW-DAM-001->CW-DAMBREAK-001|"
+    "manifest=441:4c126bd7af7cac871c72d2ab4bfd47c902c105650005f35cdaefae4a3e10cc05|"
+    "fluid=9c12e445666c7b0eada3e6e2c258c733323e4eb8ca6474a6f3d5b863f1566e76|"
+    "boundary=16384:1cf0fd172dcb321e995f372119ea956d1e376b8a409b804bc07e31a729aa830d|"
+    "hydro=unchanged|orifice=unchanged|execution=manifest-only-repeat|"
+    "trajectory=conditional|credit=none";
 
 constexpr std::string_view HYDRO_MANIFEST = R"(B4DR1C_SCENARIO_V1_BEGIN
 scenario_id=CW-HYDRO-001
@@ -192,6 +201,63 @@ std::string rejected_report(std::string_view reason) {
 }
 
 } // namespace
+
+std::string_view r1c_profile_identity_projection() {
+    return PROFILE_IDENTITY_PROJECTION;
+}
+
+R1CScenarioData build_r1c_scenario(std::string_view scenario_id) {
+    const Scenario *selected = nullptr;
+    for (const Scenario &scenario : SCENARIOS) {
+        if (scenario.id == scenario_id) {
+            selected = &scenario;
+            break;
+        }
+    }
+    if (selected == nullptr) {
+        throw std::runtime_error("UNKNOWN_R1C_SCENARIO");
+    }
+
+    R1CScenarioData result;
+    result.id = std::string(selected->id);
+    result.manifest = std::string(selected->manifest);
+    result.x_max = static_cast<double>(selected->boundary_nx) * 0.05;
+    result.orifice = selected->orifice;
+    result.fluid_positions.reserve(6'000);
+    for (std::uint32_t iy = 0; iy < 15; ++iy) {
+        for (std::uint32_t iz = 0; iz < 20; ++iz) {
+            for (std::uint32_t ix = 0; ix < 20; ++ix) {
+                result.fluid_positions.push_back({
+                    static_cast<double>(25'000U + (50'000U * ix)) / 1'000'000.0,
+                    static_cast<double>(25'000U + (50'000U * iy)) / 1'000'000.0,
+                    static_cast<double>(25'000U + (50'000U * iz)) / 1'000'000.0,
+                });
+            }
+        }
+    }
+    result.boundary_positions.reserve(selected->boundary_count);
+    for (int ix = -2; ix < selected->boundary_nx + 2; ++ix) {
+        for (int iy = -2; iy < 22; ++iy) {
+            for (int iz = -2; iz < 22; ++iz) {
+                const bool interior = ix >= 0 && ix < selected->boundary_nx && iy >= 0
+                    && iy < 20 && iz >= 0 && iz < 20;
+                if (interior || (selected->orifice && is_orifice_omission(ix, iy, iz))) {
+                    continue;
+                }
+                result.boundary_positions.push_back({
+                    static_cast<double>(25'000 + (50'000 * ix)) / 1'000'000.0,
+                    static_cast<double>(25'000 + (50'000 * iy)) / 1'000'000.0,
+                    static_cast<double>(25'000 + (50'000 * iz)) / 1'000'000.0,
+                });
+            }
+        }
+    }
+    if (result.fluid_positions.size() != 6'000
+        || result.boundary_positions.size() != selected->boundary_count) {
+        throw std::runtime_error("R1C_SCENARIO_CAPACITY_MISMATCH");
+    }
+    return result;
+}
 
 AdapterRun run_r1c_manifest_preflight(bool force_manifest_mismatch) {
     const std::string process_failure = process_preflight_failure();

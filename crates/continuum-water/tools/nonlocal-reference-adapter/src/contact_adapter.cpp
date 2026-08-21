@@ -349,10 +349,10 @@ double project_axis(double position, double velocity, double lower, double upper
     return std::max(minimum_velocity, std::min(velocity, maximum_velocity));
 }
 
-Projection project_outer(Vec3 start, Vec3 velocity) {
+Projection project_outer(Vec3 start, Vec3 velocity, double x_max) {
     Projection result;
     result.velocity = {
-        project_axis(start.x, velocity.x, RADIUS, 1.0 - RADIUS),
+        project_axis(start.x, velocity.x, RADIUS, x_max - RADIUS),
         project_axis(start.y, velocity.y, RADIUS, 1.0 - RADIUS),
         project_axis(start.z, velocity.z, RADIUS, 1.0 - RADIUS),
     };
@@ -682,7 +682,8 @@ AdapterRun run_contact_adapter(PreflightMutation mutation) {
 
     try {
         const Vec3 outer_face_start = {0.95, 0.5, 0.5};
-        const Projection outer_face = project_outer(outer_face_start, {12.0, 0.0, 0.0});
+        const Projection outer_face =
+            project_outer(outer_face_start, {12.0, 0.0, 0.0}, 1.0);
         expect_vector(
             "OUTER-FACE-INTERIOR",
             outer_face,
@@ -692,7 +693,8 @@ AdapterRun run_contact_adapter(PreflightMutation mutation) {
         validate_outer_end(outer_face.end, 1.0);
 
         const Vec3 outer_fast_start = {0.5, 0.5, 0.5};
-        const Projection outer_fast = project_outer(outer_fast_start, {-300.0, 0.0, 0.0});
+        const Projection outer_fast =
+            project_outer(outer_fast_start, {-300.0, 0.0, 0.0}, 1.0);
         expect_vector(
             "OUTER-HIGH-SPEED",
             outer_fast,
@@ -835,6 +837,45 @@ AdapterRun run_contact_adapter(PreflightMutation mutation) {
                << "trajectory_started=false\n";
         return {false, output.str()};
     }
+}
+
+R1CContactProjection project_r1c_contact(
+    const std::array<double, 3> &start_values,
+    const std::array<double, 3> &velocity_values,
+    double x_max,
+    bool orifice) {
+    const Vec3 start = {start_values[0], start_values[1], start_values[2]};
+    const Vec3 velocity = {velocity_values[0], velocity_values[1], velocity_values[2]};
+    require_finite(start, "trajectory contact start");
+    require_finite(velocity, "trajectory contact velocity");
+    require_finite(x_max, "trajectory contact x maximum");
+    if (x_max <= 2.0 * RADIUS) {
+        throw std::runtime_error("trajectory contact box has no interior");
+    }
+
+    Projection internal;
+    internal.velocity = velocity;
+    internal.end = add(start, scale(velocity, DT));
+    if (orifice) {
+        if (x_max != 2.0) {
+            throw std::runtime_error("orifice contact requires two metre x extent");
+        }
+        internal = project_internal(start, velocity);
+    }
+    Projection outer = project_outer(start, internal.velocity, x_max);
+    for (std::size_t feature = 0; feature < FEATURE_CAPACITY; ++feature) {
+        outer.feature_counts[feature] += internal.feature_counts[feature];
+    }
+    validate_outer_end(outer.end, x_max);
+    if (orifice) {
+        validate_internal_end(outer.end);
+        validate_chord(start, outer.end);
+    }
+    return {
+        {outer.velocity.x, outer.velocity.y, outer.velocity.z},
+        {outer.end.x, outer.end.y, outer.end.z},
+        outer.feature_counts,
+    };
 }
 
 } // namespace nextengine::nonlocal_reference

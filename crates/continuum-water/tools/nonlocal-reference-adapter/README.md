@@ -40,5 +40,20 @@ They must exit nonzero before contact starts. Unknown arguments are rejected.
 `--r1c-manifest-preflight` independently regenerates the frozen R1C scenario,
 fluid and boundary roots without creating a SPlisHSPlasH model or time step.
 `--r1c-negative-manifest-mismatch` must reject with
-`simulation_created=false` and `trajectory_started=false`. No current mode
-writes files.
+`simulation_created=false` and `trajectory_started=false`. Neither manifest
+mode writes files.
+
+After R1C1 manifest evidence passes, the patched full-clone build additionally
+supports:
+
+```text
+nonlocal_reference_adapter --r1c-trajectory \
+  <CW-HYDRO-001|CW-DAMBREAK-001|CW-ORIFICE-001> \
+  <absolute-empty-output-directory>
+```
+
+This mode writes exactly one atomically published 25-frame `CWREFV2` research
+payload. It is valid only when linked against the frozen cold-start/diagnostic
+patch. Missing, relative, nonempty, non-directory or symlink output directories
+reject before Simulation creation. Full R1D schedules are not implemented by
+this mode.
