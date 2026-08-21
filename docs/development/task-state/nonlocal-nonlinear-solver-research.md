@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1E_PASS / B4E_DESIGN` |
+| Status | `ACTIVE / NSR3B4DR1_R1E_PASS / B4E0_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -98,9 +98,17 @@
   external negative fixtures reject deterministically.
 - **Current decision:** select `NEW_EXTERNAL_DFSPH_REFERENCE_CANDIDATE` and
   authorize only B4E nominal-corpus research and contract design.
-- **Next action:** map the packaged Nonlocal output to the new `CWREFV2`
-  observables, freeze B4E identity/tolerances/failure and resource policy, and
-  do not execute the corpus before that contract is committed.
+- **Current conclusion:** B4E research finds exact Hydro/Dam initial geometry,
+  constants and macro-step alignment, but the packaged entry point still owns
+  only tiny P1/P2 fixtures. Per-particle and solver-iteration comparisons are
+  rejected; canonical q99/COM/curve aggregates are selected.
+- **Current decision:** use a B4E0 zero-trajectory alignment gate, then a
+  one-macro cost probe and first-output pilots before any full run. Orifice is
+  deferred to B4O; a projected combined cost above four machine-hours routes
+  to B4EP optimization without becoming a physics failure.
+- **Next action:** implement the frozen B4E0 exact geometry/ID/schedule/
+  canonical aggregate/flat-neighborhood preflight twice. Do not open a
+  reference curve or run a solver.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -135,6 +143,8 @@
 | NSR3B4DR1D PASS | three full pairs exact and content-addressed | R1E contract design only |
 | NSR3B4DR1E contract | actual reference closure plus independent fail-closed reader | implement/attest only; no B4E execution |
 | NSR3B4DR1E PASS | independently decoded full DFSPH references and deterministic negative controls | new reference candidate; B4E contract design only |
+| NSR3B4E research | staged Hydro/Dam aggregate comparison and cost ladder | B4E0 alignment preflight only; Orifice remains B4O |
+| NSR3B4E0 contract | exact zero-trajectory nominal alignment | implement preflight only; B4E1 still blocked |
 
 Candidate solver identity remains:
 
@@ -171,6 +181,7 @@ production authority is created by this lineage.
 | [B4DR1C5](../nonlocal-nsr3b4dr1c5-trajectory-evidence-2026-08-21.md) | all three pairs byte-exact; corrected Orifice crosses into receiver | execute R1D full schedules; retain all earlier negative evidence |
 | [B4DR1D](../nonlocal-nsr3b4dr1d-full-generation-evidence-2026-08-21.md) | all full pairs exact; verified external publication | freeze R1E reader/profile contract over actual roots |
 | [B4DR1E](../nonlocal-nsr3b4dr1e-reference-attestation-evidence-2026-08-21.md) | independent reader accepts all full references; both mutation layers and four external negatives reject | design B4E against the new candidate; no execution before a frozen comparison contract |
+| [B4E research](../nonlocal-nsr3b4e-nominal-corpus-research-2026-08-21.md) | Hydro/Dam align at input/step level; nominal entry point and cost evidence are missing | execute B4E0 alignment before any trajectory |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -378,6 +389,16 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** inheriting historical W1 credit, executing an unfrozen
   comparison, or treating reference integrity as runtime/production evidence.
 
+### D-020 -- Stage nominal comparison behind alignment and cost gates
+
+- **Observation:** the packaged path has nominal capacities and avoids
+  all-pairs candidate HVPs, but only P1/P2 commands have executed; its active
+  macro frame still requires spectral and nonlinear HVP work.
+- **Decision:** run zero-trajectory B4E0, one-macro B4E1 and first-output B4E2
+  before projecting or starting the full Hydro/Dam pair.
+- **Rejected:** full-run-first execution, cross-solver iteration/density or
+  per-particle gates, Orifice before B4O, and timing as a physics tolerance.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -402,13 +423,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research the exact correspondence between packaged Nonlocal frames and the
-   new `CWREFV2` DFSPH observables without running a nominal comparison.
-2. Freeze B4E candidate identities, scenario/time/sample alignment, metrics,
-   tolerances, deterministic failure policy and resource budget.
-3. Add independent preflight/mutation controls and a cost-aware execution
-   ladder to the B4E contract.
-4. Keep B4E execution blocked until that contract is committed and reviewed.
+1. Implement `--nominal-alignment-preflight` under the frozen B4E0 identity.
+2. Prove exact Hydro/Dam roots, canonical initial aggregates, static index,
+   flat CSR and ID/boundary/schedule mutation rejection twice byte-identically.
+3. Commit dated B4E0 evidence only if no solver or reference curve starts.
+4. Freeze B4E1 one-macro resource-probe design after B4E0 PASS; keep full B4E
+   execution blocked.
 
 ## Reconsideration triggers
 

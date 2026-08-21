@@ -925,3 +925,11 @@ three complete references pass independent parse/reconstruction and all four
 external negative fixtures reject. This selects only the new external DFSPH
 reference candidate and opens B4E nominal-corpus contract design. B4E
 execution, runtime integration, CUDA and production claims remain blocked.
+The [B4E research](../../development/nonlocal-nsr3b4e-nominal-corpus-research-2026-08-21.md)
+finds that the packaged solver has nominal capacities but only tiny P1/P2
+entry points, and that an immediate full run would mix alignment, physics and
+cost failures. The
+[frozen B4E0 contract](03b4e0-nominal-alignment-contract.md) therefore admits
+only Hydro/Dam zero-trajectory geometry, stable-ID, canonical aggregate and
+flat-neighborhood preflight. Orifice remains B4O. Implement B4E0 next; no
+reference curve or candidate trajectory is authorized yet.
