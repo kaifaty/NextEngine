@@ -540,3 +540,11 @@ per-substep FAIL control with private binary64 `48/96/192` intervals followed
 by one balanced macro publication. A new profile and macro-ledger policy bind
 that changed state ownership. A PASS can authorize only adaptive transaction
 redesign, not the previously planned B4C3TC comparison.
+The first B4C3P execution is a preserved FAIL; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3p-publication-cadence-evidence-2026-08-21.md).
+Macro-only publication restores observed first-order convergence and exact
+contact timing/sets in both scenarios, and every private KKT/macro-ledger
+transaction passes. Only P1 fixed-192 exceeds the pre-frozen `32*P*q` velocity
+tube by `10.6%`. The formula omits propagation of a published position
+perturbation through later pressure/contact dynamics. A separate stability
+reclosure is required; the coefficient is not widened from this result.

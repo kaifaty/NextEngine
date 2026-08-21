@@ -1,6 +1,6 @@
 # NSR3-B4C3P -- publication cadence discriminator
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / ADAPTIVE_REDESIGN_BLOCKED`
+Status: `EXECUTED_FAIL / STABILITY_RECLOSURE_ONLY`
 
 B4C3TR is the exact negative parent/control. Its isolated JSON-without-final-LF
 SHA-256 is
@@ -110,3 +110,15 @@ PASS selects `MACRO_BOUNDARY_CANONICAL_PUBLICATION_CANDIDATE` and authorizes
 only a new adaptive macro-transaction design. B4C3TC, nominal, B4C4/B4D, CUDA,
 runtime/schema and production remain blocked. FAIL stops this repair line;
 neither tolerance widening nor silent loss of durable roots is authorized.
+
+## Recorded decision
+
+B4C3P fails twice byte-identically at raw JSON-with-LF
+`d7603a66d935736127691e49b235e8aabd18ac6017d45b0a35b7ea755fe39d5f`
+and semantic result
+`e79566a815a2491510318acf1793b693c642b06c84b167f0a4a1e1bd1344965b`.
+Macro cadence restores first-order convergence and exact contact timing/sets,
+but P1 fixed-192 uses `1.10574` of the frozen velocity envelope. Preserve the
+FAIL; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3p-publication-cadence-evidence-2026-08-21.md).
+Only a separately frozen stability/error-budget reclosure is authorized.

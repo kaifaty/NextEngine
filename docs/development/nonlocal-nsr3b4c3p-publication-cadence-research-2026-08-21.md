@@ -1,6 +1,6 @@
 # B4C3P publication cadence reclosure research
 
-Status: `COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / EXECUTED_FAIL / STABILITY_RECLOSURE_NEXT`
 
 Date: `2026-08-21`
 
@@ -90,3 +90,9 @@ of the adaptive canonical transaction under that cadence. It cannot revive
 B4C3TC directly because the current adaptive trajectory uses per-substep
 publication. FAIL preserves B4C3TAR2 as the last positive boundary and stops
 canonical trajectory research for a broader representation redesign.
+
+Execution confirms the cadence hypothesis but fails one pre-frozen stability
+envelope; see the
+[dated evidence](nonlocal-nsr3b4c3p-publication-cadence-evidence-2026-08-21.md).
+Both P1/P2 recover first-order convergence and exact contact identity/timing,
+while P1 fixed-192 exceeds only the simple velocity envelope by `10.6%`.

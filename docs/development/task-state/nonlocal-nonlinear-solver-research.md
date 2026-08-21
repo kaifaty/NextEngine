@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3TR_FAIL / B4C3P_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3P_FAIL / B4C3PE_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -27,13 +27,15 @@
 - **Current decision:** preserve B4C3TR FAIL and keep B4C3TC blocked. Do not
   widen tubes/event tolerances; the fixed-192 trajectory is not a valid
   refinement reference under current publication cadence.
-- **Current action:** implement frozen B4C3P private binary64 intervals plus
-  one atomic balanced macro-boundary publication. B4C3TC/B4C4/B4D remain
-  blocked.
-- **Current contract:** new profile `e713a616...9a70` and macro-ledger policy
-  `39bac593...6e21` bind exactly 8/16 durable publications independent of
-  fixed private substep level. The B4C3TR per-substep report remains the exact
-  negative control.
+- **Current conclusion:** B4C3P fails twice at raw `d7603a66...9d5f`, but
+  confirms the cadence hypothesis: all four P1/P2 canonical ratios are
+  `1.99--2.17`, contact timing/sets are exact and every macro transaction/
+  ledger passes. Only P1/192 velocity exceeds `32*P*q` by `10.6%`.
+- **Current decision:** preserve B4C3P FAIL. Do not increase coefficient 32;
+  the reused envelope omits pressure/contact propagation of prior published
+  position error.
+- **Current action:** design B4C3PE stability/error-budget discriminator before
+  replaying macro cadence. Adaptive redesign/B4C3TC/B4C4/B4D remain blocked.
 - **Performance finding:** six independent lanes use `311--312%` CPU and turn
   `~60.4` CPU-seconds into `~19.7` wall-seconds (`3.06x`) with byte-identical
   output. This validates harness parallelism, not solver/runtime performance.
@@ -1248,6 +1250,29 @@
 - **Smallest next action:** implement candidate macro transaction/ledger,
   same-level tubes, convergence and pre-publication rollback; execute twice.
 
+### D-062 -- Preserve macro cadence with unclosed stability envelope
+
+- **Observation:** B4C3P restores observed first-order position/velocity
+  convergence and exact event/contact identity in both cases. Five of six
+  same-level lanes pass. P1/192 alone reaches `2.83069e-4 m/s` against the
+  frozen `2.56e-4 m/s` velocity formula while every physical, energy and
+  ledger gate passes.
+- **Decision:** preserve B4C3P FAIL but retain macro-boundary cadence as the
+  supported hypothesis. The next blocker is the representation-error model,
+  not cadence, KKT or contact.
+- **Rejected alternatives:** do not change `32` to a post-hoc larger constant,
+  waive the P1/192 lane, treat first-order convergence alone as sufficient, or
+  reopen per-substep publication.
+- **Consequence:** derive a separate stability budget that accounts for
+  propagation of published position error through later macro dynamics and
+  quantifies contamination of the independently convergent fine reference.
+- **Remaining uncertainty:** a useful bound may require local macro-map gain or
+  a relative temporal-error budget rather than a closed-form multiple of
+  publication count.
+- **Smallest next action:** build a diagnostic exposing per-frame direct
+  publication perturbation, propagated same-level error and binary 96/192
+  temporal difference before selecting a bound.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1260,12 +1285,12 @@
 
 ## Exact next action
 
-1. Implement B4C3P's one-publication-per-macro fixed lanes and macro ledger
-   without modifying the private KKT solver.
-2. Add exact pre-publication rollback, same-level binary tubes and canonical
-   convergence classification using publication count.
-3. Execute the isolated candidate twice. Adaptive redesign and every later
-   stage remain blocked until PASS.
+1. Freeze B4C3PE diagnostics for direct versus propagated publication error
+   and fine-reference contamination; no acceptance threshold yet.
+2. Execute the diagnostic on P1/P2 `48/96/192` macro-publication lanes and
+   derive an independent stability-budget contract from solver scales.
+3. Replay B4C3P only under that separately frozen rule. Adaptive redesign and
+   every later stage remain blocked.
 
 ## Reconsideration triggers
 
