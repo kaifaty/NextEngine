@@ -1,6 +1,6 @@
 # NSR3-B4EP9 -- fused phase-timing contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / PASS / CPU_PARALLEL_ARCHITECTURE_RESEARCH_SELECTED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -69,3 +69,8 @@ Otherwise select `SERIAL_RESIDUAL_RESEARCH`.
 This experiment makes no throughput claim and authorizes no parallel
 implementation. B4E2, CUDA/GPU, runtime/schema, PhysX coupling and production
 remain blocked.
+
+Observed PASS: three semantic results are identical; conservative fractions
+are `0.9221543365971554`, `0.92187898636494814` and
+`0.92138378827357814`, with range `0.0007705483235772581`. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep9-fused-phase-timing-evidence-2026-08-22.md).

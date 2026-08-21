@@ -1108,3 +1108,9 @@ transaction-only timers and requires three semantically exact fresh processes.
 Only a stable parallelizable fraction meeting the frozen `0.80/0.75/0.05`
 median/minimum/range gate may authorize B4EP10 CPU-parallel architecture
 research; no parallel implementation is authorized by B4EP9.
+B4EP9 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep9-fused-phase-timing-evidence-2026-08-22.md).
+The conservative parallelizable fraction is 92.14--92.22%, with median
+92.19% and range 0.08 percentage point. Exact old-command regressions remain
+unchanged. This selects B4EP10 deterministic CPU-parallel architecture
+research only; no thread implementation or speedup claim exists yet.

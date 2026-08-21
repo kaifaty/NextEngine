@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP9_FROZEN / PHASE_TIMING_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4EP9_PASS / B4EP10_CPU_PARALLEL_ARCHITECTURE_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -228,8 +228,15 @@
   result. Three fresh processes route only to CPU-parallel architecture
   research or serial-residual research using the frozen `0.80/0.75/0.05`
   median/minimum/range gate.
-- **Next action:** implement and execute the frozen B4EP9 phase-timing
-  contract. Do not add threads or another optimization.
+- **Current conclusion:** all three B4EP9 Release processes preserve semantic
+  result `44e93e6e...9cd72`; parallelizable fraction is 92.14--92.22%, median
+  92.19%, with only 0.08 percentage-point range. All six old-command stdout
+  hashes remain exact.
+- **Current decision:** select B4EP10 deterministic CPU-parallel architecture
+  research only. Freeze ownership, partition, reduction, scheduling, failure
+  and A/B gates before implementing threads.
+- **Next action:** research/freeze the B4EP10 architecture discriminator; do
+  not implement parallelism yet.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -293,6 +300,7 @@
 | NSR3B4EP8 contract | one exact-output fused residual profile | execute profile only; no optimization/B4E2 change |
 | NSR3B4EP8 PASS | workspace/HVP balanced `3.61/3.59s`; fused subphases inlined | B4EP9 scoped internal phase timing only |
 | NSR3B4EP9 contract | opt-in non-overlapping transaction phase timers | implement/measure only; no parallel implementation or throughput claim |
+| NSR3B4EP9 PASS | stable conservative parallelizable fraction, median `0.921879` | B4EP10 deterministic CPU-parallel architecture research only |
 
 Candidate solver identity remains:
 
@@ -358,6 +366,7 @@ production authority is created by this lineage.
 | [B4EP8 research](../nonlocal-nsr3b4ep8-fused-residual-attribution-research-2026-08-22.md) | fusion invalidates B4EP6 function attribution | run one exact-output profile and route by frozen leader rule |
 | [B4EP8](../nonlocal-nsr3b4ep8-fused-residual-attribution-evidence-2026-08-22.md) | no top-level leader and gprof cannot split fused subphases | design isolated phase timers; no optimization selected |
 | [B4EP9 research](../nonlocal-nsr3b4ep9-fused-phase-timing-research-2026-08-22.md) | Amdahl-ready phase boundary and stability gate frozen | implement opt-in timers and run three fresh processes only |
+| [B4EP9](../nonlocal-nsr3b4ep9-fused-phase-timing-evidence-2026-08-22.md) | exact semantics; 92.19% median conservative parallelizable fraction | research/freeze deterministic CPU parallel architecture before threads |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -732,6 +741,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   workspace 35.52%, evaluation/tape 24.64% and filter/CSR 10.25% inclusive.
 - No multi-macro nominal, 50k, GPU or production performance result exists
   for this corrected Nonlocal lineage; B4E1M is one CPU research macro only.
+- B4EP9 measures a stable 92.19% median conservative parallelizable fraction
+  over one exact nominal transaction. This is an architecture discriminator,
+  not parallel throughput or production evidence.
 
 ## Required context
 
@@ -746,9 +758,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the frozen B4EP9 opt-in timers and dedicated diagnostic command.
-2. Run three fresh diagnostic processes plus exact old-command regressions;
-   route by the frozen fraction gate without implementing parallelism.
+1. Research/freeze B4EP10 deterministic CPU parallel ownership, partition,
+   reduction order, scheduling, capacity/failure and rollback boundaries.
+2. Define exact correspondence and controlled scaling gates before any thread
+   implementation; keep B4E2, GPU/runtime and production work blocked.
 
 ## Reconsideration triggers
 
