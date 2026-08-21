@@ -8475,6 +8475,7 @@ struct JointQueryTrace {
     int workspace_state_hashes_skipped = 0;
     JointTopologySupersetCache* topology_cache = nullptr;
     bool cache_hvp_coefficients = false;
+    bool fuse_evaluation_tape = false;
     std::size_t coefficient_tape_builds = 0U;
     std::size_t coefficient_pairs = 0U;
     std::size_t coefficient_kernel_evaluations = 0U;
@@ -8482,6 +8483,16 @@ struct JointQueryTrace {
     std::size_t maximum_coefficient_payload_bytes = 0U;
     std::size_t coefficient_mismatches = 0U;
     std::size_t coefficient_fallbacks = 0U;
+    std::size_t fused_workspace_builds = 0U;
+    std::size_t fused_pair_visits = 0U;
+    std::size_t fused_active_directed_visits = 0U;
+    std::size_t fused_center_visits = 0U;
+    std::size_t fused_radius_evaluations = 0U;
+    std::size_t fused_gradient_evaluations = 0U;
+    std::size_t fused_second_evaluations = 0U;
+    std::size_t fused_compression_evaluations = 0U;
+    std::size_t fusion_mismatches = 0U;
+    std::size_t fusion_fallbacks = 0U;
     std::string query_chain_sha256 =
         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
     std::size_t total_pairs = 0;
@@ -10697,6 +10708,178 @@ bool populate_joint_hvp_coefficients(
     return true;
 }
 
+struct JointEvaluationTape {
+    bool passed = false;
+    std::string failure;
+    Evaluation evaluation;
+    JointPressureTape tape;
+};
+
+JointEvaluationTape build_joint_evaluation_tape_from_flat(
+    JointNeighborhood& neighborhood,
+    FlatAdjacencyWorkTrace* adjacency_work = nullptr) {
+    JointEvaluationTape result;
+    const std::size_t fluid_count = neighborhood.fluid.size();
+    const std::size_t total = fluid_count + neighborhood.support.size();
+    if (!neighborhood.passed || !neighborhood.flat_adjacency
+        || !neighborhood.adjacency.empty()) {
+        result.failure = "FUSED_EVALUATION_TAPE_SOURCE";
+        return result;
+    }
+    if (neighborhood.pairs.size()
+            > std::numeric_limits<std::uint32_t>::max()
+        || fluid_count >= std::numeric_limits<std::uint32_t>::max()) {
+        result.failure = "FUSED_EVALUATION_TAPE_OFFSET_CAPACITY";
+        return result;
+    }
+    for (const JointPair pair : neighborhood.pairs) {
+        if (pair.fluid >= fluid_count || pair.participant >= total
+            || (pair.participant < fluid_count
+                && pair.fluid >= pair.participant)) {
+            result.failure = "FUSED_EVALUATION_TAPE_PAIR_INDEX";
+            return result;
+        }
+    }
+    if (neighborhood.flat_offsets.size() != fluid_count + 1U
+        || neighborhood.flat_offsets.empty()
+        || neighborhood.flat_offsets.front() != 0U
+        || neighborhood.flat_offsets.back()
+            != neighborhood.flat_directed_pair_indices.size()) {
+        result.failure = "FUSED_EVALUATION_TAPE_ADJACENCY";
+        return result;
+    }
+    const std::size_t directed =
+        neighborhood.flat_directed_pair_indices.size();
+    if (directed > std::numeric_limits<std::uint32_t>::max()) {
+        result.failure = "FUSED_EVALUATION_TAPE_OFFSET_CAPACITY";
+        return result;
+    }
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        const std::size_t begin = neighborhood.flat_offsets[center];
+        const std::size_t end = neighborhood.flat_offsets[center + 1U];
+        if (end < begin || end > directed) {
+            result.failure = "FUSED_EVALUATION_TAPE_ADJACENCY";
+            return result;
+        }
+        std::size_t previous = 0U;
+        bool have_previous = false;
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::uint32_t pair_index =
+                neighborhood.flat_directed_pair_indices[slot];
+            if (pair_index >= neighborhood.pairs.size()) {
+                result.failure = "FUSED_EVALUATION_TAPE_ADJACENCY";
+                return result;
+            }
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, neighborhood.pairs[pair_index], center);
+            if (participant >= total || participant == center
+                || (have_previous && participant <= previous)) {
+                result.failure = "FUSED_EVALUATION_TAPE_ADJACENCY";
+                return result;
+            }
+            previous = participant;
+            have_previous = true;
+        }
+    }
+
+    const std::size_t pair_count = neighborhood.pairs.size();
+    const std::size_t offsets_bytes = (fluid_count + 1U)
+        * sizeof(std::uint32_t);
+    const std::size_t indices_bytes = directed * sizeof(std::uint32_t);
+    const std::size_t radius_bytes = pair_count * sizeof(double);
+    const std::size_t compression_bytes = fluid_count * sizeof(double);
+    const std::size_t coefficient_bytes = 2U * radius_bytes;
+    if (offsets_bytes > std::numeric_limits<std::size_t>::max()
+            - indices_bytes
+        || offsets_bytes + indices_bytes
+            > std::numeric_limits<std::size_t>::max() - radius_bytes
+        || offsets_bytes + indices_bytes + radius_bytes
+            > std::numeric_limits<std::size_t>::max() - compression_bytes
+        || offsets_bytes + indices_bytes + radius_bytes
+                + compression_bytes
+            > std::numeric_limits<std::size_t>::max()
+                - coefficient_bytes) {
+        result.failure = "FUSED_EVALUATION_TAPE_CAPACITY";
+        return result;
+    }
+    const std::size_t payload_bytes = offsets_bytes + indices_bytes
+        + radius_bytes + compression_bytes + coefficient_bytes;
+
+    result.evaluation.gradient.resize(total);
+    result.evaluation.density.assign(fluid_count, MASS * weight(0.0));
+    result.tape.radius.resize(pair_count);
+    result.tape.compression.resize(fluid_count);
+    result.tape.hvp_gradient.resize(pair_count);
+    result.tape.hvp_second.resize(pair_count);
+    result.tape.payload_bytes = payload_bytes;
+    for (std::size_t pair_index = 0U;
+         pair_index < pair_count; ++pair_index) {
+        const JointPair pair = neighborhood.pairs[pair_index];
+        const double radius = norm(
+            neighborhood.fluid[pair.fluid].position
+            - joint_position(neighborhood, pair.participant));
+        result.tape.radius[pair_index] = radius;
+        const double contribution = MASS * weight(radius);
+        result.evaluation.density[pair.fluid] += contribution;
+        if (pair.participant < fluid_count) {
+            result.evaluation.density[pair.participant] += contribution;
+            ++result.evaluation.fluid_pairs;
+        } else {
+            ++result.evaluation.boundary_pairs;
+        }
+        result.tape.hvp_gradient[pair_index] = weight_gradient(radius);
+        result.tape.hvp_second[pair_index] = weight_second(radius);
+    }
+    for (std::size_t center = 0U; center < fluid_count; ++center) {
+        const std::size_t begin = neighborhood.flat_offsets[center];
+        const std::size_t end = neighborhood.flat_offsets[center + 1U];
+        const double compression =
+            result.evaluation.density[center] / REST_DENSITY - 1.0;
+        result.tape.compression[center] = compression;
+        result.evaluation.minimum_branch_margin = std::min(
+            result.evaluation.minimum_branch_margin,
+            std::abs(compression));
+        if (compression <= 0.0) {
+            continue;
+        }
+        ++result.evaluation.active_centers;
+        ++result.tape.active_centers;
+        result.tape.active_directed += end - begin;
+        result.evaluation.energy +=
+            0.5 * KAPPA * compression * compression;
+        const double scale = KAPPA * compression
+            * MASS / REST_DENSITY;
+        for (std::size_t slot = begin; slot < end; ++slot) {
+            const std::size_t pair_index =
+                neighborhood.flat_directed_pair_indices[slot];
+            const JointPair pair = neighborhood.pairs[pair_index];
+            const std::size_t participant = joint_pair_participant(
+                neighborhood, pair, center);
+            const Vec3 displacement =
+                neighborhood.fluid[center].position
+                - joint_position(neighborhood, participant);
+            const double radius = result.tape.radius[pair_index];
+            if (radius <= 1.0e-15 || radius > HORIZON) {
+                continue;
+            }
+            const Vec3 pair_value = scale
+                * result.tape.hvp_gradient[pair_index]
+                * (displacement / radius);
+            result.evaluation.gradient[center] += pair_value;
+            result.evaluation.gradient[participant] += -pair_value;
+        }
+    }
+    result.tape.offsets = std::move(neighborhood.flat_offsets);
+    result.tape.directed_pair_indices = std::move(
+        neighborhood.flat_directed_pair_indices);
+    if (adjacency_work != nullptr) {
+        ++adjacency_work->csr_ownership_transfers;
+    }
+    result.tape.passed = true;
+    result.passed = true;
+    return result;
+}
+
 std::vector<Vec3> apply_joint_pressure_tape(
     const JointNeighborhood& neighborhood,
     const JointPressureTape& tape,
@@ -11228,28 +11411,67 @@ JointPressureWorkspace build_joint_query_workspace(
         trace.exact = false;
         return result;
     }
-    result.evaluation = evaluate_joint(result.neighborhood);
-    ++trace.joint_evaluation_queries;
-    result.tape = flat_adjacency
-        ? build_joint_pressure_tape_from_flat(
-            result.neighborhood, result.evaluation,
-            std::numeric_limits<std::size_t>::max(),
-            std::numeric_limits<std::uint32_t>::max(), adjacency_work)
-        : build_joint_pressure_tape(
-            result.neighborhood, result.evaluation,
-            std::numeric_limits<std::size_t>::max(),
-            std::numeric_limits<std::uint32_t>::max(), adjacency_work);
-    ++trace.tape_builds;
-    if (!result.tape.passed) {
-        result.failure = result.tape.failure;
-        trace.exact = false;
-        return result;
-    }
-    if (trace.cache_hvp_coefficients
-        && !populate_joint_hvp_coefficients(result.tape, trace)) {
-        result.failure = "HVP_COEFFICIENT_TAPE";
-        trace.exact = false;
-        return result;
+    if (trace.fuse_evaluation_tape) {
+        if (!flat_adjacency || !trace.cache_hvp_coefficients) {
+            ++trace.fusion_mismatches;
+            result.failure = "FUSED_EVALUATION_TAPE_POLICY";
+            trace.exact = false;
+            return result;
+        }
+        JointEvaluationTape fused =
+            build_joint_evaluation_tape_from_flat(
+                result.neighborhood, adjacency_work);
+        ++trace.joint_evaluation_queries;
+        ++trace.tape_builds;
+        if (!fused.passed || !fused.tape.passed) {
+            ++trace.fusion_mismatches;
+            result.failure = fused.failure;
+            trace.exact = false;
+            return result;
+        }
+        result.evaluation = std::move(fused.evaluation);
+        result.tape = std::move(fused.tape);
+        const std::size_t pair_count = result.tape.radius.size();
+        const std::size_t center_count = result.tape.compression.size();
+        ++trace.fused_workspace_builds;
+        trace.fused_pair_visits += pair_count;
+        trace.fused_active_directed_visits +=
+            result.tape.active_directed;
+        trace.fused_center_visits += center_count;
+        trace.fused_radius_evaluations += pair_count;
+        trace.fused_gradient_evaluations += pair_count;
+        trace.fused_second_evaluations += pair_count;
+        trace.fused_compression_evaluations += center_count;
+        ++trace.coefficient_tape_builds;
+        trace.coefficient_pairs += pair_count;
+        trace.coefficient_kernel_evaluations += 2U * pair_count;
+        trace.maximum_coefficient_payload_bytes = std::max(
+            trace.maximum_coefficient_payload_bytes,
+            2U * pair_count * sizeof(double));
+    } else {
+        result.evaluation = evaluate_joint(result.neighborhood);
+        ++trace.joint_evaluation_queries;
+        result.tape = flat_adjacency
+            ? build_joint_pressure_tape_from_flat(
+                result.neighborhood, result.evaluation,
+                std::numeric_limits<std::size_t>::max(),
+                std::numeric_limits<std::uint32_t>::max(), adjacency_work)
+            : build_joint_pressure_tape(
+                result.neighborhood, result.evaluation,
+                std::numeric_limits<std::size_t>::max(),
+                std::numeric_limits<std::uint32_t>::max(), adjacency_work);
+        ++trace.tape_builds;
+        if (!result.tape.passed) {
+            result.failure = result.tape.failure;
+            trace.exact = false;
+            return result;
+        }
+        if (trace.cache_hvp_coefficients
+            && !populate_joint_hvp_coefficients(result.tape, trace)) {
+            result.failure = "HVP_COEFFICIENT_TAPE";
+            trace.exact = false;
+            return result;
+        }
     }
     trace.total_fluid_centers += result.neighborhood.fluid.size();
     trace.total_active_directed += result.tape.active_directed;
@@ -18176,7 +18398,8 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
     FlatAdjacencyWorkTrace* adjacency_work = nullptr,
     bool hash_workspace_states = true,
     JointTopologySupersetCache* topology_cache = nullptr,
-    bool cache_hvp_coefficients = false) {
+    bool cache_hvp_coefficients = false,
+    bool fuse_evaluation_tape = false) {
     MacroAdaptiveTransactionCase result;
     result.name = std::move(name);
     fixture.macro_frames = 1;
@@ -18186,6 +18409,7 @@ MacroAdaptiveTransactionCase run_macro_adaptive_transaction_case(
         : JointWorkspaceEvidencePolicy::WorkOnly;
     result.trace.topology_cache = topology_cache;
     result.trace.cache_hvp_coefficients = cache_hvp_coefficients;
+    result.trace.fuse_evaluation_tape = fuse_evaluation_tape;
     struct TopologyCachePointerReset {
         JointQueryTrace& trace;
         ~TopologyCachePointerReset() {
@@ -33919,6 +34143,286 @@ run_nominal_hydro_evaluation_tape_dataflow_audit_controls() {
            << ",\"reference_curve_decoded\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+constexpr const char* B4EP7I_IDENTITY_SHA256 =
+    "441ac76483748631f94ae4f2d092b97ba4d271fb2c380d2b6e889245527821c9";
+constexpr const char* B4EP7I_IDENTITY_PROJECTION =
+    "nextengine.nonlocal.nsr3b4ep7i-fused-evaluation-tape|v1|"
+    "parent=261bcd72315c16836f782751738a4e4a1bcd8a10dd9ba5cab9ff5478ecb987d0:"
+    "b8942b1bec2dffe3f1fabbbcef508a4ec1c82d02fdbbb57a52c7ee089ab0f471:"
+    "a40cbb27244c6bbbd6bd6c8359e8c0e3779ec2e1b4a3592b79ea10d89fb74a13:"
+    "9b5453d91a99fc3c21c5024e578d1d5a5593d1bcc14063a421442d25d98487fe|"
+    "candidate=46224e0e70c3fa1a21b3a1fa3b8e5aec81f10fcc6312d99314caec6c91e45e40:"
+    "5cd61e3eb82f6a3cedfe4d7d8e39cbb5aca65c6e00c5ef9cd9e7555a71b9bf23:"
+    "dac62e7528e08bc6d9dec91458bd2f7d78a03b75c0e8554f86d1fda5e89ae73b|"
+    "implementation=40ee0fe0e791d41262fd772b77218c4221bd3d14|"
+    "fusion=transaction-only;flat-only;pair-pass=density+radius+gradient+second;"
+    "center-pass=energy+gradient+compression;csr=validate-then-move;fallback=none|"
+    "order=density-pairs-unchanged;gradient-centers+adjacency-unchanged;"
+    "vector-grouping-unchanged|"
+    "work=queries226;N=85716150;D=131987230;C=1356000;radius=85716150;"
+    "gradient=85716150;second=85716150;compression=1356000;fused-builds226|"
+    "physics=bit-exact-roots+counters;workspace-chain=b4ep5-exact|"
+    "runs=fused2-byte-exact;regressions=b4ep1,b4ep3,b4ep3i,b4ep5,b4ep7d-byte-exact|"
+    "timing=BASELINE,FUSED,FUSED,BASELINE,BASELINE,FUSED;gate=3/3-wins;"
+    "median-speedup>=1.10|watchdog=900s|reference=closed|"
+    "credit=b4ep8-profile-design-only";
+
+void append_b4ep7i_fusion(
+    std::ostringstream& output,
+    const JointQueryTrace& trace) {
+    output << "{\"enabled\":"
+           << (trace.fuse_evaluation_tape ? "true" : "false")
+           << ",\"workspace_builds\":" << trace.fused_workspace_builds
+           << ",\"pair_visits\":" << trace.fused_pair_visits
+           << ",\"active_directed_visits\":"
+           << trace.fused_active_directed_visits
+           << ",\"center_visits\":" << trace.fused_center_visits
+           << ",\"radius_evaluations\":"
+           << trace.fused_radius_evaluations
+           << ",\"gradient_evaluations\":"
+           << trace.fused_gradient_evaluations
+           << ",\"second_evaluations\":"
+           << trace.fused_second_evaluations
+           << ",\"compression_evaluations\":"
+           << trace.fused_compression_evaluations
+           << ",\"mismatches\":" << trace.fusion_mismatches
+           << ",\"fallbacks\":" << trace.fusion_fallbacks << '}';
+}
+
+} // namespace
+
+SplitBoundaryReport
+run_nominal_hydro_fused_evaluation_tape_ablation_controls() {
+    const NominalAlignmentSpec& spec = B4E0_SCENARIOS[0];
+    const SmokeFixture fixture = make_b4e1m_hydro_fixture();
+    const std::string scenario_root = b4e0_scenario_root(
+        b4e0_nominal_manifest(spec, false));
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4E0_PUBLICATION_SHA256, scenario_root, 0U,
+            canonical_float_samples(
+                fixture.position, fixture.velocity, 0));
+    StaticSupportWorkTrace static_work;
+    FlatAdjacencyWorkTrace adjacency_work;
+    const JointStaticSupportIndex index =
+        build_joint_static_support_index(
+            tagged_points(fixture.boundary), &static_work);
+    const JointStaticSupportBinding binding =
+        bind_joint_static_support_index(
+            &index, index.identity_sha256);
+    const bool identity_exact = sha256_hex(B4EP7I_IDENTITY_PROJECTION)
+            == B4EP7I_IDENTITY_SHA256
+        && scenario_root == spec.scenario_root
+        && initial.frame.root_sha256
+            == "999cc0c925e52dc873be53f911d3effc0a2bf48fe8c5538e9fe3286b14fc76c7"
+        && index.passed && binding.passed
+        && index.identity_sha256
+            == "daafa32e95eea258c51704d30d7654a702778d560d59fab749a96180b0a6b297";
+
+    NominalMacroParent parent;
+    MacroAdaptiveTransactionCase transaction;
+    JointTopologySupersetCache cache;
+    if (identity_exact) {
+        parent = b4e1m_parent_preflight(
+            fixture, binding, static_work, adjacency_work);
+    }
+    if (identity_exact && parent.passed) {
+        transaction = run_macro_adaptive_transaction_case(
+            "b4ep1-nominal-hydro-work-only", fixture, scenario_root,
+            false, true, nullptr, nullptr, 0, 1U, true, true,
+            &binding, &static_work, true, &adjacency_work, false,
+            &cache, true, true);
+    }
+    const NominalMacroOutput output = b4e1m_output(transaction);
+    const double energy_creation = std::max(0.0,
+        transaction.accepted_private.maximum_mechanical_energy
+            - parent.initial_mechanical);
+    const double energy_allowance = 0.01 * std::max({
+        std::abs(parent.initial_mechanical),
+        static_cast<double>(fixture.position.size()) * MASS
+            * (-fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
+    const double candidate_active_ratio =
+        b4ep3i_candidate_active_ratio(cache);
+    const bool parent_evidence_exact = parent.passed
+        && parent.workspace_state_hashes == 1
+        && parent.workspace_state_hashes_skipped == 0;
+    const bool transaction_evidence_exact =
+        b4ep1_queries_work_only_exact(transaction.trace)
+        && transaction.trace.query_chain_sha256
+            == "6a220a4e6f4d6d06ab54fe043a9ddf49606aae40e598e43f1c331c78b7802991";
+    const bool physics_exact = b4ep1_frozen_physics_exact(
+            transaction, output, energy_creation)
+        && b4e1m_levels_exact(transaction)
+        && transaction.accepted_private.maximum_mechanical_energy
+            == parent.initial_mechanical
+        && energy_creation <= energy_allowance;
+    const bool cache_exact = transaction.passed && !cache.failed
+        && cache.queries == 226U
+        && cache.rebuilds == 1U
+        && cache.reuses == 225U
+        && cache.certificate_passes == 225U
+        && cache.certificate_failures == 0U
+        && cache.fallback_builds == 0U
+        && cache.maximum_candidate_degree == 122U
+        && cache.active_pair_visits == 85716150U
+        && std::isfinite(candidate_active_ratio)
+        && candidate_active_ratio <= 1.25;
+    const bool coefficient_exact = transaction.passed
+        && transaction.trace.cache_hvp_coefficients
+        && transaction.trace.coefficient_tape_builds == 226U
+        && transaction.trace.coefficient_pairs == 85716150U
+        && transaction.trace.coefficient_kernel_evaluations == 171432300U
+        && transaction.trace.coefficient_hvp_lookups == 971831424U
+        && transaction.trace.maximum_coefficient_payload_bytes
+            == 6088176U
+        && transaction.trace.coefficient_mismatches == 0U
+        && transaction.trace.coefficient_fallbacks == 0U;
+    const bool fusion_exact = transaction.passed
+        && transaction.trace.fuse_evaluation_tape
+        && transaction.trace.fused_workspace_builds == 226U
+        && transaction.trace.fused_pair_visits == 85716150U
+        && transaction.trace.fused_active_directed_visits == 131987230U
+        && transaction.trace.fused_center_visits == 1356000U
+        && transaction.trace.fused_radius_evaluations == 85716150U
+        && transaction.trace.fused_gradient_evaluations == 85716150U
+        && transaction.trace.fused_second_evaluations == 85716150U
+        && transaction.trace.fused_compression_evaluations == 1356000U
+        && transaction.trace.fusion_mismatches == 0U
+        && transaction.trace.fusion_fallbacks == 0U;
+    const bool work_exact = transaction.passed
+        && transaction.trace.total_pairs == 85716150U
+        && transaction.trace.total_active_directed == 131987230U
+        && transaction.trace.total_fluid_centers == 1356000U
+        && static_work.static_index_builds == 1U
+        && static_work.workspace_builds == 227U
+        && adjacency_work.workspace_builds == 227U
+        && adjacency_work.flat_offset_records == 1362227U
+        && adjacency_work.flat_pair_index_records == 151461068U
+        && adjacency_work.csr_ownership_transfers == 227U
+        && transaction.retention.transfers == 42
+        && transaction.retention.reads == 42
+        && transaction.retention.releases == 42
+        && transaction.retention.live_retained == 0
+        && transaction.trace.live_workspaces == 0;
+    const bool passed = identity_exact && parent_evidence_exact
+        && transaction_evidence_exact && physics_exact && cache_exact
+        && coefficient_exact && fusion_exact && work_exact;
+    std::string failure;
+    if (!identity_exact) {
+        failure = "IDENTITY_OR_PARENT";
+    } else if (!parent_evidence_exact) {
+        failure = "PARENT_FULL_EVIDENCE";
+    } else if (!transaction.passed) {
+        failure = "TRANSACTION:" + transaction.failure;
+    } else if (!transaction_evidence_exact) {
+        failure = "WORK_ONLY_EVIDENCE";
+    } else if (!physics_exact) {
+        failure = "PHYSICS_CORRESPONDENCE";
+    } else if (!cache_exact) {
+        failure = "CACHE_CORRESPONDENCE";
+    } else if (!coefficient_exact) {
+        failure = "COEFFICIENT_CORRESPONDENCE";
+    } else if (!fusion_exact) {
+        failure = "FUSION_CORRESPONDENCE";
+    } else if (!work_exact) {
+        failure = "WORK_CORRESPONDENCE";
+    }
+    const std::string base_work_receipt = b4ep5_work_receipt(
+        parent, index, transaction, static_work, adjacency_work,
+        cache, candidate_active_ratio);
+    std::ostringstream work_material;
+    work_material << "nextengine.nonlocal.nsr3b4ep7i-work|v1|"
+                  << base_work_receipt << '|'
+                  << transaction.trace.fused_workspace_builds << ':'
+                  << transaction.trace.fused_pair_visits << ':'
+                  << transaction.trace.fused_active_directed_visits << ':'
+                  << transaction.trace.fused_center_visits << ':'
+                  << transaction.trace.fused_radius_evaluations << ':'
+                  << transaction.trace.fused_gradient_evaluations << ':'
+                  << transaction.trace.fused_second_evaluations << ':'
+                  << transaction.trace.fused_compression_evaluations;
+    const std::string work_receipt = sha256_hex(work_material.str());
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << failure
+             << '|' << B4EP7I_IDENTITY_SHA256 << '|'
+             << output.frame_root << ':' << output.aggregate_root << '|'
+             << transaction.trajectory_sha256 << ':'
+             << transaction.legacy_ledger_sha256 << ':'
+             << transaction.policy_ledger_sha256 << '|'
+             << transaction.trace.query_chain_sha256 << '|'
+             << work_receipt;
+
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+              "nsr3b4ep7i_fused_evaluation_tape.v1\""
+           << ",\"identity_sha256\":\"" << B4EP7I_IDENTITY_SHA256
+           << "\",\"parent_b4ep7d_result\":\""
+              "a40cbb27244c6bbbd6bd6c8359e8c0e3779ec2e1b4a3592b79ea10d89fb74a13\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << failure << '"'
+           << ",\"identity_exact\":"
+           << (identity_exact ? "true" : "false")
+           << ",\"parent_preflight\":";
+    append_b4e1m_parent(report, parent);
+    report << ",\"transaction\":";
+    append_macro_adaptive_transaction_case(report, transaction);
+    report << ",\"output\":";
+    append_b4e1m_output(
+        report, output, transaction, energy_creation, energy_allowance);
+    report << ",\"cache\":";
+    append_b4ep3i_cache(report, cache, candidate_active_ratio);
+    report << ",\"coefficients\":";
+    append_b4ep5_coefficients(report, transaction.trace);
+    report << ",\"fusion\":";
+    append_b4ep7i_fusion(report, transaction.trace);
+    report << ",\"evidence_policy\":{\"parent\":\"FULL_STATE\""
+           << ",\"transaction\":\"WORK_ONLY_CACHED_FUSED\""
+           << ",\"parent_hashes_computed\":"
+           << parent.workspace_state_hashes
+           << ",\"parent_hashes_skipped\":"
+           << parent.workspace_state_hashes_skipped
+           << ",\"transaction_hashes_computed\":"
+           << transaction.trace.workspace_state_hashes
+           << ",\"transaction_hashes_skipped\":"
+           << transaction.trace.workspace_state_hashes_skipped
+           << ",\"work_chain_root\":\""
+           << transaction.trace.query_chain_sha256 << "\"}"
+           << ",\"base_work_receipt\":\"" << base_work_receipt << '"'
+           << ",\"work_receipt\":\"" << work_receipt << '"'
+           << ",\"parent_evidence_exact\":"
+           << (parent_evidence_exact ? "true" : "false")
+           << ",\"transaction_evidence_exact\":"
+           << (transaction_evidence_exact ? "true" : "false")
+           << ",\"physics_correspondence_exact\":"
+           << (physics_exact ? "true" : "false")
+           << ",\"cache_correspondence_exact\":"
+           << (cache_exact ? "true" : "false")
+           << ",\"coefficient_correspondence_exact\":"
+           << (coefficient_exact ? "true" : "false")
+           << ",\"fusion_correspondence_exact\":"
+           << (fusion_exact ? "true" : "false")
+           << ",\"work_correspondence_exact\":"
+           << (work_exact ? "true" : "false")
+           << ",\"exact_fused_evaluation_tape_candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4ep8_design_authorized\":false"
+           << ",\"b4ep8_design_requires_external_timing\":true"
+           << ",\"b4e2_execution_authorized\":false"
+           << ",\"reference_curve_decoded\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"timing_external\":true"
+           << ",\"watchdog_seconds\":900"
            << ",\"result_sha256\":\""
            << sha256_hex(material.str()) << "\"}";
     return {passed, report.str()};
