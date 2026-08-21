@@ -1,6 +1,6 @@
 # NSR3-B4B1 -- tiny pressure corpus with contact KKT
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / NOMINAL_CORPUS_BLOCKED`
+Status: `EXECUTED_FAIL / P1_FRAME0_KINETIC_REFERENCE / NOMINAL_CORPUS_BLOCKED`
 
 Parent B4BK1 selects `BOX_CONTACT_KKT_CANDIDATE`; semantic SHA-256 is
 `48db28247059f4f61870ee8ff9bc680ebbb5e672039c5c199b11e14dbe980197`
@@ -94,3 +94,9 @@ may not override a temporal/reference failure.
 No general mesh, moving solid, friction, equilibrium, internal aperture,
 viscosity, surface tension, nominal water, CUDA, runtime or production
 integration is authorized.
+
+Execution is recorded in the
+[dated B4B1 evidence](../../development/nonlocal-nsr3b4b1-tiny-pressure-contact-kkt-evidence-2026-08-21.md).
+P1 KKT physics and all fixed references complete, but the pressure-inactive
+frame-start controller accepts `1/2` substeps and fails the frozen fixed-192
+kinetic comparison. P2 is not executed.

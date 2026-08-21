@@ -600,6 +600,18 @@
 - **Consequence:** B4B1 may test temporal/reference behavior. One-step PASS
   does not authorize general collision, nominal water or runtime work.
 
+### D-036 -- Preserve KKT trajectory physics and reject its onset controller
+
+- **Observation:** B4B1 adaptive/fixed paths close KKT, ledger, energy and
+  reference-order gates. Frame zero starts pressure-inactive, accepts `1/2`
+  at `8.58%` embedded kinetic error, but the committed two-step state is
+  `24.46%` from fixed-192 and fails the frozen `15%` gate.
+- **Decision:** preserve B4B1 FAIL and the kinetic threshold. Test a feasible
+  clamped macro-predictor spectrum that detects contact-created pressure
+  activity before selecting `n`.
+- **Consequence:** B4BF is a one-frame controller discriminator with a full
+  level curve and detached P2 negative. No full B4B2 retry is authorized yet.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -612,10 +624,10 @@
 
 ## Exact next action
 
-1. Generalize the selected KKT step from frozen initial states to immutable
-   arbitrary substep starts without changing B4BK1 output.
-2. Implement B4B1 adaptive and fixed trajectories with KKT-owned contacts.
-3. Execute twice, preserve the first temporal/reference failure or PASS, and
+1. Implement B4BF's immutable first-frame level curve and feasible projected
+   pressure spectrum.
+2. Test its derived `(n,2n)` pair against fixed-192 and detached P2.
+3. Execute twice and preserve the first forecast/accuracy failure or PASS;
    keep all historical raw reports exact.
 
 ## Reconsideration triggers

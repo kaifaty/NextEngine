@@ -324,4 +324,12 @@ KKT/ledger gates and detached P2; see the
 The full [B4B1 contract](03b4b1-tiny-pressure-contact-kkt-contract.md) is now
 frozen: it changes only post-solve sweep to constrained contact inside every
 substep and inherits the complete B4B corpus without looser thresholds.
-Execute B4B1 next; nominal/scalable work remains blocked.
+Nominal/scalable work remains blocked.
+B4B1 closes KKT physics and all fixed references but fails the first adaptive
+frame's fixed-192 kinetic comparison; see the
+[dated evidence](../../development/nonlocal-nsr3b4b1-tiny-pressure-contact-kkt-evidence-2026-08-21.md).
+The pressure-inactive start chooses `n=1`, and its passing `1/2` pair misses
+contact-created stiffness. The selected
+[B4BF research](../../development/nonlocal-nsr3b4bf-contact-forecast-research-2026-08-21.md)
+freezes a [feasible-predictor spectrum discriminator](03b4bf-contact-forecast-controller-contract.md)
+before any full retry. Execute B4BF next; do not relax the kinetic gate.
