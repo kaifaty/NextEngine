@@ -1091,3 +1091,8 @@ B4EP7I passes; see the
 The fused transaction is bit-exact and wins all three pairs with median
 `1.1111x` speedup, reducing median wall from 8.90 s to 8.00 s. The modest
 margin selects only B4EP8 exact residual profiling/design, not production.
+The [B4EP8 research](../../development/nonlocal-nsr3b4ep8-fused-residual-attribution-research-2026-08-22.md)
+resets attribution after fusion. Its
+[frozen contract](03b4ep8-fused-residual-attribution-contract.md) authorizes
+one exact-output gprof run and no optimization. A missing `1.20x` leader routes
+to scoped internal phase timing.
