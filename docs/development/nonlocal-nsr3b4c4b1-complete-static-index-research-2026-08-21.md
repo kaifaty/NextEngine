@@ -1,6 +1,6 @@
 # B4C4B1 complete-lane static-support-index design
 
-Status: `COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `PASS / FLAT-ONLY CSR DESIGN AUTHORIZED`
 
 Date: `2026-08-21`
 
@@ -50,8 +50,9 @@ outside the local lane object.
 
 ## Decision
 
-Freeze the
-[B4C4B1 contract](../plans/nonlocal-nonlinear-solver-research/03b4c4b1-complete-static-index-contract.md).
-A PASS completes static-index packaging only. B4C4C flat-only CSR remains the
-next mandatory packaging stage; B4D, nominal corpus, CUDA, runtime and
-production remain blocked.
+The frozen
+[B4C4B1 contract](../plans/nonlocal-nonlinear-solver-research/03b4c4b1-complete-static-index-contract.md)
+passes all complete lanes and rollback; see the
+[dated evidence](nonlocal-nsr3b4c4b1-complete-static-index-evidence-2026-08-21.md).
+This completes static-index packaging only and authorizes B4C4C flat-only CSR
+design. B4D, nominal corpus, CUDA, runtime and production remain blocked.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4BM_PASS / B4C4B1_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C4B1_PASS / B4C4C_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -84,9 +84,12 @@
 - **Current conclusion:** B4C4BM passes three sequential runs with exact
   deterministic root `66cccf12...465`. Candidate wins all paired rounds;
   median process-level construction speedups are `1.1399x/2.5952x` P1/P2.
-- **Current action:** implement frozen B4C4B1 one-index-per-lane composition
-  over all eight complete retained lanes and forced rollback. B4C4C and B4D
-  remain blocked.
+- **Current conclusion:** B4C4B1 passes twice byte-identically at full raw
+  `2dc13154...6146`. All eight lanes build one index, preserve exact A1
+  results and remove every predeclared support record; rollback is clean.
+- **Current action:** audit and freeze B4C4C flat-only CSR without changing
+  pair discovery, static-index lifetime or solver arithmetic. B4D remains
+  blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1742,6 +1745,25 @@
 - **Smallest next action:** thread the opt-in binding through complete runners,
   assert the eight predeclared work rows and rerun B4C4B/B4C4A1 regressions.
 
+### D-085 -- Select complete static indexing and isolate flat CSR
+
+- **Observation:** B4C4B1 passes all eight complete lanes and forced rollback
+  with one index per lane, exact query/physical/root results and all
+  predeclared work removals.
+- **Decision:** select
+  `COMPLETE_LANE_IMMUTABLE_STATIC_SUPPORT_INDEX_CANDIDATE` and begin only a
+  separate B4C4C nested-adjacency elimination design.
+- **Rejected alternatives:** infer whole-solver timing from the 62 s gate,
+  merge static support and CSR into one result, or expose the research index to
+  runtime before B4 packaging closes.
+- **Consequence:** B4C4C inherits retained workspaces and lane-local static
+  indexing as its legacy baseline; it may change representation but not pair
+  order, tape order or arithmetic.
+- **Remaining uncertainty:** exact nested-row construction/consumption sites,
+  flat ownership, memory reduction and any iteration-order hazards.
+- **Smallest next action:** map every adjacency consumer and prove whether the
+  existing pressure tape already contains all required ordered row data.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1754,8 +1776,9 @@
 
 ## Exact next action
 
-1. Implement and execute B4C4B1 complete-lane static-index application.
-2. Measure its whole-solver effect, then approach B4C4C flat-only CSR.
+1. Audit and freeze B4C4C flat-only CSR against the selected retained/static
+   complete-lane baseline.
+2. Execute it separately, then re-attest B4D reference inputs.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 
 ## Reconsideration triggers

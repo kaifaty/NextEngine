@@ -1,6 +1,6 @@
 # NSR3-B4C4B1 -- complete-lane immutable static-support index
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / B4C4C_BLOCKED`
+Status: `PASS / COMPLETE_STATIC_INDEX_SELECTED / B4C4C_DESIGN_AUTHORIZED`
 
 Parent B4C4BM passes with deterministic SHA-256
 `66cccf12ffebff98a0ef904907bb04aa015a8e57102f1f8dd7bf1ef5a7663465`.

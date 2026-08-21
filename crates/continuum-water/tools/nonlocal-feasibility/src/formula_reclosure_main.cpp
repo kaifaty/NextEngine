@@ -717,6 +717,20 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--complete-static-support-index-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_complete_static_index_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--complete-static-support-index-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_complete_static_index_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -804,6 +818,8 @@ int main(int argc, char** argv) {
                      "--static-support-index-probe|"
                      "--static-support-index-self-test|"
                      "--static-support-index-benchmark|"
+                     "--complete-static-support-index-probe|"
+                     "--complete-static-support-index-self-test|"
                      "--workspace-reuse-diagnostic-probe|"
                      "--workspace-reuse-diagnostic-self-test\n";
         return 2;

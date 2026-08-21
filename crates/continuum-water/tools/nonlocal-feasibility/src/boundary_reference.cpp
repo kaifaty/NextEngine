@@ -8285,6 +8285,7 @@ struct StaticSupportWorkTrace {
     std::size_t support_range_lookups = 0U;
     bool capture_fluid_states = false;
     std::vector<std::vector<JointPoint>> fluid_states;
+    std::string index_identity_sha256;
 };
 
 struct JointStaticSupportIndex {
@@ -9359,6 +9360,9 @@ JointStaticSupportIndex build_joint_static_support_index(
     result.layout_sha256 = joint_static_support_layout_hash(
         result.records, result.ranges);
     result.identity_sha256 = joint_static_support_identity(result);
+    if (work != nullptr) {
+        work->index_identity_sha256 = result.identity_sha256;
+    }
     result.passed = true;
     return result;
 }
@@ -18108,13 +18112,30 @@ MacroAdaptiveReplay run_macro_adaptive_replay(
     const SmokeFixture& fixture,
     const std::string& scenario_sha256,
     bool released_block,
-    bool retain_accepted_workspace = false) {
+    bool retain_accepted_workspace = false,
+    bool use_static_support = false,
+    StaticSupportWorkTrace* static_work = nullptr) {
     MacroAdaptiveReplay result;
     result.name = std::move(name);
     result.released_block = released_block;
     result.position = fixture.position;
     result.velocity = fixture.velocity;
     result.trace.record_queries = false;
+    JointStaticSupportIndex static_index;
+    JointStaticSupportBinding static_binding;
+    const JointStaticSupportBinding* static_support = nullptr;
+    if (use_static_support) {
+        static_index = build_joint_static_support_index(
+            tagged_points(fixture.boundary), static_work);
+        static_binding = bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+        if (!static_binding.passed) {
+            result.failure = "COMPLETE_STATIC_SUPPORT_INDEX:"
+                + static_binding.failure;
+            return result;
+        }
+        static_support = &static_binding;
+    }
     bool global_precontact = true;
     for (int frame_index = 0; frame_index < fixture.macro_frames;
          ++frame_index) {
@@ -18124,7 +18145,7 @@ MacroAdaptiveReplay run_macro_adaptive_replay(
                 fixture, scenario_sha256, false, true,
                 &result.position, &result.velocity, frame_index,
                 static_cast<std::uint32_t>(frame_index + 1), false,
-                retain_accepted_workspace);
+                retain_accepted_workspace, static_support, static_work);
         accumulate_joint_trace(result.trace, transaction.trace);
         if (!transaction.passed) {
             result.failure = "FRAME_" + std::to_string(frame_index)
@@ -18277,7 +18298,8 @@ MacroAdaptiveReplay run_macro_adaptive_replay(
         fixture, fixture.position, fixture.velocity);
     const B4BAggregate final = b4b_aggregate_joint(
         fixture, result.position, result.velocity,
-        result.name + "-final", result.trace);
+        result.name + "-final", result.trace,
+        static_support, static_work);
     result.energy_scale = std::max({
         std::abs(initial.mechanical),
         static_cast<double>(fixture.position.size()) * MASS
@@ -18372,15 +18394,31 @@ MacroAdaptiveReplay run_macro_adaptive_replay(
 }
 
 MacroAdaptiveReplayRollback run_macro_adaptive_replay_rollback(
-    bool retain_accepted_workspace = false) {
+    bool retain_accepted_workspace = false,
+    bool use_static_support = false,
+    StaticSupportWorkTrace* static_work = nullptr) {
     MacroAdaptiveReplayRollback result;
     const SmokeFixture fixture = make_b4b_supported_column_fixture();
+    JointStaticSupportIndex static_index;
+    JointStaticSupportBinding static_binding;
+    const JointStaticSupportBinding* static_support = nullptr;
+    if (use_static_support) {
+        static_index = build_joint_static_support_index(
+            tagged_points(fixture.boundary), static_work);
+        static_binding = bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+        if (!static_binding.passed) {
+            result.failure = "ROLLBACK_STATIC_SUPPORT_INDEX";
+            return result;
+        }
+        static_support = &static_binding;
+    }
     const MacroAdaptiveTransactionCase first =
         run_macro_adaptive_transaction_case(
             "p1-replay-rollback-prefix", fixture,
             B4C3TA_P1_SCENARIO_SHA256, false, true,
             nullptr, nullptr, 0, 1U, false,
-            retain_accepted_workspace);
+            retain_accepted_workspace, static_support, static_work);
     if (!first.passed) {
         result.failure = "ROLLBACK_PREFIX";
         return result;
@@ -18409,7 +18447,7 @@ MacroAdaptiveReplayRollback run_macro_adaptive_replay_rollback(
             "p1-replay-rollback-forced", fixture,
             B4C3TA_P1_SCENARIO_SHA256, true, true,
             &position, &velocity, 1, 2U, false,
-            retain_accepted_workspace);
+            retain_accepted_workspace, static_support, static_work);
     result.forced_retention = forced.retention;
     result.forced_final_live_workspaces = forced.trace.live_workspaces;
     result.retention_exact = !retain_accepted_workspace
@@ -18462,13 +18500,30 @@ CanonicalFixedLane run_macro_publication_fixed_lane(
     const SmokeFixture& fixture,
     const std::string& scenario_sha256,
     int substeps_per_frame,
-    bool retain_accepted_workspace = false) {
+    bool retain_accepted_workspace = false,
+    bool use_static_support = false,
+    StaticSupportWorkTrace* static_work = nullptr) {
     CanonicalFixedLane result;
     result.substeps_per_frame = substeps_per_frame;
     result.macro_frames = fixture.macro_frames;
     result.position = fixture.position;
     result.velocity = fixture.velocity;
     result.trace.record_queries = false;
+    JointStaticSupportIndex static_index;
+    JointStaticSupportBinding static_binding;
+    const JointStaticSupportBinding* static_support = nullptr;
+    if (use_static_support) {
+        static_index = build_joint_static_support_index(
+            tagged_points(fixture.boundary), static_work);
+        static_binding = bind_joint_static_support_index(
+            &static_index, static_index.identity_sha256);
+        if (!static_binding.passed) {
+            result.failure = "COMPLETE_STATIC_SUPPORT_INDEX:"
+                + static_binding.failure;
+            return result;
+        }
+        static_support = &static_binding;
+    }
     bool global_precontact = true;
     for (int frame = 0; frame < fixture.macro_frames; ++frame) {
         const std::vector<Vec3> input_position = result.position;
@@ -18478,7 +18533,8 @@ CanonicalFixedLane run_macro_publication_fixed_lane(
             substeps_per_frame,
             static_cast<double>(frame) * SMOKE_FRAME_TIME,
             SMOKE_FRAME_TIME, result.trace,
-            retain_accepted_workspace ? &result.retention : nullptr);
+            retain_accepted_workspace ? &result.retention : nullptr,
+            static_support, static_work);
         result.attempted_substeps += substeps_per_frame;
         result.outer_trials += run.outer_trials;
         result.rejected_trials += run.rejected_trials;
@@ -18492,7 +18548,8 @@ CanonicalFixedLane run_macro_publication_fixed_lane(
             publish_macro_transaction(
                 fixture, scenario_sha256,
                 static_cast<std::uint32_t>(frame + 1),
-                input_velocity, run, result.trace);
+                input_velocity, run, result.trace,
+                static_support, static_work);
         if (!publication.passed) {
             result.failure = "FRAME_" + std::to_string(frame)
                 + ':' + publication.failure;
@@ -26443,7 +26500,8 @@ bool exact_static_support_work(
         && lhs.combined_records_sorted == rhs.combined_records_sorted
         && lhs.combined_range_lookups == rhs.combined_range_lookups
         && lhs.fluid_range_lookups == rhs.fluid_range_lookups
-        && lhs.support_range_lookups == rhs.support_range_lookups;
+        && lhs.support_range_lookups == rhs.support_range_lookups
+        && lhs.index_identity_sha256 == rhs.index_identity_sha256;
 }
 
 bool exact_joint_query_trace_visible(
@@ -27523,6 +27581,616 @@ SplitBoundaryReport run_static_support_timing_impl() {
 
 SplitBoundaryReport run_static_support_timing_controls() {
     return run_static_support_timing_impl();
+}
+
+namespace {
+
+struct CompleteStaticIndexLaneCase {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    std::string lane_kind;
+    int substeps_per_frame = 0;
+    bool physical_exact = false;
+    bool repeat_exact = false;
+    bool roots_exact = false;
+    bool query_exact = false;
+    bool retention_exact = false;
+    bool work_exact = false;
+    std::size_t expected_workspace_builds = 0U;
+    std::size_t expected_removed_support_records = 0U;
+    StaticSupportWorkTrace legacy_work;
+    StaticSupportWorkTrace candidate_work;
+    std::string work_receipt_sha256;
+    std::string trajectory_sha256;
+    std::string legacy_ledger_sha256;
+    std::string policy_ledger_sha256;
+    std::string query_policy_sha256;
+    std::string retention_receipt_sha256;
+};
+
+struct CompleteStaticIndexRollback {
+    bool passed = false;
+    std::string failure;
+    bool physical_exact = false;
+    bool repeat_exact = false;
+    bool work_exact = false;
+    StaticSupportWorkTrace work;
+};
+
+bool complete_static_support_work_exact(
+    const StaticSupportWorkTrace& legacy,
+    const StaticSupportWorkTrace& candidate,
+    std::size_t fluid_samples,
+    std::size_t support_samples,
+    std::size_t expected_workspace_builds,
+    std::size_t expected_removed_support_records) {
+    if (fluid_samples > 0U
+        && expected_workspace_builds
+            > std::numeric_limits<std::size_t>::max() / fluid_samples) {
+        return false;
+    }
+    if (support_samples > 0U
+        && expected_workspace_builds
+            > std::numeric_limits<std::size_t>::max() / support_samples) {
+        return false;
+    }
+    const std::size_t fluid_records =
+        fluid_samples * expected_workspace_builds;
+    const std::size_t legacy_support_records =
+        support_samples * expected_workspace_builds;
+    return legacy.workspace_builds == expected_workspace_builds
+        && candidate.workspace_builds == expected_workspace_builds
+        && legacy.static_index_builds == expected_workspace_builds
+        && candidate.static_index_builds == 1U
+        && legacy.support_canonicalizations == expected_workspace_builds
+        && candidate.support_canonicalizations == 1U
+        && legacy.support_records_sorted == legacy_support_records
+        && candidate.support_records_sorted == support_samples
+        && legacy.support_records_sorted
+                - candidate.support_records_sorted
+            == expected_removed_support_records
+        && legacy.fluid_records_sorted == fluid_records
+        && candidate.fluid_records_sorted == fluid_records
+        && legacy.combined_records_sorted
+            == fluid_records + legacy_support_records
+        && candidate.combined_records_sorted == 0U
+        && candidate.combined_range_lookups == 0U
+        && candidate.fluid_range_lookups
+            == legacy.combined_range_lookups
+        && candidate.support_range_lookups
+            == legacy.combined_range_lookups
+        && !candidate.index_identity_sha256.empty();
+}
+
+std::string complete_static_support_work_receipt(
+    const std::string& name,
+    const StaticSupportWorkTrace& work,
+    const std::string& query_policy,
+    const std::string& retention_receipt) {
+    std::ostringstream material;
+    material << "complete-static-support-work-r0|" << name << '|'
+             << work.index_identity_sha256 << '|'
+             << work.workspace_builds << ':' << work.static_index_builds
+             << ':' << work.support_canonicalizations << ':'
+             << work.support_records_sorted << ':'
+             << work.fluid_records_sorted << ':'
+             << work.combined_records_sorted << ':'
+             << work.combined_range_lookups << ':'
+             << work.fluid_range_lookups << ':'
+             << work.support_range_lookups << '|'
+             << query_policy << '|' << retention_receipt;
+    return sha256_hex(material.str());
+}
+
+CompleteStaticIndexLaneCase run_complete_static_adaptive_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    bool released_block,
+    std::size_t expected_workspace_builds,
+    std::size_t expected_removed_support_records,
+    const std::string& expected_trajectory,
+    const std::string& expected_legacy_ledger,
+    const std::string& expected_policy_ledger) {
+    CompleteStaticIndexLaneCase result;
+    result.name = name;
+    result.lane_kind = "ADAPTIVE";
+    result.expected_workspace_builds = expected_workspace_builds;
+    result.expected_removed_support_records =
+        expected_removed_support_records;
+    StaticSupportWorkTrace legacy_work;
+    const MacroAdaptiveReplay legacy = run_macro_adaptive_replay(
+        name, fixture, scenario_sha256, released_block, true,
+        false, &legacy_work);
+    StaticSupportWorkTrace candidate_work;
+    const MacroAdaptiveReplay candidate = run_macro_adaptive_replay(
+        name, fixture, scenario_sha256, released_block, true,
+        true, &candidate_work);
+    StaticSupportWorkTrace repeated_work;
+    const MacroAdaptiveReplay repeated = run_macro_adaptive_replay(
+        name, fixture, scenario_sha256, released_block, true,
+        true, &repeated_work);
+    const WorkspaceRetentionTrace legacy_retention =
+        adaptive_replay_retention_summary(legacy);
+    const WorkspaceRetentionTrace candidate_retention =
+        adaptive_replay_retention_summary(candidate);
+    const WorkspaceRetentionTrace repeated_retention =
+        adaptive_replay_retention_summary(repeated);
+    const std::string legacy_query =
+        adaptive_replay_query_policy_root(legacy);
+    const std::string candidate_query =
+        adaptive_replay_query_policy_root(candidate);
+    const std::string repeated_query =
+        adaptive_replay_query_policy_root(repeated);
+    result.physical_exact = macro_adaptive_replay_physics_exact(
+        candidate, legacy);
+    result.repeat_exact = macro_adaptive_replay_physics_exact(
+            repeated, candidate)
+        && exact_static_support_work(repeated_work, candidate_work)
+        && repeated_query == candidate_query
+        && exact_retention_trace(
+            repeated_retention, candidate_retention);
+    result.roots_exact = candidate.trajectory_sha256
+            == expected_trajectory
+        && candidate.legacy_ledger_sha256 == expected_legacy_ledger
+        && candidate.policy_ledger_sha256 == expected_policy_ledger
+        && candidate.trajectory_sha256 == legacy.trajectory_sha256
+        && candidate.legacy_ledger_sha256
+            == legacy.legacy_ledger_sha256
+        && candidate.policy_ledger_sha256
+            == legacy.policy_ledger_sha256;
+    result.query_exact = candidate_query == legacy_query
+        && repeated_query == candidate_query;
+    result.retention_exact = exact_retention_trace(
+            candidate_retention, legacy_retention)
+        && exact_retention_trace(
+            repeated_retention, candidate_retention)
+        && candidate_retention.live_retained == 0
+        && candidate.trace.live_workspaces == 0;
+    result.work_exact = complete_static_support_work_exact(
+        legacy_work, candidate_work,
+        fixture.position.size(), fixture.boundary.size(),
+        expected_workspace_builds, expected_removed_support_records)
+        && static_cast<std::size_t>(legacy.trace.neighborhood_builds)
+            == expected_workspace_builds
+        && legacy.trace.neighborhood_builds
+            == candidate.trace.neighborhood_builds
+        && legacy.trace.tape_builds == candidate.trace.tape_builds;
+    result.legacy_work = legacy_work;
+    result.candidate_work = candidate_work;
+    result.work_receipt_sha256 = complete_static_support_work_receipt(
+        name, candidate_work, candidate_query,
+        candidate_retention.receipt_sha256);
+    const std::string repeated_receipt =
+        complete_static_support_work_receipt(
+            name, repeated_work, repeated_query,
+            repeated_retention.receipt_sha256);
+    result.repeat_exact = result.repeat_exact
+        && repeated_receipt == result.work_receipt_sha256;
+    result.trajectory_sha256 = candidate.trajectory_sha256;
+    result.legacy_ledger_sha256 = candidate.legacy_ledger_sha256;
+    result.policy_ledger_sha256 = candidate.policy_ledger_sha256;
+    result.query_policy_sha256 = candidate_query;
+    result.retention_receipt_sha256 =
+        candidate_retention.receipt_sha256;
+    result.passed = legacy.passed && candidate.passed && repeated.passed
+        && result.physical_exact && result.repeat_exact
+        && result.roots_exact && result.query_exact
+        && result.retention_exact && result.work_exact;
+    if (!result.physical_exact) {
+        result.failure = "ADAPTIVE_PHYSICAL_CORRESPONDENCE";
+    } else if (!result.repeat_exact) {
+        result.failure = "ADAPTIVE_REPEAT";
+    } else if (!result.roots_exact) {
+        result.failure = "ADAPTIVE_ROOTS";
+    } else if (!result.query_exact) {
+        result.failure = "ADAPTIVE_QUERY";
+    } else if (!result.retention_exact) {
+        result.failure = "ADAPTIVE_RETENTION";
+    } else if (!result.work_exact) {
+        result.failure = "ADAPTIVE_STATIC_WORK";
+    } else if (!legacy.passed || !candidate.passed || !repeated.passed) {
+        result.failure = "ADAPTIVE_STATUS";
+    }
+    return result;
+}
+
+CompleteStaticIndexLaneCase run_complete_static_fixed_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    int substeps_per_frame,
+    std::size_t expected_workspace_builds,
+    std::size_t expected_removed_support_records) {
+    CompleteStaticIndexLaneCase result;
+    result.name = name;
+    result.lane_kind = "MACRO_FIXED";
+    result.substeps_per_frame = substeps_per_frame;
+    result.expected_workspace_builds = expected_workspace_builds;
+    result.expected_removed_support_records =
+        expected_removed_support_records;
+    StaticSupportWorkTrace legacy_work;
+    const CanonicalFixedLane legacy = run_macro_publication_fixed_lane(
+        fixture, scenario_sha256, substeps_per_frame, true,
+        false, &legacy_work);
+    StaticSupportWorkTrace candidate_work;
+    const CanonicalFixedLane candidate = run_macro_publication_fixed_lane(
+        fixture, scenario_sha256, substeps_per_frame, true,
+        true, &candidate_work);
+    StaticSupportWorkTrace repeated_work;
+    const CanonicalFixedLane repeated = run_macro_publication_fixed_lane(
+        fixture, scenario_sha256, substeps_per_frame, true,
+        true, &repeated_work);
+    result.physical_exact = canonical_fixed_lane_physics_exact(
+        candidate, legacy);
+    result.repeat_exact = canonical_fixed_lane_physics_exact(
+            repeated, candidate)
+        && exact_static_support_work(repeated_work, candidate_work)
+        && repeated.trace.query_chain_sha256
+            == candidate.trace.query_chain_sha256
+        && exact_retention_trace(
+            repeated.retention, candidate.retention);
+    result.roots_exact = candidate.trajectory_sha256
+            == legacy.trajectory_sha256
+        && candidate.legacy_ledger_sha256
+            == legacy.legacy_ledger_sha256
+        && candidate.policy_ledger_sha256
+            == legacy.policy_ledger_sha256;
+    result.query_exact = candidate.trace.query_chain_sha256
+            == legacy.trace.query_chain_sha256
+        && repeated.trace.query_chain_sha256
+            == candidate.trace.query_chain_sha256;
+    result.retention_exact = exact_retention_trace(
+            candidate.retention, legacy.retention)
+        && exact_retention_trace(
+            repeated.retention, candidate.retention)
+        && candidate.retention.live_retained == 0
+        && candidate.trace.live_workspaces == 0;
+    result.work_exact = complete_static_support_work_exact(
+        legacy_work, candidate_work,
+        fixture.position.size(), fixture.boundary.size(),
+        expected_workspace_builds, expected_removed_support_records)
+        && static_cast<std::size_t>(legacy.trace.neighborhood_builds)
+            == expected_workspace_builds
+        && legacy.trace.neighborhood_builds
+            == candidate.trace.neighborhood_builds
+        && legacy.trace.tape_builds == candidate.trace.tape_builds;
+    result.legacy_work = legacy_work;
+    result.candidate_work = candidate_work;
+    result.work_receipt_sha256 = complete_static_support_work_receipt(
+        name, candidate_work, candidate.trace.query_chain_sha256,
+        candidate.retention.receipt_sha256);
+    const std::string repeated_receipt =
+        complete_static_support_work_receipt(
+            name, repeated_work, repeated.trace.query_chain_sha256,
+            repeated.retention.receipt_sha256);
+    result.repeat_exact = result.repeat_exact
+        && repeated_receipt == result.work_receipt_sha256;
+    result.trajectory_sha256 = candidate.trajectory_sha256;
+    result.legacy_ledger_sha256 = candidate.legacy_ledger_sha256;
+    result.policy_ledger_sha256 = candidate.policy_ledger_sha256;
+    result.query_policy_sha256 = candidate.trace.query_chain_sha256;
+    result.retention_receipt_sha256 =
+        candidate.retention.receipt_sha256;
+    result.passed = legacy.passed && candidate.passed && repeated.passed
+        && result.physical_exact && result.repeat_exact
+        && result.roots_exact && result.query_exact
+        && result.retention_exact && result.work_exact;
+    if (!result.physical_exact) {
+        result.failure = "FIXED_PHYSICAL_CORRESPONDENCE";
+    } else if (!result.repeat_exact) {
+        result.failure = "FIXED_REPEAT";
+    } else if (!result.roots_exact) {
+        result.failure = "FIXED_ROOTS";
+    } else if (!result.query_exact) {
+        result.failure = "FIXED_QUERY";
+    } else if (!result.retention_exact) {
+        result.failure = "FIXED_RETENTION";
+    } else if (!result.work_exact) {
+        result.failure = "FIXED_STATIC_WORK";
+    } else if (!legacy.passed || !candidate.passed || !repeated.passed) {
+        result.failure = "FIXED_STATUS";
+    }
+    return result;
+}
+
+bool exact_macro_adaptive_replay_rollback_value(
+    const MacroAdaptiveReplayRollback& lhs,
+    const MacroAdaptiveReplayRollback& rhs) {
+    return lhs.passed == rhs.passed
+        && lhs.failure == rhs.failure
+        && lhs.committed_frames_before == rhs.committed_frames_before
+        && lhs.committed_ledger_before == rhs.committed_ledger_before
+        && lhs.forced_selected_level == rhs.forced_selected_level
+        && lhs.forced_attempted_substeps == rhs.forced_attempted_substeps
+        && lhs.state_exact == rhs.state_exact
+        && lhs.counts_exact == rhs.counts_exact
+        && lhs.roots_exact == rhs.roots_exact
+        && lhs.cumulative_totals_exact == rhs.cumulative_totals_exact
+        && lhs.retention_exact == rhs.retention_exact
+        && exact_retention_trace(
+            lhs.forced_retention, rhs.forced_retention)
+        && lhs.forced_final_live_workspaces
+            == rhs.forced_final_live_workspaces;
+}
+
+CompleteStaticIndexRollback run_complete_static_index_rollback() {
+    CompleteStaticIndexRollback result;
+    StaticSupportWorkTrace legacy_work;
+    const MacroAdaptiveReplayRollback legacy =
+        run_macro_adaptive_replay_rollback(
+            true, false, &legacy_work);
+    StaticSupportWorkTrace candidate_work;
+    const MacroAdaptiveReplayRollback candidate =
+        run_macro_adaptive_replay_rollback(
+            true, true, &candidate_work);
+    StaticSupportWorkTrace repeated_work;
+    const MacroAdaptiveReplayRollback repeated =
+        run_macro_adaptive_replay_rollback(
+            true, true, &repeated_work);
+    result.failure = candidate.failure;
+    result.physical_exact = exact_macro_adaptive_replay_rollback_value(
+        candidate, legacy);
+    result.repeat_exact = exact_macro_adaptive_replay_rollback_value(
+            repeated, candidate)
+        && exact_static_support_work(repeated_work, candidate_work);
+    result.work = candidate_work;
+    result.work_exact = candidate_work.static_index_builds == 1U
+        && candidate_work.support_canonicalizations == 1U
+        && candidate_work.support_records_sorted == 544U
+        && candidate_work.combined_records_sorted == 0U
+        && candidate_work.workspace_builds > 0U
+        && candidate_work.fluid_range_lookups
+            == legacy_work.combined_range_lookups
+        && candidate_work.support_range_lookups
+            == legacy_work.combined_range_lookups
+        && !candidate_work.index_identity_sha256.empty();
+    result.passed = legacy.passed && candidate.passed && repeated.passed
+        && result.physical_exact && result.repeat_exact
+        && result.work_exact;
+    if (!result.physical_exact) {
+        result.failure = "ROLLBACK_CORRESPONDENCE";
+    } else if (!result.repeat_exact) {
+        result.failure = "ROLLBACK_REPEAT";
+    } else if (!result.work_exact) {
+        result.failure = "ROLLBACK_STATIC_WORK";
+    }
+    return result;
+}
+
+std::array<CompleteStaticIndexLaneCase, 4>
+run_complete_static_index_p1_lanes() {
+    const SmokeFixture fixture = make_b4b_supported_column_fixture();
+    return {
+        run_complete_static_adaptive_case(
+            "p1-complete-adaptive-static-support", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, false, 1924U, 1046112U,
+            "852759dcc2c62cd10c47a006a5df301646091c292a0e6d5974c6bfd8014050d5",
+            "78bda3a72f7d4813565d38d9e7ea7d8d156fcb493847840d6d01927e056474ad",
+            "bab793e516439f067cb80c73b1674502d3a77ccaee714ae655face781830eb23"),
+        run_complete_static_fixed_case(
+            "p1-fixed-48-static-support", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, 48, 1557U, 846464U),
+        run_complete_static_fixed_case(
+            "p1-fixed-96-static-support", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, 96, 2937U, 1597184U),
+        run_complete_static_fixed_case(
+            "p1-fixed-192-static-support", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, 192, 4631U, 2518720U),
+    };
+}
+
+std::array<CompleteStaticIndexLaneCase, 4>
+run_complete_static_index_p2_lanes() {
+    const SmokeFixture fixture = make_b4b_released_block_fixture();
+    return {
+        run_complete_static_adaptive_case(
+            "p2-complete-adaptive-static-support", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, true, 323U, 391552U,
+            "de78268499f0b0292d1e83585de23301ae69fedb9f702fac6d77992aa0344883",
+            "9273756e720aababb7a771a0b6dc070261528464b0512ed0253d0cf27e0bba1c",
+            "d03a5985890950c0eae248b6cb479d154cdd25aa4c0c089357b3a1de388163cd"),
+        run_complete_static_fixed_case(
+            "p2-fixed-48-static-support", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, 48, 900U, 1093184U),
+        run_complete_static_fixed_case(
+            "p2-fixed-96-static-support", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, 96, 1751U, 2128000U),
+        run_complete_static_fixed_case(
+            "p2-fixed-192-static-support", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, 192, 3449U, 4192768U),
+    };
+}
+
+void append_complete_static_index_lane(
+    std::ostringstream& output,
+    const CompleteStaticIndexLaneCase& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"lane_kind\":\"" << value.lane_kind
+           << "\",\"substeps_per_frame\":" << value.substeps_per_frame
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"physical_exact\":"
+           << (value.physical_exact ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"roots_exact\":"
+           << (value.roots_exact ? "true" : "false")
+           << ",\"query_exact\":"
+           << (value.query_exact ? "true" : "false")
+           << ",\"retention_exact\":"
+           << (value.retention_exact ? "true" : "false")
+           << ",\"work_exact\":"
+           << (value.work_exact ? "true" : "false")
+           << ",\"expected_workspace_builds\":"
+           << value.expected_workspace_builds
+           << ",\"expected_removed_support_records\":"
+           << value.expected_removed_support_records
+           << ",\"legacy_work\":";
+    append_static_support_work(output, value.legacy_work);
+    output << ",\"candidate_work\":";
+    append_static_support_work(output, value.candidate_work);
+    output << ",\"work_receipt_sha256\":\""
+           << value.work_receipt_sha256
+           << "\",\"trajectory_sha256\":\""
+           << value.trajectory_sha256
+           << "\",\"legacy_ledger_sha256\":\""
+           << value.legacy_ledger_sha256
+           << "\",\"policy_ledger_sha256\":\""
+           << value.policy_ledger_sha256
+           << "\",\"query_policy_sha256\":\""
+           << value.query_policy_sha256
+           << "\",\"retention_receipt_sha256\":\""
+           << value.retention_receipt_sha256 << "\"}";
+}
+
+void append_complete_static_index_rollback(
+    std::ostringstream& output,
+    const CompleteStaticIndexRollback& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"physical_exact\":"
+           << (value.physical_exact ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"work_exact\":"
+           << (value.work_exact ? "true" : "false")
+           << ",\"candidate_work\":";
+    append_static_support_work(output, value.work);
+    output << '}';
+}
+
+SplitBoundaryReport run_complete_static_index_impl(bool require_parent) {
+    bool parent_exact = true;
+    if (require_parent) {
+        const SplitBoundaryReport parent =
+            run_static_support_timing_controls();
+        parent_exact = parent.passed
+            && parent.json.find(
+                "\"deterministic_result_sha256\":\"66cccf12ffebff98a0ef904907bb04aa015a8e57102f1f8dd7bf1ef5a7663465\"")
+                != std::string::npos
+            && parent.json.find("\"parent_b4c4b_exact\":true")
+                != std::string::npos;
+    }
+    std::vector<CompleteStaticIndexLaneCase> cases;
+    CompleteStaticIndexRollback rollback;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C4BM_PARENT";
+    } else {
+        std::future<std::array<CompleteStaticIndexLaneCase, 4>> p1 =
+            std::async(std::launch::async,
+                run_complete_static_index_p1_lanes);
+        std::future<std::array<CompleteStaticIndexLaneCase, 4>> p2 =
+            std::async(std::launch::async,
+                run_complete_static_index_p2_lanes);
+        const std::array<CompleteStaticIndexLaneCase, 4> p1_cases = p1.get();
+        const std::array<CompleteStaticIndexLaneCase, 4> p2_cases = p2.get();
+        cases.insert(cases.end(), p1_cases.begin(), p1_cases.end());
+        cases.insert(cases.end(), p2_cases.begin(), p2_cases.end());
+        rollback = run_complete_static_index_rollback();
+        for (const CompleteStaticIndexLaneCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!rollback.passed && first_failure.empty()) {
+            first_failure = "COMPLETE_STATIC_INDEX_ROLLBACK:"
+                + rollback.failure;
+        }
+    }
+    const bool passed = parent_exact && cases.size() == 8U
+        && std::all_of(
+            cases.begin(), cases.end(),
+            [](const CompleteStaticIndexLaneCase& value) {
+                return value.passed;
+            })
+        && rollback.passed;
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|identity:4c5ad41ebafc9ee15a44ce64fed04ed0684f87d02f3b611297a65fa505fe7599";
+    if (parent_exact) {
+        for (const CompleteStaticIndexLaneCase& value : cases) {
+            material << '|' << value.name << ':' << value.lane_kind << ':'
+                     << value.substeps_per_frame << ':' << value.passed << ':'
+                     << value.physical_exact << ':' << value.repeat_exact
+                     << ':' << value.roots_exact << ':' << value.query_exact
+                     << ':' << value.retention_exact << ':'
+                     << value.work_exact << ':'
+                     << value.expected_workspace_builds << ':'
+                     << value.expected_removed_support_records << ':'
+                     << value.candidate_work.index_identity_sha256 << ':'
+                     << value.candidate_work.workspace_builds << ':'
+                     << value.candidate_work.static_index_builds << ':'
+                     << value.candidate_work.support_records_sorted << ':'
+                     << value.candidate_work.fluid_records_sorted << ':'
+                     << value.candidate_work.fluid_range_lookups << ':'
+                     << value.candidate_work.support_range_lookups << ':'
+                     << value.work_receipt_sha256 << ':'
+                     << value.trajectory_sha256 << ':'
+                     << value.legacy_ledger_sha256 << ':'
+                     << value.policy_ledger_sha256 << ':'
+                     << value.query_policy_sha256 << ':'
+                     << value.retention_receipt_sha256;
+        }
+        material << "|R:" << rollback.passed << ':'
+                 << rollback.physical_exact << ':'
+                 << rollback.repeat_exact << ':'
+                 << rollback.work_exact << ':'
+                 << rollback.work.index_identity_sha256 << ':'
+                 << rollback.work.workspace_builds << ':'
+                 << rollback.work.static_index_builds << ':'
+                 << rollback.work.support_records_sorted;
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+           << (require_parent
+                ? "nsr3b4c4b1_complete_static_index.v1"
+                : "nsr3b4c4b1_complete_static_index_probe.v1")
+           << "\",\"identity_sha256\":\"4c5ad41ebafc9ee15a44ce64fed04ed0684f87d02f3b611297a65fa505fe7599\""
+           << ",\"parent_b4c4bm_deterministic_sha256\":\"66cccf12ffebff98a0ef904907bb04aa015a8e57102f1f8dd7bf1ef5a7663465\""
+           << ",\"parent_exact\":" << (parent_exact ? "true" : "false")
+           << ",\"parent_gate_required\":"
+           << (require_parent ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"authority\":\"COMPLETE_RESEARCH_LANES_ONLY\""
+           << ",\"lanes\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0U; i < cases.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_complete_static_index_lane(report, cases[i]);
+        }
+    }
+    report << "],\"rollback\":";
+    append_complete_static_index_rollback(report, rollback);
+    report << ",\"complete_lane_static_support_index_candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"flat_csr_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"b4d_reference_execution_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"wall_time_threshold_applied\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_complete_static_index_probe_controls() {
+    return run_complete_static_index_impl(false);
+}
+
+SplitBoundaryReport run_complete_static_index_controls() {
+    return run_complete_static_index_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr
