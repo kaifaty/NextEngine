@@ -65,7 +65,9 @@ int main(int argc, char** argv) {
                          "--canonical-adaptive-ledger-probe|"
                          "--canonical-adaptive-p2-probe|"
                          "--canonical-adaptive-recovery-lanes-probe|"
-                         "--canonical-adaptive-recovery-self-test\n";
+                         "--canonical-adaptive-recovery-self-test|"
+                         "--ledger-normalization-probe|"
+                         "--ledger-normalization-self-test\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -460,6 +462,20 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--ledger-normalization-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_ledger_normalization_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--ledger-normalization-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_ledger_normalization_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -515,7 +531,9 @@ int main(int argc, char** argv) {
                      "--canonical-adaptive-ledger-probe|"
                      "--canonical-adaptive-p2-probe|"
                      "--canonical-adaptive-recovery-lanes-probe|"
-                     "--canonical-adaptive-recovery-self-test\n";
+                     "--canonical-adaptive-recovery-self-test|"
+                     "--ledger-normalization-probe|"
+                     "--ledger-normalization-self-test\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

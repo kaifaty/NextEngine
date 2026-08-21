@@ -483,3 +483,9 @@ max-scaled residuals as mandatory diagnostics, gates the compensated physical
 ledger only on the source KKT sum scale, and requires synthetic factor-two,
 one-frame P1/P2 and exact frame-seven four-level controls before any B4C3A2
 revalidation.
+B4C3L passes twice byte-identically and selects
+`CANONICAL_KKT_SCALE_LEDGER_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3l-ledger-normalization-evidence-2026-08-21.md).
+The strict legacy frame-seven pattern remains exact, all four KKT-scale stages
+pass, and the unchanged 16/32 embedded gate passes. Only B4C3A2 one-frame
+selected-policy ledger design is authorized next.

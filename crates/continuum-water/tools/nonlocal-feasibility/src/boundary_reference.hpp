@@ -39,5 +39,7 @@ SplitBoundaryReport run_canonical_adaptive_ledger_probe_controls();
 SplitBoundaryReport run_canonical_adaptive_p2_probe_controls();
 SplitBoundaryReport run_canonical_adaptive_recovery_lanes_probe_controls();
 SplitBoundaryReport run_canonical_adaptive_recovery_controls();
+SplitBoundaryReport run_ledger_normalization_probe_controls();
+SplitBoundaryReport run_ledger_normalization_controls();
 
 } // namespace nextengine::nonlocal::fcr

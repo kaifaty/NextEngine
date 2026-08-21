@@ -8469,11 +8469,19 @@ struct CanonicalPublicationLedgerEntry {
     double raw_ledger_residual = 0.0;
     double compensated_ledger_residual = 0.0;
     double kkt_ledger_residual = 0.0;
+    double kkt_ledger_scale = 0.0;
+    double strict_ledger_scale = 0.0;
+    double compensated_kkt_residual = 0.0;
+    double kkt_residual_correspondence = 0.0;
+    double kkt_residual_correspondence_bound = 0.0;
     double kinetic_delta = 0.0;
     double pressure_delta = 0.0;
     double gravitational_delta = 0.0;
     double mechanical_delta = 0.0;
     double energy_decomposition_error = 0.0;
+    bool non_residual_gates_exact = false;
+    bool strict_residual_passed = false;
+    bool kkt_scale_residual_passed = false;
     bool passed = false;
 };
 
@@ -8781,6 +8789,54 @@ struct CanonicalRecoveryNegatives {
     bool later_adjacent_selected = false;
     bool exhaustion_no_selection = false;
     bool rollback_exact = false;
+};
+
+struct LedgerNormalizationScalar {
+    std::string name;
+    bool passed = false;
+    double momentum_scale = 0.0;
+    double external_scale = 0.0;
+    double ledger_absolute = 0.0;
+    double kkt_scale = 0.0;
+    double strict_scale = 0.0;
+    double kkt_residual = 0.0;
+    double strict_residual = 0.0;
+    double normalization_ratio = 0.0;
+    bool candidate_admitted = false;
+    bool strict_admitted = false;
+};
+
+struct LedgerNormalizationSynthetic {
+    bool passed = false;
+    std::array<LedgerNormalizationScalar, 4> cases;
+    bool corrupt_closure_rejected = false;
+    bool kkt_overflow_rejected = false;
+    bool nonfinite_rejected = false;
+    bool invalid_scale_rejected = false;
+};
+
+struct LedgerNormalizationStageControl {
+    std::string name;
+    bool passed = false;
+    bool legacy_stage_passed = false;
+    bool candidate_stage_passed = false;
+    bool nonledger_stage_exact = false;
+    bool candidate_ledger_exact = false;
+    bool strict_pattern_exact = false;
+    int substeps = 0;
+    double maximum_strict_residual = 0.0;
+    double maximum_kkt_residual = 0.0;
+    double maximum_residual_correspondence_ratio = 0.0;
+    std::string frame_root_sha256;
+};
+
+struct LedgerNormalizationRealControls {
+    bool passed = false;
+    std::array<LedgerNormalizationStageControl, 4> one_frame;
+    std::array<LedgerNormalizationStageControl, 4> frame_seven;
+    SmokeGate frame_seven_gate;
+    bool legacy_pattern_exact = false;
+    bool all_candidate_pass = false;
 };
 
 bool joint_cell_less(
@@ -11684,6 +11740,8 @@ constexpr const char* B4C3TA_P1_SCENARIO_SHA256 =
     "4128b11190366b45aa6511946cb23b46f254445e5a707ff9cdf7e67a2781aaa6";
 constexpr const char* B4C3TA_P2_SCENARIO_SHA256 =
     "013a83460fabbded819b7d5d9608747f8bc9548c798d71718603d785c238b3c1";
+constexpr const char* B4C3L_POLICY_SHA256 =
+    "b1136c2c3dc7970cbee0ce67b0d129b849ed8957268bb7281063af9e60200e2f";
 
 std::vector<canonical::FloatSample> canonical_float_samples(
     const std::vector<Vec3>& position,
@@ -12024,6 +12082,13 @@ CanonicalStageRun run_canonical_stage_interval(
                     entry.center_report_closure = norm(
                         entry.direct_center_shift
                         - entry.reported_center_shift);
+                    const Vec3 physical_momentum_delta =
+                        momentum(solve.velocity)
+                        - momentum(input_velocity);
+                    const double external_impulse_scale =
+                        norm(solve.state.gravity_impulse)
+                        + norm(solve.state.support_reaction)
+                        + norm(solve.state.contact_reaction);
                     const double raw_scale = std::max({
                         norm(momentum(decoded_velocity)
                             - momentum(input_velocity)),
@@ -12032,20 +12097,26 @@ CanonicalStageRun run_canonical_stage_interval(
                             + norm(solve.state.contact_reaction),
                         1.0e-30,
                     });
-                    const double compensated_scale = std::max({
-                        norm(momentum(solve.velocity)
-                            - momentum(input_velocity)),
-                        norm(solve.state.gravity_impulse)
-                            + norm(solve.state.support_reaction)
-                            + norm(solve.state.contact_reaction),
-                        1.0e-30,
-                    });
+                    entry.strict_ledger_scale = std::max({
+                        norm(physical_momentum_delta),
+                        external_impulse_scale, 1.0e-30});
+                    entry.kkt_ledger_scale = std::max(
+                        norm(physical_momentum_delta)
+                            + external_impulse_scale,
+                        1.0e-30);
                     entry.raw_ledger_residual = norm(
                         entry.raw_published_ledger) / raw_scale;
                     entry.compensated_ledger_residual = norm(
-                        entry.compensated_ledger) / compensated_scale;
+                        entry.compensated_ledger)
+                        / entry.strict_ledger_scale;
                     entry.kkt_ledger_residual =
                         solve.state.ledger_residual;
+                    entry.compensated_kkt_residual = norm(
+                        entry.compensated_ledger)
+                        / entry.kkt_ledger_scale;
+                    entry.kkt_residual_correspondence = std::abs(
+                        entry.compensated_kkt_residual
+                        - entry.kkt_ledger_residual);
                     entry.kinetic_delta = kinetic_after - kinetic_before;
                     JointPressureWorkspace decoded_workspace =
                         build_joint_query_workspace(
@@ -12093,8 +12164,9 @@ CanonicalStageRun run_canonical_stage_interval(
                             norm(entry.reported_impulse), 1.0e-30});
                     const double ledger_allowance = gamma_factor(
                         128U + 24U * solve.velocity.size()) * std::max({
-                            norm(entry.compensated_ledger),
-                            norm(entry.solver_ledger), compensated_scale,
+                        norm(entry.compensated_ledger),
+                            norm(entry.solver_ledger),
+                            entry.kkt_ledger_scale,
                             1.0e-30});
                     const double center_allowance = gamma_factor(
                         64U + 12U * solve.position.size()) * std::max({
@@ -12110,13 +12182,22 @@ CanonicalStageRun run_canonical_stage_interval(
                             std::abs(entry.kinetic_delta),
                             std::abs(entry.pressure_delta),
                             std::abs(entry.gravitational_delta), 1.0e-30});
+                    entry.kkt_residual_correspondence_bound =
+                        entry.compensated_ledger_closure
+                            / entry.kkt_ledger_scale
+                        + gamma_factor(
+                            256U + 48U * solve.velocity.size())
+                            * std::max({
+                                entry.compensated_kkt_residual,
+                                entry.kkt_ledger_residual, 1.0e-30});
                     const double impulse_bound = MASS
                         * std::sqrt(3.0) * 0.5e-6
                         + impulse_allowance;
                     const double gravitational_bound = MASS
                         * std::abs(fixture.gravity.y) * 0.5e-6
                         + energy_allowance;
-                    entry.passed = finite(entry.reported_impulse)
+                    entry.non_residual_gates_exact =
+                        finite(entry.reported_impulse)
                         && finite(entry.direct_impulse)
                         && finite(entry.solver_ledger)
                         && finite(entry.raw_published_ledger)
@@ -12133,12 +12214,27 @@ CanonicalStageRun run_canonical_stage_interval(
                             <= ledger_allowance
                         && entry.center_report_closure
                             <= center_allowance
-                        && entry.compensated_ledger_residual <= 1.0e-9
                         && norm(entry.direct_impulse) <= impulse_bound
                         && std::abs(entry.gravitational_delta)
                             <= gravitational_bound
                         && entry.energy_decomposition_error
                             <= energy_allowance;
+                    entry.strict_residual_passed =
+                        entry.compensated_ledger_residual <= 1.0e-9;
+                    const bool scale_order_exact =
+                        entry.strict_ledger_scale > 0.0
+                        && std::isfinite(entry.strict_ledger_scale)
+                        && std::isfinite(entry.kkt_ledger_scale)
+                        && entry.kkt_ledger_scale
+                            >= entry.strict_ledger_scale
+                        && entry.kkt_ledger_scale
+                            <= 2.0 * entry.strict_ledger_scale;
+                    entry.kkt_scale_residual_passed = scale_order_exact
+                        && entry.compensated_kkt_residual <= 1.0e-9
+                        && entry.kkt_residual_correspondence
+                            <= entry.kkt_residual_correspondence_bound;
+                    entry.passed = entry.non_residual_gates_exact
+                        && entry.strict_residual_passed;
                     result.publication_ledger_exact =
                         result.publication_ledger_exact && entry.passed;
                     result.cumulative_publication_impulse +=
@@ -13316,6 +13412,237 @@ CanonicalRecoveryNegatives run_canonical_recovery_negatives() {
         && result.later_adjacent_selected
         && result.exhaustion_no_selection
         && result.rollback_exact;
+    return result;
+}
+
+bool canonical_kkt_scale_ledger_exact(
+    const CanonicalStageRun& stage) {
+    const bool entries_exact = std::all_of(
+        stage.publication_ledger.begin(),
+        stage.publication_ledger.end(),
+        [](const CanonicalPublicationLedgerEntry& entry) {
+            return entry.non_residual_gates_exact
+                && entry.kkt_scale_residual_passed;
+        });
+    const double cumulative_bound = static_cast<double>(stage.run.substeps)
+            * MASS * std::sqrt(3.0) * 0.5e-6
+        + gamma_factor(32U + 3U * stage.publication_ledger.size())
+            * std::max(norm(stage.cumulative_publication_impulse), 1.0e-30);
+    return entries_exact
+        && stage.publication_ledger.size() == stage.staged_frames.size()
+        && norm(stage.cumulative_publication_impulse) <= cumulative_bound;
+}
+
+bool canonical_nonledger_stage_exact(const CanonicalStageRun& stage) {
+    return stage.decode_chain_exact
+        && stage.sample_identity_exact && stage.step_sequence_exact
+        && stage.publication_error_bounded
+        && stage.aggregate_bounds_exact && stage.kinetic_bound_exact
+        && stage.staged_frames.size()
+            == static_cast<std::size_t>(stage.run.substeps)
+        && stage.trace.live_workspaces == 0
+        && stage.trace.maximum_live_workspaces <= 2
+        && stage.trace.exact && stage.trace.work_reduced;
+}
+
+bool ledger_normalization_admitted(
+    double kkt_residual,
+    double closure,
+    double closure_bound,
+    double kkt_scale,
+    double strict_scale) {
+    return std::isfinite(kkt_residual)
+        && std::isfinite(closure) && std::isfinite(closure_bound)
+        && std::isfinite(kkt_scale) && std::isfinite(strict_scale)
+        && kkt_scale > 0.0 && strict_scale > 0.0
+        && strict_scale <= kkt_scale
+        && kkt_scale <= 2.0 * strict_scale
+        && closure <= closure_bound
+        && kkt_residual <= 1.0e-9;
+}
+
+LedgerNormalizationScalar ledger_normalization_scalar(
+    std::string name,
+    double momentum_scale,
+    double external_scale,
+    double ledger_absolute) {
+    LedgerNormalizationScalar result;
+    result.name = std::move(name);
+    result.momentum_scale = momentum_scale;
+    result.external_scale = external_scale;
+    result.ledger_absolute = ledger_absolute;
+    result.kkt_scale = std::max(
+        momentum_scale + external_scale, 1.0e-30);
+    result.strict_scale = std::max({
+        momentum_scale, external_scale, 1.0e-30});
+    result.kkt_residual = ledger_absolute / result.kkt_scale;
+    result.strict_residual = ledger_absolute / result.strict_scale;
+    result.normalization_ratio = result.kkt_residual == 0.0
+        ? 1.0 : result.strict_residual / result.kkt_residual;
+    result.candidate_admitted = ledger_normalization_admitted(
+        result.kkt_residual, 0.0, 0.0,
+        result.kkt_scale, result.strict_scale);
+    result.strict_admitted = std::isfinite(result.strict_residual)
+        && result.strict_residual <= 1.0e-9;
+    result.passed = std::isfinite(result.kkt_residual)
+        && std::isfinite(result.strict_residual)
+        && result.strict_scale <= result.kkt_scale
+        && result.kkt_scale <= 2.0 * result.strict_scale
+        && result.normalization_ratio >= 1.0
+        && result.normalization_ratio <= 2.0;
+    return result;
+}
+
+LedgerNormalizationSynthetic run_ledger_normalization_synthetic() {
+    LedgerNormalizationSynthetic result;
+    result.cases[0] = ledger_normalization_scalar(
+        "equal-scale-factor-two", 1.0, 1.0, 1.0);
+    result.cases[1] = ledger_normalization_scalar(
+        "threshold-separation", 1.0, 1.0, 1.5e-9);
+    result.cases[2] = ledger_normalization_scalar(
+        "dominant-momentum", 1024.0, 1.0, 1.0e-9);
+    result.cases[3] = ledger_normalization_scalar(
+        "exact-zero-floor", 0.0, 0.0, 0.0);
+    result.cases[0].passed = result.cases[0].passed
+        && result.cases[0].normalization_ratio == 2.0;
+    result.cases[1].passed = result.cases[1].passed
+        && result.cases[1].kkt_residual == 0.75e-9
+        && result.cases[1].strict_residual == 1.5e-9
+        && result.cases[1].candidate_admitted
+        && !result.cases[1].strict_admitted;
+    result.cases[2].passed = result.cases[2].passed
+        && result.cases[2].normalization_ratio
+            == 1025.0 / 1024.0;
+    result.cases[3].passed = result.cases[3].passed
+        && result.cases[3].kkt_residual == 0.0
+        && result.cases[3].strict_residual == 0.0
+        && result.cases[3].candidate_admitted
+        && result.cases[3].strict_admitted;
+    result.corrupt_closure_rejected = !ledger_normalization_admitted(
+        0.5e-9, 2.0e-12, 1.0e-12, 2.0, 1.0);
+    result.kkt_overflow_rejected = !ledger_normalization_admitted(
+        1.0e-9 + 1.0e-15, 0.0, 0.0, 2.0, 1.0);
+    result.nonfinite_rejected = !ledger_normalization_admitted(
+        std::numeric_limits<double>::quiet_NaN(),
+        0.0, 0.0, 2.0, 1.0);
+    result.invalid_scale_rejected = !ledger_normalization_admitted(
+        0.0, 0.0, 0.0, -1.0, 1.0);
+    result.passed = std::all_of(
+            result.cases.begin(), result.cases.end(),
+            [](const LedgerNormalizationScalar& value) {
+                return value.passed;
+            })
+        && result.corrupt_closure_rejected
+        && result.kkt_overflow_rejected
+        && result.nonfinite_rejected
+        && result.invalid_scale_rejected;
+    return result;
+}
+
+LedgerNormalizationStageControl ledger_normalization_stage_control(
+    std::string name,
+    const CanonicalStageRun& stage,
+    const std::string& scenario_sha256) {
+    LedgerNormalizationStageControl result;
+    result.name = std::move(name);
+    result.substeps = stage.run.substeps;
+    result.legacy_stage_passed = stage.passed;
+    result.nonledger_stage_exact = canonical_nonledger_stage_exact(stage);
+    result.candidate_ledger_exact =
+        canonical_kkt_scale_ledger_exact(stage);
+    result.candidate_stage_passed = result.nonledger_stage_exact
+        && result.candidate_ledger_exact;
+    for (const CanonicalPublicationLedgerEntry& entry
+         : stage.publication_ledger) {
+        result.maximum_strict_residual = std::max(
+            result.maximum_strict_residual,
+            entry.compensated_ledger_residual);
+        result.maximum_kkt_residual = std::max(
+            result.maximum_kkt_residual,
+            entry.compensated_kkt_residual);
+        result.maximum_residual_correspondence_ratio = std::max(
+            result.maximum_residual_correspondence_ratio,
+            entry.kkt_residual_correspondence
+                / std::max(entry.kkt_residual_correspondence_bound,
+                    1.0e-300));
+    }
+    result.frame_root_sha256 = canonical::trajectory_root(
+        B4C3Q_PROFILE_SHA256, scenario_sha256,
+        canonical_frame_roots(stage.staged_frames));
+    result.passed = result.candidate_stage_passed;
+    return result;
+}
+
+CanonicalAdaptiveLedgerProbe run_canonical_adaptive_ledger_probe();
+
+LedgerNormalizationRealControls run_ledger_normalization_real_controls() {
+    LedgerNormalizationRealControls result;
+    const SmokeFixture p1 = make_b4b_supported_column_fixture();
+    const SmokeFixture p2 = make_b4b_released_block_fixture();
+    const std::array<CanonicalStageRun, 4> one_frame = {
+        run_canonical_stage_interval(
+            p1, B4C3Q_P1_SCENARIO_SHA256, 21,
+            0, -1, true, B4C3Q_PROFILE_SHA256, true),
+        run_canonical_stage_interval(
+            p1, B4C3Q_P1_SCENARIO_SHA256, 42,
+            0, -1, true, B4C3Q_PROFILE_SHA256, true),
+        run_canonical_stage_interval(
+            p2, B4C3Q_P2_SCENARIO_SHA256, 1,
+            0, -1, true, B4C3Q_PROFILE_SHA256, true),
+        run_canonical_stage_interval(
+            p2, B4C3Q_P2_SCENARIO_SHA256, 2,
+            0, -1, true, B4C3Q_PROFILE_SHA256, true),
+    };
+    const std::array<const char*, 4> one_frame_names = {
+        "p1-coarse-21", "p1-fine-42", "p2-coarse-1", "p2-fine-2",
+    };
+    for (std::size_t i = 0; i < one_frame.size(); ++i) {
+        result.one_frame[i] = ledger_normalization_stage_control(
+            one_frame_names[i], one_frame[i],
+            i < 2U ? B4C3Q_P1_SCENARIO_SHA256
+                   : B4C3Q_P2_SCENARIO_SHA256);
+        result.one_frame[i].strict_pattern_exact =
+            result.one_frame[i].legacy_stage_passed;
+        result.one_frame[i].passed = result.one_frame[i].passed
+            && result.one_frame[i].strict_pattern_exact;
+    }
+    const CanonicalAdaptiveLedgerProbe frame_seven =
+        run_canonical_adaptive_ledger_probe();
+    constexpr std::array<bool, 4> legacy_pattern = {
+        true, false, true, false,
+    };
+    result.legacy_pattern_exact = frame_seven.levels.size() == 4U;
+    result.all_candidate_pass = frame_seven.levels.size() == 4U;
+    for (std::size_t i = 0;
+         i < frame_seven.levels.size() && i < result.frame_seven.size(); ++i) {
+        result.frame_seven[i] = ledger_normalization_stage_control(
+            "p1-frame7-level-" + std::to_string(i),
+            frame_seven.levels[i], B4C3TA_P1_SCENARIO_SHA256);
+        result.frame_seven[i].strict_pattern_exact =
+            frame_seven.levels[i].passed == legacy_pattern[i];
+        result.frame_seven[i].passed = result.frame_seven[i].passed
+            && result.frame_seven[i].strict_pattern_exact;
+        result.legacy_pattern_exact = result.legacy_pattern_exact
+            && result.frame_seven[i].strict_pattern_exact;
+        result.all_candidate_pass = result.all_candidate_pass
+            && result.frame_seven[i].candidate_stage_passed;
+    }
+    if (frame_seven.levels.size() >= 2U) {
+        result.frame_seven_gate = smoke_gate(
+            frame_seven.levels[0].run, frame_seven.levels[1].run);
+    }
+    result.passed = std::all_of(
+            result.one_frame.begin(), result.one_frame.end(),
+            [](const LedgerNormalizationStageControl& value) {
+                return value.passed;
+            })
+        && std::all_of(
+            result.frame_seven.begin(), result.frame_seven.end(),
+            [](const LedgerNormalizationStageControl& value) {
+                return value.passed;
+            })
+        && result.legacy_pattern_exact && result.all_candidate_pass
+        && result.frame_seven_gate.passed;
     return result;
 }
 
@@ -15064,6 +15391,108 @@ void append_canonical_recovery_negatives(
            << (value.rollback_exact ? "true" : "false") << '}';
 }
 
+void append_ledger_normalization_scalar(
+    std::ostringstream& output,
+    const LedgerNormalizationScalar& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"momentum_scale\":" << value.momentum_scale
+           << ",\"external_scale\":" << value.external_scale
+           << ",\"ledger_absolute\":" << value.ledger_absolute
+           << ",\"kkt_scale\":" << value.kkt_scale
+           << ",\"strict_scale\":" << value.strict_scale
+           << ",\"kkt_residual\":" << value.kkt_residual
+           << ",\"strict_residual\":" << value.strict_residual
+           << ",\"normalization_ratio\":"
+           << value.normalization_ratio
+           << ",\"candidate_admitted\":"
+           << (value.candidate_admitted ? "true" : "false")
+           << ",\"strict_admitted\":"
+           << (value.strict_admitted ? "true" : "false") << '}';
+}
+
+void append_ledger_normalization_synthetic(
+    std::ostringstream& output,
+    const LedgerNormalizationSynthetic& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"cases\":[";
+    for (std::size_t i = 0; i < value.cases.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        append_ledger_normalization_scalar(output, value.cases[i]);
+    }
+    output << "],\"negatives\":{\"corrupt_closure_rejected\":"
+           << (value.corrupt_closure_rejected ? "true" : "false")
+           << ",\"kkt_overflow_rejected\":"
+           << (value.kkt_overflow_rejected ? "true" : "false")
+           << ",\"nonfinite_rejected\":"
+           << (value.nonfinite_rejected ? "true" : "false")
+           << ",\"invalid_scale_rejected\":"
+           << (value.invalid_scale_rejected ? "true" : "false")
+           << "}}";
+}
+
+void append_ledger_normalization_stage(
+    std::ostringstream& output,
+    const LedgerNormalizationStageControl& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"substeps\":" << value.substeps
+           << ",\"legacy_stage_passed\":"
+           << (value.legacy_stage_passed ? "true" : "false")
+           << ",\"strict_pattern_exact\":"
+           << (value.strict_pattern_exact ? "true" : "false")
+           << ",\"candidate_stage_passed\":"
+           << (value.candidate_stage_passed ? "true" : "false")
+           << ",\"nonledger_stage_exact\":"
+           << (value.nonledger_stage_exact ? "true" : "false")
+           << ",\"candidate_ledger_exact\":"
+           << (value.candidate_ledger_exact ? "true" : "false")
+           << ",\"maximum_strict_residual\":"
+           << value.maximum_strict_residual
+           << ",\"maximum_kkt_residual\":"
+           << value.maximum_kkt_residual
+           << ",\"maximum_residual_correspondence_ratio\":"
+           << value.maximum_residual_correspondence_ratio
+           << ",\"frame_root_sha256\":\""
+           << value.frame_root_sha256 << "\"}";
+}
+
+void append_ledger_normalization_real(
+    std::ostringstream& output,
+    const LedgerNormalizationRealControls& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"one_frame\":[";
+    for (std::size_t i = 0; i < value.one_frame.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        append_ledger_normalization_stage(output, value.one_frame[i]);
+    }
+    output << "],\"frame_seven\":[";
+    for (std::size_t i = 0; i < value.frame_seven.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        append_ledger_normalization_stage(output, value.frame_seven[i]);
+    }
+    output << "],\"legacy_pattern_exact\":"
+           << (value.legacy_pattern_exact ? "true" : "false")
+           << ",\"all_candidate_pass\":"
+           << (value.all_candidate_pass ? "true" : "false")
+           << ",\"frame_seven_embedded_gate\":{\"passed\":"
+           << (value.frame_seven_gate.passed ? "true" : "false")
+           << ",\"position_dx\":"
+           << value.frame_seven_gate.normalized_position_error
+           << ",\"velocity_c\":"
+           << value.frame_seven_gate.normalized_velocity_error
+           << ",\"kinetic_relative\":"
+           << value.frame_seven_gate.relative_kinetic_error << "}}";
+}
+
 } // namespace
 
 SplitBoundaryReport run_joint_neighborhood_controls() {
@@ -16475,6 +16904,127 @@ SplitBoundaryReport run_canonical_adaptive_recovery_controls() {
            << (passed ? "true" : "false")
            << ",\"b4c3tr_fixed_reference_design_authorized\":"
            << (passed ? "true" : "false")
+           << ",\"canonical_fixed_reference_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_ledger_normalization_probe_controls() {
+    const LedgerNormalizationSynthetic synthetic =
+        run_ledger_normalization_synthetic();
+    const LedgerNormalizationRealControls real =
+        run_ledger_normalization_real_controls();
+    const bool passed = synthetic.passed && real.passed;
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS" : "FAIL")
+             << "|S:" << synthetic.passed
+             << "|R:" << real.passed
+             << ':' << real.legacy_pattern_exact
+             << ':' << real.all_candidate_pass
+             << ':' << real.frame_seven_gate.passed;
+    for (const LedgerNormalizationScalar& value : synthetic.cases) {
+        material << '|' << value.name << ':' << value.kkt_residual
+                 << ':' << value.strict_residual
+                 << ':' << value.normalization_ratio;
+    }
+    for (const LedgerNormalizationStageControl& value : real.frame_seven) {
+        material << '|' << value.substeps << ':'
+                 << value.legacy_stage_passed << ':'
+                 << value.candidate_stage_passed << ':'
+                 << value.maximum_strict_residual << ':'
+                 << value.maximum_kkt_residual;
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3l_ledger_normalization_probe.v1\""
+           << ",\"identity\":\"canonical-compensated-ledger-normalization-r0\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"authority\":\"DIAGNOSTIC_ONLY\""
+           << ",\"policy_sha256\":\"" << B4C3L_POLICY_SHA256 << '"'
+           << ",\"synthetic\":";
+    append_ledger_normalization_synthetic(report, synthetic);
+    report << ",\"real_controls\":";
+    append_ledger_normalization_real(report, real);
+    report << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_ledger_normalization_controls() {
+    const SplitBoundaryReport parent =
+        run_canonical_adaptive_recovery_controls();
+    const bool parent_exact = !parent.passed
+        && sha256_hex(parent.json)
+            == "b5ea40b96a812fdf090e7982d036ac3a893f13e6d8720e5381d131d4a02d0d50";
+    const LedgerNormalizationSynthetic synthetic = parent_exact
+        ? run_ledger_normalization_synthetic()
+        : LedgerNormalizationSynthetic{};
+    const LedgerNormalizationRealControls real = parent_exact
+        ? run_ledger_normalization_real_controls()
+        : LedgerNormalizationRealControls{};
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3TAR_PARENT";
+    } else if (!synthetic.passed) {
+        first_failure = "SYNTHETIC_NORMALIZATION";
+    } else if (!real.passed) {
+        first_failure = "REAL_LEDGER_CONTROLS";
+    }
+    const bool passed = parent_exact && synthetic.passed && real.passed;
+    const std::string disposition = passed
+        ? "CANONICAL_KKT_SCALE_LEDGER_CANDIDATE"
+        : "CANONICAL_KKT_SCALE_LEDGER_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition << '|' << synthetic.passed
+             << ':' << real.passed << ':'
+             << real.frame_seven_gate.normalized_position_error << ':'
+             << real.frame_seven_gate.normalized_velocity_error << ':'
+             << real.frame_seven_gate.relative_kinetic_error;
+    for (const LedgerNormalizationStageControl& value : real.one_frame) {
+        material << '|' << value.name << ':'
+                 << value.frame_root_sha256 << ':'
+                 << value.maximum_strict_residual << ':'
+                 << value.maximum_kkt_residual;
+    }
+    for (const LedgerNormalizationStageControl& value : real.frame_seven) {
+        material << '|' << value.substeps << ':'
+                 << value.legacy_stage_passed << ':'
+                 << value.candidate_stage_passed << ':'
+                 << value.frame_root_sha256 << ':'
+                 << value.maximum_strict_residual << ':'
+                 << value.maximum_kkt_residual;
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3l_ledger_normalization.v1\""
+           << ",\"identity\":\"canonical-compensated-ledger-normalization-r0\""
+           << ",\"parent_b4c3tar_raw_sha256\":\"b5ea40b96a812fdf090e7982d036ac3a893f13e6d8720e5381d131d4a02d0d50\""
+           << ",\"parent_b4c3tar_fail_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"policy_sha256\":\"" << B4C3L_POLICY_SHA256 << '"'
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"synthetic\":";
+    append_ledger_normalization_synthetic(report, synthetic);
+    report << ",\"real_controls\":";
+    append_ledger_normalization_real(report, real);
+    report << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c3a2_stage_ledger_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"complete_adaptive_replay_authorized\":false"
            << ",\"canonical_fixed_reference_authorized\":false"
            << ",\"nominal_corpus_execution_authorized\":false"
            << ",\"runtime_authority\":false"

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3TAR_FAIL_PRESERVED / B4C3L_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3L_PASS / B4C3A2_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,20 +11,16 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** preserve B4C3TAR FAIL. It recovers two P1 nonlinear
-  failures and P2 passes, but P1 frame seven exposes a non-monotonic ledger
-  normalization conflict: 16/64 substeps pass while 32/128 fail. Publication
-  closure to the KKT ledger is zero or near zero.
-- **Current decision:** do not broaden recovery and do not raise `1e-9`.
-  Reclose ledger normalization so the compensated physical residual uses the
-  same scale as the KKT state it reproduces; retain the stricter max-scaled
-  residual as diagnostic evidence.
-- **Current action:** freeze an algebraic and real-state ledger-normalization
-  discriminator, then revalidate the one-frame stage ledger before another
-  complete adaptive controller. B4C3TR/B4C3TC/B4C4/B4D remain blocked.
-- **Current contract:** B4C3L freezes a distinct policy identity, sum-scale KKT
-  admission, max-scale diagnostics, synthetic factor-two/threshold separation,
-  B4C3A1 one-frame replay and the real frame-seven four-level checkpoint.
+- **Current conclusion:** B4C3L passes twice at raw `05e84d54...00b8` and
+  selects KKT-scale compensated-ledger admission. It preserves strict-max
+  residuals as diagnostics, replays B4C3A1 exactly and converts all four real
+  frame-seven levels to candidate PASS without changing canonical frames.
+- **Current decision:** select `CANONICAL_KKT_SCALE_LEDGER_CANDIDATE`. The
+  physical threshold remains `1e-9`; only its normalizer is aligned with the
+  source KKT gate. Do not resume the controller directly.
+- **Current action:** design and freeze B4C3A2 one-frame balanced transaction
+  and ledger under the new policy identity, preserving B4C3A1 roots and all
+  diagnostic residuals. B4C3TR/B4C3TC/B4C4/B4D remain blocked.
 
 - **Current conclusion:** B4C3Q exact aggregate-balanced apportionment passes
   twice at raw `ae44e39f...0731`. Biased aggregate error and 1,024-step center
@@ -1053,6 +1049,25 @@
 - **Smallest next action:** implement B4C3L as a read-only discriminator and run
   twice before defining B4C3A2 identity or changing selected ledger admission.
 
+### D-053 -- Select KKT-scale compensated-ledger admission
+
+- **Observation:** B4C3L passes synthetic factor-two/separation, all one-frame
+  B4C3A1 entries and the exact frame-seven four-level corpus twice
+  byte-identically. All candidate residuals match their source KKT residual
+  within the derived bound; the maximum bound utilization is `0.7538`.
+- **Decision:** select `CANONICAL_KKT_SCALE_LEDGER_CANDIDATE`. Keep raw and
+  strict-max residuals as diagnostics and gate compensated physical ledger at
+  unchanged `1e-9` using the KKT sum scale.
+- **Rejected alternatives:** do not raise the threshold, erase strict evidence,
+  directly promote B4C3TAR, or mutate old B4C3A1 report identities.
+- **Consequence:** only B4C3A2 one-frame selected-policy ledger design is now
+  authorized. Complete adaptive replay remains blocked.
+- **Remaining uncertainty:** new ledger admission must preserve fine-only
+  atomic commit, rollback, energy decomposition and exact canonical roots under
+  a new evidence identity before it can become controller input.
+- **Smallest next action:** freeze B4C3A2 policy fields, selected roots,
+  candidate/diagnostic residual serialization and one-frame negative controls.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1065,12 +1080,12 @@
 
 ## Exact next action
 
-1. Implement the frozen B4C3L discriminator over the preserved B4C3A1 and
-   B4C3TAR evidence roots.
-2. Prove algebraically and numerically that KKT-scale compensated admission
-   reproduces the source KKT gate while max-scale residual remains diagnostic.
-3. Revalidate one-frame P1/P2 plus the real frame-seven four-level checkpoint
-   before resuming the complete controller. B4C3TR/B4C4/B4D remain blocked.
+1. Freeze B4C3A2 over the selected B4C3L policy hash and unchanged canonical
+   representation/scenario roots.
+2. Revalidate fine-only atomic P1/P2 stage/ledger commit with KKT-scale physical
+   admission and mandatory raw/strict diagnostic residuals.
+3. Preserve rollback, energy decomposition and B4C3A1/B4C3L hashes before any
+   complete controller replay. B4C3TR/B4C4/B4D remain blocked.
 
 ## Reconsideration triggers
 

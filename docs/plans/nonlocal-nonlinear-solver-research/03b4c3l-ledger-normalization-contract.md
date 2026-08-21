@@ -1,6 +1,6 @@
 # NSR3-B4C3L -- compensated-ledger normalization discriminator
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / B4C3A2_BLOCKED`
+Status: `PASS / CANONICAL_KKT_SCALE_LEDGER_CANDIDATE / B4C3A2_DESIGN_ONLY`
 
 Parent B4C3TAR is the preserved FAIL with JSON-without-final-LF SHA-256
 `b5ea40b96a812fdf090e7982d036ac3a893f13e6d8720e5381d131d4a02d0d50`
@@ -92,3 +92,12 @@ one-frame selected-policy stage/ledger revalidation under a new evidence
 identity. FAIL preserves B4C3A1 and B4C3TAR FAIL. It does not authorize raising
 the threshold, complete adaptive replay, fixed reference, nominal, CUDA,
 runtime, schema or production work.
+
+## Executed outcome
+
+The discriminator passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3l-ledger-normalization-evidence-2026-08-21.md).
+Synthetic factor-two and threshold-separation controls pass, all B4C3A1
+one-frame ledgers remain admitted, the frame-seven legacy failure pattern is
+exact, and KKT-scale admission passes all four real levels. The 16/32 embedded
+gate then passes without committing state. Only B4C3A2 design is authorized.
