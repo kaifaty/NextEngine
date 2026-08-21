@@ -1,6 +1,6 @@
 # NSR3-B4C3Q -- aggregate-balanced canonical quantization discriminator
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / B4C3A1_BLOCKED`
+Status: `PASS / CANONICAL_AGGREGATE_BALANCED_CANDIDATE / B4C3A1_DESIGN_AUTHORIZED`
 
 Parent B4C3A selects `JOINT_PRESSURE_CANONICAL_STAGE_CANDIDATE`; semantic
 SHA-256 is `fdaa0befd5538cdf76ff8601a655bf1f9726b5ced19db36943a665f8b06bb5fe`
@@ -56,7 +56,10 @@ Require for the balanced candidate:
 - local error `<1` scaled unit per component;
 - exact target sum and minimum squared error versus exhaustive oracle;
 - exact repeat, reverse and coprime-affine input-order frames/roots;
-- exact sign covariance and integer-microunit translation covariance;
+- exact sign covariance and canonical-lattice translation covariance: add an
+  integer number of microunits to the published integers, decode, then publish;
+  do not add a non-representable decimal microunit to an arbitrary unquantized
+  binary64 input and mistake binary addition error for a policy transform;
 - exact equality to nearest-even whenever `D == 0`;
 - the biased-48 aggregate error at least `16x` smaller than independent
   nearest-even.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3A_PASS / NSR3B4C3Q_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3Q_PASS / NSR3B4C3A1_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -10,6 +10,16 @@
 | Authority | Working context only; Accepted architecture, SPEC-38/ADR-076 and the frozen stage contracts outrank this file |
 
 ## Resume in 60 seconds
+
+- **Current conclusion:** B4C3Q exact aggregate-balanced apportionment passes
+  twice at raw `ae44e39f...0731`. Biased aggregate error and 1,024-step center
+  drift improve `49x`; P1/P2 physics, exact covariance and six atomic failure
+  controls pass. Local error trades `<=0.5` nearest unit for `<1` balanced unit.
+- **Current decision:** select `CANONICAL_AGGREGATE_BALANCED_CANDIDATE`. Bind a
+  new profile and revalidate one-frame transaction/ledger as B4C3A1; do not
+  reuse B4C3A nearest-even roots.
+- **Current action:** freeze B4C3A1 with fine-only atomic commit plus explicit
+  publication impulse, center and kinetic ledger terms. B4C3T remains blocked.
 
 - **Current finding:** independent nearest-even continuation introduces a
   post-KKT aggregate position and velocity perturbation up to `N/2` canonical
@@ -875,6 +885,26 @@
 - **Smallest next action:** execute the frozen algebraic, symmetry, physical and
   temporal discriminator before revisiting full-controller bounds.
 
+### D-046 -- Select aggregate-balanced canonical publication
+
+- **Observation:** exact apportionment reduces the 48-sample biased aggregate
+  error from `23.52` to `0.48` units and the 1,024-step center drift from
+  `5.0176e-4` to `1.024e-5`, both `49x`. P1/P2 remain within frozen binary and
+  nearest physical bounds; contact, order, kinetic inequality and failures pass.
+- **Decision:** select `CANONICAL_AGGREGATE_BALANCED_CANDIDATE`, accepting a
+  local `<1`-unit bound in exchange for an aggregate `<=0.5`-unit bound.
+- **Rejected alternatives:** do not retain independent nearest as authoritative
+  continuation, hide a temporal carry, or interpret the residual-stress test as
+  fluid accuracy. Snapshot-only publication remains a fallback if full
+  canonical continuation later fails.
+- **Consequence:** the canonical profile changes. B4C3A1 must revalidate atomic
+  staging and add publication perturbations to the ledger before B4C3T.
+- **Remaining uncertainty:** one-frame success does not prove long-horizon
+  nonlinear/contact behavior; tie allocation may still affect local topology,
+  and exact superaccumulator cost has no runtime acceptance.
+- **Smallest next action:** freeze B4C3A1 selected-policy roots, ledger equations
+  and atomic rollback; then implement it independently of full-controller gates.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -887,13 +917,13 @@
 
 ## Exact next action
 
-1. Implement B4C3Q exact aggregate target/residual arithmetic and the frozen
-   independent-versus-balanced discriminator.
-2. If balanced passes, bind a new canonical profile and re-run one-frame
-   transaction mechanics as B4C3A1; otherwise choose snapshot-only or freeze a
-   different state representation.
-3. Resume full B4C3T controller/ledger design only after publication policy is
-   selected. B4C4 packaging and nominal B4D remain blocked.
+1. Freeze B4C3A1 selected-policy profile/scenario roots and one-frame atomic
+   transaction contract.
+2. Include per-publication aggregate position/velocity error, momentum impulse,
+   center shift and kinetic perturbation in an explicit canonical ledger; keep
+   the exact B4C3Q local/aggregate bounds.
+3. Implement and repeat B4C3A1 before resuming B4C3T. B4C4 packaging and nominal
+   B4D remain blocked.
 
 ## Reconsideration triggers
 

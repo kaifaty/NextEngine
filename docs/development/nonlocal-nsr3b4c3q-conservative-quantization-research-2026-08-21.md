@@ -1,6 +1,6 @@
 # NSR3-B4C3Q aggregate-preserving canonical quantization research -- 2026-08-21
 
-Status: `COMPLETE / DISCRIMINATOR_REQUIRED / B4C3T_BLOCKED`
+Status: `COMPLETE / AGGREGATE_BALANCED_SELECTED / B4C3A1_REQUIRED`
 
 ## Newly exposed defect
 
@@ -49,6 +49,14 @@ The fourth option is the first research candidate. Snapshot-only publication
 remains a valid architecture alternative if integer continuation proves too
 physically invasive.
 
+The first implementation report rejected only a test that added decimal
+`7e-6` directly to arbitrary unquantized binary64 values and expected an exact
+seven-unit output shift. That operation is not a canonical-lattice
+translation: neither the decimal increment nor the binary addition is exact.
+The repaired control translates published integers by an integer unit count,
+decodes them, and republishes. This changes no candidate arithmetic or bound;
+the original rejection remains negative test-design evidence.
+
 ## Candidate derivation
 
 For scaled exact binary64 values `x_i`, let `r_i = round_even(x_i)` and
@@ -96,3 +104,9 @@ profile identity; B4C3A's nearest-even roots must not be reused.
 
 Freeze and execute B4C3Q before designing B4C3T. B4C4 packaging, B4D nominal,
 runtime and production remain blocked.
+
+B4C3Q subsequently passes twice byte-identically and selects aggregate-balanced
+apportionment. The observed tradeoff is explicit: biased aggregate and temporal
+center drift improve `49x`, while the local physical publication error may rise
+from the nearest-even half-unit bound to below one unit. Rebind the profile and
+revalidate the transaction as B4C3A1 before any full trajectory.

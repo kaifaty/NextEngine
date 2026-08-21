@@ -31,5 +31,6 @@ SplitBoundaryReport run_joint_pressure_tape_controls();
 SplitBoundaryReport run_joint_pressure_query_controls();
 SplitBoundaryReport run_joint_pressure_controller_controls();
 SplitBoundaryReport run_canonical_stage_controls();
+SplitBoundaryReport run_balanced_canonical_controls();
 
 } // namespace nextengine::nonlocal::fcr

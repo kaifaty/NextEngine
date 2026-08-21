@@ -426,3 +426,10 @@ with exact deterministic aggregate-balanced apportionment, including
 adversarial algebra, one-frame P1/P2 physics and long free-flight drift. B4C3T
 is now blocked until B4C3Q selects a publication policy and B4C3A1 revalidates
 the transaction under the resulting new profile identity.
+B4C3Q passes its exact algebra, physical, temporal and failure gates twice
+byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3q-balanced-quantization-evidence-2026-08-21.md).
+It selects `CANONICAL_AGGREGATE_BALANCED_CANDIDATE`: aggregate error and the
+residual-stress center drift improve `49x`, at the explicit cost of increasing
+the local bound from half a unit to below one unit. Only B4C3A1 selected-policy
+transaction design is authorized next.

@@ -1,5 +1,6 @@
 #include "boundary_reference.hpp"
 
+#include "balanced_canonical.hpp"
 #include "canonical.hpp"
 #include "math.hpp"
 #include "sha256.hpp"
@@ -8465,6 +8466,13 @@ struct CanonicalStageRun {
     bool decode_chain_exact = true;
     bool sample_identity_exact = true;
     bool step_sequence_exact = true;
+    bool aggregate_bounds_exact = true;
+    bool kinetic_bound_exact = true;
+    long double maximum_aggregate_position_error_units = 0.0L;
+    long double maximum_aggregate_velocity_error_units = 0.0L;
+    double maximum_publication_center_shift = 0.0;
+    double maximum_publication_momentum_impulse = 0.0;
+    double maximum_publication_kinetic_change = 0.0;
     JointQueryTrace trace;
 };
 
@@ -8495,6 +8503,67 @@ struct CanonicalStageNegative {
     std::string observed;
     std::size_t committed_frames = 0;
     bool pretransaction_exact = false;
+    bool passed = false;
+};
+
+struct BalancedAlgebraControl {
+    bool passed = false;
+    std::string failure;
+    long double nearest_biased_aggregate_error_units = 0.0L;
+    long double balanced_biased_aggregate_error_units = 0.0L;
+    long double biased_improvement = 0.0L;
+    long double maximum_local_error_units = 0.0L;
+    long double maximum_aggregate_error_units = 0.0L;
+    std::size_t biased_corrections = 0U;
+    bool exact_bounds = false;
+    bool exhaustive_optimal = false;
+    bool known_targets_exact = false;
+    bool zero_correction_exact = false;
+    bool order_exact = false;
+    bool sign_exact = false;
+    bool translation_exact = false;
+    std::string biased_frame_sha256;
+};
+
+struct BalancedPhysicalCase {
+    std::string name;
+    bool passed = false;
+    std::string failure;
+    CanonicalStageRun coarse;
+    CanonicalStageRun fine;
+    SmokeGate gate;
+    double binary_position_rms = 0.0;
+    double binary_velocity_rms = 0.0;
+    double nearest_position_rms = 0.0;
+    double nearest_velocity_rms = 0.0;
+    double contact_time_error = 0.0;
+    bool contact_exact = false;
+    bool order_exact = false;
+    std::string trajectory_sha256;
+};
+
+struct BalancedTemporalControl {
+    bool passed = false;
+    std::string failure;
+    int samples = 0;
+    int steps = 0;
+    double nearest_center_position_drift = 0.0;
+    double balanced_center_position_drift = 0.0;
+    double nearest_center_velocity_drift = 0.0;
+    double balanced_center_velocity_drift = 0.0;
+    double balanced_center_bound = 0.0;
+    double position_improvement = 0.0;
+    double velocity_improvement = 0.0;
+    bool repeat_exact = false;
+    std::string trajectory_sha256;
+};
+
+struct BalancedNegative {
+    std::string name;
+    std::string expected;
+    std::string observed;
+    bool pretransaction_exact = false;
+    std::size_t committed_frames = 0U;
     bool passed = false;
 };
 
@@ -11385,6 +11454,16 @@ constexpr const char* B4C3_P1_SCENARIO_SHA256 =
     "71fd23dd299bc892254007dc7dcaa25898794ff456b0c0dfdbec0271ac3e9884";
 constexpr const char* B4C3_P2_SCENARIO_SHA256 =
     "0bfc8b62d52e479b724824b2c0e5886a6b89faec8891986e13f2c1382c7a7f87";
+constexpr const char* B4C3Q_PROFILE_SHA256 =
+    "f57d88c222a8334206a962a72a814bdd530696ed2767c94fa88910281265579c";
+constexpr const char* B4C3Q_ALGEBRA_SHA256 =
+    "bf3046b6fad7675a3f784d11864fd7c42ce5e63116e3103cfb1cdf639cfe265e";
+constexpr const char* B4C3Q_P1_SCENARIO_SHA256 =
+    "d42eeb5753b654e5a13fe3d4db30010bc77118c6f216f9b9cb6ca404643124de";
+constexpr const char* B4C3Q_P2_SCENARIO_SHA256 =
+    "5755be013a3704373b7cb2d21ea1608d6497dec980120af42d73fa7d9f802cd8";
+constexpr const char* B4C3Q_TEMPORAL_SHA256 =
+    "f90fed20f6ecd56c7b52fe57f7f0d90afc8b17957aa4e0c33c61d3d1e8b37aa3";
 
 std::vector<canonical::FloatSample> canonical_float_samples(
     const std::vector<Vec3>& position,
@@ -11476,7 +11555,9 @@ CanonicalStageRun run_canonical_stage_interval(
     const std::string& scenario_sha256,
     int substeps,
     int order_mode,
-    int force_failure_after = -1) {
+    int force_failure_after = -1,
+    bool aggregate_balanced = false,
+    const char* profile_sha256 = B4C3_PROFILE_SHA256) {
     CanonicalStageRun result;
     result.trace.record_queries = false;
     result.run.position = fixture.position;
@@ -11539,11 +11620,28 @@ CanonicalStageRun run_canonical_stage_interval(
                 static_cast<double>(substep + 1) * time_step;
         }
         try {
-            canonical::Frame frame = canonical::publish_frame(
-                B4C3_PROFILE_SHA256, scenario_sha256,
-                static_cast<std::uint32_t>(substep + 1),
-                canonical_float_samples(
-                    solve.position, solve.velocity, order_mode));
+            canonical::Frame frame;
+            std::array<balanced_canonical::ComponentReport, 3>
+                position_report{};
+            std::array<balanced_canonical::ComponentReport, 3>
+                velocity_report{};
+            if (aggregate_balanced) {
+                balanced_canonical::PublishResult publication =
+                    balanced_canonical::publish_frame(
+                        profile_sha256, scenario_sha256,
+                        static_cast<std::uint32_t>(substep + 1),
+                        canonical_float_samples(
+                            solve.position, solve.velocity, order_mode));
+                frame = std::move(publication.frame);
+                position_report = publication.position;
+                velocity_report = publication.velocity;
+            } else {
+                frame = canonical::publish_frame(
+                    profile_sha256, scenario_sha256,
+                    static_cast<std::uint32_t>(substep + 1),
+                    canonical_float_samples(
+                        solve.position, solve.velocity, order_mode));
+            }
             const std::vector<Vec3> decoded_position =
                 decode_canonical_position(frame);
             const std::vector<Vec3> decoded_velocity =
@@ -11564,11 +11662,82 @@ CanonicalStageRun run_canonical_stage_interval(
                 result.sample_identity_exact = result.sample_identity_exact
                     && frame.samples[i].sample_id == i;
             }
+            if (aggregate_balanced) {
+                Vec3 position_error;
+                Vec3 velocity_error;
+                for (std::size_t component_index = 0;
+                     component_index < 3U; ++component_index) {
+                    result.aggregate_bounds_exact =
+                        result.aggregate_bounds_exact
+                        && position_report[component_index]
+                            .aggregate_bound_exact
+                        && position_report[component_index]
+                            .local_bound_exact
+                        && velocity_report[component_index]
+                            .aggregate_bound_exact
+                        && velocity_report[component_index]
+                            .local_bound_exact;
+                    result.maximum_aggregate_position_error_units =
+                        std::max(
+                            result.maximum_aggregate_position_error_units,
+                            position_report[component_index]
+                                .aggregate_error_units);
+                    result.maximum_aggregate_velocity_error_units =
+                        std::max(
+                            result.maximum_aggregate_velocity_error_units,
+                            velocity_report[component_index]
+                                .aggregate_error_units);
+                }
+                position_error = {
+                    static_cast<double>(position_report[0]
+                        .signed_aggregate_error_units) / 1000000.0,
+                    static_cast<double>(position_report[1]
+                        .signed_aggregate_error_units) / 1000000.0,
+                    static_cast<double>(position_report[2]
+                        .signed_aggregate_error_units) / 1000000.0,
+                };
+                velocity_error = {
+                    static_cast<double>(velocity_report[0]
+                        .signed_aggregate_error_units) / 1000000.0,
+                    static_cast<double>(velocity_report[1]
+                        .signed_aggregate_error_units) / 1000000.0,
+                    static_cast<double>(velocity_report[2]
+                        .signed_aggregate_error_units) / 1000000.0,
+                };
+                result.maximum_publication_center_shift = std::max(
+                    result.maximum_publication_center_shift,
+                    norm(position_error)
+                        / static_cast<double>(solve.position.size()));
+                result.maximum_publication_momentum_impulse = std::max(
+                    result.maximum_publication_momentum_impulse,
+                    MASS * norm(velocity_error));
+                const double kinetic_before = kinetic_energy(solve.velocity);
+                const double kinetic_after = kinetic_energy(decoded_velocity);
+                const double delta_velocity = vector_difference_norm(
+                    solve.velocity, decoded_velocity);
+                const double kinetic_bound = MASS * (
+                    vector_norm(solve.velocity) * delta_velocity
+                    + 0.5 * delta_velocity * delta_velocity);
+                const double kinetic_change = std::abs(
+                    kinetic_after - kinetic_before);
+                const double kinetic_allowance = kinetic_bound
+                    + gamma_factor(64U + 12U * solve.velocity.size())
+                        * std::max({std::abs(kinetic_before),
+                            std::abs(kinetic_after), 1.0e-300});
+                result.maximum_publication_kinetic_change = std::max(
+                    result.maximum_publication_kinetic_change,
+                    kinetic_change);
+                result.kinetic_bound_exact = result.kinetic_bound_exact
+                    && kinetic_change <= kinetic_allowance;
+            }
             result.staged_frames.push_back(std::move(frame));
             result.publication_error_bounded =
                 result.publication_error_bounded
-                && result.maximum_position_error <= 0.5e-6L
-                && result.maximum_velocity_error <= 0.5e-6L;
+                && (aggregate_balanced
+                    ? (result.maximum_position_error < 1.0e-6L
+                        && result.maximum_velocity_error < 1.0e-6L)
+                    : (result.maximum_position_error <= 0.5e-6L
+                        && result.maximum_velocity_error <= 0.5e-6L));
             result.run.position = decoded_position;
             result.run.velocity = decoded_velocity;
         } catch (const canonical::Error& error) {
@@ -11581,6 +11750,7 @@ CanonicalStageRun run_canonical_stage_interval(
     result.passed = result.decode_chain_exact
         && result.sample_identity_exact && result.step_sequence_exact
         && result.publication_error_bounded
+        && result.aggregate_bounds_exact && result.kinetic_bound_exact
         && result.staged_frames.size() == static_cast<std::size_t>(substeps)
         && result.trace.live_workspaces == 0
         && result.trace.maximum_live_workspaces <= 2
@@ -11776,6 +11946,489 @@ std::array<CanonicalStageNegative, 4> run_canonical_stage_negatives() {
         "position-range", "NONLOCAL_POSITION_OUT_OF_RANGE", 1);
     result[3] = canonical_publication_negative(
         "duplicate-id", "NONLOCAL_DUPLICATE_SAMPLE_ID", 2);
+    return result;
+}
+
+std::vector<canonical::FloatSample> scalar_canonical_samples(
+    const std::vector<double>& values, int order_mode = 0) {
+    std::vector<canonical::FloatSample> result(values.size());
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        result[i].sample_id = static_cast<std::uint32_t>(i);
+        result[i].position_m = {values[i], 0.0, 0.0};
+        result[i].velocity_m_s = {values[i], 0.0, 0.0};
+    }
+    if (order_mode == 1) {
+        std::reverse(result.begin(), result.end());
+    } else if (order_mode == 2 && result.size() > 1U) {
+        std::vector<canonical::FloatSample> permuted;
+        permuted.reserve(result.size());
+        std::size_t multiplier = 2U;
+        while (std::gcd(multiplier, result.size()) != 1U) {
+            ++multiplier;
+        }
+        for (std::size_t slot = 0; slot < result.size(); ++slot) {
+            permuted.push_back(result[
+                (multiplier * slot + 1U) % result.size()]);
+        }
+        result = std::move(permuted);
+    }
+    return result;
+}
+
+long double independent_aggregate_error_units(
+    const canonical::Frame& frame,
+    const std::vector<double>& values,
+    bool position) {
+    long double exact_sum = 0.0L;
+    std::int64_t integer_sum = 0;
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        exact_sum += static_cast<long double>(values[i]) * 1000000.0L;
+        integer_sum += position
+            ? frame.samples[i].position_um[0]
+            : frame.samples[i].velocity_um_s[0];
+    }
+    return std::fabs(static_cast<long double>(integer_sum) - exact_sum);
+}
+
+BalancedAlgebraControl run_balanced_algebra_control() {
+    BalancedAlgebraControl result;
+    const std::vector<double> biased(48U, 0.49e-6);
+    const canonical::Frame nearest_biased = canonical::publish_frame(
+        B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 1U,
+        scalar_canonical_samples(biased));
+    const balanced_canonical::PublishResult balanced_biased =
+        balanced_canonical::publish_frame(
+            B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 1U,
+            scalar_canonical_samples(biased));
+    result.nearest_biased_aggregate_error_units =
+        independent_aggregate_error_units(
+            nearest_biased, biased, true);
+    result.balanced_biased_aggregate_error_units =
+        balanced_biased.position[0].aggregate_error_units;
+    result.biased_improvement =
+        result.nearest_biased_aggregate_error_units
+        / std::max(result.balanced_biased_aggregate_error_units, 1.0e-30L);
+    result.biased_corrections =
+        balanced_biased.position[0].corrected_samples;
+    result.biased_frame_sha256 = balanced_biased.frame.root_sha256;
+    result.maximum_local_error_units = std::max(
+        balanced_biased.position[0].maximum_local_error_units,
+        balanced_biased.velocity[0].maximum_local_error_units);
+    result.maximum_aggregate_error_units = std::max(
+        balanced_biased.position[0].aggregate_error_units,
+        balanced_biased.velocity[0].aggregate_error_units);
+
+    const std::vector<std::vector<double>> exact_controls = {
+        {1.0 / 128.0, -1.0 / 128.0, 3.0 / 128.0,
+            -3.0 / 128.0},
+        {0.49e-6, -0.49e-6, 1.49e-6, -1.49e-6,
+            2.25e-6, -2.25e-6},
+        {0.0, 0.0, 0.0, 0.0},
+        {15.9999994, -15.9999994},
+    };
+    result.exact_bounds = true;
+    result.exhaustive_optimal = true;
+    for (std::size_t control = 0; control < exact_controls.size(); ++control) {
+        const balanced_canonical::PublishResult publication =
+            balanced_canonical::publish_frame(
+                B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256,
+                static_cast<std::uint32_t>(2U + control),
+                scalar_canonical_samples(exact_controls[control]));
+        for (std::size_t component = 0; component < 3U; ++component) {
+            result.maximum_local_error_units = std::max({
+                result.maximum_local_error_units,
+                publication.position[component].maximum_local_error_units,
+                publication.velocity[component].maximum_local_error_units,
+            });
+            result.maximum_aggregate_error_units = std::max({
+                result.maximum_aggregate_error_units,
+                publication.position[component].aggregate_error_units,
+                publication.velocity[component].aggregate_error_units,
+            });
+            result.exact_bounds = result.exact_bounds
+                && publication.position[component].local_bound_exact
+                && publication.position[component].aggregate_bound_exact
+                && publication.position[component].target_exact
+                && publication.position[component].corrections_unique
+                && publication.velocity[component].local_bound_exact
+                && publication.velocity[component].aggregate_bound_exact
+                && publication.velocity[component].target_exact
+                && publication.velocity[component].corrections_unique;
+            result.exhaustive_optimal = result.exhaustive_optimal
+                && publication.position[component].exhaustive_optimal
+                && publication.velocity[component].exhaustive_optimal;
+        }
+    }
+
+    const balanced_canonical::PublishResult positive_half =
+        balanced_canonical::publish_frame(
+            B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 10U,
+            scalar_canonical_samples({1.0 / 128.0, 1.0 / 128.0}));
+    const balanced_canonical::PublishResult negative_half =
+        balanced_canonical::publish_frame(
+            B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 11U,
+            scalar_canonical_samples({-1.0 / 128.0, -1.0 / 128.0}));
+    result.known_targets_exact =
+        positive_half.position[0].exact_target == 15625
+        && positive_half.position[0].published_sum == 15625
+        && positive_half.position[0].correction == 1
+        && negative_half.position[0].exact_target == -15625
+        && negative_half.position[0].published_sum == -15625
+        && negative_half.position[0].correction == -1;
+
+    const std::vector<double> zeros(8U, 0.0);
+    const canonical::Frame nearest_zero = canonical::publish_frame(
+        B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 20U,
+        scalar_canonical_samples(zeros));
+    const balanced_canonical::PublishResult balanced_zero =
+        balanced_canonical::publish_frame(
+            B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 20U,
+            scalar_canonical_samples(zeros));
+    result.zero_correction_exact =
+        exact_canonical_frames({nearest_zero}, {balanced_zero.frame});
+
+    result.order_exact = true;
+    for (int mode = 1; mode <= 2; ++mode) {
+        const balanced_canonical::PublishResult permuted =
+            balanced_canonical::publish_frame(
+                B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 1U,
+                scalar_canonical_samples(biased, mode));
+        result.order_exact = result.order_exact
+            && exact_canonical_frames(
+                {balanced_biased.frame}, {permuted.frame});
+    }
+
+    const std::vector<double> signed_values = {
+        1.0 / 128.0, 1.0 / 128.0, -3.0 / 128.0,
+        0.49e-6, 1.49e-6, -2.49e-6,
+    };
+    std::vector<double> negated = signed_values;
+    for (double& value : negated) {
+        value = -value;
+    }
+    const balanced_canonical::PublishResult positive =
+        balanced_canonical::publish_frame(
+            B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 30U,
+            scalar_canonical_samples(signed_values));
+    const balanced_canonical::PublishResult negative =
+        balanced_canonical::publish_frame(
+            B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 30U,
+            scalar_canonical_samples(negated));
+    result.sign_exact = positive.frame.samples.size()
+        == negative.frame.samples.size();
+    for (std::size_t i = 0; i < positive.frame.samples.size(); ++i) {
+        for (std::size_t component = 0; component < 3U; ++component) {
+            result.sign_exact = result.sign_exact
+                && positive.frame.samples[i].position_um[component]
+                    == -negative.frame.samples[i].position_um[component]
+                && positive.frame.samples[i].velocity_um_s[component]
+                    == -negative.frame.samples[i].velocity_um_s[component];
+        }
+    }
+
+    std::vector<canonical::FloatSample> translated(
+        positive.frame.samples.size());
+    for (std::size_t i = 0; i < translated.size(); ++i) {
+        translated[i].sample_id = positive.frame.samples[i].sample_id;
+        translated[i].position_m[0] = static_cast<double>(
+            positive.frame.samples[i].position_um[0] + 7) / 1000000.0;
+        translated[i].velocity_m_s[0] = static_cast<double>(
+            positive.frame.samples[i].velocity_um_s[0] - 3) / 1000000.0;
+    }
+    const balanced_canonical::PublishResult shifted =
+        balanced_canonical::publish_frame(
+            B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 30U,
+            std::move(translated));
+    result.translation_exact = shifted.frame.samples.size()
+        == positive.frame.samples.size();
+    for (std::size_t i = 0; i < positive.frame.samples.size(); ++i) {
+        result.translation_exact = result.translation_exact
+            && shifted.frame.samples[i].position_um[0]
+                == positive.frame.samples[i].position_um[0] + 7
+            && shifted.frame.samples[i].velocity_um_s[0]
+                == positive.frame.samples[i].velocity_um_s[0] - 3;
+    }
+
+    result.passed = result.exact_bounds && result.exhaustive_optimal
+        && result.known_targets_exact
+        && result.zero_correction_exact && result.order_exact
+        && result.sign_exact && result.translation_exact
+        && result.maximum_local_error_units < 1.0L
+        && result.maximum_aggregate_error_units <= 0.5L
+        && balanced_biased.position[0].local_bound_exact
+        && balanced_biased.position[0].aggregate_bound_exact
+        && balanced_biased.position[0].target_exact
+        && balanced_biased.position[0].corrections_unique
+        && balanced_biased.velocity[0].local_bound_exact
+        && balanced_biased.velocity[0].aggregate_bound_exact
+        && balanced_biased.velocity[0].target_exact
+        && balanced_biased.velocity[0].corrections_unique
+        && result.biased_improvement >= 16.0L;
+    if (!result.passed) {
+        result.failure = "BALANCED_ALGEBRA_GATE";
+    }
+    return result;
+}
+
+BalancedPhysicalCase run_balanced_physical_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& balanced_scenario_sha256,
+    const std::string& nearest_scenario_sha256,
+    int coarse_substeps) {
+    BalancedPhysicalCase result;
+    result.name = std::move(name);
+    result.coarse = run_canonical_stage_interval(
+        fixture, balanced_scenario_sha256, coarse_substeps,
+        0, -1, true, B4C3Q_PROFILE_SHA256);
+    result.fine = run_canonical_stage_interval(
+        fixture, balanced_scenario_sha256, 2 * coarse_substeps,
+        0, -1, true, B4C3Q_PROFILE_SHA256);
+    if (!result.coarse.passed || !result.fine.passed) {
+        result.failure = "BALANCED_STAGE";
+        return result;
+    }
+    result.gate = smoke_gate(result.coarse.run, result.fine.run);
+    const SmokeRun binary = run_b4b1_interval(
+        fixture, fixture.position, fixture.velocity,
+        2 * coarse_substeps, 0.0, SMOKE_FRAME_TIME);
+    const CanonicalStageRun nearest = run_canonical_stage_interval(
+        fixture, nearest_scenario_sha256, 2 * coarse_substeps, 0);
+    if (!binary.passed || !nearest.passed) {
+        result.failure = "REFERENCE_STAGE";
+        return result;
+    }
+    result.binary_position_rms = rms_difference(
+        result.fine.run.position, binary.position);
+    result.binary_velocity_rms = rms_difference(
+        result.fine.run.velocity, binary.velocity);
+    result.nearest_position_rms = rms_difference(
+        result.fine.run.position, nearest.run.position);
+    result.nearest_velocity_rms = rms_difference(
+        result.fine.run.velocity, nearest.run.velocity);
+    result.contact_time_error = event_time_error(
+        result.fine.run.first_contact_time, binary.first_contact_time);
+    result.contact_exact = result.fine.run.terminal_contacts
+            == binary.terminal_contacts
+        && result.fine.run.terminal_contacts
+            == nearest.run.terminal_contacts;
+    result.trajectory_sha256 = canonical::trajectory_root(
+        B4C3Q_PROFILE_SHA256, balanced_scenario_sha256,
+        canonical_frame_roots(result.fine.staged_frames));
+    result.order_exact = true;
+    for (int mode = 1; mode <= 2; ++mode) {
+        const CanonicalStageRun permuted = run_canonical_stage_interval(
+            fixture, balanced_scenario_sha256, 2 * coarse_substeps,
+            mode, -1, true, B4C3Q_PROFILE_SHA256);
+        result.order_exact = result.order_exact && permuted.passed
+            && exact_canonical_frames(
+                result.fine.staged_frames, permuted.staged_frames)
+            && exact_vec3_values(
+                result.fine.run.position, permuted.run.position)
+            && exact_vec3_values(
+                result.fine.run.velocity, permuted.run.velocity);
+    }
+    const double contact_limit = SMOKE_FRAME_TIME
+            / static_cast<double>(coarse_substeps)
+        + 64.0 * std::numeric_limits<double>::epsilon();
+    result.passed = result.gate.passed && result.contact_exact
+        && result.order_exact
+        && result.binary_position_rms <= 100.0e-6
+        && result.binary_velocity_rms <= 1.0e-3
+        && result.nearest_position_rms <= 100.0e-6
+        && result.nearest_velocity_rms <= 1.0e-3
+        && result.contact_time_error <= contact_limit
+        && result.coarse.aggregate_bounds_exact
+        && result.fine.aggregate_bounds_exact
+        && result.coarse.kinetic_bound_exact
+        && result.fine.kinetic_bound_exact
+        && result.coarse.maximum_aggregate_position_error_units <= 0.5L
+        && result.coarse.maximum_aggregate_velocity_error_units <= 0.5L
+        && result.fine.maximum_aggregate_position_error_units <= 0.5L
+        && result.fine.maximum_aggregate_velocity_error_units <= 0.5L;
+    if (!result.passed) {
+        result.failure = "BALANCED_PHYSICAL_GATE";
+    }
+    return result;
+}
+
+struct TemporalPublicationRun {
+    std::vector<Vec3> position;
+    std::vector<Vec3> velocity;
+    std::vector<std::string> frame_roots;
+    bool exact_bounds = true;
+};
+
+TemporalPublicationRun run_temporal_publication_stress(bool balanced) {
+    constexpr int samples = 48;
+    constexpr int steps = 1024;
+    constexpr double increment = 0.49e-6;
+    TemporalPublicationRun result;
+    result.position.resize(samples);
+    result.velocity.resize(samples);
+    result.frame_roots.reserve(steps);
+    for (int step = 0; step < steps; ++step) {
+        std::vector<Vec3> trial_position = result.position;
+        std::vector<Vec3> trial_velocity = result.velocity;
+        for (int sample = 0; sample < samples; ++sample) {
+            trial_position[static_cast<std::size_t>(sample)].x += increment;
+            trial_velocity[static_cast<std::size_t>(sample)].x += increment;
+        }
+        canonical::Frame frame;
+        if (balanced) {
+            const balanced_canonical::PublishResult publication =
+                balanced_canonical::publish_frame(
+                    B4C3Q_PROFILE_SHA256, B4C3Q_TEMPORAL_SHA256,
+                    static_cast<std::uint32_t>(step + 1),
+                    canonical_float_samples(
+                        trial_position, trial_velocity, 0));
+            frame = publication.frame;
+            for (std::size_t component = 0; component < 3U; ++component) {
+                result.exact_bounds = result.exact_bounds
+                    && publication.position[component].aggregate_bound_exact
+                    && publication.velocity[component].aggregate_bound_exact;
+            }
+        } else {
+            frame = canonical::publish_frame(
+                B4C3Q_PROFILE_SHA256, B4C3Q_TEMPORAL_SHA256,
+                static_cast<std::uint32_t>(step + 1),
+                canonical_float_samples(
+                    trial_position, trial_velocity, 0));
+        }
+        result.frame_roots.push_back(frame.root_sha256);
+        result.position = decode_canonical_position(frame);
+        result.velocity = decode_canonical_velocity(frame);
+    }
+    return result;
+}
+
+BalancedTemporalControl run_balanced_temporal_control() {
+    constexpr int samples = 48;
+    constexpr int steps = 1024;
+    constexpr double expected = static_cast<double>(steps) * 0.49e-6;
+    BalancedTemporalControl result;
+    result.samples = samples;
+    result.steps = steps;
+    const TemporalPublicationRun nearest =
+        run_temporal_publication_stress(false);
+    const TemporalPublicationRun balanced =
+        run_temporal_publication_stress(true);
+    const TemporalPublicationRun repeated =
+        run_temporal_publication_stress(true);
+    result.nearest_center_position_drift = std::abs(
+        average_values(nearest.position).x - expected);
+    result.balanced_center_position_drift = std::abs(
+        average_values(balanced.position).x - expected);
+    result.nearest_center_velocity_drift = std::abs(
+        average_values(nearest.velocity).x - expected);
+    result.balanced_center_velocity_drift = std::abs(
+        average_values(balanced.velocity).x - expected);
+    result.balanced_center_bound = static_cast<double>(steps)
+        * 0.5e-6 / static_cast<double>(samples)
+        + 64.0 * std::numeric_limits<double>::epsilon();
+    result.position_improvement = result.nearest_center_position_drift
+        / std::max(result.balanced_center_position_drift, 1.0e-300);
+    result.velocity_improvement = result.nearest_center_velocity_drift
+        / std::max(result.balanced_center_velocity_drift, 1.0e-300);
+    result.repeat_exact = balanced.exact_bounds
+        && exact_vec3_values(balanced.position, repeated.position)
+        && exact_vec3_values(balanced.velocity, repeated.velocity)
+        && balanced.frame_roots == repeated.frame_roots;
+    result.trajectory_sha256 = canonical::trajectory_root(
+        B4C3Q_PROFILE_SHA256, B4C3Q_TEMPORAL_SHA256,
+        balanced.frame_roots);
+    result.passed = nearest.exact_bounds && balanced.exact_bounds
+        && result.repeat_exact
+        && result.balanced_center_position_drift
+            <= result.balanced_center_bound
+        && result.balanced_center_velocity_drift
+            <= result.balanced_center_bound
+        && result.balanced_center_position_drift
+            < result.nearest_center_position_drift
+        && result.balanced_center_velocity_drift
+            < result.nearest_center_velocity_drift;
+    if (!result.passed) {
+        result.failure = "BALANCED_TEMPORAL_GATE";
+    }
+    return result;
+}
+
+BalancedNegative balanced_publication_negative(
+    std::string name, std::string expected, int mode) {
+    BalancedNegative result;
+    result.name = std::move(name);
+    result.expected = std::move(expected);
+    const std::vector<double> initial_values(4U, 0.0);
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 0U,
+            scalar_canonical_samples(initial_values));
+    std::string committed_root = initial.frame.root_sha256;
+    try {
+        if (mode == 4) {
+            balanced_canonical::require_unique_correction_capacity(5U, 4U);
+        } else {
+            std::vector<canonical::FloatSample> values =
+                scalar_canonical_samples(initial_values);
+            if (mode == 0) {
+                values[0].position_m[0] =
+                    std::numeric_limits<double>::quiet_NaN();
+            } else if (mode == 1) {
+                values[0].position_m[0] = 16.000001;
+            } else if (mode == 2) {
+                values.push_back(values.front());
+            } else {
+                values.clear();
+            }
+            const balanced_canonical::PublishResult staged =
+                balanced_canonical::publish_frame(
+                    B4C3Q_PROFILE_SHA256, B4C3Q_ALGEBRA_SHA256, 1U,
+                    std::move(values));
+            committed_root = staged.frame.root_sha256;
+            result.committed_frames = 1U;
+        }
+    } catch (const canonical::Error& error) {
+        result.observed = error.code();
+    }
+    result.pretransaction_exact = committed_root
+        == initial.frame.root_sha256;
+    result.passed = result.observed == result.expected
+        && result.committed_frames == 0U
+        && result.pretransaction_exact;
+    return result;
+}
+
+std::array<BalancedNegative, 6> run_balanced_negatives() {
+    std::array<BalancedNegative, 6> result;
+    const SmokeFixture fixture = make_b4b_released_block_fixture();
+    const balanced_canonical::PublishResult initial =
+        balanced_canonical::publish_frame(
+            B4C3Q_PROFILE_SHA256, B4C3Q_P2_SCENARIO_SHA256, 0U,
+            canonical_float_samples(
+                fixture.position, fixture.velocity, 0));
+    const CanonicalStageRun forced = run_canonical_stage_interval(
+        fixture, B4C3Q_P2_SCENARIO_SHA256, 4, 0, 2,
+        true, B4C3Q_PROFILE_SHA256);
+    result[0].name = "forced-solver-failure";
+    result[0].expected = "FORCED_SOLVER_FAILURE";
+    result[0].observed = forced.failure;
+    result[0].pretransaction_exact = !initial.frame.root_sha256.empty();
+    result[0].passed = !forced.passed
+        && forced.staged_frames.size() == 2U
+        && result[0].observed == result[0].expected
+        && result[0].committed_frames == 0U
+        && result[0].pretransaction_exact;
+    result[1] = balanced_publication_negative(
+        "nonfinite", "NONLOCAL_NONFINITE_VALUE", 0);
+    result[2] = balanced_publication_negative(
+        "position-range", "NONLOCAL_POSITION_OUT_OF_RANGE", 1);
+    result[3] = balanced_publication_negative(
+        "duplicate-id", "NONLOCAL_DUPLICATE_SAMPLE_ID", 2);
+    result[4] = balanced_publication_negative(
+        "sample-capacity", "NONLOCAL_SAMPLE_CAPACITY_EXCEEDED", 3);
+    result[5] = balanced_publication_negative(
+        "infeasible-correction",
+        "NONLOCAL_CONSERVATION_APPORTIONMENT_INFEASIBLE", 4);
     return result;
 }
 
@@ -12051,6 +12704,136 @@ void append_joint_negative(
            << "\",\"partial_pairs\":" << value.partial_pairs
            << ",\"partial_adjacency_rows\":"
            << value.partial_adjacency_rows << '}';
+}
+
+void append_balanced_algebra(
+    std::ostringstream& output, const BalancedAlgebraControl& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"nearest_biased_aggregate_error_units\":"
+           << value.nearest_biased_aggregate_error_units
+           << ",\"balanced_biased_aggregate_error_units\":"
+           << value.balanced_biased_aggregate_error_units
+           << ",\"biased_improvement\":" << value.biased_improvement
+           << ",\"biased_corrections\":" << value.biased_corrections
+           << ",\"maximum_local_error_units\":"
+           << value.maximum_local_error_units
+           << ",\"maximum_aggregate_error_units\":"
+           << value.maximum_aggregate_error_units
+           << ",\"exact_bounds\":"
+           << (value.exact_bounds ? "true" : "false")
+           << ",\"exhaustive_optimal\":"
+           << (value.exhaustive_optimal ? "true" : "false")
+           << ",\"known_targets_exact\":"
+           << (value.known_targets_exact ? "true" : "false")
+           << ",\"zero_correction_exact\":"
+           << (value.zero_correction_exact ? "true" : "false")
+           << ",\"order_exact\":"
+           << (value.order_exact ? "true" : "false")
+           << ",\"sign_exact\":"
+           << (value.sign_exact ? "true" : "false")
+           << ",\"translation_exact\":"
+           << (value.translation_exact ? "true" : "false")
+           << ",\"biased_frame_sha256\":\""
+           << value.biased_frame_sha256 << "\"}";
+}
+
+void append_balanced_stage_metrics(
+    std::ostringstream& output, const CanonicalStageRun& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"substeps\":" << value.run.substeps
+           << ",\"staged_frames\":" << value.staged_frames.size()
+           << ",\"maximum_local_position_error_m\":"
+           << value.maximum_position_error
+           << ",\"maximum_local_velocity_error_m_s\":"
+           << value.maximum_velocity_error
+           << ",\"maximum_aggregate_position_error_units\":"
+           << value.maximum_aggregate_position_error_units
+           << ",\"maximum_aggregate_velocity_error_units\":"
+           << value.maximum_aggregate_velocity_error_units
+           << ",\"maximum_publication_center_shift_m\":"
+           << value.maximum_publication_center_shift
+           << ",\"maximum_publication_momentum_impulse_kg_m_s\":"
+           << value.maximum_publication_momentum_impulse
+           << ",\"maximum_publication_kinetic_change_j\":"
+           << value.maximum_publication_kinetic_change
+           << ",\"decode_chain_exact\":"
+           << (value.decode_chain_exact ? "true" : "false")
+           << ",\"aggregate_bounds_exact\":"
+           << (value.aggregate_bounds_exact ? "true" : "false")
+           << ",\"kinetic_bound_exact\":"
+           << (value.kinetic_bound_exact ? "true" : "false") << '}';
+}
+
+void append_balanced_physical(
+    std::ostringstream& output, const BalancedPhysicalCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"coarse\":";
+    append_balanced_stage_metrics(output, value.coarse);
+    output << ",\"fine\":";
+    append_balanced_stage_metrics(output, value.fine);
+    output << ",\"embedded_gate_passed\":"
+           << (value.gate.passed ? "true" : "false")
+           << ",\"binary_position_rms_m\":"
+           << value.binary_position_rms
+           << ",\"binary_velocity_rms_m_s\":"
+           << value.binary_velocity_rms
+           << ",\"nearest_position_rms_m\":"
+           << value.nearest_position_rms
+           << ",\"nearest_velocity_rms_m_s\":"
+           << value.nearest_velocity_rms
+           << ",\"contact_time_error_s\":"
+           << value.contact_time_error
+           << ",\"contact_exact\":"
+           << (value.contact_exact ? "true" : "false")
+           << ",\"order_exact\":"
+           << (value.order_exact ? "true" : "false")
+           << ",\"trajectory_sha256\":\""
+           << value.trajectory_sha256 << "\"}";
+}
+
+void append_balanced_temporal(
+    std::ostringstream& output, const BalancedTemporalControl& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"samples\":" << value.samples
+           << ",\"steps\":" << value.steps
+           << ",\"nearest_center_position_drift_m\":"
+           << value.nearest_center_position_drift
+           << ",\"balanced_center_position_drift_m\":"
+           << value.balanced_center_position_drift
+           << ",\"nearest_center_velocity_drift_m_s\":"
+           << value.nearest_center_velocity_drift
+           << ",\"balanced_center_velocity_drift_m_s\":"
+           << value.balanced_center_velocity_drift
+           << ",\"balanced_center_bound\":"
+           << value.balanced_center_bound
+           << ",\"position_improvement\":"
+           << value.position_improvement
+           << ",\"velocity_improvement\":"
+           << value.velocity_improvement
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"trajectory_sha256\":\""
+           << value.trajectory_sha256 << "\"}";
+}
+
+void append_balanced_negative(
+    std::ostringstream& output, const BalancedNegative& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"expected\":\"" << value.expected
+           << "\",\"observed\":\"" << value.observed
+           << "\",\"committed_frames\":" << value.committed_frames
+           << ",\"pretransaction_exact\":"
+           << (value.pretransaction_exact ? "true" : "false") << '}';
 }
 
 } // namespace
@@ -12842,6 +13625,133 @@ SplitBoundaryReport run_canonical_stage_controls() {
            << ",\"b4c3t_full_canonical_design_authorized\":"
            << (passed ? "true" : "false")
            << ",\"full_canonical_trajectory_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_balanced_canonical_controls() {
+    const SplitBoundaryReport parent = run_canonical_stage_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "45b4f8965be67f90878a6f4d703c978ed74914457cd7f64aaccbc84491dd8a48";
+    BalancedAlgebraControl algebra;
+    std::vector<BalancedPhysicalCase> physical;
+    BalancedTemporalControl temporal;
+    std::array<BalancedNegative, 6> negatives{};
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3A_PARENT";
+    } else {
+        algebra = run_balanced_algebra_control();
+        physical.push_back(run_balanced_physical_case(
+            "p1-frame0-21-42-balanced",
+            make_b4b_supported_column_fixture(),
+            B4C3Q_P1_SCENARIO_SHA256,
+            B4C3_P1_SCENARIO_SHA256, 21));
+        physical.push_back(run_balanced_physical_case(
+            "p2-frame0-1-2-balanced",
+            make_b4b_released_block_fixture(),
+            B4C3Q_P2_SCENARIO_SHA256,
+            B4C3_P2_SCENARIO_SHA256, 1));
+        temporal = run_balanced_temporal_control();
+        negatives = run_balanced_negatives();
+        if (!algebra.passed) {
+            first_failure = "ALGEBRA:" + algebra.failure;
+        }
+        for (const BalancedPhysicalCase& value : physical) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!temporal.passed && first_failure.empty()) {
+            first_failure = "TEMPORAL:" + temporal.failure;
+        }
+        for (const BalancedNegative& value : negatives) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ":FAILURE_CONTROL";
+            }
+        }
+    }
+    const bool physical_passed = physical.size() == 2U
+        && std::all_of(physical.begin(), physical.end(),
+            [](const BalancedPhysicalCase& value) {
+                return value.passed;
+            });
+    const bool negatives_passed = parent_exact
+        && std::all_of(negatives.begin(), negatives.end(),
+            [](const BalancedNegative& value) {
+                return value.passed;
+            });
+    const bool passed = parent_exact && algebra.passed
+        && physical_passed && temporal.passed && negatives_passed;
+    const std::string disposition = passed
+        ? "CANONICAL_AGGREGATE_BALANCED_CANDIDATE"
+        : "CANONICAL_AGGREGATE_BALANCED_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition
+             << '|' << algebra.biased_improvement
+             << ':' << algebra.maximum_local_error_units
+             << ':' << algebra.maximum_aggregate_error_units
+             << '|' << temporal.position_improvement
+             << ':' << temporal.velocity_improvement
+             << ':' << temporal.trajectory_sha256;
+    for (const BalancedPhysicalCase& value : physical) {
+        material << '|' << value.name << ':' << value.trajectory_sha256
+                 << ':' << value.binary_position_rms
+                 << ':' << value.binary_velocity_rms
+                 << ':' << value.nearest_position_rms
+                 << ':' << value.nearest_velocity_rms
+                 << ':' << value.fine.maximum_publication_momentum_impulse;
+    }
+    for (const BalancedNegative& value : negatives) {
+        material << '|' << value.name << ':' << value.observed
+                 << ':' << value.committed_frames
+                 << ':' << value.pretransaction_exact;
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3q_balanced_quantization.v1\""
+           << ",\"identity\":\"canonical-aggregate-balanced-apportionment-r0\""
+           << ",\"parent_b4c3a_result_sha256\":\"fdaa0befd5538cdf76ff8601a655bf1f9726b5ced19db36943a665f8b06bb5fe\""
+           << ",\"parent_b4c3a_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"profile_sha256\":\"" << B4C3Q_PROFILE_SHA256 << '"'
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"exact_binary64_superaccumulator\":true"
+           << ",\"algebra\":";
+    append_balanced_algebra(report, algebra);
+    report << ",\"physical_controls\":[";
+    for (std::size_t i = 0; i < physical.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_balanced_physical(report, physical[i]);
+    }
+    report << "],\"temporal_control\":";
+    append_balanced_temporal(report, temporal);
+    report << ",\"failure_controls\":[";
+    for (std::size_t i = 0; i < negatives.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_balanced_negative(report, negatives[i]);
+    }
+    report << ']'
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c3a1_selected_policy_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c3t_full_canonical_design_authorized\":false"
            << ",\"nominal_corpus_execution_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"

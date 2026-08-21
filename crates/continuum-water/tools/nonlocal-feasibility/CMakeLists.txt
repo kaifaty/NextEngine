@@ -42,6 +42,7 @@ target_compile_options(
 
 add_executable(
     nonlocal-formula-reclosure
+    src/balanced_canonical.cpp
     src/boundary_reference.cpp
     src/canonical.cpp
     src/dimensional_profile.cpp
