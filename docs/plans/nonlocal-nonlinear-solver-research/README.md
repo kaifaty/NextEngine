@@ -959,3 +959,10 @@ maps the existing complete adaptive transaction onto exact nominal Hydro. Its
 transaction per fresh process over levels `14,28,56,112`, with retained flat
 workspaces, fine-only publication and an external 900-second watchdog. No
 reference file or second macro may be opened. Implement only B4E1M next.
+B4E1M passes physically and deterministically; see the
+[dated evidence](../../development/nonlocal-nsr3b4e1m-hydro-macro-evidence-2026-08-21.md).
+It selects the 28-substep fine level with zero energy creation, strain
+`4.55e-4` and exact ownership/root gates. Cost is not admissible: 48.8 s and
+99% of one CPU core per first macro project one unrepeated Hydro+Dam pair to
+about 26 machine-hours. B4E2 execution is therefore held. Profile B4EP before
+selecting or implementing an optimization.

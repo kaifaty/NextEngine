@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E1S_PASS / B4E1M_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4E1M_PASS / B4EP_RESEARCH` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -126,9 +126,18 @@
   transaction at exact nominal Hydro. It may attempt only `14,28,56,112`,
   commits one selected fine step, and runs once per fresh process under an
   external 900-second watchdog.
-- **Next action:** implement `--nominal-hydro-macro-probe`, then run one macro
-  in each of two independent builds. Keep time/RSS external, reference closed
-  and step 2 forbidden.
+- **Current conclusion:** B4E1M passes byte-exactly across two builds/processes.
+  Levels 14/28 pass, strain is `4.55e-4`, energy creation and penetration are
+  zero, and the strict ledger residual is `1.55e-11`.
+- **Performance boundary:** the macro takes 48.83/48.80 s at 99% of one CPU
+  core. It performs 221 outer trials, 459 total HVPs and 227 flat workspace
+  builds, materializing 151,461,068 directed records. One unrepeated full
+  Hydro+Dam pair projects to about 26 machine-hours versus the 4-hour gate.
+- **Current decision:** hold B4E2 execution and route early to B4EP. First
+  freeze an attribution profiler; do not choose parallelism, reuse or GPU work
+  until measured stage costs identify the dominant paths.
+- **Next action:** research/freeze B4EP0 profiling over the exact B4E1M macro,
+  preserving its report/root as a non-regression oracle.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -169,6 +178,7 @@
 | NSR3B4E1S contract | isolate nominal Hydro 48-HVP spectrum and temporal capacity | implement/execute spectrum only; no KKT or trajectory |
 | NSR3B4E1S PASS | deterministic 48-HVP spectrum; 14 initial substeps | B4E1M one-macro contract design only |
 | NSR3B4E1M contract | one nominal retained-flat Hydro transaction | implement/execute step 1 only; reference remains closed |
+| NSR3B4E1M PASS | exact physical step-1 macro at 48.8 s serial cost | correctness candidate; B4EP required before B4E2 execution |
 
 Candidate solver identity remains:
 
@@ -210,6 +220,7 @@ production authority is created by this lineage.
 | [B4E1S research](../nonlocal-nsr3b4e1s-spectrum-research-2026-08-21.md) | epsilon-active parent forces spectrum before KKT; initial count must be <=96 | execute isolated spectrum before one-macro design |
 | [B4E1S](../nonlocal-nsr3b4e1s-hydro-spectrum-evidence-2026-08-21.md) | four bit-exact estimates give 14 initial substeps and zero all-pairs work | design one Hydro macro transaction only |
 | [B4E1M research](../nonlocal-nsr3b4e1m-hydro-macro-research-2026-08-21.md) | complete transaction can isolate levels `14,28,56,112`, fine commit and cost | execute one step-1 macro per fresh process |
+| [B4E1M](../nonlocal-nsr3b4e1m-hydro-macro-evidence-2026-08-21.md) | physical/root PASS but one macro is 48.8 s and 227 workspace builds | hold B4E2; profile B4EP first |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -465,6 +476,17 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** two in-process macros, a forced-failure duplicate, opening the
   first reference output early or treating a watchdog exit as physics FAIL.
 
+### D-025 -- Route nominal execution to performance remediation early
+
+- **Observation:** step 1 passes every physical/root gate but takes 48.8 s on
+  one core; a one-pair Hydro+Dam projection is about 26 machine-hours, already
+  `6.5x` beyond the four-hour routing boundary.
+- **Decision:** preserve B4E1M as the exact oracle, hold B4E2 execution and
+  profile stage costs/workspace rebuilds in B4EP0 before selecting a remedy.
+- **Rejected:** spending about 46 minutes on B4E2 repeats before attribution,
+  treating process-level parallelism as reduced machine-hours or assuming the
+  227 rebuilds dominate without a profiler.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -475,8 +497,11 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   that validates harness utilization, not runtime solver throughput.
 - A B4E1S process containing two complete nominal 48-HVP estimates takes
   0.51 s wall and about 64 MiB RSS at 99% CPU; no KKT solve runs.
-- No nominal, 50k, GPU or production performance result exists for this
-  corrected Nonlocal lineage.
+- B4E1M takes 48.83/48.80 s, about 92 MiB RSS and 99% of one core; 42
+  attempted substeps contain 221 outer trials, 459 total HVPs and 227 flat
+  workspace builds.
+- No multi-macro nominal, 50k, GPU or production performance result exists
+  for this corrected Nonlocal lineage; B4E1M is one CPU research macro only.
 
 ## Required context
 
@@ -491,11 +516,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement `--nominal-hydro-macro-probe` over the frozen B4E1M transaction.
-2. Build independently twice, then run one step-1 macro per process under the
-   external watchdog and require byte-identical deterministic reports.
-3. Preserve any failure without tuning; authorize B4E2 design only after
-   physical, publication, ownership and repeatability gates all pass.
+1. Research existing instrumentation boundaries and freeze B4EP0 attribution
+   over the exact B4E1M macro without changing its solver decisions.
+2. Separate neighborhood/tape construction, evaluation, HVP, KKT bookkeeping,
+   publication and hashing costs; keep timings external to deterministic data.
+3. Use the measured dominance and Amdahl bound to select exactly one next
+   optimization. Keep B4E2, references, runtime and production work blocked.
 
 ## Reconsideration triggers
 

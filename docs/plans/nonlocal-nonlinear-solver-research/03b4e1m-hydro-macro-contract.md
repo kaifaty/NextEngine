@@ -1,6 +1,6 @@
 # NSR3-B4E1M -- nominal Hydro one-macro contract
 
-Status: `FROZEN / IMPLEMENTATION_AND_EXECUTION_AUTHORIZED / STEP1_ONLY`
+Status: `FROZEN / PASS / PERFORMANCE_REMEDIATION_REQUIRED / B4E2_HELD`
 
 Identity projection (exact bytes, no final LF):
 
