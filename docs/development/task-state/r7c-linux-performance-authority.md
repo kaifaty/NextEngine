@@ -81,6 +81,7 @@
 | Stale-build rejection on `aac4fc6` | First set-2 attempt returned typed `NOT_RUN`: binary provenance `9dc6919…` versus runtime commit `aac4fc6…` (`PERF_RUNTIME_COMMIT_MISMATCH`) | Preserve under `target/perf/r5-v10-cal2-stale-build`; rebuild xtask on the exact evidence commit before collection |
 | R5 v10 baseline/gate set 2 on `aac4fc6` | Ten-run baseline published after rebuild; isolated fresh-process gate returns `WARNING` again, now on three w8-config rows (`worker-8.physics-motor-frame` `+364bp`, `physics-substep-cost`/`motor-frame-cost` `+262bp`), every CI crossing zero; all absolute rows PASS with headroom, ratios stay absolute-only `PASS`, peak RSS improved | Second coherent occurrence under improved conditions triggers the pre-declared two-strike stop: no further collection attempts |
 | Set-2 w8 research mining | Host quiescence collapsed w4 spread `35% -> 7%` and w1 spread `29% -> 6%`, but w8 spread stayed `28% -> 34%`; within slow runs entire distribution segments shift (decile medians up to `2–3x` typical for `250`-frame plateaus, clustered early and in bursts); no monotone thermal drift; recorded pre/post clock/load percentages do not discriminate; no thread-affinity API exists anywhere in engine, motor workers are unpinned `std::thread`s, PhysX bridge uses `PxDefaultCpuDispatcherCreate(1)` | Residual w8 variance is structural per-process state (consistent with core/CCD placement lottery on the dual-CCD SMT 3950X), not desktop load or thermal ramp; discriminating experiment would be an affinity A/B probe plus an Accepted authority decision before any new evidence set |
+| Non-evidence affinity probe `256a64a` | Topology shows four L3 CCX domains (cores `0–3/4–7/8–11/12–15`, siblings `+16..+31`). Pinning the whole process to `0–7` (one logical CPU per physical core, one CCD pair) made w8 slower and less stable: p95s `2503/2557/7132` versus unpinned `1378–1843`; a fourth attempt was a typed preflight rejection (`PERF_CPU_LOAD_LIMIT_EXCEEDED`) | Naive single-mask pinning refuted: restricting headroom oversubscribes the mask and moves the w8 path onto a scheduling knee. The untested variant is deterministic per-worker placement spread over all physical cores inside the workload/engine, which changes measured conditions and requires Accepted authority regardless of outcome |
 
 ## Decisions that constrain the work
 
@@ -139,12 +140,11 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-Run the non-evidence affinity A/B probe (identical R5 report command under
-`taskset` pinned to one CCD physical cores versus an unpinned control) to
-confirm or refute H-A, then take the product-owner authority decision
-documented in the research checkpoint. Only after that decision collect the
-next R5 set (and then R3/R4 on the same final commit). R2 still waits for an
-OS-visible physical display.
+Product-owner authority decision from the research checkpoint: deterministic
+per-worker placement (ADR + engine change + fresh evidence) or CI-based
+warning semantics for noise-dominated direct rows (methodology ADR). Only
+after that decision collect the next R5 set (and then R3/R4 on the same final
+commit). R2 still waits for an OS-visible physical display.
 
 ## Do not retry
 
@@ -186,24 +186,22 @@ classes; documented host quiescence on a fresh commit) moved w4/w1 variance to
 
 | Hypothesis | Evidence for | Evidence against | Status |
 | --- | --- | --- | --- |
-| H-A core/CCD placement lottery of unpinned workers | Quiescence fixed w4/w1 but not w8; plateaus persist for whole process lifetimes; dual-CCD SMT topology; no affinity API in engine | Not directly observed; needs affinity A/B probe | Leading |
+| H-A core/CCD placement lottery of unpinned workers | Quiescence fixed w4/w1 but not w8; plateaus persist for whole process lifetimes; four-L3 topology gives a rich placement space | Whole-process pinning to one CCD pair made w8 slower and less stable (`2503/2557/7132`), so simple locality is not the mechanism | Refined: scheduling-headroom/knee sensitivity of the 8-worker path, placement family still leading |
 | H-B desktop interference bursts | Set-1/uninstr sets ran under load average `3–5`; burst plateaus exist | Same background left w4/w1 stable in set-2; bursts persist when quiet | Refuted as primary cause |
 | H-C thermal/frequency ramp | None | No directional drift across sequences; pre/post clocks flat `85–89%` | Refuted |
 | H-D warm-up transients (`240` substeps = only `60` motor frames) | Decile-0 medians elevated in several runs | Mid-run plateaus need a second cause | Partial contributor |
 
-**Decision:** pause R5 evidence collection. The smallest discriminating step is
-a non-evidence affinity A/B probe (same report command under `taskset`
-single-CCD versus unpinned control), followed by a product-owner authority
-choice: (1) accept documented CPU pinning as an environmental control for
-release evidence, or (2) amend the accepted warning semantics for
-noise-dominated direct rows (CI-based instead of point-estimate). Both are
-Accepted-ADR decisions and cannot be taken inside this task. R3/R4 stay paused
-because final release evidence must share one exact commit with R5.
+**Decision:** pause R5 evidence collection. Two authority paths remain for the
+product owner: (1) accept an engine/workload change that places workers
+deterministically on distinct physical cores (a production-semantics change
+requiring its own ADR and fresh evidence), or (2) amend the accepted warning
+semantics for noise-dominated direct rows (CI-based instead of point-estimate).
+Whole-process mask pinning was probed and rejected. R3/R4 stay paused because
+final release evidence must share one exact commit with R5.
 
 **Missing evidence:** the bounded web-search backend returned `403` on this
 host, so no external prior art (Linux scheduler/CCD placement, PhysX worker
-variance) was consulted; H-A rests on local evidence and needs either the
-affinity probe or a later search when available.
+variance) was consulted; H-A rests on local evidence only.
 
 ## Handoff
 
