@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / ADR093_PLACEMENT_IMPLEMENTED / EVIDENCE_PENDING` |
+| Status | `ACTIVE / R3_R5_V10_CLOSED_ON_0E47362 / R4_PENDING_IDLE_WINDOW` |
 | Updated | 2026-08-21 |
 | Task key | `r7c-linux-performance-authority` |
 | Scope | Accept one exact Linux release-performance profile and numeric policy, then collect compatible ten-run baselines and fixed three-run hard gates for the representative R2, R3, R4 and R5 workloads |
@@ -13,44 +13,39 @@
 
 - **Current conclusion:** ADR-091/092 accept exact Linux profile
   `ref-linux-b550i-3950x-rtx3080-v1`, canonical R2–R5 budgets and strict
-  Performance V6/methodology v10. R3 and R4 have historical clean baseline and
-  gate evidence on `2bdd20c` under v9; the methodology bump makes that
-  historical evidence incompatible with v10 gates, so all final R2–R5 evidence
-  must be recollected on one exact v10 commit. The first R5 calibration run on
-  `2bdd20c` is an immutable `FAIL`: peak process working set is
-  `355,880,960` bytes against the accepted `335,544,320`-byte ceiling; every
-  timing, restore, logical-memory, root and environment row passes. Commit
-  `57739ea` fixes the retention defect, but its first evidence set is an
-  immutable preflight rejection: post-build one-minute CPU load was 41%, so no
-  workload executed. The next clean `feae4f0` baseline is valid, but its sole
-  fixed gate is `WARNING`: same-process members accumulate Linux
-  high-water/vendor-runtime state unlike the ten fresh-process calibration
-  runs. Fresh-process `3bbc19e` fixes that asymmetry, and its sole R5 gate
-  `FAIL` was a generic percentage comparison double-normalizing an already
-  normalized scaling ratio. Commit `22c8049` implements the v10 dimensional
-  classes (the three normalized R5 ratios are absolute-only with
-  `relative: null`; direct costs keep whole-run relative bootstrap), and
-  commits `26097e2`/`896e000` bind v9-baseline rejection to v10 gate admission
-  by focused tests and keep the codegen workload-unavailability test honest
-  under the production `physx` feature.
-- **Why:** Direct physics-substep cost changed by `-0.25%`, one-worker cost
-  improved about 5% and eight-worker cost improved about 7.5% in the recorded
-  `3bbc19e` gate, so the derived-ratio `FAIL` was a measurement-semantics
-  defect, not a slower workload. Cached immutable catalog revisions reduce R4
-  navigation from roughly `4.24/4.79 ms` to `0.67/0.76 ms` and integrated
-  production ticks from `15.43/16.10 ms` to `2.25/2.39 ms` p95/p99 without
-  root changes.
-- **Next action:** On a new exact clean v10 commit collect the fresh R5
-  ten-run baseline plus one isolated fixed three-run gate, then re-collect R3
-  and R4 evidence on that same commit. R2 still waits for an OS-visible
-  physical display.
-- **Current blocker:** R2 only: the Linux session currently exposes no active
-  physical display (`xrandr` 0×0, empty Mutter display state, NVIDIA display
-  inactive), so the production Vulkan workload correctly returns `NOT_RUN`.
-  R3/R4/R5 evidence can proceed independently.
+  Performance V6/methodology v10. Accepted ADR-093 removes the R5 placement
+  lottery: every worker pins to a deterministic physical core from a
+  round-robin cache-domain interleave through the reviewed
+  `next_cpu_affinity` boundary, and the workload preimage advanced to
+  `r5-physics-16.v3`. On commit `0e47362` the R3 and R5 portions of R7c are
+  closed: ten-run baselines plus isolated fixed three-run gates return hard
+  `PASS` with zero diagnostics, exact roots preserved (R5 w8 direct costs
+  flat at `-15bp/-8bp`; normalized ratios absolute-only; R3 total
+  `889,314 us` against the `1.5 s` ceiling at `+0bp`), and ADR-093 collapsed
+  w8 calibration spread from `28–34%` to `8%`.
+- **Why:** The two earlier v10 R5 gates on `9dc6919`/`aac4fc6` warned solely
+  on w8 direct rows while every confidence interval crossed zero; bounded
+  research over 36 stored runs attributed that to an un-pinned worker
+  placement lottery on the four-L3-domain SMT host, refuted desktop load and
+  thermal drift as primary causes, and rejected whole-process mask pinning.
+  Deterministic per-worker placement removed the cause by construction
+  instead of widening thresholds.
+- **Next action:** During a genuinely idle window collect the fresh R4
+  ten-run baseline plus fixed gate on a new exact clean commit (the first v4
+  attempt was interrupted by a mid-collection GPU spike; runs 08–10 are typed
+  preflight rejections). Then recollect R5/R3 calibration/gates on that same
+  final commit so all completed workloads share one evidence commit, update
+  roadmap/B-12 facts, and leave only R2 open until its OS-visible physical
+  display returns.
+- **Current blocker:** Host availability: the desktop session is in active
+  use (Chrome GPU process holds sustained `34–42%` utilization), which the
+  preflight correctly rejects. R2 additionally still has no OS-visible
+  physical display (`xrandr` 0×0).
 - **Do not retry:** Do not run `ref-win-thoth-v1`, reuse old reports as Linux
-  evidence, use a virtual/software display for R2, or rerun an unchanged failed
-  calibration/gate set to obtain a greener sample.
+  evidence, use a virtual/software display for R2, rerun any recorded failed
+  or warned baseline/gate set unchanged, assemble a baseline across an
+  environmental disturbance, or treat preflight-rejected entries as
+  calibration runs.
 - **Reconsider when:** The active Linux release machine materially changes or a
   future Accepted ADR changes the release-performance target.
 
@@ -144,11 +139,11 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-Commit the ADR-093 implementation, then collect the fresh R5 ten-run baseline
-plus isolated fixed three-run gate on that exact commit under the documented
-host discipline (indexer stopped, load settled). After R5 closes, collect R3
-and R4 evidence on the same final commit. R2 still waits for an OS-visible
-physical display.
+When the host is genuinely idle again: rebuild the release binary on the
+current clean HEAD, collect the R4 ten-run calibration plus fixed gate, then
+recollect the R5 and R3 sets on that same final commit so every closed
+workload shares one exact evidence commit. Update roadmap and B-12 facts in
+the same coherent change; only R2 remains blocked on its physical display.
 
 ## Do not retry
 

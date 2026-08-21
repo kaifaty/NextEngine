@@ -4,7 +4,7 @@
 |---|---|
 | Статус | Living planning document, не нормативная архитектура |
 | Последнее обновление | 2026-08-21 |
-| Текущая точка | R1–R6 завершены на current Linux product boundary. [R7a Linux release authority](development/task-state/r7a-linux-release-authority.md) и [R7b release package/clean install](development/task-state/r7b-linux-release-package.md) завершены exact Linux bundles с `PASS / release_ready=true`. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) now has Accepted ADR-091/092, strict Performance V6/v10 tooling and optimized R4/R5 paths; clean ten-run baselines/fixed gates remain the active evidence work. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
+| Текущая точка | R1–R6 завершены на current Linux product boundary. [R7a Linux release authority](development/task-state/r7a-linux-release-authority.md) и [R7b release package/clean install](development/task-state/r7b-linux-release-package.md) завершены exact Linux bundles с `PASS / release_ready=true`. [R7c Linux performance authority](development/task-state/r7c-linux-performance-authority.md) has Accepted ADR-091/092/093, strict Performance V6/v10 tooling and deterministic R5 worker placement; the R3 and R5 portions are closed with hard `PASS` ten-run baselines plus fixed gates on `0e47362`, R4 evidence awaits an idle-host window, and R2 remains display-blocked. ADR-090 keeps Windows/THOTH/paired evidence outside current scope indefinitely. R141 remains `INVALID / STOP_NO_RETRY` without R142/downstream authority. |
 | Host policy checkpoint | `LINUX_V1_ONLY / WINDOWS_OUT_OF_SCOPE_INDEFINITE`: current Linux hardware target проходит desktop/package paths and is the sole active development/release target. Historical Windows results retain exact-commit meaning only. No Windows runs, THOTH calibration, same-commit compare or live Windows backlog are scheduled or required for R7/v1. Re-entry requires a new Accepted ADR and separate roadmap slot. |
 | R2 visual checkpoint | Historical Windows packages и `r2-reference-alpha-visual-v5` remain historical only. Current Linux `r2-alpha-render.v3` выполняет шесть production Vulkan окон с outer `PASS`/inner `REPORT_ONLY`. `B0ShaderInterfaceV2`, separate sky/world/UI, directional light/fog/shadows, distinct silhouettes, visible/inset colliders, semantic HUD и 720p/1080p presentation сохраняют gameplay result. B-12 is now the R7c Linux hard-performance authority gap. |
 | Горизонт | developer preview → playable alpha → systemic alpha → creator beta → v1 → post-v1 |
@@ -224,7 +224,7 @@ flowchart LR
 | R4. Systemic living world | `COMPLETE / LOCAL FUNCTIONAL` | XL | R4a routine, R4b population/navigation, R4c cognition and bounded R4d systemic owners pass production/failure/persistence/tier/bulk checks; B-12 remains separate R7c work. |
 | R5. Physical character integration | `COMPLETE / PROCEDURAL_BASELINE / R5A–R5J_COMPLETE / R&D_LINEAGE_STOPPED` | XL | R5a–R5i provide the current exact animation, motor, skinning and bounded-LOD path. R5j closes mandatory `PHYS-P6` trip/carry/contact-driven-melee evidence with actual compound-shape contacts, positive capsule clearance and exact blocked-contact restart. General graph/non-identity retarget/physical IK, active articulation and learned routes remain optional or post-baseline. R141 stays `INVALID / NO_RETRY` and grants no learned-route authority. |
 | R6. Creator beta | `COMPLETE / R6G_SDK_WORKFLOW` | L–XL | Canonical external guide plus governed edited cold-start, project/package lifecycle, scenario minimization, Replay V10 first-divergence/domain inspection and externally visible Luau/Wasm examples close the bounded beta without a private bootstrap. |
-| R7. V1 release candidate | `IN_PROGRESS / LINUX_ONLY / R7A–R7B_COMPLETE / R7C_EVIDENCE` | L | Schema-v2 Linux release authority and reproducible V5 clean-install package are complete; ADR-091/V6 implements Linux performance authority and awaits clean R2–R5 baseline/gate evidence before hardening/distribution closure. Windows does not block or participate. |
+| R7. V1 release candidate | `IN_PROGRESS / LINUX_ONLY / R7A–R7B_COMPLETE / R7C_R3_R5_EVIDENCE_CLOSED` | L | Schema-v2 Linux release authority and reproducible V5 clean-install package are complete. Under ADR-091/092/093 the R3 and R5 workloads hold hard `PASS` v10 ten-run baselines plus fixed gates on `0e47362`; R4 evidence awaits an idle host and R2 a physical display before hardening/distribution closure. Windows does not block or participate. |
 | R8. Post-v1 tracks | `DEFERRED` | отдельные программы | Optional AI/narrative/importer/advanced rendering не размывают v1. |
 
 ## R0 — Walking skeleton
@@ -292,8 +292,10 @@ developer package.
   Linux-only schema-v2 `PASS / release_ready=true` verdict;
 - R7b exact commit `a5f896e…` closed reproducible V5 package, copied-root
   clean-install and ELF/runtime dependency evidence;
-- R7c has accepted/implemented Linux Performance V6 authority; clean R2–R5
-  baselines and fixed gates remain before handoff to R7d.
+- R7c has accepted ADR-091/092/093 and implemented Linux Performance
+  V6/v10/v3-workload authority; the R3 and R5 portions hold hard `PASS`
+  ten-run baselines plus fixed gates on `0e47362`; R4 awaits an idle-host
+  window, R2 a physical display.
 
 **Не блокируют этап:** PhysX, Slang, RT, learned policy, `ai-host`, capture и
 Gothic importer.
@@ -1870,11 +1872,15 @@ indefinitely under ADR-090 and does not gate any R7 package.
    `4ece6d7c…`; the exact native gate passed all eight checks with
    `release_ready=true` and target-report `2a928661…`.
 3. **R7c — Linux performance authority
-   (`IN_PROGRESS / V6_IMPLEMENTED / CLEAN_EVIDENCE_NEXT`):** ADR-091 accepts
+   (`IN_PROGRESS / V6_IMPLEMENTED / R3_R5_GATES_PASS`):** ADR-091 accepts
    exact `ref-linux-b550i-3950x-rtx3080-v1`, canonical R2–R5 numeric policy and
-   Performance V6/methodology v10. Tooling and R4 cached-revision fast path are
-   implemented; collect compatible clean ten-run baselines and fixed gates.
-   Historical THOTH budgets/evidence are not inherited.
+   Performance V6/methodology v10. ADR-092 makes normalized R5 ratios
+   absolute-only; ADR-093 places every R5 worker on a deterministic physical
+   core and advances the workload to `r5-physics-16.v3`. The R3 and R5
+   portions hold hard `PASS` ten-run baselines plus isolated fixed gates on
+   `0e47362`; remaining work is R4 evidence on the final evidence commit,
+   then R2 once a real display exists. Historical THOTH budgets/evidence are
+   not inherited.
 4. **R7d — final product hardening:** close only release-blocking gameplay,
    save/load/replay, corrupted-input, long-session, renderer/input/audio,
    lifecycle/recovery and offline-fallback defects.
@@ -2060,7 +2066,7 @@ reference, coupling or persistence path.
 | B-09 | `CLOSED / R6G_CREATOR_SDK_WORKFLOW`: public path-free project create/validate/cook/run/package/inspect/diff, scenario validate/run/minimize and Replay V10 validate/inspect cover an independent project lifecycle, exact source/package closure, shortest failure-preserving action prefix, production first divergence and bounded runtime/world/physics/owner projections. The canonical external guide is governed by a real post-create JSON edit through the complete public lifecycle, and exact Luau/Wasm sources are externally visible without changing package identity. No tool-only replay model, private owner bytes, ID override, assertion weakening or mutable inspector backdoor exists. | — | Closed under ADR-089. Broader inspectors, GUI/MCP, replay capture and arbitrary project-local extension ingestion require concrete future consumers and do not reopen R6 by default. |
 | B-10 | `PERMANENT_SCOPE_GATE`: content scope может расти быстрее playable loop; blocker не закрывается одноразово. | Все этапы | На каждом package один representative scenario и явный non-goal list; новая подсистема допускается только по требованию scenario. |
 | B-11 | `CONTENT_COMPLETE / SOLO_OWNER`: единственный owner — solo maintainer; отдельная staffing/ownership matrix не создаётся. Alpha package содержит engine-owned assets/audio/text, acceptance docs, CC0 source/hash/license provenance и NOTICE и проходит `content-package`/package smoke. Current creator examples are governed by R6/B-09 and do not create a staffing gate. | R2, R7 | Содержательно закрыт для alpha package; поддерживать provenance/NOTICE в том же public package по мере дальнейших content changes. |
-| B-12 | `OPEN / R7C_CLEAN_EVIDENCE`: ADR-091/092 accept exact Linux authority, Performance V6/v10, canonical R2–R5 budgets and dimensional comparison policy. R4/R5 production and evidence-lifetime defects are optimized without root changes. Fresh v10 baseline/gate evidence remains, and R2 additionally requires an OS-visible physical display. | R7c | On one exact clean commit collect compatible ten-run baselines and one isolated fixed three-run hard gate for R2–R5, without retry-to-green. Historical reports cannot be relabelled; virtual/software R2 does not count. |
+| B-12 | `OPEN / R3_R5_CLOSED / R4_R2_PENDING`: ADR-091/092/093 accept exact Linux authority, Performance V6/v10, canonical R2–R5 budgets, dimensional comparison and deterministic R5 worker placement (`r5-physics-16.v3`). R3 and R5 hold hard `PASS` ten-run baselines plus fixed gates on `0e47362`; R4 evidence must be recollected on the final evidence commit, and R2 additionally requires an OS-visible physical display. | R7c | On one exact clean commit collect compatible ten-run baselines and one isolated fixed three-run hard gate for R2–R5, without retry-to-green. Historical reports cannot be relabelled; virtual/software R2 does not count. |
 | B-13 | `OPTIONAL R8 GAP / NOT V1 BLOCKER`: нет canonical behavior-training data plane, vendor-neutral evaluator, trained strategic/tactical bundles и runtime-training parity. | — | Возвращается только для optional R8 production profile. Каждая activated role проходит applicable SPEC-33/34 and ADR-050/053/054 data/provenance/export/multi-seed/parity/fallback checks; joint suite нужна только профилю с обеими roles. Отсутствие этого трека не блокирует R4/v1 и сохраняет deterministic ADR-056 path. |
 
 ## Решения, которые нужно принять вовремя
