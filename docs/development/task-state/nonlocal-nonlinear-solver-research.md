@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E1M_PASS / B4EP0_EXECUTION` |
+| Status | `ACTIVE / NSR3B4EP0_PASS / B4EP1_RESEARCH` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -139,9 +139,15 @@
 - **Attribution constraint:** process `perf` is blocked by host
   `perf_event_paranoid=4`; do not change the sysctl. B4EP0 uses a separate
   GCC `-pg`/gprof build and requires byte-exact B4E1M stdout correspondence.
-- **Next action:** build/run the frozen external B4EP0 profile once, hash its
-  gmon/text artifacts and select exactly one B4EP1 Release ablation from
-  measured self-time dominance.
+- **Current conclusion:** B4EP0 matches B4E1M stdout exactly and records 3,138
+  samples. SHA-256 is 41.36% self time; HVP, neighborhood construction and
+  evaluation are about 23.4%, 22.7% and 8.3% total respectively.
+- **Current decision:** select B4EP1 query-evidence separation first. Keep
+  full-state hashing as the oracle/default; a work-only nominal transaction may
+  skip inner workspace/pair/tape hashes but must reproduce all physics roots
+  and counters exactly in Release.
+- **Next action:** freeze B4EP1 policy/physics/performance gates before code,
+  then implement and run a balanced Release A/B timing experiment.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -184,6 +190,7 @@
 | NSR3B4E1M contract | one nominal retained-flat Hydro transaction | implement/execute step 1 only; reference remains closed |
 | NSR3B4E1M PASS | exact physical step-1 macro at 48.8 s serial cost | correctness candidate; B4EP required before B4E2 execution |
 | NSR3B4EP0 contract | exact-output gprof attribution of B4E1M | external profile only; no optimization or B4E2 |
+| NSR3B4EP0 PASS | SHA 41.36%, HVP 23.4%, neighborhood 22.7%, evaluation 8.3% | B4EP1 query-evidence separation design only |
 
 Candidate solver identity remains:
 
@@ -227,6 +234,7 @@ production authority is created by this lineage.
 | [B4E1M research](../nonlocal-nsr3b4e1m-hydro-macro-research-2026-08-21.md) | complete transaction can isolate levels `14,28,56,112`, fine commit and cost | execute one step-1 macro per fresh process |
 | [B4E1M](../nonlocal-nsr3b4e1m-hydro-macro-evidence-2026-08-21.md) | physical/root PASS but one macro is 48.8 s and 227 workspace builds | hold B4E2; profile B4EP first |
 | [B4EP0 research](../nonlocal-nsr3b4ep0-attribution-research-2026-08-21.md) | four competing serial-cost hypotheses; perf events unavailable | run exact-output gprof attribution only |
+| [B4EP0](../nonlocal-nsr3b4ep0-attribution-evidence-2026-08-21.md) | exact-output profile selects SHA as largest leaf with `~1.70x` ceiling | freeze one Release evidence-policy ablation |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -503,6 +511,17 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** changing `perf_event_paranoid`, optimizing from code inspection
   alone, comparing gprof wall time as Release throughput or starting B4E2.
 
+### D-027 -- Remove inner evidence hashing before harder solver changes
+
+- **Observation:** SHA-256 consumes 41.36% sampled self time and is dominated
+  by per-workspace/pair/tape evidence; HVP and topology remain comparably large
+  follow-up categories.
+- **Decision:** first A/B a work-only transaction trace while retaining full
+  hashing as default and requiring exact B4E1M physical roots/counters.
+- **Rejected:** claiming the `1.70x` ceiling closes the roadmap, deleting final
+  publication hashes, changing formulas/solver policy or parallelizing before
+  this lower-risk cost is separated.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -532,12 +551,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Configure/build the external B4EP0 GCC `-pg` binary and record exact build
-   commands, executable hash and Build ID.
-2. Run one B4E1M macro under watchdog/time; require exact Release stdout, then
-   generate and hash gprof flat/call-graph artifacts.
-3. Rank measured self time, compute an Amdahl ceiling and freeze exactly one
-   B4EP1 Release ablation. Keep B4E2 and production work blocked.
+1. Freeze B4EP1 full-state/default versus work-only trace semantics and exact
+   physical correspondence gates before implementation.
+2. Add a dedicated candidate command, preserve B4E1M byte-exact regression and
+   run two deterministic candidate processes plus three balanced timing pairs.
+3. Require all paired wins and median speedup at least `1.10x`; regardless of
+   PASS, keep B4E2 blocked and route next by the residual profile/Amdahl gap.
 
 ## Reconsideration triggers
 

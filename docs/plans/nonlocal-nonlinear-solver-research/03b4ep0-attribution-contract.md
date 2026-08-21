@@ -1,6 +1,6 @@
 # NSR3-B4EP0 -- nominal cost-attribution contract
 
-Status: `FROZEN / EXTERNAL_PROFILE_AUTHORIZED / NO_OPTIMIZATION`
+Status: `FROZEN / PASS / B4EP1_DESIGN_AUTHORIZED / NO_OPTIMIZATION`
 
 Identity projection (exact bytes, no final LF):
 

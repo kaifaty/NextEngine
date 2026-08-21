@@ -973,3 +973,10 @@ cell/CSR/tape rebuilds, serial HVP traversal and 221 outer trials. Process
 unchanged. The [frozen B4EP0 contract](03b4ep0-attribution-contract.md)
 selects one external `-pg`/gprof run whose stdout must remain byte-identical to
 B4E1M. Run attribution only; do not optimize yet.
+B4EP0 passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep0-attribution-evidence-2026-08-21.md).
+The exact-output profile assigns 41.36% self time to SHA-256, about 23.4% total
+to HVP, 22.7% to neighborhood construction and 8.3% to evaluation. Hashing is
+the largest safe first ablation, but its `~1.70x` Amdahl ceiling cannot close
+the full gap. Design B4EP1 query-evidence separation next; retain topology and
+HVP as required later stages.
