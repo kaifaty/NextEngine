@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / R3_R5_V10_CLOSED_ON_0E47362 / R4_PENDING_IDLE_WINDOW` |
+| Status | `ACTIVE / R3_R4_R5_CLOSED_ON_0E8DB75 / R2_DISPLAY_BLOCKED` |
 | Updated | 2026-08-21 |
 | Task key | `r7c-linux-performance-authority` |
 | Scope | Accept one exact Linux release-performance profile and numeric policy, then collect compatible ten-run baselines and fixed three-run hard gates for the representative R2, R3, R4 and R5 workloads |
@@ -11,36 +11,33 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** ADR-091/092 accept exact Linux profile
-  `ref-linux-b550i-3950x-rtx3080-v1`, canonical R2–R5 budgets and strict
-  Performance V6/methodology v10. Accepted ADR-093 removes the R5 placement
-  lottery: every worker pins to a deterministic physical core from a
-  round-robin cache-domain interleave through the reviewed
-  `next_cpu_affinity` boundary, and the workload preimage advanced to
-  `r5-physics-16.v3`. On commit `0e47362` the R3 and R5 portions of R7c are
-  closed: ten-run baselines plus isolated fixed three-run gates return hard
-  `PASS` with zero diagnostics, exact roots preserved (R5 w8 direct costs
-  flat at `-15bp/-8bp`; normalized ratios absolute-only; R3 total
-  `889,314 us` against the `1.5 s` ceiling at `+0bp`), and ADR-093 collapsed
-  w8 calibration spread from `28–34%` to `8%`.
-- **Why:** The two earlier v10 R5 gates on `9dc6919`/`aac4fc6` warned solely
-  on w8 direct rows while every confidence interval crossed zero; bounded
-  research over 36 stored runs attributed that to an un-pinned worker
-  placement lottery on the four-L3-domain SMT host, refuted desktop load and
-  thermal drift as primary causes, and rejected whole-process mask pinning.
+- **Current conclusion:** ADR-091/092/093 form the accepted Linux release
+  performance authority: exact profile `ref-linux-b550i-3950x-rtx3080-v1`,
+  canonical R2–R5 budgets, Performance V6/methodology v10 dimensional
+  comparison and deterministic physical-core worker placement for the v3 R5
+  workload. On the single exact clean commit `0e8db75` the R3, R4 and R5
+  portions of R7c are closed: each has a ten-run calibration baseline plus an
+  isolated fresh-process fixed three-run gate returning hard `PASS` with zero
+  diagnostics and unchanged authoritative roots — R4 navigation `686 us`,
+  cognition `24 us`, integrated tick `2310 us` (`-761bp`); R5 w8 p95
+  `1283 us` at `-7bp` (ADR-093 placement collapsed w8 spread `28–34% -> 8%`);
+  R3 total `869,479 us` against the `1.5 s` ceiling (`-13bp`). Baseline/gate
+  SHA-256 values are recorded in the evidence table.
+- **Why:** The earlier v10 gates warned solely on w8 direct rows with
+  confidence intervals crossing zero; bounded research attributed that to an
+  un-pinned worker placement lottery on the four-L3-domain SMT host.
   Deterministic per-worker placement removed the cause by construction
-  instead of widening thresholds.
-- **Next action:** During a genuinely idle window collect the fresh R4
-  ten-run baseline plus fixed gate on a new exact clean commit (the first v4
-  attempt was interrupted by a mid-collection GPU spike; runs 08–10 are typed
-  preflight rejections). Then recollect R5/R3 calibration/gates on that same
-  final commit so all completed workloads share one evidence commit, update
-  roadmap/B-12 facts, and leave only R2 open until its OS-visible physical
-  display returns.
-- **Current blocker:** Host availability: the desktop session is in active
-  use (Chrome GPU process holds sustained `34–42%` utilization), which the
-  preflight correctly rejects. R2 additionally still has no OS-visible
-  physical display (`xrandr` 0×0).
+  instead of widening thresholds. The final collection used admission-timed
+  attempts (each run fires only when desktop GPU load is below 35%), so no
+  process was touched and every completed measurement passed its own preflight.
+- **Next action:** Only R2 remains for B-12: it needs an OS-visible physical
+  display plus production NVIDIA Vulkan path, then a ten-run baseline and
+  fixed gate on the final evidence commit (re-collect R3/R4/R5 sets if the
+  commit moves again). After that, update roadmap/B-12 to closed and hand off
+  to R7d hardening.
+- **Current blocker:** R2 only: the Linux session currently exposes no active
+  physical display (`xrandr` 0×0), so the production Vulkan workload correctly
+  returns `NOT_RUN`.
 - **Do not retry:** Do not run `ref-win-thoth-v1`, reuse old reports as Linux
   evidence, use a virtual/software display for R2, rerun any recorded failed
   or warned baseline/gate set unchanged, assemble a baseline across an
@@ -81,6 +78,7 @@
 | First v3 collection attempt on `8166eb9` | Ten report runs typed `NOT_RUN` at preflight with `PERF_GPU_LOAD_LIMIT_EXCEEDED`: the desktop session was in active use (GPU utilization 44%, image viewer/file manager/IDE/Telegram holding GPU contexts) and every workload honestly refused to start; preserved under `target/perf/r5-v3-cal-preflight-rejected` | Complete negative evidence for that window; collect on a new commit during a genuinely idle session instead of treating these entries as calibration runs |
 | R5/R3 v10+ADR-093 release evidence on `0e47362` | Idle-window session: R5 ten-run baseline published, isolated fixed three-run gate returns **`PASS`** — all sixteen rows green, w8 direct costs flat (`-15bp/-8bp`), normalized ratios absolute-only `PASS`, exact root preserved; R3 ten-run baseline plus fixed gate also **`PASS`** (`889,314 us` p95 against the `1,500,000 us` ceiling, `+0bp`). ADR-093 placement collapsed w8 calibration spread from `28–34%` to `8%` | The R5 and R3 portions of R7c are closed on this exact commit under methodology v10 |
 | R4 first collection interrupted on `0e47362` | Runs 01–07 completed clean, then runs 08–10 returned typed preflight rejections when desktop GPU load spiked to 45% mid-collection; partial set preserved under `target/perf/r4-v10-cal-interrupted` | Do not assemble a baseline across an environmental disturbance; record the boundary and recollect all ten after the host settles again |
+| Final aligned evidence on `0e8db75` | Admission-timed attempts (each run fires only when desktop GPU load is below `35%`; interrupted attempt sets preserved as `.interrupted*`, no process touched). Ten-run baselines plus isolated fixed gates all return hard `PASS` with zero diagnostics on the same commit: R4 baseline `ced35608…c685` / gate `dd496319…a396f`; R5 baseline `1c338c6e…2b2ab` / gate `c5307655…03d27`; R3 baseline `2d4dc44a…b83e5` / gate `578c1480…f924f`. R4 navigation `686 us`, cognition `24 us`, integrated `2310 us` (`-761bp`); R5 w8 p95 `1283 us` (`-7bp`), ratios absolute-only; R3 total `869,479 us` (`-13bp`) | The R3, R4 and R5 portions of R7c are closed on one exact clean commit; only the R2 display-blocked workload remains for B-12 |
 
 ## Decisions that constrain the work
 
@@ -139,11 +137,10 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-When the host is genuinely idle again: rebuild the release binary on the
-current clean HEAD, collect the R4 ten-run calibration plus fixed gate, then
-recollect the R5 and R3 sets on that same final commit so every closed
-workload shares one exact evidence commit. Update roadmap and B-12 facts in
-the same coherent change; only R2 remains blocked on its physical display.
+R3/R4/R5 are closed on `0e8db75`. When the R2 physical display returns,
+collect the R2 ten-run baseline plus fixed gate on the then-current clean
+HEAD; if the commit moved since `0e8db75`, recollect the three CPU-side sets
+on that final commit first. Then close B-12 in roadmap and hand off to R7d.
 
 ## Do not retry
 
