@@ -1120,3 +1120,8 @@ partial floating reductions are rejected. The first
 [frozen contract](03b4ep10d-owner-computes-dataflow-contract.md) is a serial
 dataflow audit over all 226 topology/evaluation and 459 HVP calls. Threads and
 OpenMP linkage remain blocked until it passes.
+B4EP10D passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10d-owner-computes-dataflow-evidence-2026-08-22.md).
+All alternative topology/evaluation/HVP values are bit-exact with zero
+mismatch, and the maximum added nominal payload is 28.19 MiB. This authorizes
+only B4EP10I OpenMP contract research; no parallel result exists yet.

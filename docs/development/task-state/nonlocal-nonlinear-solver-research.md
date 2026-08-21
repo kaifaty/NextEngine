@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10D_FROZEN / OWNER_COMPUTES_AUDIT_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4EP10D_PASS / B4EP10I_PARALLEL_CONTRACT_RESEARCH` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -239,9 +239,12 @@
   gathers. Reject atomics and per-worker floating partials because neither
   preserves the serial addition order. OpenMP/static is only a future research
   backend after a serial dataflow proof.
-- **Next action:** implement/run B4EP10D: audit 226 topology plans, 226 fused
-  owner evaluations and 459 owner HVPs against the unchanged returned oracle.
-  Do not add threads or timing.
+- **Current conclusion:** B4EP10D reproduces all 226 topology, 226 evaluation
+  and 459 HVP oracle results bit-for-bit. Zero mismatch/fallback occurs across
+  485,915,712 HVP target gathers; maximum added payload is 29,557,700 bytes.
+- **Next action:** research/freeze B4EP10I opt-in OpenMP correspondence and
+  controlled `1/2/4/8/16` worker gates. Do not link or implement it before the
+  contract is frozen.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -307,6 +310,7 @@
 | NSR3B4EP9 contract | opt-in non-overlapping transaction phase timers | implement/measure only; no parallel implementation or throughput claim |
 | NSR3B4EP9 PASS | stable conservative parallelizable fraction, median `0.921879` | B4EP10 deterministic CPU-parallel architecture research only |
 | NSR3B4EP10D contract | serial topology-plan and owner-computes exactness audit | implement/run only; no threads/timing/production claim |
+| NSR3B4EP10D PASS | exact `226/226/459` owner dataflow; 28.19 MiB added peak | B4EP10I parallel contract research only |
 
 Candidate solver identity remains:
 
@@ -374,6 +378,7 @@ production authority is created by this lineage.
 | [B4EP9 research](../nonlocal-nsr3b4ep9-fused-phase-timing-research-2026-08-22.md) | Amdahl-ready phase boundary and stability gate frozen | implement opt-in timers and run three fresh processes only |
 | [B4EP9](../nonlocal-nsr3b4ep9-fused-phase-timing-evidence-2026-08-22.md) | exact semantics; 92.19% median conservative parallelizable fraction | research/freeze deterministic CPU parallel architecture before threads |
 | [B4EP10 research](../nonlocal-nsr3b4ep10-cpu-parallel-architecture-research-2026-08-22.md) | fixed partitions plus target-owned canonical gathers selected | prove serial dataflow exact before linking OpenMP |
+| [B4EP10D](../nonlocal-nsr3b4ep10d-owner-computes-dataflow-evidence-2026-08-22.md) | exact topology/evaluation/HVP owner dataflow with zero mismatch | freeze OpenMP A/B/capacity/failure contract before parallel code |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -765,9 +770,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement the frozen B4EP10D serial dataflow audit without threads/timing.
-2. Run two byte-exact processes and B4EP7I/B4EP9 regressions; only PASS may
-   authorize a separately frozen B4EP10I OpenMP A/B contract.
+1. Research/freeze B4EP10I opt-in OpenMP execution, logical-partition,
+   capacity/failure, exact correspondence and worker-count gates.
+2. Keep scaling timing in later B4EP10S; B4EP10I must prove exactness before
+   making a speedup claim.
 
 ## Reconsideration triggers
 

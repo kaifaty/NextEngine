@@ -1,6 +1,6 @@
 # NSR3-B4EP10D -- owner-computes dataflow audit contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / PASS / B4EP10I_CONTRACT_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -79,3 +79,8 @@ PASS authorizes only a separately frozen B4EP10I OpenMP implementation/A-B
 contract. Failure preserves the B4EP9 serial candidate and routes back to
 dataflow research. B4E2, GPU/runtime/schema, PhysX and production remain
 blocked.
+
+Observed PASS: all `226/226/459` topology/evaluation/HVP alternatives are
+bit-exact, zero mismatches/fallbacks occur and maximum added nominal payload is
+29,557,700 bytes. See the
+[dated evidence](../../development/nonlocal-nsr3b4ep10d-owner-computes-dataflow-evidence-2026-08-22.md).
