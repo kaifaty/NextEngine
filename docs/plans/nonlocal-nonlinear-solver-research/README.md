@@ -1137,3 +1137,9 @@ All `1/2/4/8/16` commands reproduce one common correspondence hash, all
 executor mismatch counts are zero and the 16-worker repeat is byte-identical.
 This authorizes only B4EP10S serialized scaling design; no speedup has yet
 been measured.
+The [B4EP10S design research](../../development/nonlocal-nsr3b4ep10s-scaling-design-research-2026-08-22.md)
+selects three serialized balanced rounds on distinct physical cores. Its
+[frozen contract](03b4ep10s-owner-parallel-scaling-contract.md) chooses the
+smallest count within 3% of the fastest median only after exactness, 3/3 wins,
+10% speedup, utilization and stability gates. B4EP10S is host-specific and
+authorizes at most a selected-count residual profile.

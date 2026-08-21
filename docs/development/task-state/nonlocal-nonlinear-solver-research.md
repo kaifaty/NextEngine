@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP10I_PASS / B4EP10S_CONTRACT_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP10S_FROZEN / SERIALIZED_SCALING_EXECUTION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -249,8 +249,12 @@
 - **Current conclusion:** B4EP10I passes at all five worker counts with common
   correspondence SHA `917a04d3...b4ca`, zero executor mismatch and a
   byte-identical 16-worker repeat. No timing claim was made.
-- **Next action:** freeze B4EP10S balanced serialized scaling before measuring
-  the OpenMP backend. Do not choose a worker count from correspondence runs.
+- **Current decision:** B4EP10S uses two unmeasured warmups and three balanced,
+  serialized S/1/2/4/8/16 rounds pinned to distinct physical cores. It selects
+  the smallest count within 3% of the fastest median only after speed,
+  utilization, stability and exactness gates.
+- **Next action:** execute the frozen B4EP10S matrix exactly once and route to
+  B4EP10R only on PASS. Do not run conditions concurrently.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -319,6 +323,7 @@
 | NSR3B4EP10D PASS | exact `226/226/459` owner dataflow; 28.19 MiB added peak | B4EP10I parallel contract research only |
 | NSR3B4EP10I contract | opt-in OpenMP owner-computes at `1/2/4/8/16` workers | implement/correspondence only; timing deferred to B4EP10S |
 | NSR3B4EP10I PASS | common exact correspondence at all worker counts; exact 16-worker repeat | B4EP10S serialized scaling contract research only |
+| NSR3B4EP10S contract | three balanced serialized physical-core rounds | execute timing only; host-specific selection or serial fallback |
 
 Candidate solver identity remains:
 
@@ -389,6 +394,7 @@ production authority is created by this lineage.
 | [B4EP10D](../nonlocal-nsr3b4ep10d-owner-computes-dataflow-evidence-2026-08-22.md) | exact topology/evaluation/HVP owner dataflow with zero mismatch | freeze OpenMP A/B/capacity/failure contract before parallel code |
 | [B4EP10I research](../nonlocal-nsr3b4ep10i-openmp-implementation-research-2026-08-22.md) | OpenMP static logical-partition executor selected | implement exact cross-count gate; no timing until B4EP10S |
 | [B4EP10I](../nonlocal-nsr3b4ep10i-owner-parallel-evidence-2026-08-22.md) | exact cross-count correspondence and fail-closed negatives | freeze balanced serialized scaling before any speedup claim |
+| [B4EP10S research](../nonlocal-nsr3b4ep10s-scaling-design-research-2026-08-22.md) | physical-core affinity and short balanced matrix selected | execute frozen scaling contract without concurrent conditions |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -790,10 +796,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Freeze the B4EP10S serialized scaling contract, including order, affinity,
-   load, timing, admission and stop gates.
-2. Execute only the frozen timing matrix and route the result to B4EP10R or a
-   retained serial fallback; do not infer production readiness.
+1. Execute the frozen B4EP10S warmups and three serialized timing rounds with
+   exact affinity, stdout and resource gates.
+2. Route the measured result to B4EP10R or a retained serial fallback; do not
+   infer production readiness.
 
 ## Reconsideration triggers
 
