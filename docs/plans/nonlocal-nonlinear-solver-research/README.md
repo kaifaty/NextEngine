@@ -489,3 +489,8 @@ B4C3L passes twice byte-identically and selects
 The strict legacy frame-seven pattern remains exact, all four KKT-scale stages
 pass, and the unchanged 16/32 embedded gate passes. Only B4C3A2 one-frame
 selected-policy ledger design is authorized next.
+The
+[B4C3A2 contract](03b4c3a2-kkt-scale-stage-ledger-contract.md)
+freezes that one-frame revalidation. Canonical trajectory and legacy ledger
+roots must remain B4C3A1-exact, while a new policy-ledger root binds both
+normalizers/residuals, correspondence bounds and the B4C3L policy identity.

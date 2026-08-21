@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3L_PASS / B4C3A2_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3L_PASS / B4C3A2_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -21,6 +21,9 @@
 - **Current action:** design and freeze B4C3A2 one-frame balanced transaction
   and ledger under the new policy identity, preserving B4C3A1 roots and all
   diagnostic residuals. B4C3TR/B4C3TC/B4C4/B4D remain blocked.
+- **Current contract:** B4C3A2 binds unchanged representation/trajectory and
+  legacy ledger roots plus a new policy-ledger hash over both residual
+  normalizers, correspondence, closure and energy fields.
 
 - **Current conclusion:** B4C3Q exact aggregate-balanced apportionment passes
   twice at raw `ae44e39f...0731`. Biased aggregate error and 1,024-step center
@@ -1068,6 +1071,24 @@
 - **Smallest next action:** freeze B4C3A2 policy fields, selected roots,
   candidate/diagnostic residual serialization and one-frame negative controls.
 
+### D-054 -- Freeze KKT-scale stage-ledger revalidation
+
+- **Observation:** B4C3L changed evidence/admission semantics, not canonical
+  samples. Reusing the representation profile is required, while reusing only
+  the legacy ledger hash would omit the new policy fields.
+- **Decision:** B4C3A2 preserves exact B4C3A1 canonical trajectory and legacy
+  ledger roots, and adds a policy ledger root over both scales/residuals,
+  correspondence, closure, energy and B4C3L policy identity.
+- **Rejected alternatives:** do not change the canonical profile, mutate old
+  B4C3A1 report/root definitions, omit strict diagnostics or directly resume
+  the complete controller.
+- **Consequence:** a PASS proves one-frame transactional ownership under the
+  selected policy and can authorize only a new complete replay design.
+- **Remaining uncertainty:** policy fields/order and atomic rollback must remain
+  deterministic across repeat/permutation runs.
+- **Smallest next action:** implement the frozen B4C3A2 P1/P2 transactions,
+  policy hash, exact-root checks and negatives, then execute twice.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1080,7 +1101,7 @@
 
 ## Exact next action
 
-1. Freeze B4C3A2 over the selected B4C3L policy hash and unchanged canonical
+1. Implement B4C3A2 over the selected B4C3L policy hash and unchanged canonical
    representation/scenario roots.
 2. Revalidate fine-only atomic P1/P2 stage/ledger commit with KKT-scale physical
    admission and mandatory raw/strict diagnostic residuals.
