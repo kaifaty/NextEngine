@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4A1_PASS / B4C4B_DESIGN` |
+| Status | `ACTIVE / NSR3B4C4A1_PASS / B4C4B_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -78,9 +78,10 @@
   `7d562356...94db`. All eight complete adaptive/macro-fixed lanes remove
   exactly the predeclared builds, preserve physical and durable results, and
   finish success and rollback with zero live ownership.
-- **Current action:** audit and freeze B4C4B immutable static-support indexing.
-  Preserve per-cell participant order and arithmetic exactly; do not combine
-  the experiment with B4C4C flat-only CSR. B4D remains blocked.
+- **Current action:** implement the frozen B4C4B one-macro static-support-index
+  discriminator. Exact index-build counts are `264->1` P1 and `9->1` P2;
+  exact removed support sort records are `143,072/9,728`. Do not combine it
+  with B4C4C flat-only CSR. B4D remains blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1645,6 +1646,25 @@
   with exact support-index build deltas, ordering controls and invalidation
   negatives before implementing the split traversal.
 
+### D-080 -- Freeze split static/dynamic cell traversal
+
+- **Observation:** the legacy comparator orders by cell and then global
+  participant. Since all fluid participants precede all support participants,
+  every cell has the exact factorization `fluid-range -> support-range`.
+- **Decision:** build one explicit immutable support index per transaction and
+  rebuild only the dynamic fluid index per workspace. Keep the existing owned
+  support vector, pair list, nested adjacency and pressure tape unchanged.
+- **Rejected alternatives:** a mutable global cache, unordered cell storage,
+  merging and re-sorting cached support records, or combining support views and
+  flat CSR with this experiment.
+- **Consequence:** the discriminator can require bit-exact discovery/capacity
+  order as well as final physics. It removes `143,072/9,728` support sort
+  records but introduces a second range lookup, so no time gate is inferred.
+- **Remaining uncertainty:** implementation correspondence, invalidation and
+  net timing are unmeasured; complete-lane cache ownership is not authorized.
+- **Smallest next action:** implement the frozen builder/context and execute
+  legacy/candidate/repeat P1/P2 plus stale/corrupt/permutation negatives.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1657,9 +1677,9 @@
 
 ## Exact next action
 
-1. Audit and freeze B4C4B immutable static-support indexing.
-2. Execute its isolated correspondence/work discriminator, then design B4C4C
-   flat-only CSR separately.
+1. Implement and execute the frozen B4C4B one-macro discriminator.
+2. If it passes, freeze complete-lane static-index application before B4C4C
+   flat-only CSR.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 
 ## Reconsideration triggers

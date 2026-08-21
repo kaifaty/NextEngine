@@ -694,3 +694,12 @@ the predeclared `444/124`, P1 `384/768/1536` and P2 `768/1536/3072` builds.
 Every physical, schedule, topology, canonical, ledger and trajectory result
 remains bit-exact; retention and forced rollback end with zero live ownership.
 Only B4C4B immutable static-support-index design is authorized next.
+The
+[B4C4B audit](../../development/nonlocal-nsr3b4c4b-static-support-index-research-2026-08-21.md)
+proves that the legacy combined-cell order factorizes exactly into canonical
+fluid then canonical support ranges. Its
+[frozen contract](03b4c4b-static-support-index-contract.md) keeps workspace
+ownership and nested adjacency unchanged while predeclaring removal of
+`143,072/9,728` P1/P2 support sort records. The one-macro discriminator is
+threshold-free; B4C4C and complete-lane application remain blocked until it
+passes.
