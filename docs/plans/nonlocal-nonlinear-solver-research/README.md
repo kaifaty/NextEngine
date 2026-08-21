@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / NSR3B3R_PASS / NSR3B4A_PASS / NSR3B4B_FAIL / NSR3B4BK_FAIL / NSR3B4BK1_PASS / NSR3B4B1_FAIL / NSR3B4BF_PASS / NSR3B4B2_PASS / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / NSR3B3R_PASS / NSR3B4A_PASS / NSR3B4B_FAIL / NSR3B4BK_FAIL / NSR3B4BK1_PASS / NSR3B4B1_FAIL / NSR3B4BF_PASS / NSR3B4B2_PASS / NSR3B4C3MC1_TINY_ACCURACY_PASS / NSR3B4C4M0_DESIGN / REPORT_ONLY`
 
 Candidate identity:
 
@@ -648,3 +648,13 @@ timing and `0.79151` in P2 velocity. Temporal evidence remains separate: P2
 velocity contains 14 floor coincidences, one stable-reference separation and
 one resolved ratio. The adaptive macro controller is selected only for P1/P2,
 and only nominal-corpus design is authorized.
+Roadmap re-audit keeps the mandatory B4C4 packaging gate before B4D reference
+rehydration and any nominal trajectory. The
+[B4C4M0 audit](../../development/nonlocal-nsr3b4c4m0-workspace-reuse-diagnostic-research-2026-08-21.md)
+freezes a
+[threshold-free diagnostic](03b4c4m0-workspace-reuse-diagnostic-contract.md)
+over recorded one-macro P1/P2 query lifecycles. It will distinguish repeated
+committed states, immutable support-index rebuilds, duplicate nested rows and
+irreducible nonlinear trial states before choosing the B4C4 optimization.
+The three DFSPH files are present and hash-exact again, but this is only an
+availability preflight; B4D remains blocked.

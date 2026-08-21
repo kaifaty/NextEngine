@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3MC1_PASS / NOMINAL_CORPUS_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3MC1_PASS / B4C4M0_MEASUREMENT` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -56,9 +56,14 @@
 - **Current decision:** select
   `ADAPTIVE_MACRO_TINY_CORPUS_ACCURACY_CANDIDATE`. Expand scenario diversity
   before any performance or production claim; do not retune on P1/P2.
-- **Current action:** research and freeze a nominal pressure/contact corpus
-  spanning independent geometry, support, onset and motion regimes. B4C4/B4D
-  remain blocked.
+- **Current conclusion:** all three external DFSPH files are present again and
+  reproduce the frozen W0I hashes, but the ordered roadmap still requires B4C4
+  packaging before B4D attestation and nominal trajectories.
+- **Current decision:** do not skip B4C4. Measure exact query-state duplication,
+  request categories, immutable support rebuilds and nested-row duplication
+  before selecting an optimization.
+- **Current action:** implement threshold-free B4C4M0 one-macro P1/P2
+  workspace-reuse diagnostic. B4D and nominal execution remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1538,6 +1543,27 @@
 - **Smallest next action:** define a bounded scenario taxonomy and run cheap
   pilot discriminators before freezing an expensive full corpus.
 
+### D-076 -- Restore the B4C4-before-B4D dependency
+
+- **Observation:** B4C2T recorded `14,149/11,860` full workspace builds and
+  explicitly made committed-workspace retention, immutable support indexing
+  and nested-row elimination mandatory B4C4 work. The rehydrated DFSPH files
+  now reproduce all three frozen hashes, changing availability but not stage
+  order.
+- **Decision:** insert threshold-free B4C4M0 measurement before packaging.
+  B4D may start only after a separately frozen B4C4 optimization preserves the
+  B4C3MC1 trajectory/ledger/query identities.
+- **Rejected alternatives:** call hash availability B4D PASS, jump directly to
+  nominal scenarios, or implement all three optimization ideas together
+  without attribution.
+- **Consequence:** query recording is enabled only in the diagnostic and must
+  be exactly non-perturbing. Its result chooses the smallest B4C4 change.
+- **Remaining uncertainty:** the fractions of duplicate committed states,
+  unique trial states, reusable static indexing and redundant nested rows have
+  not been measured on the selected macro transaction.
+- **Smallest next action:** execute B4C4M0 on one P1/P2 macro transaction and
+  classify every query before freezing an optimization contract.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1550,9 +1576,9 @@
 
 ## Exact next action
 
-1. Inventory supported fixture controls and define independent nominal axes.
-2. Run cheap pilots to reject unsupported or redundant scenarios.
-3. Freeze the smallest diverse corpus before the full adaptive/fixed replay.
+1. Execute B4C4M0 workspace lifecycle measurement.
+2. Freeze and validate the smallest evidence-backed B4C4 packaging change.
+3. Attest the restored DFSPH references before nominal corpus design.
 
 ## Reconsideration triggers
 
