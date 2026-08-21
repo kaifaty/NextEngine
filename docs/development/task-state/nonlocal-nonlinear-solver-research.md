@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3PE_PASS / B4C3PE1_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3PE1_PASS / ADAPTIVE_MACRO_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -38,12 +38,12 @@
   Decomposition is exact; scalar gain is ill-conditioned (`75--107x` in P1,
   one near-zero P2 ratio `7.74e9`). Fine contamination is resolved where
   meaningful, while absolute physical utilization stays below `0.00286`.
-- **Current decision:** authorize B4C3PE1 mixed stability-budget design: error
-  may use at most half a resolved temporal estimate or 1% of the existing
-  physical comparison scale. B4C3P remains FAIL.
-- **Current action:** implement frozen B4C3PE1 and replay the complete
-  macro-publication candidate under explicit temporal/absolute classifications.
-  Adaptive redesign/B4C3TC/B4C4/B4D remain blocked.
+- **Current decision:** B4C3PE1 selects the macro-boundary canonical fixed
+  reference candidate with 89 temporal, 55 absolute and zero rejected field/
+  frame admissions. B4C3P remains the preserved legacy-tube FAIL.
+- **Current action:** design an adaptive macro-boundary transaction with all
+  trial levels private in binary64 and one canonical publication only after
+  frame acceptance. B4C3TC/B4C4/B4D remain blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1346,6 +1346,25 @@
 - **Smallest next action:** implement the policy report and two exact
   parent-gated replays.
 
+### D-066 -- Select the fixed macro-boundary reference candidate
+
+- **Observation:** two complete B4C3PE1 replays are byte-identical; all 144
+  field/frame admissions select an explicit branch, both fields retain
+  observed first order and all non-tube physical/transaction gates pass.
+- **Decision:** select `MACRO_BOUNDARY_CANONICAL_FIXED_REFERENCE_CANDIDATE`
+  for subsequent adaptive research. Keep B4C3P's old tube FAIL visible.
+- **Rejected alternatives:** widening `32*P*q`, treating an unresolved temporal
+  denominator as zero tolerance, publishing trial substeps, or immediately
+  resuming B4C3TC against the rejected per-substep reference.
+- **Consequence:** adaptive trials must compare private binary64 macro endpoints
+  and publish only the accepted endpoint. Canonical error is then admitted by
+  the frozen mixed policy, not by a per-substep accumulation formula.
+- **Remaining uncertainty:** the adaptive selector, retry semantics, work
+  accounting and accepted-frame ledger have not yet been reclosed at this
+  transaction boundary.
+- **Smallest next action:** freeze the adaptive macro transaction state machine,
+  comparison estimator and rejection/rollback controls before implementation.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1358,11 +1377,11 @@
 
 ## Exact next action
 
-1. Apply B4C3PE1 to every macro-publication lane/frame/field and report branch
-   counts plus maximum temporal/absolute utilization.
-2. Gate all non-tube physics, observed first-order convergence, roots and
-   rollback unchanged.
-3. Execute twice before authorizing any adaptive macro-transaction redesign.
+1. Define the adaptive macro-frame transaction: private coarse/fine trials,
+   explicit accept/refine/fail decision and one post-acceptance publication.
+2. Bind work counters, KKT-ledger validity, mixed representation admission and
+   rollback to the accepted frame only.
+3. Freeze failure controls and exact report identity before implementation.
 
 ## Reconsideration triggers
 

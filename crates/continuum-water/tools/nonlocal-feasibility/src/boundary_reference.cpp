@@ -8825,6 +8825,7 @@ struct CanonicalFixedLaneGate {
     double energy_creation_limit = 0.0;
     double pressure_budget_utilization = 0.0;
     double mechanical_budget_utilization = 0.0;
+    bool non_tube_physical_exact = false;
     bool physical_exact = false;
 };
 
@@ -8954,6 +8955,55 @@ struct MacroStabilityCase {
     double maximum_velocity_physical_utilization = 0.0;
     bool contact_time_exact = false;
     bool terminal_contacts_exact = false;
+};
+
+struct MixedStabilityField {
+    bool passed = false;
+    bool temporal_resolved = false;
+    bool temporal_budget_passed = false;
+    bool absolute_budget_passed = false;
+    double candidate_error = 0.0;
+    double temporal_difference = 0.0;
+    double temporal_floor = 0.0;
+    double temporal_utilization = 0.0;
+    double absolute_utilization = 0.0;
+    std::string classification = "REJECTED";
+};
+
+struct MixedStabilityFrame {
+    int frame = -1;
+    MixedStabilityField position;
+    MixedStabilityField velocity;
+};
+
+struct MixedStabilityLevel {
+    bool passed = false;
+    int substeps_per_frame = 0;
+    int temporal_pair_coarse_substeps = 0;
+    int temporal_pair_fine_substeps = 0;
+    std::vector<MixedStabilityFrame> frames;
+    int position_temporal_admissions = 0;
+    int position_absolute_admissions = 0;
+    int position_rejections = 0;
+    int velocity_temporal_admissions = 0;
+    int velocity_absolute_admissions = 0;
+    int velocity_rejections = 0;
+    double maximum_position_temporal_utilization = 0.0;
+    double maximum_position_absolute_utilization = 0.0;
+    double maximum_velocity_temporal_utilization = 0.0;
+    double maximum_velocity_absolute_utilization = 0.0;
+};
+
+struct MixedStabilityCase {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    std::array<MixedStabilityLevel, 3> levels;
+    bool binary_reference_exact = false;
+    bool lane_transactions_exact = false;
+    bool non_tube_physical_exact = false;
+    bool position_order_exact = false;
+    bool velocity_order_exact = false;
 };
 
 struct CanonicalAdaptiveFailureProbe {
@@ -16788,8 +16838,7 @@ CanonicalFixedLaneGate run_canonical_fixed_lane_gate(
         0.0, lane.maximum_mechanical_energy - initial.mechanical);
     result.energy_creation_limit = 0.01 * result.energy_scale
         + lane.cumulative_absolute_mechanical_delta;
-    const bool common = lane.passed && binary.passed
-        && result.frame_tube_exact
+    const bool common_without_tube = lane.passed && binary.passed
         && result.terminal_contacts_exact
         && result.contact_time_error <= result.contact_time_limit
         && initial.finite_values && final.finite_values
@@ -16806,7 +16855,7 @@ CanonicalFixedLaneGate run_canonical_fixed_lane_gate(
         const double spread_limit = 2.0e-6
                 * static_cast<double>(lane.precontact_steps)
             + 64.0 * std::numeric_limits<double>::epsilon();
-        result.physical_exact = common
+        result.non_tube_physical_exact = common_without_tube
             && fixture.position.size() == 27U
             && lane.precontact_steps > 0
             && lane.precontact_pressure_violations == 0
@@ -16819,13 +16868,15 @@ CanonicalFixedLaneGate run_canonical_fixed_lane_gate(
                     + 64.0 * std::numeric_limits<double>::epsilon()
             && lane.maximum_precontact_velocity_spread <= spread_limit;
     } else {
-        result.physical_exact = common
+        result.non_tube_physical_exact = common_without_tube
             && fixture.position.size() == 48U
             && std::abs(final.center.y - initial.center.y)
                 <= 0.05 * SPACING
             && lane.maximum_positive_density_strain <= 1.0e-3
             && lane.maximum_speed <= 0.01 * std::sqrt(KAPPA / MASS);
     }
+    result.physical_exact = result.non_tube_physical_exact
+        && result.frame_tube_exact;
     result.passed = result.physical_exact;
     if (!result.passed) {
         result.failure = "CANONICAL_FIXED_LANE_PHYSICAL_GATE";
@@ -17291,6 +17342,189 @@ std::array<MacroStabilityCase, 2> analyze_macro_stability_cases(
         analyze_macro_stability_case(
             make_b4b_supported_column_fixture(), cases[0]),
         analyze_macro_stability_case(
+            make_b4b_released_block_fixture(), cases[1]),
+    };
+}
+
+MixedStabilityField analyze_mixed_stability_field(
+    const std::vector<Vec3>& candidate,
+    const std::vector<Vec3>& binary_same_level,
+    const std::vector<Vec3>& binary_temporal_coarse,
+    const std::vector<Vec3>& binary_temporal_fine,
+    double physical_scale) {
+    MixedStabilityField result;
+    if (candidate.size() != binary_same_level.size()
+        || binary_temporal_coarse.size()
+            != binary_temporal_fine.size()) {
+        return result;
+    }
+    result.candidate_error = rms_difference(
+        candidate, binary_same_level);
+    result.temporal_difference = rms_difference(
+        binary_temporal_coarse, binary_temporal_fine);
+    result.temporal_floor = b4b_rms_floor(
+        binary_temporal_coarse, binary_temporal_fine);
+    result.temporal_resolved = result.temporal_difference
+        > result.temporal_floor;
+    const double temporal_budget = 0.5 * result.temporal_difference;
+    const double absolute_budget = 0.01 * physical_scale;
+    result.temporal_utilization = result.candidate_error
+        / std::max(temporal_budget, 1.0e-300);
+    result.absolute_utilization = result.candidate_error
+        / std::max(absolute_budget, 1.0e-300);
+    result.temporal_budget_passed = result.temporal_resolved
+        && result.candidate_error <= temporal_budget;
+    result.absolute_budget_passed = result.candidate_error
+        <= absolute_budget;
+    if (result.temporal_budget_passed) {
+        result.classification = "TEMPORAL_BUDGET";
+    } else if (result.absolute_budget_passed) {
+        result.classification = "ABSOLUTE_REPRESENTATION_BUDGET";
+    }
+    result.passed = std::isfinite(result.candidate_error)
+        && std::isfinite(result.temporal_difference)
+        && std::isfinite(result.temporal_floor)
+        && std::isfinite(result.temporal_utilization)
+        && std::isfinite(result.absolute_utilization)
+        && result.classification != "REJECTED";
+    return result;
+}
+
+void accumulate_mixed_stability_field(
+    const MixedStabilityField& value,
+    int& temporal_admissions,
+    int& absolute_admissions,
+    int& rejections,
+    double& maximum_temporal_utilization,
+    double& maximum_absolute_utilization) {
+    if (value.classification == "TEMPORAL_BUDGET") {
+        ++temporal_admissions;
+    } else if (value.classification
+        == "ABSOLUTE_REPRESENTATION_BUDGET") {
+        ++absolute_admissions;
+    } else {
+        ++rejections;
+    }
+    if (value.temporal_resolved) {
+        maximum_temporal_utilization = std::max(
+            maximum_temporal_utilization,
+            value.temporal_utilization);
+    }
+    maximum_absolute_utilization = std::max(
+        maximum_absolute_utilization,
+        value.absolute_utilization);
+}
+
+MixedStabilityCase analyze_mixed_stability_case(
+    const SmokeFixture& fixture,
+    const CanonicalFixedCase& value) {
+    constexpr std::array<std::size_t, 3> TEMPORAL_PAIR = {0U, 0U, 1U};
+    MixedStabilityCase result;
+    result.name = value.name;
+    result.binary_reference_exact = value.binary_reference.passed
+        && value.binary_trace.live_workspaces == 0
+        && value.binary_trace.maximum_live_workspaces <= 2
+        && value.binary_trace.exact && value.binary_trace.work_reduced;
+    result.lane_transactions_exact = std::all_of(
+        value.lanes.begin(), value.lanes.end(),
+        [](const CanonicalFixedLane& lane) { return lane.passed; });
+    result.non_tube_physical_exact = std::all_of(
+        value.lane_gates.begin(), value.lane_gates.end(),
+        [](const CanonicalFixedLaneGate& gate) {
+            return gate.non_tube_physical_exact;
+        });
+    result.position_order_exact = value.convergence.position_order;
+    result.velocity_order_exact = value.convergence.velocity_order;
+    for (std::size_t level = 0; level < value.lanes.size(); ++level) {
+        const std::size_t pair = TEMPORAL_PAIR[level];
+        const CanonicalFixedLane& lane = value.lanes[level];
+        const B4BFixedTrajectory& binary_same =
+            value.binary_reference.levels[level];
+        const B4BFixedTrajectory& binary_coarse =
+            value.binary_reference.levels[pair];
+        const B4BFixedTrajectory& binary_fine =
+            value.binary_reference.levels[pair + 1U];
+        MixedStabilityLevel& output = result.levels[level];
+        output.substeps_per_frame = lane.substeps_per_frame;
+        output.temporal_pair_coarse_substeps =
+            B4B_REFERENCE_COUNTS[pair];
+        output.temporal_pair_fine_substeps =
+            B4B_REFERENCE_COUNTS[pair + 1U];
+        const bool aligned = lane.runs.size() == binary_same.runs.size()
+            && binary_coarse.runs.size() == binary_fine.runs.size()
+            && lane.runs.size() == binary_coarse.runs.size()
+            && lane.runs.size()
+                == static_cast<std::size_t>(fixture.macro_frames);
+        const std::size_t frame_count = std::min({
+            lane.runs.size(), binary_same.runs.size(),
+            binary_coarse.runs.size(), binary_fine.runs.size()});
+        bool frames_exact = aligned;
+        for (std::size_t frame = 0; frame < frame_count; ++frame) {
+            MixedStabilityFrame measurement;
+            measurement.frame = static_cast<int>(frame);
+            measurement.position = analyze_mixed_stability_field(
+                lane.runs[frame].position,
+                binary_same.runs[frame].position,
+                binary_coarse.runs[frame].position,
+                binary_fine.runs[frame].position,
+                0.05 * SPACING);
+            measurement.velocity = analyze_mixed_stability_field(
+                lane.runs[frame].velocity,
+                binary_same.runs[frame].velocity,
+                binary_coarse.runs[frame].velocity,
+                binary_fine.runs[frame].velocity,
+                0.001 * std::sqrt(KAPPA / MASS));
+            frames_exact = frames_exact && measurement.position.passed
+                && measurement.velocity.passed;
+            accumulate_mixed_stability_field(
+                measurement.position,
+                output.position_temporal_admissions,
+                output.position_absolute_admissions,
+                output.position_rejections,
+                output.maximum_position_temporal_utilization,
+                output.maximum_position_absolute_utilization);
+            accumulate_mixed_stability_field(
+                measurement.velocity,
+                output.velocity_temporal_admissions,
+                output.velocity_absolute_admissions,
+                output.velocity_rejections,
+                output.maximum_velocity_temporal_utilization,
+                output.maximum_velocity_absolute_utilization);
+            output.frames.push_back(measurement);
+        }
+        output.passed = lane.passed && binary_same.passed
+            && value.lane_gates[level].non_tube_physical_exact
+            && frames_exact;
+    }
+    const bool levels_exact = std::all_of(
+        result.levels.begin(), result.levels.end(),
+        [](const MixedStabilityLevel& level) { return level.passed; });
+    result.passed = result.binary_reference_exact
+        && result.lane_transactions_exact
+        && result.non_tube_physical_exact
+        && result.position_order_exact && result.velocity_order_exact
+        && levels_exact;
+    if (!result.binary_reference_exact) {
+        result.failure = "BINARY_REFERENCE";
+    } else if (!result.lane_transactions_exact) {
+        result.failure = "LANE_TRANSACTION";
+    } else if (!result.non_tube_physical_exact) {
+        result.failure = "NON_TUBE_PHYSICAL_GATE";
+    } else if (!result.position_order_exact
+        || !result.velocity_order_exact) {
+        result.failure = "OBSERVED_FIRST_ORDER";
+    } else if (!levels_exact) {
+        result.failure = "MIXED_STABILITY_ADMISSION";
+    }
+    return result;
+}
+
+std::array<MixedStabilityCase, 2> analyze_mixed_stability_cases(
+    const std::array<CanonicalFixedCase, 2>& cases) {
+    return {
+        analyze_mixed_stability_case(
+            make_b4b_supported_column_fixture(), cases[0]),
+        analyze_mixed_stability_case(
             make_b4b_released_block_fixture(), cases[1]),
     };
 }
@@ -17765,6 +17999,94 @@ void append_macro_stability_case(
            << (value.contact_time_exact ? "true" : "false")
            << ",\"terminal_contacts_exact\":"
            << (value.terminal_contacts_exact ? "true" : "false") << '}';
+}
+
+void append_mixed_stability_field(
+    std::ostringstream& output,
+    const MixedStabilityField& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"classification\":\"" << value.classification
+           << "\",\"temporal_resolved\":"
+           << (value.temporal_resolved ? "true" : "false")
+           << ",\"temporal_budget_passed\":"
+           << (value.temporal_budget_passed ? "true" : "false")
+           << ",\"absolute_budget_passed\":"
+           << (value.absolute_budget_passed ? "true" : "false")
+           << ",\"candidate_error\":" << value.candidate_error
+           << ",\"temporal_difference\":"
+           << value.temporal_difference
+           << ",\"temporal_floor\":" << value.temporal_floor
+           << ",\"temporal_utilization\":"
+           << value.temporal_utilization
+           << ",\"absolute_utilization\":"
+           << value.absolute_utilization << '}';
+}
+
+void append_mixed_stability_level(
+    std::ostringstream& output,
+    const MixedStabilityLevel& value) {
+    output << std::setprecision(17)
+           << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"substeps_per_frame\":" << value.substeps_per_frame
+           << ",\"temporal_pair\":["
+           << value.temporal_pair_coarse_substeps << ','
+           << value.temporal_pair_fine_substeps
+           << "],\"position_branch_counts\":{\"temporal\":"
+           << value.position_temporal_admissions
+           << ",\"absolute\":" << value.position_absolute_admissions
+           << ",\"rejected\":" << value.position_rejections
+           << "},\"velocity_branch_counts\":{\"temporal\":"
+           << value.velocity_temporal_admissions
+           << ",\"absolute\":" << value.velocity_absolute_admissions
+           << ",\"rejected\":" << value.velocity_rejections
+           << "},\"maximum_position_temporal_utilization\":"
+           << value.maximum_position_temporal_utilization
+           << ",\"maximum_position_absolute_utilization\":"
+           << value.maximum_position_absolute_utilization
+           << ",\"maximum_velocity_temporal_utilization\":"
+           << value.maximum_velocity_temporal_utilization
+           << ",\"maximum_velocity_absolute_utilization\":"
+           << value.maximum_velocity_absolute_utilization
+           << ",\"frames\":[";
+    for (std::size_t i = 0; i < value.frames.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        output << "{\"frame\":" << value.frames[i].frame
+               << ",\"position\":";
+        append_mixed_stability_field(output, value.frames[i].position);
+        output << ",\"velocity\":";
+        append_mixed_stability_field(output, value.frames[i].velocity);
+        output << '}';
+    }
+    output << "]}";
+}
+
+void append_mixed_stability_case(
+    std::ostringstream& output,
+    const MixedStabilityCase& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"binary_reference_exact\":"
+           << (value.binary_reference_exact ? "true" : "false")
+           << ",\"lane_transactions_exact\":"
+           << (value.lane_transactions_exact ? "true" : "false")
+           << ",\"non_tube_physical_exact\":"
+           << (value.non_tube_physical_exact ? "true" : "false")
+           << ",\"position_order_exact\":"
+           << (value.position_order_exact ? "true" : "false")
+           << ",\"velocity_order_exact\":"
+           << (value.velocity_order_exact ? "true" : "false")
+           << ",\"levels\":[";
+    for (std::size_t i = 0; i < value.levels.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        append_mixed_stability_level(output, value.levels[i]);
+    }
+    output << "]}";
 }
 
 } // namespace
@@ -20238,6 +20560,160 @@ SplitBoundaryReport run_publication_stability_controls() {
            << ",\"result_sha256\":\""
            << sha256_hex(material.str()) << "\"}";
     return {passed, report.str()};
+}
+
+namespace {
+
+SplitBoundaryReport run_mixed_stability_budget_impl(
+    bool require_parent) {
+    SplitBoundaryReport parent;
+    bool parent_exact = true;
+    if (require_parent) {
+        parent = run_publication_stability_controls();
+        parent_exact = parent.passed
+            && sha256_hex(parent.json)
+                == "aebe7fbe218b507ae0ca8ebe7fde5ecafc38b5ec66fc894d669043649c51ea51";
+    }
+    std::array<CanonicalFixedCase, 2> candidate_cases;
+    std::array<MixedStabilityCase, 2> admissions;
+    CanonicalMacroRollback rollback;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3PE_PARENT";
+    } else {
+        candidate_cases = run_macro_publication_fixed_cases();
+        admissions = analyze_mixed_stability_cases(candidate_cases);
+        rollback = run_macro_publication_rollback();
+        for (const MixedStabilityCase& value : admissions) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!rollback.passed && first_failure.empty()) {
+            first_failure = "PREPUBLICATION_ROLLBACK";
+        }
+    }
+    const bool admissions_exact = parent_exact
+        && std::all_of(
+            admissions.begin(), admissions.end(),
+            [](const MixedStabilityCase& value) {
+                return value.passed;
+            });
+    const bool passed = parent_exact && admissions_exact
+        && rollback.passed;
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|policy:c10f0f7c961372dc2b766a0fb35511dc0435f6e5a3175a732adfbc4cc8a913d5"
+             << "|rollback:" << rollback.passed;
+    if (parent_exact) {
+        for (std::size_t case_index = 0;
+             case_index < admissions.size(); ++case_index) {
+            const MixedStabilityCase& value = admissions[case_index];
+            material << '|' << value.name << ':' << value.passed << ':'
+                     << value.binary_reference_exact << ':'
+                     << value.lane_transactions_exact << ':'
+                     << value.non_tube_physical_exact << ':'
+                     << value.position_order_exact << ':'
+                     << value.velocity_order_exact;
+            for (std::size_t level = 0;
+                 level < value.levels.size(); ++level) {
+                const MixedStabilityLevel& lane = value.levels[level];
+                material << '|' << lane.substeps_per_frame << ':'
+                         << lane.position_temporal_admissions << ':'
+                         << lane.position_absolute_admissions << ':'
+                         << lane.position_rejections << ':'
+                         << lane.velocity_temporal_admissions << ':'
+                         << lane.velocity_absolute_admissions << ':'
+                         << lane.velocity_rejections << ':'
+                         << lane.maximum_position_temporal_utilization
+                         << ':'
+                         << lane.maximum_position_absolute_utilization
+                         << ':'
+                         << lane.maximum_velocity_temporal_utilization
+                         << ':'
+                         << lane.maximum_velocity_absolute_utilization
+                         << ':'
+                         << candidate_cases[case_index].lanes[level]
+                                .trajectory_sha256 << ':'
+                         << candidate_cases[case_index].lanes[level]
+                                .policy_ledger_sha256;
+            }
+        }
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal."
+           << (require_parent
+                ? "nsr3b4c3pe1_mixed_stability.v1"
+                : "nsr3b4c3pe1_mixed_stability_probe.v1")
+           << "\",\"identity_sha256\":\"c10f0f7c961372dc2b766a0fb35511dc0435f6e5a3175a732adfbc4cc8a913d5\""
+           << ",\"parent_b4c3pe_raw_sha256\":\"aebe7fbe218b507ae0ca8ebe7fde5ecafc38b5ec66fc894d669043649c51ea51\""
+           << ",\"parent_b4c3pe_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"parent_gate_required\":"
+           << (require_parent ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"authority\":\"REFERENCE_RESEARCH_ONLY\""
+           << ",\"b4c3p_remains_fail\":true"
+           << ",\"policy\":{\"temporal_share\":0.5"
+           << ",\"absolute_share\":0.01"
+           << ",\"level_temporal_pairs\":[[48,96],[48,96],[96,192]]"
+           << ",\"position_physical_scale_m\":" << 0.05 * SPACING
+           << ",\"velocity_physical_scale_m_s\":"
+           << 0.001 * std::sqrt(KAPPA / MASS) << '}'
+           << ",\"representation_profile_sha256\":\""
+           << B4C3P_PROFILE_SHA256 << '"'
+           << ",\"macro_ledger_policy_sha256\":\""
+           << B4C3P_LEDGER_POLICY_SHA256 << '"'
+           << ",\"legacy_b4c3p_cases\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0; i < candidate_cases.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_canonical_fixed_case(report, candidate_cases[i]);
+        }
+    }
+    report << "],\"mixed_admissions\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0; i < admissions.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_mixed_stability_case(report, admissions[i]);
+        }
+    }
+    report << "],\"prepublication_rollback\":";
+    append_canonical_macro_rollback(report, rollback);
+    report << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"disposition\":\""
+           << (passed
+                ? "MACRO_BOUNDARY_CANONICAL_FIXED_REFERENCE_CANDIDATE"
+                : "MIXED_STABILITY_BUDGET_REJECTED") << '"'
+           << ",\"adaptive_macro_transaction_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"adaptive_fixed_comparison_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_mixed_stability_budget_probe_controls() {
+    return run_mixed_stability_budget_impl(false);
+}
+
+SplitBoundaryReport run_mixed_stability_budget_controls() {
+    return run_mixed_stability_budget_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr

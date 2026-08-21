@@ -1,6 +1,6 @@
 # NSR3-B4C3PE1 -- mixed macro stability budget
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / ADAPTIVE_REDESIGN_BLOCKED`
+Status: `FROZEN / PASS / ADAPTIVE_MACRO_DESIGN_AUTHORIZED`
 
 Parent B4C3PE passes with JSON-without-final-LF SHA-256
 `aebe7fbe218b507ae0ca8ebe7fde5ecafc38b5ec66fc894d669043649c51ea51`

@@ -571,3 +571,10 @@ temporal difference, or 1% of the existing physical accuracy scale when that
 relative budget is unavailable or smaller than material representation noise.
 Both canonical fields must still show observed first-order convergence; all
 events, physical, ledger and transaction gates remain unchanged.
+B4C3PE1 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3pe1-mixed-stability-budget-evidence-2026-08-21.md).
+All 144 field/frame admissions are classified: 89 temporal, 55 absolute and
+zero rejected. Both scenarios retain observed first-order convergence, exact
+events, non-tube physics, roots and rollback while the legacy B4C3P tube FAIL
+remains visible. The macro-boundary fixed reference candidate is selected and
+only adaptive macro-transaction design is authorized.

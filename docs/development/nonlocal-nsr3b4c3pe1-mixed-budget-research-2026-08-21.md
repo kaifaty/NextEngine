@@ -1,6 +1,6 @@
 # B4C3PE1 mixed stability budget design
 
-Status: `COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `COMPLETE / PASS / ADAPTIVE MACRO DESIGN AUTHORIZED`
 
 Date: `2026-08-21`
 
@@ -45,3 +45,10 @@ required for both fields, exact events/contacts, all non-tube physical gates,
 macro transaction/ledger roots and rollback. PASS may select macro-boundary
 canonical fixed reference and authorize only adaptive macro-transaction
 design. The old B4C3P FAIL and B4C3TR FAIL remain evidence.
+
+Execution passed twice byte-identically. The selected policy admits 89 fields
+through the temporal branch and 55 through the absolute branch, with zero
+rejections. The
+[dated evidence](nonlocal-nsr3b4c3pe1-mixed-stability-budget-evidence-2026-08-21.md)
+selects the fixed macro-boundary reference candidate and authorizes only the
+adaptive macro-transaction design.

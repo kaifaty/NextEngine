@@ -51,5 +51,7 @@ SplitBoundaryReport run_publication_cadence_probe_controls();
 SplitBoundaryReport run_publication_cadence_controls();
 SplitBoundaryReport run_publication_stability_probe_controls();
 SplitBoundaryReport run_publication_stability_controls();
+SplitBoundaryReport run_mixed_stability_budget_probe_controls();
+SplitBoundaryReport run_mixed_stability_budget_controls();
 
 } // namespace nextengine::nonlocal::fcr
