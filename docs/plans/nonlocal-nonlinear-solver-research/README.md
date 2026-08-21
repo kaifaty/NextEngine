@@ -548,3 +548,11 @@ transaction passes. Only P1 fixed-192 exceeds the pre-frozen `32*P*q` velocity
 tube by `10.6%`. The formula omits propagation of a published position
 perturbation through later pressure/contact dynamics. A separate stability
 reclosure is required; the coefficient is not widened from this result.
+The
+[B4C3PE audit](../../development/nonlocal-nsr3b4c3pe-stability-diagnostic-research-2026-08-21.md)
+freezes a threshold-free decomposition of direct publication error, propagated
+macro-map error and fine-192 contamination relative to independent binary
+96/192 temporal error. Its
+[measurement contract](03b4c3pe-stability-diagnostic-contract.md) changes no
+gate and cannot reclassify B4C3P; it may only authorize a separately frozen
+stability-budget design.

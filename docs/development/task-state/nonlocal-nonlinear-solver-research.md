@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3P_FAIL / B4C3PE_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3P_FAIL / B4C3PE_DIAGNOSTIC_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -34,8 +34,13 @@
 - **Current decision:** preserve B4C3P FAIL. Do not increase coefficient 32;
   the reused envelope omits pressure/contact propagation of prior published
   position error.
-- **Current action:** design B4C3PE stability/error-budget discriminator before
-  replaying macro cadence. Adaptive redesign/B4C3TC/B4C4/B4D remain blocked.
+- **Current action:** implement frozen B4C3PE threshold-free direct/propagated/
+  fine-contamination diagnostic. Adaptive redesign/B4C3TC/B4C4/B4D remain
+  blocked.
+- **Current contract:** preserve private prepublication state for every
+  B4C3P lane/frame, require error-decomposition triangle closure and report
+  resolved macro gains plus fine-192/binary-96-192 ratios without selecting a
+  threshold.
 - **Performance finding:** six independent lanes use `311--312%` CPU and turn
   `~60.4` CPU-seconds into `~19.7` wall-seconds (`3.06x`) with byte-identical
   output. This validates harness parallelism, not solver/runtime performance.
@@ -1273,6 +1278,27 @@
   publication perturbation, propagated same-level error and binary 96/192
   temporal difference before selecting a bound.
 
+### D-063 -- Freeze threshold-free macro stability measurement
+
+- **Observation:** the B4C3P output exposes only published-versus-binary error;
+  it cannot distinguish direct quantization from amplification of an earlier
+  durable-state perturbation.
+- **Decision:** B4C3PE retains each private prepublication boundary and reports
+  start, propagated, direct and published RMS errors with forward triangle
+  closure. It separately reports resolved fine-192 contamination against
+  binary 96/192 temporal error.
+- **Rejected alternatives:** do not choose a coefficient from the 1.10574
+  exceedance, infer a stability gain from one final frame, combine position and
+  velocity units, or count binary64-floor divisions as meaningful ratios.
+- **Consequence:** the next acceptance rule, if any, will be based on measured
+  error transport and independent temporal scale rather than a post-hoc
+  multiple of `q`.
+- **Remaining uncertainty:** active contact may make resolved macro gains
+  discontinuous; a contamination budget may be more stable than a Lipschitz
+  gain bound.
+- **Smallest next action:** implement exact per-frame decomposition and run it
+  twice before designing B4C3PE1.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1285,12 +1311,12 @@
 
 ## Exact next action
 
-1. Freeze B4C3PE diagnostics for direct versus propagated publication error
-   and fine-reference contamination; no acceptance threshold yet.
-2. Execute the diagnostic on P1/P2 `48/96/192` macro-publication lanes and
-   derive an independent stability-budget contract from solver scales.
-3. Replay B4C3P only under that separately frozen rule. Adaptive redesign and
-   every later stage remain blocked.
+1. Extend B4C3P diagnostic state with private prepublication boundaries without
+   changing its existing report hash.
+2. Implement B4C3PE triangle closure, resolved gain and fine-contamination
+   reports; execute twice.
+3. Select or reject a separately frozen stability budget only from that
+   evidence. Adaptive redesign and every later stage remain blocked.
 
 ## Reconsideration triggers
 
