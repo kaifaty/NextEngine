@@ -89,10 +89,12 @@ joint neighborhood and tape.
 2. **B4C1 pressure coefficient tape.** Build pressure density/Jacobian/radial
    coefficients once per outer state and require bit-exact HVP/reaction output
    against B4C0, including active-set and support-only rows.
-3. **B4C2 solver substitution.** Replace every current/trial/forecast query in
-   one KKT substep, then the full B4B2 controller; require the old binary64
-   report semantics and aggregate state to remain exact before publication.
-4. **B4C3 canonical transaction.** Publish every accepted physical substep
+3. **B4C2Q query substitution.** Replace every current/trial/forecast query in
+   one KKT substep and prove atomic workspace promotion/destruction.
+4. **B4C2T controller substitution.** Replace the complete B4B2 adaptive and
+   fixed-reference controller; require the old binary64 report semantics and
+   aggregate state to remain exact before publication.
+5. **B4C3 canonical transaction.** Publish every accepted physical substep
    once, decode only the published integers for continuation, publish no frame
    on failure, and require exact repeat/reverse/affine trajectory roots plus
    separately frozen aggregate bounds.

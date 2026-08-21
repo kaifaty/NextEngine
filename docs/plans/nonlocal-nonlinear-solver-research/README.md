@@ -379,3 +379,15 @@ gates. Across the active controls, three HVPs reduce exact norm/sqrt work from
 This selects `JOINT_PRESSURE_RADIUS_TAPE_CANDIDATE` and authorizes only B4C2
 one-substep current/trial/forecast solver-query substitution design. Full
 trajectory and nominal execution remain blocked.
+The [B4C2Q audit](../../development/nonlocal-nsr3b4c2q-query-substitution-research-2026-08-21.md)
+separates private query lifecycle from adaptive continuation. Its
+[frozen contract](03b4c2q-query-substitution-contract.md) requires exact
+forecast/current/trial identities, full KKT one-substep results, atomic
+accepted/rejected workspace ownership and zero all-pairs calls in the
+candidate path. B4C2Q passes every gate: four complete one-substep results and
+all KKT/reaction/ledger/counter fields are bit-exact, the active forecast keeps
+the exact 48-call spectrum, the detached forecast remains zero-HVP and forced
+rejection leaves current state exact; see the
+[dated evidence](../../development/nonlocal-nsr3b4c2q-query-substitution-evidence-2026-08-21.md).
+This selects `JOINT_PRESSURE_KKT_QUERY_CANDIDATE` and authorizes only B4C2T
+full-controller substitution design.

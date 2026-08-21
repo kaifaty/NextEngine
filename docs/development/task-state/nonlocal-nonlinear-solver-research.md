@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C1_PASS / NSR3B4C2_DESIGN` |
+| Status | `ACTIVE / NSR3B4C2Q_PASS / NSR3B4C2T_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -51,6 +51,13 @@
   authorize only B4C2 one-substep current/trial/forecast query-substitution
   design. This is algorithmic-work evidence, not wall-clock or trajectory
   authority.
+- **Current conclusion:** B4C2Q substitutes joint/taped forecast, current and
+  projected-trial queries in four one-substep solves. Complete KKT states and
+  all counters are bit-exact; the active forecast spectrum is exact over 48
+  taped HVPs and forced rejection preserves current workspace identity.
+- **Current decision:** select `JOINT_PRESSURE_KKT_QUERY_CANDIDATE` and
+  authorize only B4C2T full B4B2 controller-substitution design. Candidate
+  all-pairs query counters are zero; audit-oracle calls are separate.
 
 - **Current conclusion:** NSR2-C2 passes all gates. At 512 particles the guarded
   floor stop reduces work from `26/13/153` outer/reject/HVP to `12/0/46` while
@@ -749,6 +756,30 @@
   all-pairs-versus-joint one-substep trace with exact query identities,
   trial-state rebuilds, result and work counters.
 
+### D-042 -- Select one-substep joint pressure query lifecycle
+
+- **Observation:** B4C2Q produces bit-exact legacy/candidate solves for P1
+  initial, P1 forecast-active, P2 detached and P1 compressed states. Active
+  cases execute `7/6/6` taped HVPs and three atomic promotions; P2 executes
+  zero HVPs. Forecast and forced-reject ownership gates pass. Three reports
+  are byte-identical and B4C1/B4C0R/B4C0 raw hashes remain exact.
+- **Decision:** select `JOINT_PRESSURE_KKT_QUERY_CANDIDATE`. A private query
+  owns position, joint neighborhood, Evaluation, tape and state digest;
+  acceptance moves them together and rejection publishes none.
+- **Rejected alternatives:** do not reuse current membership at projected
+  trial positions, retain a stale tape after acceptance, let forecast own
+  committed state, or combine the first substitution diagnosis with the full
+  adaptive trajectory gate.
+- **Consequence:** B4C2T may design full B4B2 adaptive and fixed-reference
+  controller substitution. Canonical continuation and nominal execution stay
+  blocked.
+- **Remaining uncertainty:** per-substep exactness has not yet proven adaptive
+  level selection, discarded-level isolation, multi-frame contact timing or
+  fixed `48/96/192` trajectory identity under the joint operator.
+- **Smallest next action:** freeze B4C2T with the complete B4B2 corpus and old
+  report aggregates, plus joint query/workspace counters that do not alter the
+  physical comparison gates.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -761,13 +792,13 @@
 
 ## Exact next action
 
-1. Audit every B4B2 pressure evaluation, gradient, HVP, current, trial and
-   feasible-forecast query used inside one accepted or rejected substep.
-2. Freeze B4C2 as an all-pairs-versus-joint trace discriminator. Require exact
-   query-state identities, rebuilt trial membership, read-only forecast state,
-   solve result, support reaction, KKT and work counters.
-3. Only B4C2 PASS may authorize B4C3 canonical publish/decode continuation.
-   Full trajectory and nominal water remain blocked.
+1. Freeze B4C2T around the complete B4B2 adaptive and fixed `48/96/192`
+   trajectories, changing only the selected query backend.
+2. Require exact accepted/discarded level choice, positions, velocities,
+   contacts, reactions, ledgers, aggregate comparisons and old B4B2 physical
+   gates, while separately reporting joint workspace counters.
+3. Only B4C2T PASS may authorize B4C3 canonical publish/decode continuation.
+   Nominal water remains blocked.
 
 ## Reconsideration triggers
 
