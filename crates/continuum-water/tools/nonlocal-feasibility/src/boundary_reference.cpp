@@ -1228,6 +1228,7 @@ struct SmokeFrame {
     std::array<int, 6> face_active_axes{};
     std::array<double, 6> face_multiplier_sum{};
     std::array<double, 6> face_fluid_impulse{};
+    std::string spectrum_source;
 };
 
 struct SmokeController {
@@ -7256,7 +7257,8 @@ SmokeRun run_b4b1_interval(
     return result;
 }
 
-SmokeController run_b4b1_controller(const SmokeFixture& fixture) {
+SmokeController run_b4b1_controller(
+    const SmokeFixture& fixture, bool contact_forecast = false) {
     SmokeController result;
     result.position = fixture.position;
     result.velocity = fixture.velocity;
@@ -7268,9 +7270,35 @@ SmokeController run_b4b1_controller(const SmokeFixture& fixture) {
         const Evaluation frame_state = evaluate(
             result.position, fixture.boundary);
         frame.active_centers = static_cast<int>(frame_state.active_centers);
+        std::vector<Vec3> spectrum_position;
         if (frame.active_centers > 0) {
+            frame.spectrum_source = "START_ACTIVE";
+            spectrum_position = result.position;
+        } else if (contact_forecast) {
+            std::vector<Vec3> predicted(result.position.size());
+            for (std::size_t i = 0; i < predicted.size(); ++i) {
+                predicted[i] = SMOKE_FRAME_TIME
+                    * (result.velocity[i]
+                        + SMOKE_FRAME_TIME * fixture.gravity);
+            }
+            predicted = clamp_box_displacement(
+                fixture, result.position, predicted);
+            const std::vector<Vec3> projected = materialize_displacement(
+                result.position, predicted);
+            const Evaluation forecast_state = evaluate(
+                projected, fixture.boundary);
+            if (forecast_state.active_centers > 0U) {
+                frame.spectrum_source = "FORECAST_ACTIVE";
+                spectrum_position = projected;
+            } else {
+                frame.spectrum_source = "INACTIVE_EXACT";
+            }
+        } else {
+            frame.spectrum_source = "START_INACTIVE";
+        }
+        if (!spectrum_position.empty()) {
             const SpectralEstimate spectrum = boundary_pressure_spectrum(
-                result.position, fixture.boundary);
+                spectrum_position, fixture.boundary);
             frame.spectral_hvp_calls = spectrum.calls;
             frame.maximum_eigenvalue = spectrum.maximum_eigenvalue;
             frame.maximum_eigenfrequency = std::sqrt(
@@ -7515,12 +7543,15 @@ B4BReference run_b4b1_reference(const SmokeFixture& fixture) {
     return result;
 }
 
-B4BCase run_b4b1_case(SmokeFixture fixture, bool released_block) {
+B4BCase run_b4b1_case(
+    SmokeFixture fixture, bool released_block,
+    bool contact_forecast = false) {
     B4BCase result;
     result.fixture = std::move(fixture);
     result.initial = b4b_aggregate(result.fixture,
         result.fixture.position, result.fixture.velocity);
-    result.candidate = run_b4b1_controller(result.fixture);
+    result.candidate = run_b4b1_controller(
+        result.fixture, contact_forecast);
     if (!result.candidate.passed) {
         result.failure = "CANDIDATE:" + result.candidate.failure;
         return result;
@@ -8063,6 +8094,129 @@ SplitBoundaryReport run_contact_onset_forecast_controls() {
            << ",\"b4b2_contract_design_authorized\":"
            << (passed ? "true" : "false")
            << ",\"full_trajectory_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+namespace {
+
+void append_b4b2_forecast_work(
+    std::ostringstream& output, const B4BCase& value) {
+    output << "{\"name\":\"" << value.fixture.name
+           << "\",\"frames\":[";
+    for (std::size_t i = 0; i < value.candidate.frames.size(); ++i) {
+        if (i != 0U) {
+            output << ',';
+        }
+        const SmokeFrame& frame = value.candidate.frames[i];
+        output << "{\"frame\":" << frame.frame
+               << ",\"spectrum_source\":\"" << frame.spectrum_source
+               << "\",\"pressure_active_at_start\":"
+               << frame.active_centers
+               << ",\"spectral_hvp_calls\":"
+               << frame.spectral_hvp_calls
+               << ",\"maximum_eigenvalue\":"
+               << frame.maximum_eigenvalue
+               << ",\"initial_substeps\":" << frame.initial_substeps
+               << ",\"accepted_substeps\":"
+               << frame.accepted_substeps
+               << ",\"refinement_depth\":"
+               << frame.refinement_depth << '}';
+    }
+    output << "]}";
+}
+
+} // namespace
+
+SplitBoundaryReport run_tiny_pressure_contact_forecast_controls() {
+    const SplitBoundaryReport parent =
+        run_contact_onset_forecast_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "dfd6b39d8c12da4e494ff2ed4de5590d7a08b2be598c2d411c076ad6f8f1b550";
+    std::vector<B4BCase> cases;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4BF_PARENT";
+    } else {
+        cases.push_back(run_b4b1_case(
+            make_b4b_supported_column_fixture(), false, true));
+        if (!cases.back().passed) {
+            first_failure = "P1_SUPPORTED_COLUMN:" + cases.back().failure;
+        } else {
+            cases.push_back(run_b4b1_case(
+                make_b4b_released_block_fixture(), true, true));
+            if (!cases.back().passed) {
+                first_failure = "P2_RELEASED_BLOCK:" + cases.back().failure;
+            }
+        }
+    }
+    const bool passed = parent_exact && cases.size() == 2U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const B4BCase& value) { return value.passed; });
+    const std::string disposition = passed
+        ? "TINY_PRESSURE_CONTACT_FORECAST_CANDIDATE"
+        : "TINY_PRESSURE_CONTACT_FORECAST_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure << '|'
+             << disposition;
+    for (const B4BCase& value : cases) {
+        material << '|' << value.fixture.name << ':' << value.passed
+                 << ':' << value.candidate.accepted_substeps
+                 << ':' << value.candidate.executed_substeps
+                 << ':' << value.candidate.spectral_hvp_calls
+                 << ':' << value.candidate.nonlinear_hvp_calls
+                 << ':' << value.candidate.maximum_ledger_residual
+                 << ':' << value.contact_time_error;
+        for (const SmokeFrame& frame : value.candidate.frames) {
+            material << ':' << frame.spectrum_source
+                     << ':' << frame.initial_substeps
+                     << ':' << frame.accepted_substeps;
+        }
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4b2_pressure_forecast.v1\""
+           << ",\"identity\":\"tiny-pressure-water-corpus-r2-contact-forecast\""
+           << ",\"parent_b4bf_result_sha256\":\"c6d53131786bcfacdae1bbb1a4ee2076846019d037b62b167b2a76b4d28e146f\""
+           << ",\"parent_b4bf_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_b4b_case(report, cases[i]);
+    }
+    report << "],\"forecast_work\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_b4b2_forecast_work(report, cases[i]);
+    }
+    report << "],\"kkt_work\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_b4b1_kkt_work(report, cases[i]);
+    }
+    report << ']'
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c_neighborhood_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"nominal_corpus_execution_authorized\":false"
            << ",\"runtime_authority\":false"
            << ",\"production_authority\":false"
            << ",\"historical_hash_check_required\":true"

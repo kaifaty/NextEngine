@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4A_PASS_CLOSED_BOX / NSR3B4B_FROZEN_EXECUTION` |
+| Status | `ACTIVE / NSR3B4B2_PASS / NSR3B4C_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -10,6 +10,21 @@
 | Authority | Working context only; Accepted architecture, SPEC-38/ADR-076 and the frozen stage contracts outrank this file |
 
 ## Resume in 60 seconds
+
+- **Current conclusion:** B4B2 passes P1 supported startup and P2 detached
+  release/floor impact under the unchanged KKT, fixed `48/96/192` references,
+  physical, ledger and work gates. Three raw reports are byte-identical at
+  `43477c6d...a74f`.
+- **Current decision:** select `TINY_PRESSURE_CONTACT_FORECAST_CANDIDATE`.
+  The feasible predictor is used only when an inactive committed start becomes
+  pressure-active after clamped macro prediction; otherwise the exact inactive
+  or current-active path is retained.
+- **Current cost:** P1 executes `444` substeps and `3391` total spectral plus
+  nonlinear HVPs; P2 executes `124` substeps and `314` HVPs. This proves tiny
+  correctness, not production performance.
+- **Current action:** research and freeze B4C joint fluid/support canonical
+  cell neighborhoods and canonical-runner publication identity. Do not run a
+  nominal water corpus before B4C correspondence and capacity gates pass.
 
 - **Current conclusion:** NSR2-C2 passes all gates. At 512 particles the guarded
   floor stop reduces work from `26/13/153` outer/reject/HVP to `12/0/46` while
@@ -63,8 +78,8 @@
 - **Current decision:** select `EMBEDDED_SPECTRAL_ERROR_CONTROLLER_R0` only for
   report-only CPU research. It is an accuracy mechanism, not yet an efficient
   production policy.
-- **Current action:** implement the frozen B1R transactional composition over
-  the original `0.05 s` horizon and fixed `96/192/384` reference ladder.
+- **Historical transition:** B1R was executed and rejected; B1R1 fine-state
+  ownership supersedes that next action for this research lineage.
 - **Current constraint:** inactive pressure is not an inertia-only state while
   bulk viscosity remains selected. The B1R one-step fast path additionally
   requires zero relative bond velocity; relaxation frames use measured `1/2`
@@ -199,8 +214,9 @@
 - **Current decision:** freeze exact `8/16` macro-frame horizons, physical and
   energy gates, fine-owned controller, fixed `48/96/192` reference ladder and
   aggregate differences before execution.
-- **Current action:** implement and execute B4B without changing the selected
-  solver, coefficients or thresholds.
+- **Current result:** B4B failed, the derived KKT and contact-onset controller
+  repairs were isolated, and B4B2 now passes without changing coefficients or
+  thresholds.
 - **Next gate:** PASS may authorize B4C joint neighborhood/canonical design
   only; do not add viscosity, surface tension or internal aperture.
 - **Do not retry:** old profile tuning, block/hybrid maps, Chebyshev radius or
@@ -625,6 +641,29 @@
 - **Consequence:** the full corpus may be retried without changing KKT,
   thresholds or references. PASS is still only tiny pressure authority.
 
+### D-038 -- Select the complete tiny pressure/contact trajectory
+
+- **Observation:** B4B2 passes both frozen fixtures and every inherited
+  comparison, convergence, physical, KKT, ledger and work gate. P1 frame zero
+  uses `FORECAST_ACTIVE 21/42`; P2 stays `INACTIVE_EXACT` through frame 13,
+  predicts the impact on frame 14 and becomes start-active on frame 15. Three
+  reports are byte-identical and all ten historical raw reports remain exact.
+- **Decision:** select `TINY_PRESSURE_CONTACT_FORECAST_CANDIDATE`. The
+  feasible predictor is a charged initial-step estimator only; it cannot own
+  state, impulse or accuracy acceptance.
+- **Rejected alternatives:** do not restore post-solve wall splitting, accept
+  the failed B4B1 `1/2` onset pair, hard-code a minimum count, use fixed-192 as
+  an online oracle, or treat tiny elapsed time as a performance benchmark.
+- **Consequence:** authorize only B4C joint fluid/support neighborhood and
+  canonical-runner design. Nominal water, general collision, viscosity,
+  surface tension, aperture, CUDA, runtime and production remain blocked.
+- **Remaining uncertainty:** exact neighborhood correspondence under moving
+  candidate positions, deterministic pair ordering, bounded capacity failure
+  and canonical report identity are not yet demonstrated together.
+- **Smallest next action:** derive the B4C identity and freeze a bounded
+  all-pairs-versus-joint-cell discriminator before implementing or executing
+  any nominal corpus.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -637,11 +676,12 @@
 
 ## Exact next action
 
-1. Implement B4B2 spectrum-source selection in the KKT controller without
-   changing any fixed reference or solver path.
-2. Execute P1 then P2 under the frozen stop policy and publish forecast work.
-3. Repeat, verify all historical raw hashes and preserve the first failure or
-   PASS before B4C design.
+1. Audit every all-pairs query used by the selected B4B2 objective, HVP,
+   forecast and constrained contact path and state its exact cutoff/order.
+2. Freeze B4C all-pairs-versus-joint-cell correspondence, capacity-failure and
+   canonical-runner identity gates before implementation.
+3. Execute only the bounded B4C discriminator; nominal water remains blocked
+   until its result and all historical hashes are recorded.
 
 ## Reconsideration triggers
 

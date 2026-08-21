@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / NSR3B3R_PASS / NSR3B4A_PASS / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / NSR3B3R_PASS / NSR3B4A_PASS / NSR3B4B_FAIL / NSR3B4BK_FAIL / NSR3B4BK1_PASS / NSR3B4B1_FAIL / NSR3B4BF_PASS / NSR3B4B2_PASS / REPORT_ONLY`
 
 Candidate identity:
 
@@ -338,5 +338,11 @@ fine member is `2.05%` from fixed-192 kinetic energy, while detached P2 keeps
 the exact zero-HVP path; see the
 [dated evidence](../../development/nonlocal-nsr3b4bf-contact-forecast-evidence-2026-08-21.md).
 The full [B4B2 contract](03b4b2-tiny-pressure-contact-forecast-contract.md)
-is frozen with this sole initial-substep repair. Execute B4B2 next; all
-nominal/scalable work remains blocked.
+is frozen with this sole initial-substep repair. B4B2 passes both complete
+pressure/contact trajectories, every fixed-reference, KKT, ledger, physical
+and work gate, and three byte-identical reports; see the
+[dated evidence](../../development/nonlocal-nsr3b4b2-tiny-pressure-contact-forecast-evidence-2026-08-21.md).
+This selects `TINY_PRESSURE_CONTACT_FORECAST_CANDIDATE` and authorizes B4C
+joint fluid/support neighborhood plus canonical-runner design only. Nominal
+execution remains blocked until B4C freezes and passes correspondence,
+capacity and publication-identity gates.
