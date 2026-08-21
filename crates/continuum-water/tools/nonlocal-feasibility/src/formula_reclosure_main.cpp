@@ -682,6 +682,20 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--complete-retention-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_complete_retention_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--complete-retention-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_complete_retention_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -764,6 +778,8 @@ int main(int argc, char** argv) {
                      "--adaptive-accuracy-budget-self-test|"
                      "--retained-workspace-probe|"
                      "--retained-workspace-self-test|"
+                     "--complete-retention-probe|"
+                     "--complete-retention-self-test|"
                      "--workspace-reuse-diagnostic-probe|"
                      "--workspace-reuse-diagnostic-self-test\n";
         return 2;

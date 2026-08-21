@@ -8811,6 +8811,7 @@ struct CanonicalFixedLane {
     double maximum_strict_ledger_residual = 0.0;
     double maximum_kkt_ledger_residual = 0.0;
     JointQueryTrace trace;
+    WorkspaceRetentionTrace retention;
     std::string trajectory_sha256;
     std::string legacy_ledger_sha256;
     std::string policy_ledger_sha256;
@@ -16522,6 +16523,9 @@ struct MacroAdaptiveReplayRollback {
     bool counts_exact = false;
     bool roots_exact = false;
     bool cumulative_totals_exact = false;
+    bool retention_exact = false;
+    WorkspaceRetentionTrace forced_retention;
+    int forced_final_live_workspaces = 0;
 };
 
 struct AdaptiveFixedFieldDiagnostic {
@@ -16723,6 +16727,42 @@ struct RetainedWorkspaceNegatives {
     bool nonfinite_solve_rejected = false;
     bool nonfinite_retention_empty = false;
     std::string nonfinite_failure;
+};
+
+struct CompleteRetentionLaneCase {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    std::string lane_kind;
+    int substeps_per_frame = 0;
+    bool physical_exact = false;
+    bool repeat_exact = false;
+    bool roots_exact = false;
+    bool work_exact = false;
+    bool ownership_exact = false;
+    bool query_policy_exact = false;
+    std::size_t expected_removed_builds = 0U;
+    std::size_t legacy_workspace_builds = 0U;
+    std::size_t candidate_workspace_builds = 0U;
+    std::size_t removed_workspace_builds = 0U;
+    WorkspaceRetentionTrace retention;
+    int maximum_live_workspaces = 0;
+    int final_live_workspaces = 0;
+    std::string trajectory_sha256;
+    std::string legacy_ledger_sha256;
+    std::string policy_ledger_sha256;
+    std::string legacy_query_policy_sha256;
+    std::string candidate_query_policy_sha256;
+    std::string receipt_sha256;
+};
+
+struct CompleteRetentionRollback {
+    bool passed = false;
+    std::string failure;
+    bool prefix_exact = false;
+    bool retention_exact = false;
+    WorkspaceRetentionTrace retention;
+    int final_live_workspaces = 0;
 };
 
 bool macro_policy_entry_valid(
@@ -17450,7 +17490,8 @@ MacroAdaptiveReplay run_macro_adaptive_replay(
     std::string name,
     const SmokeFixture& fixture,
     const std::string& scenario_sha256,
-    bool released_block) {
+    bool released_block,
+    bool retain_accepted_workspace = false) {
     MacroAdaptiveReplay result;
     result.name = std::move(name);
     result.released_block = released_block;
@@ -17465,7 +17506,8 @@ MacroAdaptiveReplay run_macro_adaptive_replay(
                 result.name + "-frame-" + std::to_string(frame_index),
                 fixture, scenario_sha256, false, true,
                 &result.position, &result.velocity, frame_index,
-                static_cast<std::uint32_t>(frame_index + 1));
+                static_cast<std::uint32_t>(frame_index + 1), false,
+                retain_accepted_workspace);
         accumulate_joint_trace(result.trace, transaction.trace);
         if (!transaction.passed) {
             result.failure = "FRAME_" + std::to_string(frame_index)
@@ -17712,13 +17754,16 @@ MacroAdaptiveReplay run_macro_adaptive_replay(
     return result;
 }
 
-MacroAdaptiveReplayRollback run_macro_adaptive_replay_rollback() {
+MacroAdaptiveReplayRollback run_macro_adaptive_replay_rollback(
+    bool retain_accepted_workspace = false) {
     MacroAdaptiveReplayRollback result;
     const SmokeFixture fixture = make_b4b_supported_column_fixture();
     const MacroAdaptiveTransactionCase first =
         run_macro_adaptive_transaction_case(
             "p1-replay-rollback-prefix", fixture,
-            B4C3TA_P1_SCENARIO_SHA256, false, true);
+            B4C3TA_P1_SCENARIO_SHA256, false, true,
+            nullptr, nullptr, 0, 1U, false,
+            retain_accepted_workspace);
     if (!first.passed) {
         result.failure = "ROLLBACK_PREFIX";
         return result;
@@ -17746,7 +17791,17 @@ MacroAdaptiveReplayRollback run_macro_adaptive_replay_rollback() {
         run_macro_adaptive_transaction_case(
             "p1-replay-rollback-forced", fixture,
             B4C3TA_P1_SCENARIO_SHA256, true, true,
-            &position, &velocity, 1, 2U);
+            &position, &velocity, 1, 2U, false,
+            retain_accepted_workspace);
+    result.forced_retention = forced.retention;
+    result.forced_final_live_workspaces = forced.trace.live_workspaces;
+    result.retention_exact = !retain_accepted_workspace
+        || (forced.retention.transfers > 0
+            && forced.retention.transfers == forced.retention.reads
+            && forced.retention.reads == forced.retention.releases
+            && forced.retention.live_retained == 0
+            && forced.retention.maximum_live_retained <= 1
+            && forced.trace.live_workspaces == 0);
     result.failure = forced.failure;
     result.forced_selected_level = forced.selected_level;
     result.forced_attempted_substeps = forced.attempted_substeps;
@@ -17781,14 +17836,16 @@ MacroAdaptiveReplayRollback run_macro_adaptive_replay_rollback() {
         && result.forced_attempted_substeps > 0
         && forced.work_accounting_exact
         && result.state_exact && result.counts_exact
-        && result.roots_exact && result.cumulative_totals_exact;
+        && result.roots_exact && result.cumulative_totals_exact
+        && result.retention_exact;
     return result;
 }
 
 CanonicalFixedLane run_macro_publication_fixed_lane(
     const SmokeFixture& fixture,
     const std::string& scenario_sha256,
-    int substeps_per_frame) {
+    int substeps_per_frame,
+    bool retain_accepted_workspace = false) {
     CanonicalFixedLane result;
     result.substeps_per_frame = substeps_per_frame;
     result.macro_frames = fixture.macro_frames;
@@ -17803,7 +17860,8 @@ CanonicalFixedLane run_macro_publication_fixed_lane(
             fixture, input_position, input_velocity,
             substeps_per_frame,
             static_cast<double>(frame) * SMOKE_FRAME_TIME,
-            SMOKE_FRAME_TIME, result.trace);
+            SMOKE_FRAME_TIME, result.trace,
+            retain_accepted_workspace ? &result.retention : nullptr);
         result.attempted_substeps += substeps_per_frame;
         result.outer_trials += run.outer_trials;
         result.rejected_trials += run.rejected_trials;
@@ -17945,6 +18003,11 @@ CanonicalFixedLane run_macro_publication_fixed_lane(
         && result.maximum_pairs <= 160U * fixture.position.size()
         && result.trace.live_workspaces == 0
         && result.trace.maximum_live_workspaces <= 2
+        && (!retain_accepted_workspace
+            || (result.retention.transfers == result.retention.reads
+                && result.retention.reads == result.retention.releases
+                && result.retention.live_retained == 0
+                && result.retention.maximum_live_retained <= 1))
         && result.trace.exact && result.trace.work_reduced
         && result.trace.candidate_all_pair_evaluations == 0
         && result.trace.candidate_all_pair_hvps == 0;
@@ -19994,6 +20057,451 @@ RetainedWorkspaceNegatives run_retained_workspace_negatives() {
     return result;
 }
 
+bool macro_adaptive_replay_physics_exact(
+    const MacroAdaptiveReplay& lhs,
+    const MacroAdaptiveReplay& rhs) {
+    if (!lhs.passed || !rhs.passed
+        || lhs.name != rhs.name
+        || lhs.failure != rhs.failure
+        || lhs.released_block != rhs.released_block
+        || lhs.frames.size() != rhs.frames.size()) {
+        return false;
+    }
+    for (std::size_t i = 0U; i < lhs.frames.size(); ++i) {
+        if (!macro_transaction_physics_exact(
+                lhs.frames[i], rhs.frames[i])) {
+            return false;
+        }
+    }
+    return exact_vec3_values(lhs.position, rhs.position)
+        && exact_vec3_values(lhs.velocity, rhs.velocity)
+        && canonical_frame_roots(lhs.committed_frames)
+            == canonical_frame_roots(rhs.committed_frames)
+        && exact_publication_ledger(
+            lhs.committed_ledger, rhs.committed_ledger)
+        && lhs.accepted_substeps == rhs.accepted_substeps
+        && lhs.attempted_substeps == rhs.attempted_substeps
+        && lhs.discarded_substeps == rhs.discarded_substeps
+        && lhs.outer_trials == rhs.outer_trials
+        && lhs.rejected_trials == rhs.rejected_trials
+        && lhs.nonlinear_hvp_calls == rhs.nonlinear_hvp_calls
+        && lhs.spectral_hvp_calls == rhs.spectral_hvp_calls
+        && lhs.maximum_attempted_level_substeps
+            == rhs.maximum_attempted_level_substeps
+        && lhs.recovered_frames == rhs.recovered_frames
+        && lhs.recoverable_failed_levels == rhs.recoverable_failed_levels
+        && lhs.contact_events == rhs.contact_events
+        && lhs.active_steps == rhs.active_steps
+        && lhs.inactive_steps == rhs.inactive_steps
+        && lhs.precontact_steps == rhs.precontact_steps
+        && lhs.precontact_pressure_violations
+            == rhs.precontact_pressure_violations
+        && lhs.maximum_pairs == rhs.maximum_pairs
+        && lhs.maximum_penetration == rhs.maximum_penetration
+        && lhs.maximum_ledger_residual == rhs.maximum_ledger_residual
+        && lhs.maximum_support_reaction_closure
+            == rhs.maximum_support_reaction_closure
+        && lhs.maximum_mechanical_energy == rhs.maximum_mechanical_energy
+        && lhs.maximum_positive_density_strain
+            == rhs.maximum_positive_density_strain
+        && lhs.maximum_speed == rhs.maximum_speed
+        && lhs.maximum_precontact_support_reaction
+            == rhs.maximum_precontact_support_reaction
+        && lhs.maximum_precontact_position_error
+            == rhs.maximum_precontact_position_error
+        && lhs.maximum_precontact_velocity_error
+            == rhs.maximum_precontact_velocity_error
+        && lhs.maximum_precontact_velocity_spread
+            == rhs.maximum_precontact_velocity_spread
+        && lhs.first_contact_time == rhs.first_contact_time
+        && lhs.terminal_contacts == rhs.terminal_contacts
+        && exact_vec3_value(
+            lhs.cumulative_publication_impulse,
+            rhs.cumulative_publication_impulse)
+        && lhs.cumulative_absolute_pressure_delta
+            == rhs.cumulative_absolute_pressure_delta
+        && lhs.cumulative_absolute_mechanical_delta
+            == rhs.cumulative_absolute_mechanical_delta
+        && lhs.maximum_strict_ledger_residual
+            == rhs.maximum_strict_ledger_residual
+        && lhs.maximum_kkt_ledger_residual
+            == rhs.maximum_kkt_ledger_residual
+        && lhs.energy_scale == rhs.energy_scale
+        && lhs.pressure_budget_utilization
+            == rhs.pressure_budget_utilization
+        && lhs.mechanical_budget_utilization
+            == rhs.mechanical_budget_utilization
+        && lhs.lateral_drift == rhs.lateral_drift
+        && lhs.lateral_drift_limit == rhs.lateral_drift_limit
+        && lhs.schedule_exact == rhs.schedule_exact
+        && lhs.topology_exact == rhs.topology_exact
+        && lhs.work_accounting_exact == rhs.work_accounting_exact
+        && lhs.global_steps_exact == rhs.global_steps_exact
+        && lhs.final_decode_exact == rhs.final_decode_exact
+        && lhs.roots_exact == rhs.roots_exact
+        && lhs.physical_exact == rhs.physical_exact
+        && lhs.trajectory_sha256 == rhs.trajectory_sha256
+        && lhs.legacy_ledger_sha256 == rhs.legacy_ledger_sha256
+        && lhs.policy_ledger_sha256 == rhs.policy_ledger_sha256;
+}
+
+bool canonical_fixed_lane_physics_exact(
+    const CanonicalFixedLane& lhs,
+    const CanonicalFixedLane& rhs) {
+    if (!lhs.passed || !rhs.passed
+        || lhs.failure != rhs.failure
+        || lhs.substeps_per_frame != rhs.substeps_per_frame
+        || lhs.macro_frames != rhs.macro_frames
+        || lhs.committed_substeps != rhs.committed_substeps
+        || lhs.attempted_substeps != rhs.attempted_substeps
+        || lhs.outer_trials != rhs.outer_trials
+        || lhs.rejected_trials != rhs.rejected_trials
+        || lhs.nonlinear_hvp_calls != rhs.nonlinear_hvp_calls
+        || lhs.active_steps != rhs.active_steps
+        || lhs.inactive_steps != rhs.inactive_steps
+        || lhs.contact_events != rhs.contact_events
+        || lhs.maximum_pairs != rhs.maximum_pairs
+        || lhs.maximum_penetration != rhs.maximum_penetration
+        || lhs.maximum_support_reaction_closure
+            != rhs.maximum_support_reaction_closure
+        || lhs.maximum_mechanical_energy != rhs.maximum_mechanical_energy
+        || lhs.maximum_positive_density_strain
+            != rhs.maximum_positive_density_strain
+        || lhs.maximum_speed != rhs.maximum_speed
+        || lhs.precontact_steps != rhs.precontact_steps
+        || lhs.precontact_pressure_violations
+            != rhs.precontact_pressure_violations
+        || lhs.maximum_precontact_support_reaction
+            != rhs.maximum_precontact_support_reaction
+        || lhs.maximum_precontact_position_error
+            != rhs.maximum_precontact_position_error
+        || lhs.maximum_precontact_velocity_error
+            != rhs.maximum_precontact_velocity_error
+        || lhs.maximum_precontact_velocity_spread
+            != rhs.maximum_precontact_velocity_spread
+        || lhs.first_contact_time != rhs.first_contact_time
+        || lhs.terminal_contacts != rhs.terminal_contacts
+        || !exact_vec3_values(lhs.position, rhs.position)
+        || !exact_vec3_values(lhs.velocity, rhs.velocity)
+        || lhs.runs.size() != rhs.runs.size()
+        || lhs.aggregates.size() != rhs.aggregates.size()
+        || lhs.private_positions.size() != rhs.private_positions.size()
+        || lhs.private_velocities.size() != rhs.private_velocities.size()) {
+        return false;
+    }
+    for (std::size_t i = 0U; i < lhs.runs.size(); ++i) {
+        if (!exact_smoke_run_value(lhs.runs[i], rhs.runs[i])
+            || !exact_b4b_aggregate_value(
+                lhs.aggregates[i], rhs.aggregates[i])
+            || !exact_vec3_values(
+                lhs.private_positions[i], rhs.private_positions[i])
+            || !exact_vec3_values(
+                lhs.private_velocities[i], rhs.private_velocities[i])) {
+            return false;
+        }
+    }
+    return canonical_frame_roots(lhs.committed_frames)
+            == canonical_frame_roots(rhs.committed_frames)
+        && exact_publication_ledger(
+            lhs.committed_ledger, rhs.committed_ledger)
+        && lhs.global_steps_exact == rhs.global_steps_exact
+        && lhs.final_decode_exact == rhs.final_decode_exact
+        && lhs.ledger_policy_exact == rhs.ledger_policy_exact
+        && exact_vec3_value(
+            lhs.cumulative_publication_impulse,
+            rhs.cumulative_publication_impulse)
+        && lhs.cumulative_absolute_pressure_delta
+            == rhs.cumulative_absolute_pressure_delta
+        && lhs.cumulative_absolute_mechanical_delta
+            == rhs.cumulative_absolute_mechanical_delta
+        && lhs.maximum_strict_ledger_residual
+            == rhs.maximum_strict_ledger_residual
+        && lhs.maximum_kkt_ledger_residual
+            == rhs.maximum_kkt_ledger_residual
+        && lhs.trajectory_sha256 == rhs.trajectory_sha256
+        && lhs.legacy_ledger_sha256 == rhs.legacy_ledger_sha256
+        && lhs.policy_ledger_sha256 == rhs.policy_ledger_sha256;
+}
+
+bool complete_retention_work_exact(
+    const JointQueryTrace& candidate,
+    const JointQueryTrace& legacy,
+    std::size_t expected_removed_builds) {
+    const int removed = static_cast<int>(expected_removed_builds);
+    return candidate.joint_evaluation_queries + removed
+            == legacy.joint_evaluation_queries
+        && candidate.neighborhood_builds + removed
+            == legacy.neighborhood_builds
+        && candidate.tape_builds + removed == legacy.tape_builds
+        && candidate.joint_hvp_queries == legacy.joint_hvp_queries
+        && candidate.trial_workspace_builds
+            == legacy.trial_workspace_builds
+        && candidate.accepted_workspace_promotions
+            == legacy.accepted_workspace_promotions
+        && candidate.rejected_workspace_destructions
+            == legacy.rejected_workspace_destructions
+        && candidate.candidate_all_pair_evaluations
+            == legacy.candidate_all_pair_evaluations
+        && candidate.candidate_all_pair_hvps
+            == legacy.candidate_all_pair_hvps
+        && candidate.audit_all_pair_evaluations
+            == legacy.audit_all_pair_evaluations
+        && candidate.audit_all_pair_hvps == legacy.audit_all_pair_hvps
+        && candidate.live_workspaces == 0
+        && legacy.live_workspaces == 0
+        && candidate.maximum_live_workspaces <= 2
+        && legacy.maximum_live_workspaces <= 2
+        && candidate.exact && legacy.exact
+        && candidate.work_reduced && legacy.work_reduced;
+}
+
+WorkspaceRetentionTrace adaptive_replay_retention_summary(
+    const MacroAdaptiveReplay& replay) {
+    WorkspaceRetentionTrace result;
+    for (std::size_t frame = 0U; frame < replay.frames.size(); ++frame) {
+        const WorkspaceRetentionTrace& source =
+            replay.frames[frame].retention;
+        result.transfers += source.transfers;
+        result.reads += source.reads;
+        result.releases += source.releases;
+        result.live_retained += source.live_retained;
+        result.maximum_live_retained = std::max(
+            result.maximum_live_retained,
+            source.maximum_live_retained);
+        std::ostringstream material;
+        material << result.receipt_sha256 << '|' << frame << ':'
+                 << source.receipt_sequence << '|'
+                 << source.receipt_sha256;
+        result.receipt_sha256 = sha256_hex(material.str());
+        result.receipt_sequence += source.receipt_sequence;
+    }
+    return result;
+}
+
+std::string adaptive_replay_query_policy_root(
+    const MacroAdaptiveReplay& replay) {
+    std::string result =
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    for (std::size_t frame = 0U; frame < replay.frames.size(); ++frame) {
+        std::ostringstream material;
+        material << result << '|' << frame << '|'
+                 << replay.frames[frame].trace.query_chain_sha256;
+        result = sha256_hex(material.str());
+    }
+    return result;
+}
+
+bool complete_retention_ownership_exact(
+    const WorkspaceRetentionTrace& retention,
+    std::size_t expected_removed_builds) {
+    return retention.transfers
+            == static_cast<int>(expected_removed_builds)
+        && retention.reads == retention.transfers
+        && retention.releases == retention.transfers
+        && retention.receipt_sequence == expected_removed_builds
+        && retention.live_retained == 0
+        && retention.maximum_live_retained == 1;
+}
+
+CompleteRetentionLaneCase run_complete_adaptive_retention_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    bool released_block,
+    std::size_t expected_removed_builds,
+    const std::string& expected_trajectory,
+    const std::string& expected_legacy_ledger,
+    const std::string& expected_policy_ledger) {
+    CompleteRetentionLaneCase result;
+    result.name = name;
+    result.lane_kind = "ADAPTIVE";
+    result.expected_removed_builds = expected_removed_builds;
+    const MacroAdaptiveReplay legacy = run_macro_adaptive_replay(
+        name, fixture, scenario_sha256, released_block, false);
+    const MacroAdaptiveReplay candidate = run_macro_adaptive_replay(
+        name, fixture, scenario_sha256, released_block, true);
+    const MacroAdaptiveReplay repeated = run_macro_adaptive_replay(
+        name, fixture, scenario_sha256, released_block, true);
+    const WorkspaceRetentionTrace retention =
+        adaptive_replay_retention_summary(candidate);
+    const WorkspaceRetentionTrace repeated_retention =
+        adaptive_replay_retention_summary(repeated);
+    const std::string legacy_query =
+        adaptive_replay_query_policy_root(legacy);
+    const std::string candidate_query =
+        adaptive_replay_query_policy_root(candidate);
+    const std::string repeated_query =
+        adaptive_replay_query_policy_root(repeated);
+    result.physical_exact = macro_adaptive_replay_physics_exact(
+        candidate, legacy);
+    result.repeat_exact = macro_adaptive_replay_physics_exact(
+            repeated, candidate)
+        && repeated_query == candidate_query
+        && repeated_retention.receipt_sha256
+            == retention.receipt_sha256;
+    result.roots_exact = candidate.trajectory_sha256
+            == expected_trajectory
+        && candidate.legacy_ledger_sha256 == expected_legacy_ledger
+        && candidate.policy_ledger_sha256 == expected_policy_ledger
+        && candidate.trajectory_sha256 == legacy.trajectory_sha256
+        && candidate.legacy_ledger_sha256
+            == legacy.legacy_ledger_sha256
+        && candidate.policy_ledger_sha256
+            == legacy.policy_ledger_sha256;
+    result.legacy_workspace_builds = static_cast<std::size_t>(
+        legacy.trace.neighborhood_builds);
+    result.candidate_workspace_builds = static_cast<std::size_t>(
+        candidate.trace.neighborhood_builds);
+    result.removed_workspace_builds = result.legacy_workspace_builds
+            >= result.candidate_workspace_builds
+        ? result.legacy_workspace_builds
+            - result.candidate_workspace_builds
+        : 0U;
+    result.work_exact = result.removed_workspace_builds
+            == expected_removed_builds
+        && complete_retention_work_exact(
+            candidate.trace, legacy.trace, expected_removed_builds);
+    result.retention = retention;
+    result.maximum_live_workspaces =
+        candidate.trace.maximum_live_workspaces;
+    result.final_live_workspaces = candidate.trace.live_workspaces;
+    result.ownership_exact = complete_retention_ownership_exact(
+        retention, expected_removed_builds);
+    result.query_policy_exact = candidate_query != legacy_query
+        && candidate_query == repeated_query
+        && retention.receipt_sha256
+            == repeated_retention.receipt_sha256;
+    result.trajectory_sha256 = candidate.trajectory_sha256;
+    result.legacy_ledger_sha256 = candidate.legacy_ledger_sha256;
+    result.policy_ledger_sha256 = candidate.policy_ledger_sha256;
+    result.legacy_query_policy_sha256 = legacy_query;
+    result.candidate_query_policy_sha256 = candidate_query;
+    result.receipt_sha256 = retention.receipt_sha256;
+    result.passed = result.physical_exact && result.repeat_exact
+        && result.roots_exact && result.work_exact
+        && result.ownership_exact && result.query_policy_exact;
+    if (!result.physical_exact) {
+        result.failure = "ADAPTIVE_PHYSICAL_CORRESPONDENCE";
+    } else if (!result.repeat_exact) {
+        result.failure = "ADAPTIVE_REPEAT";
+    } else if (!result.roots_exact) {
+        result.failure = "ADAPTIVE_ROOTS";
+    } else if (!result.work_exact) {
+        result.failure = "ADAPTIVE_WORK";
+    } else if (!result.ownership_exact) {
+        result.failure = "ADAPTIVE_OWNERSHIP";
+    } else if (!result.query_policy_exact) {
+        result.failure = "ADAPTIVE_QUERY_POLICY";
+    }
+    return result;
+}
+
+CompleteRetentionLaneCase run_complete_fixed_retention_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    int substeps_per_frame,
+    std::size_t expected_removed_builds) {
+    CompleteRetentionLaneCase result;
+    result.name = std::move(name);
+    result.lane_kind = "MACRO_FIXED";
+    result.substeps_per_frame = substeps_per_frame;
+    result.expected_removed_builds = expected_removed_builds;
+    const CanonicalFixedLane legacy = run_macro_publication_fixed_lane(
+        fixture, scenario_sha256, substeps_per_frame, false);
+    const CanonicalFixedLane candidate = run_macro_publication_fixed_lane(
+        fixture, scenario_sha256, substeps_per_frame, true);
+    const CanonicalFixedLane repeated = run_macro_publication_fixed_lane(
+        fixture, scenario_sha256, substeps_per_frame, true);
+    result.physical_exact = canonical_fixed_lane_physics_exact(
+        candidate, legacy);
+    result.repeat_exact = canonical_fixed_lane_physics_exact(
+            repeated, candidate)
+        && repeated.trace.query_chain_sha256
+            == candidate.trace.query_chain_sha256
+        && repeated.retention.receipt_sha256
+            == candidate.retention.receipt_sha256;
+    result.roots_exact = candidate.trajectory_sha256
+            == legacy.trajectory_sha256
+        && candidate.legacy_ledger_sha256
+            == legacy.legacy_ledger_sha256
+        && candidate.policy_ledger_sha256
+            == legacy.policy_ledger_sha256;
+    result.legacy_workspace_builds = static_cast<std::size_t>(
+        legacy.trace.neighborhood_builds);
+    result.candidate_workspace_builds = static_cast<std::size_t>(
+        candidate.trace.neighborhood_builds);
+    result.removed_workspace_builds = result.legacy_workspace_builds
+            >= result.candidate_workspace_builds
+        ? result.legacy_workspace_builds
+            - result.candidate_workspace_builds
+        : 0U;
+    result.work_exact = result.removed_workspace_builds
+            == expected_removed_builds
+        && complete_retention_work_exact(
+            candidate.trace, legacy.trace, expected_removed_builds);
+    result.retention = candidate.retention;
+    result.maximum_live_workspaces =
+        candidate.trace.maximum_live_workspaces;
+    result.final_live_workspaces = candidate.trace.live_workspaces;
+    result.ownership_exact = complete_retention_ownership_exact(
+        candidate.retention, expected_removed_builds);
+    result.query_policy_exact = candidate.trace.query_chain_sha256
+            != legacy.trace.query_chain_sha256
+        && candidate.trace.query_chain_sha256
+            == repeated.trace.query_chain_sha256
+        && candidate.retention.receipt_sha256
+            == repeated.retention.receipt_sha256;
+    result.trajectory_sha256 = candidate.trajectory_sha256;
+    result.legacy_ledger_sha256 = candidate.legacy_ledger_sha256;
+    result.policy_ledger_sha256 = candidate.policy_ledger_sha256;
+    result.legacy_query_policy_sha256 =
+        legacy.trace.query_chain_sha256;
+    result.candidate_query_policy_sha256 =
+        candidate.trace.query_chain_sha256;
+    result.receipt_sha256 = candidate.retention.receipt_sha256;
+    result.passed = result.physical_exact && result.repeat_exact
+        && result.roots_exact && result.work_exact
+        && result.ownership_exact && result.query_policy_exact;
+    if (!result.physical_exact) {
+        result.failure = "FIXED_PHYSICAL_CORRESPONDENCE";
+    } else if (!result.repeat_exact) {
+        result.failure = "FIXED_REPEAT";
+    } else if (!result.roots_exact) {
+        result.failure = "FIXED_ROOTS";
+    } else if (!result.work_exact) {
+        result.failure = "FIXED_WORK";
+    } else if (!result.ownership_exact) {
+        result.failure = "FIXED_OWNERSHIP";
+    } else if (!result.query_policy_exact) {
+        result.failure = "FIXED_QUERY_POLICY";
+    }
+    return result;
+}
+
+CompleteRetentionRollback run_complete_retention_rollback() {
+    CompleteRetentionRollback result;
+    const MacroAdaptiveReplayRollback rollback =
+        run_macro_adaptive_replay_rollback(true);
+    result.failure = rollback.failure;
+    result.prefix_exact = rollback.state_exact && rollback.counts_exact
+        && rollback.roots_exact && rollback.cumulative_totals_exact;
+    result.retention = rollback.forced_retention;
+    result.final_live_workspaces =
+        rollback.forced_final_live_workspaces;
+    result.retention_exact = rollback.retention_exact
+        && rollback.forced_retention.transfers > 0
+        && rollback.forced_retention.transfers
+            == rollback.forced_retention.reads
+        && rollback.forced_retention.reads
+            == rollback.forced_retention.releases
+        && rollback.forced_retention.live_retained == 0
+        && rollback.forced_final_live_workspaces == 0;
+    result.passed = rollback.passed && result.prefix_exact
+        && result.retention_exact;
+    return result;
+}
+
 CanonicalMacroRollback run_macro_publication_rollback() {
     CanonicalMacroRollback result;
     SmokeFixture fixture = make_b4b_supported_column_fixture();
@@ -21299,6 +21807,80 @@ void append_retained_workspace_negatives(
            << (value.nonfinite_retention_empty ? "true" : "false")
            << ",\"nonfinite_failure\":\""
            << value.nonfinite_failure << "\"}";
+}
+
+void append_complete_retention_lane_case(
+    std::ostringstream& output,
+    const CompleteRetentionLaneCase& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"lane_kind\":\"" << value.lane_kind
+           << "\",\"substeps_per_frame\":" << value.substeps_per_frame
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"physical_exact\":"
+           << (value.physical_exact ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"roots_exact\":"
+           << (value.roots_exact ? "true" : "false")
+           << ",\"work_exact\":"
+           << (value.work_exact ? "true" : "false")
+           << ",\"ownership_exact\":"
+           << (value.ownership_exact ? "true" : "false")
+           << ",\"query_policy_exact\":"
+           << (value.query_policy_exact ? "true" : "false")
+           << ",\"expected_removed_builds\":"
+           << value.expected_removed_builds
+           << ",\"legacy_workspace_builds\":"
+           << value.legacy_workspace_builds
+           << ",\"candidate_workspace_builds\":"
+           << value.candidate_workspace_builds
+           << ",\"removed_workspace_builds\":"
+           << value.removed_workspace_builds
+           << ",\"retention\":{\"transfers\":"
+           << value.retention.transfers
+           << ",\"reads\":" << value.retention.reads
+           << ",\"releases\":" << value.retention.releases
+           << ",\"receipt_sequence\":"
+           << value.retention.receipt_sequence
+           << ",\"maximum_live_retained\":"
+           << value.retention.maximum_live_retained
+           << ",\"final_live_retained\":"
+           << value.retention.live_retained
+           << "},\"maximum_live_workspaces\":"
+           << value.maximum_live_workspaces
+           << ",\"final_live_workspaces\":"
+           << value.final_live_workspaces
+           << ",\"trajectory_sha256\":\""
+           << value.trajectory_sha256
+           << "\",\"legacy_ledger_sha256\":\""
+           << value.legacy_ledger_sha256
+           << "\",\"policy_ledger_sha256\":\""
+           << value.policy_ledger_sha256
+           << "\",\"legacy_query_policy_sha256\":\""
+           << value.legacy_query_policy_sha256
+           << "\",\"candidate_query_policy_sha256\":\""
+           << value.candidate_query_policy_sha256
+           << "\",\"receipt_sha256\":\""
+           << value.receipt_sha256 << "\"}";
+}
+
+void append_complete_retention_rollback(
+    std::ostringstream& output,
+    const CompleteRetentionRollback& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"prefix_exact\":"
+           << (value.prefix_exact ? "true" : "false")
+           << ",\"retention_exact\":"
+           << (value.retention_exact ? "true" : "false")
+           << ",\"transfers\":" << value.retention.transfers
+           << ",\"reads\":" << value.retention.reads
+           << ",\"releases\":" << value.retention.releases
+           << ",\"final_live_retained\":"
+           << value.retention.live_retained
+           << ",\"final_live_workspaces\":"
+           << value.final_live_workspaces << '}';
 }
 
 } // namespace
@@ -25002,6 +25584,181 @@ SplitBoundaryReport run_retained_workspace_probe_controls() {
 
 SplitBoundaryReport run_retained_workspace_controls() {
     return run_retained_workspace_impl(true);
+}
+
+namespace {
+
+std::array<CompleteRetentionLaneCase, 4>
+run_complete_retention_p1_lanes() {
+    const SmokeFixture fixture = make_b4b_supported_column_fixture();
+    return {
+        run_complete_adaptive_retention_case(
+            "p1-complete-adaptive-retention", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, false, 444U,
+            "852759dcc2c62cd10c47a006a5df301646091c292a0e6d5974c6bfd8014050d5",
+            "78bda3a72f7d4813565d38d9e7ea7d8d156fcb493847840d6d01927e056474ad",
+            "bab793e516439f067cb80c73b1674502d3a77ccaee714ae655face781830eb23"),
+        run_complete_fixed_retention_case(
+            "p1-fixed-48-retention", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, 48, 384U),
+        run_complete_fixed_retention_case(
+            "p1-fixed-96-retention", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, 96, 768U),
+        run_complete_fixed_retention_case(
+            "p1-fixed-192-retention", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, 192, 1536U),
+    };
+}
+
+std::array<CompleteRetentionLaneCase, 4>
+run_complete_retention_p2_lanes() {
+    const SmokeFixture fixture = make_b4b_released_block_fixture();
+    return {
+        run_complete_adaptive_retention_case(
+            "p2-complete-adaptive-retention", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, true, 124U,
+            "de78268499f0b0292d1e83585de23301ae69fedb9f702fac6d77992aa0344883",
+            "9273756e720aababb7a771a0b6dc070261528464b0512ed0253d0cf27e0bba1c",
+            "d03a5985890950c0eae248b6cb479d154cdd25aa4c0c089357b3a1de388163cd"),
+        run_complete_fixed_retention_case(
+            "p2-fixed-48-retention", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, 48, 768U),
+        run_complete_fixed_retention_case(
+            "p2-fixed-96-retention", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, 96, 1536U),
+        run_complete_fixed_retention_case(
+            "p2-fixed-192-retention", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, 192, 3072U),
+    };
+}
+
+SplitBoundaryReport run_complete_retention_impl(bool require_parent) {
+    bool parent_exact = true;
+    if (require_parent) {
+        const SplitBoundaryReport parent =
+            run_retained_workspace_controls();
+        parent_exact = parent.passed
+            && sha256_hex(parent.json)
+                == "452245c1e1a8631541db57943c8aab441bfdbaf203eac141986820dba5899166";
+    }
+    std::vector<CompleteRetentionLaneCase> cases;
+    CompleteRetentionRollback rollback;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C4A_PARENT";
+    } else {
+        std::future<std::array<CompleteRetentionLaneCase, 4>> p1 =
+            std::async(std::launch::async,
+                run_complete_retention_p1_lanes);
+        std::future<std::array<CompleteRetentionLaneCase, 4>> p2 =
+            std::async(std::launch::async,
+                run_complete_retention_p2_lanes);
+        const std::array<CompleteRetentionLaneCase, 4> p1_cases = p1.get();
+        const std::array<CompleteRetentionLaneCase, 4> p2_cases = p2.get();
+        cases.insert(cases.end(), p1_cases.begin(), p1_cases.end());
+        cases.insert(cases.end(), p2_cases.begin(), p2_cases.end());
+        rollback = run_complete_retention_rollback();
+        for (const CompleteRetentionLaneCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!rollback.passed && first_failure.empty()) {
+            first_failure = "COMPLETE_RETENTION_ROLLBACK";
+        }
+    }
+    const bool lanes_exact = parent_exact && cases.size() == 8U
+        && std::all_of(
+            cases.begin(), cases.end(),
+            [](const CompleteRetentionLaneCase& value) {
+                return value.passed;
+            });
+    const bool passed = lanes_exact && rollback.passed;
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|identity:ce2c25fcad1a4dbd747f626d47b31019db11bd6652ae2b0bdbaf73f4cea8fc67";
+    if (parent_exact) {
+        for (const CompleteRetentionLaneCase& value : cases) {
+            material << '|' << value.name << ':' << value.lane_kind << ':'
+                     << value.substeps_per_frame << ':' << value.passed << ':'
+                     << value.physical_exact << ':' << value.repeat_exact
+                     << ':' << value.roots_exact << ':' << value.work_exact
+                     << ':' << value.ownership_exact << ':'
+                     << value.query_policy_exact << ':'
+                     << value.expected_removed_builds << ':'
+                     << value.legacy_workspace_builds << ':'
+                     << value.candidate_workspace_builds << ':'
+                     << value.removed_workspace_builds << ':'
+                     << value.retention.transfers << ':'
+                     << value.retention.reads << ':'
+                     << value.retention.releases << ':'
+                     << value.maximum_live_workspaces << ':'
+                     << value.final_live_workspaces << ':'
+                     << value.trajectory_sha256 << ':'
+                     << value.legacy_ledger_sha256 << ':'
+                     << value.policy_ledger_sha256 << ':'
+                     << value.legacy_query_policy_sha256 << ':'
+                     << value.candidate_query_policy_sha256 << ':'
+                     << value.receipt_sha256;
+        }
+        material << "|R:" << rollback.passed << ':'
+                 << rollback.prefix_exact << ':'
+                 << rollback.retention_exact << ':'
+                 << rollback.retention.transfers << ':'
+                 << rollback.retention.reads << ':'
+                 << rollback.retention.releases << ':'
+                 << rollback.final_live_workspaces;
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+           << (require_parent
+                ? "nsr3b4c4a1_complete_retention.v1"
+                : "nsr3b4c4a1_complete_retention_probe.v1")
+           << "\",\"identity_sha256\":\"ce2c25fcad1a4dbd747f626d47b31019db11bd6652ae2b0bdbaf73f4cea8fc67\""
+           << ",\"parent_b4c4a_raw_sha256\":\"452245c1e1a8631541db57943c8aab441bfdbaf203eac141986820dba5899166\""
+           << ",\"parent_b4c4a_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"parent_gate_required\":"
+           << (require_parent ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '\"'
+           << ",\"first_failure\":\"" << first_failure << '\"'
+           << ",\"authority\":\"COMPLETE_RESEARCH_LANES_ONLY\""
+           << ",\"lanes\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0U; i < cases.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_complete_retention_lane_case(report, cases[i]);
+        }
+    }
+    report << "],\"rollback\":";
+    append_complete_retention_rollback(report, rollback);
+    report << ",\"complete_lane_candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"static_support_index_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"flat_csr_authorized\":false"
+           << ",\"b4d_reference_execution_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"wall_time_threshold_applied\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_complete_retention_probe_controls() {
+    return run_complete_retention_impl(false);
+}
+
+SplitBoundaryReport run_complete_retention_controls() {
+    return run_complete_retention_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr

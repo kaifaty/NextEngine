@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4A_PASS / B4C4A1_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C4A1_PASS / B4C4B_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -74,10 +74,13 @@
   `264/9` total P1/P2 builds and preserves all physical/canonical/ledger
   values and roots. Success, consumer-abort and non-finite failure ownership
   all end with zero live workspaces.
-- **Current action:** implement the frozen B4C4A1 complete adaptive and
-  macro-fixed correspondence. Required removed-build deltas are adaptive
-  `444/124` and fixed P1 `384/768/1536`, P2 `768/1536/3072`.
-  B4C4B/B4C4C and B4D remain blocked.
+- **Current conclusion:** B4C4A1 passes twice byte-identically at full raw
+  `7d562356...94db`. All eight complete adaptive/macro-fixed lanes remove
+  exactly the predeclared builds, preserve physical and durable results, and
+  finish success and rollback with zero live ownership.
+- **Current action:** audit and freeze B4C4B immutable static-support indexing.
+  Preserve per-cell participant order and arithmetic exactly; do not combine
+  the experiment with B4C4C flat-only CSR. B4D remains blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1619,6 +1622,29 @@
   substep counts, freeze complete-lane roots/work/failure correspondence and
   execute it before B4C4B.
 
+### D-079 -- Select complete-lane retention and isolate static indexing
+
+- **Observation:** B4C4A1 removes every predeclared equal-state diagnostic
+  rebuild across all eight complete adaptive/macro-fixed lanes. Reductions are
+  `18.75--24.91%` for P1 and `27.74--47.11%` for P2, with bit-exact physical,
+  schedule, topology, canonical, ledger and trajectory results.
+- **Decision:** select
+  `COMPLETE_LANE_RETAINED_ACCEPTED_WORKSPACE_CANDIDATE`. Authorize B4C4B to
+  cache only the immutable support canonicalization and cell index while
+  preserving the legacy per-cell participant order.
+- **Rejected alternatives:** infer a wall-time speedup from work counters,
+  combine static indexing with nested-row removal, or let a cache survive a
+  changed support identity.
+- **Consequence:** B4C4B must bind support geometry and index identity, prove
+  exact pair/neighborhood/evaluation/tape results and fail closed on mismatch.
+  B4C4C, B4D, nominal corpus, CUDA, runtime and production remain blocked.
+- **Remaining uncertainty:** the split dynamic/static traversal may save
+  support canonicalization and sorting but adds a second range lookup per
+  visited cell; its net work and wall-time effect are unmeasured.
+- **Smallest next action:** freeze a threshold-free one-macro discriminator
+  with exact support-index build deltas, ordering controls and invalidation
+  negatives before implementing the split traversal.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1631,8 +1657,9 @@
 
 ## Exact next action
 
-1. Freeze and validate B4C4A1 complete adaptive/macro-fixed ownership.
-2. Continue with isolated support-index and flat-CSR stages.
+1. Audit and freeze B4C4B immutable static-support indexing.
+2. Execute its isolated correspondence/work discriminator, then design B4C4C
+   flat-only CSR separately.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 
 ## Reconsideration triggers

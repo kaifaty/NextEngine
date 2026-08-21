@@ -67,5 +67,7 @@ SplitBoundaryReport run_workspace_reuse_diagnostic_probe_controls();
 SplitBoundaryReport run_workspace_reuse_diagnostic_controls();
 SplitBoundaryReport run_retained_workspace_probe_controls();
 SplitBoundaryReport run_retained_workspace_controls();
+SplitBoundaryReport run_complete_retention_probe_controls();
+SplitBoundaryReport run_complete_retention_controls();
 
 } // namespace nextengine::nonlocal::fcr

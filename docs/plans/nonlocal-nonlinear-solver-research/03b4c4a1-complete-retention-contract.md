@@ -1,6 +1,6 @@
 # NSR3-B4C4A1 -- complete-lane retained-workspace application
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / B4C4B_BLOCKED`
+Status: `PASS / COMPLETE_LANE_CANDIDATE_SELECTED / B4C4B_DESIGN_AUTHORIZED`
 
 Parent B4C4A passes with JSON-without-final-LF SHA-256
 `452245c1e1a8631541db57943c8aab441bfdbaf203eac141986820dba5899166`

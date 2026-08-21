@@ -1,6 +1,6 @@
 # B4C4A1 complete-lane retained-workspace design
 
-Status: `COMPLETE / CONTRACT FROZEN / IMPLEMENTATION NEXT`
+Status: `PASS / STATIC-SUPPORT-INDEX DESIGN AUTHORIZED`
 
 Date: `2026-08-21`
 
@@ -61,8 +61,13 @@ committed prefix and roots, and leave zero retained and total live workspaces.
 
 ## Decision
 
-Freeze the
-[B4C4A1 contract](../plans/nonlocal-nonlinear-solver-research/03b4c4a1-complete-retention-contract.md).
-A PASS completes only the retained-workspace portion of packaging. B4C4B
-immutable static-support indexing and B4C4C flat-only CSR remain mandatory and
-separate. B4D, nominal corpus, CUDA, runtime and production remain blocked.
+The frozen
+[B4C4A1 contract](../plans/nonlocal-nonlinear-solver-research/03b4c4a1-complete-retention-contract.md)
+passes all eight complete lanes and rollback. The selected candidate removes
+exactly the predeclared builds while preserving physical and durable results;
+see the
+[dated evidence](nonlocal-nsr3b4c4a1-complete-retention-evidence-2026-08-21.md).
+This completes only the retained-workspace portion of packaging and authorizes
+B4C4B immutable static-support-index design. B4C4C flat-only CSR remains
+mandatory and separate. B4D, nominal corpus, CUDA, runtime and production
+remain blocked.

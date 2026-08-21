@@ -1,6 +1,6 @@
 # Nonlocal nonlinear solver research roadmap
 
-Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / NSR3B3R_PASS / NSR3B4A_PASS / NSR3B4B_FAIL / NSR3B4BK_FAIL / NSR3B4BK1_PASS / NSR3B4B1_FAIL / NSR3B4BF_PASS / NSR3B4B2_PASS / NSR3B4C3MC1_TINY_ACCURACY_PASS / NSR3B4C4M0_PASS / NSR3B4C4A_PASS / REPORT_ONLY`
+Status: `ACTIVE / NSR0_PASS / NSR1_PASS / NSR2B_PASS / NSR2C_FAIL / NSR2C1_PASS / NSR2C2_PASS / NSR3A_PASS / NSR3A1_PASS / NSR3A2_PASS / NSR3B0_PASS / NSR3B0R_PASS / NSR3B1_FAIL / NSR3B1D_INVALID / NSR3B1D1_PASS / NSR3B1S_FAIL / NSR3B1S1_PASS / NSR3B1S2_FAIL / NSR3B1S3_PASS / NSR3B1R_FAIL / NSR3B1R1_PASS / NSR3B2_PASS / NSR3B3_FAIL / NSR3B3D_PASS_CERT_REJECT / NSR3B3D1_FAIL / NSR3B3D2_PASS / NSR3B3D3_FAIL / NSR3B3D4_PASS / NSR3B3D5_PASS / NSR3B3R_PASS / NSR3B4A_PASS / NSR3B4B_FAIL / NSR3B4BK_FAIL / NSR3B4BK1_PASS / NSR3B4B1_FAIL / NSR3B4BF_PASS / NSR3B4B2_PASS / NSR3B4C3MC1_TINY_ACCURACY_PASS / NSR3B4C4M0_PASS / NSR3B4C4A_PASS / NSR3B4C4A1_PASS / REPORT_ONLY`
 
 Candidate identity:
 
@@ -687,3 +687,10 @@ local optimization is composed over full adaptive and macro-fixed P1/P2
 trajectories. Expected removed builds are derived from existing executed
 substep schedules, not from candidate measurements. B4C4B/B4C4C remain
 blocked until this correspondence passes.
+B4C4A1 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4a1-complete-retention-evidence-2026-08-21.md).
+Across all eight complete adaptive and macro-fixed lanes it removes exactly
+the predeclared `444/124`, P1 `384/768/1536` and P2 `768/1536/3072` builds.
+Every physical, schedule, topology, canonical, ledger and trajectory result
+remains bit-exact; retention and forced rollback end with zero live ownership.
+Only B4C4B immutable static-support-index design is authorized next.
