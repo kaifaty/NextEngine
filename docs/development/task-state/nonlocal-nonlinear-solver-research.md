@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4C1_FROZEN / B4C4C1_EXECUTION` |
+| Status | `ACTIVE / NSR3B4C4C1_PASS / B4D_REATTESTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -99,6 +99,14 @@
   median process construction speedups are `1.2274x/1.2055x` P1/P2.
 - **Current action:** freeze B4C4C1 complete-lane CSR ownership and rollback
   accounting. Do not infer a whole-solver ratio from the local benchmark.
+- **Current conclusion:** B4C4C1 passes twice byte-identically at full raw
+  `50bf779b...5e60`. All eight lanes and forced rollback preserve exact
+  physics/roots; one transfer occurs per workspace and final ownership is
+  zero. The largest lane removes duplicate construction of `21,176,919`
+  directed records.
+- **Current decision:** select `COMPLETE_LANE_FLAT_ADJACENCY_CANDIDATE` and
+  close B4C4 packaging. Re-attest frozen B4D reference inputs before any
+  nominal execution.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1856,6 +1864,23 @@
 - **Smallest next action:** thread the opt-in layout through complete adaptive,
   fixed and rollback runners and execute twice.
 
+### D-091 -- Close B4C4 and return to the frozen B4D boundary
+
+- **Observation:** complete flat adjacency passes every adaptive/fixed lane
+  and rollback with exact roots and zero live ownership; B4C4A/B/C are now
+  composed and independently evidenced.
+- **Decision:** declare B4C4 packaging complete and re-attest, rather than
+  silently assume, B4D reference inputs and external source hashes.
+- **Rejected alternatives:** jump directly into nominal trajectories, expose
+  research structures to runtime, or infer production readiness from tiny
+  complete-lane correctness.
+- **Consequence:** B4D may execute only after the frozen formula/profile,
+  external-source and selected-solver identities are verified unchanged.
+- **Remaining uncertainty:** current external artifact availability and the
+  exact nominal B4D contract after the intervening B4C4 commits.
+- **Smallest next action:** inspect the B4D contract/required sources and run a
+  read-only identity re-attestation before changing any B4D implementation.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1868,8 +1893,9 @@
 
 ## Exact next action
 
-1. Execute frozen complete-lane flat-CSR ownership/rollback.
-3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
+1. Re-attest B4D frozen reference inputs and external source hashes.
+2. Enter B4D only if every identity is unchanged; otherwise preserve the
+   mismatch and redesign before execution.
 
 ## Reconsideration triggers
 

@@ -18423,7 +18423,9 @@ MacroAdaptiveReplay run_macro_adaptive_replay(
     bool released_block,
     bool retain_accepted_workspace = false,
     bool use_static_support = false,
-    StaticSupportWorkTrace* static_work = nullptr) {
+    StaticSupportWorkTrace* static_work = nullptr,
+    bool flat_adjacency = false,
+    FlatAdjacencyWorkTrace* adjacency_work = nullptr) {
     MacroAdaptiveReplay result;
     result.name = std::move(name);
     result.released_block = released_block;
@@ -18454,7 +18456,8 @@ MacroAdaptiveReplay run_macro_adaptive_replay(
                 fixture, scenario_sha256, false, true,
                 &result.position, &result.velocity, frame_index,
                 static_cast<std::uint32_t>(frame_index + 1), false,
-                retain_accepted_workspace, static_support, static_work);
+                retain_accepted_workspace, static_support, static_work,
+                flat_adjacency, adjacency_work);
         accumulate_joint_trace(result.trace, transaction.trace);
         if (!transaction.passed) {
             result.failure = "FRAME_" + std::to_string(frame_index)
@@ -18608,7 +18611,8 @@ MacroAdaptiveReplay run_macro_adaptive_replay(
     const B4BAggregate final = b4b_aggregate_joint(
         fixture, result.position, result.velocity,
         result.name + "-final", result.trace,
-        static_support, static_work);
+        static_support, static_work,
+        flat_adjacency, adjacency_work);
     result.energy_scale = std::max({
         std::abs(initial.mechanical),
         static_cast<double>(fixture.position.size()) * MASS
@@ -18705,7 +18709,9 @@ MacroAdaptiveReplay run_macro_adaptive_replay(
 MacroAdaptiveReplayRollback run_macro_adaptive_replay_rollback(
     bool retain_accepted_workspace = false,
     bool use_static_support = false,
-    StaticSupportWorkTrace* static_work = nullptr) {
+    StaticSupportWorkTrace* static_work = nullptr,
+    bool flat_adjacency = false,
+    FlatAdjacencyWorkTrace* adjacency_work = nullptr) {
     MacroAdaptiveReplayRollback result;
     const SmokeFixture fixture = make_b4b_supported_column_fixture();
     JointStaticSupportIndex static_index;
@@ -18727,7 +18733,8 @@ MacroAdaptiveReplayRollback run_macro_adaptive_replay_rollback(
             "p1-replay-rollback-prefix", fixture,
             B4C3TA_P1_SCENARIO_SHA256, false, true,
             nullptr, nullptr, 0, 1U, false,
-            retain_accepted_workspace, static_support, static_work);
+            retain_accepted_workspace, static_support, static_work,
+            flat_adjacency, adjacency_work);
     if (!first.passed) {
         result.failure = "ROLLBACK_PREFIX";
         return result;
@@ -18756,7 +18763,8 @@ MacroAdaptiveReplayRollback run_macro_adaptive_replay_rollback(
             "p1-replay-rollback-forced", fixture,
             B4C3TA_P1_SCENARIO_SHA256, true, true,
             &position, &velocity, 1, 2U, false,
-            retain_accepted_workspace, static_support, static_work);
+            retain_accepted_workspace, static_support, static_work,
+            flat_adjacency, adjacency_work);
     result.forced_retention = forced.retention;
     result.forced_final_live_workspaces = forced.trace.live_workspaces;
     result.retention_exact = !retain_accepted_workspace
@@ -18811,7 +18819,9 @@ CanonicalFixedLane run_macro_publication_fixed_lane(
     int substeps_per_frame,
     bool retain_accepted_workspace = false,
     bool use_static_support = false,
-    StaticSupportWorkTrace* static_work = nullptr) {
+    StaticSupportWorkTrace* static_work = nullptr,
+    bool flat_adjacency = false,
+    FlatAdjacencyWorkTrace* adjacency_work = nullptr) {
     CanonicalFixedLane result;
     result.substeps_per_frame = substeps_per_frame;
     result.macro_frames = fixture.macro_frames;
@@ -18843,7 +18853,8 @@ CanonicalFixedLane run_macro_publication_fixed_lane(
             static_cast<double>(frame) * SMOKE_FRAME_TIME,
             SMOKE_FRAME_TIME, result.trace,
             retain_accepted_workspace ? &result.retention : nullptr,
-            static_support, static_work);
+            static_support, static_work,
+            flat_adjacency, adjacency_work);
         result.attempted_substeps += substeps_per_frame;
         result.outer_trials += run.outer_trials;
         result.rejected_trials += run.rejected_trials;
@@ -18858,7 +18869,8 @@ CanonicalFixedLane run_macro_publication_fixed_lane(
                 fixture, scenario_sha256,
                 static_cast<std::uint32_t>(frame + 1),
                 input_velocity, run, result.trace,
-                static_support, static_work);
+                static_support, static_work,
+                flat_adjacency, adjacency_work);
         if (!publication.passed) {
             result.failure = "FRAME_" + std::to_string(frame)
                 + ':' + publication.failure;
@@ -29633,6 +29645,606 @@ SplitBoundaryReport run_flat_adjacency_timing_impl() {
 
 SplitBoundaryReport run_flat_adjacency_timing_controls() {
     return run_flat_adjacency_timing_impl();
+}
+
+namespace {
+
+struct CompleteFlatAdjacencyLaneCase {
+    bool passed = false;
+    std::string name;
+    std::string failure;
+    std::string lane_kind;
+    int substeps_per_frame = 0;
+    bool physical_exact = false;
+    bool repeat_exact = false;
+    bool roots_exact = false;
+    bool query_exact = false;
+    bool retention_exact = false;
+    bool static_work_exact = false;
+    bool layout_work_exact = false;
+    std::size_t expected_workspace_builds = 0U;
+    std::size_t directed_records = 0U;
+    FlatAdjacencyWorkTrace legacy_work;
+    FlatAdjacencyWorkTrace candidate_work;
+    std::string index_identity_sha256;
+    std::string layout_receipt_sha256;
+    std::string trajectory_sha256;
+    std::string legacy_ledger_sha256;
+    std::string policy_ledger_sha256;
+    std::string query_policy_sha256;
+    std::string retention_receipt_sha256;
+};
+
+struct CompleteFlatAdjacencyRollback {
+    bool passed = false;
+    std::string failure;
+    bool physical_exact = false;
+    bool repeat_exact = false;
+    bool static_work_exact = false;
+    bool layout_work_exact = false;
+    std::size_t directed_records = 0U;
+    FlatAdjacencyWorkTrace legacy_work;
+    FlatAdjacencyWorkTrace candidate_work;
+};
+
+bool complete_flat_adjacency_work_exact(
+    const FlatAdjacencyWorkTrace& legacy,
+    const FlatAdjacencyWorkTrace& candidate,
+    std::size_t fluid_samples,
+    std::size_t expected_workspace_builds,
+    std::size_t directed_records) {
+    if (fluid_samples > 0U
+        && expected_workspace_builds
+            > std::numeric_limits<std::size_t>::max() / fluid_samples) {
+        return false;
+    }
+    if (fluid_samples + 1U > 0U
+        && expected_workspace_builds
+            > std::numeric_limits<std::size_t>::max()
+                / (fluid_samples + 1U)) {
+        return false;
+    }
+    const std::size_t rows =
+        fluid_samples * expected_workspace_builds;
+    const std::size_t offsets =
+        (fluid_samples + 1U) * expected_workspace_builds;
+    return legacy.workspace_builds == expected_workspace_builds
+        && candidate.workspace_builds == expected_workspace_builds
+        && legacy.nested_row_objects == rows
+        && legacy.nested_participant_records == directed_records
+        && legacy.nested_row_sorts == rows
+        && legacy.flat_offset_records == 0U
+        && legacy.flat_pair_index_records == 0U
+        && legacy.legacy_tape_offset_records == offsets
+        && legacy.legacy_tape_pair_index_records == directed_records
+        && legacy.legacy_tape_row_sorts == rows
+        && legacy.csr_ownership_transfers == 0U
+        && candidate.nested_row_objects == 0U
+        && candidate.nested_participant_records == 0U
+        && candidate.nested_row_sorts == 0U
+        && candidate.flat_offset_records == offsets
+        && candidate.flat_pair_index_records == directed_records
+        && candidate.legacy_tape_offset_records == 0U
+        && candidate.legacy_tape_pair_index_records == 0U
+        && candidate.legacy_tape_row_sorts == 0U
+        && candidate.csr_ownership_transfers
+            == expected_workspace_builds;
+}
+
+std::string complete_flat_adjacency_receipt(
+    const std::string& name,
+    const std::string& index_identity,
+    const FlatAdjacencyWorkTrace& work,
+    const std::string& query_policy,
+    const std::string& retention_receipt) {
+    std::ostringstream material;
+    material << "complete-flat-adjacency-r0|" << name << '|'
+             << index_identity << '|'
+             << work.workspace_builds << ':'
+             << work.nested_row_objects << ':'
+             << work.nested_participant_records << ':'
+             << work.nested_row_sorts << ':'
+             << work.flat_offset_records << ':'
+             << work.flat_pair_index_records << ':'
+             << work.legacy_tape_offset_records << ':'
+             << work.legacy_tape_pair_index_records << ':'
+             << work.legacy_tape_row_sorts << ':'
+             << work.csr_ownership_transfers << '|'
+             << query_policy << '|' << retention_receipt;
+    return sha256_hex(material.str());
+}
+
+CompleteFlatAdjacencyLaneCase run_complete_flat_adaptive_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    bool released_block,
+    std::size_t expected_workspace_builds,
+    const std::string& expected_trajectory,
+    const std::string& expected_legacy_ledger,
+    const std::string& expected_policy_ledger) {
+    CompleteFlatAdjacencyLaneCase result;
+    result.name = name;
+    result.lane_kind = "ADAPTIVE";
+    result.expected_workspace_builds = expected_workspace_builds;
+    StaticSupportWorkTrace legacy_static;
+    const MacroAdaptiveReplay legacy = run_macro_adaptive_replay(
+        name, fixture, scenario_sha256, released_block, true,
+        true, &legacy_static, false, &result.legacy_work);
+    StaticSupportWorkTrace candidate_static;
+    const MacroAdaptiveReplay candidate = run_macro_adaptive_replay(
+        name, fixture, scenario_sha256, released_block, true,
+        true, &candidate_static, true, &result.candidate_work);
+    StaticSupportWorkTrace repeated_static;
+    FlatAdjacencyWorkTrace repeated_work;
+    const MacroAdaptiveReplay repeated = run_macro_adaptive_replay(
+        name, fixture, scenario_sha256, released_block, true,
+        true, &repeated_static, true, &repeated_work);
+    const WorkspaceRetentionTrace legacy_retention =
+        adaptive_replay_retention_summary(legacy);
+    const WorkspaceRetentionTrace candidate_retention =
+        adaptive_replay_retention_summary(candidate);
+    const WorkspaceRetentionTrace repeated_retention =
+        adaptive_replay_retention_summary(repeated);
+    const std::string legacy_query =
+        adaptive_replay_query_policy_root(legacy);
+    const std::string candidate_query =
+        adaptive_replay_query_policy_root(candidate);
+    const std::string repeated_query =
+        adaptive_replay_query_policy_root(repeated);
+    result.physical_exact = macro_adaptive_replay_physics_exact(
+        candidate, legacy);
+    result.roots_exact = candidate.trajectory_sha256
+            == expected_trajectory
+        && candidate.legacy_ledger_sha256 == expected_legacy_ledger
+        && candidate.policy_ledger_sha256 == expected_policy_ledger
+        && candidate.trajectory_sha256 == legacy.trajectory_sha256
+        && candidate.legacy_ledger_sha256
+            == legacy.legacy_ledger_sha256
+        && candidate.policy_ledger_sha256
+            == legacy.policy_ledger_sha256;
+    result.query_exact = candidate_query == legacy_query
+        && repeated_query == candidate_query;
+    result.retention_exact = exact_retention_trace(
+            candidate_retention, legacy_retention)
+        && exact_retention_trace(
+            repeated_retention, candidate_retention)
+        && candidate_retention.live_retained == 0
+        && candidate.trace.live_workspaces == 0;
+    result.static_work_exact = exact_static_support_work(
+            candidate_static, legacy_static)
+        && exact_static_support_work(repeated_static, candidate_static)
+        && candidate_static.static_index_builds == 1U;
+    result.directed_records = legacy.trace.total_directed;
+    result.layout_work_exact = complete_flat_adjacency_work_exact(
+            result.legacy_work, result.candidate_work,
+            fixture.position.size(), expected_workspace_builds,
+            result.directed_records)
+        && legacy.trace.total_directed == candidate.trace.total_directed;
+    result.index_identity_sha256 = candidate_static.index_identity_sha256;
+    result.layout_receipt_sha256 = complete_flat_adjacency_receipt(
+        name, result.index_identity_sha256, result.candidate_work,
+        candidate_query, candidate_retention.receipt_sha256);
+    const std::string repeated_receipt = complete_flat_adjacency_receipt(
+        name, repeated_static.index_identity_sha256, repeated_work,
+        repeated_query, repeated_retention.receipt_sha256);
+    result.repeat_exact = macro_adaptive_replay_physics_exact(
+            repeated, candidate)
+        && exact_flat_adjacency_work(
+            repeated_work, result.candidate_work)
+        && repeated_receipt == result.layout_receipt_sha256;
+    result.trajectory_sha256 = candidate.trajectory_sha256;
+    result.legacy_ledger_sha256 = candidate.legacy_ledger_sha256;
+    result.policy_ledger_sha256 = candidate.policy_ledger_sha256;
+    result.query_policy_sha256 = candidate_query;
+    result.retention_receipt_sha256 =
+        candidate_retention.receipt_sha256;
+    result.passed = legacy.passed && candidate.passed && repeated.passed
+        && result.physical_exact && result.repeat_exact
+        && result.roots_exact && result.query_exact
+        && result.retention_exact && result.static_work_exact
+        && result.layout_work_exact;
+    if (!result.physical_exact) {
+        result.failure = "ADAPTIVE_PHYSICAL_CORRESPONDENCE";
+    } else if (!result.repeat_exact) {
+        result.failure = "ADAPTIVE_REPEAT";
+    } else if (!result.roots_exact || !result.query_exact) {
+        result.failure = "ADAPTIVE_DURABLE_ROOTS";
+    } else if (!result.retention_exact) {
+        result.failure = "ADAPTIVE_RETENTION";
+    } else if (!result.static_work_exact || !result.layout_work_exact) {
+        result.failure = "ADAPTIVE_WORK";
+    } else if (!result.passed) {
+        result.failure = "ADAPTIVE_STATUS";
+    }
+    return result;
+}
+
+CompleteFlatAdjacencyLaneCase run_complete_flat_fixed_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    int substeps_per_frame,
+    std::size_t expected_workspace_builds) {
+    CompleteFlatAdjacencyLaneCase result;
+    result.name = name;
+    result.lane_kind = "MACRO_FIXED";
+    result.substeps_per_frame = substeps_per_frame;
+    result.expected_workspace_builds = expected_workspace_builds;
+    StaticSupportWorkTrace legacy_static;
+    const CanonicalFixedLane legacy = run_macro_publication_fixed_lane(
+        fixture, scenario_sha256, substeps_per_frame, true,
+        true, &legacy_static, false, &result.legacy_work);
+    StaticSupportWorkTrace candidate_static;
+    const CanonicalFixedLane candidate = run_macro_publication_fixed_lane(
+        fixture, scenario_sha256, substeps_per_frame, true,
+        true, &candidate_static, true, &result.candidate_work);
+    StaticSupportWorkTrace repeated_static;
+    FlatAdjacencyWorkTrace repeated_work;
+    const CanonicalFixedLane repeated = run_macro_publication_fixed_lane(
+        fixture, scenario_sha256, substeps_per_frame, true,
+        true, &repeated_static, true, &repeated_work);
+    result.physical_exact = canonical_fixed_lane_physics_exact(
+        candidate, legacy);
+    result.roots_exact = candidate.trajectory_sha256
+            == legacy.trajectory_sha256
+        && candidate.legacy_ledger_sha256
+            == legacy.legacy_ledger_sha256
+        && candidate.policy_ledger_sha256
+            == legacy.policy_ledger_sha256;
+    result.query_exact = candidate.trace.query_chain_sha256
+            == legacy.trace.query_chain_sha256
+        && repeated.trace.query_chain_sha256
+            == candidate.trace.query_chain_sha256;
+    result.retention_exact = exact_retention_trace(
+            candidate.retention, legacy.retention)
+        && exact_retention_trace(
+            repeated.retention, candidate.retention)
+        && candidate.retention.live_retained == 0
+        && candidate.trace.live_workspaces == 0;
+    result.static_work_exact = exact_static_support_work(
+            candidate_static, legacy_static)
+        && exact_static_support_work(repeated_static, candidate_static)
+        && candidate_static.static_index_builds == 1U;
+    result.directed_records = legacy.trace.total_directed;
+    result.layout_work_exact = complete_flat_adjacency_work_exact(
+            result.legacy_work, result.candidate_work,
+            fixture.position.size(), expected_workspace_builds,
+            result.directed_records)
+        && legacy.trace.total_directed == candidate.trace.total_directed;
+    result.index_identity_sha256 = candidate_static.index_identity_sha256;
+    result.layout_receipt_sha256 = complete_flat_adjacency_receipt(
+        name, result.index_identity_sha256, result.candidate_work,
+        candidate.trace.query_chain_sha256,
+        candidate.retention.receipt_sha256);
+    const std::string repeated_receipt = complete_flat_adjacency_receipt(
+        name, repeated_static.index_identity_sha256, repeated_work,
+        repeated.trace.query_chain_sha256,
+        repeated.retention.receipt_sha256);
+    result.repeat_exact = canonical_fixed_lane_physics_exact(
+            repeated, candidate)
+        && exact_flat_adjacency_work(
+            repeated_work, result.candidate_work)
+        && repeated_receipt == result.layout_receipt_sha256;
+    result.trajectory_sha256 = candidate.trajectory_sha256;
+    result.legacy_ledger_sha256 = candidate.legacy_ledger_sha256;
+    result.policy_ledger_sha256 = candidate.policy_ledger_sha256;
+    result.query_policy_sha256 = candidate.trace.query_chain_sha256;
+    result.retention_receipt_sha256 = candidate.retention.receipt_sha256;
+    result.passed = legacy.passed && candidate.passed && repeated.passed
+        && result.physical_exact && result.repeat_exact
+        && result.roots_exact && result.query_exact
+        && result.retention_exact && result.static_work_exact
+        && result.layout_work_exact;
+    if (!result.physical_exact) {
+        result.failure = "FIXED_PHYSICAL_CORRESPONDENCE";
+    } else if (!result.repeat_exact) {
+        result.failure = "FIXED_REPEAT";
+    } else if (!result.roots_exact || !result.query_exact) {
+        result.failure = "FIXED_DURABLE_ROOTS";
+    } else if (!result.retention_exact) {
+        result.failure = "FIXED_RETENTION";
+    } else if (!result.static_work_exact || !result.layout_work_exact) {
+        result.failure = "FIXED_WORK";
+    } else if (!result.passed) {
+        result.failure = "FIXED_STATUS";
+    }
+    return result;
+}
+
+CompleteFlatAdjacencyRollback run_complete_flat_rollback() {
+    CompleteFlatAdjacencyRollback result;
+    StaticSupportWorkTrace legacy_static;
+    const MacroAdaptiveReplayRollback legacy =
+        run_macro_adaptive_replay_rollback(
+            true, true, &legacy_static, false, &result.legacy_work);
+    StaticSupportWorkTrace candidate_static;
+    const MacroAdaptiveReplayRollback candidate =
+        run_macro_adaptive_replay_rollback(
+            true, true, &candidate_static, true, &result.candidate_work);
+    StaticSupportWorkTrace repeated_static;
+    FlatAdjacencyWorkTrace repeated_work;
+    const MacroAdaptiveReplayRollback repeated =
+        run_macro_adaptive_replay_rollback(
+            true, true, &repeated_static, true, &repeated_work);
+    result.failure = candidate.failure;
+    result.physical_exact = exact_macro_adaptive_replay_rollback_value(
+        candidate, legacy);
+    result.static_work_exact = exact_static_support_work(
+            candidate_static, legacy_static)
+        && exact_static_support_work(repeated_static, candidate_static)
+        && candidate_static.workspace_builds == 540U
+        && candidate_static.static_index_builds == 1U
+        && candidate_static.support_records_sorted == 544U;
+    result.directed_records =
+        result.legacy_work.nested_participant_records;
+    result.layout_work_exact = complete_flat_adjacency_work_exact(
+        result.legacy_work, result.candidate_work,
+        48U, 540U, result.directed_records);
+    result.repeat_exact = exact_macro_adaptive_replay_rollback_value(
+            repeated, candidate)
+        && exact_flat_adjacency_work(
+            repeated_work, result.candidate_work);
+    result.passed = legacy.passed && candidate.passed && repeated.passed
+        && result.physical_exact && result.repeat_exact
+        && result.static_work_exact && result.layout_work_exact
+        && candidate.forced_retention.live_retained == 0
+        && candidate.forced_final_live_workspaces == 0;
+    if (!result.physical_exact) {
+        result.failure = "ROLLBACK_CORRESPONDENCE";
+    } else if (!result.repeat_exact) {
+        result.failure = "ROLLBACK_REPEAT";
+    } else if (!result.static_work_exact || !result.layout_work_exact) {
+        result.failure = "ROLLBACK_WORK";
+    }
+    return result;
+}
+
+std::array<CompleteFlatAdjacencyLaneCase, 4>
+run_complete_flat_p1_lanes() {
+    const SmokeFixture fixture = make_b4b_supported_column_fixture();
+    return {
+        run_complete_flat_adaptive_case(
+            "p1-complete-adaptive-flat-adjacency", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, false, 1924U,
+            "852759dcc2c62cd10c47a006a5df301646091c292a0e6d5974c6bfd8014050d5",
+            "78bda3a72f7d4813565d38d9e7ea7d8d156fcb493847840d6d01927e056474ad",
+            "bab793e516439f067cb80c73b1674502d3a77ccaee714ae655face781830eb23"),
+        run_complete_flat_fixed_case(
+            "p1-fixed-48-flat-adjacency", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, 48, 1557U),
+        run_complete_flat_fixed_case(
+            "p1-fixed-96-flat-adjacency", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, 96, 2937U),
+        run_complete_flat_fixed_case(
+            "p1-fixed-192-flat-adjacency", fixture,
+            B4C3TA_P1_SCENARIO_SHA256, 192, 4631U),
+    };
+}
+
+std::array<CompleteFlatAdjacencyLaneCase, 4>
+run_complete_flat_p2_lanes() {
+    const SmokeFixture fixture = make_b4b_released_block_fixture();
+    return {
+        run_complete_flat_adaptive_case(
+            "p2-complete-adaptive-flat-adjacency", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, true, 323U,
+            "de78268499f0b0292d1e83585de23301ae69fedb9f702fac6d77992aa0344883",
+            "9273756e720aababb7a771a0b6dc070261528464b0512ed0253d0cf27e0bba1c",
+            "d03a5985890950c0eae248b6cb479d154cdd25aa4c0c089357b3a1de388163cd"),
+        run_complete_flat_fixed_case(
+            "p2-fixed-48-flat-adjacency", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, 48, 900U),
+        run_complete_flat_fixed_case(
+            "p2-fixed-96-flat-adjacency", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, 96, 1751U),
+        run_complete_flat_fixed_case(
+            "p2-fixed-192-flat-adjacency", fixture,
+            B4C3TA_P2_SCENARIO_SHA256, 192, 3449U),
+    };
+}
+
+void append_complete_flat_lane(
+    std::ostringstream& output,
+    const CompleteFlatAdjacencyLaneCase& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"lane_kind\":\"" << value.lane_kind
+           << "\",\"substeps_per_frame\":" << value.substeps_per_frame
+           << ",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"physical_exact\":"
+           << (value.physical_exact ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"roots_exact\":"
+           << (value.roots_exact ? "true" : "false")
+           << ",\"query_exact\":"
+           << (value.query_exact ? "true" : "false")
+           << ",\"retention_exact\":"
+           << (value.retention_exact ? "true" : "false")
+           << ",\"static_work_exact\":"
+           << (value.static_work_exact ? "true" : "false")
+           << ",\"layout_work_exact\":"
+           << (value.layout_work_exact ? "true" : "false")
+           << ",\"expected_workspace_builds\":"
+           << value.expected_workspace_builds
+           << ",\"directed_records\":" << value.directed_records
+           << ",\"legacy_layout_work\":";
+    append_flat_adjacency_work(output, value.legacy_work);
+    output << ",\"candidate_layout_work\":";
+    append_flat_adjacency_work(output, value.candidate_work);
+    output << ",\"index_identity_sha256\":\""
+           << value.index_identity_sha256
+           << "\",\"layout_receipt_sha256\":\""
+           << value.layout_receipt_sha256
+           << "\",\"trajectory_sha256\":\"" << value.trajectory_sha256
+           << "\",\"legacy_ledger_sha256\":\""
+           << value.legacy_ledger_sha256
+           << "\",\"policy_ledger_sha256\":\""
+           << value.policy_ledger_sha256
+           << "\",\"query_policy_sha256\":\""
+           << value.query_policy_sha256
+           << "\",\"retention_receipt_sha256\":\""
+           << value.retention_receipt_sha256 << "\"}";
+}
+
+void append_complete_flat_rollback(
+    std::ostringstream& output,
+    const CompleteFlatAdjacencyRollback& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"physical_exact\":"
+           << (value.physical_exact ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"static_work_exact\":"
+           << (value.static_work_exact ? "true" : "false")
+           << ",\"layout_work_exact\":"
+           << (value.layout_work_exact ? "true" : "false")
+           << ",\"directed_records\":" << value.directed_records
+           << ",\"legacy_layout_work\":";
+    append_flat_adjacency_work(output, value.legacy_work);
+    output << ",\"candidate_layout_work\":";
+    append_flat_adjacency_work(output, value.candidate_work);
+    output << '}';
+}
+
+SplitBoundaryReport run_complete_flat_adjacency_impl(
+    bool require_parent) {
+    bool parent_exact = true;
+    if (require_parent) {
+        const SplitBoundaryReport parent =
+            run_flat_adjacency_timing_controls();
+        parent_exact = parent.passed
+            && parent.json.find(
+                "\"deterministic_result_sha256\":\"472c437876c6f4b78e17d2b31733bc87c3d45fafd77253cd5f1bebaaf7b91600\"")
+                != std::string::npos
+            && parent.json.find("\"parent_exact\":true")
+                != std::string::npos;
+    }
+    std::vector<CompleteFlatAdjacencyLaneCase> cases;
+    CompleteFlatAdjacencyRollback rollback;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C4CM_PARENT";
+    } else {
+        std::future<std::array<CompleteFlatAdjacencyLaneCase, 4>> p1 =
+            std::async(std::launch::async, run_complete_flat_p1_lanes);
+        std::future<std::array<CompleteFlatAdjacencyLaneCase, 4>> p2 =
+            std::async(std::launch::async, run_complete_flat_p2_lanes);
+        const auto p1_cases = p1.get();
+        const auto p2_cases = p2.get();
+        cases.insert(cases.end(), p1_cases.begin(), p1_cases.end());
+        cases.insert(cases.end(), p2_cases.begin(), p2_cases.end());
+        rollback = run_complete_flat_rollback();
+        for (const CompleteFlatAdjacencyLaneCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!rollback.passed && first_failure.empty()) {
+            first_failure = "COMPLETE_FLAT_ROLLBACK:" + rollback.failure;
+        }
+    }
+    const bool passed = parent_exact && cases.size() == 8U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const CompleteFlatAdjacencyLaneCase& value) {
+                return value.passed;
+            })
+        && rollback.passed;
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << "|parent:" << parent_exact
+             << "|identity:66e318cb69e0b0c0a3a40a2beafa2099ebf151287581b191a242e82dac6d6f3c";
+    if (parent_exact) {
+        for (const CompleteFlatAdjacencyLaneCase& value : cases) {
+            material << '|' << value.name << ':' << value.lane_kind
+                     << ':' << value.substeps_per_frame
+                     << ':' << value.passed << ':' << value.physical_exact
+                     << ':' << value.repeat_exact << ':' << value.roots_exact
+                     << ':' << value.query_exact
+                     << ':' << value.retention_exact
+                     << ':' << value.static_work_exact
+                     << ':' << value.layout_work_exact
+                     << ':' << value.expected_workspace_builds
+                     << ':' << value.directed_records
+                     << ':' << value.index_identity_sha256
+                     << ':' << value.layout_receipt_sha256
+                     << ':' << value.trajectory_sha256
+                     << ':' << value.legacy_ledger_sha256
+                     << ':' << value.policy_ledger_sha256
+                     << ':' << value.query_policy_sha256
+                     << ':' << value.retention_receipt_sha256;
+            const FlatAdjacencyWorkTrace* work[] = {
+                &value.legacy_work, &value.candidate_work};
+            for (const FlatAdjacencyWorkTrace* item : work) {
+                material << ':' << item->workspace_builds
+                         << ':' << item->nested_row_objects
+                         << ':' << item->nested_participant_records
+                         << ':' << item->nested_row_sorts
+                         << ':' << item->flat_offset_records
+                         << ':' << item->flat_pair_index_records
+                         << ':' << item->legacy_tape_offset_records
+                         << ':' << item->legacy_tape_pair_index_records
+                         << ':' << item->legacy_tape_row_sorts
+                         << ':' << item->csr_ownership_transfers;
+            }
+        }
+        material << "|R:" << rollback.passed
+                 << ':' << rollback.physical_exact
+                 << ':' << rollback.repeat_exact
+                 << ':' << rollback.static_work_exact
+                 << ':' << rollback.layout_work_exact
+                 << ':' << rollback.directed_records;
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal."
+           << (require_parent
+                ? "nsr3b4c4c1_complete_flat_adjacency.v1"
+                : "nsr3b4c4c1_complete_flat_adjacency_probe.v1")
+           << "\",\"identity_sha256\":\"66e318cb69e0b0c0a3a40a2beafa2099ebf151287581b191a242e82dac6d6f3c\""
+           << ",\"parent_b4c4cm_deterministic_sha256\":\"472c437876c6f4b78e17d2b31733bc87c3d45fafd77253cd5f1bebaaf7b91600\""
+           << ",\"parent_exact\":" << (parent_exact ? "true" : "false")
+           << ",\"parent_gate_required\":"
+           << (require_parent ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"authority\":\"COMPLETE_RESEARCH_LANES_ONLY\""
+           << ",\"lanes\":[";
+    if (parent_exact) {
+        for (std::size_t i = 0U; i < cases.size(); ++i) {
+            if (i != 0U) {
+                report << ',';
+            }
+            append_complete_flat_lane(report, cases[i]);
+        }
+    }
+    report << "],\"rollback\":";
+    append_complete_flat_rollback(report, rollback);
+    report << ",\"complete_lane_flat_adjacency_candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c4_packaging_complete\":"
+           << (passed ? "true" : "false")
+           << ",\"b4d_reference_reattestation_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"wall_time_threshold_applied\":false"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+} // namespace
+
+SplitBoundaryReport run_complete_flat_adjacency_probe_controls() {
+    return run_complete_flat_adjacency_impl(false);
+}
+
+SplitBoundaryReport run_complete_flat_adjacency_controls() {
+    return run_complete_flat_adjacency_impl(true);
 }
 
 } // namespace nextengine::nonlocal::fcr

@@ -1,6 +1,6 @@
 # NSR3-B4C4CM -- flat-adjacency construction timing
 
-Status: `FROZEN / EXECUTION AUTHORIZED`
+Status: `PASS / COMPLETE-LANE DESIGN AUTHORIZED`
 
 Parent B4C4C passes at isolated JSON-without-final-LF SHA-256
 `45f340a34f2e970179bf30358c126dc1ea30302c8bcca70c1c190715836f5a7b`

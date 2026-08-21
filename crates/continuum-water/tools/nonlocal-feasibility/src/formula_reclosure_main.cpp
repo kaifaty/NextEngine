@@ -752,6 +752,20 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        if (command == "--complete-flat-adjacency-probe") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_complete_flat_adjacency_probe_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
+        if (command == "--complete-flat-adjacency-self-test") {
+            const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                nextengine::nonlocal::fcr::
+                    run_complete_flat_adjacency_controls();
+            std::cout << report.json << '\n';
+            return report.passed ? 0 : 1;
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -844,6 +858,8 @@ int main(int argc, char** argv) {
                      "--flat-adjacency-probe|"
                      "--flat-adjacency-self-test|"
                      "--flat-adjacency-benchmark|"
+                     "--complete-flat-adjacency-probe|"
+                     "--complete-flat-adjacency-self-test|"
                      "--workspace-reuse-diagnostic-probe|"
                      "--workspace-reuse-diagnostic-self-test\n";
         return 2;

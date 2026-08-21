@@ -770,3 +770,8 @@ freezes complete adaptive/fixed ownership over the
 Workspace counts predeclare `8,721--222,288` removed nested rows per lane and
 one transfer per workspace; directed volume remains an exact measured
 correspondence. B4D waits for this final packaging gate.
+B4C4C1 passes twice byte-identically in probe and full-parent modes; see the
+[dated evidence](../../development/nonlocal-nsr3b4c4c1-complete-flat-adjacency-evidence-2026-08-21.md).
+All eight lanes and forced rollback preserve physical/durable results with one
+transfer per workspace and zero final ownership. B4C4 packaging is complete;
+re-attest B4D's frozen reference inputs next.

@@ -1,6 +1,6 @@
 # NSR3-B4C4C -- flat adjacency with single-owner tape transfer
 
-Status: `FROZEN / EXECUTION AUTHORIZED`
+Status: `PASS / ONE_MACRO CANDIDATE SELECTED`
 
 Parent B4C4B1 passes with JSON-without-final-LF SHA-256
 `7d93828a21473fd6af6534107199e844387f41b8b3d86ef18b7141a854cd74b9`
