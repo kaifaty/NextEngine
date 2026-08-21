@@ -1,6 +1,6 @@
 # NSR3-B4EP10I OpenMP implementation research -- 2026-08-22
 
-Status: `COMPLETE / CONTRACT_FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `COMPLETE / IMPLEMENTED / CORRESPONDENCE_PASS`
 
 ## Input
 
@@ -67,5 +67,8 @@ order, with system load controlled.
 
 ## Decision
 
-Freeze the OpenMP implementation/A-B boundary. No B4E2, GPU, runtime or
-production work is authorized.
+The [dated evidence](nonlocal-nsr3b4ep10i-owner-parallel-evidence-2026-08-22.md)
+passes at all five worker counts with one common correspondence hash and an
+exact 16-worker repeat. Retain the research backend and authorize only a
+separately frozen B4EP10S serialized scaling experiment. No B4E2, GPU,
+runtime or production work is authorized.

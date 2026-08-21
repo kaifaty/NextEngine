@@ -1,6 +1,6 @@
 # NSR3-B4EP10I -- owner-parallel implementation contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED`
+Status: `CLOSED / PASS / B4EP10S_CONTRACT_RESEARCH_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -74,3 +74,13 @@ stdout.
 These runs admit no timing or speedup claim. PASS authorizes only B4EP10S
 balanced serialized scaling. Failure retains the serial B4EP7I/B4EP10D path.
 B4E2, GPU/runtime/schema, PhysX and production remain blocked.
+
+## Closure
+
+B4EP10I passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4ep10i-owner-parallel-evidence-2026-08-22.md).
+All worker counts share correspondence SHA-256
+`917a04d31bb849a9bee5dd190ad6d15e07c9c90a9c2822130ae1adac6ebcb4ca`,
+all executor mismatch counts are zero and the two 16-worker reports are
+byte-identical. This authorizes only a separately frozen B4EP10S scaling
+experiment.
