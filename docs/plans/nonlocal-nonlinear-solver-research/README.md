@@ -788,3 +788,20 @@ Preserve B4D FAIL and audit reproducible recovery of the exact external
 generator lineage next. B4E remains blocked until all three exact files are
 restored and B4D passes, or a new independently frozen reference profile
 receives new roots and comparator evidence.
+The read-only
+[B4DR0 audit](03b4dr0-reference-recovery-audit-contract.md)
+finds no exact payload, adapter diff, comparator source or binary in the
+retained filesystem or shared Git object store; public exact-hash lookup is
+also empty but remains diagnostic only. The
+[dated evidence](../../development/nonlocal-nsr3b4dr0-reference-recovery-audit-evidence-2026-08-21.md)
+selects `NEW_REFERENCE_PROFILE_REQUIRED`: historical W0I/W1 remains valid
+evidence, but a fresh comparator cannot inherit its roots. Freeze a
+reproducible B4DR1 external generator/profile before cloning or building
+upstream code. B4E remains blocked.
+The [B4DR1 design](../../development/nonlocal-nsr3b4dr1-reference-generator-research-2026-08-21.md)
+selects a new-root external comparator with a tracked standalone adapter,
+strict build/float manifest, content-addressed external outputs and a
+cost-aware bootstrap/contact/24-step/full/attestation ladder. Its
+[frozen contract](03b4dr1-reference-generator-contract.md) authorizes only the
+R1A recursive pinned-upstream bootstrap next. No adapter trajectory or full
+generation is authorized yet; B4E remains blocked.

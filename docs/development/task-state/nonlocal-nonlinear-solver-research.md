@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4D_MISSING_ARTIFACT / B4DR0_RECOVERY_AUDIT` |
+| Status | `ACTIVE / NSR3B4DR0_NEW_ROOT_REQUIRED / B4DR1_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -18,13 +18,15 @@
   `fbeb4040...ddd9` and fails closed at
   `CW-HYDRO-001:MISSING_ARTIFACT`. All three required external `CWREFV1`
   files are absent; `trajectory_started=false` and B4E is not authorized.
-- **Current decision:** treat this as evidence availability, not a physics or
-  solver failure. Preserve B4D FAIL and audit exact generator/artifact
-  recovery before designing a replacement reference profile.
-- **Next action:** execute B4DR0 forensic/reproducibility audit. Prefer exact
-  W0I payload or generator restoration. If impossible, freeze a new rooted
-  external generator/profile; never synthesize old hashes or inherit W1
-  credit.
+- **Current conclusion:** B4DR0 finds neither exact payloads nor the recorded
+  adapter diff/source/binary. Matching GCC and prose are insufficient to
+  reproduce the historical bytes.
+- **Current decision:** select `NEW_REFERENCE_PROFILE_REQUIRED`. Preserve B4D
+  FAIL and historical W0I/W1, then freeze a new reproducible external
+  generator/profile; never synthesize old hashes or inherit W1 credit.
+- **Next action:** design B4DR1 before cloning/building upstream code. Keep
+  engine-owned adapter/patch and manifests reviewable while upstream source,
+  binaries and generated trajectories stay outside Git.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -157,11 +159,12 @@ adapter/source/binary SHA-256 values.
 
 ## Exact next action
 
-1. Freeze B4DR0 artifact/generator recovery audit before implementation.
-2. Inventory exact retained source, diff, binary, toolchain and payload facts.
-3. Select exact restoration if possible; otherwise define a new root and
-   repeatable generator profile before downloading/building external code.
-4. Keep B4E blocked until B4D passes under one exact reference identity.
+1. Freeze B4DR1 new external generator/profile contract.
+2. Bind upstream commit, adapter source/patch, compiler/build flags, dependency
+   closure, self-tests, output format and durable external artifact manifest.
+3. Only then clone/build the external comparator and run tiny geometry gates
+   before any long payload generation.
+4. Keep B4E blocked until a new reference attestation passes twice.
 
 ## Reconsideration triggers
 
