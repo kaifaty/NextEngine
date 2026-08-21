@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3TA_FAIL_PRESERVED / NSR3B4C3TAR_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3TA_FAIL_PRESERVED / NSR3B4C3TAR_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -23,6 +23,9 @@
 - **Current action:** preserve the original failure/probe hashes, freeze the
   repair transaction and execute it twice. B4C3TR/B4C3TC/B4C4/B4D remain
   blocked.
+- **Current contract:** B4C3TAR binds exact `KKT_SOLVE:REJECT_LIMIT`
+  classification, adjacent-pass selection, exact attempted-work accounting,
+  rollback negatives and the pre-existing local `<1e-6` released-flight bounds.
 
 - **Current conclusion:** B4C3Q exact aggregate-balanced apportionment passes
   twice at raw `ae44e39f...0731`. Biased aggregate error and 1,024-step center
@@ -1004,8 +1007,8 @@
 - **Remaining uncertainty:** later P1 frames may require repeated recovery or
   exhaust four levels, and accumulated canonical energy may still exceed its
   frozen budget.
-- **Smallest next action:** freeze B4C3TAR exact failure classification,
-  attempted-work accounting and local precontact bounds, then implement and
+- **Smallest next action:** implement the frozen B4C3TAR exact failure
+  classification, attempted-work accounting and local precontact bounds, then
   execute two byte-identical complete reports.
 
 ## Required context
@@ -1020,8 +1023,8 @@
 
 ## Exact next action
 
-1. Freeze B4C3TAR over the preserved B4C3TA FAIL and diagnostic probe roots.
-2. Continue only after `KKT_SOLVE:REJECT_LIMIT`, count every attempted private
+1. Implement B4C3TAR over the preserved B4C3TA FAIL and diagnostic probe roots.
+2. Continue only after exact `KKT_SOLVE:REJECT_LIMIT`, count every attempted private
    level, and select only an adjacent passing/gated pair.
 3. Restore the already-frozen `<1e-6` local canonical precontact position and
    velocity bounds; run twice before designing B4C3TR. B4C4/B4D remain blocked.

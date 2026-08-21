@@ -463,3 +463,8 @@ adjacent pair passes the unchanged embedded gate. P2 independently revealed
 that the harness used an exact-zero precontact velocity predicate despite the
 frozen local canonical allowance. B4C3TR remains blocked; only a separately
 frozen B4C3TAR refinement-recovery repair is authorized.
+The
+[B4C3TAR contract](03b4c3tar-adaptive-refinement-recovery-contract.md)
+now freezes exact `REJECT_LIMIT` classification, adjacent-pass selection,
+attempted-work accounting, rollback and the pre-existing local canonical
+free-flight bounds. Its implementation is the only authorized next step.
