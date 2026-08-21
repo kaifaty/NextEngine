@@ -1,6 +1,6 @@
 # NSR3-B4DR1 -- reproducible external-reference generator contract
 
-Status: `FROZEN / R1B_PASS / R1C_REJECTED / R1C1_FROZEN / NEW_ROOT_ONLY`
+Status: `FROZEN / R1B_PASS / R1C_REJECTED / R1C1_PASS / TRAJECTORY_IMPLEMENTATION / NEW_ROOT_ONLY`
 
 Identity projection:
 

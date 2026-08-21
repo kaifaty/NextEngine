@@ -1,6 +1,6 @@
 # NSR3-B4DR1C1 -- dam manifest-identity reclosure contract
 
-Status: `FROZEN / R1C_REJECTED / MANIFEST_PREFLIGHT_IMPLEMENTATION_AUTHORIZED`
+Status: `PASS / R1C_REJECTED / TRAJECTORY_IMPLEMENTATION_AUTHORIZED`
 
 Identity projection (exact bytes, no final LF):
 

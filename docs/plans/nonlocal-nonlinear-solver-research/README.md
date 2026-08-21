@@ -845,3 +845,9 @@ computed from the normative ID. Preserve the
 and use only the
 [R1C1 reclosure](03b4dr1c1-manifest-identity-reclosure-contract.md). Repeat the
 manifest-only gate twice; no trajectory is authorized by the failed run.
+R1C1 manifest preflight passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1c1-manifest-preflight-evidence-2026-08-21.md).
+Two builds and reports are byte-identical, all exact geometry roots pass, the
+R1B report is unchanged, and a forced manifest mismatch rejects before
+Simulation creation. This authorizes only implementation of the frozen
+24-step path using a fresh patched upstream clone. R1D and B4E remain blocked.
