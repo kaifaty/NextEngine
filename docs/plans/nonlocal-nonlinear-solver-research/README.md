@@ -1058,3 +1058,9 @@ old command bytes. All three timing pairs win; median wall falls from 10.61 s
 to 8.50 s for `1.2482x` paired speedup. This selects the internal invariant
 coefficient tape and authorizes only B4EP6 exact residual profiling/design.
 B4E2, CUDA, runtime and production remain blocked.
+The [B4EP6 research](../../development/nonlocal-nsr3b4ep6-coefficient-residual-attribution-research-2026-08-22.md)
+resets attribution after coefficient caching. Its
+[frozen contract](03b4ep6-coefficient-residual-attribution-contract.md)
+requires one exact-output gprof run and a `1.20x` top-level leader. Execute
+that profile only; if no leader clears the rule, instrument scoped internal
+phases before any further optimization.
