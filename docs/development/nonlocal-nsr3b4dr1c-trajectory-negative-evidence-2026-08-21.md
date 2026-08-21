@@ -78,4 +78,3 @@ cap, loosen tolerance, enable warm starts or run another scenario from this
 result. First reclose failure observability only, preserve the same physics,
 and execute one diagnostic Hydro process which exposes failing step, phase,
 iteration counts, convergence booleans, residual bits and time-step bits.
-

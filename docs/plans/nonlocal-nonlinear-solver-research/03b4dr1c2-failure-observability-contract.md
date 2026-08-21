@@ -63,4 +63,3 @@ required fields closes R1C2 and authorizes a new research/design decision
 based on the observed values. A pass is an unexpected diagnostic discrepancy
 and must be investigated without granting R1C credit. Dam, Orifice and R1D
 remain blocked in either case.
-

@@ -57,3 +57,14 @@ payload. It is valid only when linked against the frozen cold-start/diagnostic
 patch. Missing, relative, nonempty, non-directory or symlink output directories
 reject before Simulation creation. Full R1D schedules are not implemented by
 this mode.
+
+After the first R1C Hydro pressure failure, R1C2 adds only:
+
+```text
+nonlocal_reference_adapter --r1c-diagnose-trajectory \
+  CW-HYDRO-001 <absolute-empty-output-directory>
+```
+
+It executes the same trajectory path but emits exact failure step/phase,
+iteration, residual-bit, convergence and time-step-bit fields under a distinct
+diagnostic-only identity. It does not tune the solver or authorize R1C/R1D.

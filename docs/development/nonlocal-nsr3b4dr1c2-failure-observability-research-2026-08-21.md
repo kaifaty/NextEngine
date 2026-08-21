@@ -52,4 +52,3 @@ support or time step.
   reproducible than a canonical report from the already frozen getters.
 - Run Dam/Orifice: the parent cost-aware gate forbids advancing past the
   first Hydro failure.
-

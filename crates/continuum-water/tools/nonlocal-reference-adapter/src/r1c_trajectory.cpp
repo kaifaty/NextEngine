@@ -20,7 +20,9 @@
 #include <cstring>
 #include <filesystem>
 #include <fcntl.h>
+#include <iomanip>
 #include <limits>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -37,6 +39,10 @@ constexpr std::string_view SCHEMA =
     "nextengine.nonlocal.nsr3b4dr1c-trajectory.v1";
 constexpr std::string_view CONTRACT_IDENTITY =
     "865570e18864ec55cdbbbbad8b9cfa3f200a085087ecf272366c342144488927";
+constexpr std::string_view DIAGNOSTIC_SCHEMA =
+    "nextengine.nonlocal.nsr3b4dr1c2-failure-observability.v1";
+constexpr std::string_view DIAGNOSTIC_CONTRACT_IDENTITY =
+    "cf4e7dced6d2a597ea3ee8267daaab587c4fadb97fe20daa58643ab2412012cc";
 constexpr std::uint64_t DT_BITS = UINT64_C(0x3f71111111111111);
 constexpr std::uint32_t SAMPLE_COUNT = 6'000;
 constexpr std::uint32_t FRAME_COUNT = 25;
@@ -91,6 +97,9 @@ struct FrameDiagnostics {
     double density_min = 0.0;
     double density_max = 0.0;
     double max_speed = 0.0;
+    bool pressure_converged = false;
+    bool divergence_converged = false;
+    std::uint64_t time_step_bits = 0;
     std::array<std::uint32_t, FEATURE_COUNT> feature_counts{};
 };
 
@@ -254,11 +263,8 @@ std::string write_payload(
     return filename;
 }
 
-FrameDiagnostics project_and_measure(
-    SPH::FluidModel &model,
+FrameDiagnostics capture_solver_diagnostics(
     SPH::TimeStepDFSPH &time_step,
-    const R1CScenarioData &scenario,
-    const std::vector<std::array<double, 3>> &previous_positions,
     std::uint32_t step) {
     FrameDiagnostics result;
     result.step = step;
@@ -266,12 +272,19 @@ FrameDiagnostics project_and_measure(
     result.divergence_iterations = time_step.getNumDivergenceIterations();
     result.pressure_error = time_step.getLastPressureError();
     result.divergence_error = time_step.getLastDivergenceError();
+    result.pressure_converged = time_step.lastPressureConverged();
+    result.divergence_converged = time_step.lastDivergenceConverged();
+    result.time_step_bits = to_bits(SPH::TimeManager::getCurrent()->getTimeStepSize());
+    return result;
+}
+
+void validate_solver_diagnostics(const FrameDiagnostics &result) {
     require_finite(result.pressure_error, "PRESSURE_ERROR");
     require_finite(result.divergence_error, "DIVERGENCE_ERROR");
-    if (!time_step.lastPressureConverged()) {
+    if (!result.pressure_converged) {
         throw std::runtime_error("PRESSURE_NOT_CONVERGED");
     }
-    if (!time_step.lastDivergenceConverged()) {
+    if (!result.divergence_converged) {
         throw std::runtime_error("DIVERGENCE_NOT_CONVERGED");
     }
     if (result.pressure_iterations < 2U || result.pressure_iterations > 100U) {
@@ -280,10 +293,16 @@ FrameDiagnostics project_and_measure(
     if (result.divergence_iterations < 1U || result.divergence_iterations > 100U) {
         throw std::runtime_error("DIVERGENCE_ITERATIONS_OUT_OF_RANGE");
     }
-    if (to_bits(SPH::TimeManager::getCurrent()->getTimeStepSize()) != DT_BITS) {
+    if (result.time_step_bits != DT_BITS) {
         throw std::runtime_error("TIME_STEP_BITS_CHANGED");
     }
+}
 
+void project_contact_and_measure(
+    SPH::FluidModel &model,
+    const R1CScenarioData &scenario,
+    const std::vector<std::array<double, 3>> &previous_positions,
+    FrameDiagnostics &result) {
     result.density_min = std::numeric_limits<double>::infinity();
     result.density_max = -std::numeric_limits<double>::infinity();
     for (std::uint32_t id = 0; id < SAMPLE_COUNT; ++id) {
@@ -328,32 +347,66 @@ FrameDiagnostics project_and_measure(
     if (result.density_min > result.density_max) {
         throw std::runtime_error("DENSITY_RANGE_INVERTED");
     }
-    return result;
+}
+
+std::string hex_u64(std::uint64_t value) {
+    std::ostringstream output;
+    output << "0x" << std::hex << std::setfill('0') << std::setw(16) << value;
+    return output.str();
 }
 
 std::string failure_report(
     std::string_view reason,
     bool simulation_created,
-    bool trajectory_started) {
+    bool trajectory_started,
+    bool diagnostic_mode,
+    std::string_view failure_phase,
+    const std::optional<FrameDiagnostics> &diagnostics) {
     std::ostringstream output;
-    output << "schema=" << SCHEMA << '\n'
-           << "contract_identity=" << CONTRACT_IDENTITY << '\n'
+    output << "schema=" << (diagnostic_mode ? DIAGNOSTIC_SCHEMA : SCHEMA) << '\n'
+           << "contract_identity="
+           << (diagnostic_mode ? DIAGNOSTIC_CONTRACT_IDENTITY : CONTRACT_IDENTITY) << '\n'
            << "status=FAIL\n"
            << "reason=" << reason << '\n'
            << "simulation_created=" << std::boolalpha << simulation_created << '\n'
            << "trajectory_started=" << trajectory_started << '\n';
+    if (diagnostic_mode && diagnostics.has_value()) {
+        output << "failure_phase=" << failure_phase << '\n'
+               << "failure_step=" << diagnostics->step << '\n'
+               << "pressure_iterations=" << diagnostics->pressure_iterations << '\n'
+               << "pressure_error_bits=" << hex_u64(to_bits(diagnostics->pressure_error))
+               << '\n'
+               << "pressure_converged=" << diagnostics->pressure_converged << '\n'
+               << "divergence_iterations=" << diagnostics->divergence_iterations << '\n'
+               << "divergence_error_bits="
+               << hex_u64(to_bits(diagnostics->divergence_error)) << '\n'
+               << "divergence_converged=" << diagnostics->divergence_converged << '\n'
+               << "time_step_bits=" << hex_u64(diagnostics->time_step_bits) << '\n';
+    }
     return output.str();
 }
 
-} // namespace
-
-AdapterRun run_r1c_trajectory(std::string_view scenario_id, std::string_view output_dir) {
+AdapterRun run_r1c_trajectory_impl(
+    std::string_view scenario_id,
+    std::string_view output_dir,
+    bool diagnostic_mode) {
     bool simulation_created = false;
     bool trajectory_started = false;
+    std::string_view failure_phase = "pre_simulation";
+    std::optional<FrameDiagnostics> failure_diagnostics;
     try {
         const AdapterRun manifest_preflight = run_r1c_manifest_preflight(false);
         if (!manifest_preflight.passed) {
-            return {false, failure_report("MANIFEST_PREFLIGHT_NOT_PASS", false, false)};
+            return {
+                false,
+                failure_report(
+                    "MANIFEST_PREFLIGHT_NOT_PASS",
+                    false,
+                    false,
+                    diagnostic_mode,
+                    failure_phase,
+                    failure_diagnostics),
+            };
         }
         const std::filesystem::path directory = validate_output_directory(output_dir);
         const R1CScenarioData scenario = build_r1c_scenario(scenario_id);
@@ -386,6 +439,7 @@ AdapterRun run_r1c_trajectory(std::string_view scenario_id, std::string_view out
         SimulationGuard simulation_guard;
         SPH::Simulation *simulation = SPH::Simulation::getCurrent();
         simulation_created = true;
+        failure_phase = "configuration";
         simulation->init(static_cast<Real>(0.025), false);
         simulation->setBoundaryHandlingMethod(SPH::BoundaryHandlingMethods::Akinci2012);
         simulation->setValue<int>(
@@ -467,13 +521,18 @@ AdapterRun run_r1c_trajectory(std::string_view scenario_id, std::string_view out
             for (std::uint32_t id = 0; id < SAMPLE_COUNT; ++id) {
                 previous_positions[id] = position_by_id(*fluid_model, id);
             }
+            failure_phase = "upstream_step";
             time_step->step();
-            FrameDiagnostics diagnostics = project_and_measure(
+            failure_diagnostics = capture_solver_diagnostics(*time_step, step);
+            failure_phase = "solver_validation";
+            validate_solver_diagnostics(*failure_diagnostics);
+            failure_phase = "contact_projection";
+            project_contact_and_measure(
                 *fluid_model,
-                *time_step,
                 scenario,
                 previous_positions,
-                step);
+                *failure_diagnostics);
+            const FrameDiagnostics &diagnostics = *failure_diagnostics;
             maximum_pressure_iterations =
                 std::max(maximum_pressure_iterations, diagnostics.pressure_iterations);
             maximum_divergence_iterations =
@@ -484,6 +543,7 @@ AdapterRun run_r1c_trajectory(std::string_view scenario_id, std::string_view out
             }
             append_frame(payload, *fluid_model, diagnostics);
         }
+        failure_phase = "serialization";
         const std::size_t expected_size =
             8U + 4U + manifest.size() + 4U + 4U + (312'156U * FRAME_COUNT);
         if (payload.size() != expected_size) {
@@ -496,12 +556,15 @@ AdapterRun run_r1c_trajectory(std::string_view scenario_id, std::string_view out
             std::string_view(
                 reinterpret_cast<const char *>(payload.data()),
                 payload.size()));
+        failure_phase = "publication";
         const std::string filename =
             write_payload(directory, scenario.id, payload);
 
         std::ostringstream output;
-        output << "schema=" << SCHEMA << '\n'
-               << "contract_identity=" << CONTRACT_IDENTITY << '\n'
+        output << "schema=" << (diagnostic_mode ? DIAGNOSTIC_SCHEMA : SCHEMA) << '\n'
+               << "contract_identity="
+               << (diagnostic_mode ? DIAGNOSTIC_CONTRACT_IDENTITY : CONTRACT_IDENTITY)
+               << '\n'
                << "scenario=" << scenario.id << '\n'
                << "status=PASS\n"
                << "simulation_created=true\n"
@@ -514,16 +577,38 @@ AdapterRun run_r1c_trajectory(std::string_view scenario_id, std::string_view out
                << "max_pressure_iterations=" << maximum_pressure_iterations << '\n'
                << "max_divergence_iterations=" << maximum_divergence_iterations << '\n'
                << "total_contact_hits=" << total_contact_hits << '\n'
-               << "final_receiver_count=" << final_receiver_count << '\n'
-               << "r1d_authorized=false\n"
+               << "final_receiver_count=" << final_receiver_count << '\n';
+        if (diagnostic_mode) {
+            output << "diagnostic_only=true\n"
+                   << "r1c_authorized=false\n";
+        }
+        output << "r1d_authorized=false\n"
                << "b4e_authorized=false\n";
         return {true, output.str()};
     } catch (const std::exception &error) {
         return {
             false,
-            failure_report(error.what(), simulation_created, trajectory_started),
+            failure_report(
+                error.what(),
+                simulation_created,
+                trajectory_started,
+                diagnostic_mode,
+                failure_phase,
+                failure_diagnostics),
         };
     }
+}
+
+} // namespace
+
+AdapterRun run_r1c_trajectory(std::string_view scenario_id, std::string_view output_dir) {
+    return run_r1c_trajectory_impl(scenario_id, output_dir, false);
+}
+
+AdapterRun run_r1c_trajectory_diagnostic(
+    std::string_view scenario_id,
+    std::string_view output_dir) {
+    return run_r1c_trajectory_impl(scenario_id, output_dir, true);
 }
 
 } // namespace nextengine::nonlocal_reference
