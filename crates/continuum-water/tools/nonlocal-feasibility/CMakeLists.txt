@@ -53,7 +53,11 @@ add_executable(
     src/sha256.cpp
     src/variational_reference.cpp
 )
+find_package(OpenMP REQUIRED COMPONENTS CXX)
 target_compile_features(nonlocal-formula-reclosure PRIVATE cxx_std_17)
+target_link_libraries(nonlocal-formula-reclosure PRIVATE OpenMP::OpenMP_CXX)
+target_compile_definitions(
+    nonlocal-formula-reclosure PRIVATE NEXTENGINE_NONLOCAL_OPENMP=1)
 target_compile_options(
     nonlocal-formula-reclosure
     PRIVATE

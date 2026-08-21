@@ -104,7 +104,12 @@ int main(int argc, char** argv) {
                          "--nominal-hydro-evaluation-tape-dataflow-audit|"
                          "--nominal-hydro-fused-evaluation-tape-ablation|"
                          "--nominal-hydro-fused-phase-timing|"
-                         "--nominal-hydro-owner-computes-dataflow-audit\n";
+                         "--nominal-hydro-owner-computes-dataflow-audit|"
+                         "--nominal-hydro-owner-parallel-1|"
+                         "--nominal-hydro-owner-parallel-2|"
+                         "--nominal-hydro-owner-parallel-4|"
+                         "--nominal-hydro-owner-parallel-8|"
+                         "--nominal-hydro-owner-parallel-16\n";
             return 2;
         }
         const std::string command = argv[1];
@@ -863,6 +868,17 @@ int main(int argc, char** argv) {
             std::cout << report.json << '\n';
             return report.passed ? 0 : 1;
         }
+        for (const int worker_count : {1, 2, 4, 8, 16}) {
+            if (command == "--nominal-hydro-owner-parallel-"
+                    + std::to_string(worker_count)) {
+                const nextengine::nonlocal::fcr::SplitBoundaryReport report =
+                    nextengine::nonlocal::fcr::
+                        run_nominal_hydro_owner_parallel_controls(
+                            worker_count);
+                std::cout << report.json << '\n';
+                return report.passed ? 0 : 1;
+            }
+        }
         std::cerr << "usage: nonlocal-formula-reclosure "
                      "--self-test|--pair-pressure-self-test|"
                      "--reference-solver-self-test|--conditioning-self-test|"
@@ -970,7 +986,12 @@ int main(int argc, char** argv) {
                      "--nominal-hydro-evaluation-tape-dataflow-audit|"
                      "--nominal-hydro-fused-evaluation-tape-ablation|"
                      "--nominal-hydro-fused-phase-timing|"
-                     "--nominal-hydro-owner-computes-dataflow-audit\n";
+                     "--nominal-hydro-owner-computes-dataflow-audit|"
+                     "--nominal-hydro-owner-parallel-1|"
+                     "--nominal-hydro-owner-parallel-2|"
+                     "--nominal-hydro-owner-parallel-4|"
+                     "--nominal-hydro-owner-parallel-8|"
+                     "--nominal-hydro-owner-parallel-16\n";
         return 2;
     } catch (const std::exception& error) {
         std::cerr << "nonlocal-formula-reclosure: " << error.what() << '\n';

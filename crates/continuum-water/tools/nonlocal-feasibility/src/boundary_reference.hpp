@@ -91,5 +91,7 @@ SplitBoundaryReport run_nominal_hydro_fused_evaluation_tape_ablation_controls();
 SplitBoundaryReport run_nominal_hydro_fused_phase_timing_controls();
 SplitBoundaryReport
 run_nominal_hydro_owner_computes_dataflow_audit_controls();
+SplitBoundaryReport
+run_nominal_hydro_owner_parallel_controls(int worker_count);
 
 } // namespace nextengine::nonlocal::fcr
