@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP8_PASS / B4EP9_PHASE_TIMING_RESEARCH` |
+| Status | `ACTIVE / NSR3B4EP9_FROZEN / PHASE_TIMING_IMPLEMENTATION` |
 | Updated | `2026-08-22` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -223,8 +223,13 @@
 - **Current conclusion:** workspace/HVP are 3.61/3.59 s (`1.0056x`), and
   inlined fused pair/center work is not separable by gprof. No optimization is
   selected.
-- **Next action:** design opt-in B4EP9 internal phase timers, isolated from
-  all correspondence and throughput runs.
+- **Current decision:** B4EP9 adds opt-in transaction-only steady-clock
+  timers with exact call counters and excludes all durations from the semantic
+  result. Three fresh processes route only to CPU-parallel architecture
+  research or serial-residual research using the frozen `0.80/0.75/0.05`
+  median/minimum/range gate.
+- **Next action:** implement and execute the frozen B4EP9 phase-timing
+  contract. Do not add threads or another optimization.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -287,6 +292,7 @@
 | NSR3B4EP7I PASS | exact fused transaction; median paired `1.1111x` | B4EP8 residual profiling/design only |
 | NSR3B4EP8 contract | one exact-output fused residual profile | execute profile only; no optimization/B4E2 change |
 | NSR3B4EP8 PASS | workspace/HVP balanced `3.61/3.59s`; fused subphases inlined | B4EP9 scoped internal phase timing only |
+| NSR3B4EP9 contract | opt-in non-overlapping transaction phase timers | implement/measure only; no parallel implementation or throughput claim |
 
 Candidate solver identity remains:
 
@@ -351,6 +357,7 @@ production authority is created by this lineage.
 | [B4EP7I](../nonlocal-nsr3b4ep7i-fused-evaluation-tape-evidence-2026-08-22.md) | bit-exact fused path and median `1.1111x` paired speedup | retain internally; reprofile exact fused residual before another change |
 | [B4EP8 research](../nonlocal-nsr3b4ep8-fused-residual-attribution-research-2026-08-22.md) | fusion invalidates B4EP6 function attribution | run one exact-output profile and route by frozen leader rule |
 | [B4EP8](../nonlocal-nsr3b4ep8-fused-residual-attribution-evidence-2026-08-22.md) | no top-level leader and gprof cannot split fused subphases | design isolated phase timers; no optimization selected |
+| [B4EP9 research](../nonlocal-nsr3b4ep9-fused-phase-timing-research-2026-08-22.md) | Amdahl-ready phase boundary and stability gate frozen | implement opt-in timers and run three fresh processes only |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -739,10 +746,9 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Research/freeze B4EP9 opt-in internal timers for topology, fused pair,
-   fused center, HVP gather/scatter and residual control.
-2. Keep timed diagnostic runs separate from correspondence and throughput;
-   do not implement another optimization, B4E2 or GPU work yet.
+1. Implement the frozen B4EP9 opt-in timers and dedicated diagnostic command.
+2. Run three fresh diagnostic processes plus exact old-command regressions;
+   route by the frozen fraction gate without implementing parallelism.
 
 ## Reconsideration triggers
 

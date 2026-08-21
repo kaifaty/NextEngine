@@ -1101,3 +1101,10 @@ B4EP8 passes; see the
 Fused workspace and HVP are 3.61 s and 3.59 s (`1.0056x`), and gprof cannot
 separate the inlined pair/center loops. This selects B4EP9 opt-in internal
 phase timing and no optimization.
+The [B4EP9 research](../../development/nonlocal-nsr3b4ep9-fused-phase-timing-research-2026-08-22.md)
+defines a conservative Amdahl-ready partition. Its
+[frozen contract](03b4ep9-fused-phase-timing-contract.md) adds opt-in
+transaction-only timers and requires three semantically exact fresh processes.
+Only a stable parallelizable fraction meeting the frozen `0.80/0.75/0.05`
+median/minimum/range gate may authorize B4EP10 CPU-parallel architecture
+research; no parallel implementation is authorized by B4EP9.
