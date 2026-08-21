@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | `ACTIVE / V10_IMPLEMENTED / R5_EVIDENCE_PENDING` |
+| Status | `ACTIVE / R5_W8_RESEARCH_PAUSE / AUTHORITY_DECISION_NEEDED` |
 | Updated | 2026-08-21 |
 | Task key | `r7c-linux-performance-authority` |
 | Scope | Accept one exact Linux release-performance profile and numeric policy, then collect compatible ten-run baselines and fixed three-run hard gates for the representative R2, R3, R4 and R5 workloads |
@@ -78,6 +78,9 @@
 | First uninstrumented R5 set on `9dc6919` | Ten report runs pass every absolute row, but baseline publication rejects them: runs lacked `NEXTENGINE_PERFORMANCE_PROFILER=on` and the explicit `--target ref-linux-b550i-3950x-rtx3080-v1`, so each carries `PERF_PROFILER_DISABLED` and `observed-host-v1` target identity | Preserve under `target/perf/r5-v10-cal-uninstrumented`; hard evidence requires the profiler env and exact target id; not a calibration set |
 | R5 v10 baseline/gate set 1 on `9dc6919` | Ten-run baseline published (`f18fa243…cb85`); isolated fresh-process gate (`25171f98…1a00`) returns `WARNING`: only `worker-8.physics-motor-frame` is relative-warning at `+589bp` (CI `[-1952, +884]`); all 16 absolute rows PASS with headroom, exact root `6b6fee74…` unchanged, peak RSS `199,487,488` bytes; the three normalized ratios are absolute-only `PASS` with `relative: null`, so the v9 derived-ratio defect is gone | Preserve as complete immutable evidence; do not rerun this baseline/gate pair |
 | Set-1 w8 warning analysis | Gate member run-p95s `[1381, 1652, 1674]` lie fully inside the baseline run-p95 range `[1391–1787]`; nearest-rank p50 of ten takes the lower-middle order statistic `1560` while the three-member median is `1652`, so an order-statistic gap plus real host noise yields `+589bp`; during collection the desktop ran `localsearch-3` (~13%) and `steamwebhelper` (~12%) alongside the agent process | The warning is measurement-noise sensitivity of the accepted conservative policy, not a slower workload; quiesce optional desktop load and recollect on a new commit instead of retrying unchanged |
+| Stale-build rejection on `aac4fc6` | First set-2 attempt returned typed `NOT_RUN`: binary provenance `9dc6919…` versus runtime commit `aac4fc6…` (`PERF_RUNTIME_COMMIT_MISMATCH`) | Preserve under `target/perf/r5-v10-cal2-stale-build`; rebuild xtask on the exact evidence commit before collection |
+| R5 v10 baseline/gate set 2 on `aac4fc6` | Ten-run baseline published after rebuild; isolated fresh-process gate returns `WARNING` again, now on three w8-config rows (`worker-8.physics-motor-frame` `+364bp`, `physics-substep-cost`/`motor-frame-cost` `+262bp`), every CI crossing zero; all absolute rows PASS with headroom, ratios stay absolute-only `PASS`, peak RSS improved | Second coherent occurrence under improved conditions triggers the pre-declared two-strike stop: no further collection attempts |
+| Set-2 w8 research mining | Host quiescence collapsed w4 spread `35% -> 7%` and w1 spread `29% -> 6%`, but w8 spread stayed `28% -> 34%`; within slow runs entire distribution segments shift (decile medians up to `2–3x` typical for `250`-frame plateaus, clustered early and in bursts); no monotone thermal drift; recorded pre/post clock/load percentages do not discriminate; no thread-affinity API exists anywhere in engine, motor workers are unpinned `std::thread`s, PhysX bridge uses `PxDefaultCpuDispatcherCreate(1)` | Residual w8 variance is structural per-process state (consistent with core/CCD placement lottery on the dual-CCD SMT 3950X), not desktop load or thermal ramp; discriminating experiment would be an affinity A/B probe plus an Accepted authority decision before any new evidence set |
 
 ## Decisions that constrain the work
 
@@ -136,12 +139,12 @@ Read these sources in precedence order before acting:
 
 ## Next action
 
-Commit this state, quiesce optional desktop CPU consumers (`localsearch-3`
-indexer; record any that cannot be stopped), then collect one fresh R5
-ten-run baseline plus isolated fixed three-run gate on the new commit. If the
-w8 relative warning recurs under quiesced load, stop and run bounded research.
-After R5 closes, re-collect R3/R4 evidence on the same final commit under the
-same host discipline. R2 still waits for an OS-visible physical display.
+Run the non-evidence affinity A/B probe (identical R5 report command under
+`taskset` pinned to one CCD physical cores versus an unpinned control) to
+confirm or refute H-A, then take the product-owner authority decision
+documented in the research checkpoint. Only after that decision collect the
+next R5 set (and then R3/R4 on the same final commit). R2 still waits for an
+OS-visible physical display.
 
 ## Do not retry
 
@@ -165,10 +168,42 @@ same host discipline. R2 still waits for an OS-visible physical display.
 - Reusing the v9 R3/R4 evidence on `2bdd20c` as final release evidence; the
   methodology bump makes it incompatible with v10 gates even though its
   absolute rows passed.
-- Rerunning the set-1 `9dc6919` baseline/gate pair unchanged; its `WARNING`
-  is a complete fixed batch. A new set requires the documented host-quiescence
-  control on a new commit, and a second w8 warning under quiesced load
-  escalates to bounded research instead of another collection attempt.
+- Rerunning either recorded `9dc6919` or `aac4fc6` baseline/gate pair; both
+  `WARNING` batches are complete immutable evidence.
+- Further R5 collection attempts before the authority decision in the research
+  checkpoint below: the two-strike criterion fired, and a third similar
+  attempt would be retry-to-green.
+
+## Research checkpoint (2026-08-21)
+
+**Problem restated:** w8-config direct-cost rows trip relative warnings in
+every v10 R5 gate although absolute budgets pass with `>=2.2x` headroom and
+all confidence intervals cross zero. Two coherent remediations (v10 dimensional
+classes; documented host quiescence on a fresh commit) moved w4/w1 variance to
+`<=7%` but left w8 at `34%`.
+
+**Hypotheses after mining 36 stored runs:**
+
+| Hypothesis | Evidence for | Evidence against | Status |
+| --- | --- | --- | --- |
+| H-A core/CCD placement lottery of unpinned workers | Quiescence fixed w4/w1 but not w8; plateaus persist for whole process lifetimes; dual-CCD SMT topology; no affinity API in engine | Not directly observed; needs affinity A/B probe | Leading |
+| H-B desktop interference bursts | Set-1/uninstr sets ran under load average `3–5`; burst plateaus exist | Same background left w4/w1 stable in set-2; bursts persist when quiet | Refuted as primary cause |
+| H-C thermal/frequency ramp | None | No directional drift across sequences; pre/post clocks flat `85–89%` | Refuted |
+| H-D warm-up transients (`240` substeps = only `60` motor frames) | Decile-0 medians elevated in several runs | Mid-run plateaus need a second cause | Partial contributor |
+
+**Decision:** pause R5 evidence collection. The smallest discriminating step is
+a non-evidence affinity A/B probe (same report command under `taskset`
+single-CCD versus unpinned control), followed by a product-owner authority
+choice: (1) accept documented CPU pinning as an environmental control for
+release evidence, or (2) amend the accepted warning semantics for
+noise-dominated direct rows (CI-based instead of point-estimate). Both are
+Accepted-ADR decisions and cannot be taken inside this task. R3/R4 stay paused
+because final release evidence must share one exact commit with R5.
+
+**Missing evidence:** the bounded web-search backend returned `403` on this
+host, so no external prior art (Linux scheduler/CCD placement, PhysX worker
+variance) was consulted; H-A rests on local evidence and needs either the
+affinity probe or a later search when available.
 
 ## Handoff
 
