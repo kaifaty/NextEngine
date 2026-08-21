@@ -1,6 +1,6 @@
 # NSR3-B4C3A2 -- KKT-scale balanced stage ledger
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / COMPLETE_CONTROLLER_BLOCKED`
+Status: `PASS / CANONICAL_KKT_SCALE_STAGE_LEDGER_CANDIDATE / REPLAY_DESIGN_ONLY`
 
 Parent B4C3L selects `CANONICAL_KKT_SCALE_LEDGER_CANDIDATE`; its
 JSON-without-final-LF SHA-256 is
@@ -84,3 +84,12 @@ PASS selects `CANONICAL_KKT_SCALE_STAGE_LEDGER_CANDIDATE` and authorizes only
 design of a new complete adaptive recovery replay. FAIL preserves B4C3L and
 B4C3A1. No complete controller, fixed reference, nominal, CUDA, runtime, schema
 or production authority is granted.
+
+## Executed outcome
+
+B4C3A2 passes twice byte-identically; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3a2-kkt-stage-ledger-evidence-2026-08-21.md).
+Both canonical trajectory and legacy ledger roots remain B4C3A1-exact, while
+new deterministic policy roots bind the selected residual semantics. Atomic
+commit, rollback, order/repeat, physical correspondence and negative controls
+all pass. Only a new complete adaptive recovery design is authorized.

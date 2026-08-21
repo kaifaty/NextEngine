@@ -8839,6 +8839,38 @@ struct LedgerNormalizationRealControls {
     bool all_candidate_pass = false;
 };
 
+struct KktScaleLedgerCase {
+    std::string name;
+    bool passed = false;
+    std::string failure;
+    CanonicalStageRun coarse;
+    CanonicalStageRun fine;
+    SmokeGate gate;
+    bool fine_only_commit = false;
+    bool legacy_root_exact = false;
+    bool trajectory_root_exact = false;
+    bool candidate_ledger_exact = false;
+    bool repeat_exact = false;
+    bool order_exact = false;
+    bool physical_reference_exact = false;
+    double maximum_strict_residual = 0.0;
+    double maximum_kkt_residual = 0.0;
+    double maximum_correspondence_ratio = 0.0;
+    std::string legacy_ledger_sha256;
+    std::string policy_ledger_sha256;
+    std::string trajectory_sha256;
+};
+
+struct KktScaleLedgerNegatives {
+    bool passed = false;
+    bool forced_rollback_exact = false;
+    bool invalid_scale_rejected = false;
+    bool residual_overflow_rejected = false;
+    bool corrupt_closure_rejected = false;
+    bool nonfinite_strict_rejected = false;
+    bool policy_identity_bound = false;
+};
+
 bool joint_cell_less(
     std::int64_t ax, std::int64_t ay, std::int64_t az,
     std::int64_t bx, std::int64_t by, std::int64_t bz) {
@@ -11841,7 +11873,8 @@ CanonicalStageRun run_canonical_stage_interval(
     const std::vector<Vec3>* start_velocity = nullptr,
     std::uint32_t step_offset = 0U,
     double interval_start = 0.0,
-    bool capture_failure_work = false) {
+    bool capture_failure_work = false,
+    bool kkt_scale_ledger = false) {
     CanonicalStageRun result;
     if (publication_ledger && !aggregate_balanced) {
         result.failure = "PUBLICATION_LEDGER_REQUIRES_BALANCED_POLICY";
@@ -12236,7 +12269,11 @@ CanonicalStageRun run_canonical_stage_interval(
                     entry.passed = entry.non_residual_gates_exact
                         && entry.strict_residual_passed;
                     result.publication_ledger_exact =
-                        result.publication_ledger_exact && entry.passed;
+                        result.publication_ledger_exact
+                        && (kkt_scale_ledger
+                            ? (entry.non_residual_gates_exact
+                                && entry.kkt_scale_residual_passed)
+                            : entry.passed);
                     result.cumulative_publication_impulse +=
                         entry.direct_impulse;
                     result.maximum_raw_published_ledger_residual = std::max(
@@ -13158,6 +13195,47 @@ bool exact_publication_ledger(
     return true;
 }
 
+bool exact_kkt_policy_ledger_entry(
+    const CanonicalPublicationLedgerEntry& lhs,
+    const CanonicalPublicationLedgerEntry& rhs) {
+    return exact_publication_ledger_entry(lhs, rhs)
+        && lhs.kkt_ledger_residual == rhs.kkt_ledger_residual
+        && lhs.kkt_ledger_scale == rhs.kkt_ledger_scale
+        && lhs.strict_ledger_scale == rhs.strict_ledger_scale
+        && lhs.compensated_kkt_residual
+            == rhs.compensated_kkt_residual
+        && lhs.kkt_residual_correspondence
+            == rhs.kkt_residual_correspondence
+        && lhs.kkt_residual_correspondence_bound
+            == rhs.kkt_residual_correspondence_bound
+        && lhs.non_residual_gates_exact
+            == rhs.non_residual_gates_exact
+        && lhs.strict_residual_passed == rhs.strict_residual_passed
+        && lhs.kkt_scale_residual_passed
+            == rhs.kkt_scale_residual_passed;
+}
+
+bool exact_kkt_policy_ledger(
+    const std::vector<CanonicalPublicationLedgerEntry>& lhs,
+    const std::vector<CanonicalPublicationLedgerEntry>& rhs) {
+    if (lhs.size() != rhs.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        if (!exact_kkt_policy_ledger_entry(lhs[i], rhs[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::string publication_ledger_hash(
+    const std::vector<CanonicalPublicationLedgerEntry>& entries);
+
+std::string kkt_policy_ledger_hash(
+    const std::vector<CanonicalPublicationLedgerEntry>& entries,
+    const std::string& policy_sha256);
+
 BalancedLedgerCase run_balanced_ledger_case(
     std::string name,
     const SmokeFixture& fixture,
@@ -13313,6 +13391,196 @@ BalancedLedgerNegative run_balanced_ledger_negative() {
         && result.committed_frames == 0U
         && result.committed_ledger_entries == 0U
         && result.pretransaction_exact;
+    return result;
+}
+
+bool canonical_kkt_scale_ledger_exact(
+    const CanonicalStageRun& stage);
+
+CanonicalStageRun run_kkt_scale_stage_interval(
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    int substeps,
+    int order_mode = 0,
+    int force_failure_after = -1) {
+    return run_canonical_stage_interval(
+        fixture, scenario_sha256, substeps,
+        order_mode, force_failure_after, true,
+        B4C3Q_PROFILE_SHA256, true,
+        nullptr, nullptr, 0U, 0.0, false, true);
+}
+
+bool kkt_policy_entry_valid(
+    const CanonicalPublicationLedgerEntry& entry) {
+    return entry.non_residual_gates_exact
+        && std::isfinite(entry.compensated_ledger_residual)
+        && std::isfinite(entry.compensated_kkt_residual)
+        && std::isfinite(entry.kkt_ledger_scale)
+        && std::isfinite(entry.strict_ledger_scale)
+        && entry.kkt_ledger_scale > 0.0
+        && entry.strict_ledger_scale > 0.0
+        && entry.strict_ledger_scale <= entry.kkt_ledger_scale
+        && entry.kkt_ledger_scale <= 2.0 * entry.strict_ledger_scale
+        && entry.compensated_kkt_residual <= 1.0e-9
+        && entry.kkt_residual_correspondence
+            <= entry.kkt_residual_correspondence_bound;
+}
+
+KktScaleLedgerCase run_kkt_scale_ledger_case(
+    std::string name,
+    const SmokeFixture& fixture,
+    const std::string& scenario_sha256,
+    int coarse_substeps,
+    const std::string& expected_legacy_ledger_sha256,
+    const std::string& expected_trajectory_sha256) {
+    KktScaleLedgerCase result;
+    result.name = std::move(name);
+    result.coarse = run_kkt_scale_stage_interval(
+        fixture, scenario_sha256, coarse_substeps);
+    result.fine = run_kkt_scale_stage_interval(
+        fixture, scenario_sha256, 2 * coarse_substeps);
+    if (!result.coarse.passed || !result.fine.passed) {
+        result.failure = "KKT_SCALE_STAGE";
+        return result;
+    }
+    result.gate = smoke_gate(result.coarse.run, result.fine.run);
+    const std::vector<std::string> coarse_roots =
+        canonical_frame_roots(result.coarse.staged_frames);
+    const std::vector<std::string> fine_roots =
+        canonical_frame_roots(result.fine.staged_frames);
+    result.fine_only_commit = fine_roots.size()
+            == static_cast<std::size_t>(2 * coarse_substeps)
+        && result.fine.publication_ledger.size() == fine_roots.size()
+        && std::none_of(
+            fine_roots.begin(), fine_roots.end(),
+            [&coarse_roots](const std::string& root) {
+                return std::find(
+                    coarse_roots.begin(), coarse_roots.end(), root)
+                    != coarse_roots.end();
+            });
+    result.legacy_ledger_sha256 = publication_ledger_hash(
+        result.fine.publication_ledger);
+    result.policy_ledger_sha256 = kkt_policy_ledger_hash(
+        result.fine.publication_ledger, B4C3L_POLICY_SHA256);
+    result.trajectory_sha256 = canonical::trajectory_root(
+        B4C3Q_PROFILE_SHA256, scenario_sha256, fine_roots);
+    result.legacy_root_exact = result.legacy_ledger_sha256
+        == expected_legacy_ledger_sha256;
+    result.trajectory_root_exact = result.trajectory_sha256
+        == expected_trajectory_sha256;
+    result.candidate_ledger_exact =
+        canonical_kkt_scale_ledger_exact(result.coarse)
+        && canonical_kkt_scale_ledger_exact(result.fine)
+        && std::all_of(
+            result.fine.publication_ledger.begin(),
+            result.fine.publication_ledger.end(),
+            kkt_policy_entry_valid);
+    const CanonicalStageRun legacy = run_canonical_stage_interval(
+        fixture, scenario_sha256, 2 * coarse_substeps,
+        0, -1, true, B4C3Q_PROFILE_SHA256, true);
+    result.physical_reference_exact = legacy.passed
+        && exact_canonical_frames(
+            legacy.staged_frames, result.fine.staged_frames)
+        && exact_publication_ledger(
+            legacy.publication_ledger,
+            result.fine.publication_ledger)
+        && exact_vec3_values(legacy.run.position, result.fine.run.position)
+        && exact_vec3_values(legacy.run.velocity, result.fine.run.velocity)
+        && legacy.run.terminal_contacts
+            == result.fine.run.terminal_contacts
+        && legacy.cumulative_absolute_pressure_delta
+            == result.fine.cumulative_absolute_pressure_delta
+        && legacy.cumulative_absolute_mechanical_delta
+            == result.fine.cumulative_absolute_mechanical_delta;
+    const CanonicalStageRun repeated = run_kkt_scale_stage_interval(
+        fixture, scenario_sha256, 2 * coarse_substeps);
+    result.repeat_exact = repeated.passed
+        && exact_canonical_frames(
+            repeated.staged_frames, result.fine.staged_frames)
+        && exact_kkt_policy_ledger(
+            repeated.publication_ledger,
+            result.fine.publication_ledger);
+    result.order_exact = true;
+    for (int mode = 1; mode <= 2; ++mode) {
+        const CanonicalStageRun permuted = run_kkt_scale_stage_interval(
+            fixture, scenario_sha256, 2 * coarse_substeps, mode);
+        result.order_exact = result.order_exact && permuted.passed
+            && exact_canonical_frames(
+                permuted.staged_frames, result.fine.staged_frames)
+            && exact_kkt_policy_ledger(
+                permuted.publication_ledger,
+                result.fine.publication_ledger);
+    }
+    for (const CanonicalPublicationLedgerEntry& entry
+         : result.fine.publication_ledger) {
+        result.maximum_strict_residual = std::max(
+            result.maximum_strict_residual,
+            entry.compensated_ledger_residual);
+        result.maximum_kkt_residual = std::max(
+            result.maximum_kkt_residual,
+            entry.compensated_kkt_residual);
+        result.maximum_correspondence_ratio = std::max(
+            result.maximum_correspondence_ratio,
+            entry.kkt_residual_correspondence
+                / std::max(entry.kkt_residual_correspondence_bound,
+                    1.0e-300));
+    }
+    result.passed = result.gate.passed
+        && result.fine_only_commit
+        && result.legacy_root_exact && result.trajectory_root_exact
+        && result.candidate_ledger_exact
+        && result.repeat_exact && result.order_exact
+        && result.physical_reference_exact
+        && result.maximum_kkt_residual <= 1.0e-9
+        && !result.policy_ledger_sha256.empty()
+        && result.policy_ledger_sha256 != result.legacy_ledger_sha256;
+    if (!result.passed) {
+        result.failure = "KKT_SCALE_LEDGER_CASE_GATE";
+    }
+    return result;
+}
+
+KktScaleLedgerNegatives run_kkt_scale_ledger_negatives() {
+    KktScaleLedgerNegatives result;
+    const SmokeFixture fixture = make_b4b_released_block_fixture();
+    const CanonicalStageRun forced = run_kkt_scale_stage_interval(
+        fixture, B4C3Q_P2_SCENARIO_SHA256, 4, 0, 2);
+    result.forced_rollback_exact = !forced.passed
+        && forced.failure == "FORCED_SOLVER_FAILURE"
+        && forced.staged_frames.size() == 2U
+        && forced.publication_ledger.size() == 2U;
+    const CanonicalStageRun valid = run_kkt_scale_stage_interval(
+        fixture, B4C3Q_P2_SCENARIO_SHA256, 2);
+    if (!valid.passed || valid.publication_ledger.empty()) {
+        return result;
+    }
+    CanonicalPublicationLedgerEntry entry =
+        valid.publication_ledger.back();
+    entry.kkt_ledger_scale = 0.0;
+    result.invalid_scale_rejected = !kkt_policy_entry_valid(entry);
+    entry = valid.publication_ledger.back();
+    entry.compensated_kkt_residual = 1.0e-9 + 1.0e-15;
+    result.residual_overflow_rejected = !kkt_policy_entry_valid(entry);
+    entry = valid.publication_ledger.back();
+    entry.kkt_residual_correspondence =
+        entry.kkt_residual_correspondence_bound + 1.0e-15;
+    result.corrupt_closure_rejected = !kkt_policy_entry_valid(entry);
+    entry = valid.publication_ledger.back();
+    entry.compensated_ledger_residual =
+        std::numeric_limits<double>::quiet_NaN();
+    result.nonfinite_strict_rejected = !kkt_policy_entry_valid(entry);
+    const std::string selected = kkt_policy_ledger_hash(
+        valid.publication_ledger, B4C3L_POLICY_SHA256);
+    result.policy_identity_bound = selected
+            != kkt_policy_ledger_hash(
+                valid.publication_ledger, std::string(64U, '0'))
+        && selected != publication_ledger_hash(valid.publication_ledger);
+    result.passed = result.forced_rollback_exact
+        && result.invalid_scale_rejected
+        && result.residual_overflow_rejected
+        && result.corrupt_closure_rejected
+        && result.nonfinite_strict_rejected
+        && result.policy_identity_bound;
     return result;
 }
 
@@ -14939,6 +15207,28 @@ std::string publication_ledger_hash(
     return sha256_hex(material.str());
 }
 
+std::string kkt_policy_ledger_hash(
+    const std::vector<CanonicalPublicationLedgerEntry>& entries,
+    const std::string& policy_sha256) {
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << B4C3Q_PROFILE_SHA256 << '|' << policy_sha256 << '|'
+             << publication_ledger_hash(entries) << '|';
+    for (const CanonicalPublicationLedgerEntry& value : entries) {
+        material << value.kkt_ledger_residual << ':'
+                 << value.kkt_ledger_scale << ':'
+                 << value.strict_ledger_scale << ':'
+                 << value.compensated_kkt_residual << ':'
+                 << value.compensated_ledger_residual << ':'
+                 << value.kkt_residual_correspondence << ':'
+                 << value.kkt_residual_correspondence_bound << ':'
+                 << value.non_residual_gates_exact << ':'
+                 << value.strict_residual_passed << ':'
+                 << value.kkt_scale_residual_passed << ';';
+    }
+    return sha256_hex(material.str());
+}
+
 void append_balanced_ledger_run(
     std::ostringstream& output, const CanonicalStageRun& value) {
     output << std::setprecision(17)
@@ -15491,6 +15781,69 @@ void append_ledger_normalization_real(
            << value.frame_seven_gate.normalized_velocity_error
            << ",\"kinetic_relative\":"
            << value.frame_seven_gate.relative_kinetic_error << "}}";
+}
+
+void append_kkt_scale_ledger_case(
+    std::ostringstream& output,
+    const KktScaleLedgerCase& value) {
+    output << std::setprecision(17)
+           << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure << '"'
+           << ",\"coarse_substeps\":" << value.coarse.run.substeps
+           << ",\"fine_substeps\":" << value.fine.run.substeps
+           << ",\"fine_only_commit\":"
+           << (value.fine_only_commit ? "true" : "false")
+           << ",\"legacy_root_exact\":"
+           << (value.legacy_root_exact ? "true" : "false")
+           << ",\"trajectory_root_exact\":"
+           << (value.trajectory_root_exact ? "true" : "false")
+           << ",\"candidate_ledger_exact\":"
+           << (value.candidate_ledger_exact ? "true" : "false")
+           << ",\"repeat_exact\":"
+           << (value.repeat_exact ? "true" : "false")
+           << ",\"order_exact\":"
+           << (value.order_exact ? "true" : "false")
+           << ",\"physical_reference_exact\":"
+           << (value.physical_reference_exact ? "true" : "false")
+           << ",\"maximum_strict_residual\":"
+           << value.maximum_strict_residual
+           << ",\"maximum_kkt_residual\":"
+           << value.maximum_kkt_residual
+           << ",\"maximum_correspondence_ratio\":"
+           << value.maximum_correspondence_ratio
+           << ",\"embedded_gate\":{\"passed\":"
+           << (value.gate.passed ? "true" : "false")
+           << ",\"position_dx\":"
+           << value.gate.normalized_position_error
+           << ",\"velocity_c\":"
+           << value.gate.normalized_velocity_error
+           << ",\"kinetic_relative\":"
+           << value.gate.relative_kinetic_error
+           << "},\"legacy_ledger_sha256\":\""
+           << value.legacy_ledger_sha256
+           << "\",\"policy_ledger_sha256\":\""
+           << value.policy_ledger_sha256
+           << "\",\"trajectory_sha256\":\""
+           << value.trajectory_sha256 << "\"}";
+}
+
+void append_kkt_scale_ledger_negatives(
+    std::ostringstream& output,
+    const KktScaleLedgerNegatives& value) {
+    output << "{\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"forced_rollback_exact\":"
+           << (value.forced_rollback_exact ? "true" : "false")
+           << ",\"invalid_scale_rejected\":"
+           << (value.invalid_scale_rejected ? "true" : "false")
+           << ",\"residual_overflow_rejected\":"
+           << (value.residual_overflow_rejected ? "true" : "false")
+           << ",\"corrupt_closure_rejected\":"
+           << (value.corrupt_closure_rejected ? "true" : "false")
+           << ",\"nonfinite_strict_rejected\":"
+           << (value.nonfinite_strict_rejected ? "true" : "false")
+           << ",\"policy_identity_bound\":"
+           << (value.policy_identity_bound ? "true" : "false") << '}';
 }
 
 } // namespace
@@ -17023,6 +17376,161 @@ SplitBoundaryReport run_ledger_normalization_controls() {
     report << ",\"candidate_selected\":"
            << (passed ? "true" : "false")
            << ",\"b4c3a2_stage_ledger_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"complete_adaptive_replay_authorized\":false"
+           << ",\"canonical_fixed_reference_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_kkt_scale_stage_ledger_probe_controls() {
+    std::array<KktScaleLedgerCase, 2> cases = {
+        run_kkt_scale_ledger_case(
+            "p1-frame0-21-42-kkt-ledger",
+            make_b4b_supported_column_fixture(),
+            B4C3Q_P1_SCENARIO_SHA256, 21,
+            "5feac29a07dbd03dc0aa4467056fed84bcec698de3c720ad16de854aeb559eea",
+            "ece583962cb07f7a15bb1b84a83719895ec5af2c2735b0904ea76f833180939d"),
+        run_kkt_scale_ledger_case(
+            "p2-frame0-1-2-kkt-ledger",
+            make_b4b_released_block_fixture(),
+            B4C3Q_P2_SCENARIO_SHA256, 1,
+            "bb5562f1dc268a7dcc885092eaa45d1db2b21a76dc0088f9de79116d6fc7b312",
+            "8138d5202b4a754c43b8ee7306200b29d6d1c75b959717f9a0f3c54c1f543ddd"),
+    };
+    const KktScaleLedgerNegatives negatives =
+        run_kkt_scale_ledger_negatives();
+    const bool passed = negatives.passed
+        && std::all_of(cases.begin(), cases.end(),
+            [](const KktScaleLedgerCase& value) {
+                return value.passed;
+            });
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS" : "FAIL")
+             << "|N:" << negatives.passed;
+    for (const KktScaleLedgerCase& value : cases) {
+        material << '|' << value.name << ':'
+                 << value.legacy_ledger_sha256 << ':'
+                 << value.policy_ledger_sha256 << ':'
+                 << value.trajectory_sha256 << ':'
+                 << value.maximum_strict_residual << ':'
+                 << value.maximum_kkt_residual;
+    }
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3a2_kkt_stage_ledger_probe.v1\""
+           << ",\"identity\":\"joint-pressure-canonical-balanced-stage-r2-kkt-ledger\""
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"authority\":\"DIAGNOSTIC_ONLY\""
+           << ",\"representation_profile_sha256\":\""
+           << B4C3Q_PROFILE_SHA256 << '"'
+           << ",\"ledger_policy_sha256\":\""
+           << B4C3L_POLICY_SHA256 << '"'
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_kkt_scale_ledger_case(report, cases[i]);
+    }
+    report << "],\"negative_controls\":";
+    append_kkt_scale_ledger_negatives(report, negatives);
+    report << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_kkt_scale_stage_ledger_controls() {
+    const SplitBoundaryReport parent = run_ledger_normalization_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "ba1684f09575662d10fe8646780195afc6b650c2f2bcbcfc62a7a44918a29540";
+    std::array<KktScaleLedgerCase, 2> cases{};
+    KktScaleLedgerNegatives negatives;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C3L_PARENT";
+    } else {
+        cases[0] = run_kkt_scale_ledger_case(
+            "p1-frame0-21-42-kkt-ledger",
+            make_b4b_supported_column_fixture(),
+            B4C3Q_P1_SCENARIO_SHA256, 21,
+            "5feac29a07dbd03dc0aa4467056fed84bcec698de3c720ad16de854aeb559eea",
+            "ece583962cb07f7a15bb1b84a83719895ec5af2c2735b0904ea76f833180939d");
+        cases[1] = run_kkt_scale_ledger_case(
+            "p2-frame0-1-2-kkt-ledger",
+            make_b4b_released_block_fixture(),
+            B4C3Q_P2_SCENARIO_SHA256, 1,
+            "bb5562f1dc268a7dcc885092eaa45d1db2b21a76dc0088f9de79116d6fc7b312",
+            "8138d5202b4a754c43b8ee7306200b29d6d1c75b959717f9a0f3c54c1f543ddd");
+        negatives = run_kkt_scale_ledger_negatives();
+        for (const KktScaleLedgerCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        if (!negatives.passed && first_failure.empty()) {
+            first_failure = "KKT_SCALE_LEDGER_NEGATIVES";
+        }
+    }
+    const bool cases_passed = std::all_of(
+        cases.begin(), cases.end(),
+        [](const KktScaleLedgerCase& value) {
+            return value.passed;
+        });
+    const bool passed = parent_exact && cases_passed && negatives.passed;
+    const std::string disposition = passed
+        ? "CANONICAL_KKT_SCALE_STAGE_LEDGER_CANDIDATE"
+        : "CANONICAL_KKT_SCALE_STAGE_LEDGER_REJECTED";
+    std::ostringstream material;
+    material << std::setprecision(17)
+             << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition;
+    for (const KktScaleLedgerCase& value : cases) {
+        material << '|' << value.name << ':'
+                 << value.legacy_ledger_sha256 << ':'
+                 << value.policy_ledger_sha256 << ':'
+                 << value.trajectory_sha256 << ':'
+                 << value.maximum_strict_residual << ':'
+                 << value.maximum_kkt_residual << ':'
+                 << value.maximum_correspondence_ratio;
+    }
+    material << "|N:" << negatives.passed;
+    std::ostringstream report;
+    report << std::setprecision(17)
+           << "{\"schema\":\"nextengine.nonlocal.nsr3b4c3a2_kkt_stage_ledger.v1\""
+           << ",\"identity\":\"joint-pressure-canonical-balanced-stage-r2-kkt-ledger\""
+           << ",\"parent_b4c3l_raw_sha256\":\"ba1684f09575662d10fe8646780195afc6b650c2f2bcbcfc62a7a44918a29540\""
+           << ",\"parent_b4c3l_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"representation_profile_sha256\":\""
+           << B4C3Q_PROFILE_SHA256 << '"'
+           << ",\"ledger_policy_sha256\":\""
+           << B4C3L_POLICY_SHA256 << '"'
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_kkt_scale_ledger_case(report, cases[i]);
+    }
+    report << "],\"negative_controls\":";
+    append_kkt_scale_ledger_negatives(report, negatives);
+    report << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"complete_adaptive_recovery_design_authorized\":"
            << (passed ? "true" : "false")
            << ",\"complete_adaptive_replay_authorized\":false"
            << ",\"canonical_fixed_reference_authorized\":false"

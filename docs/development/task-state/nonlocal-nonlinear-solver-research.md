@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3L_PASS / B4C3A2_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4C3A2_PASS / COMPLETE_RECOVERY_REPLAY_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -11,16 +11,17 @@
 
 ## Resume in 60 seconds
 
-- **Current conclusion:** B4C3L passes twice at raw `05e84d54...00b8` and
-  selects KKT-scale compensated-ledger admission. It preserves strict-max
-  residuals as diagnostics, replays B4C3A1 exactly and converts all four real
-  frame-seven levels to candidate PASS without changing canonical frames.
-- **Current decision:** select `CANONICAL_KKT_SCALE_LEDGER_CANDIDATE`. The
-  physical threshold remains `1e-9`; only its normalizer is aligned with the
-  source KKT gate. Do not resume the controller directly.
-- **Current action:** design and freeze B4C3A2 one-frame balanced transaction
-  and ledger under the new policy identity, preserving B4C3A1 roots and all
-  diagnostic residuals. B4C3TR/B4C3TC/B4C4/B4D remain blocked.
+- **Current conclusion:** B4C3A2 passes twice at raw `aa7b3489...7c9b`.
+  Canonical trajectory and legacy ledger roots remain exact; new policy roots
+  bind both residual semantics. Atomic commit, rollback, order/repeat, energy
+  and physical correspondence all pass.
+- **Current decision:** select `CANONICAL_KKT_SCALE_STAGE_LEDGER_CANDIDATE`.
+  This supersedes B4C3A1 only as proposed ledger admission evidence; B4C3TAR
+  remains a preserved FAIL.
+- **Current action:** design a new complete adaptive replay that combines the
+  exact B4C3TAR `REJECT_LIMIT` recovery policy with B4C3A2 ledger admission,
+  while retaining the original binary/energy/schedule gates. B4C3TR/B4C3TC/
+  B4C4/B4D remain blocked.
 - **Current contract:** B4C3A2 binds unchanged representation/trajectory and
   legacy ledger roots plus a new policy-ledger hash over both residual
   normalizers, correspondence, closure and energy fields.
@@ -1089,6 +1090,22 @@
 - **Smallest next action:** implement the frozen B4C3A2 P1/P2 transactions,
   policy hash, exact-root checks and negatives, then execute twice.
 
+### D-055 -- Select KKT-scale stage-ledger transaction
+
+- **Observation:** B4C3A2 preserves P1/P2 trajectory and legacy ledger roots,
+  produces distinct deterministic policy roots, and passes all atomic,
+  correspondence, order/repeat, energy and negative gates twice identically.
+- **Decision:** select `CANONICAL_KKT_SCALE_STAGE_LEDGER_CANDIDATE` and
+  authorize design only of a new complete adaptive recovery replay.
+- **Rejected alternatives:** do not reinterpret B4C3TAR as PASS, mutate old
+  evidence roots, omit strict diagnostics or proceed directly to fixed/nominal.
+- **Consequence:** complete P1/P2 replay may now combine two independently
+  proven repairs: exact reject-limit refinement and KKT-scale ledger admission.
+- **Remaining uncertainty:** later P1 frames, accumulated energy budgets,
+  schedules and full policy-ledger root continuity have not run together.
+- **Smallest next action:** freeze the combined replay's parent hashes, policy
+  identity, attempted-work/rollback semantics and unchanged long-horizon gates.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1101,12 +1118,12 @@
 
 ## Exact next action
 
-1. Implement B4C3A2 over the selected B4C3L policy hash and unchanged canonical
-   representation/scenario roots.
-2. Revalidate fine-only atomic P1/P2 stage/ledger commit with KKT-scale physical
-   admission and mandatory raw/strict diagnostic residuals.
-3. Preserve rollback, energy decomposition and B4C3A1/B4C3L hashes before any
-   complete controller replay. B4C3TR/B4C4/B4D remain blocked.
+1. Freeze a new complete recovery replay over B4C3A2, without changing the
+   B4C3TAR recovery classifier or long-horizon physical gates.
+2. Bind global policy-ledger roots, exact attempted-work accounting, rollback,
+   P2 onset schedule and binary/energy envelopes.
+3. Execute twice before reopening B4C3TR fixed canonical design. B4C4/B4D
+   remain blocked.
 
 ## Reconsideration triggers
 

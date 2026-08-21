@@ -494,3 +494,9 @@ The
 freezes that one-frame revalidation. Canonical trajectory and legacy ledger
 roots must remain B4C3A1-exact, while a new policy-ledger root binds both
 normalizers/residuals, correspondence bounds and the B4C3L policy identity.
+B4C3A2 passes twice byte-identically and selects
+`CANONICAL_KKT_SCALE_STAGE_LEDGER_CANDIDATE`; see the
+[dated evidence](../../development/nonlocal-nsr3b4c3a2-kkt-stage-ledger-evidence-2026-08-21.md).
+It preserves canonical and legacy ledger roots, adds deterministic policy
+roots, and passes atomicity/physical/negative gates. Only a new complete
+adaptive recovery replay design is authorized.
