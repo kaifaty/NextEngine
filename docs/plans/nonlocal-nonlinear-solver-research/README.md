@@ -1020,3 +1020,8 @@ All 227 states reproduce exact pairs/CSR/evaluation/tape. One initial list
 covers 226 certified reuses with maximum candidate degree 122, 6.89% extra
 pair visits and a 0.1998 construction-work ratio. This authorizes only B4EP3I
 hot-path cache design/A-B; it is not yet a measured solver speedup.
+The [B4EP3I research](../../development/nonlocal-nsr3b4ep3i-hotpath-cache-research-2026-08-21.md)
+selects an optional transaction-local cache carried by the internal query
+trace. Its [frozen contract](03b4ep3i-hotpath-cache-contract.md) preserves the
+full parent and all default bytes, requires exact B4EP1 physics/cache work and
+three balanced Release wins. Implement and A/B only this dedicated command.

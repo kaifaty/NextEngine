@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4EP3_PASS / B4EP3I_DESIGN` |
+| Status | `ACTIVE / NSR3B4EP3_PASS / B4EP3I_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -172,9 +172,12 @@
 - **Current conclusion:** all 227 B4EP3 states match exact pair/CSR/evaluation/
   tape. One superset build serves 226 reuses; maximum degree is 122,
   candidate/active visits `1.0689` and construction-work ratio `0.1998`.
-- **Next action:** freeze B4EP3I internal hot-path cache/A-B. Keep parent full
-  and existing commands unchanged; require exact B4EP1 roots/counters before
-  three balanced Release timing pairs.
+- **Current decision:** B4EP3I is transaction-local and query-trace-owned;
+  defaults remain null, parent remains canonical/full-state, and certificate
+  or capacity errors fail closed without fallback.
+- **Next action:** implement the dedicated cached command, prove B4EP1/B4EP3
+  byte regressions and candidate correspondence, then run three balanced
+  uncached/cached Release pairs.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -224,6 +227,7 @@
 | NSR3B4EP2 PASS | workspace 58.33%, HVP 39.64%, SHA 0.46% | B4EP3 exact topology-reuse audit design only |
 | NSR3B4EP3 contract | fixed-skin 227-state canonical superset audit | implementation/two runs only; no hot-path cache or timing claim |
 | NSR3B4EP3 PASS | one build, 226 exact reuses, work proxy `0.1998` | B4EP3I internal cache design/A-B only |
+| NSR3B4EP3I contract | transaction-local cached work-only A/B | implement and time only; no default/runtime/B4E2 change |
 
 Candidate solver identity remains:
 
@@ -274,6 +278,7 @@ production authority is created by this lineage.
 | [B4EP2](../nonlocal-nsr3b4ep2-residual-attribution-evidence-2026-08-21.md) | workspace pipeline leads; topology and HVP nearly tie | audit canonical superset feasibility before implementing reuse |
 | [B4EP3 research](../nonlocal-nsr3b4ep3-canonical-superset-research-2026-08-21.md) | current lexicographic pair sort may avoid old anchor-cell order failure | run fixed `0.04h` 227-state audit; no tuning on failure |
 | [B4EP3](../nonlocal-nsr3b4ep3-canonical-superset-evidence-2026-08-21.md) | 227/227 exact; one rebuild, 226 reuse; candidate work ratio `0.1998` | design optional internal hot-path cache and controlled Release A/B |
+| [B4EP3I research](../nonlocal-nsr3b4ep3i-hotpath-cache-research-2026-08-21.md) | trace ownership avoids global/persistent state and signature fan-out | implement dedicated cached candidate; defaults remain byte-exact |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -636,11 +641,10 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Freeze B4EP3I cache ownership, failure and work-accounting semantics; keep
-   the full parent and all existing commands byte-exact.
-2. Implement only a dedicated cached work-only command and require exact
+1. Implement only the dedicated cached work-only command and require exact
    B4EP1 physical roots/counters plus the B4EP3 cache facts.
-3. Run three alternating Release timing pairs. Keep the cache only on three
+2. Run two-build deterministic/regression gates, then three alternating
+   Release timing pairs. Keep the cache only on three
    wins and median speedup `>=1.10`; otherwise route to HVP design.
 
 ## Reconsideration triggers
