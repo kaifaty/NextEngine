@@ -1,6 +1,6 @@
 # NSR3-B4DR1 -- reproducible external-reference generator contract
 
-Status: `FROZEN / R1D_PASS / R1E_DESIGN / NEW_ROOT_ONLY`
+Status: `FROZEN / R1E_PASS / NEW_REFERENCE_CANDIDATE / B4E_DESIGN`
 
 Identity projection:
 
@@ -157,3 +157,9 @@ The [frozen R1E child contract](03b4dr1e-reference-attestation-contract.md)
 binds the actual R1D generator/payload/aggregate closure and selects a separate
 no-SPlisHSPlasH reader with descriptor-safe paths, full parse, canonical
 reconstruction and two mutation layers.
+
+R1E passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1e-reference-attestation-evidence-2026-08-21.md).
+The new external DFSPH reference candidate is independently attested, so B4E
+nominal-corpus contract design may begin. No comparison execution, runtime
+authority or production/GPU claim follows from this result.

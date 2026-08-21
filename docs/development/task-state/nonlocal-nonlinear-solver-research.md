@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1D_PASS / R1E_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4DR1_R1E_PASS / B4E_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -92,10 +92,16 @@
 - **Current decision:** R1E uses a separate no-SPlisHSPlasH C++17 reader with
   descriptor-safe path admission, full independent parse, canonical decoded
   root, regenerated aggregates and serialized/decoded mutation controls.
-- **Next action:** implement/commit the frozen R1E reader, reproduce its build,
-  execute external negative fixtures and run positive attestation twice. Do
-  not begin B4E unless the entire R1E gate passes.
-- **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
+- **Current conclusion:** R1E passes. Two builds reproduce reader SHA
+  `8c4e7d61...55ea`; two positive processes reproduce report SHA
+  `60e5575b...630e`; all semantic/aggregate/mutation gates pass and four
+  external negative fixtures reject deterministically.
+- **Current decision:** select `NEW_EXTERNAL_DFSPH_REFERENCE_CANDIDATE` and
+  authorize only B4E nominal-corpus research and contract design.
+- **Next action:** map the packaged Nonlocal output to the new `CWREFV2`
+  observables, freeze B4E identity/tolerances/failure and resource policy, and
+  do not execute the corpus before that contract is committed.
+- **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
 ## Current selected lineage
@@ -128,6 +134,7 @@
 | NSR3B4DR1D contract | full schedule manifests, aggregate roots and verified publication | implement preflight/generator, then run full pairs |
 | NSR3B4DR1D PASS | three full pairs exact and content-addressed | R1E contract design only |
 | NSR3B4DR1E contract | actual reference closure plus independent fail-closed reader | implement/attest only; no B4E execution |
+| NSR3B4DR1E PASS | independently decoded full DFSPH references and deterministic negative controls | new reference candidate; B4E contract design only |
 
 Candidate solver identity remains:
 
@@ -163,6 +170,7 @@ production authority is created by this lineage.
 | [B4DR1C4](../nonlocal-nsr3b4dr1c4-trajectory-evidence-2026-08-21.md) | Hydro/Dam pairs exact; Orifice domain extent conflated with source support | preserve partial evidence but grant no pass; separate ownership in R1C5 |
 | [B4DR1C5](../nonlocal-nsr3b4dr1c5-trajectory-evidence-2026-08-21.md) | all three pairs byte-exact; corrected Orifice crosses into receiver | execute R1D full schedules; retain all earlier negative evidence |
 | [B4DR1D](../nonlocal-nsr3b4dr1d-full-generation-evidence-2026-08-21.md) | all full pairs exact; verified external publication | freeze R1E reader/profile contract over actual roots |
+| [B4DR1E](../nonlocal-nsr3b4dr1e-reference-attestation-evidence-2026-08-21.md) | independent reader accepts all full references; both mutation layers and four external negatives reject | design B4E against the new candidate; no execution before a frozen comparison contract |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -188,6 +196,12 @@ copy in `/tmp`, NextEngine worktrees, Downloads, desktop/trash or exact-size
 Git blobs. Exact-hash web search returned no result and is not proof of global
 absence. Unreachable Git blobs contain neither a full payload nor the recorded
 adapter/source/binary SHA-256 values.
+
+The separate new-root R1E reference candidate is available under profile
+`ba34b4e3b12986ebc831320d6811551d5311a6774a64f079aabe3a5eaa6bb746`
+and is attested by identity
+`9cf5fc571fee7bc0be5585d9b467f90cd8a27f40d9cf39d6be999b0c466cbccc`.
+It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Decisions
 
@@ -354,6 +368,16 @@ adapter/source/binary SHA-256 values.
 - **Rejected:** generator-source reuse, filename/report trust, path checks
   separated from open, or full hash without decoded semantic controls.
 
+### D-019 -- Admit the new reference candidate to B4E design
+
+- **Observation:** the independent reader reproduces all three decoded and
+  aggregate roots twice; missing, symlink, oversized and complete-size mutated
+  fixtures all fail closed.
+- **Decision:** select `NEW_EXTERNAL_DFSPH_REFERENCE_CANDIDATE` and begin only
+  B4E nominal-corpus research/contract design.
+- **Rejected:** inheriting historical W1 credit, executing an unfrozen
+  comparison, or treating reference integrity as runtime/production evidence.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -378,11 +402,13 @@ adapter/source/binary SHA-256 values.
 
 ## Exact next action
 
-1. Implement the standalone R1E reader without generator/SPlisHSPlasH reuse.
-2. Build it twice byte-identically and run profile/self/negative gates.
-3. Run positive attestation twice against the published R1D root and require
-   byte-identical reports plus all semantic/aggregate/mutation checks.
-4. Keep B4E blocked until dated R1E PASS evidence is committed.
+1. Research the exact correspondence between packaged Nonlocal frames and the
+   new `CWREFV2` DFSPH observables without running a nominal comparison.
+2. Freeze B4E candidate identities, scenario/time/sample alignment, metrics,
+   tolerances, deterministic failure policy and resource budget.
+3. Add independent preflight/mutation controls and a cost-aware execution
+   ladder to the B4E contract.
+4. Keep B4E execution blocked until that contract is committed and reviewed.
 
 ## Reconsideration triggers
 

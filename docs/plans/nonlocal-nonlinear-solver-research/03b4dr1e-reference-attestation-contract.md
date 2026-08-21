@@ -1,6 +1,6 @@
 # NSR3-B4DR1E -- new external-reference attestation contract
 
-Status: `FROZEN / IMPLEMENTATION_AND_EXECUTION_AUTHORIZED / NEW_ROOT_ONLY`
+Status: `FROZEN / PASS / B4E_CONTRACT_DESIGN_AUTHORIZED / NEW_ROOT_ONLY`
 
 Identity projection (exact bytes, no final LF):
 
@@ -142,3 +142,10 @@ The report must keep `trajectory_started=false`, `b4e_execution_authorized=false
 `runtime_authority=false` and `production_authority=false`. Complete PASS
 selects only `NEW_EXTERNAL_DFSPH_REFERENCE_CANDIDATE` and authorizes B4E
 nominal-corpus contract design. Any failure leaves B4E blocked.
+
+R1E passes with two byte-identical positive reports, independent semantic and
+aggregate reconstruction, and deterministic missing/symlink/capacity/hash
+negative controls; see the
+[dated evidence](../../development/nonlocal-nsr3b4dr1e-reference-attestation-evidence-2026-08-21.md).
+This authorizes only B4E nominal-corpus contract design. B4E execution,
+runtime/public schema work and production/GPU claims remain blocked.
