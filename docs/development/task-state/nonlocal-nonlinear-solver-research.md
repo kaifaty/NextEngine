@@ -35,6 +35,9 @@
   separate validator, six parent vectors and internal-face/one-ulp restart
   sentinels. Process preflight must fail before contact on float/OMP/locale/ABI
   mismatch.
+- **Current correction:** R1B v2 separates the unit outer-clamp fixture from
+  the `[0,2] x [0,1] x [0,1]` orifice box. Rejected v1 placed wall `x=1` on
+  the outer face and never reached implementation.
 - **Next action:** implement and link only the R1B no-trajectory self-test,
   then bind source/build/binary/output roots and negative mutations.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,

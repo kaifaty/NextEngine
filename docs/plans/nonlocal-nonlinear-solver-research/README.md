@@ -819,3 +819,8 @@ internal-face and one-ulp `t=0` sentinels close all outer/plane/edge/corner
 branches, strict process/ABI preflight and structural root mutations before
 any particle world exists. Implement only this self-test next; R1C and B4E
 remain blocked.
+Before implementation, the R1B contract was reclosed from rejected draft v1
+to v2: outer controls use `[0,1]^3`, while aperture controls use the real
+`[0,2] x [0,1] x [0,1]` orifice box. This prevents a legal pass beyond
+internal wall `x=1` from being misclassified as an outer escape. The v1 root
+has no implementation authority.

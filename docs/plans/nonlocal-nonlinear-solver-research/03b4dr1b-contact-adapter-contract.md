@@ -5,11 +5,16 @@ Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / TRAJECTORY_FORBIDDEN`
 Identity projection:
 
 ```text
-nextengine.nonlocal.nsr3b4dr1b-contact-adapter|v1|parent=ade621f889a08fd26ca713592625c50316b893af8c4f1797d25f4e4d4c96b86a|upstream-lib=172e6777027564566d6282f8679f4d93cbd4cdc193fc236eb9fdaa210ea07d20|geometry=box[0,1]^3;wall-x=1;opening-y=.2:.4;opening-z=.4:.6|float=dt:0x3f71111111111111;radius:0x3f9999999999999a;guard=32eps|order=outer0..5,face16,edges17..20,corners21..24|schedule=8|vectors=outer-face,outer-fast,pass,graze,edge+restart,corner|env=locale-C,round-nearest,ftz-off,daz-off,omp1,dynamic-false|mutations=order-swap17-18,radius+1ulp,round-down,ftz-on|trajectory=forbidden
+nextengine.nonlocal.nsr3b4dr1b-contact-adapter|v2|parent=ade621f889a08fd26ca713592625c50316b893af8c4f1797d25f4e4d4c96b86a|upstream-lib=172e6777027564566d6282f8679f4d93cbd4cdc193fc236eb9fdaa210ea07d20|geometry=outer-unit:[0,1]^3;orifice:[0,2]x[0,1]^2;wall-x=1;opening-y=.2:.4;opening-z=.4:.6|float=dt:0x3f71111111111111;radius:0x3f9999999999999a;guard=32eps|order=outer0..5,face16,edges17..20,corners21..24|schedule=8|vectors=outer-face,outer-fast,pass,graze,edge+restart,corner|env=locale-C,round-nearest,ftz-off,daz-off,omp1,dynamic-false|mutations=order-swap17-18,radius+1ulp,round-down,ftz-on|trajectory=forbidden
 ```
 
 Identity SHA-256:
-`52ee4f3b4c476bfb6ddef375b1b7fda48a25b61031a1314da07ae25b5f91b8fd`.
+`c65346ec7b215a7a173eabfdd6c91e20869d4a0679b9d014a1e897369cb71f84`.
+
+The rejected v1 draft root
+`52ee4f3b4c476bfb6ddef375b1b7fda48a25b61031a1314da07ae25b5f91b8fd`
+incorrectly placed the internal wall on the maximum face of the same unit
+outer box. It has no implementation or evidence authority.
 
 ## Ownership and build boundary
 
@@ -50,10 +55,11 @@ rejected.
 
 ## Frozen geometry and response
 
-Use a unit closed outer box, radius/clearance bits
-`0x3f9999999999999a`, time-step bits `0x3f71111111111111` and inverse time
-step bits `0x406e000000000000`. The internal wall is `x=1`; its closed opening
-is `y=[0.2,0.4]`, `z=[0.4,0.6]`.
+Use a unit closed box only for the two outer-clamp vectors. Internal vectors
+use the orifice outer box `[0,2] x [0,1] x [0,1]`. Radius/clearance bits are
+`0x3f9999999999999a`, time-step bits are `0x3f71111111111111` and inverse time
+step bits are `0x406e000000000000`. The internal wall is `x=1`; its closed
+opening is `y=[0.2,0.4]`, `z=[0.4,0.6]`.
 
 Outer component projection uses feature IDs `0..5`. Internal enumeration is
 face `16`, y-edge capsules `17,18`, z-edge capsules `19,20`, and endpoint

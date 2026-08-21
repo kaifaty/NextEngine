@@ -70,6 +70,15 @@ modes prove the process preflight fails before `contact_started`.
 - Beginning the 24-step orifice run now: R1C manifests and serialization are
   not frozen.
 
+## Pre-implementation geometry reclosure
+
+The first frozen draft accidentally used `[0,1]^3` both as the outer-clamp
+fixture and as the orifice outer box, placing internal wall `x=1` on the outer
+face. That would classify a legal aperture endpoint at `x=1.025` as an outer
+escape. No code or test ran under that draft. Contract v2 keeps `[0,1]^3` for
+outer controls and uses the real `[0,2] x [0,1] x [0,1]` orifice box for
+internal vectors. The rejected v1 root remains recorded as negative evidence.
+
 ## Decision
 
 Freeze the [R1B contract](../plans/nonlocal-nonlinear-solver-research/03b4dr1b-contact-adapter-contract.md)
