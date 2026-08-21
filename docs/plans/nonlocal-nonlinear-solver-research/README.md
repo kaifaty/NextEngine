@@ -1045,3 +1045,9 @@ The exact-output profile assigns 62.14% inclusive time to HVP and 35.52% to
 complete cached workspace. HVP leads by `1.749x`, clearing the frozen rule;
 only B4EP5 HVP research/design is authorized. No second workspace change,
 B4E2, CUDA, runtime or production work is authorized.
+The [B4EP5 research](../../development/nonlocal-nsr3b4ep5-hvp-coefficient-tape-research-2026-08-22.md)
+finds 971,831,424 repeated invariant kernel-coefficient evaluations in the HVP
+path, while allocator work receives no samples. Its
+[frozen contract](03b4ep5-hvp-coefficient-tape-contract.md) selects only an
+optional two-scalar pressure-tape extension with exact B4EP3I correspondence
+and balanced Release timing. Implement and A/B that command only.
