@@ -155,6 +155,7 @@ fn schema_round_trip_rejects_unknown_fields() {
         "nextengine-performance-v6",
         "nextengine-performance-v7",
         "nextengine-performance-v8",
+        "nextengine-performance-v9",
     ] {
         let mut prior_methodology: PerformanceRunV6 =
             serde_json::from_slice(&json).expect("decode current fixture");
@@ -518,8 +519,7 @@ fn enabled_instrumentation_requires_parity_and_bounded_overhead_evidence() {
         .expect("complete profiler evidence at the limit is valid");
 }
 
-#[test]
-fn baseline_requires_ten_clean_compatible_runs() {
+fn clean_r3_calibration_report() -> PerformanceRunV6 {
     let mut run = PerformanceRunV6::empty(
         PerformanceScenarioV1::R3MultiregionStreaming,
         PerformanceModeV1::Report,
@@ -567,6 +567,12 @@ fn baseline_requires_ten_clean_compatible_runs() {
     run.verdict = PerformanceVerdict::ReportOnly;
     run.authoritative_hashes
         .insert("state".to_owned(), "d".repeat(64));
+    run
+}
+
+#[test]
+fn baseline_requires_ten_clean_compatible_runs() {
+    let run = clean_r3_calibration_report();
     let runs = vec![run; 10];
     let baseline = PerformanceBaselineV6::from_runs(&runs).expect("baseline");
     assert_eq!(baseline.calibration_runs, 10);
@@ -599,6 +605,38 @@ fn baseline_requires_ten_clean_compatible_runs() {
     assert_eq!(candidate.metrics[0].p95, 20);
     assert_eq!(relative.change_basis_points, 0);
     assert_eq!(candidate.metrics[0].verdict, PerformanceVerdict::Pass);
+}
+
+#[test]
+fn v9_baseline_is_rejected_by_a_v10_gate() {
+    let runs = vec![clean_r3_calibration_report(); 10];
+    let mut baseline = PerformanceBaselineV6::from_runs(&runs).expect("baseline");
+    baseline.methodology_version = "nextengine-performance-v9".to_owned();
+
+    let mut candidate = runs[0].clone();
+    candidate.mode = PerformanceModeV1::Gate;
+    candidate.evidence_runs = HARD_GATE_EVIDENCE_RUNS;
+    candidate.environment_samples = vec![
+        candidate.preflight.clone().expect("ready environment");
+        usize::try_from(HARD_GATE_EVIDENCE_RUNS * 2)
+            .expect("environment sample count")
+    ];
+    candidate.metrics = vec![
+        PerformanceMetricV1::from_sample_runs(
+            "r3-multiregion-streaming.total",
+            "microseconds",
+            vec![vec![11, 12], vec![11, 12], vec![19, 20]],
+            canonical_budget_for_metric(candidate.scenario, "r3-multiregion-streaming.total"),
+        )
+        .expect("candidate metric"),
+    ];
+
+    let diagnostics = compare_metrics_to_baseline(&mut candidate, &baseline)
+        .expect_err("a v9 baseline cannot be relabelled as v10 gate authority");
+    assert!(
+        diagnostics.contains(&"PERF_BASELINE_METHODOLOGY_MISMATCH".to_owned()),
+        "expected methodology mismatch, found {diagnostics:?}"
+    );
 }
 
 #[test]
