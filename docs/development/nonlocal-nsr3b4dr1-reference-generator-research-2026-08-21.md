@@ -1,6 +1,6 @@
 # NSR3-B4DR1 reproducible external-reference generator research -- 2026-08-21
 
-Status: `COMPLETE / NEW_ROOT_DESIGN / BOOTSTRAP_AUTHORIZED`
+Status: `COMPLETE / R1A_PASS / R1B_DESIGN_AUTHORIZED`
 
 ## Problem
 
@@ -76,3 +76,11 @@ Freeze the [B4DR1 contract](../plans/nonlocal-nonlinear-solver-research/03b4dr1-
 Only R1A external bootstrap is authorized next. B4D remains historical FAIL;
 B4E remains blocked until R1E selects a new exact reference identity.
 
+## R1A outcome
+
+The [R1A evidence](nonlocal-nsr3b4dr1a-external-bootstrap-evidence-2026-08-21.md)
+attests the pinned source/dependency/toolchain closure and two byte-identical
+fresh full-clone static builds under the strict binary64/no-AVX/no-FMA profile.
+It also rejects linked Git worktrees because the upstream revision probe cannot
+resolve their HEAD. R1B contract/design is authorized; no adapter execution or
+trajectory is authorized yet.

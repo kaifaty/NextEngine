@@ -1,6 +1,6 @@
 # NSR3-B4DR1 -- reproducible external-reference generator contract
 
-Status: `FROZEN / R1A_BOOTSTRAP_AUTHORIZED / NEW_ROOT_ONLY`
+Status: `FROZEN / R1A_PASS / R1B_DESIGN_AUTHORIZED / NEW_ROOT_ONLY`
 
 Identity projection:
 
@@ -45,6 +45,11 @@ these controls, stop and redesign; do not silently weaken the profile.
 
 R1A may download/build only after this contract is committed. It cannot add an
 upstream remote to NextEngine or modify the engine workspace.
+
+R1A closure records upstream-library compile/link closure. Adapter-specific
+compile/link commands, linked-library list and ABI facts are necessarily R1B
+exit evidence because R1B requires the adapter source to be frozen before it
+can be compiled. This stage ordering does not waive those facts.
 
 ## R1B -- adapter/contact gate
 
@@ -106,4 +111,3 @@ R1E PASS selects only `NEW_EXTERNAL_DFSPH_REFERENCE_CANDIDATE` and authorizes
 B4E nominal-corpus contract design. Any earlier failure preserves B4D/B4E as
 blocked. It cannot issue old W1 credit, runtime authority, a public schema or a
 production claim.
-

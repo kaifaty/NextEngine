@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR0_NEW_ROOT_REQUIRED / B4DR1_DESIGN` |
+| Status | `ACTIVE / NSR3B4DR1_R1A_PASS / R1B_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -24,9 +24,15 @@
 - **Current decision:** select `NEW_REFERENCE_PROFILE_REQUIRED`. Preserve B4D
   FAIL and historical W0I/W1, then freeze a new reproducible external
   generator/profile; never synthesize old hashes or inherit W1 credit.
-- **Next action:** design B4DR1 before cloning/building upstream code. Keep
-  engine-owned adapter/patch and manifests reviewable while upstream source,
-  binaries and generated trajectories stay outside Git.
+- **Current conclusion:** B4DR1 R1A passes. Two fresh full-clone strict builds
+  reproduce all eight static artifacts byte-for-byte; main/nested normalized
+  command roots match and disassembly contains no AVX/FMA instructions.
+- **Current constraint:** upstream configure writes `Utilities/Version.h` into
+  the source tree, and its revision probe rejects linked Git worktrees. Every
+  profile build starts from an ordinary clean full clone and binds the
+  generated header separately.
+- **Next action:** freeze the R1B standalone contact-adapter contract and six
+  vectors before compiling or executing adapter code.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -43,6 +49,7 @@
 | NSR3B4C3MC1 | balanced macro publication and tiny physical accuracy | P1/P2-only adaptive macro candidate; no temporal-equivalence claim |
 | NSR3B4C4A/B/C | retained workspace, immutable support index and flat CSR ownership | packaged complete adaptive/fixed research runner |
 | NSR3B4D | fail-closed external reference reader | deterministic missing-artifact boundary only |
+| NSR3B4DR1A | reproducible strict external DFSPH library bootstrap | build/toolchain candidate only; no adapter or trajectory |
 
 Candidate solver identity remains:
 
@@ -67,6 +74,7 @@ production authority is created by this lineage.
 | [B4C3MC1](../nonlocal-nsr3b4c3mc1-adaptive-accuracy-budget-evidence-2026-08-21.md) | unchanged B4B physical budgets pass on P1/P2 | expand diversity before physical production claims |
 | [B4C4C1](../nonlocal-nsr3b4c4c1-complete-flat-adjacency-evidence-2026-08-21.md) | all eight lanes/rollback exact; zero final ownership | B4C4 is closed; keep legacy path as oracle/rollback |
 | [B4D](../nonlocal-nsr3b4d-reference-reattestation-evidence-2026-08-21.md) | local identities exact, all external files missing | no nominal trajectory until reference closure is restored |
+| [B4DR1A](../nonlocal-nsr3b4dr1a-external-bootstrap-evidence-2026-08-21.md) | strict external library closure reproduces 8/8 artifacts across full clones | freeze adapter/contact semantics before execution; never use linked worktrees |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -135,6 +143,14 @@ adapter/source/binary SHA-256 values.
 - **Reconsider when:** exact W0I files or exact source/diff/binary lineage is
   restored; otherwise only a newly rooted reference profile may proceed.
 
+### D-006 -- Select a strict fresh-clone external build profile
+
+- **Observation:** GCC/CMake/Ninja and all required pinned dependencies build
+  twice byte-identically with binary64, AVX/FMA/fast-math disabled.
+- **Decision:** select B4DR1 R1A and require an ordinary clean full Git clone
+  for every reference build; bind generated `Utilities/Version.h` separately.
+- **Rejected:** lazy blob-by-blob checkout and linked Git worktrees.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -159,12 +175,11 @@ adapter/source/binary SHA-256 values.
 
 ## Exact next action
 
-1. Freeze B4DR1 new external generator/profile contract.
-2. Bind upstream commit, adapter source/patch, compiler/build flags, dependency
-   closure, self-tests, output format and durable external artifact manifest.
-3. Only then clone/build the external comparator and run tiny geometry gates
-   before any long payload generation.
-4. Keep B4E blocked until a new reference attestation passes twice.
+1. Freeze the R1B adapter/contact contract and all six exact test vectors.
+2. Implement the standalone geometry/environment self-test without starting a
+   particle simulation; bind source, compiler/link, ABI and binary roots.
+3. Only R1B PASS may freeze and run R1C 24-step scenario manifests.
+4. Keep B4E blocked until a new R1E reference attestation passes twice.
 
 ## Reconsideration triggers
 

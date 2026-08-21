@@ -805,3 +805,10 @@ cost-aware bootstrap/contact/24-step/full/attestation ladder. Its
 [frozen contract](03b4dr1-reference-generator-contract.md) authorizes only the
 R1A recursive pinned-upstream bootstrap next. No adapter trajectory or full
 generation is authorized yet; B4E remains blocked.
+R1A passes with two byte-identical fresh full-clone builds; see the
+[bootstrap evidence](../../development/nonlocal-nsr3b4dr1a-external-bootstrap-evidence-2026-08-21.md).
+The strict binary64/no-AVX/no-FMA flags reach the main and nested dependency
+commands, and all eight static artifacts match across paths. Linked Git
+worktrees are rejected because upstream's old revision probe reports
+`HEAD-HASH-NOTFOUND`. Freeze the standalone R1B contact adapter and six-vector
+contract next; no particle trajectory is authorized.
