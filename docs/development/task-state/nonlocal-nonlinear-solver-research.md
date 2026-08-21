@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C3MA_FAIL / CANONICAL_TOPOLOGY_DESIGN` |
+| Status | `ACTIVE / NSR3B4C3MA_FAIL / B4C3MAG_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -41,8 +41,9 @@
 - **Current decision:** B4C3PE1 selects the macro-boundary canonical fixed
   reference candidate with 89 temporal, 55 absolute and zero rejected field/
   frame admissions. B4C3P remains the preserved legacy-tube FAIL.
-- **Current action:** preserve B4C3MA FAIL and freeze a canonical-integer
-  topology discriminator. Complete replay/B4C3TC/B4C4/B4D remain blocked.
+- **Current action:** implement frozen B4C3MAG exact canonical-integer topology
+  admission and negative controls. Complete replay/B4C3TC/B4C4/B4D remain
+  blocked.
 - **Current contract:** level-to-temporal-pair mapping is `{0,0,1}` for
   `48/96/192`; branch order is temporal `<=0.5D`, then absolute `<=1%` of
   `0.05dx/0.001c`. Both canonical fields must retain observed first order.
@@ -1400,6 +1401,20 @@
   been implemented or checked against KKT terminal features.
 - **Smallest next action:** freeze and execute the B4C3MAG topology reclosure.
 
+### D-069 -- Freeze canonical integer topology
+
+- **Observation:** durable particle coordinates and geometry already have an
+  exact micrometre identity through `canonical::quantize_position`.
+- **Decision:** define macro-boundary geometric features by equality of these
+  integers and require exact equality with selected fine KKT terminal features.
+- **Rejected alternatives:** any epsilon, ulp-count heuristic, post-decode snap,
+  or changing private solver geometry.
+- **Consequence:** B4C3MA remains the raw-equality FAIL control; B4C3MAG changes
+  only topology admission and policy identity.
+- **Remaining uncertainty:** integer topology negatives and complete parent
+  replay have not executed.
+- **Smallest next action:** implement the exact feature map and discriminator.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1412,8 +1427,8 @@
 
 ## Exact next action
 
-1. Freeze B4C3MAG exact integer topology identity and negative controls.
-2. Reuse B4C3MA unchanged except for the topology admission and new identity.
+1. Implement B4C3MAG exact integer topology map and geometry validation.
+2. Reuse B4C3MA unchanged except for topology admission and new identity.
 3. Execute isolated, then twice parent-gated before any complete replay design.
 
 ## Reconsideration triggers

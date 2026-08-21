@@ -591,3 +591,10 @@ All solver/selection/ledger/mixed-budget gates pass, but raw binary equality
 loses 24 P1 upper-face memberships after canonical decode at only `2.78e-17 m`
 coordinate difference and zero penetration. No epsilon is authorized; a new
 canonical-integer topology discriminator must run first.
+The
+[B4C3MAG audit](../../development/nonlocal-nsr3b4c3mag-canonical-topology-research-2026-08-21.md)
+selects exact canonical integer equality instead of an epsilon. Its
+[frozen contract](03b4c3mag-canonical-topology-contract.md) requires KKT
+terminal features to equal both private and decoded feature sets after exact
+`quantize_position`, while raw equality, feature differences and penetration
+remain diagnostics. Solver state and publication are unchanged.
