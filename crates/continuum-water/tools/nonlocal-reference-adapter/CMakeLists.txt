@@ -210,6 +210,10 @@ if(BUILD_TESTING)
     add_test(NAME nonlocal_reference_adapter.r1c2_reject_relative_output
         COMMAND nonlocal_reference_adapter
             --r1c-diagnose-trajectory CW-HYDRO-001 relative)
+    add_test(NAME nonlocal_reference_adapter.r1c3_reject_relative_output
+        COMMAND nonlocal_reference_adapter --r1c3-pressure-cap 25 relative)
+    add_test(NAME nonlocal_reference_adapter.r1c3_reject_invalid_cap
+        COMMAND nonlocal_reference_adapter --r1c3-pressure-cap 37 relative)
 
     set_tests_properties(
         nonlocal_reference_adapter.pass
@@ -220,6 +224,8 @@ if(BUILD_TESTING)
         nonlocal_reference_adapter.r1c_reject_manifest_mismatch
         nonlocal_reference_adapter.r1c_reject_relative_output
         nonlocal_reference_adapter.r1c2_reject_relative_output
+        nonlocal_reference_adapter.r1c3_reject_relative_output
+        nonlocal_reference_adapter.r1c3_reject_invalid_cap
         PROPERTIES ENVIRONMENT "LC_ALL=C;OMP_NUM_THREADS=1;OMP_DYNAMIC=FALSE")
     set_tests_properties(
         nonlocal_reference_adapter.reject_rounding
@@ -228,5 +234,7 @@ if(BUILD_TESTING)
         nonlocal_reference_adapter.r1c_reject_manifest_mismatch
         nonlocal_reference_adapter.r1c_reject_relative_output
         nonlocal_reference_adapter.r1c2_reject_relative_output
+        nonlocal_reference_adapter.r1c3_reject_relative_output
+        nonlocal_reference_adapter.r1c3_reject_invalid_cap
         PROPERTIES WILL_FAIL TRUE)
 endif()

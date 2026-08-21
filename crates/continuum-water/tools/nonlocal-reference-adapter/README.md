@@ -68,3 +68,14 @@ nonlocal_reference_adapter --r1c-diagnose-trajectory \
 It executes the same trajectory path but emits exact failure step/phase,
 iteration, residual-bit, convergence and time-step-bit fields under a distinct
 diagnostic-only identity. It does not tune the solver or authorize R1C/R1D.
+
+R1C3's report-only first-step sweep uses:
+
+```text
+nonlocal_reference_adapter --r1c3-pressure-cap \
+  <25|50|75|100|125|150|200|300> \
+  <absolute-empty-output-directory>
+```
+
+It changes only the pressure iteration cap, executes one Hydro step and writes
+no payload. The external directory is still required as a fail-closed sentinel.

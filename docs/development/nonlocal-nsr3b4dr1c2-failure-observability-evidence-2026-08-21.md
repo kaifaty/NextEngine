@@ -57,4 +57,3 @@ blocked. Freeze a one-step, report-only pressure-cap sweep with all other
 profile bytes unchanged. Run fixed caps in ascending order and stop at the
 first converged result. Do not yet change mass/volume calibration, tolerance,
 warm-start policy, timestep, boundary support or production roadmap.
-

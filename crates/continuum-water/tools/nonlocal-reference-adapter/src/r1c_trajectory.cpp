@@ -43,11 +43,41 @@ constexpr std::string_view DIAGNOSTIC_SCHEMA =
     "nextengine.nonlocal.nsr3b4dr1c2-failure-observability.v1";
 constexpr std::string_view DIAGNOSTIC_CONTRACT_IDENTITY =
     "cf4e7dced6d2a597ea3ee8267daaab587c4fadb97fe20daa58643ab2412012cc";
+constexpr std::string_view PRESSURE_SWEEP_SCHEMA =
+    "nextengine.nonlocal.nsr3b4dr1c3-pressure-cap-sweep.v1";
+constexpr std::string_view PRESSURE_SWEEP_CONTRACT_IDENTITY =
+    "926e594fedec03e9c3b08aa76fc57a22988049e97f60c5e47113387aae879678";
 constexpr std::uint64_t DT_BITS = UINT64_C(0x3f71111111111111);
 constexpr std::uint32_t SAMPLE_COUNT = 6'000;
 constexpr std::uint32_t FRAME_COUNT = 25;
 constexpr std::size_t FEATURE_COUNT = 25;
 constexpr std::size_t MAX_FILE_BYTES = 64U * 1024U * 1024U;
+
+enum class TrajectoryMode {
+    R1C,
+    R1C2,
+    R1C3PressureSweep,
+};
+
+std::string_view schema_for(TrajectoryMode mode) {
+    if (mode == TrajectoryMode::R1C2) {
+        return DIAGNOSTIC_SCHEMA;
+    }
+    if (mode == TrajectoryMode::R1C3PressureSweep) {
+        return PRESSURE_SWEEP_SCHEMA;
+    }
+    return SCHEMA;
+}
+
+std::string_view contract_for(TrajectoryMode mode) {
+    if (mode == TrajectoryMode::R1C2) {
+        return DIAGNOSTIC_CONTRACT_IDENTITY;
+    }
+    if (mode == TrajectoryMode::R1C3PressureSweep) {
+        return PRESSURE_SWEEP_CONTRACT_IDENTITY;
+    }
+    return CONTRACT_IDENTITY;
+}
 
 std::uint64_t to_bits(double value) {
     std::uint64_t bits = 0;
@@ -278,16 +308,19 @@ FrameDiagnostics capture_solver_diagnostics(
     return result;
 }
 
-void validate_solver_diagnostics(const FrameDiagnostics &result) {
+void validate_solver_diagnostics(
+    const FrameDiagnostics &result,
+    std::uint32_t pressure_cap,
+    bool require_pressure_convergence) {
     require_finite(result.pressure_error, "PRESSURE_ERROR");
     require_finite(result.divergence_error, "DIVERGENCE_ERROR");
-    if (!result.pressure_converged) {
+    if (require_pressure_convergence && !result.pressure_converged) {
         throw std::runtime_error("PRESSURE_NOT_CONVERGED");
     }
     if (!result.divergence_converged) {
         throw std::runtime_error("DIVERGENCE_NOT_CONVERGED");
     }
-    if (result.pressure_iterations < 2U || result.pressure_iterations > 100U) {
+    if (result.pressure_iterations < 2U || result.pressure_iterations > pressure_cap) {
         throw std::runtime_error("PRESSURE_ITERATIONS_OUT_OF_RANGE");
     }
     if (result.divergence_iterations < 1U || result.divergence_iterations > 100U) {
@@ -359,18 +392,21 @@ std::string failure_report(
     std::string_view reason,
     bool simulation_created,
     bool trajectory_started,
-    bool diagnostic_mode,
+    TrajectoryMode mode,
+    std::uint32_t pressure_cap,
     std::string_view failure_phase,
     const std::optional<FrameDiagnostics> &diagnostics) {
     std::ostringstream output;
-    output << "schema=" << (diagnostic_mode ? DIAGNOSTIC_SCHEMA : SCHEMA) << '\n'
-           << "contract_identity="
-           << (diagnostic_mode ? DIAGNOSTIC_CONTRACT_IDENTITY : CONTRACT_IDENTITY) << '\n'
+    output << "schema=" << schema_for(mode) << '\n'
+           << "contract_identity=" << contract_for(mode) << '\n'
            << "status=FAIL\n"
            << "reason=" << reason << '\n'
            << "simulation_created=" << std::boolalpha << simulation_created << '\n'
            << "trajectory_started=" << trajectory_started << '\n';
-    if (diagnostic_mode && diagnostics.has_value()) {
+    if (mode == TrajectoryMode::R1C3PressureSweep) {
+        output << "pressure_cap=" << pressure_cap << '\n';
+    }
+    if (mode != TrajectoryMode::R1C && diagnostics.has_value()) {
         output << "failure_phase=" << failure_phase << '\n'
                << "failure_step=" << diagnostics->step << '\n'
                << "pressure_iterations=" << diagnostics->pressure_iterations << '\n'
@@ -389,7 +425,8 @@ std::string failure_report(
 AdapterRun run_r1c_trajectory_impl(
     std::string_view scenario_id,
     std::string_view output_dir,
-    bool diagnostic_mode) {
+    TrajectoryMode mode,
+    std::uint32_t pressure_cap) {
     bool simulation_created = false;
     bool trajectory_started = false;
     std::string_view failure_phase = "pre_simulation";
@@ -403,7 +440,8 @@ AdapterRun run_r1c_trajectory_impl(
                     "MANIFEST_PREFLIGHT_NOT_PASS",
                     false,
                     false,
-                    diagnostic_mode,
+                    mode,
+                    pressure_cap,
                     failure_phase,
                     failure_diagnostics),
             };
@@ -496,7 +534,9 @@ AdapterRun run_r1c_trajectory_impl(
             throw std::runtime_error("DFSPH_TIME_STEP_NOT_SELECTED");
         }
         time_step->setValue<unsigned int>(SPH::TimeStepDFSPH::MIN_ITERATIONS, 2U);
-        time_step->setValue<unsigned int>(SPH::TimeStepDFSPH::MAX_ITERATIONS, 100U);
+        time_step->setValue<unsigned int>(
+            SPH::TimeStepDFSPH::MAX_ITERATIONS,
+            pressure_cap);
         time_step->setValue<Real>(SPH::TimeStepDFSPH::MAX_ERROR, 0.01);
         time_step->setValue<unsigned int>(SPH::TimeStepDFSPH::MAX_ITERATIONS_V, 100U);
         time_step->setValue<Real>(SPH::TimeStepDFSPH::MAX_ERROR_V, 0.1);
@@ -525,7 +565,41 @@ AdapterRun run_r1c_trajectory_impl(
             time_step->step();
             failure_diagnostics = capture_solver_diagnostics(*time_step, step);
             failure_phase = "solver_validation";
-            validate_solver_diagnostics(*failure_diagnostics);
+            validate_solver_diagnostics(
+                *failure_diagnostics,
+                pressure_cap,
+                mode != TrajectoryMode::R1C3PressureSweep);
+            if (mode == TrajectoryMode::R1C3PressureSweep) {
+                std::ostringstream output;
+                output << "schema=" << schema_for(mode) << '\n'
+                       << "contract_identity=" << contract_for(mode) << '\n'
+                       << "scenario=" << scenario.id << '\n'
+                       << "status=PASS\n"
+                       << "simulation_created=true\n"
+                       << "trajectory_started=true\n"
+                       << "step=" << failure_diagnostics->step << '\n'
+                       << "pressure_cap=" << pressure_cap << '\n'
+                       << "pressure_iterations="
+                       << failure_diagnostics->pressure_iterations << '\n'
+                       << "pressure_error_bits="
+                       << hex_u64(to_bits(failure_diagnostics->pressure_error)) << '\n'
+                       << "pressure_converged=" << std::boolalpha
+                       << failure_diagnostics->pressure_converged << '\n'
+                       << "divergence_iterations="
+                       << failure_diagnostics->divergence_iterations << '\n'
+                       << "divergence_error_bits="
+                       << hex_u64(to_bits(failure_diagnostics->divergence_error)) << '\n'
+                       << "divergence_converged="
+                       << failure_diagnostics->divergence_converged << '\n'
+                       << "time_step_bits="
+                       << hex_u64(failure_diagnostics->time_step_bits) << '\n'
+                       << "payload_written=false\n"
+                       << "diagnostic_only=true\n"
+                       << "r1c_authorized=false\n"
+                       << "r1d_authorized=false\n"
+                       << "b4e_authorized=false\n";
+                return {true, output.str()};
+            }
             failure_phase = "contact_projection";
             project_contact_and_measure(
                 *fluid_model,
@@ -561,10 +635,8 @@ AdapterRun run_r1c_trajectory_impl(
             write_payload(directory, scenario.id, payload);
 
         std::ostringstream output;
-        output << "schema=" << (diagnostic_mode ? DIAGNOSTIC_SCHEMA : SCHEMA) << '\n'
-               << "contract_identity="
-               << (diagnostic_mode ? DIAGNOSTIC_CONTRACT_IDENTITY : CONTRACT_IDENTITY)
-               << '\n'
+        output << "schema=" << schema_for(mode) << '\n'
+               << "contract_identity=" << contract_for(mode) << '\n'
                << "scenario=" << scenario.id << '\n'
                << "status=PASS\n"
                << "simulation_created=true\n"
@@ -578,7 +650,7 @@ AdapterRun run_r1c_trajectory_impl(
                << "max_divergence_iterations=" << maximum_divergence_iterations << '\n'
                << "total_contact_hits=" << total_contact_hits << '\n'
                << "final_receiver_count=" << final_receiver_count << '\n';
-        if (diagnostic_mode) {
+        if (mode == TrajectoryMode::R1C2) {
             output << "diagnostic_only=true\n"
                    << "r1c_authorized=false\n";
         }
@@ -592,7 +664,8 @@ AdapterRun run_r1c_trajectory_impl(
                 error.what(),
                 simulation_created,
                 trajectory_started,
-                diagnostic_mode,
+                mode,
+                pressure_cap,
                 failure_phase,
                 failure_diagnostics),
         };
@@ -602,13 +675,54 @@ AdapterRun run_r1c_trajectory_impl(
 } // namespace
 
 AdapterRun run_r1c_trajectory(std::string_view scenario_id, std::string_view output_dir) {
-    return run_r1c_trajectory_impl(scenario_id, output_dir, false);
+    return run_r1c_trajectory_impl(
+        scenario_id,
+        output_dir,
+        TrajectoryMode::R1C,
+        100U);
 }
 
 AdapterRun run_r1c_trajectory_diagnostic(
     std::string_view scenario_id,
     std::string_view output_dir) {
-    return run_r1c_trajectory_impl(scenario_id, output_dir, true);
+    return run_r1c_trajectory_impl(
+        scenario_id,
+        output_dir,
+        TrajectoryMode::R1C2,
+        100U);
+}
+
+AdapterRun run_r1c_pressure_cap_sweep_point(
+    std::string_view pressure_cap,
+    std::string_view output_dir) {
+    constexpr std::array<std::uint32_t, 8> ALLOWED_CAPS = {
+        25U, 50U, 75U, 100U, 125U, 150U, 200U, 300U,
+    };
+    std::optional<std::uint32_t> parsed_cap;
+    for (std::uint32_t allowed : ALLOWED_CAPS) {
+        if (pressure_cap == std::to_string(allowed)) {
+            parsed_cap = allowed;
+            break;
+        }
+    }
+    if (!parsed_cap.has_value()) {
+        return {
+            false,
+            failure_report(
+                "PRESSURE_CAP_NOT_ALLOWED",
+                false,
+                false,
+                TrajectoryMode::R1C3PressureSweep,
+                0U,
+                "pre_simulation",
+                std::nullopt),
+        };
+    }
+    return run_r1c_trajectory_impl(
+        "CW-HYDRO-001",
+        output_dir,
+        TrajectoryMode::R1C3PressureSweep,
+        *parsed_cap);
 }
 
 } // namespace nextengine::nonlocal_reference

@@ -47,4 +47,3 @@ converges by 300, preserve that boundary.
 
 R1C3 PASS means only that the sweep is complete and deterministic enough to
 select the next remediation design. It cannot itself modify or pass R1C.
-
