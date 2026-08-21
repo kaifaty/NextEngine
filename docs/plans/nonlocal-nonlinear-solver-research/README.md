@@ -884,3 +884,12 @@ unit-normalized, while upstream's 0.8 startup heuristic is intentionally about
 and [frozen contract](03b4dr1c4-pressure-cap-reclosure-contract.md) therefore
 change only pressure cap 100 to 300 under a new identity. Implement and run
 paired short scenarios next; R1D remains blocked until all pairs pass.
+R1C4 Hydro and Dam pairs pass byte-identically, but the first Orifice process
+rejects after a converged solver step because the adapter derives analytical
+`x_max=1.0` from the intentionally one-metre source-support boundary. See the
+[negative/partial evidence](../../development/nonlocal-nsr3b4dr1c4-trajectory-evidence-2026-08-21.md).
+The [R1C5 research](../../development/nonlocal-nsr3b4dr1c5-orifice-domain-reclosure-research-2026-08-21.md)
+and [frozen contract](03b4dr1c5-orifice-domain-reclosure-contract.md) separate
+analytical domain extent from boundary lattice width, keep all boundary roots
+unchanged and require every pair to rerun under a new global identity. R1D is
+still blocked.

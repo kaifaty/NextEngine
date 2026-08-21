@@ -1,6 +1,6 @@
 # NSR3-B4DR1 -- reproducible external-reference generator contract
 
-Status: `FROZEN / R1C_FAIL / R1C3_PASS / R1C4_TRAJECTORY_RECLOSURE / NEW_ROOT_ONLY`
+Status: `FROZEN / R1C4_FAIL / R1C5_DOMAIN_RECLOSURE / NEW_ROOT_ONLY`
 
 Identity projection:
 
@@ -104,6 +104,11 @@ only fixed one-step diagnostic caps before any reference-profile reclosure.
 R1C3 first converges at iteration 220 under cap 300. The
 [R1C4 reclosure](03b4dr1c4-pressure-cap-reclosure-contract.md) changes only
 pressure maximum and profile identity, then repeats the paired short gate.
+
+R1C4 Hydro/Dam pairs pass, but Orifice exposes an analytical-domain/source-
+support ownership conflict. The
+[R1C5 contract](03b4dr1c5-orifice-domain-reclosure-contract.md) separates
+those fields and requires all pairs to rerun under a new identity.
 
 ## R1D -- full external generation
 

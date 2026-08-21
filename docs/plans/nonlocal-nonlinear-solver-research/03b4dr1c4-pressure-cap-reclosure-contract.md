@@ -1,6 +1,6 @@
 # NSR3-B4DR1C4 -- pressure-cap trajectory reclosure contract
 
-Status: `FROZEN / IMPLEMENTATION_AUTHORIZED / NEW_ROOT_ONLY`
+Status: `FAIL / HYDRO_DAM_PASS / ORIFICE_DOMAIN_EXTENT_REJECTED`
 
 Identity projection (exact bytes, no final LF):
 
@@ -50,3 +50,9 @@ failure. Record binary, report and payload identities plus timing.
 R1C4 passes only if all six processes pass and each same-scenario pair is
 byte-identical. PASS authorizes only R1D full-generation execution under this
 new cap-300 profile. R1E, B4E, runtime and production remain blocked.
+
+Hydro and Dam pairs pass byte-identically, but the first Orifice process
+rejects because implementation derives analytical `x_max=1.0` from source-
+support `boundary_nx=20`. See the
+[dated evidence](../../development/nonlocal-nsr3b4dr1c4-trajectory-evidence-2026-08-21.md).
+R1C4 therefore fails overall; only R1C5 may correct the ownership split.

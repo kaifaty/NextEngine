@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4DR1_R1C3_PASS / R1C4_TRAJECTORY_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4DR1_R1C4_FAIL / R1C5_IMPLEMENTATION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -71,8 +71,14 @@
   changes mass by 20%, so it is not selected for this comparator.
 - **Current decision:** reclose R1C4 with pressure cap 300 only, new profile
   identity and otherwise byte-identical physics/serialization.
-- **Next action:** implement and commit `--r1c4-trajectory`, then run paired
-  Hydro/Dam/Orifice in order with stop-on-first-failure. Do not run R1D yet.
+- **Current conclusion:** R1C4 Hydro and Dam pairs pass byte-identically. The
+  first Orifice step converges, then contact rejects because analytical
+  `x_max` was wrongly derived as 1 m from source-support `boundary_nx=20`.
+- **Current decision:** R1C4 fails overall. R1C5 separates domain extent from
+  boundary lattice extent, keeps Orifice support unchanged and uses a new
+  global profile identity.
+- **Next action:** implement/commit R1C5 plus manifest-only extent assertions,
+  then rerun all three pairs. Do not inherit R1C4 payload credit or run R1D.
 - **Do not run:** B4E nominal corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -100,6 +106,8 @@
 | NSR3B4DR1C3 contract | fixed one-step pressure-cap sweep | diagnose bounded convergence; no payload or R1C credit |
 | NSR3B4DR1C3 PASS | monotone residual; first convergence at iteration 220 | R1C4 cap-300 profile reclosure only |
 | NSR3B4DR1C4 contract | cap 300 and new trajectory identity | paired short scenarios; R1D still blocked |
+| NSR3B4DR1C4 execution | Hydro/Dam exact; Orifice fails before contact at extent mismatch | R1C4 FAIL; no R1D |
+| NSR3B4DR1C5 contract | explicit domain/support extent ownership | rerun all pairs under new identity |
 
 Candidate solver identity remains:
 
@@ -132,6 +140,7 @@ production authority is created by this lineage.
 | [B4DR1C trajectory](../nonlocal-nsr3b4dr1c-trajectory-negative-evidence-2026-08-21.md) | first Hydro fails at pressure convergence; current report hides solver fields | preserve FAIL; instrument only R1C2 observability before any tuning |
 | [B4DR1C2](../nonlocal-nsr3b4dr1c2-failure-observability-evidence-2026-08-21.md) | pressure hits 100 iterations at `8.2744x` threshold on step 1; divergence and dt exact | sweep pressure cap before changing calibration/tolerance |
 | [B4DR1C3](../nonlocal-nsr3b4dr1c3-pressure-cap-evidence-2026-08-21.md) | residual falls monotonically and crosses threshold at iteration 220; physical volume is lattice-normalized | reclose cap 300 only; retain mass/volume and cold policy |
+| [B4DR1C4](../nonlocal-nsr3b4dr1c4-trajectory-evidence-2026-08-21.md) | Hydro/Dam pairs exact; Orifice domain extent conflated with source support | preserve partial evidence but grant no pass; separate ownership in R1C5 |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -275,6 +284,16 @@ adapter/source/binary SHA-256 values.
   repeat paired short scenarios before R1D.
 - **Rejected:** upstream 0.8 underdensity heuristic, warm starts, tolerance
   loosening and inheriting any payload/root from failed R1C.
+
+### D-014 -- Separate analytical domain from boundary support
+
+- **Observation:** Orifice intentionally has a two-metre analytical box but
+  only one-metre source-side Akinci support; one `boundary_nx` field cannot own
+  both meanings.
+- **Decision:** add explicit scenario `domain_x_max`, retain boundary roots and
+  reissue the global R1C5 payload identity before rerunning all pairs.
+- **Rejected:** extending receiver-side Akinci support, weakening contact's
+  two-metre assertion or inheriting R1C4 Hydro/Dam payload roots.
 
 ## Performance facts retained
 
