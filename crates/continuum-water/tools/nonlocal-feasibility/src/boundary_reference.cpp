@@ -8384,6 +8384,14 @@ struct JointQueryTrace {
     int rejected_workspace_destructions = 0;
     int live_workspaces = 0;
     int maximum_live_workspaces = 0;
+    bool record_queries = true;
+    std::string query_chain_sha256 =
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    std::size_t total_pairs = 0;
+    std::size_t total_directed = 0;
+    std::size_t total_cell_distance_tests = 0;
+    std::size_t total_all_pair_candidate_checks = 0;
+    std::size_t maximum_tape_payload_bytes = 0;
     std::vector<JointQueryMetric> queries;
 };
 
@@ -8428,6 +8436,21 @@ struct JointRejectCase {
     bool trial_distinct = false;
     bool current_exact = false;
     JointQueryTrace trace;
+};
+
+struct JointControllerCase {
+    std::string name;
+    bool passed = false;
+    std::string failure;
+    bool case_serialization_exact = false;
+    bool forecast_work_exact = false;
+    bool kkt_work_exact = false;
+    bool final_state_exact = false;
+    bool reference_state_exact = false;
+    B4BCase oracle;
+    B4BCase candidate;
+    JointQueryTrace trace;
+    std::string case_sha256;
 };
 
 bool joint_cell_less(
@@ -9539,7 +9562,8 @@ JointPressureWorkspace build_joint_query_workspace(
     const std::vector<Vec3>& boundary,
     std::string kind,
     bool trial,
-    JointQueryTrace& trace) {
+    JointQueryTrace& trace,
+    bool audit = true) {
     JointPressureWorkspace result;
     result.neighborhood = build_joint_neighborhood(
         tagged_points(position), tagged_points(boundary), true);
@@ -9559,10 +9583,12 @@ JointPressureWorkspace build_joint_query_workspace(
         trace.exact = false;
         return result;
     }
-    const Evaluation oracle = evaluate(position, boundary);
-    ++trace.audit_all_pair_evaluations;
-    trace.exact = trace.exact
-        && exact_evaluation_values(oracle, result.evaluation);
+    if (audit) {
+        const Evaluation oracle = evaluate(position, boundary);
+        ++trace.audit_all_pair_evaluations;
+        trace.exact = trace.exact
+            && exact_evaluation_values(oracle, result.evaluation);
+    }
     result.state_sha256 = joint_workspace_hash(
         result.neighborhood, result.tape);
     JointQueryMetric metric;
@@ -9578,7 +9604,24 @@ JointPressureWorkspace build_joint_query_workspace(
     metric.tape_payload_bytes = result.tape.payload_bytes;
     trace.work_reduced = trace.work_reduced
         && metric.cell_distance_tests < metric.all_pair_candidate_checks;
-    trace.queries.push_back(std::move(metric));
+    std::ostringstream chain;
+    chain << trace.query_chain_sha256 << '|' << metric.kind
+          << '|' << metric.state_sha256 << '|' << metric.pairs
+          << ':' << metric.directed << ':' << metric.active_centers
+          << ':' << metric.cell_distance_tests
+          << ':' << metric.all_pair_candidate_checks
+          << ':' << metric.tape_payload_bytes;
+    trace.query_chain_sha256 = sha256_hex(chain.str());
+    trace.total_pairs += metric.pairs;
+    trace.total_directed += metric.directed;
+    trace.total_cell_distance_tests += metric.cell_distance_tests;
+    trace.total_all_pair_candidate_checks +=
+        metric.all_pair_candidate_checks;
+    trace.maximum_tape_payload_bytes = std::max(
+        trace.maximum_tape_payload_bytes, metric.tape_payload_bytes);
+    if (trace.record_queries) {
+        trace.queries.push_back(std::move(metric));
+    }
     if (trial) {
         ++trace.trial_workspace_builds;
     }
@@ -9628,7 +9671,8 @@ std::vector<Vec3> smooth_hvp_joint_workspace(
     const JointPressureWorkspace& workspace,
     const std::vector<Vec3>& direction,
     double time_step,
-    JointQueryTrace& trace) {
+    JointQueryTrace& trace,
+    bool audit = true) {
     const std::size_t fluid_count = workspace.neighborhood.fluid.size();
     const std::size_t support_count = workspace.neighborhood.support.size();
     if (direction.size() != fluid_count) {
@@ -9639,11 +9683,13 @@ std::vector<Vec3> smooth_hvp_joint_workspace(
     const std::vector<Vec3> taped = apply_joint_pressure_tape(
         workspace.neighborhood, workspace.tape, joint_direction);
     ++trace.joint_hvp_queries;
-    const std::vector<Vec3> oracle = apply_hessian(
-        joint_fluid_positions(workspace.neighborhood),
-        joint_support_positions(workspace.neighborhood), joint_direction);
-    ++trace.audit_all_pair_hvps;
-    trace.exact = trace.exact && exact_vec3_values(taped, oracle);
+    if (audit) {
+        const std::vector<Vec3> oracle = apply_hessian(
+            joint_fluid_positions(workspace.neighborhood),
+            joint_support_positions(workspace.neighborhood), joint_direction);
+        ++trace.audit_all_pair_hvps;
+        trace.exact = trace.exact && exact_vec3_values(taped, oracle);
+    }
     std::vector<Vec3> result = fluid_part(taped, fluid_count);
     const double inertia_scale = MASS / (time_step * time_step);
     for (std::size_t i = 0; i < result.size(); ++i) {
@@ -9785,7 +9831,8 @@ std::vector<Vec3> box_kkt_trust_step_joint_workspace(
     double radius,
     int& hvp_calls,
     bool& negative_curvature,
-    JointQueryTrace& trace) {
+    JointQueryTrace& trace,
+    bool audit = true) {
     std::vector<Vec3> point(state.projected_gradient.size());
     std::vector<Vec3> residual = state.projected_gradient;
     std::vector<Vec3> direction = residual;
@@ -9800,7 +9847,7 @@ std::vector<Vec3> box_kkt_trust_step_joint_workspace(
     for (std::size_t iteration = 0;
          iteration < 3U * direction.size(); ++iteration) {
         std::vector<Vec3> image = smooth_hvp_joint_workspace(
-            workspace, direction, time_step, trace);
+            workspace, direction, time_step, trace, audit);
         ++hvp_calls;
         zero_active_components(image, state.active_axis);
         const double curvature = flat_dot(direction, image);
@@ -9844,7 +9891,8 @@ BoxKktSolve solve_box_kkt_step_joint_query(
     const std::vector<Vec3>& start_position,
     const std::vector<Vec3>& start_velocity,
     double time_step,
-    JointQueryTrace& trace) {
+    JointQueryTrace& trace,
+    bool audit = true) {
     BoxKktSolve result;
     std::vector<Vec3> predicted(start_position.size());
     for (std::size_t i = 0; i < predicted.size(); ++i) {
@@ -9856,7 +9904,7 @@ BoxKktSolve solve_box_kkt_step_joint_query(
     result.position = materialize_displacement(
         start_position, result.displacement);
     JointPressureWorkspace current = build_joint_query_workspace(
-        result.position, fixture.boundary, "CURRENT_0", false, trace);
+        result.position, fixture.boundary, "CURRENT_0", false, trace, audit);
     if (!current.passed) {
         result.failure = "CURRENT_WORKSPACE:" + current.failure;
         return result;
@@ -9888,7 +9936,7 @@ BoxKktSolve solve_box_kkt_step_joint_query(
         const std::vector<Vec3> raw_step =
             box_kkt_trust_step_joint_workspace(
                 current, result.state, time_step, trust_radius,
-                result.hvp_calls, negative_curvature, trace);
+                result.hvp_calls, negative_curvature, trace, audit);
         result.negative_curvature_exits += negative_curvature ? 1 : 0;
         std::vector<Vec3> trial_displacement = add_scaled(
             result.displacement, raw_step, 1.0);
@@ -9908,7 +9956,7 @@ BoxKktSolve solve_box_kkt_step_joint_query(
             start_position, trial_displacement);
         JointPressureWorkspace trial = build_joint_query_workspace(
             trial_position, fixture.boundary,
-            "TRIAL_" + std::to_string(outer), true, trace);
+            "TRIAL_" + std::to_string(outer), true, trace, audit);
         if (!trial.passed) {
             result.failure = "TRIAL_WORKSPACE:" + trial.failure;
             release_joint_query_workspace(current, trace);
@@ -9918,7 +9966,7 @@ BoxKktSolve solve_box_kkt_step_joint_query(
             fixture, start_position, trial_position, start_velocity,
             trial_displacement, predicted, time_step, trial);
         const std::vector<Vec3> image = smooth_hvp_joint_workspace(
-            current, actual_step, time_step, trace);
+            current, actual_step, time_step, trace, audit);
         ++result.hvp_calls;
         const double predicted_reduction = -flat_dot(
             result.state.smooth.gradient, actual_step)
@@ -10089,7 +10137,8 @@ JointQueryCase run_joint_query_case(
 std::vector<Vec3> pressure_hvp_joint_workspace(
     const JointPressureWorkspace& workspace,
     const std::vector<Vec3>& direction,
-    JointQueryTrace& trace) {
+    JointQueryTrace& trace,
+    bool audit = true) {
     const std::size_t fluid_count = workspace.neighborhood.fluid.size();
     const std::size_t support_count = workspace.neighborhood.support.size();
     std::vector<Vec3> joint_direction(fluid_count + support_count);
@@ -10097,17 +10146,20 @@ std::vector<Vec3> pressure_hvp_joint_workspace(
     const std::vector<Vec3> taped = apply_joint_pressure_tape(
         workspace.neighborhood, workspace.tape, joint_direction);
     ++trace.joint_hvp_queries;
-    const std::vector<Vec3> oracle = apply_hessian(
-        joint_fluid_positions(workspace.neighborhood),
-        joint_support_positions(workspace.neighborhood), joint_direction);
-    ++trace.audit_all_pair_hvps;
-    trace.exact = trace.exact && exact_vec3_values(taped, oracle);
+    if (audit) {
+        const std::vector<Vec3> oracle = apply_hessian(
+            joint_fluid_positions(workspace.neighborhood),
+            joint_support_positions(workspace.neighborhood), joint_direction);
+        ++trace.audit_all_pair_hvps;
+        trace.exact = trace.exact && exact_vec3_values(taped, oracle);
+    }
     return fluid_part(taped, fluid_count);
 }
 
 SpectralEstimate boundary_pressure_spectrum_joint_workspace(
     const JointPressureWorkspace& workspace,
-    JointQueryTrace& trace) {
+    JointQueryTrace& trace,
+    bool audit = true) {
     constexpr int iterations = 48;
     SpectralEstimate result;
     const std::size_t fluid_count = workspace.neighborhood.fluid.size();
@@ -10121,7 +10173,7 @@ SpectralEstimate boundary_pressure_spectrum_joint_workspace(
     for (int iteration = 0; iteration < iterations; ++iteration) {
         basis.push_back(q);
         std::vector<Vec3> image = pressure_hvp_joint_workspace(
-            workspace, q, trace);
+            workspace, q, trace, audit);
         ++result.calls;
         const double alpha = flat_dot(q, image);
         diagonal.push_back(alpha);
@@ -10408,6 +10460,878 @@ void append_joint_reject_case(
            << ",\"trace\":";
     append_joint_query_trace(output, value.trace);
     output << '}';
+}
+
+bool joint_physical_diagnostic(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity,
+    std::string kind,
+    JointQueryTrace& trace,
+    double& mechanical,
+    double& maximum_strain) {
+    JointPressureWorkspace workspace = build_joint_query_workspace(
+        position, fixture.boundary, std::move(kind), false, trace, false);
+    if (!workspace.passed) {
+        return false;
+    }
+    double potential = 0.0;
+    maximum_strain = 0.0;
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        potential += MASS * (-fixture.gravity.y) * position[i].y;
+        maximum_strain = std::max(maximum_strain,
+            workspace.evaluation.density[i] / REST_DENSITY - 1.0);
+    }
+    mechanical = kinetic_energy(velocity)
+        + workspace.evaluation.energy + potential;
+    release_joint_query_workspace(workspace, trace);
+    return true;
+}
+
+B4BAggregate b4b_aggregate_joint(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& position,
+    const std::vector<Vec3>& velocity,
+    std::string kind,
+    JointQueryTrace& trace) {
+    B4BAggregate result;
+    JointPressureWorkspace workspace = build_joint_query_workspace(
+        position, fixture.boundary, std::move(kind), false, trace, false);
+    if (!workspace.passed) {
+        return result;
+    }
+    result.center = average_values(position);
+    result.momentum_value = momentum(velocity);
+    result.kinetic = kinetic_energy(velocity);
+    result.pressure = workspace.evaluation.energy;
+    std::vector<double> heights;
+    std::vector<double> fronts;
+    heights.reserve(position.size());
+    fronts.reserve(position.size());
+    for (std::size_t i = 0; i < position.size(); ++i) {
+        heights.push_back(position[i].y);
+        fronts.push_back(position[i].x);
+        result.gravitational += MASS
+            * (-fixture.gravity.y) * position[i].y;
+        result.maximum_speed_value = std::max(
+            result.maximum_speed_value, norm(velocity[i]));
+        const double ratio =
+            workspace.evaluation.density[i] / REST_DENSITY;
+        result.maximum_density_ratio = std::max(
+            result.maximum_density_ratio, ratio);
+        result.maximum_positive_strain = std::max(
+            result.maximum_positive_strain, ratio - 1.0);
+    }
+    result.q99_height = nearest_rank_q99(std::move(heights));
+    result.q99_front = nearest_rank_q99(std::move(fronts));
+    result.mechanical = result.kinetic + result.pressure
+        + result.gravitational;
+    result.finite_values = finite(result.center)
+        && finite(result.momentum_value)
+        && std::isfinite(result.q99_height)
+        && std::isfinite(result.q99_front)
+        && std::isfinite(result.kinetic)
+        && std::isfinite(result.pressure)
+        && std::isfinite(result.gravitational)
+        && std::isfinite(result.mechanical)
+        && std::isfinite(result.maximum_density_ratio)
+        && std::isfinite(result.maximum_speed_value);
+    release_joint_query_workspace(workspace, trace);
+    return result;
+}
+
+B4BFrameComparison compare_b4b_frame_joint(
+    int frame,
+    const SmokeFixture& fixture,
+    const SmokeFrame& candidate,
+    const SmokeRun& reference_run,
+    const B4BAggregate& reference,
+    JointQueryTrace& trace) {
+    B4BFrameComparison result;
+    result.frame = frame;
+    const B4BAggregate candidate_value = b4b_aggregate_joint(
+        fixture, candidate.position, candidate.velocity,
+        "COMPARE_FRAME_" + std::to_string(frame), trace);
+    result.position_dx = rms_difference(
+        candidate.position, reference_run.position) / SPACING;
+    result.velocity_c = rms_difference(
+        candidate.velocity, reference_run.velocity)
+        / std::sqrt(KAPPA / MASS);
+    result.center_dx = maximum_component_abs(
+        candidate_value.center - reference.center) / SPACING;
+    result.q99_height_dx = std::abs(
+        candidate_value.q99_height - reference.q99_height) / SPACING;
+    result.q99_front_dx = std::abs(
+        candidate_value.q99_front - reference.q99_front) / SPACING;
+    result.kinetic_absolute = std::abs(
+        candidate_value.kinetic - reference.kinetic);
+    const double kinetic_scale = std::max(
+        candidate_value.kinetic, reference.kinetic);
+    result.kinetic_floor = gamma_factor(
+        32U + 12U * candidate.velocity.size())
+        * std::max(kinetic_scale, std::numeric_limits<double>::min());
+    result.kinetic_floor_overlap = kinetic_scale <= 1.0e-12
+        && result.kinetic_absolute <= result.kinetic_floor;
+    if (kinetic_scale > 1.0e-12) {
+        result.kinetic_relative = result.kinetic_absolute / kinetic_scale;
+    }
+    result.passed = candidate_value.finite_values
+        && reference.finite_values
+        && result.position_dx <= 0.05
+        && result.velocity_c <= 0.001
+        && result.center_dx <= 0.05
+        && result.q99_height_dx <= 0.10
+        && result.q99_front_dx <= 0.10
+        && (kinetic_scale > 1.0e-12
+            ? result.kinetic_relative <= 0.15
+            : result.kinetic_floor_overlap);
+    return result;
+}
+
+SmokeRun run_b4b1_interval_joint(
+    const SmokeFixture& fixture,
+    const std::vector<Vec3>& start_position,
+    const std::vector<Vec3>& start_velocity,
+    int substeps,
+    double interval_start,
+    double interval_duration,
+    JointQueryTrace& trace) {
+    SmokeRun result;
+    result.position = start_position;
+    result.velocity = start_velocity;
+    result.substeps = substeps;
+    double initial_mechanical = 0.0;
+    double initial_strain = 0.0;
+    if (!joint_physical_diagnostic(fixture, result.position, result.velocity,
+            "RUN_INITIAL_DIAGNOSTIC", trace,
+            initial_mechanical, initial_strain)) {
+        result.failure = "RUN_INITIAL_DIAGNOSTIC";
+        return result;
+    }
+    result.maximum_mechanical_energy = initial_mechanical;
+    result.maximum_positive_density_strain = initial_strain;
+    result.maximum_speed = maximum_speed(result.velocity);
+    std::vector<Vec3> expected_position = start_position;
+    std::vector<Vec3> expected_velocity = start_velocity;
+    bool precontact = true;
+    const double time_step = interval_duration / static_cast<double>(substeps);
+    for (int substep = 0; substep < substeps; ++substep) {
+        const BoxKktSolve solve = solve_box_kkt_step_joint_query(
+            fixture, result.position, result.velocity,
+            time_step, trace, false);
+        if (!solve.passed) {
+            result.failure = "SUBSTEP_" + std::to_string(substep)
+                + ":KKT_SOLVE:" + solve.failure;
+            result.outer_trials = solve.outer_trials;
+            result.rejected_trials = solve.rejected_trials;
+            result.hvp_calls = solve.hvp_calls;
+            result.floor_merit_trials = solve.floor_merit_trials;
+            result.floor_merit_accepts = solve.floor_merit_accepts;
+            result.projected_trials = solve.projected_trials;
+            result.active_set_changes = solve.active_set_changes;
+            result.maximum_penetration = solve.state.maximum_penetration;
+            result.maximum_ledger_residual = solve.state.ledger_residual;
+            result.maximum_support_reaction_closure =
+                solve.state.support_translation_closure;
+            return result;
+        }
+        result.position = solve.position;
+        result.velocity = solve.velocity;
+        result.outer_trials += solve.outer_trials;
+        result.rejected_trials += solve.rejected_trials;
+        result.hvp_calls += solve.hvp_calls;
+        result.negative_curvature_exits += solve.negative_curvature_exits;
+        result.floor_merit_trials += solve.floor_merit_trials;
+        result.floor_merit_accepts += solve.floor_merit_accepts;
+        result.maximum_floor_accepts_per_solve = std::max(
+            result.maximum_floor_accepts_per_solve,
+            solve.floor_merit_accepts);
+        result.projected_trials += solve.projected_trials;
+        result.active_set_changes += solve.active_set_changes;
+        const bool pressure_active =
+            solve.state.smooth.support.active_centers > 0U;
+        result.active_steps += pressure_active ? 1 : 0;
+        result.inactive_steps += pressure_active ? 0 : 1;
+        result.maximum_active_mixed_ratio = std::max(
+            result.maximum_active_mixed_ratio,
+            solve.state.projected_impulse_residual
+                / std::max(solve.state.reaction_limit, 1.0e-300));
+        result.maximum_pairs = std::max(result.maximum_pairs,
+            solve.state.smooth.support.fluid_pairs
+                + solve.state.smooth.support.boundary_pairs);
+        result.maximum_penetration = std::max(
+            result.maximum_penetration,
+            solve.state.maximum_penetration);
+        result.maximum_ledger_residual = std::max(
+            result.maximum_ledger_residual,
+            solve.state.ledger_residual);
+        result.maximum_ledger_absolute = std::max(
+            result.maximum_ledger_absolute,
+            solve.state.ledger_absolute);
+        result.maximum_support_reaction_closure = std::max(
+            result.maximum_support_reaction_closure,
+            solve.state.support_translation_closure);
+        result.fluid_support_impulse +=
+            solve.state.fluid_pressure_impulse;
+        result.support_reaction += solve.state.support_reaction;
+        result.fluid_contact_impulse +=
+            solve.state.fluid_contact_impulse;
+        result.contact_reaction += solve.state.contact_reaction;
+        result.gravity_impulse += solve.state.gravity_impulse;
+        double mechanical = 0.0;
+        double strain = 0.0;
+        if (!joint_physical_diagnostic(fixture,
+                result.position, result.velocity,
+                "RUN_SUBSTEP_DIAGNOSTIC_" + std::to_string(substep),
+                trace, mechanical, strain)) {
+            result.failure = "RUN_SUBSTEP_DIAGNOSTIC";
+            return result;
+        }
+        result.maximum_mechanical_energy = std::max(
+            result.maximum_mechanical_energy, mechanical);
+        result.maximum_positive_density_strain = std::max(
+            result.maximum_positive_density_strain, strain);
+        result.maximum_speed = std::max(
+            result.maximum_speed, maximum_speed(result.velocity));
+
+        std::vector<std::pair<std::size_t, int>> contacts;
+        for (std::size_t i = 0; i < solve.state.active_axis.size(); ++i) {
+            for (int axis = 0; axis < 3; ++axis) {
+                if (!solve.state.active_axis[i][static_cast<std::size_t>(axis)]) {
+                    continue;
+                }
+                const double gradient = component(
+                    solve.state.active_gradient[i], axis);
+                if (gradient != 0.0) {
+                    contacts.emplace_back(i,
+                        2 * axis + (gradient < 0.0 ? 1 : 0));
+                }
+            }
+        }
+        std::sort(contacts.begin(), contacts.end());
+        result.contact_events += static_cast<int>(contacts.size());
+        result.cache_invalidations += static_cast<int>(contacts.size());
+        result.terminal_contacts = contacts;
+        for (std::size_t face = 0; face < 6U; ++face) {
+            result.face_active_axes[face] += solve.state.face_counts[face];
+            result.face_multiplier_sum[face] +=
+                solve.state.face_multiplier_sum[face];
+            result.face_fluid_impulse[face] +=
+                solve.state.face_fluid_impulse[face];
+        }
+        if (precontact && contacts.empty()) {
+            for (std::size_t i = 0; i < expected_position.size(); ++i) {
+                expected_velocity[i] += time_step * fixture.gravity;
+                expected_position[i] += time_step * expected_velocity[i];
+            }
+            ++result.precontact_steps;
+            result.precontact_pressure_violations += pressure_active ? 1 : 0;
+            result.maximum_precontact_support_reaction = std::max(
+                result.maximum_precontact_support_reaction,
+                norm(solve.state.support_reaction));
+            result.maximum_precontact_position_error = std::max(
+                result.maximum_precontact_position_error,
+                rms_difference(result.position, expected_position));
+            result.maximum_precontact_velocity_error = std::max(
+                result.maximum_precontact_velocity_error,
+                rms_difference(result.velocity, expected_velocity));
+            const Vec3 mean_velocity = average_values(result.velocity);
+            for (Vec3 value : result.velocity) {
+                result.maximum_precontact_velocity_spread = std::max(
+                    result.maximum_precontact_velocity_spread,
+                    norm(value - mean_velocity));
+            }
+        }
+        if (!contacts.empty()) {
+            if (!std::isfinite(result.first_contact_time)) {
+                result.first_contact_time = interval_start
+                    + static_cast<double>(substep + 1) * time_step;
+            }
+            precontact = false;
+        }
+    }
+    const std::size_t maximum_pairs = fixture.maximum_pairs > 0U
+        ? fixture.maximum_pairs
+        : 80U * (fixture.position.size() + fixture.boundary.size());
+    result.passed = result.contact_events == result.cache_invalidations
+        && result.maximum_pairs <= maximum_pairs
+        && fixture.position.size() + fixture.boundary.size()
+            <= fixture.maximum_participants
+        && result.maximum_penetration <= 1.0e-12
+        && result.maximum_ledger_residual <= 1.0e-9
+        && result.maximum_support_reaction_closure <= 1.0e-10;
+    if (!result.passed) {
+        result.failure = "RUN_KKT_GATE";
+    }
+    return result;
+}
+
+SmokeController run_b4b1_controller_joint(
+    const SmokeFixture& fixture,
+    bool contact_forecast,
+    JointQueryTrace& trace) {
+    SmokeController result;
+    result.position = fixture.position;
+    result.velocity = fixture.velocity;
+    bool global_precontact = true;
+    for (int frame_index = 0; frame_index < fixture.macro_frames;
+         ++frame_index) {
+        SmokeFrame frame;
+        frame.frame = frame_index;
+        JointPressureWorkspace frame_workspace = build_joint_query_workspace(
+            result.position, fixture.boundary,
+            "FRAME_START_" + std::to_string(frame_index),
+            false, trace, false);
+        if (!frame_workspace.passed) {
+            result.failure = "FRAME_START_WORKSPACE";
+            return result;
+        }
+        frame.active_centers = static_cast<int>(
+            frame_workspace.evaluation.active_centers);
+        bool spectrum_required = false;
+        if (frame.active_centers > 0) {
+            frame.spectrum_source = "START_ACTIVE";
+            spectrum_required = true;
+        } else {
+            release_joint_query_workspace(frame_workspace, trace);
+            if (contact_forecast) {
+                std::vector<Vec3> predicted(result.position.size());
+                for (std::size_t i = 0; i < predicted.size(); ++i) {
+                    predicted[i] = SMOKE_FRAME_TIME
+                        * (result.velocity[i]
+                            + SMOKE_FRAME_TIME * fixture.gravity);
+                }
+                predicted = clamp_box_displacement(
+                    fixture, result.position, predicted);
+                const std::vector<Vec3> projected = materialize_displacement(
+                    result.position, predicted);
+                frame_workspace = build_joint_query_workspace(
+                    projected, fixture.boundary,
+                    "FRAME_FORECAST_" + std::to_string(frame_index),
+                    false, trace, false);
+                if (!frame_workspace.passed) {
+                    result.failure = "FRAME_FORECAST_WORKSPACE";
+                    return result;
+                }
+                if (frame_workspace.evaluation.active_centers > 0U) {
+                    frame.spectrum_source = "FORECAST_ACTIVE";
+                    spectrum_required = true;
+                } else {
+                    frame.spectrum_source = "INACTIVE_EXACT";
+                }
+            } else {
+                frame.spectrum_source = "START_INACTIVE";
+            }
+        }
+        if (spectrum_required) {
+            const SpectralEstimate spectrum =
+                boundary_pressure_spectrum_joint_workspace(
+                    frame_workspace, trace, false);
+            frame.spectral_hvp_calls = spectrum.calls;
+            frame.maximum_eigenvalue = spectrum.maximum_eigenvalue;
+            frame.maximum_eigenfrequency = std::sqrt(
+                std::max(spectrum.maximum_eigenvalue, 0.0) / MASS);
+            if (!spectrum.passed) {
+                release_joint_query_workspace(frame_workspace, trace);
+                result.failure = "FRAME_SPECTRUM";
+                return result;
+            }
+            frame.initial_substeps = std::max(1,
+                static_cast<int>(std::ceil(SMOKE_FRAME_TIME
+                    * frame.maximum_eigenfrequency / SPECTRAL_TARGET)));
+        } else {
+            frame.initial_substeps = 1;
+        }
+        if (frame_workspace.passed) {
+            release_joint_query_workspace(frame_workspace, trace);
+        }
+        std::vector<SmokeRun> levels;
+        for (int level = 0; level < 4; ++level) {
+            levels.push_back(run_b4b1_interval_joint(fixture,
+                result.position, result.velocity,
+                frame.initial_substeps * (1 << level),
+                static_cast<double>(frame_index) * SMOKE_FRAME_TIME,
+                SMOKE_FRAME_TIME, trace));
+            if (!levels.back().passed) {
+                result.failure_ledger_absolute =
+                    levels.back().maximum_ledger_absolute;
+                result.failure_ledger_residual =
+                    levels.back().maximum_ledger_residual;
+                result.failure_active_centers = levels.back().active_steps;
+                result.failure_outer_trials = levels.back().outer_trials;
+                result.failure_hvp_calls = levels.back().hvp_calls;
+                result.failure_contact_events = levels.back().contact_events;
+                result.failure = "FRAME_CANDIDATE:" + levels.back().failure;
+                return result;
+            }
+            if (level > 0) {
+                frame.gate = smoke_gate(
+                    levels[static_cast<std::size_t>(level - 1)],
+                    levels[static_cast<std::size_t>(level)]);
+                if (frame.gate.passed) {
+                    frame.refinement_depth = level - 1;
+                    frame.accepted_substeps =
+                        levels[static_cast<std::size_t>(level)].substeps;
+                    result.position =
+                        levels[static_cast<std::size_t>(level)].position;
+                    result.velocity =
+                        levels[static_cast<std::size_t>(level)].velocity;
+                    break;
+                }
+            }
+        }
+        if (frame.refinement_depth < 0) {
+            result.failure = "FRAME_ERROR_GATE";
+            return result;
+        }
+        for (int level = 0; level <= frame.refinement_depth + 1; ++level) {
+            const SmokeRun& run = levels[static_cast<std::size_t>(level)];
+            frame.executed_substeps += run.substeps;
+            result.nonlinear_hvp_calls += run.hvp_calls;
+            result.outer_trials += run.outer_trials;
+            result.rejected_trials += run.rejected_trials;
+            result.floor_merit_trials += run.floor_merit_trials;
+            result.floor_merit_accepts += run.floor_merit_accepts;
+            result.projected_trials += run.projected_trials;
+            result.active_set_changes += run.active_set_changes;
+            result.active_steps += run.active_steps;
+            result.inactive_steps += run.inactive_steps;
+        }
+        frame.discarded_substeps = frame.executed_substeps
+            - frame.accepted_substeps;
+        const SmokeRun& accepted = levels[
+            static_cast<std::size_t>(frame.refinement_depth + 1)];
+        result.accepted_substeps += frame.accepted_substeps;
+        result.executed_substeps += frame.executed_substeps;
+        result.discarded_substeps += frame.discarded_substeps;
+        result.spectral_hvp_calls += frame.spectral_hvp_calls;
+        result.contact_events += accepted.contact_events;
+        result.accepted_active_steps += accepted.active_steps;
+        result.accepted_inactive_steps += accepted.inactive_steps;
+        result.maximum_pairs = std::max(
+            result.maximum_pairs, accepted.maximum_pairs);
+        result.maximum_penetration = std::max(
+            result.maximum_penetration, accepted.maximum_penetration);
+        result.maximum_ledger_residual = std::max(
+            result.maximum_ledger_residual,
+            accepted.maximum_ledger_residual);
+        result.maximum_support_reaction_closure = std::max(
+            result.maximum_support_reaction_closure,
+            accepted.maximum_support_reaction_closure);
+        result.maximum_active_mixed_ratio = std::max(
+            result.maximum_active_mixed_ratio,
+            accepted.maximum_active_mixed_ratio);
+        result.support_reaction += accepted.support_reaction;
+        result.contact_reaction += accepted.contact_reaction;
+        result.gravity_impulse += accepted.gravity_impulse;
+        result.maximum_mechanical_energy = std::max(
+            result.maximum_mechanical_energy,
+            accepted.maximum_mechanical_energy);
+        result.maximum_positive_density_strain = std::max(
+            result.maximum_positive_density_strain,
+            accepted.maximum_positive_density_strain);
+        result.maximum_speed = std::max(
+            result.maximum_speed, accepted.maximum_speed);
+        for (std::size_t face = 0; face < 6U; ++face) {
+            frame.face_active_axes[face] =
+                accepted.face_active_axes[face];
+            frame.face_multiplier_sum[face] =
+                accepted.face_multiplier_sum[face];
+            frame.face_fluid_impulse[face] =
+                accepted.face_fluid_impulse[face];
+            result.face_active_axes[face] +=
+                accepted.face_active_axes[face];
+            result.face_multiplier_sum[face] +=
+                accepted.face_multiplier_sum[face];
+            result.face_fluid_impulse[face] +=
+                accepted.face_fluid_impulse[face];
+        }
+        result.first_contact_time = std::min(
+            result.first_contact_time, accepted.first_contact_time);
+        result.terminal_contacts = accepted.terminal_contacts;
+        if (global_precontact) {
+            result.precontact_steps += accepted.precontact_steps;
+            result.precontact_pressure_violations +=
+                accepted.precontact_pressure_violations;
+            result.maximum_precontact_support_reaction = std::max(
+                result.maximum_precontact_support_reaction,
+                accepted.maximum_precontact_support_reaction);
+            result.maximum_precontact_position_error = std::max(
+                result.maximum_precontact_position_error,
+                accepted.maximum_precontact_position_error);
+            result.maximum_precontact_velocity_error = std::max(
+                result.maximum_precontact_velocity_error,
+                accepted.maximum_precontact_velocity_error);
+            result.maximum_precontact_velocity_spread = std::max(
+                result.maximum_precontact_velocity_spread,
+                accepted.maximum_precontact_velocity_spread);
+            global_precontact = !std::isfinite(
+                accepted.first_contact_time);
+        }
+        frame.position = result.position;
+        frame.velocity = result.velocity;
+        frame.passed = true;
+        result.frames.push_back(frame);
+    }
+    result.passed = result.contact_events > 0
+        && result.maximum_penetration <= 1.0e-12
+        && result.maximum_ledger_residual <= 1.0e-9
+        && result.maximum_support_reaction_closure <= 1.0e-10;
+    if (!result.passed) {
+        result.failure = "CONTROLLER_PHYSICAL_GATE";
+    }
+    return result;
+}
+
+B4BFixedTrajectory run_b4b1_fixed_trajectory_joint(
+    const SmokeFixture& fixture,
+    int substeps_per_frame,
+    JointQueryTrace& trace) {
+    B4BFixedTrajectory result;
+    result.substeps_per_frame = substeps_per_frame;
+    result.position = fixture.position;
+    result.velocity = fixture.velocity;
+    for (int frame = 0; frame < fixture.macro_frames; ++frame) {
+        SmokeRun run = run_b4b1_interval_joint(fixture,
+            result.position, result.velocity, substeps_per_frame,
+            static_cast<double>(frame) * SMOKE_FRAME_TIME,
+            SMOKE_FRAME_TIME, trace);
+        result.runs.push_back(run);
+        if (!run.passed) {
+            result.failure = "FRAME_" + std::to_string(frame)
+                + ':' + run.failure;
+            return result;
+        }
+        result.position = run.position;
+        result.velocity = run.velocity;
+        result.aggregates.push_back(b4b_aggregate_joint(
+            fixture, result.position, result.velocity,
+            "REFERENCE_AGGREGATE_" + std::to_string(substeps_per_frame)
+                + '_' + std::to_string(frame),
+            trace));
+        result.active_steps += run.active_steps;
+        result.contact_events += run.contact_events;
+        result.outer_trials += run.outer_trials;
+        result.rejected_trials += run.rejected_trials;
+        result.hvp_calls += run.hvp_calls;
+        result.floor_merit_accepts += run.floor_merit_accepts;
+        result.maximum_pairs = std::max(
+            result.maximum_pairs, run.maximum_pairs);
+        result.maximum_penetration = std::max(
+            result.maximum_penetration, run.maximum_penetration);
+        result.maximum_ledger_residual = std::max(
+            result.maximum_ledger_residual, run.maximum_ledger_residual);
+        result.maximum_support_reaction_closure = std::max(
+            result.maximum_support_reaction_closure,
+            run.maximum_support_reaction_closure);
+        result.maximum_mechanical_energy = std::max(
+            result.maximum_mechanical_energy,
+            run.maximum_mechanical_energy);
+        result.first_contact_time = std::min(
+            result.first_contact_time, run.first_contact_time);
+        result.terminal_contacts = run.terminal_contacts;
+    }
+    result.passed = true;
+    return result;
+}
+
+B4BReference run_b4b1_reference_joint(
+    const SmokeFixture& fixture,
+    JointQueryTrace& trace) {
+    B4BReference result;
+    for (std::size_t i = 0; i < B4B_REFERENCE_COUNTS.size(); ++i) {
+        result.levels[i] = run_b4b1_fixed_trajectory_joint(
+            fixture, B4B_REFERENCE_COUNTS[i], trace);
+    }
+    B4BConvergence& value = result.convergence;
+    for (std::size_t i = 0; i < 2U; ++i) {
+        value.position_difference[i] = rms_difference(
+            result.levels[i].position, result.levels[i + 1U].position);
+        value.velocity_difference[i] = rms_difference(
+            result.levels[i].velocity, result.levels[i + 1U].velocity);
+        value.position_floor[i] = b4b_rms_floor(
+            result.levels[i].position, result.levels[i + 1U].position);
+        value.velocity_floor[i] = b4b_rms_floor(
+            result.levels[i].velocity, result.levels[i + 1U].velocity);
+    }
+    value.position_floor_overlap =
+        value.position_difference[0] <= value.position_floor[0]
+        && value.position_difference[1] <= value.position_floor[1];
+    value.velocity_floor_overlap =
+        value.velocity_difference[0] <= value.velocity_floor[0]
+        && value.velocity_difference[1] <= value.velocity_floor[1];
+    if (value.position_difference[1] > 0.0) {
+        value.position_ratio = value.position_difference[0]
+            / value.position_difference[1];
+    }
+    if (value.velocity_difference[1] > 0.0) {
+        value.velocity_ratio = value.velocity_difference[0]
+            / value.velocity_difference[1];
+    }
+    const bool position_order = value.position_difference[0] > 0.0
+        && value.position_difference[1] > 0.0
+        && value.position_ratio >= 1.25 && value.position_ratio <= 2.75;
+    const bool velocity_order = value.velocity_difference[0] > 0.0
+        && value.velocity_difference[1] > 0.0
+        && value.velocity_ratio >= 1.25 && value.velocity_ratio <= 2.75;
+    value.passed = (position_order || value.position_floor_overlap)
+        && (velocity_order || value.velocity_floor_overlap);
+    result.passed = std::all_of(result.levels.begin(), result.levels.end(),
+            [](const B4BFixedTrajectory& level) { return level.passed; })
+        && value.passed;
+    return result;
+}
+
+B4BCase run_b4b1_case_joint(
+    SmokeFixture fixture,
+    bool released_block,
+    JointQueryTrace& trace) {
+    B4BCase result;
+    trace.record_queries = false;
+    result.fixture = std::move(fixture);
+    result.initial = b4b_aggregate_joint(result.fixture,
+        result.fixture.position, result.fixture.velocity,
+        "CASE_INITIAL", trace);
+    result.candidate = run_b4b1_controller_joint(
+        result.fixture, true, trace);
+    if (!result.candidate.passed) {
+        result.failure = "CANDIDATE:" + result.candidate.failure;
+        return result;
+    }
+    result.reference = run_b4b1_reference_joint(
+        result.fixture, trace);
+    const bool reference_runs_passed = std::all_of(
+        result.reference.levels.begin(), result.reference.levels.end(),
+        [](const B4BFixedTrajectory& level) { return level.passed; });
+    if (!reference_runs_passed) {
+        result.failure = "REFERENCE_RUN";
+        return result;
+    }
+    if (!result.reference.convergence.passed) {
+        result.failure = "REFERENCE_CONVERGENCE";
+        return result;
+    }
+    const B4BFixedTrajectory& fine = result.reference.levels[2];
+    for (std::size_t frame = 0; frame < result.candidate.frames.size();
+         ++frame) {
+        result.comparisons.push_back(compare_b4b_frame_joint(
+            static_cast<int>(frame), result.fixture,
+            result.candidate.frames[frame], fine.runs[frame],
+            fine.aggregates[frame], trace));
+    }
+    result.comparison_passed = std::all_of(
+        result.comparisons.begin(), result.comparisons.end(),
+        [](const B4BFrameComparison& value) { return value.passed; });
+    result.final = b4b_aggregate_joint(result.fixture,
+        result.candidate.position, result.candidate.velocity,
+        "CASE_FINAL", trace);
+    result.lateral_drift = std::max(
+        std::abs(result.final.center.x - result.initial.center.x),
+        std::abs(result.final.center.z - result.initial.center.z));
+    result.vertical_center_change = std::abs(
+        result.final.center.y - result.initial.center.y);
+    result.energy_allowance = 0.01 * std::max({
+        std::abs(result.initial.mechanical),
+        static_cast<double>(result.fixture.position.size())
+            * MASS * (-result.fixture.gravity.y) * SPACING,
+        1.0e-12,
+    });
+    result.energy_creation = std::max(0.0,
+        result.candidate.maximum_mechanical_energy
+            - result.initial.mechanical);
+    result.contact_time_error = event_time_error(
+        result.candidate.first_contact_time, fine.first_contact_time);
+    result.contact_time_limit = b4b_contact_time_limit(result.candidate);
+    result.terminal_contacts_exact = result.candidate.terminal_contacts
+        == fine.terminal_contacts;
+    const bool common_physical = result.initial.finite_values
+        && result.final.finite_values
+        && result.lateral_drift <= 1.0e-10
+        && result.candidate.contact_events > 0
+        && result.candidate.accepted_active_steps > 0
+        && result.candidate.maximum_penetration <= 1.0e-12
+        && result.candidate.maximum_ledger_residual <= 1.0e-9
+        && result.candidate.maximum_support_reaction_closure <= 1.0e-10
+        && result.energy_creation <= result.energy_allowance
+        && result.terminal_contacts_exact;
+    if (released_block) {
+        result.physical_passed = common_physical
+            && result.fixture.position.size() == 27U
+            && result.candidate.precontact_steps > 0
+            && result.candidate.precontact_pressure_violations == 0
+            && result.candidate.maximum_precontact_support_reaction
+                <= 1.0e-12
+            && result.candidate.maximum_precontact_velocity_spread
+                <= 1.0e-12
+            && result.candidate.maximum_precontact_position_error
+                <= 1.0e-12
+            && result.candidate.maximum_precontact_velocity_error
+                <= 1.0e-12
+            && result.contact_time_error <= result.contact_time_limit;
+    } else {
+        result.physical_passed = common_physical
+            && result.fixture.position.size() == 48U
+            && result.vertical_center_change <= 0.05 * SPACING
+            && result.candidate.maximum_positive_density_strain <= 1.0e-3
+            && result.candidate.maximum_speed
+                <= 0.01 * std::sqrt(KAPPA / MASS);
+    }
+    result.work_passed = b4b_work_gate(result);
+    result.passed = result.comparison_passed
+        && result.physical_passed && result.work_passed;
+    if (!result.comparison_passed) {
+        result.failure = "FRAME_COMPARISON";
+    } else if (!result.physical_passed) {
+        result.failure = "PHYSICAL_GATE";
+    } else if (!result.work_passed) {
+        result.failure = "WORK_GATE";
+    }
+    return result;
+}
+
+std::string serialize_b4b_case(const B4BCase& value) {
+    std::ostringstream output;
+    output << std::setprecision(17);
+    append_b4b_case(output, value);
+    return output.str();
+}
+
+std::string serialize_b4b2_forecast_work(const B4BCase& value) {
+    std::ostringstream output;
+    output << std::setprecision(17);
+    append_b4b2_forecast_work(output, value);
+    return output.str();
+}
+
+std::string serialize_b4b1_kkt_work(const B4BCase& value) {
+    std::ostringstream output;
+    output << std::setprecision(17);
+    append_b4b1_kkt_work(output, value);
+    return output.str();
+}
+
+JointControllerCase run_joint_controller_case(
+    SmokeFixture fixture,
+    bool released_block) {
+    JointControllerCase result;
+    result.name = fixture.name;
+    result.oracle = run_b4b1_case(fixture, released_block, true);
+    result.candidate = run_b4b1_case_joint(
+        std::move(fixture), released_block, result.trace);
+    const std::string oracle_case = serialize_b4b_case(result.oracle);
+    const std::string candidate_case = serialize_b4b_case(result.candidate);
+    result.case_serialization_exact = candidate_case == oracle_case;
+    result.case_sha256 = sha256_hex(candidate_case);
+    result.forecast_work_exact = serialize_b4b2_forecast_work(
+            result.candidate)
+        == serialize_b4b2_forecast_work(result.oracle);
+    result.kkt_work_exact = serialize_b4b1_kkt_work(result.candidate)
+        == serialize_b4b1_kkt_work(result.oracle);
+    result.final_state_exact = exact_vec3_values(
+            result.candidate.candidate.position,
+            result.oracle.candidate.position)
+        && exact_vec3_values(result.candidate.candidate.velocity,
+            result.oracle.candidate.velocity);
+    result.reference_state_exact = true;
+    for (std::size_t level = 0;
+         level < result.candidate.reference.levels.size(); ++level) {
+        result.reference_state_exact = result.reference_state_exact
+            && exact_vec3_values(
+                result.candidate.reference.levels[level].position,
+                result.oracle.reference.levels[level].position)
+            && exact_vec3_values(
+                result.candidate.reference.levels[level].velocity,
+                result.oracle.reference.levels[level].velocity);
+    }
+    const bool trace_gate = result.trace.exact
+        && result.trace.work_reduced
+        && result.trace.neighborhood_builds
+            == result.trace.joint_evaluation_queries
+        && result.trace.tape_builds
+            == result.trace.joint_evaluation_queries
+        && result.trace.candidate_all_pair_evaluations == 0
+        && result.trace.candidate_all_pair_hvps == 0
+        && result.trace.audit_all_pair_evaluations == 0
+        && result.trace.audit_all_pair_hvps == 0
+        && result.trace.maximum_live_workspaces <= 2
+        && result.trace.live_workspaces == 0
+        && result.trace.queries.empty();
+    result.passed = result.oracle.passed && result.candidate.passed
+        && result.case_serialization_exact
+        && result.forecast_work_exact && result.kkt_work_exact
+        && result.final_state_exact && result.reference_state_exact
+        && trace_gate;
+    if (!result.passed) {
+        result.failure = "JOINT_CONTROLLER_GATE";
+    }
+    return result;
+}
+
+void append_joint_controller_case(
+    std::ostringstream& output, const JointControllerCase& value) {
+    output << "{\"name\":\"" << value.name
+           << "\",\"status\":\"" << (value.passed ? "PASS" : "FAIL")
+           << "\",\"failure\":\"" << value.failure
+           << "\",\"case_sha256\":\"" << value.case_sha256
+           << "\",\"case_serialization_exact\":"
+           << (value.case_serialization_exact ? "true" : "false")
+           << ",\"forecast_work_exact\":"
+           << (value.forecast_work_exact ? "true" : "false")
+           << ",\"kkt_work_exact\":"
+           << (value.kkt_work_exact ? "true" : "false")
+           << ",\"final_state_exact\":"
+           << (value.final_state_exact ? "true" : "false")
+           << ",\"reference_state_exact\":"
+           << (value.reference_state_exact ? "true" : "false")
+           << ",\"controller\":{\"accepted_substeps\":"
+           << value.candidate.candidate.accepted_substeps
+           << ",\"executed_substeps\":"
+           << value.candidate.candidate.executed_substeps
+           << ",\"discarded_substeps\":"
+           << value.candidate.candidate.discarded_substeps
+           << ",\"spectral_hvp_calls\":"
+           << value.candidate.candidate.spectral_hvp_calls
+           << ",\"nonlinear_hvp_calls\":"
+           << value.candidate.candidate.nonlinear_hvp_calls
+           << ",\"outer_trials\":"
+           << value.candidate.candidate.outer_trials
+           << ",\"rejected_trials\":"
+           << value.candidate.candidate.rejected_trials
+           << "},\"trace\":{\"query_chain_sha256\":\""
+           << value.trace.query_chain_sha256
+           << "\",\"joint_evaluation_queries\":"
+           << value.trace.joint_evaluation_queries
+           << ",\"joint_hvp_queries\":" << value.trace.joint_hvp_queries
+           << ",\"candidate_all_pair_evaluations\":"
+           << value.trace.candidate_all_pair_evaluations
+           << ",\"candidate_all_pair_hvps\":"
+           << value.trace.candidate_all_pair_hvps
+           << ",\"audit_all_pair_evaluations\":"
+           << value.trace.audit_all_pair_evaluations
+           << ",\"audit_all_pair_hvps\":"
+           << value.trace.audit_all_pair_hvps
+           << ",\"neighborhood_builds\":"
+           << value.trace.neighborhood_builds
+           << ",\"tape_builds\":" << value.trace.tape_builds
+           << ",\"trial_workspace_builds\":"
+           << value.trace.trial_workspace_builds
+           << ",\"accepted_workspace_promotions\":"
+           << value.trace.accepted_workspace_promotions
+           << ",\"rejected_workspace_destructions\":"
+           << value.trace.rejected_workspace_destructions
+           << ",\"maximum_live_workspaces\":"
+           << value.trace.maximum_live_workspaces
+           << ",\"final_live_workspaces\":"
+           << value.trace.live_workspaces
+           << ",\"total_pairs\":" << value.trace.total_pairs
+           << ",\"total_directed_records\":"
+           << value.trace.total_directed
+           << ",\"total_cell_distance_tests\":"
+           << value.trace.total_cell_distance_tests
+           << ",\"total_all_pair_candidate_checks\":"
+           << value.trace.total_all_pair_candidate_checks
+           << ",\"maximum_tape_payload_bytes\":"
+           << value.trace.maximum_tape_payload_bytes << "}}";
 }
 
 JointCase run_joint_case(
@@ -11177,6 +12101,110 @@ SplitBoundaryReport run_joint_pressure_query_controls() {
            << ",\"b4c2t_full_controller_design_authorized\":"
            << (passed ? "true" : "false")
            << ",\"full_trajectory_substitution_authorized\":false"
+           << ",\"canonical_continuation_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_joint_pressure_controller_controls() {
+    const SplitBoundaryReport parent = run_joint_pressure_query_controls();
+    const bool parent_exact = parent.passed
+        && sha256_hex(parent.json)
+            == "97ed02babe0a08972f7fb0f0d149903c2365480227d5d5266ac66fe2a76bb2c6";
+    std::vector<JointControllerCase> cases;
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C2Q_PARENT";
+    } else {
+        cases.push_back(run_joint_controller_case(
+            make_b4b_supported_column_fixture(), false));
+        cases.push_back(run_joint_controller_case(
+            make_b4b_released_block_fixture(), true));
+        for (const JointControllerCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+    }
+    bool p1_schedule_exact = false;
+    bool p2_schedule_exact = false;
+    if (cases.size() == 2U
+        && !cases[0].candidate.candidate.frames.empty()
+        && cases[1].candidate.candidate.frames.size() == 16U) {
+        const SmokeFrame& p1_frame0 =
+            cases[0].candidate.candidate.frames[0];
+        p1_schedule_exact = p1_frame0.spectrum_source == "FORECAST_ACTIVE"
+            && p1_frame0.initial_substeps == 21
+            && p1_frame0.accepted_substeps == 42;
+        p2_schedule_exact = true;
+        for (std::size_t frame = 0; frame < 14U; ++frame) {
+            p2_schedule_exact = p2_schedule_exact
+                && cases[1].candidate.candidate.frames[frame].spectrum_source
+                    == "INACTIVE_EXACT";
+        }
+        p2_schedule_exact = p2_schedule_exact
+            && cases[1].candidate.candidate.frames[14].spectrum_source
+                == "FORECAST_ACTIVE"
+            && cases[1].candidate.candidate.frames[15].spectrum_source
+                == "START_ACTIVE";
+    }
+    if (!p1_schedule_exact && first_failure.empty()) {
+        first_failure = "P1_SCHEDULE_IDENTITY";
+    }
+    if (!p2_schedule_exact && first_failure.empty()) {
+        first_failure = "P2_SCHEDULE_IDENTITY";
+    }
+    const bool cases_passed = cases.size() == 2U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const JointControllerCase& value) { return value.passed; });
+    const bool passed = parent_exact && cases_passed
+        && p1_schedule_exact && p2_schedule_exact;
+    const std::string disposition = passed
+        ? "JOINT_PRESSURE_B4B2_CONTROLLER_CANDIDATE"
+        : "JOINT_PRESSURE_B4B2_CONTROLLER_REJECTED";
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition
+             << '|' << p1_schedule_exact << ':' << p2_schedule_exact;
+    for (const JointControllerCase& value : cases) {
+        material << '|' << value.name << ':' << value.case_sha256
+                 << ':' << value.trace.query_chain_sha256
+                 << ':' << value.trace.joint_evaluation_queries
+                 << ':' << value.trace.joint_hvp_queries
+                 << ':' << value.trace.total_cell_distance_tests
+                 << ':' << value.trace.total_all_pair_candidate_checks;
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal.nsr3b4c2t_controller_substitution.v1\""
+           << ",\"identity\":\"joint-pressure-b4b2-controller-r0\""
+           << ",\"parent_b4c2q_result_sha256\":\"683f3ba1ee6f51814e75779e063e7e594a37b16812a97c855df7b2a3a096105e\""
+           << ",\"parent_b4c2q_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"p1_schedule_exact\":"
+           << (p1_schedule_exact ? "true" : "false")
+           << ",\"p2_schedule_exact\":"
+           << (p2_schedule_exact ? "true" : "false")
+           << ",\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_joint_controller_case(report, cases[i]);
+    }
+    report << ']'
+           << ",\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c3_canonical_transaction_design_authorized\":"
+           << (passed ? "true" : "false")
            << ",\"canonical_continuation_authorized\":false"
            << ",\"nominal_corpus_execution_authorized\":false"
            << ",\"runtime_authority\":false"

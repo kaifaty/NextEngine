@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C2Q_PASS / NSR3B4C2T_DESIGN` |
+| Status | `ACTIVE / NSR3B4C2T_PASS / NSR3B4C3_DESIGN` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -58,6 +58,13 @@
 - **Current decision:** select `JOINT_PRESSURE_KKT_QUERY_CANDIDATE` and
   authorize only B4C2T full B4B2 controller-substitution design. Candidate
   all-pairs query counters are zero; audit-oracle calls are separate.
+- **Current conclusion:** B4C2T reproduces both complete adaptive and fixed
+  B4B2 cases bit-for-bit with zero candidate/audit all-pairs calls. P1/P2 use
+  `14,149/11,860` joint workspaces and `16,153/1,474` taped HVPs.
+- **Current decision:** select `JOINT_PRESSURE_B4B2_CONTROLLER_CANDIDATE` and
+  authorize only B4C3 canonical transaction design. Record accepted-workspace
+  retention, static support indexing and nested-row elimination as mandatory
+  B4C4 packaging before nominal B4D.
 
 - **Current conclusion:** NSR2-C2 passes all gates. At 512 particles the guarded
   floor stop reduces work from `26/13/153` outer/reject/HVP to `12/0/46` while
@@ -780,6 +787,26 @@
   report aggregates, plus joint query/workspace counters that do not alter the
   physical comparison gates.
 
+### D-043 -- Select the complete binary64 joint-pressure controller
+
+- **Observation:** B4C2T matches complete P1/P2 adaptive controllers, every
+  discarded level, fixed `48/96/192` references and all report/physical/KKT
+  state bit-for-bit. Candidate and audit all-pairs counters are zero. Two
+  reports are byte-identical.
+- **Decision:** select `JOINT_PRESSURE_B4B2_CONTROLLER_CANDIDATE` and proceed
+  to a separately frozen canonical publish/decode transaction.
+- **Rejected alternatives:** do not infer full continuation from B4C2Q, reuse
+  a discarded adaptive level, keep diagnostic all-pairs calls, or claim the
+  whole-harness wall time as solver performance.
+- **Consequence:** B4C3 canonical transaction design is authorized. Nominal
+  execution remains blocked through B4C3 and B4C4.
+- **Remaining uncertainty:** publishing micrometre integers changes every next
+  substep input and cannot retain the B4B2 binary64 trajectory root. The trace
+  also exposes excessive accepted-state diagnostic rebuilds.
+- **Smallest next action:** audit the existing canonical publisher/decode
+  contract, freeze transactional substep ownership and derive new bounded
+  physical comparisons without reusing invalid binary64 equality gates.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -792,13 +819,13 @@
 
 ## Exact next action
 
-1. Freeze B4C2T around the complete B4B2 adaptive and fixed `48/96/192`
-   trajectories, changing only the selected query backend.
-2. Require exact accepted/discarded level choice, positions, velocities,
-   contacts, reactions, ledgers, aggregate comparisons and old B4B2 physical
-   gates, while separately reporting joint workspace counters.
-3. Only B4C2T PASS may authorize B4C3 canonical publish/decode continuation.
-   Nominal water remains blocked.
+1. Audit the existing canonical publisher and frozen micrometre rounding/
+   overflow/failure semantics without importing the stopped solver identity.
+2. Freeze B4C3 so each accepted physical substep publishes once, continuation
+   decodes only published integers, discarded levels publish nothing and every
+   failure leaves no partial committed frame.
+3. Derive independent canonical-versus-binary64 physical bounds and exact
+   repeat/reverse/affine roots. B4C4 packaging and nominal B4D remain blocked.
 
 ## Reconsideration triggers
 

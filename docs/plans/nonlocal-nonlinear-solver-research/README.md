@@ -391,3 +391,16 @@ rejection leaves current state exact; see the
 [dated evidence](../../development/nonlocal-nsr3b4c2q-query-substitution-evidence-2026-08-21.md).
 This selects `JOINT_PRESSURE_KKT_QUERY_CANDIDATE` and authorizes only B4C2T
 full-controller substitution design.
+The [B4C2T research](../../development/nonlocal-nsr3b4c2t-controller-substitution-research-2026-08-21.md)
+freezes the [complete controller contract](03b4c2t-controller-substitution-contract.md):
+run the entire adaptive and fixed-reference B4B2 corpus with audit disabled,
+compare its exact physical/report state to an independent all-pairs oracle and
+reduce private query identities into a bounded chain digest. B4C3 remains
+blocked until this full binary64 continuation gate passes. B4C2T passes: both
+complete cases retain byte-identical physical/report state, exact adaptive and
+fixed trajectories and zero candidate/audit all-pairs calls; see the
+[dated evidence](../../development/nonlocal-nsr3b4c2t-controller-substitution-evidence-2026-08-21.md).
+This selects `JOINT_PRESSURE_B4B2_CONTROLLER_CANDIDATE` and authorizes B4C3
+canonical transaction design only. Its `14,149/11,860` workspace counts also
+freeze committed-workspace/static-index optimization as mandatory B4C4 work
+before B4D nominal execution.

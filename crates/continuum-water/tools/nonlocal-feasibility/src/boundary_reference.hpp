@@ -29,5 +29,6 @@ SplitBoundaryReport run_joint_neighborhood_controls();
 SplitBoundaryReport run_joint_neighborhood_one_pass_controls();
 SplitBoundaryReport run_joint_pressure_tape_controls();
 SplitBoundaryReport run_joint_pressure_query_controls();
+SplitBoundaryReport run_joint_pressure_controller_controls();
 
 } // namespace nextengine::nonlocal::fcr
