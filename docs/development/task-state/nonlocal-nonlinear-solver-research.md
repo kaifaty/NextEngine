@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4C4C_PASS / B4C4CM_DESIGN` |
+| Status | `ACTIVE / NSR3B4C4CM_FROZEN / B4C4CM_EXECUTION` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -1802,6 +1802,22 @@
 - **Smallest next action:** freeze B4C4CM protocol over the existing
   `264/9` captured one-macro fluid-state corpora.
 
+### D-088 -- Time complete workspace construction without a fitted gate
+
+- **Observation:** B4C4C reduces structural work, but pair-index participant
+  recovery and validation can offset allocator/sort savings.
+- **Decision:** measure neighborhood + evaluation + tape creation over every
+  recorded state using three warmups and 21 alternating paired rounds.
+- **Rejected alternatives:** time only adjacency helpers, include support-index
+  construction, use different fluid states per variant, or fit a minimum
+  speedup after observing samples.
+- **Consequence:** deterministic corpus/output/checksum must repeat in three
+  processes; raw time varies and controls no PASS threshold.
+- **Remaining uncertainty:** actual CPU ratio and whether the complete-lane
+  integration preserves ownership on rollback.
+- **Smallest next action:** implement the B4C4CM timed pass and run three
+  sequential reports.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -1814,7 +1830,7 @@
 
 ## Exact next action
 
-1. Freeze and execute B4C4CM timing over the recorded one-macro states.
+1. Execute frozen B4C4CM timing over the recorded one-macro states.
 2. Freeze and execute complete-lane flat-CSR ownership/rollback.
 3. Re-attest reference inputs only after B4C4 packaging, then enter B4D.
 

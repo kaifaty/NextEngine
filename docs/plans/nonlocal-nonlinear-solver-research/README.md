@@ -750,3 +750,10 @@ It removes duplicate construction of `1,223,663/9,623` directed records and
 both `12,672/243` row-sort passes while preserving the final tape, physics and
 all durable roots exactly. Freeze timing and complete-lane rollout separately;
 no whole-solver or production claim is authorized.
+The
+[B4C4CM design](../../development/nonlocal-nsr3b4c4cm-flat-adjacency-timing-research-2026-08-21.md)
+freezes a
+[threshold-free timing contract](03b4c4cm-flat-adjacency-timing-contract.md)
+over the same recorded `264/9` states. It times neighborhood, evaluation and
+tape creation together with exact preflight outside timing, three warmups and
+21 alternating paired rounds. Complete-lane rollout waits for this evidence.
