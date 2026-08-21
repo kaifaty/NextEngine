@@ -37,6 +37,12 @@
   allocation policy, not the cell broad phase or pressure formula. Test a
   separately frozen one-pass builder over a pre-admitted bounded workspace;
   do not weaken the original executed-work predicate.
+- **Current conclusion:** B4C0R passes all exact pair/math/permutation and
+  typed-failure gates. One-pass distance work is `0.665x` all-pairs on P1 and
+  `0.237x` on P2; maximum admitted pair/adjacency payload is `64/32 MB`.
+- **Current decision:** select `JOINT_PRESSURE_NEIGHBORHOOD_CANDIDATE` and
+  authorize only B4C1 compact CSR/pressure-tape design. Nested-vector row
+  overhead remains diagnostic and carries no nominal memory credit.
 
 - **Current conclusion:** NSR2-C2 passes all gates. At 512 particles the guarded
   floor stop reduces work from `26/13/153` outer/reject/HVP to `12/0/46` while
@@ -695,6 +701,23 @@
 - **Smallest next action:** freeze B4C0R with one-pass membership and an exact
   pre-admitted workspace byte ceiling, then rerun the unchanged controls.
 
+### D-040 -- Select one-pass pre-admitted joint membership
+
+- **Observation:** B4C0R preserves all four pair roots and every exact
+  evaluation/HVP/permutation result while removing the duplicated cell scan.
+  P1/P2 work becomes `18,120/27,240` and `7,863/33,183`; all capacity failures
+  clear pair and adjacency output.
+- **Decision:** select `JOINT_PRESSURE_NEIGHBORHOOD_CANDIDATE`. Use `u32`
+  indices and reserve the frozen maximum pair payload before the query.
+- **Consequence:** B4C1 may design compact CSR and a pressure coefficient tape
+  over this exact pair order. Solver substitution, canonical continuation and
+  nominal execution remain blocked.
+- **Remaining uncertainty:** the current nested rows add ABI-dependent header
+  overhead; pressure density/Jacobian/radial coefficients are still recomputed
+  per HVP; no current/trial/forecast solver query uses this operator yet.
+- **Smallest next action:** freeze a B4C1 compact-CSR/tape discriminator with
+  exact untaped HVP/reaction correspondence and explicit byte formulas.
+
 ## Required context
 
 1. `docs/architecture/agent-routing.md`, SPEC-38, ADR-076 and ADR-081.
@@ -707,12 +730,12 @@
 
 ## Exact next action
 
-1. Freeze B4C0R one-pass pre-admitted workspace semantics and byte ceiling;
-   inherit every B4C0 pair/math/permutation/failure control unchanged.
-2. Execute the bounded repair twice and verify B4C0 plus all historical raw
-   hashes remain exact.
-3. Only PASS may authorize B4C1 pressure-tape design; nominal water remains
-   blocked.
+1. Derive compact CSR offsets/neighbors and pressure-tape records in the exact
+   B4C0R reduction order; freeze byte and capacity formulas before code.
+2. Require bit-exact untaped/taped HVP and support-reaction rows on inactive,
+   onset-active and compressed states plus storage permutations.
+3. Only B4C1 PASS may authorize one-substep solver substitution. Full
+   trajectory and nominal water remain blocked.
 
 ## Reconsideration triggers
 

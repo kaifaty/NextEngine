@@ -69,6 +69,8 @@ cmake --build /tmp/nextengine-nonlocal-feasibility-build
   --tiny-pressure-contact-forecast-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
   --joint-neighborhood-self-test
+/tmp/nextengine-nonlocal-feasibility-build/nonlocal-formula-reclosure \
+  --joint-neighborhood-one-pass-self-test
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility \
   --describe-profile nuv-water-48k.v0
 /tmp/nextengine-nonlocal-feasibility-build/nonlocal-feasibility --cpu-self-test

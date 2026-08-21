@@ -26,5 +26,6 @@ SplitBoundaryReport run_tiny_pressure_contact_kkt_controls();
 SplitBoundaryReport run_contact_onset_forecast_controls();
 SplitBoundaryReport run_tiny_pressure_contact_forecast_controls();
 SplitBoundaryReport run_joint_neighborhood_controls();
+SplitBoundaryReport run_joint_neighborhood_one_pass_controls();
 
 } // namespace nextengine::nonlocal::fcr

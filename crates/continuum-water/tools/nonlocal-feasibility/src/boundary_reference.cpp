@@ -8239,8 +8239,8 @@ struct JointPoint {
 };
 
 struct JointPair {
-    std::size_t fluid = 0;
-    std::size_t participant = 0;
+    std::uint32_t fluid = 0;
+    std::uint32_t participant = 0;
 };
 
 bool operator==(const JointPair& lhs, const JointPair& rhs) {
@@ -8269,12 +8269,14 @@ struct JointNeighborhood {
     std::vector<JointPoint> fluid;
     std::vector<JointPoint> support;
     std::vector<JointPair> pairs;
-    std::vector<std::vector<std::size_t>> adjacency;
+    std::vector<std::vector<std::uint32_t>> adjacency;
     std::size_t fluid_pairs = 0;
     std::size_t support_pairs = 0;
     std::size_t maximum_degree = 0;
     std::size_t distance_tests_per_pass = 0;
     std::size_t construction_distance_tests = 0;
+    std::size_t pair_payload_capacity_bytes = 0;
+    std::size_t adjacency_payload_capacity_bytes = 0;
 };
 
 struct JointCase {
@@ -8370,7 +8372,8 @@ std::size_t checked_joint_pair_limit(std::size_t fluid) {
 
 JointNeighborhood build_joint_neighborhood(
     const std::vector<JointPoint>& fluid_input,
-    const std::vector<JointPoint>& support_input) {
+    const std::vector<JointPoint>& support_input,
+    bool one_pass = false) {
     JointNeighborhood result;
     if (fluid_input.empty() || fluid_input.size() > B4C0_MAX_FLUID) {
         result.failure = "JOINT_FLUID_CAPACITY";
@@ -8386,6 +8389,9 @@ JointNeighborhood build_joint_neighborhood(
         result.failure = "JOINT_PAIR_CAPACITY";
         return result;
     }
+    result.pair_payload_capacity_bytes = pair_limit * sizeof(JointPair);
+    result.adjacency_payload_capacity_bytes = pair_limit
+        * sizeof(std::uint32_t);
     if (!canonicalize_joint_points(fluid_input, result.fluid)
         || !canonicalize_joint_points(support_input, result.support)) {
         bool all_finite = true;
@@ -8507,54 +8513,96 @@ JointNeighborhood build_joint_neighborhood(
 
     std::vector<std::size_t> degree(result.fluid.size());
     std::size_t pair_count = 0U;
-    const bool counted = visit(
-        [&](std::size_t center, std::size_t participant) {
-            if (pair_count == pair_limit) {
-                result.failure = "JOINT_PAIR_CAPACITY";
-                return false;
+    if (one_pass) {
+        result.pairs.reserve(pair_limit);
+        const bool filled = visit(
+            [&](std::size_t center, std::size_t participant) {
+                if (pair_count == pair_limit) {
+                    result.failure = "JOINT_PAIR_CAPACITY";
+                    return false;
+                }
+                if (degree[center] == B4C0_MAX_NEIGHBORS
+                    || (participant < result.fluid.size()
+                        && degree[participant] == B4C0_MAX_NEIGHBORS)) {
+                    result.failure = "JOINT_NEIGHBOR_CAPACITY";
+                    return false;
+                }
+                ++pair_count;
+                ++degree[center];
+                if (participant < result.fluid.size()) {
+                    ++degree[participant];
+                    ++result.fluid_pairs;
+                } else {
+                    ++result.support_pairs;
+                }
+                result.pairs.push_back({
+                    static_cast<std::uint32_t>(center),
+                    static_cast<std::uint32_t>(participant)});
+                return true;
+            }, result.distance_tests_per_pass);
+        if (!filled) {
+            if (result.failure.empty()) {
+                result.failure = "JOINT_POSITION_INVALID";
             }
-            ++pair_count;
-            if (++degree[center] > B4C0_MAX_NEIGHBORS) {
-                result.failure = "JOINT_NEIGHBOR_CAPACITY";
-                return false;
-            }
-            if (participant < result.fluid.size()
-                && ++degree[participant] > B4C0_MAX_NEIGHBORS) {
-                result.failure = "JOINT_NEIGHBOR_CAPACITY";
-                return false;
-            }
-            return true;
-        }, result.distance_tests_per_pass);
-    if (!counted) {
-        if (result.failure.empty()) {
-            result.failure = "JOINT_POSITION_INVALID";
+            result.pairs.clear();
+            result.fluid.clear();
+            result.support.clear();
+            return result;
         }
-        result.fluid.clear();
-        result.support.clear();
-        return result;
+        result.construction_distance_tests =
+            result.distance_tests_per_pass;
+    } else {
+        const bool counted = visit(
+            [&](std::size_t center, std::size_t participant) {
+                if (pair_count == pair_limit) {
+                    result.failure = "JOINT_PAIR_CAPACITY";
+                    return false;
+                }
+                ++pair_count;
+                if (++degree[center] > B4C0_MAX_NEIGHBORS) {
+                    result.failure = "JOINT_NEIGHBOR_CAPACITY";
+                    return false;
+                }
+                if (participant < result.fluid.size()
+                    && ++degree[participant] > B4C0_MAX_NEIGHBORS) {
+                    result.failure = "JOINT_NEIGHBOR_CAPACITY";
+                    return false;
+                }
+                return true;
+            }, result.distance_tests_per_pass);
+        if (!counted) {
+            if (result.failure.empty()) {
+                result.failure = "JOINT_POSITION_INVALID";
+            }
+            result.fluid.clear();
+            result.support.clear();
+            return result;
+        }
+        result.pairs.reserve(pair_count);
+        std::size_t fill_tests = 0U;
+        const bool filled = visit(
+            [&](std::size_t center, std::size_t participant) {
+                result.pairs.push_back({
+                    static_cast<std::uint32_t>(center),
+                    static_cast<std::uint32_t>(participant)});
+                if (participant < result.fluid.size()) {
+                    ++result.fluid_pairs;
+                } else {
+                    ++result.support_pairs;
+                }
+                return true;
+            }, fill_tests);
+        if (!filled || result.pairs.size() != pair_count) {
+            result.failure = "JOINT_POSITION_INVALID";
+            result.pairs.clear();
+            result.fluid.clear();
+            result.support.clear();
+            return result;
+        }
+        result.construction_distance_tests =
+            result.distance_tests_per_pass + fill_tests;
     }
     result.maximum_degree = *std::max_element(degree.begin(), degree.end());
-    result.pairs.reserve(pair_count);
-    std::size_t fill_tests = 0U;
-    const bool filled = visit(
-        [&](std::size_t center, std::size_t participant) {
-            result.pairs.push_back({center, participant});
-            if (participant < result.fluid.size()) {
-                ++result.fluid_pairs;
-            } else {
-                ++result.support_pairs;
-            }
-            return true;
-        }, fill_tests);
-    if (!filled || result.pairs.size() != pair_count) {
-        result.failure = "JOINT_POSITION_INVALID";
-        result.pairs.clear();
-        result.fluid.clear();
-        result.support.clear();
-        return result;
-    }
-    result.construction_distance_tests =
-        result.distance_tests_per_pass + fill_tests;
     std::sort(result.pairs.begin(), result.pairs.end(),
         [](const JointPair& lhs, const JointPair& rhs) {
             return lhs.fluid < rhs.fluid
@@ -8579,7 +8627,7 @@ JointNeighborhood build_joint_neighborhood(
             result.adjacency[pair.participant].push_back(pair.fluid);
         }
     }
-    for (std::vector<std::size_t>& row : result.adjacency) {
+    for (std::vector<std::uint32_t>& row : result.adjacency) {
         std::sort(row.begin(), row.end());
     }
     result.passed = true;
@@ -8593,12 +8641,14 @@ std::vector<JointPair> all_joint_pairs(
     for (std::size_t i = 0; i < fluid.size(); ++i) {
         for (std::size_t j = i + 1U; j < fluid.size(); ++j) {
             if (norm(fluid[i].position - fluid[j].position) <= HORIZON) {
-                result.push_back({i, j});
+                result.push_back({static_cast<std::uint32_t>(i),
+                    static_cast<std::uint32_t>(j)});
             }
         }
         for (std::size_t b = 0; b < support.size(); ++b) {
             if (norm(fluid[i].position - support[b].position) <= HORIZON) {
-                result.push_back({i, fluid.size() + b});
+                result.push_back({static_cast<std::uint32_t>(i),
+                    static_cast<std::uint32_t>(fluid.size() + b)});
             }
         }
     }
@@ -8793,11 +8843,12 @@ JointCase run_joint_case(
     std::string name,
     const std::vector<JointPoint>& fluid,
     const std::vector<JointPoint>& support,
-    bool require_work_reduction) {
+    bool require_work_reduction,
+    bool one_pass = false) {
     JointCase result;
     result.name = std::move(name);
     const JointNeighborhood value =
-        build_joint_neighborhood(fluid, support);
+        build_joint_neighborhood(fluid, support, one_pass);
     if (!value.passed) {
         result.failure = value.failure;
         return result;
@@ -8846,7 +8897,7 @@ JointCase run_joint_case(
         apply_hessian(canonical_fluid, canonical_support, fluid_direction),
         apply_joint_hessian(value, fluid_direction));
     const JointNeighborhood repeated =
-        build_joint_neighborhood(fluid, support);
+        build_joint_neighborhood(fluid, support, one_pass);
     result.repeat_exact = repeated.passed
         && repeated.pairs == value.pairs
         && joint_pair_hash(repeated) == result.pair_sha256;
@@ -8854,7 +8905,7 @@ JointCase run_joint_case(
     for (int mode = 1; mode <= 2; ++mode) {
         const JointNeighborhood permuted = build_joint_neighborhood(
             permute_joint_points(fluid, mode),
-            permute_joint_points(support, mode));
+            permute_joint_points(support, mode), one_pass);
         if (!permuted.passed || permuted.pairs != value.pairs
             || joint_pair_hash(permuted) != result.pair_sha256
             || !exact_evaluation_values(
@@ -8882,9 +8933,10 @@ JointCase run_joint_case(
 JointNegative joint_negative(
     std::string name, std::string expected,
     const std::vector<JointPoint>& fluid,
-    const std::vector<JointPoint>& support) {
+    const std::vector<JointPoint>& support,
+    bool one_pass = false) {
     const JointNeighborhood value =
-        build_joint_neighborhood(fluid, support);
+        build_joint_neighborhood(fluid, support, one_pass);
     JointNegative result;
     result.name = std::move(name);
     result.expected = std::move(expected);
@@ -8898,39 +8950,39 @@ JointNegative joint_negative(
     return result;
 }
 
-std::array<JointNegative, 6> run_joint_negatives() {
+std::array<JointNegative, 6> run_joint_negatives(bool one_pass = false) {
     std::array<JointNegative, 6> result;
     result[0] = joint_negative(
-        "zero-fluid", "JOINT_FLUID_CAPACITY", {}, {});
+        "zero-fluid", "JOINT_FLUID_CAPACITY", {}, {}, one_pass);
     std::vector<JointPoint> too_many_fluid(B4C0_MAX_FLUID + 1U);
     result[1] = joint_negative(
         "fluid-capacity", "JOINT_FLUID_CAPACITY",
-        too_many_fluid, {});
+        too_many_fluid, {}, one_pass);
     std::vector<JointPoint> one_fluid(1U);
     std::vector<JointPoint> too_much_support(B4C0_MAX_SUPPORT + 1U);
     result[2] = joint_negative(
         "support-capacity", "JOINT_SUPPORT_CAPACITY",
-        one_fluid, too_much_support);
+        one_fluid, too_much_support, one_pass);
     std::vector<JointPoint> duplicate = {
         {7U, {0.0, 0.0, 0.0}},
         {7U, {SPACING, 0.0, 0.0}},
     };
     result[3] = joint_negative(
         "duplicate-fluid-id", "JOINT_DUPLICATE_ID",
-        duplicate, {});
+        duplicate, {}, one_pass);
     std::vector<JointPoint> nonfinite = {
         {0U, {std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0}},
     };
     result[4] = joint_negative(
         "nonfinite-position", "JOINT_POSITION_INVALID",
-        nonfinite, {});
+        nonfinite, {}, one_pass);
     std::vector<JointPoint> dense(B4C0_MAX_NEIGHBORS + 2U);
     for (std::size_t i = 0; i < dense.size(); ++i) {
         dense[i].id = static_cast<std::uint32_t>(i);
     }
     result[5] = joint_negative(
         "neighbor-capacity", "JOINT_NEIGHBOR_CAPACITY",
-        dense, {});
+        dense, {}, one_pass);
     return result;
 }
 
@@ -9074,6 +9126,148 @@ SplitBoundaryReport run_joint_neighborhood_controls() {
            << ",\"participants_per_fluid\":" << B4C0_MAX_NEIGHBORS
            << ",\"pairs_per_fluid\":" << B4C0_MAX_NEIGHBORS
            << "},\"cases\":[";
+    for (std::size_t i = 0; i < cases.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_joint_case(report, cases[i]);
+    }
+    report << "],\"failure_controls\":[";
+    for (std::size_t i = 0; i < negatives.size(); ++i) {
+        if (i != 0U) {
+            report << ',';
+        }
+        append_joint_negative(report, negatives[i]);
+    }
+    report << "],\"candidate_selected\":"
+           << (passed ? "true" : "false")
+           << ",\"b4c1_pressure_tape_design_authorized\":"
+           << (passed ? "true" : "false")
+           << ",\"trajectory_substitution_authorized\":false"
+           << ",\"canonical_continuation_authorized\":false"
+           << ",\"nominal_corpus_execution_authorized\":false"
+           << ",\"runtime_authority\":false"
+           << ",\"production_authority\":false"
+           << ",\"historical_hash_check_required\":true"
+           << ",\"repeatability_check_required\":true"
+           << ",\"result_sha256\":\""
+           << sha256_hex(material.str()) << "\"}";
+    return {passed, report.str()};
+}
+
+SplitBoundaryReport run_joint_neighborhood_one_pass_controls() {
+    const SplitBoundaryReport parent = run_joint_neighborhood_controls();
+    const bool parent_exact = !parent.passed
+        && sha256_hex(parent.json)
+            == "d811c8d55fd3ed1dad803d489b70eb9f2b1ca690296d4b4420c42ad44908f761";
+    std::vector<JointCase> cases;
+    std::array<JointNegative, 6> negatives{};
+    std::string first_failure;
+    if (!parent_exact) {
+        first_failure = "NSR3B4C0_PARENT";
+    } else {
+        const SmokeFixture p1 = make_b4b_supported_column_fixture();
+        cases.push_back(run_joint_case(
+            "p1-initial", tagged_points(p1.position),
+            tagged_points(p1.boundary), true, true));
+        std::vector<Vec3> prediction(p1.position.size());
+        for (std::size_t i = 0; i < prediction.size(); ++i) {
+            prediction[i] = SMOKE_FRAME_TIME
+                * (p1.velocity[i] + SMOKE_FRAME_TIME * p1.gravity);
+        }
+        prediction = clamp_box_displacement(
+            p1, p1.position, prediction);
+        cases.push_back(run_joint_case(
+            "p1-feasible-forecast",
+            tagged_points(materialize_displacement(
+                p1.position, prediction)),
+            tagged_points(p1.boundary), true, true));
+        const SmokeFixture p2 = make_b4b_released_block_fixture();
+        cases.push_back(run_joint_case(
+            "p2-detached-initial", tagged_points(p2.position),
+            tagged_points(p2.boundary), true, true));
+        const double below = std::nextafter(HORIZON, 0.0);
+        const double above = std::nextafter(
+            HORIZON, std::numeric_limits<double>::infinity());
+        cases.push_back(run_joint_case(
+            "signed-cutoff",
+            {{9U, {0.0, 0.0, 0.0}},
+             {2U, {below, 0.0, 0.0}},
+             {5U, {-0.31, -0.15, 0.07}}},
+            {{9U, {-HORIZON, 0.0, 0.0}},
+             {1U, {0.0, HORIZON, 0.0}},
+             {4U, {above, 0.0, 0.0}}},
+            false, true));
+        for (const JointCase& value : cases) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ':' + value.failure;
+            }
+        }
+        negatives = run_joint_negatives(true);
+        for (const JointNegative& value : negatives) {
+            if (!value.passed && first_failure.empty()) {
+                first_failure = value.name + ":FAILURE_CONTROL";
+            }
+        }
+    }
+    const bool cases_passed = cases.size() == 4U
+        && std::all_of(cases.begin(), cases.end(),
+            [](const JointCase& value) { return value.passed; });
+    const bool negatives_passed = parent_exact
+        && std::all_of(negatives.begin(), negatives.end(),
+            [](const JointNegative& value) { return value.passed; });
+    const std::size_t maximum_pair_payload = checked_joint_pair_limit(
+        B4C0_MAX_FLUID) * sizeof(JointPair);
+    const std::size_t maximum_adjacency_payload = checked_joint_pair_limit(
+        B4C0_MAX_FLUID) * sizeof(std::uint32_t);
+    const std::size_t maximum_row_headers = B4C0_MAX_FLUID
+        * sizeof(std::vector<std::uint32_t>);
+    const bool workspace_passed = sizeof(JointPair) == 8U
+        && maximum_pair_payload == 64000000U
+        && maximum_adjacency_payload == 32000000U;
+    const bool passed = parent_exact && cases_passed
+        && negatives_passed && workspace_passed;
+    const std::string disposition = passed
+        ? "JOINT_PRESSURE_NEIGHBORHOOD_CANDIDATE"
+        : "JOINT_PRESSURE_NEIGHBORHOOD_REJECTED";
+    if (!workspace_passed && first_failure.empty()) {
+        first_failure = "WORKSPACE_LAYOUT";
+    }
+    std::ostringstream material;
+    material << (passed ? "PASS|" : "FAIL|") << first_failure
+             << '|' << disposition << '|' << maximum_pair_payload
+             << ':' << maximum_adjacency_payload
+             << ':' << maximum_row_headers;
+    for (const JointCase& value : cases) {
+        material << '|' << value.name << ':' << value.pair_sha256
+                 << ':' << value.fluid_pairs << ':' << value.support_pairs
+                 << ':' << value.maximum_degree
+                 << ':' << value.cell_distance_tests;
+    }
+    for (const JointNegative& value : negatives) {
+        material << '|' << value.name << ':' << value.observed
+                 << ':' << value.partial_pairs
+                 << ':' << value.partial_adjacency_rows;
+    }
+    std::ostringstream report;
+    report << "{\"schema\":\"nextengine.nonlocal.nsr3b4c0r_one_pass_neighborhood.v1\""
+           << ",\"identity\":\"joint-fluid-support-cell-pairs-r1-one-pass\""
+           << ",\"parent_b4c0_result_sha256\":\"44aec304e5fd7d3a54a3d74d9512630d4a76595b5d437fda42751fc4187e8a89\""
+           << ",\"parent_b4c0_raw_exact\":"
+           << (parent_exact ? "true" : "false")
+           << ",\"status\":\"" << (passed ? "PASS" : "FAIL") << '"'
+           << ",\"first_failure\":\"" << first_failure << '"'
+           << ",\"disposition\":\"" << disposition << '"'
+           << ",\"workspace\":{\"index_bytes\":" << sizeof(std::uint32_t)
+           << ",\"pair_record_bytes\":" << sizeof(JointPair)
+           << ",\"maximum_pair_payload_bytes\":"
+           << maximum_pair_payload
+           << ",\"maximum_adjacency_payload_bytes\":"
+           << maximum_adjacency_payload
+           << ",\"diagnostic_nested_row_header_bytes\":"
+           << maximum_row_headers
+           << ",\"compact_csr_required_before_nominal\":true}"
+           << ",\"cases\":[";
     for (std::size_t i = 0; i < cases.size(); ++i) {
         if (i != 0U) {
             report << ',';

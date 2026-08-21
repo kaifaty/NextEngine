@@ -357,3 +357,13 @@ perform `36,240` distance tests versus `27,240` all-pairs checks; see the
 [dated evidence](../../development/nonlocal-nsr3b4c0-joint-neighborhood-evidence-2026-08-21.md).
 Preserve this failure and freeze a one-pass pre-admitted-workspace revision.
 B4C1--B4C3 and all nominal execution remain blocked.
+The [B4C0R research](../../development/nonlocal-nsr3b4c0r-one-pass-workspace-research-2026-08-21.md)
+selects a [single-pass revision](03b4c0r-one-pass-neighborhood-contract.md):
+reserve the declared maximum pair payload before the query, emit once and
+clear all private output on overflow. It changes no membership or physics.
+B4C0R passes every inherited exact gate and reduces executed distance checks
+to `0.665x` all-pairs for P1 and `0.237x` for P2; see the
+[dated evidence](../../development/nonlocal-nsr3b4c0r-one-pass-neighborhood-evidence-2026-08-21.md).
+This selects `JOINT_PRESSURE_NEIGHBORHOOD_CANDIDATE` and authorizes only B4C1
+compact CSR/pressure-tape design. No solver substitution or nominal run is
+authorized.
