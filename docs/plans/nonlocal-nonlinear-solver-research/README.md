@@ -946,3 +946,10 @@ HVPs before KKT work. Its
 [frozen contract](03b4e1s-hydro-spectrum-contract.md) measures the exact
 nominal Lanczos path and derives whether the existing adjacent fine-level cap
 can admit a macro solve. Implement and run only B4E1S next.
+B4E1S passes; see the
+[dated evidence](../../development/nonlocal-nsr3b4e1s-hydro-spectrum-evidence-2026-08-21.md).
+The bit-exact 48-HVP estimate gives maximum eigenfrequency `499.4373 s^-1`
+and 14 initial substeps, safely below the frozen capacity boundary of 96. Two
+independent builds/processes agree exactly and use no all-pairs fallback. This
+authorizes only B4E1M one-macro research and contract design; no KKT trajectory
+or external-reference comparison has run.

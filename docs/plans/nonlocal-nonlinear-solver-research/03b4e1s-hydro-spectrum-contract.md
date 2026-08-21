@@ -1,6 +1,6 @@
 # NSR3-B4E1S -- nominal Hydro spectrum contract
 
-Status: `FROZEN / IMPLEMENTATION_AND_EXECUTION_AUTHORIZED / NO_KKT_TRAJECTORY`
+Status: `FROZEN / PASS / B4E1M_DESIGN_AUTHORIZED / NO_KKT_TRAJECTORY`
 
 Identity projection (exact bytes, no final LF):
 

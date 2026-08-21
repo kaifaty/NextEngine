@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | `ACTIVE / NSR3B4E0_PASS / B4E1S_IMPLEMENTATION` |
+| Status | `ACTIVE / NSR3B4E1S_PASS / B4E1M_RESEARCH` |
 | Updated | `2026-08-21` |
 | Task key | `nonlocal-nonlinear-solver-research` |
 | Scope | Fundamental solver research over the verified Nonlocal variational objective, isolated from runtime and the stopped SISSM lineage |
@@ -116,8 +116,15 @@
   forces the 48-HVP spectrum, B4E1S measures that path before any KKT work.
   The derived initial count must be at most 96 so an adjacent fine level can
   remain within the selected 192-substep cap.
-- **Next action:** implement and run the frozen B4E1S spectrum probe twice;
-  keep timing/RSS outside its deterministic report and start no KKT solve.
+- **Current conclusion:** B4E1S passes across two independent builds and two
+  fresh processes. Four bit-exact 48-HVP estimates give maximum eigenfrequency
+  `499.43728723929792 s^-1` and 14 initial substeps, with zero all-pairs work.
+- **Performance fact:** a process containing two complete B4E1S estimates
+  takes 0.51 s wall and about 64 MiB RSS at 99% CPU. This is spectrum preflight
+  cost, not macro-step or production throughput.
+- **Next action:** research and freeze B4E1M as one exact Hydro macro
+  transaction with solver/refinement/rollback/cost observability. Do not open
+  the external reference or run more than macro step 1.
 - **Do not run:** unfrozen B4E corpus, CUDA, runtime/schema, PhysX coupling,
   persistence or production work.
 
@@ -156,6 +163,7 @@
 | NSR3B4E0 contract | exact zero-trajectory nominal alignment | implement preflight only; B4E1 still blocked |
 | NSR3B4E0 PASS | exact 6k Hydro/Dam inputs and capacity-valid flat neighborhoods | B4E1 one-macro contract design only |
 | NSR3B4E1S contract | isolate nominal Hydro 48-HVP spectrum and temporal capacity | implement/execute spectrum only; no KKT or trajectory |
+| NSR3B4E1S PASS | deterministic 48-HVP spectrum; 14 initial substeps | B4E1M one-macro contract design only |
 
 Candidate solver identity remains:
 
@@ -195,6 +203,7 @@ production authority is created by this lineage.
 | [B4E research](../nonlocal-nsr3b4e-nominal-corpus-research-2026-08-21.md) | Hydro/Dam align at input/step level; nominal entry point and cost evidence are missing | execute B4E0 alignment before any trajectory |
 | [B4E0](../nonlocal-nsr3b4e0-nominal-alignment-evidence-2026-08-21.md) | exact roots/aggregates/mutations; nominal degrees 118/117; no trajectory | design one-macro Hydro resource probe only |
 | [B4E1S research](../nonlocal-nsr3b4e1s-spectrum-research-2026-08-21.md) | epsilon-active parent forces spectrum before KKT; initial count must be <=96 | execute isolated spectrum before one-macro design |
+| [B4E1S](../nonlocal-nsr3b4e1s-hydro-spectrum-evidence-2026-08-21.md) | four bit-exact estimates give 14 initial substeps and zero all-pairs work | design one Hydro macro transaction only |
 
 Detailed stage order, every intermediate negative and all evidence links remain
 in the [research roadmap](../../plans/nonlocal-nonlinear-solver-research/README.md).
@@ -431,6 +440,16 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 - **Rejected:** timing the whole macro first or clipping the active set under
   the already frozen solver identity.
 
+### D-023 -- Admit the nominal spectrum to one-macro design
+
+- **Observation:** four independent same-state estimates agree bit-for-bit,
+  use exactly 48 joint HVPs each and derive 14 initial substeps versus the
+  frozen capacity boundary of 96.
+- **Decision:** select `NOMINAL_HYDRO_SPECTRUM_CANDIDATE` and design B4E1M as
+  exactly one Hydro macro transaction with timing kept external.
+- **Rejected:** interpreting the spectrum probe as macro throughput, opening
+  the reference curve early or advancing directly to a multi-step run.
+
 ## Performance facts retained
 
 - B4C4BM candidate construction wins all `63/63` paired rounds per fixture;
@@ -439,6 +458,8 @@ It does not replace the missing historical W0I bytes or inherit their credit.
   rounds; medians are `1.2274x/1.2055x`.
 - Six independent fixed-reference lanes used about `3.06x` wall parallelism;
   that validates harness utilization, not runtime solver throughput.
+- A B4E1S process containing two complete nominal 48-HVP estimates takes
+  0.51 s wall and about 64 MiB RSS at 99% CPU; no KKT solve runs.
 - No nominal, 50k, GPU or production performance result exists for this
   corrected Nonlocal lineage.
 
@@ -455,12 +476,12 @@ It does not replace the missing historical W0I bytes or inherit their credit.
 
 ## Exact next action
 
-1. Implement `--nominal-hydro-spectrum-probe` with exact B4E0 parent roots.
-2. Run two same-state spectra per process and two fresh processes; require 48
-   HVPs each, bit-exact eigenvalue/substep count and zero all-pairs audit.
-3. Record external timing/RSS without putting them in the report.
-4. Authorize B4E1M one-macro design only if `initial_substeps <= 96`; keep
-   reference decode and every trajectory blocked otherwise.
+1. Research the existing adaptive macro transaction entry point and enumerate
+   every nominal step-1 solver, refinement, rollback and ownership invariant.
+2. Freeze B4E1M before implementation: exact Hydro parent roots, initial
+   substeps 14, one committed macro, deterministic report and external cost.
+3. Run no external-reference decode and no step beyond macro 1; a capacity or
+   physics failure must remain exact negative evidence rather than be tuned.
 
 ## Reconsideration triggers
 
